@@ -1301,10 +1301,7 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                     stats.egresspacketCountPrevious = stats.egresspacketCountCurrent;
                 }
 
-                if (hopsCounter == 0)
-                {
-                    continue;
-                }
+
 
                 SPDLOG_LOGGER_TRACE(Logger::instance(), "Hops counter: {}", hopsCounter);
 
@@ -1326,11 +1323,11 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                 info.estimatedPacketSendingRatePeriodically =
                     estimatedPacketSendingRatePeriodically;
 
-                SPDLOG_LOGGER_TRACE(Logger::instance(),
+                SPDLOG_LOGGER_INFO(Logger::instance(),
                                     "FlowKey: {} -> {}",
                                     utils::ipToString(flowKey.srcIP),
                                     utils::ipToString(flowKey.dstIP));
-                SPDLOG_LOGGER_TRACE(Logger::instance(),
+                SPDLOG_LOGGER_INFO(Logger::instance(),
                                     "Estimated flow sending rate (Periodically): {}",
                                     estimatedFlowSendingRatePeriodically);
             }
@@ -1691,6 +1688,8 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
                                 "\"http://" +
                                 AppConfig::RYU_IP_AND_PORT + "/ryu_server/all_destination_paths\"";
         const std::string output = utils::execCommand(cmd);
+
+        if (output.empty()) return;
 
         // 2. Parse JSON
         auto body = json::parse(output);

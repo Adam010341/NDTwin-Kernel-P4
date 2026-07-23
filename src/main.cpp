@@ -26,6 +26,7 @@
 #include <shared_mutex>
 #include <string>
 #include <thread>
+#include <cstdlib>
 
 std::string SIM_SERVER_URL = AppConfig::SIM_SERVER_URL;
 std::string GW_IP = AppConfig::GW_IP;
@@ -58,6 +59,26 @@ DeploymentConfig promptDeploymentConfig() {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << "Invalid input. ";
+    }
+
+    if (config.mode == 1) {
+        std::cout << "\nSelect your Mininet Topology:\n";
+        std::cout << "  [1] OVS Environment (128 Hosts)\n";
+        std::cout << "  [2] P4 / BMv2 Environment (4 Hosts)\n";
+        int topoChoice = 0;
+        while (true) {
+            std::cout << "Enter topology choice (1-2): ";
+            std::cin >> topoChoice;
+            if (!std::cin.fail() && (topoChoice == 1 || topoChoice == 2)) break;
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid input. ";
+        }
+        if (topoChoice == 2) {
+            setenv("NDTWIN_TOPO_FILE", "../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json", 1);
+        } else {
+            setenv("NDTWIN_TOPO_FILE", "../setting/StaticNetworkTopologyMininet_10Switches.json", 1);
+        }
     }
 
     std::cout << "\nDo you want to enable Intent Translator (requires OpenAI Token)?\n";

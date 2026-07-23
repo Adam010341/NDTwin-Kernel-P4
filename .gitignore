@@ -4,3 +4,14 @@ include/utils/AppConfig.hpp
 setting/AppConfig.hpp
 .gitignore
 setting/AppConfig.hpp
+
+# Build and Debug Caches
+build/
+bin/
+cmake-build-debug/
+.idea/
+.vscode_backup/
+
+# Python and Environment
+p4_proxy/venv/
+__pycache__/

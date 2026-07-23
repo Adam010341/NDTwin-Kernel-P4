@@ -249,7 +249,12 @@ TopologyAndFlowMonitor::fetchAndUpdateTopologyData()
     }
     else if (m_mode == utils::MININET)
     {
-        loadStaticTopologyFromFile(TOPOLOGY_FILE_MININET);
+        const char* customTopo = std::getenv("NDTWIN_TOPO_FILE");
+        if (customTopo) {
+            loadStaticTopologyFromFile(customTopo);
+        } else {
+            loadStaticTopologyFromFile(TOPOLOGY_FILE_MININET);
+        }
     }
 
     initializeMappingsFromGraph();
@@ -300,6 +305,7 @@ void
 TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
 {
     // Update Vertex(Switch) from ryu's REST api
+    if (topologyData.empty()) return;
     try
     {
         auto switchesInfoJson = json::parse(topologyData);
@@ -348,6 +354,7 @@ void
 TopologyAndFlowMonitor::updateHosts(const string& topologyData)
 {
     // Update Vertex(Host) and Edge(Host to Switch) from ryu's REST api
+    if (topologyData.empty()) return;
     try
     {
         auto hostsInfoJson = json::parse(topologyData);
@@ -428,7 +435,8 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
 void
 TopologyAndFlowMonitor::updateLinks(const string& topologyData)
 {
-    // Update Vertex(Host) and Edge(Host to Switch) from ryu's REST api
+    // Update Edge(Switch to Switch) from ryu's REST api
+    if (topologyData.empty()) return;
     try
     {
         auto linksInfoJson = json::parse(topologyData);

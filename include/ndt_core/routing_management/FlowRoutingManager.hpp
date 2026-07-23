@@ -9,6 +9,9 @@
 class EventBus;                       // lines 44-44
 class TopologyAndFlowMonitor;         // lines 36-36
 
+// [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+#include "ndt_core/routing_management/IRoutingStrategy.hpp"
+#include <memory>
 namespace sflow
 {
 class FlowLinkUsageCollector;
@@ -132,4 +135,11 @@ class FlowRoutingManager
 
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     std::shared_ptr<sflow::FlowLinkUsageCollector> m_flowLinkUsageCollector;
+    
+    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+    std::unique_ptr<IRoutingStrategy> m_ovsStrategy;
+    std::unique_ptr<IRoutingStrategy> m_p4Strategy;
+
+    // Helper method to determine which strategy to use for a given dpid
+    IRoutingStrategy* getStrategyForDpid(uint64_t dpid);
 };

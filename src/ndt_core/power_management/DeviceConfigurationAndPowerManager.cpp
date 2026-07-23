@@ -16,6 +16,8 @@
 #include <boost/range/iterator_range_core.hpp>            // for iterator_r...
 #include <chrono>                                         // for seconds
 #include <cstdint>                                        // for uint32_t
+#include "ndt_core/power_management/OVSPowerStrategy.hpp"
+#include "ndt_core/power_management/P4PowerStrategy.hpp"
 #include <cstdlib>                                        // for system
 #include <ctype.h>                                        // for isdigit
 #include <exception>                                      // for exception
@@ -48,6 +50,18 @@ DeviceConfigurationAndPowerManager::DeviceConfigurationAndPowerManager(
       GW_IP(gwUrl),
       m_classifier(classifier)
 {
+    m_ovsPowerStrategy = std::make_unique<OVSPowerStrategy>();
+    m_p4PowerStrategy = std::make_unique<P4PowerStrategy>();
+}
+
+IPowerStrategy* DeviceConfigurationAndPowerManager::getPowerStrategyForNode(Graph::vertex_descriptor node) const
+{
+    auto g = m_topologyAndFlowMonitor->getGraph();
+    if (g[node].brandName == "BMv2")
+    {
+        return m_p4PowerStrategy.get();
+    }
+    return m_ovsPowerStrategy.get();
 }
 
 void
@@ -347,7 +361,13 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                 else
                 {
                     std::string swName = graph[v].bridgeNameForMininet;
-                    if (std::find(listOvsBridges.begin(), listOvsBridges.end(), swName) !=
+                    if (std::getenv("NDTWIN_TOPO_FILE") && 
+                        std::string(std::getenv("NDTWIN_TOPO_FILE")).find("P4") != std::string::npos)
+                    {
+                        SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} assumed reachable (P4 mode)", swName);
+                        m_topologyAndFlowMonitor->setVertexUp(v);
+                    }
+                    else if (std::find(listOvsBridges.begin(), listOvsBridges.end(), swName) !=
                         listOvsBridges.end())
                     {
                         SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
@@ -358,6 +378,14 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                         m_topologyAndFlowMonitor->setVertexDown(v);
                         // TODO: Emit switch failed event
                     }
+                }
+            }
+            else if (graph[v].vertexType == VertexType::HOST)
+            {
+                if (std::getenv("NDTWIN_TOPO_FILE") && 
+                    std::string(std::getenv("NDTWIN_TOPO_FILE")).find("P4") != std::string::npos)
+                {
+                    m_topologyAndFlowMonitor->setVertexUp(v);
                 }
             }
         }
@@ -503,8 +531,13 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         }
 
         uint64_t dpid = props.dpid;
+        std::string ip_and_port = AppConfig::RYU_IP_AND_PORT;
+        if (props.brandName == "BMv2") {
+            ip_and_port = AppConfig::P4_PROXY_IP_AND_PORT;
+        }
+
         std::string cmd =
-            fmt::format("curl -s -X GET http://{}/stats/flow/{}", AppConfig::RYU_IP_AND_PORT, dpid);
+            fmt::format("curl -s -X GET http://{}/stats/flow/{}", ip_and_port, dpid);
 
         SPDLOG_LOGGER_INFO(spdlog::default_logger(),
                            "DeviceManager: querying switch {} -> `{}`",
@@ -759,72 +792,16 @@ DeviceConfigurationAndPowerManager::setPowerStateMininet(uint32_t ipUint, const 
 
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "swName {}", swName);
 
-    // list ports helper
-    auto listPorts = [&](const std::string& br) {
-        std::vector<std::string> ports;
-        std::string cmd = "sudo ovs-vsctl list-ports " + br;
-        FILE* fp = popen(cmd.c_str(), "r");
-        if (!fp)
-        {
-            return ports;
-        }
-        char buf[128];
-        while (fgets(buf, sizeof(buf), fp))
-        {
-            std::string p(buf);
-            p.erase(p.find_last_not_of(" \n\r\t") + 1);
-            ports.push_back(p);
-        }
-        pclose(fp);
-        return ports;
-    };
+    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+    IPowerStrategy* strategy = getPowerStrategyForNode(node);
 
-    // TODO: change to exexCommand
     if (action == "on")
     {
-        if (!m_topologyAndFlowMonitor->getVertexIsUp(node))
-        {
-            m_topologyAndFlowMonitor->setVertexUp(node);
-
-            auto formatDpid = [&](uint64_t dpid) -> std::string {
-                std::ostringstream oss;
-                oss << std::hex << std::setw(16) << std::setfill('0') << dpid;
-                return oss.str();
-            };
-
-            std::string cmd = "sudo ovs-vsctl add-br " + swName + " && sudo ovs-vsctl set bridge " +
-                              swName + " other-config:datapath-id=" + formatDpid(dpid);
-            utils::execCommand(cmd);
-            // std::system(("sudo ovs-vsctl add-br " + swName + ).c_str());
-            auto ports = m_topologyAndFlowMonitor->getMininetBridgePorts(node);
-            for (auto& port : ports)
-            {
-                SPDLOG_LOGGER_DEBUG(Logger::instance(),
-                                    "sudo ovs-vsctl add-port {} {}",
-                                    swName,
-                                    port);
-                std::system(("sudo ovs-vsctl add-port " + swName + " " + port).c_str());
-                SPDLOG_LOGGER_DEBUG(Logger::instance(), "sudo ifconfig {} up", port);
-                std::system(("sudo ifconfig " + port + " up").c_str());
-            }
-            std::system(
-                ("sudo ovs-vsctl set-controller " + swName + " tcp:127.0.0.1:6633").c_str());
-        }
+        strategy->powerOn(node, swName, dpid, m_topologyAndFlowMonitor.get());
     }
     else if (action == "off")
     {
-        if (m_topologyAndFlowMonitor->getVertexIsUp(node))
-        {
-            m_topologyAndFlowMonitor->setVertexDown(node);
-
-            auto ports = listPorts(swName);
-            m_topologyAndFlowMonitor->setMininetBridgePorts(node, ports);
-            for (auto& port : ports)
-            {
-                std::system(("sudo ifconfig " + port + " down").c_str());
-            }
-            std::system(("sudo ovs-vsctl del-br " + swName).c_str());
-        }
+        strategy->powerOff(node, swName, m_topologyAndFlowMonitor.get());
     }
     SPDLOG_INFO("MININET: switch {} -> {}", swName, action);
     return true;

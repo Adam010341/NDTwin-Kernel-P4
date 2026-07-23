@@ -13,6 +13,9 @@
 #include <vector>             // for vector
 class TopologyAndFlowMonitor; // lines 34-34
 
+// [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+#include "ndt_core/power_management/IPowerStrategy.hpp"
+
 using json = nlohmann::json;
 
 namespace ndtClassifier
@@ -174,6 +177,11 @@ class DeviceConfigurationAndPowerManager
     utils::DeploymentMode m_mode;
     std::atomic<bool> m_running{false};
     std::thread m_pingThread;
+
+    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+    std::unique_ptr<IPowerStrategy> m_ovsPowerStrategy;
+    std::unique_ptr<IPowerStrategy> m_p4PowerStrategy;
+    IPowerStrategy* getPowerStrategyForNode(Graph::vertex_descriptor node) const;
 
     void fetchSmartPlugInfoFromFile(const std::string& path);
     // Extract "ip" parameter from target; empty if absent
