@@ -1,0 +1,508 @@
+"""
+Contract definitions for every /ndt/* endpoint the kernel registers.
+
+Three kinds of check per endpoint, matching doc/testing_workflow.md's L2 layer:
+
+  1. structure  -- the response is valid JSON with the right fields and types
+  2. invariants -- the values make sense together (10 switches, all up, paths non-empty)
+  3. error path -- bad input yields a sane 4xx, not a 500 and not a fake success
+
+Shapes are taken from doc/ndt_api.md and cross-checked against the dispatch table in
+src/ndt_core/http/HttpSession.cpp. Endpoint names/methods here are the kernel's actual
+registrations, which is why a few appear that ndt_api.md does not document.
+
+[Co-developed with claude code -- Adam]
+"""
+
+from __future__ import annotations
+
+from schema import (
+    Any_,
+    Bool,
+    Int,
+    List,
+    MapOf,
+    Num,
+    Obj,
+    OneOf,
+    Str,
+    is_decimal_string,
+    is_ipv4_string,
+)
+
+# --- categories -------------------------------------------------------------------
+READ = "read"        # safe: never changes network state
+MUTATE = "mutate"    # changes flow rules / power / names; needs --allow-mutations
+ERRORPATH = "error"  # deliberately bad input; asserts a sane failure
+
+# --- reusable sub-schemas ---------------------------------------------------------
+
+# ip is a list because a node may have several addresses (see get_graph_data docs).
+IP_LIST = List(Int(min=0))
+
+FLOW_KEY = Obj({
+    "src_ip": Int(min=0),
+    "dst_ip": Int(min=0),
+    "src_port": Int(min=0, max=65535),
+    "dst_port": Int(min=0, max=65535),
+    "protocol_number": Int(min=0, max=255),
+})
+
+GRAPH_NODE = Obj({
+    "device_name": Str(),
+    "dpid": Int(min=0),
+    "ip": IP_LIST,
+    "is_enabled": Bool(),
+    "is_up": Bool(),
+    "mac": Int(min=0),
+    "vertex_type": Int(min=0, max=1),   # 0 = switch, 1 = host
+    "brand_name": Str(),
+    "device_layer": Int(),
+}, optional={"nickname": Str()})
+
+GRAPH_EDGE = Obj({
+    "src_dpid": Int(min=0),
+    "dst_dpid": Int(min=0),
+    "src_interface": Int(min=0),
+    "dst_interface": Int(min=0),
+    "src_ip": IP_LIST,
+    "dst_ip": IP_LIST,
+    "is_enabled": Bool(),
+    "is_up": Bool(),
+    "link_bandwidth_bps": Int(min=0),
+    "link_bandwidth_usage_bps": Num(min=0),
+    "link_bandwidth_utilization_percent": Num(min=0),
+    "flow_set": List(FLOW_KEY),
+}, optional={"left_link_bandwidth_bps": Num()})
+
+GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)})
+
+PATH_HOP = Obj({"node": Int(min=0), "interface": Int(min=0)})
+
+FLOW_RECORD = Obj({
+    "src_ip": Int(min=0),
+    "dst_ip": Int(min=0),
+    "src_port": Int(min=0, max=65535),
+    "dst_port": Int(min=0, max=65535),
+    "protocol_id": Int(min=0, max=255),
+    "estimated_flow_sending_rate_bps_in_the_last_sec": Num(min=0),
+    "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot": Num(min=0),
+    "estimated_packet_rate_in_the_last_sec": Num(min=0),
+    "estimated_packet_rate_in_the_proceeding_1sec_timeslot": Num(min=0),
+    "first_sampled_time": Str(nonempty=True),
+    "latest_sampled_time": Str(nonempty=True),
+    "path": List(PATH_HOP),
+})
+
+# Ryu /stats/flow shape. actions are STRINGS ("OUTPUT:1") -- Classifier.cpp parses only
+# the string form and silently ignores {"type":"OUTPUT","port":N}, so this is a real
+# contract requirement for the P4 proxy, not a formatting preference.
+OF_FLOW_ENTRY = Obj({
+    "actions": List(Str()),
+    "match": Obj({}, strict=False),
+    "priority": Int(),
+    "table_id": Int(min=0),
+}, optional={
+    "byte_count": Int(min=0), "packet_count": Int(min=0), "cookie": Int(),
+    "duration_sec": Int(min=0), "duration_nsec": Int(min=0), "flags": Int(),
+    "hard_timeout": Int(min=0), "idle_timeout": Int(min=0), "length": Int(min=0),
+})
+
+OF_TABLES = List(Obj({
+    "dpid": Int(min=0),
+    "flows": MapOf(List(OF_FLOW_ENTRY), key_check=is_decimal_string, key_desc="decimal dpid"),
+}))
+
+STATUS_OK = Obj({"status": Str(nonempty=True)})
+
+
+# --- invariants -------------------------------------------------------------------
+# Each takes (data, ctx) and returns a list of human-readable failures.
+# ctx carries expectations derived from the topology JSON, so nothing is hardcoded
+# to "10 switches" -- point the runner at a different topology and it adapts.
+
+def inv_graph_matches_topology(data, ctx):
+    out = []
+    nodes = data["nodes"]
+    switches = [n for n in nodes if n["vertex_type"] == 0]
+    hosts = [n for n in nodes if n["vertex_type"] == 1]
+
+    if len(switches) != ctx.expected_switches:
+        out.append(f"switch count is {len(switches)}, topology file says {ctx.expected_switches}")
+    if len(hosts) != ctx.expected_hosts:
+        out.append(f"host count is {len(hosts)}, topology file says {ctx.expected_hosts}")
+    if len(data["edges"]) != ctx.expected_edges:
+        out.append(f"edge count is {len(data['edges'])}, topology file says {ctx.expected_edges}")
+
+    seen = [s["dpid"] for s in switches]
+    dupes = {d for d in seen if seen.count(d) > 1}
+    if dupes:
+        out.append(f"duplicate switch dpid(s): {sorted(dupes)}")
+
+    unknown = sorted(set(seen) - ctx.expected_dpids)
+    if unknown:
+        out.append(f"dpid(s) not present in the topology file: {unknown}")
+    absent = sorted(ctx.expected_dpids - set(seen))
+    if absent:
+        out.append(f"dpid(s) in the topology file but missing from the graph: {absent}")
+    return out
+
+
+def inv_all_switches_up(data, ctx):
+    """
+    The single highest-value invariant for P4 work.
+
+    In P4 mode the graph currently stays isEnabled=false because nothing calls
+    /ndt/inform_switch_entered, which silently empties BFS pathing, flow-table polling
+    and link usage. This turns that into an explicit failure.
+    """
+    out = []
+    down = [f"{n['device_name']}(dpid={n['dpid']})"
+            for n in data["nodes"] if n["vertex_type"] == 0 and not n["is_up"]]
+    if down:
+        out.append(f"switch(es) not up: {', '.join(down)}")
+
+    disabled = [f"{n['device_name']}(dpid={n['dpid']})"
+                for n in data["nodes"] if n["vertex_type"] == 0 and not n["is_enabled"]]
+    if disabled:
+        out.append(
+            f"switch(es) not enabled (not connected to a controller): {', '.join(disabled)}"
+            " -- in P4 mode this usually means the proxy never called"
+            " /ndt/inform_switch_entered"
+        )
+    return out
+
+
+def inv_edges_enabled(data, ctx):
+    down = [f"{e['src_dpid']}:{e['src_interface']}->{e['dst_dpid']}:{e['dst_interface']}"
+            for e in data["edges"] if not e["is_up"] or not e["is_enabled"]]
+    if down:
+        shown = ", ".join(down[:5]) + (f" (+{len(down) - 5} more)" if len(down) > 5 else "")
+        return [f"{len(down)} edge(s) down/disabled: {shown}"]
+    return []
+
+
+def inv_link_bandwidth_sane(data, ctx):
+    out = []
+    for e in data["edges"]:
+        cap = e["link_bandwidth_bps"]
+        used = e["link_bandwidth_usage_bps"]
+        if cap > 0 and used > cap:
+            out.append(
+                f"edge {e['src_dpid']}:{e['src_interface']} reports usage {used} bps "
+                f"above capacity {cap} bps"
+            )
+        pct = e["link_bandwidth_utilization_percent"]
+        if not 0 <= pct <= 100:
+            out.append(
+                f"edge {e['src_dpid']}:{e['src_interface']} utilization {pct}% out of 0..100"
+            )
+    return out[:10]
+
+
+def inv_flows_present(data, ctx):
+    """Only meaningful with traffic running; gated by --with-traffic."""
+    if not data:
+        return ["no flows detected, but --with-traffic says traffic should be running"]
+    return []
+
+
+def inv_flow_paths_non_empty(data, ctx):
+    """
+    The second highest-value P4 invariant.
+
+    A flow's path comes from the Classifier, which is fed by
+    get_switch_openflow_table_entries. The P4 proxy currently stubs that endpoint with
+    [], so every path is empty -- visible here, invisible in the GUI.
+    """
+    bad = [f"{f['src_ip']}->{f['dst_ip']}" for f in data if not f["path"]]
+    if bad:
+        shown = ", ".join(bad[:5]) + (f" (+{len(bad) - 5} more)" if len(bad) > 5 else "")
+        return [f"{len(bad)} flow(s) with an empty path: {shown}"
+                " -- the Classifier has no flow-table data (check /stats/flow/<dpid>)"]
+    return []
+
+
+def inv_flow_rates_nonzero(data, ctx):
+    zero = [f"{f['src_ip']}->{f['dst_ip']}" for f in data
+            if f["estimated_flow_sending_rate_bps_in_the_last_sec"] == 0
+            and f["estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot"] == 0]
+    if len(zero) == len(data) and data:
+        return ["every detected flow reports a rate of 0 -- telemetry is arriving but"
+                " rate computation is not working"]
+    return []
+
+
+def inv_tables_non_empty(data, ctx):
+    if not data:
+        return ["no switch reported a flow table"
+                " -- in P4 mode /stats/flow/<dpid> is probably still the [] stub"]
+    empty = []
+    for entry in data:
+        total = sum(len(v) for v in entry["flows"].values())
+        if total == 0:
+            empty.append(str(entry["dpid"]))
+    if empty:
+        return [f"switch(es) with an empty flow table: {', '.join(empty)}"]
+    return []
+
+
+def inv_topk_bounded(data, ctx):
+    if len(data) > ctx.topk:
+        return [f"asked for top {ctx.topk} flows, got {len(data)}"]
+    return []
+
+
+def inv_power_covers_switches(data, ctx):
+    reported = {e["dpid"] for e in data}
+    missing = sorted(ctx.expected_dpids - reported)
+    if missing:
+        return [f"no power reading for dpid(s): {missing}"]
+    return []
+
+
+def inv_util_map_covers_switches(data, ctx):
+    """CPU/memory maps are keyed by switch IP, so we check count rather than dpid."""
+    if len(data) < ctx.expected_switches:
+        return [f"only {len(data)} switch(es) reported, expected {ctx.expected_switches}"]
+    return []
+
+
+def inv_avg_link_usage_range(data, ctx):
+    v = data["avg_link_usage"]
+    if not 0 <= v <= 100:
+        return [f"avg_link_usage is {v}, expected 0..100"]
+    return []
+
+
+def inv_power_state_values(data, ctx):
+    bad = {k: v for k, v in data.items() if v not in ("ON", "OFF")}
+    if bad:
+        return [f"unexpected power state value(s): {bad}"]
+    return []
+
+
+# --- endpoint table ---------------------------------------------------------------
+# query/body may be callables taking ctx, for values derived from the topology.
+
+ENDPOINTS = [
+    # ---------- read-only: topology and telemetry ----------
+    dict(name="get_graph_data", method="GET", path="/ndt/get_graph_data",
+         category=READ, schema=GRAPH_DATA,
+         invariants=[inv_graph_matches_topology, inv_all_switches_up,
+                     inv_edges_enabled, inv_link_bandwidth_sane],
+         note="used by all 7 tools/apps -- if this breaks, everything breaks"),
+
+    dict(name="get_detected_flow_data", method="GET", path="/ndt/get_detected_flow_data",
+         category=READ, schema=List(FLOW_RECORD),
+         invariants=[inv_flow_rates_nonzero],
+         traffic_invariants=[inv_flows_present, inv_flow_paths_non_empty],
+         note="used by 5 components; depends on sFlow telemetry"),
+
+    dict(name="get_detected_top_k_flow_data", method="GET",
+         path="/ndt/get_detected_top_k_flow_data",
+         query=lambda ctx: {"k": str(ctx.topk)},
+         category=READ, schema=List(FLOW_RECORD),
+         invariants=[inv_topk_bounded]),
+
+    dict(name="get_switch_openflow_table_entries", method="GET",
+         path="/ndt/get_switch_openflow_table_entries",
+         category=READ, schema=OF_TABLES,
+         invariants=[inv_tables_non_empty],
+         note="feeds the Classifier, which produces every flow's path"),
+
+    dict(name="get_static_topology_json", method="GET", path="/ndt/get_static_topology_json",
+         category=READ, schema=Obj({}, strict=False)),
+
+    dict(name="get_average_link_usage", method="GET", path="/ndt/get_average_link_usage",
+         category=READ,
+         schema=Obj({"status": Str(), "avg_link_usage": Num()}),
+         invariants=[inv_avg_link_usage_range]),
+
+    dict(name="get_path_switch_count", method="GET", path="/ndt/get_path_switch_count",
+         query=lambda ctx: {"src_ip": ctx.src_host_ip, "dst_ip": ctx.dst_host_ip},
+         category=READ,
+         schema=OneOf(
+             Obj({"status": Str(), "src_ip": Str(), "dst_ip": Str(),
+                  "switch_count": Int(min=0)}),
+             Obj({"status": Str()}, strict=False),
+         )),
+
+    dict(name="get_num_of_flows_passing_a_switch", method="POST",
+         path="/ndt/get_num_of_flows_passing_a_switch",
+         body=lambda ctx: {"dpid": ctx.a_dpid},
+         category=READ,
+         schema=Obj({"status": Str(), "num_of_flows": Int(min=0)})),
+
+    dict(name="get_total_input_traffic_load_passing_a_switch", method="POST",
+         path="/ndt/get_total_input_traffic_load_passing_a_switch",
+         body=lambda ctx: {"dpid": ctx.a_dpid},
+         category=READ,
+         schema=Obj({"status": Str(), "total_input_traffic_load_bps": Num(min=0)})),
+
+    # ---------- read-only: device health ----------
+    dict(name="get_power_report", method="GET", path="/ndt/get_power_report",
+         category=READ,
+         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num()})),
+         invariants=[inv_power_covers_switches]),
+
+    dict(name="get_switches_power_state", method="GET", path="/ndt/get_switches_power_state",
+         category=READ,
+         schema=MapOf(Str(), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         invariants=[inv_power_state_values]),
+
+    dict(name="get_cpu_utilization", method="GET", path="/ndt/get_cpu_utilization",
+         category=READ,
+         schema=MapOf(Num(min=0, max=100), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         invariants=[inv_util_map_covers_switches]),
+
+    dict(name="get_memory_utilization", method="GET", path="/ndt/get_memory_utilization",
+         category=READ,
+         schema=MapOf(Num(min=0, max=100), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         invariants=[inv_util_map_covers_switches]),
+
+    # Values may be an int or an explanatory string ("The switch is down.").
+    dict(name="get_temperature", method="GET", path="/ndt/get_temperature",
+         category=READ,
+         schema=MapOf(OneOf(Num(), Str()), key_check=is_ipv4_string, key_desc="IPv4 address")),
+
+    dict(name="get_openflow_capacity", method="GET", path="/ndt/get_openflow_capacity",
+         category=READ, schema=Any_(),
+         note="undocumented in ndt_api.md; reads doc/OpenflowCapacity.json"),
+
+    dict(name="get_nickname", method="GET", path="/ndt/get_nickname",
+         query=lambda ctx: {"dpid": str(ctx.a_dpid)},
+         category=READ, schema=Obj({"nickname": Str()})),
+
+    # ---------- locks: stateful, but self-contained ----------
+    dict(name="acquire_lock", method="POST", path="/ndt/acquire_lock",
+         body={"type": "ndt_contract_test_lock", "ttl": 5},
+         category=READ,
+         schema=Obj({"status": Str()}, optional={"type": Str(), "ttl": Int()}),
+         note="uses its own lock type so it cannot disturb a running app"),
+
+    dict(name="acquire_lock_conflict", method="POST", path="/ndt/acquire_lock",
+         body={"type": "ndt_contract_test_lock", "ttl": 5},
+         category=ERRORPATH, expect_status=[423],
+         schema=Any_(),
+         note="second acquire of a held lock must return 423 Locked"),
+
+    dict(name="renew_lock", method="POST", path="/ndt/renew_lock",
+         body={"type": "ndt_contract_test_lock", "ttl": 5},
+         category=READ,
+         schema=Obj({"status": Str()}, optional={"type": Str(), "ttl": Int()})),
+
+    dict(name="release_lock", method="POST", path="/ndt/release_lock",
+         body={"type": "ndt_contract_test_lock"},
+         category=READ,
+         schema=Obj({"status": Str()}, optional={"type": Str()})),
+
+    dict(name="release_lock_not_held", method="POST", path="/ndt/release_lock",
+         body={"type": "ndt_contract_test_lock"},
+         category=ERRORPATH, expect_status=[412, 400, 404],
+         schema=Any_(),
+         note="releasing an already-released lock must not report success"),
+
+    # ---------- error paths: bad input must fail cleanly, never 500, never fake 200 ----
+    dict(name="install_flow_entry__unknown_dpid", method="POST",
+         path="/ndt/install_flow_entry",
+         body={"dpid": 999999999999, "priority": 1,
+               "match": {"eth_type": 2048, "ipv4_dst": "10.255.255.254"},
+               "actions": [{"type": "OUTPUT", "port": 1}]},
+         category=ERRORPATH, expect_status=[400, 404, 422],
+         schema=Any_(),
+         note="a dpid that is not in the topology must be rejected, not silently"
+              " forwarded to Ryu (see FlowRoutingManager::getStrategyForDpid)"),
+
+    dict(name="install_flow_entry__malformed_json", method="POST",
+         path="/ndt/install_flow_entry",
+         raw_body="{this is not json",
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_()),
+
+    dict(name="install_flow_entry__missing_fields", method="POST",
+         path="/ndt/install_flow_entry", body={"dpid": 1},
+         category=ERRORPATH, expect_status=[400, 422],
+         schema=Any_()),
+
+    dict(name="get_path_switch_count__bad_ip", method="GET",
+         path="/ndt/get_path_switch_count",
+         query={"src_ip": "not.an.ip", "dst_ip": "999.999.999.999"},
+         category=ERRORPATH, expect_status=[200, 400, 404],
+         schema=Any_(),
+         note="must not 500 -- an empty result is acceptable, a crash is not"),
+
+    dict(name="get_num_of_flows__unknown_dpid", method="POST",
+         path="/ndt/get_num_of_flows_passing_a_switch",
+         body={"dpid": 999999999999},
+         category=ERRORPATH, expect_status=[200, 400, 404],
+         schema=Any_()),
+
+    dict(name="get_nickname__unknown_dpid", method="GET", path="/ndt/get_nickname",
+         query={"dpid": "999999999999"},
+         category=ERRORPATH, expect_status=[400, 404],
+         schema=Any_()),
+
+    dict(name="inform_switch_entered__bad_dpid", method="GET",
+         path="/ndt/inform_switch_entered", query={"dpid": "not_a_number"},
+         category=ERRORPATH, expect_status=[400, 404],
+         schema=Any_(),
+         note="HttpSession.cpp calls std::stoull unguarded; a non-numeric dpid"
+              " must not surface as a 500"),
+
+    dict(name="unknown_endpoint", method="GET", path="/ndt/there_is_no_such_endpoint",
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_()),
+
+    # ---------- mutating: only with --allow-mutations ----------
+    dict(name="install_flow_entry", method="POST", path="/ndt/install_flow_entry",
+         body=lambda ctx: {
+             "dpid": ctx.a_dpid, "priority": 1,
+             "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
+             "actions": [{"type": "OUTPUT", "port": 1}]},
+         category=MUTATE, schema=STATUS_OK),
+
+    dict(name="modify_flow_entry", method="POST", path="/ndt/modify_flow_entry",
+         body=lambda ctx: {
+             "dpid": ctx.a_dpid, "priority": 1,
+             "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
+             "actions": [{"type": "OUTPUT", "port": 2}]},
+         category=MUTATE, schema=STATUS_OK),
+
+    dict(name="delete_flow_entry", method="POST", path="/ndt/delete_flow_entry",
+         body=lambda ctx: {
+             "dpid": ctx.a_dpid,
+             "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}},
+         category=MUTATE, schema=STATUS_OK,
+         note="cleans up the probe rule installed above"),
+
+    dict(name="batch_flow_entries", method="POST",
+         path="/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+         body=lambda ctx: {
+             "install_flow_entries": [{
+                 "dpid": ctx.a_dpid, "priority": 1,
+                 "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
+                 "actions": [{"type": "OUTPUT", "port": 1}]}],
+             "modify_flow_entries": [],
+             "delete_flow_entries": [{
+                 "dpid": ctx.a_dpid,
+                 "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}}]},
+         category=MUTATE, schema=STATUS_OK),
+
+    dict(name="inform_switch_entered", method="GET", path="/ndt/inform_switch_entered",
+         query=lambda ctx: {"dpid": str(ctx.a_dpid)},
+         category=MUTATE, schema=STATUS_OK,
+         note="the only path that sets isEnabled=true"),
+
+    dict(name="modify_nickname", method="POST", path="/ndt/modify_nickname",
+         body=lambda ctx: {"identifier": {"type": "dpid", "value": ctx.a_dpid},
+                           "nickname": "ndt_contract_test"},
+         category=MUTATE,
+         schema=Obj({"status": Str()}, optional={"message": Str()})),
+]
+
+
+def endpoints_by_category(categories) -> list[dict]:
+    """Preserves declaration order, which matters for the lock and probe-rule sequences."""
+    wanted = set(categories)
+    return [e for e in ENDPOINTS if e["category"] in wanted]

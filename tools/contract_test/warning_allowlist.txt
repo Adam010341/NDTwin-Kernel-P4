@@ -1,0 +1,89 @@
+# NDTwin kernel log allowlist
+#
+# Purpose: make NEW warnings fail the build.
+#
+# Without this file, "check the log for warnings" degrades as soon as there are more
+# than a handful -- a genuinely new warning gets lost among the ones you have already
+# decided to live with. Here, anything not listed is a failure, so a regression cannot
+# hide in the noise.
+#
+# Format (three fields, separated by |):
+#
+#   LEVEL | python regex matched against the message | why it is acceptable
+#
+# LEVEL is one of:
+#   WARNING  allowed at warning level; anything unlisted at warning level fails
+#   ERROR    allowed at error level. Use sparingly and always with an expiry note --
+#            an accepted error should be a bug with a ticket, not a permanent fixture
+#   FORBID   fails if it appears at ANY level, including info/debug. For messages that
+#            are quiet but mean something is badly wrong
+#
+# The regex is matched with re.search against the message text only (timestamp, level,
+# file:line and function are stripped first), so no need to anchor it.
+#
+# Maintenance:
+#   * check_logs.py reports entries that never matched, so stale lines get pruned
+#   * to adopt this on an existing noisy log, run:
+#       ./check_logs.py --suggest-allowlist <logfile>
+#     then review each suggestion before pasting it in. Do not paste blindly: the
+#     point is to decide which warnings are acceptable, not to silence all of them
+#
+# [Co-developed with claude code -- Adam]
+
+
+# ============================================================================
+# Startup and convergence
+# ----------------------------------------------------------------------------
+# The kernel loads a static topology and then waits to learn live state. Until the
+# controller (Ryu or the P4 proxy) has reported in, lookups legitimately miss.
+# ============================================================================
+
+WARNING | ^NFS server reloaded\.$ | ApplicationManager logs a successful NFS reload at warning level; informational, not a problem
+WARNING | ^ControllerAndOtherEventHandler stopped\.$ | normal shutdown message
+WARNING | acceptor_\.close\(\) error | benign during shutdown when the acceptor is already closed
+
+
+# ============================================================================
+# Topology lookup misses
+# ----------------------------------------------------------------------------
+# Expected while the graph is still converging, and permanently for hosts that are
+# not listed in the static topology file (the OVS testbed has 128 hosts declared but
+# traffic may involve others).
+#
+# NOTE: if these persist AFTER convergence they are real. Tighten the patterns or
+# move the check into the L2 contract test, which asserts on final state instead.
+# ============================================================================
+
+WARNING | ^Host \(.*\) not found in static network topology file$ | host absent from the static topology; harmless for telemetry-only hosts
+WARNING | ^Edge \(host .*\) not found in static network topology file$ | same as above, edge side
+WARNING | ^Link \(dpid .* port .*\) not found in static network topology file$ | link not declared statically; transient during discovery
+WARNING | ^edge not found by dpid/port | sFlow sample arrived for a link not yet in the graph; transient during convergence
+WARNING | ^No edge found for host IP | transient during convergence
+WARNING | ^cannot find graph vertex for switch IP | transient during convergence
+
+
+# ============================================================================
+# Known gaps with an owner
+# ----------------------------------------------------------------------------
+# Each line here is a promise to remove it. Keep the phase reference so it is obvious
+# when the entry has outlived its reason.
+# ============================================================================
+
+WARNING | P4 BMv2 Power ON from Kernel is currently a stub | known gap: real bmv2 process control lands in Phase 7 of doc/p4_bmv2_support_plan.md
+
+
+# ============================================================================
+# FORBID: quiet messages that mean real trouble
+# ----------------------------------------------------------------------------
+# These fail even at info/debug level, because their severity is not reflected in the
+# level they are logged at.
+# ============================================================================
+
+FORBID | Unsupported SFlow Version | the sFlow emitter is producing malformed datagrams; the collector is discarding every sample
+FORBID | Cannot open topology file | the kernel is running without its topology; the whole graph will be empty
+FORBID | No matching node in JSON | a device rename targeted the wrong topology file (see issue 12 in doc/p4_bmv2_support_plan.md)
+FORBID | Failed to bind UDP socket | the sFlow collector port is taken; no telemetry will arrive at all
+FORBID | Failed to create UDP socket | as above
+FORBID | Exceed 100 hop \(potential loop\) | a forwarding loop in the computed path
+FORBID | logger with name .* already exists | Logger::init called twice; a test suite is probably being skipped silently
+FORBID | Cannot open OpenflowCapacity\.json | missing doc/OpenflowCapacity.json; get_openflow_capacity returns an empty 200
