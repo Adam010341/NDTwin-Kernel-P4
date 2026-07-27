@@ -78,6 +78,25 @@ TEST(ComputeEstimatedRatesTest, ZeroTotalsAcrossActiveHopsStillCountsAsActive)
     EXPECT_EQ(rates.packetSendingRate, 0u);
 }
 
+TEST(ComputeEstimatedRatesTest, FlowAndPacketRatesAreDerivedFromSeparateAccumulators)
+{
+    // calAvgFlowSendingRatesImmediately divided the *byte* accumulator by hopsCounter for
+    // estimatedPacketSendingRateImmediately, so the packet-rate field reported bytes.
+    // A realistic case: 3 hops, 1500-byte frames. Bytes and packets differ by ~1500x, so
+    // conflating them is unmissable here.
+    const uint64_t bytesPerHop = 1500 * 100; // 100 frames of 1500 bytes
+    const uint64_t packetsPerHop = 100;
+    const int hops = 3;
+
+    const auto rates = sflow::computeEstimatedRates(
+        bytesPerHop * hops * 8, packetsPerHop * hops, hops);
+
+    EXPECT_TRUE(rates.hasActiveHops);
+    EXPECT_EQ(rates.flowSendingRate, bytesPerHop * 8u); // bits per second
+    EXPECT_EQ(rates.packetSendingRate, packetsPerHop);  // packets, NOT bytes
+    EXPECT_NE(rates.packetSendingRate, bytesPerHop);
+}
+
 TEST(ComputeEstimatedRatesTest, HandlesLargeAccumulatedTotalsWithoutOverflow)
 {
     const uint64_t large = std::numeric_limits<uint64_t>::max();

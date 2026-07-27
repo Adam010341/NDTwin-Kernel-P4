@@ -1438,7 +1438,13 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesImmediately()
 
         SPDLOG_LOGGER_TRACE(Logger::instance(), "Hops Counter: {}", hopsCounter);
 
-        if (hopsCounter == 0)
+        // [Co-developed with claude code -- Adam]
+        // Bytes are scaled to bits for the flow rate; the packet rate must come from the
+        // packet accumulator, not the byte one.
+        const sflow::EstimatedRates rates = sflow::computeEstimatedRates(
+            accumulatedEstimatedBytes * 8, accumulatedEstimatedPackets, hopsCounter);
+
+        if (!rates.hasActiveHops)
         {
             // No activity, so clear the rates and continue
             info.estimatedFlowSendingRateImmediately = 0;
@@ -1447,7 +1453,7 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesImmediately()
             continue;
         }
 
-        info.estimatedFlowSendingRateImmediately = accumulatedEstimatedBytes * 8 / hopsCounter;
+        info.estimatedFlowSendingRateImmediately = rates.flowSendingRate;
 
         if (info.estimatedFlowSendingRateImmediately >= MICE_FLOW_UNDER_THRESHOLD)
         {
@@ -1458,15 +1464,16 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesImmediately()
             info.isElephantFlowImmediately = false;
         }
 
-        info.estimatedPacketSendingRateImmediately = accumulatedEstimatedBytes / hopsCounter;
+        info.estimatedPacketSendingRateImmediately = rates.packetSendingRate;
 
         SPDLOG_LOGGER_DEBUG(Logger::instance(),
                             "FlowKey: {} -> {}",
                             utils::ipToString(flowKey.srcIP),
                             utils::ipToString(flowKey.dstIP));
         SPDLOG_LOGGER_DEBUG(Logger::instance(),
-                            "Estimated packet sending rate (Immediately): {}",
-                            info.estimatedFlowSendingRateImmediately);
+                            "Estimated flow sending rate (Immediately): {}, packet sending rate: {}",
+                            info.estimatedFlowSendingRateImmediately,
+                            info.estimatedPacketSendingRateImmediately);
     }
 }
 
