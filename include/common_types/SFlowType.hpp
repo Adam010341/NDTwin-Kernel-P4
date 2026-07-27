@@ -183,6 +183,47 @@ struct FlowStats
 };
 
 /**
+ * @brief Averaged sending rates for a flow, plus whether any hop observed traffic.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+struct EstimatedRates
+{
+    uint64_t flowSendingRate = 0;   // bits per second
+    uint64_t packetSendingRate = 0; // packets per second
+    bool hasActiveHops = false;     // false when no hop reported traffic this interval
+};
+
+/**
+ * @brief Averages accumulated per-hop rates over the hops that actually saw traffic.
+ *
+ * Callers accumulate per-agent rates and count how many hops reported non-zero
+ * traffic in the interval. When that count is zero there is nothing to average:
+ * this returns hasActiveHops == false so the caller can skip the flow instead of
+ * dividing by zero.
+ *
+ * @param accumulatedFlowRate Sum of per-hop bit rates (already scaled by sampling rate).
+ * @param accumulatedPacketRate Sum of per-hop packet rates.
+ * @param hopsCounter Number of hops that observed traffic this interval.
+ * @return Averaged rates, or a zeroed result with hasActiveHops == false.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+inline EstimatedRates
+computeEstimatedRates(uint64_t accumulatedFlowRate,
+                      uint64_t accumulatedPacketRate,
+                      int hopsCounter)
+{
+    if (hopsCounter <= 0)
+    {
+        return {};
+    }
+
+    const uint64_t hops = static_cast<uint64_t>(hopsCounter);
+    return {accumulatedFlowRate / hops, accumulatedPacketRate / hops, true};
+}
+
+/**
  * @brief Detailed view of a single flow across the network.
  *
  * Aggregates statistics from all observing agents, estimated sending

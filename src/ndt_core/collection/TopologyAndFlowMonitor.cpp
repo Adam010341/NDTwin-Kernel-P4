@@ -82,6 +82,12 @@ TopologyAndFlowMonitor::stop()
     {
         m_thread.join();
     }
+    // [Co-developed with claude code -- Adam]
+    // Must be joined too: a joinable std::thread destructor calls std::terminate.
+    if (m_flushEdgeFlowLoop.joinable())
+    {
+        m_flushEdgeFlowLoop.join();
+    }
 }
 
 void

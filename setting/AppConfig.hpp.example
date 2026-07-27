@@ -6,5 +6,7 @@ namespace AppConfig {
     static const std::string SIM_SERVER_URL = "http://localhost:9000/submit";
     static const std::string GW_IP = "localhost";
     static const std::string RYU_IP_AND_PORT = "localhost:8080";
+    // P4 proxy agent (p4_proxy/proxy_agent) — impersonates Ryu's northbound API for BMv2 switches.
+    static const std::string P4_PROXY_IP_AND_PORT = "localhost:8081";
     static const std::string TOPOLOGY_FILE_MININET = "../setting/StaticNetworkTopologyMininet_10Switches.json";
 }

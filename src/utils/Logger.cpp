@@ -64,6 +64,11 @@ Logger::init(const LogConfig& cfg)
         sinks.push_back(file_sink);
     }
 
+    // [Co-developed with claude code -- Adam]
+    // Make init idempotent: register_logger throws if "netdt" already exists, which
+    // aborts the second test suite in a shared test binary (and any re-configuration).
+    spdlog::drop("netdt");
+
     m_logger = std::make_shared<spdlog::logger>("netdt", sinks.begin(), sinks.end());
     spdlog::register_logger(m_logger);
     spdlog::set_default_logger(m_logger);

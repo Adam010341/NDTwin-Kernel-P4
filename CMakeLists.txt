@@ -123,6 +123,15 @@ FetchContent_Declare(
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+# [Co-developed with claude code -- Adam]
+# Build googletest without this project's -Werror/-Wpedantic. add_compile_options()
+# above applies at directory scope and would otherwise propagate into the fetched
+# third-party sources, so a compiler upgrade could break the build on warnings we
+# do not own. Restore our flags immediately afterwards.
+get_directory_property(NDTWIN_PROJECT_COMPILE_OPTIONS COMPILE_OPTIONS)
+set_directory_properties(PROPERTIES COMPILE_OPTIONS "")
 FetchContent_MakeAvailable(googletest)
+set_directory_properties(PROPERTIES COMPILE_OPTIONS "${NDTWIN_PROJECT_COMPILE_OPTIONS}")
 
 add_subdirectory(tests)

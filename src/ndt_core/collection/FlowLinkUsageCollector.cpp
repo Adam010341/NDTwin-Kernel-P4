@@ -83,6 +83,15 @@ trim(std::string_view s)
     return s;
 }
 
+// [Co-developed with claude code -- Adam]
+uint32_t
+FlowLinkUsageCollector::lookupOfport(uint32_t ifIndex) const
+{
+    std::shared_lock lock(m_ifIndexMapMutex);
+    auto it = m_ifIndexToOfportMap.find(ifIndex);
+    return (it != m_ifIndexToOfportMap.end()) ? it->second : 0;
+}
+
 void
 FlowLinkUsageCollector::populateIfIndexToOfportMap()
 {
@@ -1048,8 +1057,10 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
             {
                 if (m_mode == utils::MININET)
                 {
-                    inputPort = m_ifIndexToOfportMap[inputPort];
-                    outputPort = m_ifIndexToOfportMap[outputPort];
+                    // Read-only lookup: operator[] would insert a 0 entry for every unknown
+                    // ifIndex, mutating the map from a worker thread without the mutex.
+                    inputPort = lookupOfport(inputPort);
+                    outputPort = lookupOfport(outputPort);
                     SPDLOG_LOGGER_TRACE(
                         Logger::instance(),
                         "FLOW SAMPLE in Mininet from Agent {}: {} -> {} (Proto: {}, Len: {}, Input "
@@ -1301,12 +1312,19 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                     stats.egresspacketCountPrevious = stats.egresspacketCountCurrent;
                 }
 
-
-
                 SPDLOG_LOGGER_TRACE(Logger::instance(), "Hops counter: {}", hopsCounter);
 
-                uint64_t estimatedFlowSendingRatePeriodically =
-                    avgFlowSendingRateTemp / hopsCounter;
+                const sflow::EstimatedRates rates = sflow::computeEstimatedRates(
+                    avgFlowSendingRateTemp, avgPacketSendingRateTemp, hopsCounter);
+
+                if (!rates.hasActiveHops)
+                {
+                    // No hop observed traffic this interval; leave the previous estimates
+                    // in place rather than dividing by zero.
+                    continue;
+                }
+
+                uint64_t estimatedFlowSendingRatePeriodically = rates.flowSendingRate;
                 info.estimatedFlowSendingRatePeriodically = estimatedFlowSendingRatePeriodically;
 
                 if (estimatedFlowSendingRatePeriodically >= MICE_FLOW_UNDER_THRESHOLD)
@@ -1318,16 +1336,15 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                 //     info.isElephantFlowPeriodically = false;
                 // }
 
-                uint64_t estimatedPacketSendingRatePeriodically =
-                    avgPacketSendingRateTemp / hopsCounter;
+                uint64_t estimatedPacketSendingRatePeriodically = rates.packetSendingRate;
                 info.estimatedPacketSendingRatePeriodically =
                     estimatedPacketSendingRatePeriodically;
 
-                SPDLOG_LOGGER_INFO(Logger::instance(),
+                SPDLOG_LOGGER_TRACE(Logger::instance(),
                                     "FlowKey: {} -> {}",
                                     utils::ipToString(flowKey.srcIP),
                                     utils::ipToString(flowKey.dstIP));
-                SPDLOG_LOGGER_INFO(Logger::instance(),
+                SPDLOG_LOGGER_TRACE(Logger::instance(),
                                     "Estimated flow sending rate (Periodically): {}",
                                     estimatedFlowSendingRatePeriodically);
             }

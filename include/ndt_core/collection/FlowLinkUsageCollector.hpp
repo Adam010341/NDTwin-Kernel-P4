@@ -197,8 +197,21 @@ class FlowLinkUsageCollector
     utils::DeploymentMode m_mode;
 
     void populateIfIndexToOfportMap();
+
+    /**
+     * @brief Translates an sFlow ifIndex to an OpenFlow port under a shared lock.
+     *
+     * Returns 0 for an unknown ifIndex, which callers already treat as "no port".
+     * Unlike operator[] this never inserts, so it is safe to call concurrently from
+     * the sFlow worker threads.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    uint32_t lookupOfport(uint32_t ifIndex) const;
+
     std::unordered_map<uint32_t, uint32_t> m_ifIndexToOfportMap;
-    std::mutex m_ifIndexMapMutex; // To protect the map during population and access
+    // Protects the map: exclusive while populating, shared for per-sample lookups.
+    mutable std::shared_mutex m_ifIndexMapMutex;
 
     // key -> (src ip, dst ip), value -> full path
     std::map<std::pair<uint32_t, uint32_t>, Path> m_allPathMap;
