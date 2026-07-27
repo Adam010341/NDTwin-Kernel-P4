@@ -14,12 +14,16 @@ Workspace 裡 7 個 tool/app 跟 kernel 之間**唯一**的介面就是 `/ndt/*`
 
 ---
 
-## 兩支工具
+## 四支工具
 
-| 工具 | 檢查什麼 |
-|---|---|
-| `run_contract_test.py` | kernel 的 API 回應：結構、語意不變量、錯誤路徑 |
-| `check_logs.py` | kernel 的 log：未預期的 warning/error |
+| 工具 | 層 | 檢查什麼 |
+|---|---|---|
+| `run_contract_test.py` | L2 | kernel 的 API 回應：結構、語意不變量、錯誤路徑 |
+| `l3_component_check.py` | L3 | 各元件依賴的端點是否都在、契約是否成立 |
+| `compare_baseline.py` | L4 | P4 跟 OVS baseline 的差異 |
+| `check_logs.py` | — | kernel 的 log：未預期的 warning/error |
+
+啟動編排與 L0／L1 在 [../test_workflow/](../test_workflow/)。
 
 ---
 
@@ -150,6 +154,93 @@ FORBID 規則不會被列為未使用 — FORBID 沒對到代表系統健康，�
 
 ---
 
+## l3_component_check.py
+
+L2 問的是「kernel 的 API 對不對」；L3 問的是「**哪些元件會壞**」。改完某個端點之後，不用把七個工具都開起來，就能知道影響範圍。
+
+```bash
+./l3_component_check.py --map                          # 離線：依賴地圖
+./l3_component_check.py --blast-radius get_graph_data  # 離線：影響哪些元件
+./l3_component_check.py --topology <拓撲檔>             # 完整檢查
+./l3_component_check.py --topology <拓撲檔> --component Web-GUI
+```
+
+### 兩種檢查
+
+**1. 存在性** — 元件呼叫的每個端點都必須存在。404 就代表元件在打一個 kernel 沒實作的東西。
+
+這是怎麼抓到 `disable_switch` 的：Energy-Saving-App 一直在 POST `/ndt/disable_switch`，kernel 從來沒註冊過，所以一直拿 404，而 app 把錯誤吃掉了。
+
+探測時**必須用正確的 HTTP method** —— kernel 是用 `(method, target)` 一起比對的，所以用 GET 去打一個只收 POST 的端點會落到 404，看起來像端點不存在。
+
+**2. 契約** — 對 `spec.py` 涵蓋的端點跑 L2 的檢查，並把失敗歸屬到依賴它的元件。
+
+### 已知缺口 vs 新缺口
+
+跟其他 allowlist 一樣的原則：已知缺口登記在 `components.py` 的 `KNOWN_MISSING_ENDPOINTS`（附理由），這樣**新出現的**缺失端點才會失敗，而不是被淹沒在已經容忍的那些裡面。
+
+- 已知缺口 → 黃色 `KNOWN GAPS`／`DEGRADED`，exit 0
+- 未登記的缺口 → 紅色 `UNACKNOWLEDGED`，exit 1
+
+### 為什麼這張地圖有用
+
+```
+ * get_graph_data          6  (全部 6 個會讀資料的元件)
+ * get_detected_flow_data  5
+```
+
+`get_graph_data` 壞掉等於全系統壞掉。這兩個剛好都依賴 sFlow telemetry，也就是 P4 模式下最脆弱的部分 —— 所以測試重心應該壓在這裡。
+
+---
+
+## compare_baseline.py
+
+P4 開發最省時間的技巧：**OVS 那條路是已知正常的**，所以直接拿它的行為當規格，不用自己想「P4 應該長什麼樣」。
+
+```bash
+# 在健康的 OVS 環境擷取一次
+./run_contract_test.py --topology <ovs 拓撲> --with-traffic --save-json baseline/ovs
+
+# P4 用同樣方式擷取，然後比對
+./run_contract_test.py --topology <p4 拓撲> --with-traffic --save-json result/p4
+./compare_baseline.py baseline/ovs result/p4
+```
+
+### 為什麼不能直接做 JSON diff
+
+兩邊的拓撲本來就不同（128 host vs 4 host），而且速率／計數器／時間戳每秒都在變。所以只比對「不管哪種資料平面都應該一樣」的兩件事：
+
+**1. 形狀（shape）** — 遞迴的「欄位路徑 → 型別」集合。抓得到欄位消失、型別改變，以及最關鍵的：**一邊有資料另一邊是空的**，這正是 P4 各種 stub 的表現形式。
+
+list 的索引會收斂成 `[]`，所以 4 host 和 128 host 產生相同的簽名。
+
+**2. 行為事實（facts）** — 每個端點的布林判斷：switch 是不是全部 up？flow 的 path 有沒有填？速率是不是非零？表格是不是非空？這些答案就算數值不同也必須一致。
+
+### 空 list 的處理
+
+早期版本會在 P4 回傳 `[]` 時，把 OVS 元素的每一個欄位都報一次「欄位消失」—— 20 行雜訊，而真正的發現只有一件事。現在會收斂成單一結論：
+
+```
+[empty] list is empty in P4 but populated in OVS: <root list>
+```
+
+### allowlist
+
+`baseline_diff_allowlist.txt`，格式跟 log allowlist 一樣（`endpoint | regex | 理由`）。
+
+差異只有三種歸類：
+1. **允許的 P4 限制** → 寫進 allowlist，附上「哪個 Phase 會移除它」
+2. **數值容忍範圍內** → 工具自動處理（含 `_bps`／`_rate`／`_count` 等欄位只比型別）
+3. **其他** → **就是 bug**
+
+沒有第四類。這樣每個「P4 做不到的事」都會被寫下來，而不是靜靜地壞掉。
+
+檔案末尾用註解列出了**不可以**加進 allowlist 的例子（例如 `all_switches_enabled`），因為那正是我們要抓的 Phase 6 bug，放行等於自廢武功。
+
+工具會報告「登記了但這次沒用到」的項目 —— 那通常代表對應的 Phase 已經完成，該把那行刪掉了。
+
+---
+
 ## 建議節奏
 
 | 時機 | 執行 |
@@ -166,12 +257,20 @@ FORBID 規則不會被列為未使用 — FORBID 沒對到代表系統健康，�
 
 | 檔案 | 用途 |
 |---|---|
-| `run_contract_test.py` | 主程式（CLI、HTTP、報表） |
-| `spec.py` | 40 個端點的定義與不變量 |
+| `run_contract_test.py` | L2 主程式（CLI、HTTP、報表） |
+| `spec.py` | 端點定義與語意不變量 |
 | `schema.py` | 極簡 schema 驗證器（零依賴） |
 | `selftest_fixtures.py` | `doc/ndt_api.md` 的範例，供 self-test 使用 |
+| `components.py` | 各元件的端點依賴表 + kernel 的 dispatch table + 已知缺口 |
+| `l3_component_check.py` | L3 元件契約檢查 |
+| `compare_baseline.py` | L4 OVS/P4 差異比對 |
+| `baseline_diff_allowlist.txt` | 可接受的 OVS/P4 差異清單 |
 | `check_logs.py` | log 檢查器 |
 | `warning_allowlist.txt` | 可接受的 warning 清單 |
+
+### allowlist 的欄位分隔符
+
+三個 allowlist 檔都用 **前後有空白的 pipe**（`" | "`）分隔欄位，不是裸的 `|`。這樣 regex 的 alternation 才能用 —— 寫成 `(int|float)`（pipe 兩側不加空白）就不會被誤判成欄位分隔。
 
 ### 要新增一個端點檢查
 

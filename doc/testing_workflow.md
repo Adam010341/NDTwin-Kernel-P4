@@ -225,14 +225,42 @@ get_graph_data  →  必須有 nodes[] 和 edges[]
 
 ---
 
-## 需要建的東西
+## 實作位置
 
-按價值排序：
+全部已實作，零外部依賴（只需要 `python3` 和 `bash`），每支都是**成功才 exit 0**。
 
-1. **L2 契約測試腳本** — 投資報酬率最高。一支 Python 腳本 + 一份 schema/不變量定義檔。
-2. **allowlist 檔案** — 已知可接受的 WARN 清單，讓新 warning 自動變失敗。
-3. **啟動/關閉編排腳本** — 按正確順序拉起全套、等收斂、收 log、比對、關閉。取代手動開 5 個終端機。
-4. **L4 baseline 擷取 + 比對工具** — OVS baseline 存檔 + 差異比對 + allowlist 套用。
-5. **L3 各元件子集檢查** — 可以從 L2 的結果直接篩，成本低。
+| 層 | 工具 | 說明 |
+|---|---|---|
+| L0 | [tools/test_workflow/l0_build_check.sh](../tools/test_workflow/l0_build_check.sh) | 10 個建置目標 |
+| L1 | [tools/test_workflow/l1_unit_tests.sh](../tools/test_workflow/l1_unit_tests.sh) | ctest **加上**直接執行，並檢查 SKIPPED |
+| L2 | [tools/contract_test/run_contract_test.py](../tools/contract_test/run_contract_test.py) | 結構 + 不變量 + 錯誤路徑 |
+| L3 | [tools/contract_test/l3_component_check.py](../tools/contract_test/l3_component_check.py) | 各元件依賴檢查、blast radius |
+| L4 | [tools/contract_test/compare_baseline.py](../tools/contract_test/compare_baseline.py) | OVS baseline 差異比對 |
+| log | [tools/contract_test/check_logs.py](../tools/contract_test/check_logs.py) | allowlist 判定 |
+| 編排 | [tools/test_workflow/stack.sh](../tools/test_workflow/stack.sh) | 依序啟動 + 等收斂 |
+| 驅動 | [tools/test_workflow/run_layers.sh](../tools/test_workflow/run_layers.sh) | 把各層組合起來 |
 
-先做 1 + 2 就能把「有沒有壞」從主觀變客觀；3 能把每次測試從 30 分鐘手動降到一鍵；4 是 P4 開發期間最省時間的。
+三份 allowlist：`warning_allowlist.txt`（可接受的 log warning）、`baseline_diff_allowlist.txt`（可接受的 OVS/P4 差異）、`components.py` 的 `KNOWN_MISSING_ENDPOINTS`（已知缺失的端點）。
+
+使用說明：[tools/test_workflow/README.md](../tools/test_workflow/README.md)、[tools/contract_test/README.md](../tools/contract_test/README.md)。
+
+### 常用指令
+
+```bash
+cd tools/test_workflow
+./run_layers.sh selftest              # 完全離線，秒級
+./run_layers.sh quick                 # L0 + L1，約 2 分鐘
+./stack.sh up p4 && ./stack.sh wait   # 依序啟動並等收斂
+./run_layers.sh api p4 --traffic      # L2 + L3 + log 檢查
+./stack.sh down
+```
+
+### 實測驗證過的事
+
+這些工具本身也經過反向驗證（不只驗「會通過」，也驗「該失敗時真的會失敗」）：
+
+- **L1 抓到了 ctest 的謊言**：把 `Logger::init` 的修正暫時移除後，`ctest` 回報 `100% tests passed, 0 tests failed out of 12`，而直接執行是 `FAIL, ran=12 passed=10 skipped=2`。
+- **L2 的 47 個 self-test 檢查**用 `doc/ndt_api.md` 的實際範例驗證 schema，並驗證每個不變量的兩個方向（好資料要安靜、壞資料要噴錯）。
+- **L3 離線就證實了 `/ndt/disable_switch` 的缺口**。
+- **L4 對只有已知 P4 限制的情況回 PASS，對真 bug（`all_switches_enabled` 不一致）回 FAIL**。
+- **log 檢查在 INFO 等級抓到 `Unsupported SFlow Version`**（FORBID 規則）。

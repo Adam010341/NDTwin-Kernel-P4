@@ -7,9 +7,12 @@
 # decided to live with. Here, anything not listed is a failure, so a regression cannot
 # hide in the noise.
 #
-# Format (three fields, separated by |):
+# Format (three fields, separated by a pipe WITH SPACES around it):
 #
 #   LEVEL | python regex matched against the message | why it is acceptable
+#
+# The separator is " | " (whitespace-pipe-whitespace), not a bare pipe, so that regex
+# alternation still works: write it without surrounding spaces, e.g. (warn|error).
 #
 # LEVEL is one of:
 #   WARNING  allowed at warning level; anything unlisted at warning level fails

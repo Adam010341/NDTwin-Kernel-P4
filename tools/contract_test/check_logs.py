@@ -68,6 +68,12 @@ class Rule:
         self.hits = 0
 
 
+# Field separator: a pipe surrounded by whitespace. Splitting on a bare "|" would break
+# every regex that uses alternation, so inside a pattern write it without spaces --
+# (int|float) is a regex, " | " is a separator.
+FIELD_SEP = re.compile(r"\s+\|\s+")
+
+
 def load_allowlist(path) -> list[Rule]:
     rules = []
     with open(path) as fh:
@@ -75,10 +81,11 @@ def load_allowlist(path) -> list[Rule]:
             line = raw.strip()
             if not line or line.startswith("#"):
                 continue
-            parts = [p.strip() for p in line.split("|")]
+            parts = [p.strip() for p in FIELD_SEP.split(line)]
             if len(parts) < 3:
                 raise SystemExit(
-                    f"{path}:{lineno}: expected 'LEVEL | regex | reason', got: {line}")
+                    f"{path}:{lineno}: expected 'LEVEL | regex | reason'"
+                    f" (fields separated by a pipe with spaces around it), got: {line}")
             kind, pattern, reason = parts[0].upper(), parts[1], " | ".join(parts[2:])
             if kind not in ("WARNING", "ERROR", "FORBID"):
                 raise SystemExit(

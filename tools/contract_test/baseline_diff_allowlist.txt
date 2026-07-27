@@ -1,0 +1,96 @@
+# Accepted differences between the OVS baseline and the P4 candidate
+#
+# Purpose: force every "P4 cannot do this" into writing.
+#
+# compare_baseline.py fails on any difference not listed here. That is deliberate: it
+# means each P4 shortfall must be acknowledged with a reason, instead of quietly
+# degrading. When a phase of doc/p4_bmv2_support_plan.md lands, the corresponding entry
+# should be deleted -- the tool reports unused entries so they do not accumulate.
+#
+# Format (three fields separated by a pipe WITH SPACES around it):
+#
+#   endpoint | python regex matched against the difference text | why it is accepted
+#
+# The separator is " | " (whitespace-pipe-whitespace), not a bare pipe, so that regex
+# alternation still works: write it without surrounding spaces, e.g. (int|float|number).
+#
+# endpoint is the response filename without .json (e.g. get_graph_data), or * for any.
+# The regex is matched with re.search against the difference description, which looks
+# like one of:
+#
+#   field missing in P4: nodes[].brand_name (is str in OVS)
+#   type differs at edges[].flow_set[]: OVS=int P4=<empty list>
+#   all_paths_populated: OVS=True P4=False
+#   present in OVS but missing from P4
+#
+# Run compare_baseline.py once with an empty allowlist to see the exact wording before
+# writing a rule.
+#
+# [Co-developed with claude code -- Adam]
+
+
+# ============================================================================
+# Genuine, permanent data-plane differences
+# ============================================================================
+
+# The whole point of the switch_kind work: OVS switches report "OVS", bmv2 report "BMv2".
+# The field must exist on both sides with the same type; only the value differs, so this
+# only fires if something changes the type.
+get_graph_data | type differs at nodes\[\]\.brand_name | brand_name is intentionally different per data plane; only a type change would be a fault
+
+# CPU / memory / temperature are SNMP-derived on hardware and dummy values under Mininet
+# for both data planes. Magnitudes are meaningless; only coverage is checked as a fact.
+get_cpu_utilization | type differs at .* (int|float|number) | Mininet mode returns synthetic utilisation for both data planes
+get_memory_utilization | type differs at .* (int|float|number) | as above
+get_temperature | type differs | temperature is a per-model SNMP feature; both planes return the unsupported-model string under Mininet
+
+
+# ============================================================================
+# Known gaps, each tied to a phase that removes it
+# ----------------------------------------------------------------------------
+# DELETE the entry when the phase lands. If compare_baseline.py reports an entry here as
+# unused, the gap is closed and the line should go.
+# ============================================================================
+
+# --- Phase 5: proxy synthesises sFlow v5 -----------------------------------------
+# Until the emitter exists, bmv2 produces no telemetry at all, so every flow-derived
+# figure is empty or zero.
+get_detected_flow_data | flows_detected: | Phase 5: bmv2 emits no sFlow yet, so no flows are detected
+get_detected_flow_data | any_rate_nonzero: | Phase 5: no telemetry means no rates
+get_detected_flow_data | any_packet_rate_nonzero: | Phase 5: no telemetry means no packet rates
+get_detected_top_k_flow_data | flows_detected: | Phase 5: as get_detected_flow_data
+get_detected_top_k_flow_data | any_rate_nonzero: | Phase 5: as get_detected_flow_data
+get_detected_top_k_flow_data | any_packet_rate_nonzero: | Phase 5: as get_detected_flow_data
+get_graph_data | any_link_usage_nonzero: | Phase 5: link usage is sFlow-derived
+get_graph_data | any_edge_has_flow_set: | Phase 5: flow_set is populated from sFlow samples
+get_average_link_usage | avg_link_usage_nonzero: | Phase 5: averaged from sFlow-derived link usage
+get_detected_flow_data | list is empty in P4 but populated in OVS: <root list> | Phase 5: no telemetry means the whole flow list is empty
+get_detected_top_k_flow_data | list is empty in P4 but populated in OVS: <root list> | Phase 5: as get_detected_flow_data
+get_graph_data | list is empty in P4 but populated in OVS: edges\[\]\.flow_set\[\] | Phase 5: flow_set entries come from sFlow samples
+
+# --- Phase 6: proxy implements /stats/flow/<dpid> and pushes switch state --------
+get_switch_openflow_table_entries | switches_reporting: | Phase 6: the P4 proxy still stubs /stats/flow/<dpid> with []
+get_switch_openflow_table_entries | entries_present: | Phase 6: as above
+get_switch_openflow_table_entries | all_switches_have_entries: | Phase 6: as above
+get_switch_openflow_table_entries | list is empty in P4 but populated in OVS | Phase 6: the stub returns an empty array for every switch
+get_detected_flow_data | all_paths_populated: | Phase 6: paths come from the Classifier, which is fed by the stubbed flow-table endpoint
+get_detected_top_k_flow_data | all_paths_populated: | Phase 6: as above
+
+# --- Phase 7: real bmv2 process control ------------------------------------------
+get_power_report | any_nonzero: | Phase 7: bmv2 has no power model; the kernel reports synthetic values
+
+
+# ============================================================================
+# Examples of what must NOT be added here
+# ----------------------------------------------------------------------------
+# These would hide real bugs. Left as comments so the intent is unambiguous.
+#
+#   get_graph_data | all_switches_up:          <- a switch being down is a fault, not a
+#                                                 P4 limitation
+#   get_graph_data | all_switches_enabled:     <- this is exactly the Phase 6 bug we are
+#                                                 hunting; allowlisting it defeats the
+#                                                 purpose of the comparison
+#   get_graph_data | has_switches:             <- an empty graph is never acceptable
+#   * | present in OVS but missing from P4     <- a missing endpoint response means the
+#                                                 run did not complete
+# ============================================================================
