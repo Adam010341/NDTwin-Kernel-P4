@@ -4,11 +4,21 @@
 #
 # Runs the gtest binaries two ways, because either alone can lie:
 #
-#   ctest            -- runs one process per TEST_F (gtest_discover_tests), so a failure
-#                       in SetUpTestSuite affects only that one process and the others
-#                       still pass. This is exactly how the P4RoutingStrategy suite was
-#                       reported as 4/4 green while both of its tests were SKIPPED.
-#   direct execution -- one process for the whole binary, so suite-level failures surface.
+#   ctest            -- gtest_discover_tests registers one ctest case per TEST_F, each
+#                       running in its own process with --gtest_filter=Suite.Test. That
+#                       isolation means any problem which only occurs when several suites
+#                       share a process simply never happens, so ctest reports green.
+#   direct execution -- the whole binary in one process, which is where cross-test
+#                       interference shows up: static init, singletons, global registries,
+#                       state a suite leaves behind.
+#
+# Measured with the Logger::init double-registration bug present:
+#   --gtest_filter=P4RoutingStrategyTest.Install...  exit=0 ran=1  passed=1  skipped=0
+#   whole binary                                     exit=1 ran=12 passed=10 skipped=2
+#   ctest                                            100% tests passed, 0 failed out of 12
+#
+# Note the first line: under ctest those tests genuinely run and genuinely pass. ctest is
+# not swallowing a failure -- it never creates the condition that fails.
 #
 # Additionally asserts that the number of tests that actually RAN matches the number
 # discovered. A SKIPPED test is not a passing test.

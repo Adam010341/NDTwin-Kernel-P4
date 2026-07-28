@@ -77,14 +77,68 @@
 
 ## L1：Kernel 單元測試
 
+**推薦入口**（已封裝好，不要手動只跑其中一步）：
+
 ```bash
-cd build && ctest --output-on-failure
-./bin/test_routing_strategy          # ← 一定要「另外」直接跑一次
+cd tools/test_workflow
+./l1_unit_tests.sh              # cmake configure + build + 雙重執行
+./l1_unit_tests.sh --no-build   # build 已是最新時
+# 或透過頂層驅動：./run_layers.sh quick
 ```
 
-**為什麼要跑兩次**：`ctest` 會把每個測試放在獨立的 process 執行，所以整個 test suite 層級的失敗（例如 fixture 初始化爆掉）它看不到。我們就是這樣才發現 P4 的 2 個測試其實從來沒執行過，而 `ctest` 一路顯示綠燈。
+手動等價（僅供除錯；缺少 SKIPPED 檢查與 ctest 交叉比對）：
 
-判定：`ctest` 全過 **且** 直接執行 exit code = 0 **且**「實際執行數 = 應有測試數」（不是 SKIPPED）。
+```bash
+cd build && ctest --output-on-failure
+./bin/test_routing_strategy       # 目前唯一的 test binary，內含 12 個 TEST_F
+```
+
+### 測什麼
+
+目前 `tests/CMakeLists.txt` 只建一個 binary `test_routing_strategy`，裡面 3 個 test suite、共 12 個 case，全部**離線、不需 Mininet**：
+
+| Test suite | 測試數 | 測什麼 |
+|---|---|---|
+| `OpenFlowRoutingStrategyTest` | 2 | OVS 模式下 `installAnEntry` / `deleteAnEntry` 產生的 curl 指令是否正確（Mock 掉 `executeCommand`，不真的打 Ryu） |
+| `P4RoutingStrategyTest` | 2 | P4 模式下同上，但 URL/port 走 proxy agent |
+| `ComputeEstimatedRatesTest` | 8 | `sflow::computeEstimatedRates` 在 hops=0 時不能除以零（曾因此 SIGFPE 崩潰）、多 hop 平均、整數除法截斷等邊界 |
+
+建置方式：CMake 透過 `gtest_discover_tests(test_routing_strategy)` 把每個 `TEST_F` 註冊成獨立的 ctest case（所以 ctest 會看到 12 個 Test #1…#12）。
+
+### 為什麼要跑兩次（腳本的核心邏輯）
+
+`gtest_discover_tests` 讓 **ctest 每個 `TEST_F` 各開一個 process**，而且每個 process 都帶 `--gtest_filter=Suite.Test` 只跑那一個測試。
+
+關鍵在於：**這種隔離會讓「多個 suite 共用同一個 process 才會發生」的問題根本不出現**。
+
+以 `Logger::init` 的 double-registration 為例（暫時移除 idempotency 修正後實測）：
+
+| 執行方式 | 結果 |
+|---|---|
+| `--gtest_filter=P4RoutingStrategyTest.InstallAnEntry...`（ctest 的方式） | `exit=0 ran=1 passed=1 skipped=0` |
+| `--gtest_filter=P4RoutingStrategyTest.*` | `exit=0 ran=2 passed=2 skipped=0` |
+| 直接執行整個 binary | `exit=1 ran=12 passed=10 skipped=2` |
+| `ctest` 彙總 | `100% tests passed, 0 tests failed out of 12` ← 謊言 |
+
+前兩列**是真的通過**：那個 process 裡 `Logger::init` 只被呼叫一次，不會拋例外。只有當 OpenFlow 和 P4 兩個 suite 跑在同一個 process 時，第二個 `SetUpTestSuite()` 才會撞上 `logger with name 'netdt' already exists`，導致該 suite 的 2 個測試被 SKIP。
+
+所以精確的說法是：
+
+- ❌ 不是「ctest 把失敗吞掉了」—— suite 級失敗會讓 process **exit 1**（見第三列）
+- ✅ 而是「ctest 的隔離讓失敗條件從未成立」
+
+這代表雙重執行真正抓的是**跨測試干擾（cross-test interference）**：靜態初始化、singleton、全域註冊表、suite 之間沒清乾淨的狀態。這類問題在 per-test 隔離下永遠看不到，但只要有人把測試合併成一個 binary 跑（或 CI 換成別種 runner）就會爆。
+
+反過來也要注意：**直接執行報 SKIPPED 不代表那些測試邏輯有問題** —— 它們單獨跑是會過的。要修的是 fixture 之間的干擾（本例是讓 `Logger::init` 具冪等性），不是測試本身。
+
+`l1_unit_tests.sh` 因此做四件事：
+
+1. **ctest** — 每 case 獨立 process（CI 慣用格式）
+2. **直接執行** `build/bin/test_*` 每個 binary — 整份 binary 在同一 process，suite 級失敗會讓 exit code ≠ 0
+3. **SKIPPED 判定** — 直接執行若 `skipped > 0`，即使 exit 0 也視為 FAIL（skipped 不算 pass）
+4. **交叉比對** — `ctest -N` 註冊的 case 數 vs `--gtest_list_tests` 發現的總數，不一致代表有測試沒被 ctest 收進來
+
+判定：上述四步全部通過才 exit 0。
 
 ---
 
