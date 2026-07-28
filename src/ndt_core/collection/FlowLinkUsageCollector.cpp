@@ -84,9 +84,28 @@ trim(std::string_view s)
 }
 
 // [Co-developed with claude code -- Adam]
+bool
+FlowLinkUsageCollector::usesIdentityPortMapping(
+    const std::map<SwitchKind, std::vector<uint64_t>>& switchKindGroups)
+{
+    if (switchKindGroups.empty())
+    {
+        // Topology not loaded, or it has no switches. Keep the ovs-vsctl behaviour rather than
+        // guessing: assuming bmv2 here would break OVS runs whose topology loads late.
+        return false;
+    }
+    return switchKindGroups.size() == 1 && switchKindGroups.begin()->first == SwitchKind::BMV2;
+}
+
+// [Co-developed with claude code -- Adam]
 uint32_t
 FlowLinkUsageCollector::lookupOfport(uint32_t ifIndex) const
 {
+    if (m_identityPortMapping.load(std::memory_order_relaxed))
+    {
+        // The bmv2 emitter already reports P4 port numbers, so there is nothing to translate.
+        return ifIndex;
+    }
     std::shared_lock lock(m_ifIndexMapMutex);
     auto it = m_ifIndexToOfportMap.find(ifIndex);
     return (it != m_ifIndexToOfportMap.end()) ? it->second : 0;
@@ -302,7 +321,22 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
 
     if (m_mode == utils::MININET)
     {
-        populateIfIndexToOfportMap();
+        // [Co-developed with claude code -- Adam]
+        const auto groups = m_topologyAndFlowMonitor
+                                ? m_topologyAndFlowMonitor->getSwitchKindGroups()
+                                : std::map<SwitchKind, std::vector<uint64_t>>{};
+        if (usesIdentityPortMapping(groups))
+        {
+            m_identityPortMapping.store(true, std::memory_order_relaxed);
+            SPDLOG_LOGGER_INFO(
+                Logger::instance(),
+                "All-bmv2 topology: using identity ifIndex->port mapping and skipping "
+                "ovs-vsctl, which does not know about bmv2 interfaces.");
+        }
+        else
+        {
+            populateIfIndexToOfportMap();
+        }
     }
 
     // Call All Destination When Initialize

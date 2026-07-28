@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common_types/GraphTypes.hpp" // for SwitchKind
 #include "common_types/SFlowType.hpp" // for Path, CounterInfo, FlowInfo
 #include "utils/Utils.hpp"            // for DeploymentMode
 #include <atomic>                     // for atomic
@@ -168,6 +169,26 @@ class FlowLinkUsageCollector
 
   protected:
     /**
+     * @brief Whether ifIndex values can be used as port numbers without translation.
+     *
+     * The OVS path needs translation because sFlow reports kernel interface indices while the
+     * rest of the kernel speaks OpenFlow port numbers, and `ovs-vsctl list interface` is what
+     * relates the two. Under bmv2 there is no such indirection: the sFlow emitter in
+     * p4_proxy/proxy_agent/sflow_emitter.py puts the P4 port straight into ifIndex, and
+     * `ovs-vsctl` knows nothing about bmv2 interfaces, so it would return an empty map and
+     * every port would resolve to 0 -- silently emptying link usage and flow paths.
+     *
+     * Only returns true when the topology positively says every switch is bmv2. An empty or
+     * mixed topology keeps the ovs-vsctl behaviour, so nothing changes for existing setups.
+     *
+     * Static and taking the groups by argument so it is unit-testable without a live topology.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    static bool usesIdentityPortMapping(
+        const std::map<SwitchKind, std::vector<uint64_t>>& switchKindGroups);
+
+    /**
      * @brief Parses one sFlow datagram.
      *
      * Protected so tests can feed it malformed datagrams directly. This is the kernel's
@@ -253,6 +274,10 @@ class FlowLinkUsageCollector
     std::unordered_map<uint32_t, uint32_t> m_ifIndexToOfportMap;
     // Protects the map: exclusive while populating, shared for per-sample lookups.
     mutable std::shared_mutex m_ifIndexMapMutex;
+
+    // Set once in start(), read by the sFlow workers. Atomic rather than mutex-guarded because
+    // it is written before any worker exists and only ever read afterwards.
+    std::atomic<bool> m_identityPortMapping{false};
 
     // key -> (src ip, dst ip), value -> full path
     std::map<std::pair<uint32_t, uint32_t>, Path> m_allPathMap;
