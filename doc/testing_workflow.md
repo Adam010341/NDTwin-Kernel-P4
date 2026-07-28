@@ -264,3 +264,15 @@ cd tools/test_workflow
 - **L3 離線就證實了 `/ndt/disable_switch` 的缺口**。
 - **L4 對只有已知 P4 限制的情況回 PASS，對真 bug（`all_switches_enabled` 不一致）回 FAIL**。
 - **log 檢查在 INFO 等級抓到 `Unsupported SFlow Version`**（FORBID 規則）。
+
+---
+
+## 這些工具「沒有」涵蓋什麼
+
+上面說的是這套工具能證明什麼。反過來的那一面——綠燈不代表什麼、哪些輸入面完全沒被
+碰過——整理在 [test_coverage_gaps.md](test_coverage_gaps.md)。
+
+那份文件原本的 §1 列出「工具本身會誤判」的問題，**已於 2026-07-28 全部修掉**
+（鎖型別、log 污染、`--save-json` 重複請求、L3 把 5xx 當存在、手抄表漂移）。
+剩下的是真正的涵蓋缺口，最大的兩塊是 **sFlow UDP 輸入面**（kernel 的第二個外部輸入面，
+五層都沒碰過）和**行程健康度**（RSS／thread 洩漏；崩潰現在會被 `check_logs.py` 抓到）。

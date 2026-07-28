@@ -83,11 +83,34 @@ switch(es) not enabled (not connected to a controller): s3(dpid=3)
 | `--only <名稱>` | 只跑指定檢查，除錯時用。可重複 |
 | `--self-test` | 用 `doc/ndt_api.md` 的範例驗證 schema 本身，不需要 kernel |
 
+### 鎖的檢查用 `graph_lock`（不是自訂型別）
+
+`LockManager::stringToLockType` 只認得 `routing_lock` / `graph_lock` / `power_lock`，其他一律回 `Unknown`，而 `acquireLock`／`renew` 對 `Unknown` 直接回 false。所以**自訂一個假的 lock type 會讓每個鎖檢查都失敗，而且互斥邏輯從頭到尾沒被驗到**。
+
+用 `graph_lock` 的理由：它是 kernel 真的認得的型別，而全 workspace 掃過只有 `routing_lock` 被 app 使用（Energy-Saving-App、Traffic-Engineering-App）。所以這些檢查跑的是真正的互斥語意，又不可能干擾正在跑的 app。
+
+驗證的是一條完整生命週期：
+
+```
+acquire → 第二次 acquire 必須 423 → renew → release → 再 acquire 必須成功 → cleanup
+```
+
+其中「再 acquire 必須成功」會抓到「release 回報成功但其實沒放開」這種 bug。
+
+### known_gap：已知的 kernel 缺陷
+
+有些檢查會失敗，原因是 kernel 真的有缺陷、而且短期內不會修。這種在 `spec.py` 標上 `known_gap`（附原因），行為是：
+
+- 失敗 → 顯示黃色 `GAP`，**不計入失敗**（否則測試永遠是紅的，就沒人看了）
+- 哪天它**通過了** → 顯示 `FIXED`，並提醒你把標記拿掉
+
+目前唯一一條是 `release_lock_not_held`：`HttpSession::handleReleaseLock` 不管鎖有沒有被持有、型別有沒有效，**一律回 200**，所以「釋放一個沒持有的鎖」跟正常釋放無法區分。`doc/testing_workflow.md` 寫的「應該回 412」目前並未實作。
+
 ### 為什麼預設不跑 mutation
 
 `--allow-mutations` 會真的下流量規則、改電源狀態。對正在跑的系統來說這是破壞性的，所以必須明確開啟。唯讀檢查可以隨時對生產環境跑。
 
-（例外：lock 相關檢查會執行，但它用自己專屬的 lock type `ndt_contract_test_lock`，不會干擾正在跑的 app。）
+（例外：lock 相關檢查會執行，但它用 `graph_lock` —— 一個 kernel 認得、但沒有任何 app 在用的型別，所以不會干擾正在跑的 app。詳見上面一節。）
 
 ### --self-test 是什麼
 
@@ -116,6 +139,35 @@ switch(es) not enabled (not connected to a controller): s3(dpid=3)
 | 符合 `FORBID` 樣式 | **失敗，不管什麼等級**（包含 info/debug） |
 | allowlist 有列但這次沒對到 | 提示（方便清理過期項目） |
 
+### 崩潰偵測（不受 allowlist 影響）
+
+crash 訊息是 runtime 印的，不是 spdlog 印的，所以**不符合 log 格式**，原本會被 `--ignore-unparsed` 整批丟掉 — 等於把最重要的訊號放在盲區。
+
+現在會先掃過**每一行**（不管解析得出來與否）尋找：
+
+```
+terminate called after throwing / what():        ← std::terminate
+Segmentation fault / core dumped / SIGSEGV       ← 記憶體錯誤
+Floating point exception / SIGFPE                ← 整數除以零
+Assertion ... failed / std::bad_alloc            ← 斷言、配置失敗
+AddressSanitizer / double free / 純虛擬呼叫       ← 其他致命錯誤
+```
+
+這些**永遠失敗，而且不能被 allowlist 放行**。Phase 0 修掉的兩個 bug 剛好各是一種（`std::terminate` 和 SIGFPE），以前的工具抓不到，現在會。
+
+### 錯誤路徑會污染 log 檢查 — 用 `--to-line` 解
+
+L2 的錯誤路徑檢查會**故意**讓 kernel 寫 ERROR／WARN（畸形 JSON、未知 dpid、非數字 dpid、不存在的端點）。如果檢查整份 log，這一層就會永遠是紅的，而且原因是測試自己造成的 — 那會訓練你忽略它，正好是這個機制最不該發生的事。
+
+`run_layers.sh` 的解法：跑 L2 **之前**先記下 log 行數，最後只檢查那之前的部分。
+
+```bash
+./check_logs.py kernel.log --to-line 120   # 只看前 120 行
+./check_logs.py kernel.log --from-line 50  # 跳過前 50 行（例如上一輪的殘留）
+```
+
+崩潰偵測不受 window 影響 — 它一律掃全部。
+
 ### FORBID 為什麼存在
 
 有些訊息的嚴重性跟它被記錄的等級不符。例如 `Unsupported SFlow Version` 是用 `WARN` 記的，但它代表**所有 telemetry 都被丟掉了** — 整個數位孿生的資料全部是空的。
@@ -126,11 +178,13 @@ FORBID 讓這種訊息不管記在哪個等級都會讓測試失敗。
 
 ### allowlist 格式
 
-`warning_allowlist.txt`，三欄用 `|` 分隔：
+`warning_allowlist.txt`，三欄用**前後有空白的 pipe**（`" | "`）分隔：
 
 ```
 LEVEL | python regex | 為什麼可以接受
 ```
+
+不是裸的 `|`，這樣 regex 的 alternation 才能用（寫成 `(int|float)`，pipe 兩側不加空白）。
 
 比對的是**訊息本文**（時間戳、等級、檔名行號、函式名都會先被剝掉，ANSI 色碼也會清掉），所以不用自己處理前綴。
 
@@ -174,6 +228,20 @@ L2 問的是「kernel 的 API 對不對」；L3 問的是「**哪些元件會壞
 探測時**必須用正確的 HTTP method** —— kernel 是用 `(method, target)` 一起比對的，所以用 GET 去打一個只收 POST 的端點會落到 404，看起來像端點不存在。
 
 **2. 契約** — 對 `spec.py` 涵蓋的端點跑 L2 的檢查，並把失敗歸屬到依賴它的元件。
+
+### `--check-drift`：防止手抄表腐化
+
+`components.py` 的 `KERNEL_ENDPOINTS`（41 筆）是從 `HttpSession.cpp` 的 if/else 鏈**人工轉錄**的。新增端點卻忘了更新這張表時，L3 反而會把新端點報成「不在 dispatch table」。
+
+```bash
+./l3_component_check.py --check-drift
+```
+
+直接讀 `HttpSession.cpp` 原始碼比對，三種漂移都會抓到：漏列、方法寫錯（會導致探測用錯 method 而誤判成 404）、多列了已移除的端點。`--map` 也會在表過期時先印警告。
+
+### 5xx 不算「端點存在」
+
+存在性探測原本只要不是 404 就算通過 — 於是一個「POST 空 body 就 500」的端點在 L3 眼中是健康的。現在 5xx 會被判定為問題：路由存在，但它對最小請求就丟例外，consumer 收到的還是 5xx。
 
 ### 已知缺口 vs 新缺口
 
@@ -282,6 +350,27 @@ list 的索引會收斂成 `[]`，所以 4 host 和 128 host 產生相同的簽�
 
 ## 已知限制
 
-- 端點清單是照 `HttpSession.cpp` 的註冊表手工維護的。kernel 新增端點時要一起更新這裡（`unknown_endpoint` 檢查只驗證未知路徑會回 404，不會偵測到「有實作但沒測」）。
-- `--with-traffic` 的不變量假設流量正在跑。用在流量剛停的系統上會誤報。
-- 對 `intent_translator`、`app_register`、`received_a_simulation_case`、`simulation_completed`、`historical_logging`、`modify_device_name`、group／meter 相關端點目前沒有檢查 — 它們需要外部相依（LLM token、模擬平台）或會造成不易還原的副作用。
+涵蓋率：**41 個註冊端點中的 30 個**有 contract（用下面的指令可隨時重算）。剩下 11 個裡，10 個沒有任何 consumer，唯一有 consumer 的是刻意排除的 `intent_translator/text`。
+
+- **`--with-traffic` 的不變量假設流量正在跑。** 用在流量剛停的系統上會誤報。
+- **`intent_translator/text` 刻意沒有 contract** — 需要 OpenAI token、每次呼叫要花錢、回應由模型決定，contract 會既不穩定又昂貴。Web-GUI 對它的依賴只靠 L3 的存在性檢查。這是決定，不是疏漏。
+- **模擬相關端點只驗錯誤路徑。** `received_a_simulation_case` / `simulation_completed` 的成功路徑需要 Simulation-Platform-Manager 在跑，會讓檢查不穩定；但它們的輸入驗證（畸形 JSON 不能回 500）是可以驗的，也已經在驗。
+- **group / meter 端點沒有 contract**（六個，無 consumer）。值得注意的是它們在 P4 模式下會**無條件走 OVS strategy** — `FlowRoutingManager` 的 group/meter 方法直接用 `m_ovsStrategy`，完全不看 dpid，所以對 bmv2 下的 group/meter 規則會被送到 Ryu。這是 kernel 的缺陷（P4 計畫 Phase 3 會修），現在沒有任何測試會抓到。
+- **不變量的嚴格度有上限。** `inv_graph_matches_topology` 只比對 node/edge **數量**與 dpid 集合，不驗 edge 的接線是否正確（數量對但接錯不會被抓）。`inv_flow_paths_non_empty` 只驗 path 非空，不驗它是否連通、是否與 edge 一致。`inv_topk_bounded` 只驗數量 ≤ k，不驗真的是前 k 大。
+- **HTTP 協定層沒驗**：CORS / `OPTIONS`（Web-GUI 直接依賴）、keep-alive、request body 大小上限、`k` 參數的邊界值。
+- **併發沒驗**。kernel 的 HTTP server 是**單執行緒**（`main.cpp` 的 `net::io_context ioc{1}`），任何慢的 handler（SNMP、SSH、對 Ryu 的同步 curl）會阻塞所有其他請求。而 L2/L3 是序列發請求的，永遠碰不到這個情境。
+- **sFlow UDP 輸入面完全沒被碰過**。kernel 有兩個外部輸入面（`/ndt/*` HTTP 和 :6343 sFlow UDP），這裡只涵蓋前者。
+- **行程健康度（RSS / thread 數 / exit code）沒有工具。** 崩潰訊息現在會被 `check_logs.py` 抓到，但記憶體洩漏與 thread 洩漏不會。
+
+### 重算涵蓋率
+
+```bash
+python3 -c "
+import sys; sys.path.insert(0,'.')
+import spec, components
+covered = {e['path'].removeprefix('/ndt/') for e in spec.ENDPOINTS}
+kernel = set(components.KERNEL_ENDPOINTS)
+print('registered:', len(kernel), 'covered:', len(covered & kernel))
+for e in sorted(kernel - covered):
+    print('  UNCOVERED', e, components.blast_radius(e) or '-')"
+```

@@ -38,8 +38,15 @@ from components import (  # noqa: E402
     COMPONENTS,
     KERNEL_ENDPOINTS,
     KNOWN_MISSING_ENDPOINTS,
+    check_dispatch_drift,
     endpoint_consumers,
+    scan_kernel_dispatch,
 )
+
+# Default location of the kernel's dispatch chain, used for the drift check.
+DEFAULT_HTTP_SESSION = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "src", "ndt_core", "http", "HttpSession.cpp")
 from run_contract_test import Context, Palette, check_endpoint, request, supports_colour  # noqa: E402
 from spec import ENDPOINTS  # noqa: E402
 
@@ -74,10 +81,39 @@ def probe_exists(base_url, endpoint, ctx, timeout) -> tuple[bool, int, str]:
         return False, 0, err or "no response"
     if status == 404:
         return False, 404, "kernel returned 404 -- endpoint not implemented"
+    if status >= 500:
+        # The route exists but blew up on a minimal request. Reporting this as "exists"
+        # would let an endpoint that 500s on every call look healthy to its consumers.
+        return False, status, (
+            f"kernel returned {status} on a minimal request -- the route exists but "
+            f"throws instead of validating input, so its consumers see a 5xx")
     return True, status, ""
 
 
-def print_map(pal: Palette) -> int:
+def print_drift(pal: Palette, http_session_cpp: str) -> int:
+    """Proves the hand-transcribed dispatch table still matches HttpSession.cpp."""
+    problems = check_dispatch_drift(http_session_cpp)
+    if not problems:
+        actual = scan_kernel_dispatch(http_session_cpp)
+        print(pal.green(
+            f"KERNEL_ENDPOINTS is in sync with HttpSession.cpp ({len(actual)} endpoints)"))
+        return 0
+    print(pal.red("KERNEL_ENDPOINTS has drifted from HttpSession.cpp:"))
+    for p in problems:
+        print(f"  - {p}")
+    print(pal.dim("\n  Update KERNEL_ENDPOINTS in components.py to match."))
+    return 1
+
+
+def print_map(pal: Palette, http_session_cpp: str | None = None) -> int:
+    if http_session_cpp and os.path.exists(http_session_cpp):
+        drift = check_dispatch_drift(http_session_cpp)
+        if drift:
+            print(pal.red("WARNING: the endpoint table below is out of date\n"))
+            for d in drift:
+                print(f"  - {d}")
+            print()
+
     print("Endpoint dependency map (measured from component source)\n")
     index = endpoint_consumers()
     width = max(len(e) for e in index)
@@ -144,12 +180,19 @@ def main() -> int:
                     help="print the dependency map and exit (no kernel needed)")
     ap.add_argument("--blast-radius", metavar="ENDPOINT",
                     help="list components affected by one endpoint, then exit")
+    ap.add_argument("--check-drift", action="store_true",
+                    help="verify the hand-transcribed KERNEL_ENDPOINTS table still "
+                         "matches HttpSession.cpp, then exit (no kernel needed)")
+    ap.add_argument("--http-session", default=DEFAULT_HTTP_SESSION,
+                    help="path to HttpSession.cpp for the drift check")
     args = ap.parse_args()
 
     pal = Palette(supports_colour())
 
+    if args.check_drift:
+        return print_drift(pal, args.http_session)
     if args.map:
-        return print_map(pal)
+        return print_map(pal, args.http_session)
     if args.blast_radius:
         return print_blast_radius(args.blast_radius, pal)
 

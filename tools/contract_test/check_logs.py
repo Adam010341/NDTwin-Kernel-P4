@@ -49,6 +49,36 @@ LINE = re.compile(
 FAIL_LEVELS = {"error", "critical"}
 WARN_LEVELS = {"warning"}
 
+# Crash and abort messages are written by the runtime, not by spdlog, so they never match
+# the log format above and were being discarded by --ignore-unparsed -- putting the single
+# most important signal in the checker's blind spot. These always fail, on any line,
+# parsed or not, and cannot be allowlisted.
+CRASH_PATTERNS = [
+    (re.compile(r"terminate called after throwing", re.I),
+     "unhandled exception reached std::terminate"),
+    (re.compile(r"terminate called recursively", re.I), "recursive terminate"),
+    (re.compile(r"\bSegmentation fault\b", re.I), "segfault"),
+    (re.compile(r"\bcore dumped\b", re.I), "process dumped core"),
+    (re.compile(r"\bSIG(SEGV|ABRT|FPE|BUS|ILL)\b"), "fatal signal"),
+    (re.compile(r"Floating point exception", re.I),
+     "SIGFPE -- likely an integer division by zero"),
+    (re.compile(r"\bAssertion\b.*\bfailed\b", re.I), "assertion failure"),
+    (re.compile(r"std::bad_alloc"), "allocation failure"),
+    (re.compile(r"(AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer|"
+                r"ThreadSanitizer)", re.I), "sanitizer report"),
+    (re.compile(r"double free or corruption|free\(\): invalid|malloc\(\): ", re.I),
+     "heap corruption"),
+    (re.compile(r"pure virtual method called", re.I), "pure virtual call"),
+    (re.compile(r"what\(\):\s*\S", re.I), "uncaught exception detail"),
+]
+
+
+def scan_for_crash(text: str):
+    for pattern, why in CRASH_PATTERNS:
+        if pattern.search(text):
+            return why
+    return None
+
 RESET, RED, GREEN, YELLOW, DIM = "\033[0m", "\033[31m", "\033[32m", "\033[33m", "\033[2m"
 
 
@@ -122,7 +152,14 @@ def main() -> int:
     ap.add_argument("--max-report", type=int, default=15,
                     help="max example lines per distinct message (default: %(default)s)")
     ap.add_argument("--ignore-unparsed", action="store_true",
-                    help="do not warn about lines that do not match the log format")
+                    help="do not warn about lines that do not match the log format "
+                         "(crash detection still scans them)")
+    ap.add_argument("--to-line", type=int, metavar="N",
+                    help="only check the first N lines. Used to exclude errors that the "
+                         "L2 error-path checks provoke on purpose, which would otherwise "
+                         "make this check permanently red")
+    ap.add_argument("--from-line", type=int, default=0, metavar="N",
+                    help="skip the first N lines (e.g. a previous run in the same file)")
     args = ap.parse_args()
 
     use_colour = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
@@ -140,11 +177,19 @@ def main() -> int:
         if stream is not sys.stdin:
             stream.close()
 
+    total_lines = len(entries)
+    if args.from_line:
+        entries = [e for e in entries if e[0] > args.from_line]
+    if args.to_line:
+        entries = [e for e in entries if e[0] <= args.to_line]
+    windowed = args.from_line or args.to_line
+
     warn_rules = [r for r in rules if r.kind == "WARNING"]
     error_rules = [r for r in rules if r.kind == "ERROR"]
     forbid_rules = [r for r in rules if r.kind == "FORBID"]
 
     violations = OrderedDict()   # message -> dict(level, lines[], why)
+    crashes = OrderedDict()
     level_counts = Counter()
     unparsed = []
 
@@ -152,7 +197,13 @@ def main() -> int:
         key = (level, why, msg)
         violations.setdefault(key, []).append(lineno)
 
-    for lineno, level, msg, _full in entries:
+    for lineno, level, msg, full in entries:
+        # Crash scan runs over every line, parsed or not, before anything else. These are
+        # never allowlistable and are not affected by --ignore-unparsed.
+        crash_why = scan_for_crash(full)
+        if crash_why:
+            crashes.setdefault((crash_why, full.strip()[:160]), []).append(lineno)
+
         if level is None:
             unparsed.append((lineno, msg))
             continue
@@ -224,12 +275,24 @@ def main() -> int:
     print(f"Log check: {args.logfile}")
     print(f"  parsed   : {total} log lines "
           f"({', '.join(f'{k}={v}' for k, v in sorted(level_counts.items())) or 'none'})")
+    if windowed:
+        lo = args.from_line + 1
+        hi = args.to_line or total_lines
+        print(f"  {c(YELLOW, 'window')}   : lines {lo}-{hi} of {total_lines} "
+              f"{c(DIM, '(the rest is deliberately excluded)')}")
     print(f"  allowlist: {len(rules)} rule(s) "
           f"({len(warn_rules)} warning, {len(error_rules)} error, {len(forbid_rules)} forbid)")
 
     if unparsed and not args.ignore_unparsed:
         print(f"\n  {c(YELLOW, 'note')}: {len(unparsed)} line(s) did not match the expected "
               f"log format (stdout from a subprocess?), first at line {unparsed[0][0]}")
+
+    if crashes:
+        print(f"\n{c(RED, 'CRASHES / ABORTS')}  "
+              f"{c(DIM, '(never allowlistable)')}")
+        for (why, sample), lines in crashes.items():
+            print(f"\n  [{c(RED, why.upper())}] line(s): {', '.join(map(str, lines[:10]))}")
+            print(f"      {sample}")
 
     if violations:
         print(f"\n{c(RED, 'PROBLEMS')}")
@@ -254,6 +317,10 @@ def main() -> int:
                   f"{r.kind} | {r.pattern_src}")
 
     print(f"\n{'=' * 70}")
+    if crashes:
+        n = sum(len(v) for v in crashes.values())
+        print(c(RED, f"FAIL: {n} crash/abort line(s) — the process died or nearly did"))
+        return 1
     if violations:
         n = sum(len(v) for v in violations.values())
         print(c(RED, f"FAIL: {n} problem line(s) across "
@@ -262,7 +329,7 @@ def main() -> int:
                      f"{os.path.basename(args.allowlist)} with a reason"))
         return 1
 
-    print(c(GREEN, "PASS: no unexpected warnings or errors"))
+    print(c(GREEN, "PASS: no crashes, and no unexpected warnings or errors"))
     return 0
 
 

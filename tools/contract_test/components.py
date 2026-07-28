@@ -162,6 +162,65 @@ COMPONENTS = [
 ]
 
 
+def scan_kernel_dispatch(http_session_cpp: str) -> dict[str, str]:
+    """
+    Parse the real dispatch table out of HttpSession.cpp.
+
+    KERNEL_ENDPOINTS above is hand-transcribed, so it rots the moment someone adds an
+    endpoint. This reads the source directly, letting check_dispatch_drift() prove the
+    two still agree instead of trusting that they do.
+
+    Matches both spellings used in the chain:
+        method == http::verb::get && target == "/ndt/x"
+        method == http::verb::post && target.starts_with("/ndt/x")
+
+    [Co-developed with claude code -- Adam]
+    """
+    import re
+
+    with open(http_session_cpp, encoding="utf-8") as fh:
+        src = fh.read()
+
+    pattern = re.compile(
+        r"http::verb::(?P<verb>get|post|put|delete_|patch)\s*&&\s*"
+        r"target(?:_path)?\s*(?:==|\.starts_with\s*\()\s*"
+        r'"(?P<path>/ndt/[^"]*)"',
+        re.MULTILINE,
+    )
+    found: dict[str, str] = {}
+    for m in pattern.finditer(src):
+        verb = m.group("verb").rstrip("_").upper()
+        name = m.group("path").removeprefix("/ndt/").rstrip("?").rstrip("/")
+        found[name] = verb
+    return found
+
+
+def check_dispatch_drift(http_session_cpp: str) -> list[str]:
+    """Returns human-readable drift messages; empty means the table is accurate."""
+    try:
+        actual = scan_kernel_dispatch(http_session_cpp)
+    except OSError as exc:
+        return [f"cannot read {http_session_cpp}: {exc}"]
+
+    problems = []
+    for name, verb in sorted(actual.items()):
+        if name not in KERNEL_ENDPOINTS:
+            consumers = endpoint_consumers().get(name)
+            extra = f" (used by {', '.join(consumers)})" if consumers else ""
+            problems.append(
+                f"kernel registers {verb} /ndt/{name} but KERNEL_ENDPOINTS omits it{extra}")
+        elif KERNEL_ENDPOINTS[name] != verb:
+            problems.append(
+                f"/ndt/{name}: kernel uses {verb}, KERNEL_ENDPOINTS says "
+                f"{KERNEL_ENDPOINTS[name]} -- a probe with the wrong method gets a 404 "
+                f"and looks like a missing endpoint")
+    for name in sorted(KERNEL_ENDPOINTS):
+        if name not in actual:
+            problems.append(
+                f"KERNEL_ENDPOINTS lists /ndt/{name} but the kernel no longer registers it")
+    return problems
+
+
 def endpoint_consumers() -> dict[str, list[str]]:
     """Reverse index: endpoint -> components that depend on it, most-used first."""
     index: dict[str, list[str]] = {}

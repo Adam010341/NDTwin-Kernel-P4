@@ -102,6 +102,14 @@ class Context:
         # A switch dpid to use for per-switch queries. min() keeps runs reproducible.
         self.a_dpid = min(self.expected_dpids) if self.expected_dpids else 1
 
+        # The chosen switch's current name and IP, read from the topology so that
+        # mutating checks can write back what is already there instead of changing it.
+        # modify_device_name persists to the topology JSON, so sending a different name
+        # would edit a file on disk; set_switches_power_state can cut a real device.
+        chosen = next((s for s in switches if s.get("dpid") == self.a_dpid), None) or {}
+        self.original_device_name = chosen.get("device_name", "s1")
+        self.a_switch_ip = self._first_ip(chosen) or "127.0.0.1"
+
         # Two host IPs for path queries. Topology stores IPs as network-order uint32.
         host_ips = [self._first_ip(h) for h in hosts]
         host_ips = [ip for ip in host_ips if ip]
@@ -126,13 +134,23 @@ class Context:
 
 
 class Result:
-    def __init__(self, name, ok, failures=None, status=None, skipped=False, note=None):
+    def __init__(self, name, ok, failures=None, status=None, skipped=False, note=None,
+                 known_gap=None, gap_closed=False, data=None):
         self.name = name
         self.ok = ok
         self.failures = failures or []
         self.status = status
         self.skipped = skipped
         self.note = note
+        # A recorded kernel defect: the check legitimately fails, so it reports yellow
+        # rather than red. Same principle as the log and baseline allowlists -- a known
+        # problem must not mask a new one by keeping the suite permanently red.
+        self.known_gap = known_gap
+        # Set when a check with a known_gap unexpectedly PASSES, i.e. the defect was
+        # fixed and the marker should be deleted.
+        self.gap_closed = gap_closed
+        # The parsed response, kept so --save-json does not have to request again.
+        self.data = data
 
 
 def resolve(value, ctx):
@@ -179,6 +197,18 @@ def request(base_url, ep, ctx, timeout) -> tuple[int, object, str | None]:
 def check_endpoint(base_url, ep, ctx, args) -> Result:
     status, data, transport_err = request(base_url, ep, ctx, args.timeout)
     name = ep["name"]
+    gap = ep.get("known_gap")
+
+    def finish(ok, failures):
+        """Applies known-gap handling uniformly to every exit path."""
+        if gap:
+            if ok:
+                # The defect was fixed: say so loudly rather than staying quiet.
+                return Result(name, True, [], status, note=ep.get("note"),
+                              known_gap=gap, gap_closed=True, data=data)
+            return Result(name, True, failures, status, note=ep.get("note"),
+                          known_gap=gap, data=data)
+        return Result(name, ok, failures, status, note=ep.get("note"), data=data)
 
     expected = ep.get("expect_status", [200])
     if status not in expected:
@@ -189,18 +219,18 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
         # A 500 on an error-path check is the specific thing we are hunting.
         if status >= 500:
             msg += " -- a 5xx means an unhandled exception, not input validation"
-        return Result(name, False, [msg], status, note=ep.get("note"))
+        return finish(False, [msg])
 
     # Error-path checks care only about the status code.
     if ep["category"] == ERRORPATH:
-        return Result(name, True, [], status, note=ep.get("note"))
+        return finish(True, [])
 
     if transport_err:
-        return Result(name, False, [transport_err], status, note=ep.get("note"))
+        return finish(False, [transport_err])
 
     failures = validate(ep["schema"], data)
     if failures:
-        return Result(name, False, failures, status, note=ep.get("note"))
+        return finish(False, failures)
 
     invariants = list(ep.get("invariants", []))
     if args.with_traffic:
@@ -211,7 +241,7 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
         except Exception as exc:  # an invariant itself blowing up is a test bug
             failures.append(f"invariant {inv.__name__} raised {type(exc).__name__}: {exc}")
 
-    return Result(name, not failures, failures, status, note=ep.get("note"))
+    return finish(not failures, failures)
 
 
 def run_self_test(pal: Palette) -> int:
@@ -318,25 +348,50 @@ def main() -> int:
         res = check_endpoint(args.url, ep, ctx, args)
         results.append(res)
 
+        # Reuse the response the check already fetched. Requesting again would double
+        # every mutation under --allow-mutations, and would capture acquire_lock's
+        # *conflict* reply rather than the successful one.
         if args.save_json and ep["category"] != ERRORPATH:
-            _, data, _ = request(args.url, ep, ctx, args.timeout)
             with open(os.path.join(args.save_json, f"{ep['name']}.json"), "w") as fh:
-                json.dump(data, fh, indent=2, sort_keys=True)
+                json.dump(res.data, fh, indent=2, sort_keys=True)
 
-        tag = pal.green("PASS") if res.ok else pal.red("FAIL")
+        if res.gap_closed:
+            tag = pal.yellow("FIXED")
+        elif res.known_gap and res.failures:
+            tag = pal.yellow("GAP ")
+        elif res.ok:
+            tag = pal.green("PASS")
+        else:
+            tag = pal.red("FAIL")
         status = f"[{res.status}]" if res.status else "[---]"
         print(f"  {tag} {status:6} {res.name}")
-        if not res.ok:
+
+        if res.gap_closed:
+            print(f"           {pal.yellow('this known gap now PASSES')} — remove the "
+                  f"known_gap marker from spec.py")
+            print(f"           {pal.dim('was: ' + res.known_gap)}")
+        elif res.failures:
             for f in res.failures:
-                print(f"           {pal.red('-')} {f}")
-            if res.note:
+                marker = pal.yellow('-') if res.known_gap else pal.red('-')
+                print(f"           {marker} {f}")
+            if res.known_gap:
+                print(f"           {pal.dim('known kernel gap: ' + res.known_gap)}")
+            elif res.note:
                 print(f"           {pal.dim('note: ' + res.note)}")
 
     elapsed = time.time() - started
     failed = [r for r in results if not r.ok]
+    gaps = [r for r in results if r.known_gap and r.failures and not r.gap_closed]
+    fixed = [r for r in results if r.gap_closed]
 
     print(f"\n{'=' * 70}")
     print(f"{len(results) - len(failed)}/{len(results)} passed in {elapsed:.1f}s")
+    if gaps:
+        print(pal.yellow(f"{len(gaps)} known kernel gap(s) (not counted as failures): "
+                         f"{', '.join(r.name for r in gaps)}"))
+    if fixed:
+        print(pal.yellow(f"{len(fixed)} known gap(s) now pass — remove their markers: "
+                         f"{', '.join(r.name for r in fixed)}"))
     if failed:
         print(pal.red(f"\nFAILED checks: {', '.join(r.name for r in failed)}"))
         if not args.with_traffic:

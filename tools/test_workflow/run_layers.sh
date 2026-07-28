@@ -77,13 +77,38 @@ run_l3() {
     "$CONTRACT_DIR/l3_component_check.py" --url "$NDT_URL" --topology "$topo" "$@"
 }
 
-run_logcheck() {
-    local log="$LOG_DIR/kernel.log"
-    if [[ ! -f "$log" ]]; then
-        echo "no kernel log at $log (was the stack started via stack.sh?)"
-        return 0    # not a failure; the stack may have been started by hand
+KERNEL_LOG="$LOG_DIR/kernel.log"
+LOG_MARK=0
+
+# Record how long the kernel log is BEFORE the contract tests run. L2's error-path
+# checks deliberately provoke ERROR and WARN lines (malformed JSON, unknown dpid,
+# non-numeric dpid, unknown endpoint), so checking the whole file afterwards would be
+# permanently red for reasons the test itself caused -- which trains you to ignore the
+# one mechanism that makes new warnings fail.
+mark_log() {
+    if [[ -f "$KERNEL_LOG" ]]; then
+        LOG_MARK=$(wc -l <"$KERNEL_LOG")
+    else
+        LOG_MARK=0
     fi
-    "$CONTRACT_DIR/check_logs.py" "$log" --ignore-unparsed
+}
+
+run_logcheck() {
+    if [[ ! -f "$KERNEL_LOG" ]]; then
+        # Not silently passing: a missing log means this layer checked nothing, and the
+        # documented workflow starts Mininet by hand, so this is easy to hit by accident.
+        echo "${R}no kernel log at $KERNEL_LOG${N}"
+        echo "this layer verified nothing. Either start the stack with stack.sh, or point"
+        echo "the checker at your log directly:"
+        echo "  $CONTRACT_DIR/check_logs.py /path/to/kernel.log"
+        return 1
+    fi
+    if [[ "$LOG_MARK" -gt 0 ]]; then
+        echo "${D}checking lines 1-$LOG_MARK (before the L2 error-path checks)${N}"
+        "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG" --to-line "$LOG_MARK"
+    else
+        "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG"
+    fi
 }
 
 run_capture() {
@@ -171,6 +196,7 @@ case "$MODE" in
             echo "start it first:  $HERE/stack.sh up $DP && $HERE/stack.sh wait"
             exit 1
         fi
+        mark_log
         layer "L2 API contract ($DP)" run_l2 "$TOPO" "${EXTRA[@]}"
         layer "L3 component contract ($DP)" run_l3 "$TOPO" "${EXTRA[@]}"
         layer "log allowlist check" run_logcheck
@@ -214,6 +240,7 @@ case "$MODE" in
         layer "L0 build check" run_l0
         layer "L1 unit tests" run_l1 --no-build
         if kernel_reachable; then
+            mark_log
             layer "L2 API contract ($DP)" run_l2 "$TOPO" "${EXTRA[@]}"
             layer "L3 component contract ($DP)" run_l3 "$TOPO" "${EXTRA[@]}"
             layer "log allowlist check" run_logcheck

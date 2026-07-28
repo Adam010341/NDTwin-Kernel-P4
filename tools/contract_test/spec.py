@@ -35,14 +35,24 @@ READ = "read"        # safe: never changes network state
 MUTATE = "mutate"    # changes flow rules / power / names; needs --allow-mutations
 ERRORPATH = "error"  # deliberately bad input; asserts a sane failure
 
+# Lock type used by the lock checks. Must be one the kernel accepts
+# (routing_lock / graph_lock / power_lock) or acquireLock rejects it outright.
+# graph_lock is real but unused by every app in the workspace, so these checks get real
+# mutual-exclusion semantics with no risk of disturbing a running application.
+LOCK_TYPE = "graph_lock"
+LOCK_TTL = 5
+
 # --- reusable sub-schemas ---------------------------------------------------------
 
 # ip is a list because a node may have several addresses (see get_graph_data docs).
-IP_LIST = List(Int(min=0))
+# Bounded to uint32: the kernel stores IPv4 in network order as uint32, so a value above
+# 0xFFFFFFFF means something overflowed or a field was misread.
+UINT32_MAX = 0xFFFFFFFF
+IP_LIST = List(Int(min=0, max=UINT32_MAX))
 
 FLOW_KEY = Obj({
-    "src_ip": Int(min=0),
-    "dst_ip": Int(min=0),
+    "src_ip": Int(min=0, max=UINT32_MAX),
+    "dst_ip": Int(min=0, max=UINT32_MAX),
     "src_port": Int(min=0, max=65535),
     "dst_port": Int(min=0, max=65535),
     "protocol_number": Int(min=0, max=255),
@@ -80,8 +90,8 @@ GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE
 PATH_HOP = Obj({"node": Int(min=0), "interface": Int(min=0)})
 
 FLOW_RECORD = Obj({
-    "src_ip": Int(min=0),
-    "dst_ip": Int(min=0),
+    "src_ip": Int(min=0, max=UINT32_MAX),
+    "dst_ip": Int(min=0, max=UINT32_MAX),
     "src_port": Int(min=0, max=65535),
     "dst_port": Int(min=0, max=65535),
     "protocol_id": Int(min=0, max=255),
@@ -275,6 +285,18 @@ def inv_avg_link_usage_range(data, ctx):
     return []
 
 
+def inv_lock_acquired(data, ctx):
+    """
+    A 200 from acquire_lock is not enough: the body must say it was actually locked.
+    Guards against a handler that returns success while the LockManager refused.
+    """
+    status = str(data.get("status", "")).lower()
+    if status not in ("locked", "acquired", "success", "ok"):
+        return [f"acquire_lock returned 200 but status is {data.get('status')!r}, "
+                f"which does not indicate the lock was taken"]
+    return []
+
+
 def inv_power_state_values(data, ctx):
     bad = {k: v for k, v in data.items() if v not in ("ON", "OFF")}
     if bad:
@@ -319,13 +341,19 @@ ENDPOINTS = [
          schema=Obj({"status": Str(), "avg_link_usage": Num()}),
          invariants=[inv_avg_link_usage_range]),
 
+    # The second branch was previously Obj({"status"}, strict=False), which accepts ANY
+    # object containing "status" -- switch_count could vanish entirely and still pass.
+    # Both branches now require a concrete shape.
     dict(name="get_path_switch_count", method="GET", path="/ndt/get_path_switch_count",
          query=lambda ctx: {"src_ip": ctx.src_host_ip, "dst_ip": ctx.dst_host_ip},
          category=READ,
          schema=OneOf(
              Obj({"status": Str(), "src_ip": Str(), "dst_ip": Str(),
                   "switch_count": Int(min=0)}),
-             Obj({"status": Str()}, strict=False),
+             # Documented alternative: all known paths when the parameters are omitted.
+             Obj({"status": Str(), "paths": Any_()}),
+             # Explicit "not found" style answer.
+             Obj({"status": Str(), "message": Str()}),
          )),
 
     dict(name="get_num_of_flows_passing_a_switch", method="POST",
@@ -343,7 +371,7 @@ ENDPOINTS = [
     # ---------- read-only: device health ----------
     dict(name="get_power_report", method="GET", path="/ndt/get_power_report",
          category=READ,
-         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num()})),
+         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num(min=0)})),
          invariants=[inv_power_covers_switches]),
 
     dict(name="get_switches_power_state", method="GET", path="/ndt/get_switches_power_state",
@@ -375,33 +403,72 @@ ENDPOINTS = [
          category=READ, schema=Obj({"nickname": Str()})),
 
     # ---------- locks: stateful, but self-contained ----------
+    #
+    # LOCK_TYPE below must be one the kernel recognises: LockManager::stringToLockType
+    # accepts only routing_lock / graph_lock / power_lock and returns Unknown otherwise,
+    # and acquireLock/renew reject Unknown. An invented type therefore makes every lock
+    # check fail while never exercising the mutual-exclusion logic at all.
+    #
+    # graph_lock is used because it is a real type that NO application uses -- grepping
+    # the workspace finds only routing_lock (Energy-Saving-App, Traffic-Engineering-App).
+    # So these checks exercise genuine locking without being able to disturb a running
+    # app. If an app ever starts using graph_lock, move this to power_lock.
     dict(name="acquire_lock", method="POST", path="/ndt/acquire_lock",
-         body={"type": "ndt_contract_test_lock", "ttl": 5},
+         body={"type": LOCK_TYPE, "ttl": LOCK_TTL},
          category=READ,
          schema=Obj({"status": Str()}, optional={"type": Str(), "ttl": Int()}),
-         note="uses its own lock type so it cannot disturb a running app"),
+         invariants=[inv_lock_acquired],
+         note=f"uses {LOCK_TYPE}: a real lock type that no application uses"),
 
     dict(name="acquire_lock_conflict", method="POST", path="/ndt/acquire_lock",
-         body={"type": "ndt_contract_test_lock", "ttl": 5},
+         body={"type": LOCK_TYPE, "ttl": LOCK_TTL},
          category=ERRORPATH, expect_status=[423],
          schema=Any_(),
-         note="second acquire of a held lock must return 423 Locked"),
+         note="second acquire of a held lock must return 423 Locked -- this is the "
+              "only check that proves mutual exclusion actually works"),
 
     dict(name="renew_lock", method="POST", path="/ndt/renew_lock",
-         body={"type": "ndt_contract_test_lock", "ttl": 5},
+         body={"type": LOCK_TYPE, "ttl": LOCK_TTL},
          category=READ,
          schema=Obj({"status": Str()}, optional={"type": Str(), "ttl": Int()})),
 
     dict(name="release_lock", method="POST", path="/ndt/release_lock",
-         body={"type": "ndt_contract_test_lock"},
+         body={"type": LOCK_TYPE},
          category=READ,
          schema=Obj({"status": Str()}, optional={"type": Str()})),
 
+    dict(name="acquire_lock_after_release", method="POST", path="/ndt/acquire_lock",
+         body={"type": LOCK_TYPE, "ttl": LOCK_TTL},
+         category=READ,
+         schema=Obj({"status": Str()}, optional={"type": Str(), "ttl": Int()}),
+         invariants=[inv_lock_acquired],
+         note="a released lock must be acquirable again -- catches a release that "
+              "reports success without actually clearing the lock"),
+
+    dict(name="release_lock_cleanup", method="POST", path="/ndt/release_lock",
+         body={"type": LOCK_TYPE},
+         category=READ,
+         schema=Obj({"status": Str()}, optional={"type": Str()}),
+         note="leaves no lock held behind"),
+
     dict(name="release_lock_not_held", method="POST", path="/ndt/release_lock",
-         body={"type": "ndt_contract_test_lock"},
+         body={"type": LOCK_TYPE},
          category=ERRORPATH, expect_status=[412, 400, 404],
          schema=Any_(),
+         known_gap=(
+             "HttpSession::handleReleaseLock returns 200 unconditionally -- it never "
+             "checks whether the lock was held or the type was valid, so a stale or "
+             "bogus release is indistinguishable from a real one. doc/testing_workflow.md "
+             "documents 412 for this case; the kernel does not implement it."
+         ),
          note="releasing an already-released lock must not report success"),
+
+    dict(name="acquire_lock_invalid_type", method="POST", path="/ndt/acquire_lock",
+         body={"type": "no_such_lock_type_exists", "ttl": 5},
+         category=ERRORPATH, expect_status=[400, 422, 423],
+         schema=Any_(),
+         note="an unknown lock type must be rejected; the kernel currently answers 423, "
+              "which is indistinguishable from 'busy' but is at least not a success"),
 
     # ---------- error paths: bad input must fail cleanly, never 500, never fake 200 ----
     dict(name="install_flow_entry__unknown_dpid", method="POST",
@@ -499,6 +566,67 @@ ENDPOINTS = [
                            "nickname": "ndt_contract_test"},
          category=MUTATE,
          schema=Obj({"status": Str()}, optional={"message": Str()})),
+
+    # ---------- endpoints with real consumers that previously had no contract --------
+    # Each of these is called by a shipped component but was only ever verified as
+    # "not a 404" by L3. They mutate state, so they sit behind --allow-mutations.
+
+    dict(name="app_register", method="POST", path="/ndt/app_register",
+         body={"app_name": "ndt_contract_test",
+               "simulation_completed_url": "http://127.0.0.1:9/ndt_contract_test"},
+         category=MUTATE,
+         schema=Obj({"app_id": OneOf(Int(min=0), Str())},
+                    optional={"message": Str(), "status": Str()}),
+         note="used by Energy-Saving-App and Simulation-Platform-Manager. Registering "
+              "creates an NFS directory for the app, so this leaves a stray "
+              "'ndt_contract_test' registration behind"),
+
+    dict(name="modify_device_name", method="POST", path="/ndt/modify_device_name",
+         body=lambda ctx: {"vertex_type": 0, "dpid": ctx.a_dpid,
+                           "device_name": ctx.original_device_name},
+         category=MUTATE,
+         schema=Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
+         note="Web-GUI depends on this. Writes the name back to the topology JSON, so "
+              "the body deliberately re-sets the CURRENT name: a rename here would edit "
+              "the topology file on disk (and, per issue 12 of the P4 plan, possibly "
+              "the wrong one)"),
+
+    dict(name="set_switches_power_state", method="POST",
+         path="/ndt/set_switches_power_state",
+         query=lambda ctx: {"ip": ctx.a_switch_ip, "action": "on"},
+         category=MUTATE,
+         schema=MapOf(Str(), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         note="Energy-Saving-App depends on this. Deliberately sends action=on to an "
+              "already-powered switch: 'off' would cut a real device in TESTBED mode"),
+
+    # The simulation endpoints forward to the Simulation-Platform-Manager, which is not
+    # part of a normal kernel test run, so a success-path contract would be flaky. Their
+    # input validation is testable without it, and that is where a 500 would hurt.
+    dict(name="received_a_simulation_case__malformed", method="POST",
+         path="/ndt/received_a_simulation_case", raw_body="{not json",
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="used by Energy-Saving-App and Simulation-Platform-Manager"),
+
+    dict(name="received_a_simulation_case__missing_fields", method="POST",
+         path="/ndt/received_a_simulation_case", body={},
+         category=ERRORPATH, expect_status=[400, 422],
+         schema=Any_()),
+
+    dict(name="simulation_completed__malformed", method="POST",
+         path="/ndt/simulation_completed", raw_body="{not json",
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="used by Simulation-Platform-Manager"),
+
+    dict(name="app_register__missing_fields", method="POST", path="/ndt/app_register",
+         body={}, category=ERRORPATH, expect_status=[400, 422],
+         schema=Any_()),
+
+    # Not included: intent_translator/text. It needs an OpenAI token, costs money per
+    # call, and its response is model-dependent, so a contract check would be flaky and
+    # expensive. Web-GUI's dependency on it is verified by L3 existence only -- recorded
+    # here so the omission is a decision rather than an oversight.
 ]
 
 
