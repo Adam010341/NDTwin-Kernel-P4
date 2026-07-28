@@ -283,13 +283,17 @@ TopologyAndFlowMonitor::findVertexByIpNoLock(uint32_t ip) const
 std::string
 TopologyAndFlowMonitor::activeTopologyPath() const
 {
-    if (m_mode == utils::TESTBED)
-    {
-        return TOPOLOGY_FILE;
-    }
+    // The override is checked before the mode defaults, so --topology (which sets this env
+    // var) works in TESTBED as well as MININET. Checking the mode first meant
+    // `--mode testbed --topology custom.json` silently loaded the default file instead --
+    // the same class of quiet-wrong-topology failure this function exists to prevent.
     if (const char* custom = std::getenv("NDTWIN_TOPO_FILE"))
     {
         return custom;
+    }
+    if (m_mode == utils::TESTBED)
+    {
+        return TOPOLOGY_FILE;
     }
     return TOPOLOGY_FILE_MININET;
 }

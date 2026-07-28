@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include "../setting/AppConfig.hpp"
 #include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
@@ -305,6 +306,96 @@ TEST_F(SwitchKindFixture, EmptyTopologyFailsValidation)
     // A graph with no switches cannot control anything, so it is never acceptable.
     auto monitor = load("");
     EXPECT_FALSE(monitor->validateDataPlaneHomogeneity(/*allowMixed=*/true));
+}
+
+// =====================================================================================
+// activeTopologyPath -- which file a run reads AND writes
+// =====================================================================================
+
+namespace
+{
+
+/// Sets NDTWIN_TOPO_FILE for the duration of a test and restores it afterwards, so these
+/// tests cannot leak state into the others (or into whatever ran before them).
+class ScopedTopoEnv
+{
+  public:
+    explicit ScopedTopoEnv(const char* value)
+    {
+        if (const char* existing = std::getenv("NDTWIN_TOPO_FILE"))
+        {
+            m_had = true;
+            m_previous = existing;
+        }
+        if (value)
+        {
+            setenv("NDTWIN_TOPO_FILE", value, 1);
+        }
+        else
+        {
+            unsetenv("NDTWIN_TOPO_FILE");
+        }
+    }
+
+    ~ScopedTopoEnv()
+    {
+        if (m_had)
+        {
+            setenv("NDTWIN_TOPO_FILE", m_previous.c_str(), 1);
+        }
+        else
+        {
+            unsetenv("NDTWIN_TOPO_FILE");
+        }
+    }
+
+    ScopedTopoEnv(const ScopedTopoEnv&) = delete;
+    ScopedTopoEnv& operator=(const ScopedTopoEnv&) = delete;
+
+  private:
+    bool m_had = false;
+    std::string m_previous;
+};
+
+std::shared_ptr<TestableMonitor>
+makeMonitor(int mode)
+{
+    return std::make_shared<TestableMonitor>(std::make_shared<Graph>(),
+                                             std::make_shared<std::shared_mutex>(),
+                                             std::make_shared<EventBus>(),
+                                             mode);
+}
+
+} // namespace
+
+TEST_F(SwitchKindFixture, TopologyOverrideAppliesInMininetMode)
+{
+    ScopedTopoEnv env("/tmp/ndt_override_mininet.json");
+    auto monitor = makeMonitor(utils::DeploymentMode::MININET);
+    EXPECT_EQ(monitor->activeTopologyPath(), "/tmp/ndt_override_mininet.json");
+}
+
+TEST_F(SwitchKindFixture, TopologyOverrideAlsoAppliesInTestbedMode)
+{
+    // Regression: the mode check used to come first, so --mode testbed --topology X
+    // silently loaded the default file. Since the rename paths write to whatever this
+    // returns, that also meant edits landed in the wrong topology.
+    ScopedTopoEnv env("/tmp/ndt_override_testbed.json");
+    auto monitor = makeMonitor(utils::DeploymentMode::TESTBED);
+    EXPECT_EQ(monitor->activeTopologyPath(), "/tmp/ndt_override_testbed.json");
+}
+
+TEST_F(SwitchKindFixture, FallsBackToModeDefaultWithoutOverride)
+{
+    ScopedTopoEnv env(nullptr); // ensure unset
+
+    auto mininet = makeMonitor(utils::DeploymentMode::MININET);
+    EXPECT_EQ(mininet->activeTopologyPath(), AppConfig::TOPOLOGY_FILE_MININET);
+
+    auto testbed = makeMonitor(utils::DeploymentMode::TESTBED);
+    EXPECT_EQ(testbed->activeTopologyPath(), AppConfig::TOPOLOGY_FILE);
+
+    EXPECT_NE(mininet->activeTopologyPath(), testbed->activeTopologyPath());
 }
 
 // =====================================================================================
