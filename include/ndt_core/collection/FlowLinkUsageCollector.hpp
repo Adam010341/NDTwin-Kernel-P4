@@ -169,6 +169,38 @@ class FlowLinkUsageCollector
 
   protected:
     /**
+     * @brief Chooses between identity and ovs-vsctl port mapping, once.
+     *
+     * Deliberately *not* called from start(). The topology is loaded by the monitor's own
+     * thread, and measurement showed the collector reliably wins that race:
+     *
+     *     23:53:25.283  Collector Starts Up
+     *     23:53:25.283  Populating ifIndex to OFPort map...     <- decided here
+     *     23:53:25.283  Load Static Topology File
+     *     23:53:25.286  Data plane: bmv2 (10 switch(es))        <- known only here
+     *
+     * So deciding in start() always saw an empty topology and always took the ovs-vsctl
+     * branch -- which under bmv2 produced "Size: 0" and resolved every port to 0. Deferring
+     * to the first lookup fixes it, because a sample cannot arrive before the network exists.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void configurePortMapping();
+
+    /**
+     * @brief Translates an sFlow ifIndex to an OpenFlow port under a shared lock.
+     *
+     * Returns 0 for an unknown ifIndex, which callers already treat as "no port".
+     * Unlike operator[] this never inserts, so it is safe to call concurrently from
+     * the sFlow worker threads.
+     *
+     * Not const: the first call decides how the mapping works (see configurePortMapping).
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    uint32_t lookupOfport(uint32_t ifIndex);
+
+    /**
      * @brief Whether ifIndex values can be used as port numbers without translation.
      *
      * The OVS path needs translation because sFlow reports kernel interface indices while the
@@ -260,24 +292,15 @@ class FlowLinkUsageCollector
 
     void populateIfIndexToOfportMap();
 
-    /**
-     * @brief Translates an sFlow ifIndex to an OpenFlow port under a shared lock.
-     *
-     * Returns 0 for an unknown ifIndex, which callers already treat as "no port".
-     * Unlike operator[] this never inserts, so it is safe to call concurrently from
-     * the sFlow worker threads.
-     *
-     * [Co-developed with claude code -- Adam]
-     */
-    uint32_t lookupOfport(uint32_t ifIndex) const;
 
     std::unordered_map<uint32_t, uint32_t> m_ifIndexToOfportMap;
     // Protects the map: exclusive while populating, shared for per-sample lookups.
     mutable std::shared_mutex m_ifIndexMapMutex;
 
-    // Set once in start(), read by the sFlow workers. Atomic rather than mutex-guarded because
-    // it is written before any worker exists and only ever read afterwards.
+    // Decided on the first lookup, then read by every sFlow worker. Atomic because the
+    // deciding thread and the reading threads are not the same.
     std::atomic<bool> m_identityPortMapping{false};
+    std::once_flag m_portMappingOnce;
 
     // key -> (src ip, dst ip), value -> full path
     std::map<std::pair<uint32_t, uint32_t>, Path> m_allPathMap;

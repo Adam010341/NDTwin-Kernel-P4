@@ -27,6 +27,8 @@
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
+#include <atomic>
+#include <thread>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -55,6 +57,7 @@ class ProbeCollector : public sflow::FlowLinkUsageCollector
 
     using sflow::FlowLinkUsageCollector::handlePacket;
     using sflow::FlowLinkUsageCollector::malformedDatagramCount;
+    using sflow::FlowLinkUsageCollector::lookupOfport;
     using sflow::FlowLinkUsageCollector::usesIdentityPortMapping;
 };
 
@@ -313,4 +316,165 @@ TEST(IdentityPortMappingTest, HardwareSwitchesTranslate)
 {
     const std::map<SwitchKind, std::vector<uint64_t>> groups{{SwitchKind::HARDWARE, {1}}};
     EXPECT_FALSE(ProbeCollector::usesIdentityPortMapping(groups));
+}
+
+// ---------------------------------------------------------------------------------------------
+// When the mapping is decided
+//
+// The unit tests above pin the decision *function*. They passed while the feature was dead:
+// the collector was deciding in start(), before the monitor's thread had loaded the topology,
+// so it always saw zero switches and always took the ovs-vsctl branch. Measured from a real
+// run -- "Populating ifIndex to OFPort map..." at .283, "Data plane: bmv2" at .286, and the
+// identity log line never appeared at all.
+//
+// So these tests drive lookupOfport, which is where the decision now happens, with the
+// topology arriving late exactly as it does in production.
+// ---------------------------------------------------------------------------------------------
+
+namespace
+{
+
+/// Exposes the topology load, which is protected. Tests need it because getSwitchKindGroups
+/// reads a cache only this function fills.
+class ProbeMonitor : public TopologyAndFlowMonitor
+{
+  public:
+    using TopologyAndFlowMonitor::TopologyAndFlowMonitor;
+    using TopologyAndFlowMonitor::loadStaticTopologyFromFile;
+};
+
+/// A collector whose monitor starts empty, so the topology can be made to arrive afterwards.
+///
+/// Goes through the real loadStaticTopologyFromFile rather than adding vertices directly:
+/// getSwitchKindGroups reads m_dpidToSwitchKind, which only that function populates. An earlier
+/// version of this fixture poked the graph and so tested nothing.
+class LateTopologyFixture : public ::testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        LogConfig cfg;
+        cfg.level = spdlog::level::off;
+        Logger::init(cfg);
+    }
+
+    void SetUp() override
+    {
+        auto graph = std::make_shared<Graph>();
+        auto mutex = std::make_shared<std::shared_mutex>();
+        auto bus = std::make_shared<EventBus>();
+        m_monitor = std::make_shared<ProbeMonitor>(
+            graph, mutex, bus, utils::DeploymentMode::MININET);
+        m_collector = std::make_unique<ProbeCollector>(
+            m_monitor, bus, std::make_shared<ndtClassifier::Classifier>());
+    }
+
+    void TearDown() override
+    {
+        for (const auto& path : m_tempFiles)
+        {
+            std::filesystem::remove(path);
+        }
+    }
+
+    /// Loads a topology of switches of the given kinds, as the monitor's thread would.
+    void loadTopology(const std::vector<std::pair<uint64_t, std::string>>& switches)
+    {
+        nlohmann::json nodes = nlohmann::json::array();
+        for (const auto& [dpid, brand] : switches)
+        {
+            // Every field the loader reads; it uses at() rather than value(), so an omission
+            // throws rather than defaulting.
+            nodes.push_back({{"device_name", "s" + std::to_string(dpid)},
+                             {"bridge_name", "s" + std::to_string(dpid)},
+                             {"nickname", "s" + std::to_string(dpid)},
+                             {"brand_name", brand},
+                             {"device_layer", 2},
+                             {"dpid", dpid},
+                             {"ip", nlohmann::json::array({"192.168.123.11"})},
+                             {"mac", 0},
+                             {"smart_plug_ip", ""},
+                             {"smart_plug_outlet", 0},
+                             {"vertex_type", 0},
+                             {"ecmp_groups", nlohmann::json::array()}});
+        }
+        const nlohmann::json topology{{"nodes", nodes},
+                                      {"edges", nlohmann::json::array()},
+                                      {"links", nlohmann::json::array()}};
+
+        const auto path = std::filesystem::temp_directory_path() /
+                          ("ndt_late_topo_" + std::to_string(++m_counter) + ".json");
+        std::ofstream(path) << topology.dump();
+        m_tempFiles.push_back(path);
+
+        m_monitor->loadStaticTopologyFromFile(path.string());
+    }
+
+    std::shared_ptr<ProbeMonitor> m_monitor;
+    std::unique_ptr<ProbeCollector> m_collector;
+    std::vector<std::filesystem::path> m_tempFiles;
+    static int m_counter;
+};
+
+int LateTopologyFixture::m_counter = 0;
+
+} // namespace
+
+TEST_F(LateTopologyFixture, IdentityMappingIsChosenEvenWhenTheTopologyLoadsAfterStartup)
+{
+    // The regression. The collector is constructed against an empty topology, which then
+    // becomes all-bmv2 before any sample arrives -- the real startup order.
+    loadTopology({{1, "BMv2"}, {2, "BMv2"}});
+
+    EXPECT_EQ(m_collector->lookupOfport(3), 3u)
+        << "identity mapping was not applied; deciding too early is what caused this";
+    EXPECT_EQ(m_collector->lookupOfport(7), 7u);
+}
+
+TEST_F(LateTopologyFixture, TheDecisionIsMadeOnceAndSticks)
+{
+    // std::call_once, so a topology that changes later cannot flip the mapping mid-run and
+    // start reinterpreting ports differently for samples already in flight.
+    loadTopology({{1, "BMv2"}});
+    EXPECT_EQ(m_collector->lookupOfport(5), 5u);
+
+    loadTopology({{1, "OVS"}});
+    EXPECT_EQ(m_collector->lookupOfport(5), 5u) << "the mapping changed after the first lookup";
+}
+
+TEST_F(LateTopologyFixture, AnOvsTopologyStillGoesThroughTheMap)
+{
+    // No ovs-vsctl in a test environment, so the map is empty and every port resolves to 0.
+    // That is the pre-existing OVS behaviour and must be preserved: what matters here is that
+    // it did *not* take the identity branch and return the ifIndex unchanged.
+    loadTopology({{1, "OVS"}});
+    EXPECT_EQ(m_collector->lookupOfport(3), 0u)
+        << "an OVS topology must not use identity mapping";
+}
+
+TEST_F(LateTopologyFixture, ConcurrentFirstLookupsAgreeOnOneDecision)
+{
+    // lookupOfport runs on every sFlow worker thread, and the first call is what decides.
+    loadTopology({{1, "BMv2"}});
+
+    constexpr int kThreads = 8;
+    std::vector<std::thread> threads;
+    std::atomic<int> wrong{0};
+    for (int i = 0; i < kThreads; ++i)
+    {
+        threads.emplace_back([this, &wrong] {
+            for (uint32_t port = 1; port <= 50; ++port)
+            {
+                if (m_collector->lookupOfport(port) != port)
+                {
+                    wrong.fetch_add(1);
+                }
+            }
+        });
+    }
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+    EXPECT_EQ(wrong.load(), 0) << "concurrent first lookups disagreed on the mapping";
 }

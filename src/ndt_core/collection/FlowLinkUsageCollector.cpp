@@ -98,9 +98,40 @@ FlowLinkUsageCollector::usesIdentityPortMapping(
 }
 
 // [Co-developed with claude code -- Adam]
-uint32_t
-FlowLinkUsageCollector::lookupOfport(uint32_t ifIndex) const
+void
+FlowLinkUsageCollector::configurePortMapping()
 {
+    // Matches the original gating: only MININET ever translated ifIndex values at all.
+    if (m_mode != utils::MININET)
+    {
+        return;
+    }
+
+    const auto groups = m_topologyAndFlowMonitor
+                            ? m_topologyAndFlowMonitor->getSwitchKindGroups()
+                            : std::map<SwitchKind, std::vector<uint64_t>>{};
+
+    if (usesIdentityPortMapping(groups))
+    {
+        m_identityPortMapping.store(true, std::memory_order_relaxed);
+        SPDLOG_LOGGER_INFO(
+            Logger::instance(),
+            "All-bmv2 topology: using identity ifIndex->port mapping and skipping ovs-vsctl, "
+            "which does not know about bmv2 interfaces.");
+        return;
+    }
+
+    populateIfIndexToOfportMap();
+}
+
+// [Co-developed with claude code -- Adam]
+uint32_t
+FlowLinkUsageCollector::lookupOfport(uint32_t ifIndex)
+{
+    // Must happen before the shared_lock below: populateIfIndexToOfportMap takes the same
+    // mutex exclusively, so calling it while holding a shared lock would deadlock.
+    std::call_once(m_portMappingOnce, [this] { configurePortMapping(); });
+
     if (m_identityPortMapping.load(std::memory_order_relaxed))
     {
         // The bmv2 emitter already reports P4 port numbers, so there is nothing to translate.
@@ -319,25 +350,9 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Collector Starts Up");
 
-    if (m_mode == utils::MININET)
-    {
-        // [Co-developed with claude code -- Adam]
-        const auto groups = m_topologyAndFlowMonitor
-                                ? m_topologyAndFlowMonitor->getSwitchKindGroups()
-                                : std::map<SwitchKind, std::vector<uint64_t>>{};
-        if (usesIdentityPortMapping(groups))
-        {
-            m_identityPortMapping.store(true, std::memory_order_relaxed);
-            SPDLOG_LOGGER_INFO(
-                Logger::instance(),
-                "All-bmv2 topology: using identity ifIndex->port mapping and skipping "
-                "ovs-vsctl, which does not know about bmv2 interfaces.");
-        }
-        else
-        {
-            populateIfIndexToOfportMap();
-        }
-    }
+    // The ifIndex->port mapping is configured on first use rather than here: the topology is
+    // not loaded yet at this point. See configurePortMapping.
+    // [Co-developed with claude code -- Adam]
 
     // Call All Destination When Initialize
     fetchAllDestinationPaths();
