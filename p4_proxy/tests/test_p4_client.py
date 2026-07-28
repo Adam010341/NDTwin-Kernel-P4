@@ -1,37 +1,76 @@
-import sys
+"""
+Integration check for P4RuntimeClient against a live bmv2 switch.
+
+This is not a unit test: it needs `simple_switch_grpc` actually listening, and it writes real
+table entries. It skips itself when no switch is reachable, so it can sit alongside the unit
+tests without failing a run that has no data plane up.
+
+To exercise it, start the P4 testbed first:
+
+    sudo python3 p4_proxy/mininet/p4_testbed_topo.py
+
+then
+
+    PYTHONPATH=p4_proxy p4_proxy/venv/bin/python p4_proxy/tests/test_p4_client.py
+
+[Co-developed with claude code -- Adam]
+"""
+
+from __future__ import annotations
+
 import os
+import socket
+import sys
 import time
+import unittest
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from proxy_agent.p4_client import P4RuntimeClient
+from proxy_agent.p4_client import P4RuntimeClient  # noqa: E402
 
-def test_client():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    p4info_path = os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.p4info.txt')
-    json_path = os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.json')
-    
-    print("Initializing P4RuntimeClient...")
-    client = P4RuntimeClient(
-        device_id=1, 
-        grpc_addr='localhost:50051', 
-        p4info_path=p4info_path, 
-        json_path=json_path
-    )
-    
-    print("Starting client (connecting and setting pipeline config)...")
-    client.start()
-    
-    # Wait for mastership and pipeline config to settle
-    time.sleep(1)
-    
-    print("Adding IPv4 rules via class methods...")
-    client.insert_ipv4_route("10.0.0.1", 32, "00:00:00:00:00:01", 1)
-    client.insert_ipv4_route("10.0.0.2", 32, "00:00:00:00:00:02", 2)
-    
-    print("Routes added. Waiting for 2 seconds to keep stream alive...")
-    time.sleep(2)
-    client.stop()
-    print("Client stopped successfully.")
+GRPC_HOST = "localhost"
+GRPC_PORT = 50051
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+P4INFO = os.path.join(BASE_DIR, "p4_src", "build", "ndtwin_switch.p4info.txt")
+PIPELINE_JSON = os.path.join(BASE_DIR, "p4_src", "build", "ndtwin_switch.json")
 
-if __name__ == '__main__':
-    test_client()
+
+def a_switch_is_listening(host: str = GRPC_HOST, port: int = GRPC_PORT) -> bool:
+    """
+    Whether anything accepts TCP on the gRPC port.
+
+    Checked with a plain socket rather than by attempting the RPC, because the client's start()
+    raises from deep inside grpc on failure and that is what used to abort the whole file.
+    """
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+@unittest.skipUnless(a_switch_is_listening(),
+                     f"no bmv2 listening on {GRPC_HOST}:{GRPC_PORT}; "
+                     f"start p4_proxy/mininet/p4_testbed_topo.py to run this")
+@unittest.skipUnless(os.path.exists(P4INFO) and os.path.exists(PIPELINE_JSON),
+                     "pipeline not built; run tools/test_workflow/l0_build_check.sh p4")
+class LiveSwitchTest(unittest.TestCase):
+    def setUp(self):
+        self.client = P4RuntimeClient(device_id=1,
+                                      grpc_addr=f"{GRPC_HOST}:{GRPC_PORT}",
+                                      p4info_path=P4INFO,
+                                      json_path=PIPELINE_JSON)
+        self.client.start()
+        self.addCleanup(self.client.stop)
+        time.sleep(1)  # let mastership and the pipeline config settle
+
+    def test_installs_routes_and_the_clone_session(self):
+        self.assertTrue(self.client.insert_ipv4_route("10.0.0.1", 32, "00:00:00:00:00:01", 1))
+        self.assertTrue(self.client.insert_ipv4_route("10.0.0.2", 32, "00:00:00:00:00:02", 2))
+        # start() programs this; assert it against a real PRE, which is the one thing no unit
+        # test can check -- tests/test_clone_session.py can only verify the request we build.
+        self.assertTrue(self.client.write_clone_session())
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

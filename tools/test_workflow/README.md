@@ -23,7 +23,7 @@ L2 / L3 / L4 的 Python 工具在 [../contract_test/](../contract_test/)。
 |---|---|---|
 | `components.env` | — | 路徑、conda env、port、拓撲檔的單一資料來源 |
 | `l0_build_check.sh` | L0 | 所有元件是否還建置得起來 |
-| `l1_unit_tests.sh` | L1 | kernel 單元測試（**兩種方式**都跑） |
+| `l1_unit_tests.sh` | L1 | kernel 單元測試（**兩種方式**都跑）＋ P4 proxy 的 Python 測試 |
 | `stack.sh` | — | 按正確順序啟動／關閉，並等待拓撲收斂 |
 | `run_layers.sh` | 全部 | 頂層驅動，把各層組合起來 |
 

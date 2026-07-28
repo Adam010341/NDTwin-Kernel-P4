@@ -62,8 +62,11 @@ tests/test_sflow_emitter.py checks the emitter reproduces it.
 
 from __future__ import annotations
 
+import json
+import os
 import socket
 import struct
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -249,15 +252,33 @@ class SFlowEmitter:
     def __init__(self,
                  collector: tuple[str, int] = DEFAULT_COLLECTOR,
                  max_header_bytes: int = DEFAULT_MAX_HEADER_BYTES,
-                 sock: Optional[socket.socket] = None):
+                 sock: Optional[socket.socket] = None,
+                 started_at: Optional[float] = None):
         self.collector = collector
         self.max_header_bytes = max_header_bytes
         # Injectable so tests do not need a socket at all.
         self._sock = sock or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._agents: dict[int, SwitchAgent] = {}
+        # Monotonic, because sysUpTime must not move backwards: a wall-clock step (NTP, DST)
+        # would make the kernel see time run in reverse between two samples.
+        self._started_at = started_at if started_at is not None else time.monotonic()
         self.datagrams_sent = 0
         self.samples_sent = 0
         self.send_errors = 0
+
+    def uptime_ms(self) -> int:
+        """Milliseconds since this emitter started, as sFlow's sysUpTime (a 32-bit field)."""
+        return int((time.monotonic() - self._started_at) * 1000) & 0xFFFFFFFF
+
+    def handle_sample(self, dpid: int, sample: SampledPacket) -> bool:
+        """
+        Callback shape for P4RuntimeClient.sample_callback.
+
+        Fills in sysUpTime so the gRPC receive path does not have to track it, and swallows
+        nothing: emit() already reports failure by return value rather than by raising, because
+        an exception here would kill the stream thread and end telemetry for that switch.
+        """
+        return self.emit(dpid, sample, self.uptime_ms())
 
     def register_switch(self, dpid: int, agent_ip: str) -> None:
         """
@@ -307,49 +328,113 @@ class SFlowEmitter:
             pass
 
 
-# --- decoding the P4 sample header ------------------------------------------------
+# --- interpreting a CPU packet ----------------------------------------------------
 
-# Layout of `sample_header_t` in ndtwin_switch.p4:
-#   bit<9> ingress_port, bit<9> egress_port, bit<16> frame_length,
-#   bit<16> sampling_rate, bit<6> _pad   -> 56 bits, 7 bytes
-SAMPLE_HEADER_BYTES = 7
+# Metadata ids of packet_in_header_t in ndtwin_switch.p4, as they appear in the generated
+# p4info. They are positional, so reordering the header's fields renumbers them -- which is
+# why these are named constants rather than literals at the use site.
+PKTIN_META_REASON = 1
+PKTIN_META_INGRESS_PORT = 2
+PKTIN_META_EGRESS_PORT = 3
+PKTIN_META_FRAME_LENGTH = 4
+PKTIN_META_SAMPLING_RATE = 5
+
+PKTIN_REASON_PACKET_IN = 0
+PKTIN_REASON_SAMPLE = 1
 
 
-def parse_sample_header(payload: bytes) -> Optional[tuple[SampledPacket, bytes]]:
+def metadata_by_id(packet_in) -> dict[int, int]:
     """
-    Splits a CPU-bound packet into its `sample` header and the frame behind it.
+    Collapses a P4Runtime PacketIn's metadata list into {id: int}.
 
-    Returns None when the payload is too short to contain the header, which means it is a
-    normal packet-in (unmatched traffic or an LLDP beacon) rather than a telemetry sample and
-    should be handled by the discovery path instead.
-
-    The fields are not byte-aligned -- 9 + 9 + 16 + 16 + 6 bits -- so they are unpacked from a
-    big-endian bit string rather than with struct.
+    P4Runtime's canonical byte-string representation strips leading zero bytes, so a field's
+    encoded width varies with its value and cannot be assumed -- int.from_bytes handles any
+    length. Absent ids are simply missing from the result; callers decide what that means.
     """
-    if len(payload) < SAMPLE_HEADER_BYTES:
+    return {m.metadata_id: int.from_bytes(m.value, "big") for m in packet_in.metadata}
+
+
+def sample_from_packet_in(packet_in) -> Optional[SampledPacket]:
+    """
+    Builds a SampledPacket from a telemetry-sample packet-in, or returns None.
+
+    Returns None for a genuine packet-in (unmatched traffic or an LLDP beacon), which belongs
+    to the discovery path instead. The distinction comes from the `reason` field rather than
+    from the payload's shape: PI strips the controller header into typed metadata before the
+    proxy sees it, so there is nothing left in the bytes to tell the two apart.
+
+    Also returns None when the frame is empty or the sampling rate is zero. A zero rate would
+    make the kernel's rate arithmetic report zero throughput for real traffic, which is worse
+    than dropping the sample, and it can only mean the switch is running a pipeline that does
+    not match this p4info.
+    """
+    meta = metadata_by_id(packet_in)
+    if meta.get(PKTIN_META_REASON, PKTIN_REASON_PACKET_IN) != PKTIN_REASON_SAMPLE:
         return None
 
-    bits = int.from_bytes(payload[:SAMPLE_HEADER_BYTES], "big")
-    # Peel fields off the top, most significant first, mirroring the header declaration.
-    pad_and_rate = bits
-    _pad = pad_and_rate & 0x3F
-    pad_and_rate >>= 6
-    sampling_rate = pad_and_rate & 0xFFFF
-    pad_and_rate >>= 16
-    frame_length = pad_and_rate & 0xFFFF
-    pad_and_rate >>= 16
-    egress_port = pad_and_rate & 0x1FF
-    pad_and_rate >>= 9
-    ingress_port = pad_and_rate & 0x1FF
+    frame = bytes(packet_in.payload)
+    if not frame:
+        return None
 
-    frame = payload[SAMPLE_HEADER_BYTES:]
-    return (
-        SampledPacket(
-            ingress_port=ingress_port,
-            egress_port=egress_port,
-            frame_length=frame_length,
-            sampling_rate=sampling_rate,
-            frame=frame,
-        ),
-        frame,
+    sampling_rate = meta.get(PKTIN_META_SAMPLING_RATE, 0)
+    if sampling_rate == 0:
+        return None
+
+    # frame_length is the length before truncation. Fall back to the frame we actually have if
+    # the switch reported nothing, so a sample still counts rather than scaling to zero bytes.
+    frame_length = meta.get(PKTIN_META_FRAME_LENGTH, 0) or len(frame)
+
+    return SampledPacket(
+        ingress_port=meta.get(PKTIN_META_INGRESS_PORT, 0),
+        egress_port=meta.get(PKTIN_META_EGRESS_PORT, 0),
+        frame_length=frame_length,
+        sampling_rate=sampling_rate,
+        frame=frame,
     )
+
+
+# --- topology file ----------------------------------------------------------------
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DEFAULT_TOPO_FILE = os.path.join(
+    REPO_ROOT, "setting", "StaticNetworkTopologyP4_10Switches_4Hosts.json")
+
+
+# VertexType in include/common_types/GraphTypes.hpp. Hosts carry dpid 0 and their own
+# 10.0.0.x address, so including them would both register a bogus agent and collapse all four
+# onto dpid 0.
+VERTEX_TYPE_SWITCH = 0
+
+
+def load_switch_agent_ips(path: Optional[str] = None) -> dict[int, str]:
+    """
+    Reads dpid -> agent IP for the *switches* in the topology JSON the kernel loads.
+
+    The kernel attributes a sample to a graph edge by AgentKey{agentIP, port}, so these must be
+    the addresses in its topology file or the telemetry arrives and is attributed to nothing --
+    no error, just an empty twin. Reading the kernel's own file is what keeps the two in step,
+    and NDTWIN_TOPO_FILE is honoured for the same reason the kernel honours it.
+
+    Returns {} if the file is unreadable, leaving the proxy to run without telemetry rather than
+    refusing to start: flow installs and discovery are still useful without it.
+    """
+    path = path or os.environ.get("NDTWIN_TOPO_FILE") or DEFAULT_TOPO_FILE
+    try:
+        with open(path) as fh:
+            topology = json.load(fh)
+    except (OSError, ValueError) as e:
+        print(f"[sflow] could not read topology {path}: {e}; no sFlow will be emitted")
+        return {}
+
+    agents: dict[int, str] = {}
+    for node in topology.get("nodes", []):
+        if node.get("vertex_type") != VERTEX_TYPE_SWITCH:
+            continue
+        dpid = node.get("dpid")
+        addresses = node.get("ip") or []
+        if not dpid or not addresses:
+            # dpid 0 is not a switch address the kernel will ever look up.
+            continue
+        # The kernel treats the first address as the agent address.
+        agents[int(dpid)] = addresses[0]
+    return agents

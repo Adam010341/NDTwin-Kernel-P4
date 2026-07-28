@@ -23,6 +23,12 @@
 # Additionally asserts that the number of tests that actually RAN matches the number
 # discovered. A SKIPPED test is not a passing test.
 #
+# Also runs the P4 proxy's Python tests, since half the P4 path lives there: the sFlow emitter
+# and the clone session are Python, and the C++ suite cannot reach them. A skipped Python test
+# is treated the same way as a skipped gtest one -- reported, not counted as a pass -- except
+# where the interpreter genuinely lacks the P4Runtime protobufs, which is a real environment
+# limitation rather than a broken test.
+#
 # Usage:
 #   ./l1_unit_tests.sh              # configure if needed, build, run both ways
 #   ./l1_unit_tests.sh --no-build   # assume the build is current
@@ -122,7 +128,61 @@ for bin in "${TEST_BINS[@]}"; do
     fi
 done
 
-# --- 3. cross-check: ctest case count vs discovered tests ------------------------
+# --- 3. P4 proxy Python tests ----------------------------------------------------
+# The emitter's tests need no gRPC, so they run under any python3. The clone-session tests
+# need the P4Runtime protobufs, so they prefer an interpreter that has them.
+step "P4 proxy Python tests"
+PROXY_DIR="$KERNEL_DIR/p4_proxy"
+if [[ ! -d "$PROXY_DIR/tests" ]]; then
+    echo "  ${D}no p4_proxy/tests directory; skipping${N}"
+else
+    # Pick an interpreter with the P4Runtime protobufs, falling back to plain python3. Tests
+    # that need them skip themselves, so the fallback still runs the emitter suite.
+    PY_P4=""
+    for candidate in "$P4_PROXY_PY" /home/adam/p4dev-python-venv/bin/python3 python3; do
+        if [[ -n "$candidate" ]] && command -v "$candidate" >/dev/null 2>&1 \
+                && "$candidate" -c "import p4.v1.p4runtime_pb2" >/dev/null 2>&1; then
+            PY_P4="$candidate"; break
+        fi
+    done
+    PY_PLAIN="$(command -v python3)"
+    [[ -z "$PY_P4" ]] && echo "  ${Y}note: no interpreter with P4Runtime protobufs; " \
+        "gRPC-dependent tests will skip themselves${N}"
+
+    shopt -s nullglob
+    for testfile in "$PROXY_DIR"/tests/test_*.py; do
+        name="$(basename "$testfile")"
+        log="$LOG_DIR/l1_python_${name%.py}.log"
+        printf '  %-30s ' "$name"
+
+        # Use the P4-capable interpreter when there is one; it is a superset.
+        interp="${PY_P4:-$PY_PLAIN}"
+        (cd "$PROXY_DIR" && PYTHONPATH=. "$interp" "$testfile" -v) >"$log" 2>&1
+        rc=$?
+
+        ran=$(grep -oE '^Ran [0-9]+ test' "$log" | tail -1 | grep -oE '[0-9]+')
+        ran=${ran:-0}
+        skipped=$(grep -cE "^test_.* \.\.\. skipped" "$log")
+
+        if [[ $rc -ne 0 ]]; then
+            echo "${R}FAIL${N} (exit $rc, ran=$ran)"
+            grep -E "^(FAIL|ERROR):|AssertionError|SkipTest" "$log" | head -12 | sed 's/^/      /'
+            FAILURES=$((FAILURES + 1))
+        elif [[ $ran -eq 0 ]]; then
+            # Either everything skipped or nothing was collected. Both mean this file proved
+            # nothing, which is exactly the failure mode this script exists to catch.
+            echo "${Y}NO TESTS RAN${N} ${D}(missing dependency? see $log)${N}"
+            grep -E "SkipTest|ModuleNotFound" "$log" | head -3 | sed 's/^/      /'
+        elif [[ $skipped -gt 0 ]]; then
+            echo "${G}PASS${N}  ${D}${ran} ran, ${skipped} skipped${N}"
+        else
+            echo "${G}PASS${N}  ${D}${ran} ran and passed${N}"
+        fi
+    done
+    shopt -u nullglob
+fi
+
+# --- 4. cross-check: ctest case count vs discovered tests ------------------------
 step "cross-check ctest coverage"
 ctest_cases=$(ctest --test-dir "$BUILD_DIR" -N 2>/dev/null | grep -cE '^\s+Test\s+#')
 direct_total=0

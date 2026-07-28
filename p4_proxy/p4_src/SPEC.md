@@ -13,8 +13,16 @@ p4info the proxy loads.
 
 ## Data Plane Design
 
-1. **Headers**: Ethernet, IPv4, TCP, UDP, ICMP, plus three controller headers
-   (`packet_in`, `packet_out`, `sample`).
+1. **Headers**: Ethernet, IPv4, TCP, UDP, ICMP, plus two controller headers
+   (`packet_in`, `packet_out`).
+
+   There are deliberately only two. P4Runtime's reference implementation matches
+   `@controller_header` by **name** and recognises `"packet_in"` and `"packet_out"` only
+   (`PI/proto/frontend/src/packet_io_mgr.cpp`, `PacketIOMgr::p4_change`). A third header
+   compiles into the p4info and is then silently ignored, and every CPU packet is parsed with
+   `packet_in`'s width regardless -- so a separate `sample` header would have had its first two
+   bytes stripped and reported as an ingress port. Telemetry metadata therefore lives *inside*
+   `packet_in`, with a `reason` field distinguishing a sample from a genuine packet-in.
 
 2. **Parser**: Ethernet → IPv4 → L4. L4 is parsed only when `fragOffset == 0`, since the L4
    header appears in the first fragment only. TCP/UDP ports, and ICMP type/code, are lifted
@@ -43,13 +51,16 @@ p4info the proxy loads.
    is what sFlow's model assumes. Packets already headed for the CPU are never sampled, which
    would otherwise duplicate packet-ins and confuse discovery.
 
-   The clone carries a `sample` header with the ingress port, egress port, original frame
-   length and the sampling rate — none of which survive on the wire, and all of which the
-   sFlow emitter needs. It is a separate header from `packet_in` so the proxy can distinguish
-   a telemetry sample from a real packet-in by the first header alone.
+   The clone carries `packet_in` with `reason = PKTIN_REASON_SAMPLE`, plus the ingress port,
+   egress port, original frame length and sampling rate — none of which survive on the wire,
+   and all of which the sFlow emitter needs. PI turns these into typed P4Runtime metadata, so
+   the proxy reads fields by id rather than unpacking bits.
 
-   **The proxy must configure mirror session 250** (`SAMPLE_SESSION`) toward the CPU port, or
-   no sample ever arrives.
+   **The proxy must configure clone session 250** (`SAMPLE_SESSION`) toward the CPU port, or
+   bmv2 drops every copy with no error anywhere. `P4RuntimeClient.write_clone_session()` does
+   this after `SetForwardingPipelineConfig` — the session belongs to the pipeline's PRE, so
+   programming it earlier is discarded. Session ids must be in `[1, 32768)` and
+   `class_of_service` must be 0; PI rejects anything else.
 
 5. **Counters**: `direct_counter` on both `flow_5tuple` and `ipv4_lpm`, so per-entry byte and
    packet counts can be reported through `/stats/flow/<dpid>` in the Ryu shape the kernel's

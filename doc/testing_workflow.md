@@ -86,11 +86,22 @@ cd tools/test_workflow
 # 或透過頂層驅動：./run_layers.sh quick
 ```
 
+L1 也會跑 **P4 proxy 的 Python 測試**。P4 這條路有一半在 Python 裡（sFlow emitter、clone
+session），C++ 測試完全碰不到，所以不跑等於那一半沒測。腳本會自動找有 P4Runtime protobuf 的
+interpreter，找不到就退回 `python3` — 需要 gRPC 的測試會自己 skip，emitter 的測試照樣跑。
+
+跟 gtest 一樣，**skip 不算通過**：一個檔案如果一個測試都沒真的跑，會被標成 `NO TESTS RAN`
+而不是綠燈。（加進來的當下就抓到 `tests/test_p4_client.py` 從來沒跑成功過 — 它其實是需要活的
+bmv2 的整合腳本，現在改成沒有 switch 就自己 skip。）
+
 手動等價（僅供除錯；缺少 SKIPPED 檢查與 ctest 交叉比對）：
 
 ```bash
 cd build && ctest --output-on-failure
-./bin/test_routing_strategy       # 目前唯一的 test binary，內含 12 個 TEST_F
+./bin/test_routing_strategy       # 目前唯一的 C++ test binary
+
+# Python 那半邊
+cd p4_proxy && PYTHONPATH=. python3 tests/test_sflow_emitter.py
 ```
 
 ### 測什麼

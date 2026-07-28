@@ -12,6 +12,27 @@ The Proxy Agent is designed to translate high-level network intents (from NDTwin
 3. **`topology_manager.py`**: Maintains the abstract view of the network graph (using `networkx`). Handles routing logic (BFS) and translates REST JSON payloads (Match/Action fields) into specific IPv4 addresses and egress ports.
 4. **`p4_client.py`**: The gRPC abstraction layer. Contains `P4RuntimeClient`, which interfaces directly with the `p4runtime_pb2_grpc.P4RuntimeStub`. Provides methods to modify, insert, and delete entries specifically in the `MyIngress.ipv4_lpm` table.
 
+   It also owns the two things telemetry depends on: `write_clone_session()`, which programs the
+   PRE clone session the pipeline samples into, and the `handle_packet_in` split that routes a
+   CPU packet to either the telemetry path or LLDP discovery based on `packet_in.reason`. That
+   split matters for load as much as correctness -- sampling is 1-in-256 of *all* traffic, so
+   letting samples reach the LLDP parser would bury discovery in frames it cannot use.
+
+5. **`sflow_emitter.py`**: Synthesises sFlow v5 flow samples and sends them to the kernel's
+   collector on UDP 6343, so `FlowLinkUsageCollector` and `Classifier` work unmodified and
+   cannot tell OVS from P4. bmv2 emits no sFlow of its own.
+
+   The kernel's decoder is a hand-rolled fixed-word-offset parser, not a general sFlow library,
+   so "valid sFlow" is not sufficient -- the datagram must have the same *shape* OVS produces,
+   in particular two flow records (`extended_switch` then `raw header`). The module docstring
+   records the measured word layout. `tests/test_sflow_emitter.py` compares byte for byte
+   against captured OVS datagrams, and `tests/test_SFlowEmitterRoundtrip.cpp` feeds this
+   emitter's actual output through the actual C++ parser.
+
+   Agent addresses come from the same topology JSON the kernel loads (`load_switch_agent_ips`),
+   because the kernel attributes a sample to an edge by `AgentKey{agentIP, port}`: an address it
+   does not recognise yields telemetry attributed to nothing, with no error.
+
 ## Execution
 The proxy agent must be run using its dedicated virtual environment to ensure proper `grpc` and `p4runtime` module resolution:
 ```bash

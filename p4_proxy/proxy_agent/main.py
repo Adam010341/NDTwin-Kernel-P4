@@ -3,6 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from proxy_agent.topology_manager import TopologyManager
 from proxy_agent.p4_client import P4RuntimeClient
+from proxy_agent.sflow_emitter import SFlowEmitter, load_switch_agent_ips
 from proxy_agent import api_routes
 
 app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
@@ -22,6 +23,9 @@ api_routes.inject_topology(topo)
 app.include_router(api_routes.router)
 
 p4_clients = {}
+
+# [Co-developed with claude code -- Adam]
+sflow = SFlowEmitter()
 
 @app.on_event("startup")
 async def startup_event():
@@ -55,6 +59,29 @@ async def startup_event():
         if client.json_path:
             client.set_forwarding_pipeline_config()
         print(f"[Proxy Agent] Connected to Switch {i}")
+
+    # --- telemetry --------------------------------------------------------------------
+    # [Co-developed with claude code -- Adam]
+    #
+    # Must come after the pipeline is pushed: the clone session lives in the pipeline's PRE, so
+    # programming it earlier would be discarded. start(push_config=False) above is why this is
+    # not done inside start().
+    agent_ips = load_switch_agent_ips()
+    for i, client in p4_clients.items():
+        agent_ip = agent_ips.get(i)
+        if agent_ip is None:
+            print(f"[Proxy Agent] Switch {i} has no IP in the topology file; "
+                  f"its samples would be attributed to nothing, so telemetry is off for it")
+            continue
+
+        sflow.register_switch(i, agent_ip)
+        client.sample_callback = sflow.handle_sample
+        if client.write_clone_session():
+            print(f"[Proxy Agent] Switch {i} sampling to sFlow as {agent_ip}")
+        else:
+            # Reported loudly: the pipeline still clones, bmv2 still drops the copy, and
+            # everything downstream looks healthy while reporting zero traffic.
+            print(f"[Proxy Agent] Switch {i}: clone session failed, NO telemetry from it")
             
     # Start LLDP dynamic topology discovery
     try:
@@ -68,6 +95,7 @@ async def shutdown_event():
     print("[Proxy Agent] Shutting down...")
     for i, client in p4_clients.items():
         client.stop()
+    sflow.close()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8081)

@@ -38,7 +38,16 @@ from proxy_agent.sflow_emitter import (  # noqa: E402
     SwitchAgent,
     build_datagram,
     build_flow_sample,
-    parse_sample_header,
+    PKTIN_META_EGRESS_PORT,
+    PKTIN_META_FRAME_LENGTH,
+    PKTIN_META_INGRESS_PORT,
+    PKTIN_META_REASON,
+    PKTIN_META_SAMPLING_RATE,
+    PKTIN_REASON_PACKET_IN,
+    PKTIN_REASON_SAMPLE,
+    metadata_by_id,
+    load_switch_agent_ips,
+    sample_from_packet_in,
 )
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -263,44 +272,163 @@ class MultiSampleTest(unittest.TestCase):
             build_datagram([], SwitchAgent("192.168.123.11"), 0)
 
 
-class SampleHeaderParsingTest(unittest.TestCase):
-    """Decoding the P4 `sample` header, whose fields are not byte-aligned."""
+class FakeMetadata:
+    def __init__(self, metadata_id: int, value: bytes):
+        self.metadata_id = metadata_id
+        self.value = value
+
+
+class FakePacketIn:
+    """
+    Stands in for a P4Runtime PacketIn.
+
+    Deliberately encodes values the way P4Runtime does -- canonical byte strings with leading
+    zero bytes stripped -- because that variable width is the thing most likely to be
+    mishandled, and a fake that always used a fixed width would hide it.
+    """
+
+    def __init__(self, payload: bytes, **fields: int):
+        self.payload = payload
+        self.metadata = [FakeMetadata(mid, self._canonical(v)) for mid, v in fields.values()]
 
     @staticmethod
-    def encode(ingress: int, egress: int, frame_len: int, rate: int) -> bytes:
-        bits = (ingress & 0x1FF)
-        bits = (bits << 9) | (egress & 0x1FF)
-        bits = (bits << 16) | (frame_len & 0xFFFF)
-        bits = (bits << 16) | (rate & 0xFFFF)
-        bits = (bits << 6)  # _pad
-        return bits.to_bytes(7, "big")
+    def _canonical(value: int) -> bytes:
+        if value == 0:
+            return b"\x00"
+        width = (value.bit_length() + 7) // 8
+        return value.to_bytes(width, "big")
 
-    def test_round_trips_the_p4_header_fields(self):
-        payload = self.encode(3, 7, 1514, 256) + b"FRAME"
-        result = parse_sample_header(payload)
-        self.assertIsNotNone(result)
-        sample, frame = result
 
+def a_packet_in(payload: bytes = b"FRAME",
+                reason: int = PKTIN_REASON_SAMPLE,
+                ingress: int = 3,
+                egress: int = 7,
+                frame_length: int = 1514,
+                sampling_rate: int = 256,
+                omit: tuple[int, ...] = ()) -> FakePacketIn:
+    fields = {
+        "reason": (PKTIN_META_REASON, reason),
+        "ingress": (PKTIN_META_INGRESS_PORT, ingress),
+        "egress": (PKTIN_META_EGRESS_PORT, egress),
+        "frame_length": (PKTIN_META_FRAME_LENGTH, frame_length),
+        "sampling_rate": (PKTIN_META_SAMPLING_RATE, sampling_rate),
+    }
+    fields = {k: v for k, v in fields.items() if v[0] not in omit}
+    return FakePacketIn(payload, **fields)
+
+
+class PacketInDecodingTest(unittest.TestCase):
+    """
+    Turning a CPU packet into a SampledPacket.
+
+    The fields arrive as typed P4Runtime metadata rather than as bytes in the payload, because
+    PI matches @controller_header by name and only knows "packet_in"/"packet_out" -- a separate
+    "sample" header is compiled into the p4info and then silently ignored, so this is the only
+    working shape. See the header comment in ndtwin_switch.p4.
+    """
+
+    def test_reads_every_field_from_metadata(self):
+        sample = sample_from_packet_in(a_packet_in())
+        self.assertIsNotNone(sample)
         self.assertEqual(sample.ingress_port, 3)
         self.assertEqual(sample.egress_port, 7)
         self.assertEqual(sample.frame_length, 1514)
         self.assertEqual(sample.sampling_rate, 256)
-        self.assertEqual(frame, b"FRAME")
+        self.assertEqual(sample.frame, b"FRAME")
 
-    def test_handles_the_widest_port_values(self):
-        # bit<9> ports: 511 is the maximum, and 255 is the CPU port.
-        payload = self.encode(511, 255, 65535, 65535)
-        sample, _ = parse_sample_header(payload)
+    def test_a_genuine_packet_in_is_not_a_sample(self):
+        # LLDP beacons and unmatched traffic come up the same channel and must reach the
+        # discovery path instead. Returning None rather than raising is what lets the caller
+        # tell them apart.
+        self.assertIsNone(sample_from_packet_in(a_packet_in(reason=PKTIN_REASON_PACKET_IN)))
+
+    def test_a_missing_reason_is_treated_as_a_packet_in(self):
+        # Defaulting the other way would feed arbitrary discovery traffic into the telemetry
+        # path, inventing flows the network does not have.
+        self.assertIsNone(sample_from_packet_in(a_packet_in(omit=(PKTIN_META_REASON,))))
+
+    def test_handles_the_widest_values(self):
+        # bit<9> ports: 511 is the maximum; frame_length and sampling_rate are bit<16>.
+        sample = sample_from_packet_in(
+            a_packet_in(ingress=511, egress=511, frame_length=65535, sampling_rate=65535))
         self.assertEqual(sample.ingress_port, 511)
-        self.assertEqual(sample.egress_port, 255)
+        self.assertEqual(sample.egress_port, 511)
         self.assertEqual(sample.frame_length, 65535)
+        self.assertEqual(sample.sampling_rate, 65535)
 
-    def test_too_short_payload_is_not_a_sample(self):
-        # A short payload means a normal packet-in (unmatched traffic, or an LLDP beacon), which
-        # the discovery path must keep handling. Returning None rather than raising is what lets
-        # the caller tell them apart.
-        self.assertIsNone(parse_sample_header(b"\x00" * 6))
-        self.assertIsNone(parse_sample_header(b""))
+    def test_zero_valued_fields_survive_canonical_encoding(self):
+        # P4Runtime strips leading zeros, so zero encodes as a single 0x00 byte rather than the
+        # field's declared width. Port 0 is a legitimate value.
+        sample = sample_from_packet_in(a_packet_in(ingress=0, egress=0))
+        self.assertEqual(sample.ingress_port, 0)
+        self.assertEqual(sample.egress_port, 0)
+
+    def test_a_zero_sampling_rate_is_rejected(self):
+        # The kernel multiplies by the sampling rate, so zero would report zero throughput for
+        # real traffic. Dropping the sample is the lesser failure, and a zero rate can only mean
+        # the switch is running a pipeline that does not match this p4info.
+        self.assertIsNone(sample_from_packet_in(a_packet_in(sampling_rate=0)))
+        self.assertIsNone(sample_from_packet_in(a_packet_in(omit=(PKTIN_META_SAMPLING_RATE,))))
+
+    def test_an_empty_frame_is_rejected(self):
+        self.assertIsNone(sample_from_packet_in(a_packet_in(payload=b"")))
+
+    def test_a_missing_frame_length_falls_back_to_the_frame_size(self):
+        # Better to under-report one sample than to scale it to zero bytes.
+        sample = sample_from_packet_in(
+            a_packet_in(payload=b"0123456789", omit=(PKTIN_META_FRAME_LENGTH,)))
+        self.assertEqual(sample.frame_length, 10)
+
+    def test_metadata_by_id_collapses_the_list(self):
+        self.assertEqual(metadata_by_id(a_packet_in(reason=1, ingress=2, egress=3,
+                                                    frame_length=4, sampling_rate=5)),
+                         {PKTIN_META_REASON: 1, PKTIN_META_INGRESS_PORT: 2,
+                          PKTIN_META_EGRESS_PORT: 3, PKTIN_META_FRAME_LENGTH: 4,
+                          PKTIN_META_SAMPLING_RATE: 5})
+
+
+class P4InfoAgreementTest(unittest.TestCase):
+    """
+    The metadata ids are positional: reordering packet_in_header_t's fields renumbers them, and
+    nothing at runtime would complain -- the proxy would just read the wrong field. This pins
+    the constants to the p4info the switches are actually loaded with.
+    """
+
+    P4INFO = os.path.join(REPO_ROOT, "p4_proxy", "p4_src", "build", "ndtwin_switch.p4info.txt")
+
+    def test_constants_match_the_generated_p4info(self):
+        if not os.path.exists(self.P4INFO):
+            self.skipTest("p4info not built; run tools/test_workflow/l0_build_check.sh p4")
+
+        import re
+        with open(self.P4INFO) as fh:
+            text = fh.read()
+        block = None
+        for m in re.finditer(r"controller_packet_metadata \{(.*?)\n\}", text, re.S):
+            if 'name: "packet_in"' in m.group(1):
+                block = m.group(1)
+        self.assertIsNotNone(block, "no packet_in controller_packet_metadata in the p4info")
+
+        ids = {name: int(i) for i, name in
+               re.findall(r'id: (\d+)\s+name: "([^"]+)"\s+bitwidth: \d+', block)}
+
+        self.assertEqual(ids.get("reason"), PKTIN_META_REASON)
+        self.assertEqual(ids.get("ingress_port"), PKTIN_META_INGRESS_PORT)
+        self.assertEqual(ids.get("egress_port"), PKTIN_META_EGRESS_PORT)
+        self.assertEqual(ids.get("frame_length"), PKTIN_META_FRAME_LENGTH)
+        self.assertEqual(ids.get("sampling_rate"), PKTIN_META_SAMPLING_RATE)
+
+    def test_there_is_no_separate_sample_controller_header(self):
+        # A third @controller_header would compile fine and be silently ignored by PI, so its
+        # absence is a property worth asserting rather than remembering.
+        if not os.path.exists(self.P4INFO):
+            self.skipTest("p4info not built")
+        with open(self.P4INFO) as fh:
+            text = fh.read()
+        import re
+        names = re.findall(r'controller_packet_metadata \{\s+preamble \{\s+id: \d+\s+name: "([^"]+)"',
+                           text)
+        self.assertEqual(sorted(names), ["packet_in", "packet_out"])
 
 
 class _FakeSocket:
@@ -447,6 +575,132 @@ class CommittedFixtureTest(unittest.TestCase):
                 f"{name} is stale: the emitter's output changed. Re-run\n"
                 f"  python3 p4_proxy/tests/generate_emitted_fixtures.py\n"
                 f"and re-run the C++ round-trip test, which parses these bytes.")
+
+
+class AgentIpLoadingTest(unittest.TestCase):
+    """
+    Reading dpid -> agent IP from the kernel's own topology file.
+
+    Wrong addresses here do not fail: the kernel receives the datagrams and matches them against
+    no edge, so the twin is simply empty. That makes it worth pinning against the real file.
+    """
+
+    import json as _json
+    import tempfile as _tempfile
+
+    REAL_TOPO = os.path.join(REPO_ROOT, "setting",
+                             "StaticNetworkTopologyP4_10Switches_4Hosts.json")
+
+    def write_topo(self, nodes):
+        fh = self._tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        self._json.dump({"nodes": nodes}, fh)
+        fh.close()
+        self.addCleanup(os.unlink, fh.name)
+        return fh.name
+
+    def test_reads_the_shipped_p4_topology(self):
+        if not os.path.exists(self.REAL_TOPO):
+            self.skipTest("P4 topology file not present")
+        agents = load_switch_agent_ips(self.REAL_TOPO)
+        self.assertEqual(len(agents), 10, "expected the 10 bmv2 switches")
+        self.assertEqual(agents[1], "192.168.123.11")
+        self.assertEqual(agents[10], "192.168.123.20")
+
+    def test_hosts_are_excluded(self):
+        # Hosts carry vertex_type 1, dpid 0 and a 10.0.0.x address. Including them registered a
+        # bogus agent and collapsed all four onto dpid 0, so only the last one survived.
+        agents = load_switch_agent_ips(self.write_topo([
+            {"vertex_type": 0, "dpid": 1, "ip": ["192.168.123.11"]},
+            {"vertex_type": 1, "dpid": 0, "ip": ["10.0.0.1"]},
+            {"vertex_type": 1, "dpid": 0, "ip": ["10.0.0.2"]},
+        ]))
+        self.assertEqual(agents, {1: "192.168.123.11"})
+
+    def test_a_switch_with_no_address_is_skipped(self):
+        agents = load_switch_agent_ips(self.write_topo([
+            {"vertex_type": 0, "dpid": 1, "ip": []},
+            {"vertex_type": 0, "dpid": 2},
+            {"vertex_type": 0, "dpid": 3, "ip": ["192.168.123.13"]},
+        ]))
+        self.assertEqual(agents, {3: "192.168.123.13"})
+
+    def test_the_first_address_is_the_agent_address(self):
+        agents = load_switch_agent_ips(self.write_topo([
+            {"vertex_type": 0, "dpid": 1, "ip": ["192.168.123.11", "10.99.0.1"]},
+        ]))
+        self.assertEqual(agents[1], "192.168.123.11")
+
+    def test_an_unreadable_file_yields_no_agents_rather_than_raising(self):
+        # The proxy must still start: flow installs and discovery work without telemetry.
+        self.assertEqual(load_switch_agent_ips("/nonexistent/topology.json"), {})
+
+    def test_malformed_json_yields_no_agents(self):
+        fh = self._tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        fh.write("{not json")
+        fh.close()
+        self.addCleanup(os.unlink, fh.name)
+        self.assertEqual(load_switch_agent_ips(fh.name), {})
+
+
+class EndToEndCallbackTest(unittest.TestCase):
+    """
+    The whole proxy-side path: a P4Runtime PacketIn in, a datagram on the wire out.
+
+    Each piece is covered above; this checks they are actually connected, which is the part that
+    silently does nothing if a callback is never assigned.
+    """
+
+    class CapturingSocket:
+        def __init__(self):
+            self.sent = []
+
+        def sendto(self, data, addr):
+            self.sent.append((data, addr))
+
+        def close(self):
+            pass
+
+    def test_a_sample_packet_in_becomes_a_datagram(self):
+        sock = self.CapturingSocket()
+        emitter = SFlowEmitter(sock=sock)
+        emitter.register_switch(1, "192.168.123.11")
+
+        frame = build_ethernet_ipv4_tcp()
+        packet_in = FakePacketIn(
+            frame,
+            reason=(PKTIN_META_REASON, PKTIN_REASON_SAMPLE),
+            ingress=(PKTIN_META_INGRESS_PORT, 2),
+            egress=(PKTIN_META_EGRESS_PORT, 3),
+            frame_length=(PKTIN_META_FRAME_LENGTH, len(frame)),
+            sampling_rate=(PKTIN_META_SAMPLING_RATE, 256))
+
+        sample = sample_from_packet_in(packet_in)
+        self.assertTrue(emitter.handle_sample(1, sample))
+
+        self.assertEqual(len(sock.sent), 1)
+        datagram, addr = sock.sent[0]
+        self.assertEqual(addr, ("127.0.0.1", 6343))
+
+        w = words(datagram)
+        self.assertEqual(w[0], SFLOW_VERSION)
+        self.assertEqual(w[2], struct.unpack(">I", socket.inet_aton("192.168.123.11"))[0])
+        self.assertEqual(w[7], SAMPLE_TYPE_FLOW)
+        self.assertEqual(w[14], 2, "ingress port survived the whole path")
+        self.assertEqual(w[16], 2, "two flow records, as the kernel's parser requires")
+
+    def test_an_unregistered_switch_does_not_send(self):
+        # Better to drop than to emit under an address the kernel cannot attribute.
+        sock = self.CapturingSocket()
+        emitter = SFlowEmitter(sock=sock)
+        self.assertFalse(emitter.handle_sample(99, a_sample()))
+        self.assertEqual(sock.sent, [])
+
+    def test_uptime_is_monotonic_and_fits_32_bits(self):
+        emitter = SFlowEmitter(sock=self.CapturingSocket(), started_at=0.0)
+        first = emitter.uptime_ms()
+        second = emitter.uptime_ms()
+        self.assertGreaterEqual(second, first)
+        self.assertLess(emitter.uptime_ms(), 1 << 32)
 
 
 if __name__ == "__main__":

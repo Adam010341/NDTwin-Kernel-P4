@@ -7,6 +7,17 @@ from p4.v1 import p4runtime_pb2_grpc
 from p4.config.v1 import p4info_pb2
 from google.protobuf import text_format
 
+from proxy_agent.sflow_emitter import PKTIN_META_INGRESS_PORT, sample_from_packet_in
+
+# [Co-developed with claude code -- Adam]
+#
+# Must match ndtwin_switch.p4. SAMPLE_SESSION is the clone session the pipeline clones telemetry
+# samples to; nothing arrives until it is programmed, because a clone to an unconfigured session
+# is silently dropped by bmv2.
+SAMPLE_SESSION_ID = 250
+CPU_PORT = 255
+
+
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None):
@@ -21,6 +32,11 @@ class P4RuntimeClient:
         self.stream_out_q = queue.Queue()
         self.stream_recv_thread = None
         self.is_running = False
+
+        # Declared up front rather than probed with hasattr, so a missing assignment is a
+        # None check rather than a silently skipped branch.
+        self.packet_in_callback = None   # (device_id, ingress_port, payload) -> None
+        self.sample_callback = None      # (device_id, SampledPacket) -> None
 
     def _build_p4info(self, p4info_path):
         p4info = p4info_pb2.P4Info()
@@ -55,14 +71,31 @@ class P4RuntimeClient:
                 print(f"[{self.device_id}] Stream receiver error: {e.details()}")
 
     def handle_packet_in(self, packet):
-        """To be overridden or connected to a callback by the topology manager"""
+        """
+        Routes a CPU packet to either the telemetry path or the discovery path.
+
+        [Co-developed with claude code -- Adam]
+
+        Telemetry samples and genuine packet-ins share this one channel, and are told apart by
+        the `reason` field of packet_in_header_t rather than by inspecting the frame. They cannot
+        be separate controller headers -- see the header comment in ndtwin_switch.p4.
+
+        Sampled traffic is high-rate by design, so a sample must never reach the LLDP parser:
+        that would try to read every sampled packet as a beacon and, at 1-in-256 of all traffic,
+        drown discovery in work it cannot use.
+        """
+        sample = sample_from_packet_in(packet)
+        if sample is not None:
+            if self.sample_callback:
+                self.sample_callback(self.device_id, sample)
+            return
+
         ingress_port = 0
         for meta in packet.metadata:
-            if meta.metadata_id == 1: # ingress_port
+            if meta.metadata_id == PKTIN_META_INGRESS_PORT:
                 ingress_port = int.from_bytes(meta.value, byteorder='big')
-        
-        # print(f"[{self.device_id}] PACKET-IN received on port {ingress_port}, length {len(packet.payload)}")
-        if hasattr(self, 'packet_in_callback') and self.packet_in_callback:
+
+        if self.packet_in_callback:
             self.packet_in_callback(self.device_id, ingress_port, packet.payload)
 
     def send_packet_out(self, egress_port, payload):
@@ -107,6 +140,11 @@ class P4RuntimeClient:
             if self.json_path:
                 self.set_forwarding_pipeline_config()
 
+        # After the pipeline is loaded: the clone session belongs to the pipeline's PRE, so
+        # programming it before SetForwardingPipelineConfig would be discarded.
+        # [Co-developed with claude code -- Adam]
+        self.write_clone_session()
+
     def stop(self):
         self.is_running = False
         self.stream_out_q.put(None)
@@ -124,6 +162,56 @@ class P4RuntimeClient:
             req.config.p4_device_config = f.read()
         req.config.p4info.CopyFrom(self.p4info)
         self.stub.SetForwardingPipelineConfig(req)
+
+    # [Co-developed with claude code -- Adam]
+    def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT):
+        """
+        Programs the PRE clone session the pipeline samples into.
+
+        Without this, `clone_preserving_field_list` targets a session that does not exist and
+        bmv2 drops the copy without an error anywhere -- the pipeline looks correct, the proxy
+        looks correct, and no telemetry ever appears. So this is a hard failure, not a warning.
+
+        Uses MODIFY on ALREADY_EXISTS so a proxy restart against live switches reconfigures the
+        session instead of refusing to start.
+
+        `Replica.port_kind` is a oneof: `egress_port` is the uint32 form and `port` a
+        bytestring. Only one may be set. class_of_service must stay 0 -- PI rejects anything
+        else as unsupported. packet_length_bytes 0 means no truncation on the switch; the
+        emitter truncates instead, since it is the side with tests covering it.
+        """
+        def build(update_type):
+            req = p4runtime_pb2.WriteRequest()
+            req.device_id = self.device_id
+            req.election_id.low = 1
+            update = req.updates.add()
+            update.type = update_type
+            session = update.entity.packet_replication_engine_entry.clone_session_entry
+            session.session_id = session_id
+            session.class_of_service = 0
+            session.packet_length_bytes = 0
+            replica = session.replicas.add()
+            replica.egress_port = egress_port
+            replica.instance = 1
+            return req
+
+        try:
+            self.stub.Write(build(p4runtime_pb2.Update.INSERT))
+            print(f"[{self.device_id}] Clone session {session_id} -> port {egress_port} installed")
+            return True
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.ALREADY_EXISTS:
+                try:
+                    self.stub.Write(build(p4runtime_pb2.Update.MODIFY))
+                    print(f"[{self.device_id}] Clone session {session_id} updated")
+                    return True
+                except grpc.RpcError as modify_error:
+                    print(f"[{self.device_id}] Clone session {session_id} MODIFY failed: "
+                          f"{modify_error.details()}")
+                    return False
+            print(f"[{self.device_id}] Clone session {session_id} INSERT failed: {e.details()} "
+                  f"-- no telemetry samples will be produced by this switch")
+            return False
 
     # --- Helper methods for lookups ---
     def _get_table_id(self, name):

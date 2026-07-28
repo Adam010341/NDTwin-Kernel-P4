@@ -54,6 +54,11 @@ const bit<16> SAMPLE_RATE = 256;
 // Index of the metadata field list preserved across the ingress-to-egress clone.
 const bit<8> FL_SAMPLE = 1;
 
+// Why a packet reached the controller. Lets the proxy dispatch on metadata rather than
+// guessing from the frame.
+const bit<8> PKTIN_REASON_PACKET_IN = 0;   // unmatched packet, or an LLDP beacon
+const bit<8> PKTIN_REASON_SAMPLE    = 1;   // telemetry sample, for the sFlow emitter
+
 // bmv2's instance_type values. v1model.p4 documents but does not declare these, so programs
 // define them themselves; 1 is an ingress-to-egress clone, i.e. one of our sampled copies.
 const bit<32> BMV2_INSTANCE_TYPE_INGRESS_CLONE = 1;
@@ -111,11 +116,29 @@ header icmp_t {
     bit<16> checksum;
 }
 
-// Custom header for Packet-In (controller needs to know the ingress port)
+/*
+ * Custom header for Packet-In.
+ *
+ * This carries telemetry samples as well as genuine packet-ins, distinguished by `reason`.
+ * They cannot be separate controller headers: P4Runtime's reference implementation matches
+ * @controller_header by *name* and recognises only "packet_in" and "packet_out"
+ * (PI/proto/frontend/src/packet_io_mgr.cpp, PacketIOMgr::p4_change). A third header compiles
+ * into the p4info and is then silently ignored, so every CPU packet would be parsed with this
+ * header's width regardless -- stripping the wrong number of bytes off a sample and reporting
+ * them as an ingress port. Folding the fields in here means PI hands the proxy typed metadata
+ * and no byte-level unpacking is needed on either side.
+ *
+ * egress_port, frame_length and sampling_rate are meaningful for samples only, and zero
+ * otherwise.
+ */
 @controller_header("packet_in")
 header packet_in_header_t {
-    bit<9> ingress_port;
-    bit<7> _pad;
+    bit<8>  reason;
+    bit<9>  ingress_port;
+    bit<9>  egress_port;
+    bit<16> frame_length;   // original length, before any truncation
+    bit<16> sampling_rate;  // so the emitter reports what the switch actually used
+    bit<6>  _pad;           // 8+9+9+16+16+6 = 64 bits, a whole number of bytes
 }
 
 // Custom header for Packet-Out (controller tells the switch which egress port)
@@ -123,23 +146,6 @@ header packet_in_header_t {
 header packet_out_header_t {
     bit<9> egress_port;
     bit<7> _pad;
-}
-
-/*
- * Prepended to a sampled copy so the proxy agent can build an sFlow flow sample without
- * re-deriving anything: it needs the ingress and egress interface indices and the original
- * frame length, none of which survive on the wire.
- *
- * Distinct from packet_in so the proxy can tell a telemetry sample from a genuine
- * packet-in (an unmatched packet or an LLDP beacon) by the first header alone.
- */
-@controller_header("sample")
-header sample_header_t {
-    bit<9>  ingress_port;
-    bit<9>  egress_port;
-    bit<16> frame_length;   // original length, before any truncation
-    bit<16> sampling_rate;  // so the emitter reports what the switch actually used
-    bit<6>  _pad;
 }
 
 struct metadata {
@@ -164,7 +170,6 @@ struct metadata {
 struct headers {
     packet_out_header_t packet_out;
     packet_in_header_t  packet_in;
-    sample_header_t     sample;
     ethernet_t          ethernet;
     ipv4_t              ipv4;
     tcp_t               tcp;
@@ -281,7 +286,14 @@ control MyIngress(inout headers hdr,
     action send_to_cpu() {
         standard_metadata.egress_spec = CPU_PORT;
         hdr.packet_in.setValid();
+        hdr.packet_in.reason = PKTIN_REASON_PACKET_IN;
         hdr.packet_in.ingress_port = standard_metadata.ingress_port;
+        // Sample-only fields. Set explicitly: an uninitialised header field is undefined in
+        // P4, so leaving them out would send the proxy arbitrary values.
+        hdr.packet_in.egress_port = 0;
+        hdr.packet_in.frame_length = 0;
+        hdr.packet_in.sampling_rate = 0;
+        hdr.packet_in._pad = 0;
     }
 
     /*
@@ -397,13 +409,15 @@ control MyEgress(inout headers hdr,
              * needs to build an sFlow flow sample, and strip any controller headers that
              * were valid on the original.
              */
-            hdr.sample.setValid();
-            hdr.sample.ingress_port = meta.sample_ingress_port;
-            hdr.sample.egress_port = meta.sample_egress_port;
-            hdr.sample.frame_length = meta.sample_frame_length;
-            hdr.sample.sampling_rate = SAMPLE_RATE;
-            hdr.sample._pad = 0;
-            hdr.packet_in.setInvalid();
+            // packet_in cannot already be valid here: a packet is only cloned when its
+            // egress_spec is not CPU_PORT, and send_to_cpu is what makes it valid.
+            hdr.packet_in.setValid();
+            hdr.packet_in.reason = PKTIN_REASON_SAMPLE;
+            hdr.packet_in.ingress_port = meta.sample_ingress_port;
+            hdr.packet_in.egress_port = meta.sample_egress_port;
+            hdr.packet_in.frame_length = meta.sample_frame_length;
+            hdr.packet_in.sampling_rate = SAMPLE_RATE;
+            hdr.packet_in._pad = 0;
             hdr.packet_out.setInvalid();
             return;   // do not count the copy: it is not real egress traffic
         }
@@ -445,9 +459,7 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 // ===========================================================================
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
-        // Controller headers first, then the frame as it was received. Only one of
-        // sample/packet_in is ever valid, so their relative order does not matter.
-        packet.emit(hdr.sample);
+        // The controller header first, then the frame as it was received.
         packet.emit(hdr.packet_in);
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
