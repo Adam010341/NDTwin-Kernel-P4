@@ -72,8 +72,29 @@ is_running() {
 stop_one() {
     local name="$1" pidfile="$PID_DIR/$name.pid"
     [[ -f "$pidfile" ]] || return 0
+
+    # Refuse to follow a symlink: with a predictable path an attacker could point the
+    # pidfile at something else entirely.
+    if [[ -L "$pidfile" ]]; then
+        err "  $pidfile is a symlink; refusing to read it"
+        return 1
+    fi
+
     local pid; pid="$(cat "$pidfile")"
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+
+    # Validate before interpolating into kill. Two real hazards:
+    #   * a pidfile containing "1" makes `kill -TERM -1` -- which signals EVERY process the
+    #     user is allowed to signal, i.e. their whole session, not just init
+    #   * anything non-numeric gets interpolated into the command as-is
+    # Require a plain integer of at least 2, since 0 and 1 both have special meanings for
+    # kill and no legitimate child of this script can have them.
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || [[ "$pid" -lt 2 ]]; then
+        err "  $pidfile does not contain a usable pid (${pid:-empty}); not killing anything"
+        rm -f "$pidfile"
+        return 1
+    fi
+
+    if kill -0 "$pid" 2>/dev/null; then
         # Negative pid targets the whole process group (setsid above), so children die too.
         kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
         for _ in $(seq 1 20); do
@@ -120,14 +141,16 @@ http_get() {
 cmd_wait() {
     local timeout="${1:-90}"
     local topo
-    topo="$(cat "$MODE_FILE" 2>/dev/null | awk '{print $2}')"
+    topo="$(awk '{print $2}' "$MODE_FILE" 2>/dev/null)"
     [[ -z "$topo" ]] && topo="$TOPO_OVS"
 
     local expected
-    expected="$(python3 -c "
-import json,sys
-t=json.load(open('$topo'))
-print(sum(1 for n in t['nodes'] if n.get('vertex_type')==0))" 2>/dev/null)"
+    # The path is passed as argv, not interpolated into the source: a topology path
+    # containing a quote would otherwise break the script or inject Python.
+    expected="$(python3 -c '
+import json, sys
+t = json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type") == 0))' "$topo" 2>/dev/null)"
     [[ -z "$expected" ]] && { err "cannot read topology: $topo"; return 2; }
 
     echo "waiting for topology convergence (expect $expected switches up+enabled, timeout ${timeout}s)"

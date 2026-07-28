@@ -17,3 +17,5 @@ p4_proxy/venv/
 __pycache__/
 # sanitizer build tree (see tests/test_SFlowParsing.cpp)
 build-asan/
+# test-run artefacts (tools/test_workflow)
+.test_run/

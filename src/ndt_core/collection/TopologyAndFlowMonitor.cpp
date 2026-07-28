@@ -287,7 +287,12 @@ TopologyAndFlowMonitor::activeTopologyPath() const
     // var) works in TESTBED as well as MININET. Checking the mode first meant
     // `--mode testbed --topology custom.json` silently loaded the default file instead --
     // the same class of quiet-wrong-topology failure this function exists to prevent.
-    if (const char* custom = std::getenv("NDTWIN_TOPO_FILE"))
+    // An empty value counts as unset. getenv returns a valid pointer to "" for
+    // NDTWIN_TOPO_FILE= , which would otherwise make this return "" -- and since the rename
+    // paths append ".tmp" to whatever comes back, the kernel would write a stray ".tmp" into
+    // its working directory and rename it over nothing.
+    const char* custom = std::getenv("NDTWIN_TOPO_FILE");
+    if (custom != nullptr && custom[0] != '\0')
     {
         return custom;
     }

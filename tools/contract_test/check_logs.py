@@ -106,7 +106,7 @@ FIELD_SEP = re.compile(r"\s+\|\s+")
 
 def load_allowlist(path) -> list[Rule]:
     rules = []
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, 1):
             line = raw.strip()
             if not line or line.startswith("#"):
@@ -170,19 +170,31 @@ def main() -> int:
         return 2
     rules = load_allowlist(args.allowlist)
 
-    stream = sys.stdin if args.logfile == "-" else open(args.logfile)
+    # Explicit encoding: logs are UTF-8, but the default follows the system locale,
+    # which turns a stray byte into a crash on a differently-configured machine.
+    stream = (sys.stdin if args.logfile == "-"
+              else open(args.logfile, encoding="utf-8", errors="replace"))
     try:
         entries = list(parse_log(stream))
     finally:
         if stream is not sys.stdin:
             stream.close()
 
-    total_lines = len(entries)
+    # Crashes are scanned over the WHOLE file, never the window. Filtering first (as an
+    # earlier version did) meant a crash during the excluded region -- exactly when the L2
+    # error paths are provoking the kernel -- was silently skipped, contradicting the
+    # documented guarantee that crash detection ignores the window.
+    all_entries = entries
+    total_lines = len(all_entries)
+
+    windowed_entries = all_entries
     if args.from_line:
-        entries = [e for e in entries if e[0] > args.from_line]
-    if args.to_line:
-        entries = [e for e in entries if e[0] <= args.to_line]
-    windowed = args.from_line or args.to_line
+        windowed_entries = [e for e in windowed_entries if e[0] > args.from_line]
+    # `is not None`, not truthiness: --to-line 0 is a meaningful request (check nothing but
+    # crashes, e.g. when the log was empty before the tests ran) and 0 is falsy.
+    if args.to_line is not None:
+        windowed_entries = [e for e in windowed_entries if e[0] <= args.to_line]
+    windowed = bool(args.from_line) or args.to_line is not None
 
     warn_rules = [r for r in rules if r.kind == "WARNING"]
     error_rules = [r for r in rules if r.kind == "ERROR"]
@@ -197,13 +209,15 @@ def main() -> int:
         key = (level, why, msg)
         violations.setdefault(key, []).append(lineno)
 
-    for lineno, level, msg, full in entries:
-        # Crash scan runs over every line, parsed or not, before anything else. These are
-        # never allowlistable and are not affected by --ignore-unparsed.
+    # Crash scan: every line of the file, parsed or not, window or not. Never allowlistable
+    # and unaffected by --ignore-unparsed.
+    for lineno, _level, _msg, full in all_entries:
         crash_why = scan_for_crash(full)
         if crash_why:
             crashes.setdefault((crash_why, full.strip()[:160]), []).append(lineno)
 
+    # Rule validation: only the requested window.
+    for lineno, level, msg, full in windowed_entries:
         if level is None:
             unparsed.append((lineno, msg))
             continue
@@ -277,7 +291,8 @@ def main() -> int:
           f"({', '.join(f'{k}={v}' for k, v in sorted(level_counts.items())) or 'none'})")
     if windowed:
         lo = args.from_line + 1
-        hi = args.to_line or total_lines
+        # `is not None` again: --to-line 0 must display as an empty window, not the whole file.
+        hi = args.to_line if args.to_line is not None else total_lines
         print(f"  {c(YELLOW, 'window')}   : lines {lo}-{hi} of {total_lines} "
               f"{c(DIM, '(the rest is deliberately excluded)')}")
     print(f"  allowlist: {len(rules)} rule(s) "

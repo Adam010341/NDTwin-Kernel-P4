@@ -706,6 +706,11 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
     // sflow::BoundedWords has the same operator[] syntax as the raw pointer it replaces, so
     // every existing access is now bounds-checked without touching the call sites. Reading
     // out of range throws sflow::TruncatedDatagram, caught below.
+    //
+    // The reinterpret_cast requires `buffer` to be 4-byte aligned, or this is undefined
+    // behaviour and faults outright on strict-alignment targets. That holds because callers
+    // pass Packet::data, declared `alignas(4)` -- which is therefore load-bearing, not
+    // decoration. Anything else feeding this function must guarantee the same.
     const sflow::BoundedWords data(reinterpret_cast<const uint32_t*>(buffer), len / 4);
     const size_t words = len / 4;
 
@@ -773,7 +778,11 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
             break;
         }
         // Two words are needed for any sample: its type and its length.
-        if (index + 1 >= words)
+        // Widened to size_t before adding: `index + 1` in uint32_t arithmetic wraps to 0
+        // when index reaches UINT32_MAX, and `0 >= words` is false, so the guard was
+        // bypassed. BoundedWords still caught the read that followed, but the loop should
+        // stop here rather than rely on the throw.
+        if (static_cast<size_t>(index) + 1 >= words)
         {
             SPDLOG_LOGGER_TRACE(Logger::instance(),
                                 "Reached end of sFlow datagram from {} after {} sample(s)",
@@ -1315,12 +1324,35 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
     } // try
     catch (const sflow::TruncatedDatagram& e)
     {
-        // A malformed or truncated datagram, not a kernel fault: log and drop it. Before the
-        // bounds check this read past the end of the buffer instead.
+        // A malformed or truncated datagram, not a kernel fault: drop it. Before the bounds
+        // check this read past the end of the buffer instead.
+        //
+        // Rate-limited, because this is an unauthenticated UDP port: logging every bad packet
+        // is itself a denial-of-service vector -- a flood would fill the disk and, with
+        // flush_on(info), block the worker on a synchronous write per line. The running total
+        // is carried in the message so nothing is hidden, only the volume is bounded.
+        reportMalformedDatagram(len, e.what());
+    }
+}
+
+// [Co-developed with claude code -- Adam]
+void
+FlowLinkUsageCollector::reportMalformedDatagram(size_t len, const char* reason)
+{
+    // Log the first, then one per LOG_EVERY. Relaxed ordering: the count only drives how
+    // often we log, so an occasional interleaving is harmless.
+    constexpr uint64_t LOG_EVERY = 1000;
+    const uint64_t total = m_malformedDatagrams.fetch_add(1, std::memory_order_relaxed) + 1;
+
+    if (total == 1 || (total % LOG_EVERY) == 0)
+    {
         SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "Discarding malformed sFlow datagram ({} bytes): {}",
+                           "Discarding malformed sFlow datagram ({} bytes): {} "
+                           "[{} malformed datagram(s) so far; logging 1 per {}]",
                            len,
-                           e.what());
+                           reason,
+                           total,
+                           LOG_EVERY);
     }
 }
 

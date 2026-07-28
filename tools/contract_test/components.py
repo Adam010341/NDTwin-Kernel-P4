@@ -16,6 +16,8 @@ matches on (method, target) together, so a GET to a POST-only endpoint falls thr
 
 from __future__ import annotations
 
+import os
+
 # endpoint name -> HTTP method the kernel accepts.
 # Transcribed from HttpSession.cpp; keep in sync when endpoints are added.
 KERNEL_ENDPOINTS = {
@@ -77,6 +79,45 @@ KNOWN_MISSING_ENDPOINTS = {
 }
 
 
+# Directory holding the sibling component repos. Previously these were hardcoded to
+# /home/adam/..., which broke on any other checkout.
+#
+# Discovered rather than assumed at a fixed depth: the kernel repo is not necessarily a
+# direct sibling of the others (here it sits in Desktop/ while they are one level up), so
+# counting dirname() calls is wrong on some layouts and right on others by luck. This walks
+# up from the kernel repo looking for a directory that actually contains a known component,
+# and NDTWIN_WORKSPACE_ROOT overrides it outright.
+_KERNEL_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_MARKER_COMPONENT = "Energy-Saving-App"
+
+
+def _discover_workspace_root() -> str:
+    override = os.environ.get("NDTWIN_WORKSPACE_ROOT")
+    if override:
+        return override
+
+    current = os.path.dirname(_KERNEL_REPO)
+    for _ in range(4):  # a few levels is plenty; avoids walking to /
+        if os.path.isdir(os.path.join(current, _MARKER_COMPONENT)):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:  # reached the filesystem root
+            break
+        current = parent
+
+    # Nothing found: fall back to the kernel's parent. The paths will not exist, which L0
+    # and L3 report as such rather than pretending the components are present.
+    return os.path.dirname(_KERNEL_REPO)
+
+
+WORKSPACE_ROOT = _discover_workspace_root()
+
+
+def component_path(repo_name: str) -> str:
+    """Path to a sibling component repo, honouring NDTWIN_WORKSPACE_ROOT."""
+    return os.path.join(WORKSPACE_ROOT, repo_name)
+
+
 class Component:
     def __init__(self, name, path, language, endpoints, writes, launch_note=""):
         self.name = name
@@ -93,7 +134,7 @@ class Component:
 
 COMPONENTS = [
     Component(
-        "Energy-Saving-App", "/home/adam/Energy-Saving-App", "C++",
+        "Energy-Saving-App", component_path("Energy-Saving-App"), "C++",
         [
             "get_graph_data",
             "get_detected_flow_data",
@@ -116,14 +157,14 @@ COMPONENTS = [
         launch_note="needs Simulation-Platform-Manager running for simulation cases",
     ),
     Component(
-        "Traffic-Engineering-App", "/home/adam/Traffic-Engineering-App", "Python",
+        "Traffic-Engineering-App", component_path("Traffic-Engineering-App"), "Python",
         ["get_graph_data", "get_detected_flow_data", "install_flow_entry",
          "acquire_lock", "release_lock"],
         writes=True,
         launch_note="conda env te-env",
     ),
     Component(
-        "Web-GUI", "/home/adam/Web-GUI", "React + Node + Postgres (Docker)",
+        "Web-GUI", component_path("Web-GUI"), "React + Node + Postgres (Docker)",
         ["get_graph_data", "get_detected_flow_data", "get_detected_top_k_flow_data",
          "get_switch_openflow_table_entries", "get_cpu_utilization",
          "get_memory_utilization", "get_temperature", "get_nickname",
@@ -134,7 +175,7 @@ COMPONENTS = [
         launch_note="docker compose; needs NDT_API_BASE_URL pointing at the kernel",
     ),
     Component(
-        "Network-Traffic-Visualizer", "/home/adam/Network-Traffic-Visualizer",
+        "Network-Traffic-Visualizer", component_path("Network-Traffic-Visualizer"),
         "JavaFX (JDK 21)",
         ["get_graph_data", "get_detected_flow_data", "get_detected_top_k_flow_data",
          "get_cpu_utilization", "get_memory_utilization"],
@@ -142,19 +183,19 @@ COMPONENTS = [
         launch_note="needs a display; config.properties sets ndt.api.url",
     ),
     Component(
-        "Network-State-Recorder", "/home/adam/Network-State-Recorder", "Python",
+        "Network-State-Recorder", component_path("Network-State-Recorder"), "Python",
         ["get_graph_data", "get_detected_flow_data"],
         writes=False,
         launch_note="conda env ntg-env; writes zipped JSON snapshots",
     ),
     Component(
-        "Network-Traffic-Generator", "/home/adam/Network-Traffic-Generator", "Python",
+        "Network-Traffic-Generator", component_path("Network-Traffic-Generator"), "Python",
         ["get_graph_data", "get_path_switch_count"],
         writes=False,
         launch_note="conda env ntg-env; generates real traffic inside Mininet",
     ),
     Component(
-        "Simulation-Platform-Manager", "/home/adam/Simulation-Platform-Manager", "C++",
+        "Simulation-Platform-Manager", component_path("Simulation-Platform-Manager"), "C++",
         ["app_register", "received_a_simulation_case", "simulation_completed"],
         writes=False,
         launch_note="shares files with apps over NFS",

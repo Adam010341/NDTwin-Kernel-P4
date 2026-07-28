@@ -191,16 +191,40 @@ struct FlowStats
  *
  * [Co-developed with claude code -- Adam]
  */
-class TruncatedDatagram : public std::runtime_error
+class TruncatedDatagram : public std::exception
 {
   public:
-    TruncatedDatagram(size_t requestedWord, size_t availableWords)
-        : std::runtime_error("sFlow datagram truncated: word " +
-                             std::to_string(requestedWord) + " requested, only " +
-                             std::to_string(availableWords) + " available"),
-          m_requestedWord(requestedWord),
+    TruncatedDatagram(size_t requestedWord, size_t availableWords) noexcept
+        : m_requestedWord(requestedWord),
           m_availableWords(availableWords)
     {
+    }
+
+    /**
+     * Built on demand rather than in the constructor.
+     *
+     * This is thrown from an unauthenticated UDP path, so a flood of malformed packets
+     * throws at line rate. Formatting the message eagerly meant two string allocations per
+     * bad packet whether or not anything read it; the caller logs at most one in a thousand.
+     * Deriving from std::exception rather than std::runtime_error is what makes that
+     * possible, since runtime_error requires the string up front.
+     */
+    const char* what() const noexcept override
+    {
+        if (m_message.empty())
+        {
+            try
+            {
+                m_message = "sFlow datagram truncated: word " +
+                            std::to_string(m_requestedWord) + " requested, only " +
+                            std::to_string(m_availableWords) + " available";
+            }
+            catch (...)
+            {
+                return "sFlow datagram truncated";
+            }
+        }
+        return m_message.c_str();
     }
 
     size_t requestedWord() const noexcept { return m_requestedWord; }
@@ -209,6 +233,7 @@ class TruncatedDatagram : public std::runtime_error
   private:
     size_t m_requestedWord;
     size_t m_availableWords;
+    mutable std::string m_message;
 };
 
 /**

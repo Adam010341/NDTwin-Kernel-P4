@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
 import sys
 import time
 import urllib.error
@@ -182,7 +183,9 @@ def request(base_url, ep, ctx, timeout) -> tuple[int, object, str | None]:
         status = exc.code
     except urllib.error.URLError as exc:
         return 0, None, f"cannot reach kernel: {exc.reason}"
-    except TimeoutError:
+    except (TimeoutError, socket.timeout):
+        # socket.timeout only became an alias of TimeoutError in Python 3.10; catch
+        # both so this works on the 3.8 interpreter the Ryu environment pins.
         return 0, None, f"timed out after {timeout}s"
 
     if not raw.strip():
@@ -200,12 +203,30 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
     gap = ep.get("known_gap")
 
     def finish(ok, failures):
-        """Applies known-gap handling uniformly to every exit path."""
+        """
+        Applies known-gap handling.
+
+        A known_gap excuses only the specific shortcoming it documents -- a wrong-but-sane
+        response. It must NOT excuse the kernel throwing (5xx) or being unreachable:
+        marking those as an accepted gap would hide a crashed or hung kernel behind a
+        yellow tick, which is the opposite of the point.
+        """
         if gap:
             if ok:
                 # The defect was fixed: say so loudly rather than staying quiet.
                 return Result(name, True, [], status, note=ep.get("note"),
                               known_gap=gap, gap_closed=True, data=data)
+
+            unexcusable = None
+            if status == 0:
+                unexcusable = "the kernel did not respond"
+            elif status >= 500:
+                unexcusable = f"the kernel returned {status}"
+            if unexcusable:
+                return Result(name, False,
+                              failures + [f"not excused by the known gap: {unexcusable}"],
+                              status, note=ep.get("note"), known_gap=gap, data=data)
+
             return Result(name, True, failures, status, note=ep.get("note"),
                           known_gap=gap, data=data)
         return Result(name, ok, failures, status, note=ep.get("note"), data=data)

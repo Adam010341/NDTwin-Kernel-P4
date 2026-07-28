@@ -187,7 +187,7 @@ def load_allowlist(path) -> list[AllowRule]:
     if not os.path.exists(path):
         return []
     rules = []
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, 1):
             line = raw.strip()
             if not line or line.startswith("#"):
@@ -211,7 +211,7 @@ def load_dir(path) -> dict[str, object]:
     for fn in sorted(os.listdir(path)):
         if not fn.endswith(".json"):
             continue
-        with open(os.path.join(path, fn)) as fh:
+        with open(os.path.join(path, fn), encoding="utf-8") as fh:
             try:
                 out[fn[:-5]] = json.load(fh)
             except json.JSONDecodeError as exc:

@@ -385,6 +385,15 @@ TEST_F(SwitchKindFixture, TopologyOverrideAlsoAppliesInTestbedMode)
     EXPECT_EQ(monitor->activeTopologyPath(), "/tmp/ndt_override_testbed.json");
 }
 
+TEST_F(SwitchKindFixture, EmptyOverrideCountsAsUnset)
+{
+    // getenv returns a valid pointer to "" for `NDTWIN_TOPO_FILE=`. Returning that would
+    // make the rename paths write a stray ".tmp" into the working directory.
+    ScopedTopoEnv env("");
+    auto monitor = makeMonitor(utils::DeploymentMode::MININET);
+    EXPECT_EQ(monitor->activeTopologyPath(), AppConfig::TOPOLOGY_FILE_MININET);
+}
+
 TEST_F(SwitchKindFixture, FallsBackToModeDefaultWithoutOverride)
 {
     ScopedTopoEnv env(nullptr); // ensure unset

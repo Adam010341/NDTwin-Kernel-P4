@@ -181,7 +181,32 @@ class FlowLinkUsageCollector
      */
     void handlePacket(char* buffer, size_t len);
 
+    /**
+     * @brief Number of datagrams discarded as malformed since startup.
+     *
+     * Exposed so a test or a future metrics endpoint can assert that bad input was counted
+     * rather than having to scrape the log, which is rate-limited.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    uint64_t malformedDatagramCount() const
+    {
+        return m_malformedDatagrams.load(std::memory_order_relaxed);
+    }
+
   private:
+    /**
+     * @brief Counts a malformed datagram and logs at most one per thousand.
+     *
+     * Unbounded logging on an unauthenticated UDP port is a denial-of-service vector in its
+     * own right, so the count is always exact but the log volume is capped.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void reportMalformedDatagram(size_t len, const char* reason);
+
+    std::atomic<uint64_t> m_malformedDatagrams{0};
+
     void purgeIdleFlows();
     void fetchAllDestinationPaths();
     void calFlowPathByQueried();

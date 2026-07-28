@@ -114,6 +114,7 @@ class TestableCollector : public sflow::FlowLinkUsageCollector
     }
 
     using sflow::FlowLinkUsageCollector::handlePacket;
+    using sflow::FlowLinkUsageCollector::malformedDatagramCount;
 };
 
 class SFlowParsingFixture : public ::testing::Test
@@ -383,6 +384,26 @@ TEST_F(SFlowParsingFixture, SurvivesTruncationSweepOverGarbage)
                                     complete.begin() + static_cast<long>(keepWords * 4));
         EXPECT_NO_THROW(feed(truncated)) << "failed at iteration " << iteration;
     }
+}
+
+// =====================================================================================
+// Malformed-packet accounting
+// =====================================================================================
+
+TEST_F(SFlowParsingFixture, CountsEveryMalformedDatagramEvenThoughLoggingIsRateLimited)
+{
+    // The log is capped at one per thousand so a flood cannot fill the disk, but the count
+    // must stay exact -- otherwise rate limiting would hide how bad the input is.
+    const uint64_t before = m_collector->malformedDatagramCount();
+
+    for (int i = 0; i < 50; ++i)
+    {
+        DatagramBuilder b;
+        b.header(1).word(2).word(4 * 40); // promises a counter sample, then ends
+        EXPECT_NO_THROW(feed(b));
+    }
+
+    EXPECT_EQ(m_collector->malformedDatagramCount(), before + 50);
 }
 
 // =====================================================================================

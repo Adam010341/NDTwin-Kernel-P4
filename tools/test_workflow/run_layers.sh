@@ -85,12 +85,18 @@ LOG_MARK=0
 # non-numeric dpid, unknown endpoint), so checking the whole file afterwards would be
 # permanently red for reasons the test itself caused -- which trains you to ignore the
 # one mechanism that makes new warnings fail.
+LOG_MARKED=0
+
 mark_log() {
     if [[ -f "$KERNEL_LOG" ]]; then
         LOG_MARK=$(wc -l <"$KERNEL_LOG")
     else
         LOG_MARK=0
     fi
+    # Separate flag rather than testing LOG_MARK -gt 0: a mark of 0 is legitimate (the log
+    # was empty or absent before the tests ran) and means "check crashes only". Treating 0
+    # as unmarked scanned the whole log instead and failed on the errors L2 provokes itself.
+    LOG_MARKED=1
 }
 
 run_logcheck() {
@@ -103,8 +109,9 @@ run_logcheck() {
         echo "  $CONTRACT_DIR/check_logs.py /path/to/kernel.log"
         return 1
     fi
-    if [[ "$LOG_MARK" -gt 0 ]]; then
-        echo "${D}checking lines 1-$LOG_MARK (before the L2 error-path checks)${N}"
+    if [[ "$LOG_MARKED" -eq 1 ]]; then
+        echo "${D}checking lines 1-$LOG_MARK (before the L2 error-path checks);"
+        echo "crashes are still scanned across the whole file${N}"
         "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG" --to-line "$LOG_MARK"
     else
         "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG"
