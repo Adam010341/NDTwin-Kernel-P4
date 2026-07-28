@@ -2,6 +2,30 @@
  * NDTwin P4 Data Plane Switch
  * Architecture: v1model
  * Target: BMv2
+ *
+ * Phase 4 of doc/p4_bmv2_support_plan.md.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * What changed and why:
+ *
+ *  - L4 is parsed (TCP/UDP/ICMP) and ARP is handled. Previously only Ethernet and IPv4 were
+ *    parsed, so NDTwin's 5-tuple rules could not be expressed at all, and ARP -- along with
+ *    every other non-IPv4 frame -- was silently dropped because no egress_spec was set.
+ *
+ *  - A ternary flow_5tuple table with real priority sits in front of ipv4_lpm. LPM tables
+ *    have no priority concept: precedence is prefix length, so two rules the kernel believed
+ *    were ordered were not. Applications and the Intent Translator emit OpenFlow 5-tuple
+ *    matches with priorities, and those now translate faithfully.
+ *
+ *  - Sampled copies of traffic are cloned to the CPU port at 1/256, carrying the ingress
+ *    port, egress port and original frame length. This is what feeds the sFlow emitter in
+ *    Phase 5; the rate matches OVS's sampling=256 so the kernel's rate arithmetic is
+ *    unchanged. Sampling is random rather than every-Nth because that is what sFlow's model
+ *    assumes.
+ *
+ *  - TTL is checked before decrementing. It was decremented unconditionally, so a packet
+ *    arriving with TTL 0 wrapped to 255 and could circulate.
  */
 
 #include <core.p4>
@@ -11,8 +35,28 @@
 // CONSTANTS
 // ===========================================================================
 const bit<16> TYPE_IPV4 = 0x0800;
+const bit<16> TYPE_ARP  = 0x0806;
 const bit<16> TYPE_LLDP = 0x88CC;
-const bit<9>  CPU_PORT  = 255;  // Default BMv2 CPU port for Packet-In/Out
+
+const bit<8>  IP_PROTO_ICMP = 1;
+const bit<8>  IP_PROTO_TCP  = 6;
+const bit<8>  IP_PROTO_UDP  = 17;
+
+const bit<9>  CPU_PORT = 255;  // Default BMv2 CPU port for Packet-In/Out
+
+// Mirror session the proxy agent must configure; sampled copies are cloned here.
+const bit<32> SAMPLE_SESSION = 250;
+
+// Sample 1 in SAMPLE_RATE packets. Matches OVS's sampling=256 in testbed_topo.py, so the
+// kernel's existing rate calculations apply unchanged.
+const bit<16> SAMPLE_RATE = 256;
+
+// Index of the metadata field list preserved across the ingress-to-egress clone.
+const bit<8> FL_SAMPLE = 1;
+
+// bmv2's instance_type values. v1model.p4 documents but does not declare these, so programs
+// define them themselves; 1 is an ingress-to-egress clone, i.e. one of our sampled copies.
+const bit<32> BMV2_INSTANCE_TYPE_INGRESS_CLONE = 1;
 
 // ===========================================================================
 // HEADERS
@@ -41,29 +85,91 @@ header ipv4_t {
     ip4Addr_t dstAddr;
 }
 
-// Custom header for Packet-In (Controller needs to know which ingress port)
+header tcp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<32> seqNo;
+    bit<32> ackNo;
+    bit<4>  dataOffset;
+    bit<4>  res;
+    bit<8>  flags;
+    bit<16> window;
+    bit<16> checksum;
+    bit<16> urgentPtr;
+}
+
+header udp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<16> length_;
+    bit<16> checksum;
+}
+
+header icmp_t {
+    bit<8>  icmpType;
+    bit<8>  icmpCode;
+    bit<16> checksum;
+}
+
+// Custom header for Packet-In (controller needs to know the ingress port)
 @controller_header("packet_in")
 header packet_in_header_t {
     bit<9> ingress_port;
     bit<7> _pad;
 }
 
-// Custom header for Packet-Out (Controller tells switch which egress port)
+// Custom header for Packet-Out (controller tells the switch which egress port)
 @controller_header("packet_out")
 header packet_out_header_t {
     bit<9> egress_port;
     bit<7> _pad;
 }
 
+/*
+ * Prepended to a sampled copy so the proxy agent can build an sFlow flow sample without
+ * re-deriving anything: it needs the ingress and egress interface indices and the original
+ * frame length, none of which survive on the wire.
+ *
+ * Distinct from packet_in so the proxy can tell a telemetry sample from a genuine
+ * packet-in (an unmatched packet or an LLDP beacon) by the first header alone.
+ */
+@controller_header("sample")
+header sample_header_t {
+    bit<9>  ingress_port;
+    bit<9>  egress_port;
+    bit<16> frame_length;   // original length, before any truncation
+    bit<16> sampling_rate;  // so the emitter reports what the switch actually used
+    bit<6>  _pad;
+}
+
 struct metadata {
-    // Empty for now, can be expanded later
+    // Preserved across the clone so egress can populate sample_header. Ingress metadata is
+    // otherwise not visible to the cloned copy.
+    @field_list(FL_SAMPLE)
+    bit<9>  sample_ingress_port;
+    @field_list(FL_SAMPLE)
+    bit<9>  sample_egress_port;
+    @field_list(FL_SAMPLE)
+    bit<16> sample_frame_length;
+
+    // L4 ports lifted out of whichever L4 header is present, so the ternary table can key on
+    // them uniformly. Zero for ICMP and for unparsed protocols -- keying directly on
+    // hdr.tcp.srcPort would read an invalid header for a UDP or ICMP packet.
+    bit<16> l4_src_port;
+    bit<16> l4_dst_port;
+
+    bit<16> sample_rand;
 }
 
 struct headers {
     packet_out_header_t packet_out;
     packet_in_header_t  packet_in;
+    sample_header_t     sample;
     ethernet_t          ethernet;
     ipv4_t              ipv4;
+    tcp_t               tcp;
+    udp_t               udp;
+    icmp_t              icmp;
 }
 
 // ===========================================================================
@@ -75,6 +181,8 @@ parser MyParser(packet_in packet,
                 inout standard_metadata_t standard_metadata) {
 
     state start {
+        meta.l4_src_port = 0;
+        meta.l4_dst_port = 0;
         // If the packet came from the CPU, it has a packet_out header
         transition select(standard_metadata.ingress_port) {
             CPU_PORT: parse_packet_out;
@@ -91,12 +199,42 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
             TYPE_IPV4: parse_ipv4;
-            default: accept;
+            default: accept;   // ARP, LLDP, IPv6: forwarded by the ingress logic below
         }
     }
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
+        // Only parse L4 for unfragmented packets: a non-zero fragment offset means the L4
+        // header is in the first fragment only, so reading it here would consume payload.
+        transition select(hdr.ipv4.fragOffset, hdr.ipv4.protocol) {
+            (0, IP_PROTO_TCP):  parse_tcp;
+            (0, IP_PROTO_UDP):  parse_udp;
+            (0, IP_PROTO_ICMP): parse_icmp;
+            default: accept;
+        }
+    }
+
+    state parse_tcp {
+        packet.extract(hdr.tcp);
+        meta.l4_src_port = hdr.tcp.srcPort;
+        meta.l4_dst_port = hdr.tcp.dstPort;
+        transition accept;
+    }
+
+    state parse_udp {
+        packet.extract(hdr.udp);
+        meta.l4_src_port = hdr.udp.srcPort;
+        meta.l4_dst_port = hdr.udp.dstPort;
+        transition accept;
+    }
+
+    state parse_icmp {
+        packet.extract(hdr.icmp);
+        // The kernel's FlowKey carries ICMP type/code in the port fields (see
+        // doc/ndt_api.md), so mirroring that here keeps the two consistent.
+        meta.l4_src_port = (bit<16>)hdr.icmp.icmpType;
+        meta.l4_dst_port = (bit<16>)hdr.icmp.icmpCode;
         transition accept;
     }
 }
@@ -115,25 +253,66 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
+    // Per-table counters, so the proxy can report per-entry byte/packet counts through
+    // /stats/flow/<dpid> in the Ryu shape the Classifier expects.
+    direct_counter(CounterType.packets_and_bytes) flow_5tuple_counter;
+    direct_counter(CounterType.packets_and_bytes) ipv4_lpm_counter;
+
     action drop() {
         mark_to_drop(standard_metadata);
     }
 
     action ipv4_forward(macAddr_t dstAddr, bit<9> port) {
-        // Set next hop MAC and egress port
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
         hdr.ethernet.dstAddr = dstAddr;
         standard_metadata.egress_spec = port;
-        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+        // Guard the decrement: this was unconditional, so a packet arriving with TTL 0
+        // wrapped to 255 and could keep circulating.
+        if (hdr.ipv4.ttl > 0) {
+            hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+        }
+    }
+
+    /// Forwarding that does not rewrite L2, for frames with no IPv4 header (ARP).
+    action forward_l2(bit<9> port) {
+        standard_metadata.egress_spec = port;
     }
 
     action send_to_cpu() {
-        // Send unmatched packets to controller
         standard_metadata.egress_spec = CPU_PORT;
         hdr.packet_in.setValid();
         hdr.packet_in.ingress_port = standard_metadata.ingress_port;
     }
 
+    /*
+     * Ternary 5-tuple table with genuine priority, in front of the LPM table.
+     *
+     * Keys are the fields NDTwin applications actually match on. in_port is included because
+     * OpenFlow rules may scope a match to an ingress port. Ports come from metadata rather
+     * than the L4 headers directly, so an ICMP or fragmented packet does not read an invalid
+     * header.
+     */
+    table flow_5tuple {
+        key = {
+            standard_metadata.ingress_port: ternary;
+            hdr.ipv4.srcAddr:               ternary;
+            hdr.ipv4.dstAddr:               ternary;
+            hdr.ipv4.protocol:              ternary;
+            meta.l4_src_port:               ternary;
+            meta.l4_dst_port:               ternary;
+        }
+        actions = {
+            ipv4_forward;
+            drop;
+            send_to_cpu;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();   // fall through to ipv4_lpm
+        counters = flow_5tuple_counter;
+    }
+
+    /// Destination-based fallback, unchanged in shape so existing rules keep working.
     table ipv4_lpm {
         key = {
             hdr.ipv4.dstAddr: lpm;
@@ -145,16 +324,58 @@ control MyIngress(inout headers hdr,
             NoAction;
         }
         size = 1024;
-        default_action = send_to_cpu(); // By default, send to controller (Packet-In)
+        default_action = send_to_cpu();
+        counters = ipv4_lpm_counter;
+    }
+
+    /// ARP and other non-IPv4 frames the fabric still has to carry.
+    table l2_forward {
+        key = {
+            hdr.ethernet.dstAddr: exact;
+        }
+        actions = {
+            forward_l2;
+            send_to_cpu;
+            drop;
+            NoAction;
+        }
+        size = 512;
+        // Unknown L2 destinations go to the controller, which can learn or flood. Previously
+        // ARP was dropped outright, which meant hosts could not resolve each other without
+        // the static ARP entries the topology script pre-populates.
+        default_action = send_to_cpu();
     }
 
     apply {
         if (hdr.packet_out.isValid()) {
+            // Controller-injected packet: obey the requested egress port and do not sample.
             standard_metadata.egress_spec = hdr.packet_out.egress_port;
-        } else if (hdr.ipv4.isValid()) {
-            ipv4_lpm.apply();
+            return;
+        }
+
+        if (hdr.ipv4.isValid()) {
+            // Ternary first so an explicit 5-tuple rule beats the destination-based default.
+            if (!flow_5tuple.apply().hit) {
+                ipv4_lpm.apply();
+            }
         } else if (hdr.ethernet.isValid() && hdr.ethernet.etherType == TYPE_LLDP) {
+            // LLDP beacons are the proxy's link-discovery mechanism.
             send_to_cpu();
+        } else if (hdr.ethernet.isValid()) {
+            l2_forward.apply();
+        }
+
+        // --- telemetry sampling -------------------------------------------------------
+        // Never sample a packet already destined for the CPU: that would duplicate
+        // packet-ins and confuse the proxy's discovery logic.
+        if (standard_metadata.egress_spec != CPU_PORT) {
+            random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+            if (meta.sample_rand == 0) {
+                meta.sample_ingress_port = standard_metadata.ingress_port;
+                meta.sample_egress_port = standard_metadata.egress_spec;
+                meta.sample_frame_length = (bit<16>)standard_metadata.packet_length;
+                clone_preserving_field_list(CloneType.I2E, SAMPLE_SESSION, FL_SAMPLE);
+            }
         }
     }
 }
@@ -165,14 +386,31 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-                 
+
+    // Per-port totals, indexed by egress port. Used for link utilisation.
     counter(512, CounterType.packets_and_bytes) egress_port_counter;
-    
+
     apply {
-        // Count all packets leaving on this egress port
-        egress_port_counter.count((bit<32>)standard_metadata.egress_spec);
-        
-        // If it's a packet out from CPU, we just forward it based on the header
+        if (standard_metadata.instance_type == BMV2_INSTANCE_TYPE_INGRESS_CLONE) {
+            /*
+             * This is a sampled copy on its way to the CPU. Attach the metadata the proxy
+             * needs to build an sFlow flow sample, and strip any controller headers that
+             * were valid on the original.
+             */
+            hdr.sample.setValid();
+            hdr.sample.ingress_port = meta.sample_ingress_port;
+            hdr.sample.egress_port = meta.sample_egress_port;
+            hdr.sample.frame_length = meta.sample_frame_length;
+            hdr.sample.sampling_rate = SAMPLE_RATE;
+            hdr.sample._pad = 0;
+            hdr.packet_in.setInvalid();
+            hdr.packet_out.setInvalid();
+            return;   // do not count the copy: it is not real egress traffic
+        }
+
+        // Count real traffic only, indexed by the port it actually left on.
+        egress_port_counter.count((bit<32>)standard_metadata.egress_port);
+
         if (hdr.packet_out.isValid()) {
             hdr.packet_out.setInvalid();
         }
@@ -207,10 +445,15 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 // ===========================================================================
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
-        // Emit headers in order (CPU headers first if valid)
+        // Controller headers first, then the frame as it was received. Only one of
+        // sample/packet_in is ever valid, so their relative order does not matter.
+        packet.emit(hdr.sample);
         packet.emit(hdr.packet_in);
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
+        packet.emit(hdr.tcp);
+        packet.emit(hdr.udp);
+        packet.emit(hdr.icmp);
     }
 }
 
@@ -225,5 +468,3 @@ V1Switch(
     MyComputeChecksum(),
     MyDeparser()
 ) main;
-
-//# Developed in collaboration with Gemini 3.1 Pro.
