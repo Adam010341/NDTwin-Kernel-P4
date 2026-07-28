@@ -5,6 +5,7 @@
 #include <map>
 #include <nlohmann/json.hpp>
 #include <queue>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -180,6 +181,74 @@ struct FlowStats
     uint64_t avgPacketRate = 0;
     uint32_t samplingRate = 1;
     AutoRefreshQueue packetQueue;
+};
+
+/**
+ * @brief Thrown when the sFlow parser would read past the end of a datagram.
+ *
+ * Carries the offending word index and the datagram's size so the log line says which
+ * offset a malformed packet reached for.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+class TruncatedDatagram : public std::runtime_error
+{
+  public:
+    TruncatedDatagram(size_t requestedWord, size_t availableWords)
+        : std::runtime_error("sFlow datagram truncated: word " +
+                             std::to_string(requestedWord) + " requested, only " +
+                             std::to_string(availableWords) + " available"),
+          m_requestedWord(requestedWord),
+          m_availableWords(availableWords)
+    {
+    }
+
+    size_t requestedWord() const noexcept { return m_requestedWord; }
+    size_t availableWords() const noexcept { return m_availableWords; }
+
+  private:
+    size_t m_requestedWord;
+    size_t m_availableWords;
+};
+
+/**
+ * @brief A bounds-checked view over a datagram as 32-bit words.
+ *
+ * Deliberately exposes the same `operator[]` as the raw `const uint32_t*` it replaces, so
+ * an existing fixed-offset parser can be made safe without rewriting its accesses. Returns
+ * the raw word (no byte-order conversion) exactly as the pointer did, leaving callers'
+ * ntohl() calls unchanged.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+class BoundedWords
+{
+  public:
+    BoundedWords(const uint32_t* words, size_t count)
+        : m_words(words),
+          m_count(count)
+    {
+    }
+
+    /// @throws TruncatedDatagram when @p i is past the end of the datagram.
+    uint32_t operator[](size_t i) const
+    {
+        if (i >= m_count)
+        {
+            throw TruncatedDatagram(i, m_count);
+        }
+        return m_words[i];
+    }
+
+    /// Number of whole 32-bit words available.
+    size_t size() const noexcept { return m_count; }
+
+    /// True when @p i can be read without throwing. For probing before a wide read.
+    bool has(size_t i) const noexcept { return i < m_count; }
+
+  private:
+    const uint32_t* m_words;
+    size_t m_count;
 };
 
 /**

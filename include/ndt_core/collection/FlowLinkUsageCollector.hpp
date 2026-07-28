@@ -165,7 +165,23 @@ class FlowLinkUsageCollector
     void calAvgFlowSendingRatesImmediately();
     void testCalAvgFlowSendingRatesRandomly();
     void run(size_t numWorkers, size_t queueCapacity);
+
+  protected:
+    /**
+     * @brief Parses one sFlow datagram.
+     *
+     * Protected so tests can feed it malformed datagrams directly. This is the kernel's
+     * second external input surface -- the first being the /ndt/ HTTP API -- and the only
+     * one reachable by anything that can send a UDP packet to port 6343, so its robustness
+     * needs to be covered by tests rather than assumed.
+     *
+     * Never throws: a malformed datagram is logged and discarded.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
     void handlePacket(char* buffer, size_t len);
+
+  private:
     void purgeIdleFlows();
     void fetchAllDestinationPaths();
     void calFlowPathByQueried();

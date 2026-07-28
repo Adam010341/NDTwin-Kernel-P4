@@ -15,3 +15,5 @@ cmake-build-debug/
 # Python and Environment
 p4_proxy/venv/
 __pycache__/
+# sanitizer build tree (see tests/test_SFlowParsing.cpp)
+build-asan/

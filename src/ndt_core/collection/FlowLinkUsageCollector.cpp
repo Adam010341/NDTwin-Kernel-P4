@@ -695,7 +695,22 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
         return; // sFlow is 32-bit aligned
     }
 
-    const uint32_t* data = reinterpret_cast<const uint32_t*>(buffer);
+    // [Co-developed with claude code -- Adam]
+    //
+    // The parser below indexes ~40 fixed word offsets from `index` (up to index+38) with
+    // lengths and a sample count taken straight from the datagram, and previously never
+    // checked any of them against the buffer. A truncated or malformed datagram therefore
+    // read past the end: garbage rates, or an occasional crash, from the one external input
+    // surface with no validation and no tests.
+    //
+    // sflow::BoundedWords has the same operator[] syntax as the raw pointer it replaces, so
+    // every existing access is now bounds-checked without touching the call sites. Reading
+    // out of range throws sflow::TruncatedDatagram, caught below.
+    const sflow::BoundedWords data(reinterpret_cast<const uint32_t*>(buffer), len / 4);
+    const size_t words = len / 4;
+
+    try
+    {
 
     uint32_t version = ntohl(data[0]);
 
@@ -713,9 +728,61 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
     SPDLOG_LOGGER_TRACE(Logger::instance(), "Agent Address: {}", agentIpStr);
     SPDLOG_LOGGER_TRACE(Logger::instance(), "Sample Count: {}", sampleCount);
 
+    // [Co-developed with claude code -- Adam]
+    // sampleCount comes from the datagram and was trusted as-is. A crafted value of 2^32-1
+    // meant that many iterations; each is now bounds-checked so it would terminate, but
+    // capping it at what the remaining bytes could possibly hold rejects the nonsense up
+    // front. The smallest sample any branch parses is a header plus length, i.e. 2 words.
+    const size_t maxPossibleSamples = (words > 7) ? (words - 7) / 2 : 0;
+    if (sampleCount > maxPossibleSamples)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "sFlow datagram from {} claims {} samples but {} bytes can hold "
+                           "at most {}; discarding",
+                           agentIpStr,
+                           sampleCount,
+                           len,
+                           maxPossibleSamples);
+        return;
+    }
+
     uint32_t index = 7;
+    // Sentinel below the initial index so the first iteration always passes the guard.
+    uint32_t previousIndex = 0;
+
     for (uint32_t i = 0; i < sampleCount; i++)
     {
+        // [Co-developed with claude code -- Adam]
+        // Guards at the top rather than the bottom because several branches below reach the
+        // next iteration via `continue`, which would skip a bottom-of-loop check.
+        //
+        // Forward progress: the advancement expressions include
+        //     index += (sampleLen / 4 + 2 - (flowDataLength / 4 + 2));
+        // which is unsigned, so when flowDataLength exceeds sampleLen -- easy to arrange in
+        // a crafted datagram -- it wraps to near 2^32 and index leaps out of the buffer.
+        // Elsewhere a sampleLen of 0 leaves index unchanged and spins forever.
+        if (index <= previousIndex)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "Malformed sFlow datagram from {}: read position did not "
+                               "advance at sample {} ({} -> {}); discarding the rest",
+                               agentIpStr,
+                               i,
+                               previousIndex,
+                               index);
+            break;
+        }
+        // Two words are needed for any sample: its type and its length.
+        if (index + 1 >= words)
+        {
+            SPDLOG_LOGGER_TRACE(Logger::instance(),
+                                "Reached end of sFlow datagram from {} after {} sample(s)",
+                                agentIpStr,
+                                i);
+            break;
+        }
+        previousIndex = index;
+
         uint32_t sampleType = ntohl(data[index]);
         //================================================================
         // Handle Counter Samples (Brocade Type 2 and HPE Type 4)
@@ -1242,6 +1309,18 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                 break;
             }
         }
+
+    }
+
+    } // try
+    catch (const sflow::TruncatedDatagram& e)
+    {
+        // A malformed or truncated datagram, not a kernel fault: log and drop it. Before the
+        // bounds check this read past the end of the buffer instead.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Discarding malformed sFlow datagram ({} bytes): {}",
+                           len,
+                           e.what());
     }
 }
 
