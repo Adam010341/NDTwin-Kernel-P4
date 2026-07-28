@@ -297,6 +297,24 @@ def inv_lock_acquired(data, ctx):
     return []
 
 
+def inv_flow_write_is_honest_about_being_queued(data, ctx):
+    """
+    The flow-entry endpoints enqueue onto an asynchronous dispatcher and return before any
+    request reaches the controller, so they cannot know whether the entries were programmed.
+    They used to answer "Flow installed" regardless -- a rejected rule and a success were the
+    same response. This pins the honest wording so it cannot regress to a false claim.
+    """
+    status = str(data.get("status", "")).lower()
+    if status != "queued":
+        return [f"expected status 'queued' (the dispatcher is asynchronous, so the outcome "
+                f"is not known yet), got {data.get('status')!r} -- if this now reports a real "
+                f"per-entry outcome, a synchronous path was added and this check should be "
+                f"updated to verify it"]
+    if "accepted" not in data:
+        return ["response does not say how many entries were accepted"]
+    return []
+
+
 def inv_power_state_values(data, ctx):
     bad = {k: v for k, v in data.items() if v not in ("ON", "OFF")}
     if bad:
@@ -527,21 +545,26 @@ ENDPOINTS = [
              "dpid": ctx.a_dpid, "priority": 1,
              "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
              "actions": [{"type": "OUTPUT", "port": 1}]},
-         category=MUTATE, schema=STATUS_OK),
+         category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
+                     optional={"detail": Str()}),
+         invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="modify_flow_entry", method="POST", path="/ndt/modify_flow_entry",
          body=lambda ctx: {
              "dpid": ctx.a_dpid, "priority": 1,
              "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
              "actions": [{"type": "OUTPUT", "port": 2}]},
-         category=MUTATE, schema=STATUS_OK),
+         category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
+                     optional={"detail": Str()}),
+         invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="delete_flow_entry", method="POST", path="/ndt/delete_flow_entry",
          body=lambda ctx: {
              "dpid": ctx.a_dpid,
              "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}},
-         category=MUTATE, schema=STATUS_OK,
-         note="cleans up the probe rule installed above"),
+         category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
+                     optional={"detail": Str()}),
+         invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="batch_flow_entries", method="POST",
          path="/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
@@ -554,7 +577,9 @@ ENDPOINTS = [
              "delete_flow_entries": [{
                  "dpid": ctx.a_dpid,
                  "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}}]},
-         category=MUTATE, schema=STATUS_OK),
+         category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
+                     optional={"detail": Str()}),
+         invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="inform_switch_entered", method="GET", path="/ndt/inform_switch_entered",
          query=lambda ctx: {"dpid": str(ctx.a_dpid)},

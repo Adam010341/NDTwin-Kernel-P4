@@ -9,9 +9,11 @@ public:
     P4PowerStrategy() = default;
     virtual ~P4PowerStrategy() = default;
 
-    bool powerOn(Graph::vertex_descriptor node, const std::string& swName, uint64_t dpid, TopologyAndFlowMonitor* topoMonitor) override;
-    bool powerOff(Graph::vertex_descriptor node, const std::string& swName, TopologyAndFlowMonitor* topoMonitor) override;
+    OpResult powerOn(Graph::vertex_descriptor node, const std::string& swName, uint64_t dpid, TopologyAndFlowMonitor* topoMonitor) override;
+    OpResult powerOff(Graph::vertex_descriptor node, const std::string& swName, TopologyAndFlowMonitor* topoMonitor) override;
     
+    const char* describe() const override { return "P4/bmv2"; }
+
 protected:
     virtual void executeSystemCommand(const std::string& cmd);
 };

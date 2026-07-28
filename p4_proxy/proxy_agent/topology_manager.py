@@ -104,8 +104,11 @@ class TopologyManager:
             
         # Push rule via P4 client
         print(f"[TopologyManager] Pushing P4 rule to DPID {dpid}: {ipv4_dst}/32 -> Port {out_port} (MAC: {next_hop_mac})")
-        client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port)
-        return True
+        # [Co-developed with claude code -- Adam]
+        # Was `insert_ipv4_route(...)` followed by an unconditional `return True`, so the
+        # REST layer answered {"status":"success"} even when the gRPC write was rejected or
+        # the switch was unreachable. Return what actually happened.
+        return bool(client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port))
 
     def unroute_flow(self, dpid, match_dict):
         if dpid not in self.switches:
@@ -116,8 +119,8 @@ class TopologyManager:
         if not ipv4_dst:
             return False
             
-        client.delete_ipv4_route(ipv4_dst, 32)
-        return True
+        # [Co-developed with claude code -- Adam] -- as above: report the real outcome.
+        return bool(client.delete_ipv4_route(ipv4_dst, 32))
 
     def modify_flow(self, dpid, match_dict, actions_dict):
         if dpid not in self.switches:

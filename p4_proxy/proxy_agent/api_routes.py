@@ -56,13 +56,14 @@ async def modify_flow_entry(request: Request):
     match = data.get("match", {})
     actions = data.get("actions", [])
     
+    # [Co-developed with claude code -- Adam]
+    # The two branches after the raise were unreachable. More importantly the raise itself
+    # fired on every *successful* modify, because modify_ipv4_route had no `return True` on
+    # its success path and the None propagated to here as falsy.
     success = topology.modify_flow(dpid, match, actions)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
-    if success:
-        return {"status": "success"}
-    else:
-        return {"status": "error", "message": "Failed to modify route"}
+    return {"status": "success"}
 
 # Developed in collaboration with Gemini 3.1 Pro.
 

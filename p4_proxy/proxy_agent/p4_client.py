@@ -213,14 +213,28 @@ class P4RuntimeClient:
         try:
             self.stub.Write(req)
             print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
+            return True
         except grpc.RpcError as e:
-            # BMv2 returns UNKNOWN without details when trying to insert a duplicate rule.
-            # Since LLDP triggers full routing table recalculation on every new link,
-            # we safely ignore duplicate insertion errors to keep logs clean.
-            if e.code() == grpc.StatusCode.UNKNOWN:
-                pass
-            else:
-                print(f"[{self.device_id}] Failed to add route: {e.code()} - {e.details()}")
+            # [Co-developed with claude code -- Adam]
+            #
+            # This used to `pass` on every UNKNOWN and return None either way, on the theory
+            # that UNKNOWN only means "entry already exists". bmv2 does report duplicates that
+            # way -- UNKNOWN with no details -- but it also returns UNKNOWN for genuine
+            # failures such as a bad table name or an out-of-range action parameter, so every
+            # real write error was being discarded as a harmless duplicate.
+            #
+            # The two cannot be told apart from the status alone, so rather than guessing from
+            # the message we resolve it by doing what the caller meant: retry as a MODIFY. If
+            # the entry existed, the modify succeeds and the write is genuinely done -- which
+            # also fixes a second bug, since the old code left the existing entry untouched, so
+            # a recalculated (better) path never actually took effect. If the modify fails too,
+            # this was a real error and is reported as one.
+            if e.code() in (grpc.StatusCode.ALREADY_EXISTS, grpc.StatusCode.UNKNOWN):
+                if self.modify_ipv4_route(dst_ip, prefix_len, next_hop_mac, port):
+                    return True
+
+            print(f"[{self.device_id}] Failed to add route: {e.code()} - {e.details()}")
+            return False
 
     def delete_ipv4_route(self, dst_ip, prefix_len):
         """Deletes a rule from MyIngress.ipv4_lpm"""
@@ -243,9 +257,16 @@ class P4RuntimeClient:
         try:
             self.stub.Write(req)
             print(f"[{self.device_id}] Deleted route: {dst_ip}/{prefix_len}")
+            return True
         except grpc.RpcError as e:
-            if e.code() != grpc.StatusCode.NOT_FOUND:
-                print(f"[{self.device_id}] Failed to delete route: {e.code()} - {e.details()}")
+            # [Co-developed with claude code -- Adam]
+            # NOT_FOUND means the entry is already gone, which is what the caller wanted, so
+            # it counts as success. Anything else is a real failure and must be reported --
+            # previously every outcome returned None and route_flow answered "success".
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return True
+            print(f"[{self.device_id}] Failed to delete route: {e.code()} - {e.details()}")
+            return False
 
     def modify_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
         """Modifies a rule in MyIngress.ipv4_lpm"""
@@ -279,9 +300,14 @@ class P4RuntimeClient:
         param2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
         param2.value = port.to_bytes(2, byteorder='big')
         
+        # [Co-developed with claude code -- Adam]
+        # The success path had no `return True`, so it fell off the end returning None.
+        # topology_manager.modify_flow passed that straight through and api_routes raised
+        # HTTPException(400) -- every *successful* modify answered HTTP 400.
         try:
             self.stub.Write(req)
             print(f"[{self.device_id}] Modified route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
+            return True
         except grpc.RpcError as e:
             print(f"[{self.device_id}] Failed to modify route: {e.code()} - {e.details()}")
             return False

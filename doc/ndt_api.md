@@ -642,6 +642,15 @@ Returned when an unknown exception type is thrown.
 }
 ```
 
+> **Note on the flow-entry endpoints (9, 10, 11 and 23).**
+> These enqueue work onto an asynchronous, per-switch dispatcher and return as soon as the
+> entries are accepted, before any request reaches the controller. A `200` with
+> `"status": "queued"` therefore means *accepted for programming*, not *programmed*.
+> Per-entry outcomes -- including a rejected rule or an unreachable controller -- are logged
+> with the dpid and the controller's reply. Earlier versions answered
+> `"Flow installed"` regardless of what happened, which made a failure
+> indistinguishable from a success.
+
 ## 9. POST /ndt/install_flow_entry
 ### Description
 Installs a new OpenFlow flow entry in a specific switch via the Ryu controller. 
@@ -675,7 +684,9 @@ The API constructs and sends a **flowentry/add** POST request to Ryu.
 * Body 
 ```json
 {
-  "status": "Flow installed"
+  "status": "queued",
+  "accepted": 1,
+  "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response"
 }
 ```
 #### Error
@@ -732,7 +743,9 @@ Deletes a flow entry from a switch based on match fields.
 * Body 
 ```json
 {
-  "status": "Flow deleted"
+  "status": "queued",
+  "accepted": 1,
+  "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response"
 }
 ```
 #### Error
@@ -795,7 +808,9 @@ Sends a **flowentry/modify** request to the Ryu controller.
 * Body 
 ```json
 {
-  "status": "Flow modified"
+  "status": "queued",
+  "accepted": 1,
+  "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response"
 }
 ```
 #### Error
@@ -1726,7 +1741,9 @@ To minimize update time, the controller uses a producer–consumer architecture:
 
 ```json
 {
-  "status": "Flows installed, modified and deleted"
+  "status": "queued",
+  "accepted": 3,
+  "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response"
 }
 ```
 

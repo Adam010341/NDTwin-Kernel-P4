@@ -870,16 +870,17 @@ DeviceConfigurationAndPowerManager::setPowerStateMininet(uint32_t ipUint, const 
         return false;
     }
 
-    // The strategies' bool return was previously discarded, and an action that was neither
+    // The strategies' return value was previously discarded, and an action that was neither
     // "on" nor "off" fell through both branches yet still logged success and returned true.
-    bool ok = false;
+    // Now an OpResult, so the reason a power change failed survives to the log.
+    OpResult result = OpResult::failure(400, "no power action performed");
     if (action == "on")
     {
-        ok = strategy->powerOn(node, swName, dpid, m_topologyAndFlowMonitor.get());
+        result = strategy->powerOn(node, swName, dpid, m_topologyAndFlowMonitor.get());
     }
     else if (action == "off")
     {
-        ok = strategy->powerOff(node, swName, m_topologyAndFlowMonitor.get());
+        result = strategy->powerOff(node, swName, m_topologyAndFlowMonitor.get());
     }
     else
     {
@@ -891,12 +892,14 @@ DeviceConfigurationAndPowerManager::setPowerStateMininet(uint32_t ipUint, const 
         return false;
     }
 
-    if (!ok)
+    if (!result.ok)
     {
         SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "MININET: switch {} -> {} reported failure",
+                           "MININET: switch {} -> {} failed on the {} data plane: {}",
                            swName,
-                           action);
+                           action,
+                           strategy->describe(),
+                           result.message);
         return false;
     }
 

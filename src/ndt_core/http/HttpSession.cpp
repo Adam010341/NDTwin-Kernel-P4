@@ -934,12 +934,33 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     }
 
     // Enqueue once; dispatcher drains per-DPID on worker threads
+    const size_t accepted = jobs.size();
     m_controller->dispatcher().enqueue(std::move(jobs));
 
     // TODO: Immediately update the table
     m_deviceConfigurationAndPowerManager->updateOpenFlowTables(j);
 
-    res.body() = R"({"status":"Flows installed, modified and deleted"})";
+    // [Co-developed with claude code -- Adam]
+    // This used to answer {"status":"Flows installed, modified and deleted"} -- a claim it
+    // cannot make. FlowDispatcher is asynchronous by design (bursts of up to 2000, one
+    // worker per DPID), so the entries are still sitting in a queue at this point and no
+    // request has reached the controller yet. A rejected rule or an unreachable controller
+    // was therefore reported as a completed installation.
+    //
+    // The response now says what is actually true: the entries were accepted for
+    // programming. Their outcome is logged per entry with the dpid and the controller's
+    // reply, and tools/contract_test/check_logs.py fails the run on those errors.
+    //
+    // Kept as HTTP 200 rather than 202 Accepted: 202 would be more accurate, but callers
+    // that check for exactly 200 would break, and this is the endpoint every writing app
+    // uses. Reporting per-entry status to the caller needs either a synchronous path or a
+    // completion handle -- an architectural decision, not a wording one.
+    res.result(http::status::ok);
+    res.body() = json{{"status", "queued"},
+                      {"accepted", accepted},
+                      {"detail", "entries accepted for programming; per-entry outcomes are "
+                                 "reported in the kernel log, not in this response"}}
+                     .dump();
 }
 
 void
