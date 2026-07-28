@@ -1,38 +1,24 @@
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+// [Co-developed with claude code -- Adam] -- collapsed onto HttpRoutingStrategyBase.
 #pragma once
 
-#include "ndt_core/routing_management/IRoutingStrategy.hpp"
+#include "ndt_core/routing_management/HttpRoutingStrategyBase.hpp"
 #include <string>
 
 /**
  * @brief OpenFlow specific routing strategy (Ryu Controller).
- * 
- * This strategy implements the IRoutingStrategy interface by sending curl 
- * requests to the Ryu REST API.
+ *
+ * Sends Ryu REST requests. Everything is inherited: this is the reference implementation of
+ * the shape HttpRoutingStrategyBase encodes, so nothing remains to override beyond naming
+ * itself for log messages.
  */
-class OpenFlowRoutingStrategy : public IRoutingStrategy
+class OpenFlowRoutingStrategy : public HttpRoutingStrategyBase
 {
   public:
-    OpenFlowRoutingStrategy(const std::string& apiUrl);
-    virtual ~OpenFlowRoutingStrategy() = default;
+    explicit OpenFlowRoutingStrategy(const std::string& apiUrl)
+        : HttpRoutingStrategyBase(apiUrl)
+    {
+    }
 
-    void deleteAnEntry(uint64_t dpid, nlohmann::json match, int priority = -1) override;
-    void installAnEntry(uint64_t dpid, int priority, nlohmann::json match, nlohmann::json action, int idleTimeout = 0) override;
-    void modifyAnEntry(uint64_t dpid, int priority, nlohmann::json match, nlohmann::json action) override;
-
-    void installAGroupEntry(nlohmann::json j) override;
-    void deleteAGroupEntry(nlohmann::json j) override;
-    void modifyAGroupEntry(nlohmann::json j) override;
-
-    void installAMeterEntry(nlohmann::json j) override;
-    void deleteAMeterEntry(nlohmann::json j) override;
-    void modifyAMeterEntry(nlohmann::json j) override;
-
-  protected:
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    // Virtual method to allow overriding in unit tests without executing real commands
-    virtual void executeCommand(const std::string& cmd);
-
-  private:
-    std::string m_apiUrl;
+    const char* describe() const override { return "Ryu controller"; }
 };

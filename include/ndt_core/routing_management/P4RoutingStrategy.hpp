@@ -1,38 +1,41 @@
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
+// [Co-developed with claude code -- Adam] -- collapsed onto HttpRoutingStrategyBase,
+// and now declares what bmv2 cannot do instead of pretending it can.
 #pragma once
 
-#include "ndt_core/routing_management/IRoutingStrategy.hpp"
+#include "ndt_core/routing_management/HttpRoutingStrategyBase.hpp"
 #include <string>
 
 /**
- * @brief P4 specific routing strategy (Ryu Controller).
- * 
- * This strategy implements the IRoutingStrategy interface by sending curl 
- * requests to the Ryu REST API.
+ * @brief Routing strategy for P4/bmv2 switches, via the P4 proxy agent.
+ *
+ * The proxy agent deliberately impersonates Ryu's northbound API so NDTwin applications need
+ * no changes, which is why the request construction is shared with the OpenFlow strategy
+ * rather than duplicated. The previous version took that to an extreme: it was a byte-for-byte
+ * copy of the OpenFlow strategy, so it advertised group and meter support that neither the
+ * proxy nor a bmv2 pipeline has.
+ *
+ * Group and meter entries are now refused explicitly. P4 has no OpenFlow group or meter
+ * concept -- the equivalents would be an ActionSelector and direct/indirect meters, which the
+ * proxy does not implement -- so posting to those routes previously produced a silent 404 that
+ * nothing observed. Reporting "unsupported" tells the caller the truth, and Phase 4 of
+ * doc/p4_bmv2_support_plan.md is where the P4 pipeline grows an ECMP selector.
  */
-class P4RoutingStrategy : public IRoutingStrategy
+class P4RoutingStrategy : public HttpRoutingStrategyBase
 {
   public:
-    P4RoutingStrategy(const std::string& apiUrl);
-    virtual ~P4RoutingStrategy() = default;
+    explicit P4RoutingStrategy(const std::string& apiUrl)
+        : HttpRoutingStrategyBase(apiUrl)
+    {
+    }
 
-    void deleteAnEntry(uint64_t dpid, nlohmann::json match, int priority = -1) override;
-    void installAnEntry(uint64_t dpid, int priority, nlohmann::json match, nlohmann::json action, int idleTimeout = 0) override;
-    void modifyAnEntry(uint64_t dpid, int priority, nlohmann::json match, nlohmann::json action) override;
+    const char* describe() const override { return "P4 proxy agent"; }
 
-    void installAGroupEntry(nlohmann::json j) override;
-    void deleteAGroupEntry(nlohmann::json j) override;
-    void modifyAGroupEntry(nlohmann::json j) override;
+    OpResult installAGroupEntry(const nlohmann::json& j) override;
+    OpResult deleteAGroupEntry(const nlohmann::json& j) override;
+    OpResult modifyAGroupEntry(const nlohmann::json& j) override;
 
-    void installAMeterEntry(nlohmann::json j) override;
-    void deleteAMeterEntry(nlohmann::json j) override;
-    void modifyAMeterEntry(nlohmann::json j) override;
-
-  protected:
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    // Virtual method to allow overriding in unit tests without executing real commands
-    virtual void executeCommand(const std::string& cmd);
-
-  private:
-    std::string m_apiUrl;
+    OpResult installAMeterEntry(const nlohmann::json& j) override;
+    OpResult deleteAMeterEntry(const nlohmann::json& j) override;
+    OpResult modifyAMeterEntry(const nlohmann::json& j) override;
 };

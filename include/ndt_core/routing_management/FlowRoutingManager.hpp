@@ -11,6 +11,7 @@ class TopologyAndFlowMonitor;         // lines 36-36
 
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 #include "ndt_core/routing_management/IRoutingStrategy.hpp"
+#include "ndt_core/routing_management/OpResult.hpp"
 #include <memory>
 namespace sflow
 {
@@ -71,7 +72,7 @@ class FlowRoutingManager
      *
      * @note This function calls the local controller REST API via curl.
      */
-    void deleteAnEntry(uint64_t dpid, json match, int priority = -1);
+    OpResult deleteAnEntry(uint64_t dpid, const json& match, int priority = -1);
     /**
      * @brief Install a flow entry on a switch.
      *
@@ -81,7 +82,11 @@ class FlowRoutingManager
      * @param action JSON action(s) describing forwarding behavior.
      * @param idleTimeout Idle timeout in seconds (0 means no idle timeout).
      */
-    void installAnEntry(uint64_t dpid, int priority, json match, json action, int idleTimeout = 0);
+    OpResult installAnEntry(uint64_t dpid,
+                           int priority,
+                           const json& match,
+                           const json& action,
+                           int idleTimeout = 0);
     /**
      * @brief Modify an existing flow entry on a switch.
      *
@@ -90,45 +95,45 @@ class FlowRoutingManager
      * @param match JSON match fields identifying the entry to modify.
      * @param action Replacement action(s).
      */
-    void modifyAnEntry(uint64_t dpid, int priority, json match, json action);
+    OpResult modifyAnEntry(uint64_t dpid, int priority, const json& match, const json& action);
 
     /**
      * @brief Install a group entry.
      *
      * @param j JSON payload describing the group (schema is controller-dependent).
      */
-    void installAGroupEntry(json j);
+    OpResult installAGroupEntry(const json& j);
     /**
      * @brief Delete a group entry.
      *
      * @param j JSON payload describing which group to delete.
      */
-    void deleteAGroupEntry(json j);
+    OpResult deleteAGroupEntry(const json& j);
     /**
      * @brief Modify a group entry.
      *
      * @param j JSON payload describing the group modification.
      */
-    void modifyAGroupEntry(json j);
+    OpResult modifyAGroupEntry(const json& j);
 
     /**
      * @brief Install a meter entry.
      *
      * @param j JSON payload describing the meter (schema is controller-dependent).
      */
-    void installAMeterEntry(json j);
+    OpResult installAMeterEntry(const json& j);
     /**
      * @brief Delete a meter entry.
      *
      * @param j JSON payload describing which meter to delete.
      */
-    void deleteAMeterEntry(json j);
+    OpResult deleteAMeterEntry(const json& j);
     /**
      * @brief Modify a meter entry.
      *
      * @param j JSON payload describing the meter modification.
      */
-    void modifyAMeterEntry(json j);
+    OpResult modifyAMeterEntry(const json& j);
 
   protected:
     /**
@@ -144,6 +149,20 @@ class FlowRoutingManager
      * [Co-developed with claude code -- Adam]
      */
     IRoutingStrategy* getStrategyForDpid(uint64_t dpid);
+
+    /// Signature of a group/meter call on a strategy, for dispatchByPayloadDpid.
+    using StrategyCall = OpResult (*)(IRoutingStrategy&, const json&);
+
+    /**
+     * @brief Routes a group/meter payload to the strategy owning its dpid.
+     *
+     * Group and meter payloads carry their target dpid in the body, so they can and should
+     * be dispatched per-switch like flow entries. They previously all went to the OVS
+     * strategy regardless.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    OpResult dispatchByPayloadDpid(const json& j, const char* operation, StrategyCall call);
 
     /// Accessors so tests can assert *which* strategy was selected.
     IRoutingStrategy* ovsStrategy() const { return m_ovsStrategy.get(); }

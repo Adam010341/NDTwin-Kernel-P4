@@ -6,6 +6,7 @@
 #include <boost/beast/http.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
 
 using json = nlohmann::json;
 
@@ -265,6 +266,19 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * @note The request body must be valid JSON in the format expected by Ryu's group-entry API.
      */
+    /**
+     * @brief Maps a southbound OpResult onto the HTTP response.
+     *
+     * 501 when the data plane cannot express the operation, 502 when the controller failed
+     * or never answered, otherwise the controller's own status. Replaces handlers that
+     * discarded the result and answered 200 regardless.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void respondToOpResult(http::response<http::string_body>& res,
+                           const OpResult& result,
+                           const char* successMessage);
+
     void handleInstallGroupEntry(http::response<http::string_body>& res);
     /**
      * @brief Deletes an OpenFlow group entry via the Ryu REST API.

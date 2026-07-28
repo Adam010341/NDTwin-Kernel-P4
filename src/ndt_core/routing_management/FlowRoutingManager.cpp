@@ -9,7 +9,7 @@
 #include "utils/Logger.hpp"                               // for Logger
 #include "utils/Utils.hpp"                                // for ipToSt...
 #include <any>                                            // for any_cast
-#include <functional>                                     // for function
+#include <functional>
 #include <sstream>                                        // for basic_...
 #include <stddef.h>                                       // for size_t
 #include <unordered_map>                                  // for unorde...
@@ -92,90 +92,140 @@ FlowRoutingManager::getStrategyForDpid(uint64_t dpid)
     return nullptr;
 }
 
-void
-FlowRoutingManager::deleteAnEntry(uint64_t dpid, json match, int priority)
+// [Co-developed with claude code -- Adam]
+// The three flow methods share the same shape: resolve the strategy, refuse if the dpid is
+// not routable, delegate, and hand the outcome back to the caller instead of discarding it.
+OpResult
+FlowRoutingManager::deleteAnEntry(uint64_t dpid, const json& match, int priority)
 {
-    // [Co-developed with claude code -- Adam]
-    // getStrategyForDpid now returns nullptr for an unroutable dpid rather than silently
-    // falling back to Ryu, so every caller must check. The warning is logged there.
     IRoutingStrategy* strategy = getStrategyForDpid(dpid);
     if (strategy == nullptr)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "Dropping flow delete for dpid {}", dpid);
-        return;
+        // getStrategyForDpid already logged why.
+        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
     }
-    strategy->deleteAnEntry(dpid, match, priority);
+    return strategy->deleteAnEntry(dpid, match, priority);
 }
 
-void
+OpResult
 FlowRoutingManager::installAnEntry(uint64_t dpid,
                                    int priority,
-                                   json match,
-                                   json action,
+                                   const json& match,
+                                   const json& action,
                                    int idleTimeout)
 {
-    // [Co-developed with claude code -- Adam]
     IRoutingStrategy* strategy = getStrategyForDpid(dpid);
     if (strategy == nullptr)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "Dropping flow install for dpid {}", dpid);
-        return;
+        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
     }
-    strategy->installAnEntry(dpid, priority, match, action, idleTimeout);
+    return strategy->installAnEntry(dpid, priority, match, action, idleTimeout);
 }
 
-void
-FlowRoutingManager::modifyAnEntry(uint64_t dpid, int priority, json match, json action)
+OpResult
+FlowRoutingManager::modifyAnEntry(uint64_t dpid, int priority, const json& match, const json& action)
 {
-    // [Co-developed with claude code -- Adam]
     IRoutingStrategy* strategy = getStrategyForDpid(dpid);
     if (strategy == nullptr)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "Dropping flow modify for dpid {}", dpid);
-        return;
+        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
     }
-    strategy->modifyAnEntry(dpid, priority, match, action);
+    return strategy->modifyAnEntry(dpid, priority, match, action);
 }
 
-void
-FlowRoutingManager::installAGroupEntry(json j)
+// --- group and meter entries -------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// These used to go to m_ovsStrategy unconditionally, with a comment claiming that "global
+// commands that don't specify DPID go to OVS by default". The comment was wrong: Ryu's
+// /stats/groupentry and /stats/meterentry schemas both require a dpid, and HttpSession
+// forwards the REST body verbatim, so the dpid is right there in the payload. The effect was
+// that a group or meter operation aimed at a bmv2 switch went to Ryu -- where, in a mixed
+// fabric, it could even land on a different switch that happened to share the dpid.
+//
+// Now dispatched per-DPID like everything else, which also means the P4 strategy gets to
+// refuse them explicitly rather than having them silently succeed against the wrong target.
+
+OpResult
+FlowRoutingManager::dispatchByPayloadDpid(const json& j,
+                                          const char* operation,
+                                          StrategyCall call)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    // Global/group commands that don't specify DPID go to OVS by default for now
-    m_ovsStrategy->installAGroupEntry(j);
+    if (!j.contains("dpid"))
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} rejected: payload has no dpid, so the target switch is unknown",
+                           operation);
+        return OpResult::failure(400, std::string(operation) + " requires a dpid");
+    }
+
+    uint64_t dpid = 0;
+    try
+    {
+        dpid = j.at("dpid").get<uint64_t>();
+    }
+    catch (const json::exception& e)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(), "{} rejected: bad dpid: {}", operation, e.what());
+        return OpResult::failure(400, std::string(operation) + " has an unreadable dpid");
+    }
+
+    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
+    if (strategy == nullptr)
+    {
+        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
+    }
+
+    OpResult result = call(*strategy, j);
+    if (!result.ok)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} on dpid {} failed: {}",
+                           operation,
+                           dpid,
+                           result.message);
+    }
+    return result;
 }
 
-void
-FlowRoutingManager::deleteAGroupEntry(json j)
+OpResult
+FlowRoutingManager::installAGroupEntry(const json& j)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    m_ovsStrategy->deleteAGroupEntry(j);
+    return dispatchByPayloadDpid(j, "install group entry",
+        [](IRoutingStrategy& s, const json& body) { return s.installAGroupEntry(body); });
 }
 
-void
-FlowRoutingManager::modifyAGroupEntry(json j)
+OpResult
+FlowRoutingManager::deleteAGroupEntry(const json& j)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    m_ovsStrategy->modifyAGroupEntry(j);
+    return dispatchByPayloadDpid(j, "delete group entry",
+        [](IRoutingStrategy& s, const json& body) { return s.deleteAGroupEntry(body); });
 }
 
-void
-FlowRoutingManager::installAMeterEntry(json j)
+OpResult
+FlowRoutingManager::modifyAGroupEntry(const json& j)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    m_ovsStrategy->installAMeterEntry(j);
+    return dispatchByPayloadDpid(j, "modify group entry",
+        [](IRoutingStrategy& s, const json& body) { return s.modifyAGroupEntry(body); });
 }
 
-void
-FlowRoutingManager::deleteAMeterEntry(json j)
+OpResult
+FlowRoutingManager::installAMeterEntry(const json& j)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    m_ovsStrategy->deleteAMeterEntry(j);
+    return dispatchByPayloadDpid(j, "install meter entry",
+        [](IRoutingStrategy& s, const json& body) { return s.installAMeterEntry(body); });
 }
 
-void
-FlowRoutingManager::modifyAMeterEntry(json j)
+OpResult
+FlowRoutingManager::deleteAMeterEntry(const json& j)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    m_ovsStrategy->modifyAMeterEntry(j);
+    return dispatchByPayloadDpid(j, "delete meter entry",
+        [](IRoutingStrategy& s, const json& body) { return s.deleteAMeterEntry(body); });
+}
+
+OpResult
+FlowRoutingManager::modifyAMeterEntry(const json& j)
+{
+    return dispatchByPayloadDpid(j, "modify meter entry",
+        [](IRoutingStrategy& s, const json& body) { return s.modifyAMeterEntry(body); });
 }

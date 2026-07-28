@@ -713,15 +713,64 @@ HttpSession::handleModifyFlowEntry(http::response<http::string_body>& res)
     processFlowBatch(j, res);
 }
 
+// [Co-developed with claude code -- Adam]
+// Maps a southbound OpResult onto the HTTP response, so a failure downstream becomes a
+// failure the caller sees rather than a 200 with a cheerful message.
+void
+HttpSession::respondToOpResult(http::response<http::string_body>& res,
+                               const OpResult& result,
+                               const char* successMessage)
+{
+    if (result.ok)
+    {
+        res.result(http::status::ok);
+        res.body() = json{{"status", successMessage}}.dump();
+        return;
+    }
+
+    // 501 means the target data plane cannot express the operation at all (e.g. group
+    // entries on bmv2); 502 that the controller behind us failed or never answered.
+    // Anything else is passed through so the caller sees what the controller said.
+    if (result.httpStatus == 501)
+    {
+        res.result(http::status::not_implemented);
+    }
+    else if (result.noResponse())
+    {
+        res.result(http::status::bad_gateway);
+    }
+    else if (result.httpStatus >= 400 && result.httpStatus < 600)
+    {
+        res.result(static_cast<http::status>(result.httpStatus));
+    }
+    else
+    {
+        res.result(http::status::bad_gateway);
+    }
+
+    res.body() = json{{"status", "error"},
+                      {"error", result.message},
+                      {"controller_status", result.httpStatus}}
+                     .dump();
+
+    SPDLOG_LOGGER_WARN(Logger::instance(),
+                       "Responding {} for a failed southbound operation: {}",
+                       static_cast<int>(res.result_int()),
+                       result.message);
+}
+
 void
 HttpSession::handleInstallGroupEntry(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Install Group Entry");
     auto jsonData = json::parse(m_req.body());
 
-    m_flowRoutingManager->installAGroupEntry(jsonData);
-
-    res.body() = R"({"status":"Group entry installed"})";
+    // [Co-developed with claude code -- Adam]
+    // The OpResult used to be discarded and this answered 200 unconditionally, so a
+    // rejected entry, an unreachable controller and a success were indistinguishable to
+    // the caller. These handlers are synchronous, so the real outcome can be reported.
+    const OpResult result = m_flowRoutingManager->installAGroupEntry(jsonData);
+    respondToOpResult(res, result, "Group entry installed");
 }
 
 void
@@ -730,9 +779,12 @@ HttpSession::handleDeleteGroupEntry(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Delete Group Entry");
     auto jsonData = json::parse(m_req.body());
 
-    m_flowRoutingManager->deleteAGroupEntry(jsonData);
-
-    res.body() = R"({"status":"Group entry deleted"})";
+    // [Co-developed with claude code -- Adam]
+    // The OpResult used to be discarded and this answered 200 unconditionally, so a
+    // rejected entry, an unreachable controller and a success were indistinguishable to
+    // the caller. These handlers are synchronous, so the real outcome can be reported.
+    const OpResult result = m_flowRoutingManager->deleteAGroupEntry(jsonData);
+    respondToOpResult(res, result, "Group entry deleted");
 }
 
 void
@@ -741,9 +793,12 @@ HttpSession::handleModifyGroupEntry(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Modify Group Entry");
     auto jsonData = json::parse(m_req.body());
 
-    m_flowRoutingManager->modifyAGroupEntry(jsonData);
-
-    res.body() = R"({"status":"Group entry modified"})";
+    // [Co-developed with claude code -- Adam]
+    // The OpResult used to be discarded and this answered 200 unconditionally, so a
+    // rejected entry, an unreachable controller and a success were indistinguishable to
+    // the caller. These handlers are synchronous, so the real outcome can be reported.
+    const OpResult result = m_flowRoutingManager->modifyAGroupEntry(jsonData);
+    respondToOpResult(res, result, "Group entry modified");
 }
 
 void
@@ -752,9 +807,12 @@ HttpSession::handleInstallMeterEntry(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Install Meter Entry");
     auto jsonData = json::parse(m_req.body());
 
-    m_flowRoutingManager->installAMeterEntry(jsonData);
-
-    res.body() = R"({"status":"Meter entry installed"})";
+    // [Co-developed with claude code -- Adam]
+    // The OpResult used to be discarded and this answered 200 unconditionally, so a
+    // rejected entry, an unreachable controller and a success were indistinguishable to
+    // the caller. These handlers are synchronous, so the real outcome can be reported.
+    const OpResult result = m_flowRoutingManager->installAMeterEntry(jsonData);
+    respondToOpResult(res, result, "Meter entry installed");
 }
 
 void
@@ -763,9 +821,12 @@ HttpSession::handleDeleteMeterEntry(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Delete Meter Entry");
     auto jsonData = json::parse(m_req.body());
 
-    m_flowRoutingManager->deleteAMeterEntry(jsonData);
-
-    res.body() = R"({"status":"Meter entry deleted"})";
+    // [Co-developed with claude code -- Adam]
+    // The OpResult used to be discarded and this answered 200 unconditionally, so a
+    // rejected entry, an unreachable controller and a success were indistinguishable to
+    // the caller. These handlers are synchronous, so the real outcome can be reported.
+    const OpResult result = m_flowRoutingManager->deleteAMeterEntry(jsonData);
+    respondToOpResult(res, result, "Meter entry deleted");
 }
 
 void
@@ -774,9 +835,12 @@ HttpSession::handleModifyMeterEntry(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Modify Meter Entry");
     auto jsonData = json::parse(m_req.body());
 
-    m_flowRoutingManager->modifyAMeterEntry(jsonData);
-
-    res.body() = R"({"status":"Meter entry modified"})";
+    // [Co-developed with claude code -- Adam]
+    // The OpResult used to be discarded and this answered 200 unconditionally, so a
+    // rejected entry, an unreachable controller and a success were indistinguishable to
+    // the caller. These handlers are synchronous, so the real outcome can be reported.
+    const OpResult result = m_flowRoutingManager->modifyAMeterEntry(jsonData);
+    respondToOpResult(res, result, "Meter entry modified");
 }
 
 static FlowJob
