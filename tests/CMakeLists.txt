@@ -4,6 +4,7 @@ add_executable(
   test_OpenFlowRoutingStrategy.cpp
   test_P4RoutingStrategy.cpp
   test_EstimatedRates.cpp
+  test_SwitchKindDispatch.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

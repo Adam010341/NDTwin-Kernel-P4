@@ -124,6 +124,21 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         vp.deviceName = nodeJson.at("device_name").get<std::string>();
         vp.nickName = nodeJson.at("nickname").get<std::string>();
         vp.brandName = nodeJson.at("brand_name").get<std::string>();
+
+        // [Co-developed with claude code -- Adam]
+        // Prefer an explicit "switch_kind"; fall back to mapping brand_name so both
+        // existing topology files keep working unchanged. A malformed switch_kind throws
+        // out of switchKindFromString, which is deliberate: failing at load is far better
+        // than misrouting flow rules at runtime.
+        if (nodeJson.contains("switch_kind"))
+        {
+            vp.switchKind = switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
+        }
+        else
+        {
+            vp.switchKind = switchKindFromBrandName(vp.brandName);
+        }
+
         vp.deviceLayer = nodeJson.at("device_layer").get<int>();
         vp.ecmpGroups = nodeJson.value("ecmp_groups", std::vector<EcmpGroup>{});
 
@@ -140,6 +155,11 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         if (vp.vertexType == VertexType::SWITCH)
         {
             dpidToVertex[vp.dpid] = v;
+            // [Co-developed with claude code -- Adam]
+            // Index the data plane while we are here, so the flow-install path can look it
+            // up in O(1) instead of copying the whole graph per entry.
+            std::unique_lock kindLock(m_switchKindMutex);
+            m_dpidToSwitchKind[vp.dpid] = vp.switchKind;
         }
     }
     // Add edges
@@ -211,6 +231,11 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
                                ep.dstIp.empty() ? 0 : ep.dstIp[0]);
         }
     }
+
+    // [Co-developed with claude code -- Adam]
+    // Report the data plane, and refuse a mixed topology unless explicitly allowed. Doing
+    // this at load turns a confusing runtime mixture into a clear startup message.
+    validateDataPlaneHomogeneity(AppConfig::ALLOW_MIXED_DATAPLANE);
 }
 
 std::optional<Graph::vertex_descriptor>
@@ -245,23 +270,35 @@ TopologyAndFlowMonitor::findVertexByIpNoLock(uint32_t ip) const
     return std::nullopt;
 }
 
+// [Co-developed with claude code -- Adam]
+//
+// The one place that decides which topology file this run uses.
+//
+// NDTWIN_TOPO_FILE was previously honoured in exactly one of five places. The other four
+// -- the read-modify-rename pairs in setVertexDeviceName and setVertexNickname -- used the
+// hardcoded TOPOLOGY_FILE_MININET. Since dpids 1-10 exist in both the OVS and P4 topology
+// files, renaming a device while running the P4 fabric found a matching dpid in the OVS
+// file and wrote the new name *into the OVS topology*, corrupting it, while hosts threw
+// "No matching node in JSON".
+std::string
+TopologyAndFlowMonitor::activeTopologyPath() const
+{
+    if (m_mode == utils::TESTBED)
+    {
+        return TOPOLOGY_FILE;
+    }
+    if (const char* custom = std::getenv("NDTWIN_TOPO_FILE"))
+    {
+        return custom;
+    }
+    return TOPOLOGY_FILE_MININET;
+}
+
 void
 TopologyAndFlowMonitor::fetchAndUpdateTopologyData()
 {
     // Read static network topology
-    if (m_mode == utils::TESTBED)
-    {
-        loadStaticTopologyFromFile(TOPOLOGY_FILE);
-    }
-    else if (m_mode == utils::MININET)
-    {
-        const char* customTopo = std::getenv("NDTWIN_TOPO_FILE");
-        if (customTopo) {
-            loadStaticTopologyFromFile(customTopo);
-        } else {
-            loadStaticTopologyFromFile(TOPOLOGY_FILE_MININET);
-        }
-    }
+    loadStaticTopologyFromFile(activeTopologyPath());
 
     initializeMappingsFromGraph();
 
@@ -738,6 +775,98 @@ TopologyAndFlowMonitor::findSwitchByDpid(uint64_t dpid) const
         }
     }
     return nullopt;
+}
+
+// [Co-developed with claude code -- Adam]
+std::optional<SwitchKind>
+TopologyAndFlowMonitor::getSwitchKind(uint64_t dpid) const
+{
+    std::shared_lock lock(m_switchKindMutex);
+    auto it = m_dpidToSwitchKind.find(dpid);
+    if (it == m_dpidToSwitchKind.end())
+    {
+        return nullopt;
+    }
+    return it->second;
+}
+
+// [Co-developed with claude code -- Adam]
+std::map<SwitchKind, std::vector<uint64_t>>
+TopologyAndFlowMonitor::getSwitchKindGroups() const
+{
+    std::map<SwitchKind, std::vector<uint64_t>> groups;
+    {
+        std::shared_lock lock(m_switchKindMutex);
+        for (const auto& [dpid, kind] : m_dpidToSwitchKind)
+        {
+            groups[kind].push_back(dpid);
+        }
+    }
+    for (auto& [kind, dpids] : groups)
+    {
+        (void)kind;
+        std::sort(dpids.begin(), dpids.end());
+    }
+    return groups;
+}
+
+// [Co-developed with claude code -- Adam]
+bool
+TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
+{
+    const auto groups = getSwitchKindGroups();
+
+    if (groups.empty())
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "Topology contains no switches; nothing can be controlled");
+        return false;
+    }
+
+    if (groups.size() == 1)
+    {
+        const auto& [kind, dpids] = *groups.begin();
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "Data plane: {} ({} switch(es))",
+                           switchKindToString(kind),
+                           dpids.size());
+        return true;
+    }
+
+    std::ostringstream detail;
+    bool first = true;
+    for (const auto& [kind, dpids] : groups)
+    {
+        if (!first)
+        {
+            detail << "; ";
+        }
+        first = false;
+        detail << switchKindToString(kind) << "=[";
+        for (size_t i = 0; i < dpids.size(); ++i)
+        {
+            detail << (i ? "," : "") << dpids[i];
+        }
+        detail << "]";
+    }
+
+    if (allowMixed)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Topology mixes data planes ({}). Proceeding because mixed "
+                           "operation was explicitly allowed; telemetry and liveness are "
+                           "not validated for this configuration.",
+                           detail.str());
+        return true;
+    }
+
+    SPDLOG_LOGGER_ERROR(Logger::instance(),
+                        "Topology mixes data planes ({}). A single run must be all-OVS or "
+                        "all-BMv2: the flow dispatch is per-DPID and would cope, but the "
+                        "telemetry and liveness paths assume one kind. Fix the topology "
+                        "file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.",
+                        detail.str());
+    return false;
 }
 
 optional<Graph::vertex_descriptor>
@@ -1286,15 +1415,11 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
         std::lock_guard guard(m_configurationFileMutex);
         nlohmann::json j;
         {
+            // [Co-developed with claude code -- Adam]
+            // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
+            // always read the OVS file in Mininet mode, even when running the P4 fabric.
             std::ifstream ifs;
-            if (m_mode == utils::DeploymentMode::MININET)
-            {
-                ifs.open(TOPOLOGY_FILE_MININET);
-            }
-            else
-            {
-                ifs.open(TOPOLOGY_FILE);
-            }
+            ifs.open(activeTopologyPath());
             if (!ifs.is_open())
             {
                 throw std::runtime_error("Cannot open topology file");
@@ -1341,8 +1466,9 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
             throw std::runtime_error("No matching node in JSON");
         }
 
-        const auto tmp = m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
-                                                                  : TOPOLOGY_FILE_MININET + ".tmp";
+        // [Co-developed with claude code -- Adam]
+        const auto topoPath = activeTopologyPath();
+        const auto tmp = topoPath + ".tmp";
         {
             std::ofstream ofs(tmp);
             if (!ofs.is_open())
@@ -1352,8 +1478,7 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
             ofs << std::setw(2) << j << std::endl;
         }
         std::filesystem::rename(tmp,
-                                m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
-                                                                         : TOPOLOGY_FILE_MININET);
+                                topoPath);
     }
 }
 
@@ -1374,15 +1499,11 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
 
         // Read the entire contents of the current topology file.
         {
+            // [Co-developed with claude code -- Adam]
+            // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
+            // always read the OVS file in Mininet mode, even when running the P4 fabric.
             std::ifstream ifs;
-            if (m_mode == utils::DeploymentMode::MININET)
-            {
-                ifs.open(TOPOLOGY_FILE_MININET);
-            }
-            else
-            {
-                ifs.open(TOPOLOGY_FILE);
-            }
+            ifs.open(activeTopologyPath());
             if (!ifs.is_open())
             {
                 throw std::runtime_error("Cannot open topology file");
@@ -1430,8 +1551,9 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
         }
 
         // Safely write the modified JSON data back to the file.
-        const auto tmp = m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
-                                                                  : TOPOLOGY_FILE_MININET + ".tmp";
+        // [Co-developed with claude code -- Adam]
+        const auto topoPath = activeTopologyPath();
+        const auto tmp = topoPath + ".tmp";
         {
             std::ofstream ofs(tmp);
             if (!ofs.is_open())
@@ -1441,8 +1563,7 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
             ofs << std::setw(2) << j << std::endl;
         }
         std::filesystem::rename(tmp,
-                                m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
-                                                                         : TOPOLOGY_FILE_MININET);
+                                topoPath);
     }
 }
 

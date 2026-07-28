@@ -8,5 +8,12 @@ namespace AppConfig {
     static const std::string RYU_IP_AND_PORT = "localhost:8080";
     // P4 proxy agent (p4_proxy/proxy_agent) — impersonates Ryu's northbound API for BMv2 switches.
     static const std::string P4_PROXY_IP_AND_PORT = "localhost:8081";
+    // Set to true only to run a topology that mixes OVS and BMv2 switches. The flow and
+    // power dispatch are per-DPID and cope with it, but the telemetry and liveness paths
+    // assume a single data plane, so this is off by default and the kernel refuses to load
+    // a mixed topology.
+    static constexpr bool ALLOW_MIXED_DATAPLANE = false;
     static const std::string TOPOLOGY_FILE_MININET = "../setting/StaticNetworkTopologyMininet_10Switches.json";
+    // bmv2 fabric under Mininet; selected by --topology or the interactive prompt.
+    static const std::string TOPOLOGY_FILE_MININET_P4 = "../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json";
 }

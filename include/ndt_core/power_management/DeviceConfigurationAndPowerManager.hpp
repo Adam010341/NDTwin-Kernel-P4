@@ -181,7 +181,34 @@ class DeviceConfigurationAndPowerManager
     // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
     std::unique_ptr<IPowerStrategy> m_ovsPowerStrategy;
     std::unique_ptr<IPowerStrategy> m_p4PowerStrategy;
-    IPowerStrategy* getPowerStrategyForNode(Graph::vertex_descriptor node) const;
+
+    /**
+     * @brief Selects the power strategy for a switch, in O(1).
+     *
+     * Keyed on the switch's typed SwitchKind rather than a brand-name string compare, and
+     * takes a dpid so it needs no graph copy. Returns nullptr for an unknown dpid instead
+     * of defaulting to OVS, which would run ovs-vsctl against a bmv2 switch.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    IPowerStrategy* getPowerStrategyForDpid(uint64_t dpid) const;
+
+    /**
+     * @brief True when every switch in the loaded topology is bmv2.
+     *
+     * Cached once by refreshDataPlaneKind() because the liveness worker runs every second
+     * and hosts carry no SwitchKind of their own.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    bool m_dataPlaneIsBmv2 = false;
+
+    /**
+     * @brief Recomputes m_dataPlaneIsBmv2 from the loaded topology. Call after load.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void refreshDataPlaneKind();
 
     void fetchSmartPlugInfoFromFile(const std::string& path);
     // Extract "ip" parameter from target; empty if absent

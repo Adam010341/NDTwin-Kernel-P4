@@ -54,20 +54,68 @@ DeviceConfigurationAndPowerManager::DeviceConfigurationAndPowerManager(
     m_p4PowerStrategy = std::make_unique<P4PowerStrategy>();
 }
 
-IPowerStrategy* DeviceConfigurationAndPowerManager::getPowerStrategyForNode(Graph::vertex_descriptor node) const
+// [Co-developed with claude code -- Adam]
+// Takes a dpid rather than a vertex descriptor so it can use the O(1) switch-kind index.
+// The previous version called getGraph() -- a full deep copy of the graph -- even though
+// its only caller had already copied it six lines earlier and had the dpid to hand.
+// Returns nullptr for an unknown dpid instead of defaulting to the OVS strategy, which
+// would have run ovs-vsctl against a bmv2 switch.
+IPowerStrategy*
+DeviceConfigurationAndPowerManager::getPowerStrategyForDpid(uint64_t dpid) const
 {
-    auto g = m_topologyAndFlowMonitor->getGraph();
-    if (g[node].brandName == "BMv2")
+    if (!m_topologyAndFlowMonitor)
     {
-        return m_p4PowerStrategy.get();
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "No topology monitor available; cannot power-manage dpid {}",
+                            dpid);
+        return nullptr;
     }
-    return m_ovsPowerStrategy.get();
+
+    const auto kind = m_topologyAndFlowMonitor->getSwitchKind(dpid);
+    if (!kind.has_value())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "dpid {} is not a switch in the loaded topology; refusing to "
+                           "guess how to power-manage it",
+                           dpid);
+        return nullptr;
+    }
+
+    switch (*kind)
+    {
+    case SwitchKind::BMV2:
+        return m_p4PowerStrategy.get();
+    case SwitchKind::OVS:
+    case SwitchKind::HARDWARE:
+        return m_ovsPowerStrategy.get();
+    }
+
+    SPDLOG_LOGGER_ERROR(Logger::instance(),
+                        "dpid {} has an unhandled switch kind; this is a bug",
+                        dpid);
+    return nullptr;
+}
+
+// [Co-developed with claude code -- Adam]
+void
+DeviceConfigurationAndPowerManager::refreshDataPlaneKind()
+{
+    m_dataPlaneIsBmv2 = false;
+    if (!m_topologyAndFlowMonitor)
+    {
+        return;
+    }
+    const auto groups = m_topologyAndFlowMonitor->getSwitchKindGroups();
+    m_dataPlaneIsBmv2 = (groups.size() == 1 && groups.count(SwitchKind::BMV2) == 1);
 }
 
 void
 DeviceConfigurationAndPowerManager::start()
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "DeviceConfigurationAndPowerManager Starts Up");
+    // The topology is loaded by TopologyAndFlowMonitor before this runs, so the switch-kind
+    // index is populated by now.
+    refreshDataPlaneKind();
 
     if (m_mode == utils::DeploymentMode::TESTBED)
     {
@@ -361,10 +409,22 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                 else
                 {
                     std::string swName = graph[v].bridgeNameForMininet;
-                    if (std::getenv("NDTWIN_TOPO_FILE") && 
-                        std::string(std::getenv("NDTWIN_TOPO_FILE")).find("P4") != std::string::npos)
+                    // [Co-developed with claude code -- Adam]
+                    // Was gated on the topology *filename* containing "P4" (case
+                    // sensitive), which is both fragile and the wrong question. Now keyed
+                    // on the switch's own typed kind.
+                    //
+                    // NOTE: this remains a stub that assumes bmv2 switches are always up,
+                    // so a powered-off switch reports UP again within one second. Replacing
+                    // it with real liveness (proxy gRPC channel state + LLDP freshness)
+                    // is Phase 6 of doc/p4_bmv2_support_plan.md; the honest fix needs the
+                    // proxy to expose that state, which it does not yet.
+                    if (graph[v].switchKind == SwitchKind::BMV2)
                     {
-                        SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} assumed reachable (P4 mode)", swName);
+                        SPDLOG_LOGGER_DEBUG(Logger::instance(),
+                                            "{} assumed reachable (bmv2 liveness is not "
+                                            "implemented yet -- see Phase 6)",
+                                            swName);
                         m_topologyAndFlowMonitor->setVertexUp(v);
                     }
                     else if (std::find(listOvsBridges.begin(), listOvsBridges.end(), swName) !=
@@ -382,8 +442,17 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
             }
             else if (graph[v].vertexType == VertexType::HOST)
             {
-                if (std::getenv("NDTWIN_TOPO_FILE") && 
-                    std::string(std::getenv("NDTWIN_TOPO_FILE")).find("P4") != std::string::npos)
+                // [Co-developed with claude code -- Adam]
+                // Was gated on the topology filename containing "P4", and sat outside the
+                // TESTBED/else split above -- so a stray NDTWIN_TOPO_FILE in the
+                // environment force-marked hosts up in TESTBED mode as well, where
+                // ping-based liveness is the entire point. Now restricted to Mininet, and
+                // only when the fabric is bmv2.
+                //
+                // Hosts are marked up because in bmv2 mode nothing else does it: Ryu's
+                // host-discovery REST feed is what populates this for OVS, and the P4 proxy
+                // has no equivalent yet (Phase 6).
+                if (m_mode == utils::DeploymentMode::MININET && m_dataPlaneIsBmv2)
                 {
                     m_topologyAndFlowMonitor->setVertexUp(v);
                 }
@@ -531,10 +600,12 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         }
 
         uint64_t dpid = props.dpid;
-        std::string ip_and_port = AppConfig::RYU_IP_AND_PORT;
-        if (props.brandName == "BMv2") {
-            ip_and_port = AppConfig::P4_PROXY_IP_AND_PORT;
-        }
+        // [Co-developed with claude code -- Adam]
+        // Typed kind rather than a brand-name string compare: a topology that spelled it
+        // "bmv2" or "BMV2" previously polled Ryu for a bmv2 switch and got nothing back.
+        std::string ip_and_port = (props.switchKind == SwitchKind::BMV2)
+                                      ? AppConfig::P4_PROXY_IP_AND_PORT
+                                      : AppConfig::RYU_IP_AND_PORT;
 
         std::string cmd =
             fmt::format("curl -s -X GET http://{}/stats/flow/{}", ip_and_port, dpid);
@@ -792,17 +863,43 @@ DeviceConfigurationAndPowerManager::setPowerStateMininet(uint32_t ipUint, const 
 
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "swName {}", swName);
 
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    IPowerStrategy* strategy = getPowerStrategyForNode(node);
+    // [Co-developed with claude code -- Adam]
+    IPowerStrategy* strategy = getPowerStrategyForDpid(dpid);
+    if (strategy == nullptr)
+    {
+        return false;
+    }
 
+    // The strategies' bool return was previously discarded, and an action that was neither
+    // "on" nor "off" fell through both branches yet still logged success and returned true.
+    bool ok = false;
     if (action == "on")
     {
-        strategy->powerOn(node, swName, dpid, m_topologyAndFlowMonitor.get());
+        ok = strategy->powerOn(node, swName, dpid, m_topologyAndFlowMonitor.get());
     }
     else if (action == "off")
     {
-        strategy->powerOff(node, swName, m_topologyAndFlowMonitor.get());
+        ok = strategy->powerOff(node, swName, m_topologyAndFlowMonitor.get());
     }
+    else
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "Unrecognised power action '{}' for switch {}; expected 'on' "
+                            "or 'off'",
+                            action,
+                            swName);
+        return false;
+    }
+
+    if (!ok)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "MININET: switch {} -> {} reported failure",
+                           swName,
+                           action);
+        return false;
+    }
+
     SPDLOG_INFO("MININET: switch {} -> {}", swName, action);
     return true;
 }

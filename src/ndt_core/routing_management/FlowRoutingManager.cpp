@@ -43,32 +43,68 @@ FlowRoutingManager::~FlowRoutingManager()
 {
 }
 
-IRoutingStrategy* FlowRoutingManager::getStrategyForDpid(uint64_t dpid)
+// [Co-developed with claude code -- Adam]
+//
+// Was: findSwitchByDpid() (O(V) scan under the graph lock) followed by getGraph(), which
+// deep-copies the entire BGL graph -- every vertex's strings, ip vector and ecmp groups --
+// and then copied VertexProperties a third time. That ran once per flow entry, from one
+// worker thread per DPID, so a 2000-entry burst meant 2000 full graph copies while
+// starving every graph writer. Now a single O(1) hash lookup returning a 4-byte enum.
+//
+// Also no longer defaults to OVS on an unknown dpid. That silently sent P4 rules to Ryu
+// (where they vanish) for a mistyped dpid, a switch missing from the topology file, or a
+// null monitor -- with no log line at all. Returning nullptr forces the caller to report.
+IRoutingStrategy*
+FlowRoutingManager::getStrategyForDpid(uint64_t dpid)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    // Use the topology monitor to check if the switch is BMv2
-    if (m_topologyAndFlowMonitor)
+    if (!m_topologyAndFlowMonitor)
     {
-        auto switchNode = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
-        if (switchNode.has_value())
-        {
-            Graph g = m_topologyAndFlowMonitor->getGraph();
-            auto props = g[switchNode.value()];
-            if (props.brandName == "BMv2")
-            {
-                return m_p4Strategy.get();
-            }
-        }
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "No topology monitor available; cannot route dpid {}",
+                            dpid);
+        return nullptr;
     }
-    // Default to OVS/Ryu if not found or not BMv2
-    return m_ovsStrategy.get();
+
+    const auto kind = m_topologyAndFlowMonitor->getSwitchKind(dpid);
+    if (!kind.has_value())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "dpid {} is not a switch in the loaded topology; refusing to "
+                           "guess a data plane. Check the dpid, or that the topology file "
+                           "matches the running network.",
+                           dpid);
+        return nullptr;
+    }
+
+    switch (*kind)
+    {
+    case SwitchKind::BMV2:
+        return m_p4Strategy.get();
+    case SwitchKind::OVS:
+    case SwitchKind::HARDWARE:
+        // Hardware switches are OpenFlow too, so they share the Ryu-facing strategy.
+        return m_ovsStrategy.get();
+    }
+
+    SPDLOG_LOGGER_ERROR(Logger::instance(),
+                        "dpid {} has an unhandled switch kind; this is a bug",
+                        dpid);
+    return nullptr;
 }
 
 void
 FlowRoutingManager::deleteAnEntry(uint64_t dpid, json match, int priority)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    getStrategyForDpid(dpid)->deleteAnEntry(dpid, match, priority);
+    // [Co-developed with claude code -- Adam]
+    // getStrategyForDpid now returns nullptr for an unroutable dpid rather than silently
+    // falling back to Ryu, so every caller must check. The warning is logged there.
+    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
+    if (strategy == nullptr)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(), "Dropping flow delete for dpid {}", dpid);
+        return;
+    }
+    strategy->deleteAnEntry(dpid, match, priority);
 }
 
 void
@@ -78,15 +114,27 @@ FlowRoutingManager::installAnEntry(uint64_t dpid,
                                    json action,
                                    int idleTimeout)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    getStrategyForDpid(dpid)->installAnEntry(dpid, priority, match, action, idleTimeout);
+    // [Co-developed with claude code -- Adam]
+    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
+    if (strategy == nullptr)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(), "Dropping flow install for dpid {}", dpid);
+        return;
+    }
+    strategy->installAnEntry(dpid, priority, match, action, idleTimeout);
 }
 
 void
 FlowRoutingManager::modifyAnEntry(uint64_t dpid, int priority, json match, json action)
 {
-    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
-    getStrategyForDpid(dpid)->modifyAnEntry(dpid, priority, match, action);
+    // [Co-developed with claude code -- Adam]
+    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
+    if (strategy == nullptr)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(), "Dropping flow modify for dpid {}", dpid);
+        return;
+    }
+    strategy->modifyAnEntry(dpid, priority, match, action);
 }
 
 void

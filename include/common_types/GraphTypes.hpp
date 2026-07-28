@@ -1,10 +1,14 @@
 #pragma once
 
 #include "common_types/SFlowType.hpp"
+#include <algorithm> // for transform
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/range/iterator_range.hpp>
+#include <cctype>    // for tolower
 #include <cstdint>
 #include <set>
+#include <stdexcept> // for invalid_argument
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -21,6 +25,97 @@ enum class VertexType
     SWITCH,
     HOST
 };
+
+/**
+ * @brief Data-plane implementation of a switch, which selects its control strategy.
+ *
+ * Drives which IRoutingStrategy / IPowerStrategy a switch is actuated through, so it
+ * must be a typed value rather than a brand-name string comparison: a misspelled
+ * brand name would otherwise silently route P4 rules to the Ryu controller.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+enum class SwitchKind
+{
+    OVS,     // Open vSwitch under Mininet, controlled via Ryu OpenFlow 1.3
+    BMV2,    // P4 behavioural model, controlled via the P4 proxy agent over P4Runtime
+    HARDWARE // Physical OpenFlow switch in the testbed (Brocade, HPE, ...)
+};
+
+/**
+ * @brief Maps a topology JSON "brand_name" to a SwitchKind.
+ *
+ * Kept for backward compatibility with the existing topology files, which carry only
+ * brand_name. Prefer the explicit "switch_kind" key in new topologies. Unknown brands
+ * are treated as HARDWARE, matching the pre-existing behaviour where anything that was
+ * not recognised as Mininet-managed fell through to the SNMP/SSH testbed paths.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+inline SwitchKind
+switchKindFromBrandName(const std::string& brandName)
+{
+    if (brandName == "BMv2")
+    {
+        return SwitchKind::BMV2;
+    }
+    if (brandName == "OVS")
+    {
+        return SwitchKind::OVS;
+    }
+    return SwitchKind::HARDWARE;
+}
+
+/**
+ * @brief Parses an explicit "switch_kind" string, case-insensitively.
+ *
+ * @throws std::invalid_argument if the value names no known kind, so a typo in a
+ *         topology file fails loudly at load instead of misrouting rules at runtime.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+inline SwitchKind
+switchKindFromString(std::string s)
+{
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    if (s == "ovs")
+    {
+        return SwitchKind::OVS;
+    }
+    if (s == "bmv2" || s == "p4")
+    {
+        return SwitchKind::BMV2;
+    }
+    if (s == "hardware")
+    {
+        return SwitchKind::HARDWARE;
+    }
+    throw std::invalid_argument("Unknown switch_kind '" + s +
+                                "' (expected ovs, bmv2/p4, or hardware)");
+}
+
+/**
+ * @brief Human-readable name for logs and error messages.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+inline const char*
+switchKindToString(SwitchKind kind)
+{
+    switch (kind)
+    {
+    case SwitchKind::OVS:
+        return "ovs";
+    case SwitchKind::BMV2:
+        return "bmv2";
+    case SwitchKind::HARDWARE:
+        return "hardware";
+    }
+    return "unknown";
+}
 
 /**
  * @brief Kind of ECMP group member.
@@ -92,6 +187,11 @@ struct VertexProperties
     std::string nickName = "";
     std::string bridgeNameForMininet = "";
     std::string brandName = "";
+    // [Co-developed with claude code -- Adam]
+    // Which data plane this switch runs, and therefore which routing/power strategy
+    // actuates it. Derived from the topology JSON's optional "switch_kind", falling back
+    // to brandName. Typed so a misspelled brand name cannot silently send P4 rules to Ryu.
+    SwitchKind switchKind = SwitchKind::HARDWARE;
     int deviceLayer = -1;
     std::vector<std::string> bridgeConnectedPortsForMininet;
     std::vector<EcmpGroup> ecmpGroups;

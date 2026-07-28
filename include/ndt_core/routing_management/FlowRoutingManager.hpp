@@ -130,16 +130,32 @@ class FlowRoutingManager
      */
     void modifyAMeterEntry(json j);
 
+  protected:
+    /**
+     * @brief Selects the routing strategy for a switch from its typed SwitchKind.
+     *
+     * @return nullptr when the dpid is not a switch in the loaded topology. Callers must
+     *         report and drop rather than guessing a data plane -- an earlier version
+     *         defaulted to the OVS strategy, silently sending P4 rules to Ryu.
+     *
+     * Protected so tests can assert the dispatch directly; it is the whole point of the
+     * strategy pattern and was previously untestable.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    IRoutingStrategy* getStrategyForDpid(uint64_t dpid);
+
+    /// Accessors so tests can assert *which* strategy was selected.
+    IRoutingStrategy* ovsStrategy() const { return m_ovsStrategy.get(); }
+    IRoutingStrategy* p4Strategy() const { return m_p4Strategy.get(); }
+
   private:
     std::shared_ptr<EventBus> m_eventBus;
 
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     std::shared_ptr<sflow::FlowLinkUsageCollector> m_flowLinkUsageCollector;
-    
+
     // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
     std::unique_ptr<IRoutingStrategy> m_ovsStrategy;
     std::unique_ptr<IRoutingStrategy> m_p4Strategy;
-
-    // Helper method to determine which strategy to use for a given dpid
-    IRoutingStrategy* getStrategyForDpid(uint64_t dpid);
 };

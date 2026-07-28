@@ -23,10 +23,13 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <string>
 #include <thread>
+#include <cstdio>
 #include <cstdlib>
+#include <unistd.h> // for isatty
 
 std::string SIM_SERVER_URL = AppConfig::SIM_SERVER_URL;
 std::string GW_IP = AppConfig::GW_IP;
@@ -34,9 +37,115 @@ std::string GW_IP = AppConfig::GW_IP;
 static std::atomic<bool> gShutdownRequested{false};
 
 struct DeploymentConfig {
-    int mode;       
-    bool useToken;  
+    int mode;
+    bool useToken;
 };
+
+// [Co-developed with claude code -- Adam]
+//
+// Startup used to be interactive-only: three std::cin prompts with no non-interactive
+// path, so a headless run (CI, a test script, nohup) blocked forever on stdin. The test
+// orchestration had to pipe "1\n2\n2\n" in, which silently loads the wrong topology the
+// moment the prompt order changes.
+//
+// CLI flags now take precedence; prompting is the fallback and only when stdin is a TTY.
+// A non-TTY run with missing flags fails with a usage message instead of hanging.
+namespace cli
+{
+
+struct Options
+{
+    std::optional<int> mode;          // 1 = mininet, 2 = testbed
+    std::optional<std::string> topology;
+    std::optional<bool> useAi;
+    bool showHelp = false;
+};
+
+void
+printUsage(const char* argv0)
+{
+    std::cout
+        << "Usage: " << argv0 << " [options]\n"
+           "\n"
+           "Deployment options (prompted interactively if omitted and stdin is a TTY):\n"
+           "  --mode <mininet|testbed>   deployment environment\n"
+           "  --topology <path>          topology JSON to load. Defaults to the mode's\n"
+           "                             configured file; for mininet, pick a P4 topology\n"
+           "                             here to run against bmv2\n"
+           "  --ai / --no-ai             enable or disable the Intent Translator\n"
+           "                             (--ai needs an OpenAI token)\n"
+           "  -h, --help                 show this message\n"
+           "\n"
+           "Logging options are also accepted; see --logfile / --loglevel.\n"
+           "\n"
+           "Examples:\n"
+           "  " << argv0 << " --mode mininet --no-ai\n"
+           "  " << argv0 << " --mode mininet --no-ai \\\n"
+           "      --topology ../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json\n";
+}
+
+// Parses only the flags we own; anything else (including Logger's) is ignored here and
+// handled by Logger::parse_cli_args.
+Options
+parse(int argc, char* argv[])
+{
+    Options opts;
+    auto needsValue = [&](int& i, const std::string& flag) -> std::string {
+        if (i + 1 >= argc)
+        {
+            std::cerr << flag << " requires a value\n";
+            std::exit(2);
+        }
+        return argv[++i];
+    };
+
+    for (int i = 1; i < argc; ++i)
+    {
+        const std::string arg = argv[i];
+        if (arg == "-h" || arg == "--help")
+        {
+            opts.showHelp = true;
+        }
+        else if (arg == "--mode")
+        {
+            const std::string value = needsValue(i, arg);
+            if (value == "mininet" || value == "1")
+            {
+                opts.mode = 1;
+            }
+            else if (value == "testbed" || value == "2")
+            {
+                opts.mode = 2;
+            }
+            else
+            {
+                std::cerr << "--mode expects 'mininet' or 'testbed', got '" << value << "'\n";
+                std::exit(2);
+            }
+        }
+        else if (arg == "--topology")
+        {
+            opts.topology = needsValue(i, arg);
+        }
+        else if (arg == "--ai")
+        {
+            opts.useAi = true;
+        }
+        else if (arg == "--no-ai")
+        {
+            opts.useAi = false;
+        }
+    }
+    return opts;
+}
+
+bool
+stdinIsInteractive()
+{
+    return ::isatty(fileno(stdin)) != 0;
+}
+
+} // namespace cli
 
 void
 handleSigint(int)
@@ -44,57 +153,111 @@ handleSigint(int)
     gShutdownRequested.store(true);
 }
 
-DeploymentConfig promptDeploymentConfig() {
+// [Co-developed with claude code -- Adam]
+// Resolves the deployment config from CLI flags, prompting only for what was not given and
+// only when stdin is a TTY. A non-interactive run with missing flags exits with usage
+// rather than blocking on stdin forever.
+DeploymentConfig
+resolveDeploymentConfig(const cli::Options& opts, const char* argv0)
+{
     DeploymentConfig config = {-1, false};
-    int aiChoice = -1;
+    const bool interactive = cli::stdinIsInteractive();
 
-    std::cout << "Select your deployment environment:\n";
-    std::cout << "  [1] Local Mininet (simulated testbed)\n";
-    std::cout << "  [2] Remote Testbed (physical or virtual deployment)\n";
-    
-    while (true) {
-        std::cout << "Enter environment choice (1-2): ";
-        std::cin >> config.mode;
-        if (!std::cin.fail() && (config.mode == 1 || config.mode == 2)) break;
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << "Invalid input. ";
-    }
-
-    if (config.mode == 1) {
-        std::cout << "\nSelect your Mininet Topology:\n";
-        std::cout << "  [1] OVS Environment (128 Hosts)\n";
-        std::cout << "  [2] P4 / BMv2 Environment (4 Hosts)\n";
-        int topoChoice = 0;
-        while (true) {
-            std::cout << "Enter topology choice (1-2): ";
-            std::cin >> topoChoice;
-            if (!std::cin.fail() && (topoChoice == 1 || topoChoice == 2)) break;
+    auto askChoice = [&](const char* prompt) -> int {
+        int choice = 0;
+        while (true)
+        {
+            std::cout << prompt;
+            std::cin >> choice;
+            if (!std::cin.fail() && (choice == 1 || choice == 2))
+            {
+                return choice;
+            }
+            if (std::cin.eof())
+            {
+                std::cerr << "\nstdin closed while waiting for input\n";
+                std::exit(2);
+            }
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::cout << "Invalid input. ";
         }
-        if (topoChoice == 2) {
-            setenv("NDTWIN_TOPO_FILE", "../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json", 1);
-        } else {
-            setenv("NDTWIN_TOPO_FILE", "../setting/StaticNetworkTopologyMininet_10Switches.json", 1);
+    };
+
+    auto requireFlag = [&](const char* flag) {
+        std::cerr << "stdin is not a TTY, so " << flag << " must be given explicitly.\n\n";
+        cli::printUsage(argv0);
+        std::exit(2);
+    };
+
+    // --- mode ---
+    if (opts.mode.has_value())
+    {
+        config.mode = *opts.mode;
+    }
+    else if (interactive)
+    {
+        std::cout << "Select your deployment environment:\n";
+        std::cout << "  [1] Local Mininet (simulated testbed)\n";
+        std::cout << "  [2] Remote Testbed (physical or virtual deployment)\n";
+        config.mode = askChoice("Enter environment choice (1-2): ");
+    }
+    else
+    {
+        requireFlag("--mode");
+    }
+
+    // --- topology ---
+    // An explicit --topology wins for either mode. Otherwise, Mininet asks which fabric to
+    // use and TESTBED falls through to its configured file.
+    if (opts.topology.has_value())
+    {
+        // overwrite=0 so an operator-supplied NDTWIN_TOPO_FILE is respected; the previous
+        // code passed 1 and silently clobbered it even though the loader treats it as a knob.
+        setenv("NDTWIN_TOPO_FILE", opts.topology->c_str(), 0);
+        if (std::string(std::getenv("NDTWIN_TOPO_FILE")) != *opts.topology)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "NDTWIN_TOPO_FILE was already set to '{}'; ignoring "
+                               "--topology '{}'",
+                               std::getenv("NDTWIN_TOPO_FILE"),
+                               *opts.topology);
+        }
+    }
+    else if (config.mode == 1)
+    {
+        if (interactive)
+        {
+            std::cout << "\nSelect your Mininet Topology:\n";
+            std::cout << "  [1] OVS Environment (128 Hosts)\n";
+            std::cout << "  [2] P4 / BMv2 Environment (4 Hosts)\n";
+            const int topoChoice = askChoice("Enter topology choice (1-2): ");
+            setenv("NDTWIN_TOPO_FILE",
+                   topoChoice == 2 ? AppConfig::TOPOLOGY_FILE_MININET_P4.c_str()
+                                   : AppConfig::TOPOLOGY_FILE_MININET.c_str(),
+                   0);
+        }
+        else
+        {
+            requireFlag("--topology");
         }
     }
 
-    std::cout << "\nDo you want to enable Intent Translator (requires OpenAI Token)?\n";
-    std::cout << "  [1] Yes (Enable AI features)\n";
-    std::cout << "  [2] No  (Disable AI features)\n";
-
-    while (true) {
-        std::cout << "Enter choice (1-2): ";
-        std::cin >> aiChoice;
-        if (!std::cin.fail() && (aiChoice == 1 || aiChoice == 2)) {
-            config.useToken = (aiChoice == 1);
-            break;
-        }
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << "Invalid input. ";
+    // --- AI ---
+    if (opts.useAi.has_value())
+    {
+        config.useToken = *opts.useAi;
+    }
+    else if (interactive)
+    {
+        std::cout << "\nDo you want to enable Intent Translator (requires OpenAI Token)?\n";
+        std::cout << "  [1] Yes (Enable AI features)\n";
+        std::cout << "  [2] No  (Disable AI features)\n";
+        config.useToken = (askChoice("Enter choice (1-2): ") == 1);
+    }
+    else
+    {
+        requireFlag("--ai or --no-ai");
     }
 
     return config;
@@ -121,19 +284,32 @@ promptOpenAIModel()
 int
 main(int argc, char* argv[])
 {
-    // Temporarily use command line prompt to configure running mode.
-    DeploymentConfig config = promptDeploymentConfig();
-    int mode = config.mode; 
+    // [Co-developed with claude code -- Adam]
+    // Logger first: resolveDeploymentConfig logs, and the old ordering left every message
+    // emitted during startup configuration with no logger to go to.
+    const cli::Options cliOpts = cli::parse(argc, argv);
+    if (cliOpts.showHelp)
+    {
+        cli::printUsage(argv[0]);
+        return 0;
+    }
+
+    auto cfg = Logger::parse_cli_args(argc, argv);
+    Logger::init(cfg);
+    SPDLOG_LOGGER_INFO(Logger::instance(), "Logger Loads Successfully! level");
+
+    DeploymentConfig config = resolveDeploymentConfig(cliOpts, argv[0]);
+    int mode = config.mode;
 
     if (mode == 1) {
         std::cout << "Running in Mininet environment.\n";
     } else {
         std::cout << "Running in Remote Testbed environment.\n";
     }
-
-    auto cfg = Logger::parse_cli_args(argc, argv);
-    Logger::init(cfg);
-    SPDLOG_LOGGER_INFO(Logger::instance(), "Logger Loads Successfully! level");
+    if (const char* topo = std::getenv("NDTWIN_TOPO_FILE"))
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(), "Topology file: {}", topo);
+    }
 
     std::signal(SIGINT, handleSigint);
 

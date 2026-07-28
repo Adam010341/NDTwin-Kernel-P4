@@ -156,6 +156,56 @@ class TopologyAndFlowMonitor
     std::optional<Graph::vertex_descriptor> findSwitchByDpid(uint64_t dpid) const;
     std::optional<Graph::vertex_descriptor> findSwitchByDpidNoLock(uint64_t dpid) const;
 
+    /**
+     * @brief Returns which data plane a switch runs, in O(1).
+     *
+     * Built once when the topology loads. Callers on the flow-install hot path use this
+     * instead of getGraph() + findSwitchByDpid(): the former deep-copied the entire BGL
+     * graph (every vertex string, ip vector and ecmp group) and the latter did an O(V)
+     * scan, once per flow entry, from one worker thread per DPID.
+     *
+     * @return nullopt when the dpid is not a switch in the loaded topology. Callers must
+     *         treat that as an error rather than defaulting to a data plane.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::optional<SwitchKind> getSwitchKind(uint64_t dpid) const;
+
+    /**
+     * @brief The topology file this run actually uses.
+     *
+     * Single source of truth, honouring the NDTWIN_TOPO_FILE override. Every read and
+     * every write of the topology JSON must go through this: the device-rename paths used
+     * to hardcode the OVS file, so renaming a device while running the P4 fabric wrote
+     * into the wrong topology.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::string activeTopologyPath() const;
+
+    /**
+     * @brief Groups the loaded switches by data plane, for validation and logging.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::map<SwitchKind, std::vector<uint64_t>> getSwitchKindGroups() const;
+
+    /**
+     * @brief Fails loudly when the loaded topology mixes data planes.
+     *
+     * The strategy dispatch is per-DPID and would happily drive a mixed fabric, but
+     * nothing else in the stack is ready for one: a single Mininet run is either OVS or
+     * bmv2, and the telemetry and liveness paths assume one kind. Validating here turns a
+     * confusing runtime mixture into a clear startup error. Enabling mixed topologies
+     * later means relaxing this check, not redesigning the dispatch.
+     *
+     * @param allowMixed when true, logs the mixture as a warning instead of failing.
+     * @return true when the topology is acceptable.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    bool validateDataPlaneHomogeneity(bool allowMixed) const;
+
     std::optional<Graph::vertex_descriptor> findSwitchByIp(uint32_t ip) const;
     std::optional<Graph::vertex_descriptor> findSwitchByIpNoLock(uint32_t ip) const;
 
@@ -211,7 +261,19 @@ class TopologyAndFlowMonitor
     void updateLinks(const std::string& topologyData);
     void updateGraph(const std::string&, const std::string&, const std::string&);
 
+  protected:
+    /**
+     * @brief Loads nodes and edges from a topology JSON.
+     *
+     * Protected rather than private so tests can load a purpose-built topology without
+     * standing up the Ryu REST calls that fetchAndUpdateTopologyData performs. Same seam
+     * pattern as IPowerStrategy::executeSystemCommand.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
     void loadStaticTopologyFromFile(const std::string& path);
+
+  private:
     void initializeMappingsFromGraph();
     void flushEdgeFlowLoop();
 
@@ -229,4 +291,10 @@ class TopologyAndFlowMonitor
     std::shared_ptr<EventBus> m_eventBus;
 
     utils::DeploymentMode m_mode;
+
+    // [Co-developed with claude code -- Adam]
+    // dpid -> data plane, built once in loadStaticTopologyFromFile. Has its own mutex so
+    // the flow-install hot path never contends with graph readers or writers.
+    std::unordered_map<uint64_t, SwitchKind> m_dpidToSwitchKind;
+    mutable std::shared_mutex m_switchKindMutex;
 };
