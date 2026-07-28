@@ -10,7 +10,10 @@
 //
 //   sudo tcpdump -i any -s 0 -w /tmp/ovs_sflow.pcap 'udp port 6343'
 //
-// while iperf ran between h1 and h2, then the UDP payloads were extracted.
+// while traffic ran between h1 and h2, then the UDP payloads were extracted.
+//
+//   tcp_*.bin    -- iperf (TCP), the bulk of the capture
+//   mixed_*.bin  -- iperf -u (UDP), ping (ICMP) and LLDP, one or two samples each
 //
 // The captured layout, consistent across all 2863 flow samples in the capture:
 //
@@ -213,18 +216,69 @@ TEST_F(GoldenFixtureTest, ExtractsTheCapturedIperfFlowExactly)
         EXPECT_EQ(src.rfind("10.0.0.", 0), 0u) << "unexpected source " << src;
         EXPECT_EQ(dst.rfind("10.0.0.", 0), 0u) << "unexpected destination " << dst;
 
-        // iperf is TCP by default.
-        EXPECT_EQ(int(key.protocol), 6)
-            << "expected TCP for the iperf capture, got protocol " << int(key.protocol);
-
-        if (key.srcPort == 5001 || key.dstPort == 5001)
+        // 5001 is iperf's default TCP port.
+        if (key.protocol == 6 && (key.srcPort == 5001 || key.dstPort == 5001))
         {
             foundIperf = true;
         }
     }
 
     EXPECT_TRUE(foundIperf)
-        << "no flow on iperf's default port 5001; the capture may not cover the iperf run";
+        << "no TCP flow on iperf's default port 5001; the capture may not cover the iperf run";
+}
+
+TEST_F(GoldenFixtureTest, ExtractsAllThreeProtocolPathsFromRealTraffic)
+{
+    // The parser branches on protocol: TCP additionally reads the flags word at index+32 --
+    // the deepest offset any path reaches -- while ICMP reads type and code where TCP and UDP
+    // read ports. Covering all three with real captured packets exercises each branch against
+    // bytes a switch actually produced, rather than bytes a test invented.
+    auto fixtures = loadFixtures();
+    ASSERT_FALSE(fixtures.empty());
+
+    feedAll(fixtures);
+
+    const auto table = m_collector->getFlowInfoTable();
+    ASSERT_GT(table.size(), 0u);
+
+    bool tcp = false;
+    bool udp = false;
+    bool icmp = false;
+    for (const auto& [key, info] : table)
+    {
+        switch (key.protocol)
+        {
+        case 6:  tcp = true;  break;
+        case 17: udp = true;  break;
+        case 1:  icmp = true; break;
+        default:
+            ADD_FAILURE() << "unexpected protocol " << int(key.protocol)
+                          << " extracted from the capture";
+            break;
+        }
+    }
+
+    EXPECT_TRUE(tcp) << "no TCP flow (from the iperf capture)";
+    EXPECT_TRUE(udp) << "no UDP flow (from the iperf -u capture)";
+    EXPECT_TRUE(icmp) << "no ICMP flow (from the ping capture)";
+}
+
+TEST_F(GoldenFixtureTest, IgnoresNonIpv4Frames)
+{
+    // The capture contains LLDP (0x88cc) and one IPv6 frame. The parser only handles IPv4 and
+    // must skip the rest without mistaking them for flows -- an off-by-one in the sample
+    // advancement would show up here as a bogus flow with a nonsense protocol.
+    auto fixtures = loadFixtures();
+    ASSERT_FALSE(fixtures.empty());
+
+    feedAll(fixtures);
+
+    for (const auto& [key, info] : m_collector->getFlowInfoTable())
+    {
+        EXPECT_TRUE(key.protocol == 6 || key.protocol == 17 || key.protocol == 1)
+            << "protocol " << int(key.protocol)
+            << " suggests a non-IPv4 frame was parsed as a flow";
+    }
 }
 
 TEST_F(GoldenFixtureTest, RequiresExtendedSwitchRecordBeforeTheRawHeader)
