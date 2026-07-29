@@ -141,6 +141,85 @@ class HostsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_DEPS, "networkx not available in this interpreter")
+class DestinationPathsTest(unittest.TestCase):
+    """
+    setAllPaths reads `path.front()` as the source IP, `path.back()` as the destination, and
+    computes switchCount as `size - 2`. All three depend on the exact shape, and the kernel
+    discriminates host from switch by JSON *type* -- string vs number.
+    """
+
+    def a_three_switch_net(self):
+        net = nx.DiGraph()
+        for d in (1, 6, 4):
+            net.add_node(d, type="switch")
+        for a, b, pa, pb in ((1, 6, 1, 1), (6, 4, 2, 2)):
+            net.add_edge(a, b, port=pa)
+            net.add_edge(b, a, port=pb)
+        for ip, dp, p in (("10.0.0.1", 1, 3), ("10.0.0.4", 4, 7)):
+            net.add_node(ip, type="host", mac="00:00:00:00:00:01")
+            net.add_edge(dp, ip, port=p)
+            net.add_edge(ip, dp, port=0)
+        return net
+
+    def paths(self, net):
+        return rt.render_destination_paths(net)["all_destination_paths"]
+
+    def test_the_status_envelope_is_present(self):
+        # The kernel refuses the body outright when status is missing or not "success".
+        out = rt.render_destination_paths(self.a_three_switch_net())
+        self.assertEqual(out["status"], "success")
+        self.assertIn("all_destination_paths", out)
+
+    def test_endpoints_are_host_ip_strings_and_middle_hops_are_numeric_dpids(self):
+        # The kernel routes a string through ipStringToUint32 and a number through
+        # get<uint64_t>(), so the types decide whether a hop is read as a host or a switch.
+        path = next(p for p in self.paths(self.a_three_switch_net())
+                    if p[0][0] == "10.0.0.1")
+        self.assertIsInstance(path[0][0], str)
+        self.assertIsInstance(path[-1][0], str)
+        for hop, _ in path[1:-1]:
+            self.assertIsInstance(hop, int)
+
+    def test_switch_count_is_size_minus_two(self):
+        path = next(p for p in self.paths(self.a_three_switch_net())
+                    if p[0][0] == "10.0.0.1")
+        self.assertEqual(len(path) - 2, 3, "three switches between the two hosts")
+
+    def test_the_source_hop_carries_the_ingress_port(self):
+        # Asymmetric on purpose: intelligent_router.py emits the port on the *first switch*
+        # facing the host here, not an egress port like every other hop.
+        path = next(p for p in self.paths(self.a_three_switch_net())
+                    if p[0][0] == "10.0.0.1")
+        self.assertEqual(path[0][1], 3, "s1's port towards h1")
+
+    def test_the_final_hop_has_port_zero(self):
+        path = next(p for p in self.paths(self.a_three_switch_net())
+                    if p[0][0] == "10.0.0.1")
+        self.assertEqual(path[-1][1], 0, "there is no next hop to leave by")
+
+    def test_both_directions_are_emitted(self):
+        paths = self.paths(self.a_three_switch_net())
+        self.assertEqual(len(paths), 2)
+        self.assertEqual({p[0][0] for p in paths}, {"10.0.0.1", "10.0.0.4"})
+
+    def test_unreachable_pairs_are_skipped_rather_than_raising(self):
+        # Normal while discovery is still converging.
+        net = nx.DiGraph()
+        for ip, dp in (("10.0.0.1", 1), ("10.0.0.9", 9)):
+            net.add_node(dp, type="switch")
+            net.add_node(ip, type="host", mac="00:00:00:00:00:01")
+            net.add_edge(dp, ip, port=3)
+            net.add_edge(ip, dp, port=0)
+        # s1 and s9 are not linked, so neither host can reach the other.
+        self.assertEqual(self.paths(net), [])
+
+    def test_a_topology_with_no_hosts_yields_no_paths(self):
+        net = nx.DiGraph()
+        net.add_node(1, type="switch")
+        self.assertEqual(self.paths(net), [])
+
+
+@unittest.skipUnless(HAVE_DEPS, "networkx not available in this interpreter")
 class ShippedTopologyTest(unittest.TestCase):
     """
     Renders the real P4 topology file and checks the counts the kernel should see.

@@ -188,6 +188,32 @@ class FlowLinkUsageCollector
     void configurePortMapping();
 
     /**
+     * @brief host:port of the control plane that owns this data plane.
+     *
+     * @details
+     * The P4 proxy for an all-bmv2 topology, Ryu otherwise. Resolved on each call rather than
+     * cached at construction, because the switch kinds come from the topology file and that is
+     * not loaded when this object is built.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::string controlPlaneHostAndPort() const;
+
+    /**
+     * @brief Re-pulls the destination paths until they arrive, then keeps them fresh.
+     *
+     * @details
+     * The one-shot call in start() cannot work on its own: it runs before the topology file is
+     * loaded (a different thread does that) and before the control plane has finished LLDP
+     * discovery, and `fetchAllDestinationPaths` silently returns on an empty response. So the
+     * paths stayed empty for the whole run, and `get_path_switch_count` always answered "Path
+     * not found".
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void refreshDestinationPathsPeriodically();
+
+    /**
      * @brief Translates an sFlow ifIndex to an OpenFlow port under a shared lock.
      *
      * Returns 0 for an unknown ifIndex, which callers already treat as "no port".
@@ -277,6 +303,13 @@ class FlowLinkUsageCollector
 
     std::thread m_pktRcvThread;
     std::thread m_calAvgFlowSendingRateThreadPeriodically;
+
+    /**
+     * @brief Re-pulls the destination paths periodically.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::thread m_destinationPathRefreshThread;
     std::thread m_testCalAvgFlowSendingRatesRandomly;
     std::thread m_purgeThread;
     std::thread m_calFlowPathByQueried;

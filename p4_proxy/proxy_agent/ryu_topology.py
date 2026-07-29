@@ -110,6 +110,77 @@ def render_links(net) -> list:
     return links
 
 
+def render_destination_paths(net) -> dict:
+    """
+    Every host-to-host path, in the shape `FlowLinkUsageCollector::setAllPaths` consumes.
+
+    [Co-developed with claude code -- Adam]
+
+    Format taken from `intelligent_router.py`, which is the working reference -- OVS mode really
+    does answer `switch_count: 5` off this, so the shape is known-good rather than inferred:
+
+        {"status": "success",
+         "all_destination_paths": [
+             [["10.0.0.1", 3], [1, 1], [6, 2], [4, 3], ["10.0.0.4", 0]],
+             ...
+         ]}
+
+    Each entry is one path as `[node, out_port]` pairs, where `out_port` is the port on that node
+    *towards the next hop*. Three details are load-bearing:
+
+      - The first and last nodes must be **host IPs as strings**, and everything between them a
+        **switch dpid as a number**. The kernel discriminates on the JSON type: a string goes
+        through `ipStringToUint32`, a number through `get<uint64_t>()`.
+      - `switchCount` is computed as `path.size() - 2`, so the host endpoints must be present or
+        every count is off by two.
+      - The final hop's port is 0, since there is no next hop to leave by.
+
+    The `{"status": "success", ...}` envelope is required: the kernel refuses the body outright
+    if `status` is missing or not "success".
+    """
+    hosts = [n for n, a in net.nodes(data=True) if a.get("type") == "host"]
+
+    paths = []
+    for src in hosts:
+        for dst in hosts:
+            if src == dst:
+                continue
+            hops = _shortest_path(net, src, dst)
+            if hops is None:
+                continue
+            entry = []
+            for i, node in enumerate(hops):
+                if i == 0:
+                    # The source entry carries the *ingress* port -- the port on the first
+                    # switch that the host hangs off -- not an egress port like every other
+                    # hop. Asymmetric, but it is what intelligent_router.py emits
+                    # (`net[src_switch][src_host]["port"]`), and matching the working
+                    # reference beats inventing a tidier convention the kernel has never seen.
+                    port = (net.get_edge_data(hops[1], node, default={}).get("port", 0)
+                            if len(hops) > 1 else 0)
+                elif i + 1 < len(hops):
+                    port = net.get_edge_data(node, hops[i + 1], default={}).get("port", 0)
+                else:
+                    # No next hop to leave by.
+                    port = 0
+                # str for hosts, int for switches: the kernel discriminates on the JSON type.
+                entry.append([str(node) if node in (src, dst) else int(node), port])
+            paths.append(entry)
+
+    return {"status": "success", "all_destination_paths": paths}
+
+
+def _shortest_path(net, src, dst):
+    """Shortest path as a node list, or None when the two are not connected."""
+    try:
+        import networkx as nx
+        return nx.shortest_path(net, source=src, target=dst)
+    except Exception:
+        # NetworkXNoPath, NodeNotFound, or networkx missing. A pair with no route is normal
+        # while discovery is still converging, so it is skipped rather than raised.
+        return None
+
+
 def render_hosts(net) -> list:
     """
     Hosts, keyed the way `updateHosts` reads them.

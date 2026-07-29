@@ -97,6 +97,29 @@ FlowLinkUsageCollector::usesIdentityPortMapping(
     return switchKindGroups.size() == 1 && switchKindGroups.begin()->first == SwitchKind::BMV2;
 }
 
+/** @brief host:port of the control plane that owns this data plane.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * Reuses usesIdentityPortMapping's all-bmv2 test rather than repeating it: "this is a bmv2
+ * fabric" is one fact, and two copies of it could disagree.
+ *
+ * Resolved per call, not cached at construction. The switch kinds come from the topology file,
+ * which is loaded by another thread after this object is built -- deciding early would always
+ * see an empty graph and silently pick Ryu, which is exactly how the identity ifIndex mapping
+ * became dead code for several commits.
+ */
+std::string
+FlowLinkUsageCollector::controlPlaneHostAndPort() const
+{
+    if (m_mode == utils::MININET && m_topologyAndFlowMonitor
+        && usesIdentityPortMapping(m_topologyAndFlowMonitor->getSwitchKindGroups()))
+    {
+        return AppConfig::P4_PROXY_IP_AND_PORT;
+    }
+    return AppConfig::RYU_IP_AND_PORT;
+}
+
 // [Co-developed with claude code -- Adam]
 void
 FlowLinkUsageCollector::configurePortMapping()
@@ -354,7 +377,13 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
     // not loaded yet at this point. See configurePortMapping.
     // [Co-developed with claude code -- Adam]
 
-    // Call All Destination When Initialize
+    // Call All Destination When Initialize.
+    //
+    // [Co-developed with claude code -- Adam]
+    // Kept as an opportunistic first attempt, but it cannot be the only one: at this point the
+    // topology file has not been loaded (another thread does that), so the control plane is not
+    // even known yet, and the control plane itself has not finished LLDP discovery. The refresh
+    // thread below is what actually gets the paths.
     fetchAllDestinationPaths();
 
     this->m_running.store(true);
@@ -365,6 +394,63 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
         thread(&FlowLinkUsageCollector::testCalAvgFlowSendingRatesRandomly, this);
     m_purgeThread = thread(&FlowLinkUsageCollector::purgeIdleFlows, this);
     m_calFlowPathByQueried = thread(&FlowLinkUsageCollector::calFlowPathByQueried, this);
+    m_destinationPathRefreshThread =
+        thread(&FlowLinkUsageCollector::refreshDestinationPathsPeriodically, this);
+}
+
+/** @brief Keep re-pulling the destination paths until they arrive, then refresh them slowly.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * Polls quickly while the map is empty and slowly once it is populated. Two distinct problems
+ * make a plain one-shot call at startup useless, and both are fixed by retrying:
+ *
+ *  - **Ordering.** start() runs before loadStaticTopologyFromFile, so the switch kinds are not
+ *    known and controlPlaneHostAndPort() cannot tell Ryu from the P4 proxy. The first attempt
+ *    therefore asks the wrong host, gets nothing, and `fetchAllDestinationPaths` returns
+ *    silently on the empty body.
+ *  - **Convergence.** Even against the right host, the control plane has not finished LLDP
+ *    discovery that early, so it has no paths to give.
+ *
+ * The slow refresh afterwards matters too: paths change when links fail or recover, and nothing
+ * else re-pulls them.
+ */
+void
+FlowLinkUsageCollector::refreshDestinationPathsPeriodically()
+{
+    using namespace std::chrono_literals;
+    constexpr auto kWhileEmpty = 5s;   // still converging: try again soon
+    constexpr auto kOnceLoaded = 60s;  // steady state: just track changes
+
+    bool everLoaded = false;
+    while (m_running.load())
+    {
+        const bool haveAny = !getAllPaths().empty();
+
+        // Sleep first: start() has already made one attempt, and sleeping up front also gives
+        // the topology-loading thread a chance to run before the second.
+        const auto interval = haveAny ? kOnceLoaded : kWhileEmpty;
+        for (auto slept = 0s; slept < interval && m_running.load(); slept += 1s)
+        {
+            std::this_thread::sleep_for(1s);
+        }
+        if (!m_running.load())
+        {
+            break;
+        }
+
+        fetchAllDestinationPaths();
+
+        if (!everLoaded && !getAllPaths().empty())
+        {
+            everLoaded = true;
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "Destination paths loaded from {} ({} pairs); "
+                               "path and switch-count queries will answer from now on.",
+                               controlPlaneHostAndPort(),
+                               getAllPaths().size());
+        }
+    }
 }
 
 void
@@ -395,6 +481,13 @@ FlowLinkUsageCollector::stop()
     {
         m_purgeThread.join();
     }
+    // [Co-developed with claude code -- Adam]
+    // Must be joined: a joinable std::thread destructor calls std::terminate.
+    if (m_destinationPathRefreshThread.joinable())
+    {
+        m_destinationPathRefreshThread.join();
+    }
+
     if (m_calFlowPathByQueried.joinable())
     {
         m_calFlowPathByQueried.join();
@@ -1867,10 +1960,15 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
         // 1. Build and run the curl command
         //    -s: silent mode
         //    -H: set header
+        // [Co-developed with claude code -- Adam]
+        // The proxy serves this endpoint in the same shape for a bmv2 fabric, so ask whichever
+        // control plane actually owns the switches. Hardcoding Ryu meant P4 mode polled a port
+        // nothing was listening on, which is why m_switchCountMap stayed empty and
+        // get_path_switch_count answered "Path not found" even with the graph fully enabled.
         const std::string cmd = "curl -s "
                                 "-H \"User-Agent: NDT-client/1.1\" "
                                 "\"http://" +
-                                AppConfig::RYU_IP_AND_PORT + "/ryu_server/all_destination_paths\"";
+                                controlPlaneHostAndPort() + "/ryu_server/all_destination_paths\"";
         const std::string output = utils::execCommand(cmd);
 
         if (output.empty()) return;

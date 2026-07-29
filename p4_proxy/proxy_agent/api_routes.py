@@ -46,15 +46,22 @@ async def topology_hosts():
 
 @router.get("/ryu_server/all_destination_paths")
 async def get_all_paths():
-    """Returns the BFS calculated paths in Ryu JSON format"""
+    """
+    Host-to-host paths in the shape the kernel's setAllPaths consumes.
+
+    [Co-developed with claude code -- Adam]
+    Previously returned TopologyManager's own `[{"node":..., "paths":{...}}]` structure, which
+    the kernel cannot read: it requires a `{"status":"success","all_destination_paths":[...]}`
+    envelope containing `[node, out_port]` pair lists, and refuses the body outright when
+    `status` is absent. That mismatch is why `get_path_switch_count` answered "Path not found"
+    in P4 mode even with the graph fully enabled -- `m_switchCountMap` is filled from here, not
+    from the topology poll.
+
+    The format matches intelligent_router.py, which is the working reference for OVS mode.
+    """
     if not topology:
-        return []
-    # Ensure paths are updated before returning
-    topology.calculate_all_paths()
-    paths = topology.get_all_destination_paths_formatted()
-    # NDTwin expects a JSON string or JSON array. 
-    # FastAPI returns JSON response by default for dict/lists.
-    return paths
+        return {"status": "success", "all_destination_paths": []}
+    return ryu_topology.render_destination_paths(topology.net)
 
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
