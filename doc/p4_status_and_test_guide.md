@@ -53,12 +53,20 @@
 | **agent IP 從 kernel 讀的同一份拓撲 JSON 來** | kernel 是用 `AgentKey{agentIP, port}` 把 sample 對到 edge，位址不對就是「收到了但對應到空氣」 | 單元測試（含 host 必須被排除 —— host 的 dpid 都是 0，會全部塌到同一個假 agent） |
 | **headless 啟動** | `--mode` / `--topology` / `--no-ai`，不用再手動打 `std::cin` | — |
 
+### A2. 實機驗證過的（2026-07-29 在 10 台 bmv2 上實測）
+
+| 項目 | 實測結果 |
+|---|---|
+| **bmv2 fabric 端到端轉發** | `h1 ping -c 5 h4` → **0% loss**、`ttl=59`（從 64 減 5，證實經過 5 台 switch 且 TTL 遞減有效）、RTT 6.5ms |
+| **1/256 取樣 → clone → packet-in → proxy → emitter → kernel 整條鏈** | 送 ~2700 個 ping，kernel 收到 **`rx=126, addressed=126`**。`rx == addressed` 表示**每一個 datagram 都成功歸戶到 agent**，agent IP 對應正確 |
+| **取樣率符合預期** | 2700 封包 × 10 跳 ÷ 256 ≈ **105** 個期望 sample，實測 **107**（第一次查詢時）|
+| **kernel 正確解析出雙向 flow** | `10.0.0.1 → 10.0.0.4` ICMP type 8 code 0（echo request）＋ `10.0.0.4 → 10.0.0.1` type 0 code 0（echo reply），ICMP type/code 確實在 port 欄位 |
+| **零錯誤** | `app_drop=0`、0 個 malformed datagram、proxy 和 kernel log 都沒有 exception |
+| **clone session 實機安裝** | 10 台全部 `Clone session 250 -> port 255 installed`，0 失敗 |
+
 ### B. 已完成，但只有單元測試，還沒對真的 bmv2 跑過
 
-這些是「邏輯上驗證過、實機還沒驗證」的：
-
-- **1/256 取樣 clone 到 CPU** —— P4 編譯過，clone session 的 request 也驗證過，但沒有真的看到一份 sample 從 bmv2 出來。
-- **direct counter（`flow_5tuple` / `ipv4_lpm`）和 per-port counter** —— 表和 counter 都在 p4info 裡，但 `/stats/flow/{dpid}` 還沒接（見下面 Phase 6）。
+- **direct counter（`flow_5tuple` / `ipv4_lpm`）和 per-port counter** —— 表和 counter 都在 p4info 裡，但 `/stats/flow/{dpid}` 還沒接（見下面 Phase 6）。讀 bmv2 counter 需要 Thrift 的 Python binding，這台機器上兩個 interpreter 都沒裝。
 - **P4RoutingStrategy 的實際下規則路徑** —— curl → proxy → P4Runtime 這條鏈的每一段都有測，但整條沒有對活的 switch 跑過。
 
 ### C. 還沒做（會影響你測試時看到什麼）
@@ -110,8 +118,9 @@
 **兩個 Mininet 不能同時開**，而且切換模式之間**一定要 `sudo mn -c`**，否則殘留的
 namespace／bridge 會讓下一個模式起不來或測出假結果。
 
-**第 3d 步是這一輪唯一「從來沒有人驗證過」的東西**（bmv2 實機取樣 → packet-in → emitter →
-kernel 整條鏈），其餘都是已經有測試或已經量過的。所以如果時間有限，3d 是最不能跳的。
+**第 3d 步已於 2026-07-29 實機驗證通過**（bmv2 取樣 → packet-in → proxy → emitter → kernel 整條鏈，
+`rx=126, addressed=126`，雙向 ICMP flow 都正確解析）。它現在是**迴歸標準**，不再是待驗證項目。
+做這一步的時候務必看 3d 那節關於「流量要夠多」的說明 —— 送太少封包會看起來像壞掉。
 
 ### 第 0 步：不需要開任何東西（約 2 分鐘）
 
@@ -446,29 +455,56 @@ cd tools/test_workflow
 `compare` 需要 `.test_run/baseline/ovs` 和 `.test_run/baseline/p4` **都存在**，所以第 2 步的
 `baseline ovs` 不能跳過，否則這一步會被 skip 掉。
 
-#### 3d：整條 telemetry 鏈（這一輪唯一還沒被驗證過的東西）
+#### 3d：整條 telemetry 鏈（**2026-07-29 實機驗證通過**）
 
-在 Mininet CLI 裡產生流量：
+⚠️ **流量要夠多，這是這一步最容易失敗的地方 —— 而且失敗看起來像壞掉。**
+
+取樣是**隨機** 1/256（`random(meta.sample_rand, 0, 255)` 然後 `== 0` 才 clone），不是每 256 個
+固定取一個。封包太少時「一個 sample 都沒有」是**正常的機率結果**，不是 bug。
+
+好消息是**每一跳都獨立取樣**，所以取樣機會遠多於封包數：
+
+| 送出的 ping | 取樣機會（×10 跳，去回程各 5） | 期望 sample | 至少 1 個的機率 |
+|---|---|---|---|
+| 5 | 50 | 0.2 | **18%** ← 實測第一次就踩到，看起來像壞掉 |
+| 300 | 3,000 | 11.7 | >99.9% |
+| 2,700 | 27,000 | ~105 | ~100% |
+
+**另外：LLDP 不算。** proxy 的 LLDP beacon 會讓每個 switch port 累積上百個封包，但 P4 裡的
+`if (standard_metadata.egress_spec != CPU_PORT)` 把送 CPU 的封包排除在取樣外（避免重複 packet-in），
+所以**只有真實資料流量才會產生 sample**。看 interface 封包計數會誤判。
 
 ```
-h1 ping h4
+mininet> h1 ping -c 3000 -i 0.002 10.0.0.4
 ```
 
-同時在另一個 terminal 抓封包：
+**通過標準（以下數字是實測值）：**
 
 ```bash
-sudo tcpdump -i lo -n udp port 6343 -c 20
+# 1. kernel 收到而且成功歸戶 —— rx 必須等於 addressed
+grep -oE "rx=[0-9]+, app_drop=[0-9]+, addressed=[0-9]+" .test_run/logs/kernel.log | tail -1
+#    實測: rx=126, app_drop=0, addressed=126
+
+# 2. 解析出雙向 flow（趁流量還在跑或剛結束，table 會老化清空）
+curl -s http://localhost:8000/ndt/get_detected_flow_data | python3 -c "
+import json,sys,socket,struct
+ip=lambda n: socket.inet_ntoa(struct.pack('<I', n))   # kernel 存的是 0x0100000A 這個順序
+for x in json.load(sys.stdin):
+    print(ip(x['src_ip']), '->', ip(x['dst_ip']), 'ICMP type', x['src_port'], 'code', x['dst_port'])
+"
+#    實測: 10.0.0.1 -> 10.0.0.4 ICMP type 8 code 0   (echo request)
+#          10.0.0.4 -> 10.0.0.1 ICMP type 0 code 0   (echo reply)
 ```
 
-**通過標準**：有看到封包。這會是第一次證明「bmv2 取樣 → packet-in → proxy → emitter → kernel」
-整條鏈在**實機**上通了 —— 在此之前只有跨語言 round-trip 測試證明過 emitter 的位元組能被 parser
-解析，沒有任何東西證明 bmv2 真的會吐出 sample。**這是第 3 步真正的目的。**
+| 檢查 | 為什麼重要 |
+|---|---|
+| **`rx` 等於 `addressed`** | 每個 datagram 都對應到 agent。不相等表示 `AgentKey{agentIP, port}` 對不上 —— sample 收到了卻歸戶到空氣 |
+| `app_drop=0` | 沒有 datagram 因格式問題被丟掉 |
+| 雙向都有、ICMP type/code 在 port 欄位 | emitter 的位元組排列跟 kernel 的 parser 在**實機**上相容，不只是單元測試層面 |
 
-抓到封包之後，確認 kernel 真的收下並解析了：
-
-```bash
-curl -s http://localhost:8000/ndt/get_detected_flow_data | python3 -m json.tool | head -30
-```
+`tcpdump -i lo -n udp port 6343` 也能看，但 `rx=`／`addressed=` 更直接：它證明封包**真的被 kernel
+收下並解析**，而不只是出現在 lo 上。（`0 packets captured / N received by filter` 的意思是 tcpdump
+檢查了 N 個 lo 封包、但沒有一個符合過濾條件。）
 
 **不要用這些當標準**（Phase 6 未做，一定是空的）：
 `/ndt/get_graph_data` 的 `is_enabled`、link usage、flow 的 `path`、Web GUI 的畫面。
@@ -486,10 +522,13 @@ sudo mn -c
 
 ## 三、一句話總結
 
-現在可以放心相信的是：**kernel 不會崩、南向失敗看得見、P4 pipeline 能表達 NDTwin 真正會下的規則、
-而且 proxy 合成的 sFlow 真的能被 kernel 解析成正確的 flow**（這件事有跨語言 round-trip 證明，
-不是靠讀 offset 讀兩次）。
+現在可以放心相信的是：**kernel 不會崩、南向失敗看得見、P4 pipeline 能表達 NDTwin 真正會下的規則，
+而且整條 telemetry 鏈在 10 台真實 bmv2 上通了** —— bmv2 取樣 → clone 到 CPU → packet-in → proxy →
+emitter → kernel 解析出正確的雙向 flow，`rx=126, addressed=126`、零錯誤（2026-07-29 實測）。
+bmv2 fabric 本身也證實能端到端轉發（`ping` 0% loss、`ttl=59` 證實過 5 跳且 TTL 遞減有效）。
 
-還不能相信的是：**圖是活的**。那是 Phase 6。
+還不能相信的是：**圖是活的**。那是 Phase 6 —— `inform_switch_entered` 沒人呼叫，所以
+`is_enabled` 是 0、`path` 是 `[]`、link usage 是 0。**telemetry 資料已經進到 kernel 了，
+缺的是把它掛到圖上。**
 
 [Co-developed with claude code -- Adam]
