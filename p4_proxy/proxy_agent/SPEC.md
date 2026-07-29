@@ -18,6 +18,17 @@ The Proxy Agent is designed to translate high-level network intents (from NDTwin
    split matters for load as much as correctness -- sampling is 1-in-256 of *all* traffic, so
    letting samples reach the LLDP parser would bury discovery in frames it cannot use.
 
+   **Ordering contract for `start(push_config)`.** The clone session lives in the pipeline's
+   PRE, so bmv2 rejects it with `FAILED_PRECONDITION: No forwarding pipeline config set for
+   this device` if no pipeline is loaded. `start()` therefore programs it **only when it
+   pushed the pipeline itself**. With `push_config=False` the caller owns the ordering and
+   must call `write_clone_session()` after its own push -- which `main.py` does, in its
+   telemetry setup, because it batches the pipeline pushes across all ten switches. Getting
+   this wrong is not subtle in effect but is invisible in the request: all ten sessions fail
+   and no sample is ever produced. `tests/test_clone_session.py::StartOrderingTest` asserts
+   the order rather than the counts, because the pre-existing tests checked only what the
+   `WriteRequest` contained, never when it was sent.
+
 5. **`sflow_emitter.py`**: Synthesises sFlow v5 flow samples and sends them to the kernel's
    collector on UDP 6343, so `FlowLinkUsageCollector` and `Classifier` work unmodified and
    cannot tell OVS from P4. bmv2 emits no sFlow of its own.

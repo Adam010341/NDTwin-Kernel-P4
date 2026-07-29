@@ -6,6 +6,91 @@ Refer to the git log for more details if you wish.
 
 ---
 
+## Unreleased — P4/bmv2 support (branch `fix/flow-rate-divide-by-zero`)
+
+Adds the ability to drive a P4/bmv2 data plane under Mininet alongside the existing
+Open vSwitch/Ryu support. NDTwin applications and the Intent Translator are unchanged:
+the P4 proxy agent impersonates Ryu's northbound API, and the proxy synthesises sFlow v5
+into the kernel's existing UDP:6343 collector, so `FlowLinkUsageCollector`, `Classifier`
+and every `/ndt/` metric work without modification.
+
+Progress, remaining work and the per-phase plan: `doc/p4_bmv2_support_plan.md`.
+Test procedure and measured results: `doc/p4_status_and_test_guide.md`.
+Machine-specific setup traps: `doc/environment_gotchas.md`.
+What is still open: `doc/HANDOFF.md`.
+
+### Fixed (crashes and silent failures)
+
+1. **Fix SIGFPE crash in flow-rate calculation.** The `hopsCounter == 0` divide-by-zero
+   guard had been removed; any tracked flow idle for one 1-second tick killed the process.
+   Rate arithmetic extracted into `computeEstimatedRates` as a testable seam.
+
+2. **Fix null dereference that crashed the kernel on Ryu's table-miss rule.**
+   `Classifier.cpp` called `outputPorts.front()` on rules with no output action — Ryu reports
+   a drop as `"actions": []`. Latent until flow tables were actually readable. Note the
+   trap: the call sites are `SPDLOG_LOGGER_TRACE`, and spdlog evaluates its arguments even
+   when the level is disabled.
+
+3. **Bounds-check the sFlow parser.** It is an externally reachable input surface (anything
+   that can send UDP to 6343). Verified with ASan: removing the check reproduces a
+   heap-buffer-overflow.
+
+4. **Make southbound failures visible.** Strategy methods return
+   `OpResult { ok, httpStatus, message }` and capture curl's real HTTP status; a 200 whose
+   body contains `{"status":"error"}` also counts as failure. Previously a dead proxy and a
+   successful install were indistinguishable.
+
+5. **Fix data race and unbounded growth** in the ifIndex→ofport map (`operator[]` without
+   holding the mutex, which also mapped every unknown port to 0).
+
+### Added (P4 data plane)
+
+6. **Typed `SwitchKind` dispatch** (`OVS`/`BMV2`/`HARDWARE`) replacing a case-sensitive
+   substring match on the topology *filename*. O(1) lookup, no per-operation deep copy of
+   the graph. Unknown DPIDs log a warning and return an error instead of silently falling
+   back to Ryu. Topology homogeneity is validated at load time.
+
+7. **Extended P4 pipeline** (`ndtwin_switch.p4`): a ternary `flow_5tuple` table with real
+   priority ahead of `ipv4_lpm`, ARP/TCP/UDP/ICMP parsing, an L2 table so non-IPv4 frames
+   are no longer silently dropped, a TTL guard, direct and per-port counters, and 1-in-256
+   clone-to-CPU sampling for telemetry.
+
+8. **sFlow synthesis in the proxy** (`sflow_emitter.py`), byte-layout compatible with what
+   OVS emits — proven by a cross-language round trip that feeds the Python emitter's real
+   output into the C++ parser the kernel actually uses.
+
+9. **Telemetry sample path**: PRE clone session 250 programmed over P4Runtime, and samples
+   separated from genuine packet-ins by a `reason` field inside `packet_in` (a third
+   controller header compiles but is silently ignored by P4Runtime, which matches
+   `packet_in`/`packet_out` by name).
+
+10. **Identity ifIndex→port mapping for all-bmv2 topologies**, skipping `ovs-vsctl`, which
+    knows nothing about bmv2 interfaces. Decided lazily so it does not race the topology load.
+
+11. **Headless startup**: `--mode`, `--topology`, `--ai`/`--no-ai` replacing interactive
+    `std::cin` prompts.
+
+12. **P4 declares its limits**: group/meter operations return `501 unsupported` rather than
+    silently redirecting to Ryu.
+
+### Added (test tooling)
+
+13. **Layered test harness** (`tools/test_workflow/`): L0 build check, L1 unit tests
+    (C++ under both ctest and direct execution, plus the P4 proxy's Python tests), L2 API
+    contract, L3 component contract, L4 OVS/P4 differential, and `stack.sh` orchestration
+    that starts each mode in the order that mode requires.
+
+### Known limitations
+
+- The graph is not yet live in P4 mode: nothing calls `/ndt/inform_switch_entered`, which is
+  the only thing that sets `isEnabled`, so `path` is empty and link usage is 0. Telemetry
+  data does reach the kernel — it is not yet attached to the graph. This is Phase 6.
+- Every southbound command is still built as `popen("curl … -d '" + json.dump() + "'")`.
+  `nlohmann::json::dump()` does not escape single quotes and the JSON comes from
+  unauthenticated REST bodies and LLM output. Deliberately deferred; 22 sites in 3 files.
+
+---
+
 ## tag v3.1.0
 Tagger: nslab RA <nslab@citi.edu.tw>
 Date:   Wed Jun 25 17:33:53 2025 +0800
