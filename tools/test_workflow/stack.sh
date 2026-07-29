@@ -229,8 +229,14 @@ cmd_up() {
         if [[ ! -x "$RYU_MANAGER" ]]; then
             err "  ryu-manager not found: $RYU_MANAGER"; return 1
         fi
+        # rest_topology serves /v1.0/topology/*, which is the kernel's *pull* path for switch
+        # state. --observe-links alone only loads ryu.topology.switches, which fires the
+        # events the custom app pushes from -- the REST endpoints 404, and the kernel's
+        # updateSwitches() silently swallows that (the 404 body is HTML, so json::parse
+        # throws and the handler returns). Without this the push path is the only one, and a
+        # kernel that starts late can never recover.
         start_bg ryu "$LOG_DIR/ryu.log" \
-            bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP'"
+            bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' ryu.app.rest_topology"
         wait_for_port 8080 "Ryu REST" 40 || {
             err "  Ryu did not open :8080; see $LOG_DIR/ryu.log"; return 1; }
     fi
@@ -244,6 +250,14 @@ cmd_up() {
     echo "      sudo python3 $script"
     echo
     read -r -p "  Press Enter once Mininet is up (or Ctrl-C to abort)... " _ || true
+
+    # The kernel must come last, and not immediately: TopologyAndFlowMonitor::run() pulls
+    # /v1.0/topology/* and the destination paths exactly once and then exits, so whatever Ryu
+    # knows at that moment is all the kernel ever learns. The user manual requires at least
+    # 60s after Mininet for Ryu's LLDP discovery to converge first.
+    # https://ndtwin.org/docs/ndtwin-user-manual/ndtwin-kernel/operate-an-emulated-software-network/native-linux-excution-environment/
+    echo "  waiting ${RYU_CONVERGE_WAIT}s for Ryu link discovery to converge"
+    sleep "$RYU_CONVERGE_WAIT"
 
     # -- 3. kernel --
     echo "[3/3] kernel"

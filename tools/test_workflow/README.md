@@ -94,12 +94,22 @@ ctest            → 100% tests passed, 0 tests failed out of 12   ← 謊言
 ```
 
 ```bash
-./stack.sh up p4      # 控制層 → 提示你手動開 Mininet → kernel
+./stack.sh up p4      # 控制層 → 提示你手動開 Mininet → 等 60s → kernel
 ./stack.sh wait       # 阻塞直到收斂
 ./stack.sh status
 ./stack.sh down
 ./stack.sh logs
 ```
+
+kernel 一定要**最後**開，而且開之前要等 Ryu 的 LLDP 收斂完（照使用手冊是至少 60 秒，由
+`RYU_CONVERGE_WAIT` 控制）。原因是 `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**
+`/v1.0/topology/*` 跟 destination paths 就結束，沒有重試迴圈——那一刻 Ryu 還不知道的東西，
+kernel 這輩子都不會知道。太早開 kernel 的症狀是 `up=0 enabled=0` 而且不會自己好。
+
+OVS 模式的 Ryu 需要多載一個 `ryu.app.rest_topology`。`--observe-links` 只會載入
+`ryu.topology.switches`（提供事件），不含 `/v1.0/topology/*` 這組 REST endpoint；少了它
+那三個網址會回 404，而 kernel 的 `updateSwitches()` 會把 404 的 HTML 當 JSON 去 parse、
+丟出例外後**靜靜地**放棄，於是整張圖永遠是 down 且 disabled。
 
 ### `wait` 是最重要的部分
 
