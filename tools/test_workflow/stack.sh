@@ -48,6 +48,19 @@ ok()   { echo "${G}$*${N}"; }
 warn() { echo "${Y}$*${N}"; }
 err()  { echo "${R}$*${N}" >&2; }
 
+# prompt_for_mininet <script> -- Mininet needs root and drops into an interactive CLI, so it
+# cannot be started from here; ask the operator to run it in another terminal.
+prompt_for_mininet() {
+    local script="$1"
+    if [[ ! -f "$script" ]]; then err "  topology script missing: $script"; return 1; fi
+    warn "  Mininet is interactive (it drops into a CLI) and needs root."
+    warn "  Start it in a separate terminal:"
+    echo
+    echo "      sudo python3 $script"
+    echo
+    read -r -p "  Press Enter once Mininet is up (or Ctrl-C to abort)... " _ || true
+}
+
 # countdown <seconds> <what> -- a visible wait, so it does not look like a hang.
 countdown() {
     local left="$1" what="$2"
@@ -216,27 +229,22 @@ cmd_up() {
     else
         topo="$TOPO_OVS"; script="$OVS_TOPO_SCRIPT"
     fi
-    echo "$mode $topo" >"$MODE_FILE"
-
     echo "Bringing up the $mode stack"
     echo "  topology: $topo"
     echo
 
-    # -- 1. control plane --
-    echo "[1/3] control plane"
-    if [[ "$mode" == "p4" ]]; then
-        if [[ ! -x "$P4_PROXY_PY" ]]; then
-            err "  P4 proxy interpreter not found: $P4_PROXY_PY"
-            err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt"
-            return 1
-        fi
-        # The agent must run with p4_proxy as cwd; it resolves p4info/json relative to it.
-        start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
-            env PYTHONPATH="$KERNEL_DIR/p4_proxy" \
-            bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
-        wait_for_port 8081 "P4 proxy agent" 30 || {
-            err "  proxy did not open :8081; see $LOG_DIR/p4_proxy.log"; return 1; }
-    else
+    # The two modes start in *opposite* orders, because the direction of the southbound
+    # connection is reversed:
+    #
+    #   OVS: Ryu is the server. Switches dial out to it (ovs-vsctl set-controller
+    #        tcp:127.0.0.1:6633), so Ryu has to be listening before Mininet starts.
+    #   P4:  bmv2 is the server -- simple_switch_grpc listens on 0.0.0.0:50051-50060 -- and the
+    #        proxy is a gRPC *client* connecting to each one. So Mininet has to be up first, or
+    #        the proxy's first real RPC gets ECONNREFUSED and uvicorn exits before opening :8081.
+    #
+    # Treating both as "control plane first" is what used to break P4 mode.
+    if [[ "$mode" == "ovs" ]]; then
+        echo "[1/3] control plane (Ryu)"
         if [[ ! -x "$RYU_MANAGER" ]]; then
             err "  ryu-manager not found: $RYU_MANAGER"; return 1
         fi
@@ -250,24 +258,37 @@ cmd_up() {
             bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' ryu.app.rest_topology"
         wait_for_port 8080 "Ryu REST" 40 || {
             err "  Ryu did not open :8080; see $LOG_DIR/ryu.log"; return 1; }
+
+        echo "[2/3] data plane (Mininet, needs sudo)"
+        prompt_for_mininet "$script" || return 1
+    else
+        echo "[1/3] data plane (bmv2 Mininet, needs sudo)"
+        warn "  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,"
+        warn "  and it exits if it cannot reach the switches."
+        prompt_for_mininet "$script" || return 1
+
+        echo "[2/3] control plane (P4 proxy agent)"
+        if [[ ! -x "$P4_PROXY_PY" ]]; then
+            err "  P4 proxy interpreter not found: $P4_PROXY_PY"
+            err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt"
+            return 1
+        fi
+        # The agent must run with p4_proxy as cwd; it resolves p4info/json relative to it.
+        start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
+            env PYTHONPATH="$KERNEL_DIR/p4_proxy" \
+            bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
+        wait_for_port 8081 "P4 proxy agent" 30 || {
+            err "  proxy did not open :8081; see $LOG_DIR/p4_proxy.log"
+            err "  if the log shows ECONNREFUSED to :5005x, bmv2 is not running -- start it first"
+            return 1; }
     fi
 
-    # -- 2. data plane --
-    echo "[2/3] data plane (Mininet, needs sudo)"
-    if [[ ! -f "$script" ]]; then err "  topology script missing: $script"; return 1; fi
-    warn "  Mininet is interactive (it drops into a CLI) and needs root."
-    warn "  Start it in a separate terminal, then re-run '$0 wait':"
-    echo
-    echo "      sudo python3 $script"
-    echo
-    read -r -p "  Press Enter once Mininet is up (or Ctrl-C to abort)... " _ || true
-
     # The kernel must come last, and not immediately: TopologyAndFlowMonitor::run() pulls
-    # /v1.0/topology/* and the destination paths exactly once and then exits, so whatever Ryu
-    # knows at that moment is all the kernel ever learns. The user manual requires at least
-    # 60s after Mininet for Ryu's LLDP discovery to converge first.
+    # /v1.0/topology/* and the destination paths exactly once and then exits, so whatever the
+    # controller knows at that moment is all the kernel ever learns. The user manual requires
+    # at least 60s after Mininet for LLDP discovery to converge first.
     # https://ndtwin.org/docs/ndtwin-user-manual/ndtwin-kernel/operate-an-emulated-software-network/native-linux-excution-environment/
-    countdown "$RYU_CONVERGE_WAIT" "waiting for Ryu link discovery to converge"
+    countdown "$RYU_CONVERGE_WAIT" "waiting for link discovery to converge"
 
     # -- 3. kernel --
     echo "[3/3] kernel"
@@ -280,6 +301,11 @@ cmd_up() {
         bash -c "cd '$KERNEL_DIR/build' && ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
     wait_for_port 8000 "kernel API" 40 || {
         err "  kernel did not open :8000; see $LOG_DIR/kernel.log"; return 1; }
+
+    # Recorded only now that the stack is actually up. Written up-front, a failed start left
+    # the mode claiming e.g. p4 while an OVS stack was still running, so 'wait' checked
+    # convergence against the wrong topology.
+    echo "$mode $topo" >"$MODE_FILE"
 
     echo
     ok "stack up. next: $0 wait"
@@ -348,7 +374,9 @@ case "${1:-}" in
         cat <<EOF
 usage: $0 <command>
 
-  up {ovs|p4}   start control plane, prompt for Mininet, then the kernel
+  up {ovs|p4}   bring the stack up in the order that mode requires, then the kernel
+                  ovs: Ryu -> Mininet -> wait -> kernel   (switches dial out to Ryu)
+                  p4:  Mininet -> proxy -> wait -> kernel  (proxy dials out to bmv2)
   wait [secs]   block until every switch is up AND enabled (default 90s)
   status        show process/port/graph state
   down          stop kernel, proxy/Ryu (Mininet needs 'sudo mn -c')
