@@ -48,6 +48,17 @@ ok()   { echo "${G}$*${N}"; }
 warn() { echo "${Y}$*${N}"; }
 err()  { echo "${R}$*${N}" >&2; }
 
+# countdown <seconds> <what> -- a visible wait, so it does not look like a hang.
+countdown() {
+    local left="$1" what="$2"
+    while (( left > 0 )); do
+        printf '\r  %s: %3ds remaining ' "$what" "$left"
+        sleep 1
+        left=$(( left - 1 ))
+    done
+    printf '\r  %s: done%*s\n' "$what" 20 ''
+}
+
 # --- process helpers -------------------------------------------------------------
 
 # start_bg <name> <logfile> <command...>
@@ -256,8 +267,7 @@ cmd_up() {
     # knows at that moment is all the kernel ever learns. The user manual requires at least
     # 60s after Mininet for Ryu's LLDP discovery to converge first.
     # https://ndtwin.org/docs/ndtwin-user-manual/ndtwin-kernel/operate-an-emulated-software-network/native-linux-excution-environment/
-    echo "  waiting ${RYU_CONVERGE_WAIT}s for Ryu link discovery to converge"
-    sleep "$RYU_CONVERGE_WAIT"
+    countdown "$RYU_CONVERGE_WAIT" "waiting for Ryu link discovery to converge"
 
     # -- 3. kernel --
     echo "[3/3] kernel"
