@@ -34,16 +34,33 @@
 
 ### 啟動順序（有依賴關係，順序錯了測不出東西）
 
+**前兩步在兩個模式裡是相反的**，因為南向連線方向相反：
+
 ```
-1. 控制層     Ryu (OVS 模式)  或  P4 proxy agent (P4 模式)
-2. 資料層     Mininet 拓撲 (testbed_topo.py / p4_testbed_topo.py)
-3. Kernel     ndtwin_kernel                        ← 等它把拓撲載入完成再往下
+OVS 模式                              P4 模式
+1. 控制層  Ryu                        1. 資料層  bmv2 Mininet (p4_testbed_topo.py)
+2. 資料層  Mininet (testbed_topo.py)  2. 控制層  P4 proxy agent
+   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:50051~60)
+
+3. Kernel     ndtwin_kernel     ← 一定要最後開，而且要等控制層收斂完
 4. 唯讀工具   Visualizer / NSR / Web-GUI
 5. 產流量     NTG
 6. 應用程式   Energy-Saving-App / Traffic-Engineering-App  ← 最後才開，它們會改網路
 ```
 
-第 3 步到第 4 步之間**必須等**。之前很多「看起來壞掉」其實只是還沒收斂。
+Ryu 是 server、switch 連進來，所以 OVS 要先開 Ryu；bmv2 才是 server（`simple_switch_grpc`
+監聽 `0.0.0.0:50051-50060`），proxy 是 gRPC **client**，所以 P4 要先開 Mininet，否則 proxy
+的第一個 RPC 就 ECONNREFUSED、uvicorn 直接 exit。`stack.sh up {ovs|p4}` 會自動走對的順序。
+
+**kernel 一定要最後開，而且開之前要等收斂** —— `TopologyAndFlowMonitor::run()` 只在啟動時
+**拉一次**拓撲和 destination paths 就結束，沒有重試迴圈，那一刻控制層還不知道的東西 kernel 這輩子
+都不會知道。`stack.sh` 會輪詢控制層直到數量跟拓撲檔對上（小拓撲實測約 2 秒）。
+之前很多「看起來壞掉」其實只是還沒收斂。
+
+**OVS 模式的 Ryu 還要多載兩個 stock app**：`ryu.app.rest_topology`（提供 `/v1.0/topology/*`）和
+`ryu.app.ofctl_rest`（提供 `/stats/flow/<dpid>` 和 `/stats/flowentry/*`）。`--observe-links` 只提供
+事件、不提供這兩組 REST endpoint，少了它們**全部是靜默失敗**（kernel 會把 404 的 HTML 拿去
+`json::parse`）。已修進 `stack.sh`；細節見 [environment_gotchas.md](environment_gotchas.md)。
 
 ---
 
