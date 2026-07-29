@@ -168,6 +168,25 @@ cd build-asan && ASAN_OPTIONS=detect_leaks=0 ./bin/test_routing_strategy
 
 這一步很有價值：它用真的 kernel process 驗證 sFlow 這條路，而且不用開資料平面。
 
+⚠️ **這一步要在沒有其他 stack 在跑的時候做。** 如果 `stack.sh` 起的 kernel 還活著，:8000 已經被
+佔住，手動再開一個會直接 abort：
+
+```
+terminate called after throwing an instance of 'boost::wrapexcept<boost::system::system_error>'
+  what():  bind: Address already in use
+```
+
+先確認並收掉：
+
+```bash
+cd tools/test_workflow && ./stack.sh status   # kernel 應該顯示 "-" 而不是 "running"
+./stack.sh down                              # 如果還在跑
+```
+
+⚠️ **而且這一步會把 5 筆合成 flow 灌進 kernel 的 flow table**，跟第 3d 步（實機 telemetry）
+共用同一張表。兩步都要做的話，**先做 3d**（table 乾淨才看得出實機 sample 有沒有進來），
+或者中間重開 kernel，否則你會分不出哪筆是 fixture 假造的、哪筆是 bmv2 真的送上來的。
+
 **開一個 terminal 跑 kernel：**
 
 ```bash
