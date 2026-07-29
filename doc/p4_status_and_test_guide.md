@@ -95,9 +95,11 @@
 | 1 | telemetry 灌 fixture（不需要資料平面） | ⚙️ | 2 分 |
 | 2a | 開 **OVS** Mininet | 🔒 | — |
 | 2b | `./stack.sh up ovs` + `wait` | 🔒（要按 Enter） | 1 分 |
-| 2c | `./run_layers.sh api ovs` + `baseline ovs` | ⚙️ | 2 分 |
-| 2d | Mininet CLI 裡 `h1 ping h4`、`iperf h1 h4`，再驗 flow／link usage | 🔒 | 2 分 |
-| 2e | `./stack.sh down` + **`sudo mn -c`** | 🔒 | — |
+| 2c | `./stack.sh wait` 確認 `up=10 enabled=10` | ⚙️ | 10 秒 |
+| 2d | Mininet CLI 開**背景 iperf**（流量要持續到 2e 跑完） | 🔒 | 1 分 |
+| 2e | `./run_layers.sh api ovs --traffic`（趁流量還在跑） | ⚙️ | 1 分 |
+| 2f | `./run_layers.sh baseline ovs`（**只在 2e 通過時才抓**） | ⚙️ | 1 分 |
+| 2g | `./stack.sh down` + **`sudo mn -c`** | 🔒 | — |
 | 3a | 開 **bmv2** Mininet（**不同的腳本**） | 🔒 | — |
 | 3b | `./stack.sh up p4` | 🔒（要按 Enter） | 1 分 |
 | 3c | 確認 10 台都有 clone session；`api p4`、`baseline p4` | ⚙️ | 2 分 |
@@ -237,8 +239,16 @@ for f in flows:
 - **剛好 5 筆**。送進去的是 7 個 fixture：ARP 正確地不產生 flow，`emitted_multi.bin` 裡的三筆跟前面重複所以合併。
 - **不應該**有 malformed datagram 的訊息。
 - `path` 會是 `[]`、link usage 會是 `0.0` —— **這是預期的**（Phase 6 未做）。
-- log 裡會有一堆 `parseFlowStatsTextToJson JSON parsing failed`（我實測有 50 筆）。**這是正常的** ——
-  沒開 proxy，kernel 去輪詢 flow stats 拿到空回應。跟 telemetry 無關。
+- log 裡會有 `parseFlowStatsTextToJson JSON parsing failed`。P4 模式下沒開 proxy 的時候這是預期的
+  （沒人回應 flow stats 查詢）。
+
+> ⚠️ **更正**：這份文件之前寫「這些解析錯誤是正常的」並套用到 OVS 模式，**那是錯的**。在 OVS 模式下
+> 同樣的錯誤代表 **Ryu 少載了 `ryu.app.ofctl_rest`**，`/stats/flow/<dpid>` 回 404 HTML 而 kernel 拿
+> HTML 去 `json::parse`。那不是無害的，它表示**整個 harness 從來沒有成功下過一條 flow 到 OVS**。
+> `stack.sh` 現在會載入該 app（commit `3acad16`）。如果 OVS 模式還看到這個錯誤，那是真的壞了。
+>
+> 順帶一提，修好之後 flow 才第一次真的進到 Classifier，並立刻暴露一個**潛伏的 null deref crash**
+> （Ryu 的 table-miss 規則 `"actions": []` → `outputPorts` 為空 → `.front()`），已修（`196a10d`）。
 
 這一步能證明的事：P4 那邊產出的 sFlow，真的能被跑起來的 kernel 收下並解析成正確的 flow。
 
@@ -246,8 +256,8 @@ for f in flows:
 
 Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每一個 phase 的閘門。
 
-**這台機器上有兩個前置條件，缺任一個 OVS 模式都會停在 `up=0 enabled=0` 而且不會自己好**
-（這兩個都是實際跑的時候踩到才發現的，已經修進 `stack.sh`，寫在這裡是為了讓你看懂症狀）：
+**有三個前置條件，缺任一個 OVS 模式就會壞，而且壞法都是靜默的**
+（全部都是實際跑的時候踩到才發現的，已經修進 `stack.sh`，寫在這裡是為了讓你看懂症狀）：
 
 1. **`ovs-vsctl` 要能免密碼 sudo。** kernel 的 `pingWorker` 每秒 shell 出去跑一次
    `sudo ovs-vsctl list-br`；但 `stack.sh` 是用 `setsid` 背景啟動 kernel 的，沒有 controlling
@@ -261,59 +271,134 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
    sudo visudo -c          # 檢查語法，做完一定要跑
    ```
 
-2. **Ryu 要多載 `ryu.app.rest_topology`**，而且 **kernel 必須等 LLDP 收斂完才能開**。
-   `--observe-links` 只提供事件、不提供 `/v1.0/topology/*` 這組 REST endpoint，少了它那三個網址
-   回 404，而 kernel 的 `updateSwitches()` 會把 404 的 HTML 拿去 `json::parse`、丟例外後**靜靜地**
-   放棄。而 `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**就結束（沒有重試迴圈），所以那一刻
-   Ryu 還沒收斂完的東西，kernel 這輩子都看不到。這兩件事 `stack.sh up ovs` 現在都處理好了：
-   它會**輪詢** Ryu 直到 switch 和 link 數量跟拓撲檔對上（實測小拓撲約 2 秒），`CONVERGE_WAIT`
-   （預設 60）是上限而不是固定等待時間。
+2. **Ryu 要多載兩個 stock app**（`stack.sh` 現在都會載，寫在這裡是為了讓你看懂症狀）：
 
-`api` 和 `baseline` **必須帶資料平面參數**（`ovs` 或 `p4`），因為它們要據此挑對應的拓撲檔；
-只有 `compare` 不用帶（它就是拿兩邊的 capture 來 diff）。
+   `intelligent_router.py` **只**提供 `/ryu_server/all_destination_paths`。kernel 依賴的其他 Ryu
+   REST endpoint 全部來自內建 app：
 
-先在**另一個 terminal** 開 OVS 的 Mininet（`stack.sh` 會提示你，並等你按 Enter）：
+   | 少載的 app | 提供什麼 | 少了它的症狀 |
+   |---|---|---|
+   | `ryu.app.rest_topology` | `/v1.0/topology/{switches,hosts,links}` | 圖永遠 `up=0 enabled=0` |
+   | `ryu.app.ofctl_rest` | `GET /stats/flow/<dpid>`、`POST /stats/flowentry/{add,modify,delete,delete_strict}` | 每次輪詢都 `JSON parsing failed ... last read: '<'`（在解析 404 的 HTML）、flow table 查不到、**所有下規則都失敗** |
+
+   兩者失敗的方式都是**靜默**的：`updateSwitches()` 把 404 的 HTML 拿去 `json::parse`、接住例外之後
+   直接 return，什麼都不說。`--observe-links` 只載入 `ryu.topology.switches`（提供**事件**），
+   不含這兩組 REST endpoint，所以光靠它是不夠的。
+
+3. **kernel 必須等 LLDP 收斂完才能開。** `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**
+   拓撲和 destination paths 就結束，**沒有重試迴圈** —— 那一刻 Ryu 還不知道的東西，kernel 這輩子
+   都不會知道。`stack.sh up ovs` 現在會**輪詢** Ryu 直到 switch 和 link 數量跟拓撲檔對上
+   （實測小拓撲約 2 秒），`CONVERGE_WAIT`（預設 60）是上限而不是固定等待時間。
+
+#### 需要兩個 terminal
+
+| | 用途 | 之後要不要留著 |
+|---|---|---|
+| **A** | `stack.sh` / `run_layers.sh` | 留著 |
+| **B** | Mininet CLI（`sudo`，會停在 `mininet>`） | **一定要留著**，後面要在裡面產流量 |
+
+#### 2a. 開 OVS Mininet（terminal B）
 
 ```bash
 sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
 ```
 
-然後：
+✅ 看到 `mininet>` 就成功。
+
+⚠️ 啟動時它會自己跑一輪 128 台 host 平行 ping 當自我測試，**那個階段的 ping 失敗（包含它自己印出的
+`100% packet loss`）可以忽略** —— 那是啟動洪泛造成的，不代表網路壞了。等提示符出現再開始測。
+
+#### 2b. 起 stack（terminal A）
 
 ```bash
-cd tools/test_workflow
-./stack.sh up ovs              # Ryu → 提示你開 Mininet → 等收斂 → kernel
-./stack.sh wait                # 等到 up=10 enabled=10 才算起來了
-./run_layers.sh api ovs        # L2 + L3 + log allowlist 檢查
-./run_layers.sh baseline ovs   # 記錄 OVS 基準（存到 .test_run/baseline/ovs）
+cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+./stack.sh up ovs
 ```
 
-收尾（**`sudo mn -c` 不能省**，否則殘留的 namespace 會讓 P4 那輪起不來）：
+它會停下來等你（Mininet 已經開好了就直接按 Enter）。
+
+✅ 關鍵是這兩行：
+```
+  waiting for link discovery: want 10 switches, 32 links
+    switches=10 links=32
+  converged after 2s          ← 一定要看到 converged
+[3/3] kernel
+  waiting for kernel API on :8000 . up
+```
+⚠️ 看到 `did not converge` 就別往下做，先查 Ryu。
+
+#### 2c. 確認圖活了（terminal A）
 
 ```bash
-./stack.sh down
-# Mininet 那個 terminal 打 exit，然後：
-sudo mn -c
+./stack.sh wait
 ```
 
-想連流量一起驗（要求一定要有 flow／path／非零速率）就加 `--traffic`：
+✅ **必須是 `up=10 enabled=10`**：
+```
+switches=10 up=10 enabled=10 edges=288
+converged after 0s
+```
+`enabled=10` 是 OVS 模式健康的唯一指標。（P4 模式這裡會是 0，那是 Phase 6 沒做，不是失敗。）
+
+#### 2d. 開**持續**流量（terminal B）—— 順序很重要
+
+⚠️ **流量必須在 2e 執行的「同時」還在跑**，不能先跑完再測。原因有兩個，都是實測踩到的：
+
+1. **flow table 會老化**。流量停了幾秒，`get_detected_flow_data` 就變回 0 筆。
+2. **sFlow 是 1/256 取樣**。`ping` 每秒 1 個封包，要 256 秒才產生一個 sample —— `ping -c 20`
+   幾乎不可能產生任何 sample。**只有 iperf 這種能打滿頻寬的流量才夠**。
+
+判斷流量夠不夠的方法：看 kernel log 的 `addressed=` 有沒有在**增加**。`rx=` 會一直漲（那是週期性的
+counter sample），但 `addressed=` 只有在收到 **flow sample**（也就是真的有流量）時才會漲。
+
+```
+mininet> h4 iperf -s &
+mininet> h1 iperf -c 10.0.0.4 -t 180 &
+```
+
+用 `&` 丟到背景，這樣 CLI 還能用；`-t 180` 給 3 分鐘的測試窗口。**不要用 Mininet 內建的
+`iperf h1 h4`**，那個會卡住 CLI 直到跑完。
+
+順手確認連線正常（這個要 Ctrl+C 或用 `-c`，因為 `ping` 預設不會停）：
+```
+mininet> h1 ping -c 5 h4
+```
+✅ 應該 0% packet loss。
+
+#### 2e. 跑契約測試（terminal A，趁流量還在跑）
 
 ```bash
 ./run_layers.sh api ovs --traffic
 ```
 
-**通過標準**：L2 全過，`compare` 沒有非預期的差異。有預期的差異要進
-[tools/contract_test/baseline_diff_allowlist.txt](../tools/contract_test/baseline_diff_allowlist.txt)，
-而且要寫原因。
+`--traffic` 才會去檢查 flow／path／速率；不帶的話那些檢查會被跳過。
 
-在 Mininet CLI 裡跑 `h1 ping h4`、`iperf h1 h4`，然後：
+✅ 通過標準：**最後一行 `all layers passed`**，Summary 三行都 PASS。
+
+⚠️ **`GAP` 不算失敗** —— 那是已登記在案的 kernel 缺口（例如 `release_lock_not_held`）。只有 `FAIL` 算。
+
+#### 2f. 抓基準（terminal A）
 
 ```bash
-curl -s http://localhost:8000/ndt/get_detected_flow_data | python3 -m json.tool | head -30
-curl -s http://localhost:8000/ndt/get_average_link_usage | python3 -m json.tool | head
+./run_layers.sh baseline ovs
 ```
 
-OVS 模式下這些**應該**是正常的（有 path、有非零速率）。如果不正常，就是我動到共用程式碼弄壞了 —— 這比 P4 那邊還沒做完更嚴重。
+⚠️ **這個指令永遠會印 `all layers passed`**，因為它只是把回應存檔、不做任何判斷。
+**絕對不要用它的輸出判斷系統健康**，要看 2e。（這是實際誤導過人的地方。）
+
+⚠️ 只有在 2e **通過**的時候才抓基準。從壞掉的系統抓的基準會讓之後每次 `compare` 都拿錯的當標準。
+
+#### 2g. 收尾
+
+terminal A：
+```bash
+./stack.sh down
+```
+terminal B：打 `exit` 離開 Mininet，然後
+```bash
+sudo mn -c
+```
+**`sudo mn -c` 不能省**，否則殘留的 namespace 會讓 P4 那輪起不來。
 
 ### 第 3 步：P4 stack 真的起得來（目前能做到的極限）
 
