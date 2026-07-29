@@ -120,13 +120,33 @@ def facts_flow_data(d):
     }
 
 
+def _flow_entry_count(entry):
+    """
+    How many flow entries one switch object reports, whichever shape `flows` has.
+
+    [Co-developed with claude code -- Adam]
+    The kernel documents `flows` as a map of table id -> entries, which is what OVS mode
+    returns. The P4 proxy's stubbed /stats/flow/<dpid> returns a bare list instead, and this
+    used to call .values() unconditionally: comparing an OVS baseline against a P4 one died
+    with "AttributeError: 'list' object has no attribute 'values'" and reported nothing at
+    all for this endpoint. A comparison tool that crashes on the difference it exists to
+    find is worse than one that counts it, so both shapes are accepted here -- the shape
+    mismatch itself is still reported by the [shape] checks.
+    """
+    flows = entry.get("flows")
+    if isinstance(flows, dict):
+        return sum(len(v) for v in flows.values())
+    if isinstance(flows, list):
+        return len(flows)
+    return 0
+
+
 def facts_of_tables(d):
-    total = sum(len(v) for e in d for v in e.get("flows", {}).values())
     return {
         "switches_reporting": _cat(len(d)),
-        "entries_present": _cat(total),
+        "entries_present": _cat(sum(_flow_entry_count(e) for e in d)),
         "all_switches_have_entries": all(
-            sum(len(v) for v in e.get("flows", {}).values()) > 0 for e in d) if d else False,
+            _flow_entry_count(e) > 0 for e in d) if d else False,
     }
 
 
