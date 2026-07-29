@@ -240,6 +240,22 @@ class SequenceAndPoolTest(unittest.TestCase):
         self.assertEqual(first[12], 256)
         self.assertEqual(second[12], 512)
 
+    def test_counters_wrap_at_32_bits_instead_of_raising(self):
+        # struct.pack(">I", ...) rejects values >= 2**32. sample_pool in particular climbs by
+        # the sampling rate on every sample, so a busy switch reaches that ceiling in hours --
+        # these must wrap like real 32-bit counters instead of raising and killing telemetry
+        # from that switch permanently.
+        agent = SwitchAgent("192.168.123.11")
+        agent.datagram_sequence = 0xFFFFFFFF
+        agent.sample_sequence = 0xFFFFFFFF
+        agent.sample_pool = 0xFFFFFFFF
+
+        w = words(build_datagram([a_sample()], agent, 0))
+
+        self.assertEqual(w[4], 0, "datagram sequence must wrap, not raise")
+        self.assertEqual(w[9], 0, "sample sequence must wrap, not raise")
+        self.assertEqual(w[12], 255, "pool must wrap, not raise")
+
     def test_each_switch_keeps_its_own_agent_state(self):
         # The kernel keys telemetry on AgentKey{agentIP, port}; sharing one agent across
         # switches would collapse ten switches into one node's statistics.
@@ -477,6 +493,16 @@ class EmitterBehaviourTest(unittest.TestCase):
         self.assertFalse(emitter.emit(1, a_sample(), uptime_ms=0))
         self.assertEqual(emitter.send_errors, 1)
         self.assertEqual(emitter.datagrams_sent, 0)
+
+    def test_malformed_agent_ip_is_reported_not_raised(self):
+        # socket.inet_aton raises OSError (not ValueError/struct.error) for a non-IPv4 string.
+        # That call happens inside build_datagram, called from emit() on the gRPC receive
+        # thread -- an uncaught exception there would kill the thread and end telemetry for
+        # the whole switch, not just this one datagram.
+        emitter = SFlowEmitter(sock=_FakeSocket())
+        emitter.register_switch(1, "not-an-ip-address")
+
+        self.assertFalse(emitter.emit(1, a_sample(), uptime_ms=0))
 
     def test_emitted_bytes_are_a_parseable_datagram(self):
         sock = _FakeSocket()

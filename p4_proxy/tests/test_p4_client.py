@@ -26,7 +26,16 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from proxy_agent.p4_client import P4RuntimeClient  # noqa: E402
+# p4_client imports grpc and the P4Runtime protobufs, which are not installed for every
+# interpreter L1 might pick (see tools/test_workflow/l1_unit_tests.sh). Guarding the import
+# lets this file report a clean skip instead of crashing the whole test run with
+# ModuleNotFoundError when it lands on a plain python3.
+try:
+    from proxy_agent.p4_client import P4RuntimeClient
+    HAVE_P4RUNTIME = True
+except ImportError:
+    P4RuntimeClient = None
+    HAVE_P4RUNTIME = False
 
 GRPC_HOST = "localhost"
 GRPC_PORT = 50051
@@ -49,6 +58,7 @@ def a_switch_is_listening(host: str = GRPC_HOST, port: int = GRPC_PORT) -> bool:
         return False
 
 
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 @unittest.skipUnless(a_switch_is_listening(),
                      f"no bmv2 listening on {GRPC_HOST}:{GRPC_PORT}; "
                      f"start p4_proxy/mininet/p4_testbed_topo.py to run this")

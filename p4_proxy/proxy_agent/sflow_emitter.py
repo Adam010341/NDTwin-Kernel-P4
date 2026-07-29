@@ -139,11 +139,16 @@ class SwitchAgent:
         self.dropped = 0
 
     def next_datagram_sequence(self) -> int:
-        self.datagram_sequence += 1
+        # Wrapped to 32 bits: these fields are unbounded Python ints, but struct.pack(">I", ...)
+        # rejects anything >= 2**32. sample_pool in particular climbs by sampling_rate on every
+        # sample, so a busy switch reaches that ceiling in hours, not years -- without the wrap,
+        # every future emit() would raise struct.error and telemetry from that switch would go
+        # silently and permanently dark.
+        self.datagram_sequence = (self.datagram_sequence + 1) & 0xFFFFFFFF
         return self.datagram_sequence
 
     def next_sample_sequence(self) -> int:
-        self.sample_sequence += 1
+        self.sample_sequence = (self.sample_sequence + 1) & 0xFFFFFFFF
         return self.sample_sequence
 
     def advance_pool(self, sampling_rate: int) -> int:
@@ -154,7 +159,7 @@ class SwitchAgent:
         many it skipped -- so the pool advances by the sampling rate for each sample received,
         which is the standard estimate and what a 1-in-N sampler implies.
         """
-        self.sample_pool += sampling_rate
+        self.sample_pool = (self.sample_pool + sampling_rate) & 0xFFFFFFFF
         return self.sample_pool
 
 
@@ -308,7 +313,10 @@ class SFlowEmitter:
 
         try:
             datagram = build_datagram([sample], agent, uptime_ms, self.max_header_bytes)
-        except (ValueError, struct.error):
+        except (ValueError, struct.error, OSError):
+            # OSError covers socket.inet_aton raising on a malformed agent_ip: that call lives
+            # inside build_datagram, and letting it escape here would kill the gRPC receive
+            # thread that calls this method, ending telemetry for the whole switch.
             return False
 
         try:

@@ -24,17 +24,37 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+# A bare `raise unittest.SkipTest(...)` at module level does not actually skip gracefully: it
+# is an uncaught exception during import, which exits nonzero exactly like the ImportError it
+# replaces. The condition has to survive until unittest can act on it via skipUnless.
 try:
     import grpc  # noqa: F401
     from p4.v1 import p4runtime_pb2
-except ImportError:  # pragma: no cover
-    raise unittest.SkipTest("P4Runtime protobufs not available in this interpreter")
+    from proxy_agent.p4_client import (
+        CPU_PORT,
+        SAMPLE_SESSION_ID,
+        P4RuntimeClient,
+    )
 
-from proxy_agent.p4_client import (  # noqa: E402
-    CPU_PORT,
-    SAMPLE_SESSION_ID,
-    P4RuntimeClient,
-)
+    class FakeRpcError(grpc.RpcError):
+        """
+        Must derive from grpc.RpcError, or the client's `except grpc.RpcError` will not catch
+        it and the test would exercise a path that cannot happen in production.
+        """
+
+        def __init__(self, code):
+            self._code = code
+
+        def code(self):
+            return self._code
+
+        def details(self):
+            return "fake"
+
+    HAVE_P4RUNTIME = True
+except ImportError:
+    HAVE_P4RUNTIME = False
+
 from proxy_agent.sflow_emitter import (  # noqa: E402
     PKTIN_META_EGRESS_PORT,
     PKTIN_META_FRAME_LENGTH,
@@ -60,22 +80,6 @@ class RecordingStub:
             raise error
 
 
-class FakeRpcError(grpc.RpcError):
-    """
-    Must derive from grpc.RpcError, or the client's `except grpc.RpcError` will not catch it and
-    the test would exercise a path that cannot happen in production.
-    """
-
-    def __init__(self, code):
-        self._code = code
-
-    def code(self):
-        return self._code
-
-    def details(self):
-        return "fake"
-
-
 def a_client() -> P4RuntimeClient:
     """
     A client with no gRPC channel.
@@ -92,6 +96,7 @@ def a_client() -> P4RuntimeClient:
     return client
 
 
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class CloneSessionRequestTest(unittest.TestCase):
     def setUp(self):
         self.client = a_client()
@@ -201,6 +206,7 @@ def a_discovery_packet(payload=b"LLDP", ingress=4):
                (PKTIN_META_INGRESS_PORT, ingress))
 
 
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class PacketInDispatchTest(unittest.TestCase):
     """
     Samples and genuine packet-ins share one channel, and must not cross over.
