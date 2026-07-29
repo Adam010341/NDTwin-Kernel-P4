@@ -251,12 +251,9 @@ cmd_up() {
         err "  kernel binary missing; run tools/test_workflow/l1_unit_tests.sh first"
         return 1
     fi
-    # main.cpp still prompts on stdin for mode/topology/AI (Phase 1 replaces this with
-    # CLI flags). Feed the answers: 1=mininet, topology choice, 2=no AI.
-    local topo_choice=1
-    [[ "$mode" == "p4" ]] && topo_choice=2
+    # Both dataplanes run under mode=mininet; the topology file is what selects OVS vs bmv2.
     start_bg kernel "$LOG_DIR/kernel.log" \
-        bash -c "cd '$KERNEL_DIR/build' && printf '1\n%s\n2\n' '$topo_choice' | ./bin/ndtwin_kernel"
+        bash -c "cd '$KERNEL_DIR/build' && ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
     wait_for_port 8000 "kernel API" 40 || {
         err "  kernel did not open :8000; see $LOG_DIR/kernel.log"; return 1; }
 
