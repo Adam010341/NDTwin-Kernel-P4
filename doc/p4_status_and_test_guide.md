@@ -2,7 +2,7 @@
 
 對應計畫：[p4_bmv2_support_plan.md](p4_bmv2_support_plan.md)　測試分層定義：[testing_workflow.md](testing_workflow.md)
 
-最後更新：2026-07-28（branch `fix/flow-rate-divide-by-zero`，最新 commit `9a46b4b`）
+最後更新：2026-07-29（branch `fix/flow-rate-divide-by-zero`，最新 commit `9808684`）
 
 ---
 
@@ -83,7 +83,7 @@
 
 ### 第 0 步：不需要開任何東西（約 2 分鐘）
 
-這步涵蓋 146 個測試，是你日常改完程式碼唯一需要跑的。
+這步涵蓋 153 個測試（90 個 C++ + 63 個 Python），是你日常改完程式碼唯一需要跑的。
 
 ```bash
 cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
@@ -97,7 +97,7 @@ L0 passed: ... build
 L1 passed: 1 test binary/binaries, clean under ctest and direct execution.
   test_clone_session.py          PASS  14 ran and passed
   test_p4_client.py              PASS  1 ran, 1 skipped     ← 沒開 bmv2，這是正常的
-  test_sflow_emitter.py          PASS  46 ran and passed
+  test_sflow_emitter.py          PASS  48 ran and passed
 ```
 
 **要特別注意**：如果看到 `NO TESTS RAN`，那是失敗，不是通過 —— 表示那個檔案一個測試都沒真的跑到
@@ -122,7 +122,7 @@ cmake --build build-asan -j$(nproc)
 cd build-asan && ASAN_OPTIONS=detect_leaks=0 ./bin/test_routing_strategy
 ```
 
-通過標準：`[  PASSED  ] 86 tests.`，而且**沒有**任何 `ERROR: AddressSanitizer` 或 `runtime error:`。
+通過標準：`[  PASSED  ] 90 tests.`，而且**沒有**任何 `ERROR: AddressSanitizer` 或 `runtime error:`。
 
 ### 第 1 步：telemetry 路徑（不需要 bmv2，也不需要 Mininet）
 
@@ -187,14 +187,46 @@ for f in flows:
 
 Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每一個 phase 的閘門。
 
+**這台機器上有兩個前置條件，缺任一個 OVS 模式都會停在 `up=0 enabled=0` 而且不會自己好**
+（這兩個都是實際跑的時候踩到才發現的，已經修進 `stack.sh`，寫在這裡是為了讓你看懂症狀）：
+
+1. **`ovs-vsctl` 要能免密碼 sudo。** kernel 的 `pingWorker` 每秒 shell 出去跑一次
+   `sudo ovs-vsctl list-br`；但 `stack.sh` 是用 `setsid` 背景啟動 kernel 的，沒有 controlling
+   terminal，`sudo` 沒辦法問密碼就直接失敗，回一個空的 bridge 清單 → 每台 switch 都被判定
+   unreachable → 每秒被 `setVertexDown()` 蓋一次。症狀是 `up=0` 但 `enabled` 可能是 10。
+
+   ```bash
+   echo 'adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec' \
+     | sudo tee /etc/sudoers.d/ndtwin-mininet
+   sudo chmod 440 /etc/sudoers.d/ndtwin-mininet
+   sudo visudo -c          # 檢查語法，做完一定要跑
+   ```
+
+2. **Ryu 要多載 `ryu.app.rest_topology`**，而且 **kernel 必須在 Mininet 之後至少 60 秒才開**。
+   `--observe-links` 只提供事件、不提供 `/v1.0/topology/*` 這組 REST endpoint，少了它那三個網址
+   回 404，而 kernel 的 `updateSwitches()` 會把 404 的 HTML 拿去 `json::parse`、丟例外後**靜靜地**
+   放棄。而 `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**就結束（沒有重試迴圈），所以那一刻
+   Ryu 還沒收斂完的東西，kernel 這輩子都看不到。這兩件事 `stack.sh up ovs` 現在都處理好了
+   （會顯示 60 秒倒數）。
+
+`api` 和 `baseline` **必須帶資料平面參數**（`ovs` 或 `p4`），因為它們要據此挑對應的拓撲檔；
+只有 `compare` 不用帶（它就是拿兩邊的 capture 來 diff）。
+
 ```bash
 cd tools/test_workflow
-./stack.sh up ovs          # Ryu + OVS Mininet + kernel
-./run_layers.sh api        # L2 API 契約測試
-./run_layers.sh baseline   # 記錄基準
+./stack.sh up ovs              # Ryu + OVS Mininet → 等 60s → kernel
+./stack.sh wait                # 等到 up=10 enabled=10 才算起來了
+./run_layers.sh api ovs        # L2 + L3 + log allowlist 檢查
+./run_layers.sh baseline ovs   # 記錄基準（存到 .test_run/baseline/ovs）
 # 之後任何改動再跑：
-./run_layers.sh compare    # 跟基準比
+./run_layers.sh compare        # 跟基準比（不帶參數）
 ./stack.sh down
+```
+
+想連流量一起驗（要求一定要有 flow／path／非零速率）就加 `--traffic`：
+
+```bash
+./run_layers.sh api ovs --traffic
 ```
 
 **通過標準**：L2 全過，`compare` 沒有非預期的差異。有預期的差異要進
