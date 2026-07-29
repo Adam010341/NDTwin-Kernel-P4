@@ -191,6 +191,24 @@ class TopologyAndFlowMonitor
     std::map<SwitchKind, std::vector<uint64_t>> getSwitchKindGroups() const;
 
     /**
+     * @brief Sets the three `/v1.0/topology/` URLs (switches, hosts, links) from a base.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void setTopologyApiUrls(const std::string& base);
+
+    /**
+     * @brief Aims the topology poll at Ryu or at the P4 proxy, based on the loaded switch kinds.
+     *
+     * @details
+     * Must run after the topology file is loaded; calling it earlier always sees an empty graph
+     * and silently keeps the Ryu default. Only an all-bmv2 topology is re-pointed.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void configureTopologyApiUrls();
+
+    /**
      * @brief Fails loudly when the loaded topology mixes data planes.
      *
      * The strategy dispatch is per-DPID and would happily drive a mixed fabric, but

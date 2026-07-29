@@ -1,0 +1,144 @@
+"""
+Renders the proxy's topology in the shape Ryu's REST API returns.
+
+[Co-developed with claude code -- Adam]
+
+The kernel learns switch, host and link state by polling Ryu's `/v1.0/topology/*` endpoints and
+parsing them in `TopologyAndFlowMonitor::updateSwitches` / `updateHosts` / `updateLinks`. Serving
+the same shapes from the proxy means those three functions work unchanged in P4 mode -- the same
+approach already used for sFlow, where the proxy synthesises what the kernel already knows how to
+read rather than adding a second ingest path. Nothing in the kernel needs to change, so the OVS
+path carries no risk from this.
+
+**Why this is needed at all.** `/ndt/inform_switch_entered` was expected to be sufficient, but it
+only enables the switch *vertex*. Measured on a live kernel: after notifying all ten switches,
+`is_enabled` went 0/10 -> 10/10 for switches but stayed **0/40 for edges**, and
+`get_path_switch_count` still answered "Path not found" -- because BFS needs enabled *edges*, and
+edges are enabled by `updateLinks()`, which only runs off this poll.
+
+**Encoding.** dpid and port_no are **hex strings**, because the kernel parses them with
+`stoull(s, nullptr, 16)` and `portStringToUint` (also base 16). Emitting decimal here would make
+dpid 10 read as 16 -- silently, since the parse succeeds.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+# Widths Ryu uses. Not load-bearing for the kernel's base-16 parse, but matching them keeps the
+# payloads diffable against a real Ryu capture.
+DPID_HEX_WIDTH = 16
+PORT_HEX_WIDTH = 8
+
+
+def _dpid_hex(dpid: int) -> str:
+    return f"{int(dpid):0{DPID_HEX_WIDTH}x}"
+
+
+def _port_hex(port: int) -> str:
+    return f"{int(port):0{PORT_HEX_WIDTH}x}"
+
+
+def _mac_str(mac: Any) -> Optional[str]:
+    """
+    A MAC as the colon-separated string the kernel requires.
+
+    [Co-developed with claude code -- Adam]
+    Normalising rather than passing through, because the kernel calls
+    `utils::macToUint64(host["mac"])` and nlohmann throws `json::type_error` on a number. That
+    exception is not a `parse_error`, so it used to escape `updateHosts` and abort the whole
+    kernel -- observed: feeding it `"mac": 1` killed the process. The kernel now logs and skips
+    instead, but emitting the right type is this side's job. The shipped topology files store
+    MACs as integers, so this is a real case, not a hypothetical one.
+    """
+    if mac is None:
+        return None
+    if isinstance(mac, str):
+        return mac
+    if isinstance(mac, int):
+        h = f"{mac:012x}"
+        return ":".join(h[i:i + 2] for i in range(0, 12, 2))
+    return str(mac)
+
+
+def _port_endpoint(dpid: int, port: int, mac: Optional[str] = None) -> dict:
+    """One `{"dpid":..., "port_no":..., ...}` object, as Ryu nests inside links and hosts."""
+    out: dict[str, Any] = {
+        "dpid": _dpid_hex(dpid),
+        "port_no": _port_hex(port),
+        "name": f"s{dpid}-eth{port}",
+    }
+    if mac is not None:
+        out["hw_addr"] = mac
+    return out
+
+
+def render_switches(switch_dpids) -> list:
+    """
+    The switches the proxy holds a P4Runtime session with.
+
+    Only connected switches are listed, which makes this an honest liveness signal rather than a
+    restatement of the topology file: a switch the proxy cannot reach does not appear, so the
+    kernel does not mark it enabled.
+    """
+    return [{"dpid": _dpid_hex(d), "ports": []} for d in sorted(switch_dpids)]
+
+
+def render_links(net) -> list:
+    """
+    Inter-switch links, both directions, as Ryu reports them.
+
+    Ryu emits one entry per direction, and the kernel's `updateLinks` enables the edge keyed on
+    (src dpid, src port) -- so both directions must be present or half the edges stay disabled.
+
+    Host links are excluded: Ryu reports those through `/v1.0/topology/hosts`, and including them
+    here would have the kernel look for a switch vertex whose dpid is a host IP.
+    """
+    links = []
+    for src, dst, data in net.edges(data=True):
+        if net.nodes.get(src, {}).get("type") != "switch":
+            continue
+        if net.nodes.get(dst, {}).get("type") != "switch":
+            continue
+        src_port = data.get("port", 0)
+        # The reverse edge carries the far end's port number; add_link() stores them that way.
+        dst_port = net.get_edge_data(dst, src, default={}).get("port", 0)
+        links.append({
+            "src": _port_endpoint(src, src_port),
+            "dst": _port_endpoint(dst, dst_port),
+        })
+    return links
+
+
+def render_hosts(net) -> list:
+    """
+    Hosts, keyed the way `updateHosts` reads them.
+
+    It requires a non-empty `ipv4` list and then matches the vertex by MAC, so both must be
+    present. `port.dpid` identifies the attachment switch.
+    """
+    hosts = []
+    for node, attrs in net.nodes(data=True):
+        if attrs.get("type") != "host":
+            continue
+        mac = _mac_str(attrs.get("mac"))
+        if not mac:
+            # Without a MAC the kernel cannot match the vertex, so the entry would be inert.
+            continue
+
+        dpid, port = None, 0
+        for neighbour in net.predecessors(node) if hasattr(net, "predecessors") else []:
+            if net.nodes.get(neighbour, {}).get("type") == "switch":
+                dpid = neighbour
+                port = net.get_edge_data(neighbour, node, default={}).get("port", 0)
+                break
+        if dpid is None:
+            continue
+
+        hosts.append({
+            "mac": mac,
+            "ipv4": [str(node)],
+            "ipv6": [],
+            "port": _port_endpoint(dpid, port, mac=mac),
+        })
+    return hosts

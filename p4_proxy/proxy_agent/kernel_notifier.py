@@ -1,0 +1,121 @@
+"""
+Pushes state to the NDTwin kernel's northbound API, the way Ryu does.
+
+[Co-developed with claude code -- Adam]
+
+The kernel does not discover P4 switches on its own. In OVS mode Ryu actively *pushes*:
+`intelligent_router.py` calls `/ndt/inform_switch_entered` when a switch connects and
+`/ndt/link_failure_detected` / `link_recovery_detected` when LLDP beacons stop or resume. The
+proxy pushed nothing, which is why the graph stayed inert in P4 mode -- see Phase 6 of
+doc/p4_bmv2_support_plan.md.
+
+`inform_switch_entered` matters most: it is the **only** path that sets `isEnabled` on a vertex
+(HttpSession::handleInformSwitchEntered sets both isUp and isEnabled). Without it BFS pathing,
+flow-table polling and link-usage attribution all stay switched off, so every flow's `path` is
+empty and every rate is zero even though telemetry is arriving.
+
+Every method here returns a bool and never raises. These are called from the gRPC receive
+thread and the LLDP discovery thread; an exception on either kills that thread and takes the
+feature with it, silently. Failures are logged loudly instead, because a kernel that never
+learns about a switch looks exactly like a switch that is down.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Optional
+
+import requests
+
+# Where the kernel's northbound API lives. Matches NDT_URL in tools/test_workflow/components.env
+# so the harness and the proxy cannot disagree.
+DEFAULT_KERNEL_URL = "http://localhost:8000"
+
+# Short: these calls sit on threads that have other work to do, and the kernel is local. A slow
+# kernel should not stall LLDP discovery or the packet-in path.
+DEFAULT_TIMEOUT_SECONDS = 3.0
+
+
+class KernelNotifier:
+    """Northbound client for the kernel's /ndt/ push endpoints."""
+
+    def __init__(self,
+                 base_url: Optional[str] = None,
+                 timeout: float = DEFAULT_TIMEOUT_SECONDS,
+                 session: Optional[requests.Session] = None):
+        self.base_url = (base_url
+                         or os.environ.get("NDT_URL")
+                         or DEFAULT_KERNEL_URL).rstrip("/")
+        self.timeout = timeout
+        # Injectable so tests need no HTTP server, and so connections are reused in production.
+        self._session = session or requests.Session()
+        self.failures = 0
+
+    # --- internals ----------------------------------------------------------------
+
+    def _report(self, what: str, ok: bool, detail: str = "") -> bool:
+        if ok:
+            print(f"[Kernel] {what}: ok")
+            return True
+        self.failures += 1
+        print(f"[Kernel] {what}: FAILED {detail}")
+        return False
+
+    def _get(self, path: str, what: str) -> bool:
+        try:
+            r = self._session.get(f"{self.base_url}{path}", timeout=self.timeout)
+            return self._report(what, r.status_code == 200, f"HTTP {r.status_code}")
+        except Exception as e:  # requests raises a family of these; none may escape
+            return self._report(what, False, f"{type(e).__name__}: {e}")
+
+    def _post(self, path: str, body: dict, what: str) -> bool:
+        try:
+            r = self._session.post(f"{self.base_url}{path}", json=body, timeout=self.timeout)
+            # The kernel answers 200 for these; anything else means it did not act on it.
+            return self._report(what, r.status_code == 200, f"HTTP {r.status_code}")
+        except Exception as e:
+            return self._report(what, False, f"{type(e).__name__}: {e}")
+
+    # --- northbound calls ---------------------------------------------------------
+
+    def switch_entered(self, dpid: int) -> bool:
+        """
+        Tell the kernel a switch is now under control-plane management.
+
+        The single most important call in this file: it is the only thing that sets `isEnabled`.
+        Sent once the switch is genuinely usable -- mastership held, pipeline pushed -- rather
+        than on mastership alone, because a switch with no pipeline cannot forward and the flag
+        means "the control plane can drive this switch".
+        """
+        return self._get(f"/ndt/inform_switch_entered?dpid={dpid}",
+                         f"switch {dpid} entered")
+
+    def link_failure(self, src_dpid: int, src_port: int,
+                     dst_dpid: int, dst_port: int) -> bool:
+        """Report a link that has stopped carrying LLDP beacons."""
+        return self._post("/ndt/link_failure_detected",
+                          self._link_body(src_dpid, src_port, dst_dpid, dst_port),
+                          f"link failure {src_dpid}:{src_port}->{dst_dpid}:{dst_port}")
+
+    def link_recovery(self, src_dpid: int, src_port: int,
+                      dst_dpid: int, dst_port: int) -> bool:
+        """Report a link whose LLDP beacons have resumed."""
+        return self._post("/ndt/link_recovery_detected",
+                          self._link_body(src_dpid, src_port, dst_dpid, dst_port),
+                          f"link recovery {src_dpid}:{src_port}->{dst_dpid}:{dst_port}")
+
+    @staticmethod
+    def _link_body(src_dpid: int, src_port: int, dst_dpid: int, dst_port: int) -> dict:
+        """
+        The exact shape the kernel parses.
+
+        Field names come from intelligent_router.py, which is the working reference -- the
+        kernel reads `src_interface`/`dst_interface`, not `src_port`/`dst_port`, and a rename
+        here would be accepted with a 200 and then ignored.
+        """
+        return {
+            "src_dpid": src_dpid,
+            "src_interface": src_port,
+            "dst_dpid": dst_dpid,
+            "dst_interface": dst_port,
+        }

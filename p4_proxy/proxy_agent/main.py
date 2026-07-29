@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from proxy_agent.topology_manager import TopologyManager
 from proxy_agent.p4_client import P4RuntimeClient
 from proxy_agent.sflow_emitter import SFlowEmitter, load_switch_agent_ips
+from proxy_agent.kernel_notifier import KernelNotifier
 from proxy_agent import api_routes
 
 app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
@@ -26,6 +27,12 @@ p4_clients = {}
 
 # [Co-developed with claude code -- Adam]
 sflow = SFlowEmitter()
+
+# [Co-developed with claude code -- Adam]
+# Pushes switch/link state to the kernel the way Ryu does. Without this the graph stays inert:
+# inform_switch_entered is the only thing that sets isEnabled. See Phase 6 of
+# doc/p4_bmv2_support_plan.md.
+kernel = KernelNotifier()
 
 @app.on_event("startup")
 async def startup_event():
@@ -82,7 +89,27 @@ async def startup_event():
             # Reported loudly: the pipeline still clones, bmv2 still drops the copy, and
             # everything downstream looks healthy while reporting zero traffic.
             print(f"[Proxy Agent] Switch {i}: clone session failed, NO telemetry from it")
-            
+
+    # --- tell the kernel these switches exist -----------------------------------------
+    # [Co-developed with claude code -- Adam]
+    #
+    # Deliberately after the pipeline push, not on mastership: `isEnabled` means "the control
+    # plane can drive this switch", and a switch holding mastership with no pipeline loaded
+    # cannot forward anything. Doing it here also means we only claim switches we really did
+    # set up -- p4_clients only contains the ones that connected.
+    #
+    # This is the call that makes the graph live. Without it every vertex and edge stays
+    # isEnabled=false, which silently empties BFS pathing, flow-table polling and link-usage
+    # attribution -- flows are still detected, but every `path` is [] and every rate is 0.
+    entered = sum(1 for i in p4_clients if kernel.switch_entered(i))
+    if entered == len(p4_clients):
+        print(f"[Proxy Agent] Kernel acknowledged all {entered} switches")
+    else:
+        # Loud, because the symptom otherwise looks like a dead data plane rather than a
+        # missed notification.
+        print(f"[Proxy Agent] Kernel acknowledged only {entered}/{len(p4_clients)} switches; "
+              f"the graph will stay partly disabled and paths/rates will be empty for the rest")
+
     # Start LLDP dynamic topology discovery
     try:
         topo.start_lldp_discovery()

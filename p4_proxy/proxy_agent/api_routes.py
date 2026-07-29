@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 import json
 from proxy_agent.topology_manager import TopologyManager
+from proxy_agent import ryu_topology
 
 # We will attach the topology manager instance to the router later
 router = APIRouter()
@@ -9,6 +10,39 @@ topology = None # To be injected in main.py
 def inject_topology(topo: TopologyManager):
     global topology
     topology = topo
+
+# --- Ryu-shaped topology, polled by the kernel -------------------------------------------
+# [Co-developed with claude code -- Adam]
+#
+# TopologyAndFlowMonitor polls these three and parses them in updateSwitches/updateHosts/
+# updateLinks. Serving Ryu's shapes means those functions work unchanged in P4 mode, the same
+# way the proxy synthesises sFlow rather than adding a second ingest path.
+#
+# /ndt/inform_switch_entered alone is not enough: measured on a live kernel it took switches
+# from 0/10 to 10/10 enabled but left edges at 0/40, so BFS still found no path. Edges are
+# enabled by updateLinks(), which only runs off this poll.
+
+
+@router.get("/v1.0/topology/switches")
+async def topology_switches():
+    if topology is None:
+        return []
+    return ryu_topology.render_switches(topology.switches.keys())
+
+
+@router.get("/v1.0/topology/links")
+async def topology_links():
+    if topology is None:
+        return []
+    return ryu_topology.render_links(topology.net)
+
+
+@router.get("/v1.0/topology/hosts")
+async def topology_hosts():
+    if topology is None:
+        return []
+    return ryu_topology.render_hosts(topology.net)
+
 
 @router.get("/ryu_server/all_destination_paths")
 async def get_all_paths():

@@ -56,9 +56,54 @@ TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
       m_eventBus(std::move(eventBus)),
       m_mode(static_cast<utils::DeploymentMode>(mode))
 {
-    m_ryuUrl[0] = RYU_BASE_URL + "/switches";
-    m_ryuUrl[1] = RYU_BASE_URL + "/hosts";
-    m_ryuUrl[2] = RYU_BASE_URL + "/links";
+    // Defaults to Ryu. Re-pointed at the P4 proxy in configureTopologyApiUrls(), which cannot
+    // run here: the switch kinds come from the topology file, and that is not loaded yet.
+    setTopologyApiUrls(RYU_BASE_URL);
+}
+
+void
+TopologyAndFlowMonitor::setTopologyApiUrls(const std::string& base)
+{
+    m_ryuUrl[0] = base + "/switches";
+    m_ryuUrl[1] = base + "/hosts";
+    m_ryuUrl[2] = base + "/links";
+}
+
+/** @brief Point the topology poll at whichever control plane owns this data plane.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * The proxy serves Ryu's `/v1.0/topology` shapes, so the kernel polls it the same way and
+ * updateSwitches/updateHosts/updateLinks need no P4-specific branch.
+ *
+ * Must be called *after* loadStaticTopologyFromFile, because it asks the graph what kinds of
+ * switch it holds. Calling it from the constructor would always observe an empty topology and
+ * silently keep the Ryu default -- exactly the bug that made the identity ifIndex mapping dead
+ * code for several commits, so it is done at the point of use instead.
+ *
+ * Only an all-bmv2 topology is re-pointed. Empty or mixed keeps Ryu, which is the conservative
+ * choice: an OVS deployment must not start polling a proxy that is not there.
+ */
+void
+TopologyAndFlowMonitor::configureTopologyApiUrls()
+{
+    if (m_mode != utils::MININET)
+    {
+        return;
+    }
+
+    const auto groups = getSwitchKindGroups();
+    const bool allBmv2 = groups.size() == 1 && groups.begin()->first == SwitchKind::BMV2;
+    if (!allBmv2)
+    {
+        return;
+    }
+
+    const std::string base = "http://" + AppConfig::P4_PROXY_IP_AND_PORT + "/v1.0/topology";
+    setTopologyApiUrls(base);
+    SPDLOG_LOGGER_INFO(Logger::instance(),
+                       "All-bmv2 topology: polling {} for switch/host/link state instead of Ryu.",
+                       base);
 }
 
 TopologyAndFlowMonitor::~TopologyAndFlowMonitor()
@@ -311,6 +356,9 @@ TopologyAndFlowMonitor::fetchAndUpdateTopologyData()
 
     initializeMappingsFromGraph();
 
+    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
+    configureTopologyApiUrls();
+
     // GET switches
     string curlCommand = "curl -s -X GET " + m_ryuUrl[0];
     string switchesStr;
@@ -395,9 +443,18 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
             }
         }
     }
-    catch (const json::parse_error& err)
+    catch (const json::exception& err)
     {
-        cerr << "JSON parse error: " << err.what() << endl;
+        // [Co-developed with claude code -- Adam]
+        // json::exception, not json::parse_error. This data comes from another process over
+        // HTTP, and a field of an unexpected *type* throws json::type_error, which is not a
+        // parse_error -- so it used to escape and terminate the whole kernel. A control plane
+        // answering with `"mac": 1` instead of `"mac": "..."` should cost us this poll, not
+        // the process.
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "{}: ignoring malformed control-plane response: {}",
+                            __func__,
+                            err.what());
         return;
     }
 }
@@ -477,9 +534,18 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             }
         }
     }
-    catch (const json::parse_error& err)
+    catch (const json::exception& err)
     {
-        cerr << "JSON parse error: " << err.what() << endl;
+        // [Co-developed with claude code -- Adam]
+        // json::exception, not json::parse_error. This data comes from another process over
+        // HTTP, and a field of an unexpected *type* throws json::type_error, which is not a
+        // parse_error -- so it used to escape and terminate the whole kernel. A control plane
+        // answering with `"mac": 1` instead of `"mac": "..."` should cost us this poll, not
+        // the process.
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "{}: ignoring malformed control-plane response: {}",
+                            __func__,
+                            err.what());
         return;
     }
 }
@@ -561,9 +627,18 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
             }
         }
     }
-    catch (const json::parse_error& err)
+    catch (const json::exception& err)
     {
-        cerr << "JSON parse error: " << err.what() << endl;
+        // [Co-developed with claude code -- Adam]
+        // json::exception, not json::parse_error. This data comes from another process over
+        // HTTP, and a field of an unexpected *type* throws json::type_error, which is not a
+        // parse_error -- so it used to escape and terminate the whole kernel. A control plane
+        // answering with `"mac": 1` instead of `"mac": "..."` should cost us this poll, not
+        // the process.
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "{}: ignoring malformed control-plane response: {}",
+                            __func__,
+                            err.what());
         return;
     }
 }
