@@ -1,6 +1,7 @@
 # P4/bmv2 支援：目前進度與測試流程
 
 對應計畫：[p4_bmv2_support_plan.md](p4_bmv2_support_plan.md)　測試分層定義：[testing_workflow.md](testing_workflow.md)
+環境陷阱（sudo 設定、`pgrep` 數錯、清理殘留、啟動順序）：[environment_gotchas.md](environment_gotchas.md)
 
 最後更新：2026-07-29（branch `fix/flow-rate-divide-by-zero`）
 

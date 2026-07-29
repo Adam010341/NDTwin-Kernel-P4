@@ -1,0 +1,175 @@
+# 這台機器上的環境陷阱
+
+[Co-developed with claude code -- Adam]
+
+每一項都是實際踩到、浪費過時間才記下來的。全部驗證過，不是推測。
+
+相關文件：[p4_status_and_test_guide.md](p4_status_and_test_guide.md)（測試流程）、
+[p4_bmv2_support_plan.md](p4_bmv2_support_plan.md)（開發計畫與進度）
+
+---
+
+## 必要的系統設定
+
+### `ovs-vsctl` 要能免密碼 sudo
+
+kernel 的 `pingWorker` 每秒 shell 出去跑 `sudo ovs-vsctl list-br`。但 `stack.sh` 用 `setsid`
+背景啟動 kernel，**沒有 controlling terminal，`sudo` 沒辦法問密碼就直接失敗**，回一個空的 bridge
+清單 → 每台 switch 被判定 unreachable → 每秒被 `setVertexDown()` 蓋掉。
+
+症狀：`up=0` 但 `enabled` 可能是 10。log 裡會有幾千行 `sudo: a password is required`。
+
+```bash
+echo "$USER ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec" \
+  | sudo tee /etc/sudoers.d/ndtwin-mininet
+sudo chmod 440 /etc/sudoers.d/ndtwin-mininet
+sudo visudo -c          # 檢查語法，做完一定要跑
+```
+
+注意 `ovs-ofctl` **不在**這個清單裡，所以 `dump-flows` 之類的指令仍需要密碼。查 flow table 可以改用
+Ryu 的 REST（`curl localhost:8080/stats/flow/1`），不需要 sudo。
+
+---
+
+## 診斷工具的坑
+
+### `pgrep` 數 bmv2 會數錯（兩種錯法）
+
+1. **`pgrep -c simple_switch_grpc` 回 0**，即使 10 台都在跑。
+   `pgrep` 預設比對 `/proc/PID/comm`，那個欄位**上限 15 字元**，`simple_switch_grpc`（18 字元）
+   會被截成 `simple_switch_g`，所以匹配不到完整名稱。
+
+2. **`pgrep -fc simple_switch_grpc` 數字偏大**。`-f` 比對完整命令列，會把「命令列裡剛好含這個字串」
+   的東西也算進去 —— 包括你自己那個 `bash -c '... pgrep -f simple_switch_grpc ...'` 的 shell。
+
+**可靠的數法**：
+
+```bash
+ps -eo comm --no-headers | grep -c "^simple_switch_g$"
+ps -eo pid,args --no-headers | awk '$2=="simple_switch_g"'   # 要看 argv 時
+```
+
+同樣的坑也會咬到寫 pidfile：用 `pgrep -f` 抓 Ryu 的 PID 會抓到自己的 wrapper shell，導致
+`stack.sh down` 殺錯對象、真正的程序變成孤兒。
+
+### 讀 bmv2 的 counter：這台機器上做不到
+
+`simple_switch_CLI` 有裝（`/usr/local/bin/`），但它需要兩個 Python 模組，**兩個 interpreter
+（系統 python3 和 `/home/adam/p4dev-python-venv`）都缺**：
+
+| 模組 | 在哪 | 狀況 |
+|---|---|---|
+| `sswitch_CLI` | `/home/adam/P4_Source_Code/behavioral-model/targets/simple_switch/` | 要手動加 `PYTHONPATH` |
+| `runtime_CLI` | `/home/adam/P4_Source_Code/behavioral-model/tools/` | 要手動加 `PYTHONPATH` |
+| `thrift`（Python binding） | — | **沒裝，這是硬阻礙** |
+
+所以 P4 的 direct counter / per-port counter 目前**無法從外部讀取**驗證。要驗證的話得先
+`pip install thrift`。替代方案是看 veth 的封包計數（`ip -s link show s1-eth3`），但那只反映
+介面層的流量，不是 P4 表的 counter。
+
+### `tcpdump` 的 `0 packets captured` 不代表沒流量
+
+`0 packets captured / 72 packets received by filter` 的意思是：tcpdump 檢查了 72 個封包，
+但**沒有一個符合過濾條件**。要判斷 sFlow 有沒有真的到 kernel，看 kernel log 的計數器更直接：
+
+```bash
+grep -oE "rx=[0-9]+, app_drop=[0-9]+, addressed=[0-9]+" .test_run/logs/kernel.log | tail -1
+```
+
+`rx` 是收到的 datagram 數，`addressed` 是成功歸戶到 agent 的 **sample** 數。
+**`addressed` 只在處理 flow sample（type 1）時遞增** —— counter sample（type 2）是週期性的，
+會讓 `rx` 一直漲但 `addressed` 不動。所以「`rx` 漲、`addressed` 不漲」= 沒有真實流量，不是壞掉。
+
+---
+
+## 兩個 Mininet 不能共存
+
+切換 OVS ↔ P4 之間**一定要清乾淨**，否則殘留的 namespace/bridge/程序會讓下一輪起不來或測出假結果。
+
+```bash
+sudo mn -c
+```
+
+⚠️ **`mn -c` 不會殺 bmv2。** `p4_testbed_topo.py` 現在啟動時會自己 `pkill -f simple_switch_grpc`
+（commit `22ada58`），但手動清的時候要記得：
+
+```bash
+sudo mn -c && pkill -f simple_switch_grpc
+```
+
+殘留的 bmv2 會**佔住 gRPC port**，讓下一輪對應的那台 switch 綁不上 port 而死掉。真實案例：
+s10 的 `:50060` 被上一輪的孤兒佔住，只有 9 台起來，而腳本當時還照樣印「10 台成功」。
+
+### `stack.sh` 起的程序會活過 terminal 關閉
+
+`stack.sh` 用 `setsid` 啟動 kernel/proxy/ryu，它們**脫離 terminal**。關掉視窗後畫面上什麼都沒有，
+但 `:8000`/`:8081` 還被佔著 —— 下次手動開 kernel 會撞到：
+
+```
+terminate called after throwing an instance of 'boost::wrapexcept<boost::system::system_error>'
+  what():  bind: Address already in use
+```
+
+用 `./stack.sh status` 確認，`./stack.sh down` 收掉。
+
+---
+
+## 兩個模式的啟動順序是**相反的**
+
+南向連線方向不同，所以順序不能通用：
+
+| 模式 | 誰是 server | 正確順序 |
+|---|---|---|
+| OVS | **Ryu** 監聽 :6633，switch 主動連進來 | Ryu → Mininet → 等收斂 → kernel |
+| P4 | **bmv2** 監聽 :50051-50060，proxy 是 gRPC **client** | **Mininet → proxy** → 等收斂 → kernel |
+
+`stack.sh up {ovs|p4}` 會自動走對的順序。P4 若順序錯了，症狀是 proxy 完全不開 `:8081`
+（uvicorn 在 startup 就 exit），而真正的原因是 log 裡幾十行前的 ECONNREFUSED。
+
+**kernel 一定要最後開**，因為 `TopologyAndFlowMonitor::run()` 只在啟動時拉一次拓撲、沒有重試迴圈。
+
+---
+
+## Ryu 需要多載兩個 stock app
+
+`intelligent_router.py` **只**提供 `/ryu_server/all_destination_paths`。kernel 依賴的其他
+Ryu REST endpoint 全部來自內建 app，少載任何一個都是**靜默失敗**：
+
+| app | 提供 | 少了它的症狀 |
+|---|---|---|
+| `ryu.app.rest_topology` | `/v1.0/topology/{switches,hosts,links}` | 圖永遠 `up=0 enabled=0`（`updateSwitches()` 把 404 的 HTML 拿去 `json::parse`、接住例外後靜靜放棄）|
+| `ryu.app.ofctl_rest` | `GET /stats/flow/<dpid>`、`POST /stats/flowentry/*` | 每次輪詢一筆 `JSON parsing failed ... last read: '<'`、flow table 查不到、**所有下規則都失敗** |
+
+`--observe-links` 只載入 `ryu.topology.switches`（提供**事件**），不含這兩組 REST endpoint。
+已修進 `stack.sh`（commit `3acad16`）。
+
+---
+
+## 語言/框架層面的陷阱
+
+### spdlog 的 log 參數**一定會被求值**，即使等級關掉
+
+`SPDLOG_LOGGER_TRACE(logger, "...", expr)` 把 `expr` 當**普通函式引數**傳進 `log()`，等級過濾發生在
+函式**內部**。所以「看起來關掉的」trace log 裡的運算式照樣執行 —— 一個 `.front()` 對空 vector 就足以
+讓整個 process segfault。這個 build 還帶著 `-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE`。
+
+真實案例：`Classifier.cpp` 的 `pr.effect.outputPorts.front()` 讓 kernel 崩掉（`segfault at 0`），
+而觸發條件是 Ryu 的 table-miss 規則 `"actions": []`。修法是包一層安全的格式化函式（`196a10d`）。
+
+**寫 log 時假設參數一定會被執行。**
+
+### gRPC 的 channel 是延遲連線的
+
+`grpc.insecure_channel()` 不會馬上連線，所以 `P4RuntimeClient.start()` 看起來會成功，即使對方
+根本沒在跑。失敗要等第一個真正的 blocking RPC 才浮現 —— 讓錯誤看起來出現在無關的地方。
+
+### `unittest` 在 module 最外層 `raise SkipTest` 不會優雅跳過
+
+那是 import 期間的未接住例外，直接 exit 1，跟它想避免的 `ImportError` 崩潰是同一種失敗。
+正確做法是把條件存成 flag，用 `@unittest.skipUnless(...)` 裝飾 TestCase class。
+
+### 每個 gtest suite 都要自己 `Logger::init`
+
+`Logger::instance()` 在 init 前是 **null shared_ptr**，spdlog 會在 `should_log` 裡解參考它。
+不能靠別的 suite 先 init —— `ctest` 給每個測試獨立 process。`Logger::init` 是 idempotent 的，
+所以每個 suite 的 `SetUpTestSuite` 都呼叫沒問題。

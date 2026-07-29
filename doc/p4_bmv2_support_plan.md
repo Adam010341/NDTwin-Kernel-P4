@@ -1,5 +1,65 @@
 # 為 NDTwin-Kernel 加上 P4/bmv2 支援 — 開發計畫
 
+---
+
+## 目前進度（最後更新 2026-07-29，branch `fix/flow-rate-divide-by-zero`）
+
+測試流程與實測數據見 [p4_status_and_test_guide.md](p4_status_and_test_guide.md)。
+
+| Phase | 狀態 | 備註 |
+|---|---|---|
+| **0** 止血 | ✅ 完成 | SIGFPE 守衛、測試真的會跑、ifIndex map 加鎖 |
+| **1** typed SwitchKind | ✅ 完成 | `9910151`。O(1) 分派、同質性驗證、headless CLI |
+| **2** 失敗看得見 | ✅ 完成 | `7856efc`、`08746f4`。`OpResult` + 真實 HTTP status |
+| **4** P4 pipeline | ✅ 完成 | `4577983`。5-tuple ternary、ARP、TTL、取樣、counter |
+| **5** telemetry | ✅ **完成並實機驗證** | `c3a1317`、`9a46b4b`、`6bc98d4`。見下方 |
+| **6** 拓撲／liveness／flow table | ⬜ **下一步** | 最大的缺口。入手點見下方 |
+| **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖 |
+| **7** 電源管理 | 🟨 一半 | PID manifest 已做（`22ada58`，`/tmp/ndtwin_p4_switches.json`）；`P4PowerStrategy` 還沒用它 |
+| **8** 收尾 | ⬜ 未做 | |
+
+### Phase 5 實機驗證結果（2026-07-29，10 台真實 bmv2）
+
+整條鏈通了：**bmv2 取樣 → clone 到 CPU → packet-in → proxy → emitter → kernel 解析出正確 flow**。
+
+- `rx=126, app_drop=0, addressed=126` —— `rx` 等於 `addressed` 表示**每個 datagram 都成功歸戶到 agent**
+- 取樣數符合模型：2700 封包 × 10 跳 ÷ 256 ≈ 105，實測 107
+- 雙向 ICMP flow 都正確解析（type 8 code 0 / type 0 code 0，放在 port 欄位）
+- bmv2 fabric 本身也證實可轉發：`ping` 0% loss、`ttl=59`（5 跳 + TTL 遞減有效）
+- L4 差異比對 `PASS`：170 個已登記差異、**0 個未預期**
+
+### Phase 6 的具體入手點（含 2026-07-29 新發現）
+
+計畫本體見下面的 Phase 6 章節，這裡補上實測才發現、會影響實作的細節：
+
+1. **`updateHosts` 的 `ipv4` 前置條件擋掉了 127/128 台 host**（連 OVS 模式都是）。
+   [TopologyAndFlowMonitor.cpp](../src/ndt_core/collection/TopologyAndFlowMonitor.cpp) 的 `updateHosts`
+   開頭有 `if (host["ipv4"].empty()) continue;`。但 `testbed_topo.py` 幫每台 host 設了 static ARP
+   （`arp -s`），host 因此永不發 ARP，而 Ryu 的 host tracker 是從 ARP 學 IP —— 所以 Ryu 回報 128 台
+   host 卻只有 1 台有 IPv4。結果 **254/256 條 host edge 永遠是 down**，`get_graph_data` 的 L2 契約
+   因此過不了。
+   值得注意的是：**vertex 是用 MAC 比對的**（`findVertexByMac`，沒有 IP 也能成功），只有 **edge 用 IP**
+   （`findEdgeByHostIp`）。所以那個 early `continue` 比實際需要的更嚴格。要改的話得先決定 edge 能不能
+   改用 MAC 對應 —— 這動到共用的 OVS 路徑，不能只為 P4 改。
+
+2. **`/stats/flow/{dpid}` 的回傳形狀要對齊**。kernel 文件（和 OVS 模式）是
+   `flows` = `{table_id: [entries]}` 的 map；P4 proxy 目前的 stub 回傳裸 list。實作時要用 map，
+   否則 L2 契約會報型別錯誤。`Classifier::parseActionsArrayIntoEffect` 也**只認字串形式的 action**
+   （`"OUTPUT:1"`），不認 `{"type":"OUTPUT","port":N}`。
+
+3. **`get_path_switch_count` 目前回 `{"status":"error","message":"Path not found..."}`** 是正確行為，
+   不要改成回假的數字。Phase 6 做完之後它自然會回真實的 `switch_count`。
+
+4. **kernel 的 pull 只做一次、沒有重試**（`TopologyAndFlowMonitor::run()` 呼叫
+   `fetchAndUpdateTopologyData()` 一次就結束）。這是為什麼 kernel 一定要最後開、而且要等收斂。
+   Phase 6 應該加 refresh loop，這樣就不再依賴啟動時序。
+
+5. **OVS 模式需要 Ryu 多載兩個 stock app**（已修進 `stack.sh`）：`ryu.app.rest_topology` 提供
+   `/v1.0/topology/*`，`ryu.app.ofctl_rest` 提供 `/stats/flow/<dpid>` 和 `/stats/flowentry/*`。
+   `intelligent_router.py` 只提供 `/ryu_server/all_destination_paths`。
+
+---
+
 ## 背景
 
 NDTwin-Kernel 是 NDTwin 數位孿生系統的 C++ 核心（架構說明見 `ndtwin.org/docs/architecture/`）。它做三件事：收集 sFlow 流量資料、在記憶體裡維護一張網路拓撲圖、透過 Ryu OpenFlow 1.3 controller 去控制 Open vSwitch 的流量規則和電源。
