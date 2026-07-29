@@ -10,6 +10,27 @@
 
 ## 0. 現況盤點（實測數字）
 
+> ⚠️ **2026-07-29 更新**：下表的 L1 數字已過期。實際現況是 **95 個 gtest + 63 個 Python 測試**
+> （`./run_layers.sh quick` 共 153 個），不是 12 個。Phase 4／5 期間新增的：
+>
+> | 檔案 | 個數 | 涵蓋 |
+> |---|---|---|
+> | `test_SwitchKindDispatch.cpp` | 24 | SwitchKind 分派、同質性驗證、`OpResult` 錯誤傳遞 |
+> | `test_SFlowParsing.cpp` | 21 | sFlow parser 邊界檢查（ASan 證明過） |
+> | `test_SFlowEmitterRoundtrip.cpp` | 17 | 跨語言 round-trip、identity port mapping、late-topology 迴歸 |
+> | `test_RoutingStrategies.cpp` | 14 | P4/OVS strategy 的 endpoint 與 body |
+> | `test_EstimatedRates.cpp` | 8 | `hopsCounter == 0` 的 SIGFPE 迴歸 |
+> | `test_GoldenFixture.cpp` | 6 | 真實 OVS 抓包 fixture |
+> | `test_ClassifierDropRule.cpp` | 5 | 無 output port 的規則（見 §4.4） |
+> | Python（`p4_proxy/tests/`） | 63 | sFlow emitter 48、clone session 16（含順序契約）、live switch 1（自我 skip） |
+>
+> **但下面列的缺口大部分仍然成立** —— 新增的測試集中在 P4 路徑和 sFlow，
+> `LockManager`／`FlowDispatcher`／`TopologyAndFlowMonitor` 仍然沒有單元測試。
+>
+> 另外 §1「工具本身會誤判」在 2026-07-29 又發現兩個新的，已修：
+> `compare_baseline.py` 在它該比對的形狀上崩掉（`facts_of_tables` 對 list 呼叫 `.values()`），
+> 以及 `stack.sh` 的 `countdown` 在非整數輸入時**靜默跳過等待並回報成功**。
+
 > 數字為 2026-07-28 §1 修復後的狀態。
 
 | 層 | 工具 | 實際涵蓋 | 沒涵蓋 |
@@ -286,7 +307,27 @@ Graph g = m_topologyAndFlowMonitor->getGraph();   // FlowRoutingManager.cpp:55
    的註解就這麼寫）。`spec.py` 的 `install_flow_entry__unknown_dpid` 期望 4xx——
    這個檢查**會正確地失敗**，是設計如此。記在這裡是為了讓你知道那個紅燈是真的 kernel 問題，不是測試錯。
 
-### 4.4 `Classifier` / `TopologyAndFlowMonitor`：3,600 行，0 測試
+### 4.4 `Classifier` / `TopologyAndFlowMonitor`：3,600 行，幾乎沒測試
+
+> **2026-07-29 更新**：`Classifier` 現在有 5 個測試（`test_ClassifierDropRule.cpp`），
+> 但那是**被一個實機 crash 逼出來的**，不是主動補的涵蓋率。下面列的缺口除了「action 的字串
+> vs 物件形式」之外全部仍然成立，`TopologyAndFlowMonitor` 仍是 0 測試。
+>
+> 那個 crash 值得記在這裡，因為它正好命中本節指出的兩個弱點：
+>
+> `upsertRule` 對沒有 output action 的規則呼叫 `outputPorts.front()` → `segfault at 0`。
+> 觸發條件是 Ryu 把 table-miss 的 drop 規則回報成 `"actions": []`（1300 條裡剛好 1 條）。
+> 兩個讓它藏住的原因：
+>
+> 1. 三個呼叫點都在 `SPDLOG_LOGGER_TRACE` 裡。**spdlog 把參數當普通函式引數傳進 `log()`，
+>    等級過濾發生在函式內部** —— 所以「看起來關掉的」trace log 裡的運算式照樣執行。
+>    這個 build 還帶著 `-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE`。
+> 2. **從來沒有東西走到那裡。** 測試環境的 Ryu 少載 `ryu.app.ofctl_rest`，
+>    `/stats/flow/<dpid>` 一直回 404 HTML，JSON 解析失敗，規則根本進不到 Classifier。
+>    補上那個 app 之後才第一次有真實規則流進來，crash 立刻浮現。
+>
+> 教訓對本文件的意義：**「0 測試」不是唯一的風險，「0 執行」更隱蔽** ——
+> 那段程式碼在這個 harness 裡從來沒被執行過，所以連手動測試都不可能發現。
 
 這兩支決定了 `get_graph_data` 和每個 flow 的 `path`——也就是 7 個元件全部依賴的東西。
 明顯的邊界條件都沒被驗：
@@ -295,8 +336,12 @@ Graph g = m_topologyAndFlowMonitor->getGraph();   // FlowRoutingManager.cpp:55
 - 空拓樸、單節點拓樸
 - BFS 找不到路徑 / 路徑有迴圈（只有 `FORBID | Exceed 100 hop` 這條 log 規則當安全網）
 - flow table 的 priority 平手、重疊的 match、萬用字元遮罩
-- OpenFlow action 的字串形式 vs 物件形式（`spec.py` 的註解指出 `Classifier.cpp` 只解析字串形式，
-  `{"type":"OUTPUT","port":N}` 會被**靜默忽略**——這是 P4 proxy 的硬性契約，卻只靠註解記錄）
+- OpenFlow action 的字串形式 vs 物件形式（`Classifier.cpp` 只解析字串形式 `"OUTPUT:1"`，
+  `{"type":"OUTPUT","port":N}` 會被**靜默忽略**）。**這是 P4 proxy 的硬性契約**，Phase 6 實作
+  `/stats/flow/<dpid>` 時必須遵守，否則 Classifier 會是空的、每個 flow 的 `path` 都是 `[]`。
+  已寫進 [p4_bmv2_support_plan.md](p4_bmv2_support_plan.md) 的 Phase 6 入手點第 2 條
+  （同時那裡也記了 `flows` 必須是 map 而不是 list）。
+- **沒有 output action 的規則** —— 2026-07-29 已補測試，見本節開頭
 
 ### 4.5 `Utils.hpp` 的轉換函式
 
