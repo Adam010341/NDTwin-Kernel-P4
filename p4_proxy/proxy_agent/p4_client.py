@@ -140,10 +140,18 @@ class P4RuntimeClient:
             if self.json_path:
                 self.set_forwarding_pipeline_config()
 
-        # After the pipeline is loaded: the clone session belongs to the pipeline's PRE, so
-        # programming it before SetForwardingPipelineConfig would be discarded.
-        # [Co-developed with claude code -- Adam]
-        self.write_clone_session()
+            # Only when we pushed the pipeline ourselves. The clone session lives in the
+            # pipeline's PRE, so bmv2 rejects it with FAILED_PRECONDITION ("No forwarding
+            # pipeline config set for this device") if no pipeline is loaded yet.
+            #
+            # [Co-developed with claude code -- Adam]
+            # This used to sit outside the branch, which broke the one caller that matters:
+            # main.py starts every switch with push_config=False so it can batch the pipeline
+            # pushes, so every clone session was attempted before any pipeline existed and all
+            # ten failed. When push_config is False the caller owns the ordering and must call
+            # write_clone_session() itself after pushing -- main.py does, in its telemetry
+            # setup.
+            self.write_clone_session()
 
     def stop(self):
         self.is_running = False

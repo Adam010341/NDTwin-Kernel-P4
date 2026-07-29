@@ -19,6 +19,7 @@ we think they say -- which is the part a live test would not tell us any more pr
 from __future__ import annotations
 
 import os
+import queue
 import sys
 import unittest
 
@@ -94,6 +95,81 @@ def a_client() -> P4RuntimeClient:
     client.packet_in_callback = None
     client.sample_callback = None
     return client
+
+
+class FakeStream:
+    """
+    Stands in for the StreamChannel bidirectional call that start() opens.
+
+    Iterable and immediately exhausted: start() hands the stream to a receiver thread that
+    iterates it, so a non-iterable stand-in makes that thread raise and print a traceback
+    that looks like a test failure without being one.
+    """
+
+    def __iter__(self):
+        return iter(())
+
+    def cancel(self):
+        pass
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class StartOrderingTest(unittest.TestCase):
+    """
+    start(push_config=False) must not program the clone session.
+
+    The clone session lives in the pipeline's PRE, so bmv2 rejects it with FAILED_PRECONDITION
+    ("No forwarding pipeline config set for this device") when no pipeline is loaded. main.py
+    starts every switch with push_config=False so it can batch the pipeline pushes and then
+    programs the sessions itself, so a write from inside start() is always too early -- it
+    failed on all ten switches in a live run.
+    """
+
+    def a_startable_client(self):
+        client = a_client()
+        client.is_running = False
+        client.json_path = "/nonexistent/pipeline.json"
+        client.stream_out_q = queue.Queue()
+        client.stream = None
+        client.stream_recv_thread = None
+        client.p4info_helper = None
+
+        self.pipeline_pushes = 0
+        self.clone_writes = 0
+
+        def fake_push():
+            self.pipeline_pushes += 1
+
+        def fake_clone(*args, **kwargs):
+            self.clone_writes += 1
+            # Record ordering, not just counts: a clone write is only valid after a push.
+            self.order.append(("clone", self.pipeline_pushes))
+            return True
+
+        self.order = []
+        client.set_forwarding_pipeline_config = lambda: (
+            fake_push(), self.order.append(("push", None)))[0]
+        client.write_clone_session = fake_clone
+        client.stub.StreamChannel = lambda _it: FakeStream()
+        return client
+
+    def test_push_config_false_does_not_write_the_clone_session(self):
+        client = self.a_startable_client()
+        client.start(push_config=False)
+
+        self.assertEqual(self.pipeline_pushes, 0, "no pipeline should have been pushed")
+        self.assertEqual(self.clone_writes, 0,
+                         "the clone session would be rejected with FAILED_PRECONDITION here; "
+                         "the caller programs it after its own batched push")
+
+    def test_push_config_true_writes_the_clone_session_after_the_push(self):
+        client = self.a_startable_client()
+        client.start(push_config=True)
+
+        self.assertEqual(self.pipeline_pushes, 1)
+        self.assertEqual(self.clone_writes, 1)
+        self.assertEqual(self.order, [("push", None), ("clone", 1)],
+                         "the clone session must come after the pipeline push, never before")
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
