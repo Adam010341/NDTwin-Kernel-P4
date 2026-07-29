@@ -815,6 +815,26 @@ parseUint(const std::string& s, uint32_t& out)
     return true;
 }
 
+/** @brief The first output port as text, or "none" when a rule has no output action.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * Exists because outputPorts is legitimately empty for a rule that drops: Ryu reports a
+ * table-miss drop as `"actions": []`, and parseActionsArrayIntoEffect also skips OUTPUT
+ * targets it cannot parse. Calling front() on that is a null dereference.
+ *
+ * The trap is that the call sites are all SPDLOG_LOGGER_TRACE. spdlog's macros pass their
+ * arguments as ordinary function arguments and filter by level *inside* log(), so the
+ * arguments are evaluated even when the level is disabled -- a "switched off" trace line
+ * still crashes the process.
+ */
+static std::string
+describeFirstOutputPort(const RuleEffect& effect)
+{
+    return effect.outputPorts.empty() ? std::string("none")
+                                      : std::to_string(effect.outputPorts.front());
+}
+
 /** @brief Parse an actions array into RuleEffect.
  *
  * @details
@@ -1063,7 +1083,7 @@ struct Classifier::Impl
                             "tableId {} priority {} effect(output port) {} maskedValue {}",
                             std::to_string(pr.tableId),
                             std::to_string(pr.priority),
-                            std::to_string(pr.effect.outputPorts.front()),
+                            describeFirstOutputPort(pr.effect),
                             spdlog::to_hex(pr.maskedValue.bytes));
 
         auto it = sw.rulesById.find(pr.id);
@@ -1199,7 +1219,7 @@ struct Classifier::Impl
                     key.ipv4Dst,
                     key.tpDst,
                     spdlog::to_hex(maskedKey.bytes),
-                    best->effect.outputPorts.front());
+                    describeFirstOutputPort(best->effect));
             }
         }
         return best;
@@ -1290,7 +1310,7 @@ Classifier::lookup(uint64_t dpid, const FlowKey& key, uint8_t tableId) const
                         key.tpSrc,
                         key.ipv4Dst,
                         key.tpDst,
-                        r->effect.outputPorts.front());
+                        describeFirstOutputPort(r->effect));
 
     return r->effect;
 }
