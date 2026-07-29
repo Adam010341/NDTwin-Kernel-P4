@@ -2,7 +2,7 @@
 
 對應計畫：[p4_bmv2_support_plan.md](p4_bmv2_support_plan.md)　測試分層定義：[testing_workflow.md](testing_workflow.md)
 
-最後更新：2026-07-29（branch `fix/flow-rate-divide-by-zero`，最新 commit `9808684`）
+最後更新：2026-07-29（branch `fix/flow-rate-divide-by-zero`）
 
 ---
 
@@ -81,6 +81,36 @@
 
 由快到慢，**建議照順序**。前面的過不了就不用往後跑。
 
+### 進 Phase 6 之前的完整測試清單
+
+要做「完整一輪」就照這個順序跑完。**⚙️ = 我可以代跑，🔒 = 需要你自己執行**（要 root 或要在
+互動式 CLI 裡操作）。
+
+| # | 步驟 | 誰跑 | 大約時間 |
+|---|---|---|---|
+| 0 | `./run_layers.sh quick`（153 個測試） | ⚙️ | 2 分 |
+| 0b | `./l0_build_check.sh p4`（P4 pipeline 編譯） | ⚙️ | 30 秒 |
+| 0c | `./run_layers.sh selftest`（contract schema + 依賴圖） | ⚙️ | 10 秒 |
+| 0.5 | ASan／UBSan 建置並跑測試 | ⚙️ | 3 分 |
+| 1 | telemetry 灌 fixture（不需要資料平面） | ⚙️ | 2 分 |
+| 2a | 開 **OVS** Mininet | 🔒 | — |
+| 2b | `./stack.sh up ovs` + `wait` | 🔒（要按 Enter） | 1 分 |
+| 2c | `./run_layers.sh api ovs` + `baseline ovs` | ⚙️ | 2 分 |
+| 2d | Mininet CLI 裡 `h1 ping h4`、`iperf h1 h4`，再驗 flow／link usage | 🔒 | 2 分 |
+| 2e | `./stack.sh down` + **`sudo mn -c`** | 🔒 | — |
+| 3a | 開 **bmv2** Mininet（**不同的腳本**） | 🔒 | — |
+| 3b | `./stack.sh up p4` | 🔒（要按 Enter） | 1 分 |
+| 3c | 確認 10 台都有 clone session；`api p4`、`baseline p4` | ⚙️ | 2 分 |
+| 3d | Mininet CLI 產流量 + `tcpdump` 抓 UDP 6343 | 🔒 | 2 分 |
+| 3e | `./run_layers.sh compare`（L4 差異比對） | ⚙️ | 30 秒 |
+| 3f | `./stack.sh down` + `sudo mn -c` | 🔒 | — |
+
+**兩個 Mininet 不能同時開**，而且切換模式之間**一定要 `sudo mn -c`**，否則殘留的
+namespace／bridge 會讓下一個模式起不來或測出假結果。
+
+**第 3d 步是這一輪唯一「從來沒有人驗證過」的東西**（bmv2 實機取樣 → packet-in → emitter →
+kernel 整條鏈），其餘都是已經有測試或已經量過的。所以如果時間有限，3d 是最不能跳的。
+
 ### 第 0 步：不需要開任何東西（約 2 分鐘）
 
 這步涵蓋 153 個測試（90 個 C++ + 63 個 Python），是你日常改完程式碼唯一需要跑的。
@@ -103,10 +133,20 @@ L1 passed: 1 test binary/binaries, clean under ctest and direct execution.
 **要特別注意**：如果看到 `NO TESTS RAN`，那是失敗，不是通過 —— 表示那個檔案一個測試都沒真的跑到
 （通常是缺套件）。這正是我把 Python 測試接進 L1 的當下抓到 `test_p4_client.py` 從來沒跑成功過的方式。
 
+`test_p4_client.py` 顯示 `1 ran, 1 skipped` 是正常的 —— 它是實機整合測試，需要 bmv2 在跑、
+**而且 proxy 不能在跑**。兩者都用 `election_id = 1` 去搶 mastership，P4Runtime 只允許一個持有者，
+後到的會拿到 `Election id already exists` 然後每個 write 都被拒絕。要跑它就只開 bmv2、不要開 proxy。
+
 P4 pipeline 的編譯要另外跑：
 
 ```bash
 ./l0_build_check.sh p4
+```
+
+還有一組完全離線的檢查（contract schema 自檢 + 元件依賴圖），不需要 kernel 也不需要 Mininet：
+
+```bash
+./run_layers.sh selftest
 ```
 
 ### 第 0.5 步：sanitizer（改到 parser 或 collector 的時候跑）
@@ -202,25 +242,39 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
    sudo visudo -c          # 檢查語法，做完一定要跑
    ```
 
-2. **Ryu 要多載 `ryu.app.rest_topology`**，而且 **kernel 必須在 Mininet 之後至少 60 秒才開**。
+2. **Ryu 要多載 `ryu.app.rest_topology`**，而且 **kernel 必須等 LLDP 收斂完才能開**。
    `--observe-links` 只提供事件、不提供 `/v1.0/topology/*` 這組 REST endpoint，少了它那三個網址
    回 404，而 kernel 的 `updateSwitches()` 會把 404 的 HTML 拿去 `json::parse`、丟例外後**靜靜地**
    放棄。而 `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**就結束（沒有重試迴圈），所以那一刻
-   Ryu 還沒收斂完的東西，kernel 這輩子都看不到。這兩件事 `stack.sh up ovs` 現在都處理好了
-   （會顯示 60 秒倒數）。
+   Ryu 還沒收斂完的東西，kernel 這輩子都看不到。這兩件事 `stack.sh up ovs` 現在都處理好了：
+   它會**輪詢** Ryu 直到 switch 和 link 數量跟拓撲檔對上（實測小拓撲約 2 秒），`CONVERGE_WAIT`
+   （預設 60）是上限而不是固定等待時間。
 
 `api` 和 `baseline` **必須帶資料平面參數**（`ovs` 或 `p4`），因為它們要據此挑對應的拓撲檔；
 只有 `compare` 不用帶（它就是拿兩邊的 capture 來 diff）。
 
+先在**另一個 terminal** 開 OVS 的 Mininet（`stack.sh` 會提示你，並等你按 Enter）：
+
+```bash
+sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+```
+
+然後：
+
 ```bash
 cd tools/test_workflow
-./stack.sh up ovs              # Ryu + OVS Mininet → 等 60s → kernel
+./stack.sh up ovs              # Ryu → 提示你開 Mininet → 等收斂 → kernel
 ./stack.sh wait                # 等到 up=10 enabled=10 才算起來了
 ./run_layers.sh api ovs        # L2 + L3 + log allowlist 檢查
-./run_layers.sh baseline ovs   # 記錄基準（存到 .test_run/baseline/ovs）
-# 之後任何改動再跑：
-./run_layers.sh compare        # 跟基準比（不帶參數）
+./run_layers.sh baseline ovs   # 記錄 OVS 基準（存到 .test_run/baseline/ovs）
+```
+
+收尾（**`sudo mn -c` 不能省**，否則殘留的 namespace 會讓 P4 那輪起不來）：
+
+```bash
 ./stack.sh down
+# Mininet 那個 terminal 打 exit，然後：
+sudo mn -c
 ```
 
 想連流量一起驗（要求一定要有 flow／path／非零速率）就加 `--traffic`：
@@ -244,45 +298,84 @@ OVS 模式下這些**應該**是正常的（有 path、有非零速率）。如�
 
 ### 第 3 步：P4 stack 真的起得來（目前能做到的極限）
 
+⚠️ **P4 模式的啟動順序跟 OVS 是相反的**：Ryu 是 server、switch 連進去，所以 OVS 要先開 Ryu；
+但 bmv2 才是 server（`simple_switch_grpc` 監聽 `0.0.0.0:50051-50060`），proxy 是 gRPC **client**，
+所以 **P4 要先開 Mininet**，proxy 才連得上。`stack.sh up p4` 會自動走對的順序並提示你。
+
+先確認上一輪的 OVS Mininet 已經清掉（`sudo mn -c`），然後在**另一個 terminal** 開 bmv2 ——
+**注意是不同的腳本**：
+
+```bash
+sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+```
+
+啟動時應該看到 `10 BMv2 Switches listening on gRPC ports 50051 ~ 50060`。然後：
+
 ```bash
 cd tools/test_workflow
-./stack.sh up p4           # proxy + bmv2 Mininet + kernel
+./stack.sh up p4           # 提示你開 bmv2 Mininet → proxy → 等收斂 → kernel
 ```
 
-**通過標準**（看 proxy 的 log）：
+**通過標準**（看 proxy 的 log；`.test_run` 在 repo 根目錄，不在 `tools/test_workflow` 底下）：
 
 ```bash
-tail -40 .test_run/logs/p4_proxy.log
+cd /home/adam/Desktop/NDTwin-Kernel
+grep -c "Clone session 250 -> port 255 installed" .test_run/logs/p4_proxy.log   # 要是 10
+grep -c "sampling to sFlow as"                    .test_run/logs/p4_proxy.log   # 要是 10
+grep -c "clone session failed\|NO telemetry"       .test_run/logs/p4_proxy.log   # 要是 0
 ```
 
-應該看到 10 台都有這三件事：
+**這三個數字（10／10／0）已經實測達成過**，所以它現在是迴歸標準，不是待驗證項目。
+如果看到 `[Proxy Agent] Switch N: clone session failed, NO telemetry from it`，那台就沒有 telemetry。
+
+`./stack.sh wait` 在 P4 模式**一定會逾時**（`enabled=0`），這是預期的，不是失敗 —— Phase 6 未做。
+
+L2／L3 契約測試和 L4 基準在 P4 模式一樣可以跑：
+
+```bash
+cd tools/test_workflow
+./run_layers.sh api p4          # 預期會有 Phase 6 相關的差異
+./run_layers.sh baseline p4     # 記錄 P4 基準
+./run_layers.sh compare         # L4：拿 P4 跟 OVS 基準比（要兩邊都 capture 過才會跑）
+```
+
+`compare` 需要 `.test_run/baseline/ovs` 和 `.test_run/baseline/p4` **都存在**，所以第 2 步的
+`baseline ovs` 不能跳過，否則這一步會被 skip 掉。
+
+#### 3d：整條 telemetry 鏈（這一輪唯一還沒被驗證過的東西）
+
+在 Mininet CLI 裡產生流量：
 
 ```
-[Proxy Agent] Connected to Switch 1
-[1] Clone session 250 -> port 255 installed
-[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+h1 ping h4
 ```
 
-**如果看到這行，telemetry 就是沒有：**
-
-```
-[Proxy Agent] Switch N: clone session failed, NO telemetry from it
-```
-
-然後在 Mininet CLI 裡產生流量，看 sample 有沒有真的出來：
+同時在另一個 terminal 抓封包：
 
 ```bash
 sudo tcpdump -i lo -n udp port 6343 -c 20
 ```
 
-**通過標準**：有看到封包。這會是第一次證明「bmv2 取樣 → packet-in → emitter → kernel」整條鏈在實機上通了。
-這件事目前**還沒有人驗證過**，所以它是這一步真正的目的。
+**通過標準**：有看到封包。這會是第一次證明「bmv2 取樣 → packet-in → proxy → emitter → kernel」
+整條鏈在**實機**上通了 —— 在此之前只有跨語言 round-trip 測試證明過 emitter 的位元組能被 parser
+解析，沒有任何東西證明 bmv2 真的會吐出 sample。**這是第 3 步真正的目的。**
+
+抓到封包之後，確認 kernel 真的收下並解析了：
+
+```bash
+curl -s http://localhost:8000/ndt/get_detected_flow_data | python3 -m json.tool | head -30
+```
 
 **不要用這些當標準**（Phase 6 未做，一定是空的）：
-`/ndt/get_graph_data` 的 `is_up`、link usage、flow 的 `path`、Web GUI 的畫面。
+`/ndt/get_graph_data` 的 `is_enabled`、link usage、flow 的 `path`、Web GUI 的畫面。
+`is_up` 會是 true 但那是 stub 騙你的（見開頭那張表）。
+
+收尾：
 
 ```bash
 ./stack.sh down
+# Mininet 那個 terminal 打 exit，然後：
+sudo mn -c
 ```
 
 ---

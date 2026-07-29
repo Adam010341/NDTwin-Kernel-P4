@@ -101,18 +101,33 @@ Ryu 是 server、switch 連進來，所以 Ryu 要先開；bmv2 才是 server（
 會依模式自動走對的順序。
 
 ```bash
-./stack.sh up ovs     # Ryu → 提示你開 Mininet → 等 60s → kernel
-./stack.sh up p4      # 提示你開 bmv2 Mininet → proxy → 等 60s → kernel
+./stack.sh up ovs     # Ryu → 提示你開 Mininet → 等收斂 → kernel
+./stack.sh up p4      # 提示你開 bmv2 Mininet → proxy → 等收斂 → kernel
 ./stack.sh wait       # 阻塞直到收斂
 ./stack.sh status
 ./stack.sh down
 ./stack.sh logs
 ```
 
-kernel 一定要**最後**開，而且開之前要等 LLDP 收斂完（照使用手冊是至少 60 秒，由
-`CONVERGE_WAIT` 控制，必須是純整數秒）。原因是 `TopologyAndFlowMonitor::run()` 只在啟動時
-**拉一次** `/v1.0/topology/*` 跟 destination paths 就結束，沒有重試迴圈——那一刻控制層還不知道
-的東西，kernel 這輩子都不會知道。太早開 kernel 的症狀是 `up=0 enabled=0` 而且不會自己好。
+kernel 一定要**最後**開，而且開之前要等 LLDP 收斂完。原因是
+`TopologyAndFlowMonitor::run()` 只在啟動時**拉一次** `/v1.0/topology/*` 跟 destination paths
+就結束，沒有重試迴圈——那一刻控制層還不知道的東西，kernel 這輩子都不會知道。太早開 kernel 的
+症狀是 `up=0 enabled=0` 而且不會自己好。
+
+**這裡是輪詢控制層，不是固定睡 60 秒。** 真正重要的不是「過了多久」而是「discovery 到底做完
+了沒有」，而期望值是從拓撲檔算出來的，不是寫死的：
+
+| 模式 | 輪詢的東西 | 收斂條件（10 switch 的拓撲） |
+|---|---|---|
+| OVS | Ryu `/v1.0/topology/switches` 和 `/links` | 10 台 switch + **32** 條 link（switch 之間的有向邊，host 的邊 Ryu 不會報） |
+| P4 | proxy `/ryu_server/all_destination_paths` | **14** 個 node（10 switch 以 dpid 為 key + 4 host 以 IP 為 key） |
+
+數字對上之後再多等 2 秒讓它穩定下來。實測小拓撲大約 **2 秒**就收斂，不用等滿 60 秒。
+`CONVERGE_WAIT`（預設 60，必須是純整數秒）現在是**上限**而不是固定等待時間。
+
+逾時的行為是刻意設計的：**會警告但仍然啟動 kernel**，因為這時候能進去看壞掉的狀態比直接放棄更
+有用。但如果控制層從頭到尾都沒回應，它會**等滿整個 timeout** 才繼續——立刻往下走只會把這個
+等待原本要避免的 race 又放回來。
 
 OVS 模式的 Ryu 需要多載一個 `ryu.app.rest_topology`。`--observe-links` 只會載入
 `ryu.topology.switches`（提供事件），不含 `/v1.0/topology/*` 這組 REST endpoint；少了它

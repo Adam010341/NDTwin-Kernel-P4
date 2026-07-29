@@ -92,6 +92,112 @@ countdown() {
     printf '\r  %s: done%*s\n' "$what" 20 ''
 }
 
+# --- convergence ------------------------------------------------------------------
+
+# expected_counts <mode> <topo>  ->  "<a> <b>" on stdout
+# What the control plane must report once discovery has finished, derived from the topology
+# file rather than hardcoded. The path goes in as argv, never interpolated into the source.
+expected_counts() {
+    local mode="$1" topo="$2"
+    python3 -c '
+import json, sys
+mode, path = sys.argv[1], sys.argv[2]
+t = json.load(open(path))
+switches = {n["dpid"] for n in t["nodes"] if n.get("vertex_type") == 0}
+if mode == "ovs":
+    # Ryu reports inter-switch links only, one entry per direction. Host links never appear,
+    # and neither do the dpid-0 placeholder endpoints hosts carry.
+    links = sum(1 for e in t["edges"]
+                if e["src_dpid"] in switches and e["dst_dpid"] in switches
+                and e["src_dpid"] and e["dst_dpid"])
+    print(len(switches), links)
+else:
+    # The proxy keys all_destination_paths by switch dpid and by host IP, so every vertex in
+    # the topology should appear exactly once.
+    hosts = sum(1 for n in t["nodes"] if n.get("vertex_type") == 1)
+    print(len(switches) + hosts, 0)
+' "$mode" "$topo" 2>/dev/null
+}
+
+# observed_counts <mode>  ->  "<a> <b>" on stdout, empty if the control plane cannot be read
+observed_counts() {
+    local mode="$1"
+    if [[ "$mode" == "ovs" ]]; then
+        local sw links
+        sw="$(curl -s --max-time 3 "$RYU_URL/v1.0/topology/switches" \
+              | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)"
+        links="$(curl -s --max-time 3 "$RYU_URL/v1.0/topology/links" \
+                 | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)"
+        [[ -n "$sw" && -n "$links" ]] && echo "$sw $links"
+    else
+        local nodes
+        nodes="$(curl -s --max-time 3 "$P4_PROXY_URL/ryu_server/all_destination_paths" \
+                 | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)"
+        [[ -n "$nodes" ]] && echo "$nodes 0"
+    fi
+}
+
+# await_convergence <mode> <topo> <timeout>
+#
+# Polls the control plane until it reports the whole topology, rather than sleeping a fixed
+# 60s. The kernel pulls topology and destination paths exactly once at startup with no retry,
+# so what matters is not elapsed time but that discovery has actually finished -- and on a
+# small topology that is often a few seconds, not a minute.
+#
+# Falls back to sleeping the whole timeout if the endpoint cannot be read at all: proceeding
+# immediately on an unreadable control plane would reintroduce the race this replaces.
+await_convergence() {
+    local mode="$1" topo="$2" timeout="$3"
+    local want; want="$(expected_counts "$mode" "$topo")"
+    if [[ -z "$want" ]]; then
+        warn "  cannot read expected counts from $topo; falling back to a fixed wait"
+        countdown "$timeout" "waiting for link discovery to converge"
+        return $?
+    fi
+
+    local want_a="${want% *}" want_b="${want#* }"
+    if [[ "$mode" == "ovs" ]]; then
+        info "  waiting for link discovery: want ${want_a} switches, ${want_b} links"
+    else
+        info "  waiting for link discovery: want ${want_a} nodes in all_destination_paths"
+    fi
+
+    local start; start=$(date +%s)
+    local last="" got probed=0
+    while true; do
+        got="$(observed_counts "$mode")"
+        [[ -n "$got" ]] && probed=1
+        if [[ -n "$got" && "$got" != "$last" ]]; then
+            local a="${got% *}" b="${got#* }"
+            if [[ "$mode" == "ovs" ]]; then
+                printf '\r    switches=%s links=%s%*s' "$a" "$b" 10 ''
+            else
+                printf '\r    nodes=%s%*s' "$a" 10 ''
+            fi
+            last="$got"
+        fi
+        if [[ "$got" == "$want" ]]; then
+            # Matching counts mean discovery finished; give it a moment to stop moving.
+            sleep 2
+            printf '\r'
+            ok "  converged after $(( $(date +%s) - start ))s"
+            return 0
+        fi
+        if (( $(date +%s) - start >= timeout )); then
+            printf '\r'
+            if (( probed == 0 )); then
+                warn "  control plane never answered; slept ${timeout}s without confirming"
+            else
+                warn "  did not converge within ${timeout}s (last: ${last:-none}, want: $want)"
+                warn "  the kernel pulls once and never retries, so its graph will stay"
+                warn "  incomplete -- starting it anyway so the state can be inspected"
+            fi
+            return 0
+        fi
+        sleep 2
+    done
+}
+
 # --- process helpers -------------------------------------------------------------
 
 # start_bg <name> <logfile> <command...>
@@ -308,7 +414,7 @@ cmd_up() {
     # controller knows at that moment is all the kernel ever learns. The user manual requires
     # at least 60s after Mininet for LLDP discovery to converge first.
     # https://ndtwin.org/docs/ndtwin-user-manual/ndtwin-kernel/operate-an-emulated-software-network/native-linux-excution-environment/
-    countdown "$CONVERGE_WAIT" "waiting for link discovery to converge" || return 1
+    await_convergence "$mode" "$topo" "$CONVERGE_WAIT" || return 1
 
     # -- 3. kernel --
     echo "[3/3] kernel"

@@ -207,9 +207,15 @@ class P4RuntimeClient:
                     return True
                 except grpc.RpcError as modify_error:
                     print(f"[{self.device_id}] Clone session {session_id} MODIFY failed: "
-                          f"{modify_error.details()}")
+                          f"{modify_error.code().name}: {modify_error.details()}")
                     return False
-            print(f"[{self.device_id}] Clone session {session_id} INSERT failed: {e.details()} "
+            # The status code goes in the message, not just details(): bmv2 returns some
+            # failures with an empty details() string, and without the code there is nothing
+            # to diagnose from. PERMISSION_DENIED here usually means this client never won
+            # mastership -- e.g. another controller is already attached with the same
+            # election_id.
+            print(f"[{self.device_id}] Clone session {session_id} INSERT failed: "
+                  f"{e.code().name}: {e.details()} "
                   f"-- no telemetry samples will be produced by this switch")
             return False
 

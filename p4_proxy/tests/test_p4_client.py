@@ -5,7 +5,14 @@ This is not a unit test: it needs `simple_switch_grpc` actually listening, and i
 table entries. It skips itself when no switch is reachable, so it can sit alongside the unit
 tests without failing a run that has no data plane up.
 
-To exercise it, start the P4 testbed first:
+It also skips when the proxy agent is running, because the two cannot share a switch: both
+attach with election_id 1, and P4Runtime allows only one holder. Whoever arrives second gets
+"Election id already exists", never becomes master, and every write it makes is refused --
+which shows up as this test failing for a reason that has nothing to do with the code under
+test. Using a higher election_id instead would make the test win, but that would *steal*
+mastership from a running proxy and silently kill its telemetry, which is worse than skipping.
+
+To exercise it, start the P4 testbed and leave the proxy stopped:
 
     sudo python3 p4_proxy/mininet/p4_testbed_topo.py
 
@@ -39,14 +46,15 @@ except ImportError:
 
 GRPC_HOST = "localhost"
 GRPC_PORT = 50051
+PROXY_PORT = 8081
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 P4INFO = os.path.join(BASE_DIR, "p4_src", "build", "ndtwin_switch.p4info.txt")
 PIPELINE_JSON = os.path.join(BASE_DIR, "p4_src", "build", "ndtwin_switch.json")
 
 
-def a_switch_is_listening(host: str = GRPC_HOST, port: int = GRPC_PORT) -> bool:
+def something_is_listening(port: int, host: str = GRPC_HOST) -> bool:
     """
-    Whether anything accepts TCP on the gRPC port.
+    Whether anything accepts TCP on a port.
 
     Checked with a plain socket rather than by attempting the RPC, because the client's start()
     raises from deep inside grpc on failure and that is what used to abort the whole file.
@@ -58,10 +66,18 @@ def a_switch_is_listening(host: str = GRPC_HOST, port: int = GRPC_PORT) -> bool:
         return False
 
 
+def a_switch_is_listening(host: str = GRPC_HOST, port: int = GRPC_PORT) -> bool:
+    return something_is_listening(port, host)
+
+
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 @unittest.skipUnless(a_switch_is_listening(),
                      f"no bmv2 listening on {GRPC_HOST}:{GRPC_PORT}; "
                      f"start p4_proxy/mininet/p4_testbed_topo.py to run this")
+@unittest.skipIf(something_is_listening(PROXY_PORT),
+                 f"the proxy agent is running on :{PROXY_PORT} and holds mastership with the "
+                 f"same election_id; this test would be refused every write, and outbidding it "
+                 f"would kill the running proxy's telemetry. Stop the proxy to run this.")
 @unittest.skipUnless(os.path.exists(P4INFO) and os.path.exists(PIPELINE_JSON),
                      "pipeline not built; run tools/test_workflow/l0_build_check.sh p4")
 class LiveSwitchTest(unittest.TestCase):
