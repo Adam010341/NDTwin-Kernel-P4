@@ -153,6 +153,53 @@ TEST_F(ClassifierDropRule, LookupOnATableWhoseOnlyRuleDropsDoesNotCrash)
     }
 }
 
+TEST_F(ClassifierDropRule, ANegativePriorityDoesNotCrashTheLookup)
+{
+    // lookupInTableNoLock starts with `best = nullptr` and `bestPriority = -1`, so a rule whose
+    // priority is <= -1 never satisfies `cand->priority > bestPriority` and leaves `best` null
+    // -- while the trace line that dereferenced it ran anyway, because spdlog evaluates its
+    // arguments whatever the level. parseI32 accepts negative numbers, and -1 is already a
+    // meaningful priority in this codebase (the non-strict delete sentinel), so a control plane
+    // reporting "priority": -1 was enough to segfault the kernel.
+    Classifier classifier;
+    json rule = anIpv4Rule("10.0.0.4", 6);
+    rule["priority"] = -1;
+
+    classifier.updateFromQueriedTables(json::array({aSwitch(1, json::array({rule}))}));
+
+    FlowKey key{};
+    key.ethType = 0x0800;
+    key.ipv4Dst = 0x0A000004;
+
+    std::optional<ndtClassifier::RuleEffect> effect;
+    ASSERT_NO_FATAL_FAILURE(effect = classifier.lookup(1, key));
+}
+
+TEST_F(ClassifierDropRule, TheHighestPriorityRuleStillWinsAcrossSubtables)
+{
+    // Guards the fix from being "simplified" by moving the trace back out, or by changing the
+    // comparison: overlapping rules with different masks land in different subtables, and the
+    // higher priority must still be chosen.
+    Classifier classifier;
+    json low = anIpv4Rule("10.0.0.4", 6, /*priority=*/10);
+    json high = json{{"priority", 100},
+                     {"table_id", 0},
+                     {"match", {{"dl_type", 2048}, {"nw_dst", "10.0.0.4"}, {"nw_src", "10.0.0.1"}}},
+                     {"actions", json::array({"OUTPUT:9"})}};
+
+    classifier.updateFromQueriedTables(json::array({aSwitch(1, json::array({low, high}))}));
+
+    FlowKey key{};
+    key.ethType = 0x0800;
+    key.ipv4Src = 0x0A000001;
+    key.ipv4Dst = 0x0A000004;
+
+    const auto effect = classifier.lookup(1, key);
+    ASSERT_TRUE(effect.has_value());
+    ASSERT_FALSE(effect->outputPorts.empty());
+    EXPECT_EQ(effect->outputPorts.front(), 9u) << "the priority-100 rule must win";
+}
+
 TEST_F(ClassifierDropRule, ANormalRuleStillReportsItsOutputPort)
 {
     // Guard against "fixing" the crash by dropping the port from the effect entirely.

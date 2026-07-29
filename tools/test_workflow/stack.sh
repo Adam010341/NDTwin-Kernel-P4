@@ -179,12 +179,18 @@ await_convergence() {
         if [[ "$got" == "$want" ]]; then
             # Matching counts mean discovery finished; give it a moment to stop moving.
             sleep 2
-            printf '\r'
+            # Blank the whole line, not just return to column 0: the progress line is longer
+            # than the message that replaces it, so its tail would survive as visual garbage
+            # ("converged after 2s links=32").
+            printf '\r%*s\r' 44 ''
             ok "  converged after $(( $(date +%s) - start ))s"
             return 0
         fi
         if (( $(date +%s) - start >= timeout )); then
-            printf '\r'
+            # Blank the whole line, not just return to column 0: the progress line is longer
+            # than the message that replaces it, so its tail would survive as visual garbage
+            # ("converged after 2s links=32").
+            printf '\r%*s\r' 44 ''
             if (( probed == 0 )); then
                 warn "  control plane never answered; slept ${timeout}s without confirming"
             else

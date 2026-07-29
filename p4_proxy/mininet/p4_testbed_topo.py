@@ -104,7 +104,11 @@ class BMv2Switch(Switch):
 
         detail = ""
         try:
-            with open(self.log_file) as fh:
+            # errors="replace": bmv2 writes its own diagnostics here and can emit non-UTF-8
+            # bytes. A UnicodeDecodeError is not an OSError, so it would escape this handler
+            # and abort startup verification -- turning "one switch failed" into "the whole
+            # topology script crashed".
+            with open(self.log_file, encoding="utf-8", errors="replace") as fh:
                 lines = [ln.strip() for ln in fh if ln.strip()]
             if any("Address already in use" in ln for ln in lines):
                 detail = (f"gRPC port {self.grpc_port} was already in use -- most likely a "

@@ -142,11 +142,23 @@ def _flow_entry_count(entry):
 
 
 def facts_of_tables(d):
+    # [Co-developed with claude code -- Adam]
+    # Only a list of switch objects is meaningful here. The earlier fix handled `flows` being a
+    # list instead of a map but still assumed the top level was a list, so an error payload --
+    # the kernel answers {"status":"error", ...} on several endpoints -- crashed with
+    # "'str' object has no attribute 'get'" (iterating a dict yields its keys), and a null body
+    # crashed on len(). A comparison tool must report the difference, not die on it.
+    if not isinstance(d, list):
+        return {
+            "switches_reporting": _cat(0),
+            "entries_present": _cat(0),
+            "all_switches_have_entries": False,
+        }
+    entries = [_flow_entry_count(e) for e in d if isinstance(e, dict)]
     return {
         "switches_reporting": _cat(len(d)),
-        "entries_present": _cat(sum(_flow_entry_count(e) for e in d)),
-        "all_switches_have_entries": all(
-            _flow_entry_count(e) > 0 for e in d) if d else False,
+        "entries_present": _cat(sum(entries)),
+        "all_switches_have_entries": all(n > 0 for n in entries) if entries else False,
     }
 
 

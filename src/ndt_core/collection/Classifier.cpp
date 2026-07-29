@@ -1209,17 +1209,31 @@ struct Classifier::Impl
                 {
                     best = cand;
                     bestPriority = cand->priority;
-                }
 
-                SPDLOG_LOGGER_TRACE(
-                    Logger::instance(),
-                    "bestPriority key {}:{} -> {}:{}, maskedKey {}, effect(outport) {}",
-                    key.ipv4Src,
-                    key.tpSrc,
-                    key.ipv4Dst,
-                    key.tpDst,
-                    spdlog::to_hex(maskedKey.bytes),
-                    describeFirstOutputPort(best->effect));
+                    // [Co-developed with claude code -- Adam]
+                    // Inside the branch, not after it, for two reasons.
+                    //
+                    // Correctness: `best` starts null and `bestPriority` starts at -1, so a
+                    // rule whose priority is <= -1 leaves `best` null while this line still
+                    // runs -- and spdlog evaluates its arguments regardless of level, so
+                    // `best->effect` was a null dereference. parseI32 accepts negative
+                    // numbers, and -1 is already a meaningful priority elsewhere in this
+                    // codebase (the non-strict delete sentinel), so a control plane reporting
+                    // `"priority": -1` was enough to kill the kernel.
+                    //
+                    // Accuracy: outside the branch it printed the *previous* subtable's best
+                    // alongside the *current* subtable's maskedKey, which reads as a match
+                    // that never happened.
+                    SPDLOG_LOGGER_TRACE(
+                        Logger::instance(),
+                        "bestPriority key {}:{} -> {}:{}, maskedKey {}, effect(outport) {}",
+                        key.ipv4Src,
+                        key.tpSrc,
+                        key.ipv4Dst,
+                        key.tpDst,
+                        spdlog::to_hex(maskedKey.bytes),
+                        describeFirstOutputPort(best->effect));
+                }
             }
         }
         return best;

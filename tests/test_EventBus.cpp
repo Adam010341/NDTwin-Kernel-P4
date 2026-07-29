@@ -62,7 +62,17 @@ runsWithoutDeadlock(F body)
     auto fut = done->get_future();
 
     std::thread([bus, done, body]() mutable {
-        body(*bus);
+        // Catch everything: an exception escaping a thread's entry point calls std::terminate,
+        // which would abort the whole test binary instead of failing one case. The promise is
+        // still satisfied so the waiter sees "finished" rather than timing out, and the
+        // assertion in the test body is what reports the actual problem.
+        try
+        {
+            body(*bus);
+        }
+        catch (...)
+        {
+        }
         done->set_value();
     }).detach();
 
