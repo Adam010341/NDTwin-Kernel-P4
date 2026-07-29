@@ -374,14 +374,25 @@ cmd_up() {
         if [[ ! -x "$RYU_MANAGER" ]]; then
             err "  ryu-manager not found: $RYU_MANAGER"; return 1
         fi
-        # rest_topology serves /v1.0/topology/*, which is the kernel's *pull* path for switch
-        # state. --observe-links alone only loads ryu.topology.switches, which fires the
-        # events the custom app pushes from -- the REST endpoints 404, and the kernel's
-        # updateSwitches() silently swallows that (the 404 body is HTML, so json::parse
-        # throws and the handler returns). Without this the push path is the only one, and a
-        # kernel that starts late can never recover.
+        # intelligent_router.py only serves /ryu_server/all_destination_paths. Every other Ryu
+        # REST endpoint the kernel depends on comes from a stock app, and loading neither of
+        # these is a silent 404 that surfaces as garbage rather than as an error:
+        #
+        #   rest_topology -> /v1.0/topology/{switches,hosts,links}
+        #     The kernel's *pull* path for switch state. --observe-links alone only loads
+        #     ryu.topology.switches, which fires the events the custom app pushes from.
+        #     Without the REST app, updateSwitches() feeds the 404's HTML to json::parse,
+        #     catches the throw and returns -- so the graph stays down and disabled.
+        #
+        #   ofctl_rest -> GET /stats/flow/<dpid>, POST /stats/flowentry/{add,modify,delete,
+        #                 delete_strict}
+        #     Every flow install/modify/delete and all flow-table polling. Without it the
+        #     kernel logs "JSON parsing failed ... last read: '<'" once per poll per switch
+        #     (it is parsing a 404 HTML page), get_switch_openflow_table_entries returns
+        #     nothing usable, the Classifier stays empty so every flow's path is [], and
+        #     install_flow_entry fails with "Ryu controller returned HTTP 404".
         start_bg ryu "$LOG_DIR/ryu.log" \
-            bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' ryu.app.rest_topology"
+            bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' ryu.app.rest_topology ryu.app.ofctl_rest"
         wait_for_port 8080 "Ryu REST" 40 || {
             err "  Ryu did not open :8080; see $LOG_DIR/ryu.log"; return 1; }
 
