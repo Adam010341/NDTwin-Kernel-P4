@@ -82,29 +82,37 @@ ctest            → 100% tests passed, 0 tests failed out of 12   ← 謊言
 
 ## stack.sh：啟動編排
 
-元件有嚴格的依賴順序，順序錯了會測出假的失敗：
+元件有嚴格的依賴順序，順序錯了會測出假的失敗。**而且兩個模式的前兩步是相反的**，因為南向連線
+的方向相反：
 
 ```
-1. 控制層    Ryu (OVS 模式)  或  P4 proxy agent (P4 模式)
-2. 資料層    Mininet 拓撲
-3. Kernel    ndtwin_kernel          ← 這裡到下一步必須等收斂
+OVS 模式                              P4 模式
+1. 控制層  Ryu                        1. 資料層  bmv2 Mininet
+2. 資料層  Mininet                    2. 控制層  P4 proxy agent
+   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:50051~60)
+3. Kernel  ndtwin_kernel   ← 開這個之前必須等收斂（兩個模式都要）
 4. 唯讀工具  Visualizer / NSR / Web-GUI
 5. 產流量    NTG
 6. 應用程式  Energy-Saving / Traffic-Engineering   ← 會改動網路，最後才開
 ```
 
+Ryu 是 server、switch 連進來，所以 Ryu 要先開；bmv2 才是 server（`simple_switch_grpc` 監聽
+`0.0.0.0:50051-50060`），proxy 是 gRPC **client**，所以 P4 模式要先開 Mininet。`stack.sh up`
+會依模式自動走對的順序。
+
 ```bash
-./stack.sh up p4      # 控制層 → 提示你手動開 Mininet → 等 60s → kernel
+./stack.sh up ovs     # Ryu → 提示你開 Mininet → 等 60s → kernel
+./stack.sh up p4      # 提示你開 bmv2 Mininet → proxy → 等 60s → kernel
 ./stack.sh wait       # 阻塞直到收斂
 ./stack.sh status
 ./stack.sh down
 ./stack.sh logs
 ```
 
-kernel 一定要**最後**開，而且開之前要等 Ryu 的 LLDP 收斂完（照使用手冊是至少 60 秒，由
-`RYU_CONVERGE_WAIT` 控制）。原因是 `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**
-`/v1.0/topology/*` 跟 destination paths 就結束，沒有重試迴圈——那一刻 Ryu 還不知道的東西，
-kernel 這輩子都不會知道。太早開 kernel 的症狀是 `up=0 enabled=0` 而且不會自己好。
+kernel 一定要**最後**開，而且開之前要等 LLDP 收斂完（照使用手冊是至少 60 秒，由
+`CONVERGE_WAIT` 控制，必須是純整數秒）。原因是 `TopologyAndFlowMonitor::run()` 只在啟動時
+**拉一次** `/v1.0/topology/*` 跟 destination paths 就結束，沒有重試迴圈——那一刻控制層還不知道
+的東西，kernel 這輩子都不會知道。太早開 kernel 的症狀是 `up=0 enabled=0` 而且不會自己好。
 
 OVS 模式的 Ryu 需要多載一個 `ryu.app.rest_topology`。`--observe-links` 只會載入
 `ryu.topology.switches`（提供事件），不含 `/v1.0/topology/*` 這組 REST endpoint；少了它

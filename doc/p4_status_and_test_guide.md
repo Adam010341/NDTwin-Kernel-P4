@@ -196,7 +196,7 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
    unreachable → 每秒被 `setVertexDown()` 蓋一次。症狀是 `up=0` 但 `enabled` 可能是 10。
 
    ```bash
-   echo 'adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec' \
+   echo "$USER ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec" \
      | sudo tee /etc/sudoers.d/ndtwin-mininet
    sudo chmod 440 /etc/sudoers.d/ndtwin-mininet
    sudo visudo -c          # 檢查語法，做完一定要跑

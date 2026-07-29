@@ -63,12 +63,32 @@ prompt_for_mininet() {
 
 # countdown <seconds> <what> -- a visible wait, so it does not look like a hang.
 countdown() {
-    local left="$1" what="$2"
+    local left="${1:-}" what="$2"
+    # Must be a plain integer. `sleep` accepts suffixes and decimals ("60s", "0.5") but bash
+    # arithmetic does not, and (( left > 0 )) on such a value fails the *condition* rather than
+    # the script -- the loop body never runs, "done" prints, and 0 is returned. That silently
+    # skips the whole wait and reports success, which is the failure this wait exists to prevent.
+    if [[ ! "$left" =~ ^[0-9]+$ ]]; then
+        err "  invalid wait value: '${left}' (want a plain integer number of seconds)"
+        return 1
+    fi
+    if (( left == 0 )); then
+        info "  $what: skipped (wait set to 0)"
+        return 0
+    fi
+    # No \r animation when redirected: it just clutters a log file. Matches the [[ -t 1 ]]
+    # colour detection above.
+    if [[ ! -t 1 ]]; then
+        info "  $what (${left}s)"
+        sleep "$left"
+        return 0
+    fi
     while (( left > 0 )); do
         printf '\r  %s: %3ds remaining ' "$what" "$left"
         sleep 1
         left=$(( left - 1 ))
     done
+    # Pad over the longest transient suffix (": NNNs remaining ") so none of it is left behind.
     printf '\r  %s: done%*s\n' "$what" 20 ''
 }
 
@@ -288,7 +308,7 @@ cmd_up() {
     # controller knows at that moment is all the kernel ever learns. The user manual requires
     # at least 60s after Mininet for LLDP discovery to converge first.
     # https://ndtwin.org/docs/ndtwin-user-manual/ndtwin-kernel/operate-an-emulated-software-network/native-linux-excution-environment/
-    countdown "$RYU_CONVERGE_WAIT" "waiting for link discovery to converge"
+    countdown "$CONVERGE_WAIT" "waiting for link discovery to converge" || return 1
 
     # -- 3. kernel --
     echo "[3/3] kernel"
