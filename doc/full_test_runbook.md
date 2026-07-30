@@ -247,9 +247,28 @@ for sw in json.load(sys.stdin):
 ./run_layers.sh api ovs --traffic
 ```
 
-⚠️ 這一步**會有 FAIL**。目前已知 6 個 FAIL 全部是既有問題、與 P4 無關（見
-[p4_status_and_test_guide.md](p4_status_and_test_guide.md) 的 L2 段落）。判斷標準是
-**FAIL 的清單有沒有變**，不是有沒有 FAIL：
+⚠️ 這一步**會有 FAIL**。判斷標準是 **FAIL 的清單有沒有變**，不是有沒有 FAIL。
+
+**2026-07-30 實測基準線（乾淨 kernel、有跨交換機流量）**：
+
+```
+L2: 31/36 passed          ← 只有下表那 5 個 FAIL
+L3: 2 BROKEN              ← install_flow_entry、received_a_simulation_case
+    MISSING /ndt/disable_switch   （元件期望但 kernel 沒有這個端點）
+log: PASS
+```
+
+比先前記錄的 30/36 好一個：`get_graph_data` 的 254 條 host edge down 已經不再 FAIL（liveness
+修好之後圖是 10/10 up+enabled）。
+
+⚠️ **log 檢查只在「一個 kernel process 只跑一次 api」時才可信。** 跑第二次時，第一次故意打的錯誤
+請求會落進檢查窗口，變成一片沒有意義的紅（實測跑四次 → 47 條問題，全部是測試自己打的）。
+`run_layers.sh` 現在會偵測並提示你重啟 kernel。
+
+⚠️ **`get_detected_flow_data` 偶發 FAIL** 有兩個原因，都不是 bug：
+1. **流量停了** —— flow 幾秒內就老化，`--traffic` 會報「no flows detected」。iperf 要一直跑著。
+2. ~~多播~~ 已修：本機 Avahi 的 mDNS（`192.168.123.16 -> 224.0.0.251`）會漏進 sFlow 取樣，
+   而多播沒有單播路徑。檢查現在豁免多播／廣播／link-local。
 
 | 已知 FAIL | 原因 |
 |---|---|

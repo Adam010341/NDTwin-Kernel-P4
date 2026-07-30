@@ -217,6 +217,31 @@ def inv_flows_present(data, ctx):
     return []
 
 
+def _is_routable_unicast(ip_u32):
+    """
+    True when a destination could plausibly have a unicast path through the fabric.
+
+    `src_ip`/`dst_ip` hold in_addr::s_addr -- network byte order read as a native integer --
+    so the first octet is the low byte on a little-endian host. See doc/ndt_api.md.
+
+    Multicast (224/4), broadcast and link-local (169.254/16) are excluded because they have no
+    unicast path by definition, so demanding one is a bug in the check rather than in the
+    kernel. This is not hypothetical: a real run failed on
+    192.168.123.16 -> 224.0.0.251, which is the host's own Avahi mDNS leaking onto a switch
+    management interface and into the sFlow sample set. Whether that fires depends on whether
+    Avahi happened to announce during the sampling window, so leaving it in makes the check
+    non-deterministic.
+    """
+    first_octet = ip_u32 & 0xFF
+    if 224 <= first_octet <= 239:      # 224.0.0.0/4 multicast
+        return False
+    if ip_u32 == 0xFFFFFFFF or first_octet == 255:
+        return False                   # broadcast
+    if first_octet == 169 and ((ip_u32 >> 8) & 0xFF) == 254:
+        return False                   # 169.254.0.0/16 link-local
+    return True
+
+
 def inv_flow_paths_non_empty(data, ctx):
     """
     The second highest-value P4 invariant.
@@ -224,8 +249,11 @@ def inv_flow_paths_non_empty(data, ctx):
     A flow's path comes from the Classifier, which is fed by
     get_switch_openflow_table_entries. The P4 proxy currently stubs that endpoint with
     [], so every path is empty -- visible here, invisible in the GUI.
+
+    Only unicast destinations are required to have a path; see _is_routable_unicast.
     """
-    bad = [f"{f['src_ip']}->{f['dst_ip']}" for f in data if not f["path"]]
+    bad = [f"{f['src_ip']}->{f['dst_ip']}" for f in data
+           if not f["path"] and _is_routable_unicast(f["dst_ip"])]
     if bad:
         shown = ", ".join(bad[:5]) + (f" (+{len(bad) - 5} more)" if len(bad) > 5 else "")
         return [f"{len(bad)} flow(s) with an empty path: {shown}"

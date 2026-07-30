@@ -90,6 +90,21 @@ LOG_MARKED=0
 mark_log() {
     if [[ -f "$KERNEL_LOG" ]]; then
         LOG_MARK=$(wc -l <"$KERNEL_LOG")
+        # [Co-developed with claude code -- Adam]
+        # The mark only excludes the errors *this* run provokes. Run the contract tests twice
+        # against one kernel process and the first run's deliberate errors sit below the second
+        # run's mark, so they are reported as unexplained warnings: a wall of red that means
+        # nothing. Measured: four runs against one kernel gave "47 problem line(s) across 13
+        # distinct message(s)", every one of them a probe the suite fired itself.
+        #
+        # Detected on a signature no real traffic produces, and only warned about -- the run is
+        # still useful for L2/L3, it is just the log layer whose result cannot be trusted.
+        if grep -q "there_is_no_such_endpoint" "$KERNEL_LOG" 2>/dev/null; then
+            echo "${Y}note: this kernel log already contains a previous contract run's"
+            echo "deliberate error probes, so the log check below will report them as if they"
+            echo "were new. Restart the kernel for a log result you can trust:"
+            echo "  ./stack.sh down && ./stack.sh up ${DP:-ovs}${N}"
+        fi
     else
         LOG_MARK=0
     fi

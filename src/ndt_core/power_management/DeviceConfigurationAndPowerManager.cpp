@@ -1490,14 +1490,36 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
 
     std::lock_guard<std::shared_mutex> lock(m_openflowTablesMutex);
 
-    // Get (or create) the flow array for a given dpid.
-    auto getFlowsArrayForDpid = [this](uint64_t dpid) -> json& {
+    // Get (or create) the flow array for a given dpid, or nullptr if there is no such switch.
+    //
+    // [Co-developed with claude code -- Adam]
+    // Returns a pointer rather than a reference so an unknown dpid can be refused. It used to
+    // create a cache entry for whatever dpid the request named, and HttpSession hands the raw
+    // request body straight here (`// TODO: Immediately update the table`), so
+    // `install_flow_entry` with a nonexistent dpid invented a whole switch in
+    // /ndt/get_switch_openflow_table_entries -- measured: dpid 999999999999 visible for ~7s,
+    // until openflowTablesUpdateWorker re-polled Ryu and overwrote the cache. Two applications
+    // read that endpoint, and the contract check fails on the phantom because a request-shaped
+    // entry has no table_id.
+    //
+    // The install itself is already refused, with a warning, by
+    // FlowRoutingManager::getStrategyForDpid; this is the same question asked one layer up.
+    auto getFlowsArrayForDpid = [this](uint64_t dpid) -> json* {
         for (auto& sw : m_cachedOpenFlowTables)
         {
             if (sw.at("dpid").get<uint64_t>() == dpid)
             {
-                return sw["flows"][std::to_string(dpid)];
+                return &sw["flows"][std::to_string(dpid)];
             }
+        }
+
+        if (!m_topologyAndFlowMonitor->findSwitchByDpid(dpid).has_value())
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "dpid {} is not a switch in the loaded topology; not caching a "
+                               "flow table for it",
+                               dpid);
+            return nullptr;
         }
 
         json sw;
@@ -1507,7 +1529,7 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
 
         m_cachedOpenFlowTables.push_back(std::move(sw));
 
-        return m_cachedOpenFlowTables.back()["flows"][std::to_string(dpid)];
+        return &m_cachedOpenFlowTables.back()["flows"][std::to_string(dpid)];
     };
 
     // Build or match identifier fields for a flow.
@@ -1541,15 +1563,25 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
     auto installOne = [&](const json& e) {
         uint64_t dpid = e.at("dpid").get<uint64_t>();
 
+        json* flows = getFlowsArrayForDpid(dpid);
+        if (!flows)
+        {
+            return;
+        }
+
         json newFlow;
         newFlow["priority"] = e.at("priority");
         newFlow["match"] = e.at("match");
         newFlow["actions"] = e.at("actions");
-        // If your real flow stats have more fields (cookie, table_id, etc.),
-        // you can add them here as needed.
+        // [Co-developed with claude code -- Adam]
+        // table_id is stamped because this array is served from
+        // /ndt/get_switch_openflow_table_entries alongside entries polled from Ryu, whose stats
+        // always carry it. Without it the cache briefly holds two different schemas -- measured
+        // as a real entry lacking table_id for ~1s after each install, until the next poll --
+        // and consumers that require the field see a malformed rule.
+        newFlow["table_id"] = e.value("table_id", 0);
 
-        json& flows = getFlowsArrayForDpid(dpid);
-        flows.push_back(std::move(newFlow));
+        flows->push_back(std::move(newFlow));
     };
 
     // --- MODIFY ---
@@ -1557,8 +1589,12 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
         uint64_t dpid = e.at("dpid").get<uint64_t>();
         auto key = extractKey(e);
 
-        json& flows = getFlowsArrayForDpid(dpid);
-        for (auto& f : flows)
+        json* flowsPtr = getFlowsArrayForDpid(dpid);
+        if (!flowsPtr)
+        {
+            return;
+        }
+        for (auto& f : *flowsPtr)
         {
             auto fKey = extractKey(f);
             if (fKey == key)
@@ -1578,11 +1614,15 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
         uint64_t dpid = e.at("dpid").get<uint64_t>();
         auto key = extractKey(e);
 
-        json& flows = getFlowsArrayForDpid(dpid);
-        auto it = std::remove_if(flows.begin(), flows.end(), [&](const json& f) {
+        json* flows = getFlowsArrayForDpid(dpid);
+        if (!flows)
+        {
+            return;
+        }
+        auto it = std::remove_if(flows->begin(), flows->end(), [&](const json& f) {
             return extractKey(f) == key;
         });
-        flows.erase(it, flows.end());
+        flows->erase(it, flows->end());
     };
 
     // Apply all operations
