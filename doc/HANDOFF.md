@@ -31,17 +31,23 @@ handler vector 複製出來、放鎖後再呼叫。
 
 ## 還沒歸檔 / 未解決的事
 
-### 1. kernel 閒置時燒 100% CPU（已記錄，未診斷）
+### 1. ~~kernel 閒置時燒 100% CPU~~ ✅ 已解決（2026-07-30，commit `d79979e`）
 
-實測：44 分鐘牆鐘燒掉 66 分鐘 CPU，當時沒有資料平面、0 筆 flow。另一次量到 36 分鐘燒 22 分鐘（62%）。
+原因是 `FlowLinkUsageCollector::run()` 的 `POLL_TIMEOUT_MS = 0`。**0 的意思是「立刻返回」，不是
+「不設逾時」**（`-1` 才是阻塞），所以沒流量時迴圈是 `poll` → `ret==0` → `continue` → `poll`，
+純忙等。而它上面的註解寫「poll without timeout」，讓這個錯看起來像刻意的。
 
-三個可疑來源（**沒有驗證過，不要照著猜就改**）：
-- `calAvgFlowSendingRatesPeriodically` 的每秒迴圈（0 筆 flow 時仍每秒印 4-5 行 `Other Side Agent Miss`）
-- `pingWorker` 的每秒迴圈（每次都深拷貝整張 BGL 圖 + shell 出去跑 `ovs-vsctl`）
-- sFlow collector 的 recv 迴圈可能在忙等
+| | CPU |
+|---|---|
+| 修正前 | `run` thread 100.9%、process 101% |
+| 修正後 | process **1.7%** |
 
-**要先量再改**：`top -H -p <pid>` 看哪個 thread 熱、或 `perf top -p <pid>`。
-另外 `Logger` 設了 `flush_on(info)`，所以每秒的 INFO log 都是同步磁碟寫入 —— log 量本身也是嫌疑犯。
+功能無損：灌 7 個 fixture → `rx=7 app_drop=0 addressed=8`、解析出 5 筆 flow。
+
+**過程中值得記的一點**：我原本懷疑的兩個一秒迴圈
+（`calAvgFlowSendingRatesPeriodically` 和 `pingWorker`）實測是 **1.9% 和 ~0%** —— 兩個都很合理
+（都每秒印 log、`pingWorker` 還每次深拷貝整張圖 + shell 出去跑 `ovs-vsctl`），但**兩個都猜錯**。
+是靠 `/proc/PID/task/*/stat` 的 per-thread 取樣定位的，不是靠讀程式碼。
 
 ### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
 
