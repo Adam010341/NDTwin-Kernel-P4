@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp> // for json
 #include <shared_mutex>
 #include <stdint.h>           // for uint32_t, uint64_t
+#include <optional>           // for optional
 #include <string>             // for string, basic_string
 #include <thread>             // for thread
 #include <tuple>              // for tuple
@@ -36,6 +37,46 @@ struct SwitchInfo
 };
 
 // This should align with real-world smart plug configuration
+
+/**
+ * @brief Tracks a run of consecutive failures so only its edges get logged.
+ *
+ * @details
+ * The bridge query runs at 1 Hz, so logging every failure means one line per second for as long
+ * as the fault lasts. That is how the liveness bug announced itself the first time: 3596 lines of
+ * sudo errors in a single run, which buried everything else in the log. Reporting only the edges
+ * keeps the fault visible without the flood.
+ *
+ * Its own type rather than a bare counter in the manager because the manager cannot be
+ * constructed in a test without a topology monitor, a classifier and three background threads,
+ * and "is it quiet after the first failure?" is exactly the property worth pinning.
+ *
+ * Not thread-safe: only pingWorker's thread touches it.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+class FailureRun
+{
+  public:
+    /// @return true only for the first failure of a run, i.e. when the caller should log.
+    bool recordFailure()
+    {
+        return m_consecutive++ == 0;
+    }
+
+    /// @return how many failures the run that just ended contained, or nullopt if none was open.
+    std::optional<unsigned> recordSuccess()
+    {
+        if (m_consecutive == 0)
+        {
+            return std::nullopt;
+        }
+        return std::exchange(m_consecutive, 0u);
+    }
+
+  private:
+    unsigned m_consecutive = 0;
+};
 
 /**
  * @brief Central manager for switch power control and device status telemetry.
@@ -172,6 +213,40 @@ class DeviceConfigurationAndPowerManager
      */
     void stop();
 
+  protected:
+    /**
+     * @brief What the bridge list implies about one OVS switch.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    enum class OvsLiveness
+    {
+        Up,      ///< The bridge is present.
+        Down,    ///< The bridge list was read successfully and this bridge is absent.
+        Unknown, ///< The bridge list could not be read; nothing can be concluded.
+    };
+
+    /**
+     * @brief Decides an OVS switch's liveness from the bridges `ovs-vsctl list-br` reported.
+     *
+     * @param bridgeName The switch's Mininet bridge name, e.g. "s1".
+     * @param bridges    The reported bridges, or nullopt when the query failed.
+     *
+     * @details
+     * Separated out because the policy is what went wrong, twice over, and a policy in the
+     * middle of a 100-line loop over a BGL graph cannot be tested:
+     *
+     *  - A failed query used to be indistinguishable from "no bridges exist", so one dropped
+     *    `ovs-vsctl` call marked every switch down. Now that is Unknown, and the caller leaves
+     *    the graph alone -- "cannot tell" must not be reported as "dead".
+     *  - The old code never set a switch back *up* on success, only down on failure, so a
+     *    single transient blip was permanent until Ryu happened to re-announce the switch.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    static OvsLiveness ovsLivenessFor(const std::string& bridgeName,
+                                      const std::optional<std::vector<std::string>>& bridges);
+
   private:
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     utils::DeploymentMode m_mode;
@@ -223,6 +298,23 @@ class DeviceConfigurationAndPowerManager
 
     bool pingSwitch(const std::string& ip, int timeout_sec);
     void pingWorker(int interval_sec);
+
+    /// Failure-run state for the `ovs-vsctl list-br` query. [Co-developed with claude code -- Adam]
+    FailureRun m_bridgeQueryFailures;
+
+    /**
+     * @brief Warns on the first failure of a run only, then stays quiet. See FailureRun.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void reportBridgeQueryFailure(const std::string& reason);
+
+    /**
+     * @brief Reports recovery, once, including how many failures the run contained.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void reportBridgeQueryRecovered();
 
     // Helpers for TESTBED mode
     bool setPowerStateTestbed(const SwitchInfo& si, const std::string& action);

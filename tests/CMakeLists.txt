@@ -10,6 +10,7 @@ add_executable(
   test_ClassifierDropRule.cpp
   test_EventBus.cpp
   test_P4FlowStatsToClassifier.cpp
+  test_OvsLiveness.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
@@ -21,6 +22,7 @@ target_link_libraries(
   GTest::gtest_main
   NdtCore_RoutingManagementLib
   NdtCore_CollectionLib
+  NdtCore_PowerManagementLib
   EventSystemLib
   UtilsLib
   ssh

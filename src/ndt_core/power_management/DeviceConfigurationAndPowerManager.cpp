@@ -337,6 +337,56 @@ DeviceConfigurationAndPowerManager::pingSwitch(const std::string& ip, int timeou
     return false; // all attempts failed
 }
 
+/** @brief Decides an OVS switch's liveness from the reported bridge list.
+ *
+ * [Co-developed with claude code -- Adam]
+ * See the header for why this is a named function rather than an if/else in the loop.
+ */
+DeviceConfigurationAndPowerManager::OvsLiveness
+DeviceConfigurationAndPowerManager::ovsLivenessFor(
+    const std::string& bridgeName, const std::optional<std::vector<std::string>>& bridges)
+{
+    if (!bridges.has_value())
+    {
+        return OvsLiveness::Unknown;
+    }
+    const auto& list = *bridges;
+    return std::find(list.begin(), list.end(), bridgeName) != list.end() ? OvsLiveness::Up
+                                                                        : OvsLiveness::Down;
+}
+
+/** @brief Logs the first failure of a run of failures, and how many followed. See the header.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+void
+DeviceConfigurationAndPowerManager::reportBridgeQueryFailure(const std::string& reason)
+{
+    if (m_bridgeQueryFailures.recordFailure())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "`ovs-vsctl list-br` failed ({}); OVS switch liveness is frozen at its "
+                           "last known state until it succeeds again",
+                           reason);
+    }
+}
+
+/** @brief Closes the run opened by reportBridgeQueryFailure(), reporting how long it lasted.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+void
+DeviceConfigurationAndPowerManager::reportBridgeQueryRecovered()
+{
+    if (const auto failures = m_bridgeQueryFailures.recordSuccess())
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "`ovs-vsctl list-br` is working again after {} consecutive failures; "
+                           "OVS switch liveness is being tracked again",
+                           *failures);
+    }
+}
+
 void
 DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
 {
@@ -347,18 +397,23 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
         Graph graph = m_topologyAndFlowMonitor->getGraph();
         auto [vi, vi_end] = boost::vertices(graph);
 
-        std::vector<std::string> listOvsBridges;
+        // [Co-developed with claude code -- Adam]
+        // std::optional, so "the query failed" is distinguishable from "there are no bridges".
+        // It used to return an empty vector for both, and the loop below read that as every
+        // switch being down -- so one dropped `ovs-vsctl` call (a sudo prompt on a detached
+        // process, or a timeout under load) marked the whole fabric dead. Observed in practice.
+        std::optional<std::vector<std::string>> listOvsBridges;
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            listOvsBridges = [&]() {
-                std::vector<std::string> bridges;
-                FILE* fp = popen("sudo ovs-vsctl list-br", "r");
+            listOvsBridges = [&]() -> std::optional<std::vector<std::string>> {
+                FILE* fp = popen("sudo ovs-vsctl list-br 2>/dev/null", "r");
                 if (!fp)
                 {
-                    SPDLOG_LOGGER_ERROR(Logger::instance(), "Failed to run command");
-                    return bridges;
+                    reportBridgeQueryFailure("could not run the command at all");
+                    return std::nullopt;
                 }
 
+                std::vector<std::string> bridges;
                 char buf[128];
                 while (fgets(buf, sizeof(buf), fp))
                 {
@@ -371,7 +426,15 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                     }
                 }
 
-                pclose(fp);
+                // The exit status was previously discarded, which is how a failing sudo looked
+                // exactly like a healthy machine with no bridges.
+                const int rc = pclose(fp);
+                if (rc != 0)
+                {
+                    reportBridgeQueryFailure("exited with status " + std::to_string(rc));
+                    return std::nullopt;
+                }
+                reportBridgeQueryRecovered();
                 return bridges;
             }();
         }
@@ -427,16 +490,33 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                                             swName);
                         m_topologyAndFlowMonitor->setVertexUp(v);
                     }
-                    else if (std::find(listOvsBridges.begin(), listOvsBridges.end(), swName) !=
-                        listOvsBridges.end())
-                    {
-                        SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
-                    }
                     else
                     {
-                        SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} unreachable", swName);
-                        m_topologyAndFlowMonitor->setVertexDown(v);
-                        // TODO: Emit switch failed event
+                        // [Co-developed with claude code -- Adam]
+                        // Symmetric, and silent when the query failed. Previously this only ever
+                        // called setVertexDown -- a switch found present was logged and left
+                        // alone -- so "down" was permanent: nothing here could ever bring one
+                        // back, and only Ryu re-announcing the switch (which happens on
+                        // reconnect) would. Combined with a failed query being read as "all
+                        // down", one blip took the whole graph down for the rest of the run,
+                        // which is what made every node red in the Web GUI.
+                        switch (ovsLivenessFor(swName, listOvsBridges))
+                        {
+                        case OvsLiveness::Up:
+                            SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
+                            m_topologyAndFlowMonitor->setVertexUp(v);
+                            break;
+                        case OvsLiveness::Down:
+                            SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} unreachable", swName);
+                            m_topologyAndFlowMonitor->setVertexDown(v);
+                            // TODO: Emit switch failed event
+                            break;
+                        case OvsLiveness::Unknown:
+                            // Cannot tell, so say nothing. Reporting "dead" here is the whole
+                            // bug; the warning is emitted once by the query itself, not per
+                            // switch.
+                            break;
+                        }
                     }
                 }
             }

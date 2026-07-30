@@ -80,11 +80,26 @@ What is still open: `doc/HANDOFF.md`.
     contract, L3 component contract, L4 OVS/P4 differential, and `stack.sh` orchestration
     that starts each mode in the order that mode requires.
 
+14. **Fix OVS switch liveness, which reported the whole fabric dead** (`pingWorker`). Two
+    independent bugs, whose combined symptom was every node red in the Web GUI with
+    `is_up: 0` while traffic was demonstrably flowing:
+    `ovs-vsctl list-br` *failing* was indistinguishable from it reporting *no bridges* (both
+    yielded an empty vector, read as "everything is down", and `pclose`'s exit status was
+    never checked) — so one dropped call marked all ten switches dead; and the branch only
+    ever called `setVertexDown`, never `setVertexUp`, so "down" was permanent until Ryu
+    happened to re-announce the switch on reconnect. Liveness is now a tested policy
+    (`ovsLivenessFor`) over three states, where `Unknown` leaves the graph untouched: "cannot
+    tell" must not be reported as "dead". Failure logging is edge-triggered — the query runs
+    at 1 Hz and the first occurrence of this bug produced 3596 log lines in a single run.
+    Verified live: 0/10 → 10/10 as bridges appear, one bridge deleted drops only that switch,
+    and re-adding it brings it back.
+
 ### Known limitations
 
-- The graph is not yet live in P4 mode: nothing calls `/ndt/inform_switch_entered`, which is
-  the only thing that sets `isEnabled`, so `path` is empty and link usage is 0. Telemetry
-  data does reach the kernel — it is not yet attached to the graph. This is Phase 6.
+- P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up
+  unconditionally, so a powered-off switch reports UP within 1 second and the twin cannot
+  report a fault. Needs the proxy's gRPC channel state plus LLDP freshness. Remaining
+  Phase 6 work, tracked in `doc/HANDOFF.md`.
 - Every southbound command is still built as `popen("curl … -d '" + json.dump() + "'")`.
   `nlohmann::json::dump()` does not escape single quotes and the JSON comes from
   unauthenticated REST bodies and LLM output. Deliberately deferred; 22 sites in 3 files.
