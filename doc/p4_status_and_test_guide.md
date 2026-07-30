@@ -3,32 +3,30 @@
 對應計畫：[p4_bmv2_support_plan.md](p4_bmv2_support_plan.md)　測試分層定義：[testing_workflow.md](testing_workflow.md)
 環境陷阱（sudo 設定、`pgrep` 數錯、清理殘留、啟動順序）：[environment_gotchas.md](environment_gotchas.md)
 
-最後更新：2026-07-29（branch `fix/flow-rate-divide-by-zero`）
+最後更新：2026-07-30（branch `fix/flow-rate-divide-by-zero`）
 
 ---
 
 ## 先講最重要的一件事
 
-**現在還不能做「完整的 end-to-end twin 測試」。** Phase 6 還沒做，而 `GET /ndt/inform_switch_entered`
-是**唯一**會把圖上的 vertex/edge 的 `isEnabled` 設成 true 的東西，proxy 目前完全沒有呼叫它。
+**Phase 6 的圖已經活了**（commit `198bffd` / `e49327a` / `c24bc91`）。下面的數字是實測，不是推論：
 
-所以如果你現在開起整套 P4 stack，會看到下面這些。**這些數字是我實際跑起來量的**，不是推論：
-
-| 項目 | 實測值 | 為什麼 |
+| 項目 | 先前 | 現在 |
 |---|---|---|
-| switch `is_up` | **10/10 是 true** ⚠️ | 這是**假的**。bmv2 的 liveness 還是 stub（`DeviceConfigurationAndPowerManager.cpp:422`），無條件標記為 up。就算完全沒開 bmv2 也一樣顯示 up |
-| host `is_up` | **4/4 是 true** ⚠️ | 同上，也是 stub |
-| switch／host `is_enabled` | **0/14** | `inform_switch_entered` 沒人呼叫。這才是真正代表「控制平面認得這台」的旗標 |
-| edge `is_up` / `is_enabled` | **0/40** | 同上 |
-| `avg_link_usage` | **0.0** | edge 沒 enabled，sample 對不到 edge |
-| flow 的 `path` | **`[]`** | BFS 找路需要 enabled 的圖 |
+| switch `is_enabled` | 0/10 | **10/10** |
+| host `is_enabled` | 0/4 | **4/4** |
+| edge `is_up` / `is_enabled` | 0/40 | **40/40** |
+| `get_path_switch_count` | 空 | **12 組 pair 都有，`switch_count: 5`** |
 
-⚠️ **請特別注意 `is_up` 這件事**：它會讓 GUI 看起來「10 台都活著」，但那是 stub 騙你的 ——
-真正的旗標是 `is_enabled`，而它是 0。所以**不要用 `is_up` 判斷 P4 模式有沒有成功**，要看 `is_enabled`。
-我原本以為 `is_up` 會是 false，實際跑過才發現不是，這正是為什麼下面的流程要看具體欄位而不是看畫面。
+⚠️ **但 P4 的 liveness 還是 stub**（`DeviceConfigurationAndPowerManager.cpp`）：bmv2 switch 被
+**無條件**標成 up，就算完全沒開 bmv2 也顯示 up。所以**不要用 `is_up` 判斷 P4 模式成不成功**，
+要看 `is_enabled`。OVS 那側的 liveness 已經是真的了（commit `6b3dc0c`）。
 
-**這不是壞掉，是還沒做到那一步。** 下面的測試流程是針對「現在真的能驗證的東西」設計的，
-不要用「GUI 有沒有正常顯示」當標準 —— 那要等 Phase 6。
+計畫書原本寫「光做 `inform_switch_entered` 就能解開 BFS」，**實測不成立**：它只會把 switch
+*vertex* 設成 enabled，edge 是 `updateLinks()` 設的，而那只在 kernel 輪詢時才跑。
+
+⚠️ **`avg_link_usage` 為 0 通常不是壞掉**，見下面 2e：它刻意排除所有接到 host 的邊，
+所以同一台交換機底下的兩台 host 互打一定是 0。
 
 ---
 
@@ -412,19 +410,61 @@ converged after 0s
 判斷流量夠不夠的方法：看 kernel log 的 `addressed=` 有沒有在**增加**。`rx=` 會一直漲（那是週期性的
 counter sample），但 `addressed=` 只有在收到 **flow sample**（也就是真的有流量）時才會漲。
 
+3. **兩端必須掛在不同的交換機上。** `getAvgLinkUsage`
+   （`TopologyAndFlowMonitor.cpp:2245`）**刻意排除任何接到 HOST 的邊**，只平均交換機之間的鏈路：
+
+   ```cpp
+   if (g[e].linkBandwidthUsage != 0 && g[sourceNode].vertexType != VertexType::HOST &&
+       g[targetNode].vertexType != VertexType::HOST)
+   ```
+
+   所以同一台交換機底下的兩台 host 互打，流量只會出現在 host↔switch 邊上，
+   `get_average_link_usage` **永遠是 0.0** —— 這不是壞掉，是設計如此。
+
+   host 掛在哪台交換機（只有 s1–s4 有 host，各 32 台）：
+
+   | 交換機 | host IP 範圍 |
+   |---|---|
+   | s1 | 10.0.0.1 – 10.0.0.32 |
+   | s2 | 10.0.0.33 – 10.0.0.64 |
+   | s3 | 10.0.0.65 – 10.0.0.96 |
+   | s4 | 10.0.0.97 – 10.0.0.128 |
+
 ```
-mininet> h4 iperf -s &
-mininet> h1 iperf -c 10.0.0.4 -t 180 &
+mininet> h97 iperf -s -u &
+mininet> h1 iperf -c 10.0.0.97 -u -b 10M -t 180 &
 ```
 
+⚠️ **不要用 `h1` ↔ `h2`（或 `h4`）**：它們都在 s1 底下，跨不了任何交換機鏈路。
+`h1` → `h97` 是 s1 → s4，實測會經過 4 條交換機間的鏈路。
+
 用 `&` 丟到背景，這樣 CLI 還能用；`-t 180` 給 3 分鐘的測試窗口。**不要用 Mininet 內建的
-`iperf h1 h4`**，那個會卡住 CLI 直到跑完。
+`iperf h1 h97`**，那個會卡住 CLI 直到跑完。
+
+⚠️ 頻寬用 **`-b 10M`**，不要用 100M：實測 100M 會把 LLDP 餓死，Ryu 會誤判 link 掛掉
+（曾經一次跑出 19 次 link deleted），ping 也測不了。
 
 順手確認連線正常（這個要 Ctrl+C 或用 `-c`，因為 `ping` 預設不會停）：
 ```
-mininet> h1 ping -c 5 h4
+mininet> h1 ping -c 5 h97
 ```
 ✅ 應該 0% packet loss。
+
+實測 `h1` → `h97` 灌 10M UDP 30 秒後：
+
+```
+$ curl -s localhost:8000/ndt/get_average_link_usage
+{"avg_link_usage":0.0074514431999999995,"status":"success"}
+
+交換機之間的邊 32 條，其中有流量 4 條
+  s1:2  -> s6   21733376 bps  (2.173%)
+  s6:4  -> s10  12419072 bps  (0.124%)
+  s8:2  -> s4    6209536 bps  (0.621%)
+  s10:4 -> s8    6209536 bps  (0.062%)
+```
+
+路徑 s1 → s6 → s10 → s8 → s4 是對的。同一條路上四個數字不一致是 **1/256 隨機取樣的變異**，
+不是計算錯誤 —— 短窗口下這個抖動是預期的。
 
 #### 2f. 跑契約測試（terminal A，趁流量還在跑）
 
