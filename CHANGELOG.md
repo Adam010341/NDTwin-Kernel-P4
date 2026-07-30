@@ -94,6 +94,24 @@ What is still open: `doc/HANDOFF.md`.
     Verified live: 0/10 → 10/10 as bridges appear, one bridge deleted drops only that switch,
     and re-adding it brings it back.
 
+15. **Fix the synthetic power figure, which was reporting 1.9x10^14 watts.** MININET mode has no
+    PSU to read, so it makes the number up — with
+    `uniform_int_distribution<uint64_t>(0, UINT64_MAX >> 4)`, uniform over [0, 2^60), re-rolled
+    every poll. Observed: `power_consumed: 193112054821787525` mW. The Energy-Saving application
+    consumes this figure, so its decisions were made on noise. There were also two independent
+    copies of the RNG, so `/ndt/get_power_report` and the Intent Translator's per-device query
+    disagreed about the same switch at the same instant. Now one seeded helper, giving a stable
+    30–150 W per switch (measured live: 33.5–147.6 W across the ten, unchanged across polls). The
+    useful signal — 0 W when a switch is powered off — is unaffected. The neighbouring synthetic
+    CPU (10–59%) and temperature (25–49 °C) values were already plausible.
+
+16. **Document the byte order of `src_ip`/`dst_ip` unambiguously** (`doc/ndt_api.md`, 3 places).
+    The existing note, "in network order", is correct — these fields carry `in_addr::s_addr` — but
+    it is easy to misread `16777226` as `1.0.0.10` when it is `10.0.0.1`. The note now says so
+    explicitly and gives the conversion. Also enumerates the legal `acquire_lock` types
+    (`routing_lock`, `graph_lock`, `power_lock`), which were never documented; anything else is
+    rejected with a message that does not distinguish "invalid type" from "busy".
+
 ### Known limitations
 
 - P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up

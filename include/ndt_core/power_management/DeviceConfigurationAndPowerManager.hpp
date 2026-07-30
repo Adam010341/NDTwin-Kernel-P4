@@ -247,6 +247,36 @@ class DeviceConfigurationAndPowerManager
     static OvsLiveness ovsLivenessFor(const std::string& bridgeName,
                                       const std::optional<std::vector<std::string>>& bridges);
 
+    /**
+     * @brief A plausible synthetic power draw, in milliwatts, for a simulated switch.
+     *
+     * @param dpid The switch's datapath id, used as the seed.
+     *
+     * @details
+     * Mininet and bmv2 have no PSU to read, so MININET mode has always made this figure up. It
+     * used to be `uniform_int_distribution<uint64_t>(0, UINT64_MAX >> 4)` -- uniform over
+     * [0, 2^60) -- which produced values like 193112054821787525 mW, i.e. 1.9x10^14 watts, and
+     * re-rolled every poll so the number also jumped by 17 orders of magnitude between ticks.
+     *
+     * That matters more than "it is only a demo value": the Energy-Saving application consumes
+     * this figure, so any decision it reached was made on noise.
+     *
+     * Seeded rather than random so a given switch reports a stable draw, which is what makes a
+     * change meaningful -- the useful signal is a switch going to 0 when powered off (the caller's
+     * `!isUp` branch), not per-tick jitter. Same idiom as the neighbouring synthetic CPU
+     * (`10 + hash % 50` percent) and temperature (`25 + hash % 25` degrees) values, which seed on
+     * the management IP because their JSON is keyed by it; this report is keyed by dpid, and a dpid
+     * is always present, whereas a vertex's `ip` vector can be empty -- the MININET path must not
+     * call `ip.front()`.
+     *
+     * Shared by the `/ndt/get_power_report` path and the Intent Translator's per-device query
+     * (`getSingleSwitchPowerReport`), which previously had a private RNG each and so disagreed
+     * about the same switch at the same instant.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    static uint64_t syntheticPowerMilliwattsFor(uint64_t dpid);
+
   private:
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     utils::DeploymentMode m_mode;

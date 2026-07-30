@@ -355,6 +355,32 @@ DeviceConfigurationAndPowerManager::ovsLivenessFor(
                                                                         : OvsLiveness::Down;
 }
 
+/** @brief A plausible synthetic power draw in mW for a simulated switch. See the header for why.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+uint64_t
+DeviceConfigurationAndPowerManager::syntheticPowerMilliwattsFor(uint64_t dpid)
+{
+    // 30 W baseline plus up to 120 W, spanning what a real access-to-aggregation switch draws.
+    constexpr uint64_t kBaselineMilliwatts = 30'000;
+    constexpr uint64_t kSpanMilliwatts = 120'000;
+
+    // The dpid is mixed explicitly rather than run through std::hash, which for integers is the
+    // identity function on libstdc++: `std::hash<uint64_t>{}(dpid) % 120000` returns the dpid, so
+    // all ten switches reported 30.0 W and differed only in single milliwatts. Caught by running
+    // it, not by the unit tests, which saw ten "distinct" values and passed.
+    //
+    // This is splitmix64's finalizer -- well distributed, and fixed arithmetic rather than a
+    // standard-library detail, so the figure is reproducible across platforms and runs.
+    uint64_t mixed = dpid + 0x9E3779B97F4A7C15ULL;
+    mixed = (mixed ^ (mixed >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    mixed = (mixed ^ (mixed >> 27)) * 0x94D049BB133111EBULL;
+    mixed ^= mixed >> 31;
+
+    return kBaselineMilliwatts + (mixed % kSpanMilliwatts);
+}
+
 /** @brief Logs the first failure of a run of failures, and how many followed. See the header.
  *
  * [Co-developed with claude code -- Adam]
@@ -797,10 +823,6 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
 {
     nlohmann::json result = nlohmann::json::array();
 
-    // Prepare RNG for MININET
-    static std::mt19937_64 gen{std::random_device{}()};
-    static std::uniform_int_distribution<uint64_t> dis(0, UINT64_MAX >> 4);
-
     auto graph = m_topologyAndFlowMonitor->getGraph();
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
@@ -819,8 +841,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // fake/demo value
-            power_mW = dis(gen);
+            power_mW = syntheticPowerMilliwattsFor(dpid);
         }
         else if (m_mode == utils::DeploymentMode::TESTBED)
         {
@@ -1144,10 +1165,6 @@ DeviceConfigurationAndPowerManager::fetchSmartPlugInfoFromFile(const std::string
 nlohmann::json
 DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string& deviceIdentifier)
 {
-    // Prepare RNG for MININET
-    static std::mt19937_64 gen{std::random_device{}()};
-    static std::uniform_int_distribution<uint64_t> dis(0, UINT64_MAX >> 4);
-
     auto graph = m_topologyAndFlowMonitor->getGraph();
 
     // Helper lambda to calculate power for a single switch's properties.
@@ -1156,8 +1173,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
         uint64_t power_mW = 0;
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // fake/demo value
-            power_mW = dis(gen);
+            power_mW = syntheticPowerMilliwattsFor(props.dpid);
         }
         else if (m_mode == utils::DeploymentMode::TESTBED)
         {

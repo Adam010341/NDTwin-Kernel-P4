@@ -130,7 +130,17 @@ Returns the complete graph topology configured in *setting/StaticNetworkTopology
 At the edge between the switch and host, the dpid and interface on the host side are set to 0.
 
 
-**Note:** src_ip/dst_ip are in network order.
+**Note:** `src_ip`/`dst_ip` are 32-bit integers holding the address in **network byte order** —
+the same value as `struct in_addr::s_addr`, which is what the kernel stores and serialises directly.
+
+Do **not** read the decimal digits as a host-order integer. `16777226` is `10.0.0.1`, not
+`1.0.0.10`: its bytes are `0A 00 00 01`, which is the address in order. Convert with `ntohl()`
+before formatting (portable, and a no-op on a big-endian host), or read the four bytes in
+little-endian order. The host-order integer for `10.0.0.1` would be `167772161`.
+
+Note also that string-valued IP fields elsewhere in this API (`get_path_switch_count`, the node
+`ip` array, the static-topology endpoint) are ordinary dotted-quad text and need no conversion —
+only these integer fields carry the byte-order caveat.
 
 ### Request
 * Method: **GET**
@@ -246,7 +256,17 @@ Returns detailed information about all active flows observed by the network syst
 
 **Note:** For ICMP packets, the src_port field represents the ICMP type, and the dst_port field represents the ICMP code.
 
-**Note:** src_ip/dst_ip are in network order.
+**Note:** `src_ip`/`dst_ip` are 32-bit integers holding the address in **network byte order** —
+the same value as `struct in_addr::s_addr`, which is what the kernel stores and serialises directly.
+
+Do **not** read the decimal digits as a host-order integer. `16777226` is `10.0.0.1`, not
+`1.0.0.10`: its bytes are `0A 00 00 01`, which is the address in order. Convert with `ntohl()`
+before formatting (portable, and a no-op on a big-endian host), or read the four bytes in
+little-endian order. The host-order integer for `10.0.0.1` would be `167772161`.
+
+Note also that string-valued IP fields elsewhere in this API (`get_path_switch_count`, the node
+`ip` array, the static-topology endpoint) are ordinary dotted-quad text and need no conversion —
+only these integer fields carry the byte-order caveat.
 
 ### Request
 * Method: **GET**
@@ -1954,7 +1974,7 @@ Supports optional type and ttl (seconds). If the JSON body is missing/invalid, d
 
 | Field       | Type   | Description                                                             |
 | ----------- | ------ | ----------------------------------------------------------------------- |
-| `type` | `string` | lock category/name                              |
+| `type` | `string` | Lock category. **Must be one of `routing_lock`, `graph_lock`, `power_lock`** — any other value is rejected with the `423` response below, which reports it as "System busy or invalid lock type" without distinguishing the two cases. |
 | `ttl`   | `int` | lock time-to-live in seconds                  |
 
 
@@ -2141,7 +2161,17 @@ The returned list is sorted in descending order by:
 
 **Note:** For ICMP packets, the src_port field represents the ICMP type, and the dst_port field represents the ICMP code.
 
-**Note:** src_ip/dst_ip are in network order.
+**Note:** `src_ip`/`dst_ip` are 32-bit integers holding the address in **network byte order** —
+the same value as `struct in_addr::s_addr`, which is what the kernel stores and serialises directly.
+
+Do **not** read the decimal digits as a host-order integer. `16777226` is `10.0.0.1`, not
+`1.0.0.10`: its bytes are `0A 00 00 01`, which is the address in order. Convert with `ntohl()`
+before formatting (portable, and a no-op on a big-endian host), or read the four bytes in
+little-endian order. The host-order integer for `10.0.0.1` would be `167772161`.
+
+Note also that string-valued IP fields elsewhere in this API (`get_path_switch_count`, the node
+`ip` array, the static-topology endpoint) are ordinary dotted-quad text and need no conversion —
+only these integer fields carry the byte-order caveat.
 
 ### Request
 * Method: **GET**
