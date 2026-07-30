@@ -187,6 +187,24 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         vp.deviceLayer = nodeJson.at("device_layer").get<int>();
         vp.ecmpGroups = nodeJson.value("ecmp_groups", std::vector<EcmpGroup>{});
 
+        // [Co-developed with claude code -- Adam]
+        // Ten places call `ip.front()` on a switch's address list without checking it, including
+        // findSwitchByIp(), which does so for *every* switch vertex while searching -- so one
+        // switch with `"ip": []` is undefined behaviour that takes out IP lookup for the whole
+        // graph, not just that switch. `at("ip")` throws on a missing key but accepts an empty
+        // array, so only the file has to be wrong.
+        //
+        // Rejected here rather than guarding each call site: this makes the invariant those ten
+        // sites already assume actually true, and failing at load with the offending dpid beats
+        // undefined behaviour later. Same reasoning as the malformed-switch_kind throw above.
+        if (vp.vertexType == VertexType::SWITCH && vp.ip.empty())
+        {
+            throw std::runtime_error(
+                "switch dpid " + std::to_string(vp.dpid) + " (\"" + vp.nickName +
+                "\") has an empty \"ip\" array; every switch needs at least one management "
+                "address, because address lookup reads the first one unconditionally");
+        }
+
         if (m_mode == utils::DeploymentMode::MININET && vp.vertexType == VertexType::SWITCH)
         {
             vp.bridgeNameForMininet = nodeJson.at("bridge_name").get<std::string>();

@@ -464,3 +464,104 @@ TEST_F(SwitchKindFixture, MixedTopologyDispatchesPerDpid)
     EXPECT_EQ(mgr.getStrategyForDpid(2), mgr.ovsStrategy());
     EXPECT_NE(mgr.p4Strategy(), mgr.ovsStrategy());
 }
+
+// --- A switch with no management address is rejected at load.
+//
+// Ten places call `ip.front()` on a switch's address list with no check, including
+// findSwitchByIp(), which does it for *every* switch vertex while searching -- so one switch with
+// `"ip": []` is undefined behaviour that takes out address lookup for the whole graph. `at("ip")`
+// throws on a missing key but happily accepts an empty array, so only the file has to be wrong.
+// Found by a review of 0e84234, which pointed at one of the ten call sites; the load-time check
+// is what makes the invariant all ten already assume actually true.
+
+namespace
+{
+
+/// A switch node with a caller-supplied "ip" field, which switchNode() always populates.
+std::string
+switchNodeWithIpField(uint64_t dpid, const std::string& ipArrayJson)
+{
+    return R"({
+      "vertex_type": 0,
+      "mac": 0,
+      "ip": )" + ipArrayJson + R"(,
+      "dpid": )" + std::to_string(dpid) + R"(,
+      "device_name": "s)" + std::to_string(dpid) + R"(",
+      "nickname": "core-)" + std::to_string(dpid) + R"(",
+      "brand_name": "OVS",
+      "bridge_name": "s)" + std::to_string(dpid) + R"(",
+      "device_layer": 1,
+      "ecmp_groups": []
+    })";
+}
+
+/// The loader logs, and Logger::instance() is a null shared_ptr until Logger::init runs, so these
+/// tests segfault without it -- which is exactly what happened when they were plain TESTs: they
+/// crashed run alone and under ctest, while passing in a full-binary run where another suite had
+/// already initialised the logger. The same trap SwitchKindFixture above documents.
+class TopologyIpValidationTest : public ::testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        LogConfig cfg;
+        cfg.level = spdlog::level::off; // the rejection path logs; keep it out of test output
+        Logger::init(cfg);
+    }
+
+    static std::shared_ptr<TestableMonitor> freshMonitor()
+    {
+        return std::make_shared<TestableMonitor>(std::make_shared<Graph>(),
+                                                 std::make_shared<std::shared_mutex>(),
+                                                 std::make_shared<EventBus>(),
+                                                 utils::DeploymentMode::MININET);
+    }
+};
+
+} // namespace
+
+TEST_F(TopologyIpValidationTest, ASwitchWithAnEmptyIpArrayIsRejectedAtLoad)
+{
+    TempTopology file(switchNodeWithIpField(7, "[]"));
+    auto monitor = freshMonitor();
+    try
+    {
+        monitor->loadStaticTopologyFromFile(file.path());
+        FAIL() << "an empty ip array must not load: findSwitchByIp would read ip.front()";
+    }
+    catch (const std::exception& err)
+    {
+        // The dpid has to be in the message, or the operator cannot find the offending node in a
+        // 130-node file.
+        EXPECT_NE(std::string(err.what()).find("dpid 7"), std::string::npos) << err.what();
+    }
+}
+
+TEST_F(TopologyIpValidationTest, ASwitchWithAnAddressStillLoads)
+{
+    // The check must not reject the normal case.
+    TempTopology file(switchNodeWithIpField(7, R"(["192.168.123.17"])"));
+    auto monitor = freshMonitor();
+    EXPECT_NO_THROW(monitor->loadStaticTopologyFromFile(file.path()));
+}
+
+TEST_F(TopologyIpValidationTest, AHostWithNoAddressIsStillAllowed)
+{
+    // The invariant belongs to switches only. Hosts are discovered by Ryu and legitimately have
+    // no address until then -- rejecting them would refuse every topology that lists hosts before
+    // discovery, which is all of them.
+    const std::string host = R"({
+      "vertex_type": 1,
+      "mac": 0,
+      "ip": [],
+      "dpid": 0,
+      "device_name": "h1",
+      "nickname": "",
+      "brand_name": "",
+      "device_layer": 0,
+      "ecmp_groups": []
+    })";
+    TempTopology file(switchNodeWithIpField(1, R"(["192.168.123.11"])") + ",\n" + host);
+    auto monitor = freshMonitor();
+    EXPECT_NO_THROW(monitor->loadStaticTopologyFromFile(file.path()));
+}
