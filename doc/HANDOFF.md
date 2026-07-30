@@ -49,6 +49,38 @@ handler vector 複製出來、放鎖後再呼叫。
 （都每秒印 log、`pingWorker` 還每次深拷貝整張圖 + shell 出去跑 `ovs-vsctl`），但**兩個都猜錯**。
 是靠 `/proc/PID/task/*/stat` 的 per-thread 取樣定位的，不是靠讀程式碼。
 
+### 1b. ~~Web GUI 全部節點紅色（`is_up: 0`）~~ ✅ 已解決（2026-07-30，commit `6b3dc0c`）
+
+`pingWorker` 裡兩個**互相獨立**的 bug，任何一個單獨存在都還能撐：
+
+1. `ovs-vsctl list-br` **失敗**和**成功但回報沒有 bridge** 分不出來 —— 兩者都是空 vector，
+   迴圈讀成「全部 down」，而且 `pclose` 的 exit status 從來沒檢查。所以**掉一次呼叫就把整個
+   fabric 標成死的**。實際看到兩個原因：setsid 起的 process 沒有 controlling terminal 導致 sudo
+   要密碼、以及 100 Mbps 灌流量時指令變慢。
+2. 那個分支**只會呼叫 `setVertexDown`**。查到 bridge 存在時只印 log 不動圖，所以「down」是永久的
+   —— 除非 Ryu 剛好重連並重新宣告該 switch，否則沒有任何東西能把它拉回來。
+
+兩個加起來：**一次抖動就讓整張圖在那一輪之後全黑**。
+
+修法是把判斷抽成有測試的三態 policy（`ovsLivenessFor`），`Unknown` **不動圖** ——
+「判斷不出來」不能報成「死了」。失敗的 log 改成 edge-triggered（`FailureRun`）：這個查詢
+1 Hz 在跑，每次都印就是當初 3596 行 sudo 錯誤把 log 埋掉的原因。
+
+實機驗證（**故意不開 Ryu**，這樣 `pingWorker` 是唯一能動圖的東西）：
+
+| 動作 | 結果 |
+|---|---|
+| 沒有 bridge | `up=0/10` |
+| 建 s1–s10 | 3 秒內 `up=10/10` |
+| `del-br s3` | `up=9/10`，只有 s3 掉（不是整片） |
+| `add-br s3` | `up=10/10` —— **這個轉換在修好之前不可能發生** |
+
+**過程中值得記的一點**：第一次實機驗證看到 `up=0/10`，我以為修錯了。真正的原因是**根本沒有
+data plane 在跑** —— 下面第 5 節當時寫著「Mininet 還開著」，但那是舊資訊。`pgrep -f
+"testbed_topo.py"` 還騙了我一次：它匹配到**我自己的 shell**（`-f` 的老問題，
+environment_gotchas 裡記過）。教訓：**信任 live 測試之前先確認環境真的存在**，而且這個文件的
+環境狀態一過期就會反過來誤導人。
+
 ### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
 
 帶流量的 OVS 迴歸跑到 **30/36**。剩下的：
@@ -83,9 +115,23 @@ handler vector 複製出來、放鎖後再呼叫。
 
 ### 5. 未清理的執行環境狀態
 
+> ⚠️ 這一節**很容易過期**，而過期的環境狀態比沒有還糟 —— 它讓 live 測試的結果無法解讀
+> （見第 1b 節的教訓）。改動之後請順手更新，或者直接用下面的指令現場確認，不要相信這裡寫的。
+
+現場確認（2026-07-30 覆核過）：
+
+```bash
+pgrep -x ndtwin_kernel; pgrep -x simple_switch_grpc   # 空 = 沒在跑
+pgrep -af "[t]estbed_topo.py"                          # 中括號避免匹配到自己的 shell
+sudo ovs-vsctl list-br                                 # 空 = 沒有 OVS bridge
+ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
+```
+
 - kernel / proxy / ryu 都已停，`:8000`/`:8080`/`:8081` 全空。
-- **Mininet 還開著**（bmv2 10 台）。要收：Mininet terminal 打 `exit`，然後
-  `sudo mn -c && pkill -f simple_switch_grpc`。
+- **Mininet 沒有在跑**（OVS 和 bmv2 都沒有），`ovs-vsctl list-br` 是空的。2026-07-30 覆核。
+  這一節先前寫「Mininet 還開著（bmv2 10 台）」，已經不成立。
+- 要重新開始測試就照 `doc/p4_status_and_test_guide.md` 走。收尾用
+  `sudo mn -c && pkill -x simple_switch_grpc`（`-x` 而不是 `-f`）。
 - `.test_run/baseline/{ovs,p4}` 兩份基準都是**在正確設定下、有流量時**抓的，可以信任。
   Phase 6 做完之後會產生大量預期差異，屆時 allowlist 裡標了「Phase 6」的項目應該變成 unused
   —— 那正是它們該消失的訊號。
