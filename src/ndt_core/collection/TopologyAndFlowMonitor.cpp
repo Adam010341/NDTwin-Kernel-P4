@@ -2258,8 +2258,15 @@ TopologyAndFlowMonitor::getAvgLinkUsage(const Graph& g) const
         {
             continue;
         }
-        auto targetNode = boost::target(e, *m_graph);
-        auto sourceNode = boost::source(e, *m_graph);
+        // [Co-developed with claude code -- Adam]
+        // Resolve against `g`, the graph we are iterating, not the member graph. Callers pass a
+        // snapshot -- handleGetAvgLinkUsage passes getGraph(), which is a copy, precisely so it
+        // does not hold the lock -- so mixing the two reads a graph this function was given no
+        // lock for. It happens to work today only because adjacency_list's source()/target()
+        // return the descriptor's stored endpoints and ignore the graph argument entirely; the
+        // moment that stops being true it is an out-of-bounds vertex lookup.
+        auto targetNode = boost::target(e, g);
+        auto sourceNode = boost::source(e, g);
         if (g[e].linkBandwidthUsage != 0 && g[sourceNode].vertexType != VertexType::HOST &&
             g[targetNode].vertexType != VertexType::HOST)
         {
