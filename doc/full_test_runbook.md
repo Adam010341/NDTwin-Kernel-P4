@@ -293,6 +293,22 @@ log: PASS
 
 ⚠️ 基準抓壞了比沒有更糟 —— 之後 P4 的差異比對全部會以它為準。
 
+**抓之前一定要確認這三項不是零／空**，否則 L4 比對會反向失效：
+
+```bash
+curl -s localhost:8000/ndt/get_average_link_usage          # 必須非零
+curl -s localhost:8000/ndt/get_detected_flow_data | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+print('flows:', len(d))
+print('rates:', [f['estimated_flow_sending_rate_bps_in_the_last_sec'] for f in d])
+print('paths:', [len(f['path']) for f in d])"
+```
+
+**2026-07-30 踩過**：OVS 基準在 `avg_link_usage = 0.0`、唯一那筆 flow `rate = 0` 的瞬間抓下來，
+結果 L4 比對變成「OVS 沒有 telemetry，P4 有」—— 和 allowlist 裡那些 Phase 5 條目寫的方向**正好相反**。
+唯一那個「非預期差異」`list is empty in OVS but populated in P4: edges[].flow_set[]` 完全是這個
+造成的假象，而不是 P4 的問題。**不要把它加進 allowlist** —— 那是把壞基準掩蓋掉。要重抓 OVS 基準。
+
 ### 1g. 收尾
 
 terminal B：
