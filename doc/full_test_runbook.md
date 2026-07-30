@@ -66,6 +66,13 @@ ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
 
 ✅ 上面五個查詢**全部沒有輸出**才算乾淨。
 
+⚠️ **`pgrep -x ndtwin_kernel` 一定要是空的。** 殘留在 `:8000` 的 kernel 會讓
+`stack.sh up` 印出 `waiting for kernel API on :8000  up` 然後**假成功** —— 它自己起的 kernel 死於
+`bind: Address already in use`，但 port 有人聽所以它以為成功了。實際踩過一次：P4 那輪測到的是一個
+殘留的 **OVS** kernel，`stack.sh wait` 回報 288 條 edge、128 台 host（OVS 拓撲的數字），
+而整輪都沒有任何東西提示不對。`wait_for_port` 現在會檢查自己起的 process 還活著，但起點乾淨仍是
+第一道防線。
+
 > ⚠️ `pgrep -f testbed_topo.py`（沒有中括號）**會匹配到你自己下的那道指令**，看起來永遠像有 Mininet
 > 在跑。這個陷阱在這個專案裡騙過人不只一次。
 

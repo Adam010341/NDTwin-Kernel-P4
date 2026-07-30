@@ -112,10 +112,13 @@ if mode == "ovs":
                 and e["src_dpid"] and e["dst_dpid"])
     print(len(switches), links)
 else:
-    # The proxy keys all_destination_paths by switch dpid and by host IP, so every vertex in
-    # the topology should appear exactly once.
+    # [Co-developed with claude code -- Adam]
+    # all_destination_paths is a LIST OF PATHS, one per ordered host pair -- not a map keyed by
+    # node. This used to expect len(switches) + hosts, which is a different quantity entirely
+    # (14 vs 12 on the 10-switch/4-host topology), so the gate could never be satisfied and
+    # every P4 start burned the whole timeout before proceeding with a warning.
     hosts = sum(1 for n in t["nodes"] if n.get("vertex_type") == 1)
-    print(len(switches) + hosts, 0)
+    print(hosts * (hosts - 1) if hosts > 1 else 0, 0)
 ' "$mode" "$topo" 2>/dev/null
 }
 
@@ -130,10 +133,16 @@ observed_counts() {
                  | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)"
         [[ -n "$sw" && -n "$links" ]] && echo "$sw $links"
     else
-        local nodes
-        nodes="$(curl -s --max-time 3 "$P4_PROXY_URL/ryu_server/all_destination_paths" \
-                 | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)"
-        [[ -n "$nodes" ]] && echo "$nodes 0"
+        # [Co-developed with claude code -- Adam]
+        # Count the paths inside the envelope. `len()` on the whole response counted the
+        # envelope's own keys -- {"status": ..., "all_destination_paths": [...]} -- and so
+        # reported a constant 2 no matter how discovery was going.
+        local paths
+        paths="$(curl -s --max-time 3 "$P4_PROXY_URL/ryu_server/all_destination_paths" \
+                 | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+print(len(d["all_destination_paths"] if isinstance(d, dict) else d))' 2>/dev/null)"
+        [[ -n "$paths" ]] && echo "$paths 0"
     fi
 }
 
@@ -151,8 +160,10 @@ observed_counts() {
 # assigned in install_all_pair_paths (line 510), so a non-empty list is a direct signal that
 # needs no log scraping.
 #
-# P4 mode already gates on the right thing: observed_counts polls the proxy's
-# all_destination_paths, so its node count *is* this milestone.
+# P4 mode needs no separate check here: observed_counts already counts the proxy's installed
+# destination paths, so that count *is* this milestone. (An earlier version of this comment
+# claimed P4 was correct while observed_counts was in fact counting the response envelope's two
+# keys -- see the note there. The claim is true now; it was not then.)
 paths_installed() {
     local mode="$1"
     [[ "$mode" != "ovs" ]] && return 0
@@ -190,7 +201,7 @@ await_convergence() {
         info "  waiting for ${want_a} switches, ${want_b} links, and all-destination paths"
         info "  the Ryu app sleeps a hard-coded 60s before installing paths, so expect >60s"
     else
-        info "  waiting for link discovery: want ${want_a} nodes in all_destination_paths"
+        info "  waiting for link discovery: want ${want_a} destination paths"
     fi
 
     local start; start=$(date +%s)
@@ -207,7 +218,7 @@ await_convergence() {
                 printf '\r    switches=%s links=%s paths=%s%*s' \
                        "$a" "$b" "$( ((paths)) && echo installed || echo pending )" 10 ''
             else
-                printf '\r    nodes=%s%*s' "$a" 10 ''
+                printf '\r    paths=%s%*s' "$a" 10 ''
             fi
             last="$got $paths"
         fi
@@ -310,11 +321,40 @@ port_open() {
     return 1
 }
 
+# wait_for_port <port> <label> [timeout] [component]
+#
+# [Co-developed with claude code -- Adam]
+# The optional 4th argument is the component we just started. Pass it, and a port that opens
+# because *something else* is already listening no longer counts as success.
+#
+# That distinction is not theoretical. A stray kernel left running on :8000 outside this
+# script's pid tracking made `up p4` report "waiting for kernel API on :8000  up" while the
+# kernel it had actually started was already dead of `bind: Address already in use`. The whole
+# run then measured the stray process: `stack.sh wait` reported 288 edges and 128 hosts, which
+# are the OVS topology's numbers, during what was supposed to be a P4 session. Everything
+# downstream of that -- the graph, the flow tables, any baseline captured -- was about the wrong
+# network, and nothing said so.
 wait_for_port() {
-    local port="$1" label="$2" timeout="${3:-30}"
+    local port="$1" label="$2" timeout="${3:-30}" component="${4:-}"
     printf '  waiting for %s on :%s ' "$label" "$port"
     for _ in $(seq 1 $((timeout * 2))); do
-        if port_open "$port"; then echo " ${G}up${N}"; return 0; fi
+        if [[ -n "$component" ]] && ! is_running "$component"; then
+            echo " ${R}died${N}"
+            err "  $component exited while starting; :$port may be held by something else"
+            err "  check $LOG_DIR/$component.log, then:  ss -ltnp | grep :$port"
+            return 1
+        fi
+        if port_open "$port"; then
+            # The port is open, but is it ours? Only meaningful when we were told what to look
+            # for; without the component name this stays the old, weaker check.
+            if [[ -n "$component" ]] && ! is_running "$component"; then
+                echo " ${R}not ours${N}"
+                err "  :$port is open but $component is not running -- another process holds it"
+                return 1
+            fi
+            echo " ${G}up${N}"
+            return 0
+        fi
         printf '.'
         sleep 0.5
     done
@@ -436,7 +476,7 @@ cmd_up() {
         #     install_flow_entry fails with "Ryu controller returned HTTP 404".
         start_bg ryu "$LOG_DIR/ryu.log" \
             bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' ryu.app.rest_topology ryu.app.ofctl_rest"
-        wait_for_port 8080 "Ryu REST" 40 || {
+        wait_for_port 8080 "Ryu REST" 40 ryu || {
             err "  Ryu did not open :8080; see $LOG_DIR/ryu.log"; return 1; }
 
         echo "[2/3] data plane (Mininet, needs sudo)"
@@ -457,7 +497,7 @@ cmd_up() {
         start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
             env PYTHONPATH="$KERNEL_DIR/p4_proxy" \
             bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
-        wait_for_port 8081 "P4 proxy agent" 30 || {
+        wait_for_port 8081 "P4 proxy agent" 30 p4_proxy || {
             err "  proxy did not open :8081; see $LOG_DIR/p4_proxy.log"
             err "  if the log shows ECONNREFUSED to :5005x, bmv2 is not running -- start it first"
             return 1; }
@@ -479,7 +519,7 @@ cmd_up() {
     # Both dataplanes run under mode=mininet; the topology file is what selects OVS vs bmv2.
     start_bg kernel "$LOG_DIR/kernel.log" \
         bash -c "cd '$KERNEL_DIR/build' && ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
-    wait_for_port 8000 "kernel API" 40 || {
+    wait_for_port 8000 "kernel API" 40 kernel || {
         err "  kernel did not open :8000; see $LOG_DIR/kernel.log"; return 1; }
 
     # Recorded only now that the stack is actually up. Written up-front, a failed start left
