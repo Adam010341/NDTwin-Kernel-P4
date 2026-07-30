@@ -120,10 +120,19 @@ kernel 一定要**最後**開，而且開之前要等 LLDP 收斂完。原因是
 | 模式 | 輪詢的東西 | 收斂條件（10 switch 的拓撲） |
 |---|---|---|
 | OVS | Ryu `/v1.0/topology/switches` 和 `/links` | 10 台 switch + **32** 條 link（switch 之間的有向邊，host 的邊 Ryu 不會報） |
+| OVS | Ryu `/ryu_server/all_destination_paths` | **非空**（不驗數量：實際條數取決於 Ryu 學到幾台 host，而 static ARP 會擋住 host discovery） |
 | P4 | proxy `/ryu_server/all_destination_paths` | **14** 個 node（10 switch 以 dpid 為 key + 4 host 以 IP 為 key） |
 
-數字對上之後再多等 2 秒讓它穩定下來。實測小拓撲大約 **2 秒**就收斂，不用等滿 60 秒。
-`CONVERGE_WAIT`（預設 60，必須是純整數秒）現在是**上限**而不是固定等待時間。
+⚠️ **OVS 模式的兩個條件時間差很大，而且必須兩個都滿足。** link discovery 是交換機之間的
+LLDP，實測約 **2 秒**；但使用說明書要求的里程碑是 *all-destination paths installed*，它卡在
+`intelligent_router.py:282` 的 `hub.sleep(60)` 後面，所以**至少 60 秒**。只看 link 數量會比
+說明書的條件早放行大約 58 秒 —— 這正是先前的錯誤。
+
+`all_destination_paths` 初始是 `[]`（`intelligent_router.py:74`），只在 `install_all_pair_paths`
+裡被賦值（`:510`），所以「非空」是這個里程碑的直接訊號，不必去 grep log。
+
+`CONVERGE_WAIT`（預設 **150**，必須是純整數秒）是**上限**而不是固定等待時間 —— 先前預設 60，
+比它要等的事件本身還短。
 
 逾時的行為是刻意設計的：**會警告但仍然啟動 kernel**，因為這時候能進去看壞掉的狀態比直接放棄更
 有用。但如果控制層從頭到尾都沒回應，它會**等滿整個 timeout** 才繼續——立刻往下走只會把這個

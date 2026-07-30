@@ -137,12 +137,42 @@ observed_counts() {
     fi
 }
 
+# paths_installed <mode>  ->  0 when the controller has installed all-destination paths
+#
+# The milestone the user manual actually names ("you will see the 'all-destination paths
+# installed' message"), and a different, much later event than LLDP link discovery:
+#
+#   intelligent_router.py:282   if is_mininet: hub.sleep(60)
+#   intelligent_router.py:284   install_all_pair_paths(...)   <- fills all_destination_paths
+#
+# That is a hard-coded 60s sleep, which is why a manual start takes about a minute while link
+# discovery finishes in a couple of seconds. Gating on the link counts alone therefore released
+# the kernel roughly 58s early. `all_destination_paths` starts as [] (line 74) and is only
+# assigned in install_all_pair_paths (line 510), so a non-empty list is a direct signal that
+# needs no log scraping.
+#
+# P4 mode already gates on the right thing: observed_counts polls the proxy's
+# all_destination_paths, so its node count *is* this milestone.
+paths_installed() {
+    local mode="$1"
+    [[ "$mode" != "ovs" ]] && return 0
+    local n
+    n="$(curl -s --max-time 3 "$RYU_URL/ryu_server/all_destination_paths" \
+         | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["all_destination_paths"]))' \
+         2>/dev/null)"
+    [[ -n "$n" && "$n" -gt 0 ]]
+}
+
 # await_convergence <mode> <topo> <timeout>
 #
-# Polls the control plane until it reports the whole topology, rather than sleeping a fixed
-# 60s. The kernel pulls topology and destination paths exactly once at startup with no retry,
-# so what matters is not elapsed time but that discovery has actually finished -- and on a
-# small topology that is often a few seconds, not a minute.
+# Polls the control plane until it reports the whole topology *and* has installed the
+# all-destination paths, rather than sleeping a fixed 60s. The kernel pulls topology and
+# destination paths exactly once at startup with no retry, so what matters is not elapsed time
+# but that discovery has actually finished.
+#
+# Both conditions are required because they are different events with very different timings:
+# link discovery is LLDP between switches (seconds), while path installation sits behind a
+# hard-coded 60s sleep in the Ryu app. See paths_installed().
 #
 # Falls back to sleeping the whole timeout if the endpoint cannot be read at all: proceeding
 # immediately on an unreadable control plane would reintroduce the race this replaces.
@@ -157,26 +187,31 @@ await_convergence() {
 
     local want_a="${want% *}" want_b="${want#* }"
     if [[ "$mode" == "ovs" ]]; then
-        info "  waiting for link discovery: want ${want_a} switches, ${want_b} links"
+        info "  waiting for ${want_a} switches, ${want_b} links, and all-destination paths"
+        info "  the Ryu app sleeps a hard-coded 60s before installing paths, so expect >60s"
     else
         info "  waiting for link discovery: want ${want_a} nodes in all_destination_paths"
     fi
 
     local start; start=$(date +%s)
-    local last="" got probed=0
+    local last="" got probed=0 paths=0
     while true; do
         got="$(observed_counts "$mode")"
         [[ -n "$got" ]] && probed=1
-        if [[ -n "$got" && "$got" != "$last" ]]; then
+        # Only re-probe until it flips: installation does not un-happen, and the endpoint logs
+        # a line on every request.
+        (( paths == 0 )) && { paths_installed "$mode" && paths=1; }
+        if [[ -n "$got" && "$got $paths" != "$last" ]]; then
             local a="${got% *}" b="${got#* }"
             if [[ "$mode" == "ovs" ]]; then
-                printf '\r    switches=%s links=%s%*s' "$a" "$b" 10 ''
+                printf '\r    switches=%s links=%s paths=%s%*s' \
+                       "$a" "$b" "$( ((paths)) && echo installed || echo pending )" 10 ''
             else
                 printf '\r    nodes=%s%*s' "$a" 10 ''
             fi
-            last="$got"
+            last="$got $paths"
         fi
-        if [[ "$got" == "$want" ]]; then
+        if [[ "$got" == "$want" ]] && (( paths )); then
             # Matching counts mean discovery finished; give it a moment to stop moving.
             sleep 2
             # Blank the whole line, not just return to column 0: the progress line is longer
@@ -194,7 +229,9 @@ await_convergence() {
             if (( probed == 0 )); then
                 warn "  control plane never answered; slept ${timeout}s without confirming"
             else
-                warn "  did not converge within ${timeout}s (last: ${last:-none}, want: $want)"
+                warn "  did not converge within ${timeout}s (last: ${last:-none}, want: $want 1)"
+                (( paths == 0 )) && warn \
+                  "  all-destination paths were never installed; check $LOG_DIR/ryu.log"
                 warn "  the kernel pulls once and never retries, so its graph will stay"
                 warn "  incomplete -- starting it anyway so the state can be inspected"
             fi

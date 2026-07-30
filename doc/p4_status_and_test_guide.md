@@ -102,13 +102,14 @@
 | 0c | `./run_layers.sh selftest`（contract schema + 依賴圖） | ⚙️ | 10 秒 |
 | 0.5 | ASan／UBSan 建置並跑測試 | ⚙️ | 3 分 |
 | 1 | telemetry 灌 fixture（不需要資料平面） | ⚙️ | 2 分 |
-| 2a | 開 **OVS** Mininet | 🔒 | — |
-| 2b | `./stack.sh up ovs` + `wait` | 🔒（要按 Enter） | 1 分 |
-| 2c | `./stack.sh wait` 確認 `up=10 enabled=10` | ⚙️ | 10 秒 |
-| 2d | Mininet CLI 開**背景 iperf**（流量要持續到 2e 跑完） | 🔒 | 1 分 |
-| 2e | `./run_layers.sh api ovs --traffic`（趁流量還在跑） | ⚙️ | 1 分 |
-| 2f | `./run_layers.sh baseline ovs`（**只在 2e 通過時才抓**） | ⚙️ | 1 分 |
-| 2g | `./stack.sh down` + **`sudo mn -c`** | 🔒 | — |
+| 2a | `./stack.sh up ovs` —— 它先開 **Ryu**，然後停下來等你 | ⚙️ | 10 秒 |
+| 2b | 開 **OVS** Mininet，回去按 Enter（**Ryu 一定要先**） | 🔒 | — |
+| 2c | 等收斂 —— `paths=installed`，**約 70 秒**（Ryu app 內建 60 秒 sleep） | 自動 | 1.5 分 |
+| 2d | `./stack.sh wait` 確認 `up=10 enabled=10` | ⚙️ | 10 秒 |
+| 2e | Mininet CLI 開**背景 iperf**（流量要持續到 2f 跑完） | 🔒 | 1 分 |
+| 2f | `./run_layers.sh api ovs --traffic`（趁流量還在跑） | ⚙️ | 1 分 |
+| 2g | `./run_layers.sh baseline ovs`（**只在 2f 通過時才抓**） | ⚙️ | 1 分 |
+| 2h | `./stack.sh down` + **`sudo mn -c`** | 🔒 | — |
 | 3a | 開 **bmv2** Mininet（**不同的腳本**） | 🔒 | — |
 | 3b | `./stack.sh up p4` | 🔒（要按 Enter） | 1 分 |
 | 3c | 確認 10 台都有 clone session；`api p4`、`baseline p4` | ⚙️ | 2 分 |
@@ -295,10 +296,24 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
    直接 return，什麼都不說。`--observe-links` 只載入 `ryu.topology.switches`（提供**事件**），
    不含這兩組 REST endpoint，所以光靠它是不夠的。
 
-3. **kernel 必須等 LLDP 收斂完才能開。** `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**
+3. **kernel 必須等控制平面準備好才能開。** `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**
    拓撲和 destination paths 就結束，**沒有重試迴圈** —— 那一刻 Ryu 還不知道的東西，kernel 這輩子
-   都不會知道。`stack.sh up ovs` 現在會**輪詢** Ryu 直到 switch 和 link 數量跟拓撲檔對上
-   （實測小拓撲約 2 秒），`CONVERGE_WAIT`（預設 60）是上限而不是固定等待時間。
+   都不會知道。
+
+   ⚠️ **「link 收斂」和使用說明書講的里程碑是兩件事**，時間差非常大：
+
+   | 里程碑 | 機制 | 實測 |
+   |---|---|---|
+   | switch/link discovery | LLDP，交換機之間 | **約 2 秒** |
+   | **all-destination paths installed** | `intelligent_router.py:282` 的 `hub.sleep(60)` 之後才跑 `install_all_pair_paths` | **60 秒以上** |
+
+   說明書要求的是後者（「you will see the *all-destination paths installed* message」）。
+   `stack.sh up ovs` 現在**兩個都等**：輪詢 `/v1.0/topology/*` 直到數量對上，**並且**輪詢
+   `/ryu_server/all_destination_paths` 直到非空（`all_destination_paths` 初始是 `[]`，只在
+   `install_all_pair_paths` 裡被賦值，所以非空就是直接訊號，不必去 grep log）。
+   `CONVERGE_WAIT`（預設 **150**）是上限而不是固定等待時間 —— 之前預設 60，比它要等的事件本身還短。
+
+   P4 模式本來就是對的：它的 `observed_counts` 讀的就是 proxy 的 `all_destination_paths`。
 
 #### 需要兩個 terminal
 
@@ -307,37 +322,73 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
 | **A** | `stack.sh` / `run_layers.sh` | 留著 |
 | **B** | Mininet CLI（`sudo`，會停在 `mininet>`） | **一定要留著**，後面要在裡面產流量 |
 
-#### 2a. 開 OVS Mininet（terminal B）
+#### 2a. 起 stack，它會先開 Ryu 然後停下來等你（terminal A）
 
-```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+⚠️ **順序是 Ryu 先、Mininet 後**，不能顛倒 —— [使用說明書](https://ndtwin.org/docs/ndtwin-user-manual/ndtwin-kernel/operate-an-emulated-software-network/native-linux-excution-environment/)
+寫「Startup Order is Critical」，而理由比「交換機會重試」嚴重得多。
+
+`testbed_topo.py` 用 `RemoteController` 但**沒有指定 port**，而 Mininet 在這種情況下會
+**在自己啟動的那一刻去偵測 Ryu 在哪個 port** —— `mininet/node.py:1551` `checkListening()`：
+
+```python
+if self.port is not None:      # 沒指定，走 else
+    ...
+else:
+    for port in 6653, 6633:    # 探測
+        if self.isListening(self.ip, port):
+            self.port = port; break
+if self.port is None:          # 兩個都探不到
+    self.port = 6653           # 盲猜，並印 warning
 ```
 
-✅ 看到 `mininet>` 就成功。
+所以先開 Mininet 的話，兩次探測都失敗，port **回退成盲猜的 6653**。這件事的後果取決於 Ryu
+之後怎麼起：
 
-⚠️ 啟動時它會自己跑一輪 128 台 host 平行 ping 當自我測試，**那個階段的 ping 失敗（包含它自己印出的
-`100% packet loss`）可以忽略** —— 那是啟動洪泛造成的，不代表網路壞了。等提示符出現再開始測。
+| Ryu 的起法 | 先開 Ryu | 先開 Mininet |
+|---|---|---|
+| `stack.sh`（不給 `--ofp-tcp-listen-port`，Ryu 預設 6653） | 探測到 6653 ✅ | 盲猜 6653，**剛好對** ⚠️ |
+| 說明書那行（`--ofp-tcp-listen-port 6633`） | 探測到 6633 ✅ | 盲猜 6653，**永遠連不上** ❌ |
 
-#### 2b. 起 stack（terminal A）
+也就是說先開 Mininet 在 `stack.sh` 下是**靠運氣**成立的，照說明書的指令則是直接壞掉。
+（順帶：說明書的 `--observe-link` 單數也可以用，oslo.config 接受不歧義的前綴。）
 
 ```bash
 cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 ./stack.sh up ovs
 ```
 
-它會停下來等你（Mininet 已經開好了就直接按 Enter）。
+它會開 Ryu，然後印 `[2/3] data plane (Mininet, needs sudo)` 並停下來等你按 Enter。
+**先不要按**，去 terminal B 開 Mininet。
 
-✅ 關鍵是這兩行：
+#### 2b. 開 OVS Mininet（terminal B）
+
+```bash
+sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
 ```
-  waiting for link discovery: want 10 switches, 32 links
-    switches=10 links=32
-  converged after 2s          ← 一定要看到 converged
+
+✅ 看到 `mininet>` 就成功。然後回 terminal A 按 Enter。
+
+⚠️ 啟動時它會自己跑一輪 128 台 host 平行 ping 當自我測試，**那個階段的 ping 失敗（包含它自己印出的
+`100% packet loss`）可以忽略** —— 那是啟動洪泛造成的，不代表網路壞了。等提示符出現再開始測。
+
+#### 2c. 等收斂（terminal A，按下 Enter 之後自動）
+
+✅ 關鍵是這幾行：
+```
+  waiting for 10 switches, 32 links, and all-destination paths
+  the Ryu app sleeps a hard-coded 60s before installing paths, so expect >60s
+    switches=10 links=32 paths=pending
+    switches=10 links=32 paths=installed
+  converged after 68s         ← 一定要看到 converged
 [3/3] kernel
   waiting for kernel API on :8000 . up
 ```
-⚠️ 看到 `did not converge` 就別往下做，先查 Ryu。
+⚠️ **`paths=pending` 停留 60 秒左右是正常的**，那就是 Ryu app 裡那個 `hub.sleep(60)`。
+⚠️ 看到 `did not converge` 就別往下做，先查 Ryu（尤其 `all-destination paths were never
+installed` 這行，代表 `install_all_pair_paths` 拋例外了，log 裡會有 `Failed to load static
+topology file`）。
 
-#### 2c. 確認圖活了（terminal A）
+#### 2d. 確認圖活了（terminal A）
 
 ```bash
 ./stack.sh wait
@@ -350,7 +401,7 @@ converged after 0s
 ```
 `enabled=10` 是 OVS 模式健康的唯一指標。（P4 模式這裡會是 0，那是 Phase 6 沒做，不是失敗。）
 
-#### 2d. 開**持續**流量（terminal B）—— 順序很重要
+#### 2e. 開**持續**流量（terminal B）—— 順序很重要
 
 ⚠️ **流量必須在 2e 執行的「同時」還在跑**，不能先跑完再測。原因有兩個，都是實測踩到的：
 
@@ -375,7 +426,7 @@ mininet> h1 ping -c 5 h4
 ```
 ✅ 應該 0% packet loss。
 
-#### 2e. 跑契約測試（terminal A，趁流量還在跑）
+#### 2f. 跑契約測試（terminal A，趁流量還在跑）
 
 ```bash
 ./run_layers.sh api ovs --traffic
@@ -387,7 +438,7 @@ mininet> h1 ping -c 5 h4
 
 ⚠️ **`GAP` 不算失敗** —— 那是已登記在案的 kernel 缺口（例如 `release_lock_not_held`）。只有 `FAIL` 算。
 
-#### 2f. 抓基準（terminal A）
+#### 2g. 抓基準（terminal A）
 
 ```bash
 ./run_layers.sh baseline ovs
@@ -398,7 +449,7 @@ mininet> h1 ping -c 5 h4
 
 ⚠️ 只有在 2e **通過**的時候才抓基準。從壞掉的系統抓的基準會讓之後每次 `compare` 都拿錯的當標準。
 
-#### 2g. 收尾
+#### 2h. 收尾
 
 terminal A：
 ```bash
