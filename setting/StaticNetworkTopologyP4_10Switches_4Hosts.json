@@ -813,7 +813,7 @@
         "10.0.0.2"
       ],
       "dst_dpid": 2,
-      "dst_interface": 4,
+      "dst_interface": 3,
       "dst_ip": [
         "192.168.123.12"
       ],
@@ -821,7 +821,7 @@
     },
     {
       "src_dpid": 2,
-      "src_interface": 4,
+      "src_interface": 3,
       "src_ip": [
         "192.168.123.12"
       ],
@@ -839,7 +839,7 @@
         "10.0.0.3"
       ],
       "dst_dpid": 3,
-      "dst_interface": 5,
+      "dst_interface": 3,
       "dst_ip": [
         "192.168.123.13"
       ],
@@ -847,7 +847,7 @@
     },
     {
       "src_dpid": 3,
-      "src_interface": 5,
+      "src_interface": 3,
       "src_ip": [
         "192.168.123.13"
       ],
@@ -865,7 +865,7 @@
         "10.0.0.4"
       ],
       "dst_dpid": 4,
-      "dst_interface": 6,
+      "dst_interface": 3,
       "dst_ip": [
         "192.168.123.14"
       ],
@@ -873,7 +873,7 @@
     },
     {
       "src_dpid": 4,
-      "src_interface": 6,
+      "src_interface": 3,
       "src_ip": [
         "192.168.123.14"
       ],
