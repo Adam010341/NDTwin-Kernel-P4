@@ -252,6 +252,109 @@ class P4RuntimeClient:
                     if param.name == param_name: return param.id
         raise KeyError(f"Action parameter {param_name} not found")
 
+    # --- Reading tables back -------------------------------------------------------
+    # [Co-developed with claude code -- Adam]
+
+    def _table_name(self, table_id):
+        for table in self.p4info.tables:
+            if table.preamble.id == table_id:
+                return table.preamble.name
+        return None
+
+    def _action_name(self, action_id):
+        for action in self.p4info.actions:
+            if action.preamble.id == action_id:
+                return action.preamble.name
+        return None
+
+    def _match_field_name(self, table_id, field_id):
+        for table in self.p4info.tables:
+            if table.preamble.id == table_id:
+                for match in table.match_fields:
+                    if match.id == field_id:
+                        return match.name
+        return None
+
+    def _action_param_name(self, action_id, param_id):
+        for action in self.p4info.actions:
+            if action.preamble.id == action_id:
+                for param in action.params:
+                    if param.id == param_id:
+                        return param.name
+        return None
+
+    def read_table_entries(self):
+        """
+        Every table entry on this switch, with p4info ids resolved to names.
+
+        Returns a list of dicts:
+
+            {"table": "MyIngress.ipv4_lpm",
+             "priority": 0,
+             "is_default": False,
+             "match": {"hdr.ipv4.dstAddr": {"type": "lpm",
+                                            "value": b"\\n\\x00\\x00\\x04",
+                                            "prefix_len": 32}},
+             "action": {"name": "MyIngress.ipv4_forward",
+                        "params": {"port": b"\\x03", "dstAddr": b"..."}}}
+
+        Ids are resolved here rather than by the caller because the caller would then need the
+        p4info too, and a numeric id in the output is unreadable in a log.
+
+        Raises nothing on a missing name -- an entry referring to an id this p4info does not
+        describe is returned with None for that name, so a pipeline/p4info mismatch shows up as
+        data instead of an exception on the polling path.
+        """
+        req = p4runtime_pb2.ReadRequest()
+        req.device_id = self.device_id
+        # table_id 0 means "every table", which is what dump_table.py at the repo root does.
+        req.entities.add().table_entry.table_id = 0
+
+        entries = []
+        for response in self.stub.Read(req):
+            for entity in response.entities:
+                if not entity.HasField("table_entry"):
+                    continue
+                te = entity.table_entry
+
+                match = {}
+                for m in te.match:
+                    name = self._match_field_name(te.table_id, m.field_id)
+                    if m.HasField("exact"):
+                        match[name] = {"type": "exact", "value": m.exact.value}
+                    elif m.HasField("lpm"):
+                        match[name] = {"type": "lpm",
+                                       "value": m.lpm.value,
+                                       "prefix_len": m.lpm.prefix_len}
+                    elif m.HasField("ternary"):
+                        match[name] = {"type": "ternary",
+                                       "value": m.ternary.value,
+                                       "mask": m.ternary.mask}
+                    elif m.HasField("range"):
+                        match[name] = {"type": "range",
+                                       "low": m.range.low,
+                                       "high": m.range.high}
+
+                action = None
+                if te.action.HasField("action"):
+                    a = te.action.action
+                    action = {
+                        "name": self._action_name(a.action_id),
+                        "params": {self._action_param_name(a.action_id, p.param_id): p.value
+                                   for p in a.params},
+                    }
+
+                entries.append({
+                    "table": self._table_name(te.table_id),
+                    "priority": te.priority,
+                    # A default action has no match fields; the kernel's Classifier would
+                    # otherwise read it as a match-everything rule.
+                    "is_default": te.is_default_action,
+                    "match": match,
+                    "action": action,
+                })
+        return entries
+
     # --- Table Operations ---
     def read_egress_counter(self, port):
         counter_id = None

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 import json
 from proxy_agent.topology_manager import TopologyManager
-from proxy_agent import ryu_topology
+from proxy_agent import ryu_topology, ryu_flow_stats
 
 # We will attach the topology manager instance to the router later
 router = APIRouter()
@@ -110,6 +110,25 @@ async def modify_flow_entry(request: Request):
 
 @router.get("/stats/flow/{dpid}")
 async def get_flow_stats(dpid: int):
-    """Dummy endpoint for NDTwin-Kernel's flow table polling"""
-    # In the future, this should query P4Runtime to dump tables and format them like Ryu
-    return []
+    """
+    This switch's tables in Ryu's /stats/flow/<dpid> shape.
+
+    [Co-developed with claude code -- Adam]
+    The kernel polls this and feeds the body to Classifier::updateFromQueriedTables, which is
+    what produces every flow's `path`. Previously a hardcoded `[]`, which is why P4 paths were
+    always empty -- and, because the kernel wraps the body as {"dpid": N, "flows": <body>}, a
+    bare list also made `flows` a list where the documented shape is a map.
+
+    Returns the empty map rather than an error when the switch is unknown or unreadable: this is
+    polled once per second per switch, so a transient gRPC failure should cost one poll, not
+    produce an HTTP error the kernel would log as a JSON parse failure.
+    """
+    client = topology.switches.get(dpid) if topology else None
+    if client is None:
+        return {str(dpid): []}
+    try:
+        return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries())
+    except Exception as e:
+        print(f"[Proxy Agent] Reading tables from switch {dpid} failed: "
+              f"{type(e).__name__}: {e}")
+        return {str(dpid): []}
