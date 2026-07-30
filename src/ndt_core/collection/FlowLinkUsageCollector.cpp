@@ -670,7 +670,18 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
         m_sockfd, POLLIN, 0
     };
 
-    const int POLL_TIMEOUT_MS = 0;
+    // [Co-developed with claude code -- Adam]
+    // 0 means "return immediately", not "no timeout" -- so with no traffic this loop was
+    // poll -> ret==0 -> continue -> poll, spinning a full core forever. Measured on an idle
+    // kernel with no data plane and zero flows: this thread alone accounted for 100.9% CPU
+    // (2:05 of CPU in 2:03 of wall clock), which is the long-standing "kernel burns a core
+    // while idle" symptom.
+    //
+    // A short timeout keeps the loop responsive to m_running on shutdown -- the reason it
+    // polls at all rather than blocking indefinitely -- while letting the thread sleep in the
+    // kernel between packets. 100ms bounds shutdown latency at a tenth of a second and costs
+    // nothing in throughput, because a readable socket wakes poll() immediately regardless.
+    const int POLL_TIMEOUT_MS = 100;
     while (m_running.load())
     {
         int ret = poll(&pfd, 1, POLL_TIMEOUT_MS);
