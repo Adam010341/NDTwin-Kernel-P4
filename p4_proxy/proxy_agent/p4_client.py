@@ -180,8 +180,16 @@ class P4RuntimeClient:
         bmv2 drops the copy without an error anywhere -- the pipeline looks correct, the proxy
         looks correct, and no telemetry ever appears. So this is a hard failure, not a warning.
 
-        Uses MODIFY on ALREADY_EXISTS so a proxy restart against live switches reconfigures the
-        session instead of refusing to start.
+        Falls back to MODIFY when INSERT fails, so a proxy restart against live switches
+        reconfigures the session instead of refusing to start.
+
+        The fallback deliberately triggers on *any* INSERT failure rather than on
+        ALREADY_EXISTS. Measured against a real bmv2: inserting an existing session returns
+        **UNKNOWN with an empty details string**, not ALREADY_EXISTS, so a code-specific check
+        never fired -- every switch reported "clone session failed, NO telemetry from it" on
+        restart while the session was in fact fine. MODIFY on the same session then succeeds.
+        Nothing is masked by being less specific: a genuine failure fails the MODIFY too and is
+        reported.
 
         `Replica.port_kind` is a oneof: `egress_port` is the uint32 form and `port` a
         bytestring. Only one may be set. class_of_service must stay 0 -- PI rejects anything
@@ -207,25 +215,26 @@ class P4RuntimeClient:
             self.stub.Write(build(p4runtime_pb2.Update.INSERT))
             print(f"[{self.device_id}] Clone session {session_id} -> port {egress_port} installed")
             return True
-        except grpc.RpcError as e:
-            if e.code() == grpc.StatusCode.ALREADY_EXISTS:
-                try:
-                    self.stub.Write(build(p4runtime_pb2.Update.MODIFY))
-                    print(f"[{self.device_id}] Clone session {session_id} updated")
-                    return True
-                except grpc.RpcError as modify_error:
-                    print(f"[{self.device_id}] Clone session {session_id} MODIFY failed: "
-                          f"{modify_error.code().name}: {modify_error.details()}")
-                    return False
-            # The status code goes in the message, not just details(): bmv2 returns some
-            # failures with an empty details() string, and without the code there is nothing
-            # to diagnose from. PERMISSION_DENIED here usually means this client never won
-            # mastership -- e.g. another controller is already attached with the same
-            # election_id.
-            print(f"[{self.device_id}] Clone session {session_id} INSERT failed: "
-                  f"{e.code().name}: {e.details()} "
-                  f"-- no telemetry samples will be produced by this switch")
-            return False
+        except grpc.RpcError as insert_error:
+            # Any INSERT failure, not just ALREADY_EXISTS -- see the docstring. bmv2 reports a
+            # duplicate session as UNKNOWN with empty details, so a code-specific check silently
+            # never fired.
+            try:
+                self.stub.Write(build(p4runtime_pb2.Update.MODIFY))
+                print(f"[{self.device_id}] Clone session {session_id} already present, updated "
+                      f"(INSERT said {insert_error.code().name})")
+                return True
+            except grpc.RpcError as modify_error:
+                # Both failed, so this is a real problem. The status code goes in the message,
+                # not just details(): bmv2 returns some failures with an empty details() string,
+                # leaving nothing to diagnose from. PERMISSION_DENIED usually means this client
+                # never won mastership -- e.g. another controller is attached with the same
+                # election_id.
+                print(f"[{self.device_id}] Clone session {session_id} could not be programmed: "
+                      f"INSERT {insert_error.code().name}: {insert_error.details()} / "
+                      f"MODIFY {modify_error.code().name}: {modify_error.details()} "
+                      f"-- no telemetry samples will be produced by this switch")
+                return False
 
     # --- Helper methods for lookups ---
     def _get_table_id(self, name):

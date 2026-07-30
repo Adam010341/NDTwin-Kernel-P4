@@ -68,15 +68,26 @@ from proxy_agent.sflow_emitter import (  # noqa: E402
 
 
 class RecordingStub:
-    """Captures WriteRequests instead of sending them, and can be told to fail."""
+    """
+    Captures WriteRequests instead of sending them, and can be told to fail.
 
-    def __init__(self, error=None):
+    `always` distinguishes the two cases that matter for the INSERT/MODIFY fallback: failing
+    once models an existing session (INSERT rejected, MODIFY accepted), while failing every
+    time models a switch that genuinely cannot take the session. Without the distinction the
+    "real failure is reported" test would pass for the wrong reason, because its MODIFY retry
+    would quietly succeed.
+    """
+
+    def __init__(self, error=None, always=False):
         self.requests = []
         self.error = error
+        self.always = always
 
     def Write(self, request):
         self.requests.append(request)
         if self.error is not None:
+            if self.always:
+                raise self.error
             error, self.error = self.error, None  # fail once, then succeed
             raise error
 
@@ -229,11 +240,43 @@ class CloneSessionRequestTest(unittest.TestCase):
         types = [r.updates[0].type for r in self.client.stub.requests]
         self.assertEqual(types, [p4runtime_pb2.Update.INSERT, p4runtime_pb2.Update.MODIFY])
 
+    def test_the_code_bmv2_actually_returns_also_falls_back_to_modify(self):
+        # This is the case that matters, and the one the original ALREADY_EXISTS-only check
+        # missed. Measured against a real bmv2: inserting an existing clone session returns
+        # UNKNOWN with an empty details string, not ALREADY_EXISTS. MODIFY then succeeds.
+        #
+        # With the old check, every switch reported "clone session failed, NO telemetry from it"
+        # on a proxy restart while the session was in fact perfectly good -- the exact scenario
+        # the fallback exists for.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNKNOWN))
+        self.assertTrue(self.client.write_clone_session())
+
+        types = [r.updates[0].type for r in self.client.stub.requests]
+        self.assertEqual(types, [p4runtime_pb2.Update.INSERT, p4runtime_pb2.Update.MODIFY])
+
+    def test_any_insert_failure_is_retried_as_modify(self):
+        # Deliberately not code-specific: PI/bmv2 has already surprised us once about which
+        # status a duplicate produces, and being narrow is what hid the bug. Nothing is masked,
+        # because a genuine failure fails the MODIFY too (see the next test).
+        for code in (grpc.StatusCode.INVALID_ARGUMENT, grpc.StatusCode.UNKNOWN,
+                     grpc.StatusCode.ALREADY_EXISTS):
+            client = a_client()
+            client.stub = RecordingStub(FakeRpcError(code))
+            self.assertTrue(client.write_clone_session(), f"no MODIFY retry after {code.name}")
+
     def test_a_real_failure_is_reported_rather_than_swallowed(self):
         # Returning True here would leave the proxy believing telemetry works when no sample
         # will ever arrive -- the exact failure this phase exists to remove.
-        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.INTERNAL))
+        #
+        # always=True is the point: the fallback retries every INSERT failure as a MODIFY, so a
+        # stub that fails only once would let the retry succeed and this would pass without
+        # testing anything.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.INTERNAL), always=True)
         self.assertFalse(self.client.write_clone_session())
+
+        types = [r.updates[0].type for r in self.client.stub.requests]
+        self.assertEqual(types, [p4runtime_pb2.Update.INSERT, p4runtime_pb2.Update.MODIFY],
+                         "both should have been attempted before giving up")
 
     def test_a_custom_session_and_port_are_honoured(self):
         self.client.write_clone_session(session_id=300, egress_port=64)
