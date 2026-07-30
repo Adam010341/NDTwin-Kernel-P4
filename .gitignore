@@ -19,3 +19,6 @@ __pycache__/
 build-asan/
 # test-run artefacts (tools/test_workflow)
 .test_run/
+
+# ctest 產物（2026-07-30 誤加進版本庫過一次，見 commit a142fe0）
+Testing/
