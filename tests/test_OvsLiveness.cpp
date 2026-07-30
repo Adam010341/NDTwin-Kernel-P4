@@ -20,6 +20,7 @@
  * "absent" from "cannot tell" and makes the transition symmetric.
  */
 
+#include <csignal>
 #include <optional>
 #include <string>
 #include <vector>
@@ -37,6 +38,7 @@ namespace
 class LivenessProbe : public DeviceConfigurationAndPowerManager
 {
   public:
+    using DeviceConfigurationAndPowerManager::describeCommandStatus;
     using DeviceConfigurationAndPowerManager::OvsLiveness;
     using DeviceConfigurationAndPowerManager::ovsLivenessFor;
 };
@@ -153,4 +155,44 @@ TEST(FailureRunTest, ASecondRunReportsAgainRatherThanStayingQuietForever)
 
     EXPECT_TRUE(run.recordFailure()) << "a new fault must be reported, not swallowed";
     EXPECT_EQ(run.recordSuccess().value_or(0), 1u);
+}
+
+// --- describeCommandStatus: pclose returns a wait status, not an exit code.
+
+TEST(CommandStatusTest, AnExitCodeIsReportedAsAnExitCodeNotAWaitStatus)
+{
+    // The bug this replaces: pclose()'s return value was logged raw, so exit code 1 printed as
+    // "status 256" and 127 as "status 32512" -- numbers with no meaning to whoever reads the log.
+    EXPECT_EQ(LivenessProbe::describeCommandStatus(1 << 8),
+              "exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a process "
+              "with no controlling terminal)");
+    EXPECT_EQ(LivenessProbe::describeCommandStatus(3 << 8), "exit code 3");
+}
+
+TEST(CommandStatusTest, TheTwoStatusesThisCommandActuallyProducesAreExplained)
+{
+    // 127 and 1 send an operator to completely different places -- a missing binary versus sudo
+    // refusing -- and the second is the original cause of the whole fabric reading as dead, so
+    // the log should not make the reader look it up.
+    EXPECT_NE(LivenessProbe::describeCommandStatus(127 << 8).find("command not found"),
+              std::string::npos);
+    EXPECT_NE(LivenessProbe::describeCommandStatus(1 << 8).find("sudo password prompt"),
+              std::string::npos);
+}
+
+TEST(CommandStatusTest, ASignalledCommandIsNotReportedAsAnExitCode)
+{
+    // WIFEXITED is false here, so decoding with WEXITSTATUS would invent an exit code the child
+    // never returned. A killed ovs-vsctl (SIGKILL under memory pressure, say) must say so.
+    EXPECT_EQ(LivenessProbe::describeCommandStatus(SIGKILL), "killed by signal 9");
+}
+
+TEST(CommandStatusTest, MinusOneIsReportedAsAFailureToReapRatherThanAsSuccess)
+{
+    // pclose returns -1 when it could not wait for the child at all. That is not a status to
+    // decode, and it must not be silently treated as some exit code.
+    const std::string described = LivenessProbe::describeCommandStatus(-1);
+    EXPECT_NE(described.find("could not be reaped"), std::string::npos) << described;
+    EXPECT_EQ(described.find("exit code"), std::string::npos)
+        << "-1 is not an exit status: " << described;
 }

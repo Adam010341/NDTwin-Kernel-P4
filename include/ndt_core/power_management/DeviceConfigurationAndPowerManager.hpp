@@ -277,6 +277,23 @@ class DeviceConfigurationAndPowerManager
      */
     static uint64_t syntheticPowerMilliwattsFor(uint64_t dpid);
 
+    /**
+     * @brief Renders a `pclose()` return value as something an operator can act on.
+     *
+     * @param status `pclose()`'s return value: a `waitpid()` wait status, or -1.
+     *
+     * @details
+     * `pclose()` does not return the child's exit code -- it returns the wait status, so exit
+     * code 1 is 256 and 127 is 32512. Logging it raw sent the reader looking for a meaning that
+     * does not exist. Decoded here, and the two statuses this command actually produces are named:
+     * 127 means ovs-vsctl is missing, 1 means it refused, which is what a sudo password prompt
+     * looks like on a process with no controlling terminal -- the original cause of the fabric
+     * showing as dead.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    static std::string describeCommandStatus(int status);
+
   private:
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     utils::DeploymentMode m_mode;

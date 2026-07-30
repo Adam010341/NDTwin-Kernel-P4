@@ -9,6 +9,9 @@
 #include "utils/SSHHelper.hpp"                            // for getPowerRe...
 #include "utils/Utils.hpp"                                // for Deployment...
 #include <algorithm>                                      // for find_if
+#include <cerrno>                                         // for errno
+#include <cstring>                                        // for strerror
+#include <sys/wait.h>                                     // for WIFEXITED, WEXITSTATUS
 #include <boost/graph/detail/adjacency_list.hpp>          // for vertices
 #include <boost/iterator/iterator_categories.hpp>         // for random_acc...
 #include <boost/iterator/iterator_facade.hpp>             // for operator!=
@@ -381,6 +384,40 @@ DeviceConfigurationAndPowerManager::syntheticPowerMilliwattsFor(uint64_t dpid)
     return kBaselineMilliwatts + (mixed % kSpanMilliwatts);
 }
 
+/** @brief Renders pclose()'s wait status as something an operator can act on. See the header.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+std::string
+DeviceConfigurationAndPowerManager::describeCommandStatus(int status)
+{
+    if (status == -1)
+    {
+        return std::string("could not be reaped: ") + std::strerror(errno);
+    }
+    if (WIFSIGNALED(status))
+    {
+        return "killed by signal " + std::to_string(WTERMSIG(status));
+    }
+    if (WIFEXITED(status))
+    {
+        // The two we actually expect, named because "exit code 1" and "exit code 127" send an
+        // operator to completely different places.
+        const int code = WEXITSTATUS(status);
+        if (code == 127)
+        {
+            return "exit code 127 (command not found -- is ovs-vsctl installed?)";
+        }
+        if (code == 1)
+        {
+            return "exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a "
+                   "process with no controlling terminal)";
+        }
+        return "exit code " + std::to_string(code);
+    }
+    return "unrecognised wait status " + std::to_string(status);
+}
+
 /** @brief Logs the first failure of a run of failures, and how many followed. See the header.
  *
  * [Co-developed with claude code -- Adam]
@@ -457,7 +494,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                 const int rc = pclose(fp);
                 if (rc != 0)
                 {
-                    reportBridgeQueryFailure("exited with status " + std::to_string(rc));
+                    reportBridgeQueryFailure(describeCommandStatus(rc));
                     return std::nullopt;
                 }
                 reportBridgeQueryRecovered();

@@ -87,19 +87,23 @@ OVS 模式、`iperf -u -b 100M` 灌流量時觀察到的。分類與處置：
 
 | # | 現象 | 判定 | 處置 |
 |---|---|---|---|
-| 1 | 鍊路使用率為零 | Ryu 在 13:57:00 死掉的下游效應 | 環境問題，**待重測確認** |
+| 1 | 鍊路使用率為零 | **不是 bug** —— `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2245`）刻意排除所有接到 host 的邊，而 h1/h2 都在 s1 底下 | 已實測釐清（`6996062`）。**我原本歸咎 Ryu 猝死，那個歸因是錯的** |
 | 2 | `src_ip: 16777226` 看起來很怪 | **不是 bug** —— 那是 `in_addr::s_addr`，network order，正是 10.0.0.1 | 文件講清楚（`0e84234`）。**我先前說「文件錯了」是我判斷錯誤** |
-| 3 | flow table 是空的 | 同 #1 | 待重測 |
+| 3 | flow table 是空的 | **不是 bug** —— 實測 10 台各 130 條 | 我給的指令多加了 `?dpid=1`，那個端點是精確比對 target，加參數就 404（`6996062`）|
 | 4 | `get_num_of_flows_passing_a_switch` → Not Found | **我給錯指令**，那是 POST + JSON body | — |
 | 5 | 資源與電源 output 很怪 | **真 bug**：`power_consumed` 是 [0, 2⁶⁰) 的亂數 = 1.9×10¹⁴ 瓦，而且每次輪詢重骰 | 已修（`0e84234`），30–150 W 且穩定 |
 | 6 | 鎖是 Not Found | **我給錯指令** + 合法值沒寫在文件裡 | 文件補上 `routing_lock`/`graph_lock`/`power_lock`（`0e84234`） |
-| 7 | install entry 後查詢是空的 | 同 #1 | 待重測 |
+| 7 | install entry 後查詢是空的 | 同 #3，同一個錯指令 | 同上 |
 | 8 | ping 100% packet loss | **不是 bug** —— 你在灌 100M UDP，s1-eth3 已過 594 萬封包，ICMP 被餓死是預期的 | 重測請用 `-b 10M` |
 | 9 | web-gui 全部節點紅色 | **真 bug**（兩個），見第 1b 節 | 已修（`6b3dc0c`） |
 
-兩個真 bug（#5、#9）都修了並實機驗證過。#1/#3/#7 是 Ryu 猝死的連鎖後果 ——
-**死因至今未確定**（log 突然中斷、沒有 traceback、沒有 OOM 紀錄），這點沒有含糊帶過的空間：
-如果重測時再發生一次，要先抓 Ryu 的死因，不要當成 kernel 的問題。
+**最終結果：真 bug 只有 2 個**（#5、#9），都修了並實機驗證過。**3 個是我給錯指令**
+（#4、#6、以及 #3/#7 共用的那個 `?dpid=1`）。其餘是條件沒滿足，不是壞掉。
+
+⚠️ 我一度把 #1/#3/#7 全部歸咎於「Ryu 在 13:57:00 猝死」。**那個歸因是錯的** —— 真正的原因平凡得多
+（流量兩端同一台交換機、以及我給錯指令）。Ryu 確實死過一次而且**死因至今未確定**
+（log 突然中斷、沒有 traceback、沒有 OOM 紀錄），那件事本身還沒結案，但它不是這三項的原因。
+教訓：看到一個顯眼的故障就把手邊所有症狀掛上去，會蓋掉真正的原因。
 
 ### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
 
@@ -141,17 +145,18 @@ OVS 模式、`iperf -u -b 100M` 灌流量時觀察到的。分類與處置：
 現場確認（2026-07-30 覆核過）：
 
 ```bash
-pgrep -x ndtwin_kernel; pgrep -x simple_switch_grpc   # 空 = 沒在跑
+pgrep -x ndtwin_kernel; pgrep -x simple_switch_g      # 空 = 沒在跑
+#                        ^^^ 只到 15 字元：comm 欄位上限，寫全名永遠匹配不到
 pgrep -af "[t]estbed_topo.py"                          # 中括號避免匹配到自己的 shell
 sudo ovs-vsctl list-br                                 # 空 = 沒有 OVS bridge
 ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
 ```
 
-- kernel / proxy / ryu 都已停，`:8000`/`:8080`/`:8081` 全空。
-- **Mininet 沒有在跑**（OVS 和 bmv2 都沒有），`ovs-vsctl list-br` 是空的。2026-07-30 覆核。
-  這一節先前寫「Mininet 還開著（bmv2 10 台）」，已經不成立。
+- **2026-07-30 稍晚覆核：整組 OVS stack 正在跑** —— kernel、Ryu、OVS Mininet（10 台 bridge）都在，
+  `:8000`/`:8080` 有人聽。我起的 iperf 已全部收掉。
+  （這一節在同一天內已經過期兩次了，所以請一律用上面的指令現場確認。）
 - 要重新開始測試就照 `doc/p4_status_and_test_guide.md` 走。收尾用
-  `sudo mn -c && pkill -x simple_switch_grpc`（`-x` 而不是 `-f`）。
+  `sudo mn -c && pkill -x simple_switch_g`（`-x` 而不是 `-f`，而且名稱只到 15 字元）。
 - `.test_run/baseline/{ovs,p4}` 兩份基準都是**在正確設定下、有流量時**抓的，可以信任。
   Phase 6 做完之後會產生大量預期差異，屆時 allowlist 裡標了「Phase 6」的項目應該變成 unused
   —— 那正是它們該消失的訊號。

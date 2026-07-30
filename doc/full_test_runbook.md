@@ -57,7 +57,8 @@ P4 對照。背景說明、每個功能的證據、已知限制在 [p4_status_an
 cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 ./stack.sh down
 sudo mn -c
-pgrep -x ndtwin_kernel; pgrep -x simple_switch_grpc; pgrep -x iperf
+pgrep -x ndtwin_kernel; pgrep -x simple_switch_g; pgrep -x iperf
+#                        ^^^ 15 字元上限，寫 simple_switch_grpc 永遠匹配不到
 pgrep -af "[t]estbed_topo.py"          # 中括號避免匹配到自己的 shell
 sudo ovs-vsctl list-br
 ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
@@ -374,7 +375,7 @@ terminal A：
 ```bash
 ./stack.sh down
 sudo mn -c
-pkill -x simple_switch_grpc          # -x 而不是 -f
+pkill -x simple_switch_g             # -x 而不是 -f，且名稱只到 15 字元
 ```
 
 ---
