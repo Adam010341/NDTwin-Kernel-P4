@@ -162,6 +162,16 @@ What is still open: `doc/HANDOFF.md`.
     under a 200 OK. The body still reaches a shell unescaped -- that boundary is stated in the
     header, at the interpolation, and pinned by a test asserting the check is shape-only.
 
+25. **Stop `powerOff` destroying the state it could not read** (`65aaa38`).
+    `OVSPowerStrategy::executeListPorts` returned an empty vector both for a bridge with no ports and
+    for a failed `ovs-vsctl list-ports` -- pclose's status was discarded, and a nonexistent bridge
+    writes nothing and exits 1, so the status was the only difference. `powerOff` wrote that empty
+    list over the graph's saved ports *before* checking anything and then deleted the bridge,
+    destroying both records of what `powerOn` must reattach; the switch then came back up with no
+    ports and was marked UP. Now returns `std::optional` and refuses the whole operation when the
+    port list is unknown. Also moves `describeCommandStatus` into `utils` -- this class logged
+    `std::system`'s raw wait status, so an exit code of 1 appeared as "status 256".
+
 ### Known limitations
 
 - P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up

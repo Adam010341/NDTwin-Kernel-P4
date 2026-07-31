@@ -25,7 +25,7 @@ flow 安裝、link 失效重算都實機驗證過。剩下的是**測試覆蓋�
 | 層 | OVS | P4 |
 |---|---|---|
 | L0 build（含 p4c） | ✅ | ✅ |
-| L1 單元（**191** C++ 直接跑 + ctest、7 個 Python 套件） | ✅ | ✅ |
+| L1 單元（**207** C++ 直接跑 + ctest、7 個 Python 套件） | ✅ | ✅ |
 | L2 API 契約 | **36/36 錯誤路徑全綠**（`get_graph_data` 見下方 flaky 註）| 待重測 |
 | L3 元件契約 | 1 BROKEN + 1 MISSING | 同 |
 | log allowlist | ✅ | ✅ |
@@ -350,7 +350,8 @@ P4 達到「和 OVS 一樣不會復原」的水準。
 | `KeyedFailureLog` | ✅ 12 個 |
 | `ryu_topology` / `kernel_notifier` / `topology_manager` | ✅ 24 / 13 / 9（早就存在） |
 | **`HttpSession`（除了參數解析）** | ❌ |
-| **`OVSPowerStrategy` / `P4PowerStrategy`** | ❌ —— 而且 `OVSPowerStrategy.cpp:49` 直接呼叫 `utils::execCommand` 不走自己的虛擬接縫，**mock 子類別會真的執行指令**，要先修接縫 |
+| `OVSPowerStrategy` | ✅ 12 個 + wait-status 8 個（`65aaa38`）。⚠️ 上一版這裡寫「要先修接縫」是**過期資訊** —— 那個洞早就補掉了 |
+| **`P4PowerStrategy`** | ❌ |
 | **`TopologyAndFlowMonitor`（2500 行）** | ❌ 無獨立測試。要先想清楚接縫（被 `getGraph()` 深拷貝隔開） |
 | **`ApplicationManager` / `SimulationRequestManager`** | ❌ |
 | **`SSHHelper` / `execCommand`** | ❌ **刻意最後做** —— 它們的核心問題是 shell injection，補測試而不修注入只會把現狀凍結 |
@@ -416,7 +417,7 @@ host**，所以：
 | # | 項目 | 為什麼在這個位置 |
 |---|---|---|
 | ~~1~~ | ~~`SimulationRequestManager`：爛 JSON／缺欄位回 202 → 400~~ | ✅ **已完成**（`05353d5`）—— 見下面「已完成」段 |
-| 2 | `OVSPowerStrategy` 補測試 | 要**先修接縫**（見 1i） |
+| ~~2~~ | ~~`OVSPowerStrategy` 補測試~~ | ✅ **已完成**（`65aaa38`）—— 前提是錯的（接縫早就補好了），但挖到一個 audit 沒提到的真 bug。見下 |
 | 3 | `setSwitchPowerState` 不論成敗都更新圖 | 同一類「靜默成功」，TESTBED-only |
 | 4 | `/ndt/disable_switch` 幽靈端點 | 要嘛實作、要嘛讓 app 停止呼叫。**節能功能可能從來沒生效過** |
 | 5 | host 發現的 static ARP 問題（定期重拉 host） | 讓 `get_graph_data` 從 flaky 變成穩定 |
@@ -458,6 +459,48 @@ parse 過，直接進 curl 命令列，simulator server 回什麼（包含拒收
    本身：`"case_id": null` 意思是呼叫端沒給值，該讀到的是「缺欄位」不是「型別錯誤」。
 2. **把 `requiredRequestFields()` 縮短，兩個測試看不到** —— 因為它們的期望值是從同一份清單推導的
    （同義反覆）。補了一個把五個名字**字面寫死**的測試，否則清單可以悄悄停止檢查某個欄位而全部保持綠燈。
+
+#### 待辦第 2 項已完成（2026-07-31，commit `65aaa38`）
+
+⚠️ **這一項的前提是錯的。** 待辦寫「要先修接縫（`OVSPowerStrategy.cpp:49` 直接呼叫
+`utils::execCommand`）」—— 那個洞**早就補掉了**，程式碼裡還留著說明它的註解。這是本文件第二次
+用過期資訊誤導我自己（第 1j 教訓 3）。**接縫是完好的，這一項單純只是缺測試。**
+
+但寫測試的過程挖出一個 **audit 沒提到、而且比 audit 提到的那項嚴重**的 bug：
+
+`executeListPorts` 對「查詢失敗」和「bridge 真的沒有 port」都回空 vector —— `pclose` 的 status
+從來沒檢查。實測 `sudo ovs-vsctl list-ports s99`（不存在的 bridge）是 **exit 1 + 完全沒有輸出**，
+所以**退出碼是唯一能區分兩者的東西**。
+
+而 `powerOff` 在**檢查任何東西之前**就把那個空清單寫進圖，然後 `del-br`：
+
+```
+list-ports 失敗 → 回空 vector
+  → setMininetBridgePorts(node, {})   ← 圖裡存的 port 清單被清空
+  → del-br s1                          ← bridge 被刪掉
+  → 兩份紀錄同時消失
+  → 之後 powerOn 建出一個沒有任何 port 的 bridge，並 setVertexUp
+```
+
+**結果是交換機回報健康、但沒有 data plane 接著**，而且沒有任何指令看起來失敗過。跟第 1b 節那個
+「`list-br` 失敗把整個 fabric 標成死的」是**同一種混淆**，但這個是永久性的 —— 1b 那個下一輪就會
+自己恢復，這個把唯一的紀錄銷毀了。
+
+修法：`executeListPorts` 回 `std::optional`（`nullopt` = 查不出來），`powerOff` 查不出來就**拒絕
+執行** —— 不寫圖、不刪 bridge、不標 down，理由放進 `OpResult`。**刪 bridge 是不可逆的，不能在
+狀態未知時做。**
+
+順手把 `describeCommandStatus` 移到 `utils::`：`OVSPowerStrategy` 在 log **原始 wait status**，
+所以 `add-br` 撞到既有 bridge（實測 exit 1）被印成 `status 256`。那個解碼器早就為 liveness probe
+寫好了，只是當時是就地寫死的。`utils::execCommand` 有同樣的問題，一起修。
+
+**還留一個洞，用測試記錄而不是修掉**：`powerOn` 在沒有存過 port 的情況下會建出空 bridge 並回報
+成功。vertex 初始是 `isUp=false`，所以剛載入拓撲時就走得到。沒修是因為**修法是個決定**（port 該
+從哪來？靜態拓撲？），不是這個 class 的 bug。測試註解第一句就寫「recording, not endorsing」。
+
+**另外學到一課：mutation harness 自己也要驗證。** 我第一次跑回報「四個 mutant 全部存活」，那是
+`grep -v "("` 把兩種 FAILED 行都濾掉了 —— **不是測試沒用**。差一點得出完全相反的結論。現在
+harness 會先確認 `MUTANT` 標記真的進了檔案才跑。
 
 ### 3. 刻意延後的技術債
 
