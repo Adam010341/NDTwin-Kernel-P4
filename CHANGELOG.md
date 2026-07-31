@@ -121,6 +121,37 @@ What is still open: `doc/HANDOFF.md`.
     serve flow tables or resolve paths were removed, each verified obsolete against the live stack
     rather than inferred from the comparison.
 
+18. **Fix three lifecycle faults in FlowDispatcher** (`d5f5bfa`), which had no tests at all:
+    `stop()` iterated and cleared `workers_` unlocked while `enqueue()` inserted under the mutex; a
+    lost wakeup deadlocked `stop()` itself because `running_` was written outside the mutex; and
+    `enqueue()` spawned workers after `stop()` had moved the map out, leaving a joinable thread with
+    no owner. Six lifecycle tests added.
+
+19. **Connect the OpResult chain** (`8c25dbc`). Phase 2 made the routing methods return `OpResult`;
+    `Controller`'s sender then discarded every one, so nothing could act on a rejected rule --
+    `HttpSession`'s comment claimed otherwise. Unknown dpids are now rejected at request time with
+    404 (knowable then, unlike a southbound outcome), and asynchronous outcomes are logged with the
+    operation, dpid and the controller's reply. L2 31/36 -> 32/36.
+
+20. **Lock `m_allPathMap` and `m_switchCountMap`** (`0596dd1`), whose mutex was declared and never
+    used. Six accesses were unsynchronised while readers took a `shared_lock`, which protects
+    readers from each other and nothing else. The periodic destination-path refresh added earlier in
+    this branch turned a startup-only race into a permanent one.
+
+21. **Recompute routes when the topology changes** (`2c81b26`). A link failure previously changed
+    nothing: `intelligent_router.py` notified the twin and stopped, there was no `remove_edge`
+    anywhere in the file, and `install_all_pair_paths` ran exactly once per process. Verified live
+    over a full down/up cycle -- traffic moved from s5 to s6 and back.
+
+22. **Answer 400 for a malformed query parameter** (`832d75c`) instead of 500. `?src_ip=not.an.ip`
+    and `?dpid=abc` threw out of the parsers into the outermost catch. The new `tryParseUint64` is
+    deliberately stricter than `stoull`, which reads "12abc" as 12 and wraps "-1" to 2^64-1.
+
+23. **Report loop failures on their edges** (`f5281a8`). The path-walk loop warned once per
+    millisecond per flow: one misconfigured port produced 270,991 lines and a 41 MB log, burying the
+    one line that named the fault. `utils::KeyedFailureLog` reports a failure once it has outlasted
+    a hold-off, and once more when it clears.
+
 ### Known limitations
 
 - P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up

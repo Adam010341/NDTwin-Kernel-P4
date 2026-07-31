@@ -1,31 +1,37 @@
-# 交接筆記（2026-07-29 收尾）
+# 交接筆記（最後更新 2026-07-31）
 
 [Co-developed with claude code -- Adam]
 
-這份是「還沒歸檔的東西」清單。已經歸檔的請直接看：
+這份是「還沒歸檔的東西」＋「目前的判斷與待辦」。已經歸檔的請直接看：
 
 | 內容 | 在哪 |
 |---|---|
-| 各 Phase 進度、Phase 6 入手點 | [p4_bmv2_support_plan.md](p4_bmv2_support_plan.md) 開頭的「目前進度」 |
-| 測試流程、實測數據、通過標準 | [p4_status_and_test_guide.md](p4_status_and_test_guide.md) |
+| 各 Phase 進度、Phase 6 入手點 | [p4_bmv2_support_plan.md](p4_bmv2_support_plan.md) |
+| **完整測試流程（執行用 runbook）** | [full_test_runbook.md](full_test_runbook.md) |
+| 測試分層定義、實測數據、通過標準 | [p4_status_and_test_guide.md](p4_status_and_test_guide.md) |
 | 環境陷阱（sudo、pgrep、清理、順序） | [environment_gotchas.md](environment_gotchas.md) |
-| OVS↔P4 的 170 個已接受差異＋原因 | [../tools/contract_test/baseline_diff_allowlist.txt](../tools/contract_test/baseline_diff_allowlist.txt) |
-| 每個 bug 的完整分析 | git log（commit message 寫得很詳細，`3acad16`..`02c4913`）|
+| OVS↔P4 的已接受差異＋原因 | [../tools/contract_test/baseline_diff_allowlist.txt](../tools/contract_test/baseline_diff_allowlist.txt) |
+| 每個 bug 的完整分析 | git log（commit message 寫得很詳細）|
+| 按子系統的程式碼審查（10 階段） | [audit-be3c242/](audit-be3c242/) —— 判定見下面第 1h 節 |
 
 ---
 
-## 下一步：Phase 6
+## 目前的狀態（一句話）
 
-計畫在 `p4_bmv2_support_plan.md`。**先讀那裡的「Phase 6 的具體入手點」**（5 條實測發現）。
+**測試堆疊在 OVS 和 P4 兩邊都綠**（L0/L1/L2/L3/log/L4），P4 的圖、telemetry、雙向 path、
+flow 安裝、link 失效重算都實機驗證過。剩下的是**測試覆蓋率**、**P4 liveness 還是 stub**、
+以及一批已查證但未修的 audit 發現。
 
-核心事實：`GET /ndt/inform_switch_entered` 是**唯一**會把 `isEnabled` 設成 true 的東西，
-proxy 完全沒呼叫它。連帶 `path=[]`、速率 0、link usage 0。
-**telemetry 資料已經進到 kernel 了，缺的是把它掛到圖上。**
+| 層 | OVS | P4 |
+|---|---|---|
+| L0 build（含 p4c） | ✅ | ✅ |
+| L1 單元（175 C++ 直接跑 + ctest、7 個 Python 套件） | ✅ | ✅ |
+| L2 API 契約 | 34/36（剩 `received_a_simulation_case` ×2）| 32/36 → 待重測 |
+| L3 元件契約 | 1 BROKEN + 1 MISSING | 同 |
+| log allowlist | ✅ | ✅ |
+| L4 差異比對 | — | ✅ PASS（14 條已接受差異）|
 
-⚠️ **開始 Phase 6 之前**：`EventBus::emit()` 有一個確認過但目前休眠的 deadlock
-（持有 `shared_lock` 時同步呼叫 handler）。全專案目前**沒有任何** `registerHandler()` 呼叫，
-所以踩不到；但 Phase 6 接第一個 handler 的那一刻它就活了。修法（已討論、未套用）：在持鎖區間內把
-handler vector 複製出來、放鎖後再呼叫。
+⚠️ **L2 的 `get_graph_data` 是時間的函數，不是程式碼的函數** —— 見第 2 節。
 
 ---
 
@@ -243,7 +249,7 @@ kernel **有**正確偵測 5 秒逾時、記 WARN、指名端點。但端點仍�
 裡時就送出了。這和 L2 的 `install_flow_entry__unknown_dpid` 回 200 是**同一個缺口**，要讓
 dispatcher 的結果回流到 HTTP 層才能修，不是小改。
 
-### 1g. link 掛掉之後路徑不會重算（2026-07-31，未修，OVS 和 P4 都一樣）
+### 1g. ~~link 掛掉之後路徑不會重算~~ ✅ 已修（2026-07-31，commit `2c81b26`）
 
 實測情境：OVS 模式，`h1 iperf -c 10.0.0.97`，先手動在 s1 裝一條 priority 100 的規則把它導向
 port 1（往 s5），流量確實跟著走。然後在 Mininet 打 `link s1 s5 down`。
@@ -281,27 +287,160 @@ P4 達到「和 OVS 一樣不會復原」的水準。
 |---|---|---|
 | 小 | `on_link_delete` 加 `remove_edge` | 單獨做不會重新導向，但是後兩項的前提。**現在 Ryu 的圖是錯的** |
 | 中 | link 變動時重算並重下受影響路徑 | `safe_add_or_modify_flow`（用 `OFPFC_MODIFY_STRICT`）**在同一個檔案裡已經存在**，只是 `install_all_pair_paths` 沒用它 |
-| 大 | twin 偵測並回報「黑洞」flow（入口有量、出口沒有） | 這是 twin 該有的能力，目前它只看入口 |
+| 大 | twin 偵測並回報「黑洞」flow（入口有量、出口沒有） | 這是 twin 該有的能力，目前它只看入口。**未做**，待辦第 11 項 |
 
-### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
+**已做的（`2c81b26`）**：`on_link_delete` 移除有向邊、`on_link_add` 更新**實際使用的圖**
+（原本只動 `dynamic_net`，所以在手冊記載的 static 模式下 link 恢復從來沒被反映），link 變動時
+**3 秒 debounce + greenlet 重算**（一次 `link down` 兩個事件、`install_all_pair_paths` 要走 16256
+個 host pair，同步做會卡住 LLDP discovery）。順手補了「switch 已斷線時跳過」的防護。
 
-帶流量的 OVS 迴歸跑到 **30/36**。剩下的：
+實機驗證完整 down/up 循環：`h1 → s1(p1) → s5 → s2 → h34`（4.1 Mbps）→ 斷線 → 兩個事件只觸發
+一次重算 → 規則 `OUTPUT:1` → `OUTPUT:2` → `h1 → s1(p2) → **s6** → s2 → h34`（10.3 Mbps）→
+接回 → 路徑回到 s5。
 
-| 項目 | 原因 |
+⚠️ **仍然成立的第二個缺口**：`install_all_pair_paths` 用 priority 10，手動裝的規則若優先度更高，
+重算**蓋不掉它**。那是 priority 的定義，但意味著手動規則沒有「失效自動撤除」機制。
+
+### 1h. audit（`doc/audit-be3c242/`）的逐項判定（2026-07-31）
+
+10 份摘要我逐項查證過。**不是每一條都成立**，而錯的那幾條錯得很具體，值得記下來。
+
+**🔴 已修**
+
+| 發現 | 查證結果 | commit |
+|---|---|---|
+| `setAllPaths` / `m_allPathMap` 完全無鎖 | ✅ **比 audit 說的更廣** —— 六處存取全無鎖，而 `m_allPathMapMutex` **宣告了從來沒用過**。`shared_lock` 只擋得住讀者之間。**而且是我讓它變嚴重的**：`refreshDestinationPathsPeriodically`（我加的）把「啟動時一次」變成「每 5–60 秒一次」 | `0596dd1` |
+| `Controller.cpp` 丟掉所有 `OpResult` | ✅ 真的。這才是 `install_flow_entry` 回 200 的根因；我原本歸因「dispatcher 非同步」只對一半 | `8c25dbc` |
+| `FlowDispatcher::stop()` data race | ✅ 真的，**外加兩個 audit 沒提到的**：`running_` 在鎖外寫入造成 **lost wakeup 死鎖**；`enqueue()` 不檢查 `running_`，`stop()` 後生出的 worker 沒人 join → `std::terminate` | `d5f5bfa` |
+| `HttpSession` 輸入驗證讓例外變 500 | ✅ 真的 | `832d75c` |
+| `route_flow` 靜默丟棄 5-tuple | ✅ 真的（我自己實測抓到的） | `c964946` |
+| allowlist 沒有次數/時間上限 | ✅ **當天就被印證** —— 我 allowlist 掉的 `switch not found` 在 proxy 掛掉時噴 75,853 次 | `f5281a8` |
+
+**🟠 已查證成立、未修**
+
+| 發現 | 備註 |
 |---|---|
-| `get_graph_data`（254 條 host edge down）| static ARP → Ryu 學不到 host IP → `updateHosts` 跳過 127 台。詳見計畫書 Phase 6 入手點第 1 條 |
-| `install_flow_entry__unknown_dpid` → 200 | Phase 2 的 propagation 缺口：kernel **有**正確拒絕並記 WARN，只是 `OpResult` 沒反映到 HTTP status |
-| `get_path_switch_count__bad_ip` → 500 | `Invalid IP address` 例外沒接 |
-| `inform_switch_entered__bad_dpid` → 500 | `std::stoull` 沒包 try |
-| `received_a_simulation_case` ×2 → 202 | 收到爛 JSON 也回 202 |
+| `setSwitchPowerState` **不論 curl 成敗都更新圖** | 比 audit 說的更嚴重：沒 `--fail`／`-w http_code`／`--max-time`，抓 HTML 第 2 個 `>` 到 `<` 之間的字，然後**無條件** `setVertexUp/Down`。TESTBED-only |
+| `/ndt/disable_switch` 不存在，Energy-Saving-App 吞掉 404 | 我的 L3 確實印 `MISSING`。若 app 真的吞掉，**節能功能從來沒關掉過任何交換機** |
+| `fencePerBurst_` 只有一行註解 | 真的，但恆為 `false` 所以無害 |
+| `bytes.fromhex(f"...{dpid:02x}")` dpid ≥ 256 會崩 | 邏輯正確（和 LLDP beacon 待辦同一區） |
+| `getAllPathsBetweenTwoHosts` 指數複雜度 DFS 且持鎖 | 未查證 |
+| `/etc/exports` 無檔案鎖競爭（`ofstream` vs `sed -i`） | 未查證 |
 
-後三類是同一個模式：**輸入驗證缺口讓例外變成 500**。可以一起修，但會動到共用的 `HttpSession`。
+**⚪ 判定 audit 錯了**
+
+| 發現 | 為什麼錯 |
+|---|---|
+| 「`inet_ntoa` 造成全域資料競爭甚至 segfault」 | **在這個平台上不成立**。glibc 2.39 的緩衝區是 **thread-local**（我寫 C 程式證明主執行緒和子執行緒指標不同），而我 8 執行緒／16 萬次的併發測試**對 `inet_ntoa` 原版也通過**。也沒有 segfault 風險。我還是換成 `inet_ntop`，但那是**可攜性**不是修 bug（`95c7690`） |
+| 「`syntheticPowerMilliwattsFor` 是 AI 幻覺、假裝功能完成」 | 框架不對 —— Mininet/bmv2 沒有 PSU，合成值是唯一選項，header 寫了整段說明，而且**原本**是 [0, 2⁶⁰) 亂數（1.9×10¹⁴ 瓦），是我改成合理的。**但底下有站得住的點**：API 沒告訴消費者這是合成的，Energy-Saving-App 分不出真假 —— 那是真的設計缺口 |
+| 「`ryu_topology` / `kernel_notifier` / `topology_manager` 完全沒測試」 | **事實錯誤** —— 24 + 13 + 9 個測試早就在 |
+| 「`Host: 127.0.0.1` 是 SSRF 技巧／繞過 Gateway 權限」 | gateway 設定不在這個 repo 裡，**從程式碼無法判定意圖**。可確定的是寫死且無註解，該解釋或移除；但「後門」的推論證據不足 |
+
+### 1i. 測試覆蓋率現況（audit 點名「沒測試」的對象）
+
+我的做法是**「改到哪就測到哪」**（先修會崩的、再補覆蓋率），這是刻意的取捨。以下是實況 ——
+⚠️ 用 grep 檢查會騙人：`HttpSession`、`api_routes`、`p4_testbed_topo` 都只是**被別的測試檔在註解裡提到**。
+
+| 對象 | 現況 |
+|---|---|
+| `FlowDispatcher` | ✅ 6 個（`d5f5bfa`，因為修了它的 bug） |
+| `Controller` | ✅ 8 個（`ba97ab3`） |
+| 參數解析（`tryIpStringToUint32` / `tryParseUint64`） | ✅ 11 個（`832d75c`） |
+| `ipToString` 併發 | ✅ 4 個（`95c7690`） |
+| `KeyedFailureLog` | ✅ 12 個 |
+| `ryu_topology` / `kernel_notifier` / `topology_manager` | ✅ 24 / 13 / 9（早就存在） |
+| **`HttpSession`（除了參數解析）** | ❌ |
+| **`OVSPowerStrategy` / `P4PowerStrategy`** | ❌ —— 而且 `OVSPowerStrategy.cpp:49` 直接呼叫 `utils::execCommand` 不走自己的虛擬接縫，**mock 子類別會真的執行指令**，要先修接縫 |
+| **`TopologyAndFlowMonitor`（2500 行）** | ❌ 無獨立測試。要先想清楚接縫（被 `getGraph()` 深拷貝隔開） |
+| **`ApplicationManager` / `SimulationRequestManager`** | ❌ |
+| **`SSHHelper` / `execCommand`** | ❌ **刻意最後做** —— 它們的核心問題是 shell injection，補測試而不修注入只會把現狀凍結 |
+| **`p4_testbed_topo.py`** | ❌ |
+
+### 1j. 工作方法：四個一直在付利息的教訓
+
+這些不是瑣事，是這個 codebase 的失效模式，每一條都在這次會話中至少救了一次。
+
+**1. 測試要用 mutation 驗證有沒有牙齒。** 兩次抓到我自己說大話：
+
+- `test_Controller.cpp` 第一版 5 個測試**全部通過，即使把 bug 放回去**。它斷言了除了「它存在的理由」以外的一切。那個 bug 的本質是**一行 log 的缺席**，所以必須用 capturing sink 把 log 當斷言對象
+- `test_IpToString.cpp` 的註解原本寫「這是唯一能抓到它的測試形狀」，一分鐘內就被 mutation 打掉（`inet_ntoa` 也通過）
+
+**綠燈的測試如果不會為了它宣稱的理由而失敗，比沒有測試更糟，因為它說的是反話。**
+
+**2. 信任 live 測試之前先確認環境。** 殘留的 kernel 佔住 `:8000` 咬了**三次**：
+
+| 次 | 後果 |
+|---|---|
+| 1 | `stack.sh up p4` 假成功 —— 整輪 P4 測到的是殘留的 **OVS** kernel（288 edge、128 host），沒有任何東西提示 |
+| 2 | 你得問我「:8000 這樣正常嗎」 |
+| 3 | 我量到的 500 是舊 binary 回的 —— 而且那個 kernel 是 `sudo -E` 起的，**我普通身分殺不掉** |
+
+已加的防護：`wait_for_port` 檢查自己起的 process 還活著；`stack.sh down` 檢查殘留埠並回傳非 0；
+`run_logcheck` 檢查**有活著的 kernel 正在寫那個 log**（曾經對一個 37 分鐘前、不同模式的舊檔案給出「結論」）。
+
+**3. 過期的文件比沒有文件更糟。** HANDOFF 的環境狀態在同一天內過期兩次，其中一次讓我把
+「`up=0/10`」誤判成修正失敗（真相是根本沒有 data plane 在跑）。所以第 5 節現在寫的是**現場確認的指令**，
+而不是狀態快照。
+
+**4. log 洪泛會埋掉答案。** `edge not found by dpid/port 4:3` 印了 **270,991 次**（41 MB），
+而那一行**就是** P4 拓撲 port 寫錯的答案。它被 allowlist 掉（所以 log 檢查是綠的）又被埋在 41 MB 裡
+（所以沒人讀）。重複 27 萬次的訊號和噪音無法區分。
+
+### 2. L2 契約的失敗清單（2026-07-31 更新）
+
+| 項目 | 狀態 |
+|---|---|
+| `install_flow_entry__unknown_dpid` → 200 | ✅ **已修**（`8c25dbc`）—— 改成請求當下就檢查 dpid，回 404 |
+| `get_path_switch_count__bad_ip` → 500 | ✅ **已修**（`832d75c`）—— `tryIpStringToUint32`，回 400 |
+| `inform_switch_entered__bad_dpid` → 500 | ✅ **已修**（`832d75c`）—— `tryParseUint64`（比 `stoull` 嚴格），回 400 |
+| `received_a_simulation_case` ×2 → 202 | ❌ **未修** —— 收到爛 JSON／缺欄位也回 202 |
+| `get_graph_data`（256 條 host edge down）| ⚠️ **不穩定，見下** |
+
+⚠️ **`get_graph_data` 這一項是「時間的函數」，不是「程式碼的函數」** —— 2026-07-31 才釐清：
+
+Ryu 報告 97 台 host，但**每一台的 `ipv4` 都是空陣列**。host 不發 ARP（static ARP），Ryu 只能從
+packet-in 學到 MAC，學不到 IP，所以 `updateHosts` 對不上拓撲檔。而 **kernel 只在啟動時拉一次
+host**，所以：
+
+- 跑很久的 kernel **會通過** —— 期間累積的流量最終讓 Ryu 學到部分 IP
+- 剛啟動的 kernel **會失敗** —— 同一份程式碼，同一個網路
+
+所以它是 **flaky**，不是穩定的已知失敗。這一點先前沒被記錄，導致同一個 FAIL 有時出現有時不出現
+時無法解讀。修法大概是**定期重拉 host**（比照我給 destination paths 加的
+`refreshDestinationPathsPeriodically`）。
+
+### 2b. 待辦清單（依建議優先序，2026-07-31）
+
+排序理由：**先修「系統對現實的認知是錯的」，再補覆蓋率，最後做新能力。** 因為前者的失敗是無聲的。
+
+| # | 項目 | 為什麼在這個位置 |
+|---|---|---|
+| 1 | `SimulationRequestManager`：爛 JSON／缺欄位回 202 → 400 | 剩下的 2 個 L2 FAIL。⚠️ **那段程式碼就是 audit 點名的 RCE** —— 只改 status code、**不動指令組裝**，並在註解標明界線 |
+| 2 | `OVSPowerStrategy` 補測試 | 要**先修接縫**（見 1i） |
+| 3 | `setSwitchPowerState` 不論成敗都更新圖 | 同一類「靜默成功」，TESTBED-only |
+| 4 | `/ndt/disable_switch` 幽靈端點 | 要嘛實作、要嘛讓 app 停止呼叫。**節能功能可能從來沒生效過** |
+| 5 | host 發現的 static ARP 問題（定期重拉 host） | 讓 `get_graph_data` 從 flaky 變成穩定 |
+| 6 | **P4 liveness stub** | 現在唯一還會騙人的欄位。需要 proxy 暴露 gRPC channel 狀態 + LLDP 新鮮度、新端點 `GET /p4/switch_state`、kernel 端換成三態 policy（沿用 `ovsLivenessFor` 的形狀）。**`is_up` 是 power／CPU／溫度／`getAvgLinkUsage` 的前置條件**，所以 diff 不大但影響面很廣 |
+| 7 | LLDP beacon：port 從拓撲推導、beacon MAC 不要撞 host 範圍、install 改 insert-or-modify | 和第 6 項共用資料結構 |
+| 8 | 審查 agy-review 0057 之後的（共 80+ 份） | 和 audit 重疊度高，所以降級 |
+| 9 | 修正計畫書 Phase 6 那段錯誤敘述 | 只有狀態章節記了更正，本文還沒改 |
+| 10 | `TopologyAndFlowMonitor` 補測試 | 工程量最大，要先想清楚接縫 |
+| 11 | twin 偵測黑洞 flow（入口有量、出口沒有） | **新能力，不是修 bug** |
+| 12 | 重算路徑只覆蓋走得到的規則 | BFS 走不到的交換機留著舊規則。10 台全連通時不影響 |
+
+**驗收清單還沒做的**（`p4_bmv2_support_plan.md:257`）：第 6 項（電源關機）要等 Phase 7；
+第 7 項的 HTTP status 傳遞缺口需要 completion handle，是架構決定不是小改（見 1f）。
 
 ### 3. 刻意延後的技術債
 
 - **shell injection**：每條南向指令都是 `popen("curl … -d '" + json.dump() + "'")`，
   `nlohmann::json::dump()` 不會 escape 單引號，而 JSON 來自未認證的 REST body 和 LLM 輸出。
   3 個檔案共 22 處。**你說過要先跟其他人討論再處理。**
+  audit 又點出**兩個同性質的地方**：`SimulationRequestManager`（`m_req.body()` 未消毒直接進 bash，
+  影響 `/ndt/received_a_simulation_case` 和 `/ndt/simulation_completed`）和 `SSHHelper`
+  （`username`／`ip` 未消毒進 `ssh` 指令）。**一併延後，範圍相同。**
+  ⚠️ 待辦第 1 項會動到 `SimulationRequestManager` 的 status code —— **只改 status code，
+  不動指令組裝**，界線寫在註解裡。
 - **P4 parser 沒檢查 IHL**、**分片封包繞過 L4 規則**：Mininet 環境不會觸發，修要動 pipeline。
 - **`send_to_cpu` 沒有 rate limiter**：任何 controller-based learning switch 的通病，OVS 那側也一樣。
 
@@ -315,26 +454,29 @@ P4 達到「和 OVS 一樣不會復原」的水準。
   `MODIFY` fallback 從來沒在實機上被觸發驗證過。曾經看到一次失敗但 `details()` 是空字串所以無法判斷
   （已改成連 `code().name` 一起印）。要驗證的話：對活的 switch 連續寫兩次同一個 session。
 
-### 5. 未清理的執行環境狀態
+### 5. 執行環境狀態
 
 > ⚠️ 這一節**很容易過期**，而過期的環境狀態比沒有還糟 —— 它讓 live 測試的結果無法解讀
-> （見第 1b 節的教訓）。改動之後請順手更新，或者直接用下面的指令現場確認，不要相信這裡寫的。
-
-現場確認（2026-07-30 覆核過）：
+> （見 1j 的教訓 2 和 3）。**一律用下面的指令現場確認，不要相信這裡寫的快照。**
 
 ```bash
 pgrep -x ndtwin_kernel; pgrep -x simple_switch_g      # 空 = 沒在跑
 #                        ^^^ 只到 15 字元：comm 欄位上限，寫全名永遠匹配不到
 pgrep -af "[t]estbed_topo.py"                          # 中括號避免匹配到自己的 shell
 sudo ovs-vsctl list-br                                 # 空 = 沒有 OVS bridge
-ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
+ss -ltnp '( sport = 8000 or sport = 8080 or sport = 8081 )'
 ```
 
-- **2026-07-30 稍晚覆核：整組 OVS stack 正在跑** —— kernel、Ryu、OVS Mininet（10 台 bridge）都在，
-  `:8000`/`:8080` 有人聽。我起的 iperf 已全部收掉。
-  （這一節在同一天內已經過期兩次了，所以請一律用上面的指令現場確認。）
-- 要重新開始測試就照 `doc/p4_status_and_test_guide.md` 走。收尾用
-  `sudo mn -c && pkill -x simple_switch_g`（`-x` 而不是 `-f`，而且名稱只到 15 字元）。
-- `.test_run/baseline/{ovs,p4}` 兩份基準都是**在正確設定下、有流量時**抓的，可以信任。
-  Phase 6 做完之後會產生大量預期差異，屆時 allowlist 裡標了「Phase 6」的項目應該變成 unused
-  —— 那正是它們該消失的訊號。
+⚠️ **kernel 可能是 root 起的**（手冊教 `sudo -E bin/ndtwin_kernel`），那樣普通身分 `pkill` 殺不掉，
+而它佔住 `:8000` 會讓下一個 kernel 直接 `bind: Address already in use` 而 abort。用
+`sudo pkill -x ndtwin_kernel`。
+
+**2026-07-31 收工時的狀態**（會過期）：OVS Mininet + Ryu（帶 link-failure 重算修正）+ 我起的
+kernel 都在跑，s1-s5 已接回、32 條 link，我起的 iperf（h1→h34）可能已到期。
+
+**切換模式**：`./stack.sh down`（現在會檢查殘留埠）→ Mininet terminal `exit` → `sudo mn -c`
+→ `pkill -x simple_switch_g`。**兩個 Mininet 不能同時開。**
+
+`.test_run/baseline/{ovs,p4}` 兩份基準都是 2026-07-31 在**四項前置檢查都通過**時抓的
+（link usage 非零、flow 有 rate、path 非空、有 flow_set 的邊），可以信任。抓基準前一定要做那四項檢查
+—— 見 [full_test_runbook.md](full_test_runbook.md) 步驟 1f。
