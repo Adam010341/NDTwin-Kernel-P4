@@ -15,28 +15,51 @@ void OVSPowerStrategy::executeSystemCommand(const std::string& cmd)
     const int rc = std::system(cmd.c_str());
     if (rc != 0)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "command failed (status {}): {}", rc, cmd);
+        // Decoded rather than printed raw: std::system returns a wait status, so a command that
+        // exited 1 -- which is what `add-br` on an existing bridge and a sudo password prompt both
+        // do -- used to be logged as "status 256". [Co-developed with claude code -- Adam]
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "command failed ({}): {}",
+                           utils::describeCommandStatus(rc),
+                           cmd);
         m_lastCommandFailed = true;
     }
 }
 
-std::vector<std::string> OVSPowerStrategy::executeListPorts(const std::string& br)
+std::optional<std::vector<std::string>> OVSPowerStrategy::executeListPorts(const std::string& br)
 {
     std::vector<std::string> ports;
     std::string cmd = "sudo ovs-vsctl list-ports " + br;
     FILE* fp = popen(cmd.c_str(), "r");
     if (!fp)
     {
-        return ports;
+        SPDLOG_LOGGER_WARN(Logger::instance(), "could not run: {}", cmd);
+        return std::nullopt;
     }
     char buf[128];
     while (fgets(buf, sizeof(buf), fp))
     {
         std::string p(buf);
         p.erase(p.find_last_not_of(" \n\r\t") + 1);
-        ports.push_back(p);
+        // A bridge with no ports prints nothing; guard anyway so a stray blank line cannot become
+        // a port named "". [Co-developed with claude code -- Adam]
+        if (!p.empty())
+        {
+            ports.push_back(p);
+        }
     }
-    pclose(fp);
+
+    // pclose's status was previously discarded, which is what made a failed query look like an
+    // empty bridge. See the header for what that cost. [Co-developed with claude code -- Adam]
+    const int rc = pclose(fp);
+    if (rc != 0)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} failed ({}); treating the port list as unknown rather than empty",
+                           cmd,
+                           utils::describeCommandStatus(rc));
+        return std::nullopt;
+    }
     return ports;
 }
 
@@ -104,9 +127,25 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
     m_lastCommandFailed = false;
 
     // Record the ports before the bridge goes away, so powerOn can restore them.
-    auto ports = executeListPorts(swName);
-    topoMonitor->setMininetBridgePorts(node, ports);
-    for (auto& port : ports)
+    //
+    // Nothing is written to the graph and no bridge is deleted until we know what the ports are.
+    // The previous order stored the query's result unconditionally and then ran del-br, so a failed
+    // list-ports -- returned as an empty vector, indistinguishable from a bridge with no ports --
+    // erased the saved list and destroyed the bridge that was the only other record of it. powerOn
+    // would then create a bridge with no ports and mark the switch UP, so the twin reported a
+    // healthy switch with no data plane, and no command had visibly failed.
+    // [Co-developed with claude code -- Adam]
+    const auto ports = executeListPorts(swName);
+    if (!ports)
+    {
+        return OpResult::failure(500,
+                                 "could not read the ports of " + swName +
+                                     ", so it was left running: deleting the bridge would lose the "
+                                     "only record of what to reattach on power-on");
+    }
+
+    topoMonitor->setMininetBridgePorts(node, *ports);
+    for (const auto& port : *ports)
     {
         executeSystemCommand("sudo ifconfig " + port + " down");
     }

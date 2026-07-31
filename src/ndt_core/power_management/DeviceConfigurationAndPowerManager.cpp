@@ -391,31 +391,10 @@ DeviceConfigurationAndPowerManager::syntheticPowerMilliwattsFor(uint64_t dpid)
 std::string
 DeviceConfigurationAndPowerManager::describeCommandStatus(int status)
 {
-    if (status == -1)
-    {
-        return std::string("could not be reaped: ") + std::strerror(errno);
-    }
-    if (WIFSIGNALED(status))
-    {
-        return "killed by signal " + std::to_string(WTERMSIG(status));
-    }
-    if (WIFEXITED(status))
-    {
-        // The two we actually expect, named because "exit code 1" and "exit code 127" send an
-        // operator to completely different places.
-        const int code = WEXITSTATUS(status);
-        if (code == 127)
-        {
-            return "exit code 127 (command not found -- is ovs-vsctl installed?)";
-        }
-        if (code == 1)
-        {
-            return "exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a "
-                   "process with no controlling terminal)";
-        }
-        return "exit code " + std::to_string(code);
-    }
-    return "unrecognised wait status " + std::to_string(status);
+    // Moved to utils:: when OVSPowerStrategy turned out to need the identical decoding -- it runs
+    // the same `sudo ovs-vsctl` commands and was logging the raw wait status. Kept as a member so
+    // the existing tests keep naming the class that motivated it.
+    return utils::describeCommandStatus(status);
 }
 
 /** @brief Logs the first failure of a run of failures, and how many followed. See the header.

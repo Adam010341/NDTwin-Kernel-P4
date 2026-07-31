@@ -3,6 +3,9 @@
 #include "utils/Logger.hpp"
 #include <arpa/inet.h>
 #include <array>
+#include <cerrno>
+#include <cstring>
+#include <sys/wait.h>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/core.hpp>
@@ -299,6 +302,52 @@ hexStringToUint64(const std::string& hexStr)
 }
 
 /**
+ * @brief Renders a pclose()/std::system() wait status as something an operator can act on.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ *
+ * Neither pclose() nor std::system() returns an exit code -- both return a **wait status**, so a
+ * command that exited 1 is 256 and one that exited 127 is 32512. Printing that number raw has
+ * misled a reader of these logs more than once, which is why this lives in one place instead of
+ * being open-coded at each call site.
+ *
+ * The two named cases are the two that actually happen in this codebase, and they send an operator
+ * to completely different places: 127 means the tool is not installed, while 1 is what `sudo`
+ * refusing looks like on a process with no controlling terminal -- the original cause of the whole
+ * fabric showing as dead in the web GUI.
+ *
+ * @param status Wait status from pclose() or std::system(), or -1.
+ */
+inline std::string
+describeCommandStatus(int status)
+{
+    if (status == -1)
+    {
+        return std::string("could not be reaped: ") + std::strerror(errno);
+    }
+    if (WIFSIGNALED(status))
+    {
+        return "killed by signal " + std::to_string(WTERMSIG(status));
+    }
+    if (WIFEXITED(status))
+    {
+        const int code = WEXITSTATUS(status);
+        if (code == 127)
+        {
+            return "exit code 127 (command not found -- is ovs-vsctl installed?)";
+        }
+        if (code == 1)
+        {
+            return "exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a "
+                   "process with no controlling terminal)";
+        }
+        return "exit code " + std::to_string(code);
+    }
+    return "unrecognised wait status " + std::to_string(status);
+}
+
+/**
  * @brief Execute a shell command and capture its stdout.
  *
  * @param cmd Shell command string passed to popen().
@@ -325,7 +374,9 @@ execCommand(const std::string& cmd)
     int rc = pclose(pipe);
     if (rc != 0)
     {
-        std::cerr << "Command exited with code " << rc << "\n";
+        // Was "exited with code " << rc, which printed the wait status: a command exiting 1
+        // reported "code 256". [Co-developed with claude code -- Adam]
+        std::cerr << "Command failed (" << describeCommandStatus(rc) << "): " << cmd << "\n";
     }
     return result;
 }
