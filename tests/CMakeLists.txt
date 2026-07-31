@@ -13,6 +13,7 @@ add_executable(
   test_OvsLiveness.cpp
   test_SyntheticPower.cpp
   test_KeyedFailureLog.cpp
+  test_IpToString.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
