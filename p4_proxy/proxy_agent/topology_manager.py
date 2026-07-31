@@ -1,3 +1,6 @@
+import threading
+import time
+
 import networkx as nx
 
 # [Co-developed with claude code -- Adam]
@@ -63,12 +66,46 @@ def unsupported_match_fields(match_dict):
     return sorted(bad)
 
 
+#: How often the liveness poller round-trips a P4Runtime RPC to each switch, in seconds.
+#: Independent of how often the kernel asks: the kernel polls at 1 Hz and reads the cache, so the
+#: probe rate is not multiplied by the number of readers. [Co-developed with claude code -- Adam]
+LIVENESS_PROBE_INTERVAL_S = 2.0
+
+#: Per-probe gRPC deadline. Must stay well below the interval so a hung switch cannot make the
+#: poller fall behind on the other nine.
+LIVENESS_PROBE_TIMEOUT_S = 1.5
+
+
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
     def __init__(self):
         self.net = nx.DiGraph()
         self.switches = {} # dpid -> P4RuntimeClient
         self.dest_paths = {} # To match Ryu's format
+
+        # --- Liveness evidence. [Co-developed with claude code -- Adam]
+        #
+        # Guarded by its own lock rather than sharing one with the graph: it is written by the LLDP
+        # receive path and the probe thread, and read by an HTTP handler, and none of those should
+        # wait on a BFS.
+        #
+        # monotonic() rather than time(): a wall-clock step (ntp, suspend/resume) would otherwise
+        # make a switch look stale or impossibly fresh.
+        self._liveness_lock = threading.Lock()
+
+        #: dpid -> monotonic timestamp of the last CPU packet received *from* that switch. Proves
+        #: its stream and CPU port are working.
+        self._last_packet_in = {}
+
+        #: dpid -> monotonic timestamp of the last LLDP beacon seen that *originated* from that
+        #: dpid, wherever it was received. Proves it is forwarding, which the gRPC probe does not.
+        self._last_lldp_from = {}
+
+        #: dpid -> {"ok": bool, "detail": str, "at": monotonic}. Last probe result.
+        self._last_probe = {}
+
+        self._liveness_thread = None
+        self._liveness_running = False
 
     def add_switch(self, dpid, client):
         if dpid not in self.switches:
@@ -286,23 +323,121 @@ class TopologyManager:
         return None
 
     def handle_packet_in(self, device_id, ingress_port, payload):
+        # [Co-developed with claude code -- Adam]
+        # Recorded before anything else, and unconditionally. Every packet that arrives here is
+        # proof that `device_id`'s stream and CPU port are working *right now*, and the beacon's own
+        # DPID field is proof that switch is still forwarding -- which the gRPC probe cannot show,
+        # because bmv2 answers control-plane RPCs whether or not its pipeline moves packets.
+        #
+        # Previously all of this evidence was thrown away: the only action taken was adding a link,
+        # and the `if not edge_exists` guard below means that after the first beacon of each pair
+        # every subsequent one did nothing at all. The topology converges in seconds and then
+        # thousands of proofs-of-life per minute were discarded.
+        now = time.monotonic()
         lldp_info = self.parse_lldp_packet(payload)
+        with self._liveness_lock:
+            self._last_packet_in[device_id] = now
+            if lldp_info:
+                self._last_lldp_from[lldp_info[0]] = now
+
         if lldp_info:
             src_dpid, src_port = lldp_info
-            
+
             # Avoid self-loops and ignore if edge already exists
             if src_dpid == device_id:
                 return
-                
+
             edge_exists = self.net.has_edge(src_dpid, device_id)
             if not edge_exists:
                 print(f"[TopologyManager] Discovered link: S{src_dpid}-p{src_port} -> S{device_id}-p{ingress_port}")
                 self.add_link(src_dpid, device_id, src_port, ingress_port)
                 self.install_initial_routes()
 
+    # --- Liveness. [Co-developed with claude code -- Adam]
+    #
+    # The kernel's pingWorker used to mark every bmv2 switch UP once a second with no evidence at
+    # all, so a switch that had been killed reported healthy within one second and the twin could
+    # never show a fault. `is_up` also gates power, CPU, temperature and getAvgLinkUsage, so one
+    # fabricated field made several others meaningless.
+    #
+    # This side reports *facts* and leaves the verdict to the kernel, which applies a three-state
+    # policy with its own thresholds (Up / Down / Unknown, where Unknown leaves the graph alone).
+    # Deciding here would put the policy in the process that cannot be unit-tested against the
+    # graph, and would hide the distinction that matters: "I asked and it said no" is not the same
+    # as "I could not ask".
+
+    def start_liveness_polling(self):
+        """Starts the background prober. Idempotent."""
+        if self._liveness_running:
+            return
+        self._liveness_running = True
+
+        def _loop():
+            while self._liveness_running:
+                # Snapshot the dict: add_switch can insert while we iterate.
+                for dpid, client in list(self.switches.items()):
+                    if not self._liveness_running:
+                        break
+                    try:
+                        result = client.probe(timeout_s=LIVENESS_PROBE_TIMEOUT_S)
+                    except Exception as e:  # noqa: BLE001
+                        # A probe that raises must not kill the poller, or every switch freezes at
+                        # its last known state and the kernel is told stale facts forever.
+                        result = {"ok": False, "detail": f"probe raised {type(e).__name__}: {e}"}
+                    with self._liveness_lock:
+                        self._last_probe[dpid] = {
+                            "ok": bool(result.get("ok")),
+                            "detail": str(result.get("detail", "")),
+                            "at": time.monotonic(),
+                        }
+                time.sleep(LIVENESS_PROBE_INTERVAL_S)
+
+        self._liveness_thread = threading.Thread(target=_loop, daemon=True)
+        self._liveness_thread.start()
+
+    def stop_liveness_polling(self):
+        self._liveness_running = False
+
+    def switch_liveness(self):
+        """
+        The evidence for each switch the proxy knows about, for `GET /p4/switch_state`.
+
+        Ages are seconds since the event, or None when it has never happened -- which is why they
+        are ages rather than timestamps: the reader has no way to align its own monotonic clock with
+        this process's, and "never" has to be representable as something other than "very old".
+
+        `probe_ok` is None when no probe has completed yet, so the kernel can tell startup from a
+        failure. Reporting a not-yet-probed switch as down would mark the whole fabric dead for the
+        first two seconds of every run.
+        """
+        now = time.monotonic()
+
+        def age(then):
+            return None if then is None else round(now - then, 3)
+
+        with self._liveness_lock:
+            dpids = sorted(set(self.switches) | set(self._last_probe) | set(self._last_lldp_from))
+            out = {}
+            for dpid in dpids:
+                probe = self._last_probe.get(dpid)
+                client = self.switches.get(dpid)
+                out[str(dpid)] = {
+                    "probe_ok": None if probe is None else probe["ok"],
+                    "probe_detail": "" if probe is None else probe["detail"],
+                    "probe_age_s": None if probe is None else age(probe["at"]),
+                    "last_packet_in_age_s": age(self._last_packet_in.get(dpid)),
+                    "last_lldp_age_s": age(self._last_lldp_from.get(dpid)),
+                    "stream_alive": bool(client.stream_alive) if client is not None else False,
+                    "grpc_addr": getattr(client, "grpc_addr", None),
+                }
+
+        return {
+            "status": "success",
+            "probe_interval_s": LIVENESS_PROBE_INTERVAL_S,
+            "switches": out,
+        }
+
     def start_lldp_discovery(self):
-        import threading
-        import time
         def _loop():
             while True:
                 for dpid, client in self.switches.items():

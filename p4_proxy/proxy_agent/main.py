@@ -62,10 +62,40 @@ async def startup_event():
     time.sleep(1.0)
     
     # Batch push pipeline config
+    #
+    # [Co-developed with claude code -- Adam]
+    # Guarded per switch. This call used to be bare, and set_forwarding_pipeline_config raises
+    # grpc._channel._InactiveRpcError when the switch is not listening -- so **one dead bmv2 out of
+    # ten stopped the whole proxy from starting**. uvicorn treats an exception in a startup event as
+    # fatal, so the process exited with status 3 after printing a traceback, and the other nine
+    # switches lost their telemetry, topology feed and flow installs along with it.
+    #
+    # Found while testing liveness, and it also undermined it: if the proxy cannot run at all while
+    # a switch is down, the Down verdict could only ever be reached for a switch that died *after*
+    # startup. A switch that was already dead was simply never mentioned.
+    #
+    # The first loop's try/except does not cover this: grpc connects lazily, so start() succeeds
+    # against a dead switch and the failure surfaces here, or asynchronously in the stream receiver.
+    broken = set()
     for i, client in p4_clients.items():
-        if client.json_path:
+        if not client.json_path:
+            continue
+        try:
             client.set_forwarding_pipeline_config()
-        print(f"[Proxy Agent] Connected to Switch {i}")
+            print(f"[Proxy Agent] Connected to Switch {i}")
+        except Exception as e:  # noqa: BLE001 -- one switch must not take down the other nine
+            broken.add(i)
+            print(f"[Proxy Agent] Switch {i}: pipeline push failed, continuing without it: "
+                  f"{type(e).__name__}: {e}")
+
+    if broken:
+        # Loud and explicit about the consequence, because a partially-started proxy looks healthy.
+        # These switches keep their P4RuntimeClient, so the liveness poller still probes them and
+        # `GET /p4/switch_state` reports probe_ok=false -- which is what lets the kernel show them as
+        # down rather than merely absent. What they do not get is `inform_switch_entered`: isEnabled
+        # means "the control plane can drive this switch", and one with no pipeline cannot forward.
+        print(f"[Proxy Agent] {len(broken)} of {len(p4_clients)} switches have no pipeline "
+              f"({sorted(broken)}); they will report as down and will not be enabled in the graph")
 
     # --- telemetry --------------------------------------------------------------------
     # [Co-developed with claude code -- Adam]
@@ -75,6 +105,11 @@ async def startup_event():
     # not done inside start().
     agent_ips = load_switch_agent_ips()
     for i, client in p4_clients.items():
+        if i in broken:
+            # The clone session lives in the pipeline's PRE, so there is nothing to program it into.
+            # [Co-developed with claude code -- Adam]
+            continue
+
         agent_ip = agent_ips.get(i)
         if agent_ip is None:
             print(f"[Proxy Agent] Switch {i} has no IP in the topology file; "
@@ -96,18 +131,21 @@ async def startup_event():
     # Deliberately after the pipeline push, not on mastership: `isEnabled` means "the control
     # plane can drive this switch", and a switch holding mastership with no pipeline loaded
     # cannot forward anything. Doing it here also means we only claim switches we really did
-    # set up -- p4_clients only contains the ones that connected.
+    # set up -- p4_clients only contains the ones that connected, and `broken` is excluded below
+    # for the same reason: claiming a switch whose pipeline push failed would enable a vertex the
+    # control plane demonstrably cannot drive.
     #
     # This is the call that makes the graph live. Without it every vertex and edge stays
     # isEnabled=false, which silently empties BFS pathing, flow-table polling and link-usage
     # attribution -- flows are still detected, but every `path` is [] and every rate is 0.
-    entered = sum(1 for i in p4_clients if kernel.switch_entered(i))
-    if entered == len(p4_clients):
-        print(f"[Proxy Agent] Kernel acknowledged all {entered} switches")
+    usable = [i for i in p4_clients if i not in broken]
+    entered = sum(1 for i in usable if kernel.switch_entered(i))
+    if entered == len(usable):
+        print(f"[Proxy Agent] Kernel acknowledged all {entered} usable switches")
     else:
         # Loud, because the symptom otherwise looks like a dead data plane rather than a
         # missed notification.
-        print(f"[Proxy Agent] Kernel acknowledged only {entered}/{len(p4_clients)} switches; "
+        print(f"[Proxy Agent] Kernel acknowledged only {entered}/{len(usable)} switches; "
               f"the graph will stay partly disabled and paths/rates will be empty for the rest")
 
     # Start LLDP dynamic topology discovery
@@ -117,9 +155,22 @@ async def startup_event():
     except Exception as e:
         print(f"[Proxy Agent] Failed to start LLDP discovery: {e}")
 
+    # [Co-developed with claude code -- Adam]
+    # Feeds GET /p4/switch_state, which the kernel's pingWorker reads once a second. Without it
+    # every switch reports probe_ok=null forever, and the kernel's policy answers Unknown -- so the
+    # graph keeps whatever liveness it was last told rather than reporting a fault. That is the safe
+    # direction, but it means a failure to start here is invisible on the kernel side, so say so.
+    try:
+        topo.start_liveness_polling()
+        print("[Proxy Agent] Started liveness polling...")
+    except Exception as e:
+        print(f"[Proxy Agent] Failed to start liveness polling: {e}; /p4/switch_state will report "
+              f"no probe results and the kernel will not update bmv2 switch liveness")
+
 @app.on_event("shutdown")
 async def shutdown_event():
     print("[Proxy Agent] Shutting down...")
+    topo.stop_liveness_polling()
     for i, client in p4_clients.items():
         client.stop()
     sflow.close()

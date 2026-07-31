@@ -160,6 +160,52 @@ class P4RuntimeClient:
             self.stream_recv_thread.join(timeout=2.0)
         self.channel.close()
 
+    @property
+    def stream_alive(self) -> bool:
+        """
+        Whether the P4Runtime stream to this switch is still up.
+
+        [Co-developed with claude code -- Adam]
+        _stream_receiver's `for response in stream` raises grpc.RpcError when the switch goes away,
+        and the thread then returns, so a dead thread means a broken stream. Corroborating evidence
+        only -- it is not proof the switch is gone, because the thread also exits on a normal stop().
+        """
+        if not self.is_running:
+            return False
+        return self.stream_recv_thread is not None and self.stream_recv_thread.is_alive()
+
+    def probe(self, timeout_s: float = 2.0) -> dict:
+        """
+        Round-trips one real P4Runtime RPC and reports whether the switch answered.
+
+        [Co-developed with claude code -- Adam]
+        This is the only signal that actually proves a bmv2 process is alive and serving. The
+        alternatives were both weaker: grpc's channel connectivity state sits in IDLE until
+        something forces a connection, so a switch killed while idle still reads as healthy, and it
+        is only reachable through a private attribute; and the stream receiver thread exits on a
+        clean stop() too, so it cannot tell "gone" from "shut down".
+
+        GetForwardingPipelineConfig with COOKIE_ONLY is the cheapest request in P4Runtime -- it
+        returns a single 64-bit cookie, no p4info and no device config -- and bmv2 answers it
+        without touching the pipeline.
+
+        @return {"ok": bool, "detail": str}. `detail` carries the gRPC status *name* as well as its
+                details string, because bmv2 returns an empty details() for some failures and a
+                report of "" is unactionable -- that already happened once with a clone session.
+        """
+        req = p4runtime_pb2.GetForwardingPipelineConfigRequest()
+        req.device_id = self.device_id
+        req.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.COOKIE_ONLY
+        try:
+            self.stub.GetForwardingPipelineConfig(req, timeout=timeout_s)
+            return {"ok": True, "detail": "answered GetForwardingPipelineConfig"}
+        except grpc.RpcError as e:
+            code = e.code().name if e.code() is not None else "UNKNOWN"
+            details = e.details() or "(no details)"
+            return {"ok": False, "detail": f"{code}: {details}"}
+        except Exception as e:  # noqa: BLE001 -- a probe must never take the caller down
+            return {"ok": False, "detail": f"{type(e).__name__}: {e}"}
+
     def set_forwarding_pipeline_config(self):
         print(f"[{self.device_id}] Setting Forwarding Pipeline Config...")
         req = p4runtime_pb2.SetForwardingPipelineConfigRequest()

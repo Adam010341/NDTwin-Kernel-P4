@@ -358,6 +358,185 @@ DeviceConfigurationAndPowerManager::ovsLivenessFor(
                                                                         : OvsLiveness::Down;
 }
 
+/** @brief Decides one bmv2 switch's liveness from the proxy's evidence. See the header for the
+ *         policy and why each branch is the state it is.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+DeviceConfigurationAndPowerManager::OvsLiveness
+DeviceConfigurationAndPowerManager::p4LivenessFor(uint64_t dpid,
+                                                  const std::optional<json>& payload)
+{
+    // The proxy could not be reached, or said something unparseable. This is the branch that must
+    // never be Down: one unreachable proxy would otherwise take all ten switches down at once.
+    if (!payload.has_value())
+    {
+        return OvsLiveness::Unknown;
+    }
+
+    const auto switchesIt = payload->find("switches");
+    if (switchesIt == payload->end() || !switchesIt->is_object())
+    {
+        return OvsLiveness::Unknown;
+    }
+
+    // Keyed by decimal string: JSON object keys cannot be numbers.
+    const auto entryIt = switchesIt->find(std::to_string(dpid));
+    if (entryIt == switchesIt->end() || !entryIt->is_object())
+    {
+        // The proxy does not know this switch. A disagreement between the topology file and the
+        // proxy's switch table, not a dead switch.
+        return OvsLiveness::Unknown;
+    }
+
+    const json& entry = *entryIt;
+
+    // Three outcomes, not two, and the distinction decides a verdict.
+    //
+    // Absent or null is the proxy saying "nothing to report" -- expected, meaningful, and it must
+    // not block a Down verdict, or a switch could never be reported dead until it had first been
+    // seen alive. A *string where a number belongs* is something else entirely: the two processes
+    // disagree about the schema. That is not evidence, it is a broken reading, and this policy's
+    // whole premise is that a reading it cannot trust must not become "dead" -- a field rename on
+    // the proxy side would otherwise black out the entire fabric.
+    enum class Field
+    {
+        Value,
+        Absent,
+        Malformed
+    };
+    double value = 0.0;
+    const auto read = [&entry, &value](const char* key) -> Field {
+        const auto it = entry.find(key);
+        if (it == entry.end() || it->is_null())
+        {
+            return Field::Absent;
+        }
+        if (!it->is_number())
+        {
+            return Field::Malformed;
+        }
+        value = it->get<double>();
+        return Field::Value;
+    };
+
+    const auto probeOkIt = entry.find("probe_ok");
+    if (probeOkIt == entry.end() || !probeOkIt->is_boolean())
+    {
+        // null until the proxy's first probe of this switch completes. Reporting Down here would
+        // mark the whole fabric dead for the first seconds of every run.
+        return OvsLiveness::Unknown;
+    }
+
+    if (probeOkIt->get<bool>())
+    {
+        // A P4Runtime RPC was round-tripped. The only signal that proves a bmv2 process is serving.
+        return OvsLiveness::Up;
+    }
+
+    // A failure is only worth acting on if it is current. A stale result means the proxy's poller
+    // stalled, which says nothing about the switch.
+    switch (read("probe_age_s"))
+    {
+    case Field::Malformed:
+        return OvsLiveness::Unknown;
+    case Field::Value:
+        if (value > kProbeStaleSeconds)
+        {
+            return OvsLiveness::Unknown;
+        }
+        break;
+    case Field::Absent:
+        break;
+    }
+
+    // Conflicting evidence. bmv2 answers control-plane RPCs whether or not its pipeline forwards,
+    // and a loaded switch can miss an RPC deadline while forwarding perfectly well, so a fresh
+    // beacon against a failed probe is a disagreement rather than a verdict.
+    switch (read("last_lldp_age_s"))
+    {
+    case Field::Malformed:
+        return OvsLiveness::Unknown;
+    case Field::Value:
+        if (value <= kLldpFreshSeconds)
+        {
+            return OvsLiveness::Unknown;
+        }
+        break;
+    case Field::Absent:
+        break;
+    }
+
+    return OvsLiveness::Down;
+}
+
+/** @brief Fetches the proxy's liveness evidence. See the header for why all failures collapse to
+ *         nullopt.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+std::optional<json>
+DeviceConfigurationAndPowerManager::fetchP4SwitchState()
+{
+    // -w writes the status after the body so a non-2xx is distinguishable from an empty 200, and
+    // --max-time bounds a hung proxy: this runs inside the 1 Hz ping loop.
+    const std::string cmd = "curl -s --max-time 3 -w '\\n%{http_code}' http://" +
+                            AppConfig::P4_PROXY_IP_AND_PORT + "/p4/switch_state 2>/dev/null";
+
+    const auto fail = [this](const std::string& reason) -> std::optional<json> {
+        if (m_switchStateFailures.recordFailure())
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "cannot read bmv2 liveness from the proxy ({}); switch state is "
+                               "left unchanged rather than reported as down",
+                               reason);
+        }
+        return std::nullopt;
+    };
+
+    std::string response;
+    try
+    {
+        response = utils::execCommand(cmd);
+    }
+    catch (const std::exception& e)
+    {
+        return fail(std::string("could not run curl: ") + e.what());
+    }
+
+    const auto lastNewline = response.find_last_of('\n');
+    if (lastNewline == std::string::npos)
+    {
+        return fail(response.empty() ? "no response at all -- is the proxy running?"
+                                     : "response had no status line");
+    }
+
+    const std::string statusText = response.substr(lastNewline + 1);
+    const std::string body = response.substr(0, lastNewline);
+    if (statusText != "200")
+    {
+        return fail("HTTP " + statusText);
+    }
+
+    json parsed;
+    try
+    {
+        parsed = json::parse(body);
+    }
+    catch (const json::exception& e)
+    {
+        return fail(std::string("body did not parse: ") + e.what());
+    }
+
+    if (const auto failures = m_switchStateFailures.recordSuccess())
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "bmv2 liveness readable again after {} failed attempt(s)",
+                           *failures);
+    }
+    return parsed;
+}
+
 /** @brief A plausible synthetic power draw in mW for a simulated switch. See the header for why.
  *
  * [Co-developed with claude code -- Adam]
@@ -481,6 +660,19 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
             }();
         }
 
+        // [Co-developed with claude code -- Adam]
+        // Fetched once per tick, not once per switch: ten curl calls a second to the same endpoint
+        // would be the same mistake as the log flood, just in network traffic. nullopt means no
+        // evidence, and p4LivenessFor turns that into Unknown for every switch.
+        //
+        // Guarded on m_dataPlaneIsBmv2 so an OVS run never talks to a proxy that is not there --
+        // the same conservatism as configureTopologyApiUrls.
+        std::optional<json> p4SwitchState;
+        if (m_mode == utils::DeploymentMode::MININET && m_dataPlaneIsBmv2)
+        {
+            p4SwitchState = fetchP4SwitchState();
+        }
+
         for (; vi != vi_end; ++vi)
         {
             auto v = *vi;
@@ -526,11 +718,28 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                     // proxy to expose that state, which it does not yet.
                     if (graph[v].switchKind == SwitchKind::BMV2)
                     {
-                        SPDLOG_LOGGER_DEBUG(Logger::instance(),
-                                            "{} assumed reachable (bmv2 liveness is not "
-                                            "implemented yet -- see Phase 6)",
-                                            swName);
-                        m_topologyAndFlowMonitor->setVertexUp(v);
+                        // [Co-developed with claude code -- Adam]
+                        // Was an unconditional setVertexUp with no evidence at all, so a switch
+                        // that had been killed reported healthy again within one second. Now keyed
+                        // on what the proxy actually observed: a round-tripped P4Runtime RPC, and
+                        // LLDP freshness as corroboration. See p4LivenessFor for the policy.
+                        switch (p4LivenessFor(graph[v].dpid, p4SwitchState))
+                        {
+                        case OvsLiveness::Up:
+                            SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
+                            m_topologyAndFlowMonitor->setVertexUp(v);
+                            break;
+                        case OvsLiveness::Down:
+                            SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} unreachable", swName);
+                            m_topologyAndFlowMonitor->setVertexDown(v);
+                            break;
+                        case OvsLiveness::Unknown:
+                            // Same rule as the OVS branch: cannot tell, so do not touch the graph.
+                            // The fetch failure is logged once by fetchP4SwitchState, not per
+                            // switch -- ten identical warnings per second is how the last log
+                            // flood happened.
+                            break;
+                        }
                     }
                     else
                     {
@@ -562,23 +771,25 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                     }
                 }
             }
-            else if (graph[v].vertexType == VertexType::HOST)
-            {
-                // [Co-developed with claude code -- Adam]
-                // Was gated on the topology filename containing "P4", and sat outside the
-                // TESTBED/else split above -- so a stray NDTWIN_TOPO_FILE in the
-                // environment force-marked hosts up in TESTBED mode as well, where
-                // ping-based liveness is the entire point. Now restricted to Mininet, and
-                // only when the fabric is bmv2.
-                //
-                // Hosts are marked up because in bmv2 mode nothing else does it: Ryu's
-                // host-discovery REST feed is what populates this for OVS, and the P4 proxy
-                // has no equivalent yet (Phase 6).
-                if (m_mode == utils::DeploymentMode::MININET && m_dataPlaneIsBmv2)
-                {
-                    m_topologyAndFlowMonitor->setVertexUp(v);
-                }
-            }
+            // Hosts are deliberately not touched here.
+            //
+            // [Co-developed with claude code -- Adam]
+            // There used to be a branch that force-marked every host up whenever the fabric was
+            // bmv2. Its stated reason -- "the P4 proxy has no host feed yet" -- had stopped being
+            // true: the proxy serves `/v1.0/topology/hosts` through ryu_topology.render_hosts,
+            // which emits a MAC and a non-empty `ipv4`, and that is exactly what
+            // TopologyAndFlowMonitor::updateHosts needs to set a host up.
+            //
+            // Keeping it would have been worse than redundant. A host is up if it answers, and
+            // nothing here asks it anything; the branch asserted liveness for a machine it had
+            // never contacted. It would also have masked the failure it was covering for: if the
+            // proxy's MAC formatting ever stopped matching findVertexByMac, host discovery would be
+            // broken and every host would still read as up.
+            //
+            // Before it was an outright fabrication: it was gated on the topology *filename*
+            // containing "P4" and sat outside the TESTBED/else split, so a stray NDTWIN_TOPO_FILE
+            // in the environment marked hosts up in TESTBED mode too -- where ping-based liveness
+            // is the entire point of the mode.
         }
     }
 }
@@ -743,7 +954,37 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                             dpid,
                             raw);
 
-        // TODO[DEBUG]: parseFlowStatsTextToJson may throw; let caller handle exceptions
+        // [Co-developed with claude code -- Adam]
+        // An empty body is not malformed JSON, it is an absent control plane -- curl printing
+        // nothing because the connection was refused. Feeding it to the parser produced
+        // "[error] JSON parsing failed: attempting to parse an empty input" once per switch per
+        // poll: measured at **216 error lines** during a four-minute proxy outage, none of them
+        // allowlisted, so the log check would fail on a condition that is already reported
+        // properly one line at a time by the liveness fetch.
+        //
+        // Edge-triggered and keyed on nothing, because the whole control plane is either reachable
+        // or it is not; per-dpid runs would be ten simultaneous reports of one fault.
+        if (raw.empty())
+        {
+            if (m_flowStatsFetchFailures.recordFailure())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "no flow-table response from {} (switch {} and possibly others); "
+                                   "tables are left as they were",
+                                   ip_and_port,
+                                   dpid);
+            }
+            continue;
+        }
+        if (const auto failures = m_flowStatsFetchFailures.recordSuccess())
+        {
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "flow tables readable again after {} empty response(s)",
+                               *failures);
+        }
+
+        // Still an error, and still worth one: a *non-empty* body that will not parse means the
+        // control plane answered with something unexpected, which no other check would catch.
         nlohmann::json flows = parseFlowStatsTextToJson(raw);
 
         result.push_back({{"dpid", dpid}, {"flows", flows}});

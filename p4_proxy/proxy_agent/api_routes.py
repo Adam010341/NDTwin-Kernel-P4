@@ -128,6 +128,29 @@ async def modify_flow_entry(request: Request):
 
 # Developed in collaboration with Gemini 3.1 Pro.
 
+@router.get("/p4/switch_state")
+async def switch_state():
+    """
+    Per-switch liveness evidence, for the kernel's pingWorker.
+
+    [Co-developed with claude code -- Adam]
+    Not a Ryu shape, because Ryu has no equivalent: OVS liveness is answered by `ovs-vsctl list-br`
+    on the same host, and there is nothing to impersonate. This is the one endpoint the kernel talks
+    to that is openly P4-specific, so it is namespaced under /p4/ rather than pretending otherwise.
+
+    Reports facts, not a verdict. The kernel applies the Up/Down/Unknown policy, so that the
+    distinction between "I asked the switch and it did not answer" and "I could not ask" survives
+    the trip -- conflating those is what made a single failed `ovs-vsctl` call mark an entire fabric
+    dead on the OVS side.
+
+    503 when the proxy has no topology at all, which is a different thing from every switch being
+    down and must not be answerable with an empty switch map.
+    """
+    if topology is None:
+        raise HTTPException(status_code=503, detail="proxy has no topology yet")
+    return topology.switch_liveness()
+
+
 @router.get("/stats/flow/{dpid}")
 async def get_flow_stats(dpid: int):
     """

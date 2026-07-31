@@ -248,6 +248,66 @@ class DeviceConfigurationAndPowerManager
                                       const std::optional<std::vector<std::string>>& bridges);
 
     /**
+     * @brief How long a switch's last LLDP beacon may be before it stops counting as evidence.
+     *
+     * @details The proxy broadcasts beacons every 5 seconds, so anything under two intervals is
+     * healthy and this leaves room for one missed round. [Co-developed with claude code -- Adam]
+     */
+    static constexpr double kLldpFreshSeconds = 12.0;
+
+    /**
+     * @brief How stale the proxy's own probe result may be before it is no longer trusted.
+     *
+     * @details The proxy probes every 2 seconds. A result older than this means its poller has
+     * stalled, which is a fact about the proxy, not about the switch -- so it yields Unknown rather
+     * than Down. [Co-developed with claude code -- Adam]
+     */
+    static constexpr double kProbeStaleSeconds = 15.0;
+
+    /**
+     * @brief Decides one bmv2 switch's liveness from the evidence `GET /p4/switch_state` reported.
+     *
+     * @param dpid    The switch's datapath id.
+     * @param payload The parsed proxy response, or nullopt when the proxy could not be reached or
+     *                its answer did not parse.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     *
+     * Replaces a stub that called `setVertexUp` for every bmv2 switch once a second with no
+     * evidence at all, so a switch that had been killed reported healthy again within one second and
+     * the twin could never show a fault. `is_up` also gates the power, CPU and temperature reports
+     * and `getAvgLinkUsage`, so that one fabricated field made several others meaningless.
+     *
+     * Same three-state shape as ovsLivenessFor, and for the same reason: **Unknown must not be
+     * reported as Down.** On the OVS side, conflating "the query failed" with "the bridge is absent"
+     * marked an entire fabric dead from one dropped `ovs-vsctl` call. Here the equivalent mistake
+     * would be worse, because a single unreachable proxy would take all ten switches down at once.
+     *
+     * The policy, in order:
+     *
+     *  - No payload (proxy unreachable, or unparseable) -> **Unknown**. This is the case that must
+     *    never be Down.
+     *  - No entry for this dpid -> **Unknown**. The proxy does not know about it, which is a
+     *    configuration disagreement between the topology file and the proxy's switch table, not a
+     *    dead switch.
+     *  - `probe_ok` is null (no probe has completed yet) -> **Unknown**. Otherwise every run reports
+     *    the whole fabric dead for its first two seconds.
+     *  - `probe_ok` true -> **Up**. A P4Runtime RPC was round-tripped, which is the only signal that
+     *    actually proves a bmv2 process is alive and serving.
+     *  - `probe_age_s` beyond kProbeStaleSeconds -> **Unknown**. The proxy's poller has stalled; its
+     *    last verdict says nothing about the switch now.
+     *  - `probe_ok` false, but a beacon from this switch arrived within kLldpFreshSeconds ->
+     *    **Unknown**. The two signals disagree, and acting on conflicting evidence is what a
+     *    three-state policy exists to avoid. bmv2 answers control-plane RPCs whether or not its
+     *    pipeline forwards, and conversely a busy switch can miss an RPC deadline while forwarding
+     *    perfectly well.
+     *  - `probe_ok` false with no fresh beacon -> **Down**. We asked, it did not answer, and nothing
+     *    else suggests otherwise.
+     */
+    static OvsLiveness p4LivenessFor(uint64_t dpid, const std::optional<nlohmann::json>& payload);
+
+    /**
      * @brief A plausible synthetic power draw, in milliwatts, for a simulated switch.
      *
      * @param dpid The switch's datapath id, used as the seed.
@@ -362,6 +422,32 @@ class DeviceConfigurationAndPowerManager
      * [Co-developed with claude code -- Adam]
      */
     void reportBridgeQueryRecovered();
+
+    /// Failure-run state for the `GET /p4/switch_state` fetch. Separate from the OVS one because a
+    /// run of failures against the proxy is a different fault with a different fix, and folding
+    /// them together would report a recovery that did not happen.
+    /// [Co-developed with claude code -- Adam]
+    FailureRun m_switchStateFailures;
+
+    /// Failure-run state for the per-switch `/stats/flow/<dpid>` fetch, which previously logged an
+    /// error per switch per poll when the control plane was absent -- 216 of them during one
+    /// four-minute outage. [Co-developed with claude code -- Adam]
+    FailureRun m_flowStatsFetchFailures;
+
+    /**
+     * @brief Fetches `GET /p4/switch_state` from the proxy, or nullopt if it could not be read.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * nullopt covers an unreachable proxy, a non-2xx reply and a body that does not parse, because
+     * all three mean the same thing to the caller: no evidence. Distinguishing them in the *log* is
+     * useful and done; distinguishing them in the return value would invite a branch that treats one
+     * of them as "down".
+     *
+     * Edge-triggered logging, as with the bridge query: this runs at 1 Hz, so warning every time is
+     * how the sudo failure buried the log in 3596 lines.
+     */
+    std::optional<json> fetchP4SwitchState();
 
     // Helpers for TESTBED mode
     bool setPowerStateTestbed(const SwitchInfo& si, const std::string& action);
