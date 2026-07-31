@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
@@ -1123,6 +1124,22 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Recieved Simulation Case");
 
+    // This endpoint used to answer 202 Accepted to *anything*, including `{not json`: the body went
+    // straight into a curl command and whatever came back -- including nothing at all -- was
+    // wrapped as {"status": "..."}. The five required fields are Simulation-Platform-Manager's own,
+    // so a body that fails here would have thrown inside that process instead, where no status code
+    // can reach the caller. [Co-developed with claude code -- Adam]
+    if (const auto problem = SimulationRequestManager::validateRequestBody(m_req.body()))
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Rejecting simulation case: {}",
+                           *problem);
+        res.result(http::status::bad_request);
+        res.set(http::field::content_type, "application/json");
+        res.body() = json{{"error", "Invalid simulation case"}, {"details", *problem}}.dump();
+        return;
+    }
+
     std::string resp = m_simulationRequestManager->requestSimulation(m_req.body());
 
     res.result(http::status::accepted);
@@ -1137,7 +1154,23 @@ HttpSession::handleSimulationCompleted(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Simulation Completed");
     auto j = json::parse(m_req.body());
 
-    int appId = std::stoi(j.at("app_id").get<string>());
+    // Malformed JSON and a missing/non-string app_id already answer 400 via the json::exception
+    // handler, but std::stoi("abc") throws std::invalid_argument, which does not -- the same
+    // mistyped-parameter-reported-as-500 defect that `?dpid=abc` had. [Co-developed with claude
+    // code -- Adam]
+    const std::string appIdText = j.at("app_id").get<string>();
+    const auto parsedAppId = utils::tryParseUint64(appIdText);
+    if (!parsedAppId || *parsedAppId > static_cast<uint64_t>(std::numeric_limits<int>::max()))
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Rejecting simulation result: app_id '{}' is not a valid id",
+                           appIdText);
+        res.result(http::status::bad_request);
+        res.set(http::field::content_type, "application/json");
+        res.body() = json{{"error", "Invalid app_id"}, {"details", appIdText}}.dump();
+        return;
+    }
+    const int appId = static_cast<int>(*parsedAppId);
 
     m_simulationRequestManager->onSimulationResult(appId, m_req.body());
 

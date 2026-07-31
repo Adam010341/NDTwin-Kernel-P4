@@ -17,6 +17,7 @@ add_executable(
   test_FlowDispatcher.cpp
   test_Controller.cpp
   test_ParamParsing.cpp
+  test_SimulationRequestValidation.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
@@ -29,6 +30,7 @@ target_link_libraries(
   NdtCore_RoutingManagementLib
   NdtCore_CollectionLib
   NdtCore_PowerManagementLib
+  NdtCore_ApplicationLib
   EventSystemLib
   UtilsLib
   ssh
