@@ -162,6 +162,34 @@ flow 停幾秒就老化。實測 2700 個 × 10ms = 27 秒 → 105 個 sample（
 
 </details>
 
+### 1e. 2026-07-31 checkpoint：測試堆疊全綠，還剩兩項端到端沒測
+
+**全部測過並通過的：**
+
+| 層 | OVS | P4 |
+|---|---|---|
+| L0 build（含 p4c pipeline） | ✅ | ✅ |
+| L1 單元（141 C++ 直接跑 + ctest、6 個 Python 套件） | ✅ | ✅ |
+| L2 API 契約 | ✅ 31/36 | ✅ **31/36，失敗清單完全相同** |
+| L3 元件契約 | ✅ 2 BROKEN | ✅ 2 BROKEN |
+| log allowlist | ✅ PASS | ✅ PASS |
+| L4 差異比對 | — | ✅ **PASS**（14 條已接受差異） |
+
+剩下的 5 個 L2 FAIL 是既有的輸入驗證缺口（`bad_ip`→500、`bad_dpid`→500、爛 JSON→202 ×2、
+`install_flow_entry` 的 status 傳遞），**與 P4 無關**，OVS 也一樣。
+
+**計畫書驗收清單（`p4_bmv2_support_plan.md:257`）還沒做的兩項** —— 兩者都需要 bmv2 起著：
+
+| # | 項目 | 為什麼重要 |
+|---|---|---|
+| **5** | `POST /ndt/install_flow_entry` 帶 5-tuple + priority → 表裡要看到，**而且流量真的改走新 port** | 這是 `P4RoutingStrategy` 唯一沒對活的 switch 跑過的路徑。curl → proxy → P4Runtime 每一段都有單元測試，整條沒有 |
+| **7** | 殺掉 proxy 再下規則 → kernel 要 WARN、端點要回報失敗**不能回 200** | 驗證 Phase 2 的錯誤傳遞。目前 L2 已知 `install_flow_entry__unknown_dpid` 回 200，所以這一項很可能會抓到同一個缺口 |
+
+第 6 項（電源關機）要等 Phase 7，現在測沒有意義。
+
+**建議**：待辦第 7 項（P4 liveness）的**實機驗證也需要 bmv2**，所以一次 bmv2 session 可以把
+第 5、7 項和 liveness 驗證一起收掉。但第 5、7 項和 liveness 的程式改動無關，先測完才不會混在一起。
+
 ### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
 
 帶流量的 OVS 迴歸跑到 **30/36**。剩下的：
