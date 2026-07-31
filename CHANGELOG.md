@@ -112,6 +112,15 @@ What is still open: `doc/HANDOFF.md`.
     (`routing_lock`, `graph_lock`, `power_lock`), which were never documented; anything else is
     rejected with a message that does not distinguish "invalid type" from "busy".
 
+17. **The full test stack is green in both modes** (2026-07-31, first time). L0 build check and
+    L1 unit tests (141 C++ tests under ctest and direct execution, plus six Python suites);
+    L2 API contract and L3 component contract at 31/36 with an *identical* failure set in OVS and
+    P4 — the five remaining are pre-existing input-validation gaps, not P4 issues; the log
+    allowlist check clean in both; and **L4 differential PASS**, P4 matching the OVS baseline with
+    14 accepted differences. Twelve allowlist entries that existed only because P4 could not yet
+    serve flow tables or resolve paths were removed, each verified obsolete against the live stack
+    rather than inferred from the comparison.
+
 ### Known limitations
 
 - P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up

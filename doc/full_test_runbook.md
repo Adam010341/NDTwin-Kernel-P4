@@ -409,6 +409,15 @@ curl -s localhost:8000/ndt/get_detected_flow_data | python3 -m json.tool | head 
 ✅ `compare` 的目標是 **0 個非預期差異**。預期內的差異列在
 `tools/contract_test/baseline_diff_allowlist.txt`。
 
+**2026-07-31 實測：通過。**
+
+```
+PASS: P4 matches the OVS baseline (plus 14 accepted difference(s))
+```
+
+那 14 條全部是 Phase 5 的 telemetry 差異（P4 有、OVS 基準那一刻沒有的欄位）加上兩份拓撲檔本身的
+差異。Phase 6 相關的 12 條已經在 `22e1176` 剪掉了。
+
 ⚠️ allowlist 裡標了「Phase 6」的項目，在 Phase 6 做完之後應該變成 **unused** —— 那正是它們該消失
 的訊號，不是錯誤。
 

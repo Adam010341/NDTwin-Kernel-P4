@@ -73,7 +73,17 @@ get_graph_data | any_edge_has_flow_set: | Phase 5: flow_set is populated from sF
 get_average_link_usage | avg_link_usage_nonzero: | Phase 5: averaged from sFlow-derived link usage
 get_detected_flow_data | list is empty in P4 but populated in OVS: <root list> | Phase 5: no telemetry means the whole flow list is empty
 get_detected_top_k_flow_data | list is empty in P4 but populated in OVS: <root list> | Phase 5: as get_detected_flow_data
-get_graph_data | list is empty in P4 but populated in OVS: edges\[\]\.flow_set\[\] | Phase 5: flow_set entries come from sFlow samples
+# [Co-developed with claude code -- Adam]
+# Bidirectional, and it has to be: the comparator walks the two edges arrays positionally, but the
+# topologies have 288 and 40 edges with different orderings, and which edges carry traffic depends
+# on the path it takes. Measured with good baselines on both sides -- OVS had flow_set at indices
+# [1, 143, 149, 159, 160], P4 at [25, 27, 33, 35, 39], no overlap and none possible. So one
+# direction or the other always fires no matter how healthy the capture is.
+#
+# This was briefly mistaken for evidence of a bad OVS baseline. That baseline WAS bad (captured
+# with avg_link_usage 0.0 and a zero-rate flow), and recapturing it was still the right call, but
+# it did not make this difference go away and was never going to.
+get_graph_data | list is empty in (P4|OVS) but populated in (OVS|P4): edges\[\]\.flow_set\[\] | the edges arrays are compared positionally, but the topologies differ in size and ordering, so the indices carrying traffic never line up
 
 # --- Phase 6: proxy implements /stats/flow/<dpid> and pushes switch state --------
 # The stub returns `flows` as a bare list, while the kernel documents (and OVS mode returns)
