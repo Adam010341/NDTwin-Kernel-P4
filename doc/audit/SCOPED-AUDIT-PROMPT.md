@@ -2,15 +2,43 @@
 
 [Co-developed with claude code -- Adam]
 
-You are reviewing **only the changes in `be3c242..HEAD`** of the NDTwin-Kernel repository. A
+You are reviewing **only the changes in `be3c242..576dd2a`** of the NDTwin-Kernel repository. A
 full-repository audit already exists at `doc/audit-be3c242/` (10 stage summaries, base commit
 `be3c242`). Do not repeat it. Every line you review must be a line that audit could not have seen.
 
+**The range is pinned to a commit, not to `HEAD`, on purpose: work is continuing in parallel and
+`HEAD` will move while you read.** Do not widen it, and do not review anything committed after
+`576dd2a` — that is a later pass.
+
 ```bash
-git log --oneline be3c242..HEAD          # 24 commits
-git diff --stat be3c242..HEAD            # 46 files, +4566 / -216
-git diff be3c242..HEAD -- <path>         # the actual change for one file
+git log --oneline be3c242..576dd2a       # 24 commits
+git diff --stat be3c242..576dd2a         # 46 files, +4566 / -216
+git diff be3c242..576dd2a -- <path>      # the actual change for one file
 ```
+
+## Set up an isolated checkout first — do not work in the main tree
+
+Another session is editing the same working tree right now, so a build there would compile
+half-finished code and you would report defects that do not exist. Get your own checkout of the
+pinned commit:
+
+```bash
+cd /home/adam/Desktop/NDTwin-Kernel
+git worktree add /tmp/audit-576dd2a 576dd2a
+
+# setting/AppConfig.hpp is gitignored, so a fresh checkout does not configure. Copy the real one:
+cp setting/AppConfig.hpp /tmp/audit-576dd2a/setting/AppConfig.hpp
+
+cd /tmp/audit-576dd2a
+cmake -S . -B build -G Ninja
+cmake --build build -j4
+```
+
+Read, build and test only in `/tmp/audit-576dd2a`. Write your findings into
+`/home/adam/Desktop/NDTwin-Kernel/doc/audit/scoped/` — that directory is not touched by the other
+session. When you are finished, leave the worktree in place; do not run `git worktree remove`.
+
+Never run `git commit`, `git add`, `git checkout`, `git stash` or `git reset` in either tree.
 
 Read the surrounding code for context freely — you need it to judge a change — but **report only
 defects in, or caused by, this diff.** A pre-existing defect the diff merely touches is out of
@@ -203,6 +231,7 @@ Do not modify any file outside `doc/audit/scoped/`. Do not fix anything you find
 ## Build and test commands
 
 ```bash
+cd /tmp/audit-576dd2a                         # your worktree, never the main tree
 cmake --build build -j4                       # -j4, not -j$(nproc): -j14 exhausts 15 GB of RAM
 ./build/bin/test_routing_strategy             # run DIRECTLY, 207 tests -- see below
 ctest --test-dir build --output-on-failure
