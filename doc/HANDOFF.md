@@ -25,8 +25,8 @@ flow 安裝、link 失效重算都實機驗證過。剩下的是**測試覆蓋�
 | 層 | OVS | P4 |
 |---|---|---|
 | L0 build（含 p4c） | ✅ | ✅ |
-| L1 單元（175 C++ 直接跑 + ctest、7 個 Python 套件） | ✅ | ✅ |
-| L2 API 契約 | 34/36（剩 `received_a_simulation_case` ×2）| 32/36 → 待重測 |
+| L1 單元（**191** C++ 直接跑 + ctest、7 個 Python 套件） | ✅ | ✅ |
+| L2 API 契約 | **36/36 錯誤路徑全綠**（`get_graph_data` 見下方 flaky 註）| 待重測 |
 | L3 元件契約 | 1 BROKEN + 1 MISSING | 同 |
 | log allowlist | ✅ | ✅ |
 | L4 差異比對 | — | ✅ PASS（14 條已接受差異）|
@@ -393,7 +393,7 @@ P4 達到「和 OVS 一樣不會復原」的水準。
 | `install_flow_entry__unknown_dpid` → 200 | ✅ **已修**（`8c25dbc`）—— 改成請求當下就檢查 dpid，回 404 |
 | `get_path_switch_count__bad_ip` → 500 | ✅ **已修**（`832d75c`）—— `tryIpStringToUint32`，回 400 |
 | `inform_switch_entered__bad_dpid` → 500 | ✅ **已修**（`832d75c`）—— `tryParseUint64`（比 `stoull` 嚴格），回 400 |
-| `received_a_simulation_case` ×2 → 202 | ❌ **未修** —— 收到爛 JSON／缺欄位也回 202 |
+| `received_a_simulation_case` ×2 → 202 | ✅ **已修**（`05353d5`）—— `validateRequestBody`，回 400。**L2 錯誤路徑至此全綠** |
 | `get_graph_data`（256 條 host edge down）| ⚠️ **不穩定，見下** |
 
 ⚠️ **`get_graph_data` 這一項是「時間的函數」，不是「程式碼的函數」** —— 2026-07-31 才釐清：
@@ -415,7 +415,7 @@ host**，所以：
 
 | # | 項目 | 為什麼在這個位置 |
 |---|---|---|
-| 1 | `SimulationRequestManager`：爛 JSON／缺欄位回 202 → 400 | 剩下的 2 個 L2 FAIL。⚠️ **那段程式碼就是 audit 點名的 RCE** —— 只改 status code、**不動指令組裝**，並在註解標明界線 |
+| ~~1~~ | ~~`SimulationRequestManager`：爛 JSON／缺欄位回 202 → 400~~ | ✅ **已完成**（`05353d5`）—— 見下面「已完成」段 |
 | 2 | `OVSPowerStrategy` 補測試 | 要**先修接縫**（見 1i） |
 | 3 | `setSwitchPowerState` 不論成敗都更新圖 | 同一類「靜默成功」，TESTBED-only |
 | 4 | `/ndt/disable_switch` 幽靈端點 | 要嘛實作、要嘛讓 app 停止呼叫。**節能功能可能從來沒生效過** |
@@ -430,6 +430,34 @@ host**，所以：
 
 **驗收清單還沒做的**（`p4_bmv2_support_plan.md:257`）：第 6 項（電源關機）要等 Phase 7；
 第 7 項的 HTTP status 傳遞缺口需要 completion handle，是架構決定不是小改（見 1f）。
+
+#### 待辦第 1 項已完成（2026-07-31，commit `05353d5`）
+
+`received_a_simulation_case` 對**任何**東西都回 202 —— 包含字面上的 `{not json`。body 從來沒被
+parse 過，直接進 curl 命令列，simulator server 回什麼（包含拒收所以什麼都沒回）都被包成
+`{"status": "..."}`。應用程式沒有任何辦法知道自己送了垃圾。
+
+那五個必填欄位**不是 kernel 自己發明的**：Simulation-Platform-Manager 的
+`from_json(SimulationTask)` 對每一個都做 `j.at(f).get_to(std::string)`，所以擋不下來的 body 是在
+**那個沒辦法回應呼叫端的 process 裡**炸掉。而 `doc/ndt_api.md` 第 17 節**本來就寫 400** ——
+所以是程式碼和契約不符，不是測試訂太嚴。
+
+順手修掉同一類的 `simulation_completed`：`std::stoi` 解 `app_id`。爛 JSON 和缺欄位本來就走
+`json::exception` 回 400，但 `std::stoi("abc")` 丟的是 `std::invalid_argument`，**不在那個 catch
+裡** → 500。更糟的是 `stoi("1abc")` 是 1、`stoi("-1")` 是 -1，所以打錯字會**把結果轉給另一個
+應用程式，還回 200 OK**。
+
+⚠️ **刻意沒動的**：body 依然未經 escape 就進 shell。界線寫在三個地方（header 的 `@warning`、
+插值處的 NOTE、以及一個斷言「驗證只看形狀」的測試），**這樣沒有人會把那個 400 誤認成消毒**。
+那個測試是寫成「注入修好之後它就該失敗」，並附帶當下該怎麼改。
+
+**mutation 驗證抓到我自己兩個假斷言**（第 1j 條教訓又收了一次利息）：
+
+1. 拿掉 `is_null()` 檢查**什麼都沒發生** —— null 會落到 `is_string()` 分支，照樣被拒。所以那個
+   叫 `RejectsNullAsAbsent...` 的測試**從來沒驗到「as absent」**。改成斷言分類，因為分類才是診斷
+   本身：`"case_id": null` 意思是呼叫端沒給值，該讀到的是「缺欄位」不是「型別錯誤」。
+2. **把 `requiredRequestFields()` 縮短，兩個測試看不到** —— 因為它們的期望值是從同一份清單推導的
+   （同義反覆）。補了一個把五個名字**字面寫死**的測試，否則清單可以悄悄停止檢查某個欄位而全部保持綠燈。
 
 ### 3. 刻意延後的技術債
 

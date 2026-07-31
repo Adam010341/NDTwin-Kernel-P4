@@ -152,6 +152,16 @@ What is still open: `doc/HANDOFF.md`.
     one line that named the fault. `utils::KeyedFailureLog` reports a failure once it has outlasted
     a hold-off, and once more when it clears.
 
+24. **Answer 400 for a malformed simulation case** (`05353d5`) instead of 202 Accepted.
+    `/ndt/received_a_simulation_case` never parsed the body -- it went straight into a curl command
+    line -- so `{not json` was "accepted" and the empty reply wrapped as `{"status":""}`. The five
+    required fields are Simulation-Platform-Manager's own (`get_to(std::string)` on each), so a body
+    that fails the new check would have thrown in a process with no way to answer the caller;
+    `ndt_api.md` §17 already documented 400. Also replaces `std::stoi` for `app_id` in
+    `/ndt/simulation_completed`, where a mistyped id was a 500 and `"1abc"` silently became app 1
+    under a 200 OK. The body still reaches a shell unescaped -- that boundary is stated in the
+    header, at the interpolation, and pinned by a test asserting the check is shape-only.
+
 ### Known limitations
 
 - P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up
