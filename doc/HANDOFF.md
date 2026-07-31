@@ -19,13 +19,13 @@
 ## 目前的狀態（一句話）
 
 **測試堆疊在 OVS 和 P4 兩邊都綠**（L0/L1/L2/L3/log/L4），P4 的圖、telemetry、雙向 path、
-flow 安裝、link 失效重算都實機驗證過。剩下的是**測試覆蓋率**、**P4 liveness 還是 stub**、
-以及一批已查證但未修的 audit 發現。
+flow 安裝、link 失效重算、**switch liveness** 都實機驗證過。**`is_up` 不再說謊了。**
+剩下的是**測試覆蓋率**、以及一批已查證但未修的 audit 發現。
 
 | 層 | OVS | P4 |
 |---|---|---|
 | L0 build（含 p4c） | ✅ | ✅ |
-| L1 單元（**207** C++ 直接跑 + ctest、7 個 Python 套件） | ✅ | ✅ |
+| L1 單元（**224** C++ 直接跑 + ctest、**8** 個 Python 套件） | ✅ | ✅ |
 | L2 API 契約 | **36/36 錯誤路徑全綠**（`get_graph_data` 見下方 flaky 註）| 待重測 |
 | L3 元件契約 | 1 BROKEN + 1 MISSING | 同 |
 | log allowlist | ✅ | ✅ |
@@ -421,8 +421,8 @@ host**，所以：
 | 3 | `setSwitchPowerState` 不論成敗都更新圖 | 同一類「靜默成功」，TESTBED-only |
 | 4 | `/ndt/disable_switch` 幽靈端點 | 要嘛實作、要嘛讓 app 停止呼叫。**節能功能可能從來沒生效過** |
 | 5 | host 發現的 static ARP 問題（定期重拉 host） | 讓 `get_graph_data` 從 flaky 變成穩定 |
-| 6 | **P4 liveness stub** | 現在唯一還會騙人的欄位。需要 proxy 暴露 gRPC channel 狀態 + LLDP 新鮮度、新端點 `GET /p4/switch_state`、kernel 端換成三態 policy（沿用 `ovsLivenessFor` 的形狀）。**`is_up` 是 power／CPU／溫度／`getAvgLinkUsage` 的前置條件**，所以 diff 不大但影響面很廣 |
-| 7 | LLDP beacon：port 從拓撲推導、beacon MAC 不要撞 host 範圍、install 改 insert-or-modify | 和第 6 項共用資料結構 |
+| ~~6~~ | ~~**P4 liveness stub**~~ | ✅ **已完成**（`a8db425`）—— 見下方「待辦第 6 項」段。過程中挖到兩個 bug |
+| 7 | LLDP beacon：port 從拓撲推導、beacon MAC 不要撞 host 範圍、install 改 insert-or-modify | 第 6 項已建好 last-seen 追蹤，這項現在只剩 beacon 本身的三個缺陷 |
 | 8 | 審查 agy-review 0057 之後的（共 80+ 份） | 和 audit 重疊度高，所以降級 |
 | 9 | 修正計畫書 Phase 6 那段錯誤敘述 | 只有狀態章節記了更正，本文還沒改 |
 | 10 | `TopologyAndFlowMonitor` 補測試 | 工程量最大，要先想清楚接縫 |
@@ -431,6 +431,84 @@ host**，所以：
 
 **驗收清單還沒做的**（`p4_bmv2_support_plan.md:257`）：第 6 項（電源關機）要等 Phase 7；
 第 7 項的 HTTP status 傳遞缺口需要 completion handle，是架構決定不是小改（見 1f）。
+
+#### 待辦第 6 項已完成（2026-07-31，commit `a8db425`）—— P4 liveness
+
+`pingWorker` 對每台 bmv2 **無條件** `setVertexUp`，一秒一次，**沒有任何證據**。被殺掉的 switch
+一秒內就回報健康，所以 twin 永遠顯示不出故障。而 `is_up` 是 power／CPU／溫度／`getAvgLinkUsage`
+的前置條件 —— **一個造假的欄位讓好幾個其他欄位失去意義**。這是最後一個會說謊的欄位。
+
+**設計：proxy 報事實，kernel 下判決。** 這樣「我問了它不答」和「我問不到」的區別能撐過那一趟。
+把這兩者混在一起，就是當初一次 `ovs-vsctl` 失敗把整個 OVS fabric 標成死的原因；而這裡更嚴重
+—— **一個 proxy 對應十台**。
+
+| 訊號 | 為什麼選它 |
+|---|---|
+| `probe()` = `GetForwardingPipelineConfig` + `COOKIE_ONLY` | P4Runtime 裡最便宜的請求。**唯一真正證明 bmv2 process 活著在服務的訊號** |
+| LLDP 新鮮度 | 證明它**在轉封包** —— bmv2 不管 pipeline 通不通都會回控制平面 RPC |
+
+**拒絕過的兩個更弱方案**（理由寫在程式碼裡）：gRPC channel 的 connectivity state 在沒人推它時停在
+`IDLE`，所以**閒置時被殺掉的 switch 讀起來是健康的**，而且只能透過私有屬性拿；stream receiver
+thread 在正常 `stop()` 時也會結束，分不出「死了」和「關掉了」。
+
+**LLDP 新鮮度原本完全不存在** —— `handle_packet_in` 只在「邊是新的」時才動作，而拓撲幾秒內就收斂，
+所以**之後每一個 beacon 都被丟掉**：每分鐘上千個 proof-of-life 全部浪費。
+
+**移除了 host force-up。** 它的理由（「proxy 沒有 host feed」）已經不成立：proxy 的
+`render_hosts` 會發 MAC + 非空 `ipv4`，正是 `updateHosts` 需要的。留著會**遮住它掩護的那個故障**
+—— 如果 proxy 的 MAC 格式哪天不再匹配 `findVertexByMac`，host discovery 會壞掉而每台 host 照樣
+顯示 up。實測：host 維持 4/4。
+
+##### 實機驗證（10 台 bmv2）
+
+| 場景 | 結果 |
+|---|---|
+| 健康 | 10/10 up、4/4 host、**0 個 warning** |
+| 殺掉一台 bmv2 | 該台 ~10 秒後變 down **並留在 down**，其他九台不受影響 |
+| 殺掉 proxy 60 秒 | **圖完全不動**，總共 **2 行**警告 |
+| proxy 復原 | 各一行恢復訊息，附次數（76 和 63）|
+| **proxy 在有一台死掉時啟動** | 起得來，回報 9 台可用 |
+
+⚠️ **~10 秒的偵測延遲是「衝突證據」規則在動作，不是巧合**：probe 立刻失敗，但判決維持 `Unknown`
+直到最後一個 beacon 老化超過 `kLldpFreshSeconds`。這是從 proxy 自己的回報確認的，不是推測。
+
+##### 過程中挖到兩個 bug，都修了，因為兩個都會架空這個功能
+
+1. **一台 bmv2 死掉，整個 proxy 起不來。** 批次 pipeline push 沒有 try/except，而
+   `set_forwarding_pipeline_config` 對沒在聽的 switch 會拋 `_InactiveRpcError`；uvicorn 把 startup
+   event 的例外當致命，所以 process 以 **exit 3** 結束 —— 另外九台的 telemetry、拓撲、flow 安裝
+   一起沒有。**對 liveness 更致命：如果 proxy 在有 switch 掛掉時根本跑不起來，`Down` 就只在
+   「proxy 起來之後才死」的情況下觀察得到。**
+2. **一次四分鐘停機噴 216 行沒 allowlist 的 `[error]`。** `/stats/flow/<dpid>` 的空 body 是
+   **控制平面不在**，不是 JSON 壞掉，卻被丟進 parser，每台每輪一次。改成 edge-triggered。
+   60 秒停機從 ~54 行/分鐘變成**總共 2 行**。
+
+##### mutation 驗證：7 個 C++ mutant 全殺，proxy 端 2 個第一次存活
+
+兩個存活的都記下來，因為它們揭露的是**我的斷言**而不是程式碼：
+
+1. **拿掉 evidence lock，全部測試照樣綠。** 我的註解宣稱「沒有鎖這裡會噴 `dictionary changed size
+   during iteration`」—— **假的**。CPython 的 GIL 讓 `d[k]=v` 和 `set(d)` 是不可中斷的 C 呼叫，
+   **在這個層級寫不出任何測試能證明那個鎖是承重的**。鎖該留（快照一致性 + free-threaded build 沒有
+   GIL 保證），註解改成講這個，並明說測試實際斷言的範圍比名字小。
+2. **迭代活的 switches dict 看不見** —— probe 是瞬間的，一輪太短，registration 落不進去。改成
+   20 台 × 每次 probe sleep 20ms，把一輪拉長到 ~400ms，mutant 現在會以真正的 `RuntimeError` 失敗。
+
+##### 一個測試逼我改了程式
+
+`{"probe_ok": false, "last_lldp_age_s": "ages"}` 原本回 `Down`。判定**程式該改**：
+
+- `null`／不存在 = proxy 說「沒東西可報」→ 合法，不該阻止判決
+- `"ages"` = **schema 違反**，兩個 process 對欄位型別認知不一致 → 這是「讀不出來」
+
+proxy 升級改了欄位型別時回 `Down` 會讓整個 fabric 變黑 —— **正是這個 policy 存在的目的**。
+改成 `Value`／`Absent`／`Malformed` 三態。
+
+##### 一個 HANDOFF 之前沒記到的環境細節
+
+`tools/test_workflow/l1_unit_tests.sh` 是**直接執行**每個 Python 測試檔並解析 `Ran N tests`
+（unittest 格式），**不是 pytest**。寫成 pytest 風格會被判「NO TESTS RAN」—— 一個綠燈但什麼都
+沒驗的狀態。新測試檔請用 `unittest.TestCase`。
 
 #### 待辦第 1 項已完成（2026-07-31，commit `05353d5`）
 

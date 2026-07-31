@@ -172,12 +172,20 @@ What is still open: `doc/HANDOFF.md`.
     port list is unknown. Also moves `describeCommandStatus` into `utils` -- this class logged
     `std::system`'s raw wait status, so an exit code of 1 appeared as "status 256".
 
-### Known limitations
+26. **Report bmv2 switch liveness from evidence** (`a8db425`) instead of asserting it.
+    `pingWorker` called `setVertexUp` for every bmv2 switch once a second with no evidence at all,
+    so a killed switch reported healthy again within a second and the twin could never show a
+    fault -- and `is_up` gates the power, CPU and temperature reports and `getAvgLinkUsage`. The
+    proxy now exposes `GET /p4/switch_state` carrying a round-tripped P4Runtime probe plus LLDP
+    freshness, and the kernel applies the same three-state policy as the OVS side: Unknown leaves
+    the graph alone, because one unreachable proxy must not black out all ten switches. Also
+    removes the host force-up, now redundant since the proxy serves `/v1.0/topology/hosts`.
+    Two bugs found while testing are fixed here too: one dead bmv2 stopped the whole proxy from
+    starting (an unguarded pipeline push, fatal to uvicorn's startup event), and an empty
+    `/stats/flow/<dpid>` body produced 216 unallowlisted error lines during one four-minute
+    outage.
 
-- P4 switch liveness is still a stub: `pingWorker` reports every bmv2 switch up
-  unconditionally, so a powered-off switch reports UP within 1 second and the twin cannot
-  report a fault. Needs the proxy's gRPC channel state plus LLDP freshness. Remaining
-  Phase 6 work, tracked in `doc/HANDOFF.md`.
+### Known limitations
 - Every southbound command is still built as `popen("curl … -d '" + json.dump() + "'")`.
   `nlohmann::json::dump()` does not escape single quotes and the JSON comes from
   unauthenticated REST bodies and LLM output. Deliberately deferred; 22 sites in 3 files.
