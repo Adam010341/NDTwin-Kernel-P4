@@ -243,6 +243,46 @@ kernel **有**正確偵測 5 秒逾時、記 WARN、指名端點。但端點仍�
 裡時就送出了。這和 L2 的 `install_flow_entry__unknown_dpid` 回 200 是**同一個缺口**，要讓
 dispatcher 的結果回流到 HTTP 層才能修，不是小改。
 
+### 1g. link 掛掉之後路徑不會重算（2026-07-31，未修，OVS 和 P4 都一樣）
+
+實測情境：OVS 模式，`h1 iperf -c 10.0.0.97`，先手動在 s1 裝一條 priority 100 的規則把它導向
+port 1（往 s5），流量確實跟著走。然後在 Mininet 打 `link s1 s5 down`。
+
+觀察到的：
+
+| # | 現象 | 原因 |
+|---|---|---|
+| 1 | **流量沒有被重新導向** | 系統裡沒有任何東西會重算路徑，見下 |
+| 2 | web-GUI 還是量到流量 | **這是對的** —— h1 一直在送，s1 仍然收到、sFlow 在 **ingress** 就取樣，之後才在死 port 被丟棄。流量真的存在於入口 |
+| 3 | 加一條 priority 120 導回 s6 就正常 | 操作者手動做了控制平面該做的事 |
+
+**Twin 這一側是正確的。** `link_failure_detected` 有送到、有生效 —— `get_graph_data` 顯示
+`s1:1 -> s5 is_up=False`、`s5:1 -> s1 is_up=False`，兩個方向都標下來了。
+
+**失敗在控制平面。** Ryu **有**偵測到（`/v1.0/topology/links` 從 32 條變 30 條，s1↔s5 已移除），
+但 [`on_link_delete`](../intelligent_router.py#L596) 只做兩件事：印 log、POST 給 kernel。之後：
+
+- **整個 `intelligent_router.py` 沒有任何 `remove_edge`** —— 所以 `static_net`（算路徑用的圖）
+  永遠留著那條死 link。任何基於它的後續決策都是錯的，而且是無聲的。
+- `install_all_pair_paths` **只跑一次**：第 284 行把 `install_initial_openflow_entries_completed`
+  設 True，**緊接著**第 285 行才呼叫。所以啟動後約 60 秒裝的那批規則是整個 run 的最終狀態。
+
+**還有第二個獨立的缺口**：`install_all_pair_paths` 用 **priority 10**，而操作者手動裝的是 100。
+所以**就算控制平面會重算，也蓋不掉手動規則** —— 那是 priority 的定義，但意味著手動規則沒有
+「失效自動撤除」的機制。對一條被釘住的 flow，重新導向必須由操作者收回釘子。
+
+⚠️ **這件事讓待辦第 8 項的價值需要重新評估**：原本計畫是「P4 那側也要送
+`link_failure_detected`」，但既然 **OVS 這側收到通知之後也沒有人採取行動**，把 P4 接起來只會讓
+P4 達到「和 OVS 一樣不會復原」的水準。
+
+修的話三個層次，範圍差很多：
+
+| 層次 | 內容 | 備註 |
+|---|---|---|
+| 小 | `on_link_delete` 加 `remove_edge` | 單獨做不會重新導向，但是後兩項的前提。**現在 Ryu 的圖是錯的** |
+| 中 | link 變動時重算並重下受影響路徑 | `safe_add_or_modify_flow`（用 `OFPFC_MODIFY_STRICT`）**在同一個檔案裡已經存在**，只是 `install_all_pair_paths` 沒用它 |
+| 大 | twin 偵測並回報「黑洞」flow（入口有量、出口沒有） | 這是 twin 該有的能力，目前它只看入口 |
+
 ### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
 
 帶流量的 OVS 迴歸跑到 **30/36**。剩下的：
