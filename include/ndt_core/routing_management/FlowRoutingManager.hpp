@@ -53,7 +53,10 @@ class FlowRoutingManager
                        std::shared_ptr<EventBus> eventBus);
 
     /// Release resources (does not own the shared components).
-    ~FlowRoutingManager();
+    ///
+    /// [Co-developed with claude code -- Adam] Virtual so the three dispatch methods below can be
+    /// overridden in a test, which requires deletion through a base pointer to be well-defined.
+    virtual ~FlowRoutingManager();
 
     /**
      * @brief Delete an OpenFlow flow entry on a given switch.
@@ -72,7 +75,11 @@ class FlowRoutingManager
      *
      * @note This function calls the local controller REST API via curl.
      */
-    OpResult deleteAnEntry(uint64_t dpid, const json& match, int priority = -1);
+    /// [Co-developed with claude code -- Adam] virtual: the test seam for Controller. Controller's
+    /// sender is the only place a dispatched job's OpResult exists, and it discarded every one of
+    /// them until 8c25dbc. Testing that it now acts on them needs a manager whose results the test
+    /// chooses, and nothing else about FlowRoutingManager is substitutable.
+    virtual OpResult deleteAnEntry(uint64_t dpid, const json& match, int priority = -1);
     /**
      * @brief Install a flow entry on a switch.
      *
@@ -82,11 +89,11 @@ class FlowRoutingManager
      * @param action JSON action(s) describing forwarding behavior.
      * @param idleTimeout Idle timeout in seconds (0 means no idle timeout).
      */
-    OpResult installAnEntry(uint64_t dpid,
-                           int priority,
-                           const json& match,
-                           const json& action,
-                           int idleTimeout = 0);
+    virtual OpResult installAnEntry(uint64_t dpid,
+                                    int priority,
+                                    const json& match,
+                                    const json& action,
+                                    int idleTimeout = 0);
     /**
      * @brief Modify an existing flow entry on a switch.
      *
@@ -95,7 +102,10 @@ class FlowRoutingManager
      * @param match JSON match fields identifying the entry to modify.
      * @param action Replacement action(s).
      */
-    OpResult modifyAnEntry(uint64_t dpid, int priority, const json& match, const json& action);
+    virtual OpResult modifyAnEntry(uint64_t dpid,
+                                   int priority,
+                                   const json& match,
+                                   const json& action);
 
     /**
      * @brief Install a group entry.
