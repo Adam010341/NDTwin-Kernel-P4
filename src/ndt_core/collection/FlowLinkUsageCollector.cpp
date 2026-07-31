@@ -1420,7 +1420,15 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                                     m_flowInfoTable[key].endTime);
 
                 // 2. Update the network map
-                if (m_allPathMap.count({key.srcIP, key.dstIP}))
+                // [Co-developed with claude code -- Adam]
+                // Scoped to the lookup itself: this runs on the 1 Hz rate loop for every tracked
+                // flow, and the body below takes graph locks, which must not be nested under
+                // this one.
+                const bool pathKnown = [&] {
+                    std::shared_lock<std::shared_mutex> pathLock(m_allPathMapMutex);
+                    return m_allPathMap.count({key.srcIP, key.dstIP}) > 0;
+                }();
+                if (pathKnown)
                 {
                     if (isIngress)
                     {
@@ -1920,6 +1928,23 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k)
 void
 FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
 {
+    // [Co-developed with claude code -- Adam]
+    // Both maps were written here with no lock at all, while getSwitchCount and
+    // getAllSwitchCounts read m_switchCountMap under a shared_lock -- which protects readers
+    // from each other and from nothing else. m_allPathMapMutex was declared and never used.
+    // Concurrent operator[] insertion can rehash the map under a reader, which is a segfault,
+    // not a stale value.
+    //
+    // The window used to be tiny because fetchAllDestinationPaths ran exactly once at startup.
+    // refreshDestinationPathsPeriodically (added in e49327a, my own change) now calls this every
+    // 5-60 seconds for the life of the process, against readers on the 1 Hz rate loop and on
+    // every HTTP thread serving /ndt/get_path_switch_count. That turned a startup-only race into
+    // a permanent one.
+    //
+    // scoped_lock rather than two unique_locks: it orders the acquisition itself, so this cannot
+    // deadlock against a future caller that wants them the other way round.
+    std::scoped_lock lock(m_allPathMapMutex, m_switchCountMapMutex);
+
     for (const auto& path : allPathsVector)
     {
         uint32_t srcIp = path.front().first;
@@ -1961,6 +1986,10 @@ FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
 std::map<std::pair<uint32_t, uint32_t>, Path>
 FlowLinkUsageCollector::getAllPaths()
 {
+    // [Co-developed with claude code -- Adam]
+    // Copying a std::map while another thread inserts into it is undefined behaviour; returning
+    // by value does not make it safe.
+    std::shared_lock<std::shared_mutex> lock(m_allPathMapMutex);
     return m_allPathMap;
 }
 
@@ -2048,6 +2077,8 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
 void
 FlowLinkUsageCollector::setAllPath(std::pair<uint32_t, uint32_t> ipPair, Path path)
 {
+    // [Co-developed with claude code -- Adam] As setAllPaths.
+    std::unique_lock<std::shared_mutex> lock(m_allPathMapMutex);
     m_allPathMap[ipPair] = path;
 }
 
@@ -2071,6 +2102,9 @@ FlowLinkUsageCollector::getAllHostIps()
 void
 FlowLinkUsageCollector::printAllPathMap()
 {
+    // [Co-developed with claude code -- Adam] Iterating while a writer inserts invalidates the
+    // iterator, which is the crash this whole set of locks exists to prevent.
+    std::shared_lock<std::shared_mutex> lock(m_allPathMapMutex);
     for (const auto& [key, value] : m_allPathMap)
     {
         const auto& [srcIp, dstIp] = key;
