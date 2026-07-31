@@ -933,6 +933,47 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
         return;
     }
 
+    // [Co-developed with claude code -- Adam]
+    // Reject dpids this kernel does not know about, before enqueueing anything.
+    //
+    // This endpoint answered 200 for a nonexistent dpid, which the L2 contract has been failing on
+    // for as long as it has existed. The instinct is to blame the asynchrony -- the dispatcher
+    // drains on worker threads, so the southbound outcome genuinely is not available yet -- but
+    // "there is no such switch" is not a southbound outcome. It is knowable here, from the
+    // topology the kernel already holds, before a job is queued at all.
+    //
+    // All-or-nothing: a batch naming one bad dpid is rejected whole rather than partially applied,
+    // because a caller that gets 200 for a partially-applied batch has no way to find out which
+    // half landed. The genuinely asynchronous outcomes are still asynchronous, and are logged per
+    // entry by Controller's sender.
+    std::vector<uint64_t> unknownDpids;
+    for (const auto& job : jobs)
+    {
+        if (!m_topologyAndFlowMonitor->getSwitchKind(job.dpid).has_value())
+        {
+            unknownDpids.push_back(job.dpid);
+        }
+    }
+    if (!unknownDpids.empty())
+    {
+        std::sort(unknownDpids.begin(), unknownDpids.end());
+        unknownDpids.erase(std::unique(unknownDpids.begin(), unknownDpids.end()),
+                           unknownDpids.end());
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "refusing flow batch: {} dpid(s) are not switches in the loaded "
+                           "topology",
+                           unknownDpids.size());
+        res.result(http::status::not_found);
+        res.body() = json{{"status", "error"},
+                          {"error", "unknown dpid"},
+                          {"unknown_dpids", unknownDpids},
+                          {"detail", "these dpids are not switches in the loaded topology; check "
+                                     "the dpid, or that the topology file matches the running "
+                                     "network"}}
+                         .dump();
+        return;
+    }
+
     // Enqueue once; dispatcher drains per-DPID on worker threads
     const size_t accepted = jobs.size();
     m_controller->dispatcher().enqueue(std::move(jobs));
@@ -949,7 +990,8 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     //
     // The response now says what is actually true: the entries were accepted for
     // programming. Their outcome is logged per entry with the dpid and the controller's
-    // reply, and tools/contract_test/check_logs.py fails the run on those errors.
+    // reply -- which was claimed here before it was true: Controller's sender discarded every
+    // OpResult it received. It logs them now, so check_logs.py can fail a run on a rejected rule.
     //
     // Kept as HTTP 200 rather than 202 Accepted: 202 would be more accurate, but callers
     // that check for exactly 200 would break, and this is the endpoint every writing app

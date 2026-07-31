@@ -136,3 +136,101 @@ TEST(KeyedFailureLogTest, AQuietLoopReportsNothingAtAll)
     }
     EXPECT_EQ(log.openCount(), 0u);
 }
+
+// --- The hold-off: only report failures that outlast it.
+//
+// The path-walk loop needs this. For the first seconds after startup the flow tables are still
+// being fetched one switch at a time, so "no table for dpid 10" is true and transient -- measured
+// at 7454, 37 and 29 passes on one real start. Reporting those put three warnings in every clean
+// startup, and the alternative to a hold-off was allowlisting them, which is exactly how the
+// previous version of this warning became unread.
+//
+// `now` is injected so these are deterministic rather than sleeping.
+
+TEST(KeyedFailureLogHoldOffTest, AFailureShorterThanTheHoldOffIsNeverReported)
+{
+    KeyedFailureLog log{std::chrono::seconds(15)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    // Fails for 7 seconds -- the observed startup case -- then clears.
+    for (int s = 0; s < 7; ++s)
+    {
+        log.record("no-table:10", "no flow table for dpid 10");
+        const auto report = log.endPass(t0 + std::chrono::seconds(s));
+        EXPECT_TRUE(report.newFailures.empty()) << "reported at " << s << "s";
+    }
+
+    const auto after = log.endPass(t0 + std::chrono::seconds(8));
+    EXPECT_TRUE(after.newFailures.empty());
+    EXPECT_TRUE(after.recovered.empty())
+        << "a failure that was never reported must not report a recovery either, or the hold-off "
+           "just moves the noise to the recovery line";
+    EXPECT_EQ(log.openCount(), 0u);
+}
+
+TEST(KeyedFailureLogHoldOffTest, AFailureThatOutlastsTheHoldOffIsReportedOnce)
+{
+    KeyedFailureLog log{std::chrono::seconds(15)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    log.record("dpid-port:4:3", "edge not found by dpid/port 4:3");
+    EXPECT_TRUE(log.endPass(t0).newFailures.empty()) << "reported immediately despite the hold-off";
+
+    log.record("dpid-port:4:3", "edge not found by dpid/port 4:3");
+    const auto atLimit = log.endPass(t0 + std::chrono::seconds(15));
+    ASSERT_EQ(atLimit.newFailures.size(), 1u) << "not reported once the hold-off elapsed";
+    EXPECT_EQ(atLimit.newFailures[0].first, "dpid-port:4:3");
+
+    // And still only once, however long it persists.
+    for (int s = 16; s < 40; ++s)
+    {
+        log.record("dpid-port:4:3", "edge not found by dpid/port 4:3");
+        EXPECT_TRUE(log.endPass(t0 + std::chrono::seconds(s)).newFailures.empty())
+            << "re-reported at " << s << "s";
+    }
+}
+
+TEST(KeyedFailureLogHoldOffTest, RecoveryIsReportedOnlyForAFailureThatWasReported)
+{
+    KeyedFailureLog log{std::chrono::seconds(10)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    log.record("k", "m");
+    log.endPass(t0);
+    log.record("k", "m");
+    ASSERT_EQ(log.endPass(t0 + std::chrono::seconds(10)).newFailures.size(), 1u);
+
+    const auto recovered = log.endPass(t0 + std::chrono::seconds(11));
+    ASSERT_EQ(recovered.recovered.size(), 1u);
+    EXPECT_EQ(recovered.recovered[0].second, 2u) << "the pass count spans the whole failure";
+}
+
+TEST(KeyedFailureLogHoldOffTest, TheHoldOffIsPerKeyNotGlobal)
+{
+    // A transient startup miss must not delay reporting of a genuine fault that started earlier,
+    // and a long-running fault must not drag a transient one into being reported.
+    KeyedFailureLog log{std::chrono::seconds(10)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    log.record("old", "started at t0");
+    log.endPass(t0);
+
+    // "new" appears at t0+9s; "old" crosses its hold-off at t0+10s.
+    log.record("old", "started at t0");
+    log.record("new", "started at t0+9s");
+    EXPECT_TRUE(log.endPass(t0 + std::chrono::seconds(9)).newFailures.empty());
+
+    log.record("old", "started at t0");
+    log.record("new", "started at t0+9s");
+    const auto atTen = log.endPass(t0 + std::chrono::seconds(10));
+    ASSERT_EQ(atTen.newFailures.size(), 1u) << "only the older key has outlasted its hold-off";
+    EXPECT_EQ(atTen.newFailures[0].first, "old");
+}
+
+TEST(KeyedFailureLogHoldOffTest, ZeroHoldOffKeepsTheImmediateBehaviour)
+{
+    // The default, for a caller that is not running at 1 kHz.
+    KeyedFailureLog log;
+    log.record("k", "m");
+    EXPECT_EQ(log.endPass().newFailures.size(), 1u);
+}

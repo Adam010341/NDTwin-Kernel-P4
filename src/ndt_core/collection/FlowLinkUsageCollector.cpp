@@ -2259,7 +2259,15 @@ FlowLinkUsageCollector::calFlowPathByQueried()
     // "edge not found by dpid/port 4:3" and a 41 MB kernel log -- a line that named the exact
     // fault, made unreadable by being repeated a quarter of a million times. Only the edges are
     // logged now: the first pass a failure appears in, and the pass it stops.
-    utils::KeyedFailureLog walkFailures;
+    // [Co-developed with claude code -- Adam]
+    // 15s hold-off. For the first few seconds the flow tables are still being fetched one switch at
+    // a time, so a path through a not-yet-loaded dpid legitimately fails: measured at 7454, 37 and
+    // 29 passes on one real start, all of which then cleared. Reporting those would have put three
+    // warnings in every clean startup, and the only ways to make the log check green again would be
+    // to allowlist them -- which is exactly how the previous version of this warning became
+    // unreadable -- or to raise the bar here. 15s is comfortably past the observed 7.4s worst case
+    // while still catching a control plane that is genuinely absent.
+    utils::KeyedFailureLog walkFailures{std::chrono::seconds(15)};
 
     while (m_running.load(std::memory_order_relaxed))
     {
