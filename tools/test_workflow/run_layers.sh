@@ -114,6 +114,24 @@ mark_log() {
     LOG_MARKED=1
 }
 
+# [Co-developed with claude code -- Adam]
+# True when a running kernel actually has this log file open. Without this check the log layer
+# happily validated a file no live process was writing: an operator following the user manual starts
+# the kernel by hand, so its output goes to their terminal and $LOG_DIR/kernel.log keeps whatever
+# the last stack.sh run left there. Measured once: the check reported on a 37-minute-old log from a
+# *P4* session while the running kernel was OVS -- a verdict about the wrong process in the wrong
+# mode, and nothing said so. A missing file was already handled; a stale one was not.
+kernel_owns_log() {
+    local target pid
+    target="$(readlink -f "$KERNEL_LOG" 2>/dev/null)" || return 1
+    for pid in $(pgrep -x ndtwin_kernel 2>/dev/null); do
+        if readlink -f /proc/"$pid"/fd/* 2>/dev/null | grep -qxF "$target"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 run_logcheck() {
     if [[ ! -f "$KERNEL_LOG" ]]; then
         # Not silently passing: a missing log means this layer checked nothing, and the
@@ -124,6 +142,15 @@ run_logcheck() {
         echo "  $CONTRACT_DIR/check_logs.py /path/to/kernel.log"
         return 1
     fi
+    if ! kernel_owns_log; then
+        echo "${R}$KERNEL_LOG is not being written by any running kernel${N}"
+        echo "last written: $(stat -c %y "$KERNEL_LOG" 2>/dev/null || echo unknown)"
+        echo "this layer would report on a stale file, so it is checking nothing. Either start the"
+        echo "kernel with stack.sh, or point the checker at the log your kernel is writing:"
+        echo "  $CONTRACT_DIR/check_logs.py /path/to/your/kernel.log"
+        return 1
+    fi
+
     if [[ "$LOG_MARKED" -eq 1 ]]; then
         echo "${D}checking lines 1-$LOG_MARK (before the L2 error-path checks);"
         echo "crashes are still scanned across the whole file${N}"

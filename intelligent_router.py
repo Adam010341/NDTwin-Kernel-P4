@@ -30,6 +30,13 @@ is_mininet = True   # True: Mininet, False: physical testbed
 RYU_SERVER_INSTANCE_NAME = "ndt_ryu_app"
 switch_num = 10
 detecting_time = 60
+
+# [Co-developed with claude code -- Adam]
+# How long the topology must be quiet before routes are recomputed. One `link a b down` raises an
+# EventLinkDelete per direction, and a switch joining raises a burst, so recomputing on each event
+# would repeat the whole 16256-pair walk several times for one operator action. 3s is well past the
+# gap between the paired events while still recovering promptly.
+reinstall_quiet_period = 3
 is_all_dst_biased = False
 all_dst_ecmp_biased_factor = 1
 
@@ -72,7 +79,73 @@ class IntelligentRyu(app_manager.RyuApp):
 
         self.install_initial_openflow_entries_completed = False
         self.all_destination_paths = []
+
+        # [Co-developed with claude code -- Adam]
+        # Debounce state for recomputing routes after a topology change. See
+        # _schedule_route_reinstall for why this exists at all.
+        self.topology_change_seq = 0
+        self.reinstall_worker_running = False
         
+
+    # [Co-developed with claude code -- Adam]
+    #
+    # Until these existed, a link failure changed nothing. on_link_delete logged the event and
+    # POSTed /ndt/link_failure_detected to the digital twin, and stopped there:
+    #
+    #   - nothing removed the edge from the graph paths are computed from -- there was no
+    #     remove_edge anywhere in this file -- so the graph kept reporting a link that was down; and
+    #   - install_all_pair_paths ran exactly once per process, because
+    #     install_initial_openflow_entries_completed is set on the line immediately before the call.
+    #
+    # So the rules installed ~60s after startup were the final state for the life of the run.
+    # Observed: `link s1 s5 down` with a flow crossing that link -- traffic stopped arriving, was
+    # never rerouted, and the twin (correctly) showed the edge down while Ryu's own graph still had
+    # it. See doc/HANDOFF.md section 1g.
+    def _active_net(self):
+        """The graph routes are computed from: whichever of the two this run is using."""
+        return self.dynamic_net if self.is_dynamically_detect_topo else self.static_net
+
+    def _schedule_route_reinstall(self, reason):
+        """
+        Recompute and reinstall all-pair routes, once, shortly after the topology stops changing.
+
+        Debounced rather than immediate for two reasons. `link a b down` raises one EventLinkDelete
+        per direction, and a switch coming up raises a burst, so an immediate recompute would run
+        several times over for one operator action. And install_all_pair_paths walks every host pair
+        -- 16256 of them on the 128-host topology -- which is far too much work to do inline in an
+        event handler, where it would stall LLDP discovery and every other Ryu greenlet.
+        """
+        self.topology_change_seq += 1
+        self.logger.warning("topology changed (%s); route reinstall scheduled", reason)
+        if self.reinstall_worker_running:
+            return
+        self.reinstall_worker_running = True
+        hub.spawn(self._route_reinstall_worker)
+
+    def _route_reinstall_worker(self):
+        try:
+            # Wait for the graph to stop moving: if another change arrives while we sleep, start the
+            # quiet period again.
+            while True:
+                seen = self.topology_change_seq
+                hub.sleep(reinstall_quiet_period)
+                if self.topology_change_seq == seen:
+                    break
+
+            if not self.install_initial_openflow_entries_completed:
+                # The initial install has not run yet and will cover the current graph when it does.
+                self.logger.info("skipping route reinstall: initial install has not run yet")
+                return
+
+            self.logger.warning("recomputing all-pair routes after topology change")
+            self.install_all_pair_paths(self._active_net())
+            self.logger.warning("route reinstall done")
+        except Exception as e:
+            # A greenlet that dies takes its traceback with it and nothing else notices, which is
+            # how a silent non-recovery would come back.
+            self.logger.error("route reinstall failed: %s", e, exc_info=True)
+        finally:
+            self.reinstall_worker_running = False
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -402,6 +475,18 @@ class IntelligentRyu(app_manager.RyuApp):
                 # self.logger.info(f"current_switch type {type(current_switch)}")
                 # self.logger.info(f"current_switch {current_switch}")
                 datapath = self.switches.get(current_switch)
+                # [Co-developed with claude code -- Adam]
+                # None once this runs on link events rather than only at startup: a switch can be
+                # gone from self.switches while still present in the graph. Reaching straight for
+                # .ofproto_parser raised AttributeError, which aborted the whole recompute part-way
+                # and left routes half-installed.
+                if datapath is None:
+                    self.logger.warning(
+                        "skipping switch %s while installing routes to %s: not connected",
+                        current_switch,
+                        dst_ip,
+                    )
+                    continue
                 parser = datapath.ofproto_parser
                 match = parser.OFPMatch(eth_type=0x0800, ipv4_dst=dst_ip)
                 actions = [parser.OFPActionOutput(out_port)]
@@ -620,6 +705,17 @@ class IntelligentRyu(app_manager.RyuApp):
         except Exception as e:
             self.logger.warning("Failed to notify NDT: %s", str(e))
 
+        # [Co-developed with claude code -- Adam]
+        # The graph is a DiGraph and EventLinkDelete fires once per direction, so removing the one
+        # directed edge named by this event is exactly right -- the paired event removes the other.
+        # Without this the graph kept a link that was down, and every path computed from it was
+        # wrong, silently.
+        net = self._active_net()
+        if net.has_edge(src_dpid, dst_dpid):
+            net.remove_edge(src_dpid, dst_dpid)
+            self.logger.warning("removed edge %s -> %s from the routing graph", src_dpid, dst_dpid)
+        self._schedule_route_reinstall(f"link {src_dpid} -> {dst_dpid} down")
+
     @set_ev_cls(event.EventLinkAdd)
     def on_link_add(self, ev):
         self.logger.warning("Link added: %s", ev.link)
@@ -629,21 +725,24 @@ class IntelligentRyu(app_manager.RyuApp):
         dst_dpid = link.dst.dpid
         dst_port = link.dst.port_no
 
-        # Add the edge from self.net
-        if self.is_dynamically_detect_topo:
-            if not self.dynamic_net.has_edge(src_dpid, dst_dpid):
-                self.dynamic_net.add_edge(src_dpid, dst_dpid, port=src_port)
-                self.logger.info(
-                    "Added edge from net: %s %s -> %s %s",
-                    src_dpid,
-                    dst_dpid,
-                    src_port,
-                    dst_port,
-                )
-            # If bidirectional, Add reverse link too
-            if not self.dynamic_net.has_edge(dst_dpid, src_dpid):
-                self.dynamic_net.add_edge(dst_dpid, src_dpid, port=dst_port)
-                self.logger.info("Added reverse edge: %s -> %s", dst_dpid, src_dpid)
+        # [Co-developed with claude code -- Adam]
+        # Applied to whichever graph this run computes routes from. It used to update dynamic_net
+        # only, so in static-topology mode -- the mode the user manual documents -- a link coming
+        # back was never reflected, and after on_link_delete started removing edges that would have
+        # made the loss permanent.
+        #
+        # Only the direction this event names is added, matching on_link_delete. The reverse arrives
+        # as its own event; adding it here from dst_port would guess at a link that may not be up.
+        net = self._active_net()
+        if not net.has_edge(src_dpid, dst_dpid):
+            net.add_edge(src_dpid, dst_dpid, port=src_port)
+            self.logger.info(
+                "Added edge to the routing graph: %s:%s -> %s:%s",
+                src_dpid,
+                src_port,
+                dst_dpid,
+                dst_port,
+            )
 
         # Notify NDT link is recovered
         api_url = "http://localhost:8000/ndt/link_recovery_detected"
@@ -663,7 +762,10 @@ class IntelligentRyu(app_manager.RyuApp):
         except Exception as e:
             self.logger.warning("Failed to notify NDT: %s", str(e))
 
-      
+        # [Co-developed with claude code -- Adam] As on_link_delete: a link coming back is a
+        # topology change, and routes that were moved off it should be able to move back.
+        self._schedule_route_reinstall(f"link {src_dpid} -> {dst_dpid} up")
+
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def flow_stats_reply_handler(self, ev):
         dpid = ev.msg.datapath.id
