@@ -1048,7 +1048,26 @@ HttpSession::handleInformSwitchEntered(http::response<http::string_body>& res)
         return;
     }
 
-    uint64_t dpid = std::stoull(dpidStr);
+    // [Co-developed with claude code -- Adam]
+    // std::stoull threw on `?dpid=abc` and the outermost catch turned it into 500 -- the L2 failure
+    // inform_switch_entered__bad_dpid. tryParseUint64 is also stricter than stoull, which would
+    // read "12abc" as 12 and "-1" as 18446744073709551615: a mistyped dpid must be refused, not
+    // silently redirected to a different switch.
+    const auto dpidOpt = utils::tryParseUint64(dpidStr);
+    if (!dpidOpt)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inform_switch_entered: dpid '{}' is not an unsigned integer",
+                           dpidStr);
+        res.result(http::status::bad_request);
+        res.body() = json{{"status", "error"},
+                          {"error", "invalid dpid"},
+                          {"dpid", dpidStr},
+                          {"detail", "dpid must be an unsigned integer"}}
+                         .dump();
+        return;
+    }
+    const uint64_t dpid = *dpidOpt;
     auto switchVertexOpt = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
     if (!switchVertexOpt)
     {
@@ -1324,7 +1343,26 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
     {
         try
         {
-            uint64_t dpid = std::stoull(dpidStr);
+            // [Co-developed with claude code -- Adam]
+    // std::stoull threw on `?dpid=abc` and the outermost catch turned it into 500 -- the L2 failure
+    // inform_switch_entered__bad_dpid. tryParseUint64 is also stricter than stoull, which would
+    // read "12abc" as 12 and "-1" as 18446744073709551615: a mistyped dpid must be refused, not
+    // silently redirected to a different switch.
+    const auto dpidOpt = utils::tryParseUint64(dpidStr);
+    if (!dpidOpt)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inform_switch_entered: dpid '{}' is not an unsigned integer",
+                           dpidStr);
+        res.result(http::status::bad_request);
+        res.body() = json{{"status", "error"},
+                          {"error", "invalid dpid"},
+                          {"dpid", dpidStr},
+                          {"detail", "dpid must be an unsigned integer"}}
+                         .dump();
+        return;
+    }
+    const uint64_t dpid = *dpidOpt;
             vertexOpt = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
         }
         catch (const std::exception& e)
@@ -1502,8 +1540,30 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
                            srcIpStr,
                            dstIpStr);
 
-        uint32_t srcIp = utils::ipStringToUint32(srcIpStr);
-        uint32_t dstIp = utils::ipStringToUint32(dstIpStr);
+        // [Co-developed with claude code -- Adam]
+        // ipStringToUint32 throws, and the throw escaped to the outermost catch, which answers 500.
+        // A malformed query parameter is the caller's mistake, not the kernel breaking, and telling
+        // them otherwise sends them looking in the wrong place. This is the L2 failure
+        // get_path_switch_count__bad_ip.
+        const auto srcIpOpt = utils::tryIpStringToUint32(srcIpStr);
+        const auto dstIpOpt = utils::tryIpStringToUint32(dstIpStr);
+        if (!srcIpOpt || !dstIpOpt)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "get_path_switch_count: bad IP parameter(s) src='{}' dst='{}'",
+                               srcIpStr,
+                               dstIpStr);
+            res.result(http::status::bad_request);
+            res.body() = json{{"status", "error"},
+                              {"error", "invalid IP address"},
+                              {"src_ip", srcIpStr},
+                              {"dst_ip", dstIpStr},
+                              {"detail", "src_ip and dst_ip must be dotted IPv4 addresses"}}
+                             .dump();
+            return;
+        }
+        const uint32_t srcIp = *srcIpOpt;
+        const uint32_t dstIp = *dstIpOpt;
 
         auto switchCountOpt = m_flowLinkUsageCollector->getSwitchCount({srcIp, dstIp});
 

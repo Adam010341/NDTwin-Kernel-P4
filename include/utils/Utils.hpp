@@ -17,6 +17,8 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <optional>
+#include <cctype>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -123,6 +125,82 @@ ipStringToUint32(const std::string& ipStr)
         throw std::invalid_argument("Invalid IP address: " + ipStr);
     }
     return addr.s_addr;
+}
+
+/**
+ * @brief Parse a dotted IPv4 string, or nothing if it is not one.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * The throwing version above is the right shape for internal callers who already know the string is
+ * an address. It is the wrong shape for a REST handler: `?src_ip=not.an.ip` threw
+ * std::invalid_argument out of the handler, HttpSession's outermost catch turned it into
+ * **500 Internal Server Error**, and the caller was told the kernel had broken when in fact their
+ * request was malformed. The L2 contract has been failing on exactly that
+ * (get_path_switch_count__bad_ip) for as long as it has existed.
+ *
+ * A handler wants to answer 400 and say which parameter was wrong, which needs a parse that reports
+ * failure rather than throwing it.
+ *
+ * @param ipStr Dotted IPv4 string.
+ * @return The address in network byte order (in_addr::s_addr), or nullopt.
+ */
+inline std::optional<uint32_t>
+tryIpStringToUint32(const std::string& ipStr)
+{
+    struct in_addr addr;
+    if (ipStr.empty() || inet_aton(ipStr.c_str(), &addr) == 0)
+    {
+        return std::nullopt;
+    }
+    return addr.s_addr;
+}
+
+/**
+ * @brief Parse an unsigned 64-bit id from a query parameter, or nothing if it is not one.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * `?dpid=abc` reached std::stoull, which threw std::invalid_argument and became a
+ * **500 Internal Server Error** -- the L2 failure inform_switch_entered__bad_dpid.
+ *
+ * Stricter than stoull deliberately. stoull accepts leading whitespace, a leading `+` or `-`, and
+ * any trailing junk: "12abc" parses as 12, and "-1" wraps to 18446744073709551615. A dpid that a
+ * caller mistyped must be refused, not silently turned into a different switch. Only digits are
+ * accepted, and the value must fit.
+ *
+ * @param text The parameter value.
+ * @return The parsed value, or nullopt.
+ */
+inline std::optional<uint64_t>
+tryParseUint64(const std::string& text)
+{
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+    for (const char c : text)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(c)))
+        {
+            return std::nullopt;
+        }
+    }
+    try
+    {
+        size_t consumed = 0;
+        const unsigned long long value = std::stoull(text, &consumed);
+        if (consumed != text.size())
+        {
+            return std::nullopt;
+        }
+        return static_cast<uint64_t>(value);
+    }
+    catch (const std::exception&)
+    {
+        // out_of_range for something longer than 64 bits. Refusing beats wrapping.
+        return std::nullopt;
+    }
 }
 
 inline static uint32_t

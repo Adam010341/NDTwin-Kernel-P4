@@ -16,6 +16,7 @@ add_executable(
   test_IpToString.cpp
   test_FlowDispatcher.cpp
   test_Controller.cpp
+  test_ParamParsing.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
