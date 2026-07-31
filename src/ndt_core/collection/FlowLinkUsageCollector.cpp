@@ -4,6 +4,7 @@
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
+#include "utils/KeyedFailureLog.hpp"
 #include "utils/Utils.hpp"
 #include <algorithm>
 #include <arpa/inet.h>
@@ -2218,6 +2219,14 @@ FlowLinkUsageCollector::calFlowPathByQueried()
     using MapT = std::remove_reference_t<decltype(m_flowInfoTable)>;
     using FlowInfoKey = typename MapT::key_type;
 
+    // [Co-developed with claude code -- Adam]
+    // This loop re-derives every tracked flow's path every millisecond, and each failure used to
+    // warn directly. One misconfigured host port therefore wrote 270,991 copies of
+    // "edge not found by dpid/port 4:3" and a 41 MB kernel log -- a line that named the exact
+    // fault, made unreadable by being repeated a quarter of a million times. Only the edges are
+    // logged now: the first pass a failure appears in, and the pass it stops.
+    utils::KeyedFailureLog walkFailures;
+
     while (m_running.load(std::memory_order_relaxed))
     {
         // Snapshot keys under a shared/read lock
@@ -2256,7 +2265,7 @@ FlowLinkUsageCollector::calFlowPathByQueried()
             if (fk.ipv4Src == 0 || fk.ipv4Dst == 0)
             {
                 ok = false;
-                SPDLOG_LOGGER_WARN(Logger::instance(), "fk.ipv4Src == 0 || fk.ipv4Dst == 0");
+                walkFailures.record("zero-ip", "flow path skipped: source or destination IP is 0");
             }
             else
             {
@@ -2264,14 +2273,16 @@ FlowLinkUsageCollector::calFlowPathByQueried()
                 if (!edgeOpt.has_value())
                 {
                     ok = false;
-                    SPDLOG_LOGGER_WARN(
-                        Logger::instance(),
-                        "edge not found flow: {} to {} protocol {} srcPort {} dstPort {}",
-                        utils::ipToString(flowKey.srcIP),
-                        utils::ipToString(flowKey.dstIP),
-                        flowKey.protocol,
-                        flowKey.srcPort,
-                        flowKey.dstPort);
+                    // Keyed on the source host only: every flow from an unknown host fails for
+                    // the same one reason, and keying on the 5-tuple would report each of them.
+                    walkFailures.record(
+                        "host-edge:" + utils::ipToString(flowKey.srcIP),
+                        fmt::format("no host edge for {}; flows from it cannot be traced "
+                                    "(first seen for {} to {} proto {})",
+                                    utils::ipToString(flowKey.srcIP),
+                                    utils::ipToString(flowKey.srcIP),
+                                    utils::ipToString(flowKey.dstIP),
+                                    flowKey.protocol));
                 }
                 else
                 {
@@ -2303,6 +2314,29 @@ FlowLinkUsageCollector::calFlowPathByQueried()
                         if (!effect || effect->outputPorts.empty())
                         {
                             ok = false;
+                            // [Co-developed with claude code -- Adam]
+                            // This branch used to be silent, with the only diagnostic coming
+                            // from a WARN inside lookup() that fired at 1 kHz. Reported here
+                            // instead, once per distinct cause, and the two causes are worth
+                            // telling apart: a switch the control plane never gave us versus
+                            // one whose table has no matching rule.
+                            const uint64_t missDpid = graph[srcSw].dpid;
+                            if (!m_classifier->knowsSwitch(missDpid))
+                            {
+                                walkFailures.record(
+                                    fmt::format("no-table:{}", missDpid),
+                                    fmt::format("no flow table for dpid {}; the control plane has "
+                                                "not reported it, so paths through it stay empty",
+                                                missDpid));
+                            }
+                            else
+                            {
+                                walkFailures.record(
+                                    fmt::format("no-rule:{}", missDpid),
+                                    fmt::format("dpid {} has a flow table but no rule matches "
+                                                "this flow; paths through it stay empty",
+                                                missDpid));
+                            }
                             break;
                         }
 
@@ -2321,10 +2355,14 @@ FlowLinkUsageCollector::calFlowPathByQueried()
                         if (!nextEdgeOpt.has_value())
                         {
                             ok = false;
-                            SPDLOG_LOGGER_WARN(Logger::instance(),
-                                               "edge not found by dpid/port {}:{}",
-                                               graph[srcSw].dpid,
-                                               outPort);
+                            // The key is the dpid:port itself, which is the whole diagnostic:
+                            // it says which link the topology file is missing.
+                            walkFailures.record(
+                                fmt::format("dpid-port:{}:{}", graph[srcSw].dpid, outPort),
+                                fmt::format("edge not found by dpid/port {}:{}; the topology file "
+                                            "has no link there, so paths through it stay empty",
+                                            graph[srcSw].dpid,
+                                            outPort));
                             break;
                         }
 
@@ -2334,6 +2372,9 @@ FlowLinkUsageCollector::calFlowPathByQueried()
                     if (hop >= 100)
                     {
                         ok = false;
+                        // Kept as a direct WARN, not suppressed: this one is in the log check's
+                        // FORBID list because a forwarding loop is never acceptable, and it is
+                        // bounded at 100 iterations per flow rather than unbounded per pass.
                         SPDLOG_LOGGER_WARN(Logger::instance(),
                                            "Exceed 100 hop (potential loop) {} -> {}",
                                            utils::ipToString(flowKey.srcIP),
@@ -2351,6 +2392,21 @@ FlowLinkUsageCollector::calFlowPathByQueried()
                     it->second.flowPath = ok ? std::move(path) : sflow::Path{};
                 }
             }
+        }
+
+        // [Co-developed with claude code -- Adam]
+        // Exactly once per pass, after every record() above.
+        const auto report = walkFailures.endPass();
+        for (const auto& [key, message] : report.newFailures)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(), "{}", message);
+        }
+        for (const auto& [key, passes] : report.recovered)
+        {
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "path-walk failure '{}' cleared after {} pass(es)",
+                               key,
+                               passes);
         }
 
         std::this_thread::sleep_for(std::chrono::microseconds(1000));

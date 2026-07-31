@@ -1299,22 +1299,37 @@ Classifier::updateFromQueriedTables(const json& newTables)
     }
 }
 
+/** @brief Whether any flow table has been ingested for this switch. See the header.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+bool
+Classifier::knowsSwitch(uint64_t dpid) const
+{
+    std::shared_lock lock(impl_->mutex);
+    return impl_->switches.find(dpid) != impl_->switches.end();
+}
+
 std::optional<RuleEffect>
 Classifier::lookup(uint64_t dpid, const FlowKey& key, uint8_t tableId) const
 {
     std::shared_lock lock(impl_->mutex);
 
+    // [Co-developed with claude code -- Adam]
+    // Both misses return nullopt silently. This is called once per hop per tracked flow by
+    // calFlowPathByQueried, which runs at ~1 kHz, so warning here floods: measured 75,853
+    // copies of "switch not found dpid 10" in two minutes with the proxy down, an 8.5 MB log.
+    // A single miss is not a fault -- a persistent one is -- and the sole caller now reports
+    // that through utils::KeyedFailureLog, using knowsSwitch() to say which of the two it is.
     auto it = impl_->switches.find(dpid);
     if (it == impl_->switches.end())
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "switch not found dpid {}", dpid);
         return std::nullopt;
     }
 
     const Rule* r = impl_->lookupInTableNoLock(it->second, tableId, key);
     if (!r)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "no rule matched");
         return std::nullopt;
     }
 

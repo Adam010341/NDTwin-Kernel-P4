@@ -171,6 +171,20 @@ class Classifier
      */
     std::optional<RuleEffect> lookup(uint64_t dpid, const FlowKey& key, uint8_t tableId = 0) const;
 
+    /**
+     * @brief Whether any flow table has been ingested for this switch.
+     *
+     * @details
+     * Lets a caller tell "the control plane has not given us this switch's table" apart from
+     * "the table is loaded and nothing matched" -- two very different faults that lookup()
+     * reports identically as nullopt. Added because lookup() used to log the distinction
+     * itself, at 1 kHz: 75,853 copies of "switch not found dpid 10" in two minutes with the
+     * proxy down, an 8.5 MB log.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    bool knowsSwitch(uint64_t dpid) const;
+
     /** @brief Get the number of stored rules for a given switch. */
     size_t getRuleCount(uint64_t dpid) const;
 

@@ -45,15 +45,18 @@ WARNING | ^NFS server reloaded\.$ | ApplicationManager logs a successful NFS rel
 WARNING | ^ControllerAndOtherEventHandler stopped\.$ | normal shutdown message
 WARNING | acceptor_\.close\(\) error | benign during shutdown when the acceptor is already closed
 # [Co-developed with claude code -- Adam]
-# Startup race, bounded and self-healing: fetchOpenFlowTablesInternal loads flow tables one
-# dpid at a time (1..10), and if traffic is already flowing when the kernel starts, the
-# Classifier is asked to resolve a path through a switch whose table has not arrived yet.
-# Measured on a fresh kernel with a 10 Mbps flow already running: 50 occurrences, all for
-# dpid 10, spanning 105 ms (20:49:11.655-.760), never again afterwards -- the switch being
-# queried at that moment was 8. Paths are recomputed from later samples, so nothing is lost.
-# Allowlisted rather than silenced because a version of this that does NOT stop would be a
-# real fault, and the message is how you would see it.
-WARNING | ^switch not found dpid [0-9]+$ | Classifier::lookup during the startup window before all flow tables have loaded; bounded (~100ms) and self-healing
+# REMOVED, and the reasoning that put it here was wrong. `switch not found dpid N` was
+# allowlisted on the strength of one measurement in a healthy environment -- 50 occurrences over
+# 105 ms at startup -- with the note that "a version of this that does NOT stop would be a real
+# fault, and the message is how you would see it". Allowlisting it is precisely what stopped you
+# seeing it. With the control plane down the same warning is unbounded: 75,853 occurrences in two
+# minutes, an 8.5 MB log.
+#
+# Classifier::lookup no longer logs at all (it is called once per hop per flow at ~1 kHz, so it
+# cannot log safely), and its only caller reports the two distinct causes through
+# utils::KeyedFailureLog -- one line when a fault starts, one when it clears, with the duration.
+# Those lines are deliberately NOT allowlisted: "the control plane never reported this switch" is
+# a real fault and should fail the log check.
 
 
 # ============================================================================
