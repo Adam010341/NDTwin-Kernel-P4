@@ -5,20 +5,53 @@ FlowDispatcher::FlowDispatcher(SenderFn sender, size_t burstSize, bool fencePerB
 
 FlowDispatcher::~FlowDispatcher() { stop(); }
 
-void FlowDispatcher::start() { running_ = true; }
+void FlowDispatcher::start() {
+    // [Co-developed with claude code -- Adam] Under the lock, so a worker cannot observe
+    // running_ changing between its predicate check and its wait; see stop().
+    std::lock_guard<std::mutex> lk(mtx_);
+    running_ = true;
+}
 
+// [Co-developed with claude code -- Adam]
+// Three separate faults here, none of which had a test:
+//
+//  1. workers_ was iterated and cleared with no lock at all, while enqueue() inserts into it
+//     under mtx_. A job arriving during shutdown could rehash the map mid-iteration.
+//
+//  2. A lost wakeup that deadlocks stop() itself. running_ was written outside mtx_, so this
+//     interleaving was possible: a worker holds the lock, evaluates the wait predicate as false
+//     (running_ true, queue empty), and is about to sleep; stop() then sets running_ = false and
+//     calls notify_all() with no waiter yet registered; the worker sleeps and is never woken, and
+//     stop() blocks in join() forever. Writing running_ under mtx_ closes it, because the worker
+//     holds that same lock across both the check and the sleep.
+//
+//  3. The map could not simply be locked for the whole function: workerLoop_ takes mtx_, so
+//     joining while holding it would deadlock immediately. The threads are moved out under the
+//     lock and joined after releasing it.
 void FlowDispatcher::stop() {
-    running_ = false;
+    std::unordered_map<uint64_t, std::thread> toJoin;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        running_ = false;
+        toJoin.swap(workers_);
+    }
     cv_.notify_all();
-    for (auto& [dpid, th] : workers_) {
+
+    for (auto& [dpid, th] : toJoin) {
         if (th.joinable()) th.join();
     }
-    workers_.clear();
 }
 
 void FlowDispatcher::enqueue(const FlowJob& job) {
     {
         std::lock_guard<std::mutex> lk(mtx_);
+        // [Co-developed with claude code -- Adam]
+        // Refuse once stopped. A worker spawned after stop() has moved workers_ out is owned by
+        // nobody: its std::thread is destroyed while joinable, which is std::terminate. Dropping
+        // the job is the honest outcome -- the dispatcher is shutting down and cannot deliver it.
+        if (!running_) {
+            return;
+        }
         auto& q = queues_[job.dpid];
         q.push_back(job);
         if (!workers_.count(job.dpid)) {
@@ -32,6 +65,10 @@ void FlowDispatcher::enqueue(const FlowJob& job) {
 void FlowDispatcher::enqueue(std::vector<FlowJob> jobs) {
     {
         std::lock_guard<std::mutex> lk(mtx_);
+        // [Co-developed with claude code -- Adam] As the single-job overload.
+        if (!running_) {
+            return;
+        }
         for (auto& job : jobs) {
             queues_[job.dpid].push_back(std::move(job));
             if (!workers_.count(job.dpid)) {
