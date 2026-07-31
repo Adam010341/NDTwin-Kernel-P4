@@ -573,6 +573,28 @@ cmd_down() {
     for name in kernel p4_proxy ryu; do stop_one "$name"; done
     warn "Mininet was started manually; clean it up with:  sudo mn -c"
     rm -f "$MODE_FILE"
+
+    # [Co-developed with claude code -- Adam]
+    # stop_one only knows what this script started. A process launched by hand -- during
+    # debugging, say -- survives `down` and then poisons the next `up`, because wait_for_port sees
+    # an open port and reports success while the kernel it actually started is dead of
+    # `bind: Address already in use`. That happened: a whole P4 session measured a stray OVS
+    # kernel and reported 288 edges and 128 hosts, and nothing said so. wait_for_port now catches
+    # it, but saying it here means the operator learns at teardown rather than mid-run.
+    local leftovers=0
+    for port in 8000 8080 8081; do
+        if port_open "$port"; then
+            (( leftovers++ ))
+            err "  :$port is still listening after shutdown -- not something this script started"
+        fi
+    done
+    if (( leftovers > 0 )); then
+        err "  find and stop it, or the next 'up' will silently measure it:"
+        err "    ss -ltnp | grep -E ':(8000|8080|8081)'"
+        err "    pgrep -ax ndtwin_kernel"
+        return 1
+    fi
+
     ok "done"
 }
 
