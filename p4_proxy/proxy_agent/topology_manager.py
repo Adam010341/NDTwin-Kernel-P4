@@ -1,5 +1,68 @@
 import networkx as nx
 
+# [Co-developed with claude code -- Adam]
+#
+# The ipv4_lpm table keys on the destination address and nothing else, so every other match
+# field a caller sends is unrepresentable in it. Those fields used to be read past in silence:
+# route_flow picked out nw_dst and dropped the rest, so a rule sent as
+#
+#   {"ipv4_src": "10.0.0.1", "ipv4_dst": "10.0.0.4", "ip_proto": 17,
+#    "udp_src": 35909, "udp_dst": 5001}   priority 100
+#
+# was installed as "10.0.0.4/32 -> port N" and the proxy answered 200. Verified live: the rule
+# took effect and traffic followed the new port, but it applied to *all* traffic to 10.0.0.4
+# rather than the one flow the caller named, and the table read back priority 0 rather than 100.
+# A Traffic-Engineering rule aimed at one flow silently became a rule for a whole destination.
+#
+# The plan's own rule is "where P4 genuinely cannot honour a semantic, the proxy returns an
+# explicit error the kernel logs -- never a silent success", so these are rejected now. The
+# pipeline does have a ternary flow_5tuple table with real priority (Phase 4); wiring route_flow
+# to it is the proper fix and remains Phase 3 work. Until then, refusing beats pretending.
+class UnsupportedMatchError(ValueError):
+    """Raised when a match asks for something ipv4_lpm cannot express."""
+
+    def __init__(self, fields):
+        self.fields = sorted(fields)
+        super().__init__(
+            "ipv4_lpm keys on the destination address only; cannot honour: "
+            + ", ".join(self.fields)
+        )
+
+
+#: The only match fields the table actually keys on.
+HONOURED_MATCH_FIELDS = frozenset({"nw_dst", "ipv4_dst"})
+
+#: Sent on essentially every IPv4 rule. Validated below, but not a key: ipv4_lpm is IPv4 by
+#: construction, so eth_type 0x0800 is a tautology and anything else is unrepresentable.
+ETH_TYPE_FIELDS = frozenset({"dl_type", "eth_type"})
+
+IPV4_ETH_TYPE = 0x0800
+
+
+def unsupported_match_fields(match_dict):
+    """
+    Names the match fields this table cannot honour, sorted. Empty means the match is expressible.
+
+    A wrong eth_type is reported under its own field name rather than ignored: a caller asking to
+    match ARP or IPv6 must not have it quietly serviced as IPv4.
+
+    [Co-developed with claude code -- Adam]
+    """
+    bad = []
+    for field, value in (match_dict or {}).items():
+        if field in HONOURED_MATCH_FIELDS:
+            continue
+        if field in ETH_TYPE_FIELDS:
+            try:
+                if int(value) != IPV4_ETH_TYPE:
+                    bad.append(field)
+            except (TypeError, ValueError):
+                bad.append(field)
+            continue
+        bad.append(field)
+    return sorted(bad)
+
+
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
     def __init__(self):
@@ -76,7 +139,15 @@ class TopologyManager:
             return False
             
         client = self.switches[dpid]
-        
+
+        # [Co-developed with claude code -- Adam] Refuse what ipv4_lpm cannot express; see
+        # UnsupportedMatchError above for what silently dropping these actually did.
+        bad = unsupported_match_fields(match_dict)
+        if bad:
+            print(f"[TopologyManager] Refusing rule for DPID {dpid}: "
+                  f"ipv4_lpm cannot honour {bad}")
+            raise UnsupportedMatchError(bad)
+
         # Parse match (OpenFlow JSON)
         # NDTwin sends: {"dl_type": 2048, "nw_dst": "10.0.0.1"}
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
@@ -113,7 +184,16 @@ class TopologyManager:
     def unroute_flow(self, dpid, match_dict):
         if dpid not in self.switches:
             return False
-            
+
+        # [Co-developed with claude code -- Adam] As route_flow: a delete whose match names
+        # fields we ignored would remove a broader rule than the caller asked to remove, which
+        # is worse than refusing.
+        bad = unsupported_match_fields(match_dict)
+        if bad:
+            print(f"[TopologyManager] Refusing delete for DPID {dpid}: "
+                  f"ipv4_lpm cannot honour {bad}")
+            raise UnsupportedMatchError(bad)
+
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
         if not ipv4_dst:
@@ -125,7 +205,14 @@ class TopologyManager:
     def modify_flow(self, dpid, match_dict, actions_dict):
         if dpid not in self.switches:
             return False
-            
+
+        # [Co-developed with claude code -- Adam] As route_flow.
+        bad = unsupported_match_fields(match_dict)
+        if bad:
+            print(f"[TopologyManager] Refusing modify for DPID {dpid}: "
+                  f"ipv4_lpm cannot honour {bad}")
+            raise UnsupportedMatchError(bad)
+
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
         if not ipv4_dst:

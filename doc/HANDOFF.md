@@ -178,7 +178,9 @@ flow 停幾秒就老化。實測 2700 個 × 10ms = 27 秒 → 105 個 sample（
 剩下的 5 個 L2 FAIL 是既有的輸入驗證缺口（`bad_ip`→500、`bad_dpid`→500、爛 JSON→202 ×2、
 `install_flow_entry` 的 status 傳遞），**與 P4 無關**，OVS 也一樣。
 
-**計畫書驗收清單（`p4_bmv2_support_plan.md:257`）還沒做的兩項** —— 兩者都需要 bmv2 起著：
+**2026-07-31 補測了第 5、7 項**，結果見第 1f 節。
+
+**計畫書驗收清單（`p4_bmv2_support_plan.md:257`）原本沒做的兩項** —— 兩者都需要 bmv2 起著：
 
 | # | 項目 | 為什麼重要 |
 |---|---|---|
@@ -189,6 +191,57 @@ flow 停幾秒就老化。實測 2700 個 × 10ms = 27 秒 → 105 個 sample（
 
 **建議**：待辦第 7 項（P4 liveness）的**實機驗證也需要 bmv2**，所以一次 bmv2 session 可以把
 第 5、7 項和 liveness 驗證一起收掉。但第 5、7 項和 liveness 的程式改動無關，先測完才不會混在一起。
+
+### 1f. 驗收清單第 5、7 項的實測結果（2026-07-31）
+
+**第 5 項：轉發行為通過，但發現一個靜默成功。** ✅⚠️
+
+`install_flow_entry` → proxy → P4Runtime → bmv2 整條是通的，而且**流量真的改走新 port**：
+
+```
+s1 對 10.0.0.4 的規則:  OUTPUT:2 → OUTPUT:1
+路徑:  1(p2)→6→9→7→4    變成    1(p1)→5→9→7→4
+```
+
+這是 `P4RoutingStrategy` 第一次對活的 switch 驗證成功。
+
+**但 5-tuple 和 priority 被靜默丟掉了。** 送出的是
+`{ipv4_src, ipv4_dst, ip_proto, udp_src, udp_dst}` + priority 100，proxy 自己的 log 寫
+`Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 1` —— `route_flow`
+（`topology_manager.py`）只讀 `nw_dst`/`ipv4_dst`，其餘全部無聲丟棄，寫成 `ipv4_lpm` 的 `/32`，
+表讀回來 priority 是 0 而不是 100。
+
+**後果**：一條瞄準單一 flow 的規則，實際變成瞄準整個目的地的規則。Traffic-Engineering 下的規則
+會影響到它沒有指定的流量。
+
+已修（`route_flow`／`unroute_flow`／`modify_flow` 三處）：不能表達的 match 欄位**一律拒絕**並回
+HTTP 400 帶欄位清單。實測：
+
+| 測試 | 結果 |
+|---|---|
+| 5-tuple 直打 proxy | 400 `["ip_proto","ipv4_src","udp_dst","udp_src"]` |
+| 只有目的地 | 200（原本可用的路徑沒被破壞）|
+| ARP 的 `eth_type` (2054) | 400 —— 不會被當成 IPv4 服務 |
+| 走完整 kernel 路徑 | kernel log 記下 `returned HTTP 400` 加完整欄位清單 |
+
+⚠️ **`priority` 仍然被忽略但不擋安裝** —— 對單一 `/32` LPM key 來說沒有排序意義，而 kernel 每次
+都會送 priority，硬擋會讓所有安裝失敗。真正的修法是接上 Phase 4 已經建好的 `flow_5tuple`
+ternary 表（有真 priority），那是 Phase 3 的正式工作。
+
+**第 7 項：kernel 端對了，HTTP status 沒對。** ✅❌
+
+殺掉 proxy 後下規則：
+
+```
+[warning] HttpRoutingStrategyBase.cpp:96 post]
+    install flow entry failed: no response from P4 proxy agent at localhost:8081 within 5s
+```
+
+kernel **有**正確偵測 5 秒逾時、記 WARN、指名端點。但端點仍回 **HTTP 200** `{"status":"queued"}`，
+原因在回應文字裡就寫著：`per-entry outcomes are reported in the kernel log, not in this response`
+—— `FlowDispatcher` 是非同步的（一次可排 2000 筆、每 DPID 一個 worker），HTTP 回應在規則還在隊列
+裡時就送出了。這和 L2 的 `install_flow_entry__unknown_dpid` 回 200 是**同一個缺口**，要讓
+dispatcher 的結果回流到 HTTP 層才能修，不是小改。
 
 ### 2. L2 契約還有 6 個 FAIL（全部既有，與 P4 無關）
 

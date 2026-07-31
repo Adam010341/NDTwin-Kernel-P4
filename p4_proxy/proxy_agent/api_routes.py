@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 import json
-from proxy_agent.topology_manager import TopologyManager
+from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError
 from proxy_agent import ryu_topology, ryu_flow_stats
 
 # We will attach the topology manager instance to the router later
@@ -71,8 +71,18 @@ async def add_flow_entry(request: Request):
     match = data.get("match", {})
     actions = data.get("actions", [])
     
-    success = topology.route_flow(dpid, match, actions)
-    
+    # [Co-developed with claude code -- Adam]
+    # 400 with the offending field names, rather than servicing a narrowed version of the rule
+    # and answering 200. The kernel's HttpRoutingStrategyBase already treats a non-2xx as a
+    # failure and logs it with the endpoint, so this reaches an operator instead of becoming a
+    # rule that quietly covers more traffic than was asked for.
+    try:
+        success = topology.route_flow(dpid, match, actions)
+    except UnsupportedMatchError as err:
+        raise HTTPException(status_code=400,
+                            detail={"error": "unsupported match", "fields": err.fields,
+                                    "message": str(err)})
+
     if success:
         return {"status": "success"}
     else:
@@ -84,7 +94,12 @@ async def delete_flow_entry(request: Request):
     dpid = data.get("dpid")
     match = data.get("match", {})
     
-    success = topology.unroute_flow(dpid, match)
+    try:
+        success = topology.unroute_flow(dpid, match)
+    except UnsupportedMatchError as err:
+        raise HTTPException(status_code=400,
+                            detail={"error": "unsupported match", "fields": err.fields,
+                                    "message": str(err)})
     if success:
         return {"status": "success"}
     else:
@@ -101,7 +116,12 @@ async def modify_flow_entry(request: Request):
     # The two branches after the raise were unreachable. More importantly the raise itself
     # fired on every *successful* modify, because modify_ipv4_route had no `return True` on
     # its success path and the None propagated to here as falsy.
-    success = topology.modify_flow(dpid, match, actions)
+    try:
+        success = topology.modify_flow(dpid, match, actions)
+    except UnsupportedMatchError as err:
+        raise HTTPException(status_code=400,
+                            detail={"error": "unsupported match", "fields": err.fields,
+                                    "message": str(err)})
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
     return {"status": "success"}
