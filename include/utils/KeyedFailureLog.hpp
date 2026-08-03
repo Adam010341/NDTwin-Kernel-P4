@@ -121,6 +121,37 @@ class KeyedFailureLog
     {
         Report report;
 
+        // Expire first, record second.
+        //
+        // [Co-developed with claude code -- Adam]
+        // The order matters and the other way round was wrong. The record loop below refreshes
+        // lastSeen, and the prune loop skips any key present in this pass -- so if a key reappeared
+        // after being absent longer than m_forgetAfter, `now - lastSeen` was already 0 by the time
+        // the prune loop looked, the entry survived with its ancient firstSeen, and
+        // `now - firstSeen >= m_reportAfter` fired on that very first pass. A fault seen once, then
+        // once again a hundred seconds later, was reported immediately -- the hold-off bypassed
+        // entirely.
+        //
+        // Only reachable when endPass() is not called during the gap, which the 1 kHz path-walk loop
+        // always does; but this class lives in utils/ and a caller that only closes a pass when it
+        // has something to report would hit it. Found by review. My own test for the gap case called
+        // endPass every second throughout, so the prune loop cleaned up and the test passed.
+        for (auto it = m_open.begin(); it != m_open.end();)
+        {
+            if (now - it->second.lastSeen >= m_forgetAfter && m_forgetAfter > Clock::duration::zero())
+            {
+                if (it->second.reported)
+                {
+                    report.recovered.emplace_back(it->first, it->second.passes);
+                }
+                it = m_open.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
         for (const auto& [key, message] : m_thisPass)
         {
             auto it = m_open.find(key);

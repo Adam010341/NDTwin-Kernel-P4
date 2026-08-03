@@ -330,6 +330,57 @@ TEST(KeyedFailureLogForgetWindowTest, TheForgetWindowCanBeSetIndependently)
     EXPECT_EQ(log.openCount(), 1u) << "the explicit forget window was ignored";
 }
 
+TEST(KeyedFailureLogForgetWindowTest, AStaleEntryIsForgottenEvenIfNoPassRanDuringTheGap)
+{
+    // The gap case that AGapLongerThanTheForgetWindowDoesRestartTheHoldOff does NOT cover, and the
+    // difference is the whole point: that test calls endPass() every second throughout the gap, so
+    // the prune loop cleans up and the hold-off restarts correctly. Here **no pass runs during the
+    // gap at all**.
+    //
+    // With the prune loop running after the record loop, the record loop refreshed lastSeen first,
+    // so `now - lastSeen` was already 0 when the prune loop looked; the entry survived carrying its
+    // hundred-second-old firstSeen, and `now - firstSeen >= reportAfter` fired on that very first
+    // pass. A fault seen once, then once again much later, was reported immediately -- the hold-off
+    // bypassed entirely. Found by review, not by this suite.
+    //
+    // Reachable for any caller that closes a pass only when it has something to report. The 1 kHz
+    // path-walk loop closes every pass, which is why it never saw this.
+    // [Co-developed with claude code -- Adam]
+    KeyedFailureLog log{std::chrono::seconds(10)}; // forget after 20s
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    log.record("k", "m");
+    ASSERT_TRUE(log.endPass(t0).newFailures.empty()) << "reported before the hold-off elapsed";
+
+    // 100 seconds pass with NO endPass call, then the fault reappears once.
+    log.record("k", "m");
+    const auto reappeared = log.endPass(t0 + std::chrono::seconds(100));
+
+    EXPECT_TRUE(reappeared.newFailures.empty())
+        << "inherited a firstSeen from 100s ago and bypassed the hold-off: two isolated occurrences "
+           "far apart are exactly what the hold-off exists to suppress";
+    EXPECT_TRUE(reappeared.recovered.empty())
+        << "the first occurrence was never reported, so it must not report a recovery either";
+}
+
+TEST(KeyedFailureLogForgetWindowTest, AReportedFailureThatVanishesWithNoFurtherPassesStillRecovers)
+{
+    // The other half of moving the prune loop first: a *reported* failure that goes away must still
+    // produce its recovery line on the next pass, however long afterwards that pass is.
+    KeyedFailureLog log{std::chrono::seconds(10)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    log.record("k", "m");
+    log.endPass(t0);
+    log.record("k", "m");
+    ASSERT_EQ(log.endPass(t0 + std::chrono::seconds(10)).newFailures.size(), 1u);
+
+    // One pass, much later, with the key absent.
+    const auto later = log.endPass(t0 + std::chrono::seconds(500));
+    ASSERT_EQ(later.recovered.size(), 1u) << "a reported failure vanished without a recovery line";
+    EXPECT_EQ(log.openCount(), 0u);
+}
+
 TEST(KeyedFailureLogForgetWindowTest, AZeroHoldOffForgetsImmediatelyAsBefore)
 {
     // The default construction, used by every caller that is not the 1 kHz path-walk loop. A zero
