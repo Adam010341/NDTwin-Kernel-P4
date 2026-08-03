@@ -451,20 +451,54 @@ audit 當時是對的。** 已更正第 1h 和 1i 節。
 | `get_path_switch_count__bad_ip` → 500 | ✅ **已修**（`832d75c`）—— `tryIpStringToUint32`，回 400 |
 | `inform_switch_entered__bad_dpid` → 500 | ✅ **已修**（`832d75c`）—— `tryParseUint64`（比 `stoull` 嚴格），回 400 |
 | `received_a_simulation_case` ×2 → 202 | ✅ **已修**（`05353d5`）—— `validateRequestBody`，回 400。**L2 錯誤路徑至此全綠** |
-| `get_graph_data`（256 條 host edge down）| ⚠️ **不穩定，見下** |
+| `get_graph_data`（256 條 host edge down）| ✅ **已修** —— 見下，原本的解釋是錯的 |
 
-⚠️ **`get_graph_data` 這一項是「時間的函數」，不是「程式碼的函數」** —— 2026-07-31 才釐清：
+✅ **已修（2026-08-03）—— 而且原本的解釋是錯的。**
 
-Ryu 報告 97 台 host，但**每一台的 `ipv4` 都是空陣列**。host 不發 ARP（static ARP），Ryu 只能從
-packet-in 學到 MAC，學不到 IP，所以 `updateHosts` 對不上拓撲檔。而 **kernel 只在啟動時拉一次
-host**，所以：
+原本記的是：「Ryu 報告 97 台 host 但 `ipv4` 都是空陣列，因為 host 不發 ARP（static ARP），Ryu 學不到
+IP」。**那個因果不成立。** `testbed_topo.py` 設完 static ARP 之後**自己平行 ping 全部 128 台 host**
+（64 對 × 雙向），每台都送出 IP 封包 —— 那就是教會 Ryu 的東西。實測：Ryu 現在報 128 台，**128 台
+全部有 ipv4**，零台空陣列。所以空 `ipv4` 是**暫態**，不是永久限制。
 
-- 跑很久的 kernel **會通過** —— 期間累積的流量最終讓 Ryu 學到部分 IP
-- 剛啟動的 kernel **會失敗** —— 同一份程式碼，同一個網路
+**真正的原因，而且比原本記的廣得多**：`TopologyAndFlowMonitor::run()` 呼叫
+`fetchAndUpdateTopologyData()` **一次就 return**。實測：`run` 在 13:55:55.154 進入、**.242** 離開
+——**88 毫秒**——然後整個 process 生命週期內再也沒有重讀。整張圖（switch、host、link **全部**）
+就是 Ryu 在那一瞬間知道的東西。
 
-所以它是 **flaky**，不是穩定的已知失敗。這一點先前沒被記錄，導致同一個 FAIL 有時出現有時不出現
-時無法解讀。修法大概是**定期重拉 host**（比照我給 destination paths 加的
-`refreshDestinationPathsPeriodically`）。
+所以「時間的函數」是對的，但變數是**啟動間隔**：
+
+| 啟動方式 | 那一次快照抓到什麼 |
+|---|---|
+| 手動、比 Mininet 晚 73 秒 | ping burst 早就跑完 → **128/128 host up** |
+| `stack.sh up ovs`（背靠背）| 快照落在 burst 中間 → **永久性缺料** |
+
+同一份程式碼、同一個網路、不同判定。host 是最明顯的症狀，因為**它完全沒有 push 路徑** ——
+switch 走 `/ndt/inform_switch_entered`、link 失效走 `/ndt/link_failure_detected`，但**沒有任何東西
+push host**。
+
+**修法**：`run()` 改成定期輪詢（前 90 秒每 5 秒、之後每 30 秒），只有數字變動時才印一行。
+
+⚠️ **動手前先查證了一件會讓這個修法變危險的事**：定期重拉會不會把「正確地標成 down」的 link 復活？
+實測 Ryu 的 `/v1.0/topology/links` **確實會**移除失效的 link（32→30，2 秒內）並在恢復時加回
+（→32，8 秒內），而且 `updateLinks` **只設 `isUp = true` 從不設 false**。所以輪詢只能補齊漏掉的，
+不能推翻 push 路徑的正確判斷。
+
+**⚠️ 實測抓到我自己的一個嚴重 bug，單元測試抓不到。** 第一版的輪詢迴圈讓圖**不斷增長**：
+switch 10→20→30→40→50、host 128→640、edge 288→1440，每 5 秒多一整份拓撲。原因是
+`fetchAndUpdateTopologyData()` **開頭就呼叫 `loadStaticTopologyFromFile`**，而那個函式是**新增**
+頂點、不是對帳。這在之前不可能被發現，因為它一個 process 只被呼叫一次 —— **重複只在「第二次呼叫」
+出現，而第二次從來沒發生過**。已把載入和輪詢拆開，並且讓 `loadStaticTopologyFromFile` 對第二次
+載入直接拒絕（守衛放在函式裡而不是只放在呼叫點，因為那個陷阱屬於它自己）。
+
+**決定性驗證**（重現失敗條件，不是只看它現在是綠的）：
+
+| 步驟 | 結果 |
+|---|---|
+| 先弄斷一條 link，**然後**才啟動 kernel | 286/288 edge（快照正確地漏掉它）|
+| 修復 link，Ryu 報回 32 | — |
+| **5 秒後** | **288/288** ✅ 舊程式碼下這條邊會永久停在 down |
+
+log 紀律：~50 秒的輪詢只印 2 行（啟動時 286、恢復時 288），靜態拓撲載入 1 次，零 warning。
 
 ### 2b. 待辦清單（依建議優先序，2026-07-31）
 

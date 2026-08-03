@@ -15,7 +15,8 @@
 #include <set>                         // for set
 #include <shared_mutex>                // for shared_mutex
 #include <string>                      // for string, allocator
-#include <thread>                      // for thread
+#include <thread>
+#include <tuple>                      // for thread
 #include <unordered_map>               // for unordered_map
 #include <utility>                     // for pair
 #include <vector>                      // for vector
@@ -298,6 +299,14 @@ class TopologyAndFlowMonitor
     uint64_t hashDstIp(const std::string& str);
 
     std::array<std::string, 3> m_ryuUrl;
+
+    /// (switches up, hosts up, edges up). Change signal for the polling loop in run().
+    /// [Co-developed with claude code -- Adam]
+    std::tuple<std::size_t, std::size_t, std::size_t> graphLivenessSummary() const;
+
+    /// The REST poll alone, without re-reading the static topology file. See the implementation for
+    /// why the two must not be repeated together. [Co-developed with claude code -- Adam]
+    void pollControlPlaneTopology();
 
     std::atomic<bool> m_running{false};
 

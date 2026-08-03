@@ -138,6 +138,28 @@ TopologyAndFlowMonitor::stop()
 void
 TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
 {
+    // [Co-developed with claude code -- Adam]
+    // Refused rather than repeated. This function *adds* vertices and edges from the file; it does
+    // not reconcile against what is already there, so a second call duplicates the whole topology.
+    // Measured the first time a poll loop called it twice: switches 10 -> 20 -> 30 -> 40 -> 50,
+    // hosts 128 -> 640, edges 288 -> 1440, one extra copy every five seconds.
+    //
+    // The guard is here rather than only at the call site because the hazard belongs to this
+    // function, and it was invisible for as long as there happened to be exactly one caller.
+    // Reconciling properly would be the better answer; refusing is the honest one until then.
+    {
+        std::shared_lock lock(*m_graphMutex);
+        if (boost::num_vertices(*m_graph) > 0)
+        {
+            SPDLOG_LOGGER_DEBUG(Logger::instance(),
+                                "static topology already loaded ({} vertices); ignoring a second "
+                                "load of {}",
+                                boost::num_vertices(*m_graph),
+                                path);
+            return;
+        }
+    }
+
     std::ifstream file(path);
     if (!file.is_open())
     {
@@ -377,6 +399,27 @@ TopologyAndFlowMonitor::fetchAndUpdateTopologyData()
     // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
     configureTopologyApiUrls();
 
+    pollControlPlaneTopology();
+}
+
+/** @brief The REST poll on its own, without re-reading the static topology file.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * Split out because the loop in run() must not repeat the static load.
+ * loadStaticTopologyFromFile *adds* vertices and edges; it does not reconcile. Calling it a second
+ * time duplicates the entire topology, and the first time the poll loop ran this was measured
+ * immediately -- switches 10 -> 20 -> 30 -> 40 -> 50, hosts 128 -> 640, edges 288 -> 1440, growing by
+ * one whole topology every five seconds.
+ *
+ * That was invisible before because the load ran exactly once per process. It is the kind of latent
+ * trap a unit test would not have found either: the duplication only appears on the *second* call,
+ * and there had never been one. loadStaticTopologyFromFile now refuses a second load outright, so
+ * the trap is gone rather than merely avoided here.
+ */
+void
+TopologyAndFlowMonitor::pollControlPlaneTopology()
+{
     // GET switches
     string curlCommand = "curl -s -X GET " + m_ryuUrl[0];
     string switchesStr;
@@ -1669,14 +1712,125 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
     }
 }
 
+/** @brief Keeps the graph in step with the control plane, instead of snapshotting it once.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ *
+ * This used to call fetchAndUpdateTopologyData() exactly once and return. Measured on a live run:
+ * `run` was entered at 13:55:55.154 and exited at **.242** -- 88 milliseconds -- and the entire
+ * graph, switches and hosts and links, was whatever Ryu happened to know in that instant. Nothing
+ * re-read it for the life of the process.
+ *
+ * That is the actual cause of the "flaky" `get_graph_data` contract failure, and the explanation
+ * previously recorded for it was wrong. The note said static ARP stops Ryu ever learning host IPs;
+ * in fact `testbed_topo.py` sets the static ARP entries and *then pings all 128 hosts in parallel*,
+ * which is what teaches Ryu. So the empty-`ipv4` state is transient, and whether the one snapshot
+ * catches it depends entirely on when the kernel starts:
+ *
+ *   - started 73 s after Mininet (by hand): Ryu already knows all 128 IPs -> 128/128 hosts up
+ *   - started back-to-back (stack.sh up ovs): the snapshot lands mid-burst -> permanently short
+ *
+ * Same commit, same network, different verdict. Hosts are the visible symptom because they have no
+ * push path at all -- switches arrive via /ndt/inform_switch_entered and link failures via
+ * /ndt/link_failure_detected, but nothing ever pushes a host.
+ *
+ * Re-polling is safe for links, which was the thing worth checking before writing this: verified
+ * live that Ryu's `/v1.0/topology/links` really does drop a failed link (32 -> 30 within 2 s) and
+ * restore it on recovery (-> 32 within 8 s), and that `updateLinks` only ever sets `isUp = true`.
+ * So a poll can fill in what was missed but cannot resurrect an edge the push path correctly took
+ * down.
+ *
+ * Fast at first, then slow, and time-boxed rather than gated on a convergence test: a genuinely
+ * absent host would keep a convergence gate in fast mode forever.
+ */
 void
 TopologyAndFlowMonitor::run()
 {
+    using namespace std::chrono_literals;
+    constexpr auto kWhileConverging = 5s;
+    constexpr auto kOnceConverged = 30s;
+    constexpr auto kConvergingFor = 90s; // covers the ping burst and LLDP discovery
+
     SPDLOG_LOGGER_INFO(Logger::instance(), "TopologyAndFlowMonitor Run");
 
-    fetchAndUpdateTopologyData();
+    // Once: the static topology is static, and loading it twice duplicates it.
+    loadStaticTopologyFromFile(activeTopologyPath());
+    initializeMappingsFromGraph();
+    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
+    configureTopologyApiUrls();
+
+    const auto startedAt = std::chrono::steady_clock::now();
+    auto previous = graphLivenessSummary();
+    bool first = true;
+
+    while (m_running.load())
+    {
+        pollControlPlaneTopology();
+
+        // Reported only when something moved. One line per poll forever is how the two 1 Hz INFO
+        // lines elsewhere in this process reached 138,000 lines a day.
+        const auto now = graphLivenessSummary();
+        if (first || now != previous)
+        {
+            const auto [switchesUp, hostsUp, edgesUp] = now;
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "topology from the control plane: {} switches, {} hosts, {} edges up",
+                               switchesUp,
+                               hostsUp,
+                               edgesUp);
+            previous = now;
+            first = false;
+        }
+
+        const auto interval = (std::chrono::steady_clock::now() - startedAt < kConvergingFor)
+                                  ? kWhileConverging
+                                  : kOnceConverged;
+        // Sliced so stop() does not wait out a whole interval.
+        for (auto slept = 0s; slept < interval && m_running.load(); slept += 1s)
+        {
+            std::this_thread::sleep_for(1s);
+        }
+    }
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting TopologyAndFlowMonitor's updating");
+}
+
+/** @brief (switches up, hosts up, edges up). Cheap change signal for the poll loop.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+std::tuple<std::size_t, std::size_t, std::size_t>
+TopologyAndFlowMonitor::graphLivenessSummary() const
+{
+    std::shared_lock lock(*m_graphMutex);
+    std::size_t switchesUp = 0;
+    std::size_t hostsUp = 0;
+    for (auto [vi, viEnd] = boost::vertices(*m_graph); vi != viEnd; ++vi)
+    {
+        if (!(*m_graph)[*vi].isUp)
+        {
+            continue;
+        }
+        if ((*m_graph)[*vi].vertexType == VertexType::SWITCH)
+        {
+            ++switchesUp;
+        }
+        else
+        {
+            ++hostsUp;
+        }
+    }
+
+    std::size_t edgesUp = 0;
+    for (auto [ei, eiEnd] = boost::edges(*m_graph); ei != eiEnd; ++ei)
+    {
+        if ((*m_graph)[*ei].isUp)
+        {
+            ++edgesUp;
+        }
+    }
+    return {switchesUp, hostsUp, edgesUp};
 }
 
 vector<sflow::Path>
