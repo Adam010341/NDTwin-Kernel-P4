@@ -134,7 +134,6 @@ class FlowLinkUsageCollector
      * @param ipPair (srcIp, dstIp)
      * @param path   Full path for that pair
      */
-    void setAllPath(std::pair<uint32_t, uint32_t> ipPair, Path path);
     /**
      * @brief Return all host IPs known to the collector / path map.
      *

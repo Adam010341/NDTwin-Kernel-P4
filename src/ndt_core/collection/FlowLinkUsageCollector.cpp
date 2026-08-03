@@ -1943,7 +1943,31 @@ FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
     //
     // scoped_lock rather than two unique_locks: it orders the acquisition itself, so this cannot
     // deadlock against a future caller that wants them the other way round.
+    // [Co-developed with claude code -- Adam]
+    // An empty snapshot is NOT applied, and the asymmetry with
+    // Classifier::updateFromQueriedTables -- which does apply an empty table -- is deliberate.
+    // There the empty array arrives keyed by dpid, so it is a definite statement about one switch:
+    // "it has no rules". Here it means "I know of no paths at all", which before the control plane
+    // converges is a transient, and acting on it would throw away good data during startup.
+    // fetchAllDestinationPaths guards its own empty case already; the push path at
+    // HttpSession.cpp:1230 does not, so a POST carrying {"all_destination_paths": []} would
+    // otherwise clear everything.
+    if (allPathsVector.empty())
+    {
+        return;
+    }
+
     std::scoped_lock lock(m_allPathMapMutex, m_switchCountMapMutex);
+
+    // Replace, do not merge. Both maps were filled with operator[] and never cleared, so an entry
+    // outlived the path that produced it -- and paths do disappear: a link failure makes some host
+    // pairs unreachable and the control plane stops reporting them. With
+    // refreshDestinationPathsPeriodically calling this every 5-60 seconds for the life of the
+    // process, get_path_switch_count would keep answering from a route that no longer exists.
+    // Same shape as the Classifier's empty-table bug: a snapshot that only ever added.
+    // Found by agy-review 0073.
+    m_allPathMap.clear();
+    m_switchCountMap.clear();
 
     for (const auto& path : allPathsVector)
     {
@@ -2074,13 +2098,11 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
     }
 }
 
-void
-FlowLinkUsageCollector::setAllPath(std::pair<uint32_t, uint32_t> ipPair, Path path)
-{
-    // [Co-developed with claude code -- Adam] As setAllPaths.
-    std::unique_lock<std::shared_mutex> lock(m_allPathMapMutex);
-    m_allPathMap[ipPair] = path;
-}
+// [Co-developed with claude code -- Adam]
+// setAllPath (singular) was removed here. It had no callers -- only a declaration and a definition
+// -- and it wrote m_allPathMap while leaving m_switchCountMap untouched, so the first caller to use
+// it would have made getSwitchCount answer from a path it no longer matched. Dead code carrying a
+// trap. Found by agy-review 0073.
 
 std::vector<uint32_t>
 FlowLinkUsageCollector::getAllHostIps()
