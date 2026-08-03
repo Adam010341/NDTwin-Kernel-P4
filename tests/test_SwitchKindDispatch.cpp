@@ -88,7 +88,7 @@ class TempTopology
 int TempTopology::s_counter = 0;
 
 /// Exposes the protected loader so a test can supply its own topology without the Ryu
-/// REST fetches that fetchAndUpdateTopologyData performs.
+/// REST fetches that pollControlPlaneTopology performs.
 class TestableMonitor : public TopologyAndFlowMonitor
 {
   public:

@@ -274,7 +274,6 @@ class TopologyAndFlowMonitor
     std::mutex m_configurationFileMutex;
     void run();
 
-    void fetchAndUpdateTopologyData();
     void updateSwitches(const std::string& topologyData);
     void updateHosts(const std::string& topologyData);
     void updateLinks(const std::string& topologyData);
@@ -285,7 +284,7 @@ class TopologyAndFlowMonitor
      * @brief Loads nodes and edges from a topology JSON.
      *
      * Protected rather than private so tests can load a purpose-built topology without
-     * standing up the Ryu REST calls that fetchAndUpdateTopologyData performs. Same seam
+     * standing up the Ryu REST calls that pollControlPlaneTopology performs. Same seam
      * pattern as IPowerStrategy::executeSystemCommand.
      *
      * [Co-developed with claude code -- Adam]

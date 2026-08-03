@@ -172,7 +172,20 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
     json j;
     file >> j;
 
-    // std::unique_lock lock(*m_graphMutex);
+    // [Co-developed with claude code -- Adam]
+    // This was commented out, and it is not an oversight that can be undone by uncommenting: the
+    // body used to call findVertexByIp(), which takes a shared_lock on this same non-recursive
+    // shared_mutex, so taking the write lock here deadlocked the kernel at startup. That is almost
+    // certainly why it was commented out rather than fixed.
+    //
+    // Without it, add_vertex/add_edge mutate the graph unlocked while start() has already spawned
+    // flushEdgeFlowLoop, and main.cpp starts the collector and power manager around the same time --
+    // any of which may read the graph. A genuine data race, pre-existing since the d6f7c01 refactor.
+    //
+    // The two calls in the body now use findVertexByIpNoLock, which already existed: this class has
+    // a NoLock variant of essentially every lookup precisely for callers that already hold the lock.
+    // m_switchKindMutex below is a different mutex and does not participate.
+    std::unique_lock lock(*m_graphMutex);
 
     std::unordered_map<uint64_t, Graph::vertex_descriptor> dpidToVertex;
 
@@ -284,7 +297,7 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         }
         else if (!ep.srcIp.empty())
         {
-            srcVertexOpt = findVertexByIp(ep.srcIp[0]);
+            srcVertexOpt = findVertexByIpNoLock(ep.srcIp[0]);
         }
 
         // Lookup switch by dst DPID, or host by IP if dst_dpid == 0
@@ -298,7 +311,7 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         }
         else if (!ep.dstIp.empty())
         {
-            dstVertexOpt = findVertexByIp(ep.dstIp[0]);
+            dstVertexOpt = findVertexByIpNoLock(ep.dstIp[0]);
         }
 
         // Add edge if both endpoints found
@@ -386,20 +399,6 @@ TopologyAndFlowMonitor::activeTopologyPath() const
         return TOPOLOGY_FILE;
     }
     return TOPOLOGY_FILE_MININET;
-}
-
-void
-TopologyAndFlowMonitor::fetchAndUpdateTopologyData()
-{
-    // Read static network topology
-    loadStaticTopologyFromFile(activeTopologyPath());
-
-    initializeMappingsFromGraph();
-
-    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
-    configureTopologyApiUrls();
-
-    pollControlPlaneTopology();
 }
 
 /** @brief The REST poll on its own, without re-reading the static topology file.
