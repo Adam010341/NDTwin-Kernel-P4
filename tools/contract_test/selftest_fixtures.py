@@ -163,6 +163,34 @@ _FLOWS_ZERO_RATE = [{
 }]
 _TABLES_EMPTY = [{"dpid": 106225808402492, "flows": {"106225808402492": []}}]
 
+
+# [Co-developed with claude code -- Adam]
+# Samples that inv_flow_paths_non_empty must NOT report as a pass, because it examined nothing.
+#
+# `dst_ip` is in_addr::s_addr -- network byte order read as a native integer -- so the first octet is
+# the low byte on a little-endian host. Built with a helper rather than hand-computed constants, so
+# these cannot drift out of step with _is_routable_unicast's own arithmetic.
+def _s_addr(dotted: str) -> int:
+    a, b, c, d = (int(x) for x in dotted.split("."))
+    return a | (b << 8) | (c << 16) | (d << 24)
+
+
+def _flow_to(dotted: str, path: list) -> dict:
+    return {**FLOW_DATA_SAMPLE[0], "dst_ip": _s_addr(dotted), "path": path}
+
+
+#: The measured real case: a sampling window that caught only the host's own Avahi mDNS. The
+#: exclusion of 224/4 exists because a real run failed on 192.168.123.16 -> 224.0.0.251, so this
+#: sample is not hypothetical -- and with every flow filtered out, `bad` was empty and the invariant
+#: reported success, indistinguishable from "every flow had a path".
+_FLOWS_ALL_MULTICAST = [_flow_to("224.0.0.251", []), _flow_to("239.255.255.250", [])]
+_FLOWS_ALL_BROADCAST = [_flow_to("255.255.255.255", [])]
+_FLOWS_ALL_LINK_LOCAL = [_flow_to("169.254.13.7", [])]
+
+#: One routable flow among the noise is enough to make the invariant meaningful again.
+_FLOWS_MULTICAST_PLUS_GOOD = [_flow_to("224.0.0.251", []), _flow_to("10.0.0.4", [[1, 2], [2, 3]])]
+_FLOWS_MULTICAST_PLUS_BAD = [_flow_to("224.0.0.251", []), _flow_to("10.0.0.4", [])]
+
 # (name, invariant, data, ctx, expect_failures)
 # Every invariant is checked both ways: silent on good data, loud on bad data.
 INVARIANT_CASES = [
@@ -199,6 +227,19 @@ INVARIANT_CASES = [
      spec.inv_flow_paths_non_empty, FLOW_DATA_SAMPLE, _GOOD_CTX, False),
     ("flow_paths_non_empty: catches empty path (the P4 Classifier gap)",
      spec.inv_flow_paths_non_empty, _FLOWS_EMPTY_PATH, _GOOD_CTX, True),
+    # [Co-developed with claude code -- Adam]
+    # A sample with nothing to check must FAIL, not pass. Before this the filter could empty the
+    # candidate list entirely and the invariant reported success having examined zero flows.
+    ("flow_paths_non_empty: refuses an all-multicast sample (checked nothing)",
+     spec.inv_flow_paths_non_empty, _FLOWS_ALL_MULTICAST, _GOOD_CTX, True),
+    ("flow_paths_non_empty: refuses an all-broadcast sample (checked nothing)",
+     spec.inv_flow_paths_non_empty, _FLOWS_ALL_BROADCAST, _GOOD_CTX, True),
+    ("flow_paths_non_empty: refuses an all-link-local sample (checked nothing)",
+     spec.inv_flow_paths_non_empty, _FLOWS_ALL_LINK_LOCAL, _GOOD_CTX, True),
+    ("flow_paths_non_empty: one routable flow among multicast noise is enough",
+     spec.inv_flow_paths_non_empty, _FLOWS_MULTICAST_PLUS_GOOD, _GOOD_CTX, False),
+    ("flow_paths_non_empty: still catches the bad one among multicast noise",
+     spec.inv_flow_paths_non_empty, _FLOWS_MULTICAST_PLUS_BAD, _GOOD_CTX, True),
 
     ("flow_rates_nonzero: accepts non-zero rates",
      spec.inv_flow_rates_nonzero, FLOW_DATA_SAMPLE, _GOOD_CTX, False),

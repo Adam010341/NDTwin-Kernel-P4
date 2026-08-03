@@ -666,15 +666,30 @@ cmd_down() {
     # `bind: Address already in use`. That happened: a whole P4 session measured a stray OVS
     # kernel and reported 288 edges and 128 hosts, and nothing said so. wait_for_port now catches
     # it, but saying it here means the operator learns at teardown rather than mid-run.
+    # The message used to assert "not something this script started" without checking. :8000 and
+    # :8080 are two of the most commonly occupied ports on a developer machine, so an unrelated
+    # listener made every `down` exit non-zero while claiming something it had not established.
+    # port_owner_verdict answers it properly, using the same `ss -ltnp` the advice below names.
     local leftovers=0
     for port in 8000 8080 8081; do
-        if port_open "$port"; then
-            (( leftovers++ ))
-            err "  :$port is still listening after shutdown -- not something this script started"
-        fi
+        port_open "$port" || continue
+        (( leftovers++ ))
+        local owner; owner="$(port_listener_description "$port")"
+        case "$(port_owner_verdict "$port" kernel)$(port_owner_verdict "$port" p4_proxy)$(port_owner_verdict "$port" ryu)" in
+            *ours*)
+                # A component this script started is still holding the port: teardown really failed.
+                err "  :$port is still held by a process this script started ($owner) -- stop_one did"
+                err "    not manage to stop it"
+                ;;
+            *)
+                err "  :$port is still listening, held by $owner"
+                err "    This script did not start it. The next 'up' would find the port open and"
+                err "    measure the wrong process, so this is reported rather than ignored."
+                ;;
+        esac
     done
     if (( leftovers > 0 )); then
-        err "  find and stop it, or the next 'up' will silently measure it:"
+        err "  find and stop it, or the next 'up' will report on it:"
         err "    ss -ltnp | grep -E ':(8000|8080|8081)'"
         err "    pgrep -ax ndtwin_kernel"
         return 1

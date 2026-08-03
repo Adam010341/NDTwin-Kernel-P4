@@ -91,8 +91,21 @@ get_graph_data | list is empty in (P4|OVS) but populated in (OVS|P4): edges\[\]\
 # which is 150 findings for one fact: the endpoint is not implemented. Ryu's real entries carry
 # these via ofctl_rest. Remove all of these when Phase 6 implements the endpoint -- if any
 # survive then, the shape is genuinely wrong rather than absent.
-get_switch_openflow_table_entries | field missing in P4: \[\]\.flows | P4 entries match on dst IP only (ipv4_lpm), so OVS-only match fields like dl_dst and in_port are genuinely absent -- not a stub
-get_switch_openflow_table_entries | type differs at \[\]\.flows | numeric field widths differ between P4Runtime reads and Ryu stats for the same logical rule
+# [Co-developed with claude code -- Adam]
+# Anchored to the one field that actually differs, measured against the captured baseline rather
+# than assumed. Matching is an unanchored re.search, so the previous pattern -- `\[\]\.flows` --
+# suppressed *any* missing field anywhere under flows: actions, priority, packet_count, table_id.
+# The reason claimed a narrow subset ("match fields like dl_dst and in_port"); the pattern encoded
+# none of it, and in_port does not in fact differ at all. The only observed difference is
+# `[].flows.<table-id>[].match.dl_dst`, ten times, one per switch.
+get_switch_openflow_table_entries | field missing in P4: \[\]\.flows\.[0-9]+\[\]\.match\.dl_dst | ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+# [Co-developed with claude code -- Adam]
+# REMOVED: `type differs at \[\]\.flows` with the reason "numeric field widths differ between
+# P4Runtime reads and Ryu stats". compare_baseline.py reported it as UNUSED against the captured
+# baseline -- it suppressed nothing, and no observed difference supports the claim. Being unanchored
+# it would have hidden *any* type change under flows, including `actions` becoming a string instead
+# of a list. Over-broad and unused is the worst combination: pure risk, no benefit. If a genuine
+# width difference ever appears, add it back naming the specific field.
 # [Co-developed with claude code -- Adam]
 # The flows themselves ARE detected in P4 mode -- the telemetry chain was verified live on
 # 2026-07-29 (rx=126 addressed=126, both ICMP directions parsed). Only `path` is empty, for

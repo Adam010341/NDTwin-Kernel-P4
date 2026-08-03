@@ -236,7 +236,14 @@ def _is_routable_unicast(ip_u32):
     if 224 <= first_octet <= 239:      # 224.0.0.0/4 multicast
         return False
     if ip_u32 == 0xFFFFFFFF or first_octet == 255:
-        return False                   # broadcast
+        # 255.255.255.255 and 255.0.0.0/8 only. A *directed* broadcast such as 10.0.0.255 has first
+        # octet 10 and is still required to have a path, which this cannot know without the netmask
+        # -- the flow record does not carry one. Left as is deliberately: being over-strict fails
+        # loudly with the address named, which is fixable in a minute, whereas guessing a /24 would
+        # silently excuse a real missing path to host .255. The comment used to just say
+        # "broadcast", which claimed more than the line does.
+        # [Co-developed with claude code -- Adam]
+        return False
     if first_octet == 169 and ((ip_u32 >> 8) & 0xFF) == 254:
         return False                   # 169.254.0.0/16 link-local
     return True
@@ -251,12 +258,26 @@ def inv_flow_paths_non_empty(data, ctx):
     [], so every path is empty -- visible here, invisible in the GUI.
 
     Only unicast destinations are required to have a path; see _is_routable_unicast.
+
+    [Co-developed with claude code -- Adam]
+    The empty-candidate case is a FAILURE, not a pass. Without that, a sample consisting entirely of
+    multicast, broadcast or link-local traffic produced an empty `bad` list and the invariant reported
+    success -- indistinguishable from "every flow had a path", with nothing saying zero flows were
+    examined. That is not a hypothetical sample: the exclusion exists because a real run failed on
+    192.168.123.16 -> 224.0.0.251, the host's own Avahi mDNS, so samples dominated by non-unicast
+    chatter demonstrably happen here. A short quiet capture window is exactly when this check matters
+    least and is most likely to be believed.
     """
-    bad = [f"{f['src_ip']}->{f['dst_ip']}" for f in data
-           if not f["path"] and _is_routable_unicast(f["dst_ip"])]
+    checked = [f for f in data if _is_routable_unicast(f["dst_ip"])]
+    if not checked:
+        return [f"no routable-unicast flows among {len(data)} sampled flow(s), so this invariant "
+                "examined nothing -- generate unicast traffic (see --with-traffic) and re-run; "
+                "a sample of only multicast/broadcast/link-local cannot confirm that paths resolve"]
+
+    bad = [f"{f['src_ip']}->{f['dst_ip']}" for f in checked if not f["path"]]
     if bad:
         shown = ", ".join(bad[:5]) + (f" (+{len(bad) - 5} more)" if len(bad) > 5 else "")
-        return [f"{len(bad)} flow(s) with an empty path: {shown}"
+        return [f"{len(bad)} of {len(checked)} routable flow(s) with an empty path: {shown}"
                 " -- the Classifier has no flow-table data (check /stats/flow/<dpid>)"]
     return []
 
