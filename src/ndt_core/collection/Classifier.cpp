@@ -1289,8 +1289,23 @@ Classifier::updateFromQueriedTables(const json& newTables)
         uint64_t dpid = parseU64(sw.at("dpid"));
         const json& flowNode = sw.at("flows");
 
+        // [Co-developed with claude code -- Adam]
+        // An EMPTY array is a snapshot and must be applied; only an unreadable one is skipped.
+        //
+        // `|| flowsArray->empty()` used to be part of this guard, so a switch reporting no rules was
+        // skipped entirely -- and updateOneSwitch is what bumps the epoch and sweeps rules absent
+        // from the new snapshot. Every previously-ingested rule therefore survived an empty table,
+        // indefinitely.
+        //
+        // Not a hypothetical input: measured with Ryu in a degraded state, `/stats/flow/1` returned
+        // `{"1": []}` for 110 consecutive seconds. The Classifier would go on computing paths from
+        // rules the control plane had stopped reporting. Empty paths are a visible failure;
+        // confidently wrong paths are not.
+        //
+        // A body that is not an array at all is different: it means the response was not understood,
+        // which is no evidence about the switch's rules, so those are left alone.
         const json* flowsArray = extractFlowArray(flowNode, dpid);
-        if (!flowsArray || !flowsArray->is_array() || flowsArray->empty())
+        if (!flowsArray || !flowsArray->is_array())
         {
             continue;
         }

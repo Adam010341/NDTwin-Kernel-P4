@@ -95,6 +95,74 @@ class P4FlowStatsToClassifier : public ::testing::Test
     Classifier classifier;
 };
 
+// --- What an EMPTY table must do to rules already ingested.
+//
+// [Co-developed with claude code -- Adam]
+// updateFromQueriedTables skips a switch whose flow array is empty:
+//
+//     if (!flowsArray || !flowsArray->is_array() || flowsArray->empty()) { continue; }
+//
+// updateOneSwitch is what bumps the epoch and sweeps rules that were not in the new snapshot, so
+// skipping it means an empty table cannot remove anything -- every previously-ingested rule
+// survives untouched, indefinitely.
+//
+// That is not a hypothetical input. Measured today: with Ryu in a degraded state, `/stats/flow/1`
+// returned `{"1": []}` for 110 consecutive seconds while the switch itself still held 130 rules.
+// A control plane that answers with an empty table is exactly what this path receives, and the
+// Classifier then keeps computing paths from rules it can no longer confirm. Empty paths are a
+// visible failure; confidently wrong paths are not.
+//
+// Found via agy-review 0067, which framed it as knowsSwitch() returning false for an empty table.
+// That framing is true but minor -- "no table for dpid N" is arguably the better diagnostic for an
+// empty response anyway. Following the `continue` is what turns it into a staleness bug.
+
+TEST_F(P4FlowStatsToClassifier, AnEmptyTableClearsTheRulesItReplaces)
+{
+    classifier.updateFromQueriedTables(asQueriedTables(1, kProxyFlowStats));
+    ASSERT_EQ(classifier.getRuleCount(1), 2u) << "precondition: rules were ingested";
+    ASSERT_TRUE(classifier.lookup(1, anIpv4Key(kH1, kH4)).has_value());
+
+    // The switch now reports an empty table -- the state a degraded control plane produces.
+    classifier.updateFromQueriedTables(
+        json::array({{{"dpid", 1}, {"flows", {{"1", json::array()}}}}}));
+
+    EXPECT_EQ(classifier.getRuleCount(1), 0u)
+        << "the old rules survived an empty snapshot, so every path computed from now on is based "
+           "on rules the control plane no longer reports";
+    EXPECT_FALSE(classifier.lookup(1, anIpv4Key(kH1, kH4)).has_value())
+        << "a stale rule still matches after the table it came from was reported empty";
+}
+
+TEST_F(P4FlowStatsToClassifier, AnEmptyTableStillCountsAsHavingHeardFromTheSwitch)
+{
+    // knowsSwitch is how calFlowPathByQueried decides between "no table for this switch" and "no
+    // rule matched" -- two failures that send a reader to different places. An empty response is a
+    // response, so once it has been ingested the switch is known.
+    // Only an empty table, with nothing ingested before it -- otherwise the earlier non-empty
+    // snapshot is what registers the switch and this proves nothing.
+    ASSERT_FALSE(classifier.knowsSwitch(1)) << "precondition: nothing ingested yet";
+    classifier.updateFromQueriedTables(
+        json::array({{{"dpid", 1}, {"flows", {{"1", json::array()}}}}}));
+
+    EXPECT_TRUE(classifier.knowsSwitch(1))
+        << "reported as never polled, when in fact it was polled and answered with nothing";
+}
+
+TEST_F(P4FlowStatsToClassifier, AMalformedTableLeavesTheExistingRulesAlone)
+{
+    // The other direction, and the reason the empty case cannot simply be folded in with it: a body
+    // that is not an array at all means the response was not understood, which is no evidence about
+    // the switch's rules. Those must survive.
+    classifier.updateFromQueriedTables(asQueriedTables(1, kProxyFlowStats));
+    ASSERT_EQ(classifier.getRuleCount(1), 2u);
+
+    classifier.updateFromQueriedTables(
+        json::array({{{"dpid", 1}, {"flows", {{"1", "not an array"}}}}}));
+
+    EXPECT_EQ(classifier.getRuleCount(1), 2u)
+        << "an unparseable response discarded rules it said nothing about";
+}
+
 TEST_F(P4FlowStatsToClassifier, TheProxyResponseIsIngestedAtAll)
 {
     ASSERT_NO_FATAL_FAILURE(
