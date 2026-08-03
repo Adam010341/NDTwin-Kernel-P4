@@ -26,15 +26,70 @@ from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 # explicit error the kernel logs -- never a silent success", so these are rejected now. The
 # pipeline does have a ternary flow_5tuple table with real priority (Phase 4); wiring route_flow
 # to it is the proper fix and remains Phase 3 work. Until then, refusing beats pretending.
+#: How many offending field names are echoed back. The match dict comes from an unauthenticated
+#: REST body, so a caller can send thousands of keys; without a cap every one of them is sorted,
+#: joined, printed to stdout and echoed in the 400 body. Small amplification, but free to remove.
+#: [Co-developed with claude code -- Adam]
+MAX_REPORTED_FIELDS = 12
+
+
 class UnsupportedMatchError(ValueError):
     """Raised when a match asks for something ipv4_lpm cannot express."""
 
     def __init__(self, fields):
         self.fields = sorted(fields)
+        shown = self.fields[:MAX_REPORTED_FIELDS]
+        extra = len(self.fields) - len(shown)
         super().__init__(
             "ipv4_lpm keys on the destination address only; cannot honour: "
-            + ", ".join(self.fields)
+            + ", ".join(shown)
+            + (f" (+{extra} more)" if extra > 0 else "")
         )
+
+
+class MalformedMatchError(UnsupportedMatchError):
+    """
+    Raised when `match` is not a JSON object at all.
+
+    [Co-developed with claude code -- Adam]
+    A subclass so the existing `except UnsupportedMatchError` in api_routes still answers 400 --
+    which is the right status, and what this used to get wrong. `(match_dict or {}).items()` raised
+    AttributeError for a list, string or number, that escaped the handler's only catch, and FastAPI
+    turned a malformed request into **500 Internal Server Error**. Same defect class as the three
+    500s already fixed on the kernel side. Found by agy-review 0072.
+    """
+
+    def __init__(self, value):
+        # Deliberately does not echo the value: it is attacker-controlled and may be huge. The type
+        # is what the caller needs.
+        ValueError.__init__(self, f"match must be a JSON object, got {type(value).__name__}")
+        self.fields = []
+
+
+def parse_eth_type(value):
+    """
+    An ethertype as an int, or None if it is not one.
+
+    [Co-developed with claude code -- Adam]
+    `int(value)` was used here, and it raises ValueError on `"0x0800"` -- so a caller writing the
+    ethertype the way OpenFlow tooling usually writes it had a perfectly valid IPv4 rule **rejected
+    with 400**. The falsely-rejected direction is the worse one: it breaks a working client rather
+    than merely letting something through. Found by agy-review 0072.
+
+    bool is excluded before int because `True == 1` in Python and `{"eth_type": true}` is not a
+    request to match ethertype 1.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            return int(text, 16) if text.lower().startswith("0x") else int(text, 10)
+        except ValueError:
+            return None
+    return None
 
 
 #: The only match fields the table actually keys on.
@@ -56,15 +111,19 @@ def unsupported_match_fields(match_dict):
 
     [Co-developed with claude code -- Adam]
     """
+    if match_dict is None:
+        return []
+    if not isinstance(match_dict, dict):
+        # A list, string or number here used to raise AttributeError out of .items() and become a
+        # 500. [Co-developed with claude code -- Adam]
+        raise MalformedMatchError(match_dict)
+
     bad = []
-    for field, value in (match_dict or {}).items():
+    for field, value in match_dict.items():
         if field in HONOURED_MATCH_FIELDS:
             continue
         if field in ETH_TYPE_FIELDS:
-            try:
-                if int(value) != IPV4_ETH_TYPE:
-                    bad.append(field)
-            except (TypeError, ValueError):
+            if parse_eth_type(value) != IPV4_ETH_TYPE:
                 bad.append(field)
             continue
         bad.append(field)
