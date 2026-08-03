@@ -284,7 +284,8 @@ class IntelligentRyu(app_manager.RyuApp):
         self.logger.info("Switch entered: %s", dpid)
 
         try:
-            response = requests.get(api_url)
+            # [Co-developed with claude code -- Adam] (connect, read) -- see _state_change_handler.
+            response = requests.get(api_url, timeout=(2, 5))
             self.logger.info(
                 "Notified NDT (switch enter), status: %s", response.status_code
             )
@@ -310,7 +311,26 @@ class IntelligentRyu(app_manager.RyuApp):
             api_url = f"http://localhost:8000/ndt/inform_switch_entered?dpid={dpid}"
             # self.logger.info("Switch entered: %s", dpid)
             try:
-                response = requests.get(api_url)
+                # [Co-developed with claude code -- Adam]
+                # (connect, read) timeout. This call had none, and it is the worst place in the file
+                # to be missing one: it runs inside an *OpenFlow event handler*, once per switch that
+                # connects. When Ryu is started against an already-running Mininet all ten switches
+                # reconnect at once -- they have been retrying -- so ten of these fire together,
+                # each blocking that datapath's event processing until the kernel answers.
+                #
+                # A datapath greenlet parked here does not drain its socket. Measured on a wedged Ryu
+                # after exactly that startup order: 88 KB of unread data per OpenFlow connection,
+                # every /stats/flow request timing out at 1.001s and returning an empty table, LLDP
+                # packet-ins never delivered so no link event ever fired, and HTTP connections left
+                # in CLOSE-WAIT. It never recovered, not when the walk finished and not when the only
+                # client stopped.
+                #
+                # NOT PROVEN to be the cause -- that needs a py-spy dump taken at the moment of the
+                # wedge, and the wedge does not reproduce with the correct startup order (Ryu first):
+                # 125 samples over four minutes stayed at a 0.025s mean with Recv-Q at zero. But the
+                # timeout is correct regardless, and the two notification POSTs in this file had the
+                # identical defect.
+                response = requests.get(api_url, timeout=(2, 5))
                 self.logger.info(
                     "Notified NDT (switch enter), status: %s", response.status_code
                 )

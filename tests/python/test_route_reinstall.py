@@ -380,23 +380,38 @@ class NotificationIsNotAGateTest(unittest.TestCase):
                 return node
         raise AssertionError(f"intelligent_router.py no longer defines {name}; this test is stale")
 
-    def test_every_notification_post_has_a_timeout(self):
+    def test_every_outbound_http_call_has_a_timeout(self):
         # Without one the call is unbounded, and no amount of statement ordering saves the handler
         # from parking on it.
+        #
+        # GET as well as POST. The first version of this test only looked at `post`, and missed the
+        # two unbounded `requests.get` calls to /ndt/inform_switch_entered -- one of which runs inside
+        # an OpenFlow event handler, once per switch that connects. That is the worst place in the
+        # file to block: a parked datapath greenlet does not drain its socket. Ten switches
+        # reconnecting at once (which is what happens when Ryu is started against an already-running
+        # Mininet) fire ten of them together, and a wedged Ryu measured after exactly that startup
+        # order held 88 KB of unread data per OpenFlow connection.
+        # [Co-developed with claude code -- Adam]
         with open(ROUTER) as f:
             tree = ast.parse(f.read())
-        posts = 0
+        calls = []
         for node in ast.walk(tree):
             if (isinstance(node, ast.Call)
                     and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "post"):
-                posts += 1
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "requests"):
+                calls.append((node.func.attr, node.lineno))
                 self.assertIn(
                     "timeout",
                     [kw.arg for kw in node.keywords],
-                    f"requests.post on line {node.lineno} has no timeout=",
+                    f"requests.{node.func.attr} on line {node.lineno} has no timeout=",
                 )
-        self.assertGreaterEqual(posts, 2, f"expected both notification POSTs; found {posts}")
+        self.assertGreaterEqual(
+            len(calls),
+            4,
+            "expected the four outbound calls (two switch-enter GETs, two link POSTs); found "
+            f"{calls} -- if a call was removed, update this count deliberately",
+        )
 
     def test_local_work_happens_before_the_notification(self):
         for name in self.HANDLERS:
