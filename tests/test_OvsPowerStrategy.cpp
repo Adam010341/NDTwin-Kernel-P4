@@ -283,17 +283,27 @@ TEST(OvsPowerStrategyTest, AFailedPortCommandFailsTheWholeOperation)
     // A bridge that comes up with some of its ports missing is a partial network, which is harder
     // to diagnose than one that plainly did not start. add-br succeeds here so the failure is
     // solely the port.
+    //
+    // The *first* port fails and the second is asserted to have run anyway. An earlier version had
+    // this the other way round -- it failed s1-eth2 and asserted s1-eth1 ran -- but s1-eth1 is
+    // attached first, so that assertion held whatever the code did after the failure. Verified by
+    // mutation: adding `if (m_lastCommandFailed) break;` to the port loop left the whole suite green.
+    // [Co-developed with claude code -- Adam]
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
-    fix.setSavedPorts({"s1-eth1", "s1-eth2"});
+    fix.setSavedPorts({"s1-eth1", "s1-eth2", "s1-eth3"});
     FakeOvs ovs;
-    ovs.failSubstring = "add-port s1 s1-eth2";
+    ovs.failSubstring = "add-port s1 s1-eth1";
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
 
     EXPECT_FALSE(result.ok);
     EXPECT_FALSE(fix.isUp());
-    EXPECT_TRUE(ovs.ran("add-port s1 s1-eth1")) << "should not abort the remaining ports";
+    EXPECT_TRUE(ovs.ran("add-port s1 s1-eth2"))
+        << "abandoned the ports after the failing one; the bridge is left with a partial port set, "
+           "and the next powerOff would record that partial set as the thing to restore";
+    EXPECT_TRUE(ovs.ran("add-port s1 s1-eth3")) << "stopped before the last port";
+    EXPECT_TRUE(ovs.ran("ifconfig s1-eth3 up")) << "attached the port but never brought it up";
 }
 
 TEST(OvsPowerStrategyTest, PowerOnOnAnAlreadyUpSwitchDoesNothing)

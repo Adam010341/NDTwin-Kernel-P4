@@ -219,8 +219,19 @@ TEST(SimulationRequestValidationTest, ChecksShapeOnlyAndIsNotAnInjectionDefence)
 // The handler does std::stoi(j.at("app_id").get<string>()). Malformed JSON and a missing or
 // non-string app_id already answer 400 through the json::exception handler, but std::stoi("abc")
 // throws std::invalid_argument, which does not -- so a mistyped app_id was reported as 500 Internal
-// Server Error. Same defect as `?dpid=abc`, same fix. The handler is not directly reachable from a
-// test, so what is pinned here is the parser's behaviour on the values that reach it.
+// Server Error. Same defect as `?dpid=abc`, same fix.
+//
+// ⚠️ WHAT THESE DO NOT COVER, stated because the suite name invites the wrong conclusion. These
+// exercise `utils::tryParseUint64` only. **Nothing here reaches HttpSession::handleSimulationCompleted,
+// so the fix itself is untested**: a review reintroduced the original
+// `const int appId = std::stoi(appIdText);` and all 207 tests stayed green, and deleting just the
+// INT_MAX bound also survived. What is pinned below is that the parser rejects the values that used
+// to produce a 500 or a silent truncation -- necessary, and not sufficient.
+//
+// Closing the gap needs a way to drive a handler, which HttpSession has none of: it is constructed
+// from a live socket and eleven collaborators. That is a seam to design, tracked as its own item,
+// and inventing a shortcut for this one endpoint would leave the other forty untested while looking
+// finished. [Co-developed with claude code -- Adam]
 
 TEST(SimulationCompletedAppIdTest, RejectsWhatStoiWouldHaveThrownOn)
 {
@@ -244,12 +255,18 @@ TEST(SimulationCompletedAppIdTest, AcceptsTheDocumentedForm)
     EXPECT_EQ(utils::tryParseUint64("42"), std::optional<uint64_t>(42));
 }
 
-TEST(SimulationCompletedAppIdTest, SomethingTooBigForIntIsRejectedNotWrapped)
+TEST(SimulationCompletedAppIdTest, SomethingTooBigForIntParsesSoTheRangeCheckIsWhatMustRejectIt)
 {
-    // The handler narrows to int for ApplicationManager. stoi would have thrown out_of_range (500);
-    // a bare static_cast would wrap to a negative id and look up the wrong application.
-    const auto parsed = utils::tryParseUint64("4294967296"); // 2^32, parses fine as uint64
-    ASSERT_TRUE(parsed.has_value()) << "the parser itself should accept it; the range check rejects";
-    EXPECT_GT(*parsed, static_cast<uint64_t>(std::numeric_limits<int>::max()))
-        << "so the handler's INT_MAX check is what refuses it";
+    // The parser's half of the contract: 2^32 is a perfectly good uint64, so tryParseUint64 accepts
+    // it and the handler's INT_MAX bound is the only thing standing between it and a static_cast
+    // that wraps to a negative id and looks up the wrong application.
+    //
+    // An earlier version of this test then asserted `4294967296 > INT_MAX`, which is arithmetic on
+    // two literals -- true for any implementation of anything, and green with the bound deleted.
+    // Removed rather than reworded: the bound lives in the handler and cannot be reached from here,
+    // and an assertion that looks like it covers something it cannot is worse than an admitted gap.
+    // See the note above this suite. [Co-developed with claude code -- Adam]
+    EXPECT_EQ(utils::tryParseUint64("4294967296"), std::optional<uint64_t>(4294967296ULL));
+    EXPECT_EQ(utils::tryParseUint64("2147483648"), std::optional<uint64_t>(2147483648ULL))
+        << "INT_MAX + 1 must still parse; rejecting it here would hide the handler's own bound";
 }
