@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <array>
 #include <cerrno>
+#include <string_view>
 #include <cstring>
 #include <sys/wait.h>
 #include <boost/asio/connect.hpp>
@@ -302,6 +303,48 @@ hexStringToUint64(const std::string& hexStr)
 }
 
 /**
+ * @brief The tool a shell command line actually runs, for a diagnostic that names it.
+ *
+ * @details Skips a leading `sudo` and its options, because "is sudo installed?" is never the
+ * question. Returns empty when there is nothing to name. [Co-developed with claude code -- Adam]
+ */
+inline std::string
+commandToolName(std::string_view command)
+{
+    std::size_t pos = 0;
+    for (int hop = 0; hop < 4; ++hop) // sudo, then at most a couple of its options
+    {
+        while (pos < command.size() && std::isspace(static_cast<unsigned char>(command[pos])))
+        {
+            ++pos;
+        }
+        const std::size_t end = command.find_first_of(" \t", pos);
+        std::string_view token = command.substr(pos, end == std::string_view::npos
+                                                        ? std::string_view::npos
+                                                        : end - pos);
+        if (token.empty())
+        {
+            return {};
+        }
+        // Strip any directory part: /usr/bin/ovs-vsctl -> ovs-vsctl.
+        if (const std::size_t slash = token.find_last_of('/'); slash != std::string_view::npos)
+        {
+            token = token.substr(slash + 1);
+        }
+        if (token != "sudo" && !token.starts_with('-'))
+        {
+            return std::string(token);
+        }
+        if (end == std::string_view::npos)
+        {
+            return {};
+        }
+        pos = end;
+    }
+    return {};
+}
+
+/**
  * @brief Renders a pclose()/std::system() wait status as something an operator can act on.
  *
  * @details
@@ -312,15 +355,25 @@ hexStringToUint64(const std::string& hexStr)
  * misled a reader of these logs more than once, which is why this lives in one place instead of
  * being open-coded at each call site.
  *
- * The two named cases are the two that actually happen in this codebase, and they send an operator
- * to completely different places: 127 means the tool is not installed, while 1 is what `sudo`
- * refusing looks like on a process with no controlling terminal -- the original cause of the whole
- * fabric showing as dead in the web GUI.
+ * @param status  Wait status from pclose() or std::system(), or -1.
+ * @param command The command line that produced it, when the caller has it. Used to name the tool
+ *                in the 127 case and to decide whether the sudo hint applies.
  *
- * @param status Wait status from pclose() or std::system(), or -1.
+ * The two hints are the two failures this codebase actually sees, and they send an operator to
+ * completely different places -- but only if they name the right tool. When this decoder lived in
+ * DeviceConfigurationAndPowerManager it hardcoded `ovs-vsctl`, which was correct there because that
+ * class runs nothing else. Moving it here wired it into utils::execCommand, the generic shell-out
+ * behind `curl` to Ryu and the proxy and **13 snmpget/snmpwalk call sites** -- so a TESTBED machine
+ * without net-snmp reported "is ovs-vsctl installed?" for every power reading, on a path where
+ * nobody runs ovs-vsctl at all. Caught by review; a misleading diagnostic costs more than a missing
+ * one, which is the lesson this whole decoder exists to serve.
+ *
+ * The sudo hint is likewise conditional now: `sudo` refusing for want of a password is what exit 1
+ * means for `sudo ovs-vsctl`, and it is emphatically not what exit 1 means for `snmpget` (a timeout
+ * or an unknown OID) or for `curl` (an unsupported protocol).
  */
 inline std::string
-describeCommandStatus(int status)
+describeCommandStatus(int status, std::string_view command = {})
 {
     if (status == -1)
     {
@@ -333,14 +386,20 @@ describeCommandStatus(int status)
     if (WIFEXITED(status))
     {
         const int code = WEXITSTATUS(status);
+        const std::string tool = commandToolName(command);
         if (code == 127)
         {
-            return "exit code 127 (command not found -- is ovs-vsctl installed?)";
+            if (tool.empty())
+            {
+                return "exit code 127 (command not found)";
+            }
+            return "exit code 127 (command not found -- is " + tool + " installed?)";
         }
-        if (code == 1)
+        if (code == 1 && command.find("sudo") != std::string_view::npos)
         {
-            return "exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a "
-                   "process with no controlling terminal)";
+            return "exit code 1 (" + (tool.empty() ? std::string("the command") : tool) +
+                   " refused; a sudo password prompt does this on a process with no controlling "
+                   "terminal)";
         }
         return "exit code " + std::to_string(code);
     }
@@ -376,7 +435,7 @@ execCommand(const std::string& cmd)
     {
         // Was "exited with code " << rc, which printed the wait status: a command exiting 1
         // reported "code 256". [Co-developed with claude code -- Adam]
-        std::cerr << "Command failed (" << describeCommandStatus(rc) << "): " << cmd << "\n";
+        std::cerr << "Command failed (" << describeCommandStatus(rc, cmd) << "): " << cmd << "\n";
     }
     return result;
 }

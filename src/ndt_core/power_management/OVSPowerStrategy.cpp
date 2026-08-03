@@ -20,7 +20,7 @@ void OVSPowerStrategy::executeSystemCommand(const std::string& cmd)
         // do -- used to be logged as "status 256". [Co-developed with claude code -- Adam]
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "command failed ({}): {}",
-                           utils::describeCommandStatus(rc),
+                           utils::describeCommandStatus(rc, cmd),
                            cmd);
         m_lastCommandFailed = true;
     }
@@ -57,7 +57,7 @@ std::optional<std::vector<std::string>> OVSPowerStrategy::executeListPorts(const
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "{} failed ({}); treating the port list as unknown rather than empty",
                            cmd,
-                           utils::describeCommandStatus(rc));
+                           utils::describeCommandStatus(rc, cmd));
         return std::nullopt;
     }
     return ports;

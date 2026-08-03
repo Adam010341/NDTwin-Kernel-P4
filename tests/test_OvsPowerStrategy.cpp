@@ -362,8 +362,99 @@ TEST(CommandStatusTest, DecodesAWaitStatusRatherThanPrintingIt)
 
 TEST(CommandStatusTest, NamesTheTwoCasesThatSendAnOperatorElsewhere)
 {
-    EXPECT_NE(utils::describeCommandStatus(127 << 8).find("command not found"), std::string::npos);
-    EXPECT_NE(utils::describeCommandStatus(1 << 8).find("sudo password prompt"), std::string::npos);
+    const std::string missing = utils::describeCommandStatus(127 << 8, "sudo ovs-vsctl list-br");
+    EXPECT_NE(missing.find("command not found"), std::string::npos) << missing;
+    EXPECT_NE(missing.find("ovs-vsctl"), std::string::npos)
+        << "must name the tool that is missing, not a fixed one: " << missing;
+
+    const std::string refused = utils::describeCommandStatus(1 << 8, "sudo ovs-vsctl list-br");
+    EXPECT_NE(refused.find("sudo password prompt"), std::string::npos) << refused;
+}
+
+// --- The hints must belong to the command that produced them.
+//
+// This decoder was written inside DeviceConfigurationAndPowerManager, where hardcoding `ovs-vsctl`
+// was correct because that class runs nothing else. Moving it into utils:: wired it into
+// utils::execCommand -- the generic shell-out behind `curl` to Ryu and the proxy and 13
+// snmpget/snmpwalk call sites -- so a TESTBED machine without net-snmp reported "is ovs-vsctl
+// installed?" for every power reading, on a path where nobody runs ovs-vsctl at all.
+//
+// Caught by review, and the regression was mine. A misleading diagnostic costs more than a missing
+// one, which is the whole reason this decoder exists. [Co-developed with claude code -- Adam]
+
+TEST(CommandStatusTest, NamesTheToolTheCommandActuallyRan)
+{
+    EXPECT_NE(utils::describeCommandStatus(127 << 8, "snmpget -v2c -c public 10.0.0.1 1.3.6")
+                  .find("snmpget"),
+              std::string::npos);
+    EXPECT_NE(utils::describeCommandStatus(127 << 8, "curl -s http://127.0.0.1:8080/x")
+                  .find("curl"),
+              std::string::npos);
+    EXPECT_NE(utils::describeCommandStatus(127 << 8, "sudo /usr/bin/ifconfig s1-eth1 up")
+                  .find("ifconfig"),
+              std::string::npos)
+        << "should strip the directory and skip sudo";
+}
+
+TEST(CommandStatusTest, DoesNotBlameOvsVsctlForAnotherToolsFailure)
+{
+    // The exact regression. Every one of these reached the decoder through execCommand.
+    for (const std::string& cmd : {std::string("snmpget -v2c -c public 10.0.0.1 1.3.6"),
+                                   std::string("snmpwalk -v2c -c public 10.0.0.1 1.3.6"),
+                                   std::string("curl -s http://127.0.0.1:8080/stats/flow/1")})
+    {
+        const std::string missing = utils::describeCommandStatus(127 << 8, cmd);
+        EXPECT_EQ(missing.find("ovs-vsctl"), std::string::npos)
+            << cmd << " -> " << missing;
+    }
+}
+
+TEST(CommandStatusTest, TheSudoHintOnlyAppliesWhenSudoWasUsed)
+{
+    // snmpget exits 1 on a timeout or an unknown OID, and curl exits 1 on an unsupported protocol.
+    // Neither has anything to do with a password prompt, and saying so sends the reader to the wrong
+    // place with confidence.
+    for (const std::string& cmd : {std::string("snmpget -v2c -c public 10.0.0.1 1.3.6"),
+                                   std::string("curl -s http://127.0.0.1:8080/x")})
+    {
+        const std::string refused = utils::describeCommandStatus(1 << 8, cmd);
+        EXPECT_EQ(refused.find("sudo"), std::string::npos) << cmd << " -> " << refused;
+        EXPECT_EQ(refused, "exit code 1") << cmd;
+    }
+
+    // And it still applies where it is true.
+    EXPECT_NE(utils::describeCommandStatus(1 << 8, "sudo ovs-vsctl add-br s1").find("sudo password"),
+              std::string::npos);
+}
+
+TEST(CommandStatusTest, SaysSomethingUsefulWithNoCommandAtAll)
+{
+    // The default argument, for a caller that does not have the command line to hand. It must not
+    // invent a tool name.
+    const std::string missing = utils::describeCommandStatus(127 << 8);
+    EXPECT_NE(missing.find("command not found"), std::string::npos) << missing;
+    EXPECT_EQ(missing.find("installed?"), std::string::npos)
+        << "asked whether an unnamed tool is installed: " << missing;
+    EXPECT_EQ(utils::describeCommandStatus(1 << 8), "exit code 1");
+}
+
+TEST(CommandToolNameTest, PicksTheToolOutOfACommandLine)
+{
+    EXPECT_EQ(utils::commandToolName("ovs-vsctl list-br"), "ovs-vsctl");
+    EXPECT_EQ(utils::commandToolName("sudo ovs-vsctl list-br"), "ovs-vsctl");
+    EXPECT_EQ(utils::commandToolName("  sudo   ovs-vsctl  list-br"), "ovs-vsctl");
+    EXPECT_EQ(utils::commandToolName("sudo -n ovs-vsctl list-br"), "ovs-vsctl")
+        << "sudo's own options must be skipped";
+    EXPECT_EQ(utils::commandToolName("/usr/bin/snmpget -v2c"), "snmpget");
+    EXPECT_EQ(utils::commandToolName("sudo /usr/sbin/ifconfig s1-eth1 up"), "ifconfig");
+}
+
+TEST(CommandToolNameTest, ReturnsNothingRatherThanGuessing)
+{
+    EXPECT_EQ(utils::commandToolName(""), "");
+    EXPECT_EQ(utils::commandToolName("   "), "");
+    EXPECT_EQ(utils::commandToolName("sudo"), "") << "sudo alone names no tool";
+    EXPECT_EQ(utils::commandToolName("sudo -n"), "");
 }
 
 TEST(CommandStatusTest, ReportsSignalsAndUnreapedChildren)

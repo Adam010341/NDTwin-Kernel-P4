@@ -121,15 +121,45 @@ mark_log() {
 # the last stack.sh run left there. Measured once: the check reported on a 37-minute-old log from a
 # *P4* session while the running kernel was OVS -- a verdict about the wrong process in the wrong
 # mode, and nothing said so. A missing file was already handled; a stale one was not.
+#
+# Three states, not two, and for the same reason ovsLivenessFor has three: **"cannot tell" must not
+# be reported as "no".**
+#
+#   0  a running kernel has this file open
+#   1  a running kernel does not have it open -- the log is stale
+#   2  cannot tell, because /proc/<pid>/fd is unreadable by this user
+#
+# State 2 is the documented startup. `/proc/PID/fd` is mode 0500 owned by the process's uid, and the
+# manual teaches `sudo -E bin/ndtwin_kernel` (see doc/HANDOFF.md 5, which also warns that a normal
+# `pkill` cannot kill it). Against a root-owned kernel the glob matched nothing, this returned 1, and
+# the log layer hard-failed with "is not being written by any running kernel" -- while the kernel was
+# writing it live. A guard that fails on the recommended workflow gets worked around, which is how the
+# last generation of allowlist noise got where it did.
 kernel_owns_log() {
-    local target pid
+    local target pid pids unreadable=0
     target="$(readlink -f "$KERNEL_LOG" 2>/dev/null)" || return 1
-    for pid in $(pgrep -x ndtwin_kernel 2>/dev/null); do
+    pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"
+    [[ -z "$pids" ]] && return 1   # no kernel at all: definitely stale, not "cannot tell"
+
+    for pid in $pids; do
         if readlink -f /proc/"$pid"/fd/* 2>/dev/null | grep -qxF "$target"; then
             return 0
         fi
+        # Distinguish "looked and it is not there" from "was not allowed to look".
+        [[ -r /proc/"$pid"/fd ]] || unreadable=1
     done
+    [[ "$unreadable" -eq 1 ]] && return 2
     return 1
+}
+
+# Weaker evidence for the "cannot tell" case: is the file being written right now?
+# Not used as the primary signal -- a busy kernel writes constantly, but so does a log rotated by
+# something else -- only to avoid a false FAIL when the strong signal is unavailable.
+# [Co-developed with claude code -- Adam]
+log_written_recently() {
+    local age
+    age="$(( $(date +%s) - $(stat -c %Y "$KERNEL_LOG" 2>/dev/null || echo 0) ))"
+    [[ "$age" -ge 0 && "$age" -le "${LOG_FRESH_SECONDS:-120}" ]]
 }
 
 run_logcheck() {
@@ -142,14 +172,38 @@ run_logcheck() {
         echo "  $CONTRACT_DIR/check_logs.py /path/to/kernel.log"
         return 1
     fi
-    if ! kernel_owns_log; then
-        echo "${R}$KERNEL_LOG is not being written by any running kernel${N}"
-        echo "last written: $(stat -c %y "$KERNEL_LOG" 2>/dev/null || echo unknown)"
-        echo "this layer would report on a stale file, so it is checking nothing. Either start the"
-        echo "kernel with stack.sh, or point the checker at the log your kernel is writing:"
-        echo "  $CONTRACT_DIR/check_logs.py /path/to/your/kernel.log"
-        return 1
-    fi
+    kernel_owns_log
+    case $? in
+        0) ;;   # a live kernel has it open
+        2)
+            # Cannot inspect the kernel's fds -- it is running as another user, which is what the
+            # manual's `sudo -E` produces. Fall back to file freshness and say so, rather than
+            # asserting the log is stale when it may be being written live.
+            # [Co-developed with claude code -- Adam]
+            if log_written_recently; then
+                echo "${Y}cannot verify the log's owner: the kernel is running as another user"
+                echo "(/proc/<pid>/fd is unreadable), which is what 'sudo -E bin/ndtwin_kernel' does."
+                echo "Proceeding on file freshness instead -- last written"
+                echo "$(stat -c %y "$KERNEL_LOG" 2>/dev/null).${N}"
+            else
+                echo "${R}$KERNEL_LOG has not been written in ${LOG_FRESH_SECONDS:-120}s${N}"
+                echo "last written: $(stat -c %y "$KERNEL_LOG" 2>/dev/null || echo unknown)"
+                echo "a kernel is running but its fds cannot be inspected, and this file looks"
+                echo "stale, so this layer would be checking nothing. Point the checker at the log"
+                echo "your kernel is actually writing:"
+                echo "  $CONTRACT_DIR/check_logs.py /path/to/your/kernel.log"
+                return 1
+            fi
+            ;;
+        *)
+            echo "${R}$KERNEL_LOG is not being written by any running kernel${N}"
+            echo "last written: $(stat -c %y "$KERNEL_LOG" 2>/dev/null || echo unknown)"
+            echo "this layer would report on a stale file, so it is checking nothing. Either start the"
+            echo "kernel with stack.sh, or point the checker at the log your kernel is writing:"
+            echo "  $CONTRACT_DIR/check_logs.py /path/to/your/kernel.log"
+            return 1
+            ;;
+    esac
 
     if [[ "$LOG_MARKED" -eq 1 ]]; then
         echo "${D}checking lines 1-$LOG_MARK (before the L2 error-path checks);"

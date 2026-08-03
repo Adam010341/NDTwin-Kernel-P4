@@ -573,7 +573,11 @@ DeviceConfigurationAndPowerManager::describeCommandStatus(int status)
     // Moved to utils:: when OVSPowerStrategy turned out to need the identical decoding -- it runs
     // the same `sudo ovs-vsctl` commands and was logging the raw wait status. Kept as a member so
     // the existing tests keep naming the class that motivated it.
-    return utils::describeCommandStatus(status);
+    //
+    // The command is named explicitly because the only caller is the `sudo ovs-vsctl list-br`
+    // liveness probe. utils::describeCommandStatus no longer assumes that -- it was wrong for the
+    // 13 snmpget/snmpwalk sites that reach it through execCommand.
+    return utils::describeCommandStatus(status, "sudo ovs-vsctl list-br");
 }
 
 /** @brief Logs the first failure of a run of failures, and how many followed. See the header.
