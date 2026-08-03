@@ -727,6 +727,50 @@ Classifier —— 所以**每條 flow 的 `path` 都會是空的，而網路其�
 所以 `sudo -n ovs-ofctl dump-flows` 會靜默失敗回 0 條。我差一點據此報告「fabric 完全沒有規則」。
 正確做法：`sudo -n mnexec -a <mininet-pid> ovs-ofctl -O OpenFlow13 dump-flows s1`。
 
+#### 健康基線（2026-08-03，正確啟動順序，實測）
+
+| 方向 | 速率 |
+|---|---|
+| OVS → Ryu | **15.9 KB/s、6 pkt/s**（93 封包 / 15 秒，平均 2.6 KB —— 那是 flow-stats 的**回覆**）|
+| Ryu → OVS | **2.0 KB/s、21 pkt/s**（小封包：flow-stats 請求 + LLDP packet-out）|
+
+控制通道總共約 **18 KB/s**。而退化狀態的積壓成長是 **13 KB/s** —— **同一個數量級**。
+所以**流量沒有暴增，是 Ryu 停止消化**。
+
+#### 四個假設，全部由我自己推翻
+
+留著整份清單，因為「什麼不是原因」在下一個人接手時和「什麼是」一樣有用。
+
+| # | 假設 | 推翻它的測量 |
+|---|---|---|
+| 1 | kernel 的輪詢把 Ryu 吃到 97% 飽和，容量問題 | 健康時每次 0.029 秒 → 29%。97% 是**退化後**的數字 |
+| 2 | hub 停止調度、有 greenlet 卡在不 yield 的呼叫裡 | py-spy **連拍 8 張**：7 張空閒在 epoll、1 張在 `lldp_loop` 的 sleep。hub 正常 |
+| 3 | `--observe-links` 在 s1 的 34 個 port 上造成 LLDP 洪泛 | Ryu → OVS 只有 **21 pkt/s 分給 10 台 = 每台 2/s**。不是洪泛 |
+| 4 | 退化時看到的「沒有 pid 的 socket」是被殺掉的舊 Ryu 留下的孤兒 | 健康狀態**也是** 20 個 socket / 10 個有 pid。那只是 `ovs-vswitchd` 是 root、我看不到它那一端 |
+
+**所以根因仍然未知**，而我已經連錯四次。下一個人請不要從「顯眼的數字」開始。
+
+#### 但有一條可以馬上用的規則
+
+觸發條件是**可重現的**：**在 Mininet 還在跑的時候重啟 Ryu**，8 秒後退化、不會恢復。
+正確順序（Ryu 先）下 7.5 分鐘、223 樣本零退化。
+
+> **整合測試期間不要單獨重啟 Ryu。如果必須重啟，Mininet 也要一起重啟。**
+
+這條規則不需要知道根因就能遵守，而它涵蓋了目前已知的唯一觸發路徑。
+
+#### 下一個人該從哪裡開始
+
+`py-spy dump` 是**單一取樣**，我已經被它誤導一次。改用取樣式剖析：
+
+```bash
+sudo -n mnexec -a <ryu-pid> py-spy top --pid <ryu-pid>     # 看時間花在哪
+sudo -n mnexec -a <ryu-pid> py-spy record -d 30 -o /tmp/ryu.svg --pid <ryu-pid>
+```
+
+並且在退化狀態下**同時**量 tcpdump 的兩個方向 —— 我只在健康狀態量過。如果退化時 OVS → Ryu 仍是
+~16 KB/s 而 Ryu 的 Recv-Q 在長，那就確定是消化端的問題，可以把範圍縮到 Ryu 的讀取路徑。
+
 #### 還不知道的
 
 **為什麼正確的啟動順序不會發生。** 兩種順序下 LLDP 的負載應該一樣。差別在重啟時
