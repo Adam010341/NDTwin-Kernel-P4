@@ -1377,25 +1377,30 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
         try
         {
             // [Co-developed with claude code -- Adam]
-    // std::stoull threw on `?dpid=abc` and the outermost catch turned it into 500 -- the L2 failure
-    // inform_switch_entered__bad_dpid. tryParseUint64 is also stricter than stoull, which would
-    // read "12abc" as 12 and "-1" as 18446744073709551615: a mistyped dpid must be refused, not
-    // silently redirected to a different switch.
-    const auto dpidOpt = utils::tryParseUint64(dpidStr);
-    if (!dpidOpt)
-    {
-        SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "inform_switch_entered: dpid '{}' is not an unsigned integer",
-                           dpidStr);
-        res.result(http::status::bad_request);
-        res.body() = json{{"status", "error"},
-                          {"error", "invalid dpid"},
-                          {"dpid", dpidStr},
-                          {"detail", "dpid must be an unsigned integer"}}
-                         .dump();
-        return;
-    }
-    const uint64_t dpid = *dpidOpt;
+            // Same guard as handleInformSwitchEntered: std::stoull threw on `?dpid=abc` and the
+            // outermost catch turned it into 500. tryParseUint64 is also stricter than stoull,
+            // which would read "12abc" as 12 and "-1" as 18446744073709551615 -- a mistyped dpid
+            // must be refused, not silently redirected to a different switch.
+            //
+            // The message names *this* endpoint. It was copy-pasted from handleInformSwitchEntered
+            // with the text unedited, so a bad `?dpid=` on /ndt/get_nickname logged
+            // "inform_switch_entered: ..." and sent the reader to the wrong handler. Checked the
+            // other forty-odd handlers for the same slip; this was the only one.
+            const auto dpidOpt = utils::tryParseUint64(dpidStr);
+            if (!dpidOpt)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "get_nickname: dpid '{}' is not an unsigned integer",
+                                   dpidStr);
+                res.result(http::status::bad_request);
+                res.body() = json{{"status", "error"},
+                                  {"error", "invalid dpid"},
+                                  {"dpid", dpidStr},
+                                  {"detail", "dpid must be an unsigned integer"}}
+                                 .dump();
+                return;
+            }
+            const uint64_t dpid = *dpidOpt;
             vertexOpt = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
         }
         catch (const std::exception& e)
