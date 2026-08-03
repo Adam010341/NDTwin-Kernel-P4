@@ -42,6 +42,10 @@ METHODS = ("_schedule_route_reinstall", "_route_reinstall_worker")
 WALK_SECONDS = 0.40
 QUIET_SECONDS = 0.05
 
+#: Scaled down from 240 s. The worker waits this long for the *initial* install before recomputing
+#: anyway; both outcomes are exercised below.
+INITIAL_WAIT_LIMIT = 2
+
 
 def extract_methods():
     """The two methods, verbatim from the real file."""
@@ -134,7 +138,11 @@ class Router:
 def make_router(**kwargs):
     """A Router with the real methods bound to it, plus the fake hub they close over."""
     hub = FakeHub()
-    namespace = {"hub": hub, "reinstall_quiet_period": QUIET_SECONDS}
+    namespace = {
+        "hub": hub,
+        "reinstall_quiet_period": QUIET_SECONDS,
+        "initial_install_wait_limit": INITIAL_WAIT_LIMIT,
+    }
     for source in extract_methods().values():
         exec(source, namespace)  # noqa: S102 -- the "source" is this repository's own file
 
@@ -223,17 +231,40 @@ class RouteReinstallTest(unittest.TestCase):
         self.assertFalse(router.reinstall_worker_running, "the flag stuck after an exception")
         self.assertIn("route reinstall failed", router.logger.text())
 
-    def test_nothing_is_installed_before_the_initial_install_has_run(self):
-        # Recomputing before the initial install would race it, and the initial install covers the
-        # current graph anyway.
+    def test_a_change_before_the_initial_install_waits_for_it_then_recomputes(self):
+        # This used to `return`, on the stated grounds that "the initial install will cover the
+        # current graph when it does". It will not: the initial walk may have *started before* this
+        # change arrived, so it is walking a graph that predates it. Returning dropped the change.
         router, hub = make_router()
         router.install_initial_openflow_entries_completed = False
 
-        router._schedule_route_reinstall("early change")
-        self.assertTrue(hub.join_all())
+        router._schedule_route_reinstall("link down during the initial install")
 
-        self.assertEqual(router.walk_count, 0)
-        self.assertIn("initial install has not run yet", router.logger.text())
+        # The initial install finishes while the worker is waiting.
+        time.sleep(QUIET_SECONDS * 2)
+        router.install_initial_openflow_entries_completed = True
+
+        self.assertTrue(hub.join_all())
+        self.assertGreaterEqual(
+            router.walk_count,
+            1,
+            "the change was dropped because the initial install had not finished:\n"
+            + router.logger.text(),
+        )
+        self.assertFalse(router.reinstall_worker_running)
+
+    def test_it_recomputes_anyway_if_the_initial_install_never_finishes(self):
+        # An initial install that never completes has probably thrown, and then there are no routes
+        # at all -- so a walk is exactly what is wanted. Waiting forever would park the greenlet and
+        # leave the fabric with whatever it had.
+        router, hub = make_router()
+        router.install_initial_openflow_entries_completed = False
+
+        router._schedule_route_reinstall("link down, initial install wedged")
+        self.assertTrue(hub.join_all(timeout=INITIAL_WAIT_LIMIT + 10))
+
+        self.assertGreaterEqual(router.walk_count, 1, router.logger.text())
+        self.assertIn("recomputing anyway", router.logger.text())
         self.assertFalse(router.reinstall_worker_running)
 
     def test_a_change_arriving_while_the_quiet_period_runs_restarts_it(self):
@@ -250,6 +281,147 @@ class RouteReinstallTest(unittest.TestCase):
         self.assertTrue(hub.join_all())
         self.assertEqual(router.walk_count, 1, router.logger.text())
         self.assertGreaterEqual(router.walks[0], last_seq, "the walk started before the burst ended")
+
+
+class CompletionFlagOrderTest(unittest.TestCase):
+    """
+    The flag must be set *after* the walk it reports on, in every startup path.
+
+    A structural test, read off the AST, and the reason it is one is worth stating: the invariant is
+    the order of two adjacent statements in the startup method, and the reinstall worker -- the only
+    thing that reads the flag -- lives in a different method. A behavioural test at the level of this
+    file cannot see the startup path at all, so mutating the order left every other test green. An
+    admitted structural check beats no coverage of a fault whose symptom is nondeterministic routing.
+
+    What went wrong: the static path (the mode the manual documents) set the flag *before* the ~60 s
+    initial walk, so it read True for the whole walk. The worker's guard is
+    `if not ...completed: return`, so a link event during the walk passed it and started a second,
+    concurrent walk. hub is cooperative so nothing corrupts, but both issue OFPFC_ADD for the same
+    (switch, ipv4_dst) at the same priority -- which overwrites -- so whichever finished last won,
+    and the one that started first was walking the pre-failure graph. Each also assigned its own
+    local list to self.all_destination_paths, which the kernel then pulls. The dynamic path already
+    had it right, which is what made the discrepancy findable.
+    """
+
+    FLAG = "install_initial_openflow_entries_completed"
+
+    def test_every_startup_path_sets_the_flag_after_its_walk(self):
+        with open(ROUTER) as f:
+            tree = ast.parse(f.read())
+
+        checked = 0
+        for node in ast.walk(tree):
+            body = getattr(node, "body", None)
+            if not isinstance(body, list):
+                continue
+
+            # Direct children only. Walking each statement's whole subtree put both the call and
+            # the assignment at the index of the enclosing `try`, so the comparison was 32 > 32 --
+            # the test failed against correct code. ast.walk visits the Try node itself later, and
+            # its own body is scanned then.
+            walk_at = flag_at = None
+            for index, statement in enumerate(body):
+                if (isinstance(statement, ast.Expr)
+                        and isinstance(statement.value, ast.Call)
+                        and isinstance(statement.value.func, ast.Attribute)
+                        and statement.value.func.attr == "install_all_pair_paths"):
+                    walk_at = index
+                if (isinstance(statement, ast.Assign)
+                        and any(isinstance(t, ast.Attribute) and t.attr == self.FLAG
+                                for t in statement.targets)
+                        and isinstance(statement.value, ast.Constant)
+                        and statement.value.value is True):
+                    flag_at = index
+
+            if walk_at is None or flag_at is None:
+                continue
+            checked += 1
+            self.assertGreater(
+                flag_at,
+                walk_at,
+                f"{self.FLAG} is set to True at statement {flag_at}, before the "
+                f"install_all_pair_paths at statement {walk_at} -- so it reads True for the whole "
+                "walk and the reinstall worker will start a second, concurrent one",
+            )
+
+        self.assertGreaterEqual(
+            checked,
+            2,
+            "expected to find both the static and dynamic startup paths; found "
+            f"{checked}, so this test is no longer looking at the right code",
+        )
+
+
+class NotificationIsNotAGateTest(unittest.TestCase):
+    """
+    Local state must be updated before the remote notification, not after it.
+
+    Structural for the same reason as CompletionFlagOrderTest: the invariant is statement order in an
+    event handler, and the failure needs a peer that accepts a connection and never answers -- which
+    no test at this level can arrange, and which raises nothing, so the handler's `except` does not
+    help either.
+
+    `requests.post` had no `timeout=`, so it blocks until the peer replies or the socket errors. A
+    refused connection returns at once, which is the common case and why this went unnoticed; a
+    wedged kernel still listening on :8000 is documented in HANDOFF 1j as having bitten three times.
+    Everything the handler did *below* that call inherited the hang: on_link_delete's edge removal and
+    reinstall scheduling, and on_link_add's reinstall scheduling. That is the pre-2c81b26 behaviour
+    returning silently, with the greenlet parked.
+    """
+
+    HANDLERS = ("on_link_delete", "on_link_add")
+    LOCAL_WORK = ("_schedule_route_reinstall", "remove_edge", "add_edge")
+
+    def _handler(self, name):
+        with open(ROUTER) as f:
+            tree = ast.parse(f.read())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == name:
+                return node
+        raise AssertionError(f"intelligent_router.py no longer defines {name}; this test is stale")
+
+    def test_every_notification_post_has_a_timeout(self):
+        # Without one the call is unbounded, and no amount of statement ordering saves the handler
+        # from parking on it.
+        with open(ROUTER) as f:
+            tree = ast.parse(f.read())
+        posts = 0
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "post"):
+                posts += 1
+                self.assertIn(
+                    "timeout",
+                    [kw.arg for kw in node.keywords],
+                    f"requests.post on line {node.lineno} has no timeout=",
+                )
+        self.assertGreaterEqual(posts, 2, f"expected both notification POSTs; found {posts}")
+
+    def test_local_work_happens_before_the_notification(self):
+        for name in self.HANDLERS:
+            handler = self._handler(name)
+
+            post_line = None
+            local_lines = []
+            for node in ast.walk(handler):
+                if (isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)):
+                    if node.func.attr == "post":
+                        post_line = node.lineno
+                    elif node.func.attr in self.LOCAL_WORK:
+                        local_lines.append((node.func.attr, node.lineno))
+
+            self.assertIsNotNone(post_line, f"{name} no longer notifies the kernel")
+            self.assertTrue(local_lines, f"{name} does no local work; this test is stale")
+            for what, line in local_lines:
+                self.assertLess(
+                    line,
+                    post_line,
+                    f"{name}: {what} is on line {line}, after the requests.post on line "
+                    f"{post_line} -- a peer that accepts and never answers would park the greenlet "
+                    "and this would never run",
+                )
 
 
 if __name__ == "__main__":

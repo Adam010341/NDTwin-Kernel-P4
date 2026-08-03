@@ -37,6 +37,13 @@ detecting_time = 60
 # would repeat the whole 16256-pair walk several times for one operator action. 3s is well past the
 # gap between the paired events while still recovering promptly.
 reinstall_quiet_period = 3
+
+# [Co-developed with claude code -- Adam]
+# How long the reinstall worker will wait for the *initial* install before recomputing anyway. The
+# initial walk is ~60s on the 128-host topology and is preceded by a 60s settle sleep in Mininet
+# mode, so this has to clear both with room to spare. On expiry it proceeds rather than giving up:
+# an initial install that late has probably thrown, and then there are no routes at all.
+initial_install_wait_limit = 240
 is_all_dst_biased = False
 all_dst_ecmp_biased_factor = 1
 
@@ -143,10 +150,30 @@ class IntelligentRyu(app_manager.RyuApp):
                         break
 
                 if not self.install_initial_openflow_entries_completed:
-                    # The initial install has not run yet and will cover the current graph when it
-                    # does.
-                    self.logger.info("skipping route reinstall: initial install has not run yet")
-                    return
+                    # [Co-developed with claude code -- Adam]
+                    # Waits rather than returning. The old comment claimed "the initial install will
+                    # cover the current graph when it does" -- but the initial walk may have *started
+                    # before* this change arrived, in which case it is walking a graph that predates
+                    # it and will not cover it at all. Returning here dropped the change silently,
+                    # which is the same class of loss as the mid-walk window above.
+                    #
+                    # Bounded, and on expiry it proceeds anyway: if the initial install is that late
+                    # it has probably thrown, and in that case there are no routes at all and a walk
+                    # is exactly what is wanted.
+                    self.logger.warning(
+                        "route reinstall waiting for the initial install to finish")
+                    waited = 0
+                    while (not self.install_initial_openflow_entries_completed
+                           and waited < initial_install_wait_limit):
+                        hub.sleep(1)
+                        waited += 1
+                    if not self.install_initial_openflow_entries_completed:
+                        self.logger.error(
+                            "initial install still not done after %ds; recomputing anyway",
+                            waited)
+                    # Falls through to the walk either way. `continue`-ing here was an infinite
+                    # loop when the flag never arrives: the outer loop re-checks it, waits again,
+                    # and never walks. Caught by the test for that case, not by reading.
 
                 self.logger.warning("recomputing all-pair routes after topology change")
                 self.install_all_pair_paths(self._active_net())
@@ -373,8 +400,18 @@ class IntelligentRyu(app_manager.RyuApp):
             # Install all-destination routing entries
             if is_mininet:
                 hub.sleep(60)
-            self.install_initial_openflow_entries_completed = True
+            # [Co-developed with claude code -- Adam]
+            # The flag is set AFTER the walk, matching the dynamic path above. It used to be set
+            # before, so it was True for the whole ~60 s of the initial install -- and the reinstall
+            # worker's guard is `if not ...completed: return`. A link event during the walk therefore
+            # passed the guard and started a *second* concurrent walk. hub is cooperative so nothing
+            # corrupts, but both walks issue OFPFC_ADD for the same (switch, ipv4_dst) at the same
+            # priority, which overwrites -- so whichever finished last won, and the one that started
+            # first was walking the pre-failure graph. Each also assigns its own local list to
+            # self.all_destination_paths, which the kernel then pulls. Nondeterministic routing and a
+            # nondeterministic answer to get_path_switch_count, with nothing logging a conflict.
             self.install_all_pair_paths(self.static_net)
+            self.install_initial_openflow_entries_completed = True
             self.logger.info("Static topology initialized, all-destination paths installed.")
             
         except Exception as e:
@@ -706,6 +743,27 @@ class IntelligentRyu(app_manager.RyuApp):
         dst_dpid = link.dst.dpid
         dst_port = link.dst.port_no
 
+        # [Co-developed with claude code -- Adam]
+        # Our own state first, the remote notification second.
+        #
+        # The graph is a DiGraph and EventLinkDelete fires once per direction, so removing the one
+        # directed edge named by this event is exactly right -- the paired event removes the other.
+        # Without this the graph kept a link that was down, and every path computed from it was
+        # wrong, silently.
+        #
+        # This used to sit *below* the notification, which meant it inherited an unbounded
+        # `requests.post`. A refused connection returns at once, but a process that accepts and never
+        # answers blocks forever and raises nothing, so the `except` below does not help -- and
+        # HANDOFF 1j records a wedged kernel holding :8000 biting three times. The edge would never
+        # have been removed and no reinstall scheduled: exactly the pre-2c81b26 behaviour, silently.
+        # Beyond the hang, this graph is this application's own state and has no business being
+        # conditional on a remote call at all.
+        net = self._active_net()
+        if net.has_edge(src_dpid, dst_dpid):
+            net.remove_edge(src_dpid, dst_dpid)
+            self.logger.warning("removed edge %s -> %s from the routing graph", src_dpid, dst_dpid)
+        self._schedule_route_reinstall(f"link {src_dpid} -> {dst_dpid} down")
+
         # Notify NDT
         api_url = "http://localhost:8000/ndt/link_failure_detected"
 
@@ -719,21 +777,12 @@ class IntelligentRyu(app_manager.RyuApp):
         }
 
         try:
-            response = requests.post(api_url, json=data, headers=headers)
+            # (connect, read). Without a timeout this blocks indefinitely against a listener that
+            # accepts and never replies, parking the greenlet.
+            response = requests.post(api_url, json=data, headers=headers, timeout=(2, 5))
             self.logger.warning("Notified NDT, status code: %s", response.status_code)
         except Exception as e:
             self.logger.warning("Failed to notify NDT: %s", str(e))
-
-        # [Co-developed with claude code -- Adam]
-        # The graph is a DiGraph and EventLinkDelete fires once per direction, so removing the one
-        # directed edge named by this event is exactly right -- the paired event removes the other.
-        # Without this the graph kept a link that was down, and every path computed from it was
-        # wrong, silently.
-        net = self._active_net()
-        if net.has_edge(src_dpid, dst_dpid):
-            net.remove_edge(src_dpid, dst_dpid)
-            self.logger.warning("removed edge %s -> %s from the routing graph", src_dpid, dst_dpid)
-        self._schedule_route_reinstall(f"link {src_dpid} -> {dst_dpid} down")
 
     @set_ev_cls(event.EventLinkAdd)
     def on_link_add(self, ev):
@@ -763,6 +812,16 @@ class IntelligentRyu(app_manager.RyuApp):
                 dst_port,
             )
 
+        # [Co-developed with claude code -- Adam] As on_link_delete: a link coming back is a
+        # topology change, and routes that were moved off it should be able to move back.
+        #
+        # Scheduled before the notification, for the same reason the edge removal in on_link_delete
+        # is: this is local state and must not be conditional on a remote call. It used to sit below
+        # an unbounded requests.post, so a kernel that accepted the connection and never answered
+        # would block here forever -- raising nothing, so the `except` did not help -- and the routes
+        # would never move back onto the recovered link.
+        self._schedule_route_reinstall(f"link {src_dpid} -> {dst_dpid} up")
+
         # Notify NDT link is recovered
         api_url = "http://localhost:8000/ndt/link_recovery_detected"
 
@@ -776,14 +835,10 @@ class IntelligentRyu(app_manager.RyuApp):
         }
 
         try:
-            response = requests.post(api_url, json=data, headers=headers)
+            response = requests.post(api_url, json=data, headers=headers, timeout=(2, 5))
             self.logger.warning("Notified NDT, status code: %s", response.status_code)
         except Exception as e:
             self.logger.warning("Failed to notify NDT: %s", str(e))
-
-        # [Co-developed with claude code -- Adam] As on_link_delete: a link coming back is a
-        # topology change, and routes that were moved off it should be able to move back.
-        self._schedule_route_reinstall(f"link {src_dpid} -> {dst_dpid} up")
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def flow_stats_reply_handler(self, ev):
