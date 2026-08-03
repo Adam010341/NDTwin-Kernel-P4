@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -63,9 +64,29 @@ class KeyedFailureLog
     /**
      * @param reportAfter How long a failure must persist before it is reported at all. Zero reports
      *                    the first occurrence, which is what a low-frequency caller wants.
+     * @param forgetAfter How long a failure may be absent before its history is discarded. Defaults
+     *                    to twice @p reportAfter, and to zero when @p reportAfter is zero.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * @p forgetAfter exists because without it the hold-off measured *consecutive* presence, and a
+     * fault that is intermittent -- which is most of them -- was therefore reported never. Measured
+     * on the real header at the path-walk loop's 1 kHz cadence with a 15 s hold-off: a failure
+     * present in **99% of 600,000 passes over ten minutes reported zero times**, and 10-second
+     * bursts of a permanently broken flow also reported zero times. One absent pass in a hundred was
+     * enough, because an unreported key was erased the moment it went missing and its clock restarted
+     * from scratch on the next appearance.
+     *
+     * That is not a theoretical gap. The keys in the path-walk loop come from flows in
+     * `m_flowInfoTable`, which `purgeIdleFlows` removes and `handlePacket` re-creates, so their
+     * presence tracks traffic and is not monotonic -- and the warning this class was built to ration,
+     * `edge not found by dpid/port 4:3`, is the line that answered the P4 host-port bug. Rationing it
+     * to zero is worse than the 270,991 copies it replaced: a flood can be grepped, silence cannot.
      */
-    explicit KeyedFailureLog(Clock::duration reportAfter = Clock::duration::zero())
-        : m_reportAfter(reportAfter)
+    explicit KeyedFailureLog(Clock::duration reportAfter = Clock::duration::zero(),
+                             std::optional<Clock::duration> forgetAfter = std::nullopt)
+        : m_reportAfter(reportAfter),
+          m_forgetAfter(forgetAfter.value_or(reportAfter * 2))
     {
     }
 
@@ -87,8 +108,14 @@ class KeyedFailureLog
     /**
      * @brief Closes the pass and reports only the edges.
      *
-     * Call exactly once per pass, after every record(). Calling it twice would report the same
-     * recovery twice and then treat every still-failing key as new.
+     * Call exactly once per pass, after every record().
+     *
+     * A second call in the same pass reports **every still-open, already-reported failure as
+     * recovered** -- for faults that have not recovered at all -- and then forgets them. That is a
+     * false statement about the network written at INFO, so a log check looking for warnings would
+     * not catch it. (An earlier version of this comment said a second call would report the same
+     * recovery twice; it cannot, because a recovered key is erased in the call that reports it.)
+     * [Co-developed with claude code -- Adam]
      */
     Report endPass(Clock::time_point now = Clock::now())
     {
@@ -99,16 +126,21 @@ class KeyedFailureLog
             auto it = m_open.find(key);
             if (it == m_open.end())
             {
-                it = m_open.emplace(key, Entry{now, 1, false}).first;
+                it = m_open.emplace(key, Entry{now, now, 1, false}).first;
             }
             else
             {
                 ++it->second.passes;
+                it->second.lastSeen = now;
             }
 
             // Reported on the pass where it has persisted long enough, and only once. A failure
             // that clears before then is never reported at all, and neither is its recovery --
             // otherwise the hold-off would just move the noise to the recovery line.
+            //
+            // Persistence is measured from firstSeen, which survives gaps shorter than
+            // m_forgetAfter. It used to be reset by any single absent pass, which is how an
+            // intermittent fault reported nothing at all.
             if (!it->second.reported && now - it->second.firstSeen >= m_reportAfter)
             {
                 it->second.reported = true;
@@ -118,7 +150,10 @@ class KeyedFailureLog
 
         for (auto it = m_open.begin(); it != m_open.end();)
         {
-            if (m_thisPass.count(it->first) == 0)
+            // Absent, but remembered until it has been gone for m_forgetAfter -- so a fault that
+            // flaps accumulates towards its hold-off instead of restarting, while one that genuinely
+            // stops is forgotten and (if it was ever reported) reported as recovered.
+            if (m_thisPass.count(it->first) == 0 && now - it->second.lastSeen >= m_forgetAfter)
             {
                 if (it->second.reported)
                 {
@@ -146,6 +181,9 @@ class KeyedFailureLog
     struct Entry
     {
         Clock::time_point firstSeen;
+        /// Last pass this key was recorded in. Kept so a gap shorter than m_forgetAfter does not
+        /// restart firstSeen. [Co-developed with claude code -- Adam]
+        Clock::time_point lastSeen;
         uint64_t passes;
         bool reported;
     };
@@ -155,6 +193,8 @@ class KeyedFailureLog
     /// key -> when it started failing, how many passes, and whether it was reported.
     std::map<std::string, Entry> m_open;
     Clock::duration m_reportAfter;
+    /// How long an absent key is remembered before its history is discarded.
+    Clock::duration m_forgetAfter;
 };
 
 } // namespace utils

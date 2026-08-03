@@ -182,6 +182,46 @@ else
     shopt -u nullglob
 fi
 
+# --- 3b. kernel-side Python and shell tests --------------------------------------
+# [Co-developed with claude code -- Adam]
+# Separate from p4_proxy/tests because these cover the OVS/Ryu side and the test tooling itself, and
+# they run under a plain python3 -- no gRPC, no networkx. Added when a review found that the two
+# things they cover (the route-reinstall debounce and stack.sh's stray-listener guard) had no home to
+# be tested in, and both had shipped broken.
+step "kernel-side Python and shell tests"
+shopt -s nullglob
+KERNEL_TESTS=("$KERNEL_DIR"/tests/python/test_*.py "$KERNEL_DIR"/tests/shell/test_*.sh)
+shopt -u nullglob
+if [[ ${#KERNEL_TESTS[@]} -eq 0 ]]; then
+    echo "  ${D}none found${N}"
+else
+    for testfile in "${KERNEL_TESTS[@]}"; do
+        name="$(basename "$testfile")"
+        log="$LOG_DIR/l1_kernel_${name%.*}.log"
+        printf '  %-30s ' "$name"
+        if [[ "$testfile" == *.py ]]; then
+            (cd "$KERNEL_DIR" && python3 "$testfile") >"$log" 2>&1
+        else
+            (cd "$KERNEL_DIR" && bash "$testfile") >"$log" 2>&1
+        fi
+        rc=$?
+        # Both harnesses print a "Ran N" line; zero means nothing was collected, which proves
+        # nothing and must not read as a pass.
+        ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
+        ran=${ran:-0}
+        if [[ $rc -ne 0 ]]; then
+            echo "${R}FAIL${N} (exit $rc, ran=$ran)"
+            grep -E "^(FAIL|ERROR):|AssertionError|FAILED " "$log" | head -8 | sed 's/^/      /'
+            FAILURES=$((FAILURES + 1))
+        elif [[ $ran -eq 0 ]]; then
+            echo "${Y}NO TESTS RAN${N} ${D}(see $log)${N}"
+            FAILURES=$((FAILURES + 1))
+        else
+            echo "${G}PASS${N} ${D}${ran} ran and passed${N}"
+        fi
+    done
+fi
+
 # --- 4. cross-check: ctest case count vs discovered tests ------------------------
 step "cross-check ctest coverage"
 ctest_cases=$(ctest --test-dir "$BUILD_DIR" -N 2>/dev/null | grep -cE '^\s+Test\s+#')

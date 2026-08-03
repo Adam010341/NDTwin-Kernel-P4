@@ -165,7 +165,22 @@ TEST(KeyedFailureLogHoldOffTest, AFailureShorterThanTheHoldOffIsNeverReported)
     EXPECT_TRUE(after.recovered.empty())
         << "a failure that was never reported must not report a recovery either, or the hold-off "
            "just moves the noise to the recovery line";
-    EXPECT_EQ(log.openCount(), 0u);
+
+    // It is still *remembered* here, for forgetAfter (30 s, twice the hold-off). This assertion used
+    // to be openCount() == 0, which encoded "erased the moment it goes missing" -- and that was the
+    // bug: it made the hold-off measure consecutive presence, so an intermittent fault reported
+    // never. See ARepeatedlyInterruptedFailureIsStillReported below.
+    EXPECT_EQ(log.openCount(), 1u) << "forgotten immediately, so a gap would restart the hold-off";
+
+    // Once the forget window passes it is gone, and still silent in both directions -- a genuine
+    // startup transient must cost nothing at all.
+    for (int s = 9; s <= 40; ++s)
+    {
+        const auto report = log.endPass(t0 + std::chrono::seconds(s));
+        EXPECT_TRUE(report.newFailures.empty()) << "reported at " << s << "s";
+        EXPECT_TRUE(report.recovered.empty()) << "recovery reported at " << s << "s";
+    }
+    EXPECT_EQ(log.openCount(), 0u) << "still remembered long after it stopped";
 }
 
 TEST(KeyedFailureLogHoldOffTest, AFailureThatOutlastsTheHoldOffIsReportedOnce)
@@ -192,7 +207,7 @@ TEST(KeyedFailureLogHoldOffTest, AFailureThatOutlastsTheHoldOffIsReportedOnce)
 
 TEST(KeyedFailureLogHoldOffTest, RecoveryIsReportedOnlyForAFailureThatWasReported)
 {
-    KeyedFailureLog log{std::chrono::seconds(10)};
+    KeyedFailureLog log{std::chrono::seconds(10)}; // forgetAfter is therefore 20 s
     const auto t0 = KeyedFailureLog::Clock::now();
 
     log.record("k", "m");
@@ -200,9 +215,131 @@ TEST(KeyedFailureLogHoldOffTest, RecoveryIsReportedOnlyForAFailureThatWasReporte
     log.record("k", "m");
     ASSERT_EQ(log.endPass(t0 + std::chrono::seconds(10)).newFailures.size(), 1u);
 
-    const auto recovered = log.endPass(t0 + std::chrono::seconds(11));
-    ASSERT_EQ(recovered.recovered.size(), 1u);
+    // Recovery waits out the forget window, because until it expires we do not yet know the failure
+    // has stopped rather than paused. Declaring recovery on the first quiet pass is what made a
+    // flapping fault look like a series of resolved ones.
+    EXPECT_TRUE(log.endPass(t0 + std::chrono::seconds(11)).recovered.empty())
+        << "declared recovered one pass after the last failure";
+    EXPECT_TRUE(log.endPass(t0 + std::chrono::seconds(29)).recovered.empty())
+        << "declared recovered before the forget window elapsed";
+
+    const auto recovered = log.endPass(t0 + std::chrono::seconds(30));
+    ASSERT_EQ(recovered.recovered.size(), 1u) << "never reported recovered at all";
     EXPECT_EQ(recovered.recovered[0].second, 2u) << "the pass count spans the whole failure";
+    EXPECT_EQ(log.openCount(), 0u);
+}
+
+// --- The gap this suite did not cover, and which let the bug ship.
+//
+// The hold-off measured *consecutive* presence, so any single absent pass erased an unreported key
+// and restarted its clock. Every test above drives either an uninterrupted failure or one that stops
+// for good, so none of them could see it. Measured on the real header at the path-walk loop's 1 kHz
+// cadence: a failure present in 99% of 600,000 passes over ten minutes was reported **zero** times,
+// and so were 10-second bursts of a permanently broken flow.
+//
+// That matters because the keys are derived from flows in m_flowInfoTable, which purgeIdleFlows
+// removes and handlePacket re-creates -- so their presence tracks traffic and is not monotonic. The
+// warning being rationed here is the one that answered the P4 host-port bug. Rationed to zero it is
+// worse than the 270,991 copies it replaced: a flood can be grepped, silence cannot.
+
+TEST(KeyedFailureLogForgetWindowTest, ARepeatedlyInterruptedFailureIsStillReported)
+{
+    // One absent pass in a hundred, at the real cadence. This is the measured case.
+    KeyedFailureLog log{std::chrono::seconds(15)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    int reported = 0;
+    for (int pass = 0; pass < 60000; ++pass) // 60 s at 1 kHz
+    {
+        if (pass % 100 != 37)
+        {
+            log.record("dpid-port:4:3", "edge not found by dpid/port 4:3");
+        }
+        reported += static_cast<int>(
+            log.endPass(t0 + std::chrono::milliseconds(pass)).newFailures.size());
+    }
+
+    EXPECT_EQ(reported, 1) << "a fault present 99% of the time was reported " << reported
+                           << " times; it must be reported exactly once";
+}
+
+TEST(KeyedFailureLogForgetWindowTest, AFlappingFailureAccumulatesTowardsTheHoldOff)
+{
+    // Bursty traffic: the flow appears for 5 s, vanishes for 5 s, repeats. No single burst reaches
+    // the 15 s hold-off, so under consecutive-presence rules this reported nothing, forever.
+    KeyedFailureLog log{std::chrono::seconds(15)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    int reported = 0;
+    for (int s = 0; s < 120; ++s)
+    {
+        if ((s / 5) % 2 == 0)
+        {
+            log.record("k", "m");
+        }
+        reported += static_cast<int>(log.endPass(t0 + std::chrono::seconds(s)).newFailures.size());
+    }
+
+    EXPECT_EQ(reported, 1) << "reported " << reported << " times over two minutes of flapping";
+}
+
+TEST(KeyedFailureLogForgetWindowTest, AGapLongerThanTheForgetWindowDoesRestartTheHoldOff)
+{
+    // The other side of the trade. A fault that stops for longer than the forget window is a
+    // different episode, and its hold-off starts again -- otherwise two unrelated transients hours
+    // apart would add up to a report.
+    KeyedFailureLog log{std::chrono::seconds(10)}; // forget after 20 s
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    // Two 5-second episodes, 60 seconds apart. Neither reaches the hold-off on its own.
+    for (int s = 0; s < 5; ++s)
+    {
+        log.record("k", "m");
+        ASSERT_TRUE(log.endPass(t0 + std::chrono::seconds(s)).newFailures.empty());
+    }
+    for (int s = 5; s < 65; ++s)
+    {
+        log.endPass(t0 + std::chrono::seconds(s));
+    }
+    ASSERT_EQ(log.openCount(), 0u) << "the first episode was never forgotten";
+
+    for (int s = 65; s < 70; ++s)
+    {
+        log.record("k", "m");
+        EXPECT_TRUE(log.endPass(t0 + std::chrono::seconds(s)).newFailures.empty())
+            << "the second episode inherited the first one's age and reported at " << s << "s";
+    }
+}
+
+TEST(KeyedFailureLogForgetWindowTest, TheForgetWindowCanBeSetIndependently)
+{
+    // Defaulted to twice the hold-off, but a caller whose loop is bursty on a different timescale
+    // needs to say so. Pinned because the default is the kind of thing that gets "simplified" away.
+    KeyedFailureLog log{std::chrono::seconds(10), std::chrono::seconds(60)};
+    const auto t0 = KeyedFailureLog::Clock::now();
+
+    log.record("k", "m");
+    log.endPass(t0);
+
+    // Absent for 40 s -- past twice the hold-off, but inside the explicit window, so still
+    // remembered and still accumulating.
+    for (int s = 1; s <= 40; ++s)
+    {
+        EXPECT_TRUE(log.endPass(t0 + std::chrono::seconds(s)).recovered.empty()) << s;
+    }
+    EXPECT_EQ(log.openCount(), 1u) << "the explicit forget window was ignored";
+}
+
+TEST(KeyedFailureLogForgetWindowTest, AZeroHoldOffForgetsImmediatelyAsBefore)
+{
+    // The default construction, used by every caller that is not the 1 kHz path-walk loop. A zero
+    // hold-off implies a zero forget window, so this behaviour is unchanged: report on sight,
+    // recover on the first quiet pass.
+    KeyedFailureLog log;
+    log.record("k", "m");
+    EXPECT_EQ(log.endPass().newFailures.size(), 1u);
+    EXPECT_EQ(log.endPass().recovered.size(), 1u);
+    EXPECT_EQ(log.openCount(), 0u);
 }
 
 TEST(KeyedFailureLogHoldOffTest, TheHoldOffIsPerKeyNotGlobal)

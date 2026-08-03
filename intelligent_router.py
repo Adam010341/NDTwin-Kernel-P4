@@ -124,22 +124,41 @@ class IntelligentRyu(app_manager.RyuApp):
 
     def _route_reinstall_worker(self):
         try:
-            # Wait for the graph to stop moving: if another change arrives while we sleep, start the
-            # quiet period again.
+            # The outer loop exists because _schedule_route_reinstall returns early while this worker
+            # is running, so a change arriving during install_all_pair_paths is *dropped* -- and the
+            # only place it can still be noticed is here, after the walk.
+            #
+            # Without it the window was the duration of the walk: 16256 host pairs, about 60s (see
+            # doc/HANDOFF.md 1g). A second link failing in that window was never recomputed, which is
+            # the same silent non-recovery 2c81b26 was written to fix -- and the log said "route
+            # reinstall done", meaning the *previous* change. Found by review, not by a test; the
+            # tests below cover the debounce but nothing yet drives a change into the walk.
             while True:
-                seen = self.topology_change_seq
-                hub.sleep(reinstall_quiet_period)
+                # Wait for the graph to stop moving: if another change arrives while we sleep, start
+                # the quiet period again.
+                while True:
+                    seen = self.topology_change_seq
+                    hub.sleep(reinstall_quiet_period)
+                    if self.topology_change_seq == seen:
+                        break
+
+                if not self.install_initial_openflow_entries_completed:
+                    # The initial install has not run yet and will cover the current graph when it
+                    # does.
+                    self.logger.info("skipping route reinstall: initial install has not run yet")
+                    return
+
+                self.logger.warning("recomputing all-pair routes after topology change")
+                self.install_all_pair_paths(self._active_net())
+                self.logger.warning("route reinstall done")
+
                 if self.topology_change_seq == seen:
-                    break
-
-            if not self.install_initial_openflow_entries_completed:
-                # The initial install has not run yet and will cover the current graph when it does.
-                self.logger.info("skipping route reinstall: initial install has not run yet")
-                return
-
-            self.logger.warning("recomputing all-pair routes after topology change")
-            self.install_all_pair_paths(self._active_net())
-            self.logger.warning("route reinstall done")
+                    return
+                # Anything that arrived mid-walk was silently discarded by the early return in
+                # _schedule_route_reinstall. Go round again rather than leaving those rules stale.
+                self.logger.warning(
+                    "topology changed again during the recompute (seq %d -> %d); recomputing",
+                    seen, self.topology_change_seq)
         except Exception as e:
             # A greenlet that dies takes its traceback with it and nothing else notices, which is
             # how a silent non-recovery would come back.

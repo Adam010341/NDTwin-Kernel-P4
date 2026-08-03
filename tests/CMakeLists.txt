@@ -1,6 +1,7 @@
 # tests/CMakeLists.txt
 add_executable(
   test_routing_strategy
+  test_LoggerEnvironment.cpp
   test_RoutingStrategies.cpp
   test_EstimatedRates.cpp
   test_SwitchKindDispatch.cpp

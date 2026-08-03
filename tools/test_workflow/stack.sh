@@ -321,6 +321,62 @@ port_open() {
     return 1
 }
 
+# port_listener_pids <port> -- pids listening on it, one per line. Empty when unknowable.
+# [Co-developed with claude code -- Adam]
+port_listener_pids() {
+    command -v ss >/dev/null 2>&1 || return 0
+    ss -ltnpH "( sport = $1 )" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u
+}
+
+# port_listener_description <port> -- "name (pid N)" for the log, or a plain statement when the
+# owner is not visible to this user. [Co-developed with claude code -- Adam]
+port_listener_description() {
+    local pids; pids="$(port_listener_pids "$1")"
+    if [[ -z "$pids" ]]; then
+        echo "a process this user cannot see (probably root-owned)"
+        return
+    fi
+    local out=""
+    for pid in $pids; do
+        local comm; comm="$(cat "/proc/$pid/comm" 2>/dev/null || echo '?')"
+        out="${out:+$out, }$comm (pid $pid)"
+    done
+    echo "$out"
+}
+
+# port_owner_verdict <port> <component> -> ours | stray | unknown
+#
+# [Co-developed with claude code -- Adam]
+# `ours` means the listening socket belongs to the process this script started, or to one of its
+# descendants: start_bg uses setsid, so the recorded pid is the process-group leader and every child
+# shares that pgid -- which is the same assumption stop_one already makes when it signals `-$pid`.
+port_owner_verdict() {
+    local port="$1" component="$2"
+    local pidfile="$PID_DIR/$component.pid"
+    if [[ ! -f "$pidfile" ]]; then echo unknown; return; fi
+    local ours; ours="$(cat "$pidfile" 2>/dev/null)"
+    [[ -n "$ours" ]] || { echo unknown; return; }
+
+    local listeners; listeners="$(port_listener_pids "$port")"
+    if [[ -z "$listeners" ]]; then
+        echo unknown
+        return
+    fi
+
+    for pid in $listeners; do
+        if [[ "$pid" == "$ours" ]]; then
+            echo ours
+            return
+        fi
+        local pgid; pgid="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"
+        if [[ -n "$pgid" && "$pgid" == "$ours" ]]; then
+            echo ours
+            return
+        fi
+    done
+    echo stray
+}
+
 # wait_for_port <port> <label> [timeout] [component]
 #
 # [Co-developed with claude code -- Adam]
@@ -345,12 +401,41 @@ wait_for_port() {
             return 1
         fi
         if port_open "$port"; then
-            # The port is open, but is it ours? Only meaningful when we were told what to look
-            # for; without the component name this stays the old, weaker check.
-            if [[ -n "$component" ]] && ! is_running "$component"; then
-                echo " ${R}not ours${N}"
-                err "  :$port is open but $component is not running -- another process holds it"
-                return 1
+            # The port is open, but is it ours?
+            #
+            # [Co-developed with claude code -- Adam]
+            # This used to re-test `! is_running "$component"` -- textually the same condition as the
+            # check at the top of this loop, a few instructions earlier. It could therefore only fire
+            # if the process died in between, and the stray-listener case it was written for sailed
+            # straight through: a leftover kernel holding :8000 was reported as "up" while the kernel
+            # this script started was already dead of `bind: Address already in use`. Found by
+            # review; the guard had never worked.
+            #
+            # Asking who owns the socket is the only way to answer the question the comment claims to
+            # answer.
+            if [[ -n "$component" ]]; then
+                case "$(port_owner_verdict "$port" "$component")" in
+                    ours)
+                        ;;
+                    stray)
+                        echo " ${R}not ours${N}"
+                        err "  :$port is held by $(port_listener_description "$port"), not by the" \
+                            "$component this script started"
+                        err "  stop it first:  ss -ltnp | grep :$port"
+                        return 1
+                        ;;
+                    unknown)
+                        # Cannot see the owner -- no `ss`, or the socket belongs to another user
+                        # (the manual instructions start the kernel with `sudo -E`). Fall back to the
+                        # weaker check rather than inventing a failure, but say so, because a silent
+                        # fallback here is how the original guard went unnoticed.
+                        warn "  cannot tell who owns :$port; proceeding on '$component is alive'"
+                        if ! is_running "$component"; then
+                            echo " ${R}died${N}"
+                            return 1
+                        fi
+                        ;;
+                esac
             fi
             echo " ${G}up${N}"
             return 0
@@ -605,6 +690,18 @@ cmd_logs() {
     echo "check the kernel log against the allowlist:"
     echo "  $CONTRACT_DIR/check_logs.py $LOG_DIR/kernel.log"
 }
+
+# Sourced rather than run: define the functions and stop, so they can be driven from a test.
+#
+# [Co-developed with claude code -- Adam]
+# Added because wait_for_port's stray-listener guard shipped broken -- the "is it ours?" branch was
+# textually the same condition as the liveness check a few lines above it, so it was unreachable and
+# the leftover-kernel case it exists for reported success. A false PASS in this script is worse than
+# a bug in the kernel, because everything downstream is then measuring the wrong network. That is
+# only testable if the real function can be called.
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    return 0
+fi
 
 case "${1:-}" in
     up)     shift; cmd_up "$@" ;;
