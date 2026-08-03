@@ -223,8 +223,22 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
   - 用 `POST /ndt/inform_all_destination_paths` 主動推路徑。這比修 pull 那條路好，因為 `fetchAllDestinationPaths` 只在啟動時被呼叫**一次**（[FlowLinkUsageCollector.cpp:300](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L300)），時間點比 LLDP 探索收斂還早，而它那句 `if (output.empty()) return;` 會讓這件事變成永久而且沒有任何提示的空操作。不管是哪種 switch，都應該加上重試／定期刷新。
   - 如果 pull 那條也要保留：P4 模式下把它指到 `P4_PROXY_IP_AND_PORT`，並把 proxy 回傳的裸陣列包成 kernel 會解析的 `{"status":"success","all_destination_paths":[…]}` 格式。
 - 把 `GET /stats/flow/{dpid}` 真正實作出來 — 它現在回傳寫死的 `[]`。專案根目錄的 `dump_table.py` 已經有 P4Runtime 讀表的邏輯，把它併進 `p4_client` 變成 `read_table_entries()`。**輸出要用 Ryu 的格式，而且 action 要用字串（`"OUTPUT:1"`）** — `Classifier::parseActionsArrayIntoEffect`（[Classifier.cpp:824-896](../src/ndt_core/collection/Classifier.cpp#L824-L896)）**只**認字串格式，`{"type":"OUTPUT","port":N}` 這種物件格式會被安靜忽略。少了這一步，Classifier 永遠是空的，每條 flow 的 `"path"` 都會是 `[]`。
-- 把 `pingWorker` 裡那個無條件 `setVertexUp` 換成真的存活偵測：用 proxy 回報的 gRPC channel 狀態加上 LLDP 的新鮮度，透過類似 `GET /p4/switch_state` 的端點提供。對 host 的強制標記則完全移除。
-- 修 LLDP beacon：`port in range(1, 7)` 是寫死的（s1-s4 只有 3 個 port，s5-s10 只有 4 個）；beacon 的來源 MAC `00:00:00:00:00:0{dpid}` **跟 host 的 MAC 範圍撞在一起**；而 `install_initial_routes` 一律用 `INSERT`，所以路徑變好了也不會覆蓋掉舊的規則。改成從拓撲推導 port，並且用 insert-or-modify。
+- ~~把 `pingWorker` 裡那個無條件 `setVertexUp` 換成真的存活偵測~~ ✅ **已完成**（`a8db425`）：
+  `GET /p4/switch_state` 回報事實（round-trip 一個真的 P4Runtime RPC + LLDP 新鮮度），kernel 端用
+  `p4LivenessFor` 三態判決，**`Unknown` 不動圖**。host 的強制標記已完全移除 —— proxy 的
+  `render_hosts` 有發 `ipv4`，`updateHosts` 據此標 up，實機確認 host 維持 4/4。
+  ⚠️ 註：不是「gRPC channel 狀態」—— 那個訊號在閒置時停在 `IDLE`，**被殺掉的 switch 讀起來是健康
+  的**，而且只能透過私有屬性拿。改用 `GetForwardingPipelineConfig` + `COOKIE_ONLY` 實際往返。
+- ~~修 LLDP beacon~~ ✅ **已完成**（`a8db425` 的 last-seen 追蹤 + 本次的 beacon 修正）：port 現在從
+  kernel 讀的同一份拓撲檔推導（s1-s4 得到 `(1,2)`、s5-s10 得到 `(1,2,3,4)`，host-facing 的 port 3
+  排除掉了）；beacon 源 MAC 改成 `0e:00:00:00:xx:xx`（locally-administered unicast），實機 tcpdump
+  確認線上不再出現任何 host MAC 的 beacon。
+
+  ⚠️ **這一段原本還寫「`install_initial_routes` 一律用 `INSERT`，所以路徑變好了也不會覆蓋掉舊的
+  規則」—— 那已經過期了。** `insert_ipv4_route` 在 ALREADY_EXISTS／UNKNOWN 時會 fallback 成
+  `MODIFY`，程式碼註解裡明確寫著它同時修掉了「舊的規則不會被更好的路徑覆蓋」這個 bug。
+  順帶也修掉一個沒人碰到的崩潰：`bytes.fromhex(f"...{dpid:02x}")` 對 dpid ≥ 256 會丟
+  ValueError（三個十六進位字元是奇數長度）。
 
 **測試：** 用 pytest 搭配一個假的 kernel HTTP server，確認拿到 mastership 時會發 `inform_switch_entered`、beacon 逾時會發 `link_failure_detected`；`/stats/flow/{dpid}` 的輸出要能通過 `Classifier` 解析（用 gtest 搭配抓下來的 proxy 回應），並產生非空的路徑。
 

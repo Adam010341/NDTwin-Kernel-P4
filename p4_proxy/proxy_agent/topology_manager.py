@@ -1,7 +1,12 @@
+import json
+import os
 import threading
 import time
 
 import networkx as nx
+
+# Shared so the two loaders cannot disagree about which topology file is authoritative.
+from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 
 # [Co-developed with claude code -- Adam]
 #
@@ -66,6 +71,72 @@ def unsupported_match_fields(match_dict):
     return sorted(bad)
 
 
+#: How often each switch broadcasts an LLDP beacon on its inter-switch ports.
+#: The kernel's liveness policy allows one missed round (kLldpFreshSeconds = 12 s), so changing this
+#: means changing that. [Co-developed with claude code -- Adam]
+LLDP_BEACON_INTERVAL_S = 5
+
+#: Used only when the topology file cannot be read. The previous unconditional behaviour, kept as a
+#: fallback so discovery still works, but reported rather than silent.
+LLDP_FALLBACK_PORTS = tuple(range(1, 7))
+
+#: First four bytes of the LLDP beacon source MAC.
+#:
+#: [Co-developed with claude code -- Adam]
+#: The beacon used to be sourced from `00:00:00:00:00:{dpid:02x}`, which **is** the host MAC range:
+#: main.py registers hosts as 00:00:00:00:00:01 through :04, so the beacons from s1-s4 carried the
+#: exact source addresses of h1-h4. Whatever learns from those addresses -- the pipeline, another
+#: controller, a capture someone is reading -- is told those hosts live on every inter-switch port.
+#:
+#: 0x0e has the locally-administered bit set and the multicast bit clear, so this is a valid unicast
+#: address that no vendor can be assigned and nothing else here uses. The dpid goes in the low two
+#: bytes, which also removes a crash: `bytes.fromhex(f"...{dpid:02x}")` raises for any dpid >= 256,
+#: because three hex digits is an odd-length string.
+LLDP_SOURCE_MAC_PREFIX = bytes.fromhex("0e000000")
+
+
+def lldp_source_mac(dpid: int) -> bytes:
+    """The six-byte source address for this switch's beacons. See LLDP_SOURCE_MAC_PREFIX."""
+    # Masked rather than allowed to overflow: the dpid a receiver acts on comes from the payload,
+    # not from here, so two switches 65536 apart sharing a source MAC costs nothing.
+    return LLDP_SOURCE_MAC_PREFIX + (int(dpid) & 0xFFFF).to_bytes(2, "big")
+
+
+def load_switch_link_ports(path=None):
+    """
+    dpid -> sorted tuple of ports that face another switch, from the topology JSON the kernel loads.
+
+    [Co-developed with claude code -- Adam]
+    Host-facing ports are excluded: a beacon sent at a host is answered by nothing and, before the
+    source MAC was fixed, actively poisoned learning with a host's own address.
+
+    Reads the kernel's own file, and honours NDTWIN_TOPO_FILE, for the same reason
+    load_switch_agent_ips does -- the two must not disagree about the topology. Returns {} when it
+    cannot be read, and the caller falls back loudly.
+    """
+    path = path or os.environ.get("NDTWIN_TOPO_FILE") or DEFAULT_TOPO_FILE
+    try:
+        with open(path) as fh:
+            topology = json.load(fh)
+    except (OSError, ValueError) as e:
+        print(f"[TopologyManager] could not read topology {path}: {e}")
+        return {}
+
+    switch_dpids = {
+        node.get("dpid")
+        for node in topology.get("nodes", [])
+        if node.get("vertex_type") == 0 and node.get("dpid")
+    }
+    ports = {}
+    for edge in topology.get("edges", []):
+        src, dst = edge.get("src_dpid"), edge.get("dst_dpid")
+        # `src_interface`, not `src_port` -- the field is named for the physical interface.
+        port = edge.get("src_interface")
+        if src in switch_dpids and dst in switch_dpids and src and dst and port:
+            ports.setdefault(src, set()).add(int(port))
+    return {dpid: tuple(sorted(p)) for dpid, p in ports.items()}
+
+
 #: How often the liveness poller round-trips a P4Runtime RPC to each switch, in seconds.
 #: Independent of how often the kernel asks: the kernel polls at 1 Hz and reads the cache, so the
 #: probe rate is not multiplied by the number of readers. [Co-developed with claude code -- Adam]
@@ -106,6 +177,11 @@ class TopologyManager:
 
         self._liveness_thread = None
         self._liveness_running = False
+
+        #: dpid -> ports facing another switch, read once from the topology file. See
+        #: load_switch_link_ports. [Co-developed with claude code -- Adam]
+        self._link_ports = load_switch_link_ports()
+        self._link_ports_warned = False
 
     def add_switch(self, dpid, client):
         if dpid not in self.switches:
@@ -300,10 +376,34 @@ class TopologyManager:
     # --- LLDP Discovery Logic ---
     def create_lldp_packet(self, dpid, port):
         dst_mac = bytes.fromhex("0180c200000e")
-        src_mac = bytes.fromhex(f"0000000000{dpid:02x}")
+        src_mac = lldp_source_mac(dpid)
         ethertype = bytes.fromhex("88cc")
         payload = f"DPID:{dpid},PORT:{port}".encode('utf-8')
         return dst_mac + src_mac + ethertype + payload
+
+    def lldp_ports_for(self, dpid):
+        """
+        The ports this switch should beacon on: its inter-switch links from the topology file.
+
+        [Co-developed with claude code -- Adam]
+        Was `range(1, 7)` for every switch. On this topology s1-s4 have three interfaces and s5-s10
+        have four, so between two and three of every switch's beacons went to a port that does not
+        exist -- and the two that do exist on s1-s4 are the only ones that could ever discover a
+        link anyway, because port 3 faces a host.
+
+        Falls back to the old range when the topology cannot be read, because beaconing on nothing
+        means no discovery at all, but says so: a silent fallback here would look like a working
+        topology-derived list.
+        """
+        ports = self._link_ports.get(dpid)
+        if ports:
+            return ports
+        if not self._link_ports_warned:
+            self._link_ports_warned = True
+            print("[TopologyManager] no inter-switch ports in the topology file; beaconing on "
+                  f"{LLDP_FALLBACK_PORTS[0]}..{LLDP_FALLBACK_PORTS[-1]} on every switch, which "
+                  "sends to ports that may not exist")
+        return LLDP_FALLBACK_PORTS
 
     def parse_lldp_packet(self, packet_bytes):
         if len(packet_bytes) < 14:
@@ -440,11 +540,12 @@ class TopologyManager:
     def start_lldp_discovery(self):
         def _loop():
             while True:
-                for dpid, client in self.switches.items():
-                    # Broadcast LLDP on ports 1 to 6
-                    for port in range(1, 7): 
+                # list() so a switch registering mid-pass cannot raise "changed size during
+                # iteration" in here. [Co-developed with claude code -- Adam]
+                for dpid, client in list(self.switches.items()):
+                    for port in self.lldp_ports_for(dpid):
                         pkt = self.create_lldp_packet(dpid, port)
                         client.send_packet_out(port, pkt)
-                time.sleep(5) # Send every 5 seconds
+                time.sleep(LLDP_BEACON_INTERVAL_S)
         t = threading.Thread(target=_loop, daemon=True)
         t.start()
