@@ -805,35 +805,36 @@ DeviceConfigurationAndPowerManager::setSwitchPowerState(std::string ip,
 {
     try
     {
-        // 1. Build curl POST command
-        //    -s           : silent
-        //    -X POST      : HTTP POST
-        //    -H "Host: …"
-        //    -H "User-Agent: …"
+        // [Co-developed with claude code -- Adam]
+        // --max-time bounds an unresponsive gateway (this runs inside a request handler), and
+        // -w appends the HTTP status on its own line so a 500 is distinguishable from an empty 200.
+        // Neither was here before: curl was bare `-s`, so an unreachable gateway returned "" and the
+        // code went on to update the graph anyway.
         std::ostringstream cmd;
-        cmd << "curl -s -X POST " << "-H \"Host: 127.0.0.1\" "
+        cmd << "curl -s --max-time 8 -w '\\n%{http_code}' -X POST " << "-H \"Host: 127.0.0.1\" "
             << "-H \"User-Agent: Beast-C++-Client\" "
             // Quote full URL so shell expands safely
             << "\"http://" << GW_IP << ":8000/relay?ip=" << si.plugIp << "&index=" << si.plugIdx
             << "&method=" << action << "\"";
 
-        // 2. Execute and grab raw HTML response
-        std::string raw = utils::execCommand(cmd.str());
+        const RelayResult relay = interpretRelayResponse(utils::execCommand(cmd.str()));
 
-        // 3. Extract status text between the 2nd '>' and next '<'
-        std::string status = raw;
-        if (auto p1 = raw.find('>'); p1 != std::string::npos)
+        if (!relay.ok)
         {
-            if (auto p2 = raw.find('>', p1 + 1); p2 != std::string::npos)
-            {
-                if (auto p3 = raw.find('<', p2 + 1); p3 != std::string::npos && p3 > p2 + 1)
-                {
-                    status = raw.substr(p2 + 1, p3 - p2 - 1);
-                }
-            }
+            // Deliberately does NOT touch the graph. Marking a switch off because we *asked* for it
+            // to go off, when the request failed, is the twin stating something about the network
+            // that nobody established -- and on TESTBED the switch is real and still forwarding.
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "power {} for {} (plug {}:{}) was not accepted: {}; the graph is "
+                               "left as it was",
+                               action,
+                               ip,
+                               si.plugIp,
+                               si.plugIdx,
+                               relay.detail);
+            return false;
         }
 
-        // 4. Update the topology graph vertex accordingly
         auto ip_uint = utils::ipStringToUint32(ip);
         if (auto node_opt = m_topologyAndFlowMonitor->findSwitchByIp(ip_uint))
         {
@@ -845,25 +846,89 @@ DeviceConfigurationAndPowerManager::setSwitchPowerState(std::string ip,
             {
                 m_topologyAndFlowMonitor->setVertexDown(*node_opt);
             }
+            else
+            {
+                // Reachable: the endpoint's `action` is a free-text query parameter. Falling through
+                // silently used to report success for a request that changed nothing.
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "unrecognised power action '{}' for {}; nothing was changed",
+                                   action,
+                                   ip);
+                return false;
+            }
 
             SPDLOG_LOGGER_INFO(Logger::instance(),
-                               "set graph attributes for {} -> {} (controller returned “{}”)",
+                               "set graph attributes for {} -> {} (gateway returned “{}”)",
                                ip,
                                action,
-                               status);
-        }
-        else
-        {
-            SPDLOG_LOGGER_WARN(Logger::instance(), "cannot find graph vertex for switch IP {}", ip);
+                               relay.detail);
+            return true;
         }
 
-        return true;
+        // The gateway did switch the plug, but the graph has no vertex for it, so the twin and the
+        // network now disagree and this call cannot claim success.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "cannot find graph vertex for switch IP {}; the plug was switched {} but "
+                           "the graph does not reflect it",
+                           ip,
+                           action);
+        return false;
     }
     catch (const std::exception& e)
     {
         SPDLOG_LOGGER_ERROR(Logger::instance(), "Error in setSwitchPowerStateCurl: {}", e.what());
         return false;
     }
+}
+
+/** @brief Reads the smart-plug gateway's reply. See the header for why this is a separate function.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+DeviceConfigurationAndPowerManager::RelayResult
+DeviceConfigurationAndPowerManager::interpretRelayResponse(const std::string& response)
+{
+    if (response.empty())
+    {
+        return {false, "no response at all -- is the gateway reachable?"};
+    }
+
+    const auto lastNewline = response.find_last_of('\n');
+    if (lastNewline == std::string::npos)
+    {
+        // curl always appends the status on its own line, so this means the output was truncated or
+        // came from something other than the command we built.
+        return {false, "response carried no HTTP status line"};
+    }
+
+    const std::string statusCode = response.substr(lastNewline + 1);
+    const std::string body = response.substr(0, lastNewline);
+
+    if (statusCode == "000")
+    {
+        // curl's own code for "never got a response": connection refused, DNS failure, timeout.
+        return {false, "could not reach the gateway (curl reported no HTTP response)"};
+    }
+    if (statusCode.size() != 3 || statusCode[0] != '2')
+    {
+        return {false, "HTTP " + statusCode};
+    }
+
+    // Accepted. Pull the status text out of the HTML for the log -- between the second '>' and the
+    // next '<', which is where this gateway puts it. Only ever reported, never used as the verdict:
+    // the page can be redesigned, the status code cannot.
+    std::string text = body;
+    if (auto p1 = body.find('>'); p1 != std::string::npos)
+    {
+        if (auto p2 = body.find('>', p1 + 1); p2 != std::string::npos)
+        {
+            if (auto p3 = body.find('<', p2 + 1); p3 != std::string::npos && p3 > p2 + 1)
+            {
+                text = body.substr(p2 + 1, p3 - p2 - 1);
+            }
+        }
+    }
+    return {true, text};
 }
 
 json

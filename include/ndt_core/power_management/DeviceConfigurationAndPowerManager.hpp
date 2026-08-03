@@ -307,6 +307,45 @@ class DeviceConfigurationAndPowerManager
      */
     static OvsLiveness p4LivenessFor(uint64_t dpid, const std::optional<nlohmann::json>& payload);
 
+    /// What the smart-plug gateway's reply says about a power request.
+    /// [Co-developed with claude code -- Adam]
+    struct RelayResult
+    {
+        bool ok = false;         ///< The gateway accepted the request.
+        std::string detail;      ///< For the log: the status text, or why this failed.
+    };
+
+    /**
+     * @brief Reads the smart-plug gateway's reply to a power request.
+     *
+     * @param response curl's output with the HTTP status appended on its own last line, i.e. what
+     *                 `-w '\n%{http_code}'` produces. Empty when curl could not connect at all.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     *
+     * Extracted as a pure function for the same reason ovsLivenessFor and p4LivenessFor were: the
+     * decision is what was wrong, and a decision buried in a method that needs a topology monitor, a
+     * classifier and a live gateway cannot be tested.
+     *
+     * What was wrong: the reply was scraped for a status string, that string was **only logged**,
+     * and the graph was then updated to whatever state the caller had *asked for* -- so the twin
+     * reported the request rather than the outcome. The curl had no `--fail`, no `%{http_code}` and
+     * no `--max-time`, so an unreachable gateway produced an empty string and the code carried on to
+     * mark the switch powered off. TESTBED-only, but TESTBED is where the switches are real.
+     *
+     * Keyed on the HTTP status rather than on the HTML text, because the status is a contract and the
+     * text is a page that can be redesigned. The text is still reported, since it is what a human
+     * needs when the status is 200 and the plug still did not move.
+     *
+     * A 200 does not prove the plug switched -- it proves the gateway accepted the request. That is
+     * the strongest claim available here, and it is enough, because `pingWorker` pings the switch
+     * once a second and will correct the graph if the plug did not actually operate. Updating the
+     * graph on a *failed* request is what had no recovery path: nothing would contradict it until the
+     * next ping, and in the meantime the twin actively lied.
+     */
+    static RelayResult interpretRelayResponse(const std::string& response);
+
     /**
      * @brief A plausible synthetic power draw, in milliwatts, for a simulated switch.
      *
