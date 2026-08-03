@@ -13,6 +13,7 @@
 | OVS↔P4 的已接受差異＋原因 | [../tools/contract_test/baseline_diff_allowlist.txt](../tools/contract_test/baseline_diff_allowlist.txt) |
 | 每個 bug 的完整分析 | git log（commit message 寫得很詳細）|
 | 按子系統的程式碼審查（10 階段） | [audit-be3c242/](audit-be3c242/) —— 判定見下面第 1h 節 |
+| **`be3c242..576dd2a` 的 scoped review** | [audit/scoped/](audit/scoped/) —— 判定見下面第 1k 節 |
 
 ---
 
@@ -25,7 +26,7 @@ flow 安裝、link 失效重算、**switch liveness** 都實機驗證過。**`is
 | 層 | OVS | P4 |
 |---|---|---|
 | L0 build（含 p4c） | ✅ | ✅ |
-| L1 單元（**224** C++ 直接跑 + ctest、**8** 個 Python 套件） | ✅ | ✅ |
+| L1 單元（**229** C++ 直接跑 **+ ctest 也綠**、8 Python + 2 kernel-side 套件） | ✅ | ✅ |
 | L2 API 契約 | **36/36 錯誤路徑全綠**（`get_graph_data` 見下方 flaky 註）| 待重測 |
 | L3 元件契約 | 1 BROKEN + 1 MISSING | 同 |
 | log allowlist | ✅ | ✅ |
@@ -333,8 +334,62 @@ P4 達到「和 OVS 一樣不會復原」的水準。
 |---|---|
 | 「`inet_ntoa` 造成全域資料競爭甚至 segfault」 | **在這個平台上不成立**。glibc 2.39 的緩衝區是 **thread-local**（我寫 C 程式證明主執行緒和子執行緒指標不同），而我 8 執行緒／16 萬次的併發測試**對 `inet_ntoa` 原版也通過**。也沒有 segfault 風險。我還是換成 `inet_ntop`，但那是**可攜性**不是修 bug（`95c7690`） |
 | 「`syntheticPowerMilliwattsFor` 是 AI 幻覺、假裝功能完成」 | 框架不對 —— Mininet/bmv2 沒有 PSU，合成值是唯一選項，header 寫了整段說明，而且**原本**是 [0, 2⁶⁰) 亂數（1.9×10¹⁴ 瓦），是我改成合理的。**但底下有站得住的點**：API 沒告訴消費者這是合成的，Energy-Saving-App 分不出真假 —— 那是真的設計缺口 |
-| 「`ryu_topology` / `kernel_notifier` / `topology_manager` 完全沒測試」 | **事實錯誤** —— 24 + 13 + 9 個測試早就在 |
+| 「`ryu_topology` / `kernel_notifier` 完全沒測試」 | **事實錯誤** —— 24 + 13 個測試早就在 |
+| 「`topology_manager` 完全沒測試」 | ⚠️ **audit 當時是對的，是我判斷錯了。** 我引用的那 9 個測試（`test_unsupported_match.py`）是**我自己在 `c964946` 加的**，不是既有的 —— audit 的基準 `be3c242` 當時確實沒有。**這是我過度更正別人的一個實例**，由第二輪 scoped review 抓出來 |
 | 「`Host: 127.0.0.1` 是 SSRF 技巧／繞過 Gateway 權限」 | gateway 設定不在這個 repo 裡，**從程式碼無法判定意圖**。可確定的是寫死且無註解，該解釋或移除；但「後門」的推論證據不足 |
+
+### 1k. scoped review（`doc/audit/scoped/`）的逐項判定（2026-07-31）
+
+範圍是 `be3c242..576dd2a`（24 commit、+4566/−216，其中約 1900 行是新測試）。**這一輪的品質明顯
+高於第一輪**：22 條發現裡我查證過的**只有 1 條是錯的**，而第一輪是 4 條。它也做了第一輪沒做的事
+—— 主動列出「我檢查過而且認為沒問題的」，所以「沒出現在發現清單裡」可以解讀成「查過了」。
+
+#### 🔴 4 條 high，全部成立，全部已修（commit `e188136`）
+
+| 發現 | 我的獨立查證 |
+|---|---|
+| **`ctest` 是紅的，而我報告綠的** | ✅ 跑 `ctest` 立刻重現 3 個 SEGFAULT，全是我新加的 `test_OvsPowerStrategy.cpp`。原因：沒有 `Logger::init`，而 `Logger::instance()` 在 init 前是 null shared_ptr。**只有 3 個中招**是因為 `powerOn` 的 port 迴圈裡有 `SPDLOG_LOGGER_DEBUG`，沒有 saved port 的測試不進迴圈。⚠️ **這個要求早就逐字寫在 `test_ClassifierDropRule.cpp` 裡了，我沒照做** |
+| **`KeyedFailureLog` 對間歇性故障永遠不報** | ✅ 自己寫探針編譯真 header 驗證：**99% 的 pass 都在失敗、十分鐘 → 報告 0 次**；10 秒 burst → 0 次。hold-off 量的是「連續」不是「累積」，未報告的 key 缺席一個 pass 就被 erase |
+| **route-reinstall debounce 丟掉 walk 期間的變更** | ✅ 讀程式碼確認：worker 在 `install_all_pair_paths`（~60 秒）**之前**就離開監看 seq 的迴圈，而 `reinstall_worker_running` 整段都是 True → 早退丟掉 |
+| **`wait_for_port` 的守衛是死碼** | ✅ 內層檢查和外層**逐字相同**。它從來沒偵測過註解宣稱的事 |
+
+#### ⚪ 1 條判定它錯了
+
+| 發現 | 為什麼錯 |
+|---|---|
+| 「`test_unsupported_match.py` 無法 import —— 三個 interpreter 都沒有 networkx」 | **L1 用的那個有。** `l1_unit_tests.sh` 的候選順序是 `$P4_PROXY_PY` 優先，也就是 `p4_proxy/venv/bin/python`，實測 `Ran 9 tests OK`。它測了三個 interpreter 但漏了 L1 實際選的第一個 |
+
+#### ⚠️ 它抓到我一個「過度更正別人」的實例
+
+「HANDOFF 把 `topology_manager` 的 9 個測試記成既有的」—— **成立**。那 9 個是
+`test_unsupported_match.py`，**我自己在 `c964946` 加的**，audit 的基準 `be3c242` 當時確實沒有。
+而我還用那個數字在第 1h 節宣告第一輪 audit「事實錯誤」。**就 `topology_manager` 而言，第一輪
+audit 當時是對的。** 已更正第 1h 和 1i 節。
+
+教訓：**否證別人的發現時，要查證的是「在他的基準上成立嗎」，不是「在我現在的樹上成立嗎」。**
+
+#### 🟠 已查證成立、已修的 medium
+
+| 發現 | 處置 |
+|---|---|
+| `AFailedPortCommandFailsTheWholeOperation` 檢查的是失敗那個 port **之前**的 port | ✅ 已修（`6731b56`）。改成失敗第一個、斷言後兩個仍然裝上並 up。mutation 確認現在殺得掉 |
+| `SomethingTooBigForIntIsRejectedNotWrapped` 斷言的是兩個常數的算術 | ✅ 已修（`6731b56`）—— 刪掉那個斷言而不是改寫措辭，因為那個界限在 handler 裡、這裡碰不到 |
+| `endPass()` 「呼叫兩次」的註解描述錯了後果 | ✅ 已修（`e188136`）。它說會重複報同一個 recovery —— 不可能，因為 recovered 的 key 在報告的同一次呼叫裡就被 erase。真正的後果**更糟**：把所有還開著的故障報成已恢復 |
+
+#### 🟠 已查證成立、**未修**（下一批）
+
+| # | 發現 | 為什麼還沒修 |
+|---|---|---|
+| 1 | **`app_id` 的修正完全沒測到** —— 把 `std::stoi` 放回去，207 個測試照樣綠 | 要能驅動 handler，而 `HttpSession` 沒有接縫（從 live socket + 11 個協作者建構）。**為這一個端點發明捷徑會讓另外 40 個看起來測過了** —— 這是要設計的接縫，見待辦 |
+| 2 | **FlowDispatcher 的 lost-wakeup 修正沒有測試抓得到** —— 跑 300 次都存活 | 要真的重現 lost wakeup 需要控制排程時序。它說得對，我的測試只覆蓋了另外兩個 lifecycle 缺陷 |
+| 3 | `test_unsupported_match.py` 從來沒呼叫 `route_flow` —— 三個 `raise` 全改 `pass`，9/9 綠 | 同 medium 1 的性質：只測了兩個 module-level helper |
+| 4 | static 模式啟動允許第二個並行的 `install_all_pair_paths` | 需要 OVS + Ryu 驗證 |
+| 5 | `describeCommandStatus` 把 `curl`／`snmpget` 的 exit 1／127 歸咎給 `ovs-vsctl`／sudo | **我搬到 `utils::` 時造成的** —— 它現在被 13 個 SNMP 呼叫點用到 |
+| 6 | `_is_routable_unicast` 讓 `inv_flow_paths_non_empty` 檢查零筆 flow 也算 PASS | tooling 的假 PASS |
+| 7 | `kernel_owns_log` 看不到 root 起的 kernel → 對手冊的啟動方式假 FAIL | 和第 5 項同一類：手冊教 `sudo -E` |
+| 8 | 兩條 allowlist pattern 比它們寫的理由寬得多 | `field missing in P4: \[\]\.flows` 是未錨定的 `re.search` |
+| 9 | `handleGetNickname` 把壞 dpid 記在 `inform_switch_entered` 的名下 | 一行 |
+| 10 | `on_link_delete` 把圖的更新 gate 在一個沒有 timeout 的 `requests.post` 上 | 需要 Ryu 驗證 |
 
 ### 1i. 測試覆蓋率現況（audit 點名「沒測試」的對象）
 
@@ -348,7 +403,8 @@ P4 達到「和 OVS 一樣不會復原」的水準。
 | 參數解析（`tryIpStringToUint32` / `tryParseUint64`） | ✅ 11 個（`832d75c`） |
 | `ipToString` 併發 | ✅ 4 個（`95c7690`） |
 | `KeyedFailureLog` | ✅ 12 個 |
-| `ryu_topology` / `kernel_notifier` / `topology_manager` | ✅ 24 / 13 / 9（早就存在） |
+| `ryu_topology` / `kernel_notifier` | ✅ 24 / 13（早就存在）|
+| `topology_manager` | ✅ 9（`c964946`，**我加的**）+ 20（`a8db425`）—— 上一版誤記為「早就存在」|
 | **`HttpSession`（除了參數解析）** | ❌ |
 | `OVSPowerStrategy` | ✅ 12 個 + wait-status 8 個（`65aaa38`）。⚠️ 上一版這裡寫「要先修接縫」是**過期資訊** —— 那個洞早就補掉了 |
 | **`P4PowerStrategy`** | ❌ |
@@ -423,7 +479,9 @@ host**，所以：
 | 5 | host 發現的 static ARP 問題（定期重拉 host） | 讓 `get_graph_data` 從 flaky 變成穩定 |
 | ~~6~~ | ~~**P4 liveness stub**~~ | ✅ **已完成**（`a8db425`）—— 見下方「待辦第 6 項」段。過程中挖到兩個 bug |
 | 7 | LLDP beacon：port 從拓撲推導、beacon MAC 不要撞 host 範圍、install 改 insert-or-modify | 第 6 項已建好 last-seen 追蹤，這項現在只剩 beacon 本身的三個缺陷 |
-| 8 | 審查 agy-review 0057 之後的（共 80+ 份） | 和 audit 重疊度高，所以降級 |
+| 8 | **`HttpSession` 的測試接縫** | scoped review 的 medium 1：`app_id` 修正完全沒測到，把 `std::stoi` 放回去 207 個測試照樣綠。要設計接縫，不能為單一端點發明捷徑 |
+| 8b | **scoped review 剩下的 10 條 medium/low** | 清單見第 1k 節。第 5、7 條是我搬 `describeCommandStatus` 造成的 |
+| 9 | 審查 agy-review 0057 之後的（共 80+ 份） | 和 audit 重疊度高，所以降級 |
 | 9 | 修正計畫書 Phase 6 那段錯誤敘述 | 只有狀態章節記了更正，本文還沒改 |
 | 10 | `TopologyAndFlowMonitor` 補測試 | 工程量最大，要先想清楚接縫 |
 | 11 | twin 偵測黑洞 flow（入口有量、出口沒有） | **新能力，不是修 bug** |
