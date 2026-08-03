@@ -173,3 +173,28 @@ Ryu REST endpoint 全部來自內建 app，少載任何一個都是**靜默失�
 `Logger::instance()` 在 init 前是 **null shared_ptr**，spdlog 會在 `should_log` 裡解參考它。
 不能靠別的 suite 先 init —— `ctest` 給每個測試獨立 process。`Logger::init` 是 idempotent 的，
 所以每個 suite 的 `SetUpTestSuite` 都呼叫沒問題。
+
+## 用 `mnexec` 起的東西不會隨 Mininet 一起死
+
+**[Co-developed with claude code -- Adam]**
+
+`sudo -n mnexec -a <host-pid> <cmd>` 是在沒有 Mininet CLI 時製造流量的方法（見上面關於 sudo 權限的
+一節），但它起出來的 process **不是 Mininet 的子程序**。Mininet 結束時不會帶走它。
+
+實測：一個 `iperf -s -u -p 5003` 從 2026-07-31 15:32 活到 08-03，**跨越了兩次 Mininet 重啟**，
+並且把那台已經不存在的 host 的 network namespace 撐著沒回收。`pgrep -x iperf` 找得到，但
+`ps` 的 PID 落在舊的區間（161 萬，當天的是 240 萬），所以掃「今天的 process」會漏掉它。
+
+危害不大 —— `-s` 只是在等，三天累積 CPU 15 秒 —— 但它是一個**會回應的流量端點**，而那正是
+「量到的數字無法解釋」的來源。整合測試前應該清掉。
+
+```bash
+# 找出來（-x 比 -f 安全，-f 會匹配到自己的 shell）
+pgrep -a -x iperf; pgrep -a -x iperf3; pgrep -a -x ping
+
+# 關掉：它是 root 起的，普通身分殺不掉，但 mnexec 可以（uid 0）
+sudo -n mnexec -a <pid> kill -TERM <pid>
+```
+
+`sudo mn -c` 也會清掉，但只有在你記得跑的時候 —— 而手動起的 Mininet 是用 Ctrl-D 離開的，
+不會自動 `mn -c`。
