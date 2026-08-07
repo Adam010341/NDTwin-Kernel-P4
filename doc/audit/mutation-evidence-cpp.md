@@ -312,3 +312,33 @@ reports a missing summary as `KILLED BY CRASH (rc=…)`.
 Third time in this file that the *measurement* was wrong rather than the code: after "confirm the
 mutation landed on the path the test exercises" and "a dead-code insertion is not a mutation", add
 **"absence of a failure line is not evidence of survival — check the exit code."**
+
+---
+
+# Appendix 5: TryMacToUint64Test (7 tests, verified 2026-08-07)
+
+Anchors in `include/utils/Utils.hpp`. Found by agy-review 0115.
+
+| # | mutation | kills |
+|---|---|---|
+| M1b | `mac.size() != kMacTextLength` -> `<` (over-long strings get truncated-parsed) | 1 — `AnythingThatIsNotExactlySeventeenCharactersIsRefused` |
+| M2 | drop `end != mac.data() + at + 2` (the consumed-both-digits check) | 1 — `NonHexDigitsAreRefused` |
+| M3 | drop the separator check | 1 — `TheSeparatorsMustActuallyBeSeparators` |
+| M4 | stop accepting `-` as a separator | 1 — `TheDashSeparatorIsAcceptedToo` |
+| M5 | `result = (result << 8) \| byte` -> `result = byte` | 3 |
+| M6 | the throwing wrapper returns 0 instead of throwing | 1 — `TheThrowingWrapperStillThrowsAndOnTheSameInputs` |
+| M7 | **two-site**: `kMacTextLength` 17 -> 16 **and** drop the consumed-digits check | 4, including `AMacOneDigitShortIsRefusedRatherThanSilentlyWrong` |
+
+## Two things worth carrying forward
+
+**M1 did not compile.** Replacing the length test with `if (false)` left `kMacTextLength` unused and
+`-Werror` rejected it. A mutation that does not build is not evidence either way; M1b keeps the
+constant used and is narrower besides.
+
+**M7 is the third instance of double enforcement in this repo.** The one-digit-short input is refused
+by the length check *and* by the consumed-digits check independently, so no single-site mutation can
+reach the test that asserts it — exactly as with `order`/`priority` (narrowing at both the
+`get<uint16_t>()` and the field type) and with the missing `state` (enforced at both the dispatch and
+the assignment). Two independent checks refusing the same bad input is good defence; it just means
+the test needs a mutation aimed at both, and a surviving single-site mutation there is a fact about
+the code's redundancy rather than about the test's weakness.
