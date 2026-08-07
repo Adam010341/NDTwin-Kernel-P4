@@ -185,6 +185,34 @@ What is still open: `doc/HANDOFF.md`.
     `/stats/flow/<dpid>` body produced 216 unallowlisted error lines during one four-minute
     outage.
 
+27. **P4 liveness reported from evidence** (`a8db425`). `pingWorker` called `setVertexUp` for every
+    bmv2 switch once a second with no evidence at all, so a killed switch reported healthy again
+    within a second. The proxy now exposes `GET /p4/switch_state` carrying a round-tripped P4Runtime
+    probe plus LLDP freshness, and the kernel applies the same three-state policy as the OVS side --
+    Unknown leaves the graph alone, because one unreachable proxy must not black out ten switches.
+
+28. **The graph keeps up with the control plane** (`71d27c1`). `TopologyAndFlowMonitor::run()`
+    fetched once and returned -- measured at 88 milliseconds, after which nothing re-read the
+    topology for the life of the process. Whether the graph was complete depended on how long after
+    Mininet the kernel happened to start. Now polls every 5s for the first 90s then every 30s, and
+    reports only when the counts move.
+
+29. **A snapshot replaces rather than accumulates** (`820c2a2`, `eb9c860`). `Classifier` skipped a
+    switch reported with an empty flow table, so `updateOneSwitch`'s sweep never ran and stale rules
+    survived indefinitely; `setAllPaths` never cleared its two maps, so a destination path outlived
+    the control plane reporting it. Both would keep the twin computing from state that no longer
+    exists -- worse than an empty answer, because it looks confident.
+
+30. **Diagnostics that named the wrong thing** (`1b50982`, `1404183`). `describeCommandStatus`
+    blamed `ovs-vsctl` for every tool's exit codes once it moved into `utils` and reached 13
+    snmpget/snmpwalk call sites; `handleGetNickname` logged a bad `?dpid=` under
+    `inform_switch_entered`. Neither changed behaviour; both sent the reader to the wrong place.
+
+31. **Refusals that were wrong in either direction** (`c18b4c9`, `6e156b3`). A hex-string
+    `eth_type` -- how OpenFlow tooling normally writes it -- was rejected with 400, and a `match`
+    that was not an object became a 500. TESTBED `setSwitchPowerState` updated the graph to whatever
+    state the caller *asked for*, regardless of whether the smart-plug gateway accepted the request.
+
 ### Known limitations
 - Every southbound command is still built as `popen("curl … -d '" + json.dump() + "'")`.
   `nlohmann::json::dump()` does not escape single quotes and the JSON comes from
