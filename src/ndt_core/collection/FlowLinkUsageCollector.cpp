@@ -1350,10 +1350,32 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                         uint64_t(frameLength) * samplingRate;
                 }
 
+                // [Co-developed with claude code -- Adam]
+                // One lock taken *before* the lookup and held across the branch, rather than one
+                // per branch after it. Two separate defects were fixed by moving it:
+                //
+                //  1. The `find` itself ran unlocked, on every sampled packet on every worker
+                //     thread, while purgeIdleFlows erases at 1 Hz and sibling workers insert via
+                //     operator[] (which rehashes). That is a data race and undefined behaviour --
+                //     the same one the comment further down this file calls "the crash this whole
+                //     set of locks exists to prevent".
+                //
+                //  2. Locking only inside each branch made find-then-branch non-atomic, so two
+                //     workers seeing the same *new* key could both take the "New flow" path. The
+                //     second one then **assigns** ingressByteCountCurrent = frameLength instead of
+                //     accumulating, discarding the first one's bytes. A counter that goes backwards
+                //     underflows the unsigned subtraction in the rate loop to ~1.8e19, which trips
+                //     the elephant-flow threshold -- and that flag is never cleared, because the
+                //     `else` that would clear it is commented out. One lost race permanently
+                //     misclassified a flow.
+                //
+                // Released explicitly before the graph work below rather than scoped, to keep the
+                // diff reviewable; the graph locks must not nest under this one.
+                std::unique_lock<std::shared_mutex> flowTableLock(m_flowInfoTableMutex);
+
                 auto it = m_flowInfoTable.find(key);
                 if (it != m_flowInfoTable.end()) // Existing flow
                 {
-                    std::unique_lock<std::shared_mutex> lk(m_flowInfoTableMutex);
                     auto& info = m_flowInfoTable[key];
 
                     // Find flow stasts on an agent
@@ -1387,7 +1409,6 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                 }
                 else // New flow
                 {
-                    std::unique_lock<std::shared_mutex> lk(m_flowInfoTableMutex);
                     auto& info = m_flowInfoTable[key];
 
                     info.startTime = utils::getCurrentTimeMillisSystemClock();
@@ -1413,11 +1434,16 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                     stats.packetQueue.push({frameLength, utils::getCurrentTimeMillisSteadyClock()});
                 }
 
+                // This read of m_flowInfoTable was itself unguarded before, and operator[] can both
+                // insert and rehash -- so the diagnostic could corrupt the table it was reporting
+                // on. It is inside the lock now. [Co-developed with claude code -- Adam]
                 SPDLOG_LOGGER_TRACE(Logger::instance(),
                                     "Flow Table Entry Updated for {} -> {}. End Time: {}",
                                     utils::ipToString(key.srcIP),
                                     utils::ipToString(key.dstIP),
                                     m_flowInfoTable[key].endTime);
+
+                flowTableLock.unlock();
 
                 // 2. Update the network map
                 // [Co-developed with claude code -- Adam]

@@ -28,6 +28,7 @@ add_executable(
   test_LockManager.cpp
   test_ClassifierActionForms.cpp
   test_FlowStatsTimeout.cpp
+  test_FlowTableConcurrency.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
