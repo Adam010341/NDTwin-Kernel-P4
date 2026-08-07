@@ -1012,10 +1012,13 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         std::string cmd =
             fmt::format("curl -s -X GET http://{}/stats/flow/{}", ip_and_port, dpid);
 
-        SPDLOG_LOGGER_INFO(spdlog::default_logger(),
-                           "DeviceManager: querying switch {} -> `{}`",
-                           dpid,
-                           cmd);
+        // TRACE, not INFO: one line per switch per poll, and the TRACE line just below already
+        // reports the same request together with its response, which is the useful half.
+        // [Co-developed with claude code -- Adam]
+        SPDLOG_LOGGER_TRACE(spdlog::default_logger(),
+                            "DeviceManager: querying switch {} -> `{}`",
+                            dpid,
+                            cmd);
 
         std::string raw = utils::execCommand(cmd);
         SPDLOG_LOGGER_TRACE(spdlog::default_logger(),

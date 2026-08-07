@@ -479,10 +479,15 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
             string switchDpidStr = switchInfoJson.value("dpid", "");
             uint64_t switchDpidUint64 = stoull(switchDpidStr, nullptr, 16);
 
-            SPDLOG_LOGGER_INFO(Logger::instance(),
-                               "switchDpidStr {} switchDpidUint64 {}",
-                               switchDpidStr,
-                               switchDpidUint64);
+            // TRACE, not INFO. This printed once per switch per process while updateSwitches was
+            // called exactly once; making run() poll periodically turned it into ten lines every
+            // interval, which is my own regression from that change. The WARN below is the line
+            // that carries information -- a dpid the static topology does not know about.
+            // [Co-developed with claude code -- Adam]
+            SPDLOG_LOGGER_TRACE(Logger::instance(),
+                                "switchDpidStr {} switchDpidUint64 {}",
+                                switchDpidStr,
+                                switchDpidUint64);
 
             // Update switch isUp status
             // Keep Thread Safe
@@ -711,7 +716,10 @@ TopologyAndFlowMonitor::updateGraph(const string& switchesStr,
     updateSwitches(switchesStr);
     updateHosts(hostsStr);
     updateLinks(linksStr);
-    SPDLOG_LOGGER_INFO(Logger::instance(), "\033[1;32mTopology Update From REST\033[0m");
+    // DEBUG, not INFO, matching logGraph() below. Unconditional and content-free: it says a poll
+    // ran, not that anything changed. run()'s poll loop already prints one line when the up-counts
+    // actually move, which is the version worth keeping. [Co-developed with claude code -- Adam]
+    SPDLOG_LOGGER_DEBUG(Logger::instance(), "\033[1;32mTopology Update From REST\033[0m");
     logGraph();
 }
 

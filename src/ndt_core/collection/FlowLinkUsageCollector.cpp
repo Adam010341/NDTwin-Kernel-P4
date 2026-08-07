@@ -1522,6 +1522,15 @@ void
 FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
 {
     log_thread_ids("calAvgFlowSendingRatesPeriodically");
+
+    // [Co-developed with claude code -- Adam]
+    // Loop-scoped rather than function-local statics: statics are shared by every instance of the
+    // class, so two collectors in one process -- which a test can easily create -- would report
+    // each other's deltas.
+    uint64_t lastSockOvfl = 0;
+    uint64_t lastAppDrop = 0;
+    bool firstSample = true;
+
     while (m_running.load())
     {
         this_thread::sleep_for(chrono::seconds(1));
@@ -1661,17 +1670,51 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         // {
         //     SPDLOG_LOGGER_INFO(Logger::instance(), "SO_RXQ_OVFL (socket drops) = {}", rxq_ovfl);
         // }
-        static uint64_t last = 0;
-        uint64_t cur = m_sockOvflDrops.load(std::memory_order_relaxed);
-        SPDLOG_LOGGER_INFO(
-            Logger::instance(),
-            "rx={}, app_drop={}, addressed={}, sock_ovfl_total={}, sock_ovfl_delta={}",
-            receivedPacketNumFromSocket.load(std::memory_order_relaxed),
-            droppedPackets.load(std::memory_order_relaxed),
-            addresedSampleNum.load(std::memory_order_relaxed),
-            cur,
-            (cur >= last ? cur - last : 0));
-        last = cur;
+        // [Co-developed with claude code -- Adam]
+        // Edge-triggered. This was INFO unconditionally, once a second, forever: on its own the
+        // largest single contributor to the kernel's log volume, and unreadable for exactly the
+        // reason it was written -- a line that always appears is a line nobody checks.
+        //
+        // The counters are monotonic, so the only *event* here is one of them growing. A dropped
+        // sFlow sample is not cosmetic: every rate, link usage and top-K figure derived from that
+        // second is understated and there is no other signal that it happened, so growth is
+        // reported at WARN rather than demoted with the rest.
+        const uint64_t sockOvfl = m_sockOvflDrops.load(std::memory_order_relaxed);
+        const uint64_t appDrop = droppedPackets.load(std::memory_order_relaxed);
+        const uint64_t sockOvflDelta = (sockOvfl >= lastSockOvfl) ? sockOvfl - lastSockOvfl : 0;
+        const uint64_t appDropDelta = (appDrop >= lastAppDrop) ? appDrop - lastAppDrop : 0;
+
+        if (sockOvflDelta > 0 || appDropDelta > 0)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "sFlow samples lost in the last second: {} to the socket queue, {} "
+                               "dropped by us. Rates for this interval are understated. "
+                               "rx={}, addressed={}, sock_ovfl_total={}, app_drop_total={}",
+                               sockOvflDelta,
+                               appDropDelta,
+                               receivedPacketNumFromSocket.load(std::memory_order_relaxed),
+                               addresedSampleNum.load(std::memory_order_relaxed),
+                               sockOvfl,
+                               appDrop);
+        }
+        else
+        {
+            // Kept at TRACE so the totals are still recoverable from a run started with -v, and
+            // logged once on the first pass so a healthy run says so at least once.
+            const auto level = firstSample ? spdlog::level::info : spdlog::level::trace;
+            SPDLOG_LOGGER_CALL(
+                Logger::instance(),
+                level,
+                "sFlow ingest healthy: rx={}, app_drop={}, addressed={}, sock_ovfl_total={}",
+                receivedPacketNumFromSocket.load(std::memory_order_relaxed),
+                appDrop,
+                addresedSampleNum.load(std::memory_order_relaxed),
+                sockOvfl);
+        }
+
+        lastSockOvfl = sockOvfl;
+        lastAppDrop = appDrop;
+        firstSample = false;
     }
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting Loop of calAvgFlowSendingRatesPeriodically");
 }
