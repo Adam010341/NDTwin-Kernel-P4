@@ -198,3 +198,50 @@ sudo -n mnexec -a <pid> kill -TERM <pid>
 
 `sudo mn -c` 也會清掉，但只有在你記得跑的時候 —— 而手動起的 Mininet 是用 Ctrl-D 離開的，
 不會自動 `mn -c`。
+
+## 不要單獨重啟 Ryu
+
+**[Co-developed with claude code -- Adam]**
+
+「先 Ryu 再 Mininet」是**初次啟動**的既有規則，原因是 Mininet 啟動時會探測 6653/6633 決定撥哪個
+port（`mininet/node.py:1551`）。那條規則管不到**中途重啟**，而中途重啟 Ryu 是很自然會做的事 ——
+改了 `intelligent_router.py` 想生效就會這樣做。
+
+**在 Mininet 還在跑的時候重啟 Ryu，8 秒後 `/stats/flow/<dpid>` 開始永久回空表**（1.001 秒逾時、
+`{"1": []}`），而且不會恢復 —— 不會因為初始安裝完成而恢復，也不會因為唯一的客戶端停止而恢復。
+實測可重現。正確順序下掛了 7.5 分鐘、223 個樣本，零退化。
+
+後果：**資料平面完全正常**（實測每台 130 條規則、`is_connected: true`），但 kernel 的
+`fetchOpenFlowTablesInternal` 讀的是 Ryu 的視角，餵給 Classifier —— 所以**每條 flow 的 `path`
+都是空的，而網路其實好好地在轉封包**。詳細分析和四個被推翻的假設見 `HANDOFF.md` 第 2c 節。
+
+> **完整規則：先 Ryu 再 Mininet；而且不要中途單獨重啟 Ryu —— 要重啟就兩個一起。**
+
+也就是說**改完 `intelligent_router.py` 要重測，必須整組重開。**
+
+## `ovs-ofctl` 不在 NOPASSWD 清單裡
+
+**[Co-developed with claude code -- Adam]**
+
+sudoers 只放了 `/usr/bin/ovs-vsctl`、`/usr/sbin/ifconfig`、`/usr/bin/mnexec`。**`ovs-ofctl` 不在
+裡面**，所以：
+
+```bash
+sudo -n ovs-ofctl dump-flows s1 2>/dev/null | wc -l     # 回 0 —— 指令失敗，不是沒有規則
+```
+
+我一度據此報告「fabric 完全沒有規則」，差一點成為結論。正確做法是透過 `mnexec`（它以 uid 0 執行）：
+
+```bash
+sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py' | head -1) ovs-ofctl -O OpenFlow13 dump-flows s1
+```
+
+同樣的技巧讓 `py-spy` 可用（`ptrace_scope=1` 會擋掉直接執行）：
+
+```bash
+sudo -n mnexec -a <pid> /home/adam/miniconda3/bin/py-spy dump --pid <pid>
+```
+
+⚠️ **`py-spy dump` 是單一取樣，會騙人。** 我從一張「hub 空閒在 epoll」的 dump 推論「hub 停止調度」，
+連拍 8 張才發現 7 張空閒、1 張在 `lldp_loop` 的 sleep —— hub 正常。要判斷時間花在哪請用
+`py-spy top` 或 `py-spy record`。

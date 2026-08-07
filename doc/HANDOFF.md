@@ -26,7 +26,7 @@ flow 安裝、link 失效重算、**switch liveness** 都實機驗證過。**`is
 | 層 | OVS | P4 |
 |---|---|---|
 | L0 build（含 p4c） | ✅ | ✅ |
-| L1 單元（**229** C++ 直接跑 **+ ctest 也綠**、8 Python + 2 kernel-side 套件） | ✅ | ✅ |
+| L1 單元（**258** C++ 直接跑 + ctest、9 Python + 2 kernel-side 套件） | ✅ | ✅ |
 | L2 API 契約 | **36/36 錯誤路徑全綠**（`get_graph_data` 見下方 flaky 註）| 待重測 |
 | L3 元件契約 | 1 BROKEN + 1 MISSING | 同 |
 | log allowlist | ✅ | ✅ |
@@ -500,26 +500,59 @@ switch 10→20→30→40→50、host 128→640、edge 288→1440，每 5 秒多�
 
 log 紀律：~50 秒的輪詢只印 2 行（啟動時 286、恢復時 288），靜態拓撲載入 1 次，零 warning。
 
-### 2b. 待辦清單（依建議優先序，2026-07-31）
+### 2b. 待辦清單（依建議優先序，2026-08-03 更新）
 
 排序理由：**先修「系統對現實的認知是錯的」，再補覆蓋率，最後做新能力。** 因為前者的失敗是無聲的。
 
+#### 已完成（2026-08-03 這一輪，29 個 commit）
+
+| 項目 | commit |
+|---|---|
+| `SimulationRequestManager` 202 → 400 | `05353d5` |
+| `OVSPowerStrategy` 補測試（挖到 `executeListPorts` 銷毀狀態）| `65aaa38` |
+| **P4 liveness**（`is_up` 不再說謊）| `a8db425` |
+| scoped review 4 條 high | `e188136` |
+| `describeCommandStatus` 對 curl／snmpget 說錯話 ＋ `kernel_owns_log` 假 FAIL | `1b50982` |
+| LLDP beacon 三個缺陷 | `df73e44` |
+| `setSwitchPowerState` 不論成敗都更新圖 | `6e156b3` |
+| **拓撲單次快照 → 定期輪詢** | `71d27c1` |
+| Ryu 側：旗標順序並行走訪 ＋ 通知無 timeout | `2c51e9c` |
+| tooling 的三個假 PASS | `7aa0b0d` |
+| `handleGetNickname` 記錯端點名 | `1404183` |
+| 兩個 switch-enter 通知無 timeout | `97c75ff` |
+| agy-review 的 6 個真 bug | `e00bd96` `52ac119` `820c2a2` `eb9c860` `c18b4c9` |
+
+**`/ndt/disable_switch` 判定為前提錯誤** —— app 裡那個函式有 **0 個呼叫點**，節能走的是
+`/ndt/set_switches_power_state`（2 個呼叫點，實測回 200）。不是「節能從未生效」。
+
+#### 待辦（2026-08-03 之後）
+
 | # | 項目 | 為什麼在這個位置 |
 |---|---|---|
-| ~~1~~ | ~~`SimulationRequestManager`：爛 JSON／缺欄位回 202 → 400~~ | ✅ **已完成**（`05353d5`）—— 見下面「已完成」段 |
-| ~~2~~ | ~~`OVSPowerStrategy` 補測試~~ | ✅ **已完成**（`65aaa38`）—— 前提是錯的（接縫早就補好了），但挖到一個 audit 沒提到的真 bug。見下 |
-| 3 | `setSwitchPowerState` 不論成敗都更新圖 | 同一類「靜默成功」，TESTBED-only |
-| 4 | `/ndt/disable_switch` 幽靈端點 | 要嘛實作、要嘛讓 app 停止呼叫。**節能功能可能從來沒生效過** |
-| 5 | host 發現的 static ARP 問題（定期重拉 host） | 讓 `get_graph_data` 從 flaky 變成穩定 |
-| ~~6~~ | ~~**P4 liveness stub**~~ | ✅ **已完成**（`a8db425`）—— 見下方「待辦第 6 項」段。過程中挖到兩個 bug |
-| 7 | LLDP beacon：port 從拓撲推導、beacon MAC 不要撞 host 範圍、install 改 insert-or-modify | 第 6 項已建好 last-seen 追蹤，這項現在只剩 beacon 本身的三個缺陷 |
-| 8 | **`HttpSession` 的測試接縫** | scoped review 的 medium 1：`app_id` 修正完全沒測到，把 `std::stoi` 放回去 207 個測試照樣綠。要設計接縫，不能為單一端點發明捷徑 |
-| 8b | **scoped review 剩下的 10 條 medium/low** | 清單見第 1k 節。第 5、7 條是我搬 `describeCommandStatus` 造成的 |
-| 9 | 審查 agy-review 0057 之後的（共 80+ 份） | 和 audit 重疊度高，所以降級 |
-| 9 | 修正計畫書 Phase 6 那段錯誤敘述 | 只有狀態章節記了更正，本文還沒改 |
-| 10 | `TopologyAndFlowMonitor` 補測試 | 工程量最大，要先想清楚接縫 |
-| 11 | twin 偵測黑洞 flow（入口有量、出口沒有） | **新能力，不是修 bug** |
-| 12 | 重算路徑只覆蓋走得到的規則 | BFS 走不到的交換機留著舊規則。10 台全連通時不影響 |
+| 1 | ⭐ **Ryu 的 `/stats/flow` 在錯的啟動順序下永久回空表** | 見第 2c 節。**整合測試前必須定案** —— 根因未知，但有可重現的觸發條件和一條可以馬上遵守的規則 |
+| 2 | **`HttpSession` 的測試接縫** | `app_id` 修正完全沒測到，`std::stoi` 放回去 258 個測試照樣綠。要設計接縫，不能為單一端點發明捷徑 |
+| 3 | kernel 每秒 2 行 INFO log（**每天 13.8 萬行**）| 當天量到的。⚠️ 注意「Ryu 97% 飽和」那個結論**已更正為誤判**，這一項只剩 log 量 |
+| 4 | `FlowDispatcher` 的 lost-wakeup 沒有測試抓得到 | scoped review 驗證過：跑 300 次都存活。要控制排程時序 |
+| 5 | agy-review 0085／0104／0105 | 判斷是 nitpick 等級，邊際產出下降 |
+| 6 | `TopologyAndFlowMonitor` 補測試 | 工程量最大，要先想清楚接縫 |
+| 7 | twin 偵測黑洞 flow | **新能力，不是修 bug** |
+| 8 | 重算路徑只覆蓋走得到的規則 | BFS 走不到的交換機留著舊規則。10 台全連通時不影響 |
+
+#### 使用者排定的下一步（2026-08-03）
+
+1. ~~審核 agy-review~~ ✅ 見第 2d 節
+2. **叫另一個 agent 寫大量測試** —— ⚠️ 我先前反對過，使用者決定要做。**必須附驗收閘**：
+
+   > 每個測試都要附上「把哪一行改成什麼，這個測試就會失敗」，而且那個 mutation 要在交付物裡。
+
+   理由不是原則問題，是三個實測證據：**mutation 至今抓到我 7 個假測試**；這個 repo 的 P4 測試
+   曾經把 bug 寫成預期行為**還整組被 SKIP**；而當天 tooling 有三個「檢查了零筆也算 PASS」。
+   沒有這個閘，產出無法驗證，我得全部重推一次 —— 比自己寫還貴。
+3. **整合測試** —— 兩條硬性前置：
+   - **不要單獨重啟 Ryu**（見 2c）
+   - `ovs-ofctl` **不在 NOPASSWD 清單裡**，用它做驗證的步驟會**靜默回 0 條規則**。
+     要嘛加進 sudoers，要嘛走 `sudo -n mnexec -a <mininet-pid> ovs-ofctl ...`
+4. 繼續 Phase 6 之後的 P4 support
 
 **驗收清單還沒做的**（`p4_bmv2_support_plan.md:257`）：第 6 項（電源關機）要等 Phase 7；
 第 7 項的 HTTP status 傳遞缺口需要 completion handle，是架構決定不是小改（見 1f）。
@@ -783,6 +816,74 @@ sudo -n mnexec -a <ryu-pid> py-spy record -d 30 -o /tmp/ryu.svg --pid <ryu-pid>
 2. 考慮 s1 的 34 個 port：把 32 台 host 掛在一台交換機上是這個拓撲的特性，LLDP 對 host-facing
    port 發送是純粹的浪費 —— 和 P4 那側剛修好的問題**完全同型**（`df73e44`）。
 3. **整合測試必須避開這個窗口**，或者明確接受「啟動後 N 秒內 flow table 不可信」。
+
+### 2d. agy-review 的 triage 結果（0057-0106，2026-08-03）
+
+**結論先講：它在我當天的 commit 裡找到 5 個真 bug，其中 1 個帶出更嚴重的第 6 個。**
+50 份、抽出 497 條「發現」，但**絕大多數是章節標題、`Nothing to report` 和文件細節** ——
+真正有價值的集中在「針對當天改動」的那幾份。這是它比第一輪 audit 有用的地方：
+**per-commit 的審查會看到最新、最沒人檢查過的程式碼。**
+
+#### 已驗證成立並修好
+
+| 來源 | 發現 | commit | 備註 |
+|---|---|---|---|
+| 0090 | `KeyedFailureLog` 過期檢查排在記錄**之後** | `e00bd96` | 相隔 100 秒的兩次孤立出現會**立刻報告**，hold-off 完全被繞過 |
+| 0097 | `loadStaticTopologyFromFile` 缺 write lock | `52ac119` | **reviewer 建議的修法會死鎖** —— 見下 |
+| 0097 | `fetchAndUpdateTopologyData` 成死碼 | `52ac119` | 我當天造成的 |
+| 0067 | `knowsSwitch` 對空表回 false | `820c2a2` | 次要，但**跟著它走找到真的問題** |
+| 0073 | `setAllPaths` 從不清除 | `eb9c860` | 消失的路徑永久存活 |
+| 0073 | `setAllPath` 單數版讓 count map 不同步 | `eb9c860` | **0 個呼叫者** —— 死碼帶陷阱 |
+| 0072 | hex ethertype 被誤拒（400）| `c18b4c9` | **誤拒比誤放更糟** —— 直接弄壞正常的 client |
+| 0072 | 非 object 的 `match` → 500 | `c18b4c9` | 同一類缺陷當天已在 kernel 側修過三次 |
+| 0072 | 回顯欄位清單無上限 | `c18b4c9` | 未認證的 REST body 可以塞幾千個 key |
+
+#### 一個反覆出現的 bug 形狀，一天內出現三次
+
+> **「應該是替換的快照，實作成只增不替。」**
+
+| 出現處 | 後果 |
+|---|---|
+| `TopologyAndFlowMonitor::run()` 只拉一次快照 | 圖永遠停在啟動那一瞬間（`71d27c1`）|
+| `Classifier::updateFromQueriedTables` 對空表 `continue` | 130 條舊規則永久存活（`820c2a2`）|
+| `setAllPaths` 從不 `clear()` | 消失的路徑繼續被 `get_path_switch_count` 回答（`eb9c860`）|
+
+**下次看到「用 `operator[]` 填一張 map」就要問：舊的東西什麼時候消失？**
+
+而空快照該不該套用**沒有統一答案**，兩邊都要各自論證：
+
+- **Classifier：套用。** 空陣列帶著 dpid，是「這台交換機沒有規則」的明確陳述。
+- **`setAllPaths`：不套用。** 空列表是「我完全不知道任何路徑」，收斂前是暫態；而 HTTP push
+  路徑無條件呼叫，一個 `{"all_destination_paths": []}` 的 POST 會清空整張表。
+
+#### reviewer 建議的修法會死鎖 —— 不要照抄
+
+0097 說「把 `loadStaticTopologyFromFile` 裡註解掉的 `unique_lock` 取消註解」。**那會讓 kernel
+在啟動時卡死**：函式體內呼叫 `findVertexByIp`，它自己會取**同一把非遞迴 `shared_mutex`** 的
+`shared_lock`。那行被註解掉很可能就是因為有人試過。
+
+正解是用**已經存在的** `findVertexByIpNoLock` —— 這個 class 幾乎每個查詢都有 `NoLock` 變體，
+就是給「呼叫者已持鎖」用的。實機驗證：API 一秒內回應、圖完整（10/128/288）。
+
+#### 判定不成立／不可觸發
+
+| 發現 | 為什麼 |
+|---|---|
+| 0095「`load_switch_link_ports` 單向遍歷」| **兩個真實拓撲檔都是完全雙向**（32 筆、0 筆單向），加 `dst_interface` 不改變任何結果。不改程式碼：kernel 的 `updateLinks` 也假設雙向，默默處理單向檔會讓一個沒人支援的情境**看起來**被支援 |
+
+#### mutation 這一輪又抓到我兩個假測試
+
+1. `TheSwitchCountMapIsReplacedToo` 用了**同一個 pair**，而 `operator[]` 本來就覆寫 —— 所以
+   「只清 path map」的 mutation 讓全部 6 個測試照樣綠。**只有「消失的 pair」能偵測缺少的 clear。**
+2. `AnEmptyTableStillCountsAsHavingHeardFromTheSwitch` 先餵了非空表，所以 switch 早就註冊了 ——
+   它通過的理由是錯的。
+
+**累計：mutation 已經抓到我 7 個假測試。** 這不是偶發，是常態 —— **不做 mutation 就不要說測試通過。**
+
+#### 還沒 triage 的
+
+0085（`topoMonitor` null 檢查、partial `powerOn` 復原）、0104、0105。判斷是 nitpick 等級，
+邊際產出在下降 —— 每一條都要驗證 + 測試 + mutation，成本不低。
 
 ### 3. 刻意延後的技術債
 
