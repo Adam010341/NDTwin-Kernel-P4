@@ -8,8 +8,16 @@ after changing an endpoint you know the blast radius without launching all seven
 Two checks per component:
 
   1. existence -- every endpoint it calls must exist. A 404 means the component is
-     calling something the kernel does not implement. This is how Energy-Saving-App's
-     call to /ndt/disable_switch shows up: it has always 404'd and the app swallows it.
+     calling something the kernel does not implement. Energy-Saving-App's
+     /ndt/disable_switch is the example, and it also marks this check's limit: the call
+     really is in the source (src/app/http.cpp:269) and the kernel really does not
+     implement it, so MISSING is correct -- but that function has **zero call sites**.
+     It is dead code, and the live energy-saving path uses
+     /ndt/set_switches_power_state instead. So "the app swallows a 404 at runtime" does
+     not follow. What this check scans is which endpoints appear in the source, which is
+     a superset of the endpoints actually reached at run time; separating the two needs
+     call-graph analysis or runtime observation, neither of which is in this layer.
+     [Co-developed with claude code -- Adam]
 
   2. contract  -- for endpoints covered by spec.py, run the L2 structure and invariant
      checks and attribute any failure to the components that depend on it.

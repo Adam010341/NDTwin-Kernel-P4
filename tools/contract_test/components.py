@@ -71,10 +71,13 @@ KERNEL_ENDPOINTS = {
 # Removing the call or implementing the endpoint should also delete the entry.
 KNOWN_MISSING_ENDPOINTS = {
     "disable_switch": (
-        "Energy-Saving-App POSTs /ndt/disable_switch (src/app/http.cpp:269) but the "
-        "kernel has never registered it, so the call 404s and the app swallows the "
-        "error. Pre-existing and unrelated to P4. Fix by implementing the endpoint or "
-        "removing the call -- tracked, not accepted indefinitely."
+        "Energy-Saving-App has a disable_switch() that POSTs /ndt/disable_switch "
+        "(src/app/http.cpp:269) and the kernel has never registered it, so MISSING is "
+        "correct. But that function has ZERO call sites -- it is dead code, and the live "
+        "energy-saving path uses /ndt/set_switches_power_state (2 call sites, verified "
+        "200). So this does NOT mean energy saving has never switched anything off; an "
+        "earlier note here said that and it was wrong. Fix by deleting the dead function "
+        "or implementing the endpoint. [Co-developed with claude code -- Adam]"
     ),
 }
 
