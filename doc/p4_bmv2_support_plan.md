@@ -28,6 +28,36 @@
 - bmv2 fabric 本身也證實可轉發：`ping` 0% loss、`ttl=59`（5 跳 + TTL 遞減有效）
 - L4 差異比對 `PASS`：170 個已登記差異、**0 個未預期**
 
+### ⚠️ Phase 5 只做了一半：counter sample 從來沒有實作（2026-08-07 發現）
+
+Phase 5 的規格寫了**兩種** sample：
+
+1. **flow sample（type 1）**，從 clone-to-CPU 的封包來 —— ✅ **做好了、而且驗過**
+   （golden fixture、2863 個樣本、100% 一致）。
+2. **counter sample（type 2）**，定期輪詢 P4 的 per-port counter，帶 `ifIndex` / `ifSpeed` /
+   `ifInOctets` / `ifOutOctets` —— ❌ **完全不存在**。
+
+證據（實測，不是讀計畫書推的）：
+
+| 查什麼 | 結果 |
+|---|---|
+| `sflow_emitter.py` 定義的 sample 型別 | 只有 `SAMPLE_TYPE_FLOW = 1`，沒有 type 2、沒有 `build_counter_sample` |
+| emitter 有沒有輪詢 counter | 檔案裡沒有任何 counter 相關的程式碼 |
+| proxy 裡誰呼叫 `read_egress_counter` | **沒有人**（只有測試呼叫它） |
+| kernel 那邊 type 2 餵給什麼 | `FlowLinkUsageCollector.cpp:953` 起處理 `sampleType == 2`，取 `ifIndex` / `ifSpeed` / `inOctets` / `outOctets` |
+
+**後果**：P4 模式下 kernel 收不到任何 counter sample，所以鏈路使用率少了它在 OVS 模式下的主要
+輸入。`get_average_link_usage` 在 P4 側會缺料，而 L4 的 shape/facts 比對應該會抓到這一點 ——
+這正是那個工具存在的理由。
+
+**順帶一個要等的修法**：`read_egress_counter`（`p4_client.py:414`）在兩條路上都靜默回 `(0, 0)`
+—— p4info 裡找不到 counter，以及 `except Exception: pass`。持續失敗的 gRPC 和「這條 link 閒置」
+在下游無法區分，就是這個專案最常見的那種無聲錯答。**現在不修**，因為它還沒有任何生產呼叫點，
+而正確的失敗訊號長什麼樣取決於將來輪詢它的那個 caller 需要什麼。counter sample 實作的時候
+一起處理，不要沿用現在這個回 `(0,0)` 的形狀。
+
+---
+
 ### Phase 6 的具體入手點（含 2026-07-29 新發現）
 
 計畫本體見下面的 Phase 6 章節，這裡補上實測才發現、會影響實作的細節：
