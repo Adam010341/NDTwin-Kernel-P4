@@ -1091,7 +1091,26 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
 
         // Still an error, and still worth one: a *non-empty* body that will not parse means the
         // control plane answered with something unexpected, which no other check would catch.
-        nlohmann::json flows = parseFlowStatsTextToJson(raw);
+        const auto parsed = parseFlowStatsTextToJson(raw);
+        if (!parsed)
+        {
+            // [Co-developed with claude code -- Adam]
+            // A body that will not parse is not a report of an empty table. Keeping the previous
+            // table is the same conservative choice the timeout path makes, and for the same
+            // reason: stale data that was once true beats a confident claim that is false now.
+            // The parse error itself is already logged one line up.
+            if (m_flowStatsTimeouts.recordFailure())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "{} sent an unparseable flow table for switch {} -- keeping the "
+                                   "previous table rather than treating it as a switch with no "
+                                   "rules",
+                                   ip_and_port,
+                                   dpid);
+            }
+            continue;
+        }
+        const nlohmann::json& flows = *parsed;
 
         // [Co-developed with claude code -- Adam]
         // Why this check exists, measured 2026-08-07: with Ryu wedged the kernel reported all ten
@@ -1135,7 +1154,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
     return result;
 }
 
-json
+std::optional<json>
 DeviceConfigurationAndPowerManager::parseFlowStatsTextToJson(const std::string& responseText) const
 {
     try
@@ -1144,8 +1163,12 @@ DeviceConfigurationAndPowerManager::parseFlowStatsTextToJson(const std::string& 
     }
     catch (const std::exception& e)
     {
+        // [Co-developed with claude code -- Adam]
+        // nullopt, not json::array(). Returning an empty array here made "the control plane sent
+        // something that is not JSON" identical to "this switch has no rules", and applying the
+        // latter sweeps every rule for the dpid. See the declaration for the full story.
         SPDLOG_LOGGER_ERROR(Logger::instance(), "JSON parsing failed: {}", e.what());
-        return json::array(); // Return empty array on failure
+        return std::nullopt;
     }
 }
 

@@ -184,3 +184,36 @@ TEST(FlowStatsTimeoutTest, TheThresholdIsInclusiveAndSitsBetweenTheTwoMeasuredRa
  * the part where the reasoning lives, but a mutation that deletes the *call* at the use site would
  * not be caught by anything in this file. Recorded as a real gap, not as covered.
  */
+
+// --- a body that will not parse is not a report of an empty table -------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// Found by agy-review 0109, and it is a hole this very file's fix did not close.
+//
+// parseFlowStatsTextToJson used to return `json::array()` when the body was not JSON at all -- an
+// HTTP 500 error page, a truncated response, anything. That made "the control plane sent garbage"
+// byte-identical to "this switch has no rules", and applying the latter bumps the Classifier's epoch
+// and sweeps every rule for that dpid.
+//
+// It was harmless until it was not: while updateFromQueriedTables ignored empty arrays, a corrupted
+// response accidentally left the table alone. commit 820c2a2 -- mine -- made empty tables apply, and
+// in doing so turned that accident into silent data loss.
+//
+// The latency guard above does not cover it, which is the part worth remembering: a parse failure is
+// *local*, so it returns immediately, and immediate-and-empty is precisely the combination that
+// check certifies as trustworthy. Two different doors into the same wrong answer.
+//
+// So the parser now returns nullopt and the caller keeps the previous table. What can be tested here
+// without a control plane is the classifier's half of the contract: that an empty table which
+// arrives fast really is treated as usable, and therefore that the parser must never present a
+// failed parse as one.
+
+TEST(FlowStatsTimeoutTest, AFastEmptyTableIsUsableWhichIsWhyAFailedParseMustNotLookLikeOne)
+{
+    // Pinning the trap rather than just the fix. If this ever stops holding, the reasoning in
+    // parseFlowStatsTextToJson's nullopt return no longer applies and should be revisited.
+    EXPECT_EQ(classify(json::array(), 0.004), Verdict::Usable)
+        << "a fast empty table is trusted -- so a parse failure returning an empty array would be "
+           "trusted too, which is the bug agy-review 0109 found";
+    EXPECT_EQ(classify(json::object(), 0.004), Verdict::Usable);
+}

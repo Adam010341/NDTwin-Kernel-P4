@@ -492,7 +492,23 @@ class DeviceConfigurationAndPowerManager
 
     // Query Mininet topology for switch up/down state
     json queryMininet(const std::string& ipParam) const;
-    json parseFlowStatsTextToJson(const std::string& responseText) const;
+    /**
+     * @brief Parse a `/stats/flow` body, distinguishing "did not parse" from "parsed as empty".
+     *
+     * @return The parsed value, or nullopt when the body is not JSON at all.
+     *
+     * @details It used to return `json::array()` on a parse failure, which made a corrupted body
+     * indistinguishable from a switch reporting no rules. That was harmless while
+     * `Classifier::updateFromQueriedTables` ignored empty arrays -- and became data loss the moment
+     * it stopped, because applying an empty snapshot bumps the epoch and sweeps every rule for that
+     * dpid. An HTTP 500 error page or a truncated body would silently wipe a switch's flow table.
+     *
+     * The latency check in classifyFlowStatsReply does not cover this: a parse failure is local, so
+     * it comes back fast, and fast-and-empty is exactly what that check treats as trustworthy.
+     *
+     * Found by agy-review 0109. [Co-developed with claude code -- Adam]
+     */
+    std::optional<json> parseFlowStatsTextToJson(const std::string& responseText) const;
 
     bool pingSwitch(const std::string& ip, int timeout_sec);
     void pingWorker(int interval_sec);
