@@ -285,3 +285,30 @@ behaviour nearby.
 Not covered, and stated in the commit: that the two call sites use the helper. Both are inside
 `calAvgFlowSendingRatesPeriodically`, which runs on a thread started by `start()`, so restoring the
 bare subtraction *there* would go unnoticed.
+
+---
+
+# Appendix 4: the empty-path guard in setAllPaths (3 tests, verified 2026-08-07)
+
+Found by agy-review 0110 and verified before fixing. Anchors in
+`src/ndt_core/collection/FlowLinkUsageCollector.cpp`.
+
+| # | mutation | result |
+|---|---|---|
+| M1 | `if (path.empty())` -> `if (false)` (the guard removed) | **all 3 tests killed by SIGSEGV**, rc=139, no gtest summary |
+| M2 | the guard's `continue;` -> `return;` (reject the snapshot instead of skipping the path) | 2 killed — `TheUsablePathsInAMixedSnapshotAreStillStored`, `AnEmptyPathDoesNotPreventTheReplacementOfEarlierData` |
+
+M1 killing by crash rather than by assertion is the honest manifestation: `front()` on an empty
+container is undefined behaviour, so there is nothing for an assertion to compare. It is stronger
+evidence than a failed expectation, not weaker.
+
+## A harness bug this exposed
+
+The first M1 run reported nothing at all — no failures, no pass count — and read as "the mutation
+survived". It had not: the binary segfaulted before gtest could print a summary, and the driver only
+grepped for `[  FAILED  ]` lines and the summary line, both of which a crash omits. The driver now
+reports a missing summary as `KILLED BY CRASH (rc=…)`.
+
+Third time in this file that the *measurement* was wrong rather than the code: after "confirm the
+mutation landed on the path the test exercises" and "a dead-code insertion is not a mutation", add
+**"absence of a failure line is not evidence of survival — check the exit code."**
