@@ -227,30 +227,54 @@ else
         log="$LOG_DIR/l1_kernel_${name%.*}.log"
         printf '  %-30s ' "$name"
         if [[ "$testfile" == *.py ]]; then
-            (cd "$KERNEL_DIR" && python3 "$testfile") >"$log" 2>&1
+            # -v so a skip prints "test_x ... skipped 'reason'". Without it unittest prints a bare
+            # "s" and the skip count only appears in the summary, which is how the skip check below
+            # was dead for these files from the day it was written. Found by agy-review 0117.
+            (cd "$KERNEL_DIR" && python3 "$testfile" -v) >"$log" 2>&1
         else
             (cd "$KERNEL_DIR" && bash "$testfile") >"$log" 2>&1
         fi
         rc=$?
         # Both harnesses print a "Ran N" line; zero means nothing was collected, which proves
         # nothing and must not read as a pass.
+        # [Co-developed with claude code -- Adam]
+        # Per file type, because the two harnesses report differently and applying unittest's
+        # vocabulary to a shell script silently measures nothing. All three problems here were
+        # found by agy-review 0117; the previous version had one code path for both.
+        #
+        # "Ran N" counts skipped tests, so N > 0 does not mean anything was asserted. Nothing in
+        # this directory may skip for an environment reason -- these run under plain python3 and
+        # depend on nothing outside it -- so a skip is a broken test.
         ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
         ran=${ran:-0}
-        # [Co-developed with claude code -- Adam]
-        # Counted because "Ran N" includes skipped tests, so N > 0 does not mean anything was
-        # asserted. Nothing here may skip for an environment reason: these run under plain python3
-        # by design and depend on nothing outside it, so a skip is a broken test, full stop.
-        skipped=$(grep -cE "\.\.\. skipped" "$log")
+        if [[ "$testfile" == *.py ]]; then
+            # Both spellings: the "... skipped" lines that -v produces, and the summary count, which
+            # appears either way. Belt and braces, because relying on -v alone is what broke before.
+            skipped=$(grep -cE "\.\.\. skipped" "$log")
+            summary_skipped=$(grep -oE '\(skipped=[0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
+            [[ -n "$summary_skipped" && "${summary_skipped:-0}" -gt "${skipped:-0}" ]] \
+                && skipped="$summary_skipped"
+            skip_evidence='\.\.\. skipped|\(skipped='
+        else
+            # Shell tests do not use unittest. This repo's convention is a "SKIP:" line, and such a
+            # script exits 0 *before* printing its "Ran N checks" summary -- which used to surface as
+            # a confusing "NO TESTS RAN" rather than as a skip.
+            skipped=$(grep -cE "^[[:space:]]*SKIP:" "$log")
+            skip_evidence='^[[:space:]]*SKIP:'
+        fi
         if [[ $rc -ne 0 ]]; then
             echo "${R}FAIL${N} (exit $rc, ran=$ran)"
             grep -E "^(FAIL|ERROR):|AssertionError|FAILED " "$log" | head -8 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
+        elif [[ ${skipped:-0} -gt 0 ]]; then
+            # Checked before the ran-eq-0 branch: a shell test that skips exits before printing a
+            # summary, so it would otherwise be reported as "no tests ran" and the real reason lost.
+            echo "${R}FAIL${N} ${skipped} skip(s) — nothing in tests/python or tests/shell has a" \
+                 "reason to skip"
+            grep -E "$skip_evidence" "$log" | head -5 | sed 's/^/      /'
+            FAILURES=$((FAILURES + 1))
         elif [[ $ran -eq 0 ]]; then
             echo "${Y}NO TESTS RAN${N} ${D}(see $log)${N}"
-            FAILURES=$((FAILURES + 1))
-        elif [[ $skipped -gt 0 ]]; then
-            echo "${R}FAIL${N} ${skipped} of ${ran} test(s) skipped — nothing here has a reason to skip"
-            grep -E "\.\.\. skipped" "$log" | head -5 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
         else
             echo "${G}PASS${N} ${D}${ran} ran and passed${N}"
