@@ -1113,8 +1113,28 @@ HttpSession::handleModifyDeviceName(http::response<http::string_body>& res)
     }
     else if (vertexType == 1) // Host
     {
-        vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(
-            utils::macToUint64(body.at("mac").get<std::string>()));
+        // [Co-developed with claude code -- Adam]
+        // tryMacToUint64, because macToUint64 throws and the throw reaches buildResponse's
+        // std::exception catch -- which answers 500 for a malformed client request. Exactly the
+        // defect the dpid and app_id parsing was fixed for; this call site was missed. Found by
+        // agy-review 0115.
+        const std::string macText = body.at("mac").get<std::string>();
+        const auto mac = utils::tryMacToUint64(macText);
+        if (!mac)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "modify_device_name: mac '{}' is not a MAC address",
+                               macText);
+            res.result(http::status::bad_request);
+            res.set(http::field::content_type, "application/json");
+            res.body() = json{{"status", "error"},
+                              {"error", "invalid mac"},
+                              {"mac", macText},
+                              {"detail", "expected xx:xx:xx:xx:xx:xx"}}
+                             .dump();
+            return;
+        }
+        vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
     }
     else
     {
@@ -1492,8 +1512,25 @@ HttpSession::handleModifyNickname(http::response<http::string_body>& res)
         }
         else if (type == "mac")
         {
-            uint64_t mac = utils::macToUint64(identifier.at("value").get<std::string>());
-            vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(mac);
+            // Same as above: a malformed MAC is a client error, not a server one.
+            // [Co-developed with claude code -- Adam]
+            const std::string macText = identifier.at("value").get<std::string>();
+            const auto mac = utils::tryMacToUint64(macText);
+            if (!mac)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "modify_nickname: mac '{}' is not a MAC address",
+                                   macText);
+                res.result(http::status::bad_request);
+                res.set(http::field::content_type, "application/json");
+                res.body() = json{{"status", "error"},
+                                  {"error", "invalid mac"},
+                                  {"mac", macText},
+                                  {"detail", "expected xx:xx:xx:xx:xx:xx"}}
+                                 .dump();
+                return;
+            }
+            vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
         }
         else if (type == "name")
         {

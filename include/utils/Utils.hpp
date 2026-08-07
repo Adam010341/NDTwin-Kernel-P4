@@ -596,6 +596,57 @@ logCurrentTimeSystemClock()
 }
 
 /**
+ * @brief Parse a MAC address, refusing anything that is not exactly one.
+ *
+ * @param mac Expected form `xx:xx:xx:xx:xx:xx` (`-` accepted as the separator too).
+ * @return The 48-bit value, or nullopt if @p mac is not a well-formed MAC.
+ *
+ * @details The previous implementation read six 2-digit fields at fixed offsets 0, 3, 6, 9, 12, 15
+ * without ever looking at `mac.size()`. It relied entirely on `std::from_chars` failing on whatever
+ * it happened to find, which is not the same as validating:
+ *
+ *   - `"00:11:22:33:44:5"` -- one digit short -- returned **73588229125**, silently. `from_chars`
+ *     parsed the single `5` and stopped at the terminator, reporting success. A wrong MAC means the
+ *     wrong host is looked up, with nothing anywhere saying so.
+ *   - Where it did fail it threw, and both HTTP handlers that call it let the throw escape to
+ *     `buildResponse`'s catch-all, which answers **500** for what is a malformed client request.
+ *
+ * Not an out-of-bounds read, which is worth writing down because it looks like one: the loop touches
+ * index 16 at most, and libstdc++ allocates `size() + 1` for the terminator while its short-string
+ * buffer is 16 bytes. Checked under ASan rather than assumed.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+inline static std::optional<uint64_t>
+tryMacToUint64(const std::string& mac)
+{
+    constexpr size_t kMacTextLength = 17; // 6 pairs + 5 separators
+    if (mac.size() != kMacTextLength)
+    {
+        return std::nullopt;
+    }
+
+    uint64_t result = 0;
+    for (size_t i = 0; i < 6; ++i)
+    {
+        const size_t at = i * 3;
+        if (i > 0 && mac[at - 1] != ':' && mac[at - 1] != '-')
+        {
+            return std::nullopt;
+        }
+        uint8_t byte = 0;
+        const auto [end, ec] = std::from_chars(mac.data() + at, mac.data() + at + 2, byte, 16);
+        // end must have consumed both digits: from_chars stops early on "5:" and reports success.
+        if (ec != std::errc() || end != mac.data() + at + 2)
+        {
+            return std::nullopt;
+        }
+        result = (result << 8) | byte;
+    }
+    return result;
+}
+
+/**
  * @brief Convert MAC address string ("aa:bb:cc:dd:ee:ff") to a 48-bit integer.
  *
  * @param mac MAC string in colon-separated hex format.
@@ -605,24 +656,14 @@ logCurrentTimeSystemClock()
 inline uint64_t
 macToUint64(const std::string& mac)
 {
-    uint64_t result = 0;
-    auto parse_hex_byte = [&](const char* ptr) {
-        uint8_t byte = 0;
-        auto [p, ec] = std::from_chars(ptr, ptr + 2, byte, 16);
-        if (ec != std::errc())
-        {
-            throw std::invalid_argument("Invalid hex digit");
-        }
-        return byte;
-    };
-
-    const char* p = mac.data();
-    for (int i = 0; i < 6; ++i)
+    // [Co-developed with claude code -- Adam]
+    // Delegates so every caller gets the validation, not just the ones updated to use the
+    // optional form. See tryMacToUint64 for what was wrong.
+    if (const auto parsed = tryMacToUint64(mac))
     {
-        result <<= 8;
-        result |= parse_hex_byte(p + i * 3);
+        return *parsed;
     }
-    return result;
+    throw std::invalid_argument("Invalid MAC address: " + mac);
 }
 
 /**
