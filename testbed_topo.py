@@ -116,7 +116,17 @@ def enable_sflow(switch, agent_iface, collector_ip, collector_port=6343):
     # as the source IP for sFlow datagrams. This is crucial for identification.
     cmd = (
         f"ovs-vsctl -- --id=@sflow create sflow agent={agent_iface} "
-        f'target=\\"{target}\\" header=128 sampling=256 polling=0 '
+        # [Co-developed with claude code -- Adam]
+        # polling is the counter-sample interval in seconds, and 0 disables counter samples
+        # entirely. The kernel computes link utilisation from the ifInOctets/ifOutOctets those
+        # samples carry (FlowLinkUsageCollector handles sampleType 2), so with polling=0 it never
+        # receives the one input that metric needs. Measured 2026-08-07: with polling=0, zero
+        # counter samples reach the collector; with polling=10, 101 arrived in 30 s.
+        #
+        # This is necessary but NOT sufficient -- see doc/HANDOFF.md: with counter samples arriving
+        # and a link running at 954 Mbit/s, get_average_link_usage still answered 0.0, so there is a
+        # second defect in the kernel's counter-sample-to-link-usage path.
+        f'target=\\"{target}\\" header=128 sampling=256 polling=10 '
         f"-- set bridge {switch} sflow=@sflow"
     )
     os.system(cmd)

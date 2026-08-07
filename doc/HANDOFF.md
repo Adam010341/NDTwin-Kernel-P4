@@ -1068,3 +1068,60 @@ kernel 都在跑，s1-s5 已接回、32 條 link，我起的 iperf（h1→h34）
 3. 對容器整體有守衛，對容器的元素沒有（0110）
 
 這是「剛寫完就被獨立審一遍」最划算的時機的證據。**下次寫完一批修法就立刻讓 review 追上，不要累積。**
+
+### 2f. 整合測試第一輪（2026-08-07）—— OVS 側，含兩個新發現
+
+環境：Ryu + Mininet 10 switch / 128 host 不動，**kernel 換成當天的 build 重開**（舊的那個跑了 4 天，
+不含當天任何修法）。順序遵守既有規則：只重開 kernel，Ryu 和 Mininet 保持不動。
+
+#### 通過的部分
+
+| 層 | 結果 |
+|---|---|
+| L2 契約（換 binary 前）| **36/36 passed**，1 個已知 gap（`release_lock_not_held` 回 200） |
+| L2 契約（換 binary 後）| **36/36 passed**，逐項 verdict **與換之前完全相同** —— 無退化 |
+| L3 元件契約 | 7 個元件全部依賴滿足，1 個被已知 gap 降級（Energy-Saving-App 的 `disable_switch`）|
+| log 檢查 | **PASS**（修完之後，見下）|
+| 圖收斂 | 換 binary 後 **t=0 就 288/288 edges、138/138 nodes**，1300 條規則 |
+| flow 偵測 | ping 之後 **2 條 flow、雙向、path 都非空**（path_len=3）|
+| flow 速率 | iperf 實測 **954 Mbit/s**，kernel 量到 **566 Mbit/s**（sampling=256 下的低估，合理）|
+
+#### 新發現 1：log 檢查第一次跑直接 FAIL，而 14 個訊息全部是契約測試自己戳出來的
+
+`check_logs.py` 報 20 行問題／14 個不同訊息。逐一比對之後：**每一個都是
+`run_contract_test.py` 的錯誤路徑探測**（故意送壞 JSON、壞 IP、壞 dpid、不存在的端點……）。
+
+根本問題不是 allowlist 不夠，而是**三個回 400 的地方用 ERROR 等級在記 log**：
+`buildResponse` 的 `json::exception` catch、`Bad entry in request`、`Exception in intent_translator`
+—— 三個都在幾行之後 `res.result(http::status::bad_request)`。
+
+**把 client error 記成 ERROR，跟「壞輸入回 500」是同一個混淆** —— 「你送的東西有問題」和
+「我壞了」變成同一筆記錄。而它讓 `check_logs.py`「error 等級一律不接受」這條規則變得沒用，
+因為一個會戳錯誤路徑的契約測試會故意把 log 填滿 ERROR。
+
+修法：三個站點改成 WARN，並把契約測試會故意觸發的 client-error WARN 加進 allowlist（每條都寫理由）。
+之後 log 檢查 **PASS：182 行、0 error、10 warning 全部有登記**。
+
+#### 新發現 2：`avg_link_usage` 在 954 Mbit/s 的滿載鏈路上回 0.0 —— 兩個獨立的缺陷
+
+**第一個（config）**：`testbed_topo.py` 的 sFlow 設定是 `polling=0`。`polling` 是 counter sample 的
+間隔秒數，**0 等於完全關掉 counter sample**。而 kernel 的鏈路使用率就是從 counter sample 帶的
+`ifInOctets`／`ifOutOctets` 算出來的（`FlowLinkUsageCollector.cpp:953` 起處理 `sampleType == 2`）。
+所以預設的 OVS testbed **從來沒有送過 counter sample**。已改成 `polling=10`。
+
+**第二個（kernel，未修）**：把 `polling` 開起來之後，實測 **30 秒內 101 個 counter sample 送達**
+（tcpdump 解析 sample type：type 2 有 101 個、type 1 有 1 個），而且鏈路跑 954 Mbit/s ——
+**`avg_link_usage` 還是 0.0**。所以 kernel 從 counter sample 到鏈路使用率這條路上另有問題。
+可疑的地方：`ifIndex → ofport` 對應（`populateIfIndexToOfportMap` 會 shell out 去問 `ovs-vsctl`）、
+agent IP 的歸戶、或 `leftLinkBandwidth` 從來沒被更新。**這是下一個要查的。**
+
+⚠️ **這也更正了我幾個 commit 前寫進計畫書的東西**：我當時寫「P4 側因為 emitter 沒有 counter sample，
+所以鏈路使用率會缺料」。那句話對，但不完整 —— **OVS 側也沒有**（`polling=0`），而且就算有，
+kernel 也算不出來。所以 P4 emitter 缺 counter sample 是**與 OVS 對等**，不是 P4 的退化。
+真正的缺口是**這個指標在兩個 data plane 上都沒有work過**。
+
+#### 我自己在這一輪犯的錯
+
+`polling=0` 找到之後我推論「這就是原因」，開了 polling、跑 iperf —— 還是 0.0。
+**假設被自己的測量推翻**，跟 Ryu 那件事一樣的形狀：抓到一個明顯的東西就當成完整解釋。
+差別是這次我在寫進文件之前就先量了。

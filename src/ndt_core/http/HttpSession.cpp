@@ -320,7 +320,13 @@ HttpSession::buildResponse()
     {
         response->result(http::status::bad_request);
         response->body() = json{{"error", "JSON parsing error"}, {"details", e.what()}}.dump();
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "JSON exception in request handler: {}", e.what());
+        // [Co-developed with claude code -- Adam]
+        // WARN, not ERROR: this catch *is* the 400 path. Logging a malformed client request at
+        // ERROR makes exactly the conflation the 500-to-400 work removed from the wire -- "you sent
+        // rubbish" and "I am broken" become the same entry -- and it makes check_logs.py's rule
+        // that an error line is never acceptable unusable, because a contract test that probes the
+        // error paths fills the log with them on purpose.
+        SPDLOG_LOGGER_WARN(Logger::instance(), "JSON exception in request handler: {}", e.what());
     }
     catch (const std::exception& e)
     {
@@ -943,7 +949,9 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     catch (const std::exception& ex)
     {
         SPDLOG_LOGGER_DEBUG(Logger::instance(), "request body {}", j.dump());
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "Bad entry in request: {}", ex.what());
+        // WARN: answers 400 four lines down, so this is a client error, not a kernel one.
+        // [Co-developed with claude code -- Adam]
+        SPDLOG_LOGGER_WARN(Logger::instance(), "Bad entry in request: {}", ex.what());
         res.result(http::status::bad_request);
         res.body() = R"({"error":"Bad entry"})";
         return;
@@ -1325,7 +1333,8 @@ HttpSession::handleInputTextIntent(http::response<http::string_body>& res)
     }
     catch (const std::exception& e)
     {
-        SPDLOG_LOGGER_ERROR(Logger::instance(),
+        // WARN: answers 400 below. [Co-developed with claude code -- Adam]
+        SPDLOG_LOGGER_WARN(Logger::instance(),
                             "Exception in intent_translator: {}, request body: {}",
                             e.what(),
                             m_req.body());

@@ -103,3 +103,34 @@ FORBID | Failed to create UDP socket | as above
 FORBID | Exceed 100 hop \(potential loop\) | a forwarding loop in the computed path
 FORBID | logger with name .* already exists | Logger::init called twice; a test suite is probably being skipped silently
 FORBID | Cannot open OpenflowCapacity\.json | missing doc/OpenflowCapacity.json; get_openflow_capacity returns an empty 200
+
+# --- client errors the L2 contract test provokes deliberately ---------------------
+# [Co-developed with claude code -- Adam]
+# Added 2026-08-07, when the first integration run failed the log check on 14 distinct
+# messages and every single one was run_contract_test.py's own error-path probe. The
+# test exists to send malformed input; the kernel is supposed to refuse it; refusing it
+# is not a fault.
+#
+# These are WARNING rather than ERROR as of the same day: all three of the sites that
+# used to log at ERROR answer 400, and logging a client error at ERROR is the same
+# conflation as answering 500 for one. A kernel-side ERROR should mean the kernel has a
+# problem, which is what makes the "error is never allowed" rule worth having.
+#
+# Note what this trades away: a real flood of client errors from a broken app is now
+# quiet here. That is the right call for the log gate specifically -- it is the wrong
+# tool for that job, and per-endpoint 4xx rates belong in the API metrics, not in a
+# grep for the word error.
+WARNING | ^JSON exception in request handler: | 400 path; L2 sends malformed JSON on purpose
+WARNING | ^Bad entry in request: | 400 path; L2's install_flow_entry__missing_fields
+WARNING | ^Exception in intent_translator: | 400 path; L2 posts an empty intent body
+WARNING | ^Invalid lock type requested: | 400/423 path; L2's acquire_lock_invalid_type
+WARNING | ^refusing flow batch: [0-9]+ dpid\(s\) are not switches | 404 path; L2's install_flow_entry__unknown_dpid
+WARNING | ^get_path_switch_count: bad IP parameter | 400 path; L2's get_path_switch_count__bad_ip
+WARNING | ^inform_switch_entered: dpid .* is not an unsigned integer | 400 path; L2's inform_switch_entered__bad_dpid
+WARNING | ^get_nickname: dpid .* is not an unsigned integer | 400 path, same shape as the above
+WARNING | ^modify_device_name: mac .* is not a MAC address | 400 path, added with the MAC validation
+WARNING | ^modify_nickname: mac .* is not a MAC address | 400 path, added with the MAC validation
+WARNING | ^Received unsupported request: method= | 404 path; L2's unknown_endpoint probe
+WARNING | ^Rejecting simulation case: body is not valid JSON | 400 path; L2's received_a_simulation_case__malformed
+WARNING | ^Rejecting simulation case: missing required field | 400 path; L2's received_a_simulation_case__missing_fields
+WARNING | ^Rejecting simulation result: app_id .* is not a valid id | 400 path; L2's simulation_completed__malformed
