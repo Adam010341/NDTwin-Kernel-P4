@@ -262,3 +262,26 @@ committed; before that, copy the file aside. This is the same hazard handled cor
 earlier for `test_HttpSessionRouting.cpp` with a scratchpad copy, and then not carried across.
 
 **Commit the feature first, then mutate.** That is now the order followed here.
+
+---
+
+# Appendix 3: CounterDeltaTest (6 tests, verified 2026-08-07)
+
+Guards `sflow::counterDelta`, which stops a counter that went backwards being reported as ~1.8e19
+bits per second. All anchors literal and single-occurrence in `include/common_types/SFlowType.hpp`.
+
+| # | mutation | kills |
+|---|---|---|
+| M1 | `return (current >= previous) ? (current - previous) : 0;` -> `return current - previous;` (the bug restored) | 3 — `ACounterThatWentBackwardsYieldsZeroRatherThanWrappingTo18Exa`, `TheWrappedValueWouldHaveBeenReportedAsAnElephantFlow`, `ARealCounterResetToZeroIsTheCommonBackwardsCase` |
+| M2 | saturate the wrong way: `(current <= previous) ? (previous - current) : 0` | 5 |
+| M3 | off-by-one: `(current - previous + 1)` | 3 — `TheOrdinaryForwardCaseIsPlainSubtraction`, `NoTrafficSinceTheLastReadingIsZeroNotAnError`, `LargeForwardDeltasAreNotClamped` |
+
+M3 exists because M1 and M2 between them left `NoTrafficSinceTheLastReadingIsZeroNotAnError`
+unproven -- `x - x` is zero under both of those, so neither could break it. An off-by-one is the
+realistic bug shape for that assertion, and it kills it. Worth noting as a pattern: a test asserting
+a value that arithmetic almost forces needs a mutation aimed at *it*, not at the interesting
+behaviour nearby.
+
+Not covered, and stated in the commit: that the two call sites use the helper. Both are inside
+`calAvgFlowSendingRatesPeriodically`, which runs on a thread started by `start()`, so restoring the
+bare subtraction *there* would go unnoticed.
