@@ -146,3 +146,63 @@ of mine in `test_HttpSessionRouting.cpp`, this one, and one of the agent's own t
 350 tests, green under `ctest` and under `./build/bin/test_routing_strategy` run directly, zero
 skipped, `ctest -N` count == `--gtest_list_tests` count, zero build warnings, and `git status` clean
 across `src/` and `include/` -- no mutation left behind.
+| `AnUnmappedTaskTypeIsNamedRatherThanRenderedAsAnInteger` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:227` | `Unknown` | `unmapped` |
+| `AnUnmappedTaskTypeIsNamedRatherThanRenderedAsAnInteger` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:227` | `Unknown` | `unmapped` |
+| `AnUnknownTaskNameIsRejectedRatherThanDefaultingToATask` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:441` | `throw std::runtime_error("unknown task type: " + std::string{s});` | `return DISABLE_SWITCH;` |
+| `DeserialisingTwiceIntoTheSameAnswerAppendsDocumentsCurrentBehaviour` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:2346` | `for` | `ans.tasks.clear(); for` |
+| `SeveralTasksArriveInTheOrderTheyWereListed` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:2350` | `push_back(` | `insert(ans.tasks.begin(),` |
+| `ATaskThatTakesNoParametersDoesNotRequireAParametersObject` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:821` | `task_from_json(j, task);` | `j.at("parameters");` |
+| `AnInstallFlowEntryCarriesItsDeviceMatchPriorityAndAction` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:641` | `j.at("parameters").at("device_name").get<std::string>()` | `""` |
+| `AnEmptyActionsArrayMeansDropAndIsSignalledByPortMinusOne` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:652` | `-1` | `0` |
+| `OnlyTheFirstActionIsReadAndTheRestAreSilentlyIgnored` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:647` | `[0]` | `.back()` |
+| `TheStringActionFormRyuUsesIsRejectedHereDocumentsCurrentBehaviour` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:644` | `empty()` | `empty() && !j.at("parameters").at("actions")[0].is_string()` |
+| `AnActionMissingItsPortIsRejectedRatherThanDefaultingToZero` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:647` | `.at("port")` | `.value("port", 0)` |
+| `AMatchIsCarriedThroughVerbatimWithoutBeingValidated` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:742` | `j.at("parameters").at("match")` | `json::object()` |
+| `AModifyFlowEntryTaskConstructsItselfAsAnInstallDocumentsCurrentBehaviour` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:664` | `INSTALL_FLOW_ENTRY` | `MODIFY_FLOW_ENTRY` |
+| `ARerouteCarriesEveryHopInTheOrderTheModelGaveThem` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:1251` | `j.at("parameters").at("new_path").get<std::vector<std::string>>()` | `std::vector<std::string>(j.at("parameters").at("new_path").size())` |
+| `AGroupEntrysBucketsAreCarriedThroughVerbatim` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:1472` | `j.at("parameters").at("buckets")` | `json::array()` |
+| `AMeterEntrysFlagsListIsCarriedThroughInOrder` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:1507` | `j.at("parameters").at("flags").get<std::vector<std::string>>()` | `{}` |
+| `AKGivenAsAStringIsRejectedRatherThanParsedOutOfTheText` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:771` | `.get<int>()` | `.is_string() ? std::stoi(j.at("parameters").at("k").get<std::string>()) : j.at("parameters").at("k").get<int>()` |
+| `ANegativeKIsCarriedThroughForTheCallerToDealWith` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:771` | `j.at("parameters").at("k").get<int>()` | `std::max(0, j.at("parameters").at("k").get<int>())` |
+| `AnUnknownLockNameIsRefusedRatherThanCreatingAFourthLock` | `include/ndt_core/lock_management/LockManager.hpp:65` | `type == LockType::Unknown` | `false` |
+| `ASecondAcquireOfAHeldLockIsRefused` | `include/ndt_core/lock_management/LockManager.hpp:77` | `state.isLocked && now < state.expiryTime` | `false` |
+| `UnlockingAnUnknownNameDoesNotReleaseARealLock` | `include/ndt_core/lock_management/LockManager.hpp:94` | `return;` | `type = LockType::Routing;` |
+| `APositiveTtlStillHoldsTheLockWhileItHasTimeLeft` | `include/ndt_core/lock_management/LockManager.hpp:84` | `now + std::chrono::seconds(ttlSeconds)` | `now` |
+| `RenewingAnExpiredLockPutsItBackInForce` | `include/ndt_core/lock_management/LockManager.hpp:118` | `std::chrono::steady_clock::now() + std::chrono::seconds(ttlSeconds)` | `std::chrono::steady_clock::now()` |
+| `RenewingOneLockDoesNotExtendAnother` | `include/ndt_core/lock_management/LockManager.hpp:118` | `m_locks[type].expiryTime` | `for (auto& kv : m_locks) kv.second.expiryTime` |
+| `AnUnparseableGroupIdLeavesTheGroupUnsetRatherThanZero` | `src/ndt_core/collection/Classifier.cpp:909` | `if (parseUint(rest, gid))` | `parseUint(rest, gid);` |
+| `AGotoTableInstructionIsPickedUpFromTheInstructionsArray` | `src/ndt_core/collection/Classifier.cpp:943` | `parseU64(ins.at("table_id"))` | `parseU64(ins.at("table_id")) + 1` |
+| `TheObjectActionFormIsIgnoredEntirelyDocumentsCurrentBehaviour` | `src/ndt_core/collection/Classifier.cpp:853` | `a.is_string()` | `a.is_string() \|\| (a.is_object() && a.contains("type") && a.contains("port"))` |
+| `AnObjectGroupActionIsIgnoredTheSameWay` | `src/ndt_core/collection/Classifier.cpp:853` | `a.is_string()` | `a.is_string() \|\| (a.is_object() && a.contains("group_id"))` |
+
+## Four conversions that failed, and why that is informative
+
+Of 40 rows needing conversion, 32 produced a valid unique substring and **28 of those survived the
+build-and-run check**. The four that did not are all on the same handful of tests Agent A had
+already flagged NO-FAILURE, and they failed for the structural reason documented above rather than
+through carelessness:
+
+| row | test | outcome | cause |
+|---|---|---|---|
+| 4 | `AReplyWithNoStateIsRejected…` | SURVIVED | mutates only `:2443`; `:462` still throws. This *is* the double-enforcement finding |
+| 23 | `AReplyWithNoStateIsRejected…` | NO-COMPILE | unqualified `make_unique` |
+| 5 | `ANullTasksFieldYieldsNoTasks…` | NO-COMPILE | `array_t` is not a name in that scope |
+| 7 | `ATasksEntryThatIsNotATaskObjectIsRejected` | SURVIVED | guard added at the wrong level |
+
+Rows 4, 7 and 23 are superseded by the hand-built mutations in the NO-FAILURE table above, which do
+kill those tests.
+
+## How this conversion was produced, and what it says about the tool
+
+The literal edits were generated by `deepseek-cli` (deepseek-v4-flash, reasoning_effort=max) from
+the prose rows plus the actual line text, then verified here. Scorecard worth keeping:
+
+- **Extraction: reliable.** 32/40 correct *unique* substrings, **zero hallucinated**, and **8 rows
+  declared `IMPOSSIBLE`** rather than guessed. The prompt explicitly offered that escape hatch and
+  said an honest refusal beats a guess; that is what produced the refusals.
+- **Judging its own output: not reliable.** 4 of 32 were wrong in ways only a compiler or a test
+  run could reveal, despite the prompt requiring valid C++. Two did not even compile.
+
+So the division of labour is: **the model extracts, the toolchain adjudicates.** A cheap check
+(string match) first, then the expensive one (build + run) on everything you intend to rely on.
+Substring-validity alone would have shipped 4 bad rows.
