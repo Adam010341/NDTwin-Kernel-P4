@@ -174,3 +174,46 @@ TEST_F(AllDestinationPaths, RepeatingTheSameSnapshotIsStable)
     EXPECT_EQ(m_collector->getSwitchCount({kA, kB}).value_or(0), 3u);
     EXPECT_EQ(m_collector->getSwitchCount({kA, kC}).value_or(0), 2u);
 }
+
+// --- an empty path inside a non-empty snapshot -------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// setAllPaths guarded the snapshot being empty but not an individual Path being empty, and then did
+// path.front() / path.back() -- undefined behaviour on an empty container, not an empty result.
+// Both callers today do filter empty paths out, but this is a public method, so a caller that does
+// not is a segfault in the sFlow rate loop's neighbour rather than a rejected input. The switchCount
+// line right below already guarded on size, so varying sizes were known about.
+//
+// Found by agy-review 0110.
+
+TEST_F(AllDestinationPaths, AnEmptyPathInASnapshotIsSkippedRatherThanDereferenced)
+{
+    // Under the unguarded version this is UB; in practice a crash or a garbage key.
+    EXPECT_NO_FATAL_FAILURE(m_collector->setAllPaths({sflow::Path{}}));
+    EXPECT_TRUE(m_collector->getAllPaths().empty()) << "an empty path produced an entry";
+}
+
+TEST_F(AllDestinationPaths, TheUsablePathsInAMixedSnapshotAreStillStored)
+{
+    // The reason it skips rather than rejecting the whole snapshot: one bad path among hundreds
+    // must not discard the good ones.
+    m_collector->setAllPaths({sflow::Path{}, pathOf(kA, {1, 5, 2}, kB), sflow::Path{}});
+
+    const auto paths = m_collector->getAllPaths();
+    EXPECT_EQ(paths.size(), 1u) << "the good path was lost, or an empty one was stored";
+    EXPECT_EQ(m_collector->getSwitchCount({kA, kB}).value_or(0), 3u);
+}
+
+TEST_F(AllDestinationPaths, AnEmptyPathDoesNotPreventTheReplacementOfEarlierData)
+{
+    // A snapshot that is non-empty overall still replaces, even if some of its entries are junk --
+    // otherwise a single malformed path would freeze the map at its previous contents.
+    m_collector->setAllPaths({pathOf(kA, {1, 5, 2}, kB)});
+    ASSERT_EQ(m_collector->getAllPaths().size(), 1u) << "precondition";
+
+    m_collector->setAllPaths({sflow::Path{}, pathOf(kA, {1, 6}, kC)});
+
+    EXPECT_FALSE(m_collector->getSwitchCount({kA, kB}).has_value())
+        << "the stale A->B entry survived a snapshot that no longer contains it";
+    EXPECT_EQ(m_collector->getSwitchCount({kA, kC}).value_or(0), 2u);
+}

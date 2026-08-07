@@ -2054,6 +2054,23 @@ FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
 
     for (const auto& path : allPathsVector)
     {
+        // [Co-developed with claude code -- Adam]
+        // front() and back() on an empty Path is undefined behaviour, not an empty result. Both
+        // present callers do filter empty paths out -- HttpSession's push path and
+        // fetchAllDestinationPaths -- but this is a public method, so the invariant belongs with
+        // the code that depends on it rather than with whoever happens to call it today. The
+        // switchCount line below already guards on size, so the sizes were known to vary.
+        //
+        // Skipped rather than rejected wholesale: one unusable path in a snapshot of hundreds
+        // should not discard the rest. Found by agy-review 0110.
+        if (path.empty())
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "ignoring an empty path in a destination-path snapshot of {}",
+                               allPathsVector.size());
+            continue;
+        }
+
         uint32_t srcIp = path.front().first;
         uint32_t dstIp = path.back().first;
 
