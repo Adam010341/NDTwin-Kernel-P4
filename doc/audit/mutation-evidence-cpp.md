@@ -146,6 +146,22 @@ of mine in `test_HttpSessionRouting.cpp`, this one, and one of the agent's own t
 350 tests, green under `ctest` and under `./build/bin/test_routing_strategy` run directly, zero
 skipped, `ctest -N` count == `--gtest_list_tests` count, zero build warnings, and `git status` clean
 across `src/` and `include/` -- no mutation left behind.
+
+---
+
+# Appendix: replayable literal patches (verified 2026-08-07)
+
+The rows in the main table record mutations as *descriptions*, which cannot be applied
+mechanically. Below are those same mutations rewritten as literal `OLD` -> `NEW` edits at the stated
+line, and **none of them is taken on trust**: every entry was applied, built, run, observed to fail
+its named test, and then restored byte-exactly. Apply with a single-occurrence string replace on
+that line.
+
+Two rows name the same test twice where the agent recorded two independent mutations for it; both
+were verified.
+
+| test | file:line | OLD (literal) | NEW (literal) |
+|---|---|---|---|
 | `AnUnmappedTaskTypeIsNamedRatherThanRenderedAsAnInteger` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:227` | `Unknown` | `unmapped` |
 | `AnUnmappedTaskTypeIsNamedRatherThanRenderedAsAnInteger` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:227` | `Unknown` | `unmapped` |
 | `AnUnknownTaskNameIsRejectedRatherThanDefaultingToATask` | `include/ndt_core/intent_translator/LLMResponseTypes.hpp:441` | `throw std::runtime_error("unknown task type: " + std::string{s});` | `return DISABLE_SWITCH;` |
