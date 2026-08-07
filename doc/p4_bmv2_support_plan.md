@@ -2,9 +2,12 @@
 
 ---
 
-## 目前進度（最後更新 2026-07-29，branch `fix/flow-rate-divide-by-zero`）
+## 目前進度（最後更新 2026-08-07，branch `fix/flow-rate-divide-by-zero`）
 
 測試流程與實測數據見 [p4_status_and_test_guide.md](p4_status_and_test_guide.md)。
+
+⚠️ **2026-08-07 校正了兩格**，兩格都是逐項對過程式碼而不是照著上一版抄：Phase 5 只做了一半，
+Phase 6 比原本標的完成得多。
 
 | Phase | 狀態 | 備註 |
 |---|---|---|
@@ -12,11 +15,15 @@
 | **1** typed SwitchKind | ✅ 完成 | `9910151`。O(1) 分派、同質性驗證、headless CLI |
 | **2** 失敗看得見 | ✅ 完成 | `7856efc`、`08746f4`。`OpResult` + 真實 HTTP status |
 | **4** P4 pipeline | ✅ 完成 | `4577983`。5-tuple ternary、ARP、TTL、取樣、counter |
-| **5** telemetry | ✅ **完成並實機驗證** | `c3a1317`、`9a46b4b`、`6bc98d4`。見下方 |
-| **6** 拓撲／liveness／flow table | ⬜ **下一步** | 最大的缺口。入手點見下方 |
+| **5** telemetry | 🟨 **一半**（原本標 ✅，錯了）| flow sample（type 1）✅ 完成並實機驗證；**counter sample（type 2）完全沒實作** —— 見下一節 |
+| **6** 拓撲／liveness／flow table | 🟨 **實作完成，驗收沒完成**（原本標「下一步」，低估了）| 六個項目全部有東西：`inform_switch_entered`、link failure/recovery、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths（走「保留 pull」那個選項）。**缺**：計畫書測試條款要的兩個**觸發**測試（拿到 mastership 會發、beacon 逾時會發）—— 現有測試測的是 notifier 客戶端本身；以及端到端驗收自那之後沒重跑過 |
 | **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖 |
 | **7** 電源管理 | 🟨 一半 | PID manifest 已做（`22ada58`，`/tmp/ndtwin_p4_switches.json`）；`P4PowerStrategy` 還沒用它 |
 | **8** 收尾 | ⬜ 未做 | |
+
+**為什麼這張表會過期**：它是手寫的，而 phase 的推進是靠 commit。只要沒有人回來逐項對，
+它就會停在最後一次有人想起要改的時間點。下一個人如果要相信這張表，先花十分鐘對一遍 ——
+2026-08-07 那次對出兩格是錯的。
 
 ### Phase 5 實機驗證結果（2026-07-29，10 台真實 bmv2）
 
