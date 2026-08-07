@@ -987,6 +987,34 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
     return result_json;
 }
 
+// [Co-developed with claude code -- Adam]
+DeviceConfigurationAndPowerManager::FlowStatsVerdict
+DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json& flows,
+                                                           double elapsedSeconds)
+{
+    // Any entry at all makes this a real observation. Checked first and unconditionally, so a large
+    // table that legitimately took a second is never discarded.
+    if (flows.is_object())
+    {
+        for (const auto& entry : flows.items())
+        {
+            if (entry.value().is_array() && !entry.value().empty())
+            {
+                return FlowStatsVerdict::Usable;
+            }
+        }
+    }
+    else if (flows.is_array() && !flows.empty())
+    {
+        // The P4 proxy's shape. Same rule.
+        return FlowStatsVerdict::Usable;
+    }
+
+    // Nothing anywhere. Believe it only if it arrived too fast to be Ryu's timeout.
+    return (elapsedSeconds >= kFlowStatsSuspectSeconds) ? FlowStatsVerdict::SuspectTimedOut
+                                                        : FlowStatsVerdict::Usable;
+}
+
 json
 DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
 {
@@ -1020,7 +1048,13 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                             dpid,
                             cmd);
 
+        // [Co-developed with claude code -- Adam]
+        // Timed, because the round trip is the only thing separating "this switch has no rules"
+        // from "Ryu waited out its 1 s stats timeout and gave up". See classifyFlowStatsReply.
+        const auto requestStart = std::chrono::steady_clock::now();
         std::string raw = utils::execCommand(cmd);
+        const double elapsedSeconds =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - requestStart).count();
         SPDLOG_LOGGER_TRACE(spdlog::default_logger(),
                             "DeviceManager: raw response for {}: {}",
                             dpid,
@@ -1058,6 +1092,39 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         // Still an error, and still worth one: a *non-empty* body that will not parse means the
         // control plane answered with something unexpected, which no other check would catch.
         nlohmann::json flows = parseFlowStatsTextToJson(raw);
+
+        // [Co-developed with claude code -- Adam]
+        // Why this check exists, measured 2026-08-07: with Ryu wedged the kernel reported all ten
+        // switches as holding zero flow rules while s1 actually held 130 and the fabric was
+        // forwarding normally -- and every liveness indicator stayed green (288/288 edges, 138/138
+        // nodes), so nothing suggested distrusting it. Applying that empty table is what blanked
+        // every flow's path.
+        //
+        // Skipping leaves the previous table in place, the conservative direction: stale data that
+        // was once true beats a confident claim that is false now.
+        if (classifyFlowStatsReply(flows, elapsedSeconds) == FlowStatsVerdict::SuspectTimedOut)
+        {
+            if (m_flowStatsTimeouts.recordFailure())
+            {
+                SPDLOG_LOGGER_WARN(
+                    Logger::instance(),
+                    "{} returned an empty flow table for switch {} after {:.3f}s, at or beyond its "
+                    "{:.1f}s suspicion threshold -- treating it as a lost reply, not as a switch "
+                    "with no rules. Keeping the previous table. Check whether the controller has "
+                    "stopped reading its switch connections.",
+                    ip_and_port,
+                    dpid,
+                    elapsedSeconds,
+                    kFlowStatsSuspectSeconds);
+            }
+            continue;
+        }
+        if (const auto timeouts = m_flowStatsTimeouts.recordSuccess())
+        {
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "flow tables are being answered again after {} timed-out reply(ies)",
+                               *timeouts);
+        }
 
         result.push_back({{"dpid", dpid}, {"flows", flows}});
 

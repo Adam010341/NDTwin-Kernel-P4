@@ -27,6 +27,7 @@ add_executable(
   test_LLMResponseParsing.cpp
   test_LockManager.cpp
   test_ClassifierActionForms.cpp
+  test_FlowStatsTimeout.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

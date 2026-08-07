@@ -265,6 +265,58 @@ class DeviceConfigurationAndPowerManager
     static constexpr double kProbeStaleSeconds = 15.0;
 
     /**
+     * @brief Above this round-trip, an *empty* flow table is treated as a timeout, not as a fact.
+     *
+     * @details Ryu's `ofctl_rest` waits `DEFAULT_TIMEOUT = 1.0` seconds
+     * (`ryu/lib/ofctl_utils.py:28`, awaited by `send_stats_request` at `:253`) for the switch's stats
+     * reply and then answers with whatever it has -- which, when the reply never came, is an empty
+     * table. On the wire that is byte-identical to "this switch genuinely has no rules": both are
+     * `{"1": []}`. The round trip is the only thing that differs, and it differs widely.
+     *
+     * Measured on the OVS testbed, 2026-08-07, 151 samples
+     * (`doc/audit/ryu-wedge-trace-2026-08-07.tsv`):
+     *
+     * | state   | round trip      | body    |
+     * |---------|-----------------|---------|
+     * | healthy | 0.027 - 0.083 s | ~35 KB  |
+     * | wedged  | 1.009 - 1.013 s | 9 bytes |
+     *
+     * 0.5 s sits six times above the worst healthy sample and half of Ryu's own timeout. The
+     * asymmetry is deliberate: a false positive keeps the previous table and logs a warning, while a
+     * false negative tells the twin a working fabric has no rules at all. Erring toward suspicion
+     * costs a log line; erring the other way is what made the twin confidently wrong.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    static constexpr double kFlowStatsSuspectSeconds = 0.5;
+
+    /**
+     * @brief Whether one `/stats/flow` reply may be believed.
+     */
+    enum class FlowStatsVerdict
+    {
+        Usable,          ///< Apply it: it has entries, or it was too fast to be a timeout.
+        SuspectTimedOut, ///< Empty *and* slow. Keep the previous table; do not apply this one.
+    };
+
+    /**
+     * @brief Decide whether a `/stats/flow` reply is evidence or an artefact of Ryu's timeout.
+     *
+     * @param flows          The parsed `flows` value: table-id -> array of entries, or a bare array.
+     * @param elapsedSeconds Round trip actually measured for this request.
+     *
+     * @details A reply carrying any entry at all is always usable -- slowness alone is not a fault
+     * and a large table legitimately takes longer. Only the *combination* of "no entries anywhere"
+     * and "slow" is suspect, because a genuinely empty table is the fastest possible answer: Ryu
+     * already holds it and returns at once, whereas a lost reply costs the full timeout.
+     *
+     * Stateless and total, so it is testable without a control plane.
+     * See tests/test_FlowStatsTimeout.cpp. [Co-developed with claude code -- Adam]
+     */
+    static FlowStatsVerdict classifyFlowStatsReply(const nlohmann::json& flows,
+                                                   double elapsedSeconds);
+
+    /**
      * @brief Decides one bmv2 switch's liveness from the evidence `GET /p4/switch_state` reported.
      *
      * @param dpid    The switch's datapath id.
@@ -472,6 +524,12 @@ class DeviceConfigurationAndPowerManager
     /// error per switch per poll when the control plane was absent -- 216 of them during one
     /// four-minute outage. [Co-developed with claude code -- Adam]
     FailureRun m_flowStatsFetchFailures;
+
+    /// [Co-developed with claude code -- Adam]
+    /// Separate run from m_flowStatsFetchFailures: "the control plane did not answer" and "it
+    /// answered with an empty table it could not actually see" are different faults with different
+    /// fixes, and collapsing them would report the wedge as an outage.
+    FailureRun m_flowStatsTimeouts;
 
     /**
      * @brief Fetches `GET /p4/switch_state` from the proxy, or nullopt if it could not be read.
