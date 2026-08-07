@@ -24,6 +24,9 @@ add_executable(
   test_RelayResponse.cpp
   test_AllDestinationPaths.cpp
   test_HttpSessionRouting.cpp
+  test_LLMResponseParsing.cpp
+  test_LockManager.cpp
+  test_ClassifierActionForms.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
