@@ -20,6 +20,11 @@ then
 
     PYTHONPATH=p4_proxy p4_proxy/venv/bin/python p4_proxy/tests/test_p4_client.py
 
+NDTWIN_L1_OPT_IN -- this token tells tools/test_workflow/l1_unit_tests.sh that a fully skipped run
+of this file is the intended outcome and not a defect. Without it the runner fails any file where
+every test skipped, because unittest counts skipped tests inside "Ran N" and such a file otherwise
+reports "Ran 1 test / OK" while asserting nothing. Do not add the token to a unit test.
+
 [Co-developed with claude code -- Adam]
 """
 

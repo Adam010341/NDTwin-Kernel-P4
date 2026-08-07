@@ -169,10 +169,37 @@ else
             grep -E "^(FAIL|ERROR):|AssertionError|SkipTest" "$log" | head -12 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
         elif [[ $ran -eq 0 ]]; then
-            # Either everything skipped or nothing was collected. Both mean this file proved
-            # nothing, which is exactly the failure mode this script exists to catch.
+            # Nothing was collected at all.
             echo "${Y}NO TESTS RAN${N} ${D}(missing dependency? see $log)${N}"
             grep -E "SkipTest|ModuleNotFound" "$log" | head -3 | sed 's/^/      /'
+        elif [[ $skipped -gt 0 && $skipped -eq $ran ]]; then
+            # [Co-developed with claude code -- Adam]
+            # Every test in the file skipped, so the file asserted nothing. The `ran -eq 0` branch
+            # above cannot catch this: unittest counts skipped tests *inside* "Ran N", unlike
+            # gtest, so such a file prints "Ran 55 tests / OK" and used to be reported green.
+            #
+            # Three different situations reach here and they do not deserve the same verdict:
+            #
+            #  1. the file is an opt-in live test that says so. test_p4_client.py needs a real bmv2
+            #     on :50051 and skips deliberately -- that is the design, not a defect, so it must
+            #     not fail the run. It has to *declare* itself, though, because "everything
+            #     skipped" is indistinguishable from a broken file otherwise.
+            #  2. no interpreter on this machine has the P4Runtime protobufs, so the skip is the
+            #     environment's fault rather than the file's. Reported, not failed.
+            #  3. neither of those: the file could have run and chose not to. That is the bug this
+            #     branch exists for.
+            if grep -q 'NDTWIN_L1_OPT_IN' "$testfile"; then
+                echo "${Y}SKIPPED${N} ${D}all ${ran} skipped; file declares it needs a live" \
+                     "switch (NDTWIN_L1_OPT_IN)${N}"
+            elif [[ -z "$PY_P4" ]]; then
+                echo "${Y}PROVED NOTHING${N} ${D}all ${ran} skipped (no interpreter with the" \
+                     "P4Runtime protobufs)${N}"
+            else
+                echo "${R}FAIL${N} all ${ran} test(s) skipped, and the file does not declare" \
+                     "itself opt-in — it asserted nothing"
+                grep -E "\.\.\. skipped" "$log" | head -3 | sed 's/^/      /'
+                FAILURES=$((FAILURES + 1))
+            fi
         elif [[ $skipped -gt 0 ]]; then
             echo "${G}PASS${N}  ${D}${ran} ran, ${skipped} skipped${N}"
         else
@@ -209,12 +236,21 @@ else
         # nothing and must not read as a pass.
         ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
         ran=${ran:-0}
+        # [Co-developed with claude code -- Adam]
+        # Counted because "Ran N" includes skipped tests, so N > 0 does not mean anything was
+        # asserted. Nothing here may skip for an environment reason: these run under plain python3
+        # by design and depend on nothing outside it, so a skip is a broken test, full stop.
+        skipped=$(grep -cE "\.\.\. skipped" "$log")
         if [[ $rc -ne 0 ]]; then
             echo "${R}FAIL${N} (exit $rc, ran=$ran)"
             grep -E "^(FAIL|ERROR):|AssertionError|FAILED " "$log" | head -8 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
         elif [[ $ran -eq 0 ]]; then
             echo "${Y}NO TESTS RAN${N} ${D}(see $log)${N}"
+            FAILURES=$((FAILURES + 1))
+        elif [[ $skipped -gt 0 ]]; then
+            echo "${R}FAIL${N} ${skipped} of ${ran} test(s) skipped — nothing here has a reason to skip"
+            grep -E "\.\.\. skipped" "$log" | head -5 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
         else
             echo "${G}PASS${N} ${D}${ran} ran and passed${N}"
