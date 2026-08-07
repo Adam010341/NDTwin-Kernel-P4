@@ -277,6 +277,38 @@ class BoundedWords
 };
 
 /**
+ * @brief Bytes or packets seen since the previous reading, saturating at zero.
+ *
+ * @param current  This interval's counter reading.
+ * @param previous Last interval's reading of the same counter.
+ * @return current - previous, or 0 if the counter went backwards.
+ *
+ * @details These counters are meant to be monotonic, so the rate loop subtracted them directly.
+ * They are `uint64_t`, so any reading that goes backwards does not produce a small negative number
+ * -- it wraps to about **1.8e19**. That is then multiplied by 8 and by the sampling rate and
+ * reported as a flow's bit rate, and it sails past `MICE_FLOW_UNDER_THRESHOLD` (10 Mbps) into the
+ * elephant-flow classification.
+ *
+ * A counter going backwards is not hypothetical. It happened whenever two sFlow worker threads
+ * raced on a newly created flow: the loser's branch *assigned* the byte count instead of
+ * accumulating, discarding what the winner had already added. That specific race is fixed, but the
+ * subtraction should not be one lost update away from reporting 18 exabits per second either way --
+ * purging and re-creating a flow between two intervals reaches the same place.
+ *
+ * Saturating at zero rather than clamping to the previous value: the honest reading of "the counter
+ * I am differencing was reset" is "I do not know what happened during this interval", and zero is
+ * the only answer that cannot invent traffic. It under-reports one interval; the alternative
+ * over-reports by twelve orders of magnitude.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+inline uint64_t
+counterDelta(uint64_t current, uint64_t previous)
+{
+    return (current >= previous) ? (current - previous) : 0;
+}
+
+/**
  * @brief Averaged sending rates for a flow, plus whether any hop observed traffic.
  *
  * [Co-developed with claude code -- Adam]

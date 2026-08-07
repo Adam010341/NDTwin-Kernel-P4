@@ -11,6 +11,8 @@
 #include <gtest/gtest.h>
 
 #include "common_types/SFlowType.hpp"
+// For MICE_FLOW_UNDER_THRESHOLD, which is what the wrapped value used to cross.
+#include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -105,4 +107,76 @@ TEST(ComputeEstimatedRatesTest, HandlesLargeAccumulatedTotalsWithoutOverflow)
     EXPECT_TRUE(rates.hasActiveHops);
     EXPECT_EQ(rates.flowSendingRate, large / 2);
     EXPECT_EQ(rates.packetSendingRate, large / 2);
+}
+
+// --- counterDelta ------------------------------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// The rate loop subtracted two uint64_t counter readings directly. They are meant to be monotonic,
+// so a reading that goes backwards does not give a small negative number -- it wraps to ~1.8e19,
+// gets multiplied by 8 and the sampling rate, and is reported as the flow's bit rate. That sails
+// past MICE_FLOW_UNDER_THRESHOLD (10 Mbps) and, because the clearing `else` was commented out, the
+// elephant-flow flag then latched for the rest of the process.
+//
+// A counter going backwards was reachable: two sFlow workers racing on a newly created flow, where
+// the loser's branch assigned the byte count instead of accumulating. That race is fixed, but
+// purging and re-creating a flow between intervals reaches the same state, so the subtraction is
+// guarded on its own terms.
+
+TEST(CounterDeltaTest, TheOrdinaryForwardCaseIsPlainSubtraction)
+{
+    EXPECT_EQ(sflow::counterDelta(1500, 500), 1000u);
+    EXPECT_EQ(sflow::counterDelta(1, 0), 1u);
+}
+
+TEST(CounterDeltaTest, NoTrafficSinceTheLastReadingIsZeroNotAnError)
+{
+    EXPECT_EQ(sflow::counterDelta(500, 500), 0u);
+    EXPECT_EQ(sflow::counterDelta(0, 0), 0u);
+}
+
+TEST(CounterDeltaTest, ACounterThatWentBackwardsYieldsZeroRatherThanWrappingTo18Exa)
+{
+    // The actual defect. A bare `current - previous` here is 18446744073709551615.
+    EXPECT_EQ(sflow::counterDelta(0, 1), 0u);
+    EXPECT_EQ(sflow::counterDelta(500, 1500), 0u);
+}
+
+TEST(CounterDeltaTest, TheWrappedValueWouldHaveBeenReportedAsAnElephantFlow)
+{
+    // Ties the guard to the consequence rather than to the arithmetic. Reproduce what the call site
+    // does with the delta -- x8, x sampling rate -- and check the unguarded form really does cross
+    // the threshold while the guarded one does not. If MICE_FLOW_UNDER_THRESHOLD ever moves, this
+    // still holds, because the wrapped value is 12 orders of magnitude above any plausible value.
+    constexpr uint64_t current = 500;
+    constexpr uint64_t previous = 1500; // a lost update: fewer bytes than last interval
+    constexpr uint32_t samplingRate = 256;
+
+    const uint64_t guarded = sflow::counterDelta(current, previous) * 8 * samplingRate;
+    const uint64_t unguarded = (current - previous) * 8 * samplingRate; // what it used to compute
+
+    EXPECT_EQ(guarded, 0u);
+    EXPECT_GT(unguarded, MICE_FLOW_UNDER_THRESHOLD)
+        << "the unguarded form no longer reproduces the bug; this test has stopped meaning anything";
+    EXPECT_LT(guarded, MICE_FLOW_UNDER_THRESHOLD);
+}
+
+TEST(CounterDeltaTest, ARealCounterResetToZeroIsTheCommonBackwardsCase)
+{
+    // What purge-then-recreate looks like: the flow reappears with its counters at the frame size
+    // of one packet while `previous` still holds the pre-purge total.
+    EXPECT_EQ(sflow::counterDelta(1514, 9'000'000), 0u);
+}
+
+TEST(CounterDeltaTest, LargeForwardDeltasAreNotClamped)
+{
+    // The guard must not cost real throughput. A 10 Gbps link fills ~1.25 GB in a second.
+    constexpr uint64_t previous = 1'000'000'000;
+    constexpr uint64_t current = previous + 1'250'000'000;
+    EXPECT_EQ(sflow::counterDelta(current, previous), 1'250'000'000u);
+
+    // And the extreme edge stays exact.
+    constexpr uint64_t max = std::numeric_limits<uint64_t>::max();
+    EXPECT_EQ(sflow::counterDelta(max, 0), max);
+    EXPECT_EQ(sflow::counterDelta(max, max), 0u);
 }

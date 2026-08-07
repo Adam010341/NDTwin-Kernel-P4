@@ -1581,8 +1581,12 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                         stats.ingressByteCountCurrent + stats.egressByteCountCurrent;
                     uint64_t byte_count_previous =
                         stats.ingressByteCountPrevious + stats.egressByteCountPrevious;
+                    // counterDelta, not a bare subtraction: these are uint64_t, so a counter
+                    // that went backwards wrapped to ~1.8e19 and was reported as the flow's bit
+                    // rate. [Co-developed with claude code -- Adam]
                     stats.avgByteRateInBps =
-                        (byte_count_current - byte_count_previous) * 8 * currentSamplingRate;
+                        sflow::counterDelta(byte_count_current, byte_count_previous) * 8 *
+                        currentSamplingRate;
 
                     SPDLOG_LOGGER_TRACE(Logger::instance(),
                                         "Agent {}:{} Current ingress byte counter: {},Current "
@@ -1599,7 +1603,8 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                     uint64_t packetCountPrevious =
                         stats.ingresspacketCountPrevious + stats.egresspacketCountPrevious;
                     stats.avgPacketRate =
-                        (packetCountCurrent - packetCountPrevious) * currentSamplingRate;
+                        sflow::counterDelta(packetCountCurrent, packetCountPrevious) *
+                        currentSamplingRate;
 
                     // --- 2. AGGREGATE THE RESULTS  ---
 
@@ -1635,14 +1640,23 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                 uint64_t estimatedFlowSendingRatePeriodically = rates.flowSendingRate;
                 info.estimatedFlowSendingRatePeriodically = estimatedFlowSendingRatePeriodically;
 
+                // [Co-developed with claude code -- Adam]
+                // The else was commented out, so the flag latched: once set it was never cleared,
+                // and a flow that spiked for one interval stayed an elephant for the rest of the
+                // process. The name says "Periodically" -- it is meant to describe this interval --
+                // and the Immediately variant a few hundred lines down has always had its else, so
+                // this was an oversight rather than a decision.
+                //
+                // A latched flag mattered more than it looks: the unsigned underflow above could
+                // set it from a single lost counter update, permanently.
                 if (estimatedFlowSendingRatePeriodically >= MICE_FLOW_UNDER_THRESHOLD)
                 {
                     info.isElephantFlowPeriodically = true;
                 }
-                // else
-                // {
-                //     info.isElephantFlowPeriodically = false;
-                // }
+                else
+                {
+                    info.isElephantFlowPeriodically = false;
+                }
 
                 uint64_t estimatedPacketSendingRatePeriodically = rates.packetSendingRate;
                 info.estimatedPacketSendingRatePeriodically =
