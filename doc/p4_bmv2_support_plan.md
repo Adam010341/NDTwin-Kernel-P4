@@ -32,15 +32,36 @@
 
 計畫本體見下面的 Phase 6 章節，這裡補上實測才發現、會影響實作的細節：
 
-1. **`updateHosts` 的 `ipv4` 前置條件擋掉了 127/128 台 host**（連 OVS 模式都是）。
-   [TopologyAndFlowMonitor.cpp](../src/ndt_core/collection/TopologyAndFlowMonitor.cpp) 的 `updateHosts`
-   開頭有 `if (host["ipv4"].empty()) continue;`。但 `testbed_topo.py` 幫每台 host 設了 static ARP
-   （`arp -s`），host 因此永不發 ARP，而 Ryu 的 host tracker 是從 ARP 學 IP —— 所以 Ryu 回報 128 台
-   host 卻只有 1 台有 IPv4。結果 **254/256 條 host edge 永遠是 down**，`get_graph_data` 的 L2 契約
-   因此過不了。
-   值得注意的是：**vertex 是用 MAC 比對的**（`findVertexByMac`，沒有 IP 也能成功），只有 **edge 用 IP**
-   （`findEdgeByHostIp`）。所以那個 early `continue` 比實際需要的更嚴格。要改的話得先決定 edge 能不能
-   改用 MAC 對應 —— 這動到共用的 OVS 路徑，不能只為 P4 改。
+1. ~~**`updateHosts` 的 `ipv4` 前置條件擋掉了 127/128 台 host**~~
+   ✅ **已修（2026-08-03，commit `71d27c1`）—— 而且這一條原本寫的成因是錯的。**
+
+   原本寫的是：「`testbed_topo.py` 設了 static ARP（`arp -s`），host 因此永不發 ARP，Ryu 的 host
+   tracker 學不到 IP，所以 254/256 條 host edge **永遠**是 down」。**那個因果不成立。**
+   `testbed_topo.py` 設完 static ARP 之後**自己平行 ping 全部 128 台 host**（64 對 × 雙向），每台都
+   送出 IP 封包 —— 那就是教會 Ryu 的東西。空 `ipv4` 是**暫態**，不是永久限制。
+
+   兩次實測：
+
+   | 日期 | Ryu `/v1.0/topology/hosts` | kernel `get_graph_data` |
+   |---|---|---|
+   | 2026-07-29（本條原本的依據）| 128 台，**1 台**有 ipv4 | 254/256 host edge down |
+   | 2026-08-07（連續運轉 3.6 天後）| 128 台，**128 台全部**有 ipv4 | **288/288 edge、138/138 node up** |
+
+   **真正的成因，而且比原本寫的廣得多**：`TopologyAndFlowMonitor::run()` 呼叫
+   `fetchAndUpdateTopologyData()` **一次就 return**（實測進出相隔 88 毫秒），整個 process 生命週期內
+   再也沒有重讀。整張圖 —— switch、host、link **全部** —— 就是 Ryu 在那一瞬間知道的東西。所以決定
+   成敗的變數是**啟動間隔**：手動啟動比 Mininet 晚 73 秒 → ping burst 早跑完 → 128/128 up；
+   `stack.sh up ovs` 背靠背 → 快照落在 burst 中間 → 永久性缺料。同一份程式碼、同一個網路、不同判定。
+
+   host 是最明顯的症狀，因為**它完全沒有 push 路徑**：switch 走 `/ndt/inform_switch_entered`、
+   link 失效走 `/ndt/link_failure_detected`，但**沒有任何東西 push host**。
+
+   已改成定期輪詢（前 90 秒每 5 秒、之後每 30 秒）。詳細的驗證過程、以及第一版輪詢讓圖不斷增長的
+   那個 bug，見 `doc/HANDOFF.md` §2 的 `get_graph_data` 條目。
+
+   仍然成立的一點：**vertex 是用 MAC 比對的**（`findVertexByMac`，沒有 IP 也能成功），只有 **edge 用
+   IP**（`findEdgeByHostIp`），所以那個 early `continue` 比它下面的程式碼實際需要的更嚴格。這一點沒有
+   被上面的修正推翻，只是不再是 blocker。
 
 2. **`/stats/flow/{dpid}` 的回傳形狀要對齊**。kernel 文件（和 OVS 模式）是
    `flows` = `{table_id: [entries]}` 的 map；P4 proxy 目前的 stub 回傳裸 list。實作時要用 map，
