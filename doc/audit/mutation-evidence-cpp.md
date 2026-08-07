@@ -222,3 +222,43 @@ the prose rows plus the actual line text, then verified here. Scorecard worth ke
 So the division of labour is: **the model extracts, the toolchain adjudicates.** A cheap check
 (string match) first, then the expensive one (build + run) on everything you intend to rely on.
 Substring-validity alone would have shipped 4 bad rows.
+
+---
+
+# Appendix 2: FlowStatsTimeoutTest (10 tests, verified 2026-08-07)
+
+Guards the fix for the Ryu wedge -- refusing an empty flow table that arrived at Ryu's stats
+timeout. Every row applied, built, run, observed, restored. Anchors are literal and
+single-occurrence, so each is replayable with a plain string replace on that line.
+
+| # | mutation | file | kills |
+|---|---|---|---|
+| M1 | `kFlowStatsSuspectSeconds = 0.5;` -> `= 0.02;` | `…/DeviceConfigurationAndPowerManager.hpp` | **5** — every "a healthy round trip must still be believed" test |
+| M2 | `kFlowStatsSuspectSeconds = 0.5;` -> `= 1.5;` | same | **6** — every "a wedged round trip must be refused" test |
+| M3b | `if (entry.value().is_array() && …)` -> `if (entry.key() == "0" && entry.value().is_array() && …)` | `…PowerManager.cpp` | 1 — `EntriesInAnyTableCountNotJustTheFirst` |
+| M4 | `elapsedSeconds >= kFlowStatsSuspectSeconds` -> `>` | same | 1 — `TheThresholdIsInclusive…` |
+| M5 | `else if (flows.is_array() && !flows.empty())` -> `else if (false)` | same | 1 — `TheP4ProxyArrayShapeIsHandledToo` |
+| M6b | inner `return FlowStatsVerdict::Usable;` (16-space indent) -> latency-conditional | same | 2 — `ATableWithEntriesIsAlwaysBelievedNoMatterHowSlow`, `EntriesInAnyTableCountNotJustTheFirst` |
+
+M1 and M2 are deliberately kept as a pair: they kill **disjoint** sets from opposite sides, so the
+threshold is pinned from below *and* above. A single mutation could not establish that.
+
+## Two mutations that failed, and what they cost
+
+- **M3 (`if (false)`) did not compile** -- `-Werror` on the now-unused loop variable. A mutation that
+  does not build is not evidence either way; replaced with M3b, which is also narrower.
+- **M6 survived, and that was my error rather than a surviving test.** I inserted the latency check
+  *after* the early `return Usable`, where a non-empty table can never reach it -- dead code, so of
+  course nothing failed. The lesson is the one already recorded twice in this file: confirm the
+  mutation is on the path the test exercises, not merely present in the file. M6b moves the check
+  onto the early return and kills 2 tests.
+
+## Process note: I nearly destroyed this work verifying it
+
+The first attempt at this table used `git checkout -- <file>` to revert each mutation while the
+feature was still **uncommitted**, so the first revert discarded the entire change -- header, source
+and all. It was reconstructed from scratch. `git checkout` is only a safe revert once the work is
+committed; before that, copy the file aside. This is the same hazard handled correctly two hours
+earlier for `test_HttpSessionRouting.cpp` with a scratchpad copy, and then not carried across.
+
+**Commit the feature first, then mutate.** That is now the order followed here.
