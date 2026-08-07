@@ -23,6 +23,7 @@ add_executable(
   test_P4Liveness.cpp
   test_RelayResponse.cpp
   test_AllDestinationPaths.cpp
+  test_HttpSessionRouting.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
@@ -36,6 +37,14 @@ target_link_libraries(
   NdtCore_CollectionLib
   NdtCore_PowerManagementLib
   NdtCore_ApplicationLib
+  # [Co-developed with claude code -- Adam]
+  # Added for test_HttpSessionRouting. NdtCore_HttpLib declares Utils/EventSystem/Collection/
+  # EventHandling but not the managers HttpSession's handlers call into, so the rest are listed
+  # here: IntentTranslator, DataManagement and EventHandling complete the closure.
+  NdtCore_HttpLib
+  NdtCore_IntentTranslatorLib
+  NdtCore_DataManagementLib
+  NdtCore_EventHandlingLib
   EventSystemLib
   UtilsLib
   ssh

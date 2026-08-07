@@ -70,6 +70,14 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     void start();
 
   private:
+    // [Co-developed with claude code -- Adam]
+    // Test seam. tests/test_HttpSessionRouting.cpp constructs a session over an unconnected
+    // socket, sets m_req and calls buildResponse(), which does no I/O. Granted to one named peer
+    // rather than opening the routing internals up, and preferred over testing extracted helpers
+    // because the thing worth asserting -- which status code an endpoint answers with -- is
+    // decided by the catch clauses in buildResponse and is not observable anywhere else.
+    friend class HttpSessionTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);
@@ -79,6 +87,16 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
 
     // --- Request Routing and Handling ---
     void handleRequest();
+
+    /**
+     * @brief Route m_req to its handler and return the response, mapping any escaping exception
+     *        to a status code: json::exception to 400, anything else to 500.
+     *
+     * Performs no socket I/O; handleRequest() is this followed by writeResponse().
+     *
+     * @return The response to send. Never null.
+     */
+    std::shared_ptr<http::response<http::string_body>> buildResponse();
 
     // Each API endpoint gets its own handler function for clarity.
     /**

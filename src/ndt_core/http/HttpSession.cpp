@@ -97,6 +97,24 @@ HttpSession::handleRequest()
                        m_req.method_string(),
                        m_req.target());
 
+    m_res = buildResponse();
+    writeResponse();
+}
+
+// [Co-developed with claude code -- Adam]
+// Split out of handleRequest so the routing table and the exception-to-status mapping can be
+// exercised without a connected socket -- everything up to writeResponse() is a pure
+// request-to-response function.
+//
+// That mapping is the part that needed a test. `?dpid=abc` and a non-numeric "app_id" were both
+// answering 500 because std::stoull/std::stoi throw std::invalid_argument, which lands in the
+// std::exception catch rather than the json::exception one. Both were fixed by parsing the value
+// explicitly, but nothing could observe the fix: putting std::stoi back left the entire suite
+// green, because a test that calls a validation helper directly never sees which catch clause
+// would have run. Driving the real router is the only way that distinction is visible.
+std::shared_ptr<http::response<http::string_body>>
+HttpSession::buildResponse()
+{
     auto response =
         std::make_shared<http::response<http::string_body>>(http::status::ok, m_req.version());
     response->keep_alive(m_req.keep_alive());
@@ -120,9 +138,7 @@ HttpSession::handleRequest()
         if (method == http::verb::options)
         {
             response->result(http::status::no_content); // 204 No Content
-            m_res = response;
-            writeResponse();
-            return;
+            return response;
         }
 
         // --- API ROUTING ---
@@ -321,8 +337,7 @@ HttpSession::handleRequest()
         SPDLOG_LOGGER_ERROR(Logger::instance(), "Unknown exception in request handler.");
     }
 
-    m_res = response;
-    writeResponse();
+    return response;
 }
 
 void
