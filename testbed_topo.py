@@ -117,16 +117,23 @@ def enable_sflow(switch, agent_iface, collector_ip, collector_port=6343):
     cmd = (
         f"ovs-vsctl -- --id=@sflow create sflow agent={agent_iface} "
         # [Co-developed with claude code -- Adam]
-        # polling is the counter-sample interval in seconds, and 0 disables counter samples
-        # entirely. The kernel computes link utilisation from the ifInOctets/ifOutOctets those
-        # samples carry (FlowLinkUsageCollector handles sampleType 2), so with polling=0 it never
-        # receives the one input that metric needs. Measured 2026-08-07: with polling=0, zero
-        # counter samples reach the collector; with polling=10, 101 arrived in 30 s.
+        # polling=0 disables sFlow counter samples, and that is correct here -- do not "fix" it.
         #
-        # This is necessary but NOT sufficient -- see doc/HANDOFF.md: with counter samples arriving
-        # and a link running at 954 Mbit/s, get_average_link_usage still answered 0.0, so there is a
-        # second defect in the kernel's counter-sample-to-link-usage path.
-        f'target=\\"{target}\\" header=128 sampling=256 polling=10 '
+        # I changed it to 10 on 2026-08-07 believing it was why get_average_link_usage read 0.0, and
+        # that was wrong. In MININET mode the kernel discards every counter sample before using it
+        # (FlowLinkUsageCollector.cpp, the `m_mode == utils::MININET` early continue in the
+        # sampleType 2 branch) and derives link utilisation from *flow* samples instead, via
+        # m_counterReports. Counter samples are only read on the TESTBED path, whose fixed offsets
+        # are calibrated for Brocade and HPE hardware.
+        #
+        # The 0.0 had nothing to do with any of that: the traffic was h1 to h2, and both are on
+        # dpid 1, while getAvgLinkUsage counts switch-to-switch edges only. Re-run across the fabric
+        # -- 10.0.0.1 to 10.0.0.100, which is dpid 1 to dpid 4 -- and it reads 0.166, 0.256, 0.278
+        # and back to 0.0 when the traffic stops. The metric was right and I was measuring the
+        # wrong link.
+        #
+        # So enabling polling here buys nothing in MININET and only adds datagrams.
+        f'target=\\"{target}\\" header=128 sampling=256 polling=0 '
         f"-- set bridge {switch} sflow=@sflow"
     )
     os.system(cmd)

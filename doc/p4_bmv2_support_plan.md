@@ -53,9 +53,18 @@ Phase 5 的規格寫了**兩種** sample：
 | proxy 裡誰呼叫 `read_egress_counter` | **沒有人**（只有測試呼叫它） |
 | kernel 那邊 type 2 餵給什麼 | `FlowLinkUsageCollector.cpp:953` 起處理 `sampleType == 2`，取 `ifIndex` / `ifSpeed` / `inOctets` / `outOctets` |
 
-**後果**：P4 模式下 kernel 收不到任何 counter sample，所以鏈路使用率少了它在 OVS 模式下的主要
-輸入。`get_average_link_usage` 在 P4 側會缺料，而 L4 的 shape/facts 比對應該會抓到這一點 ——
-這正是那個工具存在的理由。
+**後果 —— 這段 2026-08-07 當天就修正過一次，原本寫錯了**：
+
+原本寫「P4 側會因此缺料，鏈路使用率少了它在 OVS 模式下的主要輸入」。**那句話是錯的。**
+實測查證：MININET 模式**根本不讀 counter sample** —— `sampleType == 2` 那個分支開頭就是
+`if (m_mode == utils::MININET) continue;`，鏈路使用率是從 **flow sample** 經 `m_counterReports`
+算出來的，而且**實測是好的**（跨 fabric 的 iperf 讓 `avg_link_usage` 到 0.278）。
+
+所以 counter sample 在 MININET／P4 這條路上**本來就沒有被使用**，emitter 沒實作它是**與 OVS 對等**，
+不是缺料。真正的影響範圍是 **TESTBED 模式**，而那條路的偏移量是為 Brocade／HPE 校準的。
+
+這一格仍然標「一半」，因為計畫書的 Phase 5 規格確實寫了兩種 sample 而只做了一種 —— 但它**不影響
+目前任何一個實際跑得到的指標**，優先度應該調低。
 
 **順帶一個要等的修法**：`read_egress_counter`（`p4_client.py:414`）在兩條路上都靜默回 `(0, 0)`
 —— p4info 裡找不到 counter，以及 `except Exception: pass`。持續失敗的 gRPC 和「這條 link 閒置」

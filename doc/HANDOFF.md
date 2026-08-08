@@ -1102,23 +1102,48 @@ kernel 都在跑，s1-s5 已接回、32 條 link，我起的 iperf（h1→h34）
 修法：三個站點改成 WARN，並把契約測試會故意觸發的 client-error WARN 加進 allowlist（每條都寫理由）。
 之後 log 檢查 **PASS：182 行、0 error、10 warning 全部有登記**。
 
-#### 新發現 2：`avg_link_usage` 在 954 Mbit/s 的滿載鏈路上回 0.0 —— 兩個獨立的缺陷
+#### ~~新發現 2：`avg_link_usage` 回 0.0~~ ❌ **整段撤回：那不是 bug，是我量錯了鏈路**
 
-**第一個（config）**：`testbed_topo.py` 的 sFlow 設定是 `polling=0`。`polling` 是 counter sample 的
-間隔秒數，**0 等於完全關掉 counter sample**。而 kernel 的鏈路使用率就是從 counter sample 帶的
-`ifInOctets`／`ifOutOctets` 算出來的（`FlowLinkUsageCollector.cpp:953` 起處理 `sampleType == 2`）。
-所以預設的 OVS testbed **從來沒有送過 counter sample**。已改成 `polling=10`。
+留著整段，因為錯誤的推理過程比結論有價值。
 
-**第二個（kernel，未修）**：把 `polling` 開起來之後，實測 **30 秒內 101 個 counter sample 送達**
-（tcpdump 解析 sample type：type 2 有 101 個、type 1 有 1 個），而且鏈路跑 954 Mbit/s ——
-**`avg_link_usage` 還是 0.0**。所以 kernel 從 counter sample 到鏈路使用率這條路上另有問題。
-可疑的地方：`ifIndex → ofport` 對應（`populateIfIndexToOfportMap` 會 shell out 去問 `ovs-vsctl`）、
-agent IP 的歸戶、或 `leftLinkBandwidth` 從來沒被更新。**這是下一個要查的。**
+**我當時的說法**：`avg_link_usage` 在 954 Mbit/s 的滿載鏈路上回 0.0，是兩個獨立缺陷 ——
+`testbed_topo.py` 的 `polling=0` 關掉了 counter sample，而且就算開了 kernel 也算不出來。
 
-⚠️ **這也更正了我幾個 commit 前寫進計畫書的東西**：我當時寫「P4 側因為 emitter 沒有 counter sample，
-所以鏈路使用率會缺料」。那句話對，但不完整 —— **OVS 側也沒有**（`polling=0`），而且就算有，
-kernel 也算不出來。所以 P4 emitter 缺 counter sample 是**與 OVS 對等**，不是 P4 的退化。
-真正的缺口是**這個指標在兩個 data plane 上都沒有work過**。
+**推翻它的測量**：`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2431`）**只計算 switch-to-switch
+的 edge**，兩端有 host 的一律跳過。而我跑的 iperf 是 h1 → h2 —— 從拓撲檔查證：
+**10.0.0.1 和 10.0.0.2 都掛在 dpid 1**（host 分佈在 dpid 1-4，每台 32 個；5-10 是轉送層）。
+那條流量**從來沒有經過任何一條 switch-to-switch 鏈路**，所以 0.0 是**正確答案**。
+
+換成跨 fabric 重跑（10.0.0.1 → 10.0.0.100，dpid 1 → dpid 4）：
+
+| t | avg_link_usage |
+|---|---|
+| 7s | **0.166** |
+| 14s | **0.256** |
+| 21s | **0.278** |
+| 流量停止後 | 0.0 |
+
+**這個指標一直是好的。**
+
+##### 連帶撤回的兩件事
+
+| 我做的 | 為什麼撤回 |
+|---|---|
+| 把 `testbed_topo.py` 的 `polling` 從 0 改成 10 | MININET 模式**根本不讀 counter sample** —— `sampleType == 2` 那個分支一開頭就 `if (m_mode == utils::MININET) continue;`，鏈路使用率是從 **flow sample** 經 `m_counterReports` 算的。所以 `polling=0` 是對的、是刻意的，開它只是多送封包。已改回 0，並把這段推理寫在那一行旁邊，免得下一個人再「修」一次 |
+| 抓了 3 個 OVS counter-sample fixture | 它們記錄的是 MININET 從來不解析的那條路。留著會讓人以為那條路有測試覆蓋。已刪 |
+
+##### 但有兩件觀察仍然成立，只是不是 bug
+
+1. **counter sample 的偏移量是為 Brocade／HPE 硬體校準的**（程式碼註解自己就寫了 vendor 名字）。
+   實測 OVS 的 counter sample 是 **4 個 record**：format 2（ethernet，52 bytes）、1004、1005、
+   最後才是 format 1（generic if counters，88 bytes，真正帶 `ifInOctets`／`ifOutOctets` 的那個）。
+   kernel 用固定偏移 `index + 4 + 15 + …`，在 OVS 的排列上會落在前三個 record 裡。
+   **但這條路只有 TESTBED 模式會走，而 testbed 就是 Brocade／HPE**，所以不是 bug。
+   如果哪天要讓 MININET 也用 counter sample，**必須改成走 record**（讀 `num_records`，逐一讀
+   `(format, length)`，挑 format == 1），不能沿用固定偏移。
+2. **所有 31 個 fixture 只有 flow sample（118 個），零個 counter sample**，而
+   `test_GoldenFixture.cpp` 也只處理 `sampleType == 1`。這是真的覆蓋缺口，但它缺的是
+   TESTBED 那條路，優先度低。
 
 #### 我自己在這一輪犯的錯
 
