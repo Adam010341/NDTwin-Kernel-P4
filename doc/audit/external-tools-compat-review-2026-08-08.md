@@ -158,11 +158,41 @@ Web-GUI 對一個不存在的 dpid 裝流表，以前跳 **「Flow added success
 
 ---
 
+## 它剩下的兩個「無法判定」，事後補查，都是 SAFE
+
+### §6.3 Energy-Saving-App 對內容層改動的消費 —— SAFE，但差一點不是
+
+`src/common/types.cpp:55-67` 的 `from_json(const json&, FlowData&)` 對 `path` 的每個元素
+**要求恰好是兩個鍵的 object，否則 `throw std::runtime_error`**：
+
+```cpp
+for (auto &&item : j.at("path")) {
+    if (item.is_object() && item.size() == 2) { ... }
+    else { throw std::runtime_error("Invalid format for pair in 'path' (FlowData)"); }
+}
+```
+
+關鍵是：**`path` 是 `[]` 時這個迴圈體從來不執行**，所以任何形狀不符都是潛伏的；
+`path` 變有值之後它才第一次真的跑。
+
+查了 kernel 的輸出（`FlowLinkUsageCollector.cpp:1978`）：
+`j["path"].push_back({{"node", node}, {"interface", interface}})` —— 恰好兩個鍵的 object，
+**且與 baseline 位元相同**（`git show 28b8b13:` 同一行）。所以那個 `throw` 不會觸發。
+
+`ipv4` 那條是誤會：`"ipv4"` 在 kernel 裡只出現在 `TopologyAndFlowMonitor.cpp:541,547`，
+是**讀取 Ryu 回覆**用的欄位名，不是 kernel 對外輸出的欄位。對外用 `ip`，而 Energy-Saving
+（`types.cpp:83` `for (uint32_t ip : g[v].ip)`）與 NTG 都是迭代而非索引，空陣列與有值都安全。
+
+### §6.6 NTV 對 `null` 的處理 —— SAFE
+
+`NetworkTopologyApp.java:349` 是 `if (graphData != null && detectedFlows != null)`。
+解析失敗回 `null` → 跳過這一輪輪詢並印 debug 行 → 下一輪重試。不崩、不留永久錯誤狀態。
+
+---
+
 ## 待決與待查
 
 1. **D1 的設計決定**（all-or-nothing vs 部分套用＋列出被拒 dpid）—— 需要 Adam 決定。
-2. §6.3：Energy-Saving-App 消費 `Graph.json` / `FlowDataList.json` 的模組沒查，
-   `ipv4` 從空變有值、`path` 從 `[]` 變有值對它的影響未知。
-3. §6.6：NTV 的 UI 層對 `null` 的處理沒查（端點未改，目前不觸發）。
-4. 通知 Energy-Saving-App 與 Traffic-Engineering-App 的維護者：批次端點現在會回 404，
+   這是本次審查唯一需要人決定的事項。
+2. 通知 Energy-Saving-App 與 Traffic-Engineering-App 的維護者：批次端點現在會回 404，
    而他們兩邊都丟掉了回應。
