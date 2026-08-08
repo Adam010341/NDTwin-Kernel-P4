@@ -365,3 +365,76 @@ Release v4.3.0
 
 8. ICMP parsing. For ICMP flows, the 5-tuple reuses the "port" fields: src_port -> ICMP type, dst_port -> ICMP code. For non-ICMP flows, src_port/dst_port keep their usual meaning. (see ndt_api.md)
 ---
+
+---
+
+## unreleased — P4/bmv2 support, and the shared-path defects it uncovered
+
+Branch `fix/flow-rate-divide-by-zero`. Grouped by theme rather than by commit, because the
+commits are fine-grained on purpose; each item names where the reasoning is written down.
+
+⚠️ **Read this first if you are writing this work up.** A premise that shaped the plan turned out
+to be false: the OVS/Mininet simulator was assumed to be functionally correct before the P4 work
+began, making P4 support pure addition. Verified against the real baseline (`28b8b13`, the parent
+of the P4 groundwork commit), **eleven defects were already present** — an unlocked flow-table
+lookup on every sampled packet, two unsigned subtractions that underflow to 1.8e19, a latched
+elephant-flow flag, `macToUint64` returning silently wrong MACs, three "snapshot that can only
+add" cases, malformed parameters answering 500, and `poll()` with a 0 ms timeout burning 100% CPU
+at idle. Every one is *silent* — nothing crashes, nothing logs, every endpoint answers 200 — which
+is why the premise looked right. So this work is **two** things, and fixing the shared-path
+correctness defects was a prerequisite for the other, because a baseline that lies cannot verify a
+new data plane. See `doc/HANDOFF.md` and the note below on the Ryu wedge for the clearest example.
+
+### 1. Correctness defects in the shared kernel path (affect OVS and P4 alike)
+
+1. **Flow-table data race.** `handlePacket` looked up `m_flowInfoTable` with no lock and then took
+   one separately inside each branch, on every sampled packet on every sFlow worker, while the
+   purge thread erases at 1 Hz. Also made find-then-branch non-atomic, so two workers on the same
+   new key both took the "new flow" path and the loser's assignment discarded the winner's bytes.
+   One lock now covers the lookup, both branches and the diagnostic between them.
+2. **Unsigned counter deltas underflowing to ~1.8e19**, reported as a flow's bit rate and reaching
+   the API. `sflow::counterDelta` saturates at zero. The elephant-flow flag's clearing `else` was
+   commented out, so a single lost update latched it for the life of the process; restored.
+3. **Three "should replace, can only add" cases**: the topology taken as one startup snapshot and
+   never re-read (now polled), `Classifier` skipping empty flow tables so removed rules were never
+   swept, and `setAllPaths` never clearing its maps so `get_path_switch_count` answered from routes
+   a link failure had deleted. A fourth instance (`Answer::from_json`) is found and unfixed.
+4. **`macToUint64` accepted malformed input and returned a wrong MAC** — `"00:11:22:33:44:5"` gave
+   73588229125 silently, so the wrong host was looked up. `tryMacToUint64` validates and returns
+   optional; the throwing form delegates so every caller inherits the check.
+5. **Client errors answering 500 instead of 4xx**, and the same conflation in the log: three sites
+   that answer 400 were logging at ERROR, which makes "an error line is never acceptable" unusable.
+6. **An unparseable `/stats/flow` body returned `json::array()`**, indistinguishable from "this
+   switch has no rules" — and applying that sweeps every rule for the dpid. Now `nullopt`.
+7. **`OVSPowerStrategy` destroyed the state it could not read**; `powerOff` now refuses when the
+   port list is unknown.
+
+### 2. The Ryu flow-stats wedge
+
+Restarting Ryu under a live Mininet wedges `/stats/flow` into returning an empty table forever.
+Reproduced twice and characterised (`doc/audit/ryu-wedge-trace-2026-08-07.tsv`, 151 samples);
+**root cause still unproven** after four falsified hypotheses. The harm is fixed without touching
+Ryu: a wedged reply takes 1.011 s against 0.027–0.083 s healthy — and 1.0 s is `DEFAULT_TIMEOUT`
+in `ryu/lib/ofctl_utils.py` — so an empty table that took ≥ 0.5 s is refused and the previous one
+kept. Operationally: **never restart Ryu alone; restart Mininet with it.**
+
+### 3. P4/bmv2 support
+
+Phases 0–2 and 4 complete. Phase 5's flow-sample half is complete and verified against a golden
+capture; **its counter-sample half was never implemented**, which turns out to be parity with OVS
+rather than a gap, since MININET discards counter samples and derives link usage from flow samples.
+Phase 6 is implemented across all six items — switch-entered and link failure/recovery
+notifications, evidence-based liveness replacing an unconditional `setVertexUp`, the LLDP beacon
+(ports derived from the topology, source MAC no longer colliding with the host range, a crash for
+dpid ≥ 256), a real `/stats/flow` in Ryu's string-action shape, and destination paths — but its
+test clause and end-to-end verification are outstanding. Phase 7 has its PID manifest and does not
+yet use it. Phase 3 and 8 are not started.
+
+### 4. Test and verification infrastructure
+
+379 gtest tests across 43 suites and 240 Python tests, run both under `ctest` and as one process,
+because either alone hides failures the other finds. **Every test ships with the mutation that
+breaks it** — applied, observed, reverted — with the evidence in `doc/audit/mutation-evidence-*.md`;
+this has caught 11 tests that passed while proving nothing. Four false PASSes were fixed in the
+tooling itself, including one where `unittest` counts skipped tests inside `Ran N` so a
+fully-skipped file reported green, and one where a skip check was dead from the day it was written.
