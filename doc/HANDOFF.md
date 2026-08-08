@@ -1167,3 +1167,44 @@ kernel 都在跑，s1-s5 已接回、32 條 link，我起的 iperf（h1→h34）
 `polling=0` 找到之後我推論「這就是原因」，開了 polling、跑 iperf —— 還是 0.0。
 **假設被自己的測量推翻**，跟 Ryu 那件事一樣的形狀：抓到一個明顯的東西就當成完整解釋。
 差別是這次我在寫進文件之前就先量了。
+
+### 2g. Phase 6 的兩個觸發測試 —— 寫不出來，而且其中一個功能不存在（2026-08-08）
+
+想補計畫書 Phase 6 測試條款要求的兩個測試，結果查出兩件事。
+
+#### 1. beacon 逾時 → `link_failure_detected` 這個功能**不存在**
+
+`KernelNotifier` 有 `link_failure()` 和 `link_recovery()` 兩個方法，`test_kernel_notifier.py` 也測了
+它們（打對端點、欄位對）。但：
+
+```
+grep -rE "\.switch_entered\(|\.link_failure\(|\.link_recovery\(" p4_proxy/ --include=*.py | grep -v /tests/
+  -> p4_proxy/proxy_agent/main.py:142:  entered = sum(1 for i in usable if kernel.switch_entered(i))
+```
+
+**只有 `switch_entered` 有呼叫點。`link_failure` / `link_recovery` 全 proxy 零呼叫。**
+`_last_lldp_from` 有在收到 beacon 時更新（`topology_manager.py:500`）、也有從
+`GET /p4/switch_state` 回報 `last_lldp_age_s`（`:588`），但**從來沒有拿去跟一個逾時比對、
+然後通知 kernel link 斷了**。
+
+⚠️ **我 08-07 把這一項標成 ✅ 是錯的。** 當時我 grep 到 `kernel_notifier.py` 裡有這兩個方法就算過。
+那是今天 L3 那個教訓的更弱版本：**原始碼裡有一個方法，不等於它被接上了。**
+（L3 那次是「原始碼裡有呼叫，不等於執行時走得到」。）
+
+#### 2. 就算功能存在，那兩個測試也寫不出來 —— 缺同一個接縫
+
+兩個觸發都在 `main.py` 的 startup 路徑上，而那是 module-level side effect 加
+`@app.on_event("startup")` 對 module global（`p4_clients`、`broken`、`sflow`、`kernel`）的閉包。
+光 import 它就會建一個 `TopologyManager`（讀拓撲檔）、一個 `SFlowEmitter`（開真的 UDP socket）、
+一個 `KernelNotifier`。
+
+缺的接縫 Agent B 早就指名了：**`async def startup(clients_factory, sflow, kernel, topo)`** ——
+把迴圈本體抽成一個收 collaborator 的函式。
+
+**所以 Phase 6 收尾的正確順序是**：
+1. 先加那個 `startup()` 接縫（動生產碼，`main.py`）
+2. 補 mastership → `switch_entered` 的觸發測試（功能已存在）
+3. **實作** beacon 逾時 → `link_failure_detected`（新功能，不是補測試）
+4. 再補它的觸發測試
+
+第 3 項是功能開發，不該當成「補測試」混在裡面做完就宣稱 Phase 6 完成。

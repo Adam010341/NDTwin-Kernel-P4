@@ -16,7 +16,7 @@ Phase 6 比原本標的完成得多。
 | **2** 失敗看得見 | ✅ 完成 | `7856efc`、`08746f4`。`OpResult` + 真實 HTTP status |
 | **4** P4 pipeline | ✅ 完成 | `4577983`。5-tuple ternary、ARP、TTL、取樣、counter |
 | **5** telemetry | 🟨 **一半**（原本標 ✅，錯了）| flow sample（type 1）✅ 完成並實機驗證；**counter sample（type 2）完全沒實作** —— 見下一節 |
-| **6** 拓撲／liveness／flow table | 🟨 **實作完成，驗收沒完成**（原本標「下一步」，低估了）| 六個項目全部有東西：`inform_switch_entered`、link failure/recovery、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths（走「保留 pull」那個選項）。**缺**：計畫書測試條款要的兩個**觸發**測試（拿到 mastership 會發、beacon 逾時會發）—— 現有測試測的是 notifier 客戶端本身；以及端到端驗收自那之後沒重跑過 |
+| **6** 拓撲／liveness／flow table | 🟨 **五項完成、一項不存在**（2026-08-08 再次校正）| ✅ `inform_switch_entered`（`main.py:142`，pipeline 推完後對 usable 的 switch 發）、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths。❌ **link failure/recovery 通知根本不存在** —— `KernelNotifier.link_failure()` / `link_recovery()` 有定義，但**全 proxy 沒有任何呼叫點**；`_last_lldp_from` 有記錄、有從 `/p4/switch_state` 回報，但**從來沒有拿去跟逾時比對來判定 link 斷掉**。我 08-07 標它 ✅ 是錯的，當時只查了 notifier 上有方法。⚠️ 兩個觸發測試**都寫不出來**，因為 `main.py` 的 startup 是 module-level side effect ＋ `@app.on_event` 閉包，缺 `async def startup(clients_factory, sflow, kernel, topo)` 這個接縫 |
 | **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖 |
 | **7** 電源管理 | 🟨 一半 | PID manifest 已做（`22ada58`，`/tmp/ndtwin_p4_switches.json`）；`P4PowerStrategy` 還沒用它 |
 | **8** 收尾 | ⬜ 未做 | |
