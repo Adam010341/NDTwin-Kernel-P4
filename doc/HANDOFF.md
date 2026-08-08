@@ -1132,6 +1132,23 @@ kernel 都在跑，s1-s5 已接回、32 條 link，我起的 iperf（h1→h34）
 | 把 `testbed_topo.py` 的 `polling` 從 0 改成 10 | MININET 模式**根本不讀 counter sample** —— `sampleType == 2` 那個分支一開頭就 `if (m_mode == utils::MININET) continue;`，鏈路使用率是從 **flow sample** 經 `m_counterReports` 算的。所以 `polling=0` 是對的、是刻意的，開它只是多送封包。已改回 0，並把這段推理寫在那一行旁邊，免得下一個人再「修」一次 |
 | 抓了 3 個 OVS counter-sample fixture | 它們記錄的是 MININET 從來不解析的那條路。留著會讓人以為那條路有測試覆蓋。已刪 |
 
+##### 順帶的佐證：在 MININET 開 polling 不只是沒用，是有害的
+
+把 `polling` 開起來之後，kernel 的 log 出現：
+
+```
+[WARNING] Discarding malformed sFlow datagram (128 bytes):
+          sFlow datagram truncated: word 32 requested, only 32 available
+```
+
+也就是說：**真實的 OVS counter sample 進來時，parser 用固定偏移去要第 32 個 word，
+而整個 datagram 只有 32 個 word，於是整包被判定為 malformed 丟掉。**
+
+（能安全丟掉而不是越界讀取，是之前那輪 sFlow 強固化的成果 —— 那個 bounds check 有在做事。）
+
+這同時是上面「偏移量不適用於 OVS」的獨立佐證，也說明開 polling 會讓 log 開始長出這種警告。
+`polling=0` 是對的。
+
 ##### 但有兩件觀察仍然成立，只是不是 bug
 
 1. **counter sample 的偏移量是為 Brocade／HPE 硬體校準的**（程式碼註解自己就寫了 vendor 名字）。
