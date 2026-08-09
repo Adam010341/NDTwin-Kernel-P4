@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <sstream>
 
-void OVSPowerStrategy::executeSystemCommand(const std::string& cmd)
+bool OVSPowerStrategy::executeSystemCommand(const std::string& cmd)
 {
     // std::system returns the wait status; non-zero means the command failed. That was
     // previously discarded, so a failed ovs-vsctl looked exactly like a success.
@@ -22,8 +22,9 @@ void OVSPowerStrategy::executeSystemCommand(const std::string& cmd)
                            "command failed ({}): {}",
                            utils::describeCommandStatus(rc, cmd),
                            cmd);
-        m_lastCommandFailed = true;
+        return false;
     }
+    return true;
 }
 
 std::optional<std::vector<std::string>> OVSPowerStrategy::executeListPorts(const std::string& br)
@@ -75,7 +76,17 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
         return OpResult::success();
     }
 
-    m_lastCommandFailed = false;
+    // Local, not a member: see executeSystemCommand's declaration for what sharing it across
+    // concurrent power requests cost. [Co-developed with claude code -- Adam]
+    bool allOk = true;
+    auto run = [this, &allOk](const std::string& cmd) {
+        // Deliberately not short-circuiting: every command still runs, so the log names all of
+        // them rather than stopping at the first failure.
+        if (!executeSystemCommand(cmd))
+        {
+            allOk = false;
+        }
+    };
 
     auto formatDpid = [](uint64_t d) -> std::string {
         std::ostringstream oss;
@@ -87,20 +98,20 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     // failure is observed. It previously called utils::execCommand directly, which also meant
     // a test subclass mocking executeSystemCommand still really ran `sudo ovs-vsctl add-br`
     // against the developer's machine -- the seam had a hole in it.
-    executeSystemCommand("sudo ovs-vsctl add-br " + swName + " && sudo ovs-vsctl set bridge " +
-                         swName + " other-config:datapath-id=" + formatDpid(dpid));
+    run("sudo ovs-vsctl add-br " + swName + " && sudo ovs-vsctl set bridge " + swName +
+        " other-config:datapath-id=" + formatDpid(dpid));
 
     auto ports = topoMonitor->getMininetBridgePorts(node);
     for (auto& port : ports)
     {
         SPDLOG_LOGGER_DEBUG(Logger::instance(), "sudo ovs-vsctl add-port {} {}", swName, port);
-        executeSystemCommand("sudo ovs-vsctl add-port " + swName + " " + port);
+        run("sudo ovs-vsctl add-port " + swName + " " + port);
         SPDLOG_LOGGER_DEBUG(Logger::instance(), "sudo ifconfig {} up", port);
-        executeSystemCommand("sudo ifconfig " + port + " up");
+        run("sudo ifconfig " + port + " up");
     }
-    executeSystemCommand("sudo ovs-vsctl set-controller " + swName + " tcp:127.0.0.1:6633");
+    run("sudo ovs-vsctl set-controller " + swName + " tcp:127.0.0.1:6633");
 
-    if (m_lastCommandFailed)
+    if (!allOk)
     {
         // Deliberately do not mark the vertex up: claiming a switch is running when the
         // commands to start it failed is exactly the twin/network disagreement this change
@@ -124,7 +135,15 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
         return OpResult::success();
     }
 
-    m_lastCommandFailed = false;
+    // Local, for the same reason as in powerOn. Powering one switch off must not be able to report
+    // another switch's failure. [Co-developed with claude code -- Adam]
+    bool allOk = true;
+    auto run = [this, &allOk](const std::string& cmd) {
+        if (!executeSystemCommand(cmd))
+        {
+            allOk = false;
+        }
+    };
 
     // Record the ports before the bridge goes away, so powerOn can restore them.
     //
@@ -147,11 +166,11 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
     topoMonitor->setMininetBridgePorts(node, *ports);
     for (const auto& port : *ports)
     {
-        executeSystemCommand("sudo ifconfig " + port + " down");
+        run("sudo ifconfig " + port + " down");
     }
-    executeSystemCommand("sudo ovs-vsctl del-br " + swName);
+    run("sudo ovs-vsctl del-br " + swName);
 
-    if (m_lastCommandFailed)
+    if (!allOk)
     {
         return OpResult::failure(500,
                                  "one or more ifconfig/ovs-vsctl commands failed while "

@@ -23,10 +23,12 @@
  * are overridden.
  */
 
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -54,13 +56,10 @@ class FakeOvs : public OVSPowerStrategy
     std::string failSubstring;
 
   protected:
-    void executeSystemCommand(const std::string& cmd) override
+    bool executeSystemCommand(const std::string& cmd) override
     {
         commands.push_back(cmd);
-        if (!failSubstring.empty() && cmd.find(failSubstring) != std::string::npos)
-        {
-            m_lastCommandFailed = true;
-        }
+        return failSubstring.empty() || cmd.find(failSubstring) == std::string::npos;
     }
 
     std::optional<std::vector<std::string>> executeListPorts(const std::string& br) override
@@ -470,4 +469,82 @@ TEST(CommandStatusTest, TheNumberInTheMessageIsNeverTheRawStatus)
         << utils::describeCommandStatus(1 << 8);
     EXPECT_EQ(utils::describeCommandStatus(127 << 8).find("32512"), std::string::npos)
         << utils::describeCommandStatus(127 << 8);
+}
+
+// --- concurrency: two power requests must not report each other's outcome.
+
+namespace
+{
+
+/**
+ * One strategy object serving two concurrent requests, with a rendezvous so the overlap is chosen
+ * by the test rather than by the scheduler.
+ *
+ * [Co-developed with claude code -- Adam]
+ * "Start two threads and hope" would be flaky in the direction that matters -- it would pass on a
+ * good day against the broken code. Here request A is parked *inside* powerOn, between its own
+ * commands, for exactly as long as it takes request B to run and fail. Commands are routed by the
+ * switch name they carry, which is how one shared object can answer differently for each request.
+ */
+class RendezvousOvs : public OVSPowerStrategy
+{
+  public:
+    std::atomic<bool> aParked{false};
+    std::atomic<bool> bFinished{false};
+
+  protected:
+    bool executeSystemCommand(const std::string& cmd) override
+    {
+        if (cmd.find("s1") != std::string::npos && !aParked.exchange(true))
+        {
+            while (!bFinished.load())
+            {
+                std::this_thread::yield();
+            }
+        }
+        // Everything naming s2 fails; everything naming s1 succeeds.
+        return cmd.find("s2") == std::string::npos;
+    }
+
+    std::optional<std::vector<std::string>> executeListPorts(const std::string&) override
+    {
+        return std::vector<std::string>{};
+    }
+};
+
+} // namespace
+
+TEST(OvsPowerStrategyConcurrencyTest, AFailedRequestDoesNotMakeAConcurrentOneReportFailure)
+{
+    // powerOn/powerOff used to reset and read a *member* flag, and there is one OVSPowerStrategy for
+    // the whole process (DeviceConfigurationAndPowerManager::m_ovsPowerStrategy) while the HTTP
+    // server runs one io_context across std::thread::hardware_concurrency() threads with no strand.
+    // So bringing s1 up while s2 failed to come up reported s1 as failed too.
+    //
+    // Against the member-flag version this fails deterministically: B sets the shared flag while A
+    // is parked mid-powerOn, and A reads it on the way out.
+    Fixture fixA;
+    Fixture fixB;
+    (*fixA.graph)[fixA.sw].isUp = false;
+    (*fixB.graph)[fixB.sw].isUp = false;
+
+    RendezvousOvs shared;
+
+    OpResult resultA = OpResult::failure(0, "never ran");
+    std::thread a([&] { resultA = shared.powerOn(fixA.sw, "s1", 1, fixA.monitor.get()); });
+
+    while (!shared.aParked.load())
+    {
+        std::this_thread::yield();
+    }
+
+    const OpResult resultB = shared.powerOn(fixB.sw, "s2", 2, fixB.monitor.get());
+    shared.bFinished.store(true);
+    a.join();
+
+    EXPECT_FALSE(resultB.ok) << "every command request B issued failed";
+    EXPECT_TRUE(resultA.ok) << "every command request A issued succeeded, but it reported: "
+                            << resultA.message;
+    EXPECT_TRUE(fixA.isUp()) << "a successful power-on must mark its own vertex up";
+    EXPECT_FALSE(fixB.isUp()) << "a failed power-on must not mark its vertex up";
 }

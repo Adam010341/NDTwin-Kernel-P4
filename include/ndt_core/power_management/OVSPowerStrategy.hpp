@@ -16,7 +16,25 @@ public:
     const char* describe() const override { return "Open vSwitch"; }
 
 protected:
-    virtual void executeSystemCommand(const std::string& cmd);
+    /**
+     * @brief Runs a shell command; returns false when it failed.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Returns the outcome rather than setting a member. It used to set m_lastCommandFailed, which
+     * powerOn/powerOff reset on entry and read at the end -- and there is exactly one
+     * OVSPowerStrategy for the whole process (DeviceConfigurationAndPowerManager::m_ovsPowerStrategy),
+     * while the HTTP server runs std::thread::hardware_concurrency() threads on one io_context with
+     * no strand. So two concurrent power requests for different switches shared that flag: one
+     * request's reset could erase the other's failure, and one request's failure could be reported
+     * against the other. Powering s1 on and s2 off at the same time could report the wrong outcome
+     * for either.
+     *
+     * The flag was introduced by the change that made these failures visible at all -- baseline kept
+     * everything in locals and discarded the result, so it had the opposite bug and not this one.
+     * Found by a review of that change; see doc/audit/commit-review-2026-08-08/power.md H1.
+     */
+    virtual bool executeSystemCommand(const std::string& cmd);
 
     /**
      * @brief Lists a bridge's ports, or reports that it could not find out.
@@ -36,9 +54,4 @@ protected:
      * two cases.
      */
     virtual std::optional<std::vector<std::string>> executeListPorts(const std::string& br);
-
-    /// Set by executeSystemCommand when a command exits non-zero, so powerOn/powerOff can
-    /// report failure instead of asserting the switch changed state.
-    /// [Co-developed with claude code -- Adam]
-    bool m_lastCommandFailed = false;
 };
