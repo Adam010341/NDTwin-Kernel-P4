@@ -958,34 +958,44 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     }
 
     // [Co-developed with claude code -- Adam]
-    // Reject dpids this kernel does not know about, before enqueueing anything.
+    // Separate out the dpids this kernel does not know about, before enqueueing anything.
     //
-    // This endpoint answered 200 for a nonexistent dpid, which the L2 contract has been failing on
-    // for as long as it has existed. The instinct is to blame the asynchrony -- the dispatcher
+    // This endpoint answered 200 for a nonexistent dpid, which the L2 contract had been failing on
+    // for as long as it had existed. The instinct is to blame the asynchrony -- the dispatcher
     // drains on worker threads, so the southbound outcome genuinely is not available yet -- but
     // "there is no such switch" is not a southbound outcome. It is knowable here, from the
     // topology the kernel already holds, before a job is queued at all.
     //
-    // All-or-nothing: a batch naming one bad dpid is rejected whole rather than partially applied,
-    // because a caller that gets 200 for a partially-applied batch has no way to find out which
-    // half landed. The genuinely asynchronous outcomes are still asynchronous, and are logged per
-    // entry by Controller's sender.
-    std::vector<uint64_t> unknownDpids;
-    for (const auto& job : jobs)
+    // Partial application, not all-or-nothing. This was all-or-nothing first, reasoning that a
+    // caller handed 200 for a half-applied batch cannot find out which half landed. Two things
+    // overturned that:
+    //
+    //   1. Naming the rejected dpids in the body answers the question the objection was about. The
+    //      caller is not told "some of it worked"; it is told exactly which entries were dropped.
+    //   2. The two applications that write flows both **discard the response entirely** --
+    //      Energy-Saving-App at energy_saving_app.cpp:225 and :241 does not bind the returned
+    //      std::optional<uint32_t>, and Traffic-Engineering-App at Traffic-engineering-App.py:572
+    //      does not assign the requests.post result. So all-or-nothing did not make them handle
+    //      the error; it silently converted a batch that used to apply its good entries into one
+    //      that applies nothing. For those two callers it was strictly worse than the 200 it
+    //      replaced, and would only have paid off after someone else changed their code.
+    //
+    // A batch where *nothing* is applicable still answers 404: 200 with accepted == 0 would tell a
+    // caller that only reads the status code that its request was fine when not one entry landed.
+    // See doc/audit/external-tools-compat-review-2026-08-08.md for the client-by-client evidence.
+    auto partition = partitionFlowBatchByKnownDpid(
+        std::move(jobs),
+        [this](uint64_t dpid) { return m_topologyAndFlowMonitor->getSwitchKind(dpid).has_value(); });
+    std::vector<FlowJob> acceptedJobs = std::move(partition.accepted);
+    const std::vector<uint64_t>& unknownDpids = partition.unknownDpids;
+    const size_t rejectedEntries = partition.rejectedEntries;
+
+    if (acceptedJobs.empty() && rejectedEntries > 0)
     {
-        if (!m_topologyAndFlowMonitor->getSwitchKind(job.dpid).has_value())
-        {
-            unknownDpids.push_back(job.dpid);
-        }
-    }
-    if (!unknownDpids.empty())
-    {
-        std::sort(unknownDpids.begin(), unknownDpids.end());
-        unknownDpids.erase(std::unique(unknownDpids.begin(), unknownDpids.end()),
-                           unknownDpids.end());
         SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "refusing flow batch: {} dpid(s) are not switches in the loaded "
-                           "topology",
+                           "refusing flow batch: none of its {} entries names a switch in the "
+                           "loaded topology ({} distinct unknown dpid(s))",
+                           rejectedEntries,
                            unknownDpids.size());
         res.result(http::status::not_found);
         res.body() = json{{"status", "error"},
@@ -998,9 +1008,20 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
         return;
     }
 
+    if (rejectedEntries > 0)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "dropping {} of {} flow batch entries: {} dpid(s) are not switches in "
+                           "the loaded topology; the remaining {} were queued",
+                           rejectedEntries,
+                           rejectedEntries + acceptedJobs.size(),
+                           unknownDpids.size(),
+                           acceptedJobs.size());
+    }
+
     // Enqueue once; dispatcher drains per-DPID on worker threads
-    const size_t accepted = jobs.size();
-    m_controller->dispatcher().enqueue(std::move(jobs));
+    const size_t accepted = acceptedJobs.size();
+    m_controller->dispatcher().enqueue(std::move(acceptedJobs));
 
     // TODO: Immediately update the table
     m_deviceConfigurationAndPowerManager->updateOpenFlowTables(j);
@@ -1022,11 +1043,25 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     // uses. Reporting per-entry status to the caller needs either a synchronous path or a
     // completion handle -- an architectural decision, not a wording one.
     res.result(http::status::ok);
-    res.body() = json{{"status", "queued"},
-                      {"accepted", accepted},
-                      {"detail", "entries accepted for programming; per-entry outcomes are "
-                                 "reported in the kernel log, not in this response"}}
-                     .dump();
+    json body{{"status", "queued"},
+              {"accepted", accepted},
+              {"detail", "entries accepted for programming; per-entry outcomes are "
+                         "reported in the kernel log, not in this response"}};
+
+    // [Co-developed with claude code -- Adam]
+    // Only present when something was actually dropped, so a caller can treat their absence as
+    // "all of it was taken". Naming the dpids is the whole reason partial application is
+    // acceptable here: without them, 200 would again be a claim the caller cannot check.
+    if (rejectedEntries > 0)
+    {
+        body["rejected"] = rejectedEntries;
+        body["rejected_dpids"] = unknownDpids;
+        body["detail"] = "some entries were dropped because their dpid is not a switch in the "
+                         "loaded topology; the rest were accepted for programming, and per-entry "
+                         "outcomes are reported in the kernel log, not in this response";
+    }
+
+    res.body() = body.dump();
 }
 
 void

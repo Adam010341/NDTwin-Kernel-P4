@@ -1,8 +1,12 @@
 #pragma once
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
+#include <vector>
 
 /**
  * @brief Operation type for a flow rule update.
@@ -40,4 +44,64 @@ struct FlowJob {
 
     int idleTimeout = 0;
 };
+
+/**
+ * @brief The result of splitting a flow batch into what can be programmed and what cannot.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @details `rejectedEntries` counts **entries**, `unknownDpids` lists **distinct switches**, and the
+ * two are deliberately different numbers: forty entries naming one absent switch is one thing to
+ * fix and forty things to re-send, so a caller needs both. unknownDpids is sorted and duplicate-free
+ * so the same absent switch is named once however many entries mentioned it.
+ */
+struct FlowBatchPartition
+{
+    std::vector<FlowJob> accepted;
+    std::vector<uint64_t> unknownDpids;
+    std::size_t rejectedEntries = 0;
+};
+
+/**
+ * @brief Split a flow batch by whether each entry's dpid is a switch this kernel knows about.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @details Separated from HttpSession::processFlowBatch so the decision can be tested without a
+ * TopologyAndFlowMonitor -- the routing test drives the real router with a null monitor, so any
+ * logic that dereferences it is unreachable from a unit test. The topology lookup arrives as a
+ * predicate; everything else here is arithmetic on a vector.
+ *
+ * Accepted entries keep their original relative order, because the dispatcher applies a modify
+ * after the install it supersedes only if the order survives.
+ *
+ * @param jobs Parsed batch. Consumed: accepted entries are moved out.
+ * @param dpidIsKnown Returns true when the dpid is a switch in the loaded topology.
+ */
+inline FlowBatchPartition
+partitionFlowBatchByKnownDpid(std::vector<FlowJob> jobs,
+                              const std::function<bool(uint64_t)>& dpidIsKnown)
+{
+    FlowBatchPartition out;
+    out.accepted.reserve(jobs.size());
+
+    for (auto& job : jobs)
+    {
+        if (dpidIsKnown(job.dpid))
+        {
+            out.accepted.push_back(std::move(job));
+        }
+        else
+        {
+            out.unknownDpids.push_back(job.dpid);
+            ++out.rejectedEntries;
+        }
+    }
+
+    std::sort(out.unknownDpids.begin(), out.unknownDpids.end());
+    out.unknownDpids.erase(std::unique(out.unknownDpids.begin(), out.unknownDpids.end()),
+                           out.unknownDpids.end());
+
+    return out;
+}
 

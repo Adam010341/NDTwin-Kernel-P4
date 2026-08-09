@@ -627,8 +627,49 @@ ENDPOINTS = [
                  "dpid": ctx.a_dpid,
                  "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}}]},
          category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
-                     optional={"detail": Str()}),
+                     optional={"detail": Str(), "rejected": Int(min=0),
+                               "rejected_dpids": List(Int(min=0))}),
          invariants=[inv_flow_write_is_honest_about_being_queued]),
+
+    # [Co-developed with claude code -- Adam]
+    # A batch mixing one real switch with one that does not exist. This is the case the unit tests
+    # cannot reach: partitionFlowBatchByKnownDpid is covered directly, but the 200-with-rejections
+    # versus 404-for-nothing-applicable branch lives in HttpSession and needs a real
+    # TopologyAndFlowMonitor, which the routing harness passes as nullptr.
+    #
+    # The endpoint applied nothing at all for such a batch until 2026-08-09, and answered 404. Both
+    # applications that write flows discard the response, so that silently dropped their good
+    # entries too. It now applies the good entry and names the bad dpid.
+    dict(name="batch_flow_entries__mixed_known_and_unknown_dpid", method="POST",
+         path="/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+         body=lambda ctx: {
+             "install_flow_entries": [
+                 {"dpid": ctx.a_dpid, "priority": 1,
+                  "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
+                  "actions": [{"type": "OUTPUT", "port": 1}]},
+                 {"dpid": 999999999999, "priority": 1,
+                  "match": {"eth_type": 2048, "ipv4_dst": "10.255.255.253"},
+                  "actions": [{"type": "OUTPUT", "port": 1}]}],
+             "modify_flow_entries": [],
+             "delete_flow_entries": []},
+         category=MUTATE, expect_status=[200],
+         schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=1),
+                     "rejected": Int(min=1), "rejected_dpids": List(Int(min=0), min_len=1)},
+                    optional={"detail": Str()}),
+         note="the good entry must still be accepted, and the bad dpid must be named in"
+              " rejected_dpids -- naming it is what makes a 200 checkable"),
+
+    dict(name="batch_flow_entries__all_unknown_dpids", method="POST",
+         path="/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+         body={"install_flow_entries": [
+                   {"dpid": 999999999999, "priority": 1,
+                    "match": {"eth_type": 2048, "ipv4_dst": "10.255.255.252"},
+                    "actions": [{"type": "OUTPUT", "port": 1}]}],
+               "modify_flow_entries": [], "delete_flow_entries": []},
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_(),
+         note="nothing applicable must not answer 200: a caller reading only the status code"
+              " would take accepted == 0 for success"),
 
     dict(name="inform_switch_entered", method="GET", path="/ndt/inform_switch_entered",
          query=lambda ctx: {"dpid": str(ctx.a_dpid)},
