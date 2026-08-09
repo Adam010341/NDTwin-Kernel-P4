@@ -287,9 +287,19 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     /**
      * @brief Maps a southbound OpResult onto the HTTP response.
      *
-     * 501 when the data plane cannot express the operation, 502 when the controller failed
-     * or never answered, otherwise the controller's own status. Replaces handlers that
-     * discarded the result and answered 200 regardless.
+     * 501 when the data plane cannot express the operation; 502 when the controller failed, never
+     * answered, **or answered 2xx with an error body** -- HttpRoutingStrategyBase turns that last
+     * case into OpResult::failure, so it arrives here indistinguishable from a transport failure and
+     * is reported as one, which is the honest answer: the operation did not happen. Otherwise the
+     * controller's own 4xx/5xx is passed through unchanged, and anything outside 400-599 becomes
+     * 502 rather than being forwarded as a status the caller cannot interpret.
+     *
+     * Replaces handlers that discarded the result and answered 200 regardless.
+     *
+     * The 2xx-with-error-body path was missing from this comment, which the http-routing review
+     * caught as M5. It is the case most worth naming: a proxy reporting failure inside a success
+     * envelope is exactly the conflation this whole mechanism exists to remove, so a reader needs to
+     * know it is handled here rather than looking for it upstream.
      *
      * [Co-developed with claude code -- Adam]
      */

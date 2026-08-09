@@ -128,3 +128,85 @@ TEST(TryParseUint64Test, DoesNotThrowOnAnythingItRejects)
            << text << "'";
     }
 }
+
+// --- utils::queryParam: the splitter that feeds every parser above.
+
+/**
+ * [Co-developed with claude code -- Adam]
+ * This had no tests, which is the real finding behind the http-routing review's M3. It was a lambda
+ * written out five times inside HttpSession, so there was nowhere to point a test at; the value
+ * parsers above were covered and the thing that extracts their input was not, despite handling
+ * untrusted URLs. These pin the behaviours the handlers actually depend on.
+ */
+TEST(QueryParamTest, ReadsAValueByName)
+{
+    EXPECT_EQ(utils::queryParam("/ndt/get_nickname?dpid=3", "dpid"), "3");
+}
+
+TEST(QueryParamTest, ReadsAValueThatIsNotTheFirstOrTheLast)
+{
+    const std::string_view t = "/ndt/x?a=1&dpid=42&z=9";
+    EXPECT_EQ(utils::queryParam(t, "a"), "1");
+    EXPECT_EQ(utils::queryParam(t, "dpid"), "42");
+    EXPECT_EQ(utils::queryParam(t, "z"), "9");
+}
+
+TEST(QueryParamTest, AnAbsentKeyAndAnAbsentQueryStringBothGiveEmpty)
+{
+    EXPECT_EQ(utils::queryParam("/ndt/x?a=1", "dpid"), "");
+    EXPECT_EQ(utils::queryParam("/ndt/x", "dpid"), "");
+    EXPECT_EQ(utils::queryParam("", "dpid"), "");
+}
+
+TEST(QueryParamTest, AnEmptyValueIsIndistinguishableFromAMissingOne)
+{
+    // Deliberate, and depended upon: the handlers treat "missing" and "empty" alike, answering
+    // "missing parameter" for both. If that ever needs to change this test is the place it breaks.
+    EXPECT_EQ(utils::queryParam("/ndt/x?dpid=", "dpid"), "");
+    EXPECT_EQ(utils::queryParam("/ndt/x?dpid=&a=1", "dpid"), "");
+}
+
+TEST(QueryParamTest, TheValueStopsAtTheNextAmpersand)
+{
+    // Without this a handler would receive "3&mac=aa:bb" and hand it to tryParseUint64, which
+    // rejects it -- a valid request reported as malformed.
+    EXPECT_EQ(utils::queryParam("/ndt/x?dpid=3&mac=aa:bb:cc:dd:ee:ff", "dpid"), "3");
+}
+
+TEST(QueryParamTest, KeysAreComparedExactlyAndPrefixesDoNotMatch)
+{
+    // "dpid" must not be answered by "dpid_str", nor by a key that merely ends with it.
+    EXPECT_EQ(utils::queryParam("/ndt/x?dpid_str=7", "dpid"), "");
+    EXPECT_EQ(utils::queryParam("/ndt/x?xdpid=7", "dpid"), "");
+    EXPECT_EQ(utils::queryParam("/ndt/x?DPID=7", "dpid"), "") << "no case folding";
+}
+
+TEST(QueryParamTest, APairWithNoEqualsIsSkippedAndOnlyStopsTheScanWhenNoEqualsRemains)
+{
+    // [Co-developed with claude code -- Adam]
+    // I first asserted the opposite here -- that a malformed pair ends the search -- and wrote that
+    // into the function's own documentation. It is wrong, and this test said so immediately. The
+    // scan's find('=') looks past "broken" to the '=' in "dpid=3", the key compares as
+    // "broken&dpid" and fails, then find('&') steps over the malformed pair and the next round
+    // matches. So it is skipped.
+    EXPECT_EQ(utils::queryParam("/ndt/x?broken&dpid=3", "dpid"), "3");
+    EXPECT_EQ(utils::queryParam("/ndt/x?dpid=3&broken", "dpid"), "3")
+        << "a malformed pair after the match must not affect it";
+
+    // What does end the scan: no '=' anywhere in the remainder.
+    EXPECT_EQ(utils::queryParam("/ndt/x?broken", "dpid"), "");
+    EXPECT_EQ(utils::queryParam("/ndt/x?a=1&broken", "dpid"), "");
+}
+
+TEST(QueryParamTest, NoPercentDecodingAndNoPlusAsSpace)
+{
+    // Stated so a caller cannot assume otherwise: the value is handed back raw.
+    EXPECT_EQ(utils::queryParam("/ndt/x?name=a%20b", "name"), "a%20b");
+    EXPECT_EQ(utils::queryParam("/ndt/x?name=a+b", "name"), "a+b");
+}
+
+TEST(QueryParamTest, AQuestionMarkInsideAValueDoesNotRestartParsing)
+{
+    EXPECT_EQ(utils::queryParam("/ndt/x?a=1?2&dpid=3", "dpid"), "3");
+    EXPECT_EQ(utils::queryParam("/ndt/x?a=1?2&dpid=3", "a"), "1?2");
+}

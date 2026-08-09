@@ -543,37 +543,8 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Detected Top-K Flow Data");
 
-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
-        auto qpos = target.find('?');
-        if (qpos == std::string_view::npos)
-        {
-            return "";
-        }
-        target.remove_prefix(qpos + 1);
-        while (!target.empty())
-        {
-            auto key_end = target.find('=');
-            if (key_end == std::string_view::npos)
-            {
-                break;
-            }
-            if (target.substr(0, key_end) == key)
-            {
-                target.remove_prefix(key_end + 1);
-                auto val_end = target.find('&');
-                return std::string(target.substr(0, val_end));
-            }
-            auto amp_pos = target.find('&');
-            if (amp_pos == std::string_view::npos)
-            {
-                break;
-            }
-            target.remove_prefix(amp_pos + 1);
-        }
-        return "";
-    };
 
-    std::string kStr = get_param(m_req.target(), "k");
+    std::string kStr = utils::queryParam(m_req.target(), "k");
 
     int k = 50;
 
@@ -638,38 +609,9 @@ HttpSession::handleSetSwitchesPowerState(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Set Switches Power State");
     // Helper to parse query params from a target string
-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
-        auto qpos = target.find('?');
-        if (qpos == std::string_view::npos)
-        {
-            return "";
-        }
-        target.remove_prefix(qpos + 1);
-        while (!target.empty())
-        {
-            auto key_end = target.find('=');
-            if (key_end == std::string_view::npos)
-            {
-                break;
-            }
-            if (target.substr(0, key_end) == key)
-            {
-                target.remove_prefix(key_end + 1);
-                auto val_end = target.find('&');
-                return std::string(target.substr(0, val_end));
-            }
-            auto amp_pos = target.find('&');
-            if (amp_pos == std::string_view::npos)
-            {
-                break;
-            }
-            target.remove_prefix(amp_pos + 1);
-        }
-        return "";
-    };
 
-    std::string ip = get_param(m_req.target(), "ip");
-    std::string action = get_param(m_req.target(), "action");
+    std::string ip = utils::queryParam(m_req.target(), "ip");
+    std::string action = utils::queryParam(m_req.target(), "action");
 
     if (ip.empty() || (action != "on" && action != "off"))
     {
@@ -1385,59 +1327,11 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Nickname");
 
     //  helper function to easily parse query parameters (e.g., "?dpid=123") from the request URL.
-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
-        // 1. Find the start of the query string (the '?'). If it doesn't exist, there are no
-        // parameters.
-        auto qpos = target.find('?');
-        if (qpos == std::string_view::npos)
-        {
-            return "";
-        }
-
-        // 2. Remove the path part of the URL, leaving only the query string (e.g.,
-        // "dpid=123&action=on").
-        target.remove_prefix(qpos + 1);
-
-        // 3. Loop through the remaining string, which contains key=value pairs separated by '&'.
-        while (!target.empty())
-        {
-            // 4. Find the '=' to separate the key from the value.
-            auto key_end = target.find('=');
-            if (key_end == std::string_view::npos)
-            {
-                break; // Malformed pair, stop parsing.
-            }
-
-            // 5. Check if the current key is the one we're looking for.
-            if (target.substr(0, key_end) == key)
-            {
-                // It's a match! Remove the key and '='.
-                target.remove_prefix(key_end + 1);
-
-                // Find the end of the value (the next '&').
-                auto val_end = target.find('&');
-
-                // Extract the value and return it as a new std::string.
-                return std::string(target.substr(0, val_end));
-            }
-
-            // 6. If it wasn't a match, skip to the next key-value pair.
-            auto amp_pos = target.find('&');
-            if (amp_pos == std::string_view::npos)
-            {
-                break; // No more pairs, stop parsing.
-            }
-            target.remove_prefix(amp_pos + 1);
-        }
-
-        // 7. If the loop finishes without finding the key, return an empty string.
-        return "";
-    };
 
     // Extract all possible identifiers from the URL
-    std::string dpidStr = get_param(m_req.target(), "dpid");
-    std::string macStr = get_param(m_req.target(), "mac");
-    std::string nameStr = get_param(m_req.target(), "name");
+    std::string dpidStr = utils::queryParam(m_req.target(), "dpid");
+    std::string macStr = utils::queryParam(m_req.target(), "mac");
+    std::string nameStr = utils::queryParam(m_req.target(), "name");
 
     // Check that at least one identifier was provided
     if (dpidStr.empty() && macStr.empty() && nameStr.empty())
@@ -1453,7 +1347,6 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
     // Search with a clear priority: DPID > MAC > Name
     if (!dpidStr.empty())
     {
-        try
         {
             // [Co-developed with claude code -- Adam]
             // Same guard as handleInformSwitchEntered: std::stoull threw on `?dpid=abc` and the
@@ -1482,27 +1375,37 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
             const uint64_t dpid = *dpidOpt;
             vertexOpt = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
         }
-        catch (const std::exception& e)
-        {
-            res.result(http::status::bad_request);
-            res.body() = json{{"error", "Invalid DPID format"}, {"details", e.what()}}.dump();
-            return;
-        }
+        // The `catch (const std::exception&)` that used to close this block is gone: nothing inside
+        // it throws any more. tryParseUint64 returns nullopt instead of throwing, and
+        // findSwitchByDpid is a graph read. A catch that cannot fire is not harmless -- it reads as
+        // a claim that this code can throw, so the next person keeps it. Review M2.
+        // [Co-developed with claude code -- Adam]
     }
     else if (!macStr.empty())
     {
-        try
+        // [Co-developed with claude code -- Adam]
+        // tryMacToUint64 and an explicit check, matching modify_device_name and modify_nickname.
+        // This was the last MAC call site still using the throwing macToUint64 with a local catch.
+        // The old form answered 400 too, so this is not a behaviour fix -- it is a consistency one,
+        // and the inconsistency was not cosmetic: the two forms produced *different error bodies*
+        // for the same mistake, so a client could not parse "invalid mac" uniformly. Found by the
+        // http-routing review, M1.
+        const auto mac = utils::tryMacToUint64(macStr);
+        if (!mac)
         {
-            uint64_t mac = utils::macToUint64(macStr);
-            vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(mac);
-        }
-        catch (const std::exception& e)
-        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "get_nickname: mac '{}' is not a MAC address",
+                               macStr);
             res.result(http::status::bad_request);
-            res.body() =
-                json{{"error", "Invalid MAC address format"}, {"details", e.what()}}.dump();
+            res.set(http::field::content_type, "application/json");
+            res.body() = json{{"status", "error"},
+                              {"error", "invalid mac"},
+                              {"mac", macStr},
+                              {"detail", "expected xx:xx:xx:xx:xx:xx"}}
+                             .dump();
             return;
         }
+        vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
     }
     else // nameStr is not empty
     {
@@ -1629,39 +1532,10 @@ void
 HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
 {
     // This helper lambda remains the same.
-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
-        auto qpos = target.find('?');
-        if (qpos == std::string_view::npos)
-        {
-            return "";
-        }
-        target.remove_prefix(qpos + 1);
-        while (!target.empty())
-        {
-            auto key_end = target.find('=');
-            if (key_end == std::string_view::npos)
-            {
-                break;
-            }
-            if (target.substr(0, key_end) == key)
-            {
-                target.remove_prefix(key_end + 1);
-                auto val_end = target.find('&');
-                return std::string(target.substr(0, val_end));
-            }
-            auto amp_pos = target.find('&');
-            if (amp_pos == std::string_view::npos)
-            {
-                break;
-            }
-            target.remove_prefix(amp_pos + 1);
-        }
-        return "";
-    };
 
     std::string target(m_req.target());
-    std::string srcIpStr = get_param(target, "src_ip");
-    std::string dstIpStr = get_param(target, "dst_ip");
+    std::string srcIpStr = utils::queryParam(target, "src_ip");
+    std::string dstIpStr = utils::queryParam(target, "dst_ip");
     json responseJson;
     res.set(http::field::content_type, "application/json");
 
@@ -1774,37 +1648,8 @@ HttpSession::handleSetHistoricalLoggingState(http::response<http::string_body>& 
     SPDLOG_LOGGER_INFO(Logger::instance(), "API request to set historical logging state");
 
     // Helper to parse query params from a target string
-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
-        auto qpos = target.find('?');
-        if (qpos == std::string_view::npos)
-        {
-            return "";
-        }
-        target.remove_prefix(qpos + 1);
-        while (!target.empty())
-        {
-            auto key_end = target.find('=');
-            if (key_end == std::string_view::npos)
-            {
-                break;
-            }
-            if (target.substr(0, key_end) == key)
-            {
-                target.remove_prefix(key_end + 1);
-                auto val_end = target.find('&');
-                return std::string(target.substr(0, val_end));
-            }
-            auto amp_pos = target.find('&');
-            if (amp_pos == std::string_view::npos)
-            {
-                break;
-            }
-            target.remove_prefix(amp_pos + 1);
-        }
-        return "";
-    };
 
-    std::string state = get_param(m_req.target(), "state");
+    std::string state = utils::queryParam(m_req.target(), "state");
 
     if (state != "enable" && state != "disable")
     {

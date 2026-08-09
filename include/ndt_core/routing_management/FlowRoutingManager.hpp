@@ -54,8 +54,16 @@ class FlowRoutingManager
 
     /// Release resources (does not own the shared components).
     ///
-    /// [Co-developed with claude code -- Adam] Virtual so the three dispatch methods below can be
-    /// overridden in a test, which requires deletion through a base pointer to be well-defined.
+    /// [Co-developed with claude code -- Adam] Virtual so the three *flow-entry* dispatch methods
+    /// below -- installAnEntry, modifyAnEntry, deleteAnEntry -- can be overridden in a test, which
+    /// requires deletion through a base pointer to be well-defined.
+    ///
+    /// Naming them matters because the set is not "all the dispatch methods": the group and meter
+    /// methods are not virtual, so a test double cannot intercept them. That is deliberate for now
+    /// -- nothing overrides them and P4RoutingStrategy answers them with an explicit "unsupported"
+    /// rather than doing work worth intercepting -- but it is an asymmetry, not an oversight, and a
+    /// comment that says "the three dispatch methods" without saying which invites the reader to
+    /// assume otherwise. Review M4.
     virtual ~FlowRoutingManager();
 
     /**

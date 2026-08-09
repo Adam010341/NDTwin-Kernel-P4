@@ -372,6 +372,70 @@ commandToolName(std::string_view command)
  * means for `sudo ovs-vsctl`, and it is emphatically not what exit 1 means for `snmpget` (a timeout
  * or an unknown OID) or for `curl` (an unsupported protocol).
  */
+/**
+ * @brief Reads one query parameter out of a request target, or "" if it is absent.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @details This was a lambda defined **five times** inside HttpSession -- once each in
+ * handleGetDetectedTopKFlowData, handleSetSwitchesPowerState, handleGetNickname,
+ * handleGetPathSwitchCount and handleGetSwitchesPowerState. Four copies were byte-identical and the
+ * fifth differed only in having numbered explanatory comments, so the logic never actually diverged;
+ * that was checked rather than assumed, because extracting a "duplicate" that has quietly drifted is
+ * how a refactor changes behaviour.
+ *
+ * The duplication mattered less than what it hid: this parses **untrusted URLs** and had no tests at
+ * all. test_ParamParsing.cpp covers the value parsers -- tryParseUint64, tryIpStringToUint32 -- not
+ * the splitter that feeds them. One definition is what makes it testable, which is the point of the
+ * extraction rather than the line count. Found by the http-routing review, M3.
+ *
+ * Deliberate behaviours, all of them relied on by the handlers:
+ *  - no '?' at all, or the key absent: "" -- indistinguishable from `?key=`, and the callers treat
+ *    "missing" and "empty" alike, so nothing depends on telling them apart;
+ *  - the value runs to the next '&' or to the end;
+ *  - a pair with no '=' is **skipped**, not fatal: "?broken&dpid=3" still yields "3", because the
+ *    scan's find('=') looks past the malformed pair and the following find('&') steps over it. The
+ *    scan stops only when no '=' remains anywhere in the rest of the target. I wrote the opposite
+ *    here first and a test caught it within minutes of the extraction -- which is the argument for
+ *    the extraction, since five copies of this had no test to catch anything;
+ *  - keys are compared exactly: no case folding, no percent-decoding, no '+'-as-space. A caller
+ *    that needs a decoded value must decode it.
+ *
+ * @param target Full request target, e.g. "/ndt/get_nickname?dpid=3&mac=aa:bb".
+ * @param key    Parameter name, compared exactly.
+ */
+inline std::string
+queryParam(std::string_view target, std::string_view key)
+{
+    auto qpos = target.find('?');
+    if (qpos == std::string_view::npos)
+    {
+        return "";
+    }
+    target.remove_prefix(qpos + 1);
+    while (!target.empty())
+    {
+        auto key_end = target.find('=');
+        if (key_end == std::string_view::npos)
+        {
+            break;
+        }
+        if (target.substr(0, key_end) == key)
+        {
+            target.remove_prefix(key_end + 1);
+            auto val_end = target.find('&');
+            return std::string(target.substr(0, val_end));
+        }
+        auto amp_pos = target.find('&');
+        if (amp_pos == std::string_view::npos)
+        {
+            break;
+        }
+        target.remove_prefix(amp_pos + 1);
+    }
+    return "";
+}
+
 inline std::string
 describeCommandStatus(int status, std::string_view command = {}, int savedErrno = -1)
 {
