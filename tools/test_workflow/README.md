@@ -125,11 +125,18 @@ kernel 一定要**最後**開，而且開之前要等 LLDP 收斂完。原因是
 
 ⚠️ **OVS 模式的兩個條件時間差很大，而且必須兩個都滿足。** link discovery 是交換機之間的
 LLDP，實測約 **2 秒**；但使用說明書要求的里程碑是 *all-destination paths installed*，它卡在
-`intelligent_router.py:282` 的 `hub.sleep(60)` 後面，所以**至少 60 秒**。只看 link 數量會比
-說明書的條件早放行大約 58 秒 —— 這正是先前的錯誤。
+`intelligent_router.py` 靜態拓撲分支裡的 `hub.sleep(60)`（`if is_mininet:` 之下，緊接在
+`# Install all-destination routing entries` 註解後面）後面，所以**至少 60 秒**。
+只看 link 數量會比說明書的條件早放行大約 58 秒 —— 這正是先前的錯誤。
 
-`all_destination_paths` 初始是 `[]`（`intelligent_router.py:74`），只在 `install_all_pair_paths`
-裡被賦值（`:510`），所以「非空」是這個里程碑的直接訊號，不必去 grep log。
+`all_destination_paths` 初始是 `[]`（`IntelligentRouter.__init__`），只在
+`install_all_pair_paths()` 結尾被賦值（`self.all_destination_paths = all_destination_paths`，
+在路徑走訪迴圈之後），所以「非空」是這個里程碑的直接訊號，不必去 grep log。
+
+> 這一段原本引用三個行號（`:282`、`:74`、`:510`）。後兩個在寫下時是正確的，第一個差一行，
+> 而三個現在**全部是錯的**：`hub.sleep(60)` 移到了 422、初始化移到 88、賦值移到 671，
+> 因為 `intelligent_router.py` 之後又被改了四次。行號指向 `dpid = ev.switch.dp.id` 這種
+> 完全無關的地方，比沒有引用更糟。**引用一個還在動的檔案就用函式名與鄰近的程式碼構造，不要用行號。**
 
 `CONVERGE_WAIT`（預設 **150**，必須是純整數秒）是**上限**而不是固定等待時間 —— 先前預設 60，
 比它要等的事件本身還短。

@@ -8,12 +8,22 @@
  * buffer shared by the whole process, so threads would overwrite each other's addresses -- and the
  * header's own @warning agreed. This test was written to pin that. It passes against inet_ntoa
  * unchanged, verified by putting inet_ntoa back: on glibc 2.39 the buffer is thread-local, so each
- * thread gets its own and the described race cannot occur. A small C program confirms it -- the
- * main thread's buffer pointer differs from a spawned thread's.
+ * thread gets its own and the described race cannot occur. The program that establishes that is
+ * committed as tests/manual/inet_ntoa_buffer_is_thread_local.c -- it was described here as "a small
+ * C program" while living only in /tmp, which made the one load-bearing claim in this comment the
+ * one thing a reader could not check. Note the scope: thread-local since glibc 2.32. On a libc
+ * without that guarantee the race is real again, and this test will not catch it, because it
+ * exercises inet_ntop.
  *
  * So what this file actually establishes is that the conversion is correct, in both overloads,
- * under eight threads and 160,000 concurrent conversions. That is worth having for 62 call sites
- * spread across threads. It is not a regression test for a race that was never live here.
+ * under eight threads and 160,000 concurrent conversions. That is worth having for the call sites
+ * spread across threads -- 62 of them at the time of writing, reproduce with:
+ *
+ *   grep -rn "ipToString(" src/ include/ --include='*.cpp' --include='*.hpp' \
+ *     | grep -v '^include/utils/Utils.hpp' | wc -l
+ *
+ * (a bare number rots silently; the command that produced it does not). It is not a regression test
+ * for a race that was never live here.
  */
 
 #include <atomic>
