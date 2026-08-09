@@ -715,11 +715,17 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                     // sensitive), which is both fragile and the wrong question. Now keyed
                     // on the switch's own typed kind.
                     //
-                    // NOTE: this remains a stub that assumes bmv2 switches are always up,
-                    // so a powered-off switch reports UP again within one second. Replacing
-                    // it with real liveness (proxy gRPC channel state + LLDP freshness)
-                    // is Phase 6 of doc/p4_bmv2_support_plan.md; the honest fix needs the
-                    // proxy to expose that state, which it does not yet.
+                    // A NOTE used to sit here saying bmv2 liveness "remains a stub that
+                    // assumes bmv2 switches are always up" and that "the honest fix needs
+                    // the proxy to expose that state, which it does not yet". Both halves
+                    // were false by the time anyone could read them: the branch below calls
+                    // p4LivenessFor, and the proxy does expose the state. The stub was
+                    // replaced and the note describing it was not deleted, so the file
+                    // contained two comments contradicting each other -- and the stale one
+                    // was the more prominent, telling a reader to go and implement
+                    // something already finished. Deleted rather than corrected, because
+                    // the branch below documents what it does. Found by a review of this
+                    // change; see doc/audit/commit-review-2026-08-08/power.md H2.
                     if (graph[v].switchKind == SwitchKind::BMV2)
                     {
                         // [Co-developed with claude code -- Adam]
