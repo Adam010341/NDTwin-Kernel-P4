@@ -80,11 +80,21 @@ class RecordingStub:
 
     def __init__(self, error=None, always=False):
         self.requests = []
+        # [Co-developed with claude code -- Adam]
+        # Recorded, and `timeout` accepted, because the real gRPC stub has always taken one. This
+        # double was narrower than the interface it stands in for, so all eleven tests here broke
+        # with `TypeError: Write() got an unexpected keyword argument 'timeout'` the moment
+        # production started passing a deadline -- a correct change turned into a test failure by
+        # the test's own scaffolding. The identical fix was made in test_p4_client_writes.py at the
+        # time; this file's separate stub was missed, and the miss survived because an interpreter
+        # without grpc skips every test in here and reports the suite as OK.
+        self.write_timeouts = []
         self.error = error
         self.always = always
 
-    def Write(self, request):
+    def Write(self, request, timeout=None):
         self.requests.append(request)
+        self.write_timeouts.append(timeout)
         if self.error is not None:
             if self.always:
                 raise self.error

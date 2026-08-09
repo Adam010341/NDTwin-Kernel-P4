@@ -1326,8 +1326,6 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
     //  Log the incoming request for debugging purposes.
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Nickname");
 
-    //  helper function to easily parse query parameters (e.g., "?dpid=123") from the request URL.
-
     // Extract all possible identifiers from the URL
     std::string dpidStr = utils::queryParam(m_req.target(), "dpid");
     std::string macStr = utils::queryParam(m_req.target(), "mac");
@@ -1531,8 +1529,6 @@ HttpSession::handleGetTemperature(http::response<http::string_body>& res)
 void
 HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
 {
-    // This helper lambda remains the same.
-
     std::string target(m_req.target());
     std::string srcIpStr = utils::queryParam(target, "src_ip");
     std::string dstIpStr = utils::queryParam(target, "dst_ip");

@@ -372,10 +372,13 @@ class PollerTest(unittest.TestCase):
         finally:
             topo.stop_liveness_polling()
 
-        self.assertTrue(
-            topo._liveness_thread.is_alive() or reached,
-            "the poller thread died when a switch was registered mid-pass",
-        )
+        # There used to be an `assertTrue(topo._liveness_thread.is_alive() or reached)` above this
+        # line. It could not fail on its own -- with `reached` true it passed regardless of the
+        # thread, and with `reached` false the assertion below failed anyway -- so it was two lines
+        # claiming to check the thread while checking nothing. It also read the thread handle after
+        # stop_liveness_polling(), which now joins and clears it, so a thread that shut down
+        # correctly looked like one that had died. `reached` is the real evidence: nothing after the
+        # mutation point gets probed if the pass died. [Co-developed with claude code -- Adam]
         self.assertTrue(reached, "switches registered during a pass were never probed")
 
 
