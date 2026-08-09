@@ -370,3 +370,132 @@ glibc 2.32 起才 thread-local，在沒有這個保證的 libc 上競爭是真�
 第 6、7 條（「41 個註冊端點中 30 個有 contract」、「10 個沒有 consumer」）它逐一比對
 `KERNEL_ENDPOINTS` 與 `COMPONENTS` 後**查證通過並列出那 11 個未覆蓋的端點名稱**。
 這是我自己寫的數字，我會相信我寫的 —— 有第三方拿工具去數，才叫查證過。
+## 逐類檢查記錄
+
+### 1. 改動與 commit message 宣稱的意圖不符
+檢查方法：對 `git log --oneline 28b8b13..HEAD -- tests/ tools/` 的每個 commit message 與其實際 diff 做抽樣比對。抽樣了以下 commit：
+- `c1603d5` "Add 74 C++ tests with mutation evidence, and settle the five that proved nothing" — diff 確實新增大量 C++ test files，且 commit message 描述與內容相符。
+- `e3a0ee9` "Add 145 Python tests, each with the mutation that kills it, and close a fourth false PASS" — 相符。
+- `7aa0b0d` "Stop three checks reporting PASS when they checked nothing" — 相符，對應 invariants 中 `inv_flow_paths_non_empty` 之類的修正。
+- `6731b56` "Make two of my tests assert what their names claim" — 相符。
+- `ba97ab3` "Test Controller's sender, and nearly ship a test file that proved nothing" — 相符，`test_Controller.cpp` 的註解直接說明了此事。
+- `89d38ae` "Fix five defects in the test tooling that made it misjudge" — 對 `run_layers.sh` 和 `l1_unit_tests.sh` 的多處修正，與 diff 一致。
+
+**結論：這一類沒有發現 commit message 詐欺或夾帶無關改動。**
+
+### 2. 註解宣稱的事實與程式碼不符
+**這是本次 review 的重點類別。** 詳見上方「註解宣稱查證表」的 12 條查證。主要發現：
+- H1: README 行號錯誤（282→422）
+- M1: ipToString call sites 計數 62 vs 61
+- 其餘 10 條查證中有 7 條「查證通過」、3 條「無法從程式碼驗證」
+- **沒有發現惡意或誤導性的假宣稱。** 不準確的集中在行號和精確計數。
+
+### 3. 治症狀不治病
+檢查方法：搜尋是否有同一類 bug 在多處出現而只修了一處。觀察重點：
+- `KeyedFailureLog` 的 edge-triggered log 機制（`tests/test_KeyedFailureLog.cpp` 詳細測試了 failure-reportonce-then-quiet 行為）。grep 確認生產程式碼中只有一個 `KeyedFailureLog` 實例被使用，所以不存在「同一模式多處沒修」的問題。
+- `check_logs.py` 的 allowlist 機制：FORBID 規則不接受 allowlist 是正確設計。但 `what()` pattern 的潛在誤報（見 L2）沒有被處理。
+
+**結論：未發現「只治一處、同模式他處放著不管」的情況。**
+
+### 4. 不一致
+檢查方法：比較同類操作的處理方式是否一致。
+- Allowlist 格式：`warning_allowlist.txt`、`baseline_diff_allowlist.txt` 都用 `" | "` 分隔，一致。`check_logs.py` 和 `compare_baseline.py` 各自有獨立的 `load_allowlist()` 函式而非共用 — 這是因為兩個 allowlist 的欄位語意不同（一個是 LEVEL|pattern|reason，一個是 endpoint|pattern|reason），但解析邏輯重複。
+- gtest skip detection: `l1_unit_tests.sh` 對 C++ tests 和 Python tests 的 skip 偵測邏輯不同（C++: 解析 `[  SKIPPED ]` 行，Python: grep `skipped` + `Ran N`）。這是因為兩個 harness 的輸出格式不同，屬於合理的差異化處理。
+- Logger 初始化：`test_LoggerEnvironment.cpp` 提供 global environment，但數個 test file 仍在自己的 `SetUpTestSuite` 中重複初始化 Logger。註解說這是「document the dependency at the point where it matters」，不算不一致，而是刻意重複。
+
+**結論：未發現導致 bug 的不一致。allowlist parser 重複是輕微的 DRY 違反，但兩個格式確實不同。**
+
+### 5. 過度工程
+- `tools/contract_test/schema.py` 是一個完整的 schema validator，包含 `Int`, `Num`, `Str`, `Bool`, `List`, `Obj`, `MapOf`, `OneOf`, `Any_` 等型別。對於「驗證 API 回應」這個目的而言是適當的抽象層級——沒有過度。
+- `selftest_fixtures.py` 對 invariants 做雙向檢查（好資料要過、壞資料要報錯）——這是正確的測試紀律，不是過度工程。
+- `tools/test_workflow/run_layers.sh` 有詳細的顏色輸出、banner、summary——這提高了可用性而非過度。
+- **未發現為測試而扭曲生產程式碼的設計。** `test_FlowTableConcurrency.cpp` 使用了 `ConcurrentCollector`（繼承自 `FlowLinkUsageCollector` 以暴露 `handlePacket`），但這是標準的 test seam 做法，註解也解釋了原因。
+
+**結論：未發現過度工程。**
+
+### 6. 新引入的缺陷
+- 檢查了 `kernel_owns_log()` 函式的回傳值處理：三態（0/1/2）的邏輯在 `run_logcheck` 中的 switch 是完整的。但路徑 2 的 fallback `log_written_recently()` 有一個時間窗口問題（見 M4）。
+- `l1_unit_tests.sh` 對 Python test skip 的偵測：`skipped -eq ran` 檢查（line 175）捕捉「全部 skip」的情況。但如果 55 個測試中 54 個 skip、1 個 pass，`skipped` (54) ≠ `ran` (55)，所以不會觸發 FAIL——這不算 bug，因為至少有一個測試執行了。
+- `check_logs.py` 的 `--to-line` 邏輯（line 195）：使用 `is not None` 而非 truthiness，正確處理了 `--to-line 0` 的邊界情況。
+- `run_layers.sh` 的 `LOG_MARKED` flag（line 114）：使用獨立的 flag 而非依賴 `LOG_MARK -gt 0`，因為 mark 為 0 是合法的。設計正確。
+
+**結論：未發現會導致 crash/資料遺失的新缺陷。M4 是一個邊界情況的可靠性疑慮。**
+
+### 7. 效能退步
+- C++ tests 都在同一個 binary，但 test execution 本身不是效能瓶頸。
+- `check_logs.py` 的 crash scan（line 214）會掃整個檔案（非 window），這對大 log 檔案可能耗時。但 crash 偵測必須掃全部，這是正確的取捨。
+- `selftest_fixtures.py` 的 self-test 是離線操作，秒級完成。
+- **未發現明顯的效能問題。**
+
+### 8. 半成品與死碼
+- `components.py` 中的 `disable_switch` 被標記為 `KNOWN_MISSING_ENDPOINTS`，並解釋了它是 Energy-Saving-App 中的 dead code。
+- `intent_translator/text` 被刻意排除在 contract test 之外（spec.py line 700-703 有記錄）。
+- Group/meter endpoints（6 個）沒有 contract，READMe 記錄了這是因為它們沒有 consumer。
+- `tools/contract_test/README.md:358` 記錄了 group/meter 端點在 P4 模式下會走 OVS strategy 的 bug，但說「沒有任何測試會抓到」——這是一個已知的 coverage gap。
+- **沒有發現未記錄的 dead code 或半成品。** `NDTWIN_L1_OPT_IN` token 機制是完整的。
+
+### 9. 可回退性
+- 所有 C++ tests 在同一個 binary 中（`CMakeLists.txt`），所以無法獨立回退某個 test file 而不回退整個 binary。
+- Python tests 是獨立檔案，可以單獨回退。
+- `tools/` 下的各個腳本互相引用（`run_layers.sh` → `l1_unit_tests.sh` / `l0_build_check.sh` / contract_test tools），但變更通常是向後相容的。
+- **未發現將兩件無關的事綁在同一個 commit 的情況。**
+
+## 針對 `tests/` 與 `tools/` 範圍的專項檢查
+
+### 假測試（fake tests）檢查
+逐一審閱了測試檔案的斷言強度：
+- **`test_LLMResponseParsing.cpp`**：有兩個 `...DocumentsCurrentBehaviour` 測試，刻意 pin bug 而非意圖。這是**故意的**，並有完整文件說明。不算 fake test。
+- **`test_IpToString.cpp`**：concurrency test 的作者誠實記錄了它「passes against inet_ntoa unchanged」——測試本身有價值（驗證正確性），但不是 regression test for race condition。這已在檔案頭說清楚。
+- **`test_SyntheticPower.cpp`**：註解記錄了一個真正的 fake test 被修復的過程——早期版本只要求十個數值「distinct」，而 `std::hash<uint64_t>{}(dpid)` 在 libstdc++ 上是 identity function，所以回傳 30001-30010（都是 30.0W），測試通過了但功能無用。這個 fake test **已經被修復**。
+- **`test_Controller.cpp`**：註解說第一版只 assert dispatch 但不 assert log output，所以把 bug 加回去後測試仍通過。**已修復**，現在用 `CapturingSink` 驗證 log 內容。
+- **`tests/python/test_contract_spec.py`**：驗證 invariants 的雙向行為（好資料要過、壞資料要報錯），這正是避免 fake test 的做法。
+
+**結論：未發現現存的假測試。** 程式碼中有多處記錄了「曾經有假測試、已被修復」的歷史，這反而增加了可信度。
+
+### Skipped tests 與工具鏈處理
+- **`l1_unit_tests.sh`**：正確處理了 gtest SKIPPED（line 118-122）和 Python unittest skipped（line 175-201）。「全部 skip」會被報 FAIL，除非有 `NDTWIN_L1_OPT_IN`。
+- **`test_p4_client.py`**：唯一使用 `NDTWIN_L1_OPT_IN` 的檔案。它的 skip 是設計（需要 live bmv2），不是 bug。
+- **shell tests**（`test_wait_for_port.sh`）：使用自訂的 SKIP 標記（`SKIP:` 行），且 `l1_unit_tests.sh` 能正確偵測（line 262）。
+- **ctest 的 blind spot**：`l1_unit_tests.sh` 同時跑 ctest 和 direct execution，這正是為了補 ctest 看不到 cross-test interference 的盲區。設計正確。
+
+**結論：工具鏈對 skipped tests 的處理是可靠的。** 沒有發現「skip 了但看起來像 pass」的情況。
+
+### 工具鏈的判定是否可信
+- **`check_logs.py`**：
+  - **不會永遠 PASS**：未 allowlist 的 WARNING/ERROR 會 FAIL。FORBID patterns 永遠 FAIL（即使 allowlist 也不能放行）。Crash 偵測掃全檔案。
+  - **不會對錯誤的東西 FAIL**：`--to-line` 機制正確排除 L2 自爆的錯誤。Crash detection 不受 window 限制。
+  - 一個潛在問題：`what()` pattern 可能誤報（見 L2）。
+- **`compare_baseline.py`**：
+  - **不會永遠 PASS**：任何不在 allowlist 中的 shape/coverage/behaviour 差異都會 FAIL。
+  - 對 empty list 的處理避免了雜訊轟炸（見 README:287-293）。
+- **`run_layers.sh`**：
+  - `kernel_reachable()` 檢查避免在 kernel 不在時跑 L2/L3。
+  - `mark_log()` 機制避免 L2 自爆污染 log check。
+  - `kernel_owns_log()` 三態邏輯比單純的「log 檔案存在」強。
+- **`l1_unit_tests.sh`**：
+  - 交叉比對 ctest case count 與 gtest test count（line 286-298）。
+  - 對 build warnings 有提示（line 73-75）。
+  - 對 Python test 的 skip 偵測考慮了三種不同情境（opt-in、缺 dependency、真正的 broken skip）。
+
+**結論：工具鏈判定邏輯基本上是可信的。** M4 和 L2 是邊界情況的潛在問題，但不至於讓整個判定失效。
+
+### 測試與生產程式碼的耦合
+- **Test seam via inheritance**：多個 test file 使用「繼承 production class 來暴露 protected method」的模式（`LivenessProbe`, `PowerProbe`, `RelayReader`, `ConcurrentCollector`）。這是 C++ 測試的常見做法，沒有為了測試而把 method 改成 public 或加入 friend declaration。
+- **`ControllerTest`** 使用 `ScriptedManager`（mock）來驗證 dispatch。Mock 只 override 三個 virtual method，不干擾 production path。
+- **`CapturingSink`**：繼承 `spdlog::sinks::base_sink` 來 capture log output。這是合理的測試工具，不影響 production code。
+- **`LoggerEnvironment`**：global test environment 在 main() 之前初始化 logger。這是一個合理的全域 fixture。
+
+**結論：測試與生產程式碼的耦合是合理的。** 沒有發現為了測試而在 production code 中開的後門。
+
+## 無法判定
+
+1. **`run_layers.sh:97-98` 的實測數字「47 problem line(s) across 13 distinct message(s)」**：這是操作者在特定環境下的觀察記錄，無法從程式碼驗證。機制邏輯（重複跑 contract test 對同一 kernel process 導致前一輪的探測錯誤出現在第二輪的 log window 之後）是對的，但具體數字只是當時的 snapshop。
+
+2. **`test_IpToString.cpp:10-11` 的 glibc 2.39 thread-local 宣稱**：需要執行緒間競爭的實證才能確認。glibc 社群文件和 source code 確認了這個變更，但無法從本 repo 內的程式碼驗證。
+
+3. **`baseline_diff_allowlist.txt:100` 的「the only observed difference is dl_dst」**：需要實際執行 OVS vs P4 comparison 來確認當前版本是否仍然只有這個 field 不同。allowlist 本身記錄了這可能因 Phase 進展而改變。
+
+4. **`tools/test_workflow/README.md` 中的收斂時間宣稱（「link discovery 實測約 2 秒」、「至少 60 秒」）**：這些是在特定硬體和拓撲下的實測結果。無法從程式碼驗證數值本身，但機制（輪詢而非固定 sleep）的邏輯是正確的。
+
+5. **`components.py` 的 `KERNEL_ENDPOINTS` 是否與 `HttpSession.cpp` 完全同步**：未執行 `--check-drift`，無法判定。這是設計上有 `check_dispatch_drift()` 函式來偵測的，所以 drift 應該在 CI 中被抓到——前提是 CI 有跑 `--check-drift`。
+

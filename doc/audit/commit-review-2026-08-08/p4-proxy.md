@@ -318,3 +318,22 @@
 ---
 ### 更正
 經重新檢查，上一則「補充發現：空字串 `nw_dst` 會導致 500」為**誤報**。`route_flow`（line 327）、`unroute_flow`（line 371）、`modify_flow`（line 389）均有 `if not ipv4_dst: return False` guard，已正確處理空字串情況。已從發現清單中撤銷。
+
+
+---
+
+## 最終統計
+
+| 嚴重度 | 數量 | 編號 |
+|--------|------|------|
+| 高 | 4 | H1-H4 |
+| 中 | 8 | M1-M8 |
+| 低 | 4 | L1-L4 |
+
+**核心建議優先修復**：
+1. **H1**：所有 `stub.Write()` 加上 timeout；`install_initial_routes()` 移出串流接收執行緒。
+2. **H2**：為 `self.net` 操作加上鎖，或將 LLDP 處理序列化到單一執行緒。
+3. **H3**：為 LLDP discovery 加入 stop 機制。
+4. **H4**：在 LLDP 處理中加入 beacon timeout 偵測，接上 `link_failure`/`link_recovery`。
+
+**附帶**：`requirements.txt` 補上 `requests`（M4）、`test_10_routes.py` 修正埠號（M3）。
