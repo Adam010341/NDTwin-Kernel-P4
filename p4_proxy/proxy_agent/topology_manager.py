@@ -590,9 +590,20 @@ class TopologyManager:
                     entry = self._link_beacons.get(link)
                     if entry is None:
                         # acked=True: a link the kernel has never been told is down needs no telling
-                        # that it is up. inform_switch_entered already enabled every edge touching
-                        # the switch (TopologyAndFlowMonitor.cpp:2056-2065), so up is the kernel's
-                        # starting assumption and only a failure report changes it.
+                        # that it is up.
+                        #
+                        # This comment used to credit inform_switch_entered with enabling the edges
+                        # too. It does not: handleInformSwitchEntered calls setVertexUp and
+                        # setVertexEnable on the switch vertex and nothing else
+                        # (HttpSession.cpp:165-166). Switch-to-switch edges are enabled by the 1 s
+                        # topology poll -- updateLinks, keyed on (src dpid, src port), reading the
+                        # Ryu-shaped /v1.0/topology/links this proxy serves. `enableSwitchAndEdges`
+                        # does what the old comment described, but its only caller is
+                        # IntentTranslator.cpp:227.
+                        #
+                        # The conclusion survives the correction: the poll brings a newly discovered
+                        # link up on its own. What the wrong reason hid is that the same poll also
+                        # brings a *failed* link back up, which is why down_link_endpoints exists.
                         self._link_beacons[link] = {"at": now, "down": False, "acked": True,
                                                     "seen": True}
                     else:
@@ -835,9 +846,20 @@ class TopologyManager:
             if self._notify_link(link, down):
                 with self._liveness_lock:
                     entry = self._link_beacons.get(link)
-                    # Only acknowledge the belief we actually reported. A beacon can arrive while
-                    # the POST is in flight, flipping `down` back; marking that acked would leave
-                    # the kernel believing the link is down with nothing left to correct it.
+                    # Only acknowledge the belief we actually reported.
+                    #
+                    # Currently unreachable, and the comment here used to claim otherwise: "a beacon
+                    # can arrive while the POST is in flight, flipping `down` back". It cannot. A
+                    # beacon only refreshes `at`; the belief is flipped in the loop above and
+                    # nowhere else, and there is one watchdog thread, so `entry["down"]` cannot
+                    # differ from `down` by the time the report returns. A mutation removing this
+                    # comparison survived all 34 tests for exactly that reason.
+                    #
+                    # Kept, because the moment a second reporter exists -- a retry worker, a
+                    # second watchdog, an HTTP handler that forces a re-report -- acknowledging a
+                    # belief someone else has already replaced would leave the kernel holding
+                    # "down" with nothing remaining to correct it. Cheap, and the failure it
+                    # prevents is silent and permanent.
                     if entry is not None and entry["down"] == down:
                         entry["acked"] = True
                 (reported_down if down else reported_up).append(link)
@@ -897,6 +919,50 @@ class TopologyManager:
         thread, self._link_watchdog_thread = self._link_watchdog_thread, None
         if thread is not None and thread.is_alive():
             thread.join(timeout)
+
+    def down_link_endpoints(self):
+        """
+        `(dpid, port)` for every link direction the watchdog believes is down.
+
+        [Co-developed with claude code -- Adam]
+        Exists because reporting a link failure is not enough on its own. `updateLinks` on the kernel
+        side only ever sets `isUp`/`isEnabled` to **true** -- it has no path that sets either false --
+        and it runs on a 1 s topology poll keyed on (src dpid, src port). This side never forgets a
+        link either: `add_link` has no counterpart, so a link discovered once is reported forever.
+        So the sequence was: watchdog reports the failure, the kernel takes the edge down, and within
+        one second the next poll puts it straight back up because the proxy was still listing it.
+        The failure report was real, the effect lasted under a second, and nothing anywhere said so.
+
+        Filtering the topology reply is the fix that works with the kernel as it stands, rather than
+        against it: an edge the poll never mentions keeps whatever state it was last given. Keyed on
+        the source endpoint because that is the key the kernel enables on -- both directions are
+        tracked separately, so a one-way failure removes one direction and leaves the other.
+
+        Fifth instance of "should replace, can only add" on this project, and the first one I shipped
+        myself: the two halves each only added, so together they could never take anything away.
+        """
+        with self._liveness_lock:
+            down = set()
+            for (src, src_port, dst, dst_port), entry in self._link_beacons.items():
+                if not entry["down"]:
+                    continue
+                down.add((src, src_port))
+
+                # The far end of the same physical link, withheld too unless its own direction has
+                # live evidence. `add_link` creates *both* directions from a single beacon, so the
+                # reverse edge often exists as an inference rather than an observation -- and an
+                # inferred direction can never be reported down, because no beacon tuple for it was
+                # ever created to time out. Left in, it keeps half the edge lit on a link that is
+                # wholly dead: exactly the case where the far switch died, so its beacons never
+                # arrived anywhere to be missed.
+                #
+                # A reverse direction that is genuinely still passing beacons stays reported. That
+                # is the one-way failure, and telling the kernel less than we know about it would be
+                # its own error.
+                reverse = self._link_beacons.get((dst, dst_port, src, src_port))
+                if reverse is None or reverse["down"]:
+                    down.add((dst, dst_port))
+            return down
 
     def link_liveness(self):
         """

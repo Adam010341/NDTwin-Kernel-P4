@@ -24,6 +24,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from proxy_agent.ryu_topology import render_links  # noqa: E402
 from proxy_agent.topology_manager import (  # noqa: E402
     LINK_BEACON_TIMEOUT_S,
     LINK_STARTUP_GRACE_S,
@@ -210,10 +211,16 @@ class ReportsAreRetriedTest(WatchdogTestBase):
         self.topo.check_link_beacons()
         self.assertEqual(len(self.kernel.failures), 1)
 
-    def test_a_beacon_arriving_while_the_report_is_in_flight_is_not_acknowledged_away(self):
-        # The pass drops the lock before the HTTP call, so the link can come back mid-report. If the
-        # in-flight belief were acknowledged anyway, the kernel would be left holding "down" with
-        # nothing remaining to correct it -- a permanently dark edge on a working link.
+    def test_a_beacon_arriving_during_the_failure_report_still_produces_a_recovery(self):
+        # What this proves: a beacon that lands while the failure POST is in flight is not lost --
+        # the next pass sees the fresh timestamp and reports the recovery.
+        #
+        # What it does NOT prove, despite its original name: the compare-and-set in the ack step.
+        # A mutation removing that comparison survived this test, and the mutation was right --
+        # a beacon only refreshes `at`, so the belief cannot change mid-report and the guard is
+        # unreachable today. Recorded here rather than deleted: the two causes of a surviving
+        # mutation are "the test is weak" and "the target cannot be hit", and conflating them is
+        # how a good test gets deleted or a false one kept.
         self.beacon(1, 1, 5, 1)
         self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
         self.kernel.on_report = lambda kind, link: self.beacon(1, 1, 5, 1)
@@ -320,6 +327,102 @@ class LinkLivenessReportTest(WatchdogTestBase):
         self.assertIn("1:1->5:1", self.topo.switch_liveness()["links"])
         # Additive only: the kernel looks up "switches" by name and must keep finding it.
         self.assertIn("switches", self.topo.switch_liveness())
+
+
+class TheTopologyReplyStopsMentioningFailedLinksTest(WatchdogTestBase):
+    """
+    Reporting a link failure is not sufficient on its own, and this is the test that says so.
+
+    [Co-developed with claude code -- Adam]
+    The kernel's `updateLinks` only ever sets isUp/isEnabled to **true** -- it has no path that sets
+    either false -- and it polls once a second, keyed on (src dpid, src port). This side never
+    forgets a link: `add_link` has no counterpart. So the watchdog would report a failure, the kernel
+    would take the edge down, and the next poll would put it straight back up. The report was real
+    and its effect lasted under a second.
+
+    These tests fail against a `render_links` that lists every discovered link, which is what
+    shipped before this was found.
+    """
+
+    def setUp(self):
+        super().setUp()
+        for dpid in (1, 5):
+            self.topo.net.add_node(dpid, type="switch")
+
+    def rendered(self):
+        return render_links(self.topo.net, self.topo.down_link_endpoints())
+
+    def endpoints(self):
+        return {(e["src"]["dpid"], e["src"]["port_no"]) for e in self.rendered()}
+
+    def test_a_discovered_link_is_reported(self):
+        self.beacon(1, 1, 5, 2)
+        self.assertIn(("0000000000000001", "00000001"), self.endpoints())
+
+    def test_a_failed_link_is_not_reported(self):
+        self.beacon(1, 1, 5, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.check_link_beacons()
+        self.assertEqual(self.endpoints(), set(),
+                         "the kernel's next poll would re-enable the edge the watchdog just "
+                         "reported as failed, because updateLinks cannot set isEnabled false")
+
+    def test_a_recovered_link_is_reported_again(self):
+        self.beacon(1, 1, 5, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.check_link_beacons()
+        self.beacon(1, 1, 5, 2)
+        self.topo.check_link_beacons()
+        self.assertIn(("0000000000000001", "00000001"), self.endpoints())
+
+    def test_only_the_failed_direction_is_withheld(self):
+        # A one-way failure is a real thing; withholding both would tell the kernel less than we know.
+        self.beacon(1, 1, 5, 2)
+        self.beacon(5, 2, 1, 1)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(5, 2, 1, 1)
+        self.topo.check_link_beacons()
+        self.assertEqual(self.endpoints(), {("0000000000000005", "00000002")})
+
+    def test_the_key_is_the_source_endpoint_the_kernel_enables_on(self):
+        self.beacon(3, 4, 9, 1)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.check_link_beacons()
+        # The beacon's own source endpoint must be in the set. Keyed on the arrival endpoint
+        # instead, the filter would withhold a direction the kernel enables under a different key
+        # and leave the failed one lit. (The arrival endpoint is here too, but for the separate
+        # inferred-reverse reason tested below -- this asserts the source is not the one missing.)
+        self.assertIn((3, 4), self.topo.down_link_endpoints())
+
+    def test_a_link_that_is_up_is_never_withheld_by_an_unrelated_failure(self):
+        for dpid in (2, 6):
+            self.topo.net.add_node(dpid, type="switch")
+        self.beacon(1, 1, 5, 2)
+        self.beacon(2, 1, 6, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(2, 1, 6, 2)
+        self.topo.check_link_beacons()
+        self.assertEqual(self.endpoints(), {("0000000000000002", "00000001"),
+                                            ("0000000000000006", "00000002")})
+
+    def test_the_inferred_reverse_direction_of_a_dead_link_is_withheld_too(self):
+        # add_link creates both directions from one beacon, so the reverse edge is usually an
+        # inference. No beacon tuple exists for it, so it can never time out -- and if the far
+        # switch is the one that died, its beacons never arrived anywhere to be missed. Left in,
+        # half the edge stays lit on a wholly dead link.
+        self.beacon(1, 1, 5, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.check_link_beacons()
+        self.assertEqual(self.topo.down_link_endpoints(), {(1, 1), (5, 2)})
+
+    def test_a_reverse_direction_still_passing_beacons_is_kept(self):
+        self.beacon(1, 1, 5, 2)
+        self.beacon(5, 2, 1, 1)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(5, 2, 1, 1)
+        self.topo.check_link_beacons()
+        self.assertEqual(self.topo.down_link_endpoints(), {(1, 1)},
+                         "a one-way failure must not withhold the direction that demonstrably works")
 
 
 class ThreadLifecycleTest(unittest.TestCase):

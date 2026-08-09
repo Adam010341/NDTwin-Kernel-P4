@@ -286,7 +286,15 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 
 - 讓 proxy 照著 `intelligent_router.py` 的做法去呼叫 kernel 的北向 API：
   - ~~拿到 P4Runtime mastership 時~~呼叫 `GET /ndt/inform_switch_entered?dpid=N` — 這是**唯一會把
-    `isEnabled` 設成 true 的路徑**，光做這一件事就能解開 BFS 找路徑、flow table 輪詢和鏈路使用率。
+    switch 頂點的 `isEnabled` 設成 true 的路徑**，光做這一件事就能解開 BFS 找路徑、flow table
+    輪詢和鏈路使用率。
+
+    ⚠️ **它只打開頂點，不打開邊。** `handleInformSwitchEntered` 呼叫的是 `setVertexUp` ＋
+    `setVertexEnable`（HttpSession.cpp:165-166），僅此而已。switch↔switch 的**邊**是
+    `updateLinks` 在 **1 秒一次**的 topology poll 裡用 `(src dpid, src port)` 打開的，資料來源是
+    proxy 提供的 Ryu 形狀 `/v1.0/topology/links`；host 邊在 `updateHosts` 裡打開。
+    `enableSwitchAndEdges` 確實會一併打開相鄰邊，但**唯一的呼叫點是 `IntentTranslator.cpp:227`**。
+    我曾把這件事寫反過，而那個錯誤的理由掩蓋了一個真正的缺陷 —— 見下面 link watchdog 那條。
     ✅ **已完成**（`KernelNotifier.switch_entered`，由 `main.startup()` 呼叫）。
 
     ⚠️ **計畫書這裡原本寫錯了觸發時機。** 不是拿到 mastership 時，而是**pipeline 推完之後**。
@@ -308,6 +316,18 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     （每一次都讓 kernel 拆掉邊、重算路徑）。狀態是「信念 ＋ kernel 是否已被告知」兩個欄位而不是一個
     旗標：回報會重試到被接受為止，否則一個正在重啟的 kernel 會讓通知永久遺失，而症狀正好就是這個功能
     要修的那個 bug。
+    ⚠️ **回報失效本身不夠 —— 這是後來才發現的，而且是我自己 ship 的缺陷。** kernel 的
+    `updateLinks` **只會**把 `isUp`/`isEnabled` 設成 true，**沒有任何路徑會設成 false**，而它
+    1 秒跑一次；proxy 這邊 `add_link` 也沒有對應的移除，探索到的 link 會永遠上報。所以順序是：
+    watchdog 回報失效 → kernel 把邊設 down → **不到一秒後 poll 又把它設回 enabled**。回報是真的，
+    效果撐不到一秒，而且沒有任何地方會講。修法是 `down_link_endpoints()`：proxy **停止上報**它認為
+    已經斷掉的方向 —— 在現行 kernel 下這是唯一辦得到的，因為那個回覆裡沒有辦法表達「down」，而
+    poll 從不提及的邊會保留它上次被設定的狀態。
+    連帶一個更細的洞：`add_link` 從**一個** beacon 就建出**兩個**方向，所以反向邊通常是推論而非觀測，
+    永遠不會有 tuple 去逾時 —— 遠端 switch 自己死掉時，它的 beacon 從來沒抵達過任何地方可以被漏掉。
+    所以反向也一併停報，**除非它自己還在收 beacon**（那是真正的單向失效，少報反而是另一種錯）。
+    這是本專案「應該取代卻只能新增」的**第 5 例**：兩半各自只會新增，合起來就永遠拿不掉東西。
+
     ⚠️ 已知限制：**啟動時就已經斷掉的鏈路偵測不到**，因為 watchdog 只認得曾經送達過 beacon 的鏈路。
     `seed_expected_links()` 可以從拓撲檔補上這一塊，但**預設關閉**：它假設拓撲檔的 `src_interface`／
     `dst_interface` 就是 bmv2 用的 port 編號，發送側成立（`lldp_ports_for` 已經據此運作且探索有效），

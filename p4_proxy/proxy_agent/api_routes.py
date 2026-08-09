@@ -34,7 +34,10 @@ async def topology_switches():
 async def topology_links():
     if topology is None:
         return []
-    return ryu_topology.render_links(topology.net)
+    # Links the beacon watchdog believes are down are omitted, or the kernel's 1 s topology poll
+    # re-enables the edge within a second of the failure being reported -- updateLinks has no path
+    # that sets isEnabled false. [Co-developed with claude code -- Adam]
+    return ryu_topology.render_links(topology.net, topology.down_link_endpoints())
 
 
 @router.get("/v1.0/topology/hosts")

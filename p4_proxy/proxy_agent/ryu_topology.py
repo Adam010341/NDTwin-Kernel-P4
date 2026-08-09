@@ -84,7 +84,7 @@ def render_switches(switch_dpids) -> list:
     return [{"dpid": _dpid_hex(d), "ports": []} for d in sorted(switch_dpids)]
 
 
-def render_links(net) -> list:
+def render_links(net, down_endpoints=()) -> list:
     """
     Inter-switch links, both directions, as Ryu reports them.
 
@@ -93,14 +93,26 @@ def render_links(net) -> list:
 
     Host links are excluded: Ryu reports those through `/v1.0/topology/hosts`, and including them
     here would have the kernel look for a switch vertex whose dpid is a host IP.
+
+    `down_endpoints` is the set of `(dpid, port)` the beacon watchdog believes is down; those
+    directions are left out. [Co-developed with claude code -- Adam]
+
+    Omitting them is load-bearing, not tidiness. `updateLinks` only ever sets isUp/isEnabled to
+    true, and it runs once a second -- so a link that stayed in this list was re-enabled within a
+    second of the watchdog reporting it failed, silently undoing the report. There is no way to say
+    "down" in this reply, so the only way to stop the poll contradicting the failure is to stop
+    mentioning the link. See TopologyManager.down_link_endpoints.
     """
     links = []
+    down = set(down_endpoints)
     for src, dst, data in net.edges(data=True):
         if net.nodes.get(src, {}).get("type") != "switch":
             continue
         if net.nodes.get(dst, {}).get("type") != "switch":
             continue
         src_port = data.get("port", 0)
+        if (src, src_port) in down:
+            continue
         # The reverse edge carries the far end's port number; add_link() stores them that way.
         dst_port = net.get_edge_data(dst, src, default={}).get("port", 0)
         links.append({
