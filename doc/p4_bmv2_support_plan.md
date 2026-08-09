@@ -285,11 +285,39 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 這裡修的是問題 #4 和 #5 — 也就是 P4 模式下拓撲圖像死掉一樣的原因。Ryu 會主動**推**資料給 kernel，但 proxy 現在什麼都不推。
 
 - 讓 proxy 照著 `intelligent_router.py` 的做法去呼叫 kernel 的北向 API：
-  - 拿到 P4Runtime mastership 時呼叫 `GET /ndt/inform_switch_entered?dpid=N` — 這是**唯一會把 `isEnabled` 設成 true 的路徑**，光做這一件事就能解開 BFS 找路徑、flow table 輪詢和鏈路使用率。
-  - LLDP beacon 逾時／恢復時呼叫 `POST /ndt/link_failure_detected`／`link_recovery_detected`（可以參考 `intelligent_router.py:597,624`）。
-  - 用 `POST /ndt/inform_all_destination_paths` 主動推路徑。這比修 pull 那條路好，因為 `fetchAllDestinationPaths` 只在啟動時被呼叫**一次**（[FlowLinkUsageCollector.cpp:300](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L300)），時間點比 LLDP 探索收斂還早，而它那句 `if (output.empty()) return;` 會讓這件事變成永久而且沒有任何提示的空操作。不管是哪種 switch，都應該加上重試／定期刷新。
+  - ~~拿到 P4Runtime mastership 時~~呼叫 `GET /ndt/inform_switch_entered?dpid=N` — 這是**唯一會把
+    `isEnabled` 設成 true 的路徑**，光做這一件事就能解開 BFS 找路徑、flow table 輪詢和鏈路使用率。
+    ✅ **已完成**（`KernelNotifier.switch_entered`，由 `main.startup()` 呼叫）。
+
+    ⚠️ **計畫書這裡原本寫錯了觸發時機。** 不是拿到 mastership 時，而是**pipeline 推完之後**。
+    `isEnabled` 的語意是「控制平面能驅動這台 switch」，而一台**握有 mastership 但沒有載入 pipeline 的
+    switch 什麼都轉送不了** —— 照原本寫的做，會把 vertex 打開在一台死掉的 switch 上，然後 twin 會為
+    它報出路徑和速率。實際上 `set_forwarding_pipeline_config` 才是第一次真正的 gRPC 往返（grpc 是
+    lazy connect，所以 `start()` 對著死掉的 switch 也會成功），所以那裡同時是「能不能驅動」的第一個
+    真實證據。pipeline 推失敗的 switch 被排除在 `inform_switch_entered` 之外，但**保留**它的
+    `P4RuntimeClient`，這樣存活輪詢仍會探測它、`/p4/switch_state` 回報 `probe_ok=false`，kernel 才能
+    把它顯示成 down 而不只是「不存在」。
+  - LLDP beacon 逾時／恢復時呼叫 `POST /ndt/link_failure_detected`／`link_recovery_detected`（可以參考
+    `intelligent_router.py:597,624`）。✅ **已完成**（`TopologyManager.check_link_beacons` +
+    `start_link_watchdog`，34 個測試）。
+
+    實作上有幾件計畫書沒寫到、但決定了設計的事：**回報放在 watchdog 執行緒，不是 gRPC 接收執行緒**
+    —— 在接收執行緒上做一個 3 秒 timeout 的 HTTP POST，會卡住它後面每一台 switch 的 packet-in，而
+    20 條鏈路同時失效會卡住一分鐘，足以讓**更多**鏈路看起來像失效。逾時定為 3 個 beacon 週期（15 s），
+    容忍連續兩次漏掉；1 個週期會在掃描剛好落在 beacon 之前時誤報，而**震盪的回報比慢的回報更糟**
+    （每一次都讓 kernel 拆掉邊、重算路徑）。狀態是「信念 ＋ kernel 是否已被告知」兩個欄位而不是一個
+    旗標：回報會重試到被接受為止，否則一個正在重啟的 kernel 會讓通知永久遺失，而症狀正好就是這個功能
+    要修的那個 bug。
+    ⚠️ 已知限制：**啟動時就已經斷掉的鏈路偵測不到**，因為 watchdog 只認得曾經送達過 beacon 的鏈路。
+    `seed_expected_links()` 可以從拓撲檔補上這一塊，但**預設關閉**：它假設拓撲檔的 `src_interface`／
+    `dst_interface` 就是 bmv2 用的 port 編號，發送側成立（`lldp_ports_for` 已經據此運作且探索有效），
+    但**接收側未經實機驗證**。若假設不成立，每條 seed 進去的鏈路都會逾時、真實 beacon 另外建立條目，
+    twin 會把整個 fabric 報成失效 —— 這個後果嚴重到值得先驗證再開。
+  - 用 `POST /ndt/inform_all_destination_paths` 主動推路徑。**尚未實作**（proxy 端沒有任何呼叫點）。這比修 pull 那條路好，因為 `fetchAllDestinationPaths` 只在啟動時被呼叫**一次**（[FlowLinkUsageCollector.cpp:300](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L300)），時間點比 LLDP 探索收斂還早，而它那句 `if (output.empty()) return;` 會讓這件事變成永久而且沒有任何提示的空操作。不管是哪種 switch，都應該加上重試／定期刷新。
   - 如果 pull 那條也要保留：P4 模式下把它指到 `P4_PROXY_IP_AND_PORT`，並把 proxy 回傳的裸陣列包成 kernel 會解析的 `{"status":"success","all_destination_paths":[…]}` 格式。
-- 把 `GET /stats/flow/{dpid}` 真正實作出來 — 它現在回傳寫死的 `[]`。專案根目錄的 `dump_table.py` 已經有 P4Runtime 讀表的邏輯，把它併進 `p4_client` 變成 `read_table_entries()`。**輸出要用 Ryu 的格式，而且 action 要用字串（`"OUTPUT:1"`）** — `Classifier::parseActionsArrayIntoEffect`（[Classifier.cpp:824-896](../src/ndt_core/collection/Classifier.cpp#L824-L896)）**只**認字串格式，`{"type":"OUTPUT","port":N}` 這種物件格式會被安靜忽略。少了這一步，Classifier 永遠是空的，每條 flow 的 `"path"` 都會是 `[]`。
+- ~~把 `GET /stats/flow/{dpid}` 真正實作出來 — 它現在回傳寫死的 `[]`。~~ ✅ **已完成**
+  （`ryu_flow_stats.py` ＋ `p4_client.read_table_entries()`，22 個測試）。以下敘述保留，因為它記錄了
+  為什麼 action 一定要是字串形式：專案根目錄的 `dump_table.py` 已經有 P4Runtime 讀表的邏輯，把它併進 `p4_client` 變成 `read_table_entries()`。**輸出要用 Ryu 的格式，而且 action 要用字串（`"OUTPUT:1"`）** — `Classifier::parseActionsArrayIntoEffect`（[Classifier.cpp:824-896](../src/ndt_core/collection/Classifier.cpp#L824-L896)）**只**認字串格式，`{"type":"OUTPUT","port":N}` 這種物件格式會被安靜忽略。少了這一步，Classifier 永遠是空的，每條 flow 的 `"path"` 都會是 `[]`。
 - ~~把 `pingWorker` 裡那個無條件 `setVertexUp` 換成真的存活偵測~~ ✅ **已完成**（`a8db425`）：
   `GET /p4/switch_state` 回報事實（round-trip 一個真的 P4Runtime RPC + LLDP 新鮮度），kernel 端用
   `p4LivenessFor` 三態判決，**`Unknown` 不動圖**。host 的強制標記已完全移除 —— proxy 的
@@ -307,7 +335,18 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
   順帶也修掉一個沒人碰到的崩潰：`bytes.fromhex(f"...{dpid:02x}")` 對 dpid ≥ 256 會丟
   ValueError（三個十六進位字元是奇數長度）。
 
-**測試：** 用 pytest 搭配一個假的 kernel HTTP server，確認拿到 mastership 時會發 `inform_switch_entered`、beacon 逾時會發 `link_failure_detected`；`/stats/flow/{dpid}` 的輸出要能通過 `Classifier` 解析（用 gtest 搭配抓下來的 proxy 回應），並產生非空的路徑。
+**測試：** ✅ 用 pytest 搭配一個假的 kernel HTTP server，確認~~拿到 mastership 時~~ pipeline 推完後會發
+`inform_switch_entered`、beacon 逾時會發 `link_failure_detected`；`/stats/flow/{dpid}` 的輸出要能通過
+`Classifier` 解析（用 gtest 搭配抓下來的 proxy 回應），並產生非空的路徑。
+
+實作後的狀態：`test_kernel_notifier.py`（13）跑的是**真的 HTTP server 而不是 mock**，因為最容易寫錯的
+就是 URL、method 和 JSON 欄位名 —— kernel 讀的是 `src_interface` 而不是 `src_port`，改錯名字會拿到 200
+然後被忽略，而 mock 會照樣接受。`test_startup.py`（13）釘住「哪些 switch 被宣稱」，
+`test_link_watchdog.py`（34）用**注入的時鐘**測 15 秒逾時——真的等 15 秒的測試，第一次有人趕時間就會被
+刪掉；整個檔案跑 7 ms。
+
+**Phase 6 尚餘：** `inform_all_destination_paths` 的主動推送（以及不管哪種 switch 都該有的
+refresh loop —— `fetchAllDestinationPaths` 只在啟動時被呼叫一次，時間點比 LLDP 收斂還早）。
 
 ---
 
