@@ -139,6 +139,33 @@ LLDP_BEACON_INTERVAL_S = 5
 #: fallback so discovery still works, but reported rather than silent.
 LLDP_FALLBACK_PORTS = tuple(range(1, 7))
 
+#: How long a discovered link may go without a beacon before it is reported as failed.
+#:
+#: [Co-developed with claude code -- Adam]
+#: Three beacon intervals, so two consecutive misses are tolerated. One interval would report a
+#: failure every time a scan happened to land just before a beacon did, and a flapping link report
+#: is worse than a slow one: each one makes the kernel tear down the edge, drop it out of BFS and
+#: recompute paths.
+#:
+#: Detection therefore takes between LINK_BEACON_TIMEOUT_S and that plus one scan interval -- 15 to
+#: 20 s. Deliberately not tied to the kernel's kLldpFreshSeconds (12 s): that is the freshness
+#: window for deciding a *switch* is alive, which is a different question with a different cost of
+#: being wrong.
+LINK_BEACON_TIMEOUT_S = 3 * LLDP_BEACON_INTERVAL_S
+
+#: How often the watchdog looks for links that have gone quiet.
+LINK_WATCHDOG_INTERVAL_S = LLDP_BEACON_INTERVAL_S
+
+#: How long a link that has *never* delivered a beacon is given before it is called down. Only
+#: applies to links seeded from the topology file; see TopologyManager.seed_expected_links.
+#:
+#: [Co-developed with claude code -- Adam]
+#: Longer than LINK_BEACON_TIMEOUT_S because silence before the first beacon has an innocent
+#: explanation the steady state does not: the far switch may still be loading its pipeline, and
+#: until it does it cannot forward a beacon to its CPU port. Reporting that as a link failure would
+#: make every link flap once at startup.
+LINK_STARTUP_GRACE_S = 6 * LLDP_BEACON_INTERVAL_S
+
 #: First four bytes of the LLDP beacon source MAC.
 #:
 #: [Co-developed with claude code -- Adam]
@@ -161,17 +188,21 @@ def lldp_source_mac(dpid: int) -> bytes:
     return LLDP_SOURCE_MAC_PREFIX + (int(dpid) & 0xFFFF).to_bytes(2, "big")
 
 
-def load_switch_link_ports(path=None):
+def load_switch_links(path=None):
     """
-    dpid -> sorted tuple of ports that face another switch, from the topology JSON the kernel loads.
+    Every inter-switch link the topology JSON declares, as (src_dpid, src_port, dst_dpid, dst_port).
 
     [Co-developed with claude code -- Adam]
-    Host-facing ports are excluded: a beacon sent at a host is answered by nothing and, before the
+    One directed tuple per edge, which is the same shape a received LLDP beacon proves and the same
+    shape /ndt/link_failure_detected takes -- so a beacon can be matched against a declared link
+    without either side translating.
+
+    Host-facing edges are excluded: a beacon sent at a host is answered by nothing and, before the
     source MAC was fixed, actively poisoned learning with a host's own address.
 
     Reads the kernel's own file, and honours NDTWIN_TOPO_FILE, for the same reason
-    load_switch_agent_ips does -- the two must not disagree about the topology. Returns {} when it
-    cannot be read, and the caller falls back loudly.
+    load_switch_agent_ips does -- the two must not disagree about the topology. Returns [] when it
+    cannot be read, and callers fall back loudly.
     """
     path = path or os.environ.get("NDTWIN_TOPO_FILE") or DEFAULT_TOPO_FILE
     try:
@@ -179,20 +210,35 @@ def load_switch_link_ports(path=None):
             topology = json.load(fh)
     except (OSError, ValueError) as e:
         print(f"[TopologyManager] could not read topology {path}: {e}")
-        return {}
+        return []
 
     switch_dpids = {
         node.get("dpid")
         for node in topology.get("nodes", [])
         if node.get("vertex_type") == 0 and node.get("dpid")
     }
-    ports = {}
+    links = []
     for edge in topology.get("edges", []):
         src, dst = edge.get("src_dpid"), edge.get("dst_dpid")
         # `src_interface`, not `src_port` -- the field is named for the physical interface.
-        port = edge.get("src_interface")
-        if src in switch_dpids and dst in switch_dpids and src and dst and port:
-            ports.setdefault(src, set()).add(int(port))
+        src_port, dst_port = edge.get("src_interface"), edge.get("dst_interface")
+        if src in switch_dpids and dst in switch_dpids and src and dst and src_port and dst_port:
+            links.append((int(src), int(src_port), int(dst), int(dst_port)))
+    return links
+
+
+def load_switch_link_ports(path=None):
+    """
+    dpid -> sorted tuple of ports that face another switch.
+
+    Derived from load_switch_links rather than parsing the file a second time: two readers of the
+    same JSON are two chances to disagree about which ports face a switch, and the beacon sender and
+    the beacon watchdog disagreeing would make every link look failed.
+    [Co-developed with claude code -- Adam]
+    """
+    ports = {}
+    for src, src_port, _dst, _dst_port in load_switch_links(path):
+        ports.setdefault(src, set()).add(src_port)
     return {dpid: tuple(sorted(p)) for dpid, p in ports.items()}
 
 
@@ -208,7 +254,18 @@ LIVENESS_PROBE_TIMEOUT_S = 1.5
 
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
-    def __init__(self):
+
+    def __init__(self, kernel_notifier=None, clock=time.monotonic):
+        # [Co-developed with claude code -- Adam]
+        # `kernel_notifier` is optional so the many tests that build a bare TopologyManager keep
+        # working, and because bookkeeping-only is a genuinely useful mode: without one the beacon
+        # watchdog still tracks link state and reports it through switch_liveness(), it just tells
+        # nobody. `clock` is injected because every freshness decision in here is arithmetic on it,
+        # and a test that has to sleep for fifteen seconds to check a fifteen-second timeout is a
+        # test nobody will run.
+        self._kernel = kernel_notifier
+        self._clock = clock
+
         self.net = nx.DiGraph()
         self.switches = {} # dpid -> P4RuntimeClient
         self.dest_paths = {} # To match Ryu's format
@@ -234,8 +291,32 @@ class TopologyManager:
         #: dpid -> {"ok": bool, "detail": str, "at": monotonic}. Last probe result.
         self._last_probe = {}
 
+        #: (src_dpid, src_port, dst_dpid, dst_port) -> {"at": monotonic, "down": bool, "acked": bool}
+        #:
+        #: [Co-developed with claude code -- Adam]
+        #: One entry per *direction*, created the first time a beacon proves that direction carries
+        #: frames. A link the proxy has never seen a beacon on is absent rather than down: the twin
+        #: cannot distinguish "this link is broken" from "this link was already broken when I
+        #: started", and claiming the former would be inventing evidence.
+        #:
+        #: `down` is what the watchdog believes; `acked` is whether the kernel has been told the
+        #: current belief. Two fields rather than one because the report can fail -- a kernel that
+        #: is restarting must not cost us the notification permanently, which is how a failed link
+        #: would show as up for the rest of the run.
+        self._link_beacons = {}
+
         self._liveness_thread = None
         self._liveness_running = False
+        # Event rather than time.sleep so stop() returns promptly instead of after a whole interval.
+        self._liveness_stop = threading.Event()
+
+        self._lldp_thread = None
+        self._lldp_running = False
+        self._lldp_stop = threading.Event()
+
+        self._link_watchdog_thread = None
+        self._link_watchdog_running = False
+        self._link_watchdog_stop = threading.Event()
 
         #: dpid -> ports facing another switch, read once from the topology file. See
         #: load_switch_link_ports. [Co-developed with claude code -- Adam]
@@ -492,12 +573,33 @@ class TopologyManager:
         # and the `if not edge_exists` guard below means that after the first beacon of each pair
         # every subsequent one did nothing at all. The topology converges in seconds and then
         # thousands of proofs-of-life per minute were discarded.
-        now = time.monotonic()
+        now = self._clock()
         lldp_info = self.parse_lldp_packet(payload)
         with self._liveness_lock:
             self._last_packet_in[device_id] = now
             if lldp_info:
                 self._last_lldp_from[lldp_info[0]] = now
+                if lldp_info[0] != device_id:
+                    # This beacon is proof that this exact link carried a frame just now, and the
+                    # four values are exactly what /ndt/link_failure_detected wants. Recorded here
+                    # and reported by the watchdog, never reported from here: this is the gRPC
+                    # stream receive thread, and an HTTP call on it with a three-second timeout
+                    # would stall packet-in for every switch behind this one.
+                    # [Co-developed with claude code -- Adam]
+                    link = (lldp_info[0], lldp_info[1], device_id, ingress_port)
+                    entry = self._link_beacons.get(link)
+                    if entry is None:
+                        # acked=True: a link the kernel has never been told is down needs no telling
+                        # that it is up. inform_switch_entered already enabled every edge touching
+                        # the switch (TopologyAndFlowMonitor.cpp:2056-2065), so up is the kernel's
+                        # starting assumption and only a failure report changes it.
+                        self._link_beacons[link] = {"at": now, "down": False, "acked": True,
+                                                    "seen": True}
+                    else:
+                        entry["at"] = now
+                        # A seeded link that has now spoken graduates to the steady-state timeout;
+                        # without this it would keep the startup grace period for the whole run.
+                        entry["seen"] = True
 
         if lldp_info:
             src_dpid, src_port = lldp_info
@@ -549,13 +651,27 @@ class TopologyManager:
                             "detail": str(result.get("detail", "")),
                             "at": time.monotonic(),
                         }
-                time.sleep(LIVENESS_PROBE_INTERVAL_S)
+                if self._liveness_stop.wait(LIVENESS_PROBE_INTERVAL_S):
+                    break
 
-        self._liveness_thread = threading.Thread(target=_loop, daemon=True)
+        self._liveness_stop.clear()
+        self._liveness_thread = threading.Thread(target=_loop, daemon=True, name="liveness-probe")
         self._liveness_thread.start()
 
-    def stop_liveness_polling(self):
+    def stop_liveness_polling(self, timeout=2.0):
+        """
+        Stops the prober and waits for it.
+
+        [Co-developed with claude code -- Adam]
+        The flag alone left the thread inside `time.sleep`, so shutdown continued and tore down the
+        P4RuntimeClients this loop was about to probe. Joining it is what makes the three background
+        loops actually symmetric, rather than symmetric-looking.
+        """
         self._liveness_running = False
+        self._liveness_stop.set()
+        thread, self._liveness_thread = self._liveness_thread, None
+        if thread is not None and thread.is_alive():
+            thread.join(timeout)
 
     def switch_liveness(self):
         """
@@ -594,17 +710,206 @@ class TopologyManager:
             "status": "success",
             "probe_interval_s": LIVENESS_PROBE_INTERVAL_S,
             "switches": out,
+            # Additive, and the kernel reads only "switches" (DeviceConfigurationAndPowerManager
+            # looks that key up by name), so this cannot change how it parses the reply. It is here
+            # so the link watchdog's state can be seen without waiting for a POST to arrive at the
+            # kernel. [Co-developed with claude code -- Adam]
+            "links": self.link_liveness(),
         }
 
     def start_lldp_discovery(self):
+        """
+        Starts the beacon sender. Idempotent; stop it with stop_lldp_discovery().
+
+        [Co-developed with claude code -- Adam]
+        The thread used to be `while True:` with its handle assigned to a local that was
+        immediately discarded, so there was no way to stop it and no way to reach it. main.py's
+        shutdown handler stopped the liveness poller and then tore down every P4RuntimeClient
+        underneath this loop, which kept calling send_packet_out on them.
+        """
+        if self._lldp_running:
+            return
+        self._lldp_running = True
+        self._lldp_stop.clear()
+
         def _loop():
-            while True:
+            while self._lldp_running:
                 # list() so a switch registering mid-pass cannot raise "changed size during
                 # iteration" in here. [Co-developed with claude code -- Adam]
                 for dpid, client in list(self.switches.items()):
                     for port in self.lldp_ports_for(dpid):
                         pkt = self.create_lldp_packet(dpid, port)
                         client.send_packet_out(port, pkt)
-                time.sleep(LLDP_BEACON_INTERVAL_S)
-        t = threading.Thread(target=_loop, daemon=True)
-        t.start()
+                # Beacon first, then wait: a stop during the wait breaks out immediately instead of
+                # after a full interval.
+                if self._lldp_stop.wait(LLDP_BEACON_INTERVAL_S):
+                    break
+
+        self._lldp_thread = threading.Thread(target=_loop, daemon=True, name="lldp-beacon")
+        self._lldp_thread.start()
+
+    def stop_lldp_discovery(self, timeout=2.0):
+        """Stops the beacon sender and waits for it, so no beacon can outlive the clients."""
+        self._lldp_running = False
+        self._lldp_stop.set()
+        thread, self._lldp_thread = self._lldp_thread, None
+        if thread is not None and thread.is_alive():
+            thread.join(timeout)
+
+    # --- Link failure detection. [Co-developed with claude code -- Adam]
+    #
+    # The other half of LLDP. Beacons arriving is how a link is discovered; beacons *stopping* is how
+    # a link failure is detected, and only the first half was ever wired up -- KernelNotifier had
+    # working link_failure/link_recovery methods that nothing called, so a link that went down stayed
+    # up in the twin for the rest of the run. Ryu's side has done this all along
+    # (intelligent_router.py's on_link_delete), which is what made the P4 path quietly worse rather
+    # than visibly incomplete.
+    #
+    # Evidence lives on the receive thread, decisions live here, and reporting lives on this
+    # thread rather than the receive thread: an HTTP POST with a three-second timeout on the gRPC
+    # stream thread would stall packet-in for every switch behind it.
+
+    def seed_expected_links(self, path=None):
+        """
+        Enter every link the topology file declares, so one that was already down when the proxy
+        started can be reported rather than presumed up.
+
+        [Co-developed with claude code -- Adam]
+        **Off by default**, and start_link_watchdog does not call it unless asked. It assumes the
+        topology file's `src_interface`/`dst_interface` numbers are the same numbers bmv2 uses for
+        those ports. That holds for the beacon *sender* (lldp_ports_for already derives from
+        src_interface and discovery works), but the receive side of the assumption -- that a beacon
+        sent on src_interface arrives on dst_interface -- has not been checked against a live P4
+        stack. If it is wrong, every seeded link times out while the real beacons create separate
+        entries, and the twin reports the entire fabric as failed. That is a bad enough outcome to
+        be worth verifying first rather than assuming.
+
+        Returns the number of links seeded.
+        """
+        links = load_switch_links(path)
+        now = self._clock()
+        with self._liveness_lock:
+            for link in links:
+                if link not in self._link_beacons:
+                    self._link_beacons[link] = {"at": now, "down": False, "acked": True,
+                                                "seen": False}
+        return len(links)
+
+    def _link_timeout(self, entry):
+        """How long this link may stay silent. Longer if it has never spoken; see the constants."""
+        return LINK_BEACON_TIMEOUT_S if entry.get("seen", True) else LINK_STARTUP_GRACE_S
+
+    def check_link_beacons(self, now=None):
+        """
+        One watchdog pass: report links that have gone quiet, and links whose beacons have returned.
+
+        Split from the thread so it can be driven directly with an injected clock. A test for a
+        fifteen-second timeout that actually waits fifteen seconds does not get run.
+
+        Reports are retried until the kernel accepts one. A kernel that is restarting would
+        otherwise cost us the notification permanently, and the symptom -- a failed link shown as
+        up for the rest of the run -- is indistinguishable from the bug this whole method fixes.
+
+        Returns {"down": [...], "up": [...], "unacked": [...]}: links reported failed in this pass,
+        links reported recovered, and links whose report the kernel did not accept and which will be
+        retried on the next pass. With no notifier the first two still list the transitions, so the
+        bookkeeping is observable without a kernel.
+        """
+        now = self._clock() if now is None else now
+
+        with self._liveness_lock:
+            for entry in self._link_beacons.values():
+                down = (now - entry["at"]) > self._link_timeout(entry)
+                if down != entry["down"]:
+                    entry["down"] = down
+                    # The kernel has not been told this yet, whatever it was told before.
+                    entry["acked"] = False
+            # Snapshot what still needs telling and drop the lock before any HTTP happens: holding
+            # it across a three-second timeout would block the receive thread recording beacons,
+            # which is how a slow kernel would manufacture the link failures it is being told about.
+            unacked = [(link, entry["down"]) for link, entry in self._link_beacons.items()
+                       if not entry["acked"]]
+
+        reported_down, reported_up, still_unacked = [], [], []
+        for link, down in unacked:
+            if self._notify_link(link, down):
+                with self._liveness_lock:
+                    entry = self._link_beacons.get(link)
+                    # Only acknowledge the belief we actually reported. A beacon can arrive while
+                    # the POST is in flight, flipping `down` back; marking that acked would leave
+                    # the kernel believing the link is down with nothing left to correct it.
+                    if entry is not None and entry["down"] == down:
+                        entry["acked"] = True
+                (reported_down if down else reported_up).append(link)
+            else:
+                still_unacked.append(link)
+
+        return {"down": reported_down, "up": reported_up, "unacked": still_unacked}
+
+    def _notify_link(self, link, down):
+        """Tell the kernel about one link transition. True when it accepted it, or when there is no
+        kernel to tell -- bookkeeping-only mode must not accumulate an unacked backlog forever."""
+        if self._kernel is None:
+            return True
+        src_dpid, src_port, dst_dpid, dst_port = link
+        report = self._kernel.link_failure if down else self._kernel.link_recovery
+        try:
+            return bool(report(src_dpid, src_port, dst_dpid, dst_port))
+        except Exception as e:  # noqa: BLE001 -- KernelNotifier promises not to raise; do not rely
+            print(f"[TopologyManager] link report raised {type(e).__name__}: {e}")
+            return False
+
+    def start_link_watchdog(self, seed_expected=False, path=None):
+        """Starts the beacon-timeout watchdog. Idempotent. See seed_expected_links for the flag."""
+        if seed_expected:
+            seeded = self.seed_expected_links(path)
+            print(f"[TopologyManager] link watchdog seeded with {seeded} declared links")
+        if self._link_watchdog_running:
+            return
+        self._link_watchdog_running = True
+        self._link_watchdog_stop.clear()
+
+        def _loop():
+            # Waits first: at startup nothing has been discovered yet, so an immediate pass has
+            # nothing to say.
+            while not self._link_watchdog_stop.wait(LINK_WATCHDOG_INTERVAL_S):
+                if not self._link_watchdog_running:
+                    break
+                try:
+                    result = self.check_link_beacons()
+                except Exception as e:  # noqa: BLE001
+                    # A pass that raises must not kill the watchdog, or link failures stop being
+                    # reported with no signal that they have.
+                    print(f"[TopologyManager] link watchdog pass failed: {type(e).__name__}: {e}")
+                    continue
+                for link in result["down"]:
+                    print(f"[TopologyManager] link down (no beacon for "
+                          f"{LINK_BEACON_TIMEOUT_S}s): {link}")
+                for link in result["up"]:
+                    print(f"[TopologyManager] link back up: {link}")
+
+        self._link_watchdog_thread = threading.Thread(target=_loop, daemon=True, name="link-watchdog")
+        self._link_watchdog_thread.start()
+
+    def stop_link_watchdog(self, timeout=2.0):
+        self._link_watchdog_running = False
+        self._link_watchdog_stop.set()
+        thread, self._link_watchdog_thread = self._link_watchdog_thread, None
+        if thread is not None and thread.is_alive():
+            thread.join(timeout)
+
+    def link_liveness(self):
+        """
+        Per-link beacon evidence, for `GET /p4/switch_state`. Ages, not timestamps, for the same
+        reason switch_liveness reports ages. [Co-developed with claude code -- Adam]
+        """
+        now = self._clock()
+        with self._liveness_lock:
+            return {
+                f"{s}:{sp}->{d}:{dp}": {
+                    "last_beacon_age_s": None if not e.get("seen", True) else round(now - e["at"], 3),
+                    "down": e["down"],
+                    "reported_to_kernel": e["acked"],
+                }
+                for (s, sp, d, dp), e in sorted(self._link_beacons.items())
+            }

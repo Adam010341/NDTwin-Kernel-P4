@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uvicorn
 from fastapi import FastAPI
@@ -9,7 +10,15 @@ from proxy_agent import api_routes
 
 app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
 
-topo = TopologyManager()
+# [Co-developed with claude code -- Adam]
+# Pushes switch/link state to the kernel the way Ryu does. Without this the graph stays inert:
+# inform_switch_entered is the only thing that sets isEnabled. See Phase 6 of
+# doc/p4_bmv2_support_plan.md.
+kernel = KernelNotifier()
+
+# Built with the notifier already in hand: the beacon watchdog reports link failures through it,
+# and a TopologyManager constructed without one silently keeps the bookkeeping to itself.
+topo = TopologyManager(kernel_notifier=kernel)
 
 # Build the static topology (Matches MultiSwitchTopo)
 # Hosts
@@ -28,39 +37,78 @@ p4_clients = {}
 # [Co-developed with claude code -- Adam]
 sflow = SFlowEmitter()
 
-# [Co-developed with claude code -- Adam]
-# Pushes switch/link state to the kernel the way Ryu does. Without this the graph stays inert:
-# inform_switch_entered is the only thing that sets isEnabled. See Phase 6 of
-# doc/p4_bmv2_support_plan.md.
-kernel = KernelNotifier()
+#: How long to let mastership settle before pushing pipelines. bmv2 accepts the arbitration
+#: message before it has finished electing, and a config push in that window is rejected.
+MASTERSHIP_SETTLE_S = 1.0
 
-@app.on_event("startup")
-async def startup_event():
-    print("[Proxy Agent] Starting up...")
-    
+#: The switches this proxy expects, and how their gRPC ports are numbered. Still hardcoded --
+#: deriving them from the topology JSON is Phase 3 work. Named constants so a test can drive
+#: `startup` over two fake switches without pretending there are ten.
+DEFAULT_SWITCH_DPIDS = tuple(range(1, 11))
+DEFAULT_GRPC_PORT_BASE = 50050
+
+
+def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BASE):
+    """
+    Connect to each bmv2 switch and return {dpid: client} for the ones that came up.
+
+    [Co-developed with claude code -- Adam]
+    Split out of `startup` as the injection point for tests: everything else in startup is
+    decision-making about which switches to claim, and this is the only part that needs a real
+    gRPC channel. Note that grpc connects lazily, so a client returned here has *not* been
+    proven reachable -- `set_forwarding_pipeline_config` in startup is the first real round trip.
+    """
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     p4info_path = os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.p4info.txt')
     json_path = os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.json')
-    
-    # Connect to all 10 switches
-    for i in range(1, 11):
+
+    clients = {}
+    for i in dpids:
         try:
             client = P4RuntimeClient(
-                device_id=i, 
-                grpc_addr=f'localhost:{50050+i}', 
-                p4info_path=p4info_path, 
+                device_id=i,
+                grpc_addr=f'localhost:{port_base + i}',
+                p4info_path=p4info_path,
                 json_path=json_path
             )
             client.start(push_config=False)
-            topo.add_switch(i, client)
-            p4_clients[i] = client
+            clients[i] = client
         except Exception as e:
             print(f"[Proxy Agent] Failed to connect to Switch {i}: {e}")
-            
-    # Wait ONCE for mastership to be confirmed on all switches
-    import time
-    time.sleep(1.0)
-    
+    return clients
+
+
+async def startup(clients_factory, sflow, kernel, topo,
+                  *, settle_seconds=MASTERSHIP_SETTLE_S,
+                  agent_ips_loader=load_switch_agent_ips):
+    """
+    Bring the proxy up, and report what it actually claimed.
+
+    [Co-developed with claude code -- Adam]
+    Extracted from the `@app.on_event("startup")` body, which could not be tested at all: it read
+    four module globals, opened real gRPC channels, and recorded every decision it made in
+    `print`. The decisions are the interesting part -- which switches get a pipeline, which get
+    telemetry, and above all which get `inform_switch_entered`, the one call that sets isEnabled --
+    so they are returned as data:
+
+        {"clients": {dpid: client}, "broken": [...], "telemetry": [...],
+         "entered": [...], "not_entered": [...]}
+
+    `broken`, `telemetry` and `entered` are deliberately three separate lists rather than one
+    health flag: a switch can hold mastership, take a pipeline, and still have no telemetry, and
+    that switch must appear in the graph. Collapsing them would hide the case.
+    """
+    print("[Proxy Agent] Starting up...")
+
+    clients = clients_factory()
+    for dpid, client in clients.items():
+        topo.add_switch(dpid, client)
+
+    # Wait ONCE for mastership to be confirmed on all switches.
+    # asyncio.sleep, not time.sleep: this coroutine runs on the event loop, and a blocking sleep
+    # here stalls every other startup task uvicorn has queued. [Co-developed with claude code -- Adam]
+    await asyncio.sleep(settle_seconds)
+
     # Batch push pipeline config
     #
     # [Co-developed with claude code -- Adam]
@@ -77,7 +125,7 @@ async def startup_event():
     # The first loop's try/except does not cover this: grpc connects lazily, so start() succeeds
     # against a dead switch and the failure surfaces here, or asynchronously in the stream receiver.
     broken = set()
-    for i, client in p4_clients.items():
+    for i, client in clients.items():
         if not client.json_path:
             continue
         try:
@@ -94,7 +142,7 @@ async def startup_event():
         # `GET /p4/switch_state` reports probe_ok=false -- which is what lets the kernel show them as
         # down rather than merely absent. What they do not get is `inform_switch_entered`: isEnabled
         # means "the control plane can drive this switch", and one with no pipeline cannot forward.
-        print(f"[Proxy Agent] {len(broken)} of {len(p4_clients)} switches have no pipeline "
+        print(f"[Proxy Agent] {len(broken)} of {len(clients)} switches have no pipeline "
               f"({sorted(broken)}); they will report as down and will not be enabled in the graph")
 
     # --- telemetry --------------------------------------------------------------------
@@ -103,8 +151,9 @@ async def startup_event():
     # Must come after the pipeline is pushed: the clone session lives in the pipeline's PRE, so
     # programming it earlier would be discarded. start(push_config=False) above is why this is
     # not done inside start().
-    agent_ips = load_switch_agent_ips()
-    for i, client in p4_clients.items():
+    agent_ips = agent_ips_loader()
+    telemetry = []
+    for i, client in clients.items():
         if i in broken:
             # The clone session lives in the pipeline's PRE, so there is nothing to program it into.
             # [Co-developed with claude code -- Adam]
@@ -119,6 +168,7 @@ async def startup_event():
         sflow.register_switch(i, agent_ip)
         client.sample_callback = sflow.handle_sample
         if client.write_clone_session():
+            telemetry.append(i)
             print(f"[Proxy Agent] Switch {i} sampling to sFlow as {agent_ip}")
         else:
             # Reported loudly: the pipeline still clones, bmv2 still drops the copy, and
@@ -131,22 +181,24 @@ async def startup_event():
     # Deliberately after the pipeline push, not on mastership: `isEnabled` means "the control
     # plane can drive this switch", and a switch holding mastership with no pipeline loaded
     # cannot forward anything. Doing it here also means we only claim switches we really did
-    # set up -- p4_clients only contains the ones that connected, and `broken` is excluded below
+    # set up -- `clients` only contains the ones that connected, and `broken` is excluded below
     # for the same reason: claiming a switch whose pipeline push failed would enable a vertex the
     # control plane demonstrably cannot drive.
     #
     # This is the call that makes the graph live. Without it every vertex and edge stays
     # isEnabled=false, which silently empties BFS pathing, flow-table polling and link-usage
     # attribution -- flows are still detected, but every `path` is [] and every rate is 0.
-    usable = [i for i in p4_clients if i not in broken]
-    entered = sum(1 for i in usable if kernel.switch_entered(i))
-    if entered == len(usable):
-        print(f"[Proxy Agent] Kernel acknowledged all {entered} usable switches")
+    usable = [i for i in clients if i not in broken]
+    entered = [i for i in usable if kernel.switch_entered(i)]
+    not_entered = [i for i in usable if i not in entered]
+    if not not_entered:
+        print(f"[Proxy Agent] Kernel acknowledged all {len(entered)} usable switches")
     else:
         # Loud, because the symptom otherwise looks like a dead data plane rather than a
         # missed notification.
-        print(f"[Proxy Agent] Kernel acknowledged only {entered}/{len(usable)} switches; "
-              f"the graph will stay partly disabled and paths/rates will be empty for the rest")
+        print(f"[Proxy Agent] Kernel acknowledged only {len(entered)}/{len(usable)} switches "
+              f"(missing {not_entered}); the graph will stay partly disabled and paths/rates "
+              f"will be empty for the rest")
 
     # Start LLDP dynamic topology discovery
     try:
@@ -154,6 +206,17 @@ async def startup_event():
         print("[Proxy Agent] Started LLDP Discovery...")
     except Exception as e:
         print(f"[Proxy Agent] Failed to start LLDP discovery: {e}")
+
+    # [Co-developed with claude code -- Adam]
+    # The other half of LLDP: beacons that stop arriving are how a link failure is detected, and
+    # until this existed only the discovery direction was wired. A link that went down stayed up
+    # in the twin forever.
+    try:
+        topo.start_link_watchdog()
+        print("[Proxy Agent] Started LLDP link watchdog...")
+    except Exception as e:
+        print(f"[Proxy Agent] Failed to start link watchdog: {e}; link failures will not be "
+              f"reported and the graph will keep showing failed links as up")
 
     # [Co-developed with claude code -- Adam]
     # Feeds GET /p4/switch_state, which the kernel's pingWorker reads once a second. Without it
@@ -167,9 +230,30 @@ async def startup_event():
         print(f"[Proxy Agent] Failed to start liveness polling: {e}; /p4/switch_state will report "
               f"no probe results and the kernel will not update bmv2 switch liveness")
 
+    return {
+        "clients": clients,
+        "broken": sorted(broken),
+        "telemetry": telemetry,
+        "entered": entered,
+        "not_entered": not_entered,
+    }
+
+
+@app.on_event("startup")
+async def startup_event():
+    global p4_clients
+    summary = await startup(build_p4_clients, sflow, kernel, topo)
+    p4_clients = summary["clients"]
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     print("[Proxy Agent] Shutting down...")
+    # [Co-developed with claude code -- Adam]
+    # All three background loops, not just the poller: the LLDP beacon thread had no stop at all,
+    # so it kept calling send_packet_out on clients that shutdown() had already torn down.
+    topo.stop_lldp_discovery()
+    topo.stop_link_watchdog()
     topo.stop_liveness_polling()
     for i, client in p4_clients.items():
         client.stop()
