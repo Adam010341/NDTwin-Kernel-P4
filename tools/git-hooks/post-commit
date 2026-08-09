@@ -15,8 +15,17 @@
 # points it at the commit instead of pre-baking content into argv.
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-LOG_DIR="$REPO_ROOT/.git/agy-reviews"
-mkdir -p "$LOG_DIR"
+
+# --git-path rather than "$REPO_ROOT/.git/...": inside a linked worktree .git is a *file*, so the
+# literal path is not a directory. mkdir -p then fails with "Not a directory", the `ls` below returns
+# empty -- indistinguishable from "no reviews yet" -- and the background shell's redirection fails
+# silently because stderr goes to /dev/null. Reviews would simply stop being written, with no signal.
+# Found by the review of 994c8dd, the commit that rewrote this prompt. [Co-developed with claude code -- Adam]
+LOG_DIR="$REPO_ROOT/$(git rev-parse --git-path agy-reviews)"
+if ! mkdir -p "$LOG_DIR"; then
+    echo "post-commit: cannot create $LOG_DIR; skipping the review" >&2
+    exit 0
+fi
 
 SHORT_SHA="$(git rev-parse --short HEAD)"
 
@@ -39,6 +48,15 @@ else
   SEQ="$(printf '%04d' $((10#$LAST_NUM + 1)))"
 fi
 LOG_FILE="$LOG_DIR/${SEQ}-${SHORT_SHA}.md"
+
+# Claim the number now, synchronously. git serialises hook invocations per commit, but the file that
+# reserves the number is not created until the backgrounded shell opens it for redirection -- so two
+# commits close together could both read the same LAST_NUM and reuse a sequence number. The comment
+# above used to assert this could not happen, which was an overclaim: serialisation covers the hook,
+# not the background window it leaves open. Measured across 157 reviews: it has never actually
+# collided, so this is cheap insurance rather than a fix for something observed.
+# [Co-developed with claude code -- Adam]
+: > "$LOG_FILE"
 
 PROMPT="You are reviewing commit $SHORT_SHA in the git repository at $REPO_ROOT, which is
 already checked out at that commit. Run \`git show $SHORT_SHA\` yourself, and read callers,
@@ -117,8 +135,15 @@ commit message says.
 # this prompt is small and fixed-size now, but the pattern costs nothing and
 # avoids reintroducing quoting bugs if it ever grows again.
 nohup sh -c '
-  agy -p "$1" --print-timeout 900s --effort high --model gemini-3.1-pro-high --dangerously-skip-permissions > "$2" 2>&1
-  command -v notify-send >/dev/null 2>&1 && notify-send "Antigravity review ready" "commit $3 -> $2"
+  if agy -p "$1" --print-timeout 900s --effort high --model gemini-3.1-pro-high --dangerously-skip-permissions > "$2" 2>&1 && [ -s "$2" ]; then
+    command -v notify-send >/dev/null 2>&1 && notify-send "Antigravity review ready" "commit $3 -> $2"
+  else
+    # Say so rather than reporting a review that is not there. notify-send used to run
+    # unconditionally, on its own line rather than chained, so a failed run still announced
+    # "review ready" -- and 8 of the first 156 reviews are empty or truncated, so this fired eight
+    # times. -s also catches the run that exits 0 having written nothing.
+    command -v notify-send >/dev/null 2>&1 && notify-send "Antigravity review FAILED" "commit $3 -> $2"
+  fi
 ' _ "$PROMPT" "$LOG_FILE" "$SHORT_SHA" < /dev/null > /dev/null 2>&1 &
 
 exit 0
