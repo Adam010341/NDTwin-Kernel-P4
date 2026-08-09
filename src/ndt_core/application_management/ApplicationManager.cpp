@@ -141,7 +141,11 @@ ApplicationManager::chownRecursive(const fs::path& root,
     struct passwd* pw = getpwnam(user.c_str());
     if (!pw)
     {
-        std::cerr << "User lookup failed (" << user << "): " << std::strerror(errno) << "\n";
+        // errno saved before the stream write, which can itself set it: the operands of a
+        // << chain are sequenced left to right, so strerror(errno) is evaluated after the
+        // earlier writes have already run. [Co-developed with claude code -- Adam]
+        const int savedErrno = errno;
+        std::cerr << "User lookup failed (" << user << "): " << std::strerror(savedErrno) << "\n";
         return false;
     }
     uid_t uid = pw->pw_uid;
@@ -150,7 +154,11 @@ ApplicationManager::chownRecursive(const fs::path& root,
     struct group* gr = getgrnam(group.c_str());
     if (!gr)
     {
-        std::cerr << "Group lookup failed (" << group << "): " << std::strerror(errno) << "\n";
+        // errno saved before the stream write, which can itself set it: the operands of a
+        // << chain are sequenced left to right, so strerror(errno) is evaluated after the
+        // earlier writes have already run. [Co-developed with claude code -- Adam]
+        const int savedErrno = errno;
+        std::cerr << "Group lookup failed (" << group << "): " << std::strerror(savedErrno) << "\n";
         return false;
     }
     gid_t gid = gr->gr_gid;
@@ -167,14 +175,22 @@ ApplicationManager::chownRecursive(const fs::path& root,
         const auto& p = entry.path();
         if (::chown(p.c_str(), uid, gid) != 0)
         {
-            std::cerr << "chown failed for " << p << ": " << std::strerror(errno) << "\n";
+            // errno saved before the stream write, which can itself set it: the operands of a
+            // << chain are sequenced left to right, so strerror(errno) is evaluated after the
+            // earlier writes have already run. [Co-developed with claude code -- Adam]
+            const int savedErrno = errno;
+            std::cerr << "chown failed for " << p << ": " << std::strerror(savedErrno) << "\n";
             return false;
         }
     }
     // finally, chown the root itself
     if (::chown(root.c_str(), uid, gid) != 0)
     {
-        std::cerr << "chown failed for " << root << ": " << std::strerror(errno) << "\n";
+        // errno saved before the stream write, which can itself set it: the operands of a
+        // << chain are sequenced left to right, so strerror(errno) is evaluated after the
+        // earlier writes have already run. [Co-developed with claude code -- Adam]
+        const int savedErrno = errno;
+        std::cerr << "chown failed for " << root << ": " << std::strerror(savedErrno) << "\n";
         return false;
     }
 

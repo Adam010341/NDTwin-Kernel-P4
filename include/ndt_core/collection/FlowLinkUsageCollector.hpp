@@ -343,6 +343,10 @@ class FlowLinkUsageCollector
 
     std::shared_ptr<ndtClassifier::Classifier> m_classifier;
 
+    /// Signals the worker pool to finish and joins it. Idempotent. See the definition for why the
+    /// join cannot live only at the end of run(). [Co-developed with claude code -- Adam]
+    void stopAndJoinWorkers();
+
     std::vector<std::unique_ptr<SPSCQueue<Packet>>> m_queues;
     std::vector<std::thread> m_workers;
     std::atomic_uint32_t m_rr{0}; // round-robin index

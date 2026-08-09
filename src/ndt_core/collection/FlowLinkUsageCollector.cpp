@@ -563,6 +563,10 @@ FlowLinkUsageCollector::stop()
         ::close(m_sockfd);
         m_sockfd = -1;
     }
+    // Join the worker pool here as well as in run(): stop() is what the destructor calls, and it
+    // used to leave m_workers untouched. Idempotent. [Co-developed with claude code -- Adam]
+    stopAndJoinWorkers();
+
     if (m_pktRcvThread.joinable())
     {
         m_pktRcvThread.join();
@@ -593,6 +597,39 @@ FlowLinkUsageCollector::stop()
 }
 
 
+/**
+ * @brief Signals the worker pool to finish and joins it. Safe to call more than once.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Extracted because the join used to exist only at the very end of run(), while the workers are
+ * created near its start -- and everything in between can throw. `::socket` and `::bind` both throw
+ * std::runtime_error on failure, and bind failing is not exotic: EADDRINUSE on 6343 is exactly what
+ * happens when a previous kernel has not fully exited. On that path run() unwound past the join,
+ * leaving joinable std::threads in m_workers, so the eventual destructor called std::terminate --
+ * a crash on shutdown whose cause is a socket error reported nowhere near it. stop() did not join
+ * them either, so nothing did.
+ *
+ * Now run() calls this on both its normal and its exceptional exit, and stop() calls it too, which
+ * covers a throw from anything added between creation and shutdown later.
+ */
+void
+FlowLinkUsageCollector::stopAndJoinWorkers()
+{
+    m_running.store(false);
+    for (auto& q : m_queues)
+    {
+        q->notify_all();
+    }
+    for (auto& t : m_workers)
+    {
+        if (t.joinable())
+        {
+            t.join();
+        }
+    }
+    m_workers.clear();
+}
+
 void
 FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
 {
@@ -614,14 +651,6 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
     for (size_t i = 0; i < numWorkers; ++i)
     {
         m_queues.emplace_back(std::make_unique<SPSCQueue<Packet>>(queueCapacity));
-    }
-
-    // Spawn workers
-    m_workers.clear();
-    m_workers.reserve(numWorkers);
-    for (size_t i = 0; i < numWorkers; ++i)
-    {
-        m_workers.emplace_back([this, i] { workerLoop(i); });
     }
 
     // Create UDP socket
@@ -658,6 +687,28 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
         ::close(m_sockfd);
         throw std::runtime_error("Failed to bind UDP socket");
     }
+
+    // Spawn workers only once the socket exists and is bound.
+    //
+    // [Co-developed with claude code -- Adam]
+    // This used to sit ~40 lines earlier, before ::socket and ::bind -- both of which throw
+    // std::runtime_error on failure -- while the join was at the very end of run(). So a failed
+    // bind unwound straight past the join, leaving joinable std::threads in m_workers, and the
+    // eventual destructor called std::terminate: a crash at shutdown whose actual cause was a
+    // socket error logged far away from it. stop() did not join them either, so nothing did.
+    // EADDRINUSE on 6343 is not exotic -- it is what happens when a previous kernel has not fully
+    // exited, which is a normal thing to do by accident.
+    //
+    // Neither the socket nor the queues depend on the workers, so reordering removes the window
+    // entirely rather than papering over it with a catch. stop() now joins them as well, for
+    // anything added between here and the end of run() later.
+    m_workers.clear();
+    m_workers.reserve(numWorkers);
+    for (size_t i = 0; i < numWorkers; ++i)
+    {
+        m_workers.emplace_back([this, i] { workerLoop(i); });
+    }
+
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Listening for sFlow on UDP port {}", SFLOW_PORT);
 
@@ -790,21 +841,7 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Run loop exiting");
 
-    // Stop workers & join
-    m_running.store(false);
-    for (auto& q : m_queues)
-    {
-        q->notify_all();
-    }
-
-    for (auto& t : m_workers)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-    m_workers.clear();
+    stopAndJoinWorkers();
 
     if (m_sockfd >= 0)
     {

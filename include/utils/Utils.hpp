@@ -373,11 +373,21 @@ commandToolName(std::string_view command)
  * or an unknown OID) or for `curl` (an unsupported protocol).
  */
 inline std::string
-describeCommandStatus(int status, std::string_view command = {})
+describeCommandStatus(int status, std::string_view command = {}, int savedErrno = -1)
 {
     if (status == -1)
     {
-        return std::string("could not be reaped: ") + std::strerror(errno);
+        // [Co-developed with claude code -- Adam]
+        // savedErrno is a parameter rather than a read of errno here, and that is the fix for a
+        // real defect. The caller writes the message with a `<<` chain:
+        //     std::cerr << "Command failed (" << describeCommandStatus(rc, cmd) << "): " ...
+        // Since C++17 those operands are sequenced left to right, so the first `<<` performs I/O --
+        // and a stream write can set errno -- *before* this function is called. By the time errno
+        // was read here it need not be the value pclose set. Passing it in makes the dependency
+        // impossible to reintroduce by rearranging the message; -1 means "not supplied", since
+        // errno values are positive.
+        const int e = (savedErrno >= 0) ? savedErrno : errno;
+        return std::string("could not be reaped: ") + std::strerror(e);
     }
     if (WIFSIGNALED(status))
     {
@@ -435,7 +445,10 @@ execCommand(const std::string& cmd)
     {
         // Was "exited with code " << rc, which printed the wait status: a command exiting 1
         // reported "code 256". [Co-developed with claude code -- Adam]
-        std::cerr << "Command failed (" << describeCommandStatus(rc, cmd) << "): " << cmd << "\n";
+        // errno captured before anything else runs, then the message built before any I/O.
+        const int savedErrno = errno;
+        const std::string why = describeCommandStatus(rc, cmd, savedErrno);
+        std::cerr << "Command failed (" << why << "): " << cmd << "\n";
     }
     return result;
 }
