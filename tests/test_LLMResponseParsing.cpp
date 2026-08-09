@@ -235,7 +235,16 @@ TEST(LLMResponseParsingTest, ValidIsReadNumericallySoOneAndZeroBothWork)
     // get<bool>() would make nlohmann throw on a numeric 1 and reject replies that work today.
     json numericTrue = answerWith(json::array({aTask("GetAllHosts", json::object())}));
     numericTrue["valid"] = 1;
-    auto* yes = dynamic_cast<Answer*>(parseReply(numericTrue).get());
+    // [Co-developed with claude code -- Adam]
+    // The owning unique_ptr is held in a named variable. It used to be
+    //     auto* yes = dynamic_cast<Answer*>(parseReply(numericTrue).get());
+    // where parseReply returns a temporary unique_ptr that is destroyed at the end of that
+    // full-expression -- so `yes` dangled immediately and the EXPECT below read freed memory. The
+    // test passed anyway, on every ordinary run, because the freed bytes still held the old value.
+    // TSan's heap-use-after-free report was the only thing that saw it, and the correct pattern was
+    // already three lines further down in this same test.
+    const auto yesOwner = parseReply(numericTrue);
+    auto* yes = dynamic_cast<Answer*>(yesOwner.get());
     ASSERT_NE(yes, nullptr);
     EXPECT_TRUE(yes->valid);
 

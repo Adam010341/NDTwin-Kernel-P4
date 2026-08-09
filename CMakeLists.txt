@@ -53,6 +53,12 @@ add_compile_options(
     -Werror -pthread
 )
 
+# --- Sanitizer builds (opt-in: -DSANITIZER=asan|tsan) ---
+# [Co-developed with claude code -- Adam]
+# No-op unless SANITIZER is defined, so the ordinary build is untouched. Included here rather than
+# lower down because it edits CMAKE_CXX_FLAGS, which must be set before any target is defined.
+include(cmake/sanitizer-flags.cmake)
+
 # --- SPDLOG Active Level ---
 if(NOT DEFINED SPDLOG_ACTIVE_LEVEL)
     set(SPDLOG_ACTIVE_LEVEL "SPDLOG_LEVEL_TRACE" CACHE STRING "spdlog active level")
