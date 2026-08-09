@@ -317,3 +317,39 @@ restore the file byte-exactly from an in-memory copy; re-run and confirm green.
 | `SwitchesUpTest.test_a_switch_that_is_not_enabled_is_named_with_the_cause_to_look_for` | `tools/contract_test/spec.py:176` (in `inv_all_switches_up`) | `for n in data["nodes"] if n["vertex_type"] == 0 and not n["is_enabled"]]` -> `for n in data["nodes"] if False]` | `FAIL: __main__.SwitchesUpTest.test_a_switch_that_is_not_enabled_is_named_with_the_cause_to_look_for` / `Ran 90 tests in 0.005s FAILED (failures=1)` |
 
 Total: 145 tests, each with an observed failure. 147 mutations applied; every one restored byte-exactly and re-verified green.
+
+---
+
+## gRPC deadline（`RPC_TIMEOUT_S`），2026-08-09
+
+修法：`p4_client.py` 的六個 unary gRPC 呼叫加上 `timeout=RPC_TIMEOUT_S`（streaming `Read()` 不動）。
+測試：`WriteDeadlineTest` 三個。
+
+| # | Mutation | 結果 |
+|---|---|---|
+| M1 | `RPC_TIMEOUT_S = 5.0` → `0.1` | **KILLED**（`failures=1`）—— 「不可短到讓慢的 table write 被報成失敗」那條 |
+| M2 | `p4_client.py:486`（`insert_ipv4_route` 實際用的那行）拿掉 `timeout=` | **KILLED**，斷言訊息 `a Write was sent with no deadline` |
+| M3 | 所有 `self.stub.Write(req, timeout=…)` 拿掉 `timeout=` | **KILLED**（`failures=2`）|
+
+### 一個我自己搞錯、然後更正的 mutation
+
+M2 第一次寫成 mutate `self.stub.Write(build(p4runtime_pb2.Update.INSERT), …)`，結果 **SURVIVED**。
+我一度要把它記成「測試太弱」——**錯了**。那個 `build(...)` 形式屬於
+`write_clone_session()`（`p4_client.py:257` 起），不是 `insert_ipv4_route()`。
+所以那次存活代表**我的 mutation 打在測試根本不會走到的程式碼上**，不代表測試無效。
+
+**mutation 存活有兩種原因，必須分清楚：測試抓不到，或 mutation 沒打中。**
+前者是測試的問題，後者是我的問題。分不清就會刪掉一個好測試，或留下一個假測試。
+
+### 由此暴露的真實缺口（未修）
+
+`write_clone_session()` 的 INSERT/MODIFY 路徑（`p4_client.py:273,281`）**現在有 deadline，
+但沒有任何測試釘住它**。`test_clone_session.py` 有 18 個測試，但沒有一個檢查 deadline。
+所以那兩行的 timeout 可以被移除而全套測試照樣綠。列為待補。
+
+### 過程錯誤：我在 commit 之前就 mutate
+
+第一輪 mutation 時修法**尚未 commit**，所以 `git checkout -- proxy_agent/p4_client.py`
+把整個 timeout 修法抹掉了（6 個呼叫點 ＋ 常數全失）。這正是
+`destructive-shell-traps` 記錄的那條規則，而我違反了它。
+重做並**先 commit（`fee2110`）再 mutate**，之後三個 mutation 才是在乾淨基準上跑的。
