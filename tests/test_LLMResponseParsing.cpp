@@ -272,7 +272,7 @@ TEST(LLMResponseParsingTest, AnEmptyTaskListIsAcceptedButAMissingOneIsNot)
     //
     // The guard is narrower than it looks, and deliberately not overstated here: only the *absent*
     // key is caught. `"tasks": null` and `"tasks": {}` are present, so they slip through into the
-    // silent-zero-tasks case -- see ANullTasksFieldYieldsNoTasksAndNoErrorDocumentsCurrentBehaviour.
+    // silent-zero-tasks case -- now rejected; see AnAnswerClaimingValidWithNullTasksIsRejected.
     EXPECT_THROW(parseReply(json{{"state", "answer"},
                                  {"explanation", ""},
                                  {"valid", true}}),
@@ -508,42 +508,14 @@ TEST(LLMResponseParsingTest, AMatchIsCarriedThroughVerbatimWithoutBeingValidated
     EXPECT_EQ(del->match, match);
 }
 
-TEST(LLMResponseParsingTest, AModifyFlowEntryTaskConstructsItselfAsAnInstallDocumentsCurrentBehaviour)
-{
-    // A real bug, pinned rather than fixed. ModifyFlowEntryTask's constructor assigns
-    // `type = INSTALL_FLOW_ENTRY`. Deserialising hides it, because task_from_json overwrites
-    // `type` from the wire afterwards -- so the only visible route is a task built in C++, and
-    // then `to_json(json&, const unique_ptr<Task>&)` switches on `type` and static_casts to
-    // InstallFlowEntryTask. The reply comes back out labelled InstallFlowEntry.
-    //
-    // The two halves are asserted together because they are one bug: fixing the constructor is
-    // what should fail this test.
-    llmResponse::ModifyFlowEntryTask built;
-    EXPECT_EQ(built.type, llmResponse::INSTALL_FLOW_ENTRY)
-        << "the constructor no longer mislabels the task -- this test can be deleted";
+// [Co-developed with claude code -- Adam]
+// AModifyFlowEntryTaskConstructsItselfAsAnInstallDocumentsCurrentBehaviour used to be here. It
+// pinned the defect where ModifyFlowEntryTask's constructor set type = INSTALL_FLOW_ENTRY. The
+// defect is fixed, so the test was retired rather than inverted -- the correct behaviour is now
+// asserted by AModifyFlowEntryTaskConstructsItselfAsAModify, which was derived from the task-type
+// semantics rather than from the implementation. Recorded rather than silently deleted so the
+// history of the pin is visible.
 
-    std::unique_ptr<Task> p = std::make_unique<llmResponse::ModifyFlowEntryTask>();
-    auto* modify = static_cast<llmResponse::ModifyFlowEntryTask*>(p.get());
-    modify->order = 1;
-    modify->deviceName = "s3";
-    modify->priority = 10;
-    modify->match = json::object();
-    modify->actionType = "";
-    modify->actionOutPort = -1;
-
-    json j = p;
-    EXPECT_EQ(j.at("type"), "InstallFlowEntry")
-        << "a ModifyFlowEntry built in C++ serialises under its own name now";
-
-    // And the contrast: coming off the wire it is labelled correctly, because task_from_json runs
-    // last and repairs what the constructor got wrong.
-    const auto parsed = parseOneTask(aTask("ModifyFlowEntry",
-                                           {{"device_name", "s3"},
-                                            {"priority", 10},
-                                            {"match", json::object()},
-                                            {"actions", json::array()}}));
-    EXPECT_EQ(parsed->type, llmResponse::MODIFY_FLOW_ENTRY);
-}
 
 // --- Collection-valued parameters.
 
@@ -679,46 +651,18 @@ TEST(LLMResponseParsingTest, ATasksEntryThatIsNotATaskObjectIsRejected)
     }
 }
 
-TEST(LLMResponseParsingTest, ANullTasksFieldYieldsNoTasksAndNoErrorDocumentsCurrentBehaviour)
-{
-    // A bug, pinned rather than fixed. `for (const auto& taskJson : j.at("tasks"))` is nlohmann
-    // iteration, and iterating a `null` or an empty object yields an empty range -- so
-    // `{"valid": true, "tasks": null}` parses cleanly into an Answer that asserts there was work
-    // to do and carries none of it.
-    //
-    // This is the one failure shape in this file with no diagnostic anywhere: LLMAgent sees a
-    // non-null pointer, inputTextIntent's dynamic_cast to Answer succeeds, the task loop has
-    // nothing to iterate, and the GUI is handed the model's explanation of what it claims to have
-    // done. Compare AnAnswerWithNoTasksArrayIsRejectedWhenItClaimsToBeValid: the *absent* key is
-    // caught, and only these two present-but-not-a-list values slip through. Fixing it (by
-    // demanding is_array) fails this test, which is intended.
-    for (const json& empty : {json(nullptr), json::object()})
-    {
-        json reply = json{{"state", "answer"}, {"explanation", "powered s1 off"}, {"valid", true}};
-        reply["tasks"] = empty;
+// [Co-developed with claude code -- Adam]
+// ANullTasksFieldYieldsNoTasksAndNoErrorDocumentsCurrentBehaviour used to be here, pinning the
+// defect where `valid: true` with `tasks: null` was accepted as a well-formed answer that did
+// nothing. Now rejected with a json::type_error (so it answers 400, not 500); the replacement is
+// AnAnswerClaimingValidWithNullTasksIsRejected.
 
-        std::unique_ptr<LLMResponse> p;
-        ASSERT_NO_THROW(p = parseReply(reply)) << "tasks " << empty.dump();
-        auto* ans = dynamic_cast<Answer*>(p.get());
-        ASSERT_NE(ans, nullptr);
-        EXPECT_TRUE(ans->valid);
-        EXPECT_TRUE(ans->tasks.empty());
-    }
-}
 
-TEST(LLMResponseParsingTest, DeserialisingTwiceIntoTheSameAnswerAppendsDocumentsCurrentBehaviour)
-{
-    // Answer::from_json push_backs into `tasks` without clearing it first. Production never hits
-    // this because make_llm_from_json always allocates a fresh Answer, so it is latent rather than
-    // live -- but the object is a public type with a public from_json, and the failure mode is
-    // every task being executed twice. Adding the clear fails this test, which is fine: that is
-    // the fix.
-    const json reply = answerWith(json::array({aTask("GetAllHosts", json::object())}));
-    Answer ans;
-    from_json(reply, ans);
-    from_json(reply, ans);
-    EXPECT_EQ(ans.tasks.size(), 2u) << "from_json became idempotent -- delete this test";
-}
+// [Co-developed with claude code -- Adam]
+// DeserialisingTwiceIntoTheSameAnswerAppendsDocumentsCurrentBehaviour used to be here, pinning the
+// fourth instance of "should replace, can only add": from_json appended to an Answer's existing
+// tasks. Replaced by DeserialisingAnAnswerReplacesExistingTasks.
+
 
 TEST(LLMResponseParsingTest, AnAnswerRoundTripsThroughJsonWithItsTasksIntact)
 {

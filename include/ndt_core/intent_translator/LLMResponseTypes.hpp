@@ -661,7 +661,13 @@ class ModifyFlowEntryTask : public Task
   public:
     ModifyFlowEntryTask()
     {
-        type = INSTALL_FLOW_ENTRY;
+        // [Co-developed with claude code -- Adam]
+        // Was INSTALL_FLOW_ENTRY, so every modify task announced itself as an install. The two are
+        // distinct enum values and the dispatch reads this field, so a modify requested by the
+        // intent translator was carried out as an install -- which for an existing rule means a
+        // second entry rather than a changed one, the same "should replace, can only add" shape
+        // that has now appeared four times in this codebase.
+        type = MODIFY_FLOW_ENTRY;
     }
 
     std::string deviceName;
@@ -2341,18 +2347,44 @@ from_json(const nlohmann::json& j, Answer& ans)
 {
     ans.explanation = j.at("explanation").get<std::string>();
     ans.valid = j.at("valid").get<int>();
+
+    // [Co-developed with claude code -- Adam]
+    // Cleared before the loop, not only on the invalid branch. Deserialising into an Answer that
+    // already held tasks used to *append*, so parsing a second response left the first response's
+    // tasks in front of it and the kernel executed both -- the fourth instance in this codebase of
+    // "should replace, can only add". The invalid branch cleared correctly, which is why the bug
+    // only showed on the path that matters.
+    ans.tasks.clear();
+
     if (ans.valid)
     {
-        for (const auto& taskJson : j.at("tasks"))
+        // A response claiming to be valid must actually carry tasks. `tasks: null` iterates as
+        // empty in nlohmann, so `valid: true` with a null or absent tasks array used to be
+        // accepted as a well-formed answer that simply did nothing -- indistinguishable, to every
+        // caller, from a request the translator had genuinely satisfied.
+        // `j.at()` throws json::out_of_range when the key is absent, and the type check below
+        // throws json::type_error -- both are json::exception, which HttpSession::buildResponse
+        // maps to 400. Throwing std::runtime_error here instead would land in the std::exception
+        // catch and answer 500, turning a malformed upstream reply into "the kernel is broken".
+        // That is the exact conflation removed from the wire earlier today, and the first version
+        // of this fix reintroduced it -- caught by an existing test that asserts the exception
+        // type rather than just that something was thrown.
+        const auto& tasksJson = j.at("tasks");
+        if (!tasksJson.is_array())
+        {
+            throw nlohmann::json::type_error::create(
+                302,
+                std::string("Answer claims valid but \"tasks\" is ") + tasksJson.type_name() +
+                    ", not an array",
+                &tasksJson);
+        }
+
+        for (const auto& taskJson : tasksJson)
         {
             std::unique_ptr<Task> task;
             from_json(taskJson, task);
             ans.tasks.push_back(std::move(task));
         }
-    }
-    else
-    {
-        ans.tasks = std::vector<std::unique_ptr<Task>>{};
     }
     llmResponse_from_json(j, ans);
 }
