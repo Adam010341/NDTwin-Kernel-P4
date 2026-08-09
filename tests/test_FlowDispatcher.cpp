@@ -216,3 +216,93 @@ TEST(FlowDispatcherTest, EnqueueBeforeStartDoesNotRunWork)
     EXPECT_TRUE(waitFor([&] { return recorder.count() == 1; }));
     dispatcher.stop();
 }
+
+// ---------------------------------------------------------------------------
+// Deterministic lost-wakeup test using a rendezvous, so the interleaving is
+// chosen by the test rather than by the scheduler.
+//
+// The scenario: a worker thread has drained its queue and is about to sleep on
+// the condition variable. At that exact moment, a producer enqueues a job. The
+// job must be picked up on the next wake, not left in the queue forever.
+//
+// The existing StopReturnsRatherThanDeadlockingOnAnIdleWorker test covers the
+// stop-path lost-wakeup (running_ written outside mtx_), but is probabilistic:
+// it relies on the OS scheduler to produce the unlucky interleaving within a
+// 10-second window. On a fast or deterministic machine it could pass against
+// broken code.
+//
+// The test below uses a blocking sender to park the worker at a known point,
+// then enqueues while the worker is not holding mtx_. When the sender is
+// released, the worker must loop back, reacquire mtx_, and see the new job.
+// This is the same shape as the real lost-wakeup: a job arriving while the
+// worker is between releasing the lock and reacquiring it for the next wait.
+// ---------------------------------------------------------------------------
+
+TEST(FlowDispatcherTest, DeterministicNoLostWakeupWhenEnqueueRacesWithWorkerSleep)
+{
+    // A sender that blocks on the SECOND batch, parking the worker outside mtx_.
+    // The test then enqueues a job while the worker is parked. After release,
+    // the worker must pick up the new job -- a lost wakeup would leave it
+    // sitting in the queue forever.
+    std::atomic<int> batchCount{0};
+    std::atomic<bool> parkWorker{false};
+    std::atomic<bool> workerParked{false};
+    std::atomic<bool> releaseWorker{false};
+
+    Recorder recorder;
+    auto sender = [&](const std::vector<FlowJob>& batch) {
+        {
+            std::lock_guard<std::mutex> lock(recorder.mutex);
+            recorder.seen.insert(recorder.seen.end(), batch.begin(), batch.end());
+        }
+        const int n = ++batchCount;
+        if (n == 2 && parkWorker.load())
+        {
+            workerParked.store(true);
+            // Busy-wait until the test releases us. We cannot use a mutex here
+            // because the worker must not hold mtx_ while parked -- that would
+            // prevent enqueue from pushing work, which is the whole point.
+            while (!releaseWorker.load())
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+    };
+
+    FlowDispatcher dispatcher(sender, /*burstSize*/ 1);
+    dispatcher.start();
+
+    // Batch 1: create the worker and let it run through once.
+    dispatcher.enqueue(jobFor(42));
+    ASSERT_TRUE(waitFor([&] { return recorder.count() >= 1; }));
+
+    // Now tell the sender to park on the NEXT batch.
+    parkWorker.store(true);
+
+    // Batch 2: this will park the worker inside the sender callback.
+    dispatcher.enqueue(jobFor(42));
+    ASSERT_TRUE(waitFor([&] { return workerParked.load(); }))
+        << "worker did not park within the timeout";
+
+    // The worker is now parked in the sender (NOT holding mtx_).
+    // Enqueue a job while the worker is between iterations.
+    // This is the critical moment: the job must be seen when the worker
+    // loops back, even though no notify_all() reaches a sleeping worker
+    // (because the worker is not sleeping -- it's in the sender).
+    dispatcher.enqueue(jobFor(42));
+    const size_t countBeforeRelease = recorder.count();
+
+    // Release the worker.
+    releaseWorker.store(true);
+
+    // The worker should now finish the sender, loop back, acquire mtx_,
+    // see the new job in the queue, and process it as batch 3.
+    ASSERT_TRUE(waitFor([&] { return recorder.count() > countBeforeRelease; }))
+        << "worker did not pick up the job enqueued while it was parked; "
+        << "count stuck at " << recorder.count();
+
+    EXPECT_GE(recorder.count(), 3u)
+        << "expected at least 3 deliveries (batches 1, 2, 3), got " << recorder.count();
+
+    dispatcher.stop();
+}

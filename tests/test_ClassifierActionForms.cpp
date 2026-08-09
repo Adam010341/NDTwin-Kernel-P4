@@ -325,3 +325,68 @@ TEST(ClassifierActionFormsTest, AReservedTargetWithATrailingPortNumberUsesTheRes
     ASSERT_EQ(truncated->outputPorts.size(), 1u);
     EXPECT_EQ(truncated->outputPorts.front(), 65535u) << "the max_len was read as a port";
 }
+
+TEST(ClassifierActionFormsTest,
+     TheFourReservedOutputTargetsMapToDistinctOpenFlow13PortNumbers)
+{
+    // Per OpenFlow 1.3.0 spec (ONF TS-006) §4.1.1, reserved ports are 32-bit:
+    //
+    //   OFPP_CONTROLLER = 0xfffffffd  (4294967293)
+    //   OFPP_LOCAL      = 0xfffffffe  (4294967294)
+    //   OFPP_FLOOD      = 0xfffffffb  (4294967291)
+    //   OFPP_NORMAL     = 0xfffffffa  (4294967290)
+    //
+    // The current implementation assigns 65535 (0xffff, which is OFPP_ANY/NONE in
+    // OpenFlow 1.0 but has no forwarding meaning in 1.3) to ALL FOUR of them --
+    // see AllFourReservedOutputTargetsCollapseToOneValueDocumentsCurrentBehaviour.
+    //
+    // This test asserts the SPEC behaviour: each reserved name must map to its
+    // correct, DISTINCT 32-bit OpenFlow 1.3 port number. It is EXPECTED TO FAIL
+    // until Classifier.cpp:875-879 is corrected.
+    //
+    // Confidence: HIGH for CONTROLLER (0xfffffffd) and LOCAL (0xfffffffe) --
+    // these are the 32-bit extensions of the well-known 16-bit values 0xfffd/0xfffe.
+    // MEDIUM for FLOOD (0xfffffffb) and NORMAL (0xfffffffa) -- same extension
+    // pattern, but these are optional in OF1.3 and the correct values are drawn from
+    // the standard openflow-1.3.h header convention.
+
+    // OpenFlow 1.3 32-bit reserved port numbers
+    constexpr uint32_t OFPP_CONTROLLER = 0xfffffffd;  // 4294967293
+    constexpr uint32_t OFPP_LOCAL      = 0xfffffffe;  // 4294967294
+    constexpr uint32_t OFPP_FLOOD      = 0xfffffffb;  // 4294967291
+    constexpr uint32_t OFPP_NORMAL     = 0xfffffffa;  // 4294967290
+
+    // Each reserved target must map to its own distinct value.
+    struct Case { const char* action; uint32_t expected; };
+    const std::vector<Case> cases = {
+        {"OUTPUT:CONTROLLER", OFPP_CONTROLLER},
+        {"OUTPUT:LOCAL",      OFPP_LOCAL},
+        {"OUTPUT:FLOOD",      OFPP_FLOOD},
+        {"OUTPUT:NORMAL",     OFPP_NORMAL},
+        // Case-insensitive variants must also map correctly.
+        {"OUTPUT:controller", OFPP_CONTROLLER},
+        {"OUTPUT:flood",      OFPP_FLOOD},
+    };
+
+    for (const auto& c : cases)
+    {
+        const auto effect = effectOf(json::array({c.action}));
+        ASSERT_TRUE(effect.has_value()) << c.action;
+        ASSERT_EQ(effect->outputPorts.size(), 1u)
+            << c.action << " produced " << effect->outputPorts.size() << " ports";
+        EXPECT_EQ(effect->outputPorts.front(), c.expected)
+            << c.action << " mapped to " << effect->outputPorts.front()
+            << " (0x" << std::hex << effect->outputPorts.front() << std::dec
+            << ") instead of 0x" << std::hex << c.expected << std::dec;
+    }
+
+    // Sanity: all four reserved values must be distinct.
+    // If this fails, a different bug is present -- the values were corrected but
+    // some are still duplicates.
+    EXPECT_NE(OFPP_CONTROLLER, OFPP_LOCAL);
+    EXPECT_NE(OFPP_CONTROLLER, OFPP_FLOOD);
+    EXPECT_NE(OFPP_CONTROLLER, OFPP_NORMAL);
+    EXPECT_NE(OFPP_LOCAL, OFPP_FLOOD);
+    EXPECT_NE(OFPP_LOCAL, OFPP_NORMAL);
+    EXPECT_NE(OFPP_FLOOD, OFPP_NORMAL);
+}

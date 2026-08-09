@@ -818,3 +818,97 @@ TEST(LLMResponseParsingTest, NothingAModelCouldSendCausesAnythingWorseThanAnExce
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests that assert SPEC behaviour for the four known Answer/Task defects.
+// These are expected to FAIL until the corresponding implementation bugs are fixed.
+// ---------------------------------------------------------------------------
+
+TEST(LLMResponseParsingTest, AModifyFlowEntryTaskConstructsItselfAsAModify)
+{
+    // Per LLMResponseTypes.hpp:62, MODIFY_FLOW_ENTRY is a distinct TaskType enumerator.
+    // A ModifyFlowEntryTask is semantically a modification of an existing flow entry,
+    // not an installation of a new one. Its constructor must set type = MODIFY_FLOW_ENTRY.
+    //
+    // Currently the constructor sets type = INSTALL_FLOW_ENTRY (line 664), which means
+    // a C++-constructed ModifyFlowEntryTask serialises as "InstallFlowEntry" on the wire
+    // and is dispatched to the wrong handler. This test is EXPECTED TO FAIL until
+    // LLMResponseTypes.hpp:664 is corrected from INSTALL_FLOW_ENTRY to MODIFY_FLOW_ENTRY.
+
+    llmResponse::ModifyFlowEntryTask built;
+    EXPECT_EQ(built.type, llmResponse::MODIFY_FLOW_ENTRY)
+        << "ModifyFlowEntryTask constructor must set type = MODIFY_FLOW_ENTRY, "
+        << "not INSTALL_FLOW_ENTRY. Fix: change LLMResponseTypes.hpp:664";
+}
+
+TEST(LLMResponseParsingTest, DeserialisingAnAnswerReplacesExistingTasks)
+{
+    // The universal contract of a from_json deserialiser: parsing new data REPLACES the
+    // object's state, it does not append to it. Answer::from_json currently push_backs
+    // into `tasks` without clearing it first (LLMResponseTypes.hpp:2346-2351), which
+    // means deserialising twice into the same Answer doubles the task list.
+    //
+    // Production never hits this because make_llm_from_json always allocates a fresh
+    // Answer. But the type is public, its from_json is public, and reusing an Answer
+    // object (e.g. in a retry loop) would silently execute every task twice.
+    //
+    // This test is EXPECTED TO FAIL until LLMResponseTypes.hpp:2344 adds
+    // `ans.tasks.clear()` before the push_back loop.
+
+    const json reply = answerWith(json::array({aTask("GetAllHosts", json::object())}));
+    Answer ans;
+    from_json(reply, ans);
+    EXPECT_EQ(ans.tasks.size(), 1u) << "first parse should produce 1 task";
+
+    // Parse the SAME reply again into the SAME Answer object.
+    // The correct behaviour: the second parse REPLACES the first, so we still have 1 task.
+    // The current behaviour: the second parse APPENDS, so we have 2 tasks.
+    from_json(reply, ans);
+    EXPECT_EQ(ans.tasks.size(), 1u)
+        << "parsing the same reply twice must replace, not append. "
+        << "Fix: add ans.tasks.clear() at LLMResponseTypes.hpp before the push_back loop";
+}
+
+TEST(LLMResponseParsingTest, AnAnswerClaimingValidWithNullTasksIsRejected)
+{
+    // When an Answer says "valid: true", it is asserting that there is actionable work.
+    // A `tasks` field that is JSON null or a JSON object is not a list of tasks --
+    // it is a contradiction. The kernel must reject this rather than silently treating
+    // it as zero tasks (which reports success for work nobody carried out).
+    //
+    // The current code (LLMResponseTypes.hpp:2344-2351) iterates `j.at("tasks")` with a
+    // range-for, and nlohmann yields an empty range for both `null` and `{}`. So both
+    // parse successfully into an Answer with zero tasks, which is then executed as a
+    // valid, successful, do-nothing plan.
+    //
+    // The spec does not explicitly enumerate every malformed input, but the combination
+    // `valid:true` + non-array `tasks` is a contradiction by the plain meaning of the
+    // fields. The absent-key case is already caught (AnEmptyTaskListIsAcceptedButAMissingOneIsNot);
+    // the present-but-wrong-type case should be caught too.
+    //
+    // This test is EXPECTED TO FAIL until LLMResponseTypes.hpp:2344 validates that
+    // `j.at("tasks")` is an array before iterating it.
+
+    for (const json& empty : {json(nullptr), json::object()})
+    {
+        json reply = json{{"state", "answer"}, {"explanation", "I did the thing"}, {"valid", true}};
+        reply["tasks"] = empty;
+
+        // The correct behaviour: this should throw, because "valid: true" with a non-array
+        // "tasks" is a malformed reply. The LLMAgent caller catches std::exception and retries.
+        EXPECT_THROW(
+            {
+                std::unique_ptr<LLMResponse> p;
+                p = parseReply(reply);
+                // If it didn't throw, also verify the result is not silently accepted as valid.
+                auto* ans = dynamic_cast<Answer*>(p.get());
+                ASSERT_NE(ans, nullptr);
+                ADD_FAILURE()
+                    << "Answer with valid:true and tasks: " << empty.dump()
+                    << " was accepted. It has " << ans->tasks.size() << " task(s)."
+                    << " Fix: validate that tasks is an array before iterating.";
+            },
+            std::exception)
+            << "tasks: " << empty.dump();
+    }
+}
