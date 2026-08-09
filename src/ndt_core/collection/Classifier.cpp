@@ -871,12 +871,29 @@ parseActionsArrayIntoEffect(const nlohmann::json& actions, RuleEffect& effect)
                 std::string portStr = (colon2 == std::string::npos) ? rest : rest.substr(0, colon2);
                 portStr = toUpper(portStr);
 
-                // OpenFlow reserved ports (store as uint32_t constants)
-                constexpr uint32_t OFPP_CONTROLLER = 65535;
-                constexpr uint32_t OFPP_LOCAL = 65535;
-                // constexpr uint32_t OFPP_ANY = 65535;
-                constexpr uint32_t OFPP_FLOOD = 65535;
-                constexpr uint32_t OFPP_NORMAL = 65535;
+                // OpenFlow 1.3 reserved ports (OpenFlow Switch Specification 1.3.0, table of
+                // reserved OFPP_* values). This project speaks 1.3 -- intelligent_router.py uses
+                // ofproto_v1_3, and the flow dumps come back from `ovs-ofctl -O OpenFlow13`.
+                //
+                // [Co-developed with claude code -- Adam]
+                // All four of these used to be 65535. Two things were wrong with that. Port numbers
+                // are 32-bit in 1.3, so 65535 is not any reserved port -- it was the 1.0
+                // sixteen-bit OFPP_NONE, and 1.3's catch-all is 0xffffffff. And collapsing four
+                // distinct targets onto one value made them indistinguishable: the effect hash at
+                // the top of this file mixes the port in to detect when a rule has changed, so a
+                // rule edited from FLOOD to CONTROLLER hashed identically and the change was
+                // invisible. Neither consumer treats 65535 as a sentinel -- the other one looks the
+                // port up as an edge, which a reserved port never matches either way -- so the
+                // values could simply be corrected.
+                //
+                // Not handled, deliberately: ALL (0xfffffffc), IN_PORT (0xfffffff8) and TABLE
+                // (0xfffffff9). Ryu can emit them; they fall through to parseUint below, fail, and
+                // the action is skipped with the rest of the rule kept. Stated here because a
+                // reader should not have to infer it from the absence of a branch.
+                constexpr uint32_t OFPP_NORMAL = 0xfffffffa;
+                constexpr uint32_t OFPP_FLOOD = 0xfffffffb;
+                constexpr uint32_t OFPP_CONTROLLER = 0xfffffffd;
+                constexpr uint32_t OFPP_LOCAL = 0xfffffffe;
 
                 uint32_t port = 0;
                 if (portStr == "CONTROLLER")

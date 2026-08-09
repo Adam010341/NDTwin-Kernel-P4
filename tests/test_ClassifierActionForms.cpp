@@ -281,49 +281,38 @@ TEST(ClassifierActionFormsTest, AnOutputPortTooLargeForThirtyTwoBitsIsRefusedNot
     EXPECT_EQ(ok->outputPorts.front(), 4294967295u);
 }
 
-TEST(ClassifierActionFormsTest,
-     AllFourReservedOutputTargetsCollapseToOneValueDocumentsCurrentBehaviour)
-{
-    // A real bug, pinned rather than fixed. The four named constants in
-    // parseActionsArrayIntoEffect are all initialised to 65535:
-    //
-    //     OFPP_CONTROLLER = 65535   OFPP_LOCAL = 65535
-    //     OFPP_FLOOD      = 65535   OFPP_NORMAL = 65535
-    //
-    // OpenFlow assigns them distinct values -- CONTROLLER 0xfffd, LOCAL 0xfffe, FLOOD 0xfffb,
-    // NORMAL 0xfffa -- and 0xffff is OFPP_ANY/NONE, which is not a forwarding target at all. So a
-    // rule that punts to the controller, one that floods and one that hands the packet to the
-    // local stack are all indistinguishable here, and all three are reported as a port number
-    // that no switch will ever have.
-    //
-    // It is latent rather than live: nothing downstream compares outputPorts against the reserved
-    // range today. It becomes live the moment something does -- link usage attributing flooded
-    // traffic to a real port, or a path walk following 65535. Giving the constants their correct
-    // values fails this test, which is intended.
-    for (const char* const reserved : {"OUTPUT:CONTROLLER", "OUTPUT:LOCAL", "OUTPUT:FLOOD",
-                                       "OUTPUT:NORMAL", "OUTPUT:controller", "OUTPUT:flood"})
-    {
-        const auto effect = effectOf(json::array({reserved}));
-        ASSERT_TRUE(effect.has_value()) << reserved;
-        ASSERT_EQ(effect->outputPorts.size(), 1u) << reserved;
-        EXPECT_EQ(effect->outputPorts.front(), 65535u)
-            << reserved << " no longer resolves to 65535 -- the constants were corrected";
-    }
-}
+// [Co-developed with claude code -- Adam]
+// AllFourReservedOutputTargetsCollapseToOneValueDocumentsCurrentBehaviour used to be here. It pinned
+// the defect where CONTROLLER, LOCAL, FLOOD and NORMAL all parsed to 65535 -- which in OpenFlow 1.3
+// is not a reserved port at all, and which made a rule edited from FLOOD to CONTROLLER hash
+// identically to the original, so the change was invisible to the classifier. The four now carry
+// their 1.3 values; the replacement is
+// TheFourReservedOutputTargetsMapToDistinctOpenFlow13PortNumbers, derived from the specification
+// rather than from the parser.
+
 
 TEST(ClassifierActionFormsTest, AReservedTargetWithATrailingPortNumberUsesTheReservedValue)
 {
     // Ryu writes `OUTPUT:CONTROLLER:65535` when it includes the max_len. The parser splits on the
     // second colon and reads only the name, so the trailing number must not be taken as a port.
+    // [Co-developed with claude code -- Adam]
+    // The expected value is OFPP_CONTROLLER (OpenFlow 1.3, 0xfffffffd), not 65535. It was written as
+    // 65535 because that is what the parser produced at the time -- all four reserved targets shared
+    // that one value. The point this test makes is unaffected and still worth making: the trailing
+    // number is Ryu's max_len, so reading it as a port would be wrong whatever the reserved constant
+    // happens to be. That is what the second case checks.
+    constexpr uint32_t kOfppController = 0xfffffffdu;
+
     const auto effect = effectOf(json::array({"OUTPUT:CONTROLLER:65535"}));
     ASSERT_TRUE(effect.has_value());
     ASSERT_EQ(effect->outputPorts.size(), 1u);
-    EXPECT_EQ(effect->outputPorts.front(), 65535u);
+    EXPECT_EQ(effect->outputPorts.front(), kOfppController);
 
     const auto truncated = effectOf(json::array({"OUTPUT:CONTROLLER:128"}));
     ASSERT_TRUE(truncated.has_value());
     ASSERT_EQ(truncated->outputPorts.size(), 1u);
-    EXPECT_EQ(truncated->outputPorts.front(), 65535u) << "the max_len was read as a port";
+    EXPECT_EQ(truncated->outputPorts.front(), kOfppController)
+        << "the max_len was read as a port";
 }
 
 TEST(ClassifierActionFormsTest,
@@ -338,7 +327,7 @@ TEST(ClassifierActionFormsTest,
     //
     // The current implementation assigns 65535 (0xffff, which is OFPP_ANY/NONE in
     // OpenFlow 1.0 but has no forwarding meaning in 1.3) to ALL FOUR of them --
-    // see AllFourReservedOutputTargetsCollapseToOneValueDocumentsCurrentBehaviour.
+    // see TheFourReservedOutputTargetsMapToDistinctOpenFlow13PortNumbers.
     //
     // This test asserts the SPEC behaviour: each reserved name must map to its
     // correct, DISTINCT 32-bit OpenFlow 1.3 port number. It is EXPECTED TO FAIL
