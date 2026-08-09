@@ -144,14 +144,22 @@ class RecordingStub:
         self.reads = []
         self.probes = []
         self.probe_timeouts = []
+        # [Co-developed with claude code -- Adam]
+        # Every timeout a Write was given, so a test can assert the deadline is actually passed.
+        # This double used to accept `Write(request)` only -- narrower than the real gRPC stub, which
+        # has always taken a timeout -- so it broke the moment production started passing one. A
+        # double that is stricter than the interface it stands in for turns a correct change into a
+        # test failure.
+        self.write_timeouts = []
         self.write_error = write_error
         self.always = always
         self.read_responses = list(read_responses)
         self.read_error = read_error
         self.probe_error = probe_error
 
-    def Write(self, request):
+    def Write(self, request, timeout=None):
         self.requests.append(request)
+        self.write_timeouts.append(timeout)
         if self.write_error is not None:
             if self.always:
                 raise self.write_error
@@ -308,7 +316,7 @@ class InsertRouteTest(unittest.TestCase):
             pass
 
         class Exploding(RecordingStub):
-            def Write(self, request):
+            def Write(self, request, timeout=None):
                 raise Boom("not a gRPC failure")
 
         self.client.stub = Exploding()
@@ -796,3 +804,38 @@ class P4InfoLookupTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class WriteDeadlineTest(unittest.TestCase):
+    """
+    Pins the deadline on the write path.
+
+    [Co-developed with claude code -- Adam]
+    gRPC's default is no deadline at all, and these writes are reached from the stream-receive
+    thread: handle_packet_in -> install_initial_routes -> insert_ipv4_route. So a switch whose
+    channel had gone away blocked packet-in handling for every *other* switch too -- one dead
+    device stalling a live fabric. Without this test the timeout is one keyword argument away
+    from being dropped again, and nothing else would notice.
+    """
+
+    def setUp(self):
+        self.stub = RecordingStub()
+        self.client = a_client(self.stub)
+
+    def test_an_insert_carries_a_deadline(self):
+        self.client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 3)
+        self.assertTrue(self.stub.write_timeouts, "no Write reached the stub")
+        for t in self.stub.write_timeouts:
+            self.assertIsNotNone(t, "a Write was sent with no deadline")
+            self.assertGreater(t, 0)
+
+    def test_a_delete_carries_a_deadline(self):
+        self.client.delete_ipv4_route("10.0.0.4", 32)
+        self.assertTrue(self.stub.write_timeouts)
+        for t in self.stub.write_timeouts:
+            self.assertIsNotNone(t, "a Write was sent with no deadline")
+
+    def test_the_deadline_is_not_so_short_that_a_slow_table_write_is_reported_as_failed(self):
+        # A tighter bound would make DEADLINE_EXCEEDED report a rule that did land as failed.
+        self.client.insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
+        self.assertGreaterEqual(min(self.stub.write_timeouts), 1.0)

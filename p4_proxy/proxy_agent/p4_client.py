@@ -9,6 +9,18 @@ from google.protobuf import text_format
 
 from proxy_agent.sflow_emitter import PKTIN_META_INGRESS_PORT, sample_from_packet_in
 
+
+# [Co-developed with claude code -- Adam]
+# Every unary gRPC call carries this. Without it a Write to a switch whose channel has gone away
+# blocks forever -- and these are reached from the stream-receive thread: handle_packet_in ->
+# install_initial_routes -> insert_ipv4_route, so one dead switch stalled packet-in handling for
+# every live switch. gRPC's default is no deadline at all, which is the wrong default for a proxy
+# that must keep serving the switches still up.
+#
+# 5 s rather than tighter: bmv2 table writes are not fast under load, and a spurious
+# DEADLINE_EXCEEDED would report a rule that did land as a failed install.
+RPC_TIMEOUT_S = 5.0
+
 # [Co-developed with claude code -- Adam]
 #
 # Must match ndtwin_switch.p4. SAMPLE_SESSION is the clone session the pipeline clones telemetry
@@ -215,7 +227,7 @@ class P4RuntimeClient:
         with open(self.json_path, "rb") as f:
             req.config.p4_device_config = f.read()
         req.config.p4info.CopyFrom(self.p4info)
-        self.stub.SetForwardingPipelineConfig(req)
+        self.stub.SetForwardingPipelineConfig(req, timeout=RPC_TIMEOUT_S)
 
     # [Co-developed with claude code -- Adam]
     def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT):
@@ -258,7 +270,7 @@ class P4RuntimeClient:
             return req
 
         try:
-            self.stub.Write(build(p4runtime_pb2.Update.INSERT))
+            self.stub.Write(build(p4runtime_pb2.Update.INSERT), timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Clone session {session_id} -> port {egress_port} installed")
             return True
         except grpc.RpcError as insert_error:
@@ -266,7 +278,7 @@ class P4RuntimeClient:
             # duplicate session as UNKNOWN with empty details, so a code-specific check silently
             # never fired.
             try:
-                self.stub.Write(build(p4runtime_pb2.Update.MODIFY))
+                self.stub.Write(build(p4runtime_pb2.Update.MODIFY), timeout=RPC_TIMEOUT_S)
                 print(f"[{self.device_id}] Clone session {session_id} already present, updated "
                       f"(INSERT said {insert_error.code().name})")
                 return True
@@ -471,7 +483,7 @@ class P4RuntimeClient:
         param2.value = port.to_bytes(2, byteorder='big')
         
         try:
-            self.stub.Write(req)
+            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
             return True
         except grpc.RpcError as e:
@@ -515,7 +527,7 @@ class P4RuntimeClient:
         match.lpm.prefix_len = prefix_len
         
         try:
-            self.stub.Write(req)
+            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Deleted route: {dst_ip}/{prefix_len}")
             return True
         except grpc.RpcError as e:
@@ -565,7 +577,7 @@ class P4RuntimeClient:
         # topology_manager.modify_flow passed that straight through and api_routes raised
         # HTTPException(400) -- every *successful* modify answered HTTP 400.
         try:
-            self.stub.Write(req)
+            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Modified route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
             return True
         except grpc.RpcError as e:
