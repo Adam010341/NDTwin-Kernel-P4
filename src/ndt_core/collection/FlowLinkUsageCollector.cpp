@@ -55,6 +55,103 @@ using json = nlohmann::json;
 namespace sflow
 {
 
+// [Co-developed with claude code -- Adam]
+// These two definitions must precede every member-function definition in this file, and that is a
+// language requirement rather than a preference. The header declares
+//     std::vector<std::unique_ptr<SPSCQueue<Packet>>> m_queues;
+// with Packet and SPSCQueue only forward-declared, and destroying that vector deletes each
+// SPSCQueue<Packet>. std::unique_ptr<T>::~unique_ptr requires T to be *complete* where it is
+// instantiated; with an incomplete type it is undefined behaviour, not merely unportable
+// ([unique.ptr.single.dtor]). The constructor instantiates it too, because members must be
+// destroyable if construction throws.
+//
+// They used to sit ~450 lines below, after the constructor and destructor. GCC accepts that -- which
+// is why this has built and passed all along -- but clang 18 correctly refuses:
+//     error: implicit instantiation of undefined template 'sflow::SPSCQueue<sflow::Packet>'
+// That was not just tidiness: libFuzzer only exists for clang, so this single placement blocked the
+// entire fuzzing plan. Found while checking whether the codebase compiles under clang at all.
+//
+// Moving the *types* up rather than the two functions down is deliberate: it makes every present and
+// future member function correct, instead of fixing the two that happen to exist today.
+struct Packet
+{
+    uint16_t len = 0;
+    alignas(4) std::array<char, BUFFER_SIZE> data{};
+};
+
+// Single-producer / single-consumer queue
+template <typename T>
+class SPSCQueue
+{
+  public:
+    explicit SPSCQueue(size_t capacity)
+        : m_capacity(capacity)
+    {
+    }
+
+    bool tryPush(T&& item, const std::atomic_bool& running)
+    {
+        if (!running.load(std::memory_order_relaxed))
+        {
+            return false;
+        }
+
+        std::unique_lock<std::mutex> lk(m_mu);
+
+        if (m_q.size() >= m_capacity)
+        {
+            return false;
+        }
+        m_q.emplace_back(std::move(item));
+        lk.unlock();
+        m_cv_not_empty.notify_one();
+        return true;
+    }
+
+    // bool push(T&& item, const std::atomic_bool& running)
+    // {
+    //     // TODO: Count dropped packet, return immediately don't wait here
+    //     std::unique_lock<std::mutex> lk(m_mu);
+    //     m_cv_not_full.wait(lk, [&] { return m_q.size() < m_capacity || !running.load(); });
+    //     if (!running.load())
+    //     {
+    //         return false;
+    //     }
+    //     m_q.emplace_back(std::move(item));
+    //     lk.unlock();
+    //     m_cv_not_empty.notify_one();
+    //     return true;
+    // }
+
+    bool pop(T& out, const std::atomic_bool& running)
+    {
+        std::unique_lock<std::mutex> lk(m_mu);
+        m_cv_not_empty.wait(lk, [&] { return !m_q.empty() || !running.load(); });
+        if (m_q.empty())
+        {
+            return false; // stop and drained
+        }
+        out = std::move(m_q.front());
+        m_q.pop_front();
+        lk.unlock();
+        // m_cv_not_full.notify_one();
+        return true;
+    }
+
+    void notify_all()
+    {
+        m_cv_not_empty.notify_all();
+        // m_cv_not_full.notify_all();
+    }
+
+  private:
+    size_t m_capacity;
+    std::mutex m_mu;
+    std::condition_variable m_cv_not_empty;
+    // std::condition_variable m_cv_not_full;
+    std::deque<T> m_q;
+};
+
 FlowLinkUsageCollector::FlowLinkUsageCollector(
     std::shared_ptr<TopologyAndFlowMonitor> topologyAndFlowMonitor,
     std::shared_ptr<FlowRoutingManager> flowRoutingManager,
@@ -495,84 +592,6 @@ FlowLinkUsageCollector::stop()
     }
 }
 
-struct Packet
-{
-    uint16_t len = 0;
-    alignas(4) std::array<char, BUFFER_SIZE> data{};
-};
-
-// Single-producer / single-consumer queue
-template <typename T>
-class SPSCQueue
-{
-  public:
-    explicit SPSCQueue(size_t capacity)
-        : m_capacity(capacity)
-    {
-    }
-
-    bool tryPush(T&& item, const std::atomic_bool& running)
-    {
-        if (!running.load(std::memory_order_relaxed))
-        {
-            return false;
-        }
-
-        std::unique_lock<std::mutex> lk(m_mu);
-
-        if (m_q.size() >= m_capacity)
-        {
-            return false;
-        }
-        m_q.emplace_back(std::move(item));
-        lk.unlock();
-        m_cv_not_empty.notify_one();
-        return true;
-    }
-
-    // bool push(T&& item, const std::atomic_bool& running)
-    // {
-    //     // TODO: Count dropped packet, return immediately don't wait here
-    //     std::unique_lock<std::mutex> lk(m_mu);
-    //     m_cv_not_full.wait(lk, [&] { return m_q.size() < m_capacity || !running.load(); });
-    //     if (!running.load())
-    //     {
-    //         return false;
-    //     }
-    //     m_q.emplace_back(std::move(item));
-    //     lk.unlock();
-    //     m_cv_not_empty.notify_one();
-    //     return true;
-    // }
-
-    bool pop(T& out, const std::atomic_bool& running)
-    {
-        std::unique_lock<std::mutex> lk(m_mu);
-        m_cv_not_empty.wait(lk, [&] { return !m_q.empty() || !running.load(); });
-        if (m_q.empty())
-        {
-            return false; // stop and drained
-        }
-        out = std::move(m_q.front());
-        m_q.pop_front();
-        lk.unlock();
-        // m_cv_not_full.notify_one();
-        return true;
-    }
-
-    void notify_all()
-    {
-        m_cv_not_empty.notify_all();
-        // m_cv_not_full.notify_all();
-    }
-
-  private:
-    size_t m_capacity;
-    std::mutex m_mu;
-    std::condition_variable m_cv_not_empty;
-    // std::condition_variable m_cv_not_full;
-    std::deque<T> m_q;
-};
 
 void
 FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
