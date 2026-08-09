@@ -1,7 +1,7 @@
 #include "ndt_core/routing_management/FlowDispatcher.hpp"
 
-FlowDispatcher::FlowDispatcher(SenderFn sender, size_t burstSize, bool fencePerBurst)
-: sender_(std::move(sender)), burstSize_(burstSize), fencePerBurst_(fencePerBurst) {}
+FlowDispatcher::FlowDispatcher(SenderFn sender, size_t burstSize)
+: sender_(std::move(sender)), burstSize_(burstSize) {}
 
 FlowDispatcher::~FlowDispatcher() { stop(); }
 
@@ -102,8 +102,7 @@ void FlowDispatcher::workerLoop_(uint64_t dpid) {
             }
         }
         if (!burst.empty()) {
-            sender_(burst);           // send to southbound in one big push
-            // if (fencePerBurst_) ... issue a barrier/commit here inside sender_
+            sender_(burst); // send to southbound in one big push
         }
     }
 }

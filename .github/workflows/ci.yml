@@ -1,0 +1,188 @@
+name: CI
+
+# [Co-developed with claude code -- Adam]
+#
+# Scope: L0 (build) and L1 (unit tests) only, plus the sanitizer builds. L2 and L3 need a live
+# Mininet, a real OVS kernel module and a running Ryu or P4 proxy, none of which a hosted runner
+# provides. Those stay manual:
+#
+#   tools/test_workflow/run_layers.sh api {ovs|p4}
+#
+# That boundary is deliberate. A CI that is permanently red because it cannot reach the network it
+# is meant to test is worse than no CI, because people stop reading it.
+#
+# What this catches: a commit that does not build, one that breaks an existing test, and one that
+# lets a test file go silently all-skipped. What it does NOT catch: a false test. A test that cannot
+# fail is green here forever. That is what the mutation gate is for, and the mutation gate is still a
+# human discipline -- see doc/audit/test-independence-analysis-2026-08-09.md.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Vendored, so no system package is wanted for either: libs/nlohmann and libs/spdlog.
+  # find_package needs only libssh, OpenSSL and Boost 1.83 (url + system).
+  APT_PACKAGES: >-
+    g++
+    cmake
+    ninja-build
+    libboost-system-dev
+    libboost-url-dev
+    libssl-dev
+    libssh-dev
+
+jobs:
+  # ===========================================================================
+  # L0 + L1 with the production compiler.
+  # ===========================================================================
+  build-and-test:
+    name: Build and unit tests (GCC)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }}
+
+      # setting/AppConfig.hpp is gitignored, but no step is needed to create it: the top-level
+      # CMakeLists copies it from AppConfig.hpp.example during configure (CMakeLists.txt:18-31).
+      # Verified on a fresh shallow clone -- both binaries build with no manual setup.
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      # Run the binary directly, not only through ctest. ctest starts one process per test case, so
+      # a failure in SetUpTestSuite -- which is how Logger::init's double registration used to
+      # manifest -- shows as "100% tests passed" while nothing actually ran. This is the single most
+      # important line in the file.
+      - name: Unit tests (direct execution)
+        run: ./build/bin/test_routing_strategy
+
+      - name: Unit tests (ctest)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Python unit tests
+        run: bash tools/test_workflow/l1_unit_tests.sh
+        # l1_unit_tests.sh treats a fully-skipped Python file as a FAILURE unless it declares
+        # NDTWIN_L1_OPT_IN, because unittest counts skipped tests inside "Ran N" and a file where
+        # every test skips prints "Ran 55 tests / OK". Without the P4Runtime protobufs installed here,
+        # the proxy tests that need gRPC are the opt-in ones and are reported as skipped, not passed.
+
+  # ===========================================================================
+  # ASan + UBSan. Same tests, different instrumentation.
+  # ===========================================================================
+  sanitize-address:
+    name: ASan + UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }}
+
+      # DISCOVERY_MODE PRE_TEST: gtest_discover_tests runs the binary during the build to enumerate
+      # cases, and under a sanitizer that run can fail for reasons unrelated to the code -- which
+      # aborts the link rather than reporting a test failure. Deferring discovery to test time keeps
+      # the failure legible.
+      - name: Configure (asan)
+        run: >
+          cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=asan
+          -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+
+      - name: Build (asan)
+        run: cmake --build build-asan -j"$(nproc)"
+
+      - name: Unit tests under ASan + UBSan
+        env:
+          # UBSan is built with -fno-sanitize-recover=all so a report aborts; without it UBSan
+          # prints and continues and the suite still exits 0.
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1:detect_stack_use_after_return=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ./build-asan/bin/test_routing_strategy
+
+  # ===========================================================================
+  # TSan. Separate build: it cannot coexist with ASan in one binary.
+  # ===========================================================================
+  sanitize-thread:
+    name: TSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }} util-linux
+
+      - name: Configure (tsan)
+        run: >
+          cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=tsan
+          -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+
+      - name: Build (tsan)
+        run: cmake --build build-tsan -j"$(nproc)"
+
+      # setarch -R disables address-space randomisation. Without it TSan dies before main with
+      # "FATAL: ThreadSanitizer: unexpected memory mapping" -- current kernels use more mmap entropy
+      # than TSan's fixed shadow layout tolerates. Reproduced locally; it is not a CI quirk.
+      - name: Unit tests under TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1:history_size=4
+        run: setarch "$(uname -m)" -R ./build-tsan/bin/test_routing_strategy
+
+  # ===========================================================================
+  # clang compiles the codebase. Not a test run -- a rot guard.
+  # ===========================================================================
+  clang-compiles:
+    name: clang can compile it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }} clang
+
+      # This job exists because of a specific event. libFuzzer only exists for clang, and when that
+      # became relevant the codebase did not compile under clang at all: a unique_ptr to an
+      # incomplete type in FlowLinkUsageCollector -- undefined behaviour that GCC happens to accept,
+      # so 388 tests passed over it for weeks. One misplaced definition blocked the whole fuzzing
+      # plan. A second compiler is the cheapest guard against that class of thing, and it is why
+      # this job builds rather than tests.
+      # -Wno-error=deprecated-declarations: clang reports std::aligned_storage, deprecated in C++23,
+      # from inside Boost.Beast's headers. Being a system header does not suppress it, because the
+      # template is instantiated from our code. Not ours to fix, and the warning stays visible --
+      # only its promotion to an error is dropped, and only for this job. GCC's warning set does not
+      # include it, which is why the ordinary build never saw it.
+      - name: Configure with clang
+        run: >
+          cmake -S . -B build-clang -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_FLAGS=-Wno-error=deprecated-declarations
+          -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+
+      - name: Build with clang
+        run: cmake --build build-clang -j"$(nproc)"
+
+      # Cheap, since the binary is already built: clang's codegen is not GCC's, and a test that
+      # passes under one can fail under the other.
+      - name: Unit tests (clang build)
+        run: ./build-clang/bin/test_routing_strategy

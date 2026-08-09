@@ -2269,22 +2269,10 @@ using Rule = std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>;
 
 // (net, mask, outPort, priority)
 
-static inline uint32_t
-popcount32(uint32_t x)
-{
-#if defined(__GNUG__) || defined(__clang__)
-    return static_cast<uint32_t>(__builtin_popcount(x));
-#else
-    // portable fallback
-    uint32_t c = 0;
-    while (x)
-    {
-        x &= (x - 1);
-        ++c;
-    }
-    return c;
-#endif
-}
+// [Co-developed with claude code -- Adam]
+// popcount32 was defined here with no caller anywhere in the project. Found by building
+// under clang, whose -Wunused-function reported it; GCC's does not fire for a static inline
+// in a .cpp. Deleted rather than kept "in case" -- git has it if it is ever wanted.
 
 std::optional<size_t>
 FlowLinkUsageCollector::getSwitchCount(std::pair<uint32_t, uint32_t> ipPair)

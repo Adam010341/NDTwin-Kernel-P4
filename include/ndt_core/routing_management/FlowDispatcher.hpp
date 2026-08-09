@@ -40,13 +40,21 @@ class FlowDispatcher
     /**
      * @brief Construct a dispatcher.
      *
-     * @param sender        Callback invoked by worker threads to send a batch of jobs.
-     * @param burstSize     Max number of jobs to send per batch (per DPID) before yielding.
-     * @param fencePerBurst If true, enforces a "fence" between bursts (implementation-defined),
-     *                      typically used to guarantee completion/ordering semantics across
-     * batches.
+     * @param sender    Callback invoked by worker threads to send a batch of jobs.
+     * @param burstSize Max number of jobs to send per batch (per DPID) before yielding.
+     *
+     * [Co-developed with claude code -- Adam]
+     * There used to be a third parameter, `bool fencePerBurst`, documented as "enforces a fence
+     * between bursts ... typically used to guarantee completion/ordering semantics across batches".
+     * It guaranteed nothing: the value was stored in a member that was never read, and the only
+     * mention of it in the implementation was a commented-out line. A caller could pass true and
+     * believe it had ordering guarantees it did not have, which is worse than the parameter not
+     * existing -- dead code is inert, but a false affordance is load-bearing in someone's head.
+     * Removed rather than implemented, because nothing asked for it: the sole caller
+     * (Controller.cpp) passed false explicitly. Found by clang's -Wunused-private-field, which GCC
+     * does not have.
      */
-    explicit FlowDispatcher(SenderFn sender, size_t burstSize = 2000, bool fencePerBurst = false);
+    explicit FlowDispatcher(SenderFn sender, size_t burstSize = 2000);
 
     /**
      * @brief Stop workers and release resources.
@@ -104,5 +112,4 @@ class FlowDispatcher
     // Sender callback that applies a batch of FlowJobs to the datapath/controller.
     SenderFn sender_;
     size_t burstSize_;
-    bool fencePerBurst_;
 };

@@ -26,3 +26,4 @@ Testing/
 # Sanitizer build trees (see cmake/sanitizer-flags.cmake)
 build-asan/
 build-tsan/
+build-clang/

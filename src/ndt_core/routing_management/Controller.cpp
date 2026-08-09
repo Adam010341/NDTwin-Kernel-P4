@@ -64,8 +64,7 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
               }
               // (Optional) fence/Barrier here if your southbound supports it
           },
-          /*burstSize*/ 2000,
-          /*fencePerBurst*/ false)
+          /*burstSize*/ 2000)
 {
     dispatcher_.start();
 }
