@@ -1634,7 +1634,16 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     // each other's deltas.
     uint64_t lastSockOvfl = 0;
     uint64_t lastAppDrop = 0;
-    bool firstSample = true;
+
+    // [Co-developed with claude code -- Adam]
+    // "sFlow ingest healthy: rx=0" used to be printed on the first pass, one second after start,
+    // when rx is necessarily still zero -- so the one line a reader greps for announced health
+    // from the only moment at which there was no evidence for it. Health is now claimed when it
+    // is observed, and its absence is reported rather than left silent.
+    bool announcedHealthy = false;
+    bool warnedNoSamples = false;
+    const auto rateLoopStartedAt = std::chrono::steady_clock::now();
+    constexpr auto kNoSampleGrace = std::chrono::seconds(60);
 
     while (m_running.load())
     {
@@ -1818,22 +1827,49 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         }
         else
         {
-            // Kept at TRACE so the totals are still recoverable from a run started with -v, and
-            // logged once on the first pass so a healthy run says so at least once.
-            const auto level = firstSample ? spdlog::level::info : spdlog::level::trace;
+            const auto rx = receivedPacketNumFromSocket.load(std::memory_order_relaxed);
+
+            // [Co-developed with claude code -- Adam]
+            // The INFO is emitted on the first pass that has actually received something, not on
+            // the first pass full stop. Announcing "healthy: rx=0" a second after start told a
+            // reader the ingest was fine at the one moment nothing could yet have arrived, and it
+            // was the only INFO in the run, so grepping for it always produced that line.
+            const bool announceNow = rx > 0 && !announcedHealthy;
+            if (announceNow)
+            {
+                announcedHealthy = true;
+            }
+            const auto level = announceNow ? spdlog::level::info : spdlog::level::trace;
             SPDLOG_LOGGER_CALL(
                 Logger::instance(),
                 level,
                 "sFlow ingest healthy: rx={}, app_drop={}, addressed={}, sock_ovfl_total={}",
-                receivedPacketNumFromSocket.load(std::memory_order_relaxed),
+                rx,
                 appDrop,
                 addresedSampleNum.load(std::memory_order_relaxed),
                 sockOvfl);
+
+            // And say so when it never arrives. Waiting for evidence before claiming health means
+            // a collector that receives nothing would otherwise log nothing at all, and silence is
+            // the failure mode this codebase produces most often. Once only: the condition
+            // persists, and a warning repeated every second is one nobody reads.
+            if (!announcedHealthy && !warnedNoSamples &&
+                std::chrono::steady_clock::now() - rateLoopStartedAt > kNoSampleGrace)
+            {
+                warnedNoSamples = true;
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "no sFlow datagram has arrived in {}s. Every flow rate and link "
+                                   "utilisation will read zero, which is indistinguishable from an "
+                                   "idle network. Check that the switches are sampling to this "
+                                   "host on port {}.",
+                                   std::chrono::duration_cast<std::chrono::seconds>(kNoSampleGrace)
+                                       .count(),
+                                   SFLOW_PORT);
+            }
         }
 
         lastSockOvfl = sockOvfl;
         lastAppDrop = appDrop;
-        firstSample = false;
     }
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting Loop of calAvgFlowSendingRatesPeriodically");
 }

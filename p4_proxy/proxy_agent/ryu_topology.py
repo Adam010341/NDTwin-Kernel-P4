@@ -138,7 +138,51 @@ def down_edges(net, down_endpoints) -> list:
             if (u, data.get("port", 0)) in down]
 
 
-def render_destination_paths(net, down_endpoints=()) -> dict:
+def installed_path(net, installed, src_host, dst_host, down_endpoints=()):
+    """
+    The hops a packet really takes, by following the rules written to the switches.
+
+    [Co-developed with claude code -- Adam]
+    Returns None when no such path exists: no rule at some switch, a rule pointing out a port
+    whose link is down, a port with no link behind it, or a loop.
+
+    This walks `installed` -- (dpid, dst_ip) -> out_port, what the switches were actually told --
+    rather than searching `net`. The difference only shows up after a link fails: the search finds
+    a new shortest path around the break, the switches have never been told about it, and the
+    packets keep going into the dead link. Measured on 2026-08-10: ping stopped dead while every
+    endpoint went on advertising a route.
+
+    Bounded by the node count, so a rule set that points in a circle terminates rather than
+    hanging the reply thread.
+    """
+    down = set(down_endpoints)
+    first_hops = [v for v in net.neighbors(src_host)]
+    if not first_hops:
+        return None
+
+    hops = [src_host]
+    current = first_hops[0]
+    for _ in range(net.number_of_nodes() + 1):
+        hops.append(current)
+        if current == dst_host:
+            return hops
+        out_port = installed.get((current, dst_host))
+        if out_port is None:
+            return None  # this switch has no rule for that destination
+        if (current, out_port) in down:
+            return None  # the rule points out of a port whose link has failed
+        nxt = None
+        for neighbour in net.neighbors(current):
+            if net.get_edge_data(current, neighbour, default={}).get("port") == out_port:
+                nxt = neighbour
+                break
+        if nxt is None or nxt in hops:
+            return None  # port with nothing behind it, or a loop
+        current = nxt
+    return None
+
+
+def render_destination_paths(net, down_endpoints=(), installed=None) -> dict:
     """
     Every host-to-host path, in the shape `FlowLinkUsageCollector::setAllPaths` consumes.
 
@@ -172,6 +216,21 @@ def render_destination_paths(net, down_endpoints=()) -> dict:
 
     The `{"status": "success", ...}` envelope is required: the kernel refuses the body outright
     if `status` is missing or not "success".
+
+    `installed` -- (dpid, dst_ip) -> out_port, the rules actually written to the switches -- makes
+    this report where packets really go instead of where the graph says they could go. **An empty
+    or absent map means "we do not know what is installed", and the shortest-path search is used.**
+    That asymmetry is deliberate and is a judgement call worth knowing about:
+
+      - Knowing the rules and ignoring them is what produced the 2026-08-10 defect: a link broke,
+        the search found a detour no switch had been told about, all twelve paths stayed
+        advertised, and 38% of the packets were dropped while every endpoint read healthy.
+      - Treating "no record" as "nothing installed" would introduce the opposite fault. bmv2 keeps
+        its table entries across a proxy restart, so a restarted proxy has an empty record and a
+        fully working fabric; withdrawing every path there would be just as wrong, and the kernel
+        refuses an empty snapshot anyway, so it would sit on stale data with no signal.
+
+    So: silence about the rules falls back to the old behaviour, and knowledge overrides it.
     """
     hosts = [n for n, a in net.nodes(data=True) if a.get("type") == "host"]
 
@@ -195,7 +254,15 @@ def render_destination_paths(net, down_endpoints=()) -> dict:
         for dst in hosts:
             if src == dst:
                 continue
-            hops = _shortest_path(search, src, dst)
+            if installed:
+                # [Co-developed with claude code -- Adam]
+                # Report where packets actually go, not where they would go if the switches had
+                # been reprogrammed. A pair with no working installed route is omitted -- the twin
+                # saying "unreachable" is correct, and is the whole point: it used to keep
+                # advertising all twelve paths while a third of the packets were being dropped.
+                hops = installed_path(net, installed, src, dst, down_endpoints)
+            else:
+                hops = _shortest_path(search, src, dst)
             if hops is None:
                 continue
             entry = []

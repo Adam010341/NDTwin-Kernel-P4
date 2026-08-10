@@ -411,6 +411,35 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 `/v1.0/topology/links` 與路徑搜尋雙邊排除、路徑在轉換時主動推送、`/stats/flow/{dpid}`、
 `/p4/switch_state` 三態存活判定、LLDP beacon 的 port 推導與 MAC 修正。
 
+### ⚠️ 明確**不在** Phase 6 範圍內：failover（鏈路失效後重裝路由）
+
+Phase 6 做的是**偵測**。「偵測到之後把流量繞開」從來沒有被實作，也沒有被宣稱過，
+2026-08-10 實機確認了這一點：斷一條中段鏈路，**ping 完全停住、38% 掉包**，因為
+`install_initial_routes()` 全專案只有一個呼叫點（`topology_manager.py`，`if not edge_exists`
+底下），只在**發現新鏈路**時觸發，鏈路**消失**時沒有任何東西呼叫它。
+
+當時更危險的是 twin 還在宣稱一切正常：`all_destination_paths` 維持 12 條，其中 h1→h4 那條是
+proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。**這一半已經修掉了**（見下），
+所以現在斷線後 twin 會誠實地少報路徑；但流量還是不會自己繞路。
+
+**已修（2026-08-10）**：`render_destination_paths` 多收一份 `installed`（`(dpid, dst_ip) → out_port`，
+`TopologyManager` 在寫入成功時記錄），只宣告「規則真的存在且每一跳都還活著」的路徑。
+空的 `installed` 視為「不知道」而沿用舊行為 —— 因為 bmv2 的 table entry 會跨 proxy 重啟存活，
+把「沒有紀錄」當成「什麼都沒裝」會製造反方向的假警報。
+
+**未做（要不要做、放哪個 phase 由 Adam 決定）**：真正的 failover。改動落點是
+`calculate_all_paths()` 目前對 `self.net` 做最短路，**沒有扣掉 watchdog 認為 down 的邊**，
+所以現在直接呼叫 `install_initial_routes()` 會算出一模一樣的路；扣掉之後，在
+`run_watchdog_pass()` 既有的轉換掛勾（已經在那裡呼叫 `push_destination_paths()`）加上安裝即可。
+寫入端不必動 —— `insert_ipv4_route` 遇到 `ALREADY_EXISTS`／`UNKNOWN` 已經會退回 `MODIFY`。
+
+開工前要先決定的兩件事：
+
+1. **抖動**。`ifconfig` 那個 packet-in 陷阱會讓一條斷線看起來像整台 switch 的入向都斷，
+   據此重新導流可能把流量從健康鏈路搬走，而且會反覆搬。需要遲滯或別的證據來源。
+2. **算不出替代路徑時要做什麼**：保留舊規則（繼續黑洞、恢復時自動好），還是刪掉
+   （明確丟棄、可觀測）？這會改變故障期間的行為。
+
 ---
 
 ## Phase 7 — 讓電源管理真的能用

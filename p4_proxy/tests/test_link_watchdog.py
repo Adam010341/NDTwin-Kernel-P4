@@ -574,6 +574,34 @@ class PathsArePushedOnATransitionTest(WatchdogTestBase):
         self.assertTrue(crossing, "h1 -> h2 must still have a path, the long way round")
         self.assertIn(9, [hop[0] for hop in crossing[0]], "the detour switch must appear on it")
 
+    def test_a_detour_is_not_advertised_unless_the_switches_were_told_about_it(self):
+        """
+        The 2026-08-10 defect, as a test.
+
+        A mid-path link broke, the search found a way round it, and the proxy advertised that
+        route while every switch went on forwarding into the dead link. Ping stopped; the twin
+        reported all twelve paths and 38% of the packets were dropped. `install_initial_routes`
+        has one caller, guarded by `if not edge_exists`, so nothing reprograms a switch when a
+        link disappears -- which makes any recomputed detour fiction until failover exists.
+        """
+        self.topo.net.add_node(9, type="switch")
+        self.topo.add_link(1, 9, 3, 4)
+        self.topo.add_link(9, 5, 5, 6)
+        # What the switches were actually told, back when the direct link was healthy.
+        self.topo._installed_routes = {
+            (1, "10.0.0.2"): 1,   # s1 -> s5 over the link that is about to fail
+            (5, "10.0.0.2"): 4,   # s5 -> h2
+            (5, "10.0.0.1"): 2,   # s5 -> s1
+            (1, "10.0.0.1"): 3,   # s1 -> h1
+        }
+
+        self.fail_the_link()
+        self.topo.push_destination_paths()
+
+        for path in self.pushed[-1] if self.pushed else []:
+            self.assertNotIn(9, [hop[0] for hop in path],
+                             "s9 is only reachable by a route no switch has been programmed with")
+
     def test_a_total_partition_pushes_nothing_and_leaves_the_kernel_holding_stale_paths(self):
         # The failed link is the only one between h1 and h2, so there is no snapshot to send --
         # and setAllPaths refuses an empty one by design, so the kernel keeps the routes it has,
@@ -634,13 +662,16 @@ class ThePushComputesOverASnapshotTest(WatchdogTestBase):
         seen = {}
         real = ryu_topology.render_destination_paths
 
-        def watching_render(net, down_endpoints=()):
+        # Signature must track the real function: it now also receives the installed routes, and
+        # a double narrower than what it stands for turns into a TypeError the caller reports as a
+        # failed push -- the same trap as commit 990b0c1.
+        def watching_render(net, down_endpoints=(), installed=None):
             seen["was_the_live_graph"] = net is self.topo.net
             # Stand in for the LLDP thread discovering a neighbour mid-walk.
             self.topo.add_link(1, 9, 7, 8)
             seen["writer_reached_the_live_graph"] = self.topo.net.has_edge(1, 9)
             seen["walk_saw_the_write"] = net.has_edge(1, 9)
-            return real(net, down_endpoints)
+            return real(net, down_endpoints, installed)
 
         ryu_topology.render_destination_paths = watching_render
         try:

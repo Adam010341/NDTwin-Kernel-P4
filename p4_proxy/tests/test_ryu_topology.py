@@ -274,5 +274,113 @@ class ShippedTopologyTest(unittest.TestCase):
             self.assertEqual(len(host["mac"].split(":")), 6)
 
 
+class InstalledRoutesDecideWhatIsAdvertisedTest(unittest.TestCase):
+    """
+    A path may only be advertised if the switches have actually been told to use it.
+
+    [Co-developed with claude code -- Adam]
+    Measured on 2026-08-10: a mid-path link was broken, the proxy recomputed a route around it and
+    kept advertising all twelve destination paths, and 38% of the packets were dropped, because
+    nothing had reinstalled the rules. Every endpoint stayed green while the ping was dead. These
+    tests pin the property that failure violated -- what is advertised must be what is installed --
+    and they are written against that requirement, not against the walk that now implements it.
+    """
+
+    def a_line_net(self):
+        """
+        h1 - s1 - s6 - s4 - h4, plus a *shorter* direct s1 - s4 link and a spare s1 - s9 - s4.
+
+        Neither alternative is ever installed. The direct link is deliberately shorter than the
+        installed route, so "advertise what is installed" and "advertise the shortest path" give
+        different answers and a test can tell them apart.
+        """
+        net = nx.DiGraph()
+        for dp in (1, 6, 4, 9):
+            net.add_node(dp, type="switch")
+        for a, b, pa, pb in ((1, 6, 1, 1), (6, 4, 2, 2), (1, 9, 4, 4), (9, 4, 5, 5),
+                             (1, 4, 5, 6)):
+            net.add_edge(a, b, port=pa)
+            net.add_edge(b, a, port=pb)
+        for ip, dp, p in (("10.0.0.1", 1, 3), ("10.0.0.4", 4, 7)):
+            net.add_node(ip, type="host", mac="00:00:00:00:00:01")
+            net.add_edge(dp, ip, port=p)
+            net.add_edge(ip, dp, port=0)
+        return net
+
+    def routes_along_s6(self):
+        """The rules as installed at discovery: everything to 10.0.0.4 goes via s6."""
+        return {
+            (1, "10.0.0.4"): 1,   # s1 -> s6
+            (6, "10.0.0.4"): 2,   # s6 -> s4
+            (4, "10.0.0.4"): 7,   # s4 -> h4
+            (4, "10.0.0.1"): 2,   # s4 -> s6
+            (6, "10.0.0.1"): 1,   # s6 -> s1
+            (1, "10.0.0.1"): 3,   # s1 -> h1
+        }
+
+    def pair(self, out, src, dst):
+        for path in out["all_destination_paths"]:
+            if path[0][0] == src and path[-1][0] == dst:
+                return [hop[0] for hop in path]
+        return None
+
+    def test_the_advertised_path_is_the_installed_one_not_the_shortest_one(self):
+        # The direct s1 - s4 link is shorter, and no switch has ever been told to use it.
+        net = self.a_line_net()
+        out = rt.render_destination_paths(net, (), self.routes_along_s6())
+        self.assertEqual(self.pair(out, "10.0.0.1", "10.0.0.4"),
+                         ["10.0.0.1", 1, 6, 4, "10.0.0.4"])
+
+    def test_a_pair_whose_installed_route_crosses_a_failed_link_is_not_advertised(self):
+        # This is the case that was being reported as healthy while packets were dropped.
+        net = self.a_line_net()
+        out = rt.render_destination_paths(net, [(1, 1)], self.routes_along_s6())
+        self.assertIsNone(self.pair(out, "10.0.0.1", "10.0.0.4"))
+
+    def test_it_does_not_substitute_any_route_that_was_never_installed(self):
+        # The tempting wrong fix: notice the break, find another way through, advertise that. The
+        # switches still send everything out port 1, so every such path is fiction. Nothing
+        # advertised may use the direct s1-s4 link or s9, neither of which was ever installed.
+        net = self.a_line_net()
+        out = rt.render_destination_paths(net, [(1, 1)], self.routes_along_s6())
+        self.assertIsNone(self.pair(out, "10.0.0.1", "10.0.0.4"))
+        for path in out["all_destination_paths"]:
+            self.assertNotIn(9, [hop[0] for hop in path])
+
+    def test_a_one_way_failure_withdraws_only_the_direction_that_broke(self):
+        # down_endpoints is keyed on the *source* endpoint, so (1, 1) is s1->s6 and says nothing
+        # about s6->s1. The reverse route still works and withdrawing it would be a false report.
+        net = self.a_line_net()
+        out = rt.render_destination_paths(net, [(1, 1)], self.routes_along_s6())
+        self.assertIsNone(self.pair(out, "10.0.0.1", "10.0.0.4"))
+        self.assertEqual(self.pair(out, "10.0.0.4", "10.0.0.1"),
+                         ["10.0.0.4", 4, 6, 1, "10.0.0.1"])
+
+    def test_both_directions_go_when_both_directions_of_the_link_fail(self):
+        net = self.a_line_net()
+        out = rt.render_destination_paths(net, [(1, 1), (6, 1)], self.routes_along_s6())
+        self.assertIsNone(self.pair(out, "10.0.0.1", "10.0.0.4"))
+        self.assertIsNone(self.pair(out, "10.0.0.4", "10.0.0.1"))
+
+    def test_a_switch_with_no_rule_for_a_destination_yields_no_path(self):
+        routes = self.routes_along_s6()
+        del routes[(6, "10.0.0.4")]
+        out = rt.render_destination_paths(self.a_line_net(), (), routes)
+        self.assertIsNone(self.pair(out, "10.0.0.1", "10.0.0.4"))
+
+    def test_rules_pointing_in_a_circle_terminate_instead_of_hanging(self):
+        # A reply thread that never returns is worse than a missing path.
+        net = self.a_line_net()
+        routes = self.routes_along_s6()
+        routes[(6, "10.0.0.4")] = 1   # s6 sends it back to s1
+        out = rt.render_destination_paths(net, (), routes)
+        self.assertIsNone(self.pair(out, "10.0.0.1", "10.0.0.4"))
+
+    def test_omitting_installed_keeps_the_old_shortest_path_behaviour(self):
+        # The parameter is opt-in so existing callers are unaffected.
+        out = rt.render_destination_paths(self.a_line_net())
+        self.assertEqual(self.pair(out, "10.0.0.1", "10.0.0.4"),
+                         ["10.0.0.1", 1, 4, "10.0.0.4"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

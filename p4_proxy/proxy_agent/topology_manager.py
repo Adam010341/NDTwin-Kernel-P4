@@ -294,6 +294,16 @@ class TopologyManager:
         # before, not made worse, and not fixed here.
         self._net_lock = threading.RLock()
 
+        # --- What we have actually written to the switches. [Co-developed with claude code -- Adam]
+        #
+        # (dpid, dst_host_ip) -> out_port, recorded only when the write succeeded. This exists
+        # because `net` and the rules in the switches are allowed to disagree, and until now
+        # nothing noticed: routes are installed when a link is *discovered* and never again, so
+        # after a link fails the graph grows a new shortest path that no switch has been told
+        # about. Advertising that path told consumers a route existed when the packets were being
+        # dropped. Guarded by _net_lock, which is an RLock, so the install path may hold it already.
+        self._installed_routes = {}
+
         # --- Liveness evidence. [Co-developed with claude code -- Adam]
         #
         # Guarded by its own lock rather than sharing one with the graph: it is written by the LLDP
@@ -540,7 +550,25 @@ class TopologyManager:
                 
                 client = self.switches[src]
                 print(f"[TopologyManager] Proactive Rule: DPID {src}: {ipv4_dst}/32 -> Port {out_port} (MAC: {next_hop_mac})")
-                client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port)
+                # [Co-developed with claude code -- Adam]
+                # Record only what the switch accepted. The return value was discarded here, so a
+                # failed write was indistinguishable from a successful one, and every consumer
+                # went on being told the route existed.
+                if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+                    with self._net_lock:
+                        self._installed_routes[(src, ipv4_dst)] = out_port
+
+    def installed_routes(self):
+        """
+        Snapshot of the rules actually written to the switches: (dpid, dst_ip) -> out_port.
+
+        [Co-developed with claude code -- Adam]
+        The honest answer to "where will a packet for this host go", as opposed to the answer
+        `net` gives, which is "where would it go if the switches had been programmed with the
+        current shortest path". Those two are the same thing only until the first link failure.
+        """
+        with self._net_lock:
+            return dict(self._installed_routes)
 
     # --- LLDP Discovery Logic ---
     def create_lldp_packet(self, dpid, port):
@@ -1016,7 +1044,7 @@ class TopologyManager:
             # `_liveness_lock`, and holding both at once would fix an order that nothing else here
             # promises to respect.
             down = self.down_link_endpoints()
-            body = ryu_topology.render_destination_paths(snapshot, down)
+            body = ryu_topology.render_destination_paths(snapshot, down, self.installed_routes())
             return bool(self._kernel.all_destination_paths(body["all_destination_paths"]))
         except Exception as e:  # noqa: BLE001 -- must not kill the watchdog thread
             print(f"[TopologyManager] destination-path push failed: {type(e).__name__}: {e}")

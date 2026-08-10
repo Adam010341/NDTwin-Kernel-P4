@@ -66,7 +66,8 @@ async def get_all_paths():
         return {"status": "success", "all_destination_paths": []}
     # Links the watchdog believes are down are excluded from the search, or m_switchCountMap ends
     # up holding a route over a dead link. [Co-developed with claude code -- Adam]
-    return ryu_topology.render_destination_paths(topology.net, topology.down_link_endpoints())
+    return ryu_topology.render_destination_paths(
+        topology.net, topology.down_link_endpoints(), topology.installed_routes())
 
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
