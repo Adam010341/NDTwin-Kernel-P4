@@ -290,7 +290,7 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     輪詢和鏈路使用率。
 
     ⚠️ **它只打開頂點，不打開邊。** `handleInformSwitchEntered` 呼叫的是 `setVertexUp` ＋
-    `setVertexEnable`（HttpSession.cpp:165-166），僅此而已。switch↔switch 的**邊**是
+    `setVertexEnable`（HttpSession.cpp:1080-1081），僅此而已。switch↔switch 的**邊**是
     `updateLinks` 在 **1 秒一次**的 topology poll 裡用 `(src dpid, src port)` 打開的，資料來源是
     proxy 提供的 Ryu 形狀 `/v1.0/topology/links`；host 邊在 `updateHosts` 裡打開。
     `enableSwitchAndEdges` 確實會一併打開相鄰邊，但**唯一的呼叫點是 `IntentTranslator.cpp:227`**。

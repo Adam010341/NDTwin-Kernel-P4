@@ -595,7 +595,7 @@ class TopologyManager:
                         # This comment used to credit inform_switch_entered with enabling the edges
                         # too. It does not: handleInformSwitchEntered calls setVertexUp and
                         # setVertexEnable on the switch vertex and nothing else
-                        # (HttpSession.cpp:165-166). Switch-to-switch edges are enabled by the 1 s
+                        # (HttpSession.cpp:1080-1081). Switch-to-switch edges are enabled by the 1 s
                         # topology poll -- updateLinks, keyed on (src dpid, src port), reading the
                         # Ryu-shaped /v1.0/topology/links this proxy serves. `enableSwitchAndEdges`
                         # does what the old comment described, but its only caller is

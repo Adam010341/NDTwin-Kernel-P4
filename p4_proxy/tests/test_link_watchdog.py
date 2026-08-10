@@ -385,14 +385,21 @@ class TheTopologyReplyStopsMentioningFailedLinksTest(WatchdogTestBase):
         self.assertEqual(self.endpoints(), {("0000000000000005", "00000002")})
 
     def test_the_key_is_the_source_endpoint_the_kernel_enables_on(self):
+        # add_link does not type its nodes, and render_links only walks switch-to-switch edges, so
+        # these two have to be declared or the reply is empty for a reason unrelated to the filter.
+        for dpid in (3, 9):
+            self.topo.net.add_node(dpid, type="switch")
         self.beacon(3, 4, 9, 1)
         self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
         self.topo.check_link_beacons()
-        # The beacon's own source endpoint must be in the set. Keyed on the arrival endpoint
-        # instead, the filter would withhold a direction the kernel enables under a different key
-        # and leave the failed one lit. (The arrival endpoint is here too, but for the separate
-        # inferred-reverse reason tested below -- this asserts the source is not the one missing.)
-        self.assertIn((3, 4), self.topo.down_link_endpoints())
+        # The healthy link is the control: without it, an empty reply would satisfy this test for
+        # any reason at all, including render_links being broken outright.
+        self.beacon(1, 1, 5, 2)
+        # The beacon's own source endpoint is the one the kernel enables the edge under, so that is
+        # the one that has to disappear from the *reply* -- not merely from down_link_endpoints,
+        # which is an intermediate the kernel never sees.
+        self.assertEqual(self.endpoints(), {("0000000000000001", "00000001"),
+                                            ("0000000000000005", "00000002")})
 
     def test_a_link_that_is_up_is_never_withheld_by_an_unrelated_failure(self):
         for dpid in (2, 6):
@@ -404,6 +411,25 @@ class TheTopologyReplyStopsMentioningFailedLinksTest(WatchdogTestBase):
         self.topo.check_link_beacons()
         self.assertEqual(self.endpoints(), {("0000000000000002", "00000001"),
                                             ("0000000000000006", "00000002")})
+
+
+class DownEndpointsCoverTheInferredReverseTest(WatchdogTestBase):
+    """
+    `down_link_endpoints`' own contract, asserted on the set rather than on the reply.
+
+    [Co-developed with claude code -- Adam]
+    These two used to sit in the class above, whose name promises something about the kernel-facing
+    reply -- and a review was right that they proved nothing about it: they read an intermediate the
+    kernel never sees, so a `render_links` that ignored the set entirely would leave them green.
+    Splitting them out is the honest fix. The wiring is pinned by the class above, and measured:
+    disabling the filter in `render_links` fails `test_a_failed_link_is_not_reported`,
+    `test_only_the_failed_direction_is_withheld` and
+    `test_a_link_that_is_up_is_never_withheld_by_an_unrelated_failure`.
+
+    What is left here is worth keeping at this level because the reverse-inference rule is a
+    property of this method, and at the reply level it is indistinguishable from the plain
+    withholding already covered above.
+    """
 
     def test_the_inferred_reverse_direction_of_a_dead_link_is_withheld_too(self):
         # add_link creates both directions from one beacon, so the reverse edge is usually an
