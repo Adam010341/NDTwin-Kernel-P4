@@ -333,7 +333,27 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     `dst_interface` 就是 bmv2 用的 port 編號，發送側成立（`lldp_ports_for` 已經據此運作且探索有效），
     但**接收側未經實機驗證**。若假設不成立，每條 seed 進去的鏈路都會逾時、真實 beacon 另外建立條目，
     twin 會把整個 fabric 報成失效 —— 這個後果嚴重到值得先驗證再開。
-  - 用 `POST /ndt/inform_all_destination_paths` 主動推路徑。**尚未實作**（proxy 端沒有任何呼叫點）。這比修 pull 那條路好，因為 `fetchAllDestinationPaths` 只在啟動時被呼叫**一次**（[FlowLinkUsageCollector.cpp:300](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L300)），時間點比 LLDP 探索收斂還早，而它那句 `if (output.empty()) return;` 會讓這件事變成永久而且沒有任何提示的空操作。不管是哪種 switch，都應該加上重試／定期刷新。
+  - ~~用 `POST /ndt/inform_all_destination_paths` 主動推路徑~~ ✅ **已完成**，但**理由已經和計劃書寫的
+    不一樣了，這裡更正**：計劃書說「這比修 pull 那條路好，因為 `fetchAllDestinationPaths` 只在啟動時
+    被呼叫一次，時間點比 LLDP 收斂還早，而 `if (output.empty()) return;` 讓它變成永久的空操作」。
+    那個前提**已經不成立** —— pull 那條路早先就修好了：`refreshDestinationPathsPeriodically`
+    （[FlowLinkUsageCollector.cpp:517](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L517)）
+    在還沒拿到路徑時每 5 秒重試、拿到之後每 60 秒刷新，`setAllPaths` 也改成整批取代並拒絕空快照。
+
+    所以推送**不是正確性的必要條件，而是延遲**：鏈路失效後 pull 最久要 60 秒才會更新，這段時間
+    `get_path_switch_count` 會用死掉的路線回答。改成在 watchdog 偵測到 down／up 轉換時推一次
+    （`TopologyManager.run_watchdog_pass` → `push_destination_paths`），窗口縮成一次 HTTP。
+
+    ⚠️ 推送與 pull **都**必須把 watchdog 認定失效的鏈路排除在最短路徑搜尋之外。原本沒有，
+    `render_destination_paths` 是在完整圖上算的 —— 那等於一邊回報鏈路失效、一邊把經過它的路徑推給
+    kernel。`m_switchCountMap` 就是從這裡填的，所以後果是 `/ndt/get_path_switch_count` 拿到一條流量
+    走不通的路線。**這是「應該取代卻只能新增」第 5 例的同一個洞的第二半**：把鏈路從
+    `/v1.0/topology/links` 抽掉並不會影響這個端點，兩邊要各自處理。
+
+    ⚠️ 已知取捨：圖完全斷開時算不出任何路徑，而 `setAllPaths` 刻意拒絕空快照（收斂前的「沒有路徑」
+    是暫態），所以 kernel 會繼續持有舊快照。shipped 拓撲有 32 條 switch↔switch 有向邊，單一鏈路失效
+    不會清空快照，整批取代就足夠；測試
+    `test_a_total_partition_pushes_nothing_and_leaves_the_kernel_holding_stale_paths` 把這個行為釘住。
   - 如果 pull 那條也要保留：P4 模式下把它指到 `P4_PROXY_IP_AND_PORT`，並把 proxy 回傳的裸陣列包成 kernel 會解析的 `{"status":"success","all_destination_paths":[…]}` 格式。
 - ~~把 `GET /stats/flow/{dpid}` 真正實作出來 — 它現在回傳寫死的 `[]`。~~ ✅ **已完成**
   （`ryu_flow_stats.py` ＋ `p4_client.read_table_entries()`，22 個測試）。以下敘述保留，因為它記錄了
@@ -365,8 +385,11 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 `test_link_watchdog.py`（34）用**注入的時鐘**測 15 秒逾時——真的等 15 秒的測試，第一次有人趕時間就會被
 刪掉；整個檔案跑 7 ms。
 
-**Phase 6 尚餘：** `inform_all_destination_paths` 的主動推送（以及不管哪種 switch 都該有的
-refresh loop —— `fetchAllDestinationPaths` 只在啟動時被呼叫一次，時間點比 LLDP 收斂還早）。
+**Phase 6 尚餘：** 只剩實機驗證兩件事 —— `seed_expected_links` 的 port 編號假設（接收側），以及
+「被 watchdog 判定失效的鏈路在 kernel 圖裡真的維持 down」。程式碼部分 Phase 6 已完成：
+`inform_switch_entered`（pipeline 推完後）、beacon 逾時的 link_failure／recovery、失效鏈路從
+`/v1.0/topology/links` 與路徑搜尋雙邊排除、路徑在轉換時主動推送、`/stats/flow/{dpid}`、
+`/p4/switch_state` 三態存活判定、LLDP beacon 的 port 推導與 MAC 修正。
 
 ---
 

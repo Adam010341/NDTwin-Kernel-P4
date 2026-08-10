@@ -6,6 +6,7 @@ import time
 import networkx as nx
 
 # Shared so the two loaders cannot disagree about which topology file is authoritative.
+from proxy_agent import ryu_topology  # no cycle: ryu_topology imports nothing from here
 from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 
 # [Co-developed with claude code -- Adam]
@@ -897,18 +898,7 @@ class TopologyManager:
             while not self._link_watchdog_stop.wait(LINK_WATCHDOG_INTERVAL_S):
                 if not self._link_watchdog_running:
                     break
-                try:
-                    result = self.check_link_beacons()
-                except Exception as e:  # noqa: BLE001
-                    # A pass that raises must not kill the watchdog, or link failures stop being
-                    # reported with no signal that they have.
-                    print(f"[TopologyManager] link watchdog pass failed: {type(e).__name__}: {e}")
-                    continue
-                for link in result["down"]:
-                    print(f"[TopologyManager] link down (no beacon for "
-                          f"{LINK_BEACON_TIMEOUT_S}s): {link}")
-                for link in result["up"]:
-                    print(f"[TopologyManager] link back up: {link}")
+                self.run_watchdog_pass()
 
         self._link_watchdog_thread = threading.Thread(target=_loop, daemon=True, name="link-watchdog")
         self._link_watchdog_thread.start()
@@ -919,6 +909,57 @@ class TopologyManager:
         thread, self._link_watchdog_thread = self._link_watchdog_thread, None
         if thread is not None and thread.is_alive():
             thread.join(timeout)
+
+    def run_watchdog_pass(self):
+        """
+        One full watchdog iteration: check beacons, log the transitions, push fresh paths if any.
+
+        [Co-developed with claude code -- Adam]
+        Split out of the thread for the same reason `check_link_beacons` was: what the thread does
+        *with* the result is behaviour, and behaviour that only exists inside a `while` loop with a
+        five-second wait in it does not get tested. It was not, and a mutation proved it -- deleting
+        the push call left all 48 tests green, because every test called `push_destination_paths`
+        directly and nothing asserted the loop calls it.
+
+        Returns the `check_link_beacons` result, or None when the pass raised.
+        """
+        try:
+            result = self.check_link_beacons()
+        except Exception as e:  # noqa: BLE001
+            # A pass that raises must not kill the watchdog, or link failures stop being reported
+            # with no signal that they have.
+            print(f"[TopologyManager] link watchdog pass failed: {type(e).__name__}: {e}")
+            return None
+        for link in result["down"]:
+            print(f"[TopologyManager] link down (no beacon for {LINK_BEACON_TIMEOUT_S}s): {link}")
+        for link in result["up"]:
+            print(f"[TopologyManager] link back up: {link}")
+        if result["down"] or result["up"]:
+            self.push_destination_paths()
+        return result
+
+    def push_destination_paths(self):
+        """
+        Recompute host-to-host paths and push them to the kernel. Returns True when it accepted them.
+
+        [Co-developed with claude code -- Adam]
+        Called on a link transition, not on a timer: the kernel's own
+        `refreshDestinationPathsPeriodically` already pulls this every 60 s once loaded, so the only
+        thing missing was latency. Without the push, `get_path_switch_count` answers from routes over
+        a dead link for up to a minute after the watchdog reports it.
+
+        The failed links are excluded from the search here for the same reason they are excluded from
+        the pull -- pushing paths that traverse the link we just reported as down would contradict the
+        report in the same breath.
+        """
+        if self._kernel is None:
+            return False
+        try:
+            body = ryu_topology.render_destination_paths(self.net, self.down_link_endpoints())
+            return bool(self._kernel.all_destination_paths(body["all_destination_paths"]))
+        except Exception as e:  # noqa: BLE001 -- must not kill the watchdog thread
+            print(f"[TopologyManager] destination-path push failed: {type(e).__name__}: {e}")
+            return False
 
     def down_link_endpoints(self):
         """

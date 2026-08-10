@@ -122,11 +122,34 @@ def render_links(net, down_endpoints=()) -> list:
     return links
 
 
-def render_destination_paths(net) -> dict:
+def down_edges(net, down_endpoints) -> list:
+    """
+    The `(u, v)` edges whose source endpoint the watchdog believes is down.
+
+    [Co-developed with claude code -- Adam]
+    `down_endpoints` is keyed `(dpid, port)`, which is enough to identify the edge because a
+    physical port carries either an inter-switch link or a host link, never both -- so a host edge
+    can never be caught by a switch port number that failed.
+    """
+    down = set(down_endpoints)
+    if not down:
+        return []
+    return [(u, v) for u, v, data in net.edges(data=True)
+            if (u, data.get("port", 0)) in down]
+
+
+def render_destination_paths(net, down_endpoints=()) -> dict:
     """
     Every host-to-host path, in the shape `FlowLinkUsageCollector::setAllPaths` consumes.
 
     [Co-developed with claude code -- Adam]
+
+    `down_endpoints` is excluded before the search, for the same reason `render_links` withholds
+    them, and it is the more consequential of the two: this reply fills `m_switchCountMap`, so a
+    path computed over a dead link makes `/ndt/get_path_switch_count` answer with a route the
+    traffic cannot take. Withholding the link from `/v1.0/topology/links` alone does not help
+    here -- `fetchAllDestinationPaths` reads *this* endpoint, and it never consults the graph the
+    poll built.
 
     Format taken from `intelligent_router.py`, which is the working reference -- OVS mode really
     does answer `switch_count: 5` off this, so the shape is known-good rather than inferred:
@@ -152,12 +175,27 @@ def render_destination_paths(net) -> dict:
     """
     hosts = [n for n, a in net.nodes(data=True) if a.get("type") == "host"]
 
+    # A view, not a copy: the search must not see the failed links, but nothing here may mutate
+    # the graph the LLDP thread owns. Port lookups below still read `net`, since removing an edge
+    # from the search does not change the port numbers of the edges that remain.
+    search = net
+    drop = down_edges(net, down_endpoints)
+    if drop:
+        try:
+            import networkx as nx
+            search = nx.restricted_view(net, [], drop)
+        except Exception:
+            # Better to answer with paths that ignore the failure than to answer with none:
+            # setAllPaths refuses an empty snapshot outright, so returning nothing here would
+            # leave the kernel on its previous -- equally stale -- data with no signal either way.
+            search = net
+
     paths = []
     for src in hosts:
         for dst in hosts:
             if src == dst:
                 continue
-            hops = _shortest_path(net, src, dst)
+            hops = _shortest_path(search, src, dst)
             if hops is None:
                 continue
             entry = []

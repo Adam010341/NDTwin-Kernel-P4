@@ -451,6 +451,134 @@ class DownEndpointsCoverTheInferredReverseTest(WatchdogTestBase):
                          "a one-way failure must not withhold the direction that demonstrably works")
 
 
+class PathsArePushedOnATransitionTest(WatchdogTestBase):
+    """
+    A link failure changes the paths, and nothing told the kernel that.
+
+    [Co-developed with claude code -- Adam]
+    `refreshDestinationPathsPeriodically` pulls every 60 s once it has paths, so
+    `get_path_switch_count` answers from routes over the dead link for up to a minute after the
+    failure is reported. These tests pin the push that closes that window, and -- more importantly --
+    that the pushed snapshot does not itself traverse the link just reported as down.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.pushed = []
+        self.kernel.all_destination_paths = self._record
+        # h1 -- s1 =(p1/p2)= s5 -- h2, so every h1<->h2 path must cross the link under test.
+        for dpid in (1, 5):
+            self.topo.net.add_node(dpid, type="switch")
+        self.topo.add_host("10.0.0.1", 1, 1, 3)
+        self.topo.add_host("10.0.0.2", 2, 5, 4)
+        self.topo.add_link(1, 5, 1, 2)
+
+    def _record(self, paths):
+        self.pushed.append(paths)
+        # Mirrors KernelNotifier.all_destination_paths, which refuses an empty snapshot. A double
+        # wider than the thing it stands in for is how the last one of these went wrong: a stub that
+        # accepted a call the real class rejects made a broken test look green.
+        return bool(paths)
+
+    def fail_the_link(self):
+        self.beacon(1, 1, 5, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        return self.topo.check_link_beacons()
+
+    def test_a_healthy_pass_pushes_nothing(self):
+        self.beacon(1, 1, 5, 2)
+        self.topo.run_watchdog_pass()
+        self.assertEqual(self.pushed, [], "a pass with no transition has nothing to tell the kernel")
+
+    def test_the_watchdog_pass_itself_pushes_on_a_failure(self):
+        # Through run_watchdog_pass, not push_destination_paths: the wiring is the part that was
+        # missing, and a mutation deleting the call from the loop survived every test that called
+        # the push directly.
+        self.beacon(1, 1, 5, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.run_watchdog_pass()
+        self.assertEqual(len(self.pushed), 1, "the failing pass must push a fresh path snapshot")
+
+    def test_the_watchdog_pass_pushes_on_a_recovery_too(self):
+        self.beacon(1, 1, 5, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.run_watchdog_pass()
+        self.pushed.clear()
+        self.beacon(1, 1, 5, 2)
+        self.topo.run_watchdog_pass()
+        self.assertEqual(len(self.pushed), 1, "a link coming back changes the paths as much as one "
+                                              "going down")
+
+    def test_a_pass_whose_check_raises_reports_none_and_does_not_push(self):
+        def boom(now=None):
+            raise RuntimeError("beacon check exploded")
+
+        self.topo.check_link_beacons = boom
+        self.assertIsNone(self.topo.run_watchdog_pass())
+        self.assertEqual(self.pushed, [])
+
+    def test_the_push_carries_paths_before_any_failure(self):
+        self.assertTrue(self.topo.push_destination_paths())
+        self.assertEqual(len(self.pushed), 1)
+        hops = self.pushed[0]
+        self.assertTrue(hops, "h1 and h2 are connected, so there must be at least one path")
+
+    def test_the_pushed_snapshot_reroutes_around_the_failed_link(self):
+        # A detour has to exist for this to say anything: s1 =p3/p4= s9 =p5/p6= s5 is the long way
+        # round. Without it the graph partitions and "no path over the dead link" is satisfied
+        # trivially by there being no path at all.
+        self.topo.net.add_node(9, type="switch")
+        self.topo.add_link(1, 9, 3, 4)
+        self.topo.add_link(9, 5, 5, 6)
+
+        self.fail_the_link()
+        self.assertTrue(self.topo.push_destination_paths(),
+                        "the detour exists, so there is still something to tell the kernel")
+
+        snapshot = self.pushed[-1]
+        self.assertTrue(snapshot)
+        for path in snapshot:
+            # Each entry is [node, egress port towards the next hop], so s1 leaving by port 1 is
+            # exactly "this path uses the link the watchdog reported down".
+            self.assertNotIn([1, 1], path,
+                             f"path {path} egresses s1 on the port whose link just failed")
+        # And the detour really is being used, rather than h1<->h2 having quietly vanished.
+        crossing = [p for p in snapshot
+                    if [hop[0] for hop in p][:1] == ["10.0.0.1"] and p[-1][0] == "10.0.0.2"]
+        self.assertTrue(crossing, "h1 -> h2 must still have a path, the long way round")
+        self.assertIn(9, [hop[0] for hop in crossing[0]], "the detour switch must appear on it")
+
+    def test_a_total_partition_pushes_nothing_and_leaves_the_kernel_holding_stale_paths(self):
+        # The failed link is the only one between h1 and h2, so there is no snapshot to send --
+        # and setAllPaths refuses an empty one by design, so the kernel keeps the routes it has,
+        # including the one over the dead link. Documented here because it is a real consequence
+        # of that refusal, not an oversight: with 32 inter-switch edges in the shipped topology a
+        # single failure never empties the snapshot, so the wholesale replace does the work.
+        self.fail_the_link()
+        self.assertFalse(self.topo.push_destination_paths())
+
+    def test_pushing_an_empty_graph_reports_failure(self):
+        # Nothing discovered yet, so there is nothing the kernel can act on. The refusal itself lives
+        # in KernelNotifier.all_destination_paths and is asserted against the real class in
+        # test_kernel_notifier.py; what this pins is that the empty result is propagated as a failure
+        # rather than reported as a successful push.
+        bare = TopologyManager(kernel_notifier=self.kernel, clock=self.clock)
+        self.pushed.clear()
+        self.assertFalse(bare.push_destination_paths())
+
+    def test_a_push_that_raises_does_not_escape(self):
+        def boom(paths):
+            raise RuntimeError("kernel exploded")
+
+        self.kernel.all_destination_paths = boom
+        self.assertFalse(self.topo.push_destination_paths(),
+                         "a raising push must be reported as a failure, not kill the watchdog")
+
+    def test_no_notifier_means_no_push(self):
+        bare = TopologyManager(clock=self.clock)
+        self.assertFalse(bare.push_destination_paths())
+
+
 class ThreadLifecycleTest(unittest.TestCase):
     """
     The LLDP beacon thread had no stop flag and its handle was assigned to a discarded local, so

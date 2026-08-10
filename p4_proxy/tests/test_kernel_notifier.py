@@ -177,5 +177,42 @@ class ConfigurationTest(unittest.TestCase):
         self.assertEqual(KernelNotifier(base_url="http://k:8000/").base_url, "http://k:8000")
 
 
+class DestinationPathPushTest(NotifierTestBase):
+    """
+    [Co-developed with claude code -- Adam]
+    The kernel reads `body.at("all_destination_paths")` and refuses the body outright if the key is
+    absent -- and it does *not* require the `status` envelope the pull path insists on, so the two
+    shapes genuinely differ. A key name only a mock would accept is the whole risk here.
+    """
+
+    PATHS = [[["10.0.0.1", 3], [1, 1], [5, 2], ["10.0.0.2", 0]]]
+
+    def test_the_push_uses_the_key_the_kernel_reads(self):
+        self.assertTrue(self.notifier.all_destination_paths(self.PATHS))
+
+        self.assertEqual(self.sent[0]["method"], "POST")
+        self.assertEqual(self.sent[0]["path"], "/ndt/inform_all_destination_paths")
+        self.assertEqual(self.sent[0]["body"], {"all_destination_paths": self.PATHS})
+
+    def test_host_endpoints_survive_as_strings_and_switches_as_numbers(self):
+        # The kernel discriminates on the JSON type: a string goes through ipStringToUint32, a
+        # number through get<uint64_t>(). json.dumps would happily turn 1 into "1".
+        self.notifier.all_destination_paths(self.PATHS)
+        path = self.sent[0]["body"]["all_destination_paths"][0]
+        self.assertIsInstance(path[0][0], str)
+        self.assertIsInstance(path[1][0], int)
+
+    def test_an_empty_snapshot_is_not_sent_at_all(self):
+        # setAllPaths returns early on an empty vector, deliberately -- before convergence "no paths"
+        # is a transient. Sending one would produce an "ok" the kernel did not act on.
+        self.assertFalse(self.notifier.all_destination_paths([]))
+        self.assertEqual(self.sent, [])
+
+    def test_a_non_200_is_reported_as_failure(self):
+        RecordingKernel.status = 400
+        self.assertFalse(self.notifier.all_destination_paths(self.PATHS))
+        self.assertEqual(self.notifier.failures, 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

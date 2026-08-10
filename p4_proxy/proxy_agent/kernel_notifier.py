@@ -119,3 +119,26 @@ class KernelNotifier:
             "dst_dpid": dst_dpid,
             "dst_interface": dst_port,
         }
+
+    def all_destination_paths(self, paths: list) -> bool:
+        """
+        Push a fresh host-to-host path snapshot.
+
+        [Co-developed with claude code -- Adam]
+        The plan called for this because `fetchAllDestinationPaths` used to run exactly once at
+        startup, before discovery had converged, and its own empty guard made that a permanent
+        silent no-op. That pull now retries at 5 s until it has paths and refreshes every 60 s
+        (`refreshDestinationPathsPeriodically`), so this is no longer load-bearing for
+        correctness -- what it buys is latency. After a link fails, the pull leaves the kernel
+        answering `get_path_switch_count` from routes over the dead link for up to a minute;
+        pushing on the transition closes that to one HTTP call.
+
+        An empty list is not sent. `setAllPaths` would discard it anyway (it refuses an empty
+        snapshot, deliberately, because before convergence "no paths" is a transient), so sending
+        one would only produce a misleading "ok" in the log.
+        """
+        if not paths:
+            return self._report("destination paths", False, "refusing to push an empty snapshot")
+        return self._post("/ndt/inform_all_destination_paths",
+                          {"all_destination_paths": paths},
+                          f"destination paths ({len(paths)} paths)")
