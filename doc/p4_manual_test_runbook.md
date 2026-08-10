@@ -407,7 +407,17 @@ for i in 1 2 3; do
 done
 ```
 
-✅ 預期：`avg_link_usage` 從約 `7.0e-05` → `1.6e-04` → `2.1e-04` 逐步爬升（這是累積平均，不是瞬時值）。
+✅ 預期：**`1e-05` 到 `3e-04` 之間，上下跳動，不是單調爬升。** 觀測到的實際序列長這樣：
+
+```
+1.47e-04 → 1.77e-04 → 3.01e-05 → 1.00e-04 → 1.00e-04 → 2.11e-04 → 8.36e-05 → 1.40e-04
+```
+
+⚠️ **這裡本來寫「逐步爬升，是累積平均」，那是錯的（2026-08-10 更正）。** 看
+`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2429`）：它只把 `linkBandwidthUsage != 0` 的邊
+算進去，然後除以**那一刻非零邊的數量**。1/256 取樣之下，每一秒有樣本落在哪幾條邊會變，所以分子
+分母同時在變——它是瞬時值，而且分母會跳。**只要在 `1e-05`～`3e-04` 這個量級就是對的；
+要求它單調上升是要求一個它從來沒有過的性質。**
 
 ⚠️ 如果一直是 `0.0`，確認流量兩端在不同交換機上。
 
@@ -433,8 +443,18 @@ for sw in tables:
 
 ### 5g. Flow 通過的交換機（路徑上的交換機才有 flow）
 
+⚠️ **不要照抄固定的 dpid 清單。** 路徑不是固定的——同一組 host、同一個拓撲，不同次跑會走不同的
+路。先從 §5c 讀出這一次的實際路徑，再查那些 dpid：
+
 ```bash
-for d in 1 6 9 8 4; do
+# 先看這次走哪裡
+curl -s localhost:8000/ndt/get_detected_flow_data | python3 -c "
+import json,sys
+for f in json.load(sys.stdin):
+    print([h['node'] if isinstance(h,dict) else h for h in f.get('path',[])])"
+
+# 再查路徑上的 dpid（把下面的清單換成上面印出來的）
+for d in 1 6 10 7 4; do
   printf "dpid %-2s " $d
   curl -s -X POST localhost:8000/ndt/get_num_of_flows_passing_a_switch \
     -H 'Content-Type: application/json' -d "{\"dpid\":$d}"
@@ -442,11 +462,44 @@ for d in 1 6 9 8 4; do
 done
 ```
 
-✅ 預期：回傳的是物件不是裸數字。路徑上的交換機（s1, s6, s9, s8, s4）給
-`{"num_of_flows":1,"status":"success"}`，路徑外的（如 s2, s3, s5, s7, s10）給
-`{"num_of_flows":0,"status":"success"}`。（idle 時全部都是 0，實測確認。）
+✅ 預期：回傳的是物件不是裸數字，`{"num_of_flows":N,"status":"success"}`。
+
+⚠️ **這個端點數的是「進來」的 flow，不是「經過」的 flow。** 實作是
+`if (e.dstDpid == dpid) numOfFlows += e.flowSet.size()`（`HttpSession.cpp:1734-1739`），
+也就是**以該 switch 為終點的邊**上的 flow 數。所以：
+
+- 某個方向的**起點** switch，那個方向不會被算到（它沒有對應的入邊）
+- 雙向流量都經過的中繼 switch 會是 **2**
+- host 邊也算（`src_dpid=0 → dst_dpid=4` 這種邊會貢獻 1）
+
+⚠️ **這個數字在固定流量下也會逐秒跳動**，實測連續三秒同一台可以是 `0 → 1 → 2`。原因見 §5h。
+所以它**不適合當通過／失敗的判準**，只適合看「路徑外的 switch 是不是長期為 0」。
 
 ⚠️ 這個端點是 **POST**，body 是 `{"dpid": N}`。不是 GET，不加 query param。
+
+### 5h. ⚠️ 為什麼「有 flow 卻 usage=0」不是 bug
+
+一條邊上有兩個獨立的東西，來源相同但**壽命不同**：
+
+| 欄位 | 誰寫的 | 何時消失 |
+|---|---|---|
+| `flow_set` | sFlow 樣本落到這條邊時 `touchEdgeFlow` 加入（`FlowLinkUsageCollector.cpp:1544/1553`） | 由 flush loop 依 TTL 老化（`TopologyAndFlowMonitor.cpp:2680-2692`） |
+| `link_bandwidth_usage_bps` | 每次樣本更新時重算（`TopologyAndFlowMonitor.cpp:895-907`） | 沒有新樣本就掉回 0 |
+
+所以「**這條邊列得出 flow，但 usage 是 0**」是正常狀態：flow 的成員資格活得比速率久。實測快照：
+
+```
+src_dpid=1  dst_dpid=6   usage=200704  flows=1
+src_dpid=6  dst_dpid=10  usage=0       flows=1   <-- 同一條 flow 的下一跳
+src_dpid=7  dst_dpid=4   usage=200704  flows=1
+src_dpid=10 dst_dpid=7   usage=0       flows=1
+```
+
+同一條 flow 在相鄰兩跳上，一跳有速率、一跳是 0。1/256 取樣下這完全預期。
+
+**這也是 Web-GUI 上「flow information 有 200kb、但單一條 link 顯示 0」的原因**——GUI 的
+`LinkInformation.tsx:198-199` 讀的就是 `link_bandwidth_usage_bps`。GUI 沒有錯，kernel 也沒有錯，
+是這個數字本來就是斷續的。要看一條 link 的持續速率，得自己在時間上平滑，API 不提供平滑後的值。
 
 ---
 
@@ -580,6 +633,44 @@ print('paths:', len(d.get('all_destination_paths',[])))"
 
 ✅ 預期：`paths: 12`。
 
+### 6h. ⚠️ 這一節**沒有**驗證到「斷線後重算出新路徑」
+
+上面 6a–6g 驗的是**偵測**與**移除**，不是**繞路**。證據就在 6f：路徑數 12 → 9，少掉的三條全部是
+到 10.0.0.1 的——那是路徑**消失**，不是路徑**改道**。斷 `s1-eth1` 會連帶癱瘓 s1 的 packet-in
+（見本節開頭的重大陷阱），s1 兩條入向都被判 down，h1 就從可達集合裡整個掉出去。所以這個斷點
+在設計上就看不到改道。
+
+要驗改道，必須斷在**路徑中段、且存在替代路徑**的鏈路上，然後看 flow 的 `path` 有沒有換一條走。
+
+> **未實跑**：以下步驟是依據上面的分析設計的，2026-08-10 尚未實際執行過（Adam 當時正在用這個
+> stack 做別的測試）。跑過之後請把實測值補進來，並把這行拿掉。
+
+```bash
+# 1. 灌流量，記下這一次的路徑（§5a + §5c）
+curl -s localhost:8000/ndt/get_detected_flow_data | python3 -c "
+import json,sys
+for f in json.load(sys.stdin):
+    print([h['node'] if isinstance(h,dict) else h for h in f.get('path',[])])"
+#    例如 h1->h4 走 [10.0.0.1, 1, 6, 10, 7, 4, 10.0.0.4]
+
+# 2. 斷掉「中段」的一跳，不要斷第一跳。以上面的路徑為例是 s6 <-> s10：
+sudo -n ifconfig s6-eth4 down
+
+# 3. 流量繼續跑著，等約 15 秒後再讀一次路徑
+```
+
+✅ 預期（要驗的就是這個）：
+
+- flow 的 `path` **仍然從 10.0.0.1 走到 10.0.0.4**，但中間換成別的 switch 序列
+- `all_destination_paths` **維持 12**，不是掉到 9 —— 沒有 host 變成不可達
+- `edges up` 掉到 38（斷掉那條的兩個方向）
+
+❌ 如果 `path` 沒變、但封包還在通：代表 twin 的路徑是**過期的**，它在報一條已經不存在的路。
+這正是這個測試存在的理由——這種錯誤不會讓任何一個 ✅ 變成 ❌，只會讓 twin 安靜地說謊。
+
+⚠️ 因為那個 packet-in 陷阱，斷 `s6-eth4` 也會讓 s6 的其他入向鏈路被誤報 down。所以 `edges up`
+可能低於 38。**判準看的是 `path` 有沒有改道、以及 12 條路徑有沒有保住**，不是邊數。
+
 ---
 
 ## 7. admin_disabled
@@ -643,7 +734,7 @@ violations (admin_disabled AND is_enabled): 0
 | Paths idle | 12 | 所有 host pair 都有路徑 |
 | Proxy log | 10× clone session ok, 0 fail, 1× watchdog seeded | telemetry 鏈路和 link failure 偵測已初始化 |
 | Traffic: detected flows | 2 筆（雙向 ICMP），rate > 0，path 長 7 | sFlow → proxy → kernel 的 ingest 鏈路完整，flow path 正確 |
-| Traffic: `avg_link_usage` | 逐步爬升，> 0 | 鏈路使用率有在追蹤流量 |
+| Traffic: `avg_link_usage` | 落在 1e-05～3e-04，上下跳動 | 鏈路使用率有在追蹤流量（**不會單調爬升**，見 §5d） |
 | Traffic: ping | 0% loss, rtt ~12.8ms, TTL=59 | 資料平面正常轉送，hop 數正確 |
 | Link failure detect | 3 筆 `link_failure_detected` POST，約 11s 後 | watchdog 正確偵測到 beacon timeout |
 | Link failure graph | 37/40 up，穩定不 flapping | 失效值正確、沒有振盪 |
@@ -659,7 +750,7 @@ violations (admin_disabled AND is_enabled): 0
 | `stream_alive=true` | 只代表 gRPC stream 沒斷，不代表封包有送到 |
 | `edges up: 37/40`（斷線後） | 只信任你故意斷的那條。其他的「失效」可能是 `ifconfig` 的 side effect |
 | Flow table 4 條 | P4 模式 flow table 不反映 traffic。它不是 OpenFlow 規則數 |
-| `avg_link_usage` 爬升 | 是累積平均，不是瞬時值。剛斷線或剛恢復時可能不反映當前狀態 |
+| `avg_link_usage` 非零 | 它是瞬時值，且分母是「當下有樣本的邊數」。單次讀數不代表整體負載，連續讀數上下跳是正常的 |
 
 ---
 
