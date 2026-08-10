@@ -271,6 +271,29 @@ class TopologyManager:
         self.switches = {} # dpid -> P4RuntimeClient
         self.dest_paths = {} # To match Ryu's format
 
+        # --- Graph structure lock. [Co-developed with claude code -- Adam]
+        #
+        # `net` is written by the gRPC stream-receive threads (`handle_packet_in` -> `add_link`
+        # when LLDP discovers a neighbour) and by startup (`add_switch`/`add_host`), while the
+        # link watchdog thread reads the whole thing to recompute destination paths.
+        #
+        # The graph is append-only -- nothing anywhere calls `remove_node`/`remove_edge` -- so a
+        # reader can never observe a deletion. What it *can* observe is an insertion partway
+        # through its own traversal, and networkx traversals iterate the adjacency dicts
+        # directly: `RuntimeError: dictionary changed size during iteration`. In
+        # `push_destination_paths` that lands inside a `except Exception` whose job is to keep the
+        # watchdog thread alive, so the failure mode is a silently skipped push -- exactly the
+        # stale-paths window the push exists to close.
+        #
+        # Separate from `_liveness_lock`, and the two are never held at once (see
+        # `push_destination_paths`): they guard unrelated state and nesting them would be an
+        # ordering hazard for no gain.
+        #
+        # ⚠️ Scope: the writers below and `push_destination_paths` take this lock. The HTTP
+        # render path and `install_initial_routes` still read `net` unlocked -- unchanged from
+        # before, not made worse, and not fixed here.
+        self._net_lock = threading.RLock()
+
         # --- Liveness evidence. [Co-developed with claude code -- Adam]
         #
         # Guarded by its own lock rather than sharing one with the graph: it is written by the LLDP
@@ -327,17 +350,22 @@ class TopologyManager:
     def add_switch(self, dpid, client):
         if dpid not in self.switches:
             self.switches[dpid] = client
-            self.net.add_node(dpid, type='switch')
+            with self._net_lock:
+                self.net.add_node(dpid, type='switch')
             client.packet_in_callback = self.handle_packet_in
 
     def add_link(self, src_dpid, dst_dpid, src_port, dst_port):
-        self.net.add_edge(src_dpid, dst_dpid, port=src_port)
-        self.net.add_edge(dst_dpid, src_dpid, port=dst_port)
+        # Both directions under one acquisition: a reader that saw only the forward edge would
+        # compute a path the reverse of which does not exist yet.
+        with self._net_lock:
+            self.net.add_edge(src_dpid, dst_dpid, port=src_port)
+            self.net.add_edge(dst_dpid, src_dpid, port=dst_port)
 
     def add_host(self, ip, mac, switch_dpid, port):
-        self.net.add_node(ip, type='host', mac=mac)
-        self.net.add_edge(switch_dpid, ip, port=port)
-        self.net.add_edge(ip, switch_dpid, port=0)
+        with self._net_lock:
+            self.net.add_node(ip, type='host', mac=mac)
+            self.net.add_edge(switch_dpid, ip, port=port)
+            self.net.add_edge(ip, switch_dpid, port=0)
 
     def calculate_all_paths(self):
         """Calculates all-pairs shortest paths using BFS"""
@@ -787,6 +815,19 @@ class TopologyManager:
         started can be reported rather than presumed up.
 
         [Co-developed with claude code -- Adam]
+        ✅ **The receive-side assumption below was verified live on 2026-08-10** (10 bmv2 switches).
+        Two independent checks, both clean:
+          - Static: every one of the 32 declared switch-to-switch directions matches the wiring in
+            p4_testbed_topo.py combined with bmv2's own `-i <port>@<iface>` mapping, which is the
+            identity (port N == sX-ethN) on all ten switches.
+          - Live: all 16 `Discovered link: S<a>-p<x> -> S<b>-p<y>` lines the proxy logged carry an
+            ingress port equal to the topology file's `dst_interface`. Zero contradictions. (Only
+            16 appear because add_link builds both directions from one beacon, so the reverse never
+            logs as newly discovered.)
+        So enabling this no longer risks reporting the whole fabric down. It is still **off by
+        default** pending a decision, because it changes startup behaviour rather than because the
+        assumption is doubted.
+
         **Off by default**, and start_link_watchdog does not call it unless asked. It assumes the
         topology file's `src_interface`/`dst_interface` numbers are the same numbers bmv2 uses for
         those ports. That holds for the beacon *sender* (lldp_ports_for already derives from
@@ -955,7 +996,18 @@ class TopologyManager:
         if self._kernel is None:
             return False
         try:
-            body = ryu_topology.render_destination_paths(self.net, self.down_link_endpoints())
+            # Snapshot inside the lock, compute outside it. The search walks every host pair, and
+            # holding the graph lock across that would block the LLDP receive threads that feed it.
+            # The copy is cheap here for a reason worth stating: this proxy serves the P4 topology
+            # (10 switches, 4 hosts), so the walk is 12 ordered host pairs over a 14-node graph --
+            # not the 128-host OVS fabric, which this side never sees.
+            with self._net_lock:
+                snapshot = self.net.copy()
+            # Deliberately after the graph lock is released: `down_link_endpoints` takes
+            # `_liveness_lock`, and holding both at once would fix an order that nothing else here
+            # promises to respect.
+            down = self.down_link_endpoints()
+            body = ryu_topology.render_destination_paths(snapshot, down)
             return bool(self._kernel.all_destination_paths(body["all_destination_paths"]))
         except Exception as e:  # noqa: BLE001 -- must not kill the watchdog thread
             print(f"[TopologyManager] destination-path push failed: {type(e).__name__}: {e}")
@@ -968,11 +1020,16 @@ class TopologyManager:
         [Co-developed with claude code -- Adam]
         Exists because reporting a link failure is not enough on its own. `updateLinks` on the kernel
         side only ever sets `isUp`/`isEnabled` to **true** -- it has no path that sets either false --
-        and it runs on a 1 s topology poll keyed on (src dpid, src port). This side never forgets a
+        and it runs on a topology poll keyed on (src dpid, src port). This side never forgets a
         link either: `add_link` has no counterpart, so a link discovered once is reported forever.
-        So the sequence was: watchdog reports the failure, the kernel takes the edge down, and within
-        one second the next poll puts it straight back up because the proxy was still listing it.
-        The failure report was real, the effect lasted under a second, and nothing anywhere said so.
+        So the sequence was: watchdog reports the failure, the kernel takes the edge down, and the
+        next poll puts it straight back up because the proxy was still listing it.
+        The failure report was real, its effect did not outlive one poll, and nothing anywhere said so.
+
+        The poll interval is 5 s for the kernel process's first 90 s and 30 s thereafter
+        (`TopologyAndFlowMonitor.cpp:1793-1795`). This comment used to say 1 s, which was a misreading
+        of the 1 s sleep slice at :1798 -- that slice exists so `stop()` need not wait out a whole
+        interval. The defect is unchanged; only the size of the window is.
 
         Filtering the topology reply is the fix that works with the kernel as it stands, rather than
         against it: an edge the poll never mentions keeps whatever state it was last given. Keyed on

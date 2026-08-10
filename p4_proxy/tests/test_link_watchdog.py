@@ -24,6 +24,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from proxy_agent import ryu_topology  # noqa: E402
 from proxy_agent.ryu_topology import render_links  # noqa: E402
 from proxy_agent.topology_manager import (  # noqa: E402
     LINK_BEACON_TIMEOUT_S,
@@ -577,6 +578,86 @@ class PathsArePushedOnATransitionTest(WatchdogTestBase):
     def test_no_notifier_means_no_push(self):
         bare = TopologyManager(clock=self.clock)
         self.assertFalse(bare.push_destination_paths())
+
+
+class ThePushComputesOverASnapshotTest(WatchdogTestBase):
+    """
+    The push reads the whole graph from the watchdog thread while the gRPC receive threads write it.
+
+    [Co-developed with claude code -- Adam]
+    `net` is append-only, so a reader cannot see a deletion -- but networkx walks the adjacency
+    dicts directly, so an insertion partway through a traversal raises
+    `RuntimeError: dictionary changed size during iteration`. That lands in the `except Exception`
+    that keeps the watchdog thread alive, so the symptom is a push that silently does not happen,
+    which is the exact window the push was added to close.
+
+    These pin the mechanism rather than trying to race it: whether a real interleaving raises is a
+    scheduling accident, but "the walk is handed a private copy" is decidable.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.pushed = []
+        self.kernel.all_destination_paths = lambda paths: (self.pushed.append(paths), bool(paths))[1]
+        for dpid in (1, 5):
+            self.topo.net.add_node(dpid, type="switch")
+        self.topo.add_host("10.0.0.1", 1, 1, 3)
+        self.topo.add_host("10.0.0.2", 2, 5, 4)
+        self.topo.add_link(1, 5, 1, 2)
+
+    def test_the_walk_is_handed_a_copy_that_a_concurrent_writer_cannot_reach(self):
+        seen = {}
+        real = ryu_topology.render_destination_paths
+
+        def watching_render(net, down_endpoints=()):
+            seen["was_the_live_graph"] = net is self.topo.net
+            # Stand in for the LLDP thread discovering a neighbour mid-walk.
+            self.topo.add_link(1, 9, 7, 8)
+            seen["writer_reached_the_live_graph"] = self.topo.net.has_edge(1, 9)
+            seen["walk_saw_the_write"] = net.has_edge(1, 9)
+            return real(net, down_endpoints)
+
+        ryu_topology.render_destination_paths = watching_render
+        try:
+            self.assertTrue(self.topo.push_destination_paths())
+        finally:
+            ryu_topology.render_destination_paths = real
+
+        self.assertFalse(seen["was_the_live_graph"],
+                         "the walk must not be handed the graph the LLDP threads write")
+        self.assertTrue(seen["writer_reached_the_live_graph"],
+                        "the stand-in writer must really have mutated the live graph, or this "
+                        "test proves nothing about isolation")
+        self.assertFalse(seen["walk_saw_the_write"],
+                         "a write during the walk leaked into the graph being walked")
+
+    def test_the_graph_lock_is_released_before_the_liveness_lock_is_taken(self):
+        # Nesting the two would fix an ordering that nothing else in this class promises to keep,
+        # and handle_packet_in takes _liveness_lock first on the very path that then calls add_link.
+        free = {}
+        real = self.topo.down_link_endpoints
+
+        def probing_down_link_endpoints():
+            # From another thread on purpose: _net_lock is re-entrant, so acquiring it from the
+            # thread that already holds it would succeed and prove nothing.
+            result = []
+
+            def probe():
+                got = self.topo._net_lock.acquire(blocking=False)
+                if got:
+                    self.topo._net_lock.release()
+                result.append(got)
+
+            t = threading.Thread(target=probe)
+            t.start()
+            t.join()
+            free["net_lock_was_free"] = result[0]
+            return real()
+
+        self.topo.down_link_endpoints = probing_down_link_endpoints
+        self.topo.push_destination_paths()
+        self.assertTrue(free["net_lock_was_free"],
+                        "the graph lock was still held while the liveness lock was being taken")
 
 
 class ThreadLifecycleTest(unittest.TestCase):
