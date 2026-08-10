@@ -210,23 +210,43 @@ IntentTranslator::performTask(llmResponse::Task* task)
         {
             llmResponse::DisableSwitchTask* disableTask = dynamic_cast<llmResponse::DisableSwitchTask*>(task);
             auto deviceIpOpt = this->getSwitchIpByName(disableTask->deviceName);
-            if (deviceIpOpt.has_value())
+            if (!deviceIpOpt.has_value())
             {
-                uint64_t dpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[deviceIpOpt.value()];
-                this->m_topologyAndFlowMonitor->disableSwitchAndEdges(dpid);
+                return "{\"error\": \"Switch not found\", \"device\": \"" + disableTask->deviceName + "\"}";
             }
-            break;
+            // [Co-developed with claude code -- Adam]
+            // find(), not operator[]: on a map, operator[] default-constructs a missing key, so an
+            // IP the map has never seen silently became dpid 0 -- and inserted that, mutating the
+            // map as a side effect of reading it.
+            const auto it = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.find(deviceIpOpt.value());
+            if (it == this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.end())
+            {
+                return "{\"error\": \"Switch has no dpid\", \"device\": \"" + disableTask->deviceName + "\"}";
+            }
+            if (!this->m_topologyAndFlowMonitor->disableSwitchAndEdges(it->second))
+            {
+                return "{\"error\": \"Switch not present in the topology graph\", \"device\": \"" + disableTask->deviceName + "\"}";
+            }
+            return "{\"status\": \"disabled\", \"device\": \"" + disableTask->deviceName + "\"}";
         }
         case llmResponse::TaskType::ENABLE_SWITCH:
         {
             llmResponse::EnableSwitchTask* enableTask = dynamic_cast<llmResponse::EnableSwitchTask*>(task);
             auto deviceIpOpt = this->getSwitchIpByName(enableTask->deviceName);
-            if (deviceIpOpt.has_value())
+            if (!deviceIpOpt.has_value())
             {
-                uint64_t dpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[deviceIpOpt.value()];
-                this->m_topologyAndFlowMonitor->enableSwitchAndEdges(dpid);
+                return "{\"error\": \"Switch not found\", \"device\": \"" + enableTask->deviceName + "\"}";
             }
-            break;
+            const auto it = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.find(deviceIpOpt.value());
+            if (it == this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.end())
+            {
+                return "{\"error\": \"Switch has no dpid\", \"device\": \"" + enableTask->deviceName + "\"}";
+            }
+            if (!this->m_topologyAndFlowMonitor->enableSwitchAndEdges(it->second))
+            {
+                return "{\"error\": \"Switch not present in the topology graph\", \"device\": \"" + enableTask->deviceName + "\"}";
+            }
+            return "{\"status\": \"enabled\", \"device\": \"" + enableTask->deviceName + "\"}";
         }
         case llmResponse::TaskType::POWEROFF_SWITCH:
         {

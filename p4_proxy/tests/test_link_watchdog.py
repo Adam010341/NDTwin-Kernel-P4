@@ -265,9 +265,10 @@ class NoNotifierTest(unittest.TestCase):
 
 class SeededLinksTest(WatchdogTestBase):
     """
-    Seeding is what makes a link that was *already* down at startup reportable. It is off by
-    default because it assumes the topology file's interface numbers are the numbers bmv2 uses,
-    and the receiving half of that assumption is unverified against a live P4 stack.
+    Seeding is what makes a link that was *already* down at startup reportable. main.py enables it;
+    the parameter defaults to False so it is never acquired by accident. Its one assumption -- that
+    the topology file's interface numbers are the numbers bmv2 uses -- was verified live on
+    2026-08-10, statically 32/32 and on the wire 16/16.
     """
 
     def test_seeding_enters_the_links_the_topology_file_declares(self):
@@ -306,6 +307,30 @@ class SeededLinksTest(WatchdogTestBase):
         self.topo.start_link_watchdog()
         self.addCleanup(self.topo.stop_link_watchdog)
         self.assertEqual(self.topo.link_liveness(), {})
+
+    def test_seeding_nothing_is_announced_as_a_failure_not_as_a_count_of_zero(self):
+        # Seeding is the only route by which a link that was down before we started is ever
+        # watched. If the topology file yields none, that capability is off again -- at the exact
+        # moment an operator has asked for it. "seeded with 0 declared links" reads like a
+        # successful startup; it has to read like the loss it is.
+        import contextlib
+        import io
+        import json
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            json.dump({"nodes": [], "edges": []}, fh)
+            empty_topo = fh.name
+        self.addCleanup(os.unlink, empty_topo)
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.topo.start_link_watchdog(seed_expected=True, path=empty_topo)
+        self.addCleanup(self.topo.stop_link_watchdog)
+
+        printed = out.getvalue()
+        self.assertIn("WARNING", printed)
+        self.assertNotIn("seeded with 0 declared links", printed)
 
 
 class LinkLivenessReportTest(WatchdogTestBase):

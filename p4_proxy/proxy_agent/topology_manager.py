@@ -824,20 +824,18 @@ class TopologyManager:
             ingress port equal to the topology file's `dst_interface`. Zero contradictions. (Only
             16 appear because add_link builds both directions from one beacon, so the reverse never
             logs as newly discovered.)
-        So enabling this no longer risks reporting the whole fabric down. It is still **off by
-        default** pending a decision, because it changes startup behaviour rather than because the
-        assumption is doubted.
+        So enabling this no longer risks reporting the whole fabric down, and main.py now passes
+        seed_expected=True. The parameter still defaults to False so that a caller which has not
+        thought about startup behaviour does not acquire it by accident.
 
-        **Off by default**, and start_link_watchdog does not call it unless asked. It assumes the
-        topology file's `src_interface`/`dst_interface` numbers are the same numbers bmv2 uses for
-        those ports. That holds for the beacon *sender* (lldp_ports_for already derives from
-        src_interface and discovery works), but the receive side of the assumption -- that a beacon
-        sent on src_interface arrives on dst_interface -- has not been checked against a live P4
-        stack. If it is wrong, every seeded link times out while the real beacons create separate
-        entries, and the twin reports the entire fabric as failed. That is a bad enough outcome to
-        be worth verifying first rather than assuming.
+        The assumption the verification above was about: that the topology file's
+        `src_interface`/`dst_interface` numbers are the numbers bmv2 uses for those ports. If that
+        were false, every seeded link would time out while the real beacons created separate
+        entries, and the twin would report the whole fabric failed. It holds on this topology; a
+        differently-wired one has to be checked again, since nothing enforces it.
 
-        Returns the number of links seeded.
+        Returns the number of links seeded -- 0 means the topology file gave us nothing, which the
+        caller must treat as a failure to seed, not as a fabric with no links.
         """
         links = load_switch_links(path)
         now = self._clock()
@@ -927,7 +925,18 @@ class TopologyManager:
         """Starts the beacon-timeout watchdog. Idempotent. See seed_expected_links for the flag."""
         if seed_expected:
             seeded = self.seed_expected_links(path)
-            print(f"[TopologyManager] link watchdog seeded with {seeded} declared links")
+            if seeded:
+                print(f"[TopologyManager] link watchdog seeded with {seeded} declared links")
+            else:
+                # Seeding is the only reason the watchdog knows about a link that has been down
+                # since before we started, so seeding nothing means that whole capability is off
+                # again -- silently, and at exactly the moment an operator believes it is on.
+                # load_switch_links prints when the file cannot be read, but says nothing when the
+                # file parses and simply yields no switch-to-switch edges, which a schema change
+                # would do.
+                print("[TopologyManager] WARNING: seeding was requested but the topology file "
+                      "declared no switch-to-switch links. Links already down at startup will "
+                      "NOT be reported; only links that beacon at least once are watched.")
         if self._link_watchdog_running:
             return
         self._link_watchdog_running = True

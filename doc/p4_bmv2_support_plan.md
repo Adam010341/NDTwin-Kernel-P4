@@ -333,11 +333,13 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     所以反向也一併停報，**除非它自己還在收 beacon**（那是真正的單向失效，少報反而是另一種錯）。
     這是本專案「應該取代卻只能新增」的**第 5 例**：兩半各自只會新增，合起來就永遠拿不掉東西。
 
-    ⚠️ 已知限制：**啟動時就已經斷掉的鏈路偵測不到**，因為 watchdog 只認得曾經送達過 beacon 的鏈路。
-    `seed_expected_links()` 可以從拓撲檔補上這一塊，但**預設關閉**：它假設拓撲檔的 `src_interface`／
-    `dst_interface` 就是 bmv2 用的 port 編號，發送側成立（`lldp_ports_for` 已經據此運作且探索有效），
-    但**接收側未經實機驗證**。若假設不成立，每條 seed 進去的鏈路都會逾時、真實 beacon 另外建立條目，
-    twin 會把整個 fabric 報成失效 —— 這個後果嚴重到值得先驗證再開。
+    ~~⚠️ 已知限制：**啟動時就已經斷掉的鏈路偵測不到**~~ ✅ **已補上**（2026-08-10）：
+    `seed_expected_links()` 從拓撲檔預先種入 32 條宣告的鏈路，`main.py` 現在以
+    `seed_expected=True` 呼叫。開啟前先驗證了它唯一的假設 —— 拓撲檔的 `src_interface`／
+    `dst_interface` 就是 bmv2 用的 port 編號：靜態 32/32 相符，實機 16/16 相符，零矛盾。
+    （若這個假設在別的拓撲上不成立，每條 seed 進去的鏈路都會逾時、真實 beacon 另外建立條目，
+    twin 會把整個 fabric 報成失效。所以換拓撲要重驗，沒有任何機制會替你檢查。）
+    seed 到 0 條時 `start_link_watchdog` 會印 WARNING，因為那等於這個能力又被關掉了。
   - ~~用 `POST /ndt/inform_all_destination_paths` 主動推路徑~~ ✅ **已完成**，但**理由已經和計劃書寫的
     不一樣了，這裡更正**：計劃書說「這比修 pull 那條路好，因為 `fetchAllDestinationPaths` 只在啟動時
     被呼叫一次，時間點比 LLDP 收斂還早，而 `if (output.empty()) return;` 讓它變成永久的空操作」。

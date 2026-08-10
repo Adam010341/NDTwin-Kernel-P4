@@ -249,8 +249,10 @@ class TopologyAndFlowMonitor
                                                         uint64_t swDpid,
                                                         uint64_t dstSwDpid);
 
-    void disableSwitchAndEdges(uint64_t dpid);
-    void enableSwitchAndEdges(uint64_t dpid);
+    /// @return false when no switch in the graph carries that dpid, in which case nothing was
+    ///         written. The caller answers an operator and must not report work it did not do.
+    bool disableSwitchAndEdges(uint64_t dpid);
+    bool enableSwitchAndEdges(uint64_t dpid);
 
     std::vector<sflow::Path> bfsAllPathsToDst(
         const Graph& g,

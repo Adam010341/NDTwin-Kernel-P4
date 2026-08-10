@@ -2013,14 +2013,21 @@ TopologyAndFlowMonitor::setVertexDisable(Graph::vertex_descriptor v)
     (*m_graph)[v].isEnabled = false;
 }
 
-void
+bool
 TopologyAndFlowMonitor::disableSwitchAndEdges(uint64_t dpid)
 {
     std::unique_lock lock(*m_graphMutex);
     auto vertexOpt = findSwitchByDpidNoLock(dpid);
     if (!vertexOpt)
     {
-        return;
+        // [Co-developed with claude code -- Adam]
+        // Returned rather than only logged: the caller composes the operator's answer, and while
+        // this was void it answered "ok" to a disable that had touched nothing.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "administrative disable of dpid {} did nothing: no such switch in the "
+                           "graph",
+                           dpid);
+        return false;
     }
 
     auto vertex = *vertexOpt;
@@ -2048,16 +2055,21 @@ TopologyAndFlowMonitor::disableSwitchAndEdges(uint64_t dpid)
     SPDLOG_LOGGER_INFO(Logger::instance(),
                        "administrative disable of dpid {} recorded (survives topology polls)",
                        dpid);
+    return true;
 }
 
-void
+bool
 TopologyAndFlowMonitor::enableSwitchAndEdges(uint64_t dpid)
 {
     std::unique_lock lock(*m_graphMutex);
     auto vertexOpt = findSwitchByDpidNoLock(dpid);
     if (!vertexOpt)
     {
-        return;
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "administrative enable of dpid {} did nothing: no such switch in the "
+                           "graph",
+                           dpid);
+        return false;
     }
 
     auto vertex = *vertexOpt;
@@ -2081,6 +2093,7 @@ TopologyAndFlowMonitor::enableSwitchAndEdges(uint64_t dpid)
     }
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "administrative enable of dpid {} recorded", dpid);
+    return true;
 }
 
 void
