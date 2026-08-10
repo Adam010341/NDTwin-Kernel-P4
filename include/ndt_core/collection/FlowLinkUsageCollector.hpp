@@ -166,6 +166,11 @@ class FlowLinkUsageCollector
     void testCalAvgFlowSendingRatesRandomly();
     void run(size_t numWorkers, size_t queueCapacity);
 
+    /// @brief Opens and binds the sFlow receive socket. Called by start() on the caller's thread,
+    ///        never from a std::thread entry point -- an exception out of one of those terminates
+    ///        the process. Throws std::runtime_error if the port cannot be bound.
+    void openReceiveSocket();
+
   protected:
     /**
      * @brief Chooses between identity and ovs-vsctl port mapping, once.

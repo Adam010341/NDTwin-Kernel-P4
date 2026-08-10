@@ -27,3 +27,4 @@ Testing/
 build-asan/
 build-tsan/
 build-clang/
+test_env/

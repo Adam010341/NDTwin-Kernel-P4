@@ -484,6 +484,14 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
     // thread below is what actually gets the paths.
     fetchAllDestinationPaths();
 
+    // [Co-developed with claude code -- Adam]
+    // Bound here, on the caller's thread, and before anything is spawned. It used to happen inside
+    // run() -- which is a std::thread entry point, so the exception it throws on failure had
+    // nowhere to go but std::terminate, killing the process with no usable message. Now a failure
+    // propagates to whoever called start(), which can report it and exit, and nothing has been
+    // started that would need unwinding.
+    openReceiveSocket();
+
     this->m_running.store(true);
     m_pktRcvThread = thread(&FlowLinkUsageCollector::run, this, numWorkers, queueCapacity);
     m_calAvgFlowSendingRateThreadPeriodically =
@@ -631,6 +639,56 @@ FlowLinkUsageCollector::stopAndJoinWorkers()
 }
 
 void
+FlowLinkUsageCollector::openReceiveSocket()
+{
+    m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (m_sockfd < 0)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "socket() failed: {}", strerror(errno));
+        throw std::runtime_error("Failed to create UDP socket");
+    }
+
+    // Increase receive buffer
+    int rcvbuf = 4 * 1024 * 1024; // 4 MB
+    setsockopt(m_sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+
+    // [Co-developed with claude code -- Adam]
+    // SO_REUSEADDR was set here and has been removed deliberately. On Linux, two unicast UDP
+    // sockets may both bind the same port when both set it -- measured, not assumed -- and the
+    // datagrams are then delivered to whichever bound *last*. So a second kernel started while
+    // the first was still running did not fail: it silently took the sFlow feed, and the older
+    // kernel went deaf while continuing to report a healthy zero. UDP has no TIME_WAIT, so the
+    // option was buying nothing in exchange for that. Without it the second bind gets EADDRINUSE,
+    // which is a diagnosis rather than a mystery.
+    int one = 1;
+    setsockopt(m_sockfd, SOL_SOCKET, SO_RXQ_OVFL, &one, sizeof(one));
+
+    // Non-blocking mode
+    int flags = fcntl(m_sockfd, F_GETFL, 0);
+    fcntl(m_sockfd, F_SETFL, flags | O_NONBLOCK);
+
+    sockaddr_in bindAddr{};
+    bindAddr.sin_family = AF_INET;
+    bindAddr.sin_port = htons(SFLOW_PORT);
+    bindAddr.sin_addr.s_addr = INADDR_ANY;
+    if (::bind(m_sockfd, reinterpret_cast<sockaddr*>(&bindAddr), sizeof(bindAddr)) < 0)
+    {
+        const int err = errno;
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "bind() to sFlow port {} failed: {}. Another NDTwin kernel is almost "
+                            "certainly still running and holding it; without telemetry this twin "
+                            "would report every flow rate as zero, so it will not start.",
+                            SFLOW_PORT,
+                            strerror(err));
+        ::close(m_sockfd);
+        // Left at -1 so stop() and the destructor do not close a descriptor number that has since
+        // been handed to somebody else.
+        m_sockfd = -1;
+        throw std::runtime_error("Failed to bind UDP socket");
+    }
+}
+
+void
 FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
 {
     log_thread_ids("run");
@@ -651,41 +709,6 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
     for (size_t i = 0; i < numWorkers; ++i)
     {
         m_queues.emplace_back(std::make_unique<SPSCQueue<Packet>>(queueCapacity));
-    }
-
-    // Create UDP socket
-    m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (m_sockfd < 0)
-    {
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "socket() failed: {}", strerror(errno));
-        throw std::runtime_error("Failed to create UDP socket");
-    }
-
-    // Increase receive buffer
-    int rcvbuf = 4 * 1024 * 1024; // 4 MB
-    setsockopt(m_sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-
-    // Allow address reuse
-    int reuse = 1;
-    setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-
-    int one = 1;
-    setsockopt(m_sockfd, SOL_SOCKET, SO_RXQ_OVFL, &one, sizeof(one));
-
-    // Non-blocking mode
-    int flags = fcntl(m_sockfd, F_GETFL, 0);
-    fcntl(m_sockfd, F_SETFL, flags | O_NONBLOCK);
-
-    // Bind
-    sockaddr_in bindAddr{};
-    bindAddr.sin_family = AF_INET;
-    bindAddr.sin_port = htons(SFLOW_PORT);
-    bindAddr.sin_addr.s_addr = INADDR_ANY;
-    if (::bind(m_sockfd, reinterpret_cast<sockaddr*>(&bindAddr), sizeof(bindAddr)) < 0)
-    {
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "bind() failed: {}", strerror(errno));
-        ::close(m_sockfd);
-        throw std::runtime_error("Failed to bind UDP socket");
     }
 
     // Spawn workers only once the socket exists and is bound.

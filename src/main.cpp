@@ -388,7 +388,26 @@ main(int argc, char* argv[])
                                                          mode);
 
     topologyAndFlowMonitor->start();
-    collector->start(20, 4096);
+
+    // [Co-developed with claude code -- Adam]
+    // The collector owns the sFlow socket, and a twin with no telemetry is not a degraded twin --
+    // every flow rate and every link utilisation it reports would be zero, indistinguishable from
+    // a genuinely idle network. So a bind failure ends the process here, with a message naming the
+    // cause, rather than leaving a kernel running that answers every query confidently and wrongly.
+    try
+    {
+        collector->start(20, 4096);
+    }
+    catch (const std::exception& e)
+    {
+        SPDLOG_LOGGER_CRITICAL(Logger::instance(),
+                               "cannot start telemetry collection: {}. Exiting -- see the error "
+                               "above for which resource was unavailable.",
+                               e.what());
+        topologyAndFlowMonitor->stop();
+        return EXIT_FAILURE;
+    }
+
     dataManager->start();
     handler->start();
     deviceConfigurationAndPowerManager->start();
