@@ -427,7 +427,9 @@ proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。*
 空的 `installed` 視為「不知道」而沿用舊行為 —— 因為 bmv2 的 table entry 會跨 proxy 重啟存活，
 把「沒有紀錄」當成「什麼都沒裝」會製造反方向的假警報。
 
-**未做（要不要做、放哪個 phase 由 Adam 決定）**：真正的 failover。改動落點是
+**已做（2026-08-10），但端到端未驗證**：failover 已實作——`calculate_all_paths` 接受要避開的 endpoint、`install_initial_routes` 帶著 down 集合重算、watchdog 轉換時先重裝再推送。**規則層實機確認有繞路**（s5 對 10.0.0.4 從 Port 4 改成 Port 3，從 switch 讀回來的），**但封包沒有回來**。原因是 `ifconfig down` 會讓整台 switch 停止轉發（對照實驗：完全不碰 s5 的 h1→h2 也一起死），而這個現象在 failover 存在之前就出現過兩次。要真正驗證，需要一種只弄壞一條鏈路、不弄壞整台 switch 的故障注入（`tc netem`，或在 pipeline 裡加一條臨時 drop 規則）。見 `doc/p4_manual_test_runbook.md` §6h。
+
+**原本的未做說明（保留作為改動紀錄）**：真正的 failover。改動落點是
 `calculate_all_paths()` 目前對 `self.net` 做最短路，**沒有扣掉 watchdog 認為 down 的邊**，
 所以現在直接呼叫 `install_initial_routes()` 會算出一模一樣的路；扣掉之後，在
 `run_watchdog_pass()` 既有的轉換掛勾（已經在那裡呼叫 `push_destination_paths()`）加上安裝即可。
