@@ -225,7 +225,10 @@ get_graph_data  →  必須有 nodes[] 和 edges[]
 這個例子的價值反而更高了，因為它示範了 L3 這類靜態掃描的**能力邊界**：它掃的是「原始碼裡出現過
 哪些 endpoint」，不是「執行時真的會打哪些」。前者是後者的超集。
 
-另外有 4 個 endpoint 有實作但 `doc/ndt_api.md` 沒寫：`intent_translator`（Web-GUI 在用）、`get_openflow_capacity`、`historical_logging`、`inform_all_destination_paths`。
+~~另外有 4 個 endpoint 有實作但 `doc/ndt_api.md` 沒寫~~ —— **實際是 11 個**，不是 4 個（漏掉的是六個
+group/meter endpoint 和 `get_static_topology_json`）。2026-08-10 已全部補進 `doc/ndt_api.md`
+第 31–41 節。原本的四個是 `intent_translator/text`（Web-GUI 在用）、`get_openflow_capacity`、
+`historical_logging`、`inform_all_destination_paths`。
 
 **這正是 L2 存在的價值**：這種「呼叫了不存在的 API 但沒人發現」的問題，眼睛看 log 幾乎不可能抓到，但契約測試第一次跑就會噴出來。
 

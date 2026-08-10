@@ -125,8 +125,78 @@ Returned when an unknown exception type is thrown.
 ### Description
 Returns the complete graph topology configured in *setting/StaticNetworkTopology.json* including nodes and edges, flow information, and edge status.
 **vertex_type = 0** means a switch, and **vertex_type = 1** means a host.
-**is_up** suggests whether a switch reply ping or whether a host is detected by Ryu.
-**is_enable** in switch node suggests whether the switch is connected to controller. 
+**is_up** – whether the device is powered and reachable (see [is_up in P4 mode](#is_up-in-p4-mode) below).
+
+**is_enabled** – a *folded* value in the JSON: `isEnabled && !adminDisabled`.
+The underlying vertex/edge carries three independent flags:
+
+| Flag            | Written by                                          | Meaning                                         |
+| --------------- | --------------------------------------------------- | ----------------------------------------------- |
+| `isUp`          | Liveness probing (ping worker or P4 proxy poll)     | Powered / reachable.                            |
+| `isEnabled`     | Topology discovery (`updateSwitches`/`updateLinks`/`updateHosts`) | The control plane can drive this device.        |
+| `adminDisabled` | Intent Translator’s `DisableSwitch`/`EnableSwitch`  | Operator asked for this to be out of service.   |
+
+`adminDisabled` is defined in `include/common_types/GraphTypes.hpp` lines 187-214 (doc comment)
+and folded into the JSON `is_enabled` in `to_json` at line 323:
+`{"is_enabled", v.isEnabled && !v.adminDisabled}`.
+The same folding is applied explicitly for edges at `src/ndt_core/http/HttpSession.cpp` line 530:
+`{"is_enabled", e.isEnabled && !e.adminDisabled}`.
+
+**Why folded.** The four consumers that read `is_enabled` — Energy-Saving-App,
+Network-Traffic-Visualizer, Web-GUI, Traffic-Engineering-App — already treat it as “usable”:
+the Energy-Saving simulator’s own walk is `if (!isUp || !isEnabled) continue;`.
+Folding `adminDisabled` into `is_enabled` means an operator’s disable takes effect for all
+of them with no change on their side.
+
+**Invariant.** Nothing may carry both `admin_disabled: true` and `is_enabled: true`.
+A client that only reads `is_enabled` still behaves correctly; `admin_disabled` is there
+for a client that needs to tell “operator turned it off” apart from “control plane cannot
+reach it.”
+
+**Current default.** The kernel runs with `--no-ai`, so the Intent Translator path that sets
+`adminDisabled` is unreachable. In a default run the field is always `false`.
+The invariant above is checkable regardless.
+
+### `is_up` in OVS vs. P4 mode
+
+**OVS mode (Ryu).** `is_up` means the switch appears in Ryu’s `/v1.0/topology/switches` poll,
+a host appears in `/v1.0/topology/hosts`, and a link appears in `/v1.0/topology/links`.
+Discovery sets both `isUp` and `isEnabled` to `true` unconditionally for everything reported
+(`TopologyAndFlowMonitor.cpp` lines 499-500, 552-553, 569-570, 681-682).
+Separately, `pingWorker` runs `ovs-vsctl list-br` once a second and calls `setVertexUp`/`setVertexDown`
+for OVS bridges it finds or misses.
+
+**P4 mode (bmv2).** There is no Ryu and no `ovs-vsctl`. The proxy serves Ryu-shaped topology
+endpoints (`/v1.0/topology/switches`, `/hosts`, `/links`) so the kernel polls them unchanged,
+and discovery marks everything `isUp = true` the same way it does in OVS mode.
+
+Real liveness comes from a *separate* polling path: the kernel’s ping worker calls
+`GET /p4/switch_state` on the proxy once a second. The proxy returns evidence, not a verdict —
+for each switch it reports:
+
+- `probe_ok`: `true`/`false`/`null` — outcome of the most recent GetForwardingPipelineConfig
+  RPC. `null` means no probe has completed yet.
+- `probe_age_s`: seconds since that probe; `null` when never probed.
+- `last_lldp_age_s`: seconds since the last LLDP beacon arrived from this switch; `null` when none.
+- `last_packet_in_age_s`, `stream_alive`, `grpc_addr`.
+
+The kernel’s `p4LivenessFor()` (`DeviceConfigurationAndPowerManager.hpp` lines 319-360) applies
+a three-state policy:
+
+| Verdict  | Condition |
+| -------- | --------- |
+| **Up**   | `probe_ok == true` and `probe_age_s` ≤ 15 s |
+| **Down** | `probe_ok == false`, `probe_age_s` ≤ 15 s, and no fresh LLDP beacon (age > 12 s) |
+| **Unknown** | Everything else: no payload at all, no entry for this dpid, `probe_ok` is `null`, `probe_age_s` is stale, or the probe and the beacon disagree |
+
+**Unknown deliberately leaves the graph alone.** The caller `pingWorker` sets `isUp` only on
+Up and Down; on Unknown it writes nothing, so the graph keeps its previous state. Conflating
+Unknown with Down would take the whole fabric down whenever the proxy is unreachable — the
+same mistake that a single failed `ovs-vsctl` call used to make on the OVS side.
+
+The proxy (`p4_proxy/proxy_agent/topology_manager.py` lines 716-758) also emits `links`
+in the response (the link watchdog’s state), but the kernel reads only the `"switches"` key.
+
 At the edge between the switch and host, the dpid and interface on the host side are set to 0.
 
 
@@ -2296,3 +2366,737 @@ Returned when an unknown exception type is thrown.
 
 
 
+
+---
+
+All three are POST, exact-match, and delegate to the Ryu controller (or P4 proxy) via
+`FlowRoutingManager`. The request body is passed through verbatim — the kernel adds no
+envelope — and must include a `"dpid"` field so the dispatcher can select the correct
+routing strategy (`FlowRoutingManager.cpp` lines 149-189). The handler code is at
+`HttpSession.cpp` lines 730-769.
+
+**In P4 mode** all three return **501 Not Implemented**. `P4RoutingStrategy` overrides each
+to call `OpResult::unsupported()` (`src/ndt_core/routing_management/P4RoutingStrategy.cpp`
+lines 23-25). The proxy has no `/stats/groupentry` route at all (confirmed by grep of
+`p4_proxy/`).
+
+---
+
+
+## 31. POST /ndt/install_group_entry
+
+### Description
+
+Installs an OpenFlow group entry on a switch via the Ryu controller (or P4 proxy).
+The request body is forwarded as a POST to the controller’s `/stats/groupentry/add` route.
+
+**P4 mode:** Returns 501 Not Implemented. P4 has no OpenFlow group concept, the proxy
+implements no such route, and the pipeline has no ActionSelector yet.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+The body must include a `"dpid"` field identifying the target switch. All other fields are
+those the Ryu `/stats/groupentry/add` route accepts. The kernel does not inspect them.
+
+```json
+{
+  "dpid": 106225808380928,
+  "type": "ALL",
+  "group_id": 1,
+  "buckets": [
+    {
+      "actions": [
+        {"type": "OUTPUT", "port": 1}
+      ]
+    },
+    {
+      "actions": [
+        {"type": "OUTPUT", "port": 2}
+      ]
+    }
+  ]
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "Group entry installed"
+}
+```
+
+(The shape above is derived from `respondToOpResult` at `HttpSession.cpp` lines 686-727
+with `successMessage = "Group entry installed"`. A real 200 from Ryu passes through as-is;
+the success body is the kernel’s own acknowledgment, not Ryu’s.)
+
+#### Error
+
+* Status: **400 Bad Request** – body has no `"dpid"`, or `"dpid"` is unreadable.
+
+```json
+{
+  "status": "error",
+  "error": "install group entry requires a dpid",
+  "controller_status": 400
+}
+```
+
+* Status: **404 Not Found** – the dpid is not a switch in the loaded topology.
+
+```json
+{
+  "status": "error",
+  "error": "no routing strategy for dpid <n>",
+  "controller_status": 404
+}
+```
+
+* Status: **501 Not Implemented** – P4 mode only. All six group/meter operations return
+this on a bmv2 data plane.
+
+```json
+{
+  "status": "error",
+  "error": "group entry install is not supported on a P4/bmv2 data plane: …",
+  "controller_status": 501
+}
+```
+
+* Status: **502 Bad Gateway** – the controller/proxy did not respond within 5 s.
+
+```json
+{
+  "status": "error",
+  "error": "no response from …",
+  "controller_status": 0
+}
+```
+
+* Any other non-2xx from the controller is passed through with its HTTP status and
+`controller_status` set to that value.
+
+* Status: **500 Internal Server Error** – unexpected runtime error.
+
+```json
+{
+  "error": "Internal server error",
+  "details": "<exception message>"
+}
+```
+
+* Status: **500 Internal Server Error** – unknown exception.
+
+```json
+{
+  "error": "An unknown error occurred"
+}
+
+```
+---
+
+## 32. POST /ndt/modify_group_entry
+
+### Description
+
+Modifies an existing OpenFlow group entry. The body is forwarded to the controller’s
+`/stats/groupentry/modify` route.
+
+**P4 mode:** Returns 501 Not Implemented.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+Must include `"dpid"`. Example:
+
+```json
+{
+  "dpid": 106225808380928,
+  "type": "ALL",
+  "group_id": 1,
+  "buckets": [
+    {
+      "actions": [
+        {"type": "OUTPUT", "port": 3}
+      ]
+    }
+  ]
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "Group entry modified"
+}
+```
+
+#### Error
+
+Same status codes and body shapes as `/ndt/install_group_entry` above, with
+`"Group entry modified"` replaced by `"Group entry modified"` in the 200 body
+and the relevant operation name in the error detail.
+
+---
+
+## 33. POST /ndt/delete_group_entry
+
+### Description
+
+Deletes an OpenFlow group entry. The body is forwarded to the controller’s
+`/stats/groupentry/delete` route.
+
+**P4 mode:** Returns 501 Not Implemented.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+Must include `"dpid"`. Example:
+
+```json
+{
+  "dpid": 106225808380928,
+  "group_id": 1
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "Group entry deleted"
+}
+```
+
+#### Error
+
+Same shapes as `/ndt/install_group_entry`.
+```
+
+```
+---
+
+
+All three are POST, exact-match, and structurally identical to the group-entry endpoints.
+The kernel forwards the body to Ryu’s `/stats/meterentry/add`, `/stats/meterentry/modify`,
+and `/stats/meterentry/delete` respectively (`HttpRoutingStrategyBase.cpp` lines 224-239).
+In P4 mode all three return 501 Not Implemented (`P4RoutingStrategy.cpp` lines 27-29).
+
+
+## 34. POST /ndt/install_meter_entry
+
+### Description
+
+Installs an OpenFlow meter entry on a switch. The body is forwarded to the controller’s
+`/stats/meterentry/add` route.
+
+**P4 mode:** Returns 501 Not Implemented. P4 has no OpenFlow meter concept; the proxy
+has no `/stats/meterentry` route.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+Must include `"dpid"`. Example:
+
+```json
+{
+  "dpid": 106225808380928,
+  "meter_id": 1,
+  "flags": ["KBPS"],
+  "bands": [
+    {"type": "DROP", "rate": 1000}
+  ]
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "Meter entry installed"
+}
+```
+
+#### Error
+
+Same status codes and body shapes as `/ndt/install_group_entry`, with the appropriate
+operation name.
+
+---
+
+## 35. POST /ndt/modify_meter_entry
+
+### Description
+
+Modifies an existing OpenFlow meter entry. The body is forwarded to the controller’s
+`/stats/meterentry/modify` route.
+
+**P4 mode:** Returns 501 Not Implemented.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+Must include `"dpid"`. Shape matches the install body above.
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "Meter entry modified"
+}
+```
+
+#### Error
+
+Same shapes as `/ndt/install_group_entry`.
+
+---
+
+## 36. POST /ndt/delete_meter_entry
+
+### Description
+
+Deletes an OpenFlow meter entry. The body is forwarded to the controller’s
+`/stats/meterentry/delete` route.
+
+**P4 mode:** Returns 501 Not Implemented.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+Must include `"dpid"`. Example:
+
+```json
+{
+  "dpid": 106225808380928,
+  "meter_id": 1
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "Meter entry deleted"
+}
+```
+
+#### Error
+
+Same shapes as `/ndt/install_group_entry`.
+```
+
+```
+---
+
+
+
+## 37. GET /ndt/get_openflow_capacity
+
+### Description
+
+Returns the static OpenFlow capability catalogue from `doc/OpenflowCapacity.json`.
+This is a lookup table of OpenFlow features (table sizes, match fields, instructions,
+actions, group types, meter support) per switch brand. It is not live data — the file
+is read once per request from disk (`HttpSession.cpp` lines 1624-1642).
+
+Works identically in OVS and P4 mode (no control-plane dependency).
+
+### Request
+
+* Method: **GET**
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "OVS": {
+    "openflow_versions": ["1.0","1.1","1.2","1.3","1.4","1.5"],
+    "tables": [
+      {
+        "id": 0,
+        "max_entries": 1000000,
+        "matches": ["in_port","eth_src","eth_dst","eth_type","vlan_vid","vlan_pcp","ipv4_src","ipv4_dst","ip_proto","tcp_src","tcp_dst","metadata"],
+        "instructions": ["APPLY_ACTIONS","WRITE_ACTIONS","CLEAR_ACTIONS","GOTO_TABLE","WRITE_METADATA","METER"],
+        "actions": ["OUTPUT","GROUP","DROP","SET_QUEUE","PUSH_MPLS","PUSH_VLAN","POP_MPLS","POP_VLAN","SET_FIELD","DEC_NW_TTL","DEC_MPLS_TTL"]
+      }
+    ],
+    "groups": { "types": ["ALL","SELECT","INDIRECT","FF"] },
+    "meters": { "supported": true, "flags": ["KBPS","BURST","STATS"], "bands": ["DROP","DSCP_REMARK"] }
+  },
+  "BrocadeICX7250": { … },
+  "HPE5520": { … }
+}
+```
+
+(The response above was **measured** live at `localhost:8000/ndt/get_openflow_capacity`
+on 2026-08-10. The file is at `doc/OpenflowCapacity.json`.)
+
+#### Error
+
+* Status: **500 Internal Server Error** — the file could not be opened. The handler
+logs an error and returns without setting a body, so the response may be empty.
+
+```json
+{
+  "error": "Internal server error",
+  "details": "<exception message>"
+}
+```
+
+---
+
+
+
+## 38. GET /ndt/get_static_topology_json
+
+### Description
+
+Returns the static topology as loaded from the JSON configuration file
+(`setting/StaticNetworkTopology.json`), with IP addresses in dotted-quad string form.
+Unlike `/ndt/get_graph_data`, this endpoint returns the raw topology without live
+state (no `is_up`, `is_enabled`, `flow_set`, or bandwidth utilisation).
+
+Useful for a client that needs the wiring diagram without runtime state.
+
+Works identically in OVS and P4 mode.
+
+### Request
+
+* Method: **GET**
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "nodes": [
+    {
+      "ip": ["192.168.123.11"],
+      "dpid": 1,
+      "mac": 0,
+      "vertex_type": 0,
+      "device_name": "s1",
+      "brand_name": "BMv2",
+      "device_layer": 2,
+      "bridge_name": "s1"
+    },
+    {
+      "ip": ["10.0.0.1"],
+      "dpid": 0,
+      "mac": 1,
+      "vertex_type": 1,
+      "device_name": "h1",
+      "brand_name": "",
+      "device_layer": 3
+    }
+  ],
+  "edges": [
+    {
+      "src_dpid": 1,
+      "src_interface": 1,
+      "src_ip": ["192.168.123.11"],
+      "dst_dpid": 5,
+      "dst_interface": 1,
+      "dst_ip": ["192.168.123.15"],
+      "link_bandwidth_bps": 1000000000
+    }
+  ]
+}
+```
+
+(The response above was **measured** live at `localhost:8000/ndt/get_static_topology_json`
+on 2026-08-10. The actual output includes all nodes and edges from the running topology.)
+
+#### Error
+
+* Status: **500 Internal Server Error** — unexpected runtime error.
+
+```json
+{
+  "error": "Internal server error",
+  "details": "<exception message>"
+}
+```
+
+---
+
+
+
+## 39. POST /ndt/historical_logging
+
+### Description
+
+Enables or disables historical data logging. The state is supplied as a query parameter
+because the handler reads it from the URL, not from a JSON body (`HttpSession.cpp`
+lines 1644-1678). A missing or invalid `state` parameter is rejected.
+
+The underlying `HistoricalDataManager` may not be available (e.g. when the kernel runs
+with `--no-ai`); in that case the endpoint returns 500.
+
+Works identically in OVS and P4 mode (no control-plane dependency).
+
+### Request
+
+* Method: **POST**
+* Query Parameter:
+
+| Field   | Type     | Description                                      |
+| ------- | -------- | ------------------------------------------------ |
+| `state` | `string` | `"enable"` or `"disable"` (case-sensitive)       |
+
+* Body: None. The request body is ignored.
+
+```shell
+POST "http://localhost:8000/ndt/historical_logging?state=enable"
+POST "http://localhost:8000/ndt/historical_logging?state=disable"
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "success",
+  "message": "Historical data logging has been enabled."
+}
+```
+
+```json
+{
+  "status": "success",
+  "message": "Historical data logging has been disabled."
+}
+```
+
+(The two shapes above were **measured** live — but the live kernel returned the 500 error
+below because `HistoricalDataManager` is not available in `--no-ai` mode. The success
+shapes are derived from `HttpSession.cpp` lines 1671-1677.)
+
+#### Error
+
+* Status: **400 Bad Request** — `state` is missing or not `"enable"`/`"disable"`.
+
+```json
+{
+  "error": "Invalid or missing 'state' parameter. Use 'enable' or 'disable'."
+}
+```
+
+(This shape was **measured** live: `curl -X POST ...?state=bad` returned it.)
+
+* Status: **500 Internal Server Error** — the `HistoricalDataManager` pointer is null
+(e.g. `--no-ai` mode).
+
+```json
+{
+  "status": "error",
+  "message": "Historical data manager not available."
+}
+```
+
+(This shape was **measured** live. The kernel’s `--no-ai` flag leaves the shared_ptr
+unset, and the handler checks for null at line 1661.)
+
+* Status: **500 Internal Server Error** — unexpected runtime error.
+
+```json
+{
+  "error": "Internal server error",
+  "details": "<exception message>"
+}
+```
+
+---
+
+
+
+## 40. POST /ndt/inform_all_destination_paths
+
+### Description
+
+Receives a complete set of host-to-host paths from an external path-computation engine
+(e.g. Ryu’s `intelligent_router.py` or the P4 proxy’s `/ryu_server/all_destination_paths`).
+The kernel stores these paths in `FlowLinkUsageCollector` via `setAllPaths()`, which
+populates the switch-count map used by `/ndt/get_path_switch_count`.
+
+The handler is at `HttpSession.cpp` lines 1213-1255. It parses each path as a list of
+`[node_id, out_port]` pairs. `node_id` may be a dotted-quad IP string (converted to
+`uint32_t` via `ipStringToUint32`) or a numeric dpid.
+
+Works identically in OVS and P4 mode: both Ryu and the P4 proxy produce this shape.
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+```json
+{
+  "all_destination_paths": [
+    [
+      ["10.0.0.1", 0],
+      ["192.168.123.11", 3],
+      ["192.168.123.15", 1],
+      ["10.0.0.2", 0]
+    ],
+    [
+      ["10.0.0.3", 0],
+      ["192.168.123.13", 3],
+      ["192.168.123.17", 2],
+      ["192.168.123.19", 1],
+      ["10.0.0.4", 0]
+    ]
+  ]
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+```json
+{
+  "status": "success"
+}
+```
+
+(The shape above is derived from code at `HttpSession.cpp` line 1254: `res.body() = R"({"status":"success"})"`. The response was NOT measured live because POSTing arbitrary path data could perturb the live twin.)
+
+#### Error
+
+* Status: **400 Bad Request** — the body is not valid JSON, or `"all_destination_paths"`
+is missing or not an array.
+
+```json
+{
+  "error": "JSON parsing error",
+  "details": "<exception message>"
+}
+```
+
+* Status: **500 Internal Server Error** — unexpected runtime error.
+
+```json
+{
+  "error": "Internal server error",
+  "details": "<exception message>"
+}
+```
+
+---
+
+
+
+## 41. POST /ndt/intent_translator/text
+
+### Description
+
+Submits a natural-language prompt to the Intent Translator LLM pipeline.
+The handler (`HttpSession.cpp` lines 1299-1324) extracts `"prompt"` and `"session"`
+from the JSON body and passes them to `IntentTranslator::inputTextIntent()`.
+The response is the LLM’s structured output.
+
+**`--no-ai` mode:** When the kernel runs with `--no-ai`, the `IntentTranslator` shared_ptr
+is null. The handler does NOT check for null before calling `m_intentTranslator->inputTextIntent()`,
+so dereferencing a null pointer would crash the kernel. This endpoint MUST NOT be called
+in `--no-ai` mode. (This is a known defect; the task forbids calling it against the live twin.)
+
+### Request
+
+* Method: **POST**
+* Content-Type: **application/json**
+* Body
+
+```json
+{
+  "prompt": "Disable switch s5",
+  "session": "default"
+}
+```
+
+### Response
+
+#### Success
+
+* Status: **200 OK**
+
+The body is the LLM response serialised from `llmResponse::LLMResponse`. Shape varies by
+prompt; it is a JSON object whose structure is defined by the Intent Translator module.
+
+#### Error
+
+* Status: **400 Bad Request** — the body is not valid JSON, or `"prompt"`/`"session"`
+are missing.
+
+```json
+{
+  "error": "Invalid request format."
+}
+```
+
+* Status: **500 Internal Server Error** — unexpected runtime error.
+
+```json
+{
+  "error": "Internal server error",
+  "details": "<exception message>"
+}
+```
