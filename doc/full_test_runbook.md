@@ -100,7 +100,7 @@ C++ 測試也要**直接跑一次**，不能只靠 ctest —— ctest 一個測�
 ```bash
 cd /home/adam/Desktop/NDTwin-Kernel && ./build/bin/test_routing_strategy
 ```
-✅ 應該是 `[  PASSED  ] 127 tests.`、exit 0。
+✅ 應該是 `[  PASSED  ] 414 tests.`、exit 0。（2026-08-10 實跑更正，原本寫 127。）
 
 ---
 
@@ -394,9 +394,9 @@ curl -s localhost:8000/ndt/get_detected_flow_data | python3 -m json.tool | head 
 | 解析出的 flow | 雙向 ICMP：type 8 code 0（request）+ type 0 code 0（reply） |
 | `h1 ping h4` | 0% loss、`ttl=59`（64 − 5，證實過 5 台且 TTL 遞減有效） |
 
-⚠️ **P4 模式的 `is_up` 現在還是騙人的** —— bmv2 的 liveness 是 stub，**無條件**標成 up，
-就算完全沒開 bmv2 也顯示 up。判斷 P4 成功要看 **`is_enabled`**（應該 10/10 switch、4/4 host、
-40/40 edge）。
+~~⚠️ **P4 模式的 `is_up` 現在還是騙人的**~~ —— **2026-08-10 更正：已修（`a8db425`）。**
+bmv2 的 liveness 不再是 stub，`is_up` 兩種模式都可以拿來判斷。健康的 P4 fabric 應該是
+10/10 switch、4/4 host、40/40 edge，`is_up` 與 `is_enabled` 都是。
 
 ### 2e. 契約測試、抓 P4 快照、比對
 

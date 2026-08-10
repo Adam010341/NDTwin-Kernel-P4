@@ -10,6 +10,33 @@
 
 ## 0. 現況盤點（實測數字）
 
+> ## ⚠️ 2026-08-10 更新：§0 的數字與 §4／§5 的多數缺口都已過期
+>
+> **實跑數字**：C++ **414**（31 個 `.cpp`、一個 binary、ctest 與直接執行一致）、
+> `p4_proxy/tests/` Python **312**（12 個模組全綠）、kernel 側 `tests/python/` **101**
+> （⚠️ **沒有**被 ctest 註冊，要另外跑）。合計約 **827**，不是 153。
+>
+> **§4 點名「0 測試」的模組，現在大多有了**：
+>
+> | §4 說 0 測試 | 現況 |
+> |---|---|
+> | `LockManager`（§4.1） | `LockManagerTest` **15** |
+> | `FlowDispatcher`（§4.2） | `FlowDispatcherTest` **7** |
+> | `TopologyAndFlowMonitor`（§4.4） | `TopologyAndFlowMonitorTest` 5 ＋ `MininetTopologyTest` 11 = **16** |
+> | `Classifier`（§4.4） | `ClassifierActionFormsTest` 16 ＋ `ClassifierDropRule` 7 = **23** |
+> | `Utils.hpp` 轉換（§4.5） | `IpToStringTest` 4、`TryIpStringToUint32Test` 5、`TryParseUint64Test` 6、`TryMacToUint64Test` 7、`QueryParamTest` 9 |
+> | **sFlow 輸入面（§5.1，本文稱「最大的空白」）** | `SFlowParsingFixture` 17 ＋ `BoundedWordsTest` 4，且 bounds check 已補（ASan 驗證過） |
+> | **p4_proxy Python 沒有任何一層在跑（§5.2）** | L1 現在會跑，且「全 skip」會被判 `NO TESTS RAN` |
+> | `HttpSession`（§4 以外，HANDOFF §1i 記為 ❌） | `HttpSessionRoutingTest` **18**（路由層；handler 內部仍缺接縫） |
+>
+> **§8 待辦**第 1（sFlow bounds check ＋ 畸形封包工具）、第 2（`LockManager`）、
+> 第 5（`FlowDispatcher` 生命週期）**都已完成**。仍然成立的是第 3（RSS／thread 洩漏無工具）、
+> 第 4（殺掉控制器後下規則）、第 6（`release_lock` 未持有仍回 200）。
+>
+> **§1〜§3 大致仍然成立**（工具誤判已修，但不變量太寬鬆、HTTP 協定層沒驗、併發沒驗都還在）。
+>
+> 下面保留原文，因為每一條的**理由**仍然有價值 —— 過期的是狀態，不是分析。
+
 > ⚠️ **2026-07-29 更新**：下表的 L1 數字已過期。實際現況是 **95 個 gtest + 63 個 Python 測試**
 > （`./run_layers.sh quick` 共 153 個），不是 12 個。Phase 4／5 期間新增的：
 >

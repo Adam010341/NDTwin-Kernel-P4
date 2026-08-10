@@ -126,7 +126,12 @@ terminate called after throwing an instance of 'boost::wrapexcept<boost::system:
 `stack.sh up {ovs|p4}` 會自動走對的順序。P4 若順序錯了，症狀是 proxy 完全不開 `:8081`
 （uvicorn 在 startup 就 exit），而真正的原因是 log 裡幾十行前的 ECONNREFUSED。
 
-**kernel 一定要最後開**，因為 `TopologyAndFlowMonitor::run()` 只在啟動時拉一次拓撲、沒有重試迴圈。
+**kernel 一定要最後開。**
+
+⚠️ **2026-08-10 更正**：原本寫的理由是「`run()` 只在啟動時拉一次拓撲、沒有重試迴圈」——
+`71d27c1` 之後不成立，`run()` 已改為定期輪詢（前 90 秒每 5 秒、之後每 30 秒，
+`TopologyAndFlowMonitor.cpp:1793-1795`）。順序規則保留，理由改成上表那個：南向連線方向不同。
+先開 kernel 現在只會讓圖晚幾十秒補齊，不會永久缺料。
 
 ---
 
@@ -198,6 +203,40 @@ sudo -n mnexec -a <pid> kill -TERM <pid>
 
 `sudo mn -c` 也會清掉，但只有在你記得跑的時候 —— 而手動起的 Mininet 是用 Ctrl-D 離開的，
 不會自動 `mn -c`。
+
+## 在 bmv2 上用 `ifconfig <iface> down` 模擬斷線，會連累整台 switch
+
+**[Co-developed with claude code -- Adam]**（2026-08-10 實測）
+
+要在 P4 fabric 上模擬鏈路失效，直覺做法是 `sudo -n ifconfig s1-eth1 down`（`ifconfig` 在 NOPASSWD
+清單裡）。它確實會讓那條鏈路斷掉 —— **但它同時讓 s1 的整條 packet-in 路徑停擺**。
+
+實測數字（`GET /p4/switch_state`）：
+
+| 欄位 | 斷線後的 s1 | 同時間的 s2／s3 |
+|---|---|---|
+| `probe_ok` | `true`（gRPC 照常回答） | `true` |
+| `stream_alive` | `true` | `true` |
+| `last_lldp_age_s` | 3.2 s（s1 **送出**的 beacon 別人還收得到） | 3.2 s |
+| **`last_packet_in_age_s`** | **73 s** | 3.2 s |
+
+也就是說 switch 沒死、gRPC 沒斷、它還在對外送 beacon，但它**不再把收到的封包送上 CPU**。
+
+**後果是一個誤報**：從 s6 送到 s1-eth2 的 beacon 永遠不會被 proxy 看到，於是 watchdog 依它掌握的
+證據判定 `(6, 1, 1, 2)` 也失效了 —— 而那條線實體上完全正常（`ip link` 顯示兩端都 UP）。
+接著 s1 的**兩個入向**都被標 down，`all_destination_paths` 從 12 條掉到 9 條，少的三條全是
+「→ 10.0.0.1」：**twin 認為 h1 不可達，但實際上經 s6 走得通。**
+
+把介面 `up` 回來之後，s1 的 packet-in 在幾秒內恢復（`last_packet_in_age_s` 回到 0.2–4.6 s），
+圖也在 14 秒內回到 40/40、12 條路徑。所以是可逆的，不是壞掉。
+
+> **判讀規則：在 bmv2 上做斷線測試時，只信任你**故意**斷掉的那條鏈路的判定。同一台 switch 上
+> 其他埠出現的失效回報，先去看 `last_packet_in_age_s` 再說。**
+
+Mininet CLI 的 `link s1 s5 down` 底層也是對兩端做同樣的事，所以**大概率同一個症狀**（未另外實測）。
+要乾淨地只斷一條鏈路而不影響該 switch 的其他埠，目前沒有已知做法。
+
+---
 
 ## 不要單獨重啟 Ryu
 

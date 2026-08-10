@@ -7,6 +7,32 @@
 
 ---
 
+> ## ⚠️ 2026-08-10 校正：這份文件有一整類過期敘述
+>
+> 本文多處寫著「Phase 6 未做／圖是死的／`is_enabled` 是 0／P4 liveness 是 stub」。**那些都已經
+> 不成立**，逐處已在下文標註，這裡先給總表，免得只讀開頭的人被誤導：
+>
+> | 文中寫的 | 現況 | 依據 |
+> |---|---|---|
+> | 「P4 的 liveness 還是 stub，不要用 `is_up` 判斷」 | ✅ 已是真存活偵測（`GET /p4/switch_state` ＋ kernel 三態判決，`Unknown` 不動圖） | `a8db425` |
+> | 「`inform_switch_entered` 沒人呼叫，`is_enabled` 是 0、`path` 是 `[]`」 | ✅ 由 `main.startup()` 在 pipeline 推完後呼叫 | 計畫書 Phase 6 |
+> | 「`GET /stats/flow/{dpid}` 還是回 `[]`」 | ✅ 已實作（`ryu_flow_stats.py` ＋ `read_table_entries()`） | 同上 |
+> | 「`./stack.sh wait` 在 P4 模式一定會逾時（`enabled=0`）」 | ❌ 不再成立 | 同上 |
+> | 測試數字（153 個／90 個 C++／`PASSED 90 tests`） | 現為 **C++ 414、p4_proxy Python 312、kernel 側 Python 101** | 2026-08-10 實跑 |
+>
+> **Phase 6 已完成**（2026-08-10 實機驗證通過）。原本剩的兩件實機驗證都過了：
+> `seed_expected_links` 的接收側 port 假設成立（靜態 32/32 ＋ 實機 16/16 ingress port 零矛盾），
+> 失效鏈路在 kernel 圖裡維持 down（238 秒、約 7–8 個 poll 週期，只出現 `up=37/40` 一種狀態）。
+> 細節見 `p4_bmv2_support_plan.md` 的 Phase 6 章節。
+>
+> ⚠️ 同時記下一個測試方法的陷阱：在 bmv2 上 `ifconfig <iface> down` 會讓整台 switch 的 packet-in
+> 停擺，害同一台上另一條健康鏈路被誤報失效 —— 見 `environment_gotchas.md`。
+>
+> 這份文件為什麼會爛掉：它是手寫的進度快照，而進度靠 commit 前進 —— 和計畫書那張表同一個病
+> （計畫書 §「為什麼這張表會過期」自己就寫了）。**要相信這裡的任何數字，先花十分鐘對一遍。**
+
+---
+
 ## 先講最重要的一件事
 
 **Phase 6 的圖已經活了**（commit `198bffd` / `e49327a` / `c24bc91`）。下面的數字是實測，不是推論：
@@ -18,9 +44,12 @@
 | edge `is_up` / `is_enabled` | 0/40 | **40/40** |
 | `get_path_switch_count` | 空 | **12 組 pair 都有，`switch_count: 5`** |
 
-⚠️ **但 P4 的 liveness 還是 stub**（`DeviceConfigurationAndPowerManager.cpp`）：bmv2 switch 被
-**無條件**標成 up，就算完全沒開 bmv2 也顯示 up。所以**不要用 `is_up` 判斷 P4 模式成不成功**，
-要看 `is_enabled`。OVS 那側的 liveness 已經是真的了（commit `6b3dc0c`）。
+~~⚠️ **但 P4 的 liveness 還是 stub**：bmv2 switch 被無條件標成 up，所以不要用 `is_up` 判斷 P4
+模式成不成功，要看 `is_enabled`。~~
+✅ **已修（`a8db425`）—— 2026-08-10 更正。** proxy 的 `GET /p4/switch_state` 回報事實
+（`GetForwardingPipelineConfig` 往返 ＋ LLDP 新鮮度），kernel 用 `p4LivenessFor` 三態判決，
+`Unknown` 不動圖。實機驗證：殺掉一台 bmv2 約 10 秒後變 down 並留在 down。**`is_up` 在兩種模式
+下都可以信了。**
 
 計畫書原本寫「光做 `inform_switch_entered` 就能解開 BFS」，**實測不成立**：它只會把 switch
 *vertex* 設成 enabled，edge 是 `updateLinks()` 設的，而那只在 kernel 輪詢時才跑。
@@ -65,14 +94,14 @@
 
 ### B. 已完成，但只有單元測試，還沒對真的 bmv2 跑過
 
-- **direct counter（`flow_5tuple` / `ipv4_lpm`）和 per-port counter** —— 表和 counter 都在 p4info 裡，但 `/stats/flow/{dpid}` 還沒接（見下面 Phase 6）。讀 bmv2 counter 需要 Thrift 的 Python binding，這台機器上兩個 interpreter 都沒裝。
+- **direct counter（`flow_5tuple` / `ipv4_lpm`）和 per-port counter** —— 表和 counter 都在 p4info 裡。⚠️ 2026-08-10 更正：`/stats/flow/{dpid}` **已經接上了**（`ryu_flow_stats.py`），原本這裡寫「還沒接」。仍然成立的是：讀 bmv2 counter 需要 Thrift 的 Python binding，這台機器上兩個 interpreter 都沒裝，所以 counter 本身沒被外部驗證過。
 - **P4RoutingStrategy 的實際下規則路徑** —— curl → proxy → P4Runtime 這條鏈的每一段都有測，但整條沒有對活的 switch 跑過。
 
 ### C. 還沒做（會影響你測試時看到什麼）
 
 | Phase | 缺什麼 | 對你測試的影響 |
 |---|---|---|
-| **6** | proxy 不呼叫 kernel 的北向（`inform_switch_entered`、`link_failure_detected`、`inform_all_destination_paths`）；`GET /stats/flow/{dpid}` 還是回 `[]`；`pingWorker` 的 liveness 還是假的 | **整張圖是死的**。這是現在最大的一塊，也是下一步要做的 |
+| ~~**6**~~ | ✅ **已完成（2026-08-10 更正）** —— 北向三個通知、`/stats/flow/{dpid}`、真存活偵測都做了。只剩兩件**實機驗證**：`seed_expected_links` 接收側的 port 假設、失效鏈路在 kernel 圖裡維持 down | 圖是活的。原本這格寫「整張圖是死的」 |
 | **3**（proxy 那半） | 少 `POST /stats/flowentry/delete`（非 strict，這是所有 `priority == -1` 刪除的預設路徑，包含 Intent Translator 的）；prefix 還是硬寫 `/32`；沒有 idle_timeout 模擬；dpid→grpc_addr 還是硬寫 `range(1,11)`；`TopologyManager` 沒加鎖 | 刪規則和聚合路由會不如預期 |
 | **4**（漏掉的） | `p4_testbed_topo.py` 的 **TCLink 頻寬沒補回來**（OVS 那邊是 1000/10000 Mbps，`GraphTypes.hpp` 和兩份拓撲 JSON 都假設 1 Gbps）；ECMP 的 ActionSelector 也還沒做 | 頻寬相關的計算會用預設值，不是 1 Gbps |
 | **7** | 電源管理還是壞的 | 別測關機 |
@@ -95,7 +124,7 @@
 
 | # | 步驟 | 誰跑 | 大約時間 |
 |---|---|---|---|
-| 0 | `./run_layers.sh quick`（153 個測試） | ⚙️ | 2 分 |
+| 0 | `./run_layers.sh quick`（**827** 個測試：C++ 414 ＋ p4_proxy Python 312 ＋ kernel 側 Python 101；原本寫 153） | ⚙️ | 2 分 |
 | 0b | `./l0_build_check.sh p4`（P4 pipeline 編譯） | ⚙️ | 30 秒 |
 | 0c | `./run_layers.sh selftest`（contract schema + 依賴圖） | ⚙️ | 10 秒 |
 | 0.5 | ASan／UBSan 建置並跑測試 | ⚙️ | 3 分 |
@@ -124,7 +153,9 @@ namespace／bridge 會讓下一個模式起不來或測出假結果。
 
 ### 第 0 步：不需要開任何東西（約 2 分鐘）
 
-這步涵蓋 153 個測試（90 個 C++ + 63 個 Python），是你日常改完程式碼唯一需要跑的。
+這步涵蓋 **827** 個測試（C++ **414** ＋ p4_proxy Python **312** ＋ kernel 側 `tests/python/` **101**），
+是你日常改完程式碼唯一需要跑的。（2026-08-10 實跑更正，原本寫「153 個（90 C++ + 63 Python）」。
+⚠️ `tests/python/` 那 101 個**沒有**被 ctest 註冊，要另外跑。）
 
 ```bash
 cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
@@ -173,7 +204,8 @@ cmake --build build-asan -j$(nproc)
 cd build-asan && ASAN_OPTIONS=detect_leaks=0 ./bin/test_routing_strategy
 ```
 
-通過標準：`[  PASSED  ] 90 tests.`，而且**沒有**任何 `ERROR: AddressSanitizer` 或 `runtime error:`。
+通過標準：`[  PASSED  ] 414 tests.`（2026-08-10 更正，原本寫 90），而且**沒有**任何
+`ERROR: AddressSanitizer` 或 `runtime error:`。
 
 ### 第 1 步：telemetry 路徑（不需要 bmv2，也不需要 Mininet）
 
@@ -247,7 +279,8 @@ for f in flows:
 
 - **剛好 5 筆**。送進去的是 7 個 fixture：ARP 正確地不產生 flow，`emitted_multi.bin` 裡的三筆跟前面重複所以合併。
 - **不應該**有 malformed datagram 的訊息。
-- `path` 會是 `[]`、link usage 會是 `0.0` —— **這是預期的**（Phase 6 未做）。
+- `path` 會是 `[]`、link usage 會是 `0.0` —— 在**這一步**是預期的，因為這步刻意不開 proxy。
+  ⚠️ 2026-08-10 更正：原本的理由寫「Phase 6 未做」，那已經不成立；現在的理由是沒有南向對口。
 - log 裡會有 `parseFlowStatsTextToJson JSON parsing failed`。P4 模式下沒開 proxy 的時候這是預期的
   （沒人回應 flow stats 查詢）。
 
@@ -294,9 +327,13 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
    直接 return，什麼都不說。`--observe-links` 只載入 `ryu.topology.switches`（提供**事件**），
    不含這兩組 REST endpoint，所以光靠它是不夠的。
 
-3. **kernel 必須等控制平面準備好才能開。** `TopologyAndFlowMonitor::run()` 只在啟動時**拉一次**
-   拓撲和 destination paths 就結束，**沒有重試迴圈** —— 那一刻 Ryu 還不知道的東西，kernel 這輩子
-   都不會知道。
+3. **kernel 必須等控制平面準備好才能開。**
+
+   > ⚠️ **2026-08-10 更正**：原文寫「`run()` 只在啟動時**拉一次**、沒有重試迴圈，那一刻 Ryu 還
+   > 不知道的東西 kernel 這輩子都不會知道」。`71d27c1` 之後已改為定期輪詢（前 90 秒每 5 秒、之後
+   > 每 30 秒，`TopologyAndFlowMonitor.cpp:1793-1795`），漏掉的 host／link 會被補上。
+   > 下面關於「link 收斂 vs all-destination paths」的時間差說明仍然成立，而且仍是等收斂的理由 ——
+   > 只是代價從「永久缺料」降級成「前幾十秒的圖不完整」。
 
    ⚠️ **「link 收斂」和使用說明書講的里程碑是兩件事**，時間差非常大：
 
@@ -538,7 +575,9 @@ grep -c "clone session failed\|NO telemetry"       .test_run/logs/p4_proxy.log  
 **這三個數字（10／10／0）已經實測達成過**，所以它現在是迴歸標準，不是待驗證項目。
 如果看到 `[Proxy Agent] Switch N: clone session failed, NO telemetry from it`，那台就沒有 telemetry。
 
-`./stack.sh wait` 在 P4 模式**一定會逾時**（`enabled=0`），這是預期的，不是失敗 —— Phase 6 未做。
+~~`./stack.sh wait` 在 P4 模式**一定會逾時**（`enabled=0`），這是預期的，不是失敗 —— Phase 6 未做。~~
+**2026-08-10 更正：不再成立。** Phase 6 的北向通知已接上，P4 模式的 `enabled` 應該和 OVS 一樣收斂。
+**現在這裡逾時就是真的壞了**，先查 proxy 有沒有發 `inform_switch_entered`（`main.py:142`）。
 
 L2／L3 契約測試和 L4 基準在 P4 模式一樣可以跑：
 
@@ -603,9 +642,11 @@ for x in json.load(sys.stdin):
 收下並解析**，而不只是出現在 lo 上。（`0 packets captured / N received by filter` 的意思是 tcpdump
 檢查了 N 個 lo 封包、但沒有一個符合過濾條件。）
 
-**不要用這些當標準**（Phase 6 未做，一定是空的）：
-`/ndt/get_graph_data` 的 `is_enabled`、link usage、flow 的 `path`、Web GUI 的畫面。
-`is_up` 會是 true 但那是 stub 騙你的（見開頭那張表）。
+~~**不要用這些當標準**（Phase 6 未做，一定是空的）：`/ndt/get_graph_data` 的 `is_enabled`、
+link usage、flow 的 `path`、Web GUI 的畫面。`is_up` 會是 true 但那是 stub 騙你的。~~
+
+**2026-08-10 更正：整段不再成立。** Phase 6 已完成，上面每一項現在都應該有真值，
+可以（也應該）拿來當通過標準。`is_up` 也不再是 stub。
 
 收尾：
 
@@ -624,8 +665,14 @@ sudo mn -c
 emitter → kernel 解析出正確的雙向 flow，`rx=126, addressed=126`、零錯誤（2026-07-29 實測）。
 bmv2 fabric 本身也證實能端到端轉發（`ping` 0% loss、`ttl=59` 證實過 5 跳且 TTL 遞減有效）。
 
-還不能相信的是：**圖是活的**。那是 Phase 6 —— `inform_switch_entered` 沒人呼叫，所以
-`is_enabled` 是 0、`path` 是 `[]`、link usage 是 0。**telemetry 資料已經進到 kernel 了，
-缺的是把它掛到圖上。**
+~~還不能相信的是：**圖是活的**。那是 Phase 6 —— `inform_switch_entered` 沒人呼叫，所以
+`is_enabled` 是 0、`path` 是 `[]`、link usage 是 0。~~
+
+**2026-08-10 更正：這段已經過時。** Phase 6 的程式碼部分完成了 —— 北向通知、`/stats/flow/{dpid}`、
+真存活偵測、失效鏈路雙邊排除、路徑轉換時推送都在。**圖是活的。**
+
+現在還不能相信的是**別的東西**：Phase 6 剩下的兩件實機驗證（`seed_expected_links` 接收側的
+port 假設、失效鏈路在 kernel 圖裡是否真的維持 down）、Phase 3／7／8，以及 HANDOFF §2c 那個
+「Ryu 在錯的啟動順序下永久回空表」——**那一個會讓所有健康指標全綠而 flow table 全錯。**
 
 [Co-developed with claude code -- Adam]

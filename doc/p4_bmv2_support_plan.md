@@ -16,7 +16,7 @@ Phase 6 比原本標的完成得多。
 | **2** 失敗看得見 | ✅ 完成 | `7856efc`、`08746f4`。`OpResult` + 真實 HTTP status |
 | **4** P4 pipeline | ✅ 完成 | `4577983`。5-tuple ternary、ARP、TTL、取樣、counter |
 | **5** telemetry | 🟨 **一半**（原本標 ✅，錯了）| flow sample（type 1）✅ 完成並實機驗證；**counter sample（type 2）完全沒實作** —— 見下一節 |
-| **6** 拓撲／liveness／flow table | 🟨 **五項完成、一項不存在**（2026-08-08 再次校正）| ✅ `inform_switch_entered`（`main.py:142`，pipeline 推完後對 usable 的 switch 發）、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths。❌ **link failure/recovery 通知根本不存在** —— `KernelNotifier.link_failure()` / `link_recovery()` 有定義，但**全 proxy 沒有任何呼叫點**；`_last_lldp_from` 有記錄、有從 `/p4/switch_state` 回報，但**從來沒有拿去跟逾時比對來判定 link 斷掉**。我 08-07 標它 ✅ 是錯的，當時只查了 notifier 上有方法。⚠️ 兩個觸發測試**都寫不出來**，因為 `main.py` 的 startup 是 module-level side effect ＋ `@app.on_event` 閉包，缺 `async def startup(clients_factory, sflow, kernel, topo)` 這個接縫 |
+| **6** 拓撲／liveness／flow table | ✅ **完成**（2026-08-10 實機驗證，10 台 bmv2）| `inform_switch_entered`（`main.py:142`，pipeline 推完後對 usable 的 switch 發）、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths、**link failure/recovery 通知**。⚠️ 08-08 這一格寫「link failure/recovery 根本不存在」—— 那在當時成立，之後補上了 `check_link_beacons` + `start_link_watchdog`，今天實測跑通：斷線 11 秒後三筆 `link_failure_detected` 抵達、圖維持 37/40 達 238 秒（約 7–8 個 poll），恢復後 14 秒回到 40/40。兩件實機驗證（`seed_expected_links` port 假設、失效鏈路維持 down）都通過，見下方 Phase 6 章節 |
 | **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖 |
 | **7** 電源管理 | 🟨 一半 | PID manifest 已做（`22ada58`，`/tmp/ndtwin_p4_switches.json`）；`P4PowerStrategy` 還沒用它 |
 | **8** 收尾 | ⬜ 未做 | |
@@ -117,9 +117,11 @@ Phase 5 的規格寫了**兩種** sample：
 3. **`get_path_switch_count` 目前回 `{"status":"error","message":"Path not found..."}`** 是正確行為，
    不要改成回假的數字。Phase 6 做完之後它自然會回真實的 `switch_count`。
 
-4. **kernel 的 pull 只做一次、沒有重試**（`TopologyAndFlowMonitor::run()` 呼叫
-   `fetchAndUpdateTopologyData()` 一次就結束）。這是為什麼 kernel 一定要最後開、而且要等收斂。
-   Phase 6 應該加 refresh loop，這樣就不再依賴啟動時序。
+4. ~~**kernel 的 pull 只做一次、沒有重試**~~ ✅ **已完成（`71d27c1`）。**
+   `run()` 現在定期輪詢：前 90 秒每 5 秒、之後每 30 秒（`TopologyAndFlowMonitor.cpp:1793-1795`）。
+   「kernel 最後開並等收斂」這條操作規則保留，但理由換了 —— 現在只是為了圖早點完整，不再是
+   「錯過就永遠不知道」。第一版輪詢曾讓圖不斷增長（`loadStaticTopologyFromFile` 是新增不是對帳），
+   已拆開並讓它拒絕第二次載入，詳見 `HANDOFF.md` §2。
 
 5. **OVS 模式需要 Ryu 多載兩個 stock app**（已修進 `stack.sh`）：`ryu.app.rest_topology` 提供
    `/v1.0/topology/*`，`ryu.app.ofctl_rest` 提供 `/stats/flow/<dpid>` 和 `/stats/flowentry/*`。
@@ -291,7 +293,8 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 
     ⚠️ **它只打開頂點，不打開邊。** `handleInformSwitchEntered` 呼叫的是 `setVertexUp` ＋
     `setVertexEnable`（HttpSession.cpp:1080-1081），僅此而已。switch↔switch 的**邊**是
-    `updateLinks` 在 **1 秒一次**的 topology poll 裡用 `(src dpid, src port)` 打開的，資料來源是
+    `updateLinks` 在 topology poll 裡用 `(src dpid, src port)` 打開的（poll 間隔：前 90 秒每 5 秒，
+    之後每 30 秒，`TopologyAndFlowMonitor.cpp:1793-1795`；**不是 1 秒**，:1798 的 1 秒是 sleep 切片），資料來源是
     proxy 提供的 Ryu 形狀 `/v1.0/topology/links`；host 邊在 `updateHosts` 裡打開。
     `enableSwitchAndEdges` 確實會一併打開相鄰邊，但**唯一的呼叫點是 `IntentTranslator.cpp:227`**。
     我曾把這件事寫反過，而那個錯誤的理由掩蓋了一個真正的缺陷 —— 見下面 link watchdog 那條。
@@ -318,9 +321,11 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     要修的那個 bug。
     ⚠️ **回報失效本身不夠 —— 這是後來才發現的，而且是我自己 ship 的缺陷。** kernel 的
     `updateLinks` **只會**把 `isUp`/`isEnabled` 設成 true，**沒有任何路徑會設成 false**，而它
-    1 秒跑一次；proxy 這邊 `add_link` 也沒有對應的移除，探索到的 link 會永遠上報。所以順序是：
-    watchdog 回報失效 → kernel 把邊設 down → **不到一秒後 poll 又把它設回 enabled**。回報是真的，
-    效果撐不到一秒，而且沒有任何地方會講。修法是 `down_link_endpoints()`：proxy **停止上報**它認為
+    每個 poll 週期跑一次（5 秒／30 秒，見上）；proxy 這邊 `add_link` 也沒有對應的移除，探索到的
+    link 會永遠上報。所以順序是：watchdog 回報失效 → kernel 把邊設 down → **下一個 poll 又把它設回
+    enabled**。回報是真的，效果撐不過一個 poll 週期，而且沒有任何地方會講。
+    （⚠️ 本段原先寫「1 秒」「不到一秒」，是把 :1798 的 sleep 切片誤讀成 poll 間隔。缺陷本身不變，
+    但存活窗口是 5–30 秒而非 1 秒。）修法是 `down_link_endpoints()`：proxy **停止上報**它認為
     已經斷掉的方向 —— 在現行 kernel 下這是唯一辦得到的，因為那個回覆裡沒有辦法表達「down」，而
     poll 從不提及的邊會保留它上次被設定的狀態。
     連帶一個更細的洞：`add_link` 從**一個** beacon 就建出**兩個**方向，所以反向邊通常是推論而非觀測，
@@ -385,8 +390,21 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 `test_link_watchdog.py`（34）用**注入的時鐘**測 15 秒逾時——真的等 15 秒的測試，第一次有人趕時間就會被
 刪掉；整個檔案跑 7 ms。
 
-**Phase 6 尚餘：** 只剩實機驗證兩件事 —— `seed_expected_links` 的 port 編號假設（接收側），以及
-「被 watchdog 判定失效的鏈路在 kernel 圖裡真的維持 down」。程式碼部分 Phase 6 已完成：
+**Phase 6 ✅ 完成（2026-08-10 實機驗證通過，10 台 bmv2）。** 原本剩的兩件都做了：
+
+| 驗證項目 | 結果 |
+|---|---|
+| `seed_expected_links` 接收側 port 編號 | ✅ **假設成立。** 靜態：32/32 條有向邊與 `p4_testbed_topo.py` 的接線 ＋ bmv2 自己的 `-i <port>@<iface>`（十台都是恆等 `port N == sX-ethN`）完全吻合。實機：proxy 記錄的 16 條 `Discovered link` 的 ingress port 全部等於拓撲檔的 `dst_interface`，零矛盾 |
+| 失效鏈路在 kernel 圖裡維持 down | ✅ **維持住了。** 斷 s1-eth1 → 11 秒後三筆 `link_failure_detected` 抵達 → 圖 37/40。取樣 40 次／119 秒**只出現 `up=37/40` 一種狀態**；連同斷線起算共 238 秒、約 7–8 個 poll 週期。決定性證據是 13:34:40 那次 poll 自己就回報 `37 edges up` —— proxy 的 `down_link_endpoints` 把它們從 `/v1.0/topology/links` 抽掉了，poll 根本沒有東西可以拿來復活 |
+| （順帶）推送的路徑避開死鏈路 | ✅ 9 條路徑**零條**從 s1 的 port 1 出去，h1 全改走 `1(p2) -> 6`；push 在斷線後 11 秒送達，0 次失敗 |
+| （順帶）恢復 | ✅ `ifconfig up` 後 14 秒內回到 40/40、12 條路徑 |
+
+⚠️ **實測時挖到一個測試方法上的陷阱**：`ifconfig <iface> down` 會讓那台 bmv2 的**整條 packet-in
+路徑停擺**（`last_packet_in_age_s` 73 s，而 `probe_ok` 仍是 true），於是同一台 switch 另一個埠上的
+健康鏈路被誤報成失效，連帶讓 h1 在 twin 裡變成不可達。詳見
+[environment_gotchas.md](environment_gotchas.md)。**watchdog 的判斷是對的，錯的是我模擬失效的方式。**
+
+程式碼部分 Phase 6 已完成：
 `inform_switch_entered`（pipeline 推完後）、beacon 逾時的 link_failure／recovery、失效鏈路從
 `/v1.0/topology/links` 與路徑搜尋雙邊排除、路徑在轉換時主動推送、`/stats/flow/{dpid}`、
 `/p4/switch_state` 三態存活判定、LLDP beacon 的 port 推導與 MAC 修正。

@@ -52,7 +52,7 @@
 
 ### L1：Kernel 單元測試
 
-**回答的問題：** 單元層級的行為是否正確？這層涵蓋 C++ 與 Python 兩半邊。C++ 這邊是 gtest：28 個 `.cpp`、368 個測試、41 個 test suite，全部在 `tests/` 下，編成單一執行檔 `test_routing_strategy`。Python 這邊是 `p4_proxy/tests/` 的 10 個檔案（unittest 格式，不是 pytest）——P4 路徑有一半在 Python（sFlow emitter、clone session），C++ suite 碰不到它們。
+**回答的問題：** 單元層級的行為是否正確？這層涵蓋 C++ 與 Python 兩半邊。C++ 這邊是 gtest：**31 個 `.cpp`、414 個測試**，全部在 `tests/` 下，編成單一執行檔 `test_routing_strategy`（2026-08-10 實跑更正，原本寫 28／368／41）。Python 這邊是 `p4_proxy/tests/` 的 **12 個**檔案、**312 個**測試（unittest 格式，不是 pytest）——P4 路徑有一半在 Python（sFlow emitter、clone session），C++ suite 碰不到它們。
 
 **執行時機：** `./run_layers.sh quick` = L0 + L1，約 2 分鐘，不需要 Mininet。`l1_unit_tests.sh` 會先設定/建置（或 `--no-build` 假設 build 是最新的），然後把 gtest 跑兩種方式。
 
@@ -233,9 +233,9 @@ allowlist 格式是三個欄位，以「 | 」（空白-直條-空白）分隔�
 
 | 資產 | 規模/形式 | 用途 |
 |---|---|---|
-| gtest 測試 | 28 個 `.cpp`、368 個測試、41 個 suite，編成 `test_routing_strategy` 單一執行檔 | L1 |
-| `p4_proxy/tests/` | 10 個 Python 檔（unittest 格式，非 pytest） | L1 的 P4 Python 半邊 |
-| `tests/python/` | 2 個 Python 檔（kernel 端 + 測試工具本身） | L1 / 工具自我測試 |
+| gtest 測試 | **31 個 `.cpp`、414 個測試**，編成 `test_routing_strategy` 單一執行檔（2026-08-10 更正） | L1 |
+| `p4_proxy/tests/` | **12 個** Python 檔、**312 個**測試（unittest 格式，非 pytest） | L1 的 P4 Python 半邊 |
+| `tests/python/` | 2 個 Python 檔、**101 個**測試（kernel 端 + 測試工具本身）。⚠️ **沒有**被 ctest 註冊 | L1 / 工具自我測試 |
 | `tests/shell/` | 1 個 shell 測試 | 腳本層 |
 | `tests/fixtures/` | 31 個 `.bin`（真實 OVS + Ryu + Mininet 抓取的 sFlow 封包 golden fixtures） | 真實流量對照 |
 | `doc/audit/` | 2 份 `mutation-evidence-*.md` | mutation 驗收證據 |

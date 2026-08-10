@@ -52,10 +52,17 @@ Ryu 是 server、switch 連進來，所以 OVS 要先開 Ryu；bmv2 才是 serve
 監聽 `0.0.0.0:50051-50060`），proxy 是 gRPC **client**，所以 P4 要先開 Mininet，否則 proxy
 的第一個 RPC 就 ECONNREFUSED、uvicorn 直接 exit。`stack.sh up {ovs|p4}` 會自動走對的順序。
 
-**kernel 一定要最後開，而且開之前要等收斂** —— `TopologyAndFlowMonitor::run()` 只在啟動時
-**拉一次**拓撲和 destination paths 就結束，沒有重試迴圈，那一刻控制層還不知道的東西 kernel 這輩子
-都不會知道。`stack.sh` 會輪詢控制層直到數量跟拓撲檔對上（小拓撲實測約 2 秒）。
-之前很多「看起來壞掉」其實只是還沒收斂。
+**kernel 一定要最後開，而且開之前要等收斂。** `stack.sh` 會輪詢控制層直到數量跟拓撲檔對上
+（小拓撲實測約 2 秒）。之前很多「看起來壞掉」其實只是還沒收斂。
+
+> ⚠️ **2026-08-10 更正：這條規則仍然要遵守，但它原本寫的理由已經失效。**
+> 原文是「`run()` 只在啟動時**拉一次**拓撲、沒有重試迴圈，那一刻控制層還不知道的東西 kernel 這輩子
+> 都不會知道」。`71d27c1` 之後 `run()` 是**定期輪詢**：前 90 秒每 5 秒、之後每 30 秒
+> （`TopologyAndFlowMonitor.cpp:1793-1795`）。所以晚一點才出現的 host／link **會**被補上。
+>
+> 規則本身留著，因為它有**別的**理由：P4 模式下 bmv2 是 server、proxy 是 client；OVS 模式下
+> 「不要在 Mininet 還跑著的時候重啟 Ryu」（HANDOFF §2c）。**先開 kernel 現在只是收斂慢，不再是
+> 永久性缺料。**
 
 **OVS 模式的 Ryu 還要多載兩個 stock app**：`ryu.app.rest_topology`（提供 `/v1.0/topology/*`）和
 `ryu.app.ofctl_rest`（提供 `/stats/flow/<dpid>` 和 `/stats/flowentry/*`）。`--observe-links` 只提供
@@ -123,7 +130,9 @@ cd p4_proxy && PYTHONPATH=. python3 tests/test_sflow_emitter.py
 
 ### 測什麼
 
-目前 `tests/CMakeLists.txt` 只建一個 binary `test_routing_strategy`，裡面 3 個 test suite、共 12 個 case，全部**離線、不需 Mininet**：
+目前 `tests/CMakeLists.txt` 只建一個 binary `test_routing_strategy`。⚠️ **2026-08-10 更正：
+下表已嚴重過期** —— 現在是 **31 個 `.cpp`、414 個 case、47 個 test suite**，不是 3 個 suite／12 個
+case。全部仍然**離線、不需 Mininet**。下表保留成歷史紀錄（它記錄的是這一層最早的樣子）：
 
 | Test suite | 測試數 | 測什麼 |
 |---|---|---|
@@ -131,7 +140,9 @@ cd p4_proxy && PYTHONPATH=. python3 tests/test_sflow_emitter.py
 | `P4RoutingStrategyTest` | 2 | P4 模式下同上，但 URL/port 走 proxy agent |
 | `ComputeEstimatedRatesTest` | 8 | `sflow::computeEstimatedRates` 在 hops=0 時不能除以零（曾因此 SIGFPE 崩潰）、多 hop 平均、整數除法截斷等邊界 |
 
-建置方式：CMake 透過 `gtest_discover_tests(test_routing_strategy)` 把每個 `TEST_F` 註冊成獨立的 ctest case（所以 ctest 會看到 12 個 Test #1…#12）。
+建置方式：CMake 透過 `gtest_discover_tests(test_routing_strategy)` 把每個 `TEST_F` 註冊成獨立的 ctest case（所以 ctest 現在會看到 414 個 Test #1…#414）。
+
+⚠️ `tests/python/`（101 個測試）和 `tests/shell/`（1 個）**沒有**被 ctest 註冊，`ctest` 全綠不代表它們跑過。
 
 ### 為什麼要跑兩次（腳本的核心邏輯）
 
@@ -205,7 +216,14 @@ get_graph_data  →  必須有 nodes[] 和 edges[]
 
 ### 順手抓到的現有破口
 
-做這份對照表時發現：**Energy-Saving-App 會 POST 到 `/ndt/disable_switch`，但 kernel 根本沒有實作這個 endpoint**（`src/app/http.cpp:269` 打過去，kernel 的 40 個註冊 endpoint 裡沒有它）。這支呼叫應該一直在拿 404，而 app 把錯誤吃掉了，所以從畫面上看不出來。
+做這份對照表時發現：**Energy-Saving-App 的原始碼裡有一個 POST 到 `/ndt/disable_switch` 的函式，而 kernel 沒有實作這個 endpoint**（`src/app/http.cpp:269`）。
+
+⚠️ **2026-08-10 更正**：原文接著寫「這支呼叫應該一直在拿 404，而 app 把錯誤吃掉了」——
+**那個推論是錯的**。那個函式有 **0 個呼叫點**，是死碼；節能實際走 `/ndt/set_switches_power_state`
+（2 個呼叫點，實測回 200）。所以「節能功能從來沒關掉過任何交換機」並不成立。
+
+這個例子的價值反而更高了，因為它示範了 L3 這類靜態掃描的**能力邊界**：它掃的是「原始碼裡出現過
+哪些 endpoint」，不是「執行時真的會打哪些」。前者是後者的超集。
 
 另外有 4 個 endpoint 有實作但 `doc/ndt_api.md` 沒寫：`intent_translator`（Web-GUI 在用）、`get_openflow_capacity`、`historical_logging`、`inform_all_destination_paths`。
 
