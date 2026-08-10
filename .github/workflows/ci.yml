@@ -73,12 +73,28 @@ jobs:
       - name: Unit tests (ctest)
         run: ctest --test-dir build --output-on-failure
 
+      # Ubuntu 24.04's system python is externally managed, so pip refuses to install into it.
+      # setup-python provides one that is ours to write to, and it lands first on PATH, which is
+      # how l1_unit_tests.sh's interpreter probe (`import p4.v1.p4runtime_pb2`) comes to select it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Installing this is what makes the Python job mean something. Before it, five test files
+      # died at import on a missing networkx or uvicorn -- reported as FAIL, exit 1, ran=0 -- and
+      # three more skipped themselves wholesale for want of the P4Runtime protobufs. 91 of the 312
+      # tests never executed. The gap was not that the runner lacks anything exotic; it is that
+      # nothing ever installed p4_proxy/requirements.txt.
+      - name: Install Python test dependencies
+        run: python -m pip install --upgrade pip && pip install -r p4_proxy/requirements.txt
+
       - name: Python unit tests
         run: bash tools/test_workflow/l1_unit_tests.sh
         # l1_unit_tests.sh treats a fully-skipped Python file as a FAILURE unless it declares
         # NDTWIN_L1_OPT_IN, because unittest counts skipped tests inside "Ran N" and a file where
-        # every test skips prints "Ran 55 tests / OK". Without the P4Runtime protobufs installed here,
-        # the proxy tests that need gRPC are the opt-in ones and are reported as skipped, not passed.
+        # every test skips prints "Ran 55 tests / OK". With the requirements installed above, the
+        # only file that legitimately skips is test_p4_client.py, whose single test declares it
+        # needs a live switch.
 
   # ===========================================================================
   # ASan + UBSan. Same tests, different instrumentation.
