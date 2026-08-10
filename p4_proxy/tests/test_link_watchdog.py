@@ -763,6 +763,56 @@ class SwitchLevelSilenceIsNotARerouteReasonTest(WatchdogTestBase):
         self.silence_everything_into_s1()
         self.assertTrue(self.topo.reroutable_down_endpoints())
 
+    def test_the_genuinely_broken_link_is_still_a_reroute_reason_at_a_suspect_switch(self):
+        """
+        The switch that stalls is the switch whose interface was taken down, so the one real
+        failure is always among the reports being forgiven. Forgiving it too keeps routing traffic
+        into a physically dead link. A real break kills both directions; the stall silences only
+        the inbound one.
+        """
+        # s1<->s5 is the link that physically broke: both directions go quiet.
+        self.beacon(5, 1, 1, 1)
+        self.beacon(1, 1, 5, 1)
+        # s1<->s9 is healthy; only the inbound half falls silent, because s1 cannot deliver what
+        # it receives while it can still send.
+        self.beacon(9, 2, 1, 2)
+        self.beacon(1, 2, 9, 2)
+        self.probe(1, True)
+
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(1, 2, 9, 2)   # s1 still sends on the healthy port
+        self.topo.check_link_beacons()
+
+        reroutable = self.topo.reroutable_down_endpoints()
+        self.assertIn((5, 1), reroutable,
+                      "both directions of s1<->s5 are down, so it is a real break and traffic "
+                      "must stop being routed into it")
+        self.assertNotIn((9, 2), reroutable,
+                         "s9->s1 fell silent only because s1 stopped delivering to its CPU; the "
+                         "link carries traffic perfectly well")
+
+    def test_the_measured_incident_yields_exactly_the_two_real_directions(self):
+        """
+        The 2026-08-10 fault, replayed from the proxy log verbatim.
+
+        `sudo ifconfig s5-eth4 down` produced five down reports:
+            (1,1,5,1) (9,1,5,3) (2,1,5,2)   -- false, s5 stopped delivering to its CPU
+            (5,4,10,1) (10,1,5,4)           -- real, both directions of the broken link
+        Only the last two may drive a reroute.
+        """
+        alive_reverses = [(5, 1, 1, 1), (5, 3, 9, 1), (5, 2, 2, 1)]
+        for link in [(1, 1, 5, 1), (9, 1, 5, 3), (2, 1, 5, 2),
+                     (5, 4, 10, 1), (10, 1, 5, 4)] + alive_reverses:
+            self.beacon(*link)
+        self.probe(5, True)
+
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        for link in alive_reverses:      # s5 can still send, just not receive
+            self.beacon(*link)
+        self.topo.check_link_beacons()
+
+        self.assertEqual(self.topo.reroutable_down_endpoints(), {(5, 4), (10, 1)})
+
     def test_one_link_failing_while_the_others_beacon_is_a_reroute_reason(self):
         # The ordinary case, which must not be caught by the suppression.
         self.beacon(5, 1, 1, 1)

@@ -403,9 +403,22 @@ class TopologyManager:
         So an all-inbound-quiet switch that is still answering gRPC is treated as a switch-level
         symptom and its links are left in the routing graph. If it stops answering gRPC the switch
         really is gone, and its links are excluded like any other failure.
+
+        **The amnesty is per link, not per switch**, because the switch that stalled is also the
+        switch whose interface was taken down -- so the one genuinely broken link is always among
+        the reports being forgiven, and forgiving it too would go on routing traffic into a link
+        that is physically dead. The two are separable by the same asymmetry that defines the
+        stall: a stalled CPU path stops the switch *receiving*, so only the inbound direction goes
+        quiet and the outbound one keeps beaconing; a real break kills both directions. Checked
+        against the five reports the measured fault produced -- the three false ones each had a
+        live reverse, and both directions of the real break were down.
+
+        An unknown reverse (never discovered) is treated as live, which keeps the conservative
+        direction: this set decides what to reprogram, where doing nothing costs less than moving
+        traffic off a link that was working.
         """
         with self._liveness_lock:
-            down_links = [link for link, e in self._link_beacons.items() if e["down"]]
+            down_links = {link for link, e in self._link_beacons.items() if e["down"]}
             inbound = {}
             for (src, src_port, dst, dst_port) in self._link_beacons:
                 inbound.setdefault(dst, set()).add((src, src_port, dst, dst_port))
@@ -416,9 +429,12 @@ class TopologyManager:
             if links and all(link in down_links for link in links) and probe_ok.get(dpid) is True:
                 suspect.add(dpid)
 
-        return {(src, src_port)
-                for (src, src_port, dst, dst_port) in down_links
-                if dst not in suspect}
+        reroutable = set()
+        for (src, src_port, dst, dst_port) in down_links:
+            if dst in suspect and (dst, dst_port, src, src_port) not in down_links:
+                continue  # inbound-only silence at a stalled switch: the link itself is fine
+            reroutable.add((src, src_port))
+        return reroutable
 
     def calculate_all_paths(self, exclude_endpoints=()):
         """
