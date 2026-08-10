@@ -377,11 +377,69 @@ class TopologyManager:
             self.net.add_edge(switch_dpid, ip, port=port)
             self.net.add_edge(ip, switch_dpid, port=0)
 
-    def calculate_all_paths(self):
-        """Calculates all-pairs shortest paths using BFS"""
+    def reroutable_down_endpoints(self):
+        """
+        The `(dpid, port)` down reports that justify moving traffic, as opposed to reporting it.
+
+        [Co-developed with claude code -- Adam]
+        Not the same set as `down_link_endpoints`, and deliberately so. That one answers "what
+        should the twin stop claiming", where over-reporting is the safe direction. This one
+        answers "what should we reprogram switches because of", where over-reacting moves traffic
+        off links that are carrying it perfectly well.
+
+        The difference is one measured failure mode. Taking a bmv2 interface down stalls that
+        switch's entire packet-in path, so *every* link into it goes quiet at once and the
+        watchdog reports them all: one real break produced five down directions, of which three
+        were healthy links whose beacons simply had nowhere to be delivered. Rerouting on those
+        three would have pulled traffic off working links, and put it back when the interface
+        returned.
+
+        The signature is distinguishable, because the two causes differ in what else is true:
+
+          - a genuine single link failure leaves the switch's *other* inbound links beaconing;
+          - a stalled CPU path silences all of them together, while the switch still answers
+            P4Runtime -- `probe_ok` stayed true throughout the measurement.
+
+        So an all-inbound-quiet switch that is still answering gRPC is treated as a switch-level
+        symptom and its links are left in the routing graph. If it stops answering gRPC the switch
+        really is gone, and its links are excluded like any other failure.
+        """
+        with self._liveness_lock:
+            down_links = [link for link, e in self._link_beacons.items() if e["down"]]
+            inbound = {}
+            for (src, src_port, dst, dst_port) in self._link_beacons:
+                inbound.setdefault(dst, set()).add((src, src_port, dst, dst_port))
+            probe_ok = {dpid: (p or {}).get("ok") for dpid, p in self._last_probe.items()}
+
+        suspect = set()
+        for dpid, links in inbound.items():
+            if links and all(link in down_links for link in links) and probe_ok.get(dpid) is True:
+                suspect.add(dpid)
+
+        return {(src, src_port)
+                for (src, src_port, dst, dst_port) in down_links
+                if dst not in suspect}
+
+    def calculate_all_paths(self, exclude_endpoints=()):
+        """
+        Calculates all-pairs shortest paths using BFS.
+
+        [Co-developed with claude code -- Adam]
+        `exclude_endpoints` -- `(dpid, port)` sources whose link must not be used -- exists because
+        this feeds `install_initial_routes`, and it used to search the whole graph including links
+        the watchdog had already reported down. That is why calling the installer after a failure
+        would have changed nothing: it recomputed the identical route, straight back into the dead
+        link.
+        """
         paths_dict = {}
         nodes = self.net.nodes()
-        
+
+        # A view, not a copy, and never a mutation: the LLDP threads own this graph.
+        search = self.net
+        drop = ryu_topology.down_edges(self.net, exclude_endpoints)
+        if drop:
+            search = nx.restricted_view(self.net, [], drop)
+
         for dst in nodes:
             paths_dict[dst] = {}
             for src in nodes:
@@ -389,7 +447,7 @@ class TopologyManager:
                     continue
                 try:
                     # BFS shortest path
-                    path = nx.shortest_path(self.net, source=src, target=dst)
+                    path = nx.shortest_path(search, source=src, target=dst)
                     paths_dict[dst][src] = {
                         "path": path,
                         "length": len(path) - 1
@@ -526,8 +584,19 @@ class TopologyManager:
 
 # Developed in collaboration with Gemini 3.1 Pro.
     def install_initial_routes(self):
-        """Proactively installs routing rules in all switches for all hosts."""
-        self.calculate_all_paths()
+        """
+        Installs routing rules in all switches for all hosts, avoiding links believed down.
+
+        [Co-developed with claude code -- Adam]
+        Called on discovery and, since failover, on a link transition. A destination that has no
+        route at all once the failed links are excluded is simply not written: the switch keeps
+        the rule it already has, so traffic for it continues into the dead link and starts working
+        again by itself when the link returns. Deleting the rule instead would make the drop
+        explicit at the switch, but it needs a reinstall on recovery, and the twin already reports
+        the loss honestly -- `render_destination_paths` withdraws any path whose installed route
+        is broken.
+        """
+        self.calculate_all_paths(self.reroutable_down_endpoints())
         print("[TopologyManager] Installing initial routes proactively...")
         for dst, src_paths in self.dest_paths.items():
             # We only care about routing TO hosts
@@ -1013,6 +1082,18 @@ class TopologyManager:
         for link in result["up"]:
             print(f"[TopologyManager] link back up: {link}")
         if result["down"] or result["up"]:
+            # [Co-developed with claude code -- Adam]
+            # Reprogram first, announce second. The push advertises the routes that are installed,
+            # so pushing first would publish a snapshot that is honest but already out of date, and
+            # the corrected one would not arrive until the next transition. Installing is
+            # idempotent -- insert_ipv4_route falls back to MODIFY -- so a pass whose links did not
+            # actually move rewrites the same rules rather than doing damage.
+            try:
+                self.install_initial_routes()
+            except Exception as e:  # noqa: BLE001
+                # A failed reinstall must not cost the kernel its failure notification, which is
+                # the part that worked before failover existed.
+                print(f"[TopologyManager] reroute after transition failed: {type(e).__name__}: {e}")
             self.push_destination_paths()
         return result
 

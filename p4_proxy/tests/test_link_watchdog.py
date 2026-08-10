@@ -633,6 +633,147 @@ class PathsArePushedOnATransitionTest(WatchdogTestBase):
         self.assertFalse(bare.push_destination_paths())
 
 
+class FailoverTest(WatchdogTestBase):
+    """
+    A link failure must move the traffic, not just be reported.
+
+    [Co-developed with claude code -- Adam]
+    Measured on 2026-08-10, before this existed: breaking a mid-path link stopped the ping dead
+    and lost 38% of 40000 packets, because `install_initial_routes` was only ever called when a
+    link was *discovered*. The two properties below are what "failover" means here -- the
+    recomputation must avoid the failed link, and something must actually call it.
+    """
+
+    class RecordingClient:
+        """Stands in for P4Client, recording the routes it is asked to install."""
+
+        def __init__(self):
+            self.routes = {}
+
+        def insert_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
+            self.routes[dst_ip] = port
+            return True
+
+    def setUp(self):
+        super().setUp()
+        # h1 -- s1 =p1/p2= s5 -- h2, with a longer way round through s9.
+        for dpid in (1, 5, 9):
+            self.topo.net.add_node(dpid, type="switch")
+        self.topo.add_host("10.0.0.1", 1, 1, 3)
+        self.topo.add_host("10.0.0.2", 2, 5, 4)
+        self.topo.add_link(1, 5, 1, 2)
+        self.topo.add_link(1, 9, 5, 6)
+        self.topo.add_link(9, 5, 7, 8)
+        self.clients = {dpid: self.RecordingClient() for dpid in (1, 5, 9)}
+        self.topo.switches = self.clients
+
+    def fail_the_direct_link(self):
+        self.beacon(1, 1, 5, 2)
+        self.beacon(1, 5, 9, 6)   # the detour keeps beaconing, so s1 is not "all inbound quiet"
+        self.beacon(9, 7, 5, 8)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(1, 5, 9, 6)
+        self.beacon(9, 7, 5, 8)
+
+    def test_the_recomputed_route_avoids_the_failed_link(self):
+        self.fail_the_direct_link()
+        self.topo.check_link_beacons()
+        self.topo.install_initial_routes()
+        # s1 reaching h2 must now leave by port 5, the detour, not port 1.
+        self.assertEqual(self.clients[1].routes.get("10.0.0.2"), 5)
+
+    def test_the_watchdog_pass_reprograms_the_switches(self):
+        # The wiring, not the computation: deleting the install call from the loop must fail here.
+        self.fail_the_direct_link()
+        self.topo.run_watchdog_pass()
+        self.assertEqual(self.clients[1].routes.get("10.0.0.2"), 5)
+
+    def test_a_pass_with_no_transition_does_not_reprogram(self):
+        self.beacon(1, 1, 5, 2)
+        self.topo.run_watchdog_pass()
+        self.assertEqual(self.clients[1].routes, {})
+
+    def test_a_destination_with_no_route_left_keeps_the_rule_it_has(self):
+        # Adam's decision: leave the old rule so traffic resumes by itself on recovery, rather than
+        # deleting it and needing a reinstall. Nothing may be written for that destination.
+        topo = TopologyManager(kernel_notifier=self.kernel, clock=self.clock)
+        for dpid in (1, 5):
+            topo.net.add_node(dpid, type="switch")
+        topo.add_host("10.0.0.1", 1, 1, 3)
+        topo.add_host("10.0.0.2", 2, 5, 4)
+        topo.add_link(1, 5, 1, 2)
+        client = self.RecordingClient()
+        topo.switches = {1: client, 5: self.RecordingClient()}
+        payload = topo.create_lldp_packet(1, 1)
+        topo.handle_packet_in(5, 2, payload)
+        client.routes.clear()
+
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        topo.check_link_beacons()
+        topo.install_initial_routes()
+        self.assertNotIn("10.0.0.2", client.routes,
+                         "with the only link down there is no route to write, and the existing "
+                         "rule must be left alone rather than replaced or deleted")
+
+
+class SwitchLevelSilenceIsNotARerouteReasonTest(WatchdogTestBase):
+    """
+    One bmv2 interface going down stalls that switch's whole packet-in path, so every link into
+    it falls silent at once and the watchdog reports them all. Measured: one real break produced
+    five down directions, three of them healthy links. Rerouting on those three would pull traffic
+    off working links and put it back on recovery.
+
+    The two causes are distinguishable: a real single-link failure leaves the switch's other
+    inbound links beaconing, while a stalled CPU path silences them together *and* the switch goes
+    on answering P4Runtime.
+    """
+
+    def setUp(self):
+        super().setUp()
+        for dpid in (1, 5, 9):
+            self.topo.net.add_node(dpid, type="switch")
+        self.topo.add_link(5, 1, 1, 1)
+        self.topo.add_link(9, 1, 2, 2)
+
+    def probe(self, dpid, ok):
+        with self.topo._liveness_lock:
+            self.topo._last_probe[dpid] = {"ok": ok, "detail": "", "at": self.clock()}
+
+    def silence_everything_into_s1(self):
+        self.beacon(5, 1, 1, 1)
+        self.beacon(9, 2, 1, 2)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.topo.check_link_beacons()
+
+    def test_all_inbound_quiet_while_the_switch_answers_grpc_is_not_a_reroute_reason(self):
+        self.probe(1, True)
+        self.silence_everything_into_s1()
+        self.assertEqual(self.topo.reroutable_down_endpoints(), set())
+
+    def test_the_twin_still_reports_them_as_down(self):
+        # Suppressing the *reroute* must not suppress the report: over-reporting is safe there,
+        # and the kernel has always been told.
+        self.probe(1, True)
+        self.silence_everything_into_s1()
+        self.assertTrue(self.topo.down_link_endpoints())
+
+    def test_a_switch_that_stopped_answering_grpc_is_a_reroute_reason(self):
+        # Then it really is gone, and routing around it is correct.
+        self.probe(1, False)
+        self.silence_everything_into_s1()
+        self.assertTrue(self.topo.reroutable_down_endpoints())
+
+    def test_one_link_failing_while_the_others_beacon_is_a_reroute_reason(self):
+        # The ordinary case, which must not be caught by the suppression.
+        self.beacon(5, 1, 1, 1)
+        self.beacon(9, 2, 1, 2)
+        self.probe(1, True)
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(9, 2, 1, 2)          # this one is still alive
+        self.topo.check_link_beacons()
+        self.assertEqual(self.topo.reroutable_down_endpoints(), {(5, 1)})
+
+
 class ThePushComputesOverASnapshotTest(WatchdogTestBase):
     """
     The push reads the whole graph from the watchdog thread while the gRPC receive threads write it.
