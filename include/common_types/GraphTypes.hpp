@@ -183,6 +183,37 @@ struct VertexProperties
     uint64_t dpid;
     bool isUp = true;
     bool isEnabled = true;
+
+    /** @brief An operator asked for this to be out of service, and discovery may not overrule it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Third flag rather than reusing `isEnabled`, because the two answer different questions and
+     * different writers own them:
+     *
+     *   - `isUp`          -- powered / reachable. Written by liveness probing.
+     *   - `isEnabled`     -- the control plane can drive this. Written by **discovery**
+     *                        (`updateSwitches`/`updateLinks`/`updateHosts`), unconditionally true
+     *                        for everything the poll reports.
+     *   - `adminDisabled` -- administrative intent. Written **only** by the Intent Translator's
+     *                        DisableSwitch/EnableSwitch. Discovery must never touch it.
+     *
+     * Before this existed, `DisableSwitch` cleared `isEnabled` and the next topology poll (5 s for
+     * the process's first 90 s, then 30 s -- TopologyAndFlowMonitor.cpp:1793-1795) set it straight
+     * back to true, with no log. The operator's instruction was silently discarded while every
+     * consumer went on showing the switch as usable.
+     *
+     * ⚠️ The obvious alternative -- "let discovery write only `isUp`" -- does not work: the loader
+     * starts everything at `isEnabled = false` (TopologyAndFlowMonitor.cpp:203, :270) and discovery
+     * is the *only* thing that ever sets it true, so forbidding it blanks the whole graph.
+     *
+     * Serialised as `admin_disabled`, and folded into the `is_enabled` that `/ndt/get_graph_data`
+     * emits (HttpSession.cpp) so the four consumers that read `is_enabled` -- Energy-Saving-App,
+     * Network-Traffic-Visualizer, Web-GUI, Traffic-Engineering-App -- see an operator's disable
+     * without any change on their side. They already treat it as "usable": the Energy-Saving
+     * simulator's own walk is `if (!isUp || !isEnabled) continue;`.
+     */
+    bool adminDisabled = false;
+
     std::string deviceName = "";
     std::string nickName = "";
     std::string bridgeNameForMininet = "";
@@ -196,6 +227,24 @@ struct VertexProperties
     std::vector<std::string> bridgeConnectedPortsForMininet;
     std::vector<EcmpGroup> ecmpGroups;
 };
+
+/**
+ * @brief Is this vertex/edge available to carry traffic?
+ *
+ * [Co-developed with claude code -- Adam]
+ * One definition instead of the intersection written out at each call site. It is written out at
+ * six of them today, and the seventh -- `getAvgLinkUsage` -- tested only `isUp`, which is exactly
+ * the failure this shape invites: nothing tells you a site is missing a flag, and adding a third
+ * flag would have meant finding all of them by eye.
+ *
+ * All three must hold: powered (`isUp`), reachable by the control plane (`isEnabled`), and not
+ * administratively taken out of service (`adminDisabled`).
+ */
+inline bool
+isUsable(const VertexProperties& v)
+{
+    return v.isUp && v.isEnabled && !v.adminDisabled;
+}
 
 inline void
 from_json(const nlohmann::json& j, PortMember& m)
@@ -249,6 +298,9 @@ from_json(const json& j, VertexProperties& v)
     v.dpid = j.at("dpid").get<uint64_t>();
     v.isUp = j.at("is_up").get<bool>();
     v.isEnabled = j.at("is_enabled").get<bool>();
+    // .value() not .at(): this field postdates every topology JSON on disk, and a missing one
+    // means "nobody has disabled it". [Co-developed with claude code -- Adam]
+    v.adminDisabled = j.value("admin_disabled", false);
     v.deviceName = j.at("device_name").get<std::string>();
     v.nickName = j.at("nickname").get<std::string>();
     v.brandName = j.at("brand_name").get<std::string>();
@@ -264,7 +316,12 @@ to_json(nlohmann::json& j, const VertexProperties& v)
                        {"ip", v.ip},
                        {"dpid", v.dpid},
                        {"is_up", v.isUp},
-                       {"is_enabled", v.isEnabled},
+                       // Folded, so the four apps that read is_enabled see an operator's
+                       // disable with no change on their side; admin_disabled is emitted
+                       // alongside for anything that wants to tell the two apart.
+                       // [Co-developed with claude code -- Adam]
+                       {"is_enabled", v.isEnabled && !v.adminDisabled},
+                       {"admin_disabled", v.adminDisabled},
                        {"device_name", v.deviceName},
                        {"nickname", v.nickName},
                        {"brand_name", v.brandName},
@@ -282,6 +339,12 @@ struct EdgeProperties
 {
     bool isUp = true;
     bool isEnabled = true;
+
+    //: Administrative intent for this direction; see VertexProperties::adminDisabled for why it is
+    //: a third flag and not a reuse of isEnabled. Set by disableSwitchAndEdges on every edge
+    //: incident to the switch; discovery never writes it. [Co-developed with claude code -- Adam]
+    bool adminDisabled = false;
+
     uint64_t leftBandwidth = 0;
     uint64_t linkBandwidth = MININET_INTERFACE_SPEED;
     uint64_t linkBandwidthUsage = 0;
@@ -301,11 +364,19 @@ struct EdgeProperties
     std::unordered_map<sflow::FlowKey, TimePoint, sflow::FlowKeyHash> flowSet;  // For finding max flow count, and link failure detection
 };
 
+/** @brief Edge overload of isUsable; see the VertexProperties one for why this exists. */
+inline bool
+isUsable(const EdgeProperties& e)
+{
+    return e.isUp && e.isEnabled && !e.adminDisabled;
+}
+
 inline void
 from_json(const json& j, EdgeProperties& e)
 {
     e.isUp = j.at("is_up").get<bool>();
     e.isEnabled = j.at("is_enabled").get<bool>();
+    e.adminDisabled = j.value("admin_disabled", false);
     e.leftBandwidth = j.at("left_link_bandwidth_bps").get<uint64_t>();
     e.linkBandwidth = j.at("link_bandwidth_bps").get<uint64_t>();
     e.linkBandwidthUsage = j.at("link_bandwidth_usage_bps").get<uint64_t>();

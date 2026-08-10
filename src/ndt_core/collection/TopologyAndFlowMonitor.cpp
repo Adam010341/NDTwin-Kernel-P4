@@ -1899,7 +1899,7 @@ TopologyAndFlowMonitor::getAllPathsBetweenTwoHosts(sflow::FlowKey flow_key,
 
             const auto& ep = (*m_graph)[e];
             // Only traverse the active and enabled links
-            if (ep.isUp && ep.isEnabled)
+            if (isUsable(ep))
             {
                 current_path.push_back({ep.srcDpid, ep.srcInterface});
                 dfs(v);
@@ -2025,7 +2025,13 @@ TopologyAndFlowMonitor::disableSwitchAndEdges(uint64_t dpid)
 
     auto vertex = *vertexOpt;
 
+    // [Co-developed with claude code -- Adam]
+    // Both flags, and they do different jobs. `isEnabled = false` makes the disable take effect
+    // now; `adminDisabled = true` makes it *survive*, because the next topology poll sets
+    // `isEnabled` back to true unconditionally for everything it reports and has no idea an
+    // operator ever spoke. Writing only the first is what made DisableSwitch a silent no-op.
     (*m_graph)[vertex].isEnabled = false;
+    (*m_graph)[vertex].adminDisabled = true;
 
     for (auto [ei, ei_end] = boost::edges(*m_graph); ei != ei_end; ++ei)
     {
@@ -2035,8 +2041,13 @@ TopologyAndFlowMonitor::disableSwitchAndEdges(uint64_t dpid)
         if (src_v == vertex || dst_v == vertex)
         {
             (*m_graph)[*ei].isEnabled = false;
+            (*m_graph)[*ei].adminDisabled = true;
         }
     }
+
+    SPDLOG_LOGGER_INFO(Logger::instance(),
+                       "administrative disable of dpid {} recorded (survives topology polls)",
+                       dpid);
 }
 
 void
@@ -2051,7 +2062,11 @@ TopologyAndFlowMonitor::enableSwitchAndEdges(uint64_t dpid)
 
     auto vertex = *vertexOpt;
 
+    // Clears the administrative intent as well as enabling: "enable s3" from an operator has to be
+    // able to undo "disable s3" from the same operator, and only the second line does that.
+    // [Co-developed with claude code -- Adam]
     (*m_graph)[vertex].isEnabled = true;
+    (*m_graph)[vertex].adminDisabled = false;
 
     for (auto [ei, ei_end] = boost::edges(*m_graph); ei != ei_end; ++ei)
     {
@@ -2061,8 +2076,11 @@ TopologyAndFlowMonitor::enableSwitchAndEdges(uint64_t dpid)
         if (src_v == vertex || dst_v == vertex)
         {
             (*m_graph)[*ei].isEnabled = true;
+            (*m_graph)[*ei].adminDisabled = false;
         }
     }
+
+    SPDLOG_LOGGER_INFO(Logger::instance(), "administrative enable of dpid {} recorded", dpid);
 }
 
 void
@@ -2201,11 +2219,11 @@ TopologyAndFlowMonitor::bfsAllPathsToDst(
         {
             Graph::vertex_descriptor neighbor = boost::target(edge, g);
 
-            if (!g[neighbor].isUp || !g[neighbor].isEnabled)
+            if (!isUsable(g[neighbor]))
             {
                 continue;
             }
-            if (!g[edge].isUp || !g[edge].isEnabled)
+            if (!isUsable(g[edge]))
             {
                 continue;
             }
@@ -2415,7 +2433,13 @@ TopologyAndFlowMonitor::getAvgLinkUsage(const Graph& g) const
 
     for (auto e : boost::make_iterator_range(boost::edges(g)))
     {
-        if (!g[e].isUp)
+        // [Co-developed with claude code -- Adam]
+        // Was `if (!g[e].isUp)`: the only one of the six availability checks that did not take
+        // the full intersection, so an administratively disabled link with residual traffic still
+        // counted towards the average. Made consistent when adminDisabled was introduced -- an
+        // operator who takes a link out of service should not see it in the utilisation figure
+        // that Energy-Saving-App reads.
+        if (!isUsable(g[e]))
         {
             continue;
         }
@@ -2508,7 +2532,7 @@ TopologyAndFlowMonitor::getLinkBandwidthBetweenSwitches(const std::string& ip1_s
 
     // 6. Populate the JSON object with the link's bandwidth information.
     result["link_found"] = true;
-    result["status"] = (props1.isUp && props1.isEnabled) ? "up" : "down";
+    result["status"] = isUsable(props1) ? "up" : "down";
 
     // Direction from switch 1 to switch 2
     result[ip1_str + "_to_" + ip2_str] = {{"total_bandwidth_bps", props1.linkBandwidth},
@@ -2574,7 +2598,7 @@ TopologyAndFlowMonitor::getTopKCongestedLinksJson(int k)
             const auto& props_fwd = (*m_graph)[edge];
             const auto& props_rev = (*m_graph)[edge_rev_pair.first];
 
-            if (props_fwd.isUp && props_fwd.isEnabled && props_rev.isUp && props_rev.isEnabled)
+            if (isUsable(props_fwd) && isUsable(props_rev))
             {
                 double max_util = std::max(props_fwd.linkBandwidthUtilization,
                                            props_rev.linkBandwidthUtilization);

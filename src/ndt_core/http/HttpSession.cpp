@@ -525,7 +525,10 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
              {"dst_dpid", e.dstDpid},
              {"dst_interface", e.dstInterface},
              {"flow_set", flowsJson},
-             {"is_enabled", e.isEnabled}});
+             // Folded the same way as the node above (which goes through to_json in GraphTypes.hpp
+             // via push_back). [Co-developed with claude code -- Adam]
+             {"is_enabled", e.isEnabled && !e.adminDisabled},
+             {"admin_disabled", e.adminDisabled}});
     }
     res.body() = result.dump();
     SPDLOG_LOGGER_INFO(Logger::instance(), "get_graph_data success");

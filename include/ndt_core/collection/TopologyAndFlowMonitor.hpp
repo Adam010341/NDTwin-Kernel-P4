@@ -264,7 +264,20 @@ class TopologyAndFlowMonitor
     json getStaticTopologyJson();
 
     // for llm
-    json getLinkBandwidthBetweenSwitches(const std::string& dpid1, const std::string& dpid2);
+    /**
+     * @brief Bandwidth and status of the link between two switches, identified by **IP address**.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The parameters were named `dpid1`/`dpid2` here while the definition names them `ip1_str`/
+     * `ip2_str` and parses them with `ipStringToUint32` + `findSwitchByIpNoLock`. Behaviour was
+     * never wrong -- the one caller (IntentTranslator.cpp:367) passes the result of
+     * `getSwitchIpByName` -- but it stores it in a variable called `dpid1_opt` under a comment
+     * saying "Get the DPIDs", so every name on the path said dpid and only the body said IP.
+     * Renamed rather than left alone because it has already cost someone a wrong call: a test
+     * written against this declaration passed dpids, landed in the not-found branch, and the reply
+     * on that branch carries `error`/`missing_devices` and **no `status` key** at all.
+     */
+    json getLinkBandwidthBetweenSwitches(const std::string& switchIp1, const std::string& switchIp2);
     json getTopKCongestedLinksJson(int k);
     // for llm
 
@@ -274,9 +287,22 @@ class TopologyAndFlowMonitor
     std::mutex m_configurationFileMutex;
     void run();
 
+  protected:
+    /**
+     * @brief Applies one control-plane topology reply to the graph.
+     *
+     * Protected rather than private for the same reason as loadStaticTopologyFromFile below: these
+     * are the discovery writers, and the property worth testing about them is what they must
+     * *not* do -- overwrite an operator's `adminDisabled`. Driving them with a poll-shaped reply
+     * is the only way to assert that without standing up Ryu.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
     void updateSwitches(const std::string& topologyData);
     void updateHosts(const std::string& topologyData);
     void updateLinks(const std::string& topologyData);
+
+  private:
     void updateGraph(const std::string&, const std::string&, const std::string&);
 
   protected:
