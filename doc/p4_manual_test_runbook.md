@@ -784,9 +784,62 @@ switches[5], port1=1, port2=2)`，s2 的 port 1 就是接 s5 的那個口，`s2`
 不了一台不轉發的 switch，這個方法就驗不了 failover ——它只能驗**偵測**與**誠實回報**（§6a–§6h
 前半仍然有效）。
 
-要真正驗 failover，需要一種**只弄壞一條鏈路、不弄壞整台 switch** 的注入方式。候選：`tc netem`
-在單一介面上丟包（目前不在 NOPASSWD 清單裡），或在 P4 pipeline 裡加一條臨時 drop 規則。
-**這件事還沒解決，failover 因此標記為「規則層已驗、端到端未驗」。**
+要真正驗 failover，需要一種**只弄壞一條鏈路、不弄壞整台 switch** 的注入方式。**已解決 —— 用
+`tc netem`**，見下一節。
+
+#### ✅ 正確的故障注入方式：`tc netem`（2026-08-10 端到端驗證通過）
+
+介面全程維持 UP，只在**送出佇列**丟包，所以那台 switch 的其他 port 完全不受影響。
+
+```bash
+# 斷線（雙向都要，才是完整的鏈路失效）
+sudo -n tc qdisc add dev s5-eth4  root netem loss 100%
+sudo -n tc qdisc add dev s10-eth1 root netem loss 100%
+
+# 恢復
+sudo -n tc qdisc del dev s5-eth4  root
+sudo -n tc qdisc del dev s10-eth1 root
+```
+
+⚠️ 需要 sudoers 授權（`/etc/sudoers.d/ndtwin-mininet`），且**刻意限制成只能動 Mininet 的
+switch 介面**，避免手滑把實體網卡的 qdisc 改掉：
+
+```
+adam ALL=(root) NOPASSWD: /usr/sbin/tc qdisc add dev s[0-9]*-eth[0-9]* root netem *
+adam ALL=(root) NOPASSWD: /usr/sbin/tc qdisc del dev s[0-9]*-eth[0-9]* root
+adam ALL=(root) NOPASSWD: /usr/sbin/tc qdisc show dev s[0-9]*-eth[0-9]*
+```
+
+**兩種注入方式的實測對照**（同一條 `s5↔s10` 鏈路、同一個 stack）：
+
+| | `ifconfig down` | `tc netem loss 100%` |
+|---|---|---|
+| link down 回報 | **5 筆**（3 筆是假的） | ✅ **2 筆**（就是真的那兩個方向，零假報） |
+| `edges up` | 35/40（多扣了 3 條健康邊） | ✅ **38/40**（正好扣掉斷掉的雙向） |
+| 該 switch 還能轉發嗎 | ❌ 整台停擺 | ✅ 正常轉發 |
+| ping | 🔴 全程不通，插回來才恢復 | ✅ **停約 15 秒後自己恢復** |
+| 驗得出 failover 嗎 | ❌ 不行 | ✅ **可以** |
+
+**實測時序**（19:58:22 注入）：
+
+```
+seq 停在 46 ────────► 約 15 秒（beacon 逾時偵測）
+t+18s  seq 跳到 82 並持續遞增   ← 流量已繞道
+```
+
+- 新路徑：`1 5 9 8 4`（原本 `1 5 10 8 4`），繞開斷掉的 `5→10`
+- s5 對 `10.0.0.4` 的規則從 `OUTPUT:4` 改成 **`OUTPUT:3`**，用 `read_table_entries()` 從
+  switch 讀回來確認
+- 路徑數維持 **12**（沒有 host 變成不可達）
+- 移除 netem 後 25 秒內：40/40、路徑回到 `1 5 10 8 4`、ping 持續
+- 整趟 ping 統計：**`300 packets transmitted, 271 received, 9.67% packet loss`**。29 個封包
+  ＠2 pps ≈ **14.5 秒的中斷**，與 beacon 逾時窗吻合。對照 `ifconfig` 那次是 **38% 且全程未恢復**。
+
+**failover 至此為「規則層 ＋ 端到端」皆已驗證。**
+
+✅ **這一節的通過判準**：ping **會短暫中斷再自己恢復**（約 15 秒），不是全程不通。
+中斷時間 ≈ `LINK_BEACON_TIMEOUT_S`（15s）加上一個 watchdog 掃描週期，所以 15–20 秒是正常的；
+**永遠不恢復**代表 failover 沒生效，**完全不中斷**代表你斷的鏈路根本不在流量路徑上。
 
 #### 🔴 `reroutable_down_endpoints()` 的一個真漏洞（DeepSeek 靜態分析找到，程式碼＋log 覆核確認）
 

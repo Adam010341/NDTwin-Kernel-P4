@@ -427,7 +427,9 @@ proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。*
 空的 `installed` 視為「不知道」而沿用舊行為 —— 因為 bmv2 的 table entry 會跨 proxy 重啟存活，
 把「沒有紀錄」當成「什麼都沒裝」會製造反方向的假警報。
 
-**已做（2026-08-10），但端到端未驗證**：failover 已實作——`calculate_all_paths` 接受要避開的 endpoint、`install_initial_routes` 帶著 down 集合重算、watchdog 轉換時先重裝再推送。**規則層實機確認有繞路**（s5 對 10.0.0.4 從 Port 4 改成 Port 3，從 switch 讀回來的），**但封包沒有回來**。原因是 `ifconfig down` 會讓整台 switch 停止轉發（對照實驗：完全不碰 s5 的 h1→h2 也一起死），而這個現象在 failover 存在之前就出現過兩次。要真正驗證，需要一種只弄壞一條鏈路、不弄壞整台 switch 的故障注入（`tc netem`，或在 pipeline 裡加一條臨時 drop 規則）。見 `doc/p4_manual_test_runbook.md` §6h。
+**已做並完整驗證（2026-08-10）**：failover 已實作——`calculate_all_paths` 接受要避開的 endpoint、`install_initial_routes` 帶著 down 集合重算、watchdog 轉換時先重裝再推送。**規則層與端到端都已實測通過**：用 `tc netem loss 100%` 雙向斷掉 `s5↔s10`，ping 停約 15 秒後**自己恢復**（整趟 9.67% 掉包），路徑從 `1 5 10 8 4` 繞成 `1 5 9 8 4`，s5 的規則從 `OUTPUT:4` 改成 `OUTPUT:3`（從 switch 讀回確認），邊數 38/40、路徑數維持 12，移除 netem 後 25 秒內完全恢復。
+
+    ⚠️ **不能用 `ifconfig down` 驗這件事**：它會讓整台 switch 停止轉發，任何繞路都救不了，而且會產生假的 link down 回報（實測 5 筆裡 3 筆是假的）。`tc netem` 只有 2 筆、零假報。見 `doc/p4_manual_test_runbook.md` §6h 的對照表。
 
 **原本的未做說明（保留作為改動紀錄）**：真正的 failover。改動落點是
 `calculate_all_paths()` 目前對 `self.net` 做最短路，**沒有扣掉 watchdog 認為 down 的邊**，
