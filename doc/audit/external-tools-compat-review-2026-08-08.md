@@ -4,7 +4,8 @@
 
 **方法**：把 kernel HTTP 層完整 diff（含狀態碼清單、`OpResult`、`respondToOpResult`、Utils
 嚴格化）與**七個工具全部接觸 HTTP 的原始碼**（加行號）一起送 `deepseek-v4-pro -e max`，
-164 KB / 3792 行。原始回覆見 `doc/audit/external-tools-compat-review-2026-08-08-raw.md`。
+164 KB / 3792 行。（送出的 prompt 與模型原始回覆已於 2026-08-10 刪除：本檔就是它們的歸納結論，
+兩份加起來 4103 行的中間產物沒有獨立保存價值。要重現的話，方法如上，輸入是當時的 HTTP 層 diff。）
 
 前一輪的 change-magnitude review 在建議中寫「需確認所有用戶端已更新或容忍新狀態碼」——
 那句是它在說「這件事我做不到」，因為它當時看不到任何一行客戶端程式碼。這一輪就是做那個「需確認」。
