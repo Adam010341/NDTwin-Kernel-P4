@@ -78,6 +78,7 @@ class FakeTopo:
     def __init__(self):
         self.switches = {}
         self.started = []
+        self.seed_expected = None
 
     def add_switch(self, dpid, client):
         self.switches[dpid] = client
@@ -85,8 +86,14 @@ class FakeTopo:
     def start_lldp_discovery(self):
         self.started.append("lldp")
 
-    def start_link_watchdog(self):
+    def start_link_watchdog(self, seed_expected=False, path=None):
+        # Signature mirrors the real TopologyManager.start_link_watchdog. A double narrower than
+        # the thing it stands in for is how this suite went wrong once already: startup wraps the
+        # call in try/except, so a TypeError here would be swallowed into a printed warning and
+        # the watchdog would simply not run, with every test still green.
+        # [Co-developed with claude code -- Adam]
         self.started.append("watchdog")
+        self.seed_expected = seed_expected
 
     def start_liveness_polling(self):
         self.started.append("liveness")
@@ -196,6 +203,14 @@ class BackgroundLoopsTest(unittest.TestCase):
         # the twin for the rest of the run.
         _, parts = run_startup({1: FakeClient(1)})
         self.assertEqual(sorted(parts["topo"].started), ["liveness", "lldp", "watchdog"])
+
+        # And that it is asked to seed. Without this the watchdog only knows links that have
+        # delivered a beacon, so one already broken at startup is absent rather than reported --
+        # the operator sees a count that is short by one and has to work out which link it was.
+        # Asserting the flag rather than just the call, because "watchdog started" was already
+        # true before seeding was turned on. [Co-developed with claude code -- Adam]
+        self.assertTrue(parts["topo"].seed_expected,
+                        "startup must ask the watchdog to seed the declared links")
 
     def test_a_loop_that_fails_to_start_does_not_abort_the_rest_of_startup(self):
         class BadTopo(FakeTopo):

@@ -212,7 +212,20 @@ async def startup(clients_factory, sflow, kernel, topo,
     # until this existed only the discovery direction was wired. A link that went down stayed up
     # in the twin forever.
     try:
-        topo.start_link_watchdog()
+        # seed_expected=True enters every link the topology file declares, so one that was already
+        # broken when this process started is reported rather than merely never discovered. The
+        # kernel graph is correct either way -- an undiscovered edge is never enabled -- but
+        # without seeding nothing says *which* link is missing, and "38/40 edges" is a puzzle
+        # rather than a diagnosis.
+        #
+        # Safe to enable as of 2026-08-10: the receive-side port assumption it rests on was
+        # verified live on ten bmv2 switches (32/32 statically, 16/16 observed ingress ports).
+        # The startup grace is 30 s against a measured discovery time of ~2 s.
+        #
+        # ⚠️ That verification is specific to this topology file plus p4_testbed_topo.py. A
+        # topology declaring links Mininet does not wire would report them down forever.
+        # [Co-developed with claude code -- Adam]
+        topo.start_link_watchdog(seed_expected=True)
         print("[Proxy Agent] Started LLDP link watchdog...")
     except Exception as e:
         print(f"[Proxy Agent] Failed to start link watchdog: {e}; link failures will not be "
