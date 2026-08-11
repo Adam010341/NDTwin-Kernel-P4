@@ -998,6 +998,14 @@ DeviceConfigurationAndPowerManager::FlowStatsVerdict
 DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json& flows,
                                                            double elapsedSeconds)
 {
+    // Before the entry scan, not after: an {"error": ...} body must never count as "no entries,
+    // fast, therefore usable" -- failing is faster than timing out, which is exactly how it slid
+    // past the latency guard. See the header comment. [Co-developed with claude code -- Adam]
+    if (flows.is_object() && (flows.contains("error") || flows.contains("detail")))
+    {
+        return FlowStatsVerdict::ReportedFailure;
+    }
+
     // Any entry at all makes this a real observation. Checked first and unconditionally, so a large
     // table that legitimately took a second is never discarded.
     if (flows.is_object())
@@ -1127,7 +1135,26 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         //
         // Skipping leaves the previous table in place, the conservative direction: stale data that
         // was once true beats a confident claim that is false now.
-        if (classifyFlowStatsReply(flows, elapsedSeconds) == FlowStatsVerdict::SuspectTimedOut)
+        const auto verdict = classifyFlowStatsReply(flows, elapsedSeconds);
+        if (verdict == FlowStatsVerdict::ReportedFailure)
+        {
+            // The proxy answered "I could not read this switch" ({"error": ...}, HTTP 503 -- but
+            // curl -s never shows the status, so the body is the signal). Same conservative
+            // treatment as the other three skip paths: the previous table stays.
+            // [Co-developed with claude code -- Adam]
+            if (m_flowStatsTimeouts.recordFailure())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "{} reported a read failure for switch {} ({}) -- keeping the "
+                                   "previous table rather than treating it as a switch with no "
+                                   "rules",
+                                   ip_and_port,
+                                   dpid,
+                                   flows.dump());
+            }
+            continue;
+        }
+        if (verdict == FlowStatsVerdict::SuspectTimedOut)
         {
             if (m_flowStatsTimeouts.recordFailure())
             {

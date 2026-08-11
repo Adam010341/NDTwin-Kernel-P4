@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
+from fastapi.responses import JSONResponse
 import json
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError
 from proxy_agent import ryu_topology, ryu_flow_stats
@@ -168,16 +169,34 @@ async def get_flow_stats(dpid: int):
     always empty -- and, because the kernel wraps the body as {"dpid": N, "flows": <body>}, a
     bare list also made `flows` a list where the documented shape is a map.
 
-    Returns the empty map rather than an error when the switch is unknown or unreadable: this is
-    polled once per second per switch, so a transient gRPC failure should cost one poll, not
-    produce an HTTP error the kernel would log as a JSON parse failure.
+    A failure answers 503 with {"error": ...} -- it used to answer the empty map, on the theory
+    that a transient gRPC failure should cost one poll rather than produce a parse-error log
+    line. But the kernel's side of this contract says the opposite: an empty table is a snapshot
+    that MUST be applied (Classifier::updateFromQueriedTables sweeps every rule absent from it),
+    and its only guard was latency -- a read that failed *fast* sailed under the 0.5 s suspicion
+    threshold and blanked every flow's path for that switch, with nothing logged kernel-side.
+    The two policies contradicted each other, and the kernel's is the one grounded in a measured
+    incident (the 2026-08-07 Ryu wedge), so the proxy now says "failed" distinguishably.
+
+    The kernel shells out `curl -s`, which never sees the status code -- the *body shape* is the
+    signal. classifyFlowStatsReply treats an object carrying "error" as ReportedFailure and keeps
+    the previous table. The unknown-switch case answers the same way because it is the same
+    situation from the caller's side: right after a proxy restart the switch map is empty while
+    the kernel is still polling every dpid it knows, and an empty-map answer here would have
+    blanked all ten switches' tables until discovery caught up.
     """
     client = topology.switches.get(dpid) if topology else None
     if client is None:
-        return {str(dpid): []}
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"switch {dpid} is not connected to the proxy"},
+        )
     try:
         return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries())
     except Exception as e:
         print(f"[Proxy Agent] Reading tables from switch {dpid} failed: "
               f"{type(e).__name__}: {e}")
-        return {str(dpid): []}
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"reading tables from switch {dpid} failed: {type(e).__name__}"},
+        )

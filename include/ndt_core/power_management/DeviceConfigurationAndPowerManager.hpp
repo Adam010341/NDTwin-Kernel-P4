@@ -297,6 +297,7 @@ class DeviceConfigurationAndPowerManager
     {
         Usable,          ///< Apply it: it has entries, or it was too fast to be a timeout.
         SuspectTimedOut, ///< Empty *and* slow. Keep the previous table; do not apply this one.
+        ReportedFailure, ///< The body says "error": the control plane could not read the switch.
     };
 
     /**
@@ -309,6 +310,15 @@ class DeviceConfigurationAndPowerManager
      * and a large table legitimately takes longer. Only the *combination* of "no entries anywhere"
      * and "slow" is suspect, because a genuinely empty table is the fastest possible answer: Ryu
      * already holds it and returns at once, whereas a lost reply costs the full timeout.
+     *
+     * An object carrying an "error" (or FastAPI's "detail") key is the P4 proxy saying the read
+     * itself failed, and is ReportedFailure regardless of latency. This closed a real hole: the
+     * fetch goes through `curl -s`, which never surfaces the HTTP status, so the body shape is the
+     * only channel the failure can travel on -- and before this verdict existed, a proxy-side read
+     * failure came back fast, sailed under kFlowStatsSuspectSeconds as an "empty table", and was
+     * applied as an authoritative snapshot that blanked every flow's path for that switch. The
+     * latency guard cannot catch it precisely because failing is faster than timing out. Zero
+     * false-positive risk: a genuine table's keys are numeric table-id strings, never "error".
      *
      * Stateless and total, so it is testable without a control plane.
      * See tests/test_FlowStatsTimeout.cpp. [Co-developed with claude code -- Adam]

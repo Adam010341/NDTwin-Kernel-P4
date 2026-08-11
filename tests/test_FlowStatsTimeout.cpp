@@ -217,3 +217,45 @@ TEST(FlowStatsTimeoutTest, AFastEmptyTableIsUsableWhichIsWhyAFailedParseMustNotL
            "trusted too, which is the bug agy-review 0109 found";
     EXPECT_EQ(classify(json::object(), 0.004), Verdict::Usable);
 }
+
+// --- a reported failure is never a snapshot ---------------------------------------------------
+// [Co-developed with claude code -- Adam]
+// The P4 proxy answers {"error": ...} (HTTP 503) when it cannot read a switch. The fetch goes
+// through `curl -s`, which never surfaces the status code, so this body shape is the only channel
+// the failure travels on. Before the ReportedFailure verdict existed, this body had no array
+// entries and came back *fast* -- failing is faster than timing out -- so it classified Usable and
+// was applied as an authoritative empty snapshot, sweeping every rule the Classifier held for that
+// switch. Found by agy-review 0170 #2.
+
+TEST(FlowStatsTimeoutTest, AnErrorBodyIsAReportedFailureNoMatterHowFastItArrived)
+{
+    // The exact shape the proxy sends, at a latency far under the suspicion threshold -- the
+    // combination the latency guard is structurally unable to catch.
+    const json errorBody{{"error", "reading tables from switch 7 failed: RpcError"}};
+    EXPECT_EQ(classify(errorBody, 0.004), Verdict::ReportedFailure);
+}
+
+TEST(FlowStatsTimeoutTest, AnErrorBodyIsAReportedFailureEvenWhenSlow)
+{
+    // Latency must play no part in this verdict: a slow failure is still a failure, not a
+    // suspected timeout -- the caller's log message names the actual cause either way.
+    const json errorBody{{"error", "stream broken"}};
+    EXPECT_EQ(classify(errorBody, 1.7), Verdict::ReportedFailure);
+}
+
+TEST(FlowStatsTimeoutTest, AFastApiDetailBodyIsAlsoAReportedFailure)
+{
+    // FastAPI answers {"detail": ...} for an exception the handler did not catch itself. Same
+    // meaning, same verdict, so an unhandled proxy bug cannot masquerade as an empty table.
+    const json detailBody{{"detail", "Internal Server Error"}};
+    EXPECT_EQ(classify(detailBody, 0.010), Verdict::ReportedFailure);
+}
+
+TEST(FlowStatsTimeoutTest, ARealTableIsNeverMistakenForAFailureReport)
+{
+    // Genuine tables key on numeric table-id strings, never "error"/"detail" -- the zero-false-
+    // positive claim in the header comment, held down by a test.
+    EXPECT_EQ(classify(populatedBody(), 0.031), Verdict::Usable);
+    EXPECT_EQ(classify(wedgedBody(), 0.031), Verdict::Usable);
+}
+
