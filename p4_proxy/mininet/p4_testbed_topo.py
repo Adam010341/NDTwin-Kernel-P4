@@ -5,6 +5,7 @@ import os
 import signal
 import socket
 import sys
+import tempfile
 import time
 from mininet.net import Mininet
 from mininet.topo import Topo
@@ -224,9 +225,23 @@ def write_manifest(switches, path=MANIFEST_PATH):
         for sw in switches
         if sw.failure_reason() is None
     }
+    # Replace the inode, never truncate in place. /tmp is sticky, so anyone can create this
+    # *name* before we run; open(path, "w") as root would truncate their file and leave them
+    # the owner -- able to rewrite the argv that ndtwin-p4-power later executes as root. A
+    # tempfile + os.replace makes the manifest a fresh inode owned by us every time, which is
+    # exactly what the helper's owner check verifies before trusting the contents.
+    # [Co-developed with claude code -- Adam]
     try:
-        with open(path, "w") as fh:
-            json.dump(manifest, fh, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".",
+                                   prefix=".ndtwin_p4_switches.")
+        try:
+            with os.fdopen(fd, "w") as fh:
+                json.dump(manifest, fh, indent=2)
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, path)
+        except OSError:
+            os.unlink(tmp)
+            raise
     except OSError as e:
         print(f"WARNING: could not write the switch manifest to {path}: {e}")
 
