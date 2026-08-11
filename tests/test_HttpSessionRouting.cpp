@@ -35,6 +35,10 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include <shared_mutex>
+
+#include "event_system/EventBus.hpp"
+#include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/http/HttpSession.hpp"
 #include "utils/Utils.hpp"
 
@@ -53,6 +57,31 @@ class HttpSessionTestPeer
                                                  nullptr,          // TopologyAndFlowMonitor
                                                  nullptr,          // EventBus
                                                  utils::MININET,   // mode
+                                                 nullptr,          // FlowLinkUsageCollector
+                                                 nullptr,          // FlowRoutingManager
+                                                 nullptr,          // DeviceConfig...PowerManager
+                                                 nullptr,          // ApplicationManager
+                                                 nullptr,          // SimulationRequestManager
+                                                 nullptr,          // IntentTranslator
+                                                 nullptr,          // HistoricalDataManager
+                                                 nullptr,          // Controller
+                                                 nullptr))         // LockManager
+    {
+    }
+
+    /**
+     * Real-collaborator variant, for handlers whose *success* path is the subject. The null-
+     * dependency constructor above can only witness requests rejected before any collaborator is
+     * touched; the link-transition handlers do their work through the monitor and the bus, so a
+     * test of what they do -- rather than what they refuse -- needs real ones.
+     * [Co-developed with claude code -- Adam]
+     */
+    HttpSessionTestPeer(std::shared_ptr<TopologyAndFlowMonitor> monitor,
+                        std::shared_ptr<EventBus> bus)
+        : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
+                                                 std::move(monitor),
+                                                 std::move(bus),
+                                                 utils::MININET,
                                                  nullptr,          // FlowLinkUsageCollector
                                                  nullptr,          // FlowRoutingManager
                                                  nullptr,          // DeviceConfig...PowerManager
@@ -317,3 +346,113 @@ TEST(HttpSessionRoutingTest, CorsHeadersAreSetEvenOnAFailedRequest)
  *   thread that runs curl, so a unit test would either shell out or race fixture teardown with a
  *   thread holding `this`.
  */
+
+// --- link failure / recovery: the reverse-edge guard -----------------------------------------
+// [Co-developed with claude code -- Adam]
+// Both handlers used to skip a missing reverse edge silently and answer 200 "processed", so a
+// caller could not tell a fully handled transition from one that left the graph asymmetric --
+// one direction changed, the pair it belongs to untouched. Edges are inserted in pairs by every
+// loader, so a lone directed edge is the kernel's own state gone inconsistent: the handlers now
+// answer 500 and say which half happened. Found by agy-review 0198 #4.
+
+class LinkTransitionEndpointsTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_graph = std::make_shared<Graph>();
+        m_bus = std::make_shared<EventBus>();
+        m_monitor = std::make_shared<TopologyAndFlowMonitor>(m_graph,
+                                                             std::make_shared<std::shared_mutex>(),
+                                                             m_bus,
+                                                             utils::MININET);
+    }
+
+    void addDirectedEdge(uint64_t srcDpid, uint64_t dstDpid, bool up)
+    {
+        EdgeProperties ep;
+        ep.srcDpid = srcDpid;
+        ep.dstDpid = dstDpid;
+        ep.srcInterface = 1;
+        ep.dstInterface = 1;
+        ep.isUp = up;
+        const auto u = boost::add_vertex(*m_graph);
+        const auto v = boost::add_vertex(*m_graph);
+        boost::add_edge(u, v, ep, *m_graph);
+    }
+
+    /// isUp of the (srcDpid, dstDpid) edge, read back through the monitor's own snapshot.
+    bool edgeIsUp(uint64_t srcDpid, uint64_t dstDpid)
+    {
+        const Graph g = m_monitor->getGraph();
+        for (auto [ei, eiEnd] = boost::edges(g); ei != eiEnd; ++ei)
+        {
+            if (g[*ei].srcDpid == srcDpid && g[*ei].dstDpid == dstDpid)
+            {
+                return g[*ei].isUp;
+            }
+        }
+        ADD_FAILURE() << "edge " << srcDpid << " -> " << dstDpid << " not in the graph";
+        return false;
+    }
+
+    static constexpr const char* kPayload =
+        R"({"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1})";
+
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<EventBus> m_bus;
+    std::shared_ptr<TopologyAndFlowMonitor> m_monitor;
+};
+
+TEST_F(LinkTransitionEndpointsTest, AFailureWithBothDirectionsPresentTakesBothDownAndAnswers200)
+{
+    addDirectedEdge(1, 5, /*up=*/true);
+    addDirectedEdge(5, 1, /*up=*/true);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_failure_detected", kPayload);
+
+    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_FALSE(edgeIsUp(1, 5));
+    EXPECT_FALSE(edgeIsUp(5, 1));
+}
+
+TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingIsNotReportedAsSuccess)
+{
+    // The regression: this answered 200 "link failure processed" with the graph left holding a
+    // lone down edge. The forward direction is still processed -- that part of the work is real
+    // -- but the status line has to say the pair is broken.
+    addDirectedEdge(1, 5, /*up=*/true);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_failure_detected", kPayload);
+
+    EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
+    EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
+    EXPECT_FALSE(edgeIsUp(1, 5)) << "the reported direction must still be marked down";
+}
+
+TEST_F(LinkTransitionEndpointsTest, ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200)
+{
+    addDirectedEdge(1, 5, /*up=*/false);
+    addDirectedEdge(5, 1, /*up=*/false);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kPayload);
+
+    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_TRUE(edgeIsUp(1, 5));
+    EXPECT_TRUE(edgeIsUp(5, 1));
+}
+
+TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsNotReportedAsSuccess)
+{
+    addDirectedEdge(1, 5, /*up=*/false);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kPayload);
+
+    EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
+    EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
+    EXPECT_TRUE(edgeIsUp(1, 5)) << "the reported direction must still be marked up";
+}

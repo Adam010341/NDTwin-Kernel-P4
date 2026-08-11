@@ -430,12 +430,33 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
                            .payload = LinkFailureEventData{fwdOpt.value()}});
 
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
-    if (revOpt)
+    if (!revOpt)
     {
-        m_topologyAndFlowMonitor->setEdgeDown(revOpt.value());
-        m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
-                               .payload = LinkFailureEventData{revOpt.value()}});
+        // [Co-developed with claude code -- Adam]
+        // Answered 200 "link failure processed" here for months. Every loader and discovery
+        // path inserts edges in pairs, so a graph holding s->d without d->s is the kernel's own
+        // state gone inconsistent -- hence 500, not 404: the sibling branch above uses 404 for
+        // "nothing was done", and by this point the reported direction HAS been marked down and
+        // its event emitted. The body says which half happened, because a caller that only reads
+        // the status line otherwise repeats the fault-injection run against a graph the kernel
+        // itself no longer believes.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "link failure {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
+                           "the topology; forward direction marked down, reverse untouched",
+                           data->srcDpid,
+                           data->srcInterface,
+                           data->dstDpid,
+                           data->dstInterface,
+                           data->dstDpid,
+                           data->srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";
+        return;
     }
+    m_topologyAndFlowMonitor->setEdgeDown(revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{revOpt.value()}});
     res.body() = R"({"status":"link failure processed"})";
 }
 
@@ -476,10 +497,26 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     // TODO: Emit LinkRecoveryDetected event
 
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
-    if (revOpt)
+    if (!revOpt)
     {
-        m_topologyAndFlowMonitor->setEdgeUp(revOpt.value());
+        // Same shape and same reasoning as handleLinkFailure above: edges exist in pairs, so a
+        // missing reverse is kernel-state inconsistency, and by now the forward direction has
+        // already been set up -- report the half that happened. [Co-developed with claude code -- Adam]
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "link recovery {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
+                           "the topology; forward direction marked up, reverse untouched",
+                           srcDpid,
+                           srcInterface,
+                           dstDpid,
+                           dstInterface,
+                           dstDpid,
+                           srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; the reported direction was marked up, its reverse was not"})";
+        return;
     }
+    m_topologyAndFlowMonitor->setEdgeUp(revOpt.value());
     res.body() = R"({"status":"link recovery processed"})";
 }
 
