@@ -200,6 +200,20 @@ IntentTranslator::getSwitchIpByName(const std::string &switchName)
     return utils::ipToString(vertex.ip[0]);
 }
 
+// [Co-developed with claude code -- Adam]
+optional<uint64_t>
+IntentTranslator::dpidForSwitchIp(const std::string& switchIp) const
+{
+    const auto& map = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap;
+    const auto it = map.find(switchIp);
+    if (it == map.end())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(), "No dpid registered for switch IP {}", switchIp);
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 std::string
 IntentTranslator::performTask(llmResponse::Task* task)
 {
@@ -275,7 +289,12 @@ IntentTranslator::performTask(llmResponse::Task* task)
             auto deviceIpOpt = this->getSwitchIpByName(installTask->deviceName);
             if (deviceIpOpt.has_value())
             {
-                uint64_t dpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[deviceIpOpt.value()];
+                const auto dpidOpt = this->dpidForSwitchIp(deviceIpOpt.value());
+                if (!dpidOpt.has_value())
+                {
+                    return "{\"error\": \"Switch has no dpid\", \"device\": \"" + installTask->deviceName + "\"}";
+                }
+                uint64_t dpid = *dpidOpt;
                 json installTaskJson = *installTask;
                 json match = installTaskJson["parameters"]["match"];
 
@@ -298,7 +317,12 @@ IntentTranslator::performTask(llmResponse::Task* task)
             auto deviceIpOpt = this->getSwitchIpByName(modifyTask->deviceName);
             if (deviceIpOpt.has_value())
             {
-                uint64_t dpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[deviceIpOpt.value()];
+                const auto dpidOpt = this->dpidForSwitchIp(deviceIpOpt.value());
+                if (!dpidOpt.has_value())
+                {
+                    return "{\"error\": \"Switch has no dpid\", \"device\": \"" + modifyTask->deviceName + "\"}";
+                }
+                uint64_t dpid = *dpidOpt;
                 json modifyTaskJson = *modifyTask;
                 json match = modifyTaskJson["parameters"]["match"];
 
@@ -321,7 +345,12 @@ IntentTranslator::performTask(llmResponse::Task* task)
             auto deviceIpOpt = this->getSwitchIpByName(deleteTask->deviceName);
             if (deviceIpOpt.has_value())
             {
-                uint64_t dpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[deviceIpOpt.value()];
+                const auto dpidOpt = this->dpidForSwitchIp(deviceIpOpt.value());
+                if (!dpidOpt.has_value())
+                {
+                    return "{\"error\": \"Switch has no dpid\", \"device\": \"" + deleteTask->deviceName + "\"}";
+                }
+                uint64_t dpid = *dpidOpt;
                 json deleteTaskJson = *deleteTask;
                 this->m_flowRoutingManager->deleteAnEntry(dpid, deleteTaskJson["parameters"]["match"]);
             }
@@ -669,8 +698,15 @@ IntentTranslator::performTask(llmResponse::Task* task)
 
             if (srcIpOpt.has_value() && dstIpOpt.has_value())
             {
-                uint64_t srcDpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[*srcIpOpt];
-                uint64_t dstDpid = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap[*dstIpOpt];
+                const auto srcDpidOpt = this->dpidForSwitchIp(*srcIpOpt);
+                const auto dstDpidOpt = this->dpidForSwitchIp(*dstIpOpt);
+                if (!srcDpidOpt.has_value() || !dstDpidOpt.has_value())
+                {
+                    return "{\"error\": \"Switch has no dpid\", \"src\": \"" + lossTask->src
+                           + "\", \"dst\": \"" + lossTask->dst + "\"}";
+                }
+                uint64_t srcDpid = *srcDpidOpt;
+                uint64_t dstDpid = *dstDpidOpt;
 
 
                 auto edgeOpt = this->m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});

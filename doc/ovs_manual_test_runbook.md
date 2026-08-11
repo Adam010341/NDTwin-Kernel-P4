@@ -1097,7 +1097,7 @@ print('paths:', len(d.get('all_destination_paths',[])))"
 
 **為什麼這值得記一筆**：P4 側的決定 5（代號 B）就是為了修掉同一類問題——twin 只宣告「規則真的裝進 switch 且每一跳還活著」的路徑。**OVS 側沒有等價的防護。** 窗口 A 尤其明確：twin 自己的兩個端點在同一時刻互相矛盾，任何同時讀 `get_graph_data` 和 `get_detected_flow_data` 的消費端都會看到。
 
-🔴 **這是觀察，不是已診斷的 bug。** 上面「推測成因」那段是根據快取更新頻率的推論，**我沒有進到 Classifier 裡確認**。要當成待調查項，不要當成已知結論引用。
+✅ **【2026-08-11 已確認機制，非推測】** agy-review 0198 #3 追進 `calFlowPathByQueried`（`FlowLinkUsageCollector.cpp:2659`）確認：查詢失敗時賦值 `sflow::Path{}`，序列化為 `[]`，且沒有獨立欄位區分「失敗」和「真的沒有路徑」。這個查詢讀的正是 classifier 快取——`DeviceConfigurationAndPowerManager.cpp:1801-1802` 每 10 秒整批替換一次（不是增量更新）。鏈路恢復後的過渡期，查詢落在替換窗口內就會失敗，`ok=false` 直接進入空 Path 賦值。這條路徑現在就在程式碼裡，不是根據時序推論出來的。
 
 #### 窗口 A 已在完全不同的條件下獨立重現
 
