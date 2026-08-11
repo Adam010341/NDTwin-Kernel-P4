@@ -671,7 +671,8 @@ Returned when an unknown exception type is thrown.
 
 Controls the operational state of a switch.
 * TESTBED mode: Sends a power control command to a physical switch by interacting with the smart plug associated with it.
-* MININET mode: Simulates switch power ON/OFF by adding (on) or removing (off) the corresponding OVS bridge via ovs-vsctl commands.
+* MININET mode, OVS switch: Simulates switch power ON/OFF by adding (on) or removing (off) the corresponding OVS bridge via ovs-vsctl commands.
+* MININET mode, bmv2 switch (Phase 7): `off` stops that one switch's `simple_switch_grpc` process via the root helper `ndtwin-p4-power` (manifest-addressed, single PID); `on` relaunches it the same way and then has the proxy re-adopt it (`POST /p4/readopt/{dpid}`: mastership, pipeline, clone session, that switch's routes). Both report failure honestly — the twin's liveness is only updated after the operation is observed to have happened. Requires the helper to be installed (see `doc/phase7_power_mechanism_design.md`); without it, `off`/`on` fail with the helper's absence in the kernel log rather than pretending success.
 
 ### Request
 * Method: **POST**
