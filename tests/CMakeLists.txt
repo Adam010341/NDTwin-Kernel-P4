@@ -20,6 +20,7 @@ add_executable(
   test_ParamParsing.cpp
   test_SimulationRequestValidation.cpp
   test_OvsPowerStrategy.cpp
+  test_P4PowerStrategy.cpp
   test_P4Liveness.cpp
   test_RelayResponse.cpp
   test_AllDestinationPaths.cpp
