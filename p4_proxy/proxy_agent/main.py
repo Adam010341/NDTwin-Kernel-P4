@@ -48,6 +48,26 @@ DEFAULT_SWITCH_DPIDS = tuple(range(1, 11))
 DEFAULT_GRPC_PORT_BASE = 50050
 
 
+def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE):
+    """
+    Construct (but do not start) the client for one switch.
+
+    [Co-developed with claude code -- Adam]
+    Extracted from build_p4_clients for POST /p4/readopt/{dpid}: after a power-cycle the old
+    client object is unusable (closed channel, poisoned queue, dead receiver thread), and
+    this is the single place that knows how a dpid becomes an address and a pair of artifact
+    paths. Unstarted on purpose -- readopt owns its own start/settle/push sequence, and
+    build_p4_clients starts its batch itself.
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return P4RuntimeClient(
+        device_id=dpid,
+        grpc_addr=f'localhost:{port_base + dpid}',
+        p4info_path=os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.p4info.txt'),
+        json_path=os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.json')
+    )
+
+
 def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BASE):
     """
     Connect to each bmv2 switch and return {dpid: client} for the ones that came up.
@@ -58,24 +78,21 @@ def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BAS
     gRPC channel. Note that grpc connects lazily, so a client returned here has *not* been
     proven reachable -- `set_forwarding_pipeline_config` in startup is the first real round trip.
     """
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    p4info_path = os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.p4info.txt')
-    json_path = os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.json')
-
     clients = {}
     for i in dpids:
         try:
-            client = P4RuntimeClient(
-                device_id=i,
-                grpc_addr=f'localhost:{port_base + i}',
-                p4info_path=p4info_path,
-                json_path=json_path
-            )
+            client = build_p4_client(i, port_base)
             client.start(push_config=False)
             clients[i] = client
         except Exception as e:
             print(f"[Proxy Agent] Failed to connect to Switch {i}: {e}")
     return clients
+
+
+# Wired at import time like inject_topology above: the readopt endpoint needs to build
+# clients (paths and port numbering live here) and to hand new ones the sFlow callback,
+# exactly as startup() does for the originals. [Co-developed with claude code -- Adam]
+api_routes.inject_readopt(build_p4_client, sflow.handle_sample)
 
 
 async def startup(clients_factory, sflow, kernel, topo,

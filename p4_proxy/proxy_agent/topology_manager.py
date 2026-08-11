@@ -370,6 +370,12 @@ class TopologyManager:
         self._link_ports = load_switch_link_ports()
         self._link_ports_warned = False
 
+        # Serialises readopt_switch. Power operations are operator-paced, so contention is
+        # not expected; the lock exists so that two concurrent readopts of the same dpid
+        # cannot interleave their build/swap/stop sequences and leave a stopped client in
+        # the switches map. [Co-developed with claude code -- Adam]
+        self._readopt_lock = threading.Lock()
+
     def add_switch(self, dpid, client):
         if dpid not in self.switches:
             self.switches[dpid] = client
@@ -656,7 +662,7 @@ class TopologyManager:
         return success
 
 # Developed in collaboration with Gemini 3.1 Pro.
-    def install_initial_routes(self):
+    def install_initial_routes(self, only_dpid=None):
         """
         Installs routing rules in all switches for all hosts, avoiding links believed down.
 
@@ -668,28 +674,36 @@ class TopologyManager:
         explicit at the switch, but it needs a reinstall on recovery, and the twin already reports
         the loss honestly -- `render_destination_paths` withdraws any path whose installed route
         is broken.
+
+        `only_dpid` restricts the writes to one switch, for `readopt_switch`: a freshly
+        restarted bmv2 has empty tables, and rewriting the other nine switches' rules along
+        with it would be forty gRPC round trips to say what those switches already know.
+        Returns the number of rules the switches accepted, so the caller can report it.
         """
         self.calculate_all_paths(self.reroutable_down_endpoints())
         print("[TopologyManager] Installing initial routes proactively...")
+        installed = 0
         for dst, src_paths in self.dest_paths.items():
             # We only care about routing TO hosts
             if self.net.nodes[dst].get('type') != 'host':
                 continue
-            
+
             ipv4_dst = dst
             next_hop_mac = self.net.nodes[dst].get("mac", "00:00:00:00:00:00")
-            
+
             for src, path_info in src_paths.items():
                 # We only need to install a rule on the switch if it's a switch
                 if self.net.nodes[src].get('type') != 'switch':
                     continue
-                
+                if only_dpid is not None and src != only_dpid:
+                    continue
+
                 path = path_info['path']
                 # The next node in the path
                 next_node = path[path.index(src) + 1]
                 # The port connecting src to next_node
                 out_port = self.net.edges[src, next_node]['port']
-                
+
                 client = self.switches[src]
                 print(f"[TopologyManager] Proactive Rule: DPID {src}: {ipv4_dst}/32 -> Port {out_port} (MAC: {next_hop_mac})")
                 # [Co-developed with claude code -- Adam]
@@ -699,6 +713,8 @@ class TopologyManager:
                 if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
                     with self._net_lock:
                         self._installed_routes[(src, ipv4_dst)] = out_port
+                    installed += 1
+        return installed
 
     def installed_routes(self):
         """
@@ -711,6 +727,95 @@ class TopologyManager:
         """
         with self._net_lock:
             return dict(self._installed_routes)
+
+    def readopt_switch(self, dpid, client_factory, sample_callback=None, settle_s=1.0):
+        """
+        Re-adopt one bmv2 switch after its process was restarted (Phase 7 powerOn).
+
+        [Co-developed with claude code -- Adam]
+        A restarted bmv2 comes back with nothing: no pipeline, no clone session, no table
+        entries, and no P4Runtime mastership -- the old client's stream died with the old
+        process and nothing re-establishes it. Meanwhile the liveness probe is a unary RPC on
+        a channel gRPC quietly reconnects, and bmv2 answers COOKIE_ONLY without any pipeline
+        loaded, so `p4LivenessFor` would certify the switch Up while it cannot forward a
+        single packet. This method is what makes "powered on" true rather than merely
+        reported: doc/phase7_power_mechanism_design.md, decision 2.
+
+        A *new* client rather than restarting the old one: stop() closes the channel, poisons
+        the outbound queue with its None sentinel, and lets the receiver thread die -- every
+        step of resurrecting that object is a trap, and a fresh client is the path `startup()`
+        already proves works. The sequence mirrors startup()'s for one switch: callbacks are
+        wired before start() so no packet-in arrives to a None callback, the pipeline settles
+        for `settle_s` (bmv2 accepts arbitration before it finishes electing, and a config
+        push in that window is rejected), and the clone session goes in only after the
+        pipeline it lives in.
+
+        Route counts of zero are possible and honest: right after a power-on the link
+        watchdog may still believe this switch's links are down (its beacons have not resumed
+        yet), and `install_initial_routes` excludes those links. The watchdog's recovery path
+        re-installs routes when the beacons return; this call installs what is believed
+        routable *now*.
+
+        Returns a dict rather than raising, so the HTTP layer decides status codes:
+          {"status": "success", "dpid": ..., "clone_session": bool, "routes_installed": int}
+          {"status": "unknown-switch", ...} | {"status": "failed", "step": ..., "error": ...}
+        """
+        if dpid not in self.switches:
+            return {"status": "unknown-switch", "dpid": dpid,
+                    "detail": f"the proxy has no client for dpid {dpid}; readopt can only "
+                              f"replace a connection that startup once established"}
+
+        with self._readopt_lock:
+            old = self.switches.get(dpid)
+
+            try:
+                new = client_factory(dpid)
+            except Exception as e:  # noqa: BLE001 -- report, never take the handler down
+                return {"status": "failed", "step": "build",
+                        "error": f"{type(e).__name__}: {e}"}
+
+            # Before start(): the receiver thread runs from the moment the stream opens, and
+            # handle_packet_in drops packets whose callback is still None.
+            new.packet_in_callback = self.handle_packet_in
+            if sample_callback is not None:
+                new.sample_callback = sample_callback
+
+            try:
+                new.start(push_config=False)
+                time.sleep(settle_s)
+                new.set_forwarding_pipeline_config()
+            except Exception as e:  # noqa: BLE001
+                try:
+                    new.stop()
+                except Exception:  # noqa: BLE001 -- already reporting the first failure
+                    pass
+                # The old client stays in place: it is just as dead, but the liveness poller
+                # keeps probing it, so the switch keeps reporting Down instead of vanishing.
+                return {"status": "failed", "step": "pipeline",
+                        "error": f"{type(e).__name__}: {e}"}
+
+            # Same policy as startup(): a failed clone session costs telemetry, not the
+            # switch. It forwards fine; it just reports zero traffic, and the caller is told.
+            clone_ok = bool(new.write_clone_session()) if sample_callback is not None else True
+
+            # The swap. switch_liveness reads self.switches under this lock; everything else
+            # does single-key lookups, which the GIL keeps atomic.
+            with self._liveness_lock:
+                self.switches[dpid] = new
+
+            if old is not None and old is not new:
+                try:
+                    old.stop()
+                except Exception as e:  # noqa: BLE001
+                    print(f"[TopologyManager] readopt {dpid}: old client refused to stop "
+                          f"cleanly ({type(e).__name__}: {e}); continuing with the new one")
+
+            routes = self.install_initial_routes(only_dpid=dpid)
+
+        print(f"[TopologyManager] readopt {dpid}: pipeline pushed, clone_session={clone_ok}, "
+              f"{routes} routes installed")
+        return {"status": "success", "dpid": dpid,
+                "clone_session": clone_ok, "routes_installed": routes}
 
     # --- LLDP Discovery Logic ---
     def create_lldp_packet(self, dpid, port):

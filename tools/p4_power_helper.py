@@ -45,7 +45,12 @@ import tempfile
 import time
 
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
-EXPECTED_COMM = "simple_switch_grpc"
+EXPECTED_NAME = "simple_switch_grpc"
+#: /proc/<pid>/comm is capped at 15 characters (TASK_COMM_LEN - 1), so the full binary name
+#: can never appear there -- comparing against it would refuse every real switch. The manual
+#: test runbook documents the same trap for `pgrep -x`. comm gets the truncation; the
+#: untruncated name is checked against /proc/<pid>/cmdline, which is not capped.
+EXPECTED_COMM = EXPECTED_NAME[:15]
 
 #: How long "off" waits for the process to disappear after SIGTERM.
 TERM_WAIT_S = 10.0
@@ -186,9 +191,15 @@ def verify_is_our_switch(pid, entry, name):
         fail(f"pid {pid} (manifest entry '{name}') is '{comm}', not {EXPECTED_COMM}; the "
              f"manifest is stale and the PID has been reused -- refusing to signal it")
     cmdline = proc_cmdline(pid) or []
+    base = os.path.basename(cmdline[0]) if cmdline and cmdline[0] else ""
+    if base != EXPECTED_NAME:
+        # comm is truncated, so "simple_switch_g" also matches e.g. "simple_switch_gui";
+        # cmdline is not truncated and settles it.
+        fail(f"pid {pid} has comm '{comm}' but its cmdline names '{base}', not "
+             f"{EXPECTED_NAME}; refusing to signal it")
     port_token = str(entry.get("grpc_port"))
     if not any(port_token in arg for arg in cmdline):
-        fail(f"pid {pid} is a {EXPECTED_COMM} but its cmdline does not mention gRPC port "
+        fail(f"pid {pid} is a {EXPECTED_NAME} but its cmdline does not mention gRPC port "
              f"{port_token}; it is some other switch -- refusing to signal it")
 
 
@@ -257,8 +268,10 @@ def cmd_on(name):
              f"a second listener behind it")
 
     args = shlex.split(entry["argv"])
-    if not args or os.path.basename(args[0]) != EXPECTED_COMM:
-        fail(f"manifest argv for '{name}' does not start with {EXPECTED_COMM} "
+    # EXPECTED_NAME, not EXPECTED_COMM: argv comes from the manifest, not from the kernel's
+    # truncated comm, so the full name is what a legitimate entry carries.
+    if not args or os.path.basename(args[0]) != EXPECTED_NAME:
+        fail(f"manifest argv for '{name}' does not start with {EXPECTED_NAME} "
              f"({args[:1]!r}); refusing to execute it")
 
     # O_NOFOLLOW: the log lives in /tmp, where a symlink planted at the recorded name would
@@ -284,7 +297,7 @@ def cmd_on(name):
     while time.monotonic() < deadline:
         rc = proc.poll()
         if rc is not None:
-            fail(f"{EXPECTED_COMM} for '{name}' exited with status {rc} before opening port "
+            fail(f"{EXPECTED_NAME} for '{name}' exited with status {rc} before opening port "
                  f"{grpc_port}; see {entry['log_file']}")
         if port_listening(grpc_port):
             entry["pid"] = proc.pid
@@ -293,7 +306,7 @@ def cmd_on(name):
             return
         time.sleep(POLL_INTERVAL_S)
 
-    fail(f"{EXPECTED_COMM} for '{name}' (pid {proc.pid}) did not open port {grpc_port} "
+    fail(f"{EXPECTED_NAME} for '{name}' (pid {proc.pid}) did not open port {grpc_port} "
          f"within {PORT_WAIT_S}s; it was left running -- killing it here would race its "
          f"startup, and the caller can run 'off' once it has decided")
 

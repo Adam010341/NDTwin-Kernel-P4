@@ -12,6 +12,19 @@ def inject_topology(topo: TopologyManager):
     global topology
     topology = topo
 
+# Injected alongside the topology, for POST /p4/readopt/{dpid} (Phase 7 powerOn).
+# [Co-developed with claude code -- Adam]
+# The factory lives in main.py because that is where the p4info/json paths and the gRPC port
+# numbering are decided; this module only knows how to hand it a dpid. The sample callback is
+# the sFlow emitter's, wired the same way startup() wires it.
+readopt_client_factory = None
+readopt_sample_callback = None
+
+def inject_readopt(client_factory, sample_callback):
+    global readopt_client_factory, readopt_sample_callback
+    readopt_client_factory = client_factory
+    readopt_sample_callback = sample_callback
+
 # --- Ryu-shaped topology, polled by the kernel -------------------------------------------
 # [Co-developed with claude code -- Adam]
 #
@@ -132,6 +145,40 @@ async def modify_flow_entry(request: Request):
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
     return {"status": "success"}
+
+@router.post("/p4/readopt/{dpid}")
+def readopt(dpid: int):
+    """
+    Rebuild the proxy's relationship with one restarted bmv2 switch (Phase 7 powerOn).
+
+    [Co-developed with claude code -- Adam]
+    P4PowerStrategy calls this after ndtwin-p4-power has relaunched the process and seen its
+    gRPC port open. The open port is where the helper's knowledge ends and this endpoint's
+    work begins: mastership, pipeline, clone session and routes are all gone with the old
+    process, and the liveness probe cannot tell (see readopt_switch's docstring).
+
+    Deliberately `def`, not `async def`: the sequence sleeps for the mastership settle and
+    then blocks on gRPC round trips, so FastAPI must run it on the threadpool. As an async
+    handler it would stall the event loop -- and with it every other endpoint, including the
+    /p4/switch_state poll the kernel reads once a second -- for the whole readopt.
+
+    502 for a readopt that failed at a named step, 404 for a dpid startup never knew;
+    both carry the step detail so the kernel's log says what actually broke.
+    """
+    if topology is None:
+        raise HTTPException(status_code=503, detail="proxy has no topology yet")
+    if readopt_client_factory is None:
+        raise HTTPException(status_code=503,
+                            detail="readopt is not wired: main.py did not inject a client "
+                                   "factory, so this endpoint cannot build connections")
+
+    result = topology.readopt_switch(dpid, readopt_client_factory, readopt_sample_callback)
+    if result["status"] == "unknown-switch":
+        raise HTTPException(status_code=404, detail=result)
+    if result["status"] != "success":
+        raise HTTPException(status_code=502, detail=result)
+    return result
+
 
 # Developed in collaboration with Gemini 3.1 Pro.
 
