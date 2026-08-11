@@ -3054,10 +3054,14 @@ The handler (`HttpSession.cpp` lines 1299-1324) extracts `"prompt"` and `"sessio
 from the JSON body and passes them to `IntentTranslator::inputTextIntent()`.
 The response is the LLM’s structured output.
 
-**`--no-ai` mode:** When the kernel runs with `--no-ai`, the `IntentTranslator` shared_ptr
-is null. The handler does NOT check for null before calling `m_intentTranslator->inputTextIntent()`,
-so dereferencing a null pointer would crash the kernel. This endpoint MUST NOT be called
-in `--no-ai` mode. (This is a known defect; the task forbids calling it against the live twin.)
+**`--no-ai` mode:** When the kernel runs with `--no-ai` — which is how `stack.sh` starts it — the
+`IntentTranslator` shared_ptr is null, and this endpoint answers **503 Service Unavailable** with
+`{"error":"Intent translator is disabled; the kernel was started with --no-ai."}`. It is safe to
+call; it simply cannot serve you.
+
+> Until 2026-08-11 the handler dereferenced that null pointer, and a single well-formed POST
+> segfaulted the whole kernel process. The mitigation was this paragraph telling people not to call
+> it. It is now a guard in `handleInputTextIntent`.
 
 ### Request
 

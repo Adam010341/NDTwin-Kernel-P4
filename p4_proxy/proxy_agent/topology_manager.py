@@ -289,9 +289,22 @@ class TopologyManager:
         # `push_destination_paths`): they guard unrelated state and nesting them would be an
         # ordering hazard for no gain.
         #
-        # ⚠️ Scope: the writers below and `push_destination_paths` take this lock. The HTTP
-        # render path and `install_initial_routes` still read `net` unlocked -- unchanged from
-        # before, not made worse, and not fixed here.
+        # ⚠️ Scope, as of 2026-08-11. Taken by: the writers below, `push_destination_paths`, and
+        # `calculate_all_paths` (which copies under it and then walks the copy).
+        #
+        # Still unlocked, deliberately and with different risk:
+        #
+        #   - `api_routes.py` — `render_links`, `render_hosts` and `render_destination_paths` all
+        #     iterate `topology.net` straight off the HTTP thread. Same RuntimeError is possible,
+        #     but uvicorn turns an exception in a handler into a 500 for that one request; it does
+        #     not lose a thread. A caller retries and gets an answer.
+        #   - `install_initial_routes` — reads `net.nodes[x]` / `net.edges[x, y]` one key at a time
+        #     rather than iterating, and a single dict lookup is atomic under the GIL. It is the
+        #     *iteration* that raises "dictionary changed size", which is why `calculate_all_paths`
+        #     was the one that had to move and these did not.
+        #
+        # Separate from `_liveness_lock`, and the two are never held at once (see
+        # `push_destination_paths`).
         self._net_lock = threading.RLock()
 
         # --- What we have actually written to the switches. [Co-developed with claude code -- Adam]
@@ -446,15 +459,34 @@ class TopologyManager:
         the watchdog had already reported down. That is why calling the installer after a failure
         would have changed nothing: it recomputed the identical route, straight back into the dead
         link.
+
+        Walks a snapshot, not the live graph, for the reason `push_destination_paths` does: this
+        runs on a *gRPC receive thread*. `handle_packet_in` discovers a link, calls `add_link`, then
+        calls `install_initial_routes` -- which lands here -- while the other switches' receive
+        threads are calling `add_link` of their own. A concurrent insert during the traversal raises
+        `RuntimeError: dictionary changed size during iteration`, and `_stream_receiver` only
+        catches `grpc.RpcError`, so the exception escapes and that switch's receive thread is gone
+        for the rest of the run.
+
+        What made it worth fixing over any other race is how it fails. The dead thread stops
+        delivering packet-ins, so every inbound link into that switch goes quiet at once while the
+        switch keeps answering P4Runtime -- which is exactly the signature `reroutable_down_endpoints`
+        forgives. The watchdog would decline to reroute and the twin would report stale state
+        indefinitely, with nothing logged. The suppression built for a bmv2 measurement artefact was
+        also, silently, hiding this.
         """
         paths_dict = {}
-        nodes = self.net.nodes()
 
-        # A view, not a copy, and never a mutation: the LLDP threads own this graph.
-        search = self.net
-        drop = ryu_topology.down_edges(self.net, exclude_endpoints)
+        # Copied under the lock, then released: the traversal below is pure CPU over a frozen
+        # structure, and `install_initial_routes` follows it with up to 40 blocking gRPC writes
+        # that must not be holding the graph lock while they wait.
+        with self._net_lock:
+            search = self.net.copy()
+
+        nodes = list(search.nodes())
+        drop = ryu_topology.down_edges(search, exclude_endpoints)
         if drop:
-            search = nx.restricted_view(self.net, [], drop)
+            search = nx.restricted_view(search, [], drop)
 
         for dst in nodes:
             paths_dict[dst] = {}

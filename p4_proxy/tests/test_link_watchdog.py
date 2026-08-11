@@ -22,6 +22,8 @@ import sys
 import threading
 import unittest
 
+import networkx as nx
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from proxy_agent import ryu_topology  # noqa: E402
@@ -905,6 +907,78 @@ class ThePushComputesOverASnapshotTest(WatchdogTestBase):
         self.topo.push_destination_paths()
         self.assertTrue(free["net_lock_was_free"],
                         "the graph lock was still held while the liveness lock was being taken")
+
+
+class ThePathSearchWalksASnapshotTest(WatchdogTestBase):
+    """calculate_all_paths runs on a gRPC receive thread; the other switches' threads write."""
+
+    def setUp(self):
+        super().setUp()
+        # h1 -- s1 == s5 -- h2. Nodes added directly: add_switch also wants a P4Client, and
+        # nothing here talks to a switch.
+        for dpid in (1, 5):
+            self.topo.net.add_node(dpid, type="switch")
+        self.topo.add_link(1, 5, 1, 1)
+        self.topo.add_host("10.0.0.1", 1, 1, 3)
+        self.topo.add_host("10.0.0.2", 2, 5, 3)
+
+    def test_a_concurrent_add_during_the_search_does_not_raise(self):
+        # The failure this reproduces: handle_packet_in on switch A calls install_initial_routes ->
+        # calculate_all_paths, and switch B's receive thread calls add_link mid-walk. Iterating the
+        # live NodeView while it grows raises RuntimeError("dictionary changed size during
+        # iteration"), which _stream_receiver does not catch -- it only catches grpc.RpcError -- so
+        # switch A's receive thread dies for the rest of the run.
+        #
+        # CATCHES: reverting calculate_all_paths to walk self.net directly.
+        real = nx.shortest_path
+        fired = {"n": 0}
+
+        def writing_shortest_path(g, source, target):
+            fired["n"] += 1
+            if fired["n"] == 1:
+                # Stand in for another switch's receive thread discovering a neighbour.
+                self.topo.net.add_node(99, type="switch")
+            return real(g, source, target)
+
+        nx.shortest_path = writing_shortest_path
+        try:
+            self.topo.calculate_all_paths()
+        finally:
+            nx.shortest_path = real
+
+        self.assertGreater(fired["n"], 0,
+                           "the stand-in writer never ran, so this test proves nothing")
+        self.assertTrue(self.topo.net.has_node(99),
+                        "the writer must really have mutated the live graph")
+
+    def test_the_search_does_not_see_a_write_that_lands_during_it(self):
+        # Isolation, not just survival: a node added mid-walk must not appear in the graph being
+        # walked, or two calls to the same function would disagree about the topology.
+        #
+        # CATCHES: taking the lock around the walk instead of copying (survives, but the walk
+        # would then see nothing at all because the writer would block -- and any read of
+        # self.net inside the loop would still see the write).
+        seen = {}
+        real = ryu_topology.down_edges
+
+        def watching_down_edges(net, exclude_endpoints=()):
+            seen["was_the_live_graph"] = net is self.topo.net
+            self.topo.net.add_node(77, type="switch")
+            seen["walk_saw_the_write"] = net.has_node(77)
+            return real(net, exclude_endpoints)
+
+        ryu_topology.down_edges = watching_down_edges
+        try:
+            self.topo.calculate_all_paths()
+        finally:
+            ryu_topology.down_edges = real
+
+        self.assertFalse(seen["was_the_live_graph"],
+                         "the search must not be handed the graph the receive threads write")
+        self.assertTrue(self.topo.net.has_node(77),
+                        "the stand-in writer must really have mutated the live graph")
+        self.assertFalse(seen["walk_saw_the_write"],
+                         "a write during the search leaked into the graph being searched")
 
 
 class ThreadLifecycleTest(unittest.TestCase):

@@ -360,8 +360,10 @@ grep -E "Clone session|clone session failed|link watchdog seeded" .test_run/logs
 
 ### 5a. 灌流量（terminal B —— Adam）
 
-⚠️ **h1 和 h4 在不同交換機上**（h1 在 s1，h4 在 s4），這很重要。同一台交換機底下的 host 互打，`get_average_link_usage` 永遠是 0.0——因為 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2429`）刻意排除所有接到 host 的邊
-（判斷式在 `:2455-2456`），那不是 bug。
+⚠️ **h1 和 h4 在不同交換機上**（h1 在 s1，h4 在 s4），這很重要。同一台交換機底下的 host 互打，`get_average_link_usage` 永遠是 0.0——因為 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2441`）刻意排除所有接到 host 的邊
+（判斷式在 `:2468-2469`），那不是 bug。
+
+⚠️ **【2026-08-11 更正】原本引用的 `:2429` 和 `:2455-2456` 都是錯的，而且寫下當時就錯了。** `:2429` 是另一個函式裡的 JSON `push_back`，`:2455` 是 `if (!isUsable(g[e]))`（可用性檢查，與 vertex type 無關）。結論本身正確，只有指標錯誤。（來源：agy-review 0182。）
 
 ```
 mininet> h1 ping -c 20000 -i 0.002 10.0.0.4
@@ -430,7 +432,7 @@ done
 ```
 
 ⚠️ **這裡本來寫「逐步爬升，是累積平均」，那是錯的（2026-08-10 更正）。** 看
-`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2429`）：它只把 `linkBandwidthUsage != 0` 的邊
+`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2441`）：它只把 `linkBandwidthUsage != 0` 的邊
 算進去，然後除以**那一刻非零邊的數量**。1/256 取樣之下，每一秒有樣本落在哪幾條邊會變，所以分子
 分母同時在變——它是瞬時值，而且分母會跳。**只要在 `1e-05`～`3e-04` 這個量級就是對的；
 要求它單調上升是要求一個它從來沒有過的性質。**

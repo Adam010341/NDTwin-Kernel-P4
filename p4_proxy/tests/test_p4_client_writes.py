@@ -802,10 +802,6 @@ class P4InfoLookupTest(unittest.TestCase):
             self.client._get_match_field_id("MyIngress.ipv4_lpm", "hdr.ethernet.dstAddr")
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
 class WriteDeadlineTest(unittest.TestCase):
     """
     Pins the deadline on the write path.
@@ -839,3 +835,7 @@ class WriteDeadlineTest(unittest.TestCase):
         # A tighter bound would make DEADLINE_EXCEEDED report a rule that did land as failed.
         self.client.insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
         self.assertGreaterEqual(min(self.stub.write_timeouts), 1.0)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

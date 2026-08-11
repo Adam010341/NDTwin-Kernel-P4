@@ -1300,6 +1300,27 @@ void
 HttpSession::handleInputTextIntent(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Processing intent_translator text request");
+
+    // [Co-developed with claude code -- Adam]
+    // `--no-ai` leaves this pointer null: main.cpp only constructs an IntentTranslator when
+    // config.useToken is set, and its else branch just logs. Without this check one well-formed
+    // POST dereferences null and takes the whole kernel process with it -- every other endpoint,
+    // the topology poll, the sFlow collector -- while it is running a live network. The catch
+    // below cannot help: a null dereference is a signal, not a C++ exception.
+    //
+    // stack.sh starts the kernel with --no-ai, so this is the *normal* configuration here, not a
+    // corner case. doc/ndt_api.md carried the defect as a written warning not to call the endpoint;
+    // a three-line guard is a better mitigation than asking people to remember.
+    if (this->m_intentTranslator == nullptr)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "intent_translator requested but the translator is disabled (--no-ai)");
+        res.result(http::status::service_unavailable);
+        res.body() =
+            R"({"error":"Intent translator is disabled; the kernel was started with --no-ai."})";
+        return;
+    }
+
     try
     {
         json body = json::parse(m_req.body());
