@@ -577,7 +577,18 @@ class TopologyManager:
         # Was `insert_ipv4_route(...)` followed by an unconditional `return True`, so the
         # REST layer answered {"status":"success"} even when the gRPC write was rejected or
         # the switch was unreachable. Return what actually happened.
-        return bool(client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port))
+        success = bool(client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port))
+        if success:
+            # [Co-developed with claude code -- Adam]
+            # `_installed_routes` had exactly one writer before this: install_initial_routes.
+            # Traffic-Engineering and Energy-Saving both reroute through this endpoint --
+            # /stats/flowentry/add -- and every one of those rewrites was invisible to the map,
+            # so render_destination_paths kept reporting the *old* hop the switch no longer had.
+            # This is the same lie decision B (installed_routes existing at all) was written to
+            # stop, walking back in through the REST door instead of the watchdog.
+            with self._net_lock:
+                self._installed_routes[(dpid, ipv4_dst)] = out_port
+        return success
 
     def unroute_flow(self, dpid, match_dict):
         if dpid not in self.switches:
@@ -598,7 +609,15 @@ class TopologyManager:
             return False
             
         # [Co-developed with claude code -- Adam] -- as above: report the real outcome.
-        return bool(client.delete_ipv4_route(ipv4_dst, 32))
+        success = bool(client.delete_ipv4_route(ipv4_dst, 32))
+        if success:
+            # Withdraw the record along with the rule. Left in place, the twin would keep
+            # advertising a route to a destination the switch no longer has one for at all --
+            # worse than the stale-port case route_flow's write closes, because there is nothing
+            # left on the switch for the packet to reach.
+            with self._net_lock:
+                self._installed_routes.pop((dpid, ipv4_dst), None)
+        return success
 
     def modify_flow(self, dpid, match_dict, actions_dict):
         if dpid not in self.switches:
@@ -627,8 +646,14 @@ class TopologyManager:
         next_hop_mac = "00:00:00:00:00:00"
         if ipv4_dst in self.net.nodes:
             next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
-            
-        return client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port)
+
+        success = client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port)
+        if success:
+            # As route_flow: the port just changed, so the record has to move with it or a
+            # renderer reading _installed_routes sends packets down the pre-modify hop.
+            with self._net_lock:
+                self._installed_routes[(dpid, ipv4_dst)] = out_port
+        return success
 
 # Developed in collaboration with Gemini 3.1 Pro.
     def install_initial_routes(self):

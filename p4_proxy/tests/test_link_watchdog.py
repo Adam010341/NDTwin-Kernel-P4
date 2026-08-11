@@ -981,6 +981,100 @@ class ThePathSearchWalksASnapshotTest(WatchdogTestBase):
                          "a write during the search leaked into the graph being searched")
 
 
+class RestRouteChangesUpdateInstalledRoutesTest(WatchdogTestBase):
+    """
+    route_flow / unroute_flow / modify_flow all reach a switch through /stats/flowentry/*, the
+    same door Traffic-Engineering and Energy-Saving use to reroute a flow by hand.
+
+    [Co-developed with claude code -- Adam]
+    _installed_routes had exactly one writer before this -- install_initial_routes -- so a REST
+    caller\'s add/modify/delete never touched it. render_destination_paths reads this map to decide
+    what the twin is allowed to claim (decision B); a rewrite through this door left it claiming
+    the *old* hop, and a delete left it claiming a route to a destination with nothing on the wire
+    for it at all. Both are the same lie decision B exists to prevent, re-entering through REST.
+    """
+
+    class RecordingClient:
+        """Stands in for P4Client. Controllable success/failure per call."""
+
+        def __init__(self):
+            self.insert_result = True
+            self.delete_result = True
+            self.modify_result = True
+            self.inserted = []
+            self.deleted = []
+            self.modified = []
+
+        def insert_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
+            self.inserted.append((dst_ip, port))
+            return self.insert_result
+
+        def delete_ipv4_route(self, dst_ip, prefix_len):
+            self.deleted.append(dst_ip)
+            return self.delete_result
+
+        def modify_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
+            self.modified.append((dst_ip, port))
+            return self.modify_result
+
+    def setUp(self):
+        super().setUp()
+        self.client = self.RecordingClient()
+        self.topo.add_switch(1, self.client)
+
+    def test_a_successful_add_is_recorded(self):
+        # CATCHES: route_flow not writing to _installed_routes at all (the reported defect).
+        ok = self.topo.route_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 3}])
+        self.assertTrue(ok)
+        self.assertEqual(self.topo.installed_routes().get((1, "10.0.0.5")), 3)
+
+    def test_a_failed_add_is_not_recorded(self):
+        # CATCHES: recording unconditionally instead of gating on the switch's own answer --
+        # the same "success reported for work not done" shape decision B was written to close.
+        self.client.insert_result = False
+        ok = self.topo.route_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 3}])
+        self.assertFalse(ok)
+        self.assertNotIn((1, "10.0.0.5"), self.topo.installed_routes())
+
+    def test_a_successful_delete_withdraws_the_record(self):
+        # CATCHES: unroute_flow leaving the entry in place, which would have the twin claim a
+        # route to a destination the switch now has no rule for at all.
+        self.topo.route_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 3}])
+        self.assertIn((1, "10.0.0.5"), self.topo.installed_routes())
+
+        ok = self.topo.unroute_flow(1, {"nw_dst": "10.0.0.5"})
+        self.assertTrue(ok)
+        self.assertNotIn((1, "10.0.0.5"), self.topo.installed_routes())
+
+    def test_a_failed_delete_leaves_the_record_alone(self):
+        # CATCHES: withdrawing the record even when the switch refused the delete -- the twin
+        # would then claim no route exists for a rule that is still live on the wire.
+        self.topo.route_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 3}])
+        self.client.delete_result = False
+
+        ok = self.topo.unroute_flow(1, {"nw_dst": "10.0.0.5"})
+        self.assertFalse(ok)
+        self.assertEqual(self.topo.installed_routes().get((1, "10.0.0.5")), 3)
+
+    def test_a_successful_modify_moves_the_record_to_the_new_port(self):
+        # CATCHES: modify_flow not updating the record, or deleting instead of moving it -- a
+        # renderer would send packets down the pre-modify port, or show no route at all.
+        self.topo.route_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 3}])
+
+        ok = self.topo.modify_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 7}])
+        self.assertTrue(ok)
+        self.assertEqual(self.topo.installed_routes().get((1, "10.0.0.5")), 7)
+
+    def test_a_failed_modify_leaves_the_old_port_recorded(self):
+        # CATCHES: recording the new port even though the switch rejected the modify.
+        self.topo.route_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 3}])
+        self.client.modify_result = False
+
+        ok = self.topo.modify_flow(1, {"nw_dst": "10.0.0.5"}, [{"type": "OUTPUT", "port": 7}])
+        self.assertFalse(ok)
+        self.assertEqual(self.topo.installed_routes().get((1, "10.0.0.5")), 3)
+
+
 class ThreadLifecycleTest(unittest.TestCase):
     """
     The LLDP beacon thread had no stop flag and its handle was assigned to a discarded local, so
