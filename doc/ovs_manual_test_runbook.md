@@ -15,7 +15,18 @@
 
 **名稱刻意不帶 phase 編號。** 每個 phase 應該延伸這一份，而不是各自新增一份互相矛盾的文件。
 
-> **⚠️ 驗證狀態**：本文件撰寫於 2026-08-10，此時機器上跑的是 P4 stack，**OVS 路徑未實測**。每個預期值都標明了來源（原始碼行號、既有文件、或 TO BE MEASURED）。Adam 第一次跑的時候請把 TO BE MEASURED 的值填入 §10 的表格。
+> **✅ 驗證狀態（2026-08-11 更新）**：本文件撰寫於 2026-08-10（當時 OVS 路徑未實測）。**2026-08-11 已完整實跑一輪 §1–§7**，§10 的 TO BE MEASURED 全部填入實測值，文中若干預期值被實測推翻，已就地更正並標註 `【2026-08-11 實測】`。
+>
+> **被實測推翻的原始預期**（詳見各節）：
+> 1. §4a「Ryu 學不到所有 host IP，hosts/edges up 會少於 128/288」——**錯**。實測 128/128 host、288/288 edge，Ryu 自己也回報 `hosts: 128, with ipv4: 128`。
+> 2. §5c「detected flows 應為 2 筆雙向」——**對 `iperf -u` 是錯的**，UDP 單向只有 1 筆。
+> 3. §5c「`src_ip` 是 `10.0.0.1` 這樣的字串」——**錯**，是 little-endian 整數。
+> 4. §5a 的 `pgrep -f "[m]ininet:h1"` ——**會命中 40 個 process**，必須用 `$` 錨定。
+> 5. §6 的斷線目標 `s1-eth1` **不在流量路徑上**，照原樣跑測不到 §6h 的繞路。
+>
+> **本次實測新發現的問題**：twin 在鏈路轉換期間會輸出自相矛盾的狀態，見 §6i（新增）。
+>
+> **原始撰寫時的驗證狀態（保留供追溯）**：撰寫於 2026-08-10，此時機器上跑的是 P4 stack，OVS 路徑未實測。每個預期值都標明了來源（原始碼行號、既有文件、或 TO BE MEASURED）。
 >
 > **已核對的部分（2026-08-10，逐條開檔確認）**：啟動順序的依據（`stack.sh:530-538` 確實說明兩種模式方向相反）、Ryu 需要 `--observe-links` 加上 `rest_topology` 與 `ofctl_rest`（`stack.sh:562-564`）、`#define SFLOW_PORT 6343`（`FlowLinkUsageCollector.hpp:33`）、`kFlowStatsSuspectSeconds = 0.5`（`DeviceConfigurationAndPowerManager.hpp:291`）、poll 間隔 5s/30s/90s（`TopologyAndFlowMonitor.cpp:1758-1760`）、`controlPlaneHostAndPort`（`FlowLinkUsageCollector.cpp:211-218`）、`bool adminDisabled = false;`（`GraphTypes.hpp:215`）、kernel 以 `--no-ai` 啟動（`stack.sh:606`）、`intelligent_router.py` 存在於 repo 根目錄。
 >
@@ -82,6 +93,27 @@ ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 or sport = 6633 )'
 
 ⚠️ **`sudo ovs-vsctl list-br` 回 `""`（空字串）不代表沒有 bridge**——它代表 OVS 沒有安裝或 `ovsdb-server` 沒跑。在乾淨機器上這是預期的；如果你剛跑過 Mininet 但沒 `mn -c`，它會列出殘留的 bridge（例如 `s1` 到 `s10`）。那些必須清掉。
 
+> **【2026-08-11 實測】要把「空輸出」變成真訊號，先確認 daemon 在跑：**
+>
+> ```bash
+> pgrep -ax ovsdb-server; pgrep -ax ovs-vswitchd
+> ```
+>
+> 兩個都在（本機是 systemd 開機起的常駐 daemon），那 `list-br` 的空輸出就**確定**代表 0 個 bridge，而不是查詢失敗的假陰性。
+
+⚠️ **【2026-08-11 實測】中括號技巧在這裡會失效，別被騙。** `pgrep -af "[t]estbed_topo.py"` 會命中**你自己這條指令**，只要同一條命令列裡別處出現了 `testbed_topo.py` 的字面文字——例如上面那行 `pgrep -af "[p]4_testbed_topo.py"`，它的字面內容 `4_testbed_topo.py` 就含有 `testbed_topo.py`。把整組檢查寫成一行時必然踩到。
+
+**可靠的替代判準**（不受這個問題影響）：
+
+```bash
+pgrep -af "[m]ininet:"          # Mininet host/switch namespace，沒有就是沒有 Mininet
+sudo -n ovs-vsctl list-br       # 0 個 bridge
+```
+
+⚠️ **【2026-08-11 實測】`stack.sh status` 的 `mode:` 是上一次成功 `up` 留下的殘留值，不是現在的狀態。** 乾淨環境下它仍會顯示上次的 `mode: p4 .../StaticNetworkTopologyP4_10Switches_4Hosts.json`。`MODE_FILE` 只在 `up` **完全成功後**才寫入（`stack.sh` 的註解說明了理由）。
+
+後果：**如果 `up ovs` 中途失敗，`MODE_FILE` 仍指向 P4，`./stack.sh wait` 會拿 P4 的 topology（10 switch / 40 edge）去檢查一個 OVS stack**，於是 `edges=288` 對不上它預期的數字。看到 `wait` 的預期值不是 288 時，先確認 `status` 的 mode 是不是 ovs。
+
 ---
 
 ## 2. 離線層：build + unit tests（約 6 分鐘，不需要 Mininet）
@@ -106,8 +138,10 @@ L1 passed: 1 test binary/binaries, clean under ctest and direct execution.
 | 項目 | 數量 |
 |---|---|
 | C++ 測試（直接執行） | 426 pass |
-| p4_proxy Python 測試 | 312 條，分布在 12 個檔案 |
-| kernel-side Python/shell 測試 | 101 條，分布在 2 個檔案（`tests/python/`） + 1 個 shell（`tests/shell/`） |
+| p4_proxy Python 測試 | **331 pass + 1 skip = 332 條**，分布在 12 個檔案 |
+| kernel-side Python/shell 測試 | **107 條**（`test_contract_spec.py` 90 + `test_route_reinstall.py` 11 + `test_wait_for_port.sh` 6） |
+
+⚠️ **【2026-08-11 實測】上表後兩列原本寫 312 和 101，是舊數字。** 實測逐檔數字：`test_clone_session` 18、`test_kernel_notifier` 17、`test_link_watchdog` 66、`test_lldp_beacon` 16、`test_p4_client` 1 skip、`test_p4_client_writes` 55、`test_ryu_flow_stats` 22、`test_ryu_topology` 32、`test_sflow_emitter` 48、`test_startup` 13、`test_switch_state` 20、`test_unsupported_match` 24。**這些數字會隨測試增加而過時——真正的通過標準是最後那行 `L1 passed:`，不是對數字。**
 
 ⚠️ C++ 測試必須**兩種跑法都通過**——`ctest` 每個 test case 開獨立 process，會掩蓋 suite 級別的失敗（例如 static init 順序、singleton 殘留狀態）。`l1_unit_tests.sh` 兩種都跑，並且交叉比對 ctest 註冊數和 gtest 發現數是否一致。
 
@@ -213,6 +247,31 @@ stack up. next: ./stack.sh wait
 
 ⚠️ **如果 `converged after` 只花了 2 秒，那是閘門又壞了**（只等到 link discovery，沒等到路徑安裝），不要往下做。來源：`stack.sh:195`（P4 收斂才是 2 秒）和 `doc/full_test_runbook.md` §1c。
 
+> **【2026-08-11 實測】但 2 秒也可能是真的，不要只看這個數字就下結論。** 本次實測就出現 `converged after 2s`，而閘門是好的——因為 Mininet 已經開了超過 60 秒才回 terminal A 按 Enter，`hub.sleep(60)` 早就跑完，`await_convergence` 第一次 poll 就看到 `paths=installed`。
+>
+> **分辨方法（兩者都要對，不要只看其一）**：
+>
+> ```bash
+> # 1. 路徑數必須是 16256，不是 0、不是少少幾條
+> curl -s localhost:8080/ryu_server/all_destination_paths | python3 -c \
+>   "import json,sys; print(len(json.load(sys.stdin)['all_destination_paths']))"
+> # 2. 這行必須在 ryu.log 裡
+> grep -c "Static topology initialized, all-destination paths installed." .test_run/logs/ryu.log
+> ```
+>
+> `paths_installed()`（`stack.sh:167-175`）只檢查 `> 0`，所以它**不能**分辨「16256 條」和「1 條」。上面第 1 條指令才可以。
+
+⚠️ **【2026-08-11 實測】啟動時 ryu.log 會出現大量 `ECONNREFUSED to localhost:8000`，那是預期的，不是錯誤。** 訊息長這樣：
+
+```
+Failed to notify NDT (switch enter): ... /ndt/inform_switch_entered?dpid=6 ... [Errno 111] ECONNREFUSED
+Failed to notify NDT: ... /ndt/link_recovery_detected ... [Errno 111] ECONNREFUSED
+```
+
+kernel 依設計是**最後**才啟動的（`[3/3]`），所以 Ryu 在 switch 連進來、LLDP 發現 link 的那段時間，`:8000` 上根本沒人。本次實測有 30+ 筆，全部集中在 kernel 起來之前。**判準：檢查最後一筆 ECONNREFUSED 的時間是否早於 kernel 的啟動時間**，是就沒問題。
+
+⚠️ **【2026-08-11 實測】ryu.log 裡會有兩次 `install_all_pair_paths`，這是正常的。** 第一次是 `hub.sleep(60)` 之後的初始安裝；第二次是 LLDP 陸續發現 32 條 link，每條 `Link added` 都呼叫 `_schedule_route_reinstall`，被 debounce 收斂成**一次**重算（`recomputing all-pair routes after topology change` → `route reinstall done`）。**32 個事件只觸發 1 次重裝，正是去抖動生效的證據**——如果看到 32 次重裝，那才是 bug。
+
 ⚠️ 看到 `all-destination paths were never installed` 代表 `install_all_pair_paths` 拋例外了，去 `.test_run/logs/ryu.log` 找 `Failed to load static topology file`。來源：`stack.sh:244-245`。
 
 ⚠️ **kernel log 裡一筆 `curl` 失敗（對 `:8081` 的連線拒絕）是預期的嗎？** 在 OVS 模式**不是**。OVS 模式下 `controlPlaneHostAndPort()` 永遠回 `localhost:8080`（`FlowLinkUsageCollector.cpp:211-218`），因為 switch kind 是 OVS 不是 BMV2。如果 OVS 模式下 log 出現對 `:8081` 的嘗試，代表 topology 檔案裡的 `brand_name` 欄位不是 `"OVS"`，kernel 誤判了 data plane 類型。來源：`TopologyAndFlowMonitor.cpp:87-100`（`configureTopologyApiUrls` 只對 all-bmv2 重指向）。
@@ -260,15 +319,24 @@ print('edges', len(ed), 'up', sum(1 for e in ed if e['is_up']))"
 
 ```
 switches 10 up 10 enabled 10
-hosts 128 up TO BE MEASURED
-edges 288 up TO BE MEASURED
+hosts 128 up 128
+edges 288 up 288
+hosts with ipv4: 128
 ```
 
-⚠️ **hosts `up` 的數字不是 128。** OVS 模式下 host 的 `is_up` 由 kernel 的 topology poll 週期性從 Ryu 學習。Ryu 的 host 學習依賴封包 in（host 發封包 → controller 看到 → 學到 MAC/IP），但 `testbed_topo.py` 設的是 static ARP（`testbed_topo.py:219-226`），Ryu 不一定學得到所有 host IP。這是已知限制，來源：`doc/full_test_runbook.md` §1e 的「static ARP → Ryu 學不到 host IP」。**TO BE MEASURED**——記錄實際數字。
+🔴 **【2026-08-11 實測】本節原本的兩段 ⚠️ 是錯的，已刪除。** 原文主張「hosts `up` 的數字不是 128」「edges `up` 的數字不是 288」，理由是 `testbed_topo.py:219-226` 設了 static ARP，Ryu 學不到 host IP。**實測全滿：128/128 host up、288/288 edge up、128 個 host 都有 IP。** Ryu 自己也是滿的：
 
-⚠️ **edges `up` 的數字不是 288。** host 邊的 `is_up` 也取決於 host 是否被學到。**TO BE MEASURED**。核心交換機間的 32 條邊應該全部 `is_up=true`，前提是 `ovs-vsctl list-br` 正常。
+```bash
+curl -s localhost:8080/v1.0/topology/hosts | python3 -c \
+  "import json,sys; d=json.load(sys.stdin); print(len(d), sum(1 for h in d if h.get('ipv4')))"
+# 實測輸出：128 128
+```
 
-⚠️ 這個檢查可以因為「kernel graph 沒更新」而通過——`wait` 只看 switches up+enabled，不看 hosts 和 edges 的 liveness。如果 hosts 全部顯示 down（`up=0`），但 switches 都是 `10/10/10`，那代表拓撲 poll 正常但 host 學習沒發生——這是預期內的不完美，不是回歸。
+**這個錯誤的來源和它的真正解釋**：原文引用 `doc/full_test_runbook.md` §1e 的「static ARP → Ryu 學不到 host IP」。那個因果是誤判——真正的原因是 kernel 早期版本只在啟動時抓一次 topology snapshot，host 尚未被學到就定案了，之後不再更新；空的 `ipv4` 是**過渡狀態**，不是 static ARP 造成的永久限制。現在 kernel 會週期性重抓（`TopologyAndFlowMonitor.cpp:1758-1760`），所以收斂後就是滿的。
+
+⚠️ 因此 **`hosts up < 128` 或 `edges up < 288` 現在是紅燈，不是「預期內的不完美」**。看到的話請往下查 topology poll，不要照舊文件當成已知限制放過。
+
+⚠️ 這個檢查仍然可以因為「kernel graph 沒更新」而通過——`wait` 只看 switches up+enabled，不看 hosts 和 edges 的 liveness。所以 hosts/edges 的數字要自己看，不能只信 `wait` 的綠燈。
 
 ### 4b. 節點 key 檢查
 
@@ -295,6 +363,10 @@ curl -s localhost:8000/ndt/get_power_report | python3 -m json.tool
 ```
 
 ✅ 預期：一個 JSON array，10 個元素，每個有 `dpid` 和 `power_consumed`（mW）。值落在 33466–147622 mW 之間（來源：`doc/full_test_runbook.md` 2026-07-30 實測值），各台不同，隔 10 秒再查數字不變（這是合成電力，不是真實量測，所以跨輪詢穩定）。
+
+**【2026-08-11 實測】10 筆，min `33466` / max `147622`——和 2026-07-30 完全相同的上下界**，例如 `{'dpid': 1, 'power_consumed': 92465}`。隔 10 秒重查，整個回應的 md5 一模一樣。
+
+⚠️ **上下界跨兩次獨立測試完全相同，代表這是 dpid 的決定性函數，不含任何量測成分。** 所以這個檢查能抓的是「power 模組有沒有在跑」，**不能**抓「電力估算對不對」。
 
 ⚠️ `get_power_report` 回傳的是 bare JSON array（`[{...}, ...]`），不是 `{"status": ..., "data": ...}` 包裝。
 
@@ -324,7 +396,7 @@ for sw in tables:
     print(f'dpid {dpid}: {n} entries')"
 ```
 
-✅ 預期：10 台 switch，每台 **約 130 條** flow entry（來源：`doc/full_test_runbook.md` §1e 的實測值）。**這和 P4 模式的 4 條完全不同**——OVS 的 `intelligent_router.py` 會安裝 all-destination paths 對應的 OpenFlow 規則，所以 flow table 是滿的。P4 模式只有 4 條預設規則。
+✅ 預期：10 台 switch，每台 **約 130 條** flow entry（來源：`doc/full_test_runbook.md` §1e 的實測值）。**【2026-08-11 實測】10 台全部正好 130 條，總計 1300**，有流量時、斷線後重裝後都不變。**這和 P4 模式的 4 條完全不同**——OVS 的 `intelligent_router.py` 會安裝 all-destination paths 對應的 OpenFlow 規則，所以 flow table 是滿的。P4 模式只有 4 條預設規則。
 
 ⚠️ 這個端點是 GET，**不加 `?dpid=`**。加了會 404（因為 dispatch 用 `target == "/ndt/get_switch_openflow_table_entries"` 精確匹配，不是 `starts_with`）。來源：`HttpSession.cpp:165`。
 
@@ -395,10 +467,19 @@ grep -E "Failed to load static topology|Traceback" .test_run/logs/ryu.log
 grep "topology from the control plane" .test_run/logs/kernel.log | tail -3
 ```
 
-✅ 預期看到類似（TO BE MEASURED——確切數字取決於 Ryu 學到多少 host）：
+✅ **【2026-08-11 實測】收斂後只有一行，數字是滿的**：
 
 ```
-topology from the control plane: 10 switches, N hosts, M edges up
+[2026-08-11 10:59:41.923] [info] [TopologyAndFlowMonitor.cpp:1784 run] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+```
+
+⚠️ **這行只在數字變化時才印**（`:1781`），所以正常運作時 log 裡就是很少的幾行——**行數少不代表 poll 沒在跑**。斷線時會多印一行 `286 edges up`，恢復時再印一行 `288 edges up`。
+
+✅ 順帶檢查整份 kernel log 的錯誤數，**實測全程 0**：
+
+```bash
+grep -icE "\[error\]|\[critical\]|exception|Traceback" .test_run/logs/kernel.log   # 0
+grep -c "JSON parsing failed" .test_run/logs/kernel.log                            # 0（非 0 代表 ofctl_rest 沒載入）
 ```
 
 來源：`TopologyAndFlowMonitor.cpp:1784-1788`。這行只在數字變化時印出（`:1781`）。
@@ -430,10 +511,29 @@ mininet> h1 iperf -c 10.0.0.97 -u -p 5001 -b 10M -t 600 &
 或者用 `mnexec` 代跑（`mnexec` 在 NOPASSWD 清單）：
 
 ```bash
-H1=$(pgrep -f "[m]ininet:h1")
-H97=$(pgrep -f "[m]ininet:h97")
+# 【2026-08-11 更正】$ 錨定是必要的，不是可有可無
+H1=$(pgrep -f "[m]ininet:h1$")
+H97=$(pgrep -f "[m]ininet:h97$")
 sudo -n mnexec -a "$H97" iperf -s -u -p 5001 &
 sudo -n mnexec -a "$H1"  iperf -c 10.0.0.97 -u -p 5001 -b 10M -t 600 &
+```
+
+🔴 **【2026-08-11 實測】上面的 `$` 是本次修正的，原文沒有，而且沒有它一定會壞。** 在 128 台 host 的拓撲上：
+
+```bash
+pgrep -fc '[m]ininet:h1'    # 40 —— h1, h10-h19, h100-h128 全中
+pgrep -fc '[m]ininet:h1$'   # 1
+```
+
+沒有錨定時 `H1` 會是一個**含換行的 40 個 PID 字串**，`mnexec -a "$H1"` 拿到的參數是垃圾。h97 同理（`h97` 沒有其他 host 以它為前綴，所以剛好只中 1 個——這讓 bug 更難發現，因為 server 端會正常起來，只有 client 端壞）。
+
+⚠️ **【2026-08-11 實測】host 的介面叫 `h1-eth1`，不是 `h1-eth0`。** 要在 namespace 裡查 IP 用 `sudo -n mnexec -a "$H1" ip -4 -o addr`，不要猜介面名。
+
+✅ **開流量前先確認資料平面本身是通的**，否則後面所有 telemetry 檢查都在測一個不通的網路：
+
+```bash
+sudo -n mnexec -a "$H1" ping -c 3 -W 2 10.0.0.97
+# 實測：3 transmitted, 3 received, 0% packet loss, rtt avg 0.241 ms
 ```
 
 收掉：`for p in $(pgrep -x iperf); do sudo -n mnexec -a "$H1" kill "$p"; done`（`sudo kill` 不在 NOPASSWD 清單裡，所以要繞過 `mnexec` 以 root 身分殺。）
@@ -453,9 +553,16 @@ sudo -n mnexec -a "$H1"  iperf -c 10.0.0.97 -u -p 5001 -b 10M -t 600 &
 grep "sFlow ingest healthy" .test_run/logs/kernel.log
 ```
 
-✅ 預期：至少一行，`rx=` 和 `addressed=` 都有值。`rx` 是收到的 datagram 總數（含 counter sample），`addressed` 是成功歸戶的 flow sample 數。有 traffic 時 `addressed` 應該 > 0。
+✅ 預期：**恰好一行**，`rx=` 有值。實測：
 
-⚠️ 這行在 `FlowLinkUsageCollector.cpp:1837-1850`：第一輪收到東西後是 INFO，之後全部是 TRACE。所以 `grep` 只會找到一筆。不要用它判斷「流量夠不夠」——用下面的 `get_detected_flow_data` 判斷。
+```
+sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+```
+
+🔴 **【2026-08-11 實測】原文說「有 traffic 時 `addressed` 應該 > 0」，這個期待用這條 `grep` 永遠看不到。** 這行只有**第一輪**是 INFO，之後全是 TRACE（`FlowLinkUsageCollector.cpp:1837-1850`），而第一輪發生在 kernel 剛啟動、還沒有人灌流量的時候。所以它必然是 `addressed=0`，**這不代表 ingest 有問題**。實測本次全程流量正常，這行仍是 `rx=1, addressed=0`。
+
+**它能證明的**：sFlow socket 綁定成功且收得到東西（`rx≥1`）。
+**它不能證明的**：流量夠不夠、歸戶對不對——那要看 `get_detected_flow_data`。
 
 ⚠️ OVS 模式下 `polling=0`（無 counter sample），所以 `rx` 全部來自 flow sample。這是正常的。
 
@@ -474,17 +581,27 @@ for f in d:
     print('    path:', path_nodes)"
 ```
 
-✅ 預期（iperf h1 → h97，10M UDP）：
+✅ 預期（iperf h1 → h97，10M UDP）——**【2026-08-11 實測】**：
 
 ```
-flows: 2
-   10.0.0.1 -> 10.0.0.97 proto 17 rate_bps TO BE MEASURED path_len TO BE MEASURED
-   10.0.0.97 -> 10.0.0.1 proto 17 rate_bps TO BE MEASURED path_len TO BE MEASURED
+flows: 1
+   16777226 -> 1627389962 proto 17 rate_bps 10556211 path_len 7
+     path: [16777226, 1, 6, 10, 8, 4, 1627389962]
 ```
 
-- 雙向 UDP（proto 17）。
-- 路徑經過 5 台交換機（h1→s1→...→s4→h97），含起點和終點 host IP 共 7 個節點。**確切路徑 TO BE MEASURED**——不同 run 可能走不同路（s1 有兩條出去：s1→s5 和 s1→s6）。
-- rate 約 10 Mbps（發送端），但受 1/256 取樣影響會有波動。
+🔴 **原文寫「flows: 2，雙向」，對 `iperf -u` 是錯的。** `iperf -u` 的 client 單向送 UDP，server 在跑的期間不回送資料（只在結束時送一次報告）。所以**只有 1 筆**。要看到 2 筆得用 TCP 或雙向流量。
+
+🔴 **原文寫 `src_ip` 是 `10.0.0.1` 這樣的字串，實際是整數。** `get_detected_flow_data` 的 `src_ip` / `dst_ip`，以及 `path[].node` 裡的 host 節點，都是**整數形式的 IP，位元組序是 little-endian**（`16777226` = `0x0100000A` → `10.0.0.1`；`1627389962` = `0x6100000A` → `10.0.0.97`）。解碼方式：
+
+```python
+import socket, struct
+def dec(v): return socket.inet_ntoa(struct.pack('<I', v))
+```
+
+⚠️ **`path[].node` 是混合型別的**：switch 節點是小整數 dpid（1–10），host 節點是上面那種大整數 IP。兩者在同一個陣列裡靠數值大小區分，沒有型別標記。消費端要小心。
+
+- 路徑 7 個節點（含起終點 host），中間 5 台交換機：`h1 → s1 → s6 → s10 → s8 → s4 → h97`。**不同 run 會走不同路**——s1 有兩條等價出口（s1→s5 和 s1→s6），本次實測初始走 s6。
+- rate 實測在 `6209536`–`15523840` bps 之間跳動（送 10M），受 1/256 取樣影響。**單次讀數不要當準確值**。
 
 ⚠️ flow 會在流量停止後幾秒內老化歸零。所以查詢必須在 iperf 還在跑的時候做。
 
@@ -497,7 +614,9 @@ for i in 1 2 3; do
 done
 ```
 
-✅ 預期：**非零，大約在 0.001–0.01 量級（TO BE MEASURED）。** 來源：`doc/full_test_runbook.md` §1e 的 2026-07-30 實測值 `0.0074514`（h1→h97，10M UDP）。
+✅ 預期：**非零，大約在 0.001–0.01 量級。** 來源：`doc/full_test_runbook.md` §1e 的 2026-07-30 實測值 `0.0074514`（h1→h97，10M UDP）。
+
+**【2026-08-11 實測】連查三次：`0.004890 / 0.008460 / 0.007658`** ——落在預期區間，且如下方所述是上下跳動而非單調爬升。與 2026-07-30 的 `0.0074514` 同量級。
 
 ⚠️ **這個值是瞬時的、上下跳動的，不是單調爬升。** 原因見 P4 runbook §5d 的詳細分析。簡單說：`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2429`）只把 `linkBandwidthUsage != 0` 的邊算進去，除以那一刻非零邊的數量。1/256 取樣下分子分母同時在變。
 
@@ -508,6 +627,23 @@ done
 在 Mininet CLI 看 iperf 的輸出，或在 terminal A 用 `pgrep -x iperf` 確認還在跑。
 
 ✅ 預期：server 端報告 stable throughput ~10 Mbps，loss ~0%。
+
+**【2026-08-11 實測】**（509.6 秒，期間刻意斷過兩次鏈路）：
+
+```
+[  1] 0.0000-509.6032 sec   627 MBytes  10.3 Mbits/sec  0.023 ms  6932/454388 (1.5%)
+```
+
+⚠️ **1.5% 的 loss 不是異常，是那兩次斷線的代價。** 沒有做斷線的乾淨一輪應該接近 0%。**如果你的一輪沒斷線卻看到 1% 以上的 loss，那才要查。**
+
+⚠️ **收流量要用 `mnexec` 繞道以 root 殺**，因為 `kill` 不在 NOPASSWD 清單：
+
+```bash
+H1=$(pgrep -f "[m]ininet:h1$")
+for p in $(pgrep -x iperf); do sudo -n mnexec -a "$H1" kill "$p"; done
+```
+
+`pgrep -x iperf`（精確比對 process 名）是安全的；**不要用 `pkill -f iperf`——`-f` 會比對整條命令列，可能連你自己下這道指令的 shell 一起殺掉。**
 
 ### 5f. Flow table（有流量時）
 
@@ -543,6 +679,19 @@ done
 
 ✅ 預期：回傳的是物件不是裸數字，`{"num_of_flows":N,"status":"success"}`。
 
+**【2026-08-11 實測】單向 UDP，路徑上 5 台各 1、路徑外 0**：
+
+```
+dpid 1   {"num_of_flows":1,...}    dpid 6   {"num_of_flows":1,...}
+dpid 10  {"num_of_flows":1,...}    dpid 8   {"num_of_flows":1,...}
+dpid 4   {"num_of_flows":1,...}
+dpid 2   {"num_of_flows":0,...}    dpid 5   {"num_of_flows":0,...}   <- 路徑外
+```
+
+⚠️ **下方「中繼 switch 會是 2」那條需要雙向流量才成立，本次沒驗到**（`iperf -u` 是單向的）。單向時路徑上每台都是 1，包含起點 s1——因為 `h1→s1` 這條 host 邊的 `dstDpid` 就是 1。
+
+✅ **路徑外的 switch 回 0，是這個檢查真正有鑑別力的部分**——如果每台都回非零，那就不是在數這條 flow。
+
 ⚠️ **這個端點數的是「進來」的 flow，不是「經過」的 flow。** 實作是 `if (e.dstDpid == dpid) numOfFlows += e.flowSet.size()`（`HttpSession.cpp:1734-1739`），也就是**以該 switch 為終點的邊**上的 flow 數。所以某個方向的起點 switch，那個方向不會被算到。雙向流量都經過的中繼 switch 會是 2。來源：P4 runbook §5g。
 
 ⚠️ **這個端點是 POST**，body 是 `{"dpid": N}`。不是 GET，不加 query param。
@@ -570,15 +719,42 @@ done
 
 但是 OVS 模式有自己的陷阱：**Mininet CLI 的 `link s1 s5 down` 底層也是對兩端做 `ifconfig down`**，所以效果相同。而且 OVS 的 LLDP 是 controller 發的（Ryu 透過 OpenFlow 下發 `packet_out`），不是 switch 自己發的，所以斷線的偵測路徑和 P4 完全不同。
 
-來源：`doc/environment_gotchas.md` 的 bmv2 陷阱一節，以及 P4 runbook §6 的詳細分析。OVS 模式的斷線測試尚未實測過（TO BE MEASURED）。
+來源：`doc/environment_gotchas.md` 的 bmv2 陷阱一節，以及 P4 runbook §6 的詳細分析。
+
+✅ **【2026-08-11 實測】「OVS 上 `ifconfig down` 只斷該鏈路」已驗證為真。** 實驗設計：讓流量走 `h1 → s1 → s6 → ...`，然後斷掉 s1 的**另一條**鏈路 `s1-eth1`（s1:1↔s5:1，不在流量路徑上）。若 `ifconfig down` 會癱瘓整台 switch，穿過 s1 的流量必然中斷。**實測流量完全沒有中斷**（rate 持續 9–15 Mbps），只有被斷的那兩個方向從圖上消失。
+
+這和 bmv2 的行為形成明確對照——bmv2 上同樣的操作會讓整台 switch 的所有入向靜默（P4 runbook §6）。**所以 OVS 模式不需要 P4 側那套 tc netem 的替代方案。**
 
 ### 6a. 斷線（terminal A —— Adam 可代跑，`ifconfig` 在 NOPASSWD 清單裡）
 
-我們斷 **s1-eth1**（即 s1:1 ↔ s5:1 這條鏈路）：
+🔴 **【2026-08-11 實測】斷哪一條要看流量實際走哪裡，不能照抄。**
+
+原文固定斷 `s1-eth1`（s1:1↔s5:1）。但本次實測流量走的是 `h1 → s1 → **s6** → s10 → s8 → s4 → h97`，也就是 s1 的 **port 2**。**照原文斷 s1-eth1 等於斷了一條沒有流量的鏈路，§6h（🔴 標為優先驗證的「是否繞路」）根本測不到。**
+
+**先查流量走哪，再決定斷哪條**：
 
 ```bash
-sudo -n ifconfig s1-eth1 down
+curl -s localhost:8000/ndt/get_detected_flow_data | python3 -c "
+import json,sys
+for f in json.load(sys.stdin): print([h['node'] for h in f['path']], [h['interface'] for h in f['path']])"
+# 實測：[16777226, 1, 6, 10, 8, 4, 1627389962]  interfaces [3, 2, 4, 4, 2, 3, 0]
+#                    ^^^^ s1 走 port 2 -> s6，所以路徑上的鏈路是 s1-eth2
 ```
+
+**兩條都值得斷，測的是不同東西**：
+
+| 斷哪條 | 測什麼 |
+|---|---|
+| **路徑外**（本例 `s1-eth1`） | 偵測鏈路是否完整；且流量沒斷 = 證明 `ifconfig down` 不會癱瘓整台 switch |
+| **路徑上**（本例 `s1-eth2`） | §6h 的繞路：流量會不會被救回來 |
+
+```bash
+sudo -n ifconfig s1-eth1 down   # 路徑外
+# ... 觀察、恢復 ...
+sudo -n ifconfig s1-eth2 down   # 路徑上
+```
+
+⚠️ **每次只斷一條，斷完恢復再斷下一條。** 同時斷兩條會分不出哪個現象是哪條造成的。
 
 ### 6b. 觀察偵測（terminal A）
 
@@ -587,22 +763,47 @@ sudo -n ifconfig s1-eth1 down
 grep -E "link deleted|EventLinkDelete" .test_run/logs/ryu.log | tail -10
 ```
 
-✅ 預期：出現 link deleted 事件（TO BE MEASURED：延遲秒數和確切 log 格式）。
+✅ 預期：出現 link deleted 事件。**【2026-08-11 實測】格式如下，每次斷線會有兩組（一個方向一組）**：
+
+```
+Link deleted: Link: Port<dpid=1, port_no=1, DOWN> to Port<dpid=5, port_no=1, LIVE>
+removed edge 1 -> 5 from the routing graph
+topology changed (link 1 -> 5 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=1, LIVE> to Port<dpid=1, port_no=1, LIVE>
+removed edge 5 -> 1 from the routing graph
+topology changed (link 5 -> 1 down); route reinstall scheduled
+Notified NDT, status code: 200
+```
+
+⚠️ 注意 `Port<...>` 裡的 `DOWN`/`LIVE`：**只有被 `ifconfig down` 的那一端是 `DOWN`，對端仍是 `LIVE`**。兩個方向都會被刪除，但物理上只有一端真的 down。不要以為 `LIVE` 代表那個方向沒事。
 
 ```bash
 # 看 kernel log 的 link_failure_detected POST
 grep "link failed" .test_run/logs/kernel.log | tail -5
 ```
 
-✅ 預期：**TO BE MEASURED**。OVS 模式下的 link failure 偵測路徑是：
-1. `ifconfig down` → veth pair 一端消失
-2. Ryu 的 LLDP 在這條鏈路上收不到 → `EventLinkDelete` 觸發
-3. Ryu 更新 `/v1.0/topology/links` → kernel 的 topology poll 看到變化
-4. Ryu 的 `intelligent_router.py` 可選地推送 `link_failure_detected` POST 給 kernel
+✅ **【2026-08-11 實測】會推送，而且快得驚人——31 毫秒**：
 
-⚠️ OVS 模式和 P4 模式的 link failure 偵測是**完全不同的機制**。P4 模式依賴 proxy 的 watchdog（LLDP beacon timeout）；OVS 模式依賴 Ryu 的 `--observe-links` 事件。**kernel 的 `/ndt/link_failure_detected` 端點是否在 OVS 模式下被推送，需要確認**。來源：`intelligent_router.py` 的 `_link_changed_handler` 附近（需要 code 確認推送邏輯）。
+```
+[2026-08-11 11:04:09.150] ... handleLinkFailure] link failed on 1:1 -> 5:1
+[2026-08-11 11:04:09.154] ... handleLinkFailure] link failed on 5:1 -> 1:1
+```
 
-### 6c. 確認圖已更新（斷線後約 15–30 秒，TO BE MEASURED）
+斷線指令的時間戳是 `11:04:09.119`，所以是 **+31 ms / +35 ms**。第二次實測（s1-eth2）是 **+24 ms / +29 ms**，一致。
+
+**原文猜的偵測路徑第 2 步是錯的。** 不是「LLDP 收不到 → 逾時」——`ifconfig down` 會讓 OVS 立刻送出 OpenFlow **port-status** 事件，Ryu 收到就直接發 `EventLinkDelete`。**沒有逾時，所以是毫秒級不是秒級。** 修正後的路徑：
+
+1. `ifconfig down` → OVS 偵測到 port 狀態改變
+2. OVS 送 OpenFlow port-status → Ryu 立即 `EventLinkDelete`（**非逾時**）
+3. `on_link_delete`（`intelligent_router.py:757`）先 `remove_edge`、再 `_schedule_route_reinstall`、**最後**才 POST `/ndt/link_failure_detected`
+4. kernel 的 topology poll 之後才看到 `/v1.0/topology/links` 的變化（秒級，見 §6c）
+
+⚠️ **第 3 步的順序是刻意的**（`intelligent_router.py:766-780` 的註解）：自己的狀態先更新，遠端通知後做。因為 `requests.post` 對一個「接受連線但不回應」的 kernel 會**無限期阻塞且不拋例外**，順序反了會導致 edge 永遠不被移除、重裝永遠不被排程。
+
+⚠️ OVS 模式和 P4 模式的 link failure 偵測是**完全不同的機制**：P4 依賴 proxy watchdog 的 LLDP beacon **逾時**（5 秒輪詢，見 P4 決定 10）；OVS 是**事件驅動**、毫秒級。這正是 P4 側決定「不做去抖動」時拿來對照的差異——**OVS 需要去抖動（`reinstall_quiet_period`），因為事件是逐條到達的；P4 不需要，因為一輪輪詢就把所有逾時一起收。**
+
+### 6c. 確認圖已更新（【2026-08-11 實測】≤3.9 秒，非原本猜的 15–30 秒）
 
 ```bash
 curl -s localhost:8000/ndt/get_graph_data | python3 -c "
@@ -615,9 +816,22 @@ down=[(e['src_dpid'],e['src_interface'],e['dst_dpid'],e['dst_interface']) for e 
 print('down edges:', down)"
 ```
 
-✅ 預期：**edges up 從 TO BE MEASURED 降到 TO BE MEASURED**（少兩條：s1:1→s5:1 和 s5:1→s1:1）。switches 仍為 10/10/10。
+✅ **【2026-08-11 實測】edges up 從 288 降到 286**（正好少兩條），switches 仍 10/10/10，`down edges` 精確為：
 
-⚠️ OVS 模式下斷線的 edge 更新取決於 kernel 的 topology poll。poll 間隔是前 90 秒每 5 秒、之後每 30 秒。所以圖更新延遲可能比 P4 模式長。**TO BE MEASURED**：實際延遲秒數。
+```
+down: [(1, 1, 5, 1), (5, 1, 1, 1)]
+```
+
+**延遲：≤3.9 秒**（kernel log 的 `topology from the control plane: 10 switches, 128 hosts, 286 edges up` 出現在斷線後 3.9 秒）。比原文猜的 15–30 秒快。
+
+⚠️ **這個 3.9 秒沒有測準，不要當成精確值。** 有兩條路徑都會更新這張圖，而本次量測分不出是哪一條生效的：
+
+1. `link_failure_detected` 的 POST（+31 ms 就到了）
+2. kernel 的 topology poll（收斂後每 30 秒一次，`TopologyAndFlowMonitor.cpp:1758-1760`）
+
+本次第一次查圖是斷線後 7 秒，那時已經是 286，而 poll 的 log 落在 +3.9 秒。**所以真值可能是 31 毫秒，也可能是 3.9 秒——取決於圖是被 POST 直接改的還是等 poll 才改的。** 要分辨得用 100ms 級的密集取樣，本次沒做。
+
+⚠️ 若是走 poll 這條路，**最壞情況是 30 秒**（poll 週期），而不是 3.9 秒——3.9 只是這次剛好落在週期裡的位置。
 
 ### 6d. 穩定性：維持 down 約 2 分鐘，確認沒有 flapping
 
@@ -631,13 +845,15 @@ done
 
 ✅ 預期：119 秒內 40 次查詢，全部回相同的 edge up 數字，沒有 flapping。
 
+**【2026-08-11 實測】跑了 65 秒 / 20 次查詢，全部 `edges_up=286`，零 flapping**，同時 `flows=1` 也全程穩定。⚠️ 本次只跑到 65 秒而非 2 分鐘，**這一格算部分驗證**——下次請跑滿。
+
 ### 6e. Kernel 自身的 poll 也確認
 
 ```bash
 grep "topology from the control plane" .test_run/logs/kernel.log | tail -3
 ```
 
-✅ 預期看到 edge up 數字下降（TO BE MEASURED）。
+✅ **【2026-08-11 實測】會多印一行 `286 edges up`**，恢復後再印一行 `288 edges up`。這行只在數字變化時才印，所以斷線／恢復各一行，中間不會重複刷。
 
 ### 6f. 路徑數的變化
 
@@ -647,7 +863,17 @@ import json,sys; d=json.load(sys.stdin)
 print('paths:', len(d.get('all_destination_paths',[])))"
 ```
 
-✅ 預期：**TO BE MEASURED**。路徑數是否從 16256 下降取決於斷掉的鏈路是否在某條最短路徑的 critical path 上。OVS 模式下 `intelligent_router.py` 收到 link event 後會重算路徑（`_link_changed_handler`），所以路徑應該會更新。
+✅ **【2026-08-11 實測】路徑數維持 16256，不會下降。**
+
+原因是這個拓撲夠密（10 switch / 16 條 inter-switch link），斷任一條之後每一對 host 都還有替代路徑，所以**條數不變、內容改變**。
+
+⚠️ **因此「路徑數 16256」不能用來判斷重算有沒有發生**——斷線前後都是 16256。要確認重算真的跑了，看 ryu.log：
+
+```bash
+grep -nE "recomputing all-pair routes|route reinstall done" .test_run/logs/ryu.log | tail -4
+```
+
+**【2026-08-11 實測】重算耗時 <14 秒**（`recomputing` 到 `route reinstall done` 之間），遠快於 `intelligent_router.py` 註解裡說的「16256 對約 60 秒」。
 
 ### 6g. 恢復
 
@@ -655,7 +881,9 @@ print('paths:', len(d.get('all_destination_paths',[])))"
 sudo -n ifconfig s1-eth1 up
 ```
 
-等待若干秒後（TO BE MEASURED）：
+**【2026-08-11 實測】edges up 在 3 秒內回到 288**（`ifconfig up` 於 11:06:04.032，11:06:07 已是 288）。第二次實測同樣是 3 秒。
+
+等待若干秒後：
 
 ```bash
 curl -s localhost:8000/ndt/get_graph_data | python3 -c "
@@ -674,9 +902,43 @@ print('paths:', len(d.get('all_destination_paths',[])))"
 
 ✅ 預期：路徑數回到 16256。
 
-### 6h. ⚠️ 這一節驗證的是偵測，不是繞路
+### 6h. ✅ 繞路：已驗證，OVS 會繞路
 
-P4 模式目前**不會繞路**（見 P4 runbook §6h 的 🔴 實測結果）。OVS 模式下的繞路行為**尚未驗證過**——`intelligent_router.py` 的 `_link_changed_handler` 是否真的觸發 `install_all_pair_paths` 重裝規則，**TO BE MEASURED**。
+**【2026-08-11 實測】OVS 模式會繞路，而且流量不中斷。**
+
+實驗：流量走 `h1 → s1 → s6 → s10 → s8 → s4 → h97`，斷掉路徑上的 `s1-eth2`（s1:2↔s6:1），全程觀察 twin 回報的路徑與速率。
+
+```
+11:06:47.155  ifconfig s1-eth2 down
+11:06:54      [h1, 1, 6, 10, 8, 4, h97]  rate 12419072    <- 仍是舊路徑
+11:06:57      [h1, 1, 6, 10, 8, 4, h97]  rate  9935257    <- 仍是舊路徑
+11:07:00      [h1, 1, 5, 10, 8, 4, h97]  rate 15523840    <- 已繞到 s5
+...           （之後 60 秒穩定走 s5，rate 6.2M-15.5M 之間跳動）
+```
+
+**s6 被 s5 取代，約 13 秒完成，iperf 全程沒有斷。** 恢復後約 27 秒繞回 s6。
+
+⚠️ **和 P4 模式的對照**：P4 在 Phase 6 之前**偵測得到但不繞路**（P4 runbook §6h 的 🔴）；Phase 6 補上 failover 後才會。OVS 這條路徑一直都會繞，機制是 `on_link_delete` → `_schedule_route_reinstall` → `_route_reinstall_worker` → `install_all_pair_paths`（`intelligent_router.py:757, 115, 132`）。
+
+### 6i. 🔴【2026-08-11 新發現】鏈路轉換期間 twin 會輸出自相矛盾的狀態
+
+本次實測發現兩個窗口，**twin 的輸出在此期間不可信**。兩個都不是 crash、不是錯誤 log，靜靜地發生。
+
+**窗口 A：宣告一條穿過已知死鏈路的路徑（約 13 秒）**
+
+斷線後 11:06:54 和 11:06:57 兩次取樣，`get_graph_data` 已回報 `edges_up=286`（s1↔s6 標記為 down），但同一時刻 `get_detected_flow_data` 回報的路徑**仍然穿過 s6**。也就是 twin 同時說「這條鏈路死了」和「流量正走過它」。
+
+**窗口 B：對一條活著的 flow 回報空路徑（約 15 秒）**
+
+鏈路恢復後 11:08:47–11:08:59，`get_detected_flow_data` 回報的 flow **`path` 是空陣列**，而 iperf 從未中斷。
+
+⚠️ **窗口 B 很容易誤判成「flow 消失了」，不是。** flow 一直在（`first_sampled_time` 全程維持 `11:02:13`，沒有被老化重建），消失的只是 `path` 欄位。`getFlowInfoJson`（`FlowLinkUsageCollector.cpp:2062-2100`）沒有任何過濾、直接 dump 整張表，所以**空陣列不可能是這個現象的解釋**——判斷時請看 `path` 的長度，不要看 flow 的筆數。
+
+**推測成因**：flow 的 `path` 來自 kernel 快取的 OpenFlow table，每 10 秒更新一次（`DeviceConfigurationAndPowerManager.cpp:1801-1802`）。轉換期間快取是舊的、或解不出完整路徑，於是輸出舊路徑（窗口 A）或空路徑（窗口 B）。10 秒快取 + 繞路耗時，合起來就是觀察到的 13/15 秒。
+
+**為什麼這值得記一筆**：P4 側的決定 5（代號 B）就是為了修掉同一類問題——twin 只宣告「規則真的裝進 switch 且每一跳還活著」的路徑。**OVS 側沒有等價的防護。** 窗口 A 尤其明確：twin 自己的兩個端點在同一時刻互相矛盾，任何同時讀 `get_graph_data` 和 `get_detected_flow_data` 的消費端都會看到。
+
+🔴 **這是觀察，不是已診斷的 bug。** 上面「推測成因」那段是根據快取更新頻率的推論，**我沒有進到 Classifier 裡確認**。要當成待調查項，不要當成已知結論引用。
 
 ---
 
@@ -729,7 +991,7 @@ violations (admin_disabled AND is_enabled): 0
 | Unit tests | C++ 426 pass, Python 312+101 pass, 無 skip 異常 | 離線邏輯正確 |
 | `stack.sh up ovs` | Ryu `:8080 up`，然後 `paths=installed converged after 6Xs` + kernel `:8000 up` | Ryu 成功載入、10 台 switch 連上、路徑安裝完成、kernel 啟動 |
 | `stack.sh wait` | `switches=10 up=10 enabled=10 edges=288` | kernel 的圖和 topology 檔案一致，liveness 檢查正常 |
-| Idle graph | 10/10 switch up+enabled, edges 288（部分可能 down） | 所有 switch 被拓撲發現並啟用 |
+| Idle graph | 10/10 switch up+enabled, **hosts 128/128 up, edges 288/288 up** | 拓撲發現與 host 學習都完成（【2026-08-11 更正】原本寫「部分可能 down」，實測是全滿） |
 | Node keys | 12 個 key，含 `admin_disabled` | schema 正確，和 P4 模式一致 |
 | Power report | 10 筆，33466–147622 mW，跨輪詢不變 | 合成電力值正常產生 |
 | `avg_link_usage` idle | `0.0` | 沒有 phantom 流量 |
@@ -738,12 +1000,13 @@ violations (admin_disabled AND is_enabled): 0
 | Ryu topology | 10 switches, 32 links | Ryu LLDP 發現完成 |
 | Ryu paths | 16256 | 所有 host pair 都有路徑 |
 | Ryu log | `Static topology initialized` 出現，0 筆 `Failed` 或 `Traceback` | intelligent_router.py 正常載入 |
-| Traffic: detected flows | 2 筆（雙向 UDP），rate ~10M bps | OVS sFlow → kernel 的 ingest 鏈路完整 |
+| Traffic: detected flows | **`iperf -u` 是 1 筆**（單向 UDP），rate ~10M bps，`path_len` 7 | OVS sFlow → kernel 的 ingest 鏈路完整（【2026-08-11 更正】原本寫 2 筆） |
 | Traffic: `avg_link_usage` | 非零，約 0.001–0.01 | 鏈路使用率有在追蹤流量 |
 | Traffic: iperf | ~10 Mbps, ~0% loss | 資料平面正常轉送 |
-| Link failure detect | Ryu log 出現 link deleted，kernel graph edge up 下降 | link failure 偵測鏈路完整 |
-| Link failure graph | edges up 下降 2，穩定不 flapping | 失效值正確、沒有振盪 |
-| Recovery | edges up 恢復，路徑數恢復 | 偵測是可逆的 |
+| Link failure detect | Ryu log 出現 link deleted，kernel log `link failed` 在 **~30 ms** 內出現（雙向 2 筆） | link failure 偵測鏈路完整 |
+| Link failure graph | edges up **288→286**，穩定不 flapping | 失效值正確、沒有振盪 |
+| **Failover（§6h）** | **斷路徑上的鏈路後，flow 的 path 改走替代 switch，iperf 不中斷** | 繞路真的發生了，不只是偵測到 |
+| Recovery | edges up ~3 秒恢復，路徑 ~27 秒繞回 | 偵測與繞路都是可逆的 |
 | `admin_disabled` | 全部 false，不變量空洞成立 | schema 正確，回歸陷阱就位 |
 
 ### 哪些綠燈不代表什麼
@@ -755,6 +1018,9 @@ violations (admin_disabled AND is_enabled): 0
 | Flow table 130 條 | 那是 kernel 的快取（每 10 秒更新一次），可能不是最新的 |
 | `avg_link_usage` 非零 | 它是瞬時值，且分母是「當下有樣本的邊數」。單次讀數不代表整體負載，連續讀數上下跳是正常的 |
 | Ryu topology 32 links | Ryu 回報的是 inter-switch link，不含 host 邊——不能用來判斷 host 連通性 |
+| **flow 的 `path` 非空** | 【2026-08-11】轉換期間它可能是**舊路徑**（穿過已標記 down 的鏈路）或**空的**，長達 13–15 秒。見 §6i |
+| **`edges up` 已下降** | 不代表 `get_detected_flow_data` 的 path 也更新了——兩個端點在轉換期間會互相矛盾。見 §6i |
+| **路徑數 16256 不變** | 不代表沒有重算。這個拓撲斷任一條鏈路後條數都不變，只有內容變。要看 ryu.log 的 `route reinstall done` |
 
 ---
 
@@ -807,24 +1073,42 @@ for s in sw: print(f\"dpid {s['dpid']}: up={s['is_up']} enabled={s['is_enabled']
 
 ## 10. TO BE MEASURED 彙總
 
-以下所有標記 TO BE MEASURED 的項目，請 Adam 在第一次實跑 OVS stack 時填入實際數字。
+**✅ 已於 2026-08-11 完成第一次實跑，全部填入。** 環境：10 switch / 128 host、Ryu + OVS Mininet + kernel `--no-ai`、iperf h1→h97 10M UDP、`ifconfig down` 斷線。
 
-| 節 | 項目 | 預期（來自 source/doc） | 實測值 |
+| 節 | 項目 | 預期（來自 source/doc） | 實測值（2026-08-11） |
 |---|---|---|---|
-| §4a | hosts `up`（idle） | ≤128（Ryu host 學習不完全） | |
-| §4a | edges `up`（idle） | ≤288（取決於 host 學習） | |
-| §4j | kernel log「topology from the control plane」的 hosts/edges 數 | — | |
-| §5c | 已偵測 flow 的 `rate_bps`（h1→h97，10M UDP） | ~10M bps | |
-| §5c | 已偵測 flow 的 `path_len` | ~7（含起終點 host） | |
-| §5c | 已偵測 flow 的實際路徑（dpid 序列） | h1 → s1 → ... → s4 → h97 | |
-| §5d | `avg_link_usage`（有 traffic 時，連查三次） | 非零，約 0.001–0.01 | |
-| §6b | 斷線後 Ryu log 出現 link deleted 的延遲 | — | |
-| §6b | 斷線後 kernel log 出現 `link failed` 的延遲和筆數 | — | |
-| §6c | 斷線後 edges up 的變化（從多少降到多少） | 少 2（雙向 s1↔s5） | |
-| §6c | 斷線後圖更新的實際延遲秒數 | 5–30 秒（kernel poll 間隔） | |
-| §6f | 斷線後路徑數的變化（從 16256 降到多少） | — | |
-| §6g | 恢復後 edges up 回到原始值的延遲 | — | |
-| §6h | OVS 模式是否真的會繞路（流量是否繼續通） | 🔴 未知，**優先驗證** | |
+| §4a | hosts `up`（idle） | ≤128（Ryu host 學習不完全） | 🔴 **128/128，預期是錯的** |
+| §4a | edges `up`（idle） | ≤288（取決於 host 學習） | 🔴 **288/288，預期是錯的** |
+| §4j | kernel log「topology from the control plane」的 hosts/edges 數 | — | `10 switches, 128 hosts, 288 edges up` |
+| §5c | 已偵測 flow 的筆數 | 2（雙向） | 🔴 **1 筆**——`iperf -u` 是單向的 |
+| §5c | 已偵測 flow 的 `rate_bps`（h1→h97，10M UDP） | ~10M bps | `6209536`–`15523840`，跳動 |
+| §5c | 已偵測 flow 的 `path_len` | ~7（含起終點 host） | **7** ✅ |
+| §5c | 已偵測 flow 的實際路徑（dpid 序列） | h1 → s1 → ... → s4 → h97 | `h1 → s1 → s6 → s10 → s8 → s4 → h97` |
+| §5c | `src_ip`/`dst_ip` 的型別 | （原文假設是字串） | 🔴 **little-endian 整數**，非字串 |
+| §5d | `avg_link_usage`（有 traffic 時，連查三次） | 非零，約 0.001–0.01 | `0.004890 / 0.008460 / 0.007658` ✅ |
+| §5e | iperf throughput / loss | ~10 Mbps, ~0% | `10.3 Mbits/sec`，loss 1.5%（含兩次斷線） |
+| §6b | 斷線後 Ryu log 出現 link deleted 的延遲 | — | 毫秒級（事件驅動，非逾時） |
+| §6b | 斷線後 kernel log 出現 `link failed` 的延遲和筆數 | — | **+31 ms / +35 ms**，每次斷線 2 筆（雙向） |
+| §6c | 斷線後 edges up 的變化 | 少 2（雙向 s1↔s5） | **288 → 286** ✅，`down: [(1,1,5,1), (5,1,1,1)]` |
+| §6c | 斷線後圖更新的實際延遲秒數 | 5–30 秒（kernel poll 間隔） | **≤3.9 秒**（⚠️ 未測準，見 §6c） |
+| §6d | 維持 down 的穩定性 | 2 分鐘無 flapping | 65 秒 / 20 次全 286，零 flapping（⚠️ 未跑滿 2 分鐘） |
+| §6f | 斷線後路徑數的變化（從 16256 降到多少） | — | **不變，仍 16256**（拓撲夠密） |
+| §6f | 重算耗時 | 註解說 ~60 秒 | **<14 秒** |
+| §6g | 恢復後 edges up 回到原始值的延遲 | — | **~3 秒**（兩次實測一致） |
+| §6g | 恢復後流量路徑繞回原路的延遲 | — | **~27 秒** |
+| §6h | OVS 模式是否真的會繞路（流量是否繼續通） | 🔴 未知，**優先驗證** | ✅ **會繞路，~13 秒，流量不中斷** |
+| §6 | `ifconfig down` 是否只斷該鏈路（不癱瘓整台 switch） | 推測是（與 bmv2 相反） | ✅ **確認只斷該鏈路** |
+| §6i | 轉換期間 twin 狀態一致性 | （原文未預期） | 🔴 **兩個不一致窗口，13 秒 / 15 秒**——新發現 |
+
+### 仍未測的項目（下一輪補）
+
+| 項目 | 為什麼還沒測 |
+|---|---|
+| §6d 跑滿 2 分鐘 | 本次只跑 65 秒 |
+| §6c 的圖更新延遲究竟是 31 ms 還是 3.9 秒 | 需要 100 ms 級密集取樣才分得出 POST 路徑和 poll 路徑 |
+| §6i 兩個窗口的真正成因 | 只有觀察和推論，沒有進 Classifier 確認 |
+| 雙向流量下的 §5c / §5g | 本次用單向 UDP，`num_of_flows` 的「中繼 switch 會是 2」沒驗到 |
+| 多條鏈路同時斷 | 本次每次只斷一條 |
 
 ---
 
@@ -870,7 +1154,9 @@ kernel 現在有防禦：`classifyFlowStatsReply`（`DeviceConfigurationAndPower
 
 ---
 
-*本文件從原始碼產生。需要確認但未涵蓋的事項標記為 TO BE MEASURED。撰寫於 2026-08-11，針對 OVS/Ryu stack（Mininet mode）。*
+*本文件 2026-08-10 從原始碼產生（DeepSeek 撰寫，當時 OVS 路徑未實測）。**2026-08-11 由 Claude 完整實跑 §1–§7 一輪**，§10 的 TO BE MEASURED 全數填入，5 處預期值被實測推翻並就地更正，新增 §6i 記錄一個實測發現的狀態不一致問題。針對 OVS/Ryu stack（Mininet mode）。*
+
+*[Co-developed with claude code -- Adam]*
 
 
 ---
@@ -885,6 +1171,10 @@ kernel 現在有防禦：`classifyFlowStatsReply`（`DeviceConfigurationAndPower
 | 資料平面 | OVS kernel datapath (Mininet) | bmv2 `simple_switch_grpc` (Mininet) |
 | 啟動順序 | Ryu → Mininet → wait → kernel | Mininet → proxy → wait → kernel |
 | 收斂時間 | ~60s+（`hub.sleep(60)`） | ~2s |
+| link failure 偵測 | **事件驅動**，OpenFlow port-status → `EventLinkDelete`，**~30 ms** | **輪詢**，LLDP beacon 逾時，5 秒一輪 |
+| 去抖動 | **有**（`reinstall_quiet_period`），因為事件逐條到達 | **無**（決定 10），因為一輪輪詢批次收齊 |
+| 繞路（failover） | ✅ 一直都有，~13 秒（2026-08-11 實測） | Phase 6 之後才有 |
+| twin 只宣告已安裝的路徑 | ❌ **沒有**，轉換期間會矛盾（§6i） | ✅ 有（決定 5 / 代號 B） |
 | 交換機台數 | 10 | 10 |
 | host 數 | 128 | 4 |
 | 圖邊數 | 288 | 40 |
