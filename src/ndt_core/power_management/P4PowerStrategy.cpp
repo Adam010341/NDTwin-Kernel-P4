@@ -89,24 +89,44 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
         // signal that remains is this failure and the proxy's log.
         //
         // [Co-developed with claude code -- Adam]
-        // This message used to end "retrying this power-on retries the readopt." It does not,
-        // and the reason is the residual named just above: helper-on succeeded, so bmv2 is
-        // serving, so p4LivenessFor answers Up on probe_ok alone
-        // (DeviceConfigurationAndPowerManager.cpp) and the 1 Hz pingWorker calls setVertexUp
-        // within a second. A retry then hits the `getVertexIsUp` early-return at the top of
-        // this function and reports success without touching the readopt -- or, if it beats
-        // the probe, the helper refuses to start a second instance and the failure names the
-        // wrong step. Telling the operator the true recovery costs one sentence; letting them
-        // retry into a green 200 over a switch that cannot forward a packet costs an outage
-        // nobody is looking for.
+        // Two corrections live here, and the second was found by running the first.
+        //
+        // The message once ended "retrying this power-on retries the readopt." It does not:
+        // helper-on succeeded, so bmv2 is serving, so p4LivenessFor answers Up on probe_ok
+        // alone and the 1 Hz pingWorker calls setVertexUp within a second. A retry then hits
+        // the `getVertexIsUp` early-return at the top of this function and reports success
+        // without touching the readopt -- or, if it beats the probe, the helper refuses to
+        // start a second instance and the failure names the wrong step. That much still holds.
+        //
+        // The replacement -- "power off and then power on" -- was never run against a live
+        // fabric, and when it finally was (2026-08-12) it returned 500 too. So the first fix
+        // removed advice that could not work and substituted advice that also did not, which
+        // is the same defect wearing different clothes. What actually recovered the switch was
+        // calling the proxy's readopt endpoint directly, which is the one request that
+        // re-attempts the adoption without passing through any of the early-returns above.
+        //
+        // Why off-then-on fails: powering off leaves the proxy's liveness prober hammering the
+        // dead port every 2s, and grpc-python's process-global subchannel pool hands that
+        // address's accumulated reconnect backoff to the next channel built for it -- including
+        // the fresh one readopt creates. Measured offline on grpc 1.82.1: after 90s of failed
+        // connects, a default channel took 32.56s to reach READY against a listening port while
+        // one built with grpc.use_local_subchannel_pool reached it in 0.00s. Retrying readopt
+        // works because the backoff decays; off-then-on does not because it adds to it.
         return OpResult::failure(502,
                                  "bmv2 for " + swName + " is running again, but the proxy "
                                      "could not re-adopt it (mastership/pipeline/clone/"
-                                     "routes); it cannot forward traffic. See the proxy log. "
-                                     "Recover with power off and then power on -- do NOT "
-                                     "repeat this power-on: the process is up, so liveness "
-                                     "marks the switch up within a second and the retry "
-                                     "returns success without re-attempting the readopt.");
+                                     "routes); it cannot forward traffic. The failing step is "
+                                     "in the readopt response body in the kernel log above. "
+                                     "Recover by retrying the readopt directly: POST http://" +
+                                     AppConfig::P4_PROXY_IP_AND_PORT + "/p4/readopt/" +
+                                     std::to_string(dpid) +
+                                     " -- it is the only call that re-attempts the adoption, "
+                                     "and it may need several tries. Do NOT repeat this "
+                                     "power-on: the process is up, so liveness marks the switch "
+                                     "up within a second and the retry returns success without "
+                                     "re-attempting the readopt. Power off then power on does "
+                                     "not work either; measured on a live fabric, it returned "
+                                     "500 as well.");
     }
 
     topoMonitor->setVertexUp(node);

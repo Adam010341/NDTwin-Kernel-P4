@@ -346,12 +346,19 @@ TEST(P4PowerStrategyTest, PowerOnOnAnAlreadyUpSwitchRunsNothing)
 TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
 {
     // [Co-developed with claude code -- Adam]
-    // This message used to end "retrying this power-on retries the readopt." It cannot.
-    // helper-on has already succeeded at this point, so bmv2 is serving; p4LivenessFor answers
-    // Up on probe_ok alone and the 1 Hz pingWorker calls setVertexUp within a second; the retry
-    // then hits powerOn's own getVertexIsUp early-return and answers 200 without going near the
-    // readopt. An operator following the message gets a green result over a switch that cannot
-    // forward a packet -- the exact half-state the readopt step exists to catch.
+    // This message has now named two recoveries that do not work, so the assertions name both.
+    //
+    // First it ended "retrying this power-on retries the readopt." It cannot: helper-on has
+    // already succeeded at this point, so bmv2 is serving; p4LivenessFor answers Up on probe_ok
+    // alone and the 1 Hz pingWorker calls setVertexUp within a second; the retry then hits
+    // powerOn's own getVertexIsUp early-return and answers 200 without going near the readopt.
+    //
+    // Its replacement said "power off and then power on". Run against a live fabric on
+    // 2026-08-12, that returned 500 too -- powering off leaves the proxy's prober hammering the
+    // dead port, and grpc's process-global subchannel pool hands the accumulated backoff to the
+    // fresh channel readopt builds. Calling the readopt endpoint directly is what recovered the
+    // switch. So the earlier repair swapped unworkable advice for untested advice, and this
+    // test now pins the property both versions failed rather than the wording of either.
     //
     // Asserted as message content because the message *is* the deliverable here: this OpResult
     // is the only honest witness to the half-state, so what it tells the operator to do next is
@@ -365,11 +372,14 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
 
     ASSERT_FALSE(result.ok);
     const std::string msg = result.message;
-    EXPECT_NE(msg.find("power off"), std::string::npos)
-        << "the only recovery that reaches the readopt again is off-then-on, and the message "
-           "has to say so: " << msg;
+    EXPECT_NE(msg.find("/p4/readopt/7"), std::string::npos)
+        << "the recovery that was measured to work is calling readopt directly, and the message "
+           "has to name it, for this dpid: " << msg;
     EXPECT_EQ(msg.find("retrying this power-on retries the readopt"), std::string::npos)
         << "the message promises a retry that early-returns success instead: " << msg;
+    EXPECT_NE(msg.find("not work either"), std::string::npos)
+        << "off-then-on was measured to fail, so the message must warn against it rather than "
+           "leave it looking like the obvious thing to try: " << msg;
 }
 
 // --- The seam itself, unfaked.
