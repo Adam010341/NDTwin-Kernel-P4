@@ -130,10 +130,12 @@ HistoricalDataManager.cpp
 兩個獨立問題：
 
 1. **測試端**：型別不存在，所以互斥語意從來沒被驗過。
-2. **kernel 端**：[HttpSession.cpp:1711-1714](../src/ndt_core/http/HttpSession.cpp#L1711-L1714)
-   的 `release_lock` **無論鎖是否持有、型別是否有效，一律回 200**。
-   `testing_workflow.md` 第 121 行寫的「release_lock 用過期的 lock → 412」目前不成立。
-   這是真的缺口，值得記錄。
+2. **kernel 端**：`HttpSession::handleReleaseLock` **無論鎖是否持有、型別是否有效，一律回 200**
+   （`LockManager::unlock` 回傳 `void`，handler 沒有東西可以分支）。
+   `testing_workflow.md` 舊版錯誤路徑清單裡的「release_lock 用過期的 lock → 412」不成立，
+   `ndt_api.md` 舊版寫的 **423** 同樣不成立。**兩處都已於 2026-08-12 移除**，
+   所以這裡不再是「兩份來源文件還在教」的狀態。缺口本身還在：`LockManager` 沒有 owner token，
+   任何人都能釋放別人的鎖並被告知成功。
 
 ~~**還沒解的兩難**：要真正驗互斥，就得用 `routing_lock`，而那正是 Energy-Saving-App 和
 Traffic-Engineering-App 在用的鎖。~~
@@ -149,31 +151,25 @@ Traffic-Engineering-App 在用的鎖。~~
 `LockManager` 沒有 owner token（任何人都能 `unlock()` 別人的鎖）仍然是**設計缺口**，
 只是不再阻擋測試。
 
-### 1.2 `run_layers.sh api` 的 log 檢查必定失敗
+### 1.2 ~~`run_layers.sh api` 的 log 檢查必定失敗~~ — ✅ 已解，本節原本的描述是錯的
 
-[run_layers.sh:174-176](../tools/test_workflow/run_layers.sh#L174-L176) 依序跑
-L2 → L3 → `run_logcheck`，三者都對同一份 `kernel.log`。
-而 L2 的錯誤路徑檢查會**主動讓 kernel 寫 ERROR/WARN**：
+🔴 **2026-08-12 更正：這一節從頭到尾不成立，而且在它自己 2026-08-10 那次更正 pass 之前就已經不成立了。**
+原文的三項斷言逐條核過，三項都假：
 
-| L2 check | kernel 的反應 | log 產出 |
-|---|---|---|
-| `install_flow_entry__malformed_json` | `json::parse` 拋出 → 外層 catch | `[error] JSON exception in request handler` |
-| `install_flow_entry__missing_fields` | `.at()` 拋出 | `[error] JSON exception in request handler` |
-| `inform_switch_entered__bad_dpid` | `std::stoull` 未防護（`HttpSession.cpp:924`） | `[error] Standard exception in request handler` |
-| `unknown_endpoint` | `handleNotFound` | `[warning] Received unsupported request` |
-| `acquire_lock` ×2 | Unknown lock type | `[warning] Invalid lock type requested` ×2 |
+| 原文斷言 | 實際 |
+|---|---|
+| malformed input 會寫 `[error] Standard exception in request handler`，因為 `std::stoull` 沒防護 | `inform_switch_entered` 和 `get_nickname` 都改用 `utils::tryParseUint64`，回 400 並記 **WARN**；`stoull` 已經不在這兩個 handler 裡（`832d75c`） |
+| malformed JSON 會寫 `[error] JSON exception in request handler` | 那個 catch 就是 400 路徑，記的是 **WARN** 不是 ERROR，並且原地留了註解說明為什麼（`78b822a`） |
+| `warning_allowlist.txt` 沒有任何一條涵蓋這些 | 涵蓋得很完整，而且每一條都標了是哪個 L2 check 觸發的——正是本節原本開的第三個藥方 |
 
-`warning_allowlist.txt` 沒有任何一條涵蓋這些，而 `check_logs.py` 的規則是
-「error 一律失敗、warning 不在 allowlist 就失敗」。
+`run_layers.sh` 另外還實作了第一個藥方：`mark_log` 在跑 L2 之前記下 log 行數，
+log 檢查只看標記之後的區間，並且會偵測「同一個 kernel process 被連跑兩輪」這個
+會讓標記失效的情況，偵測到就降級成警告而不是假裝通過。
 
-**所以 `./run_layers.sh api p4` 的第三層永遠是紅的，而且原因是測試自己造成的。**
-這會訓練你忽略 log 檢查的結果——正好是這個機制最不該發生的事。
-
-三種可行的解法（擇一即可）：
-
-- L2 在跑錯誤路徑前後標記 log 位置，log 檢查只看標記外的區間；
-- 錯誤路徑改成獨立的 `--error-paths` 模式，預設不跑；
-- 把這幾條加進 allowlist，但要標明「由 L2 錯誤路徑檢查產生」，否則會遮蔽真實的同名錯誤。
+**所以第三層不是永遠紅的。** 原文的結論「這會訓練你忽略 log 檢查的結果」方向是對的——
+只是該被訓練忽略的是這一節，不是 log 檢查。整節保留成紀錄而不刪除，因為它示範了一個
+反覆出現的失效模式：**這一節在 2026-08-10 被「更正」過，更正的人沒有重跑它的斷言，
+所以錯誤原封不動地活過了自己的校對。** 引文寫進文件之前要重新 grep，不能靠記憶。
 
 ### 1.3 `--save-json` 會把每個 endpoint 打第二次
 
