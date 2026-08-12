@@ -451,3 +451,64 @@ TEST(ControlPlaneReplyRobustnessTest, AHostsEntryWithAnUnparseableIpDoesNotTermi
         R"([{"mac": "00:00:00:00:00:01", "ipv4": ["not.an.address"],
              "port": {"dpid": "1"}}])"));
 }
+
+TEST(ControlPlaneReplyRobustnessTest, OneBadLinksEntryDoesNotCostTheEntriesAfterIt)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    // The topology's first edge: dpid 1 port 1 -> dpid 5. updateLinks keys on (src dpid,
+    // src port), so that pair is what the reply below claims is up.
+    const auto edgeUp = [&fix]() {
+        std::shared_lock lock(*fix.mutex);
+        for (auto e : boost::make_iterator_range(boost::edges(*fix.graph)))
+        {
+            const auto& ep = (*fix.graph)[e];
+            if (ep.srcDpid == 1 && ep.srcInterface == 1)
+            {
+                return std::optional<bool>(ep.isUp);
+            }
+        }
+        return std::optional<bool>();
+    };
+
+    ASSERT_TRUE(edgeUp().has_value()) << "no edge leaves dpid 1 on port 1; assertion is vacuous";
+    ASSERT_FALSE(*edgeUp()) << "already up before the reply is fed";
+
+    fix.monitor.updateLinks(
+        R"([{"src": {"dpid": "zz", "port_no": "1"}, "dst": {"dpid": "5", "port_no": "1"}},
+            {"src": {"dpid": "1",  "port_no": "1"}, "dst": {"dpid": "5", "port_no": "1"}}])");
+
+    EXPECT_TRUE(*edgeUp())
+        << "the link after the malformed one was never applied: one unparseable dpid cost the "
+           "whole reply, so every link listed after it silently keeps its old state";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, OneBadHostIpDoesNotCostTheEntriesAfterIt)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    const auto h2Up = [&fix]() {
+        std::shared_lock lock(*fix.mutex);
+        for (auto v : boost::make_iterator_range(boost::vertices(*fix.graph)))
+        {
+            const auto& vp = (*fix.graph)[v];
+            if (vp.vertexType == VertexType::HOST && vp.mac == 2)
+            {
+                return std::optional<bool>(vp.isUp);
+            }
+        }
+        return std::optional<bool>();
+    };
+
+    ASSERT_TRUE(h2Up().has_value()) << "topology has no host with mac 2";
+    ASSERT_FALSE(*h2Up());
+
+    fix.monitor.updateHosts(
+        R"([{"mac": "00:00:00:00:00:01", "ipv4": ["not.an.address"], "port": {"dpid": "1"}},
+            {"mac": "00:00:00:00:00:02", "ipv4": ["10.0.0.2"],       "port": {"dpid": "2"}}])");
+
+    EXPECT_TRUE(*h2Up())
+        << "the host after the unparseable address was never applied";
+}
