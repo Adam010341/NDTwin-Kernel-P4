@@ -26,8 +26,19 @@
 # Also runs the P4 proxy's Python tests, since half the P4 path lives there: the sFlow emitter
 # and the clone session are Python, and the C++ suite cannot reach them. A skipped Python test
 # is treated the same way as a skipped gtest one -- reported, not counted as a pass -- except
-# where the interpreter genuinely lacks the P4Runtime protobufs, which is a real environment
-# limitation rather than a broken test.
+# where this run can see for itself that a prerequisite is missing, which is a real environment
+# limitation rather than a broken test. There are exactly two such prerequisites and the run
+# computes both: an interpreter carrying the P4Runtime protobufs ($PY_P4), and the compiled P4
+# artefacts that l0_build_check.sh writes to $P4_BUILD_DIR. Anything else that skips fails,
+# whether the whole file skipped or one test in it.
+#
+# [Co-developed with claude code -- Adam]
+# That last clause used to be false for a strict subset of skips. The all-skipped branch below
+# did the work described here, but a file where *some* tests skipped printed
+# "PASS N ran, M skipped" and exited 0 -- so the same condition that is a hard FAIL on the
+# gtest side was a pass on this side, and a test that quietly started skipping itself (an
+# ImportError guard that begins triggering is the easy way) cost the run nothing. The subset
+# case is the more dangerous one, too: an all-skipped file is at least conspicuous.
 #
 # Usage:
 #   ./l1_unit_tests.sh              # configure if needed, build, run both ways
@@ -149,6 +160,18 @@ else
     [[ -z "$PY_P4" ]] && echo "  ${Y}note: no interpreter with P4Runtime protobufs; " \
         "gRPC-dependent tests will skip themselves${N}"
 
+    # [Co-developed with claude code -- Adam]
+    # The second prerequisite a skip is allowed to blame. l0_build_check.sh p4 writes this file;
+    # without it the tests that compare the proxy's metadata-id constants against the generated
+    # p4info have nothing to compare with and skip. Checked here rather than trusted from a list
+    # of reasons: this is the same path l0 writes to, declared once in components.env, so it
+    # cannot drift the way a hand-kept catalogue of acceptable skip messages would.
+    P4INFO_FILE="$P4_BUILD_DIR/ndtwin_switch.p4info.txt"
+    HAVE_P4INFO=0
+    [[ -f "$P4INFO_FILE" ]] && HAVE_P4INFO=1
+    [[ $HAVE_P4INFO -eq 0 ]] && echo "  ${Y}note: no compiled p4info at $P4INFO_FILE;" \
+        "run l0_build_check.sh p4 -- tests that pin the metadata ids will skip themselves${N}"
+
     shopt -s nullglob
     for testfile in "$PROXY_DIR"/tests/test_*.py; do
         name="$(basename "$testfile")"
@@ -201,7 +224,30 @@ else
                 FAILURES=$((FAILURES + 1))
             fi
         elif [[ $skipped -gt 0 ]]; then
-            echo "${G}PASS${N}  ${D}${ran} ran, ${skipped} skipped${N}"
+            # [Co-developed with claude code -- Adam]
+            # A strict subset skipped. This printed "PASS N ran, M skipped" and exited 0, which
+            # is what made the header's parity claim false: the same condition on the gtest side
+            # is a hard FAIL, and a test that starts skipping itself is exactly the erosion both
+            # checks exist to catch. It also cannot rely on the opt-in escape hatch above --
+            # NDTWIN_L1_OPT_IN says "this whole file needs a live switch", which a file that ran
+            # most of its tests plainly did not.
+            #
+            # The two environment excuses are the ones this run computed for itself, so the
+            # verdict never depends on parsing a skip message. On a machine with both
+            # prerequisites there is no excuse left, and today the reference checkout has zero
+            # partially-skipped files -- so this costs nothing until something regresses.
+            if [[ -z "$PY_P4" ]]; then
+                echo "${Y}PROVED LESS${N} ${D}${ran} ran, ${skipped} skipped (no interpreter" \
+                     "with the P4Runtime protobufs)${N}"
+            elif [[ $HAVE_P4INFO -eq 0 ]]; then
+                echo "${Y}PROVED LESS${N} ${D}${ran} ran, ${skipped} skipped (no compiled" \
+                     "p4info; run l0_build_check.sh p4)${N}"
+            else
+                echo "${R}FAIL${N} ${skipped} of ${ran} test(s) skipped with both prerequisites" \
+                     "present — a skipped test is not a passing test"
+                grep -E "^test_.* \.\.\. skipped" "$log" | head -6 | sed 's/^/      /'
+                FAILURES=$((FAILURES + 1))
+            fi
         else
             echo "${G}PASS${N}  ${D}${ran} ran and passed${N}"
         fi
