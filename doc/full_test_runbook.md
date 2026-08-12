@@ -100,7 +100,12 @@ C++ 測試也要**直接跑一次**，不能只靠 ctest —— ctest 一個測�
 ```bash
 cd /home/adam/Desktop/NDTwin-Kernel && ./build/bin/test_routing_strategy
 ```
-✅ 應該是 `[  PASSED  ] 414 tests.`、exit 0。（2026-08-10 實跑更正，原本寫 127。）
+✅ 驗收條件是 **exit 0**，而且最後一行是 `[  PASSED  ] N tests.`，**沒有** `[  FAILED  ]` 那一段。
+
+⚠️ **這裡刻意不寫 N 應該是多少。** 這個數字被寫死過兩次（127 → 414），兩次都在幾天內就過期，
+而過期的方式最糟：測試變多會讓照著 runbook 走的人以為驗收條件沒過。
+要對照的話，`N` 應該等於 `./build/bin/test_routing_strategy --gtest_list_tests | grep -c '^  '`
+——這是同一個 binary 自己報的數，不會腐爛。
 
 ---
 

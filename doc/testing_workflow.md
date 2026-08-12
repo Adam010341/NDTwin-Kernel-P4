@@ -130,9 +130,12 @@ cd p4_proxy && PYTHONPATH=. python3 tests/test_sflow_emitter.py
 
 ### 測什麼
 
-目前 `tests/CMakeLists.txt` 只建一個 binary `test_routing_strategy`。⚠️ **2026-08-10 更正：
-下表已嚴重過期** —— 現在是 **31 個 `.cpp`、414 個 case、47 個 test suite**，不是 3 個 suite／12 個
-case。全部仍然**離線、不需 Mininet**。下表保留成歷史紀錄（它記錄的是這一層最早的樣子）：
+目前 `tests/CMakeLists.txt` 只建一個 binary `test_routing_strategy`。全部**離線、不需 Mininet**。
+
+⚠️ **下表是歷史紀錄，不是現況** —— 它記錄的是這一層最早的樣子（3 個 suite／12 個 case），
+現在的規模大了一個量級。**這裡不再寫當下的數字**：2026-08-10 更正過一次，48 小時內又過期了。
+要當下的數字就自己數（`git ls-files 'tests/test_*.cpp' | wc -l`，
+或 `./build/bin/test_routing_strategy --gtest_list_tests | grep -c '^  '`）。
 
 | Test suite | 測試數 | 測什麼 |
 |---|---|---|
@@ -140,9 +143,9 @@ case。全部仍然**離線、不需 Mininet**。下表保留成歷史紀錄（�
 | `P4RoutingStrategyTest` | 2 | P4 模式下同上，但 URL/port 走 proxy agent |
 | `ComputeEstimatedRatesTest` | 8 | `sflow::computeEstimatedRates` 在 hops=0 時不能除以零（曾因此 SIGFPE 崩潰）、多 hop 平均、整數除法截斷等邊界 |
 
-建置方式：CMake 透過 `gtest_discover_tests(test_routing_strategy)` 把每個 `TEST_F` 註冊成獨立的 ctest case（所以 ctest 現在會看到 414 個 Test #1…#414）。
+建置方式：CMake 透過 `gtest_discover_tests(test_routing_strategy)` 把每個 `TEST_F` 註冊成獨立的 ctest case（所以 ctest 看到的 case 數等於 gtest 的 case 數，不是 1）。
 
-⚠️ `tests/python/`（101 個測試）和 `tests/shell/`（1 個）**沒有**被 ctest 註冊，`ctest` 全綠不代表它們跑過。
+⚠️ `tests/python/` 和 `tests/shell/` **沒有**被 ctest 註冊，`ctest` 全綠不代表它們跑過。
 
 ### 為什麼要跑兩次（腳本的核心邏輯）
 
@@ -211,8 +214,15 @@ get_graph_data  →  必須有 nodes[] 和 edges[]
 ✓ install_flow_entry 給不存在的 dpid   → 4xx（不是 200）
 ✓ get_path_switch_count 給亂 IP        → 4xx 或空結果（不是 crash）
 ✓ acquire_lock 連續拿兩次              → 第二次回 423
-✓ release_lock 用過期的 lock           → 412
+✓ renew_lock 用沒持有／過期的 lock      → 412
 ```
+
+⚠️ 原本這裡第四條寫的是「`release_lock` 用過期的 lock → 412」。**那個 412 產不出來**：
+`LockManager::unlock` 回傳 `void`，`handleReleaseLock` 無條件回 200 `{"status":"released"}`，
+唯一的非 200 是 catch-all 的 500。沒有任何路徑會給出 412（或 `ndt_api.md` 舊版寫的 423）。
+真正會回 412 的是 `renew_lock`（`handleRenewLock` 的 `renew()` 回 false 分支），所以這條改成它。
+`release_lock` 那個缺口本身還在——`LockManager` 沒有 owner token——記在
+`doc/test_coverage_gaps.md` §1.1。
 
 ### 順手抓到的現有破口
 
