@@ -140,6 +140,12 @@ class ReadoptTestBase(unittest.TestCase):
             return client
         return make
 
+    def factory_that_raises(self, exc=None):
+        """A client_factory that dies before producing a client -- readopt's first step."""
+        def make(dpid):
+            raise exc or RuntimeError("no p4info on disk")
+        return make
+
     def readopt(self, dpid=1, factory=None, callback=sample_sink, settle_s=0.25):
         return self.topo.readopt_switch(dpid, factory or self.factory(),
                                         callback, settle_s=settle_s)
@@ -265,11 +271,66 @@ class ReadoptFailureTest(ReadoptTestBase):
                          "pipeline")
 
     def test_a_failure_names_the_step_it_died_at(self):
-        # Decision 2: "report how far it got, and which step failed" -- the kernel's log
-        # line is built from this.
+        # Decision 2, item 5: "report how far it got, and which step failed" -- the kernel's
+        # log line is built from this.
+        #
+        # [Co-developed with claude code -- Adam]
+        # This asserted only assertIn("step", result), which is key presence, not an answer:
+        # labelling every failure the same thing satisfies it while the operator is sent to
+        # the wrong place. The value is the deliverable here, so the value is what is pinned.
+        #
+        # "pipeline" rather than any other spelling because it is a wire token, not an
+        # internal name: api_routes.readopt puts this dict straight into the 502 detail, the
+        # kernel logs it, and ReadoptEndpointTest.test_a_failed_readopt_is_502_carrying_the_step
+        # asserts the endpoint surfaces exactly "pipeline". That test feeds a canned dict, so
+        # without this one the two halves of the same contract are free to disagree: the
+        # endpoint would keep proving it forwards a token nothing produces.
         result = self.readopt(factory=self.factory(pipeline_error=RuntimeError("rejected")))
-        self.assertIn("step", result)
+        self.assertEqual(result["step"], "pipeline",
+                         "the pipeline push is what failed, so that is the step to name")
         self.assertIn("error", result)
+        self.assertIn("RuntimeError", result["error"],
+                      "the exception type is half the diagnosis; 'rejected' alone does not "
+                      "distinguish a refused config from an unreachable switch")
+
+    def test_a_failure_before_the_client_exists_names_a_different_step(self):
+        # Decision 2's sequence starts by building a *new* client; that is where a missing
+        # p4info or a bad address dies, before any RPC is attempted. Reporting it as the same
+        # step as a pipeline failure would send someone to look at the switch for a fault
+        # that is on this host.
+        def factory(dpid):
+            raise RuntimeError("no p4info on disk")
+
+        result = self.topo.readopt_switch(1, factory, sample_sink, settle_s=0)
+        self.assertEqual(result["step"], "build")
+
+    def test_the_two_failure_points_are_not_given_the_same_label(self):
+        # The property behind both assertions above, stated without their literals: whatever
+        # the vocabulary, "which step failed" is only reported if the answers differ. A single
+        # constant everywhere passes every key-presence check ever written.
+        build = self.topo.readopt_switch(
+            1, self.factory_that_raises(), sample_sink, settle_s=0)
+        pipeline = self.readopt(factory=self.factory(pipeline_error=RuntimeError("rejected")))
+
+        self.assertEqual(build["status"], "failed")
+        self.assertEqual(pipeline["status"], "failed")
+        self.assertNotEqual(build["step"], pipeline["step"],
+                            "both failure paths report the same step, so the report cannot "
+                            "say which one happened")
+
+    def test_a_failed_start_is_reported_as_the_pipeline_step(self):
+        # [Co-developed with claude code -- Adam]
+        # Recording current behaviour rather than endorsing it, in the style of
+        # test_OvsPowerStrategy.cpp's empty-bridge test. start() raising means arbitration or
+        # the stream died -- the design lists that as its own arrow, before the settle and the
+        # push -- but it shares an except block with set_forwarding_pipeline_config, so it
+        # reports "pipeline". An operator reading that goes looking at the p4info and the
+        # switch's config rather than at the gRPC stream.
+        #
+        # Not changed here: this file is a test file, and relabelling is a production change.
+        # If a fix lands, this expectation is the one to change.
+        result = self.readopt(factory=self.factory(start_error=RuntimeError("no stream")))
+        self.assertEqual(result["step"], "pipeline")
 
 
 class RouteReinstallTest(unittest.TestCase):
