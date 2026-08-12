@@ -794,10 +794,16 @@ buildMaskAndValueFromMatch(const nlohmann::json& match, KeyBytes& outMaskBytes, 
         //
         // ⚠️ **Do not fix only this side.** Whoever makes Ryu's VLAN reach this branch (by
         // reading `dl_vlan` here) must fix the sFlow side in the same change. `vlanTci` is
-        // serialised into the key at line 168, and the two producers of a FlowKey are not
-        // symmetric: rules come from here, but *lookups* come from the sFlow path walk, which
-        // builds its FlowKey at FlowLinkUsageCollector.cpp:2534 and sets no VLAN at all. Today
-        // both sides are 0, so they agree and every lookup matches. Populate one side alone and
+        // serialised into the key by packKey above, and the two producers of a FlowKey are
+        // not symmetric: rules come from here, but *lookups* come from the sFlow path walk,
+        // which builds its FlowKey in FlowLinkUsageCollector::calFlowPathByQueried (grep
+        // `ndtClassifier::FlowKey fk{}` -- the only hit in the file) and sets no VLAN at all.
+        //
+        // Located by name, not by line: the first version of that sentence cited
+        // "FlowLinkUsageCollector.cpp:2534" and was already wrong the same hour, because the
+        // companion comment added to that very function pushed the line to 2542.
+        //
+        // Today both sides are 0, so they agree and every lookup matches. Populate one side alone and
         // every VLAN-tagged rule becomes unfindable: the walk would hit the "table has no
         // matching rule" branch for traffic whose rule is sitting right there. Half a fix here
         // is worse than none. Either do both sides, or mark vlanTci reserved.
