@@ -94,7 +94,7 @@ OVS 模式、`iperf -u -b 100M` 灌流量時觀察到的。分類與處置：
 
 | # | 現象 | 判定 | 處置 |
 |---|---|---|---|
-| 1 | 鍊路使用率為零 | **不是 bug** —— `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2245`）刻意排除所有接到 host 的邊，而 h1/h2 都在 s1 底下 | 已實測釐清（`6996062`）。**我原本歸咎 Ryu 猝死，那個歸因是錯的** |
+| 1 | 鍊路使用率為零 | **不是 bug** —— `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp`）刻意排除所有接到 host 的邊，而 h1/h2 都在 s1 底下 | 已實測釐清（`6996062`）。**我原本歸咎 Ryu 猝死，那個歸因是錯的** |
 | 2 | `src_ip: 16777226` 看起來很怪 | **不是 bug** —— 那是 `in_addr::s_addr`，network order，正是 10.0.0.1 | 文件講清楚（`0e84234`）。**我先前說「文件錯了」是我判斷錯誤** |
 | 3 | flow table 是空的 | **不是 bug** —— 實測 10 台各 130 條 | 我給的指令多加了 `?dpid=1`，那個端點是精確比對 target，加參數就 404（`6996062`）|
 | 4 | `get_num_of_flows_passing_a_switch` → Not Found | **我給錯指令**，那是 POST + JSON body | — |
@@ -394,7 +394,12 @@ audit 當時是對的。** 已更正第 1h 和 1i 節。
 ### 1i. 測試覆蓋率現況（audit 點名「沒測試」的對象）
 
 我的做法是**「改到哪就測到哪」**（先修會崩的、再補覆蓋率），這是刻意的取捨。以下是實況 ——
-⚠️ 用 grep 檢查會騙人：`HttpSession`、`api_routes`、`p4_testbed_topo` 都只是**被別的測試檔在註解裡提到**。
+⚠️ 用 grep 檢查會騙人：`api_routes`、`p4_testbed_topo` 都只是**被別的測試檔在註解裡提到**。
+
+> 🕐 **本表最後逐條核對：2026-08-12。** 檔頭的「最後更新 2026-07-31」離這裡 400 行，
+> 對這張表沒有任何約束力——它上一次過期就是這樣過期的（三個 ❌ 在檔頭日期之後才被補上，
+> 而讀者沒有理由知道）。**會過期的表要自己帶日期。**
+> 驗證方式：`ls tests/test_*.cpp`，然後開檔看它測的是什麼；註解裡提到不算。
 
 | 對象 | 現況 |
 |---|---|
@@ -405,11 +410,12 @@ audit 當時是對的。** 已更正第 1h 和 1i 節。
 | `KeyedFailureLog` | ✅ 12 個 |
 | `ryu_topology` / `kernel_notifier` | ✅ 24 / 13（早就存在）|
 | `topology_manager` | ✅ 9（`c964946`，**我加的**）+ 20（`a8db425`）—— 上一版誤記為「早就存在」|
-| **`HttpSession`（除了參數解析）** | ❌ |
+| `HttpSession` 路由與狀態碼 | ✅ `tests/test_HttpSessionRouting.cpp`。接縫是 `buildResponse()`——`handleRequest()` 扣掉 `writeResponse()`，所以不碰 socket，測試可以用未連線的 socket 驅動真正的路由表。**限制寫在檔頭**：協作者都是 null `shared_ptr`，所以這裡只放「在碰到任何協作者之前就被拒絕」的請求 |
 | `OVSPowerStrategy` | ✅ 12 個 + wait-status 8 個（`65aaa38`）。⚠️ 上一版這裡寫「要先修接縫」是**過期資訊** —— 那個洞早就補掉了 |
-| **`P4PowerStrategy`** | ❌ |
-| **`TopologyAndFlowMonitor`（2500 行）** | ❌ 無獨立測試。要先想清楚接縫（被 `getGraph()` 深拷貝隔開） |
-| **`ApplicationManager` / `SimulationRequestManager`** | ❌ |
+| `P4PowerStrategy` | ✅ `tests/test_P4PowerStrategy.cpp`，**mutation 驗證過**（`9afd647`）。Python 那半邊在 `tests/python/test_p4_power_helper.py` 和 `p4_proxy/tests/test_readopt.py`（`09a7a81`）|
+| `TopologyAndFlowMonitor` | ✅ `tests/test_TopologyAndFlowMonitor.cpp` + `tests/test_TopologyAndFlowMonitor_mininet.cpp`。接縫問題（被 `getGraph()` 深拷貝隔開）的解法是把 `updateSwitches`／`updateHosts`／`updateLinks`／`loadStaticTopologyFromFile` 開成 `protected`，用 poll 形狀的假回應驅動 discovery writer——理由寫在 `TopologyAndFlowMonitor.hpp` 的宣告上 |
+| `SimulationRequestManager` | ✅ 但只有一半：`tests/test_SimulationRequestValidation.cpp` 蓋了 `validateRequestBody`／`requiredRequestFields`。**其餘的沒蓋**，而且檔頭明講不測跳脫，因為根本沒有跳脫——body 仍然未跳脫地進到 shell |
+| **`ApplicationManager`** | ❌ 只在 `test_HttpSessionRouting.cpp` 裡當 null placeholder 出現過兩次（正是上面說的「grep 會騙人」）。五個 `system()` 裡只有 `reloadNFSServer` 檢查回傳值，另外四個全丟；其中 `cleanupAppFolder` 那個是 `sudo sed -i … /etc/exports` |
 | **`SSHHelper` / `execCommand`** | ❌ **刻意最後做** —— 它們的核心問題是 shell injection，補測試而不修注入只會把現狀凍結 |
 | **`p4_testbed_topo.py`** | ❌ |
 
@@ -530,11 +536,11 @@ log 紀律：~50 秒的輪詢只印 2 行（啟動時 286、恢復時 288），�
 | # | 項目 | 為什麼在這個位置 |
 |---|---|---|
 | 1 | ⭐ **Ryu 的 `/stats/flow` 在錯的啟動順序下永久回空表** | 見第 2c 節。**整合測試前必須定案** —— 根因未知，但有可重現的觸發條件和一條可以馬上遵守的規則 |
-| 2 | **`HttpSession` 的測試接縫** | `app_id` 修正完全沒測到，`std::stoi` 放回去 258 個測試照樣綠。要設計接縫，不能為單一端點發明捷徑 |
+| 2 | ~~**`HttpSession` 的測試接縫**~~ ✅ **已做**（`tests/test_HttpSessionRouting.cpp`）| 接縫是 `buildResponse()`：`handleRequest()` 扣掉 `writeResponse()`，不碰 socket。原本的理由（`app_id` 修正完全沒測到，`std::stoi` 放回去照樣全綠）成立，而且沒有為單一端點發明捷徑 |
 | 3 | kernel 每秒 2 行 INFO log（**每天 13.8 萬行**）| 當天量到的。⚠️ 注意「Ryu 97% 飽和」那個結論**已更正為誤判**，這一項只剩 log 量 |
 | 4 | `FlowDispatcher` 的 lost-wakeup 沒有測試抓得到 | scoped review 驗證過：跑 300 次都存活。要控制排程時序 |
 | 5 | agy-review 0085／0104／0105 | 判斷是 nitpick 等級，邊際產出下降 |
-| 6 | `TopologyAndFlowMonitor` 補測試 | 工程量最大，要先想清楚接縫 |
+| 6 | ~~`TopologyAndFlowMonitor` 補測試~~ ✅ **已做**（`test_TopologyAndFlowMonitor.cpp` + `_mininet`）| 接縫是把 discovery writer 開成 `protected`，用 poll 形狀的假回應驅動，不必架 Ryu |
 | 7 | twin 偵測黑洞 flow | **新能力，不是修 bug** |
 | 8 | 重算路徑只覆蓋走得到的規則 | BFS 走不到的交換機留著舊規則。10 台全連通時不影響 |
 
@@ -1109,7 +1115,7 @@ kernel 都在跑，s1-s5 已接回、32 條 link，我起的 iperf（h1→h34）
 **我當時的說法**：`avg_link_usage` 在 954 Mbit/s 的滿載鏈路上回 0.0，是兩個獨立缺陷 ——
 `testbed_topo.py` 的 `polling=0` 關掉了 counter sample，而且就算開了 kernel 也算不出來。
 
-**推翻它的測量**：`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2431`）**只計算 switch-to-switch
+**推翻它的測量**：`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp`）**只計算 switch-to-switch
 的 edge**，兩端有 host 的一律跳過。而我跑的 iperf 是 h1 → h2 —— 從拓撲檔查證：
 **10.0.0.1 和 10.0.0.2 都掛在 dpid 1**（host 分佈在 dpid 1-4，每台 32 個；5-10 是轉送層）。
 那條流量**從來沒有經過任何一條 switch-to-switch 鏈路**，所以 0.0 是**正確答案**。
