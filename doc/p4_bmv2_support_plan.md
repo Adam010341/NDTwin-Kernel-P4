@@ -2,12 +2,15 @@
 
 ---
 
-## 目前進度（最後更新 2026-08-07，branch `fix/flow-rate-divide-by-zero`）
+## 目前進度（最後更新 2026-08-12，branch `fix/flow-rate-divide-by-zero`）
 
 測試流程與實測數據見 [p4_status_and_test_guide.md](p4_status_and_test_guide.md)。
 
 ⚠️ **2026-08-07 校正了兩格**，兩格都是逐項對過程式碼而不是照著上一版抄：Phase 5 只做了一半，
 Phase 6 比原本標的完成得多。
+⚠️ **2026-08-12 校正第三格**：Phase 7 標成 🟨 一半、備註寫「`P4PowerStrategy` 還沒用它」，
+在 `1978292` 落地之後就不成立了。下面「已知缺陷」表第 6 條說 `powerOn`
+「是個什麼都沒做就回傳 true 的空殼」，同樣已經過期，一併更正。
 
 | Phase | 狀態 | 備註 |
 |---|---|---|
@@ -17,8 +20,8 @@ Phase 6 比原本標的完成得多。
 | **4** P4 pipeline | ✅ 完成 | `4577983`。5-tuple ternary、ARP、TTL、取樣、counter |
 | **5** telemetry | 🟨 **一半**（原本標 ✅，錯了）| flow sample（type 1）✅ 完成並實機驗證；**counter sample（type 2）完全沒實作** —— 見下一節 |
 | **6** 拓撲／liveness／flow table | ✅ **完成**（2026-08-10 實機驗證，10 台 bmv2）| `inform_switch_entered`（`main.py:142`，pipeline 推完後對 usable 的 switch 發）、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths、**link failure/recovery 通知**。⚠️ 08-08 這一格寫「link failure/recovery 根本不存在」—— 那在當時成立，之後補上了 `check_link_beacons` + `start_link_watchdog`，今天實測跑通：斷線 11 秒後三筆 `link_failure_detected` 抵達、圖維持 37/40 達 238 秒（約 7–8 個 poll），恢復後 14 秒回到 40/40。兩件實機驗證（`seed_expected_links` port 假設、失效鏈路維持 down）都通過，見下方 Phase 6 章節 |
-| **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖 |
-| **7** 電源管理 | 🟨 一半 | PID manifest 已做（`22ada58`，`/tmp/ndtwin_p4_switches.json`）；`P4PowerStrategy` 還沒用它 |
+| **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖、**host 清單從拓撲 JSON 推導**（見下方「⚠️ 拓撲來源分裂」）|
+| **7** 電源管理 | ✅ **完成**（2026-08-11／08-12，機制與測試齊備；尚待 helper 安裝後的 live 驗證）| PID manifest（`22ada58`）＋ root helper `ndtwin-p4-power`（`624946d`）＋ `P4PowerStrategy` 真的呼叫它並在 `on` 之後要求 proxy readopt（`1978292`）＋ mutation 驗證過的測試（`9afd647`、`09a7a81`）＋ `on` 逾時的 orphan 修掉（`8eaa133`）＋ 失敗訊息改成講真正有效的復原路徑（`2abf1e3`）。文件：`b0c82df`、`doc/phase7_power_mechanism_design.md` |
 | **8** 收尾 | ⬜ 未做 | |
 
 **為什麼這張表會過期**：它是手寫的，而 phase 的推進是靠 commit。只要沒有人回來逐項對，
@@ -118,7 +121,7 @@ Phase 5 的規格寫了**兩種** sample：
    不要改成回假的數字。Phase 6 做完之後它自然會回真實的 `switch_count`。
 
 4. ~~**kernel 的 pull 只做一次、沒有重試**~~ ✅ **已完成（`71d27c1`）。**
-   `run()` 現在定期輪詢：前 90 秒每 5 秒、之後每 30 秒（`TopologyAndFlowMonitor.cpp:1793-1795`）。
+   `run()` 現在定期輪詢：前 90 秒每 5 秒、之後每 30 秒（`TopologyAndFlowMonitor.cpp` 的 `run()`，常數 `kWhileConverging` / `kOnceConverged` / `kConvergingFor`）。
    「kernel 最後開並等收斂」這條操作規則保留，但理由換了 —— 現在只是為了圖早點完整，不再是
    「錯過就永遠不知道」。第一版輪詢曾讓圖不斷增長（`loadStaticTopologyFromFile` 是新增不是對帳），
    已拆開並讓它拒絕第二次載入，詳見 `HANDOFF.md` §2。
@@ -153,7 +156,7 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 | 3 | **完全沒有流量資料。** bmv2 不會產生 sFlow，P4 的拓撲檔也沒設定 sFlow。所以 P4 模式下所有速率、鏈路使用率、流量路徑都是 0 或空的。 | `p4_proxy/mininet/p4_testbed_topo.py`（沒有 sflow 設定），對照 [testbed_topo.py:105-119](../testbed_topo.py#L105-L119) |
 | 4 | **整張拓撲圖都停在 `isEnabled=false`。** node 和 edge 初始都是 false，只有 Ryu 的 REST 回應或 `/ndt/inform_switch_entered` 會把它翻成 true，但 P4 這邊沒有任何元件會去呼叫。結果 BFS 找路徑、flow table 輪詢、鏈路使用率、還有一半的 `/ndt/` API 全部變成空的，而且不會報錯。 | [TopologyAndFlowMonitor.cpp:116-117](../src/ndt_core/collection/TopologyAndFlowMonitor.cpp#L116-L117), [HttpSession.cpp:933](../src/ndt_core/http/HttpSession.cpp#L933) |
 | 5 | **P4 的存活偵測是假的。** 只要拓撲檔名裡有 `"P4"` 這幾個字，`pingWorker` 就無條件把每台 switch **和每台 host** 標成 up。所以你把一台 switch 關掉，1 秒內它又會顯示 UP，數位孿生永遠反映不出故障。 | [DeviceConfigurationAndPowerManager.cpp:364-369](../src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp#L364-L369), [:385-389](../src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp#L385-L389) |
-| 6 | **P4 關機功能有兩個錯。** `sudo mnexec -a s1 …` 裡的 `mnexec -a` 要的是 **PID**，不是名字，所以這行指令根本不會執行；而且就算能執行，`pkill -f simple_switch_grpc` 會把**十台 switch 全部殺掉**（Mininet 的 node 共用 PID namespace）。至於 `powerOn`，它是個什麼都沒做就回傳 `true` 的空殼。 | [P4PowerStrategy.cpp:35](../src/ndt_core/power_management/P4PowerStrategy.cpp#L35) |
+| 6 | ~~**P4 關機功能有兩個錯。** `sudo mnexec -a s1 …` 裡的 `mnexec -a` 要的是 **PID**，不是名字，所以這行指令根本不會執行；而且就算能執行，`pkill -f simple_switch_grpc` 會把**十台 switch 全部殺掉**（Mininet 的 node 共用 PID namespace）。至於 `powerOn`，它是個什麼都沒做就回傳 `true` 的空殼。~~ **✅ 已於 Phase 7 修掉（`624946d`／`1978292`）**：`powerOff` 走 root helper，只對 manifest 記載的那一個 PID 送 SIGTERM（送之前再對 `/proc` 驗一次），`powerOn` 重新啟動同一台並要求 proxy readopt，兩者都回誠實的 `OpResult`。`pkill` 是整條路徑的禁字，理由寫在 `P4PowerStrategy.cpp` 檔頭的匿名 namespace 註解裡。 | `P4PowerStrategy::powerOn` / `powerOff` |
 | 7 | **所有南向的失敗都看不見。** `curl -s` 沒加 `--fail`、回傳值被丟掉、介面回傳型別是 `void`、proxy 無條件回 `True`、`p4_client` 把所有 gRPC `UNKNOWN` 都吞掉。結果 proxy 掛掉和安裝成功，從 kernel 的角度看起來一模一樣。 | [P4RoutingStrategy.cpp:17](../src/ndt_core/routing_management/P4RoutingStrategy.cpp#L17), `topology_manager.py:108`, `p4_client.py:216-217` |
 | 8 | **每下一條規則就完整複製一份整張 BGL 圖，再做一次 O(V) 線性搜尋。** 而且每個 DPID 各有一條 worker thread，全部搶同一把 shared mutex。重構前這個成本是 0；現在一批 2000 筆規則就會複製整張圖 2000 次。 | [FlowRoutingManager.cpp:52-56](../src/ndt_core/routing_management/FlowRoutingManager.cpp#L52-L56) |
 | 9 | **兩個 test fixture 會互相干擾，而且測試內容就是在確認那個 bug。** 兩個 fixture 都在 `SetUpTestSuite` 裡呼叫 `Logger::init`，所以當它們跑在同一個 process 時，第二次會丟出 `logger with name 'netdt' already exists`，該 suite 的測試被 SKIPPED（整個 binary exit 1）。`ctest` 讓每個測試跑在獨立 process 且各帶 `--gtest_filter`，於是這個條件從未成立 —— 那些測試在 ctest 下是真的有跑也真的通過，只是「多 suite 共用 process」這個情境永遠沒被驗到。而測試裡的斷言，是把問題 #2（複製品的行為）當成正確行為寫死。 | [test_P4RoutingStrategy.cpp:27-32](../tests/test_P4RoutingStrategy.cpp#L27-L32), [Logger.cpp:68](../src/utils/Logger.cpp#L68) |
@@ -229,6 +232,34 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 - Proxy：`route_flow`／`unroute_flow` 裡寫死的 `/32` 要改成真正解析 prefix（`"10.0.0.0/24"` 和 masked-pair 兩種寫法），這樣聚合路由才能用。
 - Proxy：用 asyncio timer 幫每筆規則模擬 `idle_timeout`，時間到就刪掉（kernel 的表格模型假設 flow 會自己過期）。
 - 加一個 `dpid → grpc_addr` 對照，**從 kernel 讀的同一份拓撲 JSON** 載入，取代 `main.py` 裡寫死的 `range(1, 11)`／`50050+i`／手工列出的 4 台 host。
+
+  ### ⚠️ 拓撲來源分裂：一半讀檔案，一半寫死
+
+  這一條目前是**已知、已推遲、但還沒解**的缺陷，記在這裡是因為它會靜靜地產生錯誤的圖。
+
+  proxy 對「拓撲是什麼」有兩個互不知情的來源：
+
+  | 資料 | 來源 | 換拓撲檔會跟著動嗎 |
+  |---|---|---|
+  | switch 之間的連結 | `load_switch_links`（`topology_manager.py`），讀 `NDTWIN_TOPO_FILE` | ✅ 會 |
+  | 每台 switch 的 sFlow agent IP | `load_switch_agent_ips`（`sflow_emitter.py`），同樣讀 `NDTWIN_TOPO_FILE` | ✅ 會 |
+  | **4 台 host 的 IP／MAC／掛在哪台 switch／掛哪個 port** | **`main.py` 裡四行 `topo.add_host(...)` 寫死** | ❌ **不會** |
+
+  所以只要把 proxy 指到另一份拓撲檔，它會**照新檔案 seed 並 beacon 新的連結**，
+  但 `/v1.0/topology/hosts`（`render_hosts`）、destination path 的算繪（`render_destination_paths`）
+  和 `install_initial_routes` 仍然對著那 4 台可能根本不存在的 host 計算，
+  attach port 也是舊的。結果是一張**左右腦分裂的圖**：連結來自新拓撲，host 來自舊常數。
+  兩邊都不會驗證對方，也沒有任何一行 log 會提到這件事。
+
+  ⚠️ **`main.py` 裡既有的那句自白不涵蓋這一塊。** `DEFAULT_SWITCH_DPIDS` 上面寫的
+  「Still hardcoded -- deriving them from the topology JSON is Phase 3 work」
+  講的只有 switch dpid 清單和 gRPC port 編號，**沒有提到 host 那四行**，
+  而那四行在檔案更上面、離自白很遠。這正是它被漏掉的原因之一：
+  讀的人看到自白，以為寫死的部分都已經被記錄了。
+
+  **處置：** 正確的解法（從拓撲 JSON 推導 host）屬於 Phase 3，跟著上面那條 `dpid → grpc_addr`
+  一起做。在那之前，另一個變更會加上**啟動時的一致性檢查**——發現寫死的 host 和拓撲檔對不起來
+  就大聲失敗，而不是安靜地跑出一張分裂的圖。那個檢查是止血，不是修好；這一條不會因此從 Phase 3 移除。
 - 幫 `TopologyManager.net`／`switches`／`dest_paths` 加鎖 — 它們會被 LLDP thread 和 gRPC receiver thread 修改，同時又被 HTTP handler 讀取。把會阻塞的 gRPC 呼叫和 all-pairs BFS 移出 event loop（`run_in_executor`）。
 
 **測試：** 用 gtest 確認 `P4RoutingStrategy` 每個操作發出的路徑和內容都正確（要重寫現有的測試，它們現在確認的是複製品的行為）；非 strict 刪除要真的打到 `/stats/flowentry/delete`；group／meter 要回 unsupported。用 pytest 測 prefix 解析（`/24`、`/32`、masked pair）和 idle-timeout 到期。
@@ -294,7 +325,7 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     ⚠️ **它只打開頂點，不打開邊。** `handleInformSwitchEntered` 呼叫的是 `setVertexUp` ＋
     `setVertexEnable`（HttpSession.cpp:1080-1081），僅此而已。switch↔switch 的**邊**是
     `updateLinks` 在 topology poll 裡用 `(src dpid, src port)` 打開的（poll 間隔：前 90 秒每 5 秒，
-    之後每 30 秒，`TopologyAndFlowMonitor.cpp:1793-1795`；**不是 1 秒**，:1798 的 1 秒是 sleep 切片），資料來源是
+    之後每 30 秒，常數 `kWhileConverging` / `kOnceConverged` / `kConvergingFor`，見 `TopologyAndFlowMonitor.cpp` 的 `run()`；**不是 1 秒**，那個 1 秒是同一個迴圈裡的 sleep 切片，存在的理由是讓 `stop()` 不必等完整個間隔），資料來源是
     proxy 提供的 Ryu 形狀 `/v1.0/topology/links`；host 邊在 `updateHosts` 裡打開。
     `enableSwitchAndEdges` 確實會一併打開相鄰邊，但**唯一的呼叫點是 `IntentTranslator.cpp:227`**。
     我曾把這件事寫反過，而那個錯誤的理由掩蓋了一個真正的缺陷 —— 見下面 link watchdog 那條。
@@ -324,7 +355,7 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
     每個 poll 週期跑一次（5 秒／30 秒，見上）；proxy 這邊 `add_link` 也沒有對應的移除，探索到的
     link 會永遠上報。所以順序是：watchdog 回報失效 → kernel 把邊設 down → **下一個 poll 又把它設回
     enabled**。回報是真的，效果撐不過一個 poll 週期，而且沒有任何地方會講。
-    （⚠️ 本段原先寫「1 秒」「不到一秒」，是把 :1798 的 sleep 切片誤讀成 poll 間隔。缺陷本身不變，
+    （⚠️ 本段原先寫「1 秒」「不到一秒」，是把 `run()` 迴圈裡的 1 秒 sleep 切片誤讀成 poll 間隔。缺陷本身不變，
     但存活窗口是 5–30 秒而非 1 秒。）修法是 `down_link_endpoints()`：proxy **停止上報**它認為
     已經斷掉的方向 —— 在現行 kernel 下這是唯一辦得到的，因為那個回覆裡沒有辦法表達「down」，而
     poll 從不提及的邊會保留它上次被設定的狀態。
@@ -446,7 +477,25 @@ proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。*
 
 ---
 
-## Phase 7 — 讓電源管理真的能用
+## Phase 7 — 讓電源管理真的能用 ✅ 已完成
+
+> **2026-08-12 狀態：機制與測試都做完了**，`624946d`／`1978292`／`9afd647`／`09a7a81`／`8eaa133`／`2abf1e3`。
+> 以下維持成當初的規格原文（未來式的語氣是原文的），逐條對照結果：
+>
+> | 規格條目 | 結果 |
+> |---|---|
+> | manifest 檔 | ✅ `22ada58`，`/tmp/ndtwin_p4_switches.json` |
+> | `powerOff` 只殺那一個 PID | ✅ 由 root helper `ndtwin-p4-power` 做，送信號前對 `/proc` 再驗一次 |
+> | `powerOn` 照記錄重啟並等 gRPC port | ✅ 並且多做一步：要求 proxy `POST /p4/readopt/{dpid}` 重新掛上 mastership／pipeline／clone session／routes，否則重啟後的 switch 一個封包都轉不動 |
+> | 誠實的 `OpResult` | ✅ 兩個操作都是；`powerOn` 的 502 訊息會講出真正有效的復原路徑（off 再 on），因為單純重試會撞到 `getVertexIsUp` 的 early-return（`2abf1e3`） |
+> | 依賴 Phase 6 的真實存活偵測 | ✅ Phase 6 已完成 |
+> | 測試：mock 攔住 `executeSystemCommand`，確認只針對一個 PID 且不含 `pkill -f` | ✅ `tests/test_P4PowerStrategy.cpp`，mutation 驗證過 |
+> | 順手修好 `OVSPowerStrategy` 繞過自己虛擬函式的接口 | ✅ 已修，見 `HANDOFF.md` 的覆蓋率表 |
+>
+> **還沒做的只剩 live 驗證**：helper 要以 root 身分安裝到 `/usr/local/sbin/ndtwin-p4-power`
+> 並設好 sudoers，安裝步驟在 `doc/phase7_power_mechanism_design.md`。沒裝的時候
+> `set_switches_power_state` 會回 500 `{"error":"Failed to change switch power state"}`，
+> 不會假裝成功。
 
 - 讓 `p4_testbed_topo.py` 在啟動每個 bmv2 process 時，寫一份清單檔（`/tmp/ndtwin_p4_switches.json`：名稱 → pid、grpc_port、device_id、啟動指令）。
 - `P4PowerStrategy::powerOff` 讀這份清單，只殺**那一個** PID；`powerOn` 照記錄的指令重新啟動，並等 gRPC port 開起來。這樣就取代了 `sudo mnexec -a s1 pkill -f simple_switch_grpc` — 那行指令把名字傳給了需要 PID 的參數，而且就算能跑也會把十台 switch 全殺掉。

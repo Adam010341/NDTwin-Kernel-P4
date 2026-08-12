@@ -25,7 +25,22 @@ from ryu.lib import hub
 static_topology_file_path = Path("/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json")
 
 # (2) Deployment mode
-is_mininet = True   # True: Mininet, False: physical testbed
+# [Co-developed with claude code -- Adam]
+# ⚠️ EDITING THIS LINE DOES NOTHING. `is_mininet` is unconditionally reassigned to True further
+# down in this same module-level block (search for the second `is_mininet = True`), so whatever
+# you set here is overwritten before anything reads it. It reads as configuration and behaves as a
+# constant.
+#
+# What it would control if it worked: exactly one thing, `if is_mininet: hub.sleep(60)` at the end
+# of `load_static_topology` -- a settle delay before the all-destination route walk. A
+# physical-testbed operator who flips this line still waits the 60 s.
+#
+# Both assignments date to the original import (6f32bca) and neither carries a reason, so the
+# override was left in place rather than deleted: making the knob live would change startup timing
+# for a testbed deployment, and nothing here records whether the second assignment was a deliberate
+# "always settle" or an editing accident. To actually change the behaviour today, edit the second
+# assignment or the `if is_mininet:` guard, and decide the question this comment cannot.
+is_mininet = True   # True: Mininet, False: physical testbed -- SEE ABOVE, this value is discarded
 
 RYU_SERVER_INSTANCE_NAME = "ndt_ryu_app"
 switch_num = 10
@@ -47,6 +62,12 @@ initial_install_wait_limit = 240
 is_all_dst_biased = False
 all_dst_ecmp_biased_factor = 1
 
+# [Co-developed with claude code -- Adam]
+# THIS is the assignment that wins -- it silently overrides the documented "(2) Deployment mode"
+# knob above. Left in place deliberately (removing it would change startup timing for a
+# physical-testbed deployment, and neither assignment records why there are two), but no longer
+# unlabelled. If you are making the knob real, delete this line; see the comment on the first
+# assignment for what that changes.
 is_mininet = True
 
 

@@ -98,10 +98,16 @@ def render_links(net, down_endpoints=()) -> list:
     directions are left out. [Co-developed with claude code -- Adam]
 
     Omitting them is load-bearing, not tidiness. `updateLinks` only ever sets isUp/isEnabled to
-    true, and it runs once a second -- so a link that stayed in this list was re-enabled within a
-    second of the watchdog reporting it failed, silently undoing the report. There is no way to say
-    "down" in this reply, so the only way to stop the poll contradicting the failure is to stop
-    mentioning the link. See TopologyManager.down_link_endpoints.
+    true, so a link that stayed in this list would be re-enabled by the next topology poll,
+    silently undoing the watchdog's report. There is no way to say "down" in this reply, so the
+    only way to stop the poll contradicting the failure is to stop mentioning the link.
+    See TopologyManager.down_link_endpoints.
+
+    The poll runs every 5 s for the kernel process's first 90 s and every 30 s after that
+    (kWhileConverging / kOnceConverged / kConvergingFor in TopologyAndFlowMonitor.cpp's run()).
+    This used to say "once a second ... within a second", which was a misreading of the 1 s sleep
+    slice inside that loop; the slice is there so stop() returns promptly, not because the poll
+    is 1 Hz.
     """
     links = []
     down = set(down_endpoints)

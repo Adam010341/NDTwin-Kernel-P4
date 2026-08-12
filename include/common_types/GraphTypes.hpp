@@ -198,13 +198,15 @@ struct VertexProperties
      *                        DisableSwitch/EnableSwitch. Discovery must never touch it.
      *
      * Before this existed, `DisableSwitch` cleared `isEnabled` and the next topology poll (5 s for
-     * the process's first 90 s, then 30 s -- TopologyAndFlowMonitor.cpp:1793-1795) set it straight
-     * back to true, with no log. The operator's instruction was silently discarded while every
-     * consumer went on showing the switch as usable.
+     * the process's first 90 s, then 30 s -- `kWhileConverging` / `kOnceConverged` /
+     * `kConvergingFor` in TopologyAndFlowMonitor::run()) set it straight back to true, with no
+     * log. The operator's instruction was silently discarded while every consumer went on showing
+     * the switch as usable.
      *
      * ⚠️ The obvious alternative -- "let discovery write only `isUp`" -- does not work: the loader
-     * starts everything at `isEnabled = false` (TopologyAndFlowMonitor.cpp:203, :270) and discovery
-     * is the *only* thing that ever sets it true, so forbidding it blanks the whole graph.
+     * starts everything at `isEnabled = false` (both the node and the edge branch of
+     * TopologyAndFlowMonitor::loadStaticTopologyFromFile) and discovery is the *only* thing that
+     * ever sets it true, so forbidding it blanks the whole graph.
      *
      * Serialised as `admin_disabled`, and folded into the `is_enabled` that `/ndt/get_graph_data`
      * emits (HttpSession.cpp) so the four consumers that read `is_enabled` -- Energy-Saving-App,

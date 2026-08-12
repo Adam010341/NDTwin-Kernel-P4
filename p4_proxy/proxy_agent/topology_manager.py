@@ -897,13 +897,24 @@ class TopologyManager:
                         # that it is up.
                         #
                         # This comment used to credit inform_switch_entered with enabling the edges
-                        # too. It does not: handleInformSwitchEntered calls setVertexUp and
-                        # setVertexEnable on the switch vertex and nothing else
-                        # (HttpSession.cpp:1080-1081). Switch-to-switch edges are enabled by the 1 s
-                        # topology poll -- updateLinks, keyed on (src dpid, src port), reading the
-                        # Ryu-shaped /v1.0/topology/links this proxy serves. `enableSwitchAndEdges`
-                        # does what the old comment described, but its only caller is
-                        # IntentTranslator.cpp:227.
+                        # too. It does not: HttpSession::handleInformSwitchEntered calls
+                        # setVertexUp and setVertexEnable on the switch vertex and nothing else.
+                        # Switch-to-switch edges are enabled by the kernel's topology poll --
+                        # updateLinks, keyed on (src dpid, src port), reading the Ryu-shaped
+                        # /v1.0/topology/links this proxy serves. `enableSwitchAndEdges` does what
+                        # the old comment described, but its only caller is IntentTranslator's
+                        # ENABLE_SWITCH task branch.
+                        #
+                        # That poll is *not* 1 s, which this comment also used to say: see
+                        # down_link_endpoints below for the interval and why the difference
+                        # matters.
+                        #
+                        # Both claims above are unchanged and still true -- exactly those two
+                        # flags, exactly one caller. What is gone is their line numbers
+                        # (HttpSession.cpp:1080-1081 and IntentTranslator.cpp:227), which were
+                        # exact when written and had drifted by two commits later. This comment
+                        # exists to be the accurate correction of an earlier wrong one, so it is
+                        # the last place that should carry a pointer with a shelf life.
                         #
                         # The conclusion survives the correction: the poll brings a newly discovered
                         # link up on its own. What the wrong reason hid is that the same poll also
@@ -1322,10 +1333,16 @@ class TopologyManager:
         next poll puts it straight back up because the proxy was still listing it.
         The failure report was real, its effect did not outlive one poll, and nothing anywhere said so.
 
-        The poll interval is 5 s for the kernel process's first 90 s and 30 s thereafter
-        (`TopologyAndFlowMonitor.cpp:1793-1795`). This comment used to say 1 s, which was a misreading
-        of the 1 s sleep slice at :1798 -- that slice exists so `stop()` need not wait out a whole
-        interval. The defect is unchanged; only the size of the window is.
+        The poll interval is 5 s for the kernel process's first 90 s and 30 s thereafter --
+        `kWhileConverging`, `kOnceConverged` and `kConvergingFor` in `TopologyAndFlowMonitor.cpp`'s
+        `run()`. This comment used to say 1 s, which was a misreading of the 1 s sleep slice in the
+        same loop; that slice exists so `stop()` need not wait out a whole interval. The defect is
+        unchanged; only the size of the window is.
+
+        The correction had been made here and nowhere else: `api_routes.topology_links`,
+        `ryu_topology.render_links` and this class's own `handle_packet_in` all still asserted the
+        1 s figure -- the three places that actually serve or feed the endpoint. Fixed 2026-08-12.
+        If you change this number again, grep the package for "topology poll" before you stop.
 
         Filtering the topology reply is the fix that works with the kernel as it stands, rather than
         against it: an edge the poll never mentions keeps whatever state it was last given. Keyed on

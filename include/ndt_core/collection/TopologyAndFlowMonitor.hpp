@@ -60,22 +60,16 @@ class TopologyAndFlowMonitor
     void stop();
 
     /**
-     * @brief Loads and constructs the static network topology from a JSON configuration file.
+     * @brief Prints the current graph -- every vertex and edge -- to the log at DEBUG.
      *
-     * This function parses the specified JSON file to populate the internal graph structure
-     * (`m_graph`). The process involves two main stages:
-     * 1. **Nodes Parsing**: Iterates through the "nodes" array to create vertices (Switches or
-     * Hosts), setting properties like DPID, MAC, IP, and device metadata. Special handling is
-     * applied if the deployment mode is set to MININET (e.g., reading `bridge_name`).
-     * 2. **Edges Parsing**: Iterates through the "edges" array to create connections between
-     * vertices. Endpoints are resolved using DPID for switches or IP addresses for hosts.
+     * Debug output only. Takes no arguments, reads nothing but `m_graph`, and modifies nothing.
      *
-     * @param path The file system path to the JSON topology file.
-     *
-     * @note If the file cannot be opened, an error is logged and the function returns without
-     * modifying the graph.
-     * @note If an edge's source or destination cannot be resolved in the graph, the edge is skipped
-     * and a warning is logged.
+     * [Co-developed with claude code -- Adam]
+     * This declaration used to carry a nineteen-line docblock describing
+     * `loadStaticTopologyFromFile` -- node/edge parsing stages, `@param path`, the file-not-found
+     * behaviour -- none of which has anything to do with a parameterless printer. The header's
+     * public section therefore taught that `logGraph()` builds the graph from a file. The real
+     * loader is declared further down, `protected`, with its own accurate comment.
      */
     void logGraph();
 
@@ -272,9 +266,10 @@ class TopologyAndFlowMonitor
      * [Co-developed with claude code -- Adam]
      * The parameters were named `dpid1`/`dpid2` here while the definition names them `ip1_str`/
      * `ip2_str` and parses them with `ipStringToUint32` + `findSwitchByIpNoLock`. Behaviour was
-     * never wrong -- the one caller (IntentTranslator.cpp:367) passes the result of
-     * `getSwitchIpByName` -- but it stores it in a variable called `dpid1_opt` under a comment
-     * saying "Get the DPIDs", so every name on the path said dpid and only the body said IP.
+     * never wrong -- the one caller (IntentTranslator's GET_A_LINK_BANDWIDTH_UTILIZATION branch)
+     * passes the result of `getSwitchIpByName` -- but it stores it in a variable called
+     * `dpid1_opt` under a comment saying "Get the DPIDs", so every name on the path said dpid and
+     * only the body said IP.
      * Renamed rather than left alone because it has already cost someone a wrong call: a test
      * written against this declaration passed dpids, landed in the not-found branch, and the reply
      * on that branch carries `error`/`missing_devices` and **no `status` key** at all.

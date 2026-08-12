@@ -48,9 +48,16 @@ async def topology_switches():
 async def topology_links():
     if topology is None:
         return []
-    # Links the beacon watchdog believes are down are omitted, or the kernel's 1 s topology poll
-    # re-enables the edge within a second of the failure being reported -- updateLinks has no path
-    # that sets isEnabled false. [Co-developed with claude code -- Adam]
+    # Links the beacon watchdog believes are down are omitted, or the kernel's next topology poll
+    # re-enables the edge -- updateLinks has no path that sets isEnabled false.
+    #
+    # The poll interval is 5 s for the kernel process's first 90 s and 30 s thereafter
+    # (kWhileConverging / kOnceConverged / kConvergingFor in TopologyAndFlowMonitor.cpp's run()).
+    # This comment used to say "1 s ... within a second", which was a misreading of the 1 s sleep
+    # slice in that same loop -- the slice exists so stop() need not wait out a whole interval.
+    # The reason for filtering is unchanged; the undo window is 5-30x wider than stated.
+    # See TopologyManager.down_link_endpoints for the full argument.
+    # [Co-developed with claude code -- Adam]
     return ryu_topology.render_links(topology.net, topology.down_link_endpoints())
 
 

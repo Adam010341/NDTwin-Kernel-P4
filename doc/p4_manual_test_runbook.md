@@ -22,6 +22,12 @@
 > 0 個 detected flow、10 台 `probe_ok`、12 條路徑、clone session ×10／failed ×0／seeded ×1）。
 > 引用的行號（`FlowLinkUsageCollector.cpp:507`、`:1798-1801`、`TopologyAndFlowMonitor.cpp:1793-1795`）
 > 都開檔確認過，`?dpid=` 真的回 404、`get_num_of_flows_passing_a_switch` 真的只吃 POST 也確認過。
+>
+> 🔴 **2026-08-12 重核：上面三個行號有兩個已經漂掉。** 逐一開檔對過 2026-08-10 當時的版本與今天：
+> `:1798-1801` 當時是 `sockOvfl` 的 WARN 那段，今天是被註解掉的 `getsockopt` 呼叫——**漂了**；
+> `TopologyAndFlowMonitor.cpp:1793-1795` 當時是 poll 間隔的三元式，今天在 `:1951-1953`——**漂了**；
+> `FlowLinkUsageCollector.cpp:507` 和當時**一模一樣**（都是一段 docblock 的 `@details` 行），沒漂。
+> 記三個而不是含糊寫「都漂了」，是因為「大概都過期了」和「這兩個過期、那個沒有」是兩種不同的可信度。
 > §5–§6 的數值來自 2026-08-10 的實測，未在這次重跑（跑了會打斷你正在用的 stack）。
 
 ---
@@ -360,10 +366,12 @@ grep -E "Clone session|clone session failed|link watchdog seeded" .test_run/logs
 
 ### 5a. 灌流量（terminal B —— Adam）
 
-⚠️ **h1 和 h4 在不同交換機上**（h1 在 s1，h4 在 s4），這很重要。同一台交換機底下的 host 互打，`get_average_link_usage` 永遠是 0.0——因為 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2441`）刻意排除所有接到 host 的邊
+⚠️ **h1 和 h4 在不同交換機上**（h1 在 s1，h4 在 s4），這很重要。同一台交換機底下的 host 互打，`get_average_link_usage` 永遠是 0.0——因為 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp`）刻意排除所有接到 host 的邊
 （判斷式在 `:2468-2469`），那不是 bug。
 
 ⚠️ **【2026-08-11 更正】原本引用的 `:2429` 和 `:2455-2456` 都是錯的，而且寫下當時就錯了。** `:2429` 是另一個函式裡的 JSON `push_back`，`:2455` 是 `if (!isUsable(g[e]))`（可用性檢查，與 vertex type 無關）。結論本身正確，只有指標錯誤。（來源：agy-review 0182。）
+
+🔴 **【2026-08-12 再更正】那次改成的 `:2441` 現在也漂掉了**——`getAvgLinkUsage` 今天在 `:2600`，host 排除的判斷式在 `:2626-2627`。**同一個指標在四天內腐爛兩次**，所以這次不換數字，直接把行號拿掉：函式名不會因為上面插了幾行就失效。這份文件裡其他幾處也照辦。
 
 ```
 mininet> h1 ping -c 20000 -i 0.002 10.0.0.4
@@ -432,7 +440,7 @@ done
 ```
 
 ⚠️ **這裡本來寫「逐步爬升，是累積平均」，那是錯的（2026-08-10 更正）。** 看
-`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2441`）：它只把 `linkBandwidthUsage != 0` 的邊
+`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp`）：它只把 `linkBandwidthUsage != 0` 的邊
 算進去，然後除以**那一刻非零邊的數量**。1/256 取樣之下，每一秒有樣本落在哪幾條邊會變，所以分子
 分母同時在變——它是瞬時值，而且分母會跳。**只要在 `1e-05`～`3e-04` 這個量級就是對的；
 要求它單調上升是要求一個它從來沒有過的性質。**
@@ -614,7 +622,7 @@ grep "topology from the control plane" .test_run/logs/kernel.log | tail -3
 topology from the control plane: 10 switches, 4 hosts, 37 edges up
 ```
 
-⚠️ kernel 的 topology poll 間隔是**前 90 秒每 5 秒，之後每 30 秒**（`TopologyAndFlowMonitor.cpp:1793-1795`）。所以斷線後第一條確認 log 可能在 5–30 秒後才出現，不是 1 秒。
+⚠️ kernel 的 topology poll 間隔是**前 90 秒每 5 秒，之後每 30 秒**（`TopologyAndFlowMonitor.cpp` 的 `run()`，常數 `kWhileConverging`／`kOnceConverged`／`kConvergingFor`）。所以斷線後第一條確認 log 可能在 5–30 秒後才出現，不是 1 秒。
 
 ### 6f. 路徑數的變化
 

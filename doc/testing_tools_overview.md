@@ -52,7 +52,15 @@
 
 ### L1：Kernel 單元測試
 
-**回答的問題：** 單元層級的行為是否正確？這層涵蓋 C++ 與 Python 兩半邊。C++ 這邊是 gtest：**31 個 `.cpp`、414 個測試**，全部在 `tests/` 下，編成單一執行檔 `test_routing_strategy`（2026-08-10 實跑更正，原本寫 28／368／41）。Python 這邊是 `p4_proxy/tests/` 的 **12 個**檔案、**312 個**測試（unittest 格式，不是 pytest）——P4 路徑有一半在 Python（sFlow emitter、clone session），C++ suite 碰不到它們。
+**回答的問題：** 單元層級的行為是否正確？這層涵蓋 C++ 與 Python 兩半邊。C++ 這邊是 gtest，全部在 `tests/` 下，編成單一執行檔 `test_routing_strategy`。Python 這邊是 `p4_proxy/tests/`（unittest 格式，不是 pytest）——P4 路徑有一半在 Python（sFlow emitter、clone session），C++ suite 碰不到它們。
+
+⚠️ **這裡不再寫測試檔數與 case 數。** 這兩個數字在 2026-08-10 實跑更正過一次，48 小時內又過期了（新增的測試檔就是讓它過期的原因）。要當下的數字，自己數：
+
+```bash
+git ls-files 'tests/test_*.cpp' | wc -l          # C++ 測試檔
+git ls-files 'p4_proxy/tests/test_*.py' | wc -l  # Python 測試檔
+./build/bin/test_routing_strategy --gtest_list_tests | grep -c '^  '   # C++ case 數
+```
 
 **執行時機：** `./run_layers.sh quick` = L0 + L1，約 2 分鐘，不需要 Mininet。`l1_unit_tests.sh` 會先設定/建置（或 `--no-build` 假設 build 是最新的），然後把 gtest 跑兩種方式。
 
@@ -75,7 +83,7 @@
 
 **失敗代表：** 單元行為錯誤、跨測試干擾、或測試被 skip。找出是哪一種，是 L1 之後除錯的起點。
 
-**為什麼存在：** 取代「單一測試跑法全綠就當作沒問題」。L1 也是上面所有層的立足點：API 契約測試假設單元行為正確，端到端比對假設元件行為正確。測試資產方面還有 `tests/python/`（2 個 Python 檔：kernel 端 + 測試工具本身的測試）、`tests/shell/`（1 個 shell 測試）、以及 `tests/fixtures/` 的 31 個 `.bin`——從真實運作的 OVS + Ryu + Mininet 抓下來的 sFlow 封包，作為 golden fixtures。
+**為什麼存在：** 取代「單一測試跑法全綠就當作沒問題」。L1 也是上面所有層的立足點：API 契約測試假設單元行為正確，端到端比對假設元件行為正確。測試資產方面還有 `tests/python/`（kernel 端與測試工具本身的 Python 測試）、`tests/shell/`、以及 `tests/fixtures/` 的 `.bin`——從真實運作的 OVS + Ryu + Mininet 抓下來的 sFlow 封包，作為 golden fixtures。
 
 ### L2：Kernel API 契約測試
 
@@ -233,8 +241,8 @@ allowlist 格式是三個欄位，以「 | 」（空白-直條-空白）分隔�
 
 | 資產 | 規模/形式 | 用途 |
 |---|---|---|
-| gtest 測試 | **31 個 `.cpp`、414 個測試**，編成 `test_routing_strategy` 單一執行檔（2026-08-10 更正） | L1 |
-| `p4_proxy/tests/` | **12 個** Python 檔、**312 個**測試（unittest 格式，非 pytest） | L1 的 P4 Python 半邊 |
+| gtest 測試 | `tests/test_*.cpp`，編成 `test_routing_strategy` 單一執行檔（數量見 L1 節，不在此重複） | L1 |
+| `p4_proxy/tests/` | `test_*.py`，unittest 格式非 pytest（數量見 L1 節） | L1 的 P4 Python 半邊 |
 | `tests/python/` | 2 個 Python 檔、**101 個**測試（kernel 端 + 測試工具本身）。⚠️ **沒有**被 ctest 註冊 | L1 / 工具自我測試 |
 | `tests/shell/` | 1 個 shell 測試 | 腳本層 |
 | `tests/fixtures/` | 31 個 `.bin`（真實 OVS + Ryu + Mininet 抓取的 sFlow 封包 golden fixtures） | 真實流量對照 |
