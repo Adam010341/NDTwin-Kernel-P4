@@ -258,7 +258,7 @@ proxy 那邊也只有 uvicorn 的 access log 一行 502，沒有細節。
 > Mutation gate：把旗標改回 `-f`，546 條裡**恰好 1 條**紅——就是新的那條，其餘 545 條全綠，
 > 這正好證明舊斷言真的抓不到。
 
-### 沒通過的：twin 對關掉的 switch 會週期性謊報 Up（機制已釘死）
+### twin 對關掉的 switch 會週期性謊報 Up（已釘死、已修 `32afeb9`）
 
 1 Hz 取樣 59 次有 **1 次** `is_up=true`，而同一次取樣 `bmv2=9`、`:50056` 沒人聽——
 process 確定是死的。proxy 沒有說謊：70 秒取樣裡 `probe_ok` 一次都沒有 true。
@@ -310,3 +310,38 @@ switch。P4 模式下不成立，因為 proxy 列的是它建過的 client，不
   但同時影響 OVS 模式，而 OVS 模式目前正是靠這一行把 switch 標上來的。
 
 影響：閒置策略（Energy-Saving-App）若在那一秒讀到 `is_up`，會把關掉的 switch 當成還活著。
+
+#### 已修（`32afeb9`，proxy 側）
+
+採方向 (a)。關鍵是 **`render_switches` 的 docstring 一直都是對的**——「a switch the proxy
+cannot reach does not appear, so the kernel does not mark it enabled」——**違約的是呼叫端**：
+`topology_switches` 餵它 `switches.keys()`，也就是建過的每一個 client。所以這不是新行為，
+是把說好的契約補回去。
+
+新增 `TopologyManager.connected_switch_dpids()`，在 `_liveness_lock` 底下讀 `_last_probe`，
+**只有明確的 `False` 才排除**。沒探過不算死亡證據——排除它會讓 fabric 在每次啟動的頭幾秒
+變成空的，這跟 kernel `p4LivenessFor` 的三態規則刻意保持一致，兩個 process 才不會對
+「沒有讀數」有不同看法。過期不重新判定：一個過期的 `False` 只是「不主張它活著」，而對一個
+唯一消費者會把「在名單上」翻譯成 isUp 的端點來說，不主張是安全的方向。
+
+測試打在**端點**（`asyncio.run(api_routes.topology_switches())`）而不是只測新 helper——
+缺陷本來就在呼叫端，只測 helper 的話有人把 `switches.keys()` 改回去照樣全綠。
+Mutation：呼叫端改回 `switches.keys()` → 2 條紅；`is not False` 改成 `is True` → 1 條紅
+（正是「沒探過」那條）。
+
+**Live 驗收（20:49，與當初找出缺陷的同一個實驗）**：關 s6 → 10 Hz 取樣 150 秒。
+
+| | 修之前 | 修之後 |
+|---|---|---|
+| up-blip 總數 | **18** | **1** |
+| 輪詢造成的（5s→30s 節奏那些） | **17** | **0** |
+| `/v1.0/topology/switches` 列出死掉的 dpid 6 | 是 | **否**（`[1,2,3,4,5,7,8,9,10]`） |
+
+剩下那 1 個在 `t=0.32s..8.30s`，**是關機瞬間的有界暫態，不是週期性的**。它是兩個刻意的政策
+疊起來的結果：proxy 在真的探過並被拒絕之前不宣告死亡（三態規則），而 kernel 的
+`p4LivenessFor` 在 LLDP beacon 還新鮮時把「探測失敗」判成 Unknown 而非 Down
+（`kLldpFreshSeconds = 12.0`，「fresh beacon 對上 failed probe 是分歧不是判決」）。
+
+> 這個歸因是**吻合、未直接量測**。支持它的是：兩次觀測分別是 9.2 秒和 8.1 秒，都在 12 秒以下
+> 而且**彼此不同**——這正是一個相位隨機的赦免窗會有的樣子，而不是固定計時器。
+> 不論成因，它與被修掉的缺陷性質不同：那個每次輪詢都復發、永不停止；這個只在關機那一刻出現一次。
