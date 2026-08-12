@@ -451,5 +451,143 @@ class OnTest(HelperTestBase):
         self.assertNotEqual(err.strip(), "")
 
 
+
+def pid_is_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+class OnTimeoutLeavesAnAddressableProcessTest(HelperTestBase):
+    """
+    What happens to a bmv2 that starts but does not open its port in time.
+
+    [Co-developed with claude code -- Adam]
+    The helper deliberately does not kill it: doing so would race a switch that is merely slow.
+    It says so, and tells the caller to run "off" once they have decided. That advice is only
+    honest if "off" can still reach the process -- which means the pid has to be in the manifest
+    by the time "on" gives up, not only on the path where the port opened.
+    """
+
+    def slow_listener_argv(self, port, pidfile, delay_s):
+        script = os.path.join(self.dir, "slow.py")
+        if not os.path.exists(script):
+            with open(script, "w") as fh:
+                fh.write("import os, socket, sys, time\n"
+                         "port, pidfile, delay = int(sys.argv[1]), sys.argv[2], float(sys.argv[3])\n"
+                         "open(pidfile, 'w').write(str(os.getpid()))\n"
+                         "time.sleep(delay)\n"
+                         "s = socket.socket()\n"
+                         "s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
+                         "s.bind(('127.0.0.1', port)); s.listen(5)\n"
+                         "time.sleep(600)\n")
+        return f"{FAKE_PY_SWITCH} {script} {port} {pidfile} {delay_s}"
+
+    def silent_argv(self, port, pidfile):
+        """A switch that runs forever and never binds -- the timeout path."""
+        script = os.path.join(self.dir, "silent.py")
+        if not os.path.exists(script):
+            with open(script, "w") as fh:
+                fh.write("import os, sys, time\n"
+                         "port, pidfile = int(sys.argv[1]), sys.argv[2]\n"
+                         "open(pidfile, 'w').write(str(os.getpid()))\n"
+                         "time.sleep(600)\n")
+        return f"{FAKE_PY_SWITCH} {script} {port} {pidfile}"
+
+    def on_entry(self, port, argv):
+        e = self.entry(None, port, argv=argv)
+        e["log_file"] = os.path.join(self.dir, "on.log")
+        return e
+
+    def test_the_pid_is_recorded_before_on_finishes_waiting_for_the_port(self):
+        port = next(PORTS)
+        pidfile = os.path.join(self.dir, "sw.pid")
+        self.write_manifest({"s1": self.on_entry(port, self.slow_listener_argv(port, pidfile, 6))})
+
+        result = {}
+
+        def go():
+            result["rc"], result["out"], result["err"] = run_helper(["on", "s1"], self.manifest)
+
+        thread = threading.Thread(target=go)
+        thread.start()
+        self.addCleanup(thread.join)
+
+        recorded = None
+        deadline = time.monotonic() + 4  # comfortably inside the switch's 6 s bind delay
+        while time.monotonic() < deadline:
+            try:
+                recorded = self.read_manifest()["s1"]["pid"]
+            except (OSError, ValueError, KeyError):
+                recorded = None
+            if isinstance(recorded, int):
+                break
+            time.sleep(0.1)
+
+        still_waiting = thread.is_alive()
+        thread.join()
+
+        self.assertIsInstance(
+            recorded, int,
+            "the manifest still had no pid while 'on' was waiting for the port. Every exit "
+            "from that wait other than success leaves a process the helper can no longer name")
+        self.assertTrue(
+            still_waiting,
+            "'on' had already returned, so this proves nothing about the waiting window")
+        self.assertEqual(result["rc"], 0, f"stderr was: {result['err']}")
+
+    def test_a_switch_that_never_opens_its_port_can_still_be_stopped_by_off(self):
+        # Costs the full PORT_WAIT_S. Worth it: this is the whole failure -- a root helper that
+        # creates a process it can never address again, and then reports success for every
+        # subsequent request to stop it.
+        port = next(PORTS)
+        pidfile = os.path.join(self.dir, "sw.pid")
+        self.write_manifest({"s1": self.on_entry(port, self.silent_argv(port, pidfile))})
+
+        rc, out, err = run_helper(["on", "s1"], self.manifest, timeout=60)
+        self.assertEqual(rc, 1, "a switch that never opened its port must not report success")
+        self.assertIn("left running", err)
+
+        recorded = self.read_manifest()["s1"]["pid"]
+        self.assertIsInstance(
+            recorded, int,
+            "'on' gave up without recording the pid, so the running bmv2 it created is "
+            "unreachable: the advised 'off' reads pid=None and reports already-stopped")
+        self.assertTrue(pid_is_alive(recorded), "fixture process died; the test proves nothing")
+
+        rc2, out2, err2 = run_helper(["off", "s1"], self.manifest)
+
+        self.assertEqual(rc2, 0, f"stderr was: {err2}")
+        self.assertEqual(
+            json.loads(out2)["status"], "stopped",
+            "'off' answered already-stopped for a process that was running -- exit 0 while "
+            "the switch keeps forwarding and keeps its gRPC port")
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and pid_is_alive(recorded):
+            time.sleep(0.05)
+        self.assertFalse(pid_is_alive(recorded),
+                         "'off' exited 0 before the process was gone")
+
+    def test_a_switch_that_exits_before_binding_leaves_no_pid_behind(self):
+        # The other exit from the wait: recording the pid early must not leave the manifest
+        # naming a corpse, or the next "on" has to reason about a dead pid.
+        port = next(PORTS)
+        script = os.path.join(self.dir, "diesfast.py")
+        with open(script, "w") as fh:
+            fh.write("import sys\nsys.exit(3)\n")
+        self.write_manifest(
+            {"s1": self.on_entry(port, f"{FAKE_PY_SWITCH} {script} {port}")})
+
+        rc, out, err = run_helper(["on", "s1"], self.manifest, timeout=60)
+
+        self.assertEqual(rc, 1)
+        self.assertIn("status 3", err)
+        self.assertIsNone(self.read_manifest()["s1"]["pid"],
+                          "the manifest names a pid that has already exited")
+
 if __name__ == "__main__":
     unittest.main()

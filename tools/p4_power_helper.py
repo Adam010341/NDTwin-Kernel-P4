@@ -291,24 +291,42 @@ def cmd_on(name):
     finally:
         os.close(log_fd)
 
+    # [Co-developed with claude code -- Adam]
+    # The pid is recorded here, immediately, rather than on the success path below. It used to
+    # be written only inside the port-open branch, which meant the timeout path -- the one that
+    # deliberately leaves the process running -- returned without ever recording it. The
+    # manifest still said null, and the "off" that this function's own failure message
+    # recommends reads that null, prints {"status": "already-stopped"} and exits 0 while the
+    # bmv2 the helper just created keeps running and keeps the gRPC port. The helper had made a
+    # process it could no longer address, and every later "off" reported success while lying.
+    #
+    # Recording early is safe in the direction that matters: a pid that is written and then
+    # dies is handled ("off" re-verifies against /proc and clears it, "on" sees a dead pid and
+    # proceeds). A pid that is never written is unreachable forever.
+    entry["pid"] = proc.pid
+    save_manifest(path, manifest)
+
     # The port opening is what "on" means. The process merely existing is not enough -- bmv2
     # runs briefly before its gRPC server binds, and reports a bind failure by exiting.
     deadline = time.monotonic() + PORT_WAIT_S
     while time.monotonic() < deadline:
         rc = proc.poll()
         if rc is not None:
+            # Gone, so the pid recorded above is stale: clear it rather than leave the next
+            # "on" to work out that the manifest names a corpse.
+            entry["pid"] = None
+            save_manifest(path, manifest)
             fail(f"{EXPECTED_NAME} for '{name}' exited with status {rc} before opening port "
                  f"{grpc_port}; see {entry['log_file']}")
         if port_listening(grpc_port):
-            entry["pid"] = proc.pid
-            save_manifest(path, manifest)
             print(json.dumps({"status": "started", "name": name, "pid": proc.pid}))
             return
         time.sleep(POLL_INTERVAL_S)
 
     fail(f"{EXPECTED_NAME} for '{name}' (pid {proc.pid}) did not open port {grpc_port} "
          f"within {PORT_WAIT_S}s; it was left running -- killing it here would race its "
-         f"startup, and the caller can run 'off' once it has decided")
+         f"startup. Its pid is recorded in the manifest, so 'off' will stop it once you "
+         f"have decided")
 
 
 def main(argv):
