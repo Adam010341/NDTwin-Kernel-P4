@@ -45,6 +45,7 @@ import os
 import queue
 import socket
 import sys
+import tempfile
 import threading
 import unittest
 
@@ -55,9 +56,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 # unittest can act on it via skipUnless.
 try:
     import grpc
+    from google.protobuf import text_format
     from p4.v1 import p4runtime_pb2
     from p4.config.v1 import p4info_pb2
 
+    from proxy_agent import p4_client as p4_client_module
     from proxy_agent.p4_client import P4RuntimeClient
 
     class FakeRpcError(grpc.RpcError):
@@ -835,6 +838,107 @@ class WriteDeadlineTest(unittest.TestCase):
         # A tighter bound would make DEADLINE_EXCEEDED report a rule that did land as failed.
         self.client.insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
         self.assertGreaterEqual(min(self.stub.write_timeouts), 1.0)
+
+
+class RecordingChannelFactory:
+    """
+    Stands in for grpc.insecure_channel and records how it was called.
+
+    Returns something a real P4RuntimeStub can be constructed from -- the stub asks the channel
+    for one callable per RPC method at construction time, so a bare object() makes __init__ die
+    before it reaches anything worth asserting. The callables refuse to be invoked: nothing here
+    should reach the wire.
+    """
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, target, options=None, **kwargs):
+        self.calls.append({"target": target, "options": options, "kwargs": kwargs})
+        return FakeChannel()
+
+
+class FakeChannel:
+    def _method(self, *args, **kwargs):
+        def refuse(*a, **k):
+            raise AssertionError("no RPC should be attempted while constructing a client")
+        return refuse
+
+    unary_unary = unary_stream = stream_unary = stream_stream = _method
+
+    def close(self):
+        pass
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class ChannelOptionsTest(unittest.TestCase):
+    """
+    Pins the subchannel pool the client's channel is built with.
+
+    [Co-developed with claude code -- Adam]
+    grpc-python shares subchannels through a process-global pool keyed by target address, so a
+    fresh channel inherits the reconnect backoff that a previous channel accumulated against the
+    same address. During a power-off the liveness poller probes the dead client every 2 s, so a
+    four-minute outage drives that backoff toward gRPC's 120 s cap -- and readopt_switch's brand
+    new client is then handed it and fails with UNAVAILABLE against a port that is listening.
+    Measured on grpc 1.82.1 after hammering a closed port for 90 s: 0.00 s to READY with a local
+    pool, 32.56 s without.
+
+    Asserted at construction rather than by timing a reconnect, because the honest, fast and
+    hermetic thing to check is that the option is on the channel. The exact option name is
+    spelled out here on purpose: gRPC silently ignores channel options it does not recognise, so
+    a typo in p4_client would cost nothing at runtime and this is what makes it cost a test.
+
+    Unlike the rest of this file these tests run the real __init__ -- that is where the channel is
+    built, and a client made with __new__ (see a_client) never opens one.
+    """
+
+    def setUp(self):
+        self.factory = RecordingChannelFactory()
+        self._real_insecure_channel = p4_client_module.grpc.insecure_channel
+        p4_client_module.grpc.insecure_channel = self.factory
+        self.addCleanup(self._restore_insecure_channel)
+
+        # __init__ parses a p4info off disk. Written from the same in-process p4info the rest of
+        # this file uses, so these tests stay independent of the gitignored build artefact.
+        handle, self.p4info_path = tempfile.mkstemp(suffix=".p4info.txt")
+        with os.fdopen(handle, "w") as f:
+            f.write(text_format.MessageToString(a_p4info()))
+        self.addCleanup(os.unlink, self.p4info_path)
+
+    def _restore_insecure_channel(self):
+        p4_client_module.grpc.insecure_channel = self._real_insecure_channel
+
+    def a_real_client(self, grpc_addr="localhost:50051"):
+        return P4RuntimeClient(device_id=1, grpc_addr=grpc_addr, p4info_path=self.p4info_path)
+
+    def only_call(self):
+        self.assertEqual(len(self.factory.calls), 1,
+                         f"expected exactly one channel, got {len(self.factory.calls)}")
+        return self.factory.calls[0]
+
+    def test_the_channel_does_not_share_the_process_global_subchannel_pool(self):
+        self.a_real_client()
+        options = self.only_call()["options"]
+        self.assertIsNotNone(options, "the channel was built with no options at all, so it uses "
+                                      "grpc's process-global subchannel pool and inherits the "
+                                      "backoff of whatever failed against this address before")
+        self.assertIn(("grpc.use_local_subchannel_pool", 1), list(options))
+
+    def test_the_target_address_still_reaches_grpc(self):
+        # The option is passed as a keyword; a refactor that moves it into the positional slot
+        # would take the address with it, and every switch would be dialled at the wrong target.
+        self.a_real_client(grpc_addr="localhost:50057")
+        self.assertEqual(self.only_call()["target"], "localhost:50057")
+
+    def test_two_clients_for_one_address_each_get_their_own_pool(self):
+        # The readopt case: the replacement client is built while the dead one still exists, and
+        # it is the replacement that must not inherit anything.
+        self.a_real_client()
+        self.a_real_client()
+        self.assertEqual(len(self.factory.calls), 2)
+        for call in self.factory.calls:
+            self.assertIn(("grpc.use_local_subchannel_pool", 1), list(call["options"] or []))
 
 
 if __name__ == "__main__":
