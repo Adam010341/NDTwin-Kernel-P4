@@ -639,6 +639,20 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                                    macStr);
             }
 
+            // [Co-developed with claude code -- Adam]
+            // The type check is here because the *value* check below is not enough. `.get<>()` on
+            // a non-string throws json::type_error, which the function-level catch does see -- but
+            // seeing it means returning, so `"ipv4": [1234]` cost every host listed after it. The
+            // commit that added the value guard claimed the individual parses were all guarded;
+            // this was the one it missed, and an independent review of that claim found it.
+            if (!vecIpStr[0].is_string())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring host {}: its ipv4[0] is {}, not a string",
+                                   macStr,
+                                   vecIpStr[0].type_name());
+                continue;
+            }
             std::string ipStr = vecIpStr[0].get<std::string>();
             const auto ipOpt = utils::tryIpStringToUint32(ipStr);
             if (!ipOpt)
@@ -791,8 +805,19 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
 
             if (!srcVertexOpt.has_value() or !dstVertexOpt.has_value())
             {
-                SPDLOG_LOGGER_WARN(Logger::instance(), "Cannot Find Endpoints Switches");
-                return;
+                // [Co-developed with claude code -- Adam]
+                // `continue`, not `return`. A link naming a switch the static topology does not
+                // contain is one unusable entry, not a reason to abandon the reply -- and this
+                // one is persistent rather than transient: the control plane sends the same list
+                // every poll, so every link *after* the offender stayed at whatever state it was
+                // last given, indefinitely. That is the failure this whole ingest was hardened
+                // against, still present in the one branch that used a bare return.
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring a link whose endpoints are not both in the static "
+                                   "topology: {} -> {}",
+                                   srcDpidStr,
+                                   dstDpidStr);
+                continue;
             }
 
             {

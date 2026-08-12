@@ -512,3 +512,81 @@ TEST(ControlPlaneReplyRobustnessTest, OneBadHostIpDoesNotCostTheEntriesAfterIt)
     EXPECT_TRUE(*h2Up())
         << "the host after the unparseable address was never applied";
 }
+
+// ---------------------------------------------------------------------------
+// The two flavours the first pass missed.
+//
+// [Co-developed with claude code -- Adam]
+// OneBadHostIpDoesNotCostTheEntriesAfterIt and OneBadLinksEntryDoesNotCostTheEntriesAfterIt both
+// feed input whose *value* is wrong, which reaches the `continue` those guards added. An
+// independent review pointed out that neither pins the property its name claims, because each
+// ingest still had a path where a bad entry cost the whole reply:
+//
+//   - a hosts entry whose ipv4[0] is the wrong *type* threw json::type_error out of the loop,
+//     and the function-level catch turns that into a return;
+//   - a links entry naming a switch absent from the static topology hit a bare `return`, and
+//     that one is persistent rather than transient -- the control plane sends the same list on
+//     every poll, so every link after the offender stays at its last state indefinitely.
+// ---------------------------------------------------------------------------
+
+TEST(ControlPlaneReplyRobustnessTest, AHostIpOfTheWrongTypeDoesNotCostTheEntriesAfterIt)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    const auto h2Up = [&fix]() {
+        std::shared_lock lock(*fix.mutex);
+        for (auto v : boost::make_iterator_range(boost::vertices(*fix.graph)))
+        {
+            const auto& vp = (*fix.graph)[v];
+            if (vp.vertexType == VertexType::HOST && vp.mac == 2)
+            {
+                return std::optional<bool>(vp.isUp);
+            }
+        }
+        return std::optional<bool>();
+    };
+    ASSERT_TRUE(h2Up().has_value());
+    ASSERT_FALSE(*h2Up());
+
+    // A number, not an unparseable string: `.get<std::string>()` throws json::type_error, which
+    // the value guard never sees because it runs after the conversion.
+    fix.monitor.updateHosts(
+        R"([{"mac": "00:00:00:00:00:01", "ipv4": [1234],      "port": {"dpid": "1"}},
+            {"mac": "00:00:00:00:00:02", "ipv4": ["10.0.0.2"], "port": {"dpid": "2"}}])");
+
+    EXPECT_TRUE(*h2Up())
+        << "the host after the wrong-typed address was never applied: the throw escaped to the "
+           "function-level catch, which returns";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, AKnownHexDpidThatIsNotInTheTopologyDoesNotCostTheRest)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    const auto edgeUp = [&fix]() {
+        std::shared_lock lock(*fix.mutex);
+        for (auto e : boost::make_iterator_range(boost::edges(*fix.graph)))
+        {
+            const auto& ep = (*fix.graph)[e];
+            if (ep.srcDpid == 1 && ep.srcInterface == 1)
+            {
+                return std::optional<bool>(ep.isUp);
+            }
+        }
+        return std::optional<bool>();
+    };
+    ASSERT_TRUE(edgeUp().has_value());
+    ASSERT_FALSE(*edgeUp());
+
+    // "ff" is 255: perfectly good hex, so it clears the parse guard, and absent from a ten-switch
+    // topology, so it reaches the endpoint lookup. That branch used to `return`.
+    fix.monitor.updateLinks(
+        R"([{"src": {"dpid": "ff", "port_no": "1"}, "dst": {"dpid": "5", "port_no": "1"}},
+            {"src": {"dpid": "1",  "port_no": "1"}, "dst": {"dpid": "5", "port_no": "1"}}])");
+
+    EXPECT_TRUE(*edgeUp())
+        << "one link naming an unknown switch discarded every link after it -- and the control "
+           "plane repeats that reply on every poll, so this does not recover";
+}
