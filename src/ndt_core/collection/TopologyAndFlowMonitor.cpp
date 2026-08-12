@@ -39,10 +39,25 @@
 
 // --- Local Headers ---
 #include "utils/Logger.hpp"
+#include "utils/KeyedFailureLog.hpp"
 #include "utils/Utils.hpp"
 
 using json = nlohmann::json;
 using namespace std;
+
+namespace
+{
+// [Co-developed with claude code -- Adam]
+// Shared by both findReverseEdgeByAgentIpAndPort twins, so the same missing link is reported once
+// rather than once per copy. A function-local static rather than a member: both finders are
+// const, and a member would have to be mutable for no gain.
+utils::KeyedFailureLog&
+reverseEdgeFailures()
+{
+    static utils::KeyedFailureLog log{std::chrono::seconds(60)};
+    return log;
+}
+} // namespace
 
 /**
  * @brief The Ryu topology API base, derived from the one configured Ryu address.
@@ -1331,18 +1346,25 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
             // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
             // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
             //
-            // DEBUG rather than WARN: this is the 1-in-256 sample path, and the callers already
-            // skip on nullopt, so the cost of a missing reverse edge is one sample's
-            // bookkeeping. A per-sample WARN is how this process reached 138,000 log lines a day
-            // once already.
+            // Reported through KeyedFailureLog, not at DEBUG. The first version of this used
+            // DEBUG on the reasoning that a per-sample WARN is how this process once reached
+            // 138,000 log lines a day -- true, but the wrong conclusion, and an independent
+            // review caught it: a missing reverse edge is a *persistent structural* condition,
+            // not a per-sample transient. DEBUG does not thin a flood there, it converts a
+            // permanent condition into permanent silence, because LogConfig defaults to info and
+            // the running kernel passes no level flag. The graph would stay asymmetric and the
+            // one place that notices would say nothing -- which is the state this guard exists
+            // to surface. KeyedFailureLog is the instrument this repo already built for exactly
+            // that shape, and FlowLinkUsageCollector -- the caller on this path -- already uses
+            // it: first occurrence per key, recovery, nothing in between.
             const auto reverse = boost::edge(targetNode, sourceNode, *m_graph);
             if (!reverse.second)
             {
-                SPDLOG_LOGGER_DEBUG(Logger::instance(),
-                                    "no reverse edge for agent {} port {}; the graph holds only "
-                                    "one direction of this link",
-                                    utils::ipToString(agentIpAndPort.first),
-                                    agentIpAndPort.second);
+                reverseEdgeFailures().record(
+                    utils::ipToString(agentIpAndPort.first) + ":" +
+                        std::to_string(agentIpAndPort.second),
+                    "no reverse edge for this agent and port; the graph holds only one direction "
+                    "of the link, so per-edge flow bookkeeping for it is skipped");
                 return nullopt;
             }
             return reverse.first;
@@ -1375,18 +1397,25 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPort(
             // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
             // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
             //
-            // DEBUG rather than WARN: this is the 1-in-256 sample path, and the callers already
-            // skip on nullopt, so the cost of a missing reverse edge is one sample's
-            // bookkeeping. A per-sample WARN is how this process reached 138,000 log lines a day
-            // once already.
+            // Reported through KeyedFailureLog, not at DEBUG. The first version of this used
+            // DEBUG on the reasoning that a per-sample WARN is how this process once reached
+            // 138,000 log lines a day -- true, but the wrong conclusion, and an independent
+            // review caught it: a missing reverse edge is a *persistent structural* condition,
+            // not a per-sample transient. DEBUG does not thin a flood there, it converts a
+            // permanent condition into permanent silence, because LogConfig defaults to info and
+            // the running kernel passes no level flag. The graph would stay asymmetric and the
+            // one place that notices would say nothing -- which is the state this guard exists
+            // to surface. KeyedFailureLog is the instrument this repo already built for exactly
+            // that shape, and FlowLinkUsageCollector -- the caller on this path -- already uses
+            // it: first occurrence per key, recovery, nothing in between.
             const auto reverse = boost::edge(targetNode, sourceNode, *m_graph);
             if (!reverse.second)
             {
-                SPDLOG_LOGGER_DEBUG(Logger::instance(),
-                                    "no reverse edge for agent {} port {}; the graph holds only "
-                                    "one direction of this link",
-                                    utils::ipToString(agentIpAndPort.first),
-                                    agentIpAndPort.second);
+                reverseEdgeFailures().record(
+                    utils::ipToString(agentIpAndPort.first) + ":" +
+                        std::to_string(agentIpAndPort.second),
+                    "no reverse edge for this agent and port; the graph holds only one direction "
+                    "of the link, so per-edge flow bookkeeping for it is skipped");
                 return nullopt;
             }
             return reverse.first;

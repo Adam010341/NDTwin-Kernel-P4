@@ -772,7 +772,18 @@ buildMaskAndValueFromMatch(const nlohmann::json& match, KeyBytes& outMaskBytes, 
     {
         // [Co-developed with claude code -- Adam]
         // Was `match.at("vlan_id")` -- guarded on one key, read from another. "vlan_id" appears
-        // nowhere else in this repo; "vlan_vid" is what Ryu's OFPMatch calls the field. A flow
+        // nowhere else in this repo, so guard and read now agree and the landmine is defused.
+        //
+        // ⚠️ The first version of this comment said "vlan_vid is what Ryu's OFPMatch calls the
+        // field". That is the *request* spelling. On the response side -- which is what this
+        // parser eats -- ofctl_v1_3.py:296 renames it: `'vlan_vid': 'dl_vlan'`. So Ryu sends
+        // `dl_vlan`, the P4 proxy emits no VLAN key at all, and `dl_vlan` is read nowhere in this
+        // kernel (`git grep dl_vlan -- src/ include/` is empty). This branch is therefore still
+        // unreachable, and **Ryu's VLAN matches are silently dropped from the classifier key** --
+        // two flows differing only by VLAN collide. That is a separate defect from the one fixed
+        // here, recorded rather than fixed because it needs a decision about whether VLAN belongs
+        // in the key at all. Corrected after an independent review checked the claim against
+        // Ryu's source rather than against the field name. A flow
         // carrying vlan_vid without vlan_id therefore made .at() throw json::out_of_range, which
         // openflowTablesUpdateWorker catches and logs, so it would not crash -- it would repeat.
         // The same rule is in every poll, so the poisoned switch's mark-and-sweep would never

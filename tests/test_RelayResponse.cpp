@@ -211,6 +211,11 @@ TEST(RelayPowerCommandTest, CarriesTheThreeParametersTheGatewayIsKnownToAccept)
     EXPECT_NE(cmd.find("resource=outlet"), std::string::npos)
         << "the parameter the working call to this gateway sends is missing: " << cmd;
     EXPECT_NE(cmd.find("http://localhost:8000/relay"), std::string::npos) << cmd;
+    // The method. Added after a review pointed out it was the one wire attribute nothing pinned:
+    // changing -X POST to -X GET left all of these green, and the gateway's relay endpoint is a
+    // POST. [Co-developed with claude code -- Adam]
+    EXPECT_NE(cmd.find("-X POST"), std::string::npos)
+        << "the request method is not pinned, so a change to GET would pass silently: " << cmd;
 }
 
 TEST(RelayPowerCommandTest, AsksForTheHttpStatusInterpretRelayResponseReadsItsVerdictFrom)
