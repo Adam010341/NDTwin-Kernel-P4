@@ -44,6 +44,32 @@ class ApplicationManager
 
     std::optional<std::string> getSimulationCompletedUrl(int appId) const;
 
+    /**
+     * @brief What std::system()'s return value actually means.
+     *
+     * @param status The value std::system() returned.
+     * @return Empty when the command ran and exited 0; otherwise a human-readable reason.
+     *
+     * [Co-developed with claude code -- Adam]
+     * A pure function, extracted rather than inlined, for the reason set out in
+     * DeviceConfigurationAndPowerManager.hpp for interpretRelayResponse and ovsLivenessFor: the
+     * decision is the thing worth asserting, and it cannot be asserted through a call site that
+     * shells out to sudo.
+     *
+     * Four call sites in this file discarded this value entirely -- two `sudo exportfs -ra`, one
+     * `sudo exportfs -u <folder>` and one `sudo sed -i '/<folder>/d' /etc/exports` -- while
+     * reloadNFSServer directly above them checked and warned. A failed sudo (the documented
+     * failure mode on this machine for a detached process that cannot prompt) therefore left
+     * stale exports live and /etc/exports unedited while the log said cleanup had succeeded, and
+     * cleanupStaleEntries runs from the constructor at every kernel start in both modes.
+     *
+     * `status` is not an exit code. -1 means the child could not be created at all, 127 means the
+     * shell could not execute the command, and otherwise it is a wait status that has to be
+     * decoded -- so `!= 0` is right by accident rather than by construction, and says nothing
+     * useful in a log.
+     */
+    static std::string describeCommandFailure(int status);
+
   private:
     std::mutex m_mutex;
     int m_nextAppId;

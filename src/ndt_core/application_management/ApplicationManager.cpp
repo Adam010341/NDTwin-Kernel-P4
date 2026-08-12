@@ -12,6 +12,7 @@
 #include <pwd.h>
 #include <regex>
 #include <sys/types.h>
+#include <sys/wait.h> // for WIFEXITED/WEXITSTATUS, used to decode std::system()'s wait status
 #include <unistd.h>
 
 namespace fs = std::filesystem;
@@ -106,13 +107,42 @@ ApplicationManager::updateNFSConfig(int appId, const std::string& appDir)
     return true;
 }
 
+// [Co-developed with claude code -- Adam]
+std::string
+ApplicationManager::describeCommandFailure(int status)
+{
+    if (status == -1)
+    {
+        return "the child process could not be created";
+    }
+    if (WIFSIGNALED(status))
+    {
+        return "terminated by signal " + std::to_string(WTERMSIG(status));
+    }
+    if (!WIFEXITED(status))
+    {
+        return "did not exit normally (raw status " + std::to_string(status) + ")";
+    }
+    const int code = WEXITSTATUS(status);
+    if (code == 0)
+    {
+        return "";
+    }
+    if (code == 127)
+    {
+        return "the shell could not execute it (exit 127; command not found, or sudo refused)";
+    }
+    return "exit status " + std::to_string(code);
+}
+
 bool
 ApplicationManager::reloadNFSServer()
 {
     int ret = std::system("exportfs -ra && systemctl reload nfs-server");
-    if (ret != 0)
+    const std::string why = describeCommandFailure(ret);
+    if (!why.empty())
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "Failed to reload NFS server.");
+        SPDLOG_LOGGER_WARN(Logger::instance(), "Failed to reload NFS server: {}", why);
         return false;
     }
     SPDLOG_LOGGER_INFO(Logger::instance(), "NFS server reloaded.");
@@ -129,7 +159,13 @@ void ApplicationManager::cleanupNFS()
     }
 
     // Reload NFS exports to apply all changes
-    system("sudo exportfs -ra");
+    if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "'sudo exportfs -ra' failed after cleanup ({}). Stale exports may "
+                           "still be live.",
+                           why);
+    }
 }
 
 bool
@@ -207,18 +243,48 @@ void ApplicationManager::cleanupAppFolder(const std::string& folder)
         {
             // Unexport folder
             std::string cmd = "sudo exportfs -u " + folder;
-            system(cmd.c_str());
+            const auto unexportWhy = describeCommandFailure(std::system(cmd.c_str()));
+            if (!unexportWhy.empty())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "'sudo exportfs -u {}' failed ({}). The export is still live.",
+                                   folder,
+                                   unexportWhy);
+            }
 
             // Escape slashes for sed
             std::string escapedFolder = std::regex_replace(folder, std::regex("/"), "\\/");
 
             // Remove from /etc/exports
             std::string sedCmd = "sudo sed -i '/" + escapedFolder + "/d' /etc/exports";
-            system(sedCmd.c_str());
+            const auto sedWhy = describeCommandFailure(std::system(sedCmd.c_str()));
+            if (!sedWhy.empty())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "'sudo sed -i' failed to remove {} from /etc/exports ({}). "
+                                   "The entry will be re-exported on the next reload.",
+                                   folder,
+                                   sedWhy);
+            }
 
             // Delete folder
             fs::remove_all(folder);
-            SPDLOG_INFO("Cleaned and deleted NFS folder: {}", folder);
+            // [Co-developed with claude code -- Adam]
+            // Reports what happened rather than announcing success unconditionally: the two
+            // commands above can both fail -- a detached process that cannot prompt for a sudo
+            // password is the documented failure mode on this machine -- and this line used to
+            // claim the cleanup had worked either way.
+            if (unexportWhy.empty() && sedWhy.empty())
+            {
+                SPDLOG_INFO("Cleaned and deleted NFS folder: {}", folder);
+            }
+            else
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "Deleted NFS folder {} but its export configuration was not "
+                                   "fully removed.",
+                                   folder);
+            }
         }
     }
     catch (const fs::filesystem_error& e)
@@ -251,5 +317,11 @@ void ApplicationManager::cleanupStaleEntries()
     }
 
     // Reload NFS server to make sure all stale entries are fully removed
-    system("sudo exportfs -ra");
+    if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "'sudo exportfs -ra' failed while clearing stale entries ({}). Stale "
+                           "exports from a previous run may still be live.",
+                           why);
+    }
 }

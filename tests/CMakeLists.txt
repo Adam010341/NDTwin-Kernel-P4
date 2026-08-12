@@ -40,6 +40,7 @@ add_executable(
   test_IntentTaskOutcomes.cpp
   test_HttpSessionStatusCodes.cpp
   test_HistoricalLogging.cpp
+  test_CommandFailure.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
