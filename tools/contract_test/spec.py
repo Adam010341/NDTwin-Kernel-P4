@@ -522,12 +522,9 @@ ENDPOINTS = [
          body={"type": LOCK_TYPE},
          category=ERRORPATH, expect_status=[412, 400, 404],
          schema=Any_(),
-         known_gap=(
-             "HttpSession::handleReleaseLock returns 200 unconditionally -- it never "
-             "checks whether the lock was held or the type was valid, so a stale or "
-             "bogus release is indistinguishable from a real one. doc/testing_workflow.md "
-             "documents 412 for this case; the kernel does not implement it."
-         ),
+         # known_gap removed: handleReleaseLock now answers 412 for a lock that is not held or
+         # whose type is invalid, matching the sibling renew handler and doc/testing_workflow.md.
+         # [Co-developed with claude code -- Adam]
          note="releasing an already-released lock must not report success"),
 
     dict(name="acquire_lock_invalid_type", method="POST", path="/ndt/acquire_lock",

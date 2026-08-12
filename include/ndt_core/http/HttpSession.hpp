@@ -78,6 +78,15 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // decided by the catch clauses in buildResponse and is not observable anywhere else.
     friend class HttpSessionTestPeer;
 
+    // [Co-developed with claude code -- Adam]
+    // Second peer, for tests/test_HttpSessionStatusCodes.cpp. Separate from HttpSessionTestPeer
+    // rather than an overload of it because that class lives in another translation unit and one
+    // name can only have one definition; two peers is the ODR-safe way for two test files to
+    // reach the same seam. This one supplies real collaborators (a LockManager, a
+    // HistoricalDataManager) because the endpoints it covers are asserted on their *success*
+    // paths as well as their refusals.
+    friend class HttpSessionStatusTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);

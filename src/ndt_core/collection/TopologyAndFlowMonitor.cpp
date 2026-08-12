@@ -44,8 +44,34 @@
 using json = nlohmann::json;
 using namespace std;
 
-// ---Please change to your own RYU base url---
-static const std::string RYU_BASE_URL = "http://localhost:8080/v1.0/topology";
+/**
+ * @brief The Ryu topology API base, derived from the one configured Ryu address.
+ *
+ * [Co-developed with claude code -- Adam]
+ * This used to be `static const std::string RYU_BASE_URL = "http://localhost:8080/v1.0/topology"`
+ * under a "---Please change to your own RYU base url---" comment, which bypassed
+ * AppConfig::RYU_IP_AND_PORT -- the knob the flow-stats poll (FlowLinkUsageCollector.cpp) and the
+ * OVS routing strategy (FlowRoutingManager.cpp) already read, and the one an operator would
+ * expect to be sufficient.
+ *
+ * The consequence of the split was silent: redeploy Ryu elsewhere and update AppConfig, and
+ * switch/host/link liveness would go on polling a dead localhost:8080. execCommand returns an
+ * empty body on failure and updateSwitches/updateHosts/updateLinks all early-return on empty
+ * without logging, so the graph simply stops tracking the control plane with no error anywhere.
+ *
+ * A function rather than a namespace-scope std::string: the value depends on another
+ * dynamically-initialised object (AppConfig::RYU_IP_AND_PORT), and computing it on demand sidesteps
+ * initialisation-order questions entirely. It is called once, from the constructor.
+ *
+ * Note this is only the *default*. configureTopologyApiUrls() still re-points the poll at the P4
+ * proxy for an all-bmv2 MININET topology, and must keep running after the topology file is
+ * loaded -- see its own comment for why it cannot move into the constructor.
+ */
+static std::string
+ryuTopologyBaseUrl()
+{
+    return "http://" + AppConfig::RYU_IP_AND_PORT + "/v1.0/topology";
+}
 
 TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
                                                std::shared_ptr<std::shared_mutex> graphMutex,
@@ -58,7 +84,7 @@ TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
 {
     // Defaults to Ryu. Re-pointed at the P4 proxy in configureTopologyApiUrls(), which cannot
     // run here: the switch kinds come from the topology file, and that is not loaded yet.
-    setTopologyApiUrls(RYU_BASE_URL);
+    setTopologyApiUrls(ryuTopologyBaseUrl());
 }
 
 void

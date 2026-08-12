@@ -62,6 +62,14 @@ ControllerAndOtherEventHandler::ControllerAndOtherEventHandler(
       m_applicationManager(std::move(applicationManager)),
       m_simulationRequestManager(std::move(simManager)),
       m_intentTranslator(std::move(intentTranslator)),
+      // [Co-developed with claude code -- Adam]
+      // This was missing. The constructor took the parameter and the initialiser list ended at
+      // m_lockManager, so the member stayed null, doAccept handed null to every HttpSession, and
+      // the guard in handleSetHistoricalLoggingState answered a permanent 500 "Historical data
+      // manager not available" -- even though main.cpp had built a real instance and passed it.
+      // Ordered here to match the declaration order in the header; initialising out of order is
+      // a -Wreorder warning and this build treats warnings as errors.
+      m_historicalDataManager(std::move(historicalDataManager)),
       m_controller(std::move(ctrl)),
       m_mode(static_cast<utils::DeploymentMode>(mode)),
       m_apiUrl(std::move(api_url)),

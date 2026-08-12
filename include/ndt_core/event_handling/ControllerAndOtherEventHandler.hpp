@@ -122,6 +122,12 @@ class ControllerAndOtherEventHandler
     std::shared_ptr<EventBus> m_eventBus;
     std::shared_ptr<ApplicationManager> m_applicationManager;
     std::shared_ptr<SimulationRequestManager> m_simulationRequestManager;
+    // [Co-developed with claude code -- Adam]
+    // Test seam. tests/test_HistoricalLogging.cpp asserts the constructor actually stores the
+    // HistoricalDataManager it is given: it did not, and nothing downstream could tell, because
+    // the only symptom was an endpoint answering 500 several layers away.
+    friend class ControllerAndOtherEventHandlerTestPeer;
+
     std::shared_ptr<IntentTranslator> m_intentTranslator;
     std::shared_ptr<HistoricalDataManager> m_historicalDataManager;
     std::shared_ptr<Controller> m_controller;
