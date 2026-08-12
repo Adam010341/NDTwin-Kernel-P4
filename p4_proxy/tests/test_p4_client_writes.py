@@ -593,7 +593,7 @@ class ReadTableEntriesTest(unittest.TestCase):
         return self.client.read_table_entries()
 
     def test_it_asks_for_every_table_rather_than_one(self):
-        # table_id 0 means "all tables", which is what dump_table.py does. Asking for one id
+        # table_id 0 means "all tables", which is what reference/dump_table.py does. Asking for one id
         # would silently drop l2_forward and flow_5tuple from the Classifier's view.
         self.read()
         self.assertEqual(self.client.stub.reads[0].device_id, 1)

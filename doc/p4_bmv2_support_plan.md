@@ -514,7 +514,8 @@ proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。*
 
 ## Phase 8 — 收尾整理
 
-- 把 `check_env.py`、`dump_table.py`、`test_modify.py`、`test_modify_error.py` 從專案根目錄移走（放到 `p4_proxy/tests/`、`p4_proxy/reference/`）。`test_10_routes.py` 打的是 port **8080**，但 agent 綁的是 **8081** — 它從來沒真的通過過（2026-08-12 複查：`PROXY_URL` 仍是 `127.0.0.1:8080`，這條仍然成立）。
+- ~~把 `check_env.py`、`dump_table.py`、`test_modify.py`、`test_modify_error.py` 從專案根目錄移走。`test_10_routes.py` 打的是 port 8080，但 agent 綁的是 8081~~ — **✅ 已解**（2026-08-12）：五個檔案（含 `test_10_routes.py`）都搬到 **`p4_proxy/reference/`**，port 已修成 8081，`test_modify_error.py` 的兩處根目錄相對路徑改成以 `__file__` 解析，另附 README 說明每個腳本要什麼前置條件。
+  - ⚠️ **原本寫的「放到 `p4_proxy/tests/`」會弄壞測試套件。** 那三個叫 `test_*.py` 的檔案**一個測試案例都沒有**，而 `l1_unit_tests.sh:176` 會 glob `p4_proxy/tests/test_*.py`、逐檔直接執行並解析 `Ran N tests`，跑不出測試的檔案會被報成 `NO TESTS RAN`，**那在這個 runner 裡算失敗不算 skip**。檔名維持原樣是因為多份 audit 文件引用它們，那些是歷史紀錄；更正寫在 `p4_proxy/reference/README.md`。
   - ⚠️ **`intelligent_router.py` 已從這份清單移除**（2026-08-12 複查）。它不是散落腳本，是 **OVS 模式活的控制平面**：`tools/test_workflow/stack.sh` 拿它當 Ryu app 跑、`tests/python/test_route_install_gate.py:35` 用相對路徑讀它、`.env` 指到它，另有 16 份文件提及。搬它是一次真正的重構，不是整理，要另外評估。
 - ~~`requirements.txt`：protobuf 版本自相矛盾；`requests` 有用到卻沒列~~ — **✅ 已解**（protobuf 釘 3.20.3 並寫明理由，`requests` 已補）。
   - `pytest.ini` / `__init__.py` 那半條**已作廢**（2026-08-12 複查）：原本的理由是「任何 Python 測試都收集不到」，但現在 385 條 Python 測試跑得好好的——`tools/test_workflow/l1_unit_tests.sh` 走 unittest + `PYTHONPATH`，不走 pytest。除非要改用 pytest，否則這裡沒有東西要修。

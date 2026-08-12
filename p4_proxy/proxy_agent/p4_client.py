@@ -401,7 +401,7 @@ class P4RuntimeClient:
         """
         req = p4runtime_pb2.ReadRequest()
         req.device_id = self.device_id
-        # table_id 0 means "every table", which is what dump_table.py at the repo root does.
+        # table_id 0 means "every table", which is what reference/dump_table.py does.
         req.entities.add().table_entry.table_id = 0
 
         entries = []
