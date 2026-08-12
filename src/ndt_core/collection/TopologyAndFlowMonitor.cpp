@@ -246,6 +246,14 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         }
 
         vp.deviceLayer = nodeJson.at("device_layer").get<int>();
+
+        // [Co-developed with claude code -- Adam]
+        // value(), not at(): host nodes carry no plug assignment and every switch node in every
+        // shipped topology file does. Read here so /ndt/get_static_topology_json can echo the
+        // real per-switch pair instead of the constant it used to fabricate.
+        vp.smartPlugIp = nodeJson.value("smart_plug_ip", std::string{});
+        vp.smartPlugOutlet = nodeJson.value("smart_plug_outlet", -1);
+
         vp.ecmpGroups = nodeJson.value("ecmp_groups", std::vector<EcmpGroup>{});
 
         // [Co-developed with claude code -- Adam]
@@ -2560,6 +2568,13 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
             {
                 if (m_mode == utils::DeploymentMode::TESTBED)
                 {
+                    // [Co-developed with claude code -- Adam]
+                    // The switch's own plug assignment, read from the topology file, not the
+                    // constant {"172.25.166.135", 3} that used to be emitted for every switch --
+                    // that pair is s2's, and on real hardware a consumer trusting this endpoint
+                    // would have power-cycled one wrong outlet for all ten switches. The
+                    // duplicate {"brand_name", v.brandName} that appeared twice in this
+                    // initialiser is also gone; nlohmann just overwrote it, so it was dead.
                     result["nodes"].push_back({{"ip", utils::ipToString(v.ip)},
                                                {"dpid", v.dpid},
                                                {"mac", v.mac},
@@ -2567,9 +2582,8 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                                                {"device_name", v.deviceName},
                                                {"brand_name", v.brandName},
                                                {"device_layer", v.deviceLayer},
-                                               {"brand_name", v.brandName},
-                                               {"smart_plug_ip", "172.25.166.135"},
-                                               {"smart_plug_outlet", 3}});
+                                               {"smart_plug_ip", v.smartPlugIp},
+                                               {"smart_plug_outlet", v.smartPlugOutlet}});
                 }
                 else
                 {
@@ -2581,9 +2595,8 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                                                {"bridge_name", v.bridgeNameForMininet},
                                                {"brand_name", v.brandName},
                                                {"device_layer", v.deviceLayer},
-                                               {"brand_name", v.brandName},
-                                               {"smart_plug_ip", "172.25.166.135"},
-                                               {"smart_plug_outlet", 3}});
+                                               {"smart_plug_ip", v.smartPlugIp},
+                                               {"smart_plug_outlet", v.smartPlugOutlet}});
                 }
             }
             else
@@ -2619,7 +2632,18 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
     {
         SPDLOG_LOGGER_ERROR(Logger::instance(), "Exception in get_graph_data: {}", e.what());
     }
-    return result.dump(2);
+    // [Co-developed with claude code -- Adam]
+    // `result`, not `result.dump(2)`. The declared return type is json, and dumping here made
+    // this function return a json *string value* whose content happens to be JSON -- the same
+    // shape that was just fixed in getPathBetweenHostsJson, except there it was only the error
+    // paths and here it was every path.
+    //
+    // The wire was never wrong, which is why it survived: the sole caller assigns straight into
+    // res.body(), a std::string, so nlohmann converted the string-valued json back to the text
+    // it came from and the two conversions cancelled. Any caller that treated the result as the
+    // object its signature promises got a string instead -- as a test written against the
+    // signature immediately did. The caller now dumps, so the served bytes are unchanged.
+    return result;
 }
 
 double

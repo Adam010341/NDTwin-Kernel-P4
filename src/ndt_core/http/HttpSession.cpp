@@ -1243,7 +1243,10 @@ void
 HttpSession::handleGetStaticTopology(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Static Topology");
-    res.body() = m_topologyAndFlowMonitor->getStaticTopologyJson();
+    // dump(2) here rather than inside getStaticTopologyJson, which now returns the object its
+    // signature always promised. Same two-space indentation, so the bytes on the wire are
+    // byte-for-byte what they were. [Co-developed with claude code -- Adam]
+    res.body() = m_topologyAndFlowMonitor->getStaticTopologyJson().dump(2);
 }
 
 void

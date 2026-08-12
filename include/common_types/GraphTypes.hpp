@@ -226,6 +226,27 @@ struct VertexProperties
     // to brandName. Typed so a misspelled brand name cannot silently send P4 rules to Ryu.
     SwitchKind switchKind = SwitchKind::HARDWARE;
     int deviceLayer = -1;
+
+    /**
+     * @brief Which smart plug outlet powers this switch, as recorded in the topology file.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Carried on the vertex so /ndt/get_static_topology_json can echo the real per-switch
+     * assignment. That endpoint used to emit a constant `{"smart_plug_ip": "172.25.166.135",
+     * "smart_plug_outlet": 3}` for *every* switch -- which is s2's outlet. The topology files
+     * have always had genuine per-switch values (the ten switches in
+     * StaticNetworkTopology_ipAlias4_10Switches_all_1g_cable.json span three PDUs), so the
+     * endpoint was inventing data the loader was already reading past.
+     *
+     * The kernel's own power path does not use these: it reads switchSmartPlugTable, which
+     * DeviceConfigurationAndPowerManager builds from the same file. These exist for the
+     * endpoint, so that what it serves and what the kernel actuates come from one source.
+     *
+     * Empty / -1 mean the file did not say, which is the case for host vertices.
+     */
+    std::string smartPlugIp = "";
+    int smartPlugOutlet = -1;
+
     std::vector<std::string> bridgeConnectedPortsForMininet;
     std::vector<EcmpGroup> ecmpGroups;
 };
