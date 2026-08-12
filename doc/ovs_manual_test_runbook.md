@@ -28,7 +28,7 @@
 >
 > **原始撰寫時的驗證狀態（保留供追溯）**：撰寫於 2026-08-10，此時機器上跑的是 P4 stack，OVS 路徑未實測。每個預期值都標明了來源（原始碼行號、既有文件、或 TO BE MEASURED）。
 >
-> **已核對的部分（2026-08-10，逐條開檔確認）**：啟動順序的依據（`stack.sh:530-538` 確實說明兩種模式方向相反）、Ryu 需要 `--observe-links` 加上 `rest_topology` 與 `ofctl_rest`（`stack.sh:562-564`）、`#define SFLOW_PORT 6343`（`FlowLinkUsageCollector.hpp:33`）、`kFlowStatsSuspectSeconds = 0.5`（`DeviceConfigurationAndPowerManager.hpp:291`）、poll 間隔 5s/30s/90s（`TopologyAndFlowMonitor.cpp:1758-1760`）、`controlPlaneHostAndPort`（`FlowLinkUsageCollector.cpp:211-218`）、`bool adminDisabled = false;`（`GraphTypes.hpp:215`）、kernel 以 `--no-ai` 啟動（`stack.sh:606`）、`intelligent_router.py` 存在於 repo 根目錄。
+> **已核對的部分（2026-08-10，逐條開檔確認）**：啟動順序的依據（`stack.sh:530-538` 確實說明兩種模式方向相反）、Ryu 需要 `--observe-links` 加上 `rest_topology` 與 `ofctl_rest`（`stack.sh:562-564`）、`#define SFLOW_PORT 6343`（`FlowLinkUsageCollector.hpp:33`）、`kFlowStatsSuspectSeconds = 0.5`（`DeviceConfigurationAndPowerManager.hpp:291`）、poll 間隔 5s/30s/90s（`TopologyAndFlowMonitor.cpp` 的 `run()`，常數 `kWhileConverging`／`kOnceConverged`／`kConvergingFor`）、`controlPlaneHostAndPort`（`FlowLinkUsageCollector.cpp:211-218`）、`bool adminDisabled = false;`（`GraphTypes.hpp:215`）、kernel 以 `--no-ai` 啟動（`stack.sh:606`）、`intelligent_router.py` 存在於 repo 根目錄。
 >
 > **拓撲規模也核對過**：`testbed_topo.py` 有 **10 個 `addSwitch`**、`HOST_NUM = 128`，topology 檔 `StaticNetworkTopologyMininet_10Switches.json` 是 10 switches / 128 hosts / **288 edges**，與本文推導的 `128×2 + 16×2 = 288` 一致。（審查時我一度以為只有 4 台 switch 而誤判本文有錯，那是我自己的 grep 截斷造成的——文件是對的。）
 >
@@ -332,7 +332,7 @@ curl -s localhost:8080/v1.0/topology/hosts | python3 -c \
 # 實測輸出：128 128
 ```
 
-**這個錯誤的來源和它的真正解釋**：原文引用 `doc/full_test_runbook.md` §1e 的「static ARP → Ryu 學不到 host IP」。那個因果是誤判——真正的原因是 kernel 早期版本只在啟動時抓一次 topology snapshot，host 尚未被學到就定案了，之後不再更新；空的 `ipv4` 是**過渡狀態**，不是 static ARP 造成的永久限制。現在 kernel 會週期性重抓（`TopologyAndFlowMonitor.cpp:1758-1760`），所以收斂後就是滿的。
+**這個錯誤的來源和它的真正解釋**：原文引用 `doc/full_test_runbook.md` §1e 的「static ARP → Ryu 學不到 host IP」。那個因果是誤判——真正的原因是 kernel 早期版本只在啟動時抓一次 topology snapshot，host 尚未被學到就定案了，之後不再更新；空的 `ipv4` 是**過渡狀態**，不是 static ARP 造成的永久限制。現在 kernel 會週期性重抓（`TopologyAndFlowMonitor::run()` 的輪詢迴圈），所以收斂後就是滿的。
 
 ⚠️ 因此 **`hosts up < 128` 或 `edges up < 288` 現在是紅燈，不是「預期內的不完美」**。看到的話請往下查 topology poll，不要照舊文件當成已知限制放過。
 
@@ -382,7 +382,7 @@ curl -s localhost:8000/ndt/get_average_link_usage
 
 ⚠️ 這個端點是 GET，不加 query param，不加 body。
 
-⚠️ OVS 模式下的 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2429`）**刻意排除所有接到 host 的邊**（判斷式在 `:2455-2456`）。所以即使 host 間有背景流量（例如 Mininet 啟動時的 ping 測試殘留），只要流量只在 host-switch 邊上，`avg_link_usage` 仍然是 0.0。不是 bug。來源：`doc/full_test_runbook.md` §1d。
+⚠️ OVS 模式下的 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp`）**刻意排除所有接到 host 的邊**（判斷式是迴圈裡那個 `vertexType != VertexType::HOST` 的檢查）。所以即使 host 間有背景流量（例如 Mininet 啟動時的 ping 測試殘留），只要流量只在 host-switch 邊上，`avg_link_usage` 仍然是 0.0。不是 bug。來源：`doc/full_test_runbook.md` §1d。
 
 ### 4e. Flow table
 
@@ -473,7 +473,11 @@ grep "topology from the control plane" .test_run/logs/kernel.log | tail -3
 [2026-08-11 10:59:41.923] [info] [TopologyAndFlowMonitor.cpp:1784 run] topology from the control plane: 10 switches, 128 hosts, 288 edges up
 ```
 
-⚠️ **這行只在數字變化時才印**（`:1781`），所以正常運作時 log 裡就是很少的幾行——**行數少不代表 poll 沒在跑**。斷線時會多印一行 `286 edges up`，恢復時再印一行 `288 edges up`。
+⚠️ **這行只在數字變化時才印**，所以正常運作時 log 裡就是很少的幾行——**行數少不代表 poll 沒在跑**。斷線時會多印一行 `286 edges up`，恢復時再印一行 `288 edges up`。
+
+> 📌 上面那段是 2026-08-11 抓下來的**原始 log**，裡面的 `TopologyAndFlowMonitor.cpp:1784`
+> 是 spdlog 當時印的行號，**不是引用，不要更新它**。程式改過之後這個行號不會再對得上，
+> 那正常——它記錄的是當時那個 binary。要找現在的位置就搜函式名。
 
 ✅ 順帶檢查整份 kernel log 的錯誤數，**實測全程 0**：
 
@@ -482,9 +486,9 @@ grep -icE "\[error\]|\[critical\]|exception|Traceback" .test_run/logs/kernel.log
 grep -c "JSON parsing failed" .test_run/logs/kernel.log                            # 0（非 0 代表 ofctl_rest 沒載入）
 ```
 
-來源：`TopologyAndFlowMonitor.cpp:1784-1788`。這行只在數字變化時印出（`:1781`）。
+來源：`TopologyAndFlowMonitor::run()`。這行只在 `graphLivenessSummary()` 回傳的三元組和上一輪不同時才印出。
 
-⚠️ kernel 的 topology poll 間隔是**前 90 秒每 5 秒，之後每 30 秒**（`TopologyAndFlowMonitor.cpp:1758-1760`，`kWhileConverging=5s`、`kOnceConverged=30s`、`kConvergingFor=90s`）。所以開機後第一條確認 log 可能在 5–30 秒後才出現，不是 1 秒。
+⚠️ kernel 的 topology poll 間隔是**前 90 秒每 5 秒，之後每 30 秒**（`TopologyAndFlowMonitor.cpp` 的 `run()`：`kWhileConverging=5s`、`kOnceConverged=30s`、`kConvergingFor=90s`）。所以開機後第一條確認 log 可能在 5–30 秒後才出現，不是 1 秒。
 
 ---
 
@@ -618,7 +622,7 @@ done
 
 **【2026-08-11 實測】連查三次：`0.004890 / 0.008460 / 0.007658`** ——落在預期區間，且如下方所述是上下跳動而非單調爬升。與 2026-07-30 的 `0.0074514` 同量級。
 
-⚠️ **這個值是瞬時的、上下跳動的，不是單調爬升。** 原因見 P4 runbook §5d 的詳細分析。簡單說：`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2429`）只把 `linkBandwidthUsage != 0` 的邊算進去，除以那一刻非零邊的數量。1/256 取樣下分子分母同時在變。
+⚠️ **這個值是瞬時的、上下跳動的，不是單調爬升。** 原因見 P4 runbook §5d 的詳細分析。簡單說：`getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp`）只把 `linkBandwidthUsage != 0` 的邊算進去，除以那一刻非零邊的數量。1/256 取樣下分子分母同時在變。
 
 ⚠️ 如果一直是 `0.0`，確認流量兩端在不同交換機上（h1 在 s1，h97 在 s4）。
 
@@ -986,7 +990,7 @@ down: [(1, 1, 5, 1), (5, 1, 1, 1)]
 ⚠️ **這個 3.9 秒沒有測準，不要當成精確值。** 有兩條路徑都會更新這張圖，而本次量測分不出是哪一條生效的：
 
 1. `link_failure_detected` 的 POST（+31 ms 就到了）
-2. kernel 的 topology poll（收斂後每 30 秒一次，`TopologyAndFlowMonitor.cpp:1758-1760`）
+2. kernel 的 topology poll（收斂後每 30 秒一次，`TopologyAndFlowMonitor::run()` 的 `kOnceConverged`）
 
 本次第一次查圖是斷線後 7 秒，那時已經是 286，而 poll 的 log 落在 +3.9 秒。**所以真值可能是 31 毫秒，也可能是 3.9 秒——取決於圖是被 POST 直接改的還是等 poll 才改的。** 要分辨得用 100ms 級的密集取樣，本次沒做。
 
@@ -1437,8 +1441,8 @@ kernel 現在有防禦：`classifyFlowStatsReply`（`DeviceConfigurationAndPower
 | OVS 模式的 `is_up` 判定（`ovsLivenessFor`） | `DeviceConfigurationAndPowerManager.cpp:349-358` |
 | `pingWorker` 呼叫 `ovs-vsctl list-br` | `DeviceConfigurationAndPowerManager.cpp:630-664` |
 | `pingWorker` 的呼叫和 sleep 間隔 | `DeviceConfigurationAndPowerManager.cpp:616, 620` |
-| topology poll 間隔（5s/30s/90s） | `TopologyAndFlowMonitor.cpp:1758-1760` |
-| topology poll log（變化時才印） | `TopologyAndFlowMonitor.cpp:1781-1788` |
+| topology poll 間隔（5s/30s/90s） | `TopologyAndFlowMonitor::run()`，常數 `kWhileConverging`／`kOnceConverged`／`kConvergingFor` |
+| topology poll log（變化時才印） | `TopologyAndFlowMonitor::run()`，`graphLivenessSummary()` 的結果和上一輪不同才印 |
 | sFlow port 定義 | `FlowLinkUsageCollector.hpp:33` (`#define SFLOW_PORT 6343`) |
 | sFlow ingest healthy log（INFO→TRACE） | `FlowLinkUsageCollector.cpp:1837-1850` |
 | OVS polling=0 的設計理由 | `FlowLinkUsageCollector.cpp:120-136`（註解） |

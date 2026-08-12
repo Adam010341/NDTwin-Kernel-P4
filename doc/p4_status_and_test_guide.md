@@ -340,7 +340,7 @@ Phase 0／1／2 和 identity mapping 都動到共用程式碼，所以這是每�
    | 里程碑 | 機制 | 實測 |
    |---|---|---|
    | switch/link discovery | LLDP，交換機之間 | **約 2 秒** |
-   | **all-destination paths installed** | `intelligent_router.py:282` 的 `hub.sleep(60)` 之後才跑 `install_all_pair_paths` | **60 秒以上** |
+   | **all-destination paths installed** | `intelligent_router.py` 的 `hub.sleep(60)`（在 `load_static_topology` 結尾、`if is_mininet:` 底下，緊接著才走 all-destination 安裝） 之後才跑 `install_all_pair_paths` | **60 秒以上** |
 
    說明書要求的是後者（「you will see the *all-destination paths installed* message」）。
    `stack.sh up ovs` 現在**兩個都等**：輪詢 `/v1.0/topology/*` 直到數量對上，**並且**輪詢
@@ -448,7 +448,7 @@ converged after 0s
 counter sample），但 `addressed=` 只有在收到 **flow sample**（也就是真的有流量）時才會漲。
 
 3. **兩端必須掛在不同的交換機上。** `getAvgLinkUsage`
-   （`TopologyAndFlowMonitor.cpp:2245`）**刻意排除任何接到 HOST 的邊**，只平均交換機之間的鏈路：
+   （`TopologyAndFlowMonitor.cpp`）**刻意排除任何接到 HOST 的邊**，只平均交換機之間的鏈路：
 
    ```cpp
    if (g[e].linkBandwidthUsage != 0 && g[sourceNode].vertexType != VertexType::HOST &&
@@ -577,7 +577,7 @@ grep -c "clone session failed\|NO telemetry"       .test_run/logs/p4_proxy.log  
 
 ~~`./stack.sh wait` 在 P4 模式**一定會逾時**（`enabled=0`），這是預期的，不是失敗 —— Phase 6 未做。~~
 **2026-08-10 更正：不再成立。** Phase 6 的北向通知已接上，P4 模式的 `enabled` 應該和 OVS 一樣收斂。
-**現在這裡逾時就是真的壞了**，先查 proxy 有沒有發 `inform_switch_entered`（`main.py:142`）。
+**現在這裡逾時就是真的壞了**，先查 proxy 有沒有發 `inform_switch_entered`——實際發送的是 `kernel_notifier.py` 的 `KernelNotifier.switch_entered`，由 `main.py` 的啟動流程對每一台 usable 的 switch 呼叫。
 
 L2／L3 契約測試和 L4 基準在 P4 模式一樣可以跑：
 
