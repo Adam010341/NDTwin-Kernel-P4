@@ -154,7 +154,6 @@ class SPSCQueue
 
 FlowLinkUsageCollector::FlowLinkUsageCollector(
     std::shared_ptr<TopologyAndFlowMonitor> topologyAndFlowMonitor,
-    std::shared_ptr<FlowRoutingManager> flowRoutingManager,
     std::shared_ptr<DeviceConfigurationAndPowerManager> deviceManager,
     std::shared_ptr<EventBus> eventBus,
     int mode,

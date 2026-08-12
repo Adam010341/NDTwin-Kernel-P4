@@ -372,12 +372,20 @@ Graph g = m_topologyAndFlowMonitor->getGraph();   // FlowRoutingManager.cpp:55
 零相依、極易測試，但一個測試都沒有。典型邊界：空字串、超長、非法字元、溢位、
 大小端（`ipToString` 有網路序假設，topology JSON 也用網路序，兩者是否一致沒被驗）。
 
-### 4.6 初始化順序（潛在，目前無害）
+### 4.6 ~~初始化順序（潛在，目前無害）~~ — ✅ 已解，2026-08-12 參數與成員一起移除
 
-[main.cpp:155-166](../src/main.cpp#L155-L166)：`collector` 建構時傳入的 `flowRoutingManager`
-**還是 null**（第 165 行才賦值），collector 存的是那份 null 的複本。
-目前 `m_flowRoutingManager` 在 collector 裡沒有被使用，所以不會爆；
-但只要有人開始用它就是立即 crash，而且沒有任何測試會擋。
+原本的描述：`main.cpp` 建構 `collector` 時傳進去的 `flowRoutingManager` **還是 null**
+（要等 collector 建好之後才賦值），collector 存的是那份 null 的複本。
+
+實際查證後，情況比原本寫的還要再前面一步：建構子的初始化列表**根本沒有初始化**
+`m_flowRoutingManager`，那個成員從頭到尾是預設建構出來的 null；而且整個 repo 裡
+沒有任何一處讀過它（`FlowLinkUsageCollector` 內就只有宣告那一行，其餘同名成員分別
+屬於 `Controller`／`IntentTranslator`／`HttpSession`／`ControllerAndOtherEventHandler`）。
+
+因此選擇把建構子參數與成員一起移除，而不是補上初始化：`FlowRoutingManager` 已經持有
+`shared_ptr<sflow::FlowLinkUsageCollector>`（`FlowRoutingManager::m_flowLinkUsageCollector`），
+collector 再反向持有一條 `shared_ptr` 就會形成循環參照，兩邊都不會被解構。要正確接起來
+得改用 `weak_ptr` 再加一個建構後的 setter — 為了一個沒人讀的成員，不值得。
 
 ---
 
