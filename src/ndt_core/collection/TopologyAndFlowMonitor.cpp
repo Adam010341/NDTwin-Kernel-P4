@@ -1263,8 +1263,30 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
         {
             auto sourceNode = boost::source(edge, *m_graph);
             auto targetNode = boost::target(edge, *m_graph);
-            auto reverseEdge = boost::edge(targetNode, sourceNode, *m_graph).first;
-            return reverseEdge;
+            // [Co-developed with claude code -- Adam]
+            // `.second` is the found flag, and dropping it turned a miss into a hit: a singular
+            // edge_descriptor wrapped in an *engaged* optional, which every caller then treats
+            // as a real edge. FlowLinkUsageCollector writes through this one on the sFlow
+            // ingest path (touchEdgeFlow), so a graph holding only the forward direction of a
+            // link -- reachable, which is why 7f738e6 exists to report half-processed link
+            // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
+            // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
+            //
+            // DEBUG rather than WARN: this is the 1-in-256 sample path, and the callers already
+            // skip on nullopt, so the cost of a missing reverse edge is one sample's
+            // bookkeeping. A per-sample WARN is how this process reached 138,000 log lines a day
+            // once already.
+            const auto reverse = boost::edge(targetNode, sourceNode, *m_graph);
+            if (!reverse.second)
+            {
+                SPDLOG_LOGGER_DEBUG(Logger::instance(),
+                                    "no reverse edge for agent {} port {}; the graph holds only "
+                                    "one direction of this link",
+                                    utils::ipToString(agentIpAndPort.first),
+                                    agentIpAndPort.second);
+                return nullopt;
+            }
+            return reverse.first;
         }
     }
     return nullopt;
@@ -1285,8 +1307,30 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPort(
         {
             auto sourceNode = boost::source(edge, *m_graph);
             auto targetNode = boost::target(edge, *m_graph);
-            auto reverseEdge = boost::edge(targetNode, sourceNode, *m_graph).first;
-            return reverseEdge;
+            // [Co-developed with claude code -- Adam]
+            // `.second` is the found flag, and dropping it turned a miss into a hit: a singular
+            // edge_descriptor wrapped in an *engaged* optional, which every caller then treats
+            // as a real edge. FlowLinkUsageCollector writes through this one on the sFlow
+            // ingest path (touchEdgeFlow), so a graph holding only the forward direction of a
+            // link -- reachable, which is why 7f738e6 exists to report half-processed link
+            // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
+            // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
+            //
+            // DEBUG rather than WARN: this is the 1-in-256 sample path, and the callers already
+            // skip on nullopt, so the cost of a missing reverse edge is one sample's
+            // bookkeeping. A per-sample WARN is how this process reached 138,000 log lines a day
+            // once already.
+            const auto reverse = boost::edge(targetNode, sourceNode, *m_graph);
+            if (!reverse.second)
+            {
+                SPDLOG_LOGGER_DEBUG(Logger::instance(),
+                                    "no reverse edge for agent {} port {}; the graph holds only "
+                                    "one direction of this link",
+                                    utils::ipToString(agentIpAndPort.first),
+                                    agentIpAndPort.second);
+                return nullopt;
+            }
+            return reverse.first;
         }
     }
     return nullopt;
@@ -2652,7 +2696,23 @@ TopologyAndFlowMonitor::getLinkBandwidthBetweenSwitches(const std::string& ip1_s
 
     // 5. If a link exists, get the edges for both directions.
     auto edge1_to_2 = edge_pair_1_to_2.first;
-    auto edge2_to_1 = boost::edge(v2, v1, *m_graph).first; // Get the reverse edge
+    // [Co-developed with claude code -- Adam]
+    // `.second` checked here for the same reason it is checked four lines above, where it was
+    // the only one of the pair that was. A physical link is two directed edges, but nothing
+    // guarantees the graph holds both: the topology file could declare one direction, and
+    // updateLinks only ever adds. When the reverse was absent, `.first` was a singular
+    // descriptor and `(*m_graph)[edge2_to_1]` read whatever it addressed -- so the reverse
+    // direction of this report was built on an invalid edge, with no error anywhere.
+    auto edge_pair_2_to_1 = boost::edge(v2, v1, *m_graph);
+    if (!edge_pair_2_to_1.second)
+    {
+        result["error"] = "Only one direction of this link exists in the topology.";
+        result["from"] = ip1_str;
+        result["to"] = ip2_str;
+        result["missing_direction"] = ip2_str + "_to_" + ip1_str;
+        return result;
+    }
+    auto edge2_to_1 = edge_pair_2_to_1.first;
 
     const auto& props1 = (*m_graph)[edge1_to_2];
     const auto& props2 = (*m_graph)[edge2_to_1];
