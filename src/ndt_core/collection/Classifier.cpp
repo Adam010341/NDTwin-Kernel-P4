@@ -770,7 +770,17 @@ buildMaskAndValueFromMatch(const nlohmann::json& match, KeyBytes& outMaskBytes, 
 
     if (match.contains("vlan_vid"))
     {
-        outValue.vlanTci = static_cast<uint16_t>(parseU64(match.at("vlan_id")));
+        // [Co-developed with claude code -- Adam]
+        // Was `match.at("vlan_id")` -- guarded on one key, read from another. "vlan_id" appears
+        // nowhere else in this repo; "vlan_vid" is what Ryu's OFPMatch calls the field. A flow
+        // carrying vlan_vid without vlan_id therefore made .at() throw json::out_of_range, which
+        // openflowTablesUpdateWorker catches and logs, so it would not crash -- it would repeat.
+        // The same rule is in every poll, so the poisoned switch's mark-and-sweep would never
+        // run again, the switches after it in the loop would never update, and the cached
+        // openflow table would never refresh, all reported as one repeated worker error.
+        // Latent only because nothing currently emits vlan_vid, which is what would have made it
+        // arrive as a mystery.
+        outValue.vlanTci = static_cast<uint16_t>(parseU64(match.at("vlan_vid")));
         setU16MaskAll(outMaskBytes, 20);
     }
 

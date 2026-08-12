@@ -49,6 +49,16 @@ constexpr const char* kProxyFlowStats = R"([
    "idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}
 ])";
 
+/// A rule matching on a VLAN, as Ryu's OFPMatch renders one. The field is `vlan_vid`; there is no
+/// `vlan_id` in OpenFlow, in Ryu, or anywhere else in this repo.
+constexpr const char* kVlanFlowStats = R"([
+  {"table_id":0,"priority":100,
+   "match":{"vlan_vid":4096,"nw_dst":"10.0.0.4","dl_type":2048},
+   "actions":["OUTPUT:6"],
+   "byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,
+   "idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}
+])";
+
 /// The kernel wraps the proxy body as {"dpid": N, "flows": <body>} before handing it to the
 /// Classifier -- see DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal. Doing the
 /// same here keeps this test on the real path rather than a convenient one.
@@ -240,4 +250,45 @@ TEST_F(P4FlowStatsToClassifier, AnEmptyFlowListIsHandledCleanly)
     // not invent rules.
     ASSERT_NO_FATAL_FAILURE(classifier.updateFromQueriedTables(asQueriedTables(1, "[]")));
     EXPECT_EQ(classifier.getRuleCount(1), 0u);
+}
+
+// --- A rule that matches on a VLAN.
+//
+// [Co-developed with claude code -- Adam]
+// The ingest guarded on `match.contains("vlan_vid")` and then read `match.at("vlan_id")`. There is
+// no `vlan_id` -- not in OpenFlow, not in Ryu's rendering, not anywhere else in this repo -- so
+// `.at()` threw json::out_of_range on any flow that actually carried a VLAN match.
+//
+// The throw is the small half. It escapes to openflowTablesUpdateWorker's catch, which logs and
+// swallows it, and the rule that provoked it is in every subsequent poll: the same switch dies at
+// the same flow every time. updateOneSwitch never completes for it, so its mark-and-sweep never
+// runs, the switches after it in the loop never update, and the cached table the
+// get_switch_openflow_table_entries endpoint serves never refreshes again -- reported as one
+// repeated line in the worker's log.
+//
+// Nothing emits vlan_vid today. That is why it would have arrived as a mystery rather than as a
+// regression: the first VLAN rule anyone installs stops flow-table collection for the fabric.
+
+TEST_F(P4FlowStatsToClassifier, AVlanMatchIsIngestedRatherThanPoisoningEveryLaterPoll)
+{
+    classifier.updateFromQueriedTables(asQueriedTables(1, kVlanFlowStats));
+
+    EXPECT_EQ(classifier.getRuleCount(1), 1u)
+        << "the VLAN rule was not ingested: the match parser read a key it had not checked for";
+}
+
+TEST_F(P4FlowStatsToClassifier, AVlanRuleDoesNotStopTheSwitchesPolledAfterIt)
+{
+    // The consequence that outlives the poll. Switch 1 carries the VLAN rule; switch 2 is behind
+    // it in the same reply, which is how the worker receives them.
+    json tables = json::array({
+        {{"dpid", 1}, {"flows", {{"1", json::parse(kVlanFlowStats)}}}},
+        {{"dpid", 2}, {"flows", {{"2", json::parse(kProxyFlowStats)}}}},
+    });
+
+    classifier.updateFromQueriedTables(tables);
+
+    EXPECT_EQ(classifier.getRuleCount(2), 2u)
+        << "switch 2's table never landed -- one VLAN rule on an earlier switch took the rest of "
+           "the poll down with it, every poll, for as long as the rule exists";
 }
