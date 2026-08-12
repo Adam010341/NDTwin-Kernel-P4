@@ -20,7 +20,7 @@ Phase 6 比原本標的完成得多。
 | **4** P4 pipeline | ✅ 完成 | `4577983`。5-tuple ternary、ARP、TTL、取樣、counter |
 | **5** telemetry | 🟨 **一半**（原本標 ✅，錯了）| flow sample（type 1）✅ 完成並實機驗證；**counter sample（type 2）完全沒實作** —— 見下一節 |
 | **6** 拓撲／liveness／flow table | ✅ **完成**（2026-08-10 實機驗證，10 台 bmv2）| `inform_switch_entered`（`main.py:142`，pipeline 推完後對 usable 的 switch 發）、真存活偵測（`a8db425`）、LLDP beacon、`/stats/flow` 真實實作、destination paths、**link failure/recovery 通知**。⚠️ 08-08 這一格寫「link failure/recovery 根本不存在」—— 那在當時成立，之後補上了 `check_link_beacons` + `start_link_watchdog`，今天實測跑通：斷線 11 秒後三筆 `link_failure_detected` 抵達、圖維持 37/40 達 238 秒（約 7–8 個 poll），恢復後 14 秒回到 40/40。兩件實機驗證（`seed_expected_links` port 假設、失效鏈路維持 down）都通過，見下方 Phase 6 章節 |
-| **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖 |
+| **3** proxy 端點補完 | ⬜ 未做 | `/stats/flowentry/delete`、prefix 解析、idle_timeout、加鎖、**host 清單從拓撲 JSON 推導**（見下方「⚠️ 拓撲來源分裂」）|
 | **7** 電源管理 | ✅ **完成**（2026-08-11／08-12，機制與測試齊備；尚待 helper 安裝後的 live 驗證）| PID manifest（`22ada58`）＋ root helper `ndtwin-p4-power`（`624946d`）＋ `P4PowerStrategy` 真的呼叫它並在 `on` 之後要求 proxy readopt（`1978292`）＋ mutation 驗證過的測試（`9afd647`、`09a7a81`）＋ `on` 逾時的 orphan 修掉（`8eaa133`）＋ 失敗訊息改成講真正有效的復原路徑（`2abf1e3`）。文件：`b0c82df`、`doc/phase7_power_mechanism_design.md` |
 | **8** 收尾 | ⬜ 未做 | |
 
@@ -232,6 +232,34 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 - Proxy：`route_flow`／`unroute_flow` 裡寫死的 `/32` 要改成真正解析 prefix（`"10.0.0.0/24"` 和 masked-pair 兩種寫法），這樣聚合路由才能用。
 - Proxy：用 asyncio timer 幫每筆規則模擬 `idle_timeout`，時間到就刪掉（kernel 的表格模型假設 flow 會自己過期）。
 - 加一個 `dpid → grpc_addr` 對照，**從 kernel 讀的同一份拓撲 JSON** 載入，取代 `main.py` 裡寫死的 `range(1, 11)`／`50050+i`／手工列出的 4 台 host。
+
+  ### ⚠️ 拓撲來源分裂：一半讀檔案，一半寫死
+
+  這一條目前是**已知、已推遲、但還沒解**的缺陷，記在這裡是因為它會靜靜地產生錯誤的圖。
+
+  proxy 對「拓撲是什麼」有兩個互不知情的來源：
+
+  | 資料 | 來源 | 換拓撲檔會跟著動嗎 |
+  |---|---|---|
+  | switch 之間的連結 | `load_switch_links`（`topology_manager.py`），讀 `NDTWIN_TOPO_FILE` | ✅ 會 |
+  | 每台 switch 的 sFlow agent IP | `load_switch_agent_ips`（`sflow_emitter.py`），同樣讀 `NDTWIN_TOPO_FILE` | ✅ 會 |
+  | **4 台 host 的 IP／MAC／掛在哪台 switch／掛哪個 port** | **`main.py` 裡四行 `topo.add_host(...)` 寫死** | ❌ **不會** |
+
+  所以只要把 proxy 指到另一份拓撲檔，它會**照新檔案 seed 並 beacon 新的連結**，
+  但 `/v1.0/topology/hosts`（`render_hosts`）、destination path 的算繪（`render_destination_paths`）
+  和 `install_initial_routes` 仍然對著那 4 台可能根本不存在的 host 計算，
+  attach port 也是舊的。結果是一張**左右腦分裂的圖**：連結來自新拓撲，host 來自舊常數。
+  兩邊都不會驗證對方，也沒有任何一行 log 會提到這件事。
+
+  ⚠️ **`main.py` 裡既有的那句自白不涵蓋這一塊。** `DEFAULT_SWITCH_DPIDS` 上面寫的
+  「Still hardcoded -- deriving them from the topology JSON is Phase 3 work」
+  講的只有 switch dpid 清單和 gRPC port 編號，**沒有提到 host 那四行**，
+  而那四行在檔案更上面、離自白很遠。這正是它被漏掉的原因之一：
+  讀的人看到自白，以為寫死的部分都已經被記錄了。
+
+  **處置：** 正確的解法（從拓撲 JSON 推導 host）屬於 Phase 3，跟著上面那條 `dpid → grpc_addr`
+  一起做。在那之前，另一個變更會加上**啟動時的一致性檢查**——發現寫死的 host 和拓撲檔對不起來
+  就大聲失敗，而不是安靜地跑出一張分裂的圖。那個檢查是止血，不是修好；這一條不會因此從 Phase 3 移除。
 - 幫 `TopologyManager.net`／`switches`／`dest_paths` 加鎖 — 它們會被 LLDP thread 和 gRPC receiver thread 修改，同時又被 HTTP handler 讀取。把會阻塞的 gRPC 呼叫和 all-pairs BFS 移出 event loop（`run_in_executor`）。
 
 **測試：** 用 gtest 確認 `P4RoutingStrategy` 每個操作發出的路徑和內容都正確（要重寫現有的測試，它們現在確認的是複製品的行為）；非 strict 刪除要真的打到 `/stats/flowentry/delete`；group／meter 要回 unsupported。用 pytest 測 prefix 解析（`/24`、`/32`、masked pair）和 idle-timeout 到期。
