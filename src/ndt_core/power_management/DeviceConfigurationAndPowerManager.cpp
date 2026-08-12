@@ -804,87 +804,29 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
     }
 }
 
-bool
-DeviceConfigurationAndPowerManager::setSwitchPowerState(std::string ip,
-                                                        std::string action,
-                                                        SwitchInfo si)
+std::string
+DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gwUrl,
+                                                           const SwitchInfo& si,
+                                                           const std::string& action)
 {
-    try
-    {
-        // [Co-developed with claude code -- Adam]
-        // --max-time bounds an unresponsive gateway (this runs inside a request handler), and
-        // -w appends the HTTP status on its own line so a 500 is distinguishable from an empty 200.
-        // Neither was here before: curl was bare `-s`, so an unreachable gateway returned "" and the
-        // code went on to update the graph anyway.
-        std::ostringstream cmd;
-        cmd << "curl -s --max-time 8 -w '\\n%{http_code}' -X POST " << "-H \"Host: 127.0.0.1\" "
-            << "-H \"User-Agent: Beast-C++-Client\" "
-            // Quote full URL so shell expands safely
-            << "\"http://" << GW_IP << ":8000/relay?ip=" << si.plugIp << "&index=" << si.plugIdx
-            << "&method=" << action << "\"";
-
-        const RelayResult relay = interpretRelayResponse(utils::execCommand(cmd.str()));
-
-        if (!relay.ok)
-        {
-            // Deliberately does NOT touch the graph. Marking a switch off because we *asked* for it
-            // to go off, when the request failed, is the twin stating something about the network
-            // that nobody established -- and on TESTBED the switch is real and still forwarding.
-            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "power {} for {} (plug {}:{}) was not accepted: {}; the graph is "
-                               "left as it was",
-                               action,
-                               ip,
-                               si.plugIp,
-                               si.plugIdx,
-                               relay.detail);
-            return false;
-        }
-
-        auto ip_uint = utils::ipStringToUint32(ip);
-        if (auto node_opt = m_topologyAndFlowMonitor->findSwitchByIp(ip_uint))
-        {
-            if (action == "on")
-            {
-                m_topologyAndFlowMonitor->setVertexUp(*node_opt);
-            }
-            else if (action == "off")
-            {
-                m_topologyAndFlowMonitor->setVertexDown(*node_opt);
-            }
-            else
-            {
-                // Reachable: the endpoint's `action` is a free-text query parameter. Falling through
-                // silently used to report success for a request that changed nothing.
-                SPDLOG_LOGGER_WARN(Logger::instance(),
-                                   "unrecognised power action '{}' for {}; nothing was changed",
-                                   action,
-                                   ip);
-                return false;
-            }
-
-            SPDLOG_LOGGER_INFO(Logger::instance(),
-                               "set graph attributes for {} -> {} (gateway returned “{}”)",
-                               ip,
-                               action,
-                               relay.detail);
-            return true;
-        }
-
-        // The gateway did switch the plug, but the graph has no vertex for it, so the twin and the
-        // network now disagree and this call cannot claim success.
-        SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "cannot find graph vertex for switch IP {}; the plug was switched {} but "
-                           "the graph does not reflect it",
-                           ip,
-                           action);
-        return false;
-    }
-    catch (const std::exception& e)
-    {
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "Error in setSwitchPowerStateCurl: {}", e.what());
-        return false;
-    }
+    // [Co-developed with claude code -- Adam]
+    // --max-time bounds an unresponsive gateway (this runs inside a request handler), and
+    // -w appends the HTTP status on its own line, which is what interpretRelayResponse reads its
+    // verdict from. Neither was on the request this replaces: it was a bare `curl -s`, whose exit
+    // status is 0 for a 500 as readily as for a 200.
+    //
+    // resource=outlet is carried over deliberately. The unreachable overload this logic came from
+    // had dropped it, so adopting that code as-is would have quietly changed the request the
+    // testbed's gateway receives. The power report hits the same endpoint with the same three
+    // parameters, and it is the only working example of this API in the repo.
+    std::ostringstream cmd;
+    cmd << "curl -s --max-time 8 -w '\\n%{http_code}' -X POST "
+        << "\"http://" << gwUrl << ":8000/relay"
+        << "?ip=" << si.plugIp
+        << "&resource=outlet"
+        << "&index=" << si.plugIdx
+        << "&method=" << action << "\"";
+    return cmd.str();
 }
 
 /** @brief Reads the smart-plug gateway's reply. See the header for why this is a separate function.
@@ -1375,25 +1317,81 @@ DeviceConfigurationAndPowerManager::setPowerStateTestbed(const SwitchInfo& si,
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "TESTBED: setting switch {} -> {}", si.switchIp, action);
 
-    // Tell server (run on gateway port 8000) who relays the api request to smart plug
-    // pass:
-    //   ip       = the PDU’s IP (plug_ip)
-    //   resource = "outlet"   (or "bank"/"device" if you extend SwitchInfo)
-    //   index    = the plug number
-    //   method   = action
-    auto cmd = fmt::format("curl -s -X POST "
-                           "\"http://{}:8000/relay"
-                           "?ip={}"
-                           "&resource=outlet"
-                           "&index={}"
-                           "&method={}\"",
-                           GW_IP,
-                           si.plugIp,
-                           si.plugIdx,
-                           action);
+    // [Co-developed with claude code -- Adam]
+    // This function used to be `std::system(bare curl); return rc == 0;`. curl exits 0 for any
+    // HTTP response it managed to receive, so a gateway answering 500 -- or 401, or an error
+    // page -- was reported to the caller as Success, and the endpoint returned
+    // {"<ip>": "Success"} for a switch whose power had not changed. On TESTBED the switches are
+    // real, which is the whole reason this path is the one that must not guess.
+    //
+    // The honest version of this existed already, in an overload with zero call sites. It has
+    // been moved here rather than called from here, because it is only honest where it runs.
+    if (action != "on" && action != "off")
+    {
+        // Reachable: `action` is a free-text query parameter on /ndt/set_switches_power_state.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "unrecognised power action '{}' for {}; nothing was changed",
+                           action,
+                           si.switchIp);
+        return false;
+    }
 
-    int rc = std::system(cmd.c_str());
-    return rc == 0;
+    try
+    {
+        const RelayResult relay =
+            interpretRelayResponse(utils::execCommand(buildRelayPowerCommand(GW_IP, si, action)));
+
+        if (!relay.ok)
+        {
+            // Deliberately does NOT touch the graph. Marking a switch off because we *asked* for
+            // it to go off, when the request failed, is the twin stating something about the
+            // network that nobody established -- and the switch is real and still forwarding.
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "power {} for {} (plug {}:{}) was not accepted: {}; the graph is "
+                               "left as it was",
+                               action,
+                               si.switchIp,
+                               si.plugIp,
+                               si.plugIdx,
+                               relay.detail);
+            return false;
+        }
+
+        const auto nodeOpt =
+            m_topologyAndFlowMonitor->findSwitchByIp(utils::ipStringToUint32(si.switchIp));
+        if (!nodeOpt)
+        {
+            // The gateway did switch the plug, but the graph has no vertex for it, so the twin
+            // and the network now disagree and this call cannot claim success.
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "cannot find graph vertex for switch IP {}; the plug was switched "
+                               "{} but the graph does not reflect it",
+                               si.switchIp,
+                               action);
+            return false;
+        }
+
+        if (action == "on")
+        {
+            m_topologyAndFlowMonitor->setVertexUp(*nodeOpt);
+        }
+        else
+        {
+            m_topologyAndFlowMonitor->setVertexDown(*nodeOpt);
+        }
+
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "set graph attributes for {} -> {} (gateway returned \"{}\")",
+                           si.switchIp,
+                           action,
+                           relay.detail);
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "TESTBED power {}: {}", si.switchIp, e.what());
+        return false;
+    }
 }
 
 bool

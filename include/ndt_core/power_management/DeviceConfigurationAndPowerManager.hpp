@@ -134,12 +134,15 @@ class DeviceConfigurationAndPowerManager
      *
      * Primarily intended for TESTBED mode where the plug endpoint is already known.
      *
-     * @param ip     Switch IP address (typically matches si.switch_ip).
-     * @param action "on" or "off".
-     * @param si     Smart plug mapping for this switch.
-     * @return true on success; false on failure.
+     * [Co-developed with claude code -- Adam]
+     * The three-argument overload that used to live here is gone. It was the honest
+     * implementation -- bounded curl, HTTP status read, graph untouched on failure -- and it had
+     * zero call sites on the day it was written and zero the day it was removed, while the
+     * reachable path next to it kept answering `rc == 0`. Two implementations of one operation,
+     * with the tested one unreachable, is worse than either alone: its URL had also drifted
+     * (no `resource=outlet`), so "just wire it up" would have changed the request on real
+     * hardware. Its logic now lives in setPowerStateTestbed, which is the path that runs.
      */
-    bool setSwitchPowerState(std::string ip, std::string action, SwitchInfo si);
 
     /**
      * @brief Toggle power for a switch using the appropriate backend.
@@ -407,6 +410,30 @@ class DeviceConfigurationAndPowerManager
      * next ping, and in the meantime the twin actively lied.
      */
     static RelayResult interpretRelayResponse(const std::string& response);
+
+    /**
+     * @brief Builds the gateway request that switches one smart-plug outlet.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Pure, and separate from the method that runs it, for the reason stated above
+     * interpretRelayResponse: the method needs a topology monitor, a classifier and a live
+     * gateway, so nothing inside it can be asserted. What is asserted here is the wire format,
+     * and it is worth asserting because getting it wrong is silent -- `curl -s` prints nothing,
+     * and the reply to a request missing `resource` looks like the reply to a rejected one.
+     *
+     * `--max-time` because this runs inside a request handler, and `-w '\n%{http_code}'` because
+     * interpretRelayResponse reads its verdict from that line. The query parameters match the
+     * ones the power *report* sends to the same endpoint (see fetchPowerReportInternal), which
+     * is the only evidence available here of what this gateway actually accepts.
+     *
+     * @param gwUrl  Gateway host (AppConfig::GW_IP).
+     * @param si     Smart plug mapping for this switch.
+     * @param action "on" or "off".
+     */
+    static std::string buildRelayPowerCommand(const std::string& gwUrl,
+                                              const SwitchInfo& si,
+                                              const std::string& action);
 
     /**
      * @brief A plausible synthetic power draw, in milliwatts, for a simulated switch.

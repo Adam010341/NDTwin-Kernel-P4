@@ -37,9 +37,20 @@ namespace
 class RelayReader : public DeviceConfigurationAndPowerManager
 {
   public:
+    using DeviceConfigurationAndPowerManager::buildRelayPowerCommand;
     using DeviceConfigurationAndPowerManager::interpretRelayResponse;
     using DeviceConfigurationAndPowerManager::RelayResult;
 };
+
+/// A plug mapping of the shape switchSmartPlugTable holds.
+SwitchInfo plug()
+{
+    SwitchInfo si;
+    si.switchIp = "192.168.123.11";
+    si.plugIp = "172.25.166.135";
+    si.plugIdx = 3;
+    return si;
+}
 
 /// What curl produces: body, newline, status. Mirrors `-w '\n%{http_code}'`.
 std::string
@@ -173,4 +184,63 @@ TEST(RelayResponseTest, NeverThrowsOnAnythingTheGatewayCouldSend)
         EXPECT_NO_THROW(RelayReader::interpretRelayResponse(response))
             << "threw on: '" << response.substr(0, 32) << "'";
     }
+}
+
+// ---------------------------------------------------------------------------
+// The request itself.
+//
+// [Co-developed with claude code -- Adam]
+// interpretRelayResponse can only be right about a reply that was produced by the request it
+// expects. Until now nothing asserted the request: the reachable TESTBED path built its own with
+// `curl -s` and no status at all, and read nothing back -- so these tests, and the honest
+// implementation they cover, were pinning an overload with zero call sites while the live path
+// answered `rc == 0`. These cases are the other half of that contract.
+// ---------------------------------------------------------------------------
+
+TEST(RelayPowerCommandTest, CarriesTheThreeParametersTheGatewayIsKnownToAccept)
+{
+    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "off");
+
+    EXPECT_NE(cmd.find("ip=172.25.166.135"), std::string::npos) << cmd;
+    EXPECT_NE(cmd.find("index=3"), std::string::npos) << cmd;
+    EXPECT_NE(cmd.find("method=off"), std::string::npos) << cmd;
+    // The power report sends resource=outlet to this same endpoint. The unreachable overload
+    // whose logic this replaced had dropped it, so adopting that code unchanged would have
+    // altered the request the testbed's gateway receives -- silently, because `curl -s` prints
+    // nothing and a reply to a malformed request looks like a reply to a refused one.
+    EXPECT_NE(cmd.find("resource=outlet"), std::string::npos)
+        << "the parameter the working call to this gateway sends is missing: " << cmd;
+    EXPECT_NE(cmd.find("http://localhost:8000/relay"), std::string::npos) << cmd;
+}
+
+TEST(RelayPowerCommandTest, AsksForTheHttpStatusInterpretRelayResponseReadsItsVerdictFrom)
+{
+    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "on");
+
+    // Without -w there is no status line, and interpretRelayResponse answers
+    // "response carried no HTTP status line" for every reply, including the successful ones.
+    EXPECT_NE(cmd.find("%{http_code}"), std::string::npos)
+        << "no status requested, so every verdict below is decided on the wrong evidence: " << cmd;
+    EXPECT_NE(cmd.find("-w"), std::string::npos) << cmd;
+    // On its own line, because that is where interpretRelayResponse splits.
+    EXPECT_NE(cmd.find("\\n%{http_code}"), std::string::npos) << cmd;
+}
+
+TEST(RelayPowerCommandTest, IsBoundedInTimeBecauseItRunsInsideARequestHandler)
+{
+    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "on");
+    EXPECT_NE(cmd.find("--max-time"), std::string::npos)
+        << "an unresponsive gateway stalls the HTTP handler indefinitely: " << cmd;
+}
+
+TEST(RelayPowerCommandTest, TheStatusLineSurvivesTheRoundTripIntoAVerdict)
+{
+    // The two halves have to agree, and nothing else checks that they do: build the command,
+    // then feed interpretRelayResponse what curl would produce under it.
+    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "on");
+    ASSERT_NE(cmd.find("\\n%{http_code}"), std::string::npos);
+
+    EXPECT_TRUE(RelayReader::interpretRelayResponse(reply(kOnPage, "200")).ok);
+    EXPECT_FALSE(RelayReader::interpretRelayResponse(reply(kOnPage, "500")).ok)
+        << "a gateway error read as success is exactly what `return rc == 0` did";
 }
