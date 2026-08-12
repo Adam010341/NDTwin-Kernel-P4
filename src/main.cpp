@@ -336,8 +336,6 @@ main(int argc, char* argv[])
                                                         mode,
                                                         classifier);
 
-    auto dataManager = std::make_unique<HistoricalDataManager>(topologyAndFlowMonitor, mode);
-
     flowRoutingManager =
         std::make_shared<FlowRoutingManager>(topologyAndFlowMonitor, collector, eventBus);
 
@@ -365,6 +363,12 @@ main(int argc, char* argv[])
 
     auto simManager = std::make_shared<SimulationRequestManager>(appManager, SIM_SERVER_URL);
 
+    // [Co-developed with claude code -- Adam]
+    // One instance, deliberately. There used to be two: a unique_ptr built earlier that was the
+    // one actually start()ed and stop()ped, and this shared_ptr, which was the one handed to the
+    // event handler and therefore to every HttpSession. The REST toggle set the logging flag on
+    // an object whose recording thread had never been started, while the object doing the
+    // recording could not be reached from any endpoint.
     auto historicalDataManager =
         std::make_shared<HistoricalDataManager>(topologyAndFlowMonitor, mode);
 
@@ -408,7 +412,7 @@ main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    dataManager->start();
+    historicalDataManager->start();
     handler->start();
     deviceConfigurationAndPowerManager->start();
 
@@ -420,7 +424,7 @@ main(int argc, char* argv[])
 
     topologyAndFlowMonitor->stop();
     collector->stop();
-    dataManager->stop();
+    historicalDataManager->stop();
     handler->stop();
     deviceConfigurationAndPowerManager->stop();
 
