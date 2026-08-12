@@ -259,6 +259,35 @@ TEST(P4PowerStrategyTest, PowerOnOnAnAlreadyUpSwitchRunsNothing)
     EXPECT_TRUE(fix.isUp());
 }
 
+TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
+{
+    // [Co-developed with claude code -- Adam]
+    // This message used to end "retrying this power-on retries the readopt." It cannot.
+    // helper-on has already succeeded at this point, so bmv2 is serving; p4LivenessFor answers
+    // Up on probe_ok alone and the 1 Hz pingWorker calls setVertexUp within a second; the retry
+    // then hits powerOn's own getVertexIsUp early-return and answers 200 without going near the
+    // readopt. An operator following the message gets a green result over a switch that cannot
+    // forward a packet -- the exact half-state the readopt step exists to catch.
+    //
+    // Asserted as message content because the message *is* the deliverable here: this OpResult
+    // is the only honest witness to the half-state, so what it tells the operator to do next is
+    // the contract, not decoration.
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    FakeP4 p4;
+    p4.failSubstring = "readopt";
+
+    const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
+
+    ASSERT_FALSE(result.ok);
+    const std::string msg = result.message;
+    EXPECT_NE(msg.find("power off"), std::string::npos)
+        << "the only recovery that reaches the readopt again is off-then-on, and the message "
+           "has to say so: " << msg;
+    EXPECT_EQ(msg.find("retrying this power-on retries the readopt"), std::string::npos)
+        << "the message promises a retry that early-returns success instead: " << msg;
+}
+
 TEST(P4PowerStrategyTest, DescribesItselfForLogsAndErrors)
 {
     FakeP4 p4;

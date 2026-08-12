@@ -76,11 +76,26 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
         // state is awkward -- the process *is* running, and the 1 Hz probe will report it Up
         // even though it has no pipeline (the known residual in the design doc). The honest
         // signal that remains is this failure and the proxy's log.
+        //
+        // [Co-developed with claude code -- Adam]
+        // This message used to end "retrying this power-on retries the readopt." It does not,
+        // and the reason is the residual named just above: helper-on succeeded, so bmv2 is
+        // serving, so p4LivenessFor answers Up on probe_ok alone
+        // (DeviceConfigurationAndPowerManager.cpp) and the 1 Hz pingWorker calls setVertexUp
+        // within a second. A retry then hits the `getVertexIsUp` early-return at the top of
+        // this function and reports success without touching the readopt -- or, if it beats
+        // the probe, the helper refuses to start a second instance and the failure names the
+        // wrong step. Telling the operator the true recovery costs one sentence; letting them
+        // retry into a green 200 over a switch that cannot forward a packet costs an outage
+        // nobody is looking for.
         return OpResult::failure(502,
                                  "bmv2 for " + swName + " is running again, but the proxy "
                                      "could not re-adopt it (mastership/pipeline/clone/"
-                                     "routes); it cannot forward traffic. See the proxy log; "
-                                     "retrying this power-on retries the readopt.");
+                                     "routes); it cannot forward traffic. See the proxy log. "
+                                     "Recover with power off and then power on -- do NOT "
+                                     "repeat this power-on: the process is up, so liveness "
+                                     "marks the switch up within a second and the retry "
+                                     "returns success without re-attempting the readopt.");
     }
 
     topoMonitor->setVertexUp(node);

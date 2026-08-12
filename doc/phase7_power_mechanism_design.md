@@ -117,6 +117,17 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
   pingWorker 的 probe 仍會把它標 Up——但它沒有 pipeline。powerOn 回 failure 是誠實的，
   可是 twin 的 is_up 會跟著 probe 走。根治要動 `p4LivenessFor` 的政策（例如 probe 加
   pipeline cookie 檢查），那是 liveness 政策變更，界外。記錄，不處理。
+
+  > **這個殘餘的第二個後果（2026-08-12 補記，四主題審計 A 抓到）**：它同時讓
+  > **重試失效**。probe 在一秒內把 vertex 標 Up 之後，重跑 powerOn 會撞上函式開頭的
+  > `getVertexIsUp` early-return，回 200 success 而完全不碰 readopt；若搶在 probe 之前，
+  > helper 會以「已經在跑」拒絕，錯誤訊息還會指向錯的步驟。**唯一能再次抵達 readopt 的
+  > 路徑是 power off 再 power on。** 502 的訊息原本寫「retrying this power-on retries the
+  > readopt」，已改成明講 off-then-on，並由 `test_P4PowerStrategy.cpp` 的
+  > `TheReadoptFailureNamesARecoveryThatCanActuallyRun` 釘住。
+  >
+  > 原文只記了「twin 會顯示 Up」，沒記「所以我建議的復原動作做不到」——殘餘寫了一半，
+  > 而沒寫到的那一半才是操作員會照著做的那一半。
 - **0186#1（Tier 2）**：關掉的 switch 的 dpid 在某些端點回 success/0 而非錯誤，
   Energy-Saving-App 若拿它當閒置判準會誤讀。機制本身不消費它。Tier 2 依 Adam 指示不動。
 - **關機期間的 watchdog 行為**：殺掉 bmv2 → stream 死 + probe 失敗，赦免邏輯
