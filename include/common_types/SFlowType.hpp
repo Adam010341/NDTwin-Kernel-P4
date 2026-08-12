@@ -1,7 +1,10 @@
 #pragma once
 
+#include <arpa/inet.h>
+#include <charconv>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <queue>
@@ -66,6 +69,106 @@ struct AgentKey
  * outgoing interface used at that hop.
  */
 typedef std::vector<std::pair<uint64_t, uint32_t>> Path;
+
+/**
+ * @brief Parses one `[node, interface]` hop, or nothing if the JSON does not describe one.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * Both ingests of `all_destination_paths` -- the background poll in FlowLinkUsageCollector and
+ * the POST handler in HttpSession -- indexed `nodeJson[0]` and `nodeJson[1]` on a const json
+ * with no size or type check. That is not the same defect as an unchecked object key, and it is
+ * worse: nlohmann's two const `operator[]` overloads differ. The object overload does a `find`
+ * and a `JSON_ASSERT`, so a missing key aborts loudly in a Debug build. The array overload
+ * forwards straight to `std::vector::operator[]` with no bounds check at all --
+ *
+ *     if (JSON_HEDLEY_LIKELY(is_array())) { return m_data.m_value.array->operator[](idx); }
+ *
+ * -- so a hop array shorter than two elements is a heap read past the end in *every* build type,
+ * Debug included, and the enclosing `catch (const std::exception&)` cannot see it. ASan reports
+ * it as a heap-buffer-overflow. The HTTP handler's copy takes its input from the sibling apps
+ * over the network.
+ *
+ * The value parses are non-throwing for the same reason the surrounding ingest guards are: an
+ * unparseable address or port used to throw out of the loop and cost the whole reply, so one bad
+ * hop discarded every path after it.
+ *
+ * Shared rather than duplicated because the two call sites were already near-identical copies,
+ * and a guard that exists in one copy is the shape this codebase keeps rediscovering.
+ *
+ * @param nodeJson One element of a path array, expected to be `[node, interface]`.
+ * @return The (node id, interface) pair, or nullopt if the element is not a well-formed hop.
+ */
+inline std::optional<std::pair<uint64_t, uint32_t>>
+tryParsePathNode(const nlohmann::json& nodeJson)
+{
+    if (!nodeJson.is_array() || nodeJson.size() < 2)
+    {
+        return std::nullopt;
+    }
+
+    const auto& nodeField = nodeJson[0];
+    const auto& portField = nodeJson[1];
+
+    uint64_t nodeId = 0;
+    if (nodeField.is_string())
+    {
+        // Host hops carry a dotted address; switch hops carry a numeric dpid.
+        const std::string text = nodeField.get<std::string>();
+        struct in_addr addr;
+        if (inet_pton(AF_INET, text.c_str(), &addr) != 1)
+        {
+            return std::nullopt;
+        }
+        nodeId = addr.s_addr;
+    }
+    else if (nodeField.is_number_unsigned() || nodeField.is_number_integer())
+    {
+        const auto raw = nodeField.get<int64_t>();
+        if (raw < 0)
+        {
+            return std::nullopt;
+        }
+        nodeId = static_cast<uint64_t>(raw);
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    uint32_t port = 0;
+    if (portField.is_number_unsigned() || portField.is_number_integer())
+    {
+        const auto raw = portField.get<int64_t>();
+        if (raw < 0 || raw > static_cast<int64_t>(UINT32_MAX))
+        {
+            return std::nullopt;
+        }
+        port = static_cast<uint32_t>(raw);
+    }
+    else if (portField.is_string())
+    {
+        // from_chars, not stoi: stoi throws std::invalid_argument on "abc", which is how a
+        // single malformed port used to cost every path behind it, and reached the HTTP caller
+        // as a 500 rather than a 400.
+        const std::string text = portField.get<std::string>();
+        uint32_t parsed = 0;
+        const char* begin = text.data();
+        const char* end = text.data() + text.size();
+        const auto [stop, ec] = std::from_chars(begin, end, parsed);
+        if (ec != std::errc() || stop != end)
+        {
+            return std::nullopt;
+        }
+        port = parsed;
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    return std::make_pair(nodeId, port);
+}
 
 /**
  * @brief Minimal sFlow sample data used for rate calculations.

@@ -1261,29 +1261,37 @@ HttpSession::handleInformAllDestinationPaths(http::response<http::string_body>& 
     for (const auto& pathJson : allPathsJson)
     {
         sflow::Path tempPath;
+        // [Co-developed with claude code -- Adam]
+        // The same unchecked indexing as the collector's copy of this loop, but reached from the
+        // network rather than from a poll: `nodeJson[0]` / `nodeJson[1]` on a const json forward
+        // to std::vector::operator[] with no bounds check, so a body carrying a hop array shorter
+        // than two elements read past the end of the heap. ASan calls it a heap-buffer-overflow;
+        // the catch below never saw it, because it is not an exception.
+        //
+        // std::stoi on the port threw std::invalid_argument on "abc", which the outermost handler
+        // turned into a 500 -- the same "you sent rubbish reported as I am broken" that the
+        // comment sixty lines above records fixing for app_id.
+        // The handler refuses rather than skipping, unlike the collector's copy: this body comes
+        // from a sibling app making a claim about the network, and quietly accepting the paths it
+        // got right would leave the caller believing all of them landed.
         for (const auto& nodeJson : pathJson)
         {
-            uint64_t nodeId = 0;
-            if (nodeJson[0].is_string())
+            const auto hop = sflow::tryParsePathNode(nodeJson);
+            if (!hop)
             {
-                nodeId = utils::ipStringToUint32(nodeJson[0].get<std::string>());
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "inform_all_destination_paths: a hop is not a well-formed "
+                                   "[node, interface] pair; rejecting the request");
+                res.result(http::status::bad_request);
+                res.body() = json{{"status", "error"},
+                                  {"error", "malformed path node"},
+                                  {"detail", "each hop must be [node, interface]; node is a "
+                                             "dotted IPv4 address or a numeric id, interface is "
+                                             "a number or a numeric string"}}
+                                 .dump();
+                return;
             }
-            else if (nodeJson[0].is_number())
-            {
-                nodeId = nodeJson[0].get<uint64_t>();
-            }
-
-            uint32_t port = 0;
-            if (nodeJson[1].is_number())
-            {
-                port = nodeJson[1].get<int>();
-            }
-            else if (nodeJson[1].is_string())
-            {
-                port = std::stoi(nodeJson[1].get<std::string>());
-            }
-
-            tempPath.emplace_back(nodeId, port);
+            tempPath.emplace_back(hop->first, hop->second);
         }
         if (!tempPath.empty())
         {

@@ -2235,6 +2235,12 @@ FlowLinkUsageCollector::getAllPaths()
 void
 FlowLinkUsageCollector::fetchAllDestinationPaths()
 {
+    // [Co-developed with claude code -- Adam]
+    // Edge-triggered, and static because this function is called once per poll: a per-call log
+    // would report the same malformed reply on every poll forever, which is the flood
+    // KeyedFailureLog was written for. Same instrument walkFailures uses below.
+    static utils::KeyedFailureLog pathFailures{std::chrono::seconds(60)};
+
     try
     {
         // 1. Build and run the curl command
@@ -2271,29 +2277,33 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
         for (const auto& pathJson : allPathsJson)
         {
             sflow::Path p;
+            // [Co-developed with claude code -- Adam]
+            // Was `nodeJson[0]` / `nodeJson[1]` with no size or type check. On a const json the
+            // numeric operator[] forwards straight to std::vector::operator[] -- unlike the
+            // object overload, which asserts -- so a hop array shorter than two elements read
+            // past the end of the heap in every build type, and the catch below could not see
+            // it. The value parses threw as well, costing every path after the bad one.
+            //
+            // A malformed hop discards its own path rather than the reply: a path with a hop
+            // missing is not a path, but the other destinations are still good data.
+            bool pathIsUsable = true;
             for (const auto& nodeJson : pathJson)
             {
-                uint64_t nodeId;
-                if (nodeJson[0].is_string())
+                const auto hop = sflow::tryParsePathNode(nodeJson);
+                if (!hop)
                 {
-                    nodeId = utils::ipStringToUint32(nodeJson[0].get<std::string>());
+                    pathFailures.record("malformed-hop",
+                                        "all_destination_paths carried a hop that is not a "
+                                        "well-formed [node, interface] pair; that path is "
+                                        "skipped, the rest are kept");
+                    pathIsUsable = false;
+                    break;
                 }
-                else
-                {
-                    nodeId = nodeJson[0].get<uint64_t>();
-                }
-
-                uint32_t port;
-                if (nodeJson[1].is_string())
-                {
-                    port = static_cast<uint32_t>(std::stoi(nodeJson[1].get<std::string>()));
-                }
-                else
-                {
-                    port = nodeJson[1].get<uint32_t>();
-                }
-
-                p.emplace_back(nodeId, port);
+                p.emplace_back(hop->first, hop->second);
+            }
+            if (!pathIsUsable)
+            {
+                continue;
             }
             if (!p.empty())
             {

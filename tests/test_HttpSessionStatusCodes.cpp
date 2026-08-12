@@ -254,3 +254,48 @@ TEST_F(LockEndpointTest, NumOfFlowsWithADpidStillAnswers200)
     EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
     EXPECT_EQ(nlohmann::json::parse(res.body()).value("status", ""), "success");
 }
+
+// ---------------------------------------------------------------------------
+// POST /ndt/inform_all_destination_paths -- a malformed hop.
+//
+// [Co-developed with claude code -- Adam]
+// The body comes from the sibling apps over the network, and the loop that reads it indexed
+// nodeJson[0] / nodeJson[1] on a const json with no size check. nlohmann's const array
+// operator[] forwards straight to std::vector::operator[] -- unlike the object overload, which
+// asserts -- so a hop array shorter than two elements read past the end of the heap in every
+// build type. It is not an exception, so the handler's catch never saw it; ASan calls it a
+// heap-buffer-overflow.
+//
+// The handler refuses the whole request rather than skipping the bad path, unlike the collector's
+// copy of the same loop: a sibling app is making a claim about the network, and silently keeping
+// the paths it got right would leave the caller believing all of them landed. That asymmetry is
+// deliberate and is what these two cases pin.
+//
+// The collector is null in this fixture, which is exactly why these can run: the refusal happens
+// before anything is stored. A well-formed body would reach setAllPaths and need a real one.
+// ---------------------------------------------------------------------------
+
+TEST_F(LockEndpointTest, APathHopWithOnlyOneElementIsRejectedRatherThanReadPastTheEnd)
+{
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/inform_all_destination_paths",
+                                   R"({"all_destination_paths": [[["10.0.0.1"]]]})");
+
+    EXPECT_EQ(res.result(), http::status::bad_request)
+        << "a one-element hop is the heap-buffer-overflow trigger; it must be refused before "
+           "the second element is read. Body: " << res.body();
+    EXPECT_NE(res.body().find("error"), std::string::npos) << res.body();
+}
+
+TEST_F(LockEndpointTest, APathInterfaceThatIsNotANumberIsAClientErrorNotAServerError)
+{
+    // std::stoi("abc") threw std::invalid_argument out of the loop, and the outermost handler
+    // turned it into a 500 -- the same conflation this file's sibling cases removed for the lock
+    // endpoints, and that HttpSession.cpp records fixing for app_id sixty lines above the loop.
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/inform_all_destination_paths",
+                                   R"({"all_destination_paths": [[[5, "abc"], [6, 2]]]})");
+
+    EXPECT_EQ(res.result(), http::status::bad_request)
+        << "answered " << res.result_int() << " for a malformed request body: " << res.body();
+}
