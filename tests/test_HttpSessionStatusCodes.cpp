@@ -144,6 +144,22 @@ TEST_F(LockEndpointTest, AMalformedBodyIsRejectedRatherThanReleasingTheDefaultLo
         << "the malformed request released routing_lock as a side effect";
 }
 
+/**
+ * A "type" field of the wrong JSON type is rubbish from the client, not a kernel fault.
+ *
+ * json::value("type", <const char*>) calls get<std::string>() on the found element, which throws
+ * json::type_error when the element is a number -- so this is not caught by the parse guard and
+ * would reach handleReleaseLock's outer catch(...), which answers 500. That is the exact
+ * confusion tests/test_HttpSessionRouting.cpp was written to prevent: a caller must be able to
+ * tell "you sent me rubbish" from "I am broken".
+ */
+TEST_F(LockEndpointTest, ATypeFieldOfTheWrongJsonTypeIsAClientErrorNotAServerError)
+{
+    const auto& res = m_peer->send(http::verb::post, "/ndt/release_lock", R"({"type":123})");
+
+    EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
+}
+
 /// The accept path: a held lock releases, and says so.
 TEST_F(LockEndpointTest, ReleasingAHeldLockSucceeds)
 {

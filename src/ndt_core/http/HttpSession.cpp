@@ -1949,7 +1949,20 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
             }
             if (jsonBody.contains("type"))
             {
-                lockType = jsonBody.value("type", LockManager::DEFAULT_LOCK_TYPE_STR);
+                // is_string() before reading it: value("type", <const char*>) calls
+                // get<std::string>() on the element and throws json::type_error when it is a
+                // number, which would escape to the outer catch(...) and answer 500 -- reporting
+                // a client's bad input as a kernel fault. That is the distinction
+                // tests/test_HttpSessionRouting.cpp exists to protect.
+                if (!jsonBody.at("type").is_string())
+                {
+                    res.result(http::status::bad_request);
+                    res.body() = json{{"error", "Invalid Request"},
+                                      {"detail", "'type' must be a string"}}
+                                     .dump();
+                    return;
+                }
+                lockType = jsonBody.at("type").get<std::string>();
             }
         }
 
