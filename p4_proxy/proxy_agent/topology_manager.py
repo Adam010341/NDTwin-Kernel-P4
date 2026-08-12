@@ -999,6 +999,37 @@ class TopologyManager:
         if thread is not None and thread.is_alive():
             thread.join(timeout)
 
+    def connected_switch_dpids(self):
+        """
+        The switches this proxy currently holds a working session with, for
+        `GET /v1.0/topology/switches`.
+
+        [Co-developed with claude code -- Adam]
+        `self.switches` is not that set. It is every client `startup` ever built, and killing a
+        switch's process does not remove its entry -- so serving its keys made that endpoint
+        claim a dead switch was connected while `/p4/switch_state`, from this same object at the
+        same moment, reported `probe_ok: false` and `stream_alive: false`. Two endpoints of one
+        process disagreeing, and the kernel believes this one: `updateSwitches` sets
+        `isUp = true` unconditionally for every dpid listed here, so the twin announced a
+        powered-off bmv2 as alive once per topology poll until the 1 Hz liveness worker corrected
+        it a second later. Measured 2026-08-12 at 10 Hz: an up-blip every poll, tracking the
+        poll's own 5s-then-30s cadence exactly.
+
+        Only a definite `False` excludes a switch. A probe that has never completed leaves `ok`
+        absent, and that is *not* evidence of death -- reporting it as disconnected would black
+        out the whole fabric for the first seconds of every run. It is the same three-state rule
+        the kernel's own `p4LivenessFor` applies, kept the same on purpose so the two processes
+        cannot disagree about what "no reading" means.
+
+        Staleness is deliberately not re-checked here. If the prober stalls, the last verdict
+        stands; a stale `False` keeps a switch out of this list, which only withholds the claim
+        that it is up, and withholding a claim is the safe direction for an endpoint whose sole
+        consumer turns membership into liveness.
+        """
+        with self._liveness_lock:
+            return [dpid for dpid in sorted(self.switches)
+                    if (self._last_probe.get(dpid) or {}).get("ok") is not False]
+
     def switch_liveness(self):
         """
         The evidence for each switch the proxy knows about, for `GET /p4/switch_state`.

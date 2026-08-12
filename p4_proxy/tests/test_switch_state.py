@@ -23,6 +23,7 @@ nothing and is reported as NO TESTS RAN.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import threading
@@ -31,6 +32,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from proxy_agent import api_routes  # noqa: E402
 from proxy_agent.topology_manager import (  # noqa: E402
     LIVENESS_PROBE_INTERVAL_S,
     LIVENESS_PROBE_TIMEOUT_S,
@@ -434,6 +436,77 @@ class ConcurrencyTest(unittest.TestCase):
             t.join(timeout=5)
 
         self.assertEqual(errors, [])
+
+
+class ConnectedSwitchListTest(unittest.TestCase):
+    """Which switches `GET /v1.0/topology/switches` admits to being connected to.
+
+    [Co-developed with claude code -- Adam]
+    Driven through the endpoint rather than through connected_switch_dpids alone, because the
+    defect was in the *caller*: render_switches has always documented "a switch the proxy cannot
+    reach does not appear", and topology_switches handed it `switches.keys()` -- every client
+    ever built, dead ones included. A test of the helper by itself would stay green while
+    someone put `switches.keys()` back.
+
+    Why it mattered: the kernel's updateSwitches sets isUp = true unconditionally for every dpid
+    listed here, so a dead switch appearing in this list made the twin announce it alive once per
+    topology poll, until the 1 Hz liveness worker took it back down a second later.
+    """
+
+    def setUp(self):
+        self._saved_topology = api_routes.topology
+
+    def tearDown(self):
+        api_routes.topology = self._saved_topology
+
+    @staticmethod
+    def listed(topo):
+        """The dpids the endpoint reports, decoded from Ryu's hex-string shape."""
+        api_routes.topology = topo
+        return sorted(int(s["dpid"], 16) for s in asyncio.run(api_routes.topology_switches()))
+
+    def test_a_switch_whose_probe_failed_is_not_reported_as_connected(self):
+        topo = TopologyManager()
+        for dpid in (1, 2, 3):
+            topo.add_switch(dpid, FakeClient())
+        topo._last_probe[1] = {"ok": True, "detail": "answered", "at": time.monotonic()}
+        topo._last_probe[2] = {"ok": False, "detail": "connection refused", "at": time.monotonic()}
+        topo._last_probe[3] = {"ok": True, "detail": "answered", "at": time.monotonic()}
+
+        self.assertEqual(self.listed(topo), [1, 3],
+                         "a switch the proxy cannot reach was still offered to the kernel, which "
+                         "turns membership of this list into isUp = true")
+
+    def test_a_switch_that_answers_its_probe_is_reported(self):
+        # The accept path. Without this the suite could pass by reporting nothing at all, and a
+        # fabric where no switch is ever listed never comes up.
+        topo = TopologyManager()
+        topo.add_switch(7, FakeClient())
+        topo._last_probe[7] = {"ok": True, "detail": "answered", "at": time.monotonic()}
+
+        self.assertEqual(self.listed(topo), [7])
+
+    def test_a_switch_with_no_probe_yet_is_reported(self):
+        # Three states, not two. "Never asked" is not "asked and told no": excluding it would
+        # report an empty fabric for the first seconds of every run, which is the same mistake
+        # p4LivenessFor avoids by answering Unknown rather than Down.
+        topo = TopologyManager()
+        topo.add_switch(4, FakeClient())
+
+        self.assertEqual(self.listed(topo), [4],
+                         "a switch that has simply not been probed yet was reported as "
+                         "disconnected")
+
+    def test_a_switch_that_comes_back_is_reported_again(self):
+        # Power-on has to be able to reverse this, or a switch that failed one probe would be
+        # withheld from the kernel forever.
+        topo = TopologyManager()
+        topo.add_switch(6, FakeClient())
+        topo._last_probe[6] = {"ok": False, "detail": "connection refused", "at": time.monotonic()}
+        self.assertEqual(self.listed(topo), [])
+
+        topo._last_probe[6] = {"ok": True, "detail": "answered", "at": time.monotonic()}
+        self.assertEqual(self.listed(topo), [6])
 
 
 if __name__ == "__main__":

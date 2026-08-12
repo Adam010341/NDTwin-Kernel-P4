@@ -41,7 +41,12 @@ def inject_readopt(client_factory, sample_callback):
 async def topology_switches():
     if topology is None:
         return []
-    return ryu_topology.render_switches(topology.switches.keys())
+    # [Co-developed with claude code -- Adam]
+    # connected_switch_dpids(), not switches.keys(). render_switches' contract -- "a switch the
+    # proxy cannot reach does not appear, so the kernel does not mark it enabled" -- was correct
+    # and this caller was the one breaking it: switches.keys() is every client ever built, dead
+    # ones included. See connected_switch_dpids for what that cost the twin.
+    return ryu_topology.render_switches(topology.connected_switch_dpids())
 
 
 @router.get("/v1.0/topology/links")
