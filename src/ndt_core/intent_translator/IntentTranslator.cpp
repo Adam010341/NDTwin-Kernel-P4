@@ -214,6 +214,45 @@ IntentTranslator::dpidForSwitchIp(const std::string& switchIp) const
     return it->second;
 }
 
+// [Co-developed with claude code -- Adam]
+// The three reply renderers below are pure and static so the shape of a reply is assertable on
+// its own, following interpretRelayResponse / ovsLivenessFor / p4LivenessFor. json{}.dump() is
+// used rather than the string concatenation the DISABLE/ENABLE cases above use: a device name
+// containing a quote would otherwise emit a malformed body, and device names arrive from an LLM.
+std::string
+IntentTranslator::switchNotFoundReply(const std::string& deviceName)
+{
+    return json{{"error", "Switch not found"}, {"device", deviceName}}.dump();
+}
+
+std::string
+IntentTranslator::powerReply(bool ok, const std::string& action, const std::string& deviceName)
+{
+    if (!ok)
+    {
+        return json{{"error", "Power " + action + " failed"}, {"device", deviceName}}.dump();
+    }
+    return json{{"status", action == "off" ? "powered_off" : "powered_on"},
+                {"device", deviceName}}
+        .dump();
+}
+
+std::string
+IntentTranslator::flowReply(const OpResult& result,
+                            const std::string& operation,
+                            const std::string& deviceName)
+{
+    if (!result.ok)
+    {
+        return json{{"error", "Flow entry " + operation + " failed"},
+                    {"device", deviceName},
+                    {"http_status", result.httpStatus},
+                    {"detail", result.message}}
+            .dump();
+    }
+    return json{{"status", operation + "ed"}, {"device", deviceName}}.dump();
+}
+
 std::string
 IntentTranslator::performTask(llmResponse::Task* task)
 {
@@ -266,22 +305,29 @@ IntentTranslator::performTask(llmResponse::Task* task)
         {
             llmResponse::PowerOffSwitchTask* poweroffTask = dynamic_cast<llmResponse::PowerOffSwitchTask*>(task);
             auto deviceIpOpt = this->getSwitchIpByName(poweroffTask->deviceName);
-            if (deviceIpOpt.has_value())
+            if (!deviceIpOpt.has_value())
             {
-                SPDLOG_LOGGER_DEBUG(Logger::instance(), "Powering off switch: {}", deviceIpOpt.value());
-                this->m_deviceConfigManager->setSwitchPowerState(deviceIpOpt.value(), "off");
+                return switchNotFoundReply(poweroffTask->deviceName);
             }
-            break;
+            SPDLOG_LOGGER_DEBUG(Logger::instance(), "Powering off switch: {}", deviceIpOpt.value());
+            return powerReply(this->m_deviceConfigManager->setSwitchPowerState(deviceIpOpt.value(),
+                                                                              "off"),
+                              "off",
+                              poweroffTask->deviceName);
         }
         case llmResponse::TaskType::POWERON_SWITCH:
         {
             llmResponse::PowerOnSwitchTask* powerOnTask = dynamic_cast<llmResponse::PowerOnSwitchTask*>(task);
             auto deviceIpOpt = this->getSwitchIpByName(powerOnTask->deviceName);
-            if (deviceIpOpt.has_value())
+            if (!deviceIpOpt.has_value())
             {
-                this->m_deviceConfigManager->setSwitchPowerState(deviceIpOpt.value(), "on");
+                return switchNotFoundReply(powerOnTask->deviceName);
             }
-            break;
+            SPDLOG_LOGGER_DEBUG(Logger::instance(), "Powering on switch: {}", deviceIpOpt.value());
+            return powerReply(this->m_deviceConfigManager->setSwitchPowerState(deviceIpOpt.value(),
+                                                                               "on"),
+                              "on",
+                              powerOnTask->deviceName);
         }
         case llmResponse::TaskType::INSTALL_FLOW_ENTRY:
         {
@@ -303,13 +349,15 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 match["nw_dst"] = match["ipv4_dst"];
                 match.erase("ipv4_dst");
 
-                this->m_flowRoutingManager->installAnEntry(
-                    dpid,
-                    installTaskJson["parameters"]["priority"].get<int>(),
-                    match,
-                    installTaskJson["parameters"]["actions"]);
+                return flowReply(this->m_flowRoutingManager->installAnEntry(
+                                     dpid,
+                                     installTaskJson["parameters"]["priority"].get<int>(),
+                                     match,
+                                     installTaskJson["parameters"]["actions"]),
+                                 "install",
+                                 installTask->deviceName);
             }
-            break;
+            return switchNotFoundReply(installTask->deviceName);
         }
         case llmResponse::TaskType::MODIFY_FLOW_ENTRY:
         {
@@ -331,13 +379,15 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 match["nw_dst"] = match["ipv4_dst"];
                 match.erase("ipv4_dst");
                 
-                this->m_flowRoutingManager->modifyAnEntry(
-                    dpid,
-                    modifyTaskJson["parameters"]["priority"].get<int>(),
-                    match,
-                    modifyTaskJson["parameters"]["actions"]);
+                return flowReply(this->m_flowRoutingManager->modifyAnEntry(
+                                     dpid,
+                                     modifyTaskJson["parameters"]["priority"].get<int>(),
+                                     match,
+                                     modifyTaskJson["parameters"]["actions"]),
+                                 "modify",
+                                 modifyTask->deviceName);
             }
-            break;
+            return switchNotFoundReply(modifyTask->deviceName);
         }
         case llmResponse::TaskType::DELETE_FLOW_ENTRY:
         {
@@ -352,9 +402,12 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 }
                 uint64_t dpid = *dpidOpt;
                 json deleteTaskJson = *deleteTask;
-                this->m_flowRoutingManager->deleteAnEntry(dpid, deleteTaskJson["parameters"]["match"]);
+                return flowReply(this->m_flowRoutingManager->deleteAnEntry(
+                                     dpid, deleteTaskJson["parameters"]["match"]),
+                                 "delete",
+                                 deleteTask->deviceName);
             }
-            break;
+            return switchNotFoundReply(deleteTask->deviceName);
         }
         case llmResponse::TaskType::GET_TOP_K_FLOWS:
         {
