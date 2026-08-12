@@ -143,3 +143,74 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
 - 全部過 mutation gate。
 - Live（計劃 §479 步驟 6）：off → 那台關掉且**保持**關掉、其他九台照常轉送；on → 回來
   且路由重灌。前置：Adam 的 OVS 手動輪結束、切 P4 stack、helper 安裝 + sudoers 行。
+
+## Live 驗收結果（2026-08-12 16:29–16:38，實跑）
+
+[Co-developed with claude code -- Adam]
+
+環境：Mininet + 10 台 bmv2 + proxy + kernel，`stack.sh up p4` 收斂為 10 switches / 40 edges /
+12 paths。對 **s6**（`192.168.123.16`，dpid 6）做 off → 保持 6 分鐘 → on。
+
+判準不是只看 API：全程從 h1 灌兩條 ping（`mnexec -a`，20 pps），一條的路徑**不經過** s6，
+一條**經過** s6。API 全綠但封包停掉，是這個 repo 已經踩過的坑。
+
+### 通過的
+
+| 項目 | 實測 |
+|---|---|
+| 只關掉目標那一台 | `pgrep -cx simple_switch_g` 10→9，gRPC 只少 `:50056`，其餘 9 個 pid 不變 |
+| **其他九台照常轉送** | h1→h2（s1→s5→s2）**9000 送出 / 9000 收到 / 0% 遺失**，全程無 >0.5s 的間隙 |
+| 關掉的那台真的不轉送了 | h1→h3（經 s6）在 power-off 那一瞬間斷掉，最後一個回覆落在 helper 回報 stopped 前 0.3 秒 |
+| 保持關掉 | 60 秒 20 次取樣，`bmv2=9` 從頭到尾，沒有東西把它拉回來 |
+| twin 誠實 | `is_up=false`、power state `OFF`、kernel 停止輪詢 `/stats/flow/6`；`edges` 維持 40（決定 2：switch 不離開圖） |
+| 自動繞路 | proxy 偵測到 s6 的鏈路全斷 → `link_failure_detected` ×6 + 重算路徑，h1→h3 **14.9 秒**後自己回來，改走 s1→s5→s9→s7→s3（ttl 前後都是 59，一樣 5 跳）。s6 從 12 條路徑中完全消失 |
+| powerOn 之後完全復原 | s6 回到 4 條路徑、每台 4 條規則、h1→h3 200/200 0% 遺失 |
+
+> 繞路這件事值得記一筆：`doc/p4_manual_test_runbook.md` 寫「failover 還沒做」，那是指
+> **`tc netem` 砍單一鏈路**的情境（process 還活著）。**整台 switch 死掉**是不同的路徑——
+> gRPC stream 斷、probe 失敗、beacon 停，proxy 會回報 link failure 並重算。兩件事不要混。
+
+### 沒通過的：powerOn 第一次必失敗
+
+`POST set_switches_power_state?action=on` 回 **HTTP 500**。分解：
+
+1. helper **成功**：`{"status": "started", "name": "s6", "pid": 65972}`，manifest 更新，
+   process 活著，`:50056` 在聽。
+2. `POST /p4/readopt/6` 回 **502**，卡在 **`step: "pipeline"`**，錯誤是
+   `UNAVAILABLE ... ipv4:127.0.0.1:50056: Connection refused`。
+3. kernel 的行為**完全正確**：twin 不動、回 failure、log 寫明卡在哪一步，並照 `2abf1e3`
+   的修正叫人 off-then-on 而不是重試 power-on。
+
+關鍵在於 **port 明明在聽**。手動連 `127.0.0.1` / `localhost` / `::1` 三種都 CONNECTED，
+而同一時間 readopt 仍然拿到 Connection refused。第二次手動 readopt（process 起來約 90 秒後）
+**還是** refused；第三次（約 130 秒後）**成功**，`{"status":"success","clone_session":true,
+"routes_installed":0}`。
+
+- **確定的事實**：helper 的「port 接受 TCP」不足以當作 readopt 可以開始的條件；powerOn
+  在這個環境下第一次一定失敗。
+- **還沒證實的機制**：時間點符合 gRPC 全域 subchannel pool 的重連 backoff（舊 client 對死掉的
+  port 狂連，新 channel 共用到那個帶 backoff 的 subchannel）。**符合不等於就是**，沒有驗證，
+  不要當結論寫進程式碼註解。
+- `routes_installed: 0` 不是 bug：那個時間點路徑已經繞開 s6，所以「s6 的路由」本來就是空集合。
+  之後 link recovery 重算路徑才把 4 條規則裝回去——實測確認。
+
+### 沒通過的：失敗原因在兩邊的 log 都查不到
+
+`readopt` 的 docstring 寫「502 和 404 **both carry the step detail so the kernel's log says
+what actually broke**」。做不到：`P4PowerStrategy::executeSystemCommand` 用
+`curl -sS -f`，**`-f` 會把 body 丟掉**，kernel log 只剩 `curl: (22) ... error: 502`。
+proxy 那邊也只有 uvicorn 的 access log 一行 502，沒有細節。
+
+`step: "pipeline"` 是我**手動再打一次那個端點、拿掉 `-f`** 才看到的。設計寫下來的意圖被
+呼叫端的一個旗標取消掉了。
+
+### 沒通過的：twin 對關掉的 switch 會短暫謊報 Up
+
+1 Hz 取樣 59 次，有 **1 次** `is_up=true`，而同一次取樣 `bmv2=9`、`:50056` 沒人聽——
+process 確定是死的。另一次出現在兩分鐘前（16:32:26 與 16:34:26，**相隔正好 120 秒**）。
+
+proxy 沒有說謊：整整 70 秒的取樣裡 `probe_ok` **一次都沒有 true**，`probe_age_s` 都在 1.6 秒內，
+`stream_alive: false`。照 `p4LivenessFor` 的政策這應該穩定判 Down。所以 Up 是**別的東西**寫的，
+不是 probe 路徑。120 秒的間隔像週期性任務，但**只有兩個資料點，機制未確認**。
+
+影響：閒置策略若在那一秒讀到 `is_up`，會以為關掉的 switch 還活著。
