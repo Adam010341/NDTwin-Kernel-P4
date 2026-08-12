@@ -136,10 +136,12 @@ The underlying vertex/edge carries three independent flags:
 | `isEnabled`     | Topology discovery (`updateSwitches`/`updateLinks`/`updateHosts`) | The control plane can drive this device.        |
 | `adminDisabled` | Intent Translator’s `DisableSwitch`/`EnableSwitch`  | Operator asked for this to be out of service.   |
 
-`adminDisabled` is defined in `include/common_types/GraphTypes.hpp` lines 187-214 (doc comment)
-and folded into the JSON `is_enabled` in `to_json` at line 323:
+`adminDisabled` is declared on `VertexProperties` in `include/common_types/GraphTypes.hpp`,
+with the reasoning in its own doc comment, and folded into the JSON `is_enabled` by the
+`VertexProperties` `to_json` in the same header:
 `{"is_enabled", v.isEnabled && !v.adminDisabled}`.
-The same folding is applied explicitly for edges at `src/ndt_core/http/HttpSession.cpp` line 530:
+The same folding is applied explicitly for edges in
+`HttpSession::handleGetGraphData` (`src/ndt_core/http/HttpSession.cpp`):
 `{"is_enabled", e.isEnabled && !e.adminDisabled}`.
 
 **Why folded.** The four consumers that read `is_enabled` — Energy-Saving-App,
@@ -162,7 +164,8 @@ The invariant above is checkable regardless.
 **OVS mode (Ryu).** `is_up` means the switch appears in Ryu’s `/v1.0/topology/switches` poll,
 a host appears in `/v1.0/topology/hosts`, and a link appears in `/v1.0/topology/links`.
 Discovery sets both `isUp` and `isEnabled` to `true` unconditionally for everything reported
-(`TopologyAndFlowMonitor.cpp` lines 499-500, 552-553, 569-570, 681-682).
+(`TopologyAndFlowMonitor::updateSwitches` / `updateHosts` / `updateLinks`; none of the three has
+any path that sets either flag false).
 Separately, `pingWorker` runs `ovs-vsctl list-br` once a second and calls `setVertexUp`/`setVertexDown`
 for OVS bridges it finds or misses.
 
@@ -180,22 +183,29 @@ for each switch it reports:
 - `last_lldp_age_s`: seconds since the last LLDP beacon arrived from this switch; `null` when none.
 - `last_packet_in_age_s`, `stream_alive`, `grpc_addr`.
 
-The kernel’s `p4LivenessFor()` (`DeviceConfigurationAndPowerManager.hpp` lines 319-360) applies
-a three-state policy:
+The kernel’s `p4LivenessFor()` (declared in `DeviceConfigurationAndPowerManager.hpp`, defined in
+the matching `.cpp`) applies a three-state policy. The branches are ordered, and the order matters:
 
 | Verdict  | Condition |
 | -------- | --------- |
-| **Up**   | `probe_ok == true` and `probe_age_s` ≤ 15 s |
-| **Down** | `probe_ok == false`, `probe_age_s` ≤ 15 s, and no fresh LLDP beacon (age > 12 s) |
-| **Unknown** | Everything else: no payload at all, no entry for this dpid, `probe_ok` is `null`, `probe_age_s` is stale, or the probe and the beacon disagree |
+| **Up**   | `probe_ok == true`. **Nothing else is consulted** — not `probe_age_s`, not the beacon. A completed P4Runtime round-trip is taken as proof the process is serving, however old it is |
+| **Down** | `probe_ok == false`, `probe_age_s` ≤ 15 s (or absent), and no fresh LLDP beacon (age > 12 s) |
+| **Unknown** | Everything else: no payload at all, no entry for this dpid, `probe_ok` is `null` or not a boolean, or — **on the `probe_ok == false` path only** — `probe_age_s` is stale, either age field is malformed, or the failed probe and a fresh beacon disagree |
+
+⚠️ The staleness rule applies to *failures*, not to successes. A proxy poller that stalls after a
+successful probe keeps reporting **Up** indefinitely; only a stalled poller whose last probe
+*failed* degrades to Unknown. This is deliberate — a stale success is the branch that keeps the
+readopt residual described in `doc/phase7_power_mechanism_design.md` visible — but it is the
+opposite of what an “Up means fresh” reading would predict.
 
 **Unknown deliberately leaves the graph alone.** The caller `pingWorker` sets `isUp` only on
 Up and Down; on Unknown it writes nothing, so the graph keeps its previous state. Conflating
 Unknown with Down would take the whole fabric down whenever the proxy is unreachable — the
 same mistake that a single failed `ovs-vsctl` call used to make on the OVS side.
 
-The proxy (`p4_proxy/proxy_agent/topology_manager.py` lines 716-758) also emits `links`
-in the response (the link watchdog’s state), but the kernel reads only the `"switches"` key.
+The proxy also emits `links` in the same response — the link watchdog’s state, assembled by
+`TopologyManager.switch_liveness()` from `link_liveness()` in
+`p4_proxy/proxy_agent/topology_manager.py` — but the kernel reads only the `"switches"` key.
 
 At the edge between the switch and host, the dpid and interface on the host side are set to 0.
 
@@ -530,9 +540,15 @@ Returned when an unknown exception type is thrown.
 
 ## 6. GET /ndt/get_power_report
 ### Description
-Returns the estimated power consumption (in watts, W) of each switch. The behavior varies based on deployment mode:
+Returns the estimated power consumption of each switch as `power_consumed`, **in milliwatts (mW)**.
+Divide by 1000 for watts. The behavior varies based on deployment mode:
 
-In MININET mode, random values are generated for demonstration purposes.
+In MININET mode the figure is synthetic but **deterministic, not random**:
+`DeviceConfigurationAndPowerManager::syntheticPowerMilliwattsFor` mixes the dpid through
+splitmix64's finalizer and returns a 30 000 mW baseline plus a 120 000 mW span — so every value is
+in **30 000–149 999 mW (30–150 W)**, and the same dpid yields the same number on every run and on
+every platform. Diffing two runs to look for movement will find none; that is the design, so the
+figure can be used as a fixture.
 
 In TESTBED mode, power values are collected via SSH or SNMP from each switch's IP address and parsed from the returned output.
 
@@ -546,22 +562,27 @@ In TESTBED mode, power values are collected via SSH or SNMP from each switch's I
 [
   {
     "dpid": 106225808391692,
-    "power_consumed": 851157966
+    "power_consumed": 103946
   },
   {
     "dpid": 106225808380928,
-    "power_consumed": 851152638
+    "power_consumed": 138637
   },
   {
     "dpid": 106225808387660,
-    "power_consumed": 842764030
+    "power_consumed": 143078
   },
   {
     "dpid": 106225808402492,
-    "power_consumed": 851157966
+    "power_consumed": 141723
   }
 ]
 ```
+
+> These four MININET values are the real output for these four dpids, not illustrative
+> placeholders — the mixer is deterministic, so they can be pasted into a test.
+> The previous example (`851157966` and friends, ≈ 851 kW) could not be produced by any
+> deployment mode.
 #### Error
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
 * Status: **400 Bad Request**
@@ -703,10 +724,21 @@ POST "http://localhost:8000/ndt/set_switches_power_state?ip=10.10.10.10&action=o
 ```
 
 #### Error
+Returned when `ip` is empty, or `action` is anything other than `"on"` or `"off"`.
 * Status: **400 Bad Request**
 ```json
 {
-  "error": "Missing or malformed query parameters"
+  "error": "Missing or invalid ip/action"
+}
+```
+Returned when the power operation itself failed — the switch was **not** switched. This is the
+answer a caller gets when the Phase 7 root helper `ndtwin-p4-power` is not installed, when the
+manifest is stale, when the gRPC port is occupied, or when the proxy could not re-adopt a
+restarted bmv2. The reason is in the kernel log, not in this body.
+* Status: **500 Internal Server Error**
+```json
+{
+  "error": "Failed to change switch power state"
 }
 ```
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
@@ -741,6 +773,46 @@ Returned when an unknown exception type is thrown.
 > with the dpid and the controller's reply. Earlier versions answered
 > `"Flow installed"` regardless of what happened, which made a failure
 > indistinguishable from a success.
+
+<a id="unknown-dpid-contract"></a>
+> **Unknown-dpid contract for the flow-entry endpoints (9, 10, 11 and 23).**
+> All four share one code path (`HttpSession::processFlowBatch`), so all four answer the same way.
+> Before anything is enqueued, the batch is partitioned into entries whose `dpid` names a switch in
+> the loaded topology and entries whose `dpid` does not.
+>
+> **Every entry unknown → `404 Not Found`, nothing is enqueued.** The body names the offenders in
+> `unknown_dpids`:
+>
+> ```json
+> {
+>   "status": "error",
+>   "error": "unknown dpid",
+>   "unknown_dpids": [999999999999],
+>   "detail": "these dpids are not switches in the loaded topology; check the dpid, or that the topology file matches the running network"
+> }
+> ```
+>
+> **Some entries known → `200 OK`, the known ones are enqueued and the rest are dropped.** The
+> success body then carries two *extra* fields, `rejected` (a count) and `rejected_dpids`:
+>
+> ```json
+> {
+>   "status": "queued",
+>   "accepted": 1,
+>   "rejected": 1,
+>   "rejected_dpids": [999999999999],
+>   "detail": "some entries were dropped because their dpid is not a switch in the loaded topology; the rest were accepted for programming, and per-entry outcomes are reported in the kernel log, not in this response"
+> }
+> ```
+>
+> ⚠️ **`rejected`/`rejected_dpids` are present only when something was dropped**, so a client may
+> treat their absence as "all of it was taken" — but a client that reads only the status code will
+> see `200` and miss the partial acceptance entirely. Check for the keys.
+>
+> The `404` is a refusal, not an outage: it means the request named no switch this kernel knows
+> about. Retrying it unchanged will always produce the same answer.
+> Worked examples with live responses are in
+> [`doc/audit/integration-runbook-2026-08-09.md`](audit/integration-runbook-2026-08-09.md).
 
 ## 9. POST /ndt/install_flow_entry
 ### Description
@@ -781,6 +853,20 @@ The API constructs and sends a **flowentry/add** POST request to Ryu.
 }
 ```
 #### Error
+Returned when **no** entry in the request names a switch in the loaded topology. Nothing is
+enqueued; this is a refusal, not an outage.
+* Status: **404 Not Found**
+```json
+{
+  "status": "error",
+  "error": "unknown dpid",
+  "unknown_dpids": [999999999999],
+  "detail": "these dpids are not switches in the loaded topology; check the dpid, or that the topology file matches the running network"
+}
+```
+⚠️ A batch that is only *partly* unknown answers **200 OK** instead, with `rejected` and
+`rejected_dpids` added to the success body — see
+[the unknown-dpid contract](#unknown-dpid-contract) after section 8.
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
 * Status: **400 Bad Request**
 ```json
@@ -840,6 +926,20 @@ Deletes a flow entry from a switch based on match fields.
 }
 ```
 #### Error
+Returned when **no** entry in the request names a switch in the loaded topology. Nothing is
+enqueued; this is a refusal, not an outage.
+* Status: **404 Not Found**
+```json
+{
+  "status": "error",
+  "error": "unknown dpid",
+  "unknown_dpids": [999999999999],
+  "detail": "these dpids are not switches in the loaded topology; check the dpid, or that the topology file matches the running network"
+}
+```
+⚠️ A batch that is only *partly* unknown answers **200 OK** instead, with `rejected` and
+`rejected_dpids` added to the success body — see
+[the unknown-dpid contract](#unknown-dpid-contract) after section 8.
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
 * Status: **400 Bad Request**
 ```json
@@ -905,6 +1005,20 @@ Sends a **flowentry/modify** request to the Ryu controller.
 }
 ```
 #### Error
+Returned when **no** entry in the request names a switch in the loaded topology. Nothing is
+enqueued; this is a refusal, not an outage.
+* Status: **404 Not Found**
+```json
+{
+  "status": "error",
+  "error": "unknown dpid",
+  "unknown_dpids": [999999999999],
+  "detail": "these dpids are not switches in the loaded topology; check the dpid, or that the topology file matches the running network"
+}
+```
+⚠️ A batch that is only *partly* unknown answers **200 OK** instead, with `rejected` and
+`rejected_dpids` added to the success body — see
+[the unknown-dpid contract](#unknown-dpid-contract) after section 8.
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
 * Status: **400 Bad Request**
 ```json
@@ -993,10 +1107,15 @@ GET "http://localhost:8000/ndt/inform_switch_entered?dpid=106225808402492"
   "error": "Missing dpid parameter"
 }
 ```
+Returned when `dpid` is present but is not an unsigned integer. The parse is strict: `12abc` and
+`-1` are refused rather than read as `12` and `18446744073709551615`.
 * Status: **400 Bad Request**
 ```json
 {
-  "error": "Invalid dpid format"
+  "status": "error",
+  "error": "invalid dpid",
+  "dpid": "abc",
+  "detail": "dpid must be an unsigned integer"
 }
 ```
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
@@ -1336,12 +1455,15 @@ At least one of the following parameters is required.
 ```
 
 #### Error 
-Returned if an identifier has an invalid format (e.g., a non-numeric DPID).
+Returned if the `dpid` identifier is not an unsigned integer. The parse is strict: `12abc` and
+`-1` are refused rather than read as `12` and `18446744073709551615`.
 * Status: **400 Bad Request**
 ```json
 {
-  "error": "Invalid DPID format",
-  "details": "stoull"
+  "status": "error",
+  "error": "invalid dpid",
+  "dpid": "abc",
+  "detail": "dpid must be an unsigned integer"
 }
 ```
 Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
@@ -1360,7 +1482,7 @@ Returned when a valid identifier is provided, but no matching device is found in
 }
 ```
 Returned if no identifier parameter (`dpid`, `mac`, or `name`) is provided in the URL.
-* Status: **404 Not Found**
+* Status: **400 Bad Request**
 ```json
 {
   "error": "Missing dpid, mac, or name parameter"
@@ -1839,6 +1961,20 @@ To minimize update time, the controller uses a producer–consumer architecture:
 ```
 
 #### Error
+Returned when **no** entry in the request names a switch in the loaded topology. Nothing is
+enqueued; this is a refusal, not an outage.
+* Status: **404 Not Found**
+```json
+{
+  "status": "error",
+  "error": "unknown dpid",
+  "unknown_dpids": [999999999999],
+  "detail": "these dpids are not switches in the loaded topology; check the dpid, or that the topology file matches the running network"
+}
+```
+⚠️ A batch that is only *partly* unknown answers **200 OK** instead, with `rejected` and
+`rejected_dpids` added to the success body — see
+[the unknown-dpid contract](#unknown-dpid-contract) after section 8.
 
 * Status: **400 Bad Request**
 
@@ -1890,8 +2026,13 @@ Returned when an unknown exception type is thrown.
 
 ## 24. GET /ndt/get_average_link_usage
 ### Description
-Returns the average link utilization across all UP inter-switch links (host-facing links are excluded).
-Only links with non-zero link_bandwidth_usage_bps are included in the average.
+Returns the average link utilization across all **usable** inter-switch links (host-facing links
+are excluded). Only links with non-zero `link_bandwidth_usage_bps` are included in the average.
+
+"Usable" is the full `isUsable(edge)` intersection — `isUp && isEnabled && !adminDisabled` — not
+`isUp` alone. A link an operator has administratively disabled is excluded even if it still carries
+residual traffic; that was the point of the change, since this figure is what Energy-Saving-App
+reads.
 
 ### Request
 * Method: **GET**
@@ -2190,37 +2331,30 @@ Supports optional type. If missing/invalid JSON, the default lock type is used.
 ```
 
 #### Error
-Returned when the request body is not valid JSON, or JSON fields have invalid types/format.
-* Status: **400 Bad Request**
-```json
-{
-  "error": "JSON parsing error",
-  "details": "<exception message>"
-}
-```
-Busy / Invalid Type
-* Status: **423 Locked**
-```json
-{
-  "error": "Lock release failed", 
-  "detail": "..."
-}
-```
-Returned when an unexpected runtime error occurs (e.g., invalid state, missing dependency, system failure).
+There is exactly one non-200 answer, and reaching it requires the handler itself to throw.
+A malformed body does **not** reach it: the body parse has its own `catch (...)` that falls back
+to the default lock type, so `{not json` is released as `routing_lock` with status 200.
 * Status: **500 Internal Server Error**
 ```json
 {
-  "error": "Internal server error",
-  "details": "<exception message>"
+  "error": "Release lock failed"
 }
 ```
-Returned when an unknown exception type is thrown.
-* Status: **500 Internal Server Error**
-```json
-{
-  "error": "An unknown error occurred"
-}
-```
+
+> ⚠️ **There is no failure status for a lock you do not hold.**
+> `handleReleaseLock` answers `200 {"status":"released"}` unconditionally — whether the lock was
+> held, held by someone else, already expired, or of an unrecognised type. `unlock` is `void`, so
+> the handler has nothing to branch on. Releasing an unrecognised type is a silent no-op that
+> still reports `released` with the type echoed back.
+>
+> Earlier revisions of this section documented **423 Locked**, and `doc/testing_workflow.md`
+> documented **412 Precondition Failed**, for a "busy / invalid type" case. **Neither status can
+> be produced by any code path** — both were removed rather than corrected, because there is no
+> right number to put there. A contract test asserting either can only ever fail.
+>
+> This is a real gap, not a documentation quirk: `LockManager` has no owner token, so any caller
+> can release any other caller's lock and be told it succeeded. Tracked in
+> `doc/test_coverage_gaps.md` §1.1.
 
 
 ## 30. GET /ndt/get_detected_top_k_flow_data
@@ -2743,7 +2877,7 @@ Same shapes as `/ndt/install_group_entry`.
 Returns the static OpenFlow capability catalogue from `doc/OpenflowCapacity.json`.
 This is a lookup table of OpenFlow features (table sizes, match fields, instructions,
 actions, group types, meter support) per switch brand. It is not live data — the file
-is read once per request from disk (`HttpSession.cpp` lines 1624-1642).
+is read once per request from disk (`HttpSession::handleGetOpenflowCapacity`).
 
 Works identically in OVS and P4 mode (no control-plane dependency).
 
@@ -2880,8 +3014,9 @@ on 2026-08-10. The actual output includes all nodes and edges from the running t
 ### Description
 
 Enables or disables historical data logging. The state is supplied as a query parameter
-because the handler reads it from the URL, not from a JSON body (`HttpSession.cpp`
-lines 1644-1678). A missing or invalid `state` parameter is rejected.
+because the handler reads it from the URL, not from a JSON body
+(`HttpSession::handleSetHistoricalLoggingState`). A missing or invalid `state` parameter is
+rejected.
 
 The underlying `HistoricalDataManager` may not be available (e.g. when the kernel runs
 with `--no-ai`); in that case the endpoint returns 500.
