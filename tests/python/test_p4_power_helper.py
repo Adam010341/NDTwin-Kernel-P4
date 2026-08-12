@@ -31,6 +31,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -42,9 +43,48 @@ HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                       "..", "..", "tools", "p4_power_helper.py")
 HELPER = os.path.abspath(HELPER)
 
-#: High ephemeral ports, kept away from the live stack (8000/8080/8081/6633) and from each
-#: other so a parallel test cannot collide.
-PORTS = iter(range(53101, 53199))
+def _free_port():
+    """
+    A port the OS says is free, asked for at the moment of use.
+
+    [Co-developed with claude code -- Adam]
+    This replaces `PORTS = iter(range(53101, 53199))`, a fixed band handed out from the same
+    starting number in every process. A review caught
+    test_a_switch_that_never_opens_its_port_can_still_be_stopped_by_off failing once in four runs:
+    the helper reported success for a fixture whose whole purpose is never to bind, which can only
+    happen if `port_listening` found something answering there.
+
+    Three explanations were tested and none survived: another process squatting the port
+    (`port_listening` *connects*, and a connection to someone else's client port is refused);
+    TCP self-connect on loopback inside the ephemeral range (0 hits in 5880 attempts); and this
+    suite leaking a listener (a full run leaves nothing behind).
+
+    What is left is a long-lived listener that simply owns a number in whatever band the test
+    picked. That is not hypothetical: on this machine Cursor listens on 127.0.0.1:23893, which
+    sits inside the first band tried as a fix. A collision there is worse than a plain flake,
+    because the helper *refuses* to launch behind an occupied port and exits 1 -- which is what
+    this particular test asserts, so it would pass for entirely the wrong reason.
+
+    Asking the OS removes the guessing: bind port 0, read what was assigned, release it. The
+    residual race -- the kernel reassigning it between the release and the fixture's bind -- is a
+    window of microseconds rather than a number some GUI application holds all day.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+class _Ports:
+    """Keeps `next(PORTS)` at the call sites; each next() is a fresh ask."""
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return _free_port()
+
+
+PORTS = _Ports()
 
 _MODULE_DIR = None      # holds the fake binaries for the whole run
 FAKE_SLEEP_SWITCH = None    # /bin/sleep copy named simple_switch_grpc
@@ -311,7 +351,7 @@ class OffTest(HelperTestBase):
         code = ("import signal, sys, time\n"
                 "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
                 "open(sys.argv[1], 'w').write('r')\n"
-                "time.sleep(600)\n")
+                "time.sleep(90)  # bounded: a run killed before tearDown must not outlive it for long\n")
         stubborn = self.spawn([FAKE_PY_SWITCH, "-c", code, ready, str(port)])
         deadline = time.monotonic() + 5
         while not os.path.exists(ready) and time.monotonic() < deadline:
@@ -340,7 +380,7 @@ class OnTest(HelperTestBase):
                          "s = socket.socket()\n"
                          "s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
                          "s.bind(('127.0.0.1', port)); s.listen(5)\n"
-                         "time.sleep(600)\n")
+                         "time.sleep(90)  # bounded: a run killed before tearDown must not outlive it for long\n")
         return f"{FAKE_PY_SWITCH} {script} {port} {pidfile}{extra}"
 
     def on_entry(self, port, argv):
@@ -439,7 +479,7 @@ class OnTest(HelperTestBase):
         with open(script, "w") as fh:
             fh.write("import os, sys, time\n"
                      "open(sys.argv[2], 'w').write(str(os.getpid()))\n"
-                     "time.sleep(600)\n")
+                     "time.sleep(90)  # bounded: a run killed before tearDown must not outlive it for long\n")
         argv = f"{FAKE_PY_SWITCH} {script} {port} {pidfile}"
         self.write_manifest({"s1": self.on_entry(port, argv)})
 
@@ -484,7 +524,7 @@ class OnTimeoutLeavesAnAddressableProcessTest(HelperTestBase):
                          "s = socket.socket()\n"
                          "s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
                          "s.bind(('127.0.0.1', port)); s.listen(5)\n"
-                         "time.sleep(600)\n")
+                         "time.sleep(90)  # bounded: a run killed before tearDown must not outlive it for long\n")
         return f"{FAKE_PY_SWITCH} {script} {port} {pidfile} {delay_s}"
 
     def silent_argv(self, port, pidfile):
@@ -495,7 +535,7 @@ class OnTimeoutLeavesAnAddressableProcessTest(HelperTestBase):
                 fh.write("import os, sys, time\n"
                          "port, pidfile = int(sys.argv[1]), sys.argv[2]\n"
                          "open(pidfile, 'w').write(str(os.getpid()))\n"
-                         "time.sleep(600)\n")
+                         "time.sleep(90)  # bounded: a run killed before tearDown must not outlive it for long\n")
         return f"{FAKE_PY_SWITCH} {script} {port} {pidfile}"
 
     def on_entry(self, port, argv):
