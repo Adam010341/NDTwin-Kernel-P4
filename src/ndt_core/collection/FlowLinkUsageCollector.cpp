@@ -2424,7 +2424,14 @@ FlowLinkUsageCollector::getPathBetweenHostsJson(const std::string& srcHostName,
         {
             errorJson["missing_hosts"].push_back(dstHostName);
         }
-        return errorJson.dump();
+        // [Co-developed with claude code -- Adam]
+        // The object, not errorJson.dump(). The return type is json, so .dump() made this a JSON
+        // *string value* that merely looked like JSON -- and the consumer in IntentTranslator
+        // does `json path = ...; return path.dump();`, which then double-encoded it into a
+        // quoted, escaped string. Success parsed as an object and failure did not, so a client
+        // doing parsed["error"] hit a type mismatch exactly and only when something had gone
+        // wrong.
+        return errorJson;
     }
 
     // 3. Get the IP addresses
@@ -2438,7 +2445,9 @@ FlowLinkUsageCollector::getPathBetweenHostsJson(const std::string& srcHostName,
 
     if (it == allPaths.end())
     {
-        return "{\"error\":\"No active or known path found between the specified hosts.\"}";
+        // An object, for the same reason as the branch above: the string literal was a JSON
+        // string value, not a JSON object. [Co-developed with claude code -- Adam]
+        return json{{"error", "No active or known path found between the specified hosts."}};
     }
 
     const auto& path = it->second;

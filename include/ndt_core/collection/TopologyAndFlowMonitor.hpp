@@ -199,6 +199,18 @@ class TopologyAndFlowMonitor
     void setTopologyApiUrls(const std::string& base);
 
     /**
+     * @brief The three URLs the topology poll will actually fetch: switches, hosts, links.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The read side of setTopologyApiUrls, and the only way to observe which control plane this
+     * monitor is aimed at. It exists because the default used to be a file-local constant
+     * hard-coding localhost:8080 rather than AppConfig::RYU_IP_AND_PORT, and no test could see
+     * the difference -- the symptom of the bug was a poll that quietly fetched nothing, which
+     * looks identical to a control plane with nothing to report.
+     */
+    const std::array<std::string, 3>& topologyApiUrls() const { return m_ryuUrl; }
+
+    /**
      * @brief Aims the topology poll at Ryu or at the P4 proxy, based on the loaded switch kinds.
      *
      * @details

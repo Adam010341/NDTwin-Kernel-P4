@@ -41,6 +41,7 @@ add_executable(
   test_HttpSessionStatusCodes.cpp
   test_HistoricalLogging.cpp
   test_CommandFailure.cpp
+  test_TopologyUrlAndPathJson.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
