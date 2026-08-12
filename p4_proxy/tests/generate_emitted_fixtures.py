@@ -14,7 +14,9 @@ The fixtures must be regenerated whenever the emitter's layout changes:
     python3 p4_proxy/tests/generate_emitted_fixtures.py
 
 test_sflow_emitter.py::CommittedFixtureTest fails if they drift, so a forgotten regeneration
-is caught rather than leaving the C++ test validating a stale layout.
+is caught rather than leaving the C++ test validating a stale layout. It covers every entry in
+FIXTURES, and FIXTURES is the only way this script writes a file -- see the note there for why
+that matters.
 
 Output is deterministic: each datagram uses a fresh SwitchAgent, so sequence numbers and the
 sample pool start from a known point and the bytes do not change between runs.
@@ -100,43 +102,58 @@ def frame_large_tcp() -> bytes:
         ipv4("10.0.0.1", "10.0.0.4", 6, tcp(5001, 40998, payload=b"\xab" * 1400))
 
 
+# Every committed fixture, as (filename, [(frame, ingress_port, egress_port), ...]).
+#
+# [Co-developed with claude code -- Adam]
+# A list of samples per fixture rather than one frame, so emitted_multi.bin belongs here
+# instead of being assembled separately in main(). It was built there, outside this list, and
+# the drift guard iterates this list -- so the docstring's promise held for the six
+# single-sample fixtures and not for the multi-sample one, which is the fixture carrying the
+# parser's only sample-chain coverage (test_SFlowEmitterRoundtrip.cpp WalksEverySample). The
+# shape change is what closes it: there is no longer a way to write a fixture that the guard
+# does not see, because main() and the guard now build from the same list through the same
+# function.
 FIXTURES = [
-    ("emitted_tcp.bin", frame_tcp(), 1, 2),
-    ("emitted_udp.bin", frame_udp(), 3, 4),
-    ("emitted_icmp.bin", frame_icmp(), 1, 3),
-    ("emitted_icmp_unreachable.bin", frame_icmp_unreachable(), 2, 4),
-    ("emitted_arp.bin", frame_arp(), 2, 1),
-    ("emitted_tcp_truncated.bin", frame_large_tcp(), 1, 2),
+    ("emitted_tcp.bin", [(frame_tcp(), 1, 2)]),
+    ("emitted_udp.bin", [(frame_udp(), 3, 4)]),
+    ("emitted_icmp.bin", [(frame_icmp(), 1, 3)]),
+    ("emitted_icmp_unreachable.bin", [(frame_icmp_unreachable(), 2, 4)]),
+    ("emitted_arp.bin", [(frame_arp(), 2, 1)]),
+    ("emitted_tcp_truncated.bin", [(frame_large_tcp(), 1, 2)]),
+    # Several samples in one datagram, so the C++ side also walks the sample chain.
+    ("emitted_multi.bin", [(frame_tcp(), 1, 2), (frame_udp(), 3, 4), (frame_icmp(), 1, 3)]),
 ]
+
+
+def build_fixture(samples) -> bytes:
+    """
+    Builds one fixture's datagram from its (frame, ingress, egress) list.
+
+    The single place a fixture's bytes are defined: the generator writes what this returns and
+    test_sflow_emitter.py::CommittedFixtureTest compares against what this returns, so the two
+    cannot disagree about how a fixture is built. A fresh SwitchAgent per fixture keeps the
+    output deterministic -- sequence numbers and the sample pool start from a known point.
+    """
+    agent = SwitchAgent(AGENT_IP)
+    return build_datagram(
+        [SampledPacket(ingress_port=ingress,
+                       egress_port=egress,
+                       frame_length=len(frame),
+                       sampling_rate=256,
+                       frame=frame)
+         for frame, ingress, egress in samples],
+        agent,
+        UPTIME_MS)
 
 
 def main() -> int:
     os.makedirs(FIXTURE_DIR, exist_ok=True)
-    for name, frame, ingress, egress in FIXTURES:
-        agent = SwitchAgent(AGENT_IP)  # fresh, so output is deterministic
-        datagram = build_datagram(
-            [SampledPacket(ingress_port=ingress,
-                           egress_port=egress,
-                           frame_length=len(frame),
-                           sampling_rate=256,
-                           frame=frame)],
-            agent,
-            UPTIME_MS)
+    for name, samples in FIXTURES:
+        datagram = build_fixture(samples)
         path = os.path.join(FIXTURE_DIR, name)
         with open(path, "wb") as fh:
             fh.write(datagram)
         print(f"  wrote {name}: {len(datagram)} bytes ({len(datagram) // 4} words)")
-
-    # One datagram carrying several samples, so the C++ side also walks the sample chain.
-    agent = SwitchAgent(AGENT_IP)
-    multi = build_datagram(
-        [SampledPacket(1, 2, len(frame_tcp()), 256, frame_tcp()),
-         SampledPacket(3, 4, len(frame_udp()), 256, frame_udp()),
-         SampledPacket(1, 3, len(frame_icmp()), 256, frame_icmp())],
-        agent, UPTIME_MS)
-    with open(os.path.join(FIXTURE_DIR, "emitted_multi.bin"), "wb") as fh:
-        fh.write(multi)
-    print(f"  wrote emitted_multi.bin: {len(multi)} bytes ({len(multi) // 4} words)")
     return 0
 
 

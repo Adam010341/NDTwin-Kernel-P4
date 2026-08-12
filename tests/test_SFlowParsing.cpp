@@ -30,8 +30,11 @@
 #include <arpa/inet.h>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <shared_mutex>
+#include <string>
 #include <vector>
 
 namespace
@@ -95,6 +98,43 @@ class DatagramBuilder
     std::vector<uint32_t> m_words;
 };
 
+/// Finds tests/fixtures whichever directory the test binary was started from.
+/// Same search as test_GoldenFixture.cpp and test_SFlowEmitterRoundtrip.cpp.
+std::filesystem::path fixtureDir()
+{
+    for (const auto* candidate :
+         {"tests/fixtures", "../tests/fixtures", "../../tests/fixtures"})
+    {
+        if (std::filesystem::is_directory(candidate))
+        {
+            return candidate;
+        }
+    }
+    return {};
+}
+
+std::vector<char> loadFixture(const std::string& name)
+{
+    const auto dir = fixtureDir();
+    if (dir.empty())
+    {
+        return {};
+    }
+    std::ifstream f(dir / name, std::ios::binary);
+    if (!f)
+    {
+        return {};
+    }
+    return {std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
+}
+
+/// Overwrites word 0, the sFlow version field, leaving every other byte untouched.
+void setVersionWord(std::vector<char>& datagram, uint32_t version)
+{
+    const uint32_t netOrder = htonl(version);
+    std::memcpy(datagram.data(), &netOrder, sizeof(netOrder));
+}
+
 /// Exposes handlePacket. The collector's collaborators are only stored, not used, by the
 /// parsing path under test, so the fixture keeps them minimal.
 class TestableCollector : public sflow::FlowLinkUsageCollector
@@ -130,7 +170,12 @@ class SFlowParsingFixture : public ::testing::Test
         Logger::init(cfg);
     }
 
-    void SetUp() override
+    void SetUp() override { resetCollector(); }
+
+    /// Discards the collector and its accumulated flow table. Tests that feed several
+    /// datagrams and assert on the table after each one need a clean slate between feeds,
+    /// otherwise the first feed's flows satisfy the next feed's assertion.
+    void resetCollector()
     {
         auto bus = std::make_shared<EventBus>();
         auto monitor = std::make_shared<TopologyAndFlowMonitor>(
@@ -189,13 +234,69 @@ TEST_F(SFlowParsingFixture, RejectsUnalignedLength)
     EXPECT_NO_THROW(feed(buf));
 }
 
+// [Co-developed with claude code -- Adam]
+//
+// The two tests below are a matched pair over one buffer: a real OVS capture, with word 0 --
+// the sFlow version field, fixed there by the v5 datagram format -- either left at 5 or
+// overwritten. Everything else is byte-identical, so the only thing either test can be
+// measuring is the version guard.
+//
+// They replace a single `EXPECT_NO_THROW(feed(b))` over hand-built bodies. A silent drop
+// returns normally, so "does not throw" is also what deleting the guard does: the datagrams
+// flowed into sample parsing and the test stayed green, as did every other suite, because
+// every other suite feeds v5. The observable consequence of a drop is that nothing is
+// extracted, so that is what these assert.
+//
+// The refusal test alone is not enough either -- a guard that rejected *every* version would
+// satisfy it. Hence the accept-path test on the same bytes.
+//
+// The buffer is a captured datagram rather than a DatagramBuilder body because the assertion
+// is "these bytes would otherwise yield flows", and only something a real sFlow agent emitted
+// can establish that independently of the parser being tested. The fixture below was captured
+// from a working OVS + Ryu + Mininet run (see test_GoldenFixture.cpp) in a test-only commit
+// that predates this parser's rewrite.
+//
+// Not every capture qualifies. Decoding the committed set shows tcp_00, tcp_02, mixed_01 and
+// mixed_02 carry LLDP frames (ethertype 0x88cc) and tcp_01 carries IPv6 (0x86dd) -- none of
+// which is a flow the parser is meant to extract, so using one of those as the control would
+// have made "no flows" the right answer on both sides of the guard and the pair would have
+// proved nothing. tcp_03.bin is six samples of the captured iperf flow, IPv4/TCP 36154->5001.
+constexpr const char* kCapturedV5Fixture = "tcp_03.bin";
+
+TEST_F(SFlowParsingFixture, ExtractsFlowsWhenTheVersionIsFive)
+{
+    auto v5 = loadFixture(kCapturedV5Fixture);
+    ASSERT_FALSE(v5.empty()) << "tests/fixtures/" << kCapturedV5Fixture
+                             << " missing; run the test binary from the repository root";
+
+    EXPECT_NO_THROW(feed(v5));
+
+    EXPECT_GT(m_collector->getFlowInfoTable().size(), 0u)
+        << "the control for IgnoresUnsupportedVersion: a genuine v5 datagram has to produce "
+           "flows, or 'an unsupported version produces none' proves nothing";
+}
+
 TEST_F(SFlowParsingFixture, IgnoresUnsupportedVersion)
 {
+    const auto v5 = loadFixture(kCapturedV5Fixture);
+    ASSERT_FALSE(v5.empty()) << "tests/fixtures/" << kCapturedV5Fixture
+                             << " missing; run the test binary from the repository root";
+
     for (uint32_t version : {0u, 4u, 6u, 0xFFFFFFFFu})
     {
-        DatagramBuilder b;
-        b.header(1, version).words(40);
-        EXPECT_NO_THROW(feed(b)) << "failed for version " << version;
+        // A fresh collector per version: the flow table accumulates, so one version's leak
+        // would otherwise be indistinguishable from the previous version's.
+        resetCollector();
+
+        auto datagram = v5;
+        setVersionWord(datagram, version);
+
+        EXPECT_NO_THROW(feed(datagram)) << "failed for version " << version;
+
+        EXPECT_TRUE(m_collector->getFlowInfoTable().empty())
+            << "version " << version << " is not sFlow v5, so the datagram must be dropped "
+            << "whole; " << m_collector->getFlowInfoTable().size()
+            << " flow(s) were extracted from it instead";
     }
 }
 
