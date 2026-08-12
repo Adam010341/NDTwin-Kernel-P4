@@ -576,31 +576,53 @@ class CommittedFixtureTest(unittest.TestCase):
     the C++ suite needs no interpreter. The cost is that changing the emitter without
     regenerating leaves that test validating a layout the emitter no longer produces -- it would
     keep passing while the real thing was broken. This fails instead.
+
+    [Co-developed with claude code -- Adam]
+    Regeneration goes through gen.build_fixture rather than being re-implemented here. It used
+    to be re-implemented -- a single-sample build_datagram call over a 4-tuple -- which is what
+    kept emitted_multi.bin outside the guard: the generator built it in main() because this
+    loop could not express it. Calling the generator's own builder means a fixture that this
+    test does not cover is now a fixture the generator does not write either.
     """
 
     def test_emitter_still_produces_the_committed_bytes(self):
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import generate_emitted_fixtures as gen
 
-        for name, frame, ingress, egress in gen.FIXTURES:
-            path = os.path.join(FIXTURE_DIR, name)
-            if not os.path.exists(path):
-                self.fail(f"{name} missing; run generate_emitted_fixtures.py")
+        for name, samples in gen.FIXTURES:
+            with self.subTest(fixture=name):
+                path = os.path.join(FIXTURE_DIR, name)
+                if not os.path.exists(path):
+                    self.fail(f"{name} missing; run generate_emitted_fixtures.py")
 
-            agent = SwitchAgent(gen.AGENT_IP)
-            regenerated = build_datagram(
-                [SampledPacket(ingress_port=ingress, egress_port=egress,
-                               frame_length=len(frame), sampling_rate=256, frame=frame)],
-                agent, gen.UPTIME_MS)
+                regenerated = gen.build_fixture(samples)
 
-            with open(path, "rb") as fh:
-                committed = fh.read()
+                with open(path, "rb") as fh:
+                    committed = fh.read()
 
-            self.assertEqual(
-                regenerated, committed,
-                f"{name} is stale: the emitter's output changed. Re-run\n"
-                f"  python3 p4_proxy/tests/generate_emitted_fixtures.py\n"
-                f"and re-run the C++ round-trip test, which parses these bytes.")
+                self.assertEqual(
+                    regenerated, committed,
+                    f"{name} is stale: the emitter's output changed. Re-run\n"
+                    f"  python3 p4_proxy/tests/generate_emitted_fixtures.py\n"
+                    f"and re-run the C++ round-trip test, which parses these bytes.")
+
+    def test_every_committed_emitted_fixture_is_in_the_guarded_list(self):
+        # [Co-developed with claude code -- Adam]
+        # The guard above can only protect what FIXTURES names. This is the other half: an
+        # emitted_*.bin on disk that nothing in FIXTURES accounts for is a fixture with no
+        # drift guard -- exactly what emitted_multi.bin was. Reads the directory rather than a
+        # second hand-maintained list, so it cannot fall out of date the same way.
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import generate_emitted_fixtures as gen
+
+        guarded = {name for name, _ in gen.FIXTURES}
+        on_disk = {f for f in os.listdir(FIXTURE_DIR)
+                   if f.startswith("emitted_") and f.endswith(".bin")}
+
+        self.assertEqual(
+            on_disk - guarded, set(),
+            "these committed fixtures are not in generate_emitted_fixtures.FIXTURES, so "
+            "nothing notices when the emitter stops producing them")
 
 
 class AgentIpLoadingTest(unittest.TestCase):
