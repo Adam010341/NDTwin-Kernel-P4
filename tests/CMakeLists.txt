@@ -38,6 +38,7 @@ add_executable(
   test_AdminDisableConsumers.cpp
   test_ApiKeyNotLogged.cpp
   test_IntentTaskOutcomes.cpp
+  test_HttpSessionStatusCodes.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

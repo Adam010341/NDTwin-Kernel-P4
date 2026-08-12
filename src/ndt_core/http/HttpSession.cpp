@@ -1774,7 +1774,12 @@ HttpSession::handleGetTotalInputTrafficLoadPassingASwitch(http::response<http::s
     }
     else
     {
+        // [Co-developed with claude code -- Adam]
+        // res.result() as well as the body: buildResponse initialises the response to 200, so
+        // setting only an error body left a status-code-only client reading success and holding
+        // an error object it never parses.
         SPDLOG_LOGGER_WARN(Logger::instance(), "dpid missing");
+        res.result(http::status::bad_request);
         res.body() = json{{"status", "error"}, {"message", "dpid missing"}}.dump();
     }
 }
@@ -1801,7 +1806,10 @@ HttpSession::handleGetNumOfFlowsPassingASwitch(http::response<http::string_body>
     }
     else
     {
+        // See handleGetTotalInputTrafficLoadPassingASwitch: same missing res.result().
+        // [Co-developed with claude code -- Adam]
         SPDLOG_LOGGER_WARN(Logger::instance(), "dpid missing");
+        res.result(http::status::bad_request);
         res.body() = json{{"status", "error"}, {"message", "dpid missing"}}.dump();
     }
 }
@@ -1919,19 +1927,47 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
         // Use constants defined in the header for default values
         std::string lockType = LockManager::DEFAULT_LOCK_TYPE_STR;
 
-        try
+        // [Co-developed with claude code -- Adam]
+        // An *absent* body still means "release the default lock" -- doc/ndt_api.md documents the
+        // body as optional and callers rely on it. A body that is present but unparseable is a
+        // different thing, and used to be swallowed by an empty catch that degraded the request
+        // into releasing the DEFAULT type. That silently released a lock the caller never named.
+        if (!m_req.body().empty())
         {
-            auto jsonBody = json::parse(m_req.body());
+            json jsonBody;
+            try
+            {
+                jsonBody = json::parse(m_req.body());
+            }
+            catch (const json::exception&)
+            {
+                res.result(http::status::bad_request);
+                res.body() = json{{"error", "Invalid Request"},
+                                  {"detail", "Request body is not valid JSON"}}
+                                 .dump();
+                return;
+            }
             if (jsonBody.contains("type"))
             {
                 lockType = jsonBody.value("type", LockManager::DEFAULT_LOCK_TYPE_STR);
             }
         }
-        catch (...)
-        {
-        }
 
-        m_lockManager->unlock(lockType);
+        // 412, matching the sibling renew handler, which answers 412 for exactly these three
+        // inputs (expired, not held, invalid type). tools/contract_test/spec.py already expected
+        // [412, 400, 404] here and carried a known_gap saying the kernel did not implement it;
+        // doc/testing_workflow.md documents 412 as well. 423 Locked, which doc/ndt_api.md
+        // mentions, is the wrong shape: 423 means "the resource is locked so your request cannot
+        // proceed", whereas the failure here is "there was no lock of yours to release".
+        if (!m_lockManager->unlock(lockType))
+        {
+            res.result(http::status::precondition_failed);
+            res.body() =
+                json{{"error", "Release failed"},
+                     {"detail", "Lock '" + lockType + "' is not held or is an invalid type"}}
+                    .dump();
+            return;
+        }
 
         res.result(http::status::ok);
         res.body() = json{{"status", "released"}, {"type", lockType}}.dump();
