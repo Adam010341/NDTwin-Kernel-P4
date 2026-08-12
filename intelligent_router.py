@@ -318,6 +318,23 @@ class IntelligentRyu(app_manager.RyuApp):
         if len(self.switches) >= switch_num:
             if not self.install_initial_openflow_entries_completed:
                 self.load_static_topology()
+        elif not self.install_initial_openflow_entries_completed:
+            # [Co-developed with claude code -- Adam]
+            # The gate is deliberately unchanged: `switch_num` is a fixed 10 rather than the
+            # count the topology file declares, and whether that threshold is right is a
+            # deployment question, not a code one.
+            #
+            # What is being fixed is the silence. `load_static_topology` behind this gate is the
+            # only trigger for the initial route install, so a fabric with fewer switches
+            # connects, reports healthy, answers every liveness probe -- and never installs a
+            # single route, saying nothing about why. The INFO line above prints the count with
+            # no indication that the count is load-bearing.
+            self.logger.warning(
+                "%d of %d switches connected; no initial routes will be installed until all %d "
+                "are up. Nothing is wrong yet -- but if this is the final size of the fabric, "
+                "no route will ever be installed and traffic will not be forwarded.",
+                len(self.switches), switch_num, switch_num,
+            )
                 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER])
