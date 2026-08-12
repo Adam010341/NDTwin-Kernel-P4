@@ -34,8 +34,8 @@
 namespace
 {
 
-/// Same seam as TestableCollector in test_SFlowParsing.cpp: the routing manager and power manager
-/// are not touched by the path maps, so they can be null.
+/// Same seam as TestableCollector in test_SFlowParsing.cpp: the power manager is not touched by
+/// the path maps, so it can be null.
 class PathCollector : public sflow::FlowLinkUsageCollector
 {
   public:
@@ -43,7 +43,6 @@ class PathCollector : public sflow::FlowLinkUsageCollector
                   std::shared_ptr<EventBus> bus,
                   std::shared_ptr<ndtClassifier::Classifier> classifier)
         : sflow::FlowLinkUsageCollector(std::move(monitor),
-                                        nullptr,
                                         nullptr,
                                         std::move(bus),
                                         utils::DeploymentMode::MININET,

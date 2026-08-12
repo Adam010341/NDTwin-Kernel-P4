@@ -132,7 +132,6 @@ class PathJsonTest : public ::testing::Test
         m_collector = std::make_shared<sflow::FlowLinkUsageCollector>(m_monitor,
                                                                        nullptr,
                                                                        nullptr,
-                                                                       nullptr,
                                                                        utils::MININET,
                                                                        nullptr);
     }

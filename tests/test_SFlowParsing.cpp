@@ -146,7 +146,6 @@ class TestableCollector : public sflow::FlowLinkUsageCollector
                       int mode)
         : sflow::FlowLinkUsageCollector(std::move(monitor),
                                         nullptr,
-                                        nullptr,
                                         std::move(bus),
                                         mode,
                                         std::move(classifier))

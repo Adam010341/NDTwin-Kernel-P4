@@ -330,7 +330,6 @@ main(int argc, char* argv[])
 
     auto collector =
         std::make_shared<sflow::FlowLinkUsageCollector>(topologyAndFlowMonitor,
-                                                        flowRoutingManager,
                                                         deviceConfigurationAndPowerManager,
                                                         eventBus,
                                                         mode,

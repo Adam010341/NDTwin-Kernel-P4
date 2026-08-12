@@ -18,7 +18,6 @@
 
 class DeviceConfigurationAndPowerManager; // lines 48-48
 class EventBus;                           // lines 47-47
-class FlowRoutingManager;                 // lines 46-46
 class TopologyAndFlowMonitor;             // lines 45-45
 
 namespace ndtClassifier
@@ -62,7 +61,6 @@ class FlowLinkUsageCollector
 {
   public:
     FlowLinkUsageCollector(std::shared_ptr<TopologyAndFlowMonitor> topologyAndFlowMonitor,
-                           std::shared_ptr<FlowRoutingManager> flowRoutingManager,
                            std::shared_ptr<DeviceConfigurationAndPowerManager> deviceManager,
                            std::shared_ptr<EventBus> eventBusm,
                            int mode,
@@ -322,7 +320,11 @@ class FlowLinkUsageCollector
     mutable std::shared_mutex m_flowInfoTableMutex;
 
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
-    std::shared_ptr<FlowRoutingManager> m_flowRoutingManager;
+    // There is deliberately no FlowRoutingManager handle here. That manager already owns this
+    // collector (FlowRoutingManager::m_flowLinkUsageCollector), so a shared_ptr pointing back
+    // would close an ownership cycle and neither object would ever be destroyed. The member this
+    // replaces was never read, and the constructor never even initialised it.
+    // [Co-developed with claude code -- Adam]
     std::shared_ptr<DeviceConfigurationAndPowerManager> m_deviceConfigurationAndPowerManager;
     std::shared_ptr<EventBus> m_eventBus;
 

@@ -48,7 +48,6 @@ class ProbeCollector : public sflow::FlowLinkUsageCollector
                    std::shared_ptr<ndtClassifier::Classifier> classifier)
         : sflow::FlowLinkUsageCollector(std::move(monitor),
                                         nullptr,
-                                        nullptr,
                                         std::move(bus),
                                         utils::DeploymentMode::MININET,
                                         std::move(classifier))
