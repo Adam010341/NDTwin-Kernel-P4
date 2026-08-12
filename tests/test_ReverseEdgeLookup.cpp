@@ -21,21 +21,30 @@
  */
 
 #include <memory>
+#include <string>
 #include <shared_mutex>
 
 #include <gtest/gtest.h>
 #include <boost/graph/adjacency_list.hpp>
+
+#include <nlohmann/json.hpp>
 
 #include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "utils/Utils.hpp"
 
+using json = nlohmann::json;
+
 namespace
 {
 
-constexpr uint32_t kAgentIp = 0xC0A87B0B; // 192.168.123.11
-constexpr uint32_t kPeerIp = 0xC0A87B0F;  // 192.168.123.15
+const std::string kAgentIpStr = "192.168.123.11";
+const std::string kPeerIpStr = "192.168.123.15";
+// Derived rather than written as a literal: the graph stores whatever ipStringToUint32 produces,
+// and a test that hard-codes one byte order silently tests that assumption instead of the code.
+const uint32_t kAgentIp = utils::ipStringToUint32(kAgentIpStr);
+const uint32_t kPeerIp = utils::ipStringToUint32(kPeerIpStr);
 constexpr uint32_t kPort = 1;
 
 /// Two switches and whichever directions of the link between them a test asks for.
@@ -51,11 +60,13 @@ struct LinkFixture
     LinkFixture()
     {
         a = boost::add_vertex(*graph);
+        (*graph)[a].vertexType = VertexType::SWITCH;
         (*graph)[a].dpid = 1;
         (*graph)[a].deviceName = "s1";
         (*graph)[a].ip = {kAgentIp};
 
         b = boost::add_vertex(*graph);
+        (*graph)[b].vertexType = VertexType::SWITCH;
         (*graph)[b].dpid = 5;
         (*graph)[b].deviceName = "s5";
         (*graph)[b].ip = {kPeerIp};
@@ -140,4 +151,47 @@ TEST(ReverseEdgeLookupTest, AnAgentKeyThatMatchesNoEdgeIsNotFound)
         << "no edge leaves this agent on port 99";
     EXPECT_FALSE(fix.monitor->findReverseEdgeByAgentIpAndPort({0x0A000001, kPort}).has_value())
         << "no edge leaves this agent at all";
+}
+
+// ---------------------------------------------------------------------------
+// The same dropped flag, in the endpoint that reports a link's bandwidth.
+//
+// [Co-developed with claude code -- Adam]
+// getLinkBandwidthBetweenSwitches checked `.second` for the forward direction and not for the
+// reverse, four lines apart, then read properties off whatever the singular descriptor addressed
+// and published them as that direction's bandwidth.
+//
+// This case was added because the mutation run found it: dropping the reverse check reddened
+// nothing, while dropping the same check in the finders above reddened three tests. A guard with
+// no test is a guard that comes back.
+// ---------------------------------------------------------------------------
+
+TEST(ReverseEdgeLookupTest, ALinkWithOnlyOneDirectionIsReportedAsSuchNotAnswered)
+{
+    LinkFixture fix;
+    fix.addForward(); // no reverse
+
+    const json result = fix.monitor->getLinkBandwidthBetweenSwitches(kAgentIpStr, kPeerIpStr);
+
+    EXPECT_TRUE(result.contains("error"))
+        << "answered with bandwidth figures for a direction the graph does not hold: " << result.dump();
+    EXPECT_FALSE(result.value("link_found", false))
+        << "claimed a full link: " << result.dump();
+}
+
+TEST(ReverseEdgeLookupTest, ALinkWithBothDirectionsIsStillReported)
+{
+    LinkFixture fix;
+    const auto forward = fix.addForward();
+    const auto reverse = fix.addReverse();
+    (*fix.graph)[forward].linkBandwidth = 1000;
+    (*fix.graph)[reverse].linkBandwidth = 2000;
+
+    const json result = fix.monitor->getLinkBandwidthBetweenSwitches(kAgentIpStr, kPeerIpStr);
+
+    ASSERT_FALSE(result.contains("error")) << result.dump();
+    EXPECT_TRUE(result.value("link_found", false)) << result.dump();
+    // Each direction reports its own edge, not the other one's.
+    EXPECT_EQ(result[kAgentIpStr + "_to_" + kPeerIpStr]["total_bandwidth_bps"], 1000);
+    EXPECT_EQ(result[kPeerIpStr + "_to_" + kAgentIpStr]["total_bandwidth_bps"], 2000);
 }
