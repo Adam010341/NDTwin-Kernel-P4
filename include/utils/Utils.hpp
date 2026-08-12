@@ -207,6 +207,56 @@ tryParseUint64(const std::string& text)
     }
 }
 
+/**
+ * @brief Parse a base-16 identifier (a dpid as the control plane writes it) into uint64_t.
+ *
+ * [Co-developed with claude code -- Adam]
+ * The hex twin of tryParseUint64, and it exists for the same reason one step further out.
+ * `hexStringToUint64` throws, and `std::stoull(s, nullptr, 16)` throws std::invalid_argument on
+ * an empty or non-hex string -- which is not a json::exception, so in the poll path it escaped
+ * every catch between updateSwitches and the run() thread and terminated the kernel. A control
+ * plane that answers with a `switches` entry carrying no `dpid` should cost us that entry, not
+ * the process.
+ *
+ * Strict for the same reason as tryParseUint64: stoull would accept leading whitespace, a sign,
+ * and trailing junk, so "1a2bzz" would silently become switch 0x1a2b. No `0x` prefix is accepted
+ * either -- the control plane does not send one, and treating it as optional makes "0x" itself
+ * parse as zero.
+ *
+ * @param text The identifier, hex digits only, no prefix.
+ * @return The parsed value, or nullopt.
+ */
+inline std::optional<uint64_t>
+tryParseHexUint64(const std::string& text)
+{
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+    for (const char c : text)
+    {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
+        {
+            return std::nullopt;
+        }
+    }
+    try
+    {
+        size_t consumed = 0;
+        const unsigned long long value = std::stoull(text, &consumed, 16);
+        if (consumed != text.size())
+        {
+            return std::nullopt;
+        }
+        return static_cast<uint64_t>(value);
+    }
+    catch (const std::exception&)
+    {
+        // out_of_range for something longer than 64 bits. Refusing beats wrapping.
+        return std::nullopt;
+    }
+}
+
 inline static uint32_t
 prefixToMaskHost(uint8_t p)
 {

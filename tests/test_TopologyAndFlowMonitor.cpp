@@ -46,6 +46,15 @@ class TestableTopologyAndFlowMonitor : public TopologyAndFlowMonitor
     {
         loadStaticTopologyFromFile(path);
     }
+
+    // [Co-developed with claude code -- Adam]
+    // The three ingest points for the control plane's REST replies. They take a raw string
+    // because that is what pollControlPlaneTopology hands them -- curl's stdout, unvalidated,
+    // produced by another process. Exposed so a test can feed the shapes that process is free
+    // to send, which is the only way to observe what a malformed reply costs.
+    using TopologyAndFlowMonitor::updateHosts;
+    using TopologyAndFlowMonitor::updateLinks;
+    using TopologyAndFlowMonitor::updateSwitches;
 };
 
 /// A graph + monitor pair. The graph is shared so the test can inspect it after loading.
@@ -248,4 +257,197 @@ TEST(TopologyAndFlowMonitorTest, EveryVertexHasTheFieldsRequiredByTheApiSpec)
         EXPECT_GE(vp.deviceLayer, 0)
             << "vertex " << vp.deviceName << " has negative device_layer";
     }
+}
+
+// ---------------------------------------------------------------------------
+// What a malformed control-plane reply costs.
+//
+// [Co-developed with claude code -- Adam]
+// These three functions are fed curl's stdout: a string produced by Ryu or by the P4 proxy,
+// two processes this one does not control, over HTTP. The catch inside each of them carries
+// the claim that a bad reply "should cost us this poll, not the process".
+//
+// The expectations below are that sentence, not the implementation. They were written against
+// the contract and each was checked to fail before the fix: with the previous
+// `stoull(dpidStr, nullptr, 16)`, a switches entry carrying no "dpid" throws
+// std::invalid_argument, which is not a json::exception, so it escaped the catch here, escaped
+// updateGraph (pollControlPlaneTopology calls it outside all three of its try blocks), escaped
+// run(), and reached the thread entry -- std::terminate, the whole kernel, from one field.
+//
+// "Costs the entry, not the reply" is asserted separately from "does not throw", because a
+// `return` in place of a `continue` also stops the throw while silently discarding every
+// switch listed after the bad one -- which would look exactly like a healthy poll.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+/// The vertex carrying this dpid, or nullopt. Reads under the fixture's own mutex.
+std::optional<Graph::vertex_descriptor>
+vertexWithDpid(const TopologyFixture& fix, uint64_t dpid)
+{
+    std::shared_lock lock(*fix.mutex);
+    const auto [vi, ve] = boost::vertices(*fix.graph);
+    for (auto v = vi; v != ve; ++v)
+    {
+        if ((*fix.graph)[*v].vertexType == VertexType::SWITCH && (*fix.graph)[*v].dpid == dpid)
+        {
+            return *v;
+        }
+    }
+    return std::nullopt;
+}
+
+bool
+vertexIsUp(const TopologyFixture& fix, Graph::vertex_descriptor v)
+{
+    std::shared_lock lock(*fix.mutex);
+    return (*fix.graph)[v].isUp;
+}
+
+} // namespace
+
+TEST(ControlPlaneReplyRobustnessTest, ASwitchesEntryWithNoDpidDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    // Ryu is free to send this: the kernel's own comment names "a control plane answering with
+    // an unexpected shape" as the case being defended against.
+    EXPECT_NO_THROW(fix.monitor.updateSwitches(R"([{"ports": []}])"))
+        << "a switches entry with no dpid escaped as an uncaught exception; on the poll thread "
+           "that is std::terminate";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, ASwitchesEntryWithANonHexDpidDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    EXPECT_NO_THROW(fix.monitor.updateSwitches(R"([{"dpid": "not-a-dpid"}])"));
+    EXPECT_NO_THROW(fix.monitor.updateSwitches(R"([{"dpid": ""}])"));
+    EXPECT_NO_THROW(fix.monitor.updateSwitches(R"([{"dpid": "1z"}])"))
+        << "trailing junk must be refused, not silently parsed as switch 1";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, OneBadSwitchesEntryDoesNotCostTheEntriesAfterIt)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    const auto s3 = vertexWithDpid(fix, 3);
+    ASSERT_TRUE(s3.has_value()) << "topology has no switch 3; the assertion below would be vacuous";
+    ASSERT_FALSE(vertexIsUp(fix, *s3))
+        << "switch 3 is already up before the reply is fed, so this test cannot observe the "
+           "reply being applied";
+
+    // dpid "3" is 3 in base 16 as well as base 10, so this does not quietly depend on which
+    // base the reader assumes.
+    fix.monitor.updateSwitches(R"([{"dpid": ""}, {"dpid": "3"}])");
+
+    EXPECT_TRUE(vertexIsUp(fix, *s3))
+        << "the entry after the malformed one was never applied: the bad entry cost the whole "
+           "reply rather than itself, which reports a live switch as unchanged and looks "
+           "exactly like a healthy poll";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, AHostsEntryWithAMalformedMacDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    // Well-typed (a string) but unparseable. The type error was already handled -- that throws
+    // json::type_error, which is a json::exception; this one throws std::invalid_argument.
+    EXPECT_NO_THROW(fix.monitor.updateHosts(R"([{"mac": "zz:zz:zz:zz:zz:zz", "ipv4": ["10.0.0.1"]}])"));
+    EXPECT_NO_THROW(fix.monitor.updateHosts(R"([{"ipv4": ["10.0.0.1"]}])"))
+        << "a hosts entry with no mac at all";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, OneBadHostsEntryDoesNotCostTheEntriesAfterIt)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    std::optional<Graph::vertex_descriptor> h1;
+    {
+        std::shared_lock lock(*fix.mutex);
+        const auto [vi, ve] = boost::vertices(*fix.graph);
+        for (auto v = vi; v != ve; ++v)
+        {
+            if ((*fix.graph)[*v].vertexType == VertexType::HOST && (*fix.graph)[*v].mac == 1)
+            {
+                h1 = *v;
+                break;
+            }
+        }
+    }
+    ASSERT_TRUE(h1.has_value()) << "topology has no host with mac 1";
+    ASSERT_FALSE(vertexIsUp(fix, *h1));
+
+    fix.monitor.updateHosts(
+        R"([{"mac": "zz:zz:zz:zz:zz:zz", "ipv4": ["10.0.0.9"]},
+            {"mac": "00:00:00:00:00:01", "ipv4": ["10.0.0.1"]}])");
+
+    EXPECT_TRUE(vertexIsUp(fix, *h1))
+        << "the host after the malformed one was never applied";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, ALinksEntryWithMissingEndpointsDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    // No "src"/"dst" at all. On a const json, operator[] with a missing key is undefined
+    // behaviour rather than a catchable exception, so this shape cannot be defended by a catch.
+    EXPECT_NO_THROW(fix.monitor.updateLinks(R"([{}])"));
+    EXPECT_NO_THROW(fix.monitor.updateLinks(R"([{"src": {"dpid": "1", "port_no": "1"}}])"))
+        << "a links entry with a src but no dst";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, ALinksEntryWithANonHexDpidDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    EXPECT_NO_THROW(fix.monitor.updateLinks(
+        R"([{"src": {"dpid": "zz", "port_no": "1"}, "dst": {"dpid": "2", "port_no": "1"}}])"));
+    EXPECT_NO_THROW(fix.monitor.updateLinks(
+        R"([{"src": {"dpid": "1", "port_no": "1"}, "dst": {"dpid": "1z", "port_no": "1"}}])"));
+}
+
+TEST(ControlPlaneReplyRobustnessTest, AHostsEntryWithNoAttachmentPortDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    // mac and ipv4 are both well-formed, so this reaches the attachment-port lookup -- which
+    // was `host["port"]["dpid"]`: two unchecked lookups on a const json (undefined behaviour
+    // for a missing key, not an exception) feeding a throwing hex parse. Found by the
+    // malformed-mac test above crashing the suite on its *second*, well-formed entry.
+    EXPECT_NO_THROW(
+        fix.monitor.updateHosts(R"([{"mac": "00:00:00:00:00:01", "ipv4": ["10.0.0.1"]}])"));
+    EXPECT_NO_THROW(fix.monitor.updateHosts(
+        R"([{"mac": "00:00:00:00:00:01", "ipv4": ["10.0.0.1"], "port": {}}])"))
+        << "a port object with no dpid in it";
+}
+
+TEST(ControlPlaneReplyRobustnessTest, AHostsEntryWithANonHexAttachmentDpidDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    EXPECT_NO_THROW(fix.monitor.updateHosts(
+        R"([{"mac": "00:00:00:00:00:01", "ipv4": ["10.0.0.1"],
+             "port": {"dpid": "not-hex"}}])"));
+}
+
+TEST(ControlPlaneReplyRobustnessTest, AHostsEntryWithAnUnparseableIpDoesNotTerminateTheProcess)
+{
+    TopologyFixture fix;
+    ASSERT_EQ(fix.loadP4Topology(), 14u);
+
+    // ipStringToUint32 throws std::invalid_argument, the same non-json escape route.
+    EXPECT_NO_THROW(fix.monitor.updateHosts(
+        R"([{"mac": "00:00:00:00:00:01", "ipv4": ["not.an.address"],
+             "port": {"dpid": "1"}}])"));
 }

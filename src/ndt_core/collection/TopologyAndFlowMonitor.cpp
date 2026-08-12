@@ -476,8 +476,25 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
         for (const auto& switchInfoJson : switchesInfoJson)
         {
             // Note that the "dpid" is written in base 16
-            string switchDpidStr = switchInfoJson.value("dpid", "");
-            uint64_t switchDpidUint64 = stoull(switchDpidStr, nullptr, 16);
+            const string switchDpidStr = switchInfoJson.value("dpid", "");
+            // [Co-developed with claude code -- Adam]
+            // Was `stoull(switchDpidStr, nullptr, 16)`. An entry carrying no "dpid" yields ""
+            // here, and stoull("") throws std::invalid_argument -- which is not a
+            // json::exception, so it walked straight past the catch below, past updateGraph
+            // (pollControlPlaneTopology calls it outside all three of its try blocks), past
+            // run(), and out of the thread entry into std::terminate. The catch's comment
+            // claimed a malformed reply cost us the poll; for this flavour it cost the process.
+            // One bad entry now costs that entry.
+            const auto switchDpidOpt = utils::tryParseHexUint64(switchDpidStr);
+            if (!switchDpidOpt)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring a switches entry whose dpid is not a hex string: "
+                                   "'{}'",
+                                   switchDpidStr);
+                continue;
+            }
+            const uint64_t switchDpidUint64 = *switchDpidOpt;
 
             // TRACE, not INFO. This printed once per switch per process while updateSwitches was
             // called exactly once; making run() poll periodically turned it into ten lines every
@@ -508,14 +525,21 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
             }
         }
     }
-    catch (const json::exception& err)
+    catch (const std::exception& err)
     {
         // [Co-developed with claude code -- Adam]
-        // json::exception, not json::parse_error. This data comes from another process over
-        // HTTP, and a field of an unexpected *type* throws json::type_error, which is not a
-        // parse_error -- so it used to escape and terminate the whole kernel. A control plane
-        // answering with `"mac": 1` instead of `"mac": "..."` should cost us this poll, not
-        // the process.
+        // std::exception, not json::exception, and not json::parse_error. Each widening
+        // happened because the previous one turned out to be a claim the code did not honour:
+        //   parse_error -> json::exception: a field of an unexpected *type* throws
+        //     json::type_error, so `"mac": 1` used to terminate the kernel.
+        //   json::exception -> std::exception: so did a *missing* dpid, because stoull("")
+        //     throws std::invalid_argument, which is not a json::exception at all. That escaped
+        //     here, escaped updateGraph (pollControlPlaneTopology calls it outside its try
+        //     blocks), escaped run(), and left the thread entry as std::terminate.
+        // The individual parses above are guarded now, so this is the backstop rather than the
+        // mechanism -- but it is what makes the sentence "should cost us this poll, not the
+        // process" true for a reply shape nobody has thought of yet. This data comes from
+        // another process over HTTP; it is not a place to trust our own exhaustiveness.
         SPDLOG_LOGGER_ERROR(Logger::instance(),
                             "{}: ignoring malformed control-plane response: {}",
                             __func__,
@@ -538,14 +562,36 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
 
         for (const auto& host : hostsInfoJson)
         {
-            if (host["ipv4"].empty())
+            // [Co-developed with claude code -- Adam]
+            // contains() before operator[]: see updateLinks. On a const json a missing key is
+            // undefined behaviour under NDEBUG, not a catchable exception.
+            if (!host.contains("ipv4") || host["ipv4"].empty())
             {
                 SPDLOG_LOGGER_DEBUG(Logger::instance(), "Skipping host with no IPv4 address");
                 continue;
             }
 
             auto vecIpStr = host["ipv4"];
-            auto vertexOpt = findVertexByMac(utils::macToUint64(host["mac"]));
+            // [Co-developed with claude code -- Adam]
+            // Every parse below this line used to be a throwing one on data from another
+            // process: macToUint64, ipStringToUint32 and hexStringToUint64 all raise
+            // std::invalid_argument, which is not a json::exception, so a well-typed but
+            // unparseable field escaped the catch at the end of this function and terminated
+            // the kernel from the poll thread. The wrong-*type* case was already handled (that
+            // throws json::type_error); the wrong-*value* case was not. Held in a named string
+            // so the WARNs below do not have to touch host["mac"] again -- on a const json a
+            // missing key is undefined behaviour, not an exception, so `host["mac"].dump()` in
+            // an error path was its own crash waiting for an entry with no mac.
+            const std::string macStr = host.value("mac", "");
+            const auto hostMacOpt = utils::tryMacToUint64(macStr);
+            if (!hostMacOpt)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring a hosts entry whose mac is not a MAC address: '{}'",
+                                   macStr);
+                continue;
+            }
+            auto vertexOpt = findVertexByMac(*hostMacOpt);
             if (vertexOpt)
             {
                 unique_lock lock(*m_graphMutex);
@@ -556,11 +602,20 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             {
                 SPDLOG_LOGGER_WARN(Logger::instance(),
                                    "Host ({}) not found in static network topology file",
-                                   host["mac"].dump());
+                                   macStr);
             }
 
             std::string ipStr = vecIpStr[0].get<std::string>();
-            uint32_t ip = utils::ipStringToUint32(ipStr);
+            const auto ipOpt = utils::tryIpStringToUint32(ipStr);
+            if (!ipOpt)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring host {}: its ipv4[0] '{}' is not an address",
+                                   macStr,
+                                   ipStr);
+                continue;
+            }
+            const uint32_t ip = *ipOpt;
             auto edgeOpt = findEdgeByHostIp(ip);
 
             if (edgeOpt)
@@ -573,16 +628,36 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             {
                 SPDLOG_LOGGER_WARN(Logger::instance(),
                                    "Edge (host {} {} {}) not found in static network topology file",
-                                   host["mac"].dump(),
+                                   macStr,
                                    ipStr,
                                    ip);
             }
 
-            auto vertexOpt2 = findSwitchByDpid(utils::hexStringToUint64(host["port"]["dpid"]));
+            // The attachment port. `host["port"]["dpid"]` was two unchecked lookups on a const
+            // json plus a throwing hex parse; Ryu sends all three, but this function's contract
+            // is that a reply which does not costs the entry, not the process.
+            if (!host.contains("port") || !host["port"].contains("dpid"))
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "host {} has no port.dpid; its switch-side edge is left as it "
+                                   "was",
+                                   macStr);
+                continue;
+            }
+            const auto attachDpidOpt = utils::tryParseHexUint64(host["port"].value("dpid", ""));
+            if (!attachDpidOpt)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "host {} reports attachment dpid '{}', which is not hex; its "
+                                   "switch-side edge is left as it was",
+                                   macStr,
+                                   host["port"].value("dpid", ""));
+                continue;
+            }
+            auto vertexOpt2 = findSwitchByDpid(*attachDpidOpt);
             if (vertexOpt2.has_value())
             {
-                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0],
-                                                        utils::ipStringToUint32(vecIpStr[0]));
+                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip);
                 if (edgeRevOpt.has_value())
                 {
                     unique_lock lock(*m_graphMutex);
@@ -594,19 +669,26 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                     SPDLOG_LOGGER_WARN(
                         Logger::instance(),
                         "Rev Edge (host {}) not found in static network topology file",
-                        host["mac"].dump());
+                        macStr);
                 }
             }
         }
     }
-    catch (const json::exception& err)
+    catch (const std::exception& err)
     {
         // [Co-developed with claude code -- Adam]
-        // json::exception, not json::parse_error. This data comes from another process over
-        // HTTP, and a field of an unexpected *type* throws json::type_error, which is not a
-        // parse_error -- so it used to escape and terminate the whole kernel. A control plane
-        // answering with `"mac": 1` instead of `"mac": "..."` should cost us this poll, not
-        // the process.
+        // std::exception, not json::exception, and not json::parse_error. Each widening
+        // happened because the previous one turned out to be a claim the code did not honour:
+        //   parse_error -> json::exception: a field of an unexpected *type* throws
+        //     json::type_error, so `"mac": 1` used to terminate the kernel.
+        //   json::exception -> std::exception: so did a *missing* dpid, because stoull("")
+        //     throws std::invalid_argument, which is not a json::exception at all. That escaped
+        //     here, escaped updateGraph (pollControlPlaneTopology calls it outside its try
+        //     blocks), escaped run(), and left the thread entry as std::terminate.
+        // The individual parses above are guarded now, so this is the backstop rather than the
+        // mechanism -- but it is what makes the sentence "should cost us this poll, not the
+        // process" true for a reply shape nobody has thought of yet. This data comes from
+        // another process over HTTP; it is not a place to trust our own exhaustiveness.
         SPDLOG_LOGGER_ERROR(Logger::instance(),
                             "{}: ignoring malformed control-plane response: {}",
                             __func__,
@@ -629,6 +711,16 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
 
         for (const auto& link : linksInfoJson)
         {
+            // [Co-developed with claude code -- Adam]
+            // contains() before operator[]: on a *const* json, operator[] with a missing key is
+            // undefined behaviour (the bounds check is a JSON_ASSERT, compiled out under NDEBUG),
+            // so a link entry without "src" was not even an exception to catch.
+            if (!link.contains("src") || !link.contains("dst"))
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring a links entry with no src/dst endpoint");
+                continue;
+            }
             string srcDpidStr = link["src"].value("dpid", "");
             string srcPortStr = link["src"].value("port_no", "");
             string dstDpidStr = link["dst"].value("dpid", "");
@@ -640,9 +732,24 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
             }
 
             // Check if both switches exist in the graph
-            uint64_t srcDpid = stoull(srcDpidStr, nullptr, 16);
+            // [Co-developed with claude code -- Adam]
+            // tryParseHexUint64, not stoull: the empty case is guarded just above, but a
+            // non-empty non-hex dpid still threw std::invalid_argument past every catch on the
+            // way to the run() thread. See the same change in updateSwitches.
+            const auto srcDpidOpt = utils::tryParseHexUint64(srcDpidStr);
+            const auto dstDpidOpt = utils::tryParseHexUint64(dstDpidStr);
+            if (!srcDpidOpt || !dstDpidOpt)
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "ignoring a links entry whose dpids are not hex strings: "
+                                   "'{}' -> '{}'",
+                                   srcDpidStr,
+                                   dstDpidStr);
+                continue;
+            }
+            uint64_t srcDpid = *srcDpidOpt;
             uint32_t srcPort = utils::portStringToUint(srcPortStr);
-            uint64_t dstDpid = stoull(dstDpidStr, nullptr, 16);
+            uint64_t dstDpid = *dstDpidOpt;
             // uint64_t dstPort = utils::portStringToUint(dstPortStr);
 
             auto srcVertexOpt = findSwitchByDpid(srcDpid);
@@ -692,14 +799,21 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
             }
         }
     }
-    catch (const json::exception& err)
+    catch (const std::exception& err)
     {
         // [Co-developed with claude code -- Adam]
-        // json::exception, not json::parse_error. This data comes from another process over
-        // HTTP, and a field of an unexpected *type* throws json::type_error, which is not a
-        // parse_error -- so it used to escape and terminate the whole kernel. A control plane
-        // answering with `"mac": 1` instead of `"mac": "..."` should cost us this poll, not
-        // the process.
+        // std::exception, not json::exception, and not json::parse_error. Each widening
+        // happened because the previous one turned out to be a claim the code did not honour:
+        //   parse_error -> json::exception: a field of an unexpected *type* throws
+        //     json::type_error, so `"mac": 1` used to terminate the kernel.
+        //   json::exception -> std::exception: so did a *missing* dpid, because stoull("")
+        //     throws std::invalid_argument, which is not a json::exception at all. That escaped
+        //     here, escaped updateGraph (pollControlPlaneTopology calls it outside its try
+        //     blocks), escaped run(), and left the thread entry as std::terminate.
+        // The individual parses above are guarded now, so this is the backstop rather than the
+        // mechanism -- but it is what makes the sentence "should cost us this poll, not the
+        // process" true for a reply shape nobody has thought of yet. This data comes from
+        // another process over HTTP; it is not a place to trust our own exhaustiveness.
         SPDLOG_LOGGER_ERROR(Logger::instance(),
                             "{}: ignoring malformed control-plane response: {}",
                             __func__,

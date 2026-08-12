@@ -210,3 +210,55 @@ TEST(QueryParamTest, AQuestionMarkInsideAValueDoesNotRestartParsing)
     EXPECT_EQ(utils::queryParam("/ndt/x?a=1?2&dpid=3", "dpid"), "3");
     EXPECT_EQ(utils::queryParam("/ndt/x?a=1?2&dpid=3", "a"), "1?2");
 }
+
+// ---------------------------------------------------------------------------
+// tryParseHexUint64 -- the base-16 twin, for dpids as the control plane writes them.
+//
+// [Co-developed with claude code -- Adam]
+// Added with the fix for the poll path terminating the kernel: updateSwitches used
+// `stoull(dpidStr, nullptr, 16)`, and stoull throws std::invalid_argument on an empty or
+// non-hex string. That is not a json::exception, so it escaped every catch between there and
+// the run() thread's entry point. These cases are the contract that replaced it.
+// ---------------------------------------------------------------------------
+
+TEST(TryParseHexUint64Test, ParsesHexDigitsInEitherCase)
+{
+    EXPECT_EQ(utils::tryParseHexUint64("0"), std::optional<uint64_t>(0));
+    EXPECT_EQ(utils::tryParseHexUint64("1"), std::optional<uint64_t>(1));
+    EXPECT_EQ(utils::tryParseHexUint64("a"), std::optional<uint64_t>(10));
+    EXPECT_EQ(utils::tryParseHexUint64("A"), std::optional<uint64_t>(10));
+    EXPECT_EQ(utils::tryParseHexUint64("ff"), std::optional<uint64_t>(255));
+    // The shape Ryu actually sends: a 16-digit zero-padded dpid.
+    EXPECT_EQ(utils::tryParseHexUint64("0000000000000001"), std::optional<uint64_t>(1));
+    EXPECT_EQ(utils::tryParseHexUint64("000000000000000a"), std::optional<uint64_t>(10));
+    EXPECT_EQ(utils::tryParseHexUint64("ffffffffffffffff"),
+              std::optional<uint64_t>(18446744073709551615ULL));
+}
+
+TEST(TryParseHexUint64Test, RejectsTheStringsThatUsedToTerminateTheKernel)
+{
+    // `switchInfoJson.value("dpid", "")` yields "" for an entry with no dpid, and stoull("")
+    // throws std::invalid_argument on the poll thread.
+    EXPECT_FALSE(utils::tryParseHexUint64("").has_value());
+    EXPECT_FALSE(utils::tryParseHexUint64("not-a-dpid").has_value());
+}
+
+TEST(TryParseHexUint64Test, IsStricterThanStoullSoAMistypedDpidIsRefused)
+{
+    // Each of these is something stoull(s, nullptr, 16) accepts, silently producing a
+    // *different switch* than the string names.
+    EXPECT_FALSE(utils::tryParseHexUint64("1z").has_value()) << "trailing junk accepted";
+    EXPECT_FALSE(utils::tryParseHexUint64("-1").has_value()) << "negative accepted and wrapped";
+    EXPECT_FALSE(utils::tryParseHexUint64("+1").has_value()) << "leading sign accepted";
+    EXPECT_FALSE(utils::tryParseHexUint64(" 1").has_value()) << "leading whitespace accepted";
+    EXPECT_FALSE(utils::tryParseHexUint64("1 ").has_value()) << "trailing whitespace accepted";
+    // No 0x prefix: the control plane does not send one, and accepting it would make the bare
+    // string "0x" parse as zero.
+    EXPECT_FALSE(utils::tryParseHexUint64("0x1").has_value()) << "0x prefix accepted";
+}
+
+TEST(TryParseHexUint64Test, RefusesRatherThanWrappingOnOverflow)
+{
+    EXPECT_FALSE(utils::tryParseHexUint64("10000000000000000").has_value())
+        << "17 hex digits is more than 64 bits; wrapping would name a real switch";
+}
