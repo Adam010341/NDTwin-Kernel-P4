@@ -128,12 +128,13 @@ class FlowLinkUsageCollector
      */
     void setAllPaths(std::vector<sflow::Path> allPathsVector);
     std::map<std::pair<uint32_t, uint32_t>, Path> getAllPaths();
-    /**
-     * @brief Update the path for one specific (srcIp,dstIp) pair.
-     *
-     * @param ipPair (srcIp, dstIp)
-     * @param path   Full path for that pair
-     */
+    // [Co-developed with claude code -- Adam]
+    // The docblock for `setAllPath` (singular) used to float here, in front of an unrelated
+    // declaration -- the method itself was removed from the .cpp (see the note there) for having
+    // no callers and for writing m_allPathMap while leaving m_switchCountMap untouched, so the
+    // first caller to use it would have made getSwitchCount answer from a path it no longer
+    // matched. Only the .cpp half was deleted; the header half stayed and went on documenting an
+    // API that does not exist, with exactly the single-pair semantics that motivated the removal.
     /**
      * @brief Return all host IPs known to the collector / path map.
      *

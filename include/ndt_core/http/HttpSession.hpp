@@ -569,9 +569,20 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * This HTTP handler computes and returns the mean link utilization across the topology graph.
      * The average is calculated by TopologyAndFlowMonitor::getAvgLinkUsage() using only:
-     *   - links that are currently UP (edge.isUp == true),
+     *   - links that are **usable** -- `isUsable(edge)`, i.e. `isUp && isEnabled &&
+     *     !adminDisabled`,
      *   - links whose endpoints are both switches (HOST vertices are excluded),
      *   - links with non-zero measured usage (edge.linkBandwidthUsage != 0).
+     *
+     * [Co-developed with claude code -- Adam]
+     * The first bullet used to read "links that are currently UP (edge.isUp == true)". That was
+     * the predicate before adminDisabled existed, and the implementation deliberately abandoned
+     * it: `isUp` alone was the only one of the six availability checks not taking the full
+     * intersection, so a link an operator had taken out of service still counted towards the
+     * average as long as residual traffic was flowing over it. The .cpp comment above the filter
+     * records the same reasoning. This figure is what Energy-Saving-App reads, so a header that
+     * teaches the superseded predicate is a header that misdescribes the input to another
+     * component's decisions.
      *
      * For each qualifying directed edge, utilization is computed as:
      *   linkBandwidthUsage / linkBandwidth

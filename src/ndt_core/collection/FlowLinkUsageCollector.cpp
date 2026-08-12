@@ -2147,9 +2147,9 @@ FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
     // There the empty array arrives keyed by dpid, so it is a definite statement about one switch:
     // "it has no rules". Here it means "I know of no paths at all", which before the control plane
     // converges is a transient, and acting on it would throw away good data during startup.
-    // fetchAllDestinationPaths guards its own empty case already; the push path at
-    // HttpSession.cpp:1230 does not, so a POST carrying {"all_destination_paths": []} would
-    // otherwise clear everything.
+    // fetchAllDestinationPaths guards its own empty case already; the push path --
+    // HttpSession::handleInformAllDestinationPaths -- does not, so a POST carrying
+    // {"all_destination_paths": []} would otherwise clear everything.
     if (allPathsVector.empty())
     {
         return;
