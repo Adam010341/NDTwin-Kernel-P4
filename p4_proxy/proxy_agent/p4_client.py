@@ -38,7 +38,34 @@ class P4RuntimeClient:
         self.p4info = self._build_p4info(p4info_path)
         self.json_path = json_path
         
-        self.channel = grpc.insecure_channel(grpc_addr)
+        # [Co-developed with claude code -- Adam]
+        # This client owns its subchannel pool. grpc-python's default is a process-global pool
+        # keyed by target address, so a brand-new channel to an address is handed whatever
+        # subchannel a previous channel left there -- including that address's accumulated
+        # reconnect backoff, which climbs toward gRPC's 120 s cap.
+        #
+        # That is what broke Phase 7 powerOn. While a bmv2 is down the liveness poller keeps
+        # probing its old client every LIVENESS_PROBE_INTERVAL_S (2 s, topology_manager.py), so a
+        # four-minute outage is ~120 failed connects on that address. readopt_switch then builds a
+        # *fresh* client, which inherits the backoff and fails at step "pipeline" with
+        # UNAVAILABLE ... Connection refused -- against a port that is listening and accepting TCP.
+        # Live: down 1 s readopted first try, down 4 minutes did not. Nor does readopt release the
+        # old channel first; old.stop() runs only after the new client has pushed its pipeline, and
+        # on the failure path the old client is kept on purpose.
+        #
+        # Measured against grpc 1.82.1 -- hammer a closed port for 90 s, then start a real server
+        # on it and time a fresh channel to READY. Same address, same process, same instant:
+        #     with this option     0.00 s
+        #     without it          32.56 s
+        #
+        # Nothing legitimate was being shared. Each switch has its own address
+        # (localhost:50051..50060, main.build_p4_client), so there is normally exactly one live
+        # client per address; the only sharing that ever occurred was between a dead client and
+        # its replacement, which is precisely the bug. Note that gRPC ignores channel options it
+        # does not recognise, so a typo here would be silent -- tests/test_p4_client_writes.py
+        # pins the exact name.
+        self.channel = grpc.insecure_channel(
+            grpc_addr, options=[("grpc.use_local_subchannel_pool", 1)])
         self.stub = p4runtime_pb2_grpc.P4RuntimeStub(self.channel)
         
         self.stream_out_q = queue.Queue()
