@@ -170,7 +170,7 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
 > **`tc netem` 砍單一鏈路**的情境（process 還活著）。**整台 switch 死掉**是不同的路徑——
 > gRPC stream 斷、probe 失敗、beacon 停，proxy 會回報 link failure 並重算。兩件事不要混。
 
-### 沒通過的：powerOn 第一次必失敗
+### 沒通過的：powerOn 在關機夠久之後會失敗，而且文件寫的復原方法也失敗
 
 `POST set_switches_power_state?action=on` 回 **HTTP 500**。分解：
 
@@ -225,13 +225,55 @@ proxy 那邊也只有 uvicorn 的 access log 一行 502，沒有細節。
 > Mutation gate：把旗標改回 `-f`，546 條裡**恰好 1 條**紅——就是新的那條，其餘 545 條全綠，
 > 這正好證明舊斷言真的抓不到。
 
-### 沒通過的：twin 對關掉的 switch 會短暫謊報 Up
+### 沒通過的：twin 對關掉的 switch 會週期性謊報 Up（機制已釘死）
 
-1 Hz 取樣 59 次，有 **1 次** `is_up=true`，而同一次取樣 `bmv2=9`、`:50056` 沒人聽——
-process 確定是死的。另一次出現在兩分鐘前（16:32:26 與 16:34:26，**相隔正好 120 秒**）。
+1 Hz 取樣 59 次有 **1 次** `is_up=true`，而同一次取樣 `bmv2=9`、`:50056` 沒人聽——
+process 確定是死的。proxy 沒有說謊：70 秒取樣裡 `probe_ok` 一次都沒有 true。
 
-proxy 沒有說謊：整整 70 秒的取樣裡 `probe_ok` **一次都沒有 true**，`probe_age_s` 都在 1.6 秒內，
-`stream_alive: false`。照 `p4LivenessFor` 的政策這應該穩定判 Down。所以 Up 是**別的東西**寫的，
-不是 probe 路徑。120 秒的間隔像週期性任務，但**只有兩個資料點，機制未確認**。
+**機制（2026-08-12 實測釘死，不是推測）**：寫這個 Up 的是**拓樸輪詢**，不是 liveness probe。
 
-影響：閒置策略若在那一秒讀到 `is_up`，會以為關掉的 switch 還活著。
+1. `TopologyAndFlowMonitor::updateSwitches`（`:565`）對控制平面列出的**每一個** dpid
+   **無條件**做 `isUp = true; isEnabled = true`。沒有任何存活性判斷。
+2. P4 proxy 的 `/v1.0/topology/switches`——就是 `updateSwitches` 吃的那個端點——
+   **會列出已經死掉的 switch**。它 render 的是 `topology.switches.keys()`，也就是
+   P4RuntimeClient 的 dict，而 process 死掉不會把 client 從 dict 裡拿掉。
+   實測（s6 process 已死時）：該端點回 `[1..10]`，**包含 6**；同一時刻
+   `/p4/switch_state` 說 `probe_ok=False, probe_age_s=0.036, stream_alive=False`。
+   **同一個 proxy 的兩個端點互相矛盾**，而 kernel 信的是說謊的那個。
+3. 1 Hz 的 liveness worker 依 `p4LivenessFor` 在 1 秒內把它改回 Down。
+
+所以每一次輪詢，twin 都會有最多約 1 秒宣稱一台死掉的 switch 活著。
+
+**怎麼釘死的**：`run()` 的輪詢間隔前 90 秒是 5 秒（`kWhileConverging`），之後 30 秒
+（`kOnceConverged`）。**這台機器上沒有別的東西在第 90 秒改變節奏。** 於是：重啟 kernel →
+立刻關掉 s6 → 用 10 Hz 取樣 `is_up` 150 秒。結果：
+
+```
+t= 14.3s  gap= 14.1s      <- 第一次輪詢後的 blip
+t= 19.3s  gap=  5.0s
+t= 24.4s  gap=  5.1s
+ ...（每 4.9-5.1 秒一次，共 15 次）
+t= 89.7s  gap=  5.0s      <- 最後一次 5 秒間隔（kernel 起來後 90.2 秒）
+t=119.7s  gap= 30.1s      <- 節奏在這裡換檔
+t=149.7s  gap= 29.9s
+```
+
+blip 的間隔在 kernel 起來後**第 90 秒**由 5 秒切換成 30 秒，跟 `kConvergingFor` 一模一樣。
+1451 個取樣點、168 個 up。**輪詢就是寫入者，沒有其他解釋。**
+
+（先前記的「兩次相隔正好 120 秒」是取樣假影：1 Hz 對一個不到 1 秒的視窗，30 秒週期裡
+大約每四次才抓到一次。舊的那個讀法會把人引去找不存在的 120 秒任務。）
+
+**真正的缺陷是語意混淆**：拓樸輪詢把「控制平面知道有這台」當成「這台活著」。
+OVS 模式下這個混淆剛好成立——Ryu 的 `/v1.0/topology/switches` 只列出 OpenFlow 連線還在的
+switch。P4 模式下不成立，因為 proxy 列的是它建過的 client，不是它探測到的存活狀態。
+
+**兩個修法方向**（未定案，等 Adam）：
+
+- **proxy 側（建議）**：讓 `/v1.0/topology/switches` 只列出 `probe_ok` 不是 False 的 switch，
+  也就是讓這個端點的語意跟 Ryu 一致。改動小、修在說謊的那一端、而且恢復 kernel 本來就
+  依賴的不變量。要注意 `updateLinks`／edges 是否也吃這份清單。
+- **kernel 側**：讓 `updateSwitches` 不要宣告存活性（只建圖、不碰 `isUp`）。比較徹底，
+  但同時影響 OVS 模式，而 OVS 模式目前正是靠這一行把 switch 標上來的。
+
+影響：閒置策略（Energy-Saving-App）若在那一秒讀到 `is_up`，會把關掉的 switch 當成還活著。
