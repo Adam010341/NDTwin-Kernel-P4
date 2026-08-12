@@ -24,12 +24,15 @@
  */
 
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -93,6 +96,14 @@ class FakeOvs : public OVSPowerStrategy
         }
         return n;
     }
+};
+
+/// Raises the shell seam to public so a test can call the *real* body. Overrides nothing:
+/// this is the one class in the file that does not replace executeSystemCommand.
+class RealSeamOvs : public OVSPowerStrategy
+{
+  public:
+    using OVSPowerStrategy::executeSystemCommand;
 };
 
 /// A two-vertex graph plus a monitor over it. No threads: start() is never called.
@@ -338,6 +349,47 @@ TEST(OvsPowerStrategyTest, PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAn
     EXPECT_TRUE(result.ok);
     EXPECT_EQ(ovs.countContaining("add-port"), 0u);
     EXPECT_TRUE(fix.isUp());
+}
+
+// --- The seam itself, unfaked.
+
+TEST(OvsPowerStrategyTest, TheRealShellSeamRunsTheCommandAndReportsItsExitStatus)
+{
+    // [Co-developed with claude code -- Adam]
+    //
+    // Every other test in this file replaces executeSystemCommand -- deliberately, since one of
+    // them would otherwise really run `sudo ovs-vsctl add-br` against the developer's machine
+    // (see the comment in OVSPowerStrategy::powerOn about the hole that used to be in this
+    // seam). The cost is that the real body, the one the implementation comment identifies as
+    // where "a failed ovs-vsctl looked exactly like a success", ran in no test at all:
+    // `if (rc != 0)` -> `if (false)` reddened nothing.
+    //
+    // Contract, from OVSPowerStrategy.hpp: "Runs a shell command; returns false when it
+    // failed." Two programs whose entire specified behaviour is their exit status settle that,
+    // and neither needs ovs-vsctl, sudo or a bridge to exist.
+    //
+    // Asserting the exit status alone would still pass an implementation that never ran
+    // anything and returned `cmd != "/bin/false"`, so the first assertion is a side effect:
+    // the command has to have actually executed.
+    RealSeamOvs ovs;
+
+    const std::filesystem::path marker =
+        std::filesystem::temp_directory_path() /
+        ("ndtwin-ovs-seam-" + std::to_string(::getpid()));
+    std::filesystem::remove(marker);
+
+    EXPECT_TRUE(ovs.executeSystemCommand("touch " + marker.string()))
+        << "touch exits 0";
+    EXPECT_TRUE(std::filesystem::exists(marker))
+        << "the seam reported success without running the command at all";
+    std::filesystem::remove(marker);
+
+    EXPECT_TRUE(ovs.executeSystemCommand("/bin/true"))
+        << "a command that exited 0 must be reported as having worked";
+
+    EXPECT_FALSE(ovs.executeSystemCommand("/bin/false"))
+        << "a command that exited non-zero must be reported as having failed -- this is the "
+           "exact shape of the bug the seam's comment describes";
 }
 
 TEST(OvsPowerStrategyTest, DescribesItselfForLogsAndErrors)

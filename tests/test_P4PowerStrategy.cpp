@@ -29,10 +29,14 @@
  * graph, no threads, only the shell seam overridden.
  */
 
+#include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <shared_mutex>
 #include <string>
 #include <vector>
+
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -73,6 +77,14 @@ class FakeP4 : public P4PowerStrategy
         }
         return false;
     }
+};
+
+/// Raises the shell seam to public so a test can call the *real* body. Overrides nothing:
+/// this is the one class in the file that does not replace executeSystemCommand.
+class RealSeamP4 : public P4PowerStrategy
+{
+  public:
+    using P4PowerStrategy::executeSystemCommand;
 };
 
 /// One switch plus a monitor over it. No threads: start() is never called.
@@ -286,6 +298,46 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
            "has to say so: " << msg;
     EXPECT_EQ(msg.find("retrying this power-on retries the readopt"), std::string::npos)
         << "the message promises a retry that early-returns success instead: " << msg;
+}
+
+// --- The seam itself, unfaked.
+
+TEST(P4PowerStrategyTest, TheRealShellSeamRunsTheCommandAndReportsItsExitStatus)
+{
+    // [Co-developed with claude code -- Adam]
+    //
+    // Every other test in this file replaces executeSystemCommand, which is what makes them
+    // able to assert command sequences -- and also what left the real body untested. Its
+    // header calls that body "the whole test surface", and the comment on the implementation
+    // names it as the site of the historical bug: the function was void once, so a power
+    // action that failed reported success. `if (rc != 0)` -> `if (false)` reddened nothing.
+    //
+    // Contract, from P4PowerStrategy.hpp: "Returns whether the command exited 0." Two
+    // programs whose entire specified behaviour is their exit status settle that, and neither
+    // needs the helper, sudo, or a bmv2 to be installed.
+    //
+    // Asserting the exit status alone would still pass an implementation that never ran
+    // anything and returned `cmd != "/bin/false"`, so the first assertion is a side effect:
+    // the command has to have actually executed.
+    RealSeamP4 p4;
+
+    const std::filesystem::path marker =
+        std::filesystem::temp_directory_path() /
+        ("ndtwin-p4-seam-" + std::to_string(::getpid()));
+    std::filesystem::remove(marker);
+
+    EXPECT_TRUE(p4.executeSystemCommand("touch " + marker.string()))
+        << "touch exits 0";
+    EXPECT_TRUE(std::filesystem::exists(marker))
+        << "the seam reported success without running the command at all";
+    std::filesystem::remove(marker);
+
+    EXPECT_TRUE(p4.executeSystemCommand("/bin/true"))
+        << "a command that exited 0 must be reported as having worked";
+
+    EXPECT_FALSE(p4.executeSystemCommand("/bin/false"))
+        << "a command that exited non-zero must be reported as having failed -- this is the "
+           "exact shape of the bug the seam's comment describes";
 }
 
 TEST(P4PowerStrategyTest, DescribesItselfForLogsAndErrors)
