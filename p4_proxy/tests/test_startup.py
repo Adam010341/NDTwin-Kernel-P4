@@ -21,17 +21,21 @@ import asyncio
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+import proxy_agent.main as main  # noqa: E402
 from proxy_agent.main import startup  # noqa: E402
 
 
 class FakeClient:
     """A bmv2 switch that can be made to fail at each independent step."""
 
-    def __init__(self, dpid, pipeline_error=None, clone_ok=True, json_path="pipeline.json"):
+    def __init__(self, dpid, pipeline_error=None, clone_ok=True, json_path="pipeline.json",
+                 stop_error=None):
         self.dpid = dpid
+        self.stop_error = stop_error
         self.json_path = json_path
         self.pipeline_error = pipeline_error
         self.clone_ok = clone_ok
@@ -50,16 +54,25 @@ class FakeClient:
         self.events.append("clone")
         return self.clone_ok
 
+    def stop(self):
+        self.events.append("stop")
+        if self.stop_error is not None:
+            raise self.stop_error
+
 
 class FakeSflow:
     def __init__(self):
         self.registered = {}
+        self.closed = False
 
     def register_switch(self, dpid, agent_ip):
         self.registered[dpid] = agent_ip
 
     def handle_sample(self, *args, **kwargs):
         pass
+
+    def close(self):
+        self.closed = True
 
 
 class FakeKernel:
@@ -97,6 +110,15 @@ class FakeTopo:
 
     def start_liveness_polling(self):
         self.started.append("liveness")
+
+    def stop_lldp_discovery(self):
+        self.started.append("stop-lldp")
+
+    def stop_link_watchdog(self):
+        self.started.append("stop-watchdog")
+
+    def stop_liveness_polling(self):
+        self.started.append("stop-liveness")
 
 
 def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None):
@@ -230,6 +252,75 @@ class RegistrationTest(unittest.TestCase):
         clients = {1: FakeClient(1), 2: FakeClient(2, pipeline_error=RuntimeError("dead"))}
         _, parts = run_startup(clients)
         self.assertEqual(sorted(parts["topo"].switches), [1, 2])
+
+
+class ShutdownStopsTheClientsTheTopologyManagerHoldsTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam]
+    Shutdown used to iterate a module-global `p4_clients`, assigned once from startup()'s
+    summary. POST /p4/readopt/{dpid} replaces topology.switches[dpid] with a freshly built
+    client after a power-cycle, and that copy did not follow: shutdown stopped the
+    already-stopped old client and left the new one's gRPC channel and receiver thread running.
+
+    The contract asserted here is "shutdown stops exactly the clients the topology manager
+    currently holds", which is what makes a second copy impossible to get wrong -- because
+    there is no second copy.
+    """
+
+    def run_shutdown(self, topo, sflow=None):
+        sflow = sflow if sflow is not None else FakeSflow()
+        with mock.patch.object(main, "topo", topo), mock.patch.object(main, "sflow", sflow):
+            asyncio.run(main.shutdown_event())
+        return sflow
+
+    def test_every_switch_the_topology_manager_holds_is_stopped(self):
+        topo = FakeTopo()
+        topo.add_switch(1, FakeClient(1))
+        topo.add_switch(2, FakeClient(2))
+
+        self.run_shutdown(topo)
+
+        for dpid, client in topo.switches.items():
+            self.assertIn("stop", client.events, f"switch {dpid} was never stopped")
+
+    def test_the_client_a_readopt_installed_is_the_one_that_gets_stopped(self):
+        topo = FakeTopo()
+        before = FakeClient(1)
+        topo.add_switch(1, before)
+        # What readopt_switch does: build a new client, swap it in, stop the old one.
+        after = FakeClient(1)
+        topo.switches[1] = after
+        before.events.append("stop")  # readopt already stopped it
+
+        self.run_shutdown(topo)
+
+        self.assertIn("stop", after.events,
+                      "shutdown stopped a client the topology manager no longer holds and left "
+                      "the post-readopt one running: its channel and receiver thread outlive "
+                      "shutdown, silently")
+        self.assertEqual(before.events.count("stop"), 1,
+                         "the pre-readopt client was stopped twice")
+
+    def test_all_three_background_loops_are_stopped_before_the_clients(self):
+        topo = FakeTopo()
+        topo.add_switch(1, FakeClient(1))
+
+        self.run_shutdown(topo)
+
+        # The LLDP beacon thread had no stop at all once, so it kept calling send_packet_out on
+        # clients that had already been torn down.
+        self.assertEqual(topo.started, ["stop-lldp", "stop-watchdog", "stop-liveness"])
+
+    def test_one_client_that_refuses_to_stop_does_not_abandon_the_rest(self):
+        topo = FakeTopo()
+        topo.add_switch(1, FakeClient(1, stop_error=RuntimeError("channel already dead")))
+        topo.add_switch(2, FakeClient(2))
+
+        sflow = self.run_shutdown(topo)
+
+        self.assertIn("stop", topo.switches[2].events,
+                      "a client that raised on stop() took the switches after it down with it")
+        self.assertTrue(sflow.closed, "the emitter socket was never closed")
 
 
 if __name__ == "__main__":

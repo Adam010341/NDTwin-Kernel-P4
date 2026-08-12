@@ -80,8 +80,17 @@ probe 是 unary RPC，gRPC channel 自動重連，bmv2 沒有 pipeline 也答得
 2. `start(push_config=False)` → mastership settle → `set_forwarding_pipeline_config`
    → `write_clone_session`（順序同 `startup()`，clone session 必須在 pipeline 之後，
    它活在 pipeline 的 PRE 裡）。
-3. 換掉 `topology.switches[dpid]`，舊 client `stop()`。持有 clients 引用的只有
-   api_routes 和 main（grep 過，sflow_emitter / kernel_notifier 都不直接持有），swap 安全。
+3. 換掉 `topology.switches[dpid]`，舊 client `stop()`。
+
+   > **更正（2026-08-12，四主題審計 D 抓到）**：原文寫「持有 clients 引用的只有 api_routes
+   > 和 main（grep 過…），swap 安全」。**被點名的 main 就是反例**——`main.py` 有一個
+   > module-global `p4_clients`，在 startup 時從 `startup()` 的 summary 抄一份，
+   > `shutdown_event` 迭代的是那份。readopt 換掉 `topo.switches[dpid]` 之後那份不會跟著動，
+   > 於是關機時停的是已經停掉的舊 client，新 client 的 channel 和 receiver thread 活過關機。
+   > 已修：刪掉那個重複的 mapping，shutdown 直接讀 `topo.switches`。
+   >
+   > 教訓不是「grep 漏了」——grep 沒漏，它找到了 main，是我看到之後判斷它安全。
+   > 「有幾個持有者」問對了問題，「持有者拿到的是同一個物件還是一份拷貝」才是會咬人的那個。
 4. 對該 dpid 重灌路由（`install_initial_routes` 的迴圈按 `src == dpid` 過濾）。
 5. 回報做到哪一步、哪一步失敗，failure 給 5xx + detail。
 

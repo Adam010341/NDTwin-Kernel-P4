@@ -32,9 +32,15 @@ topo.add_host(ip="10.0.0.4", mac="00:00:00:00:00:04", switch_dpid=4, port=3)
 api_routes.inject_topology(topo)
 app.include_router(api_routes.router)
 
-p4_clients = {}
-
 # [Co-developed with claude code -- Adam]
+# There is deliberately no module-global `p4_clients` here any more. There used to be one,
+# assigned once from startup()'s summary and iterated by shutdown_event -- a second copy of a
+# mapping TopologyManager already owns. POST /p4/readopt/{dpid} replaces topo.switches[dpid]
+# with a freshly built client, and that copy did not follow: shutdown then stopped the
+# already-stopped old client and left the new one's channel and receiver thread running.
+# topo.switches is the authority, so shutdown reads it directly. (The Phase 7 design doc said
+# this swap was safe because only api_routes and main held references -- main's reference was
+# exactly the problem.)
 sflow = SFlowEmitter()
 
 #: How long to let mastership settle before pushing pipelines. bmv2 accepts the arbitration
@@ -271,9 +277,7 @@ async def startup(clients_factory, sflow, kernel, topo,
 
 @app.on_event("startup")
 async def startup_event():
-    global p4_clients
-    summary = await startup(build_p4_clients, sflow, kernel, topo)
-    p4_clients = summary["clients"]
+    await startup(build_p4_clients, sflow, kernel, topo)
 
 
 @app.on_event("shutdown")
@@ -285,8 +289,14 @@ async def shutdown_event():
     topo.stop_lldp_discovery()
     topo.stop_link_watchdog()
     topo.stop_liveness_polling()
-    for i, client in p4_clients.items():
-        client.stop()
+    # topo.switches, not a startup-time copy: readopt swaps entries in it, and the copy went
+    # stale the first time a switch was power-cycled. list() because readopt may be mid-swap.
+    for dpid, client in list(topo.switches.items()):
+        try:
+            client.stop()
+        except Exception as e:  # noqa: BLE001
+            print(f"[Proxy Agent] switch {dpid} refused to stop cleanly "
+                  f"({type(e).__name__}: {e}); continuing shutdown")
     sflow.close()
 
 if __name__ == "__main__":
