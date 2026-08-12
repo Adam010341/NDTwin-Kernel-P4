@@ -130,8 +130,23 @@ LLMAgent::callOpenAIApi(
     
     if (this->m_rateLimit)
     {
-        SPDLOG_LOGGER_INFO(Logger::instance(), "Rate limit enabled, waiting for 45 seconds.");
-        std::this_thread::sleep_for(std::chrono::milliseconds(20000));
+        // [Co-developed with claude code -- Adam]
+        // One constant, because the message and the sleep disagreed: it announced 45 seconds and
+        // slept 20. Both values entered this repo together in d6f7c01 and neither was ever
+        // changed, so this was not a stale edit -- the line was wrong from the first commit that
+        // contained it, and nothing noticed because the branch was unreachable until the model
+        // parameter was wired through (IntentTranslator's constructor).
+        //
+        // Kept at 20 s, the only value that has ever executed. 45 has no evidence behind it, and
+        // adopting it would have made every full-size-model call 2.25x slower on the strength of
+        // a log line that was never true. If the real rate limit needs longer, change this
+        // constant -- the message cannot drift from it again.
+        constexpr auto kRateLimitPause = std::chrono::seconds(20);
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "Rate limit enabled for model {}, waiting for {} seconds.",
+                           this->m_model,
+                           kRateLimitPause.count());
+        std::this_thread::sleep_for(kRateLimitPause);
     }
     int responseTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     SPDLOG_LOGGER_INFO(Logger::instance(), "Input{}, time{}", inputText, responseTimeMs );

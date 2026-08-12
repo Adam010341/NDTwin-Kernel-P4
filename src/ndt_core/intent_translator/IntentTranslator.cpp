@@ -15,17 +15,29 @@ IntentTranslator::IntentTranslator(
     m_flowRoutingManager(std::move(flowRoutingManager)),
     m_flowLinkUsageCollector(std::move(flowLinkUsageCollector))
 {
+    // [Co-developed with claude code -- Adam]
+    // `openaiModel`, not the literal "gpt-5-nano" it used to be. The parameter was taken and
+    // then dropped -- no member held it, and both agents were built with the literal -- so
+    // main.cpp prompted the operator for a model (promptOpenAIModel), logged the answer, passed
+    // it in, and the answer changed nothing. Same shape as the `is_mininet` knob in
+    // intelligent_router.py: a value that reads as configuration and functions as a constant.
+    //
+    // Wiring it makes one previously dead branch reachable: LLMAgent sets m_rateLimit for any
+    // model whose name contains neither "mini" nor "nano", i.e. exactly the full-size models an
+    // operator would now be able to select. That branch's log and its sleep disagreed; they are
+    // one constant now. See LLMAgent's kRateLimitPause.
+    const std::string model = openaiModel.empty() ? std::string("gpt-5-nano") : openaiModel;
     this->m_answerAgent = std::make_shared<LLMAgent>(
         this->m_answerAgentPromptFilePath,
         this->m_topologyAndFlowMonitor,
         this->m_deviceConfigManager,
-        "gpt-5-nano"
+        model
     );
     this->m_validationAgent = std::make_shared<LLMAgent>(
         this->m_validationAgentPromptFilePath,
         this->m_topologyAndFlowMonitor,
         this->m_deviceConfigManager,
-        "gpt-5-nano"
+        model
     );
 }
 
