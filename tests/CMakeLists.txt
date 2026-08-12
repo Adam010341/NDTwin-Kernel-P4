@@ -36,6 +36,7 @@ add_executable(
   test_TopologyAndFlowMonitor_mininet.cpp
   test_AdministrativeDisable.cpp
   test_AdminDisableConsumers.cpp
+  test_ApiKeyNotLogged.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

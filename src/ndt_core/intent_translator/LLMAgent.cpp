@@ -26,13 +26,20 @@ LLMAgent::LLMAgent(
 
     char* apiKey = std::getenv("OPENAI_API_KEY");
 
-    SPDLOG_LOGGER_INFO(Logger::instance(), "api_key={}",apiKey);
+    // [Co-developed with claude code -- Adam]
+    // The secret is never logged. This used to be `SPDLOG_LOGGER_INFO(..., "api_key={}", apiKey)`
+    // at INFO -- the default-on level -- so every AI-enabled start wrote the key into the kernel
+    // log, and this project routinely pastes log excerpts into doc/debug-log/ and handoff
+    // documents. The null check now runs *first* as well: the old order formatted apiKey before
+    // testing it, and fmt formatting a null char* is not a printable "(null)" path.
     if (apiKey == nullptr)
     {
         SPDLOG_LOGGER_ERROR(Logger::instance(), "OPENAI_API_KEY environment variable is not set.");
         throw std::runtime_error("OPENAI_API_KEY environment variable is not set.");
     }
     this->m_apiKey = apiKey;
+    // Presence, not value: enough to tell "the key is missing" from "the key is wrong" in a log.
+    SPDLOG_LOGGER_DEBUG(Logger::instance(), "OPENAI_API_KEY loaded from the environment.");
 
     // Check if m_model string contains "mini" or "nano", if not, set m_rateLimit to true
     if (this->m_model.find("mini") == std::string::npos && this->m_model.find("nano") == std::string::npos)
