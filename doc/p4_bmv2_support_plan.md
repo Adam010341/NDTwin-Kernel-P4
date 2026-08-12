@@ -487,15 +487,21 @@ proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。*
 > | manifest 檔 | ✅ `22ada58`，`/tmp/ndtwin_p4_switches.json` |
 > | `powerOff` 只殺那一個 PID | ✅ 由 root helper `ndtwin-p4-power` 做，送信號前對 `/proc` 再驗一次 |
 > | `powerOn` 照記錄重啟並等 gRPC port | ✅ 並且多做一步：要求 proxy `POST /p4/readopt/{dpid}` 重新掛上 mastership／pipeline／clone session／routes，否則重啟後的 switch 一個封包都轉不動 |
-> | 誠實的 `OpResult` | ✅ 兩個操作都是；`powerOn` 的 502 訊息會講出真正有效的復原路徑（off 再 on），因為單純重試會撞到 `getVertexIsUp` 的 early-return（`2abf1e3`） |
+> | 誠實的 `OpResult` | ✅ 兩個操作都是；`powerOn` 的 502 訊息會講出真正有效的復原路徑——**直接打 `POST /p4/readopt/{dpid}`**（`3a312e3`）。⚠️ 這一欄先前寫「off 再 on」，**實跑證明那個也回 500**（`2abf1e3` 拿行不通的建議換了沒驗證過的建議） |
 > | 依賴 Phase 6 的真實存活偵測 | ✅ Phase 6 已完成 |
 > | 測試：mock 攔住 `executeSystemCommand`，確認只針對一個 PID 且不含 `pkill -f` | ✅ `tests/test_P4PowerStrategy.cpp`，mutation 驗證過 |
 > | 順手修好 `OVSPowerStrategy` 繞過自己虛擬函式的接口 | ✅ 已修，見 `HANDOFF.md` 的覆蓋率表 |
 >
-> **還沒做的只剩 live 驗證**：helper 要以 root 身分安裝到 `/usr/local/sbin/ndtwin-p4-power`
-> 並設好 sudoers，安裝步驟在 `doc/phase7_power_mechanism_design.md`。沒裝的時候
-> `set_switches_power_state` 會回 500 `{"error":"Failed to change switch power state"}`，
-> 不會假裝成功。
+> **Live 驗證已於 2026-08-12 完成**（helper 已安裝、sudoers 已設）。核心要求通過：關掉一台、
+> 其他九台 **9000/9000 封包零遺失**，關掉的那台在 helper 回報 stopped 前 0.3 秒就停止轉送。
+> 完整結果在 `doc/phase7_power_mechanism_design.md` 的「Live 驗收結果」。
+>
+> **但 live 跑出三個測試抓不到的缺陷**，兩個已修：
+> - `curl -sS -f` 把 readopt 的失敗步驟丟掉，兩邊 log 都查不到 → `eace67c`（`--fail-with-body`）
+> - gRPC 全域 subchannel pool 讓新 channel 繼承死掉 peer 的重連 backoff，導致關機夠久之後
+>   powerOn 必失敗 → `949fcba`（`grpc.use_local_subchannel_pool`），修後同情境實跑 200
+> - **未修**：拓樸輪詢對死掉的 switch 週期性寫回 `is_up=true`（`updateSwitches` 無條件標 up，
+>   而 proxy 的 `/v1.0/topology/switches` 會列出已死的 switch）。機制已釘死，修法待裁決。
 
 - 讓 `p4_testbed_topo.py` 在啟動每個 bmv2 process 時，寫一份清單檔（`/tmp/ndtwin_p4_switches.json`：名稱 → pid、grpc_port、device_id、啟動指令）。
 - `P4PowerStrategy::powerOff` 讀這份清單，只殺**那一個** PID；`powerOn` 照記錄的指令重新啟動，並等 gRPC port 開起來。這樣就取代了 `sudo mnexec -a s1 pkill -f simple_switch_grpc` — 那行指令把名字傳給了需要 PID 的參數，而且就算能跑也會把十台 switch 全殺掉。
@@ -508,9 +514,11 @@ proxy 用 networkx 重算出來、**沒有裝進任何一台 switch** 的路。*
 
 ## Phase 8 — 收尾整理
 
-- 把 `check_env.py`、`dump_table.py`、`test_modify.py`、`test_modify_error.py`、`intelligent_router.py` 從專案根目錄移走（放到 `p4_proxy/tests/`、`p4_proxy/reference/`）。`test_10_routes.py` 打的是 port **8080**，但 agent 綁的是 **8081** — 它從來沒真的通過過。
-- `requirements.txt`：實際裝的 `protobuf 3.20.3` 違反了它自己寫的 `protobuf>=4.21.0`（被 `p4runtime 1.5.0` 反向鎖住）；`requests` 有用到卻沒列；`pytest` 根本沒有，所以任何 Python 測試都收集不到。補上 `pytest.ini` 和 `__init__.py`（現在一個都沒有 — 這就是為什麼一定要設 `PYTHONPATH=.`）。
-- `CHANGELOG.md` 完全沒有 P4 的紀錄；補上。
+- 把 `check_env.py`、`dump_table.py`、`test_modify.py`、`test_modify_error.py` 從專案根目錄移走（放到 `p4_proxy/tests/`、`p4_proxy/reference/`）。`test_10_routes.py` 打的是 port **8080**，但 agent 綁的是 **8081** — 它從來沒真的通過過（2026-08-12 複查：`PROXY_URL` 仍是 `127.0.0.1:8080`，這條仍然成立）。
+  - ⚠️ **`intelligent_router.py` 已從這份清單移除**（2026-08-12 複查）。它不是散落腳本，是 **OVS 模式活的控制平面**：`tools/test_workflow/stack.sh` 拿它當 Ryu app 跑、`tests/python/test_route_install_gate.py:35` 用相對路徑讀它、`.env` 指到它，另有 16 份文件提及。搬它是一次真正的重構，不是整理，要另外評估。
+- ~~`requirements.txt`：protobuf 版本自相矛盾；`requests` 有用到卻沒列~~ — **✅ 已解**（protobuf 釘 3.20.3 並寫明理由，`requests` 已補）。
+  - `pytest.ini` / `__init__.py` 那半條**已作廢**（2026-08-12 複查）：原本的理由是「任何 Python 測試都收集不到」，但現在 385 條 Python 測試跑得好好的——`tools/test_workflow/l1_unit_tests.sh` 走 unittest + `PYTHONPATH`，不走 pytest。除非要改用 pytest，否則這裡沒有東西要修。
+- ~~`CHANGELOG.md` 完全沒有 P4 的紀錄；補上。~~ — **✅ 已解**：已有 `Unreleased — P4/bmv2 support` 段落。
 - 把暫緩的 shell injection 另外開一個 issue 追蹤。
 
 ---

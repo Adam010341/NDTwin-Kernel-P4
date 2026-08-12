@@ -121,13 +121,21 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
   > **這個殘餘的第二個後果（2026-08-12 補記，四主題審計 A 抓到）**：它同時讓
   > **重試失效**。probe 在一秒內把 vertex 標 Up 之後，重跑 powerOn 會撞上函式開頭的
   > `getVertexIsUp` early-return，回 200 success 而完全不碰 readopt；若搶在 probe 之前，
-  > helper 會以「已經在跑」拒絕，錯誤訊息還會指向錯的步驟。**唯一能再次抵達 readopt 的
-  > 路徑是 power off 再 power on。** 502 的訊息原本寫「retrying this power-on retries the
-  > readopt」，已改成明講 off-then-on，並由 `test_P4PowerStrategy.cpp` 的
-  > `TheReadoptFailureNamesARecoveryThatCanActuallyRun` 釘住。
+  > helper 會以「已經在跑」拒絕，錯誤訊息還會指向錯的步驟。502 的訊息原本寫
+  > 「retrying this power-on retries the readopt」，已改掉。
   >
   > 原文只記了「twin 會顯示 Up」，沒記「所以我建議的復原動作做不到」——殘餘寫了一半，
   > 而沒寫到的那一半才是操作員會照著做的那一半。
+  >
+  > > **再更正一次（2026-08-12 傍晚，`3a312e3`）**：`2abf1e3` 換上的替代方案是
+  > > 「power off 再 power on」，而**那個也做不到**——實跑回 500。原因就是上面那條
+  > > subchannel backoff：關機是在替 backoff 加碼。**實測有效的復原是直接打
+  > > `POST /p4/readopt/{dpid}`**（第 4 次成功，約 75 秒）。
+  > >
+  > > 也就是說 `2abf1e3` 拿「行不通的建議」換了「沒驗證過的建議」——正是它自己想消滅的
+  > > 那個毛病，只是換了個位置。測試現在釘的是**兩個爛版本共同缺的性質**（要指出一條真的
+  > > 能再次抵達 readopt 的路徑、並警告那條不行的），不是釘當下那句話的字面。
+  > > 這個殘餘本身在 `949fcba` 之後應該極少發生，但訊息還是要對。
 - **0186#1（Tier 2）**：關掉的 switch 的 dpid 在某些端點回 success/0 而非錯誤，
   Energy-Saving-App 若拿它當閒置判準會誤讀。機制本身不消費它。Tier 2 依 Adam 指示不動。
 - **關機期間的 watchdog 行為**：殺掉 bmv2 → stream 死 + probe 失敗，赦免邏輯
@@ -197,10 +205,35 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
   `2abf1e3` 修掉的是「叫人重試 power-on」這個更糟的建議，方向沒錯，但它換上的替代方案
   **同樣沒有實測撐腰**——這正是那次修正想消滅的毛病，只是換了個位置。修 powerOn 的時候
   一起修這句話。
-- **還沒證實的機制**：上面那個對比讓「bmv2 還沒 ready」的讀法站不住（關 1 秒和關 6 分鐘，
-  新 process 的啟動過程一模一樣）。剩下比較合理的方向是 gRPC 全域 subchannel pool 的重連
-  backoff——proxy 的舊 client 對死掉的 port 連越久，backoff 長越大，新 channel 共用到同一個
-  subchannel。**符合不等於就是**，沒有驗證，不要當結論寫進程式碼註解。
+- **機制已證實並修好（`949fcba`）**：就是 gRPC 的 **process 全域 subchannel pool**。
+  離線受控實驗（grpc 1.82.1，對一個關閉的 port 猛連 90 秒後啟動真的 server，再量新 channel
+  到 READY 的時間，同位址同 process 同時刻）：
+
+  | channel | time to READY |
+  |---|---|
+  | 帶 `grpc.use_local_subchannel_pool=1` | **0.00s** |
+  | 不帶 option（就是 `p4_client.py:41` 原本的寫法） | **32.56s** |
+
+  liveness prober 每 2 秒探一次（`LIVENESS_PROBE_INTERVAL_S`），關 4 分鐘 ≈ 120 次失敗連線
+  把該位址的 backoff 推向 gRPC 預設的 120 秒上限；readopt 現建的**全新** client 直接繼承它。
+  而 `readopt_switch` 從不在新 channel 連線前放掉舊的（`old.stop()` 排在 pipeline push 之後，
+  失敗路徑還刻意留著舊 client）。**這也解釋了為什麼 off-then-on 復原會失敗**：關機是在替
+  backoff 加碼，而重打 readopt 是在等它衰減。
+
+  修法：`P4RuntimeClient` 的 channel 帶 `grpc.use_local_subchannel_pool=1`。這裡不犧牲任何
+  東西——每台 switch 各有自己的位址，正常情況一個位址只有一個活的 client，唯一發生過的共用
+  就是「死掉的 client 和它的替代品」，也就是這個 bug 本身。
+  ⚠️ **gRPC 會安靜忽略它不認得的 channel option**，所以名稱打錯完全看不出來；測試因此釘死
+  字面字串，並跑過「名稱打錯」這個 mutant。
+
+  **Live 驗收（17:48–17:53，修好之後重跑同一個情境）**：關 s6 **四分鐘**（修之前必定失敗的
+  時長）→ powerOn **第一次就回 200**，`{"status":"success","dpid":6,"clone_session":true,
+  "routes_installed":0}`。十台各 4 條規則、12 條路徑、power state 10/10、ping 100/100 零遺失。
+
+  > `routes_installed: 0` 在這裡是誠實的：關了四分鐘之後路徑早就繞開 s6，「s6 的路由」當下
+  > 本來就是空集合，之後由 link recovery 補上（實測 8 條鏈路全部 `link_recovery_detected`）。
+  > 恢復後 s6 承載 0 條路徑也不是故障——s5 和 s6 是等成本的兩台 spine，baseline 本身就是
+  > 去程走 s6、回程走 s5 的不對稱，那個不對稱就是同一個 tie-break 的結果。
 - `routes_installed: 0` 不是 bug：那個時間點路徑已經繞開 s6，所以「s6 的路由」本來就是空集合。
   之後 link recovery 重算路徑才把 4 條規則裝回去——實測確認。
 
