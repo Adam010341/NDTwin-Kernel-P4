@@ -805,6 +805,7 @@ class P4InfoLookupTest(unittest.TestCase):
             self.client._get_match_field_id("MyIngress.ipv4_lpm", "hdr.ethernet.dstAddr")
 
 
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class WriteDeadlineTest(unittest.TestCase):
     """
     Pins the deadline on the write path.
