@@ -2532,6 +2532,14 @@ FlowLinkUsageCollector::calFlowPathByQueried()
             sflow::Path path;
             bool ok = true;
 
+            // [Co-developed with claude code -- Adam]
+            // `fk.vlanTci` is deliberately left at its 0 default: sFlow's flow key carries no
+            // VLAN, and the rules this key is looked up against (built in
+            // Classifier.cpp's flow-stats ingest) are 0 there too, so the two agree. That
+            // agreement is load-bearing -- vlanTci is serialised into the key (Classifier.cpp:168),
+            // so if the ingest side ever starts populating VLAN without this side doing the same,
+            // every VLAN-tagged rule stops being findable from here. See the ⚠️ note at the
+            // `vlan_vid` branch in Classifier.cpp before changing either side.
             ndtClassifier::FlowKey fk{};
             fk.ipProto = flowKey.protocol;
             fk.ipv4Dst = ntohl(flowKey.dstIP);

@@ -791,6 +791,17 @@ buildMaskAndValueFromMatch(const nlohmann::json& match, KeyBytes& outMaskBytes, 
         // openflow table would never refresh, all reported as one repeated worker error.
         // Latent only because nothing currently emits vlan_vid, which is what would have made it
         // arrive as a mystery.
+        //
+        // ⚠️ **Do not fix only this side.** Whoever makes Ryu's VLAN reach this branch (by
+        // reading `dl_vlan` here) must fix the sFlow side in the same change. `vlanTci` is
+        // serialised into the key at line 168, and the two producers of a FlowKey are not
+        // symmetric: rules come from here, but *lookups* come from the sFlow path walk, which
+        // builds its FlowKey at FlowLinkUsageCollector.cpp:2534 and sets no VLAN at all. Today
+        // both sides are 0, so they agree and every lookup matches. Populate one side alone and
+        // every VLAN-tagged rule becomes unfindable: the walk would hit the "table has no
+        // matching rule" branch for traffic whose rule is sitting right there. Half a fix here
+        // is worse than none. Either do both sides, or mark vlanTci reserved.
+        // Recorded, not fixed, on Adam's instruction (2026-08-12).
         outValue.vlanTci = static_cast<uint16_t>(parseU64(match.at("vlan_vid")));
         setU16MaskAll(outMaskBytes, 20);
     }
