@@ -186,11 +186,21 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
 **還是** refused；第三次（約 130 秒後）**成功**，`{"status":"success","clone_session":true,
 "routes_installed":0}`。
 
-- **確定的事實**：helper 的「port 接受 TCP」不足以當作 readopt 可以開始的條件；powerOn
-  在這個環境下第一次一定失敗。
-- **還沒證實的機制**：時間點符合 gRPC 全域 subchannel pool 的重連 backoff（舊 client 對死掉的
-  port 狂連，新 channel 共用到那個帶 backoff 的 subchannel）。**符合不等於就是**，沒有驗證，
-  不要當結論寫進程式碼註解。
+- **確定的事實**：helper 的「port 接受 TCP」不足以當作 readopt 可以開始的條件。
+- **補充實測（同日 16:52，換掉 `-f` 之後重跑）**：**關掉 1 秒就開回來，powerOn 第一次就成功**
+  （`routes_installed: 4`）。所以「powerOn 第一次一定失敗」是錯的說法，正確的說法是
+  **失敗與否取決於它被關了多久**，不是取決於 process 剛起來。關 4 分鐘再開 → 一樣失敗，
+  一樣卡在 `step: "pipeline"`。
+- **⚠️ 而且文件寫的復原方法也失敗。** 失敗之後照 `2abf1e3` 那句訊息做 off-then-on
+  （這一輪只關了 1 秒）——**回 500**。反而直接打 `POST /p4/readopt/6`，約 65 秒後**一次就成功**。
+  所以現在那句「Recover with power off and then power on」在這個狀態下不可靠。
+  `2abf1e3` 修掉的是「叫人重試 power-on」這個更糟的建議，方向沒錯，但它換上的替代方案
+  **同樣沒有實測撐腰**——這正是那次修正想消滅的毛病，只是換了個位置。修 powerOn 的時候
+  一起修這句話。
+- **還沒證實的機制**：上面那個對比讓「bmv2 還沒 ready」的讀法站不住（關 1 秒和關 6 分鐘，
+  新 process 的啟動過程一模一樣）。剩下比較合理的方向是 gRPC 全域 subchannel pool 的重連
+  backoff——proxy 的舊 client 對死掉的 port 連越久，backoff 長越大，新 channel 共用到同一個
+  subchannel。**符合不等於就是**，沒有驗證，不要當結論寫進程式碼註解。
 - `routes_installed: 0` 不是 bug：那個時間點路徑已經繞開 s6，所以「s6 的路由」本來就是空集合。
   之後 link recovery 重算路徑才把 4 條規則裝回去——實測確認。
 
@@ -203,6 +213,17 @@ proxy 那邊也只有 uvicorn 的 access log 一行 502，沒有細節。
 
 `step: "pipeline"` 是我**手動再打一次那個端點、拿掉 `-f`** 才看到的。設計寫下來的意圖被
 呼叫端的一個旗標取消掉了。
+
+> **已修（`eace67c`）**：改成 `--fail-with-body`——一樣 exit 22（seam 的控制流不變），但
+> body 留著。實測確認 readopt 的回應現在會進 kernel log：
+> `{"status":"success","dpid":6,"clone_session":true,"routes_installed":4}`。
+> 順帶一提 `routes_installed` 這個數字上一輪要手動打端點才看得到，現在是白送的。
+>
+> 原本護著這件事的斷言護不住：`"-f"` 是 `"--fail-with-body"` 的**子字串**，所以
+> `find("-f")` 對「留 body」和「丟 body」兩種旗標都會通過。新測試改成比對整個 token，
+> 並把「非 2xx 要失敗」和「body 要留著」拆成兩個各自獨立的主張。
+> Mutation gate：把旗標改回 `-f`，546 條裡**恰好 1 條**紅——就是新的那條，其餘 545 條全綠，
+> 這正好證明舊斷言真的抓不到。
 
 ### 沒通過的：twin 對關掉的 switch 會短暫謊報 Up
 
