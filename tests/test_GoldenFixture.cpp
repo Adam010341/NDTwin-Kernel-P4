@@ -103,10 +103,32 @@ std::vector<std::vector<char>> loadFixtures()
     std::vector<std::filesystem::path> paths;
     for (const auto& entry : std::filesystem::directory_iterator(dir))
     {
-        if (entry.path().extension() == ".bin")
+        if (entry.path().extension() != ".bin")
         {
-            paths.push_back(entry.path());
+            continue;
         }
+        // [Co-developed with claude code -- Adam]
+        // The emitted_*.bin files are written by p4_proxy/tests/generate_emitted_fixtures.py --
+        // bytes this project's own Python emitter produced, not bytes a switch produced. This
+        // loop used to take every .bin in the directory, so the seven emitted files sat in the
+        // same set as the twenty-four captures, and the assertions below measured a mixture
+        // while claiming to measure real traffic.
+        //
+        // That was not a cosmetic imprecision: the emitted files alone satisfy every one of
+        // them. emitted_tcp.bin is 10.0.0.1:5001 -> 10.0.0.4:40997 TCP, so it yields a flow, it
+        // matches the iperf five-tuple check, and emitted_tcp/udp/icmp cover all three protocol
+        // paths. If every genuine capture stopped parsing tomorrow, all three tests stayed
+        // green -- while this file's own comment says the point is "bytes a switch actually
+        // produced, rather than bytes a test invented".
+        //
+        // The emitted files are not unguarded: test_SFlowEmitterRoundtrip.cpp parses them
+        // deliberately, and CommittedFixtureTest checks they have not drifted. They simply do
+        // not belong in a suite whose subject is captured traffic.
+        if (entry.path().filename().string().rfind("emitted_", 0) == 0)
+        {
+            continue;
+        }
+        paths.push_back(entry.path());
     }
     std::sort(paths.begin(), paths.end()); // deterministic order
 
@@ -160,6 +182,50 @@ class GoldenFixtureTest : public ::testing::Test
 };
 
 } // namespace
+
+TEST_F(GoldenFixtureTest, TheFixtureSetIsCapturedTrafficOnly)
+{
+    // [Co-developed with claude code -- Adam]
+    // The claim this whole suite rests on, asserted rather than assumed. loadFixtures() used to
+    // take every .bin in the directory, which put the seven emitted_*.bin files -- written by
+    // this project's own Python emitter -- into a set the tests describe as real captured
+    // traffic. The emitted files alone satisfy every assertion here, so if every genuine capture
+    // stopped parsing tomorrow the suite stayed green while claiming otherwise.
+    //
+    // Counted from the directory rather than hardcoded: a recapture that adds files must not
+    // need this number edited, and a hardcoded count would go stale the way this project's test
+    // counts already have, twice.
+    const auto dir = fixtureDir();
+    ASSERT_FALSE(dir.empty()) << "fixture directory not found";
+
+    size_t captures = 0;
+    size_t emitted = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(dir))
+    {
+        if (entry.path().extension() != ".bin")
+        {
+            continue;
+        }
+        if (entry.path().filename().string().rfind("emitted_", 0) == 0)
+        {
+            ++emitted;
+        }
+        else
+        {
+            ++captures;
+        }
+    }
+
+    ASSERT_GT(captures, 0u) << "no captured fixtures at all";
+    ASSERT_GT(emitted, 0u)
+        << "no emitted fixtures present, so this test cannot observe them being excluded -- it "
+           "would pass whether or not the filter exists";
+
+    EXPECT_EQ(loadFixtures().size(), captures)
+        << "the fixture set is not captures alone: " << emitted << " emitted file(s) are on disk "
+        << "and the loaded count does not match the " << captures << " captures. Every assertion "
+        << "in this suite would then be measuring bytes a test invented.";
+}
 
 TEST_F(GoldenFixtureTest, FixturesArePresentAndWellFormed)
 {
