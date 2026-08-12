@@ -28,7 +28,22 @@
 >
 > **原始撰寫時的驗證狀態（保留供追溯）**：撰寫於 2026-08-10，此時機器上跑的是 P4 stack，OVS 路徑未實測。每個預期值都標明了來源（原始碼行號、既有文件、或 TO BE MEASURED）。
 >
-> **已核對的部分（2026-08-10，逐條開檔確認）**：啟動順序的依據（`stack.sh:530-538` 確實說明兩種模式方向相反）、Ryu 需要 `--observe-links` 加上 `rest_topology` 與 `ofctl_rest`（`stack.sh:562-564`）、`#define SFLOW_PORT 6343`（`FlowLinkUsageCollector.hpp:33`）、`kFlowStatsSuspectSeconds = 0.5`（`DeviceConfigurationAndPowerManager.hpp:291`）、poll 間隔 5s/30s/90s（`TopologyAndFlowMonitor.cpp` 的 `run()`，常數 `kWhileConverging`／`kOnceConverged`／`kConvergingFor`）、`controlPlaneHostAndPort`（`FlowLinkUsageCollector.cpp:211-218`）、`bool adminDisabled = false;`（`GraphTypes.hpp:215`）、kernel 以 `--no-ai` 啟動（`stack.sh:606`）、`intelligent_router.py` 存在於 repo 根目錄。
+> **已核對的部分（2026-08-10 逐條開檔確認，2026-08-12 重新核對並改成符號引用）**：
+> 啟動順序的依據（`stack.sh` 的 `cmd_up`，開頭的註解明說兩種模式方向相反）、
+> Ryu 需要 `--observe-links` 加上 `rest_topology` 與 `ofctl_rest`（`stack.sh` 的 `cmd_up` 裡那句 `start_bg ryu`）、
+> `#define SFLOW_PORT 6343`（`FlowLinkUsageCollector.hpp`）、
+> `kFlowStatsSuspectSeconds = 0.5`（`DeviceConfigurationAndPowerManager.hpp`）、
+> poll 間隔 5s/30s/90s（`TopologyAndFlowMonitor.cpp` 的 `run()`，常數 `kWhileConverging`／`kOnceConverged`／`kConvergingFor`）、
+> `controlPlaneHostAndPort`（`FlowLinkUsageCollector.cpp`）、
+> `bool adminDisabled = false;`（`GraphTypes.hpp` 的 `VertexProperties`）、
+> kernel 以 `--no-ai` 啟動（`stack.sh` 的 `cmd_up` 裡啟動 `ndtwin_kernel` 那行）、
+> `intelligent_router.py` 存在於 repo 根目錄。
+>
+> 🔴 **2026-08-12 重核結果：九條裡有兩條的行號已經漂掉**——`DeviceConfigurationAndPowerManager.hpp:291`
+> （`kFlowStatsSuspectSeconds` 現在在 `:294`）和 `GraphTypes.hpp:215`（`adminDisabled` 現在在 `:217`）。
+> **後面那條是這次自己弄壞的**：同一輪修文件時往它上面的註解加了兩行，這一行就往下推了兩行。
+> 斷言全部仍然成立，漂的只有指標。所以整段改成引用符號名——
+> **一份宣稱「逐條開檔確認」的清單，如果它的指標會因為別人改註解就失效，那個宣稱只在寫下那一天成立。**
 >
 > **拓撲規模也核對過**：`testbed_topo.py` 有 **10 個 `addSwitch`**、`HOST_NUM = 128`，topology 檔 `StaticNetworkTopologyMininet_10Switches.json` 是 10 switches / 128 hosts / **288 edges**，與本文推導的 `128×2 + 16×2 = 288` 一致。（審查時我一度以為只有 4 台 switch 而誤判本文有錯，那是我自己的 grep 截斷造成的——文件是對的。）
 >

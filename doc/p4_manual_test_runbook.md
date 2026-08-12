@@ -20,8 +20,14 @@
 > **驗證紀錄（2026-08-10）**：§4 的每一條 idle 檢查都在活的 stack 上實跑過，數值與本文所寫一致
 > （10/10/4/40、12 個 node key、power 10 筆 33466–147622 mW、avg usage 0.0、每台 4 條 flow、
 > 0 個 detected flow、10 台 `probe_ok`、12 條路徑、clone session ×10／failed ×0／seeded ×1）。
-> 引用的行號（當時記的是 `FlowLinkUsageCollector.cpp:507`、`:1798-1801`、`TopologyAndFlowMonitor.cpp:1793-1795`——**這些行號今天都已經漂掉了**，見下面 §5d 的說明）
+> 引用的行號（`FlowLinkUsageCollector.cpp:507`、`:1798-1801`、`TopologyAndFlowMonitor.cpp:1793-1795`）
 > 都開檔確認過，`?dpid=` 真的回 404、`get_num_of_flows_passing_a_switch` 真的只吃 POST 也確認過。
+>
+> 🔴 **2026-08-12 重核：上面三個行號有兩個已經漂掉。** 逐一開檔對過 2026-08-10 當時的版本與今天：
+> `:1798-1801` 當時是 `sockOvfl` 的 WARN 那段，今天是被註解掉的 `getsockopt` 呼叫——**漂了**；
+> `TopologyAndFlowMonitor.cpp:1793-1795` 當時是 poll 間隔的三元式，今天在 `:1951-1953`——**漂了**；
+> `FlowLinkUsageCollector.cpp:507` 和當時**一模一樣**（都是一段 docblock 的 `@details` 行），沒漂。
+> 記三個而不是含糊寫「都漂了」，是因為「大概都過期了」和「這兩個過期、那個沒有」是兩種不同的可信度。
 > §5–§6 的數值來自 2026-08-10 的實測，未在這次重跑（跑了會打斷你正在用的 stack）。
 
 ---
