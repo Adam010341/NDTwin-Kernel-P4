@@ -66,9 +66,20 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // session, no table entries and no P4Runtime mastership, and the liveness probe cannot
     // tell: it is a unary RPC on a channel gRPC reconnects on its own, answered without any
     // pipeline loaded. Without this step the twin would certify Up a switch that cannot
-    // forward one packet. `curl -f` turns any non-2xx into a non-zero exit, so the same
-    // seam observes both steps; the response body lands in the kernel log.
-    if (!executeSystemCommand("curl -sS -f -X POST --max-time 30 http://" +
+    // forward one packet.
+    //
+    // [Co-developed with claude code -- Adam]
+    // `--fail-with-body`, not `-f`. Both turn a non-2xx into exit 22, which is what lets this
+    // one seam observe both steps -- but plain `-f` *discards the response body*, and the
+    // readopt endpoint's whole 502 contract is that it names the step that broke
+    // (mastership/pipeline/clone/routes). This comment used to claim "the response body lands
+    // in the kernel log" while `-f` was guaranteeing it did not. Measured on a live fabric
+    // (2026-08-12): the kernel log held only `curl: (22) ... error: 502`, and the actual
+    // `step: "pipeline"` had to be recovered by re-running the endpoint by hand without `-f`.
+    // A caller's flag silently cancelled a diagnostic the other process had gone to the
+    // trouble of producing. Needs curl >= 7.76; an older curl rejects the option and the
+    // power-on fails loudly rather than lying, which is the right way round.
+    if (!executeSystemCommand("curl -sS --fail-with-body -X POST --max-time 30 http://" +
                               AppConfig::P4_PROXY_IP_AND_PORT + "/p4/readopt/" +
                               std::to_string(dpid)))
     {

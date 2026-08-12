@@ -12,7 +12,8 @@
  *    the vertex down only when it succeeds. A helper failure leaves the vertex up: the process was
  *    left running, so left running is left up.
  *  - powerOn is two commands in order: helper `on`, then a POST to the proxy readopt endpoint for
- *    that dpid (curl with -f, so a non-2xx answer fails). The vertex is marked up only when BOTH
+ *    that dpid (curl with --fail-with-body, so a non-2xx answer fails *and* the endpoint's
+ *    step detail still reaches the log). The vertex is marked up only when BOTH
  *    succeed; a failure of either leaves it untouched and returns a failure OpResult -- 500 for the
  *    helper, 502 for readopt -- whose message says what happened. The readopt step exists because a
  *    restarted bmv2 has no pipeline, no clone session, no mastership and no routes: a process that
@@ -29,10 +30,13 @@
  * graph, no threads, only the shell seam overridden.
  */
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <iterator>
 #include <memory>
 #include <shared_mutex>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -113,6 +117,37 @@ struct Fixture
         return (*graph)[sw].isUp;
     }
 };
+
+/// A command's arguments as whole tokens.
+///
+/// [Co-developed with claude code -- Adam]
+/// Substring search cannot tell curl's two fail-on-error flags apart: "-f" is a substring of
+/// "--fail-with-body", so `cmd.find("-f")` passes for the flag that keeps the response body and
+/// equally for the one that throws it away. Those are the two behaviours these tests exist to
+/// distinguish, so the comparison has to be on tokens.
+std::vector<std::string> commandTokens(const std::string& cmd)
+{
+    std::istringstream in(cmd);
+    return {std::istream_iterator<std::string>(in), std::istream_iterator<std::string>()};
+}
+
+bool hasFlag(const std::string& cmd, const std::string& flag)
+{
+    const std::vector<std::string> tokens = commandTokens(cmd);
+    return std::find(tokens.begin(), tokens.end(), flag) != tokens.end();
+}
+
+/// Does a non-2xx answer become a non-zero exit? Any member of curl's --fail family does this.
+bool failsOnNon2xx(const std::string& cmd)
+{
+    return hasFlag(cmd, "-f") || hasFlag(cmd, "--fail") || hasFlag(cmd, "--fail-with-body");
+}
+
+/// Does the response body survive a non-2xx answer? Only --fail-with-body keeps it.
+bool keepsTheFailureBody(const std::string& cmd)
+{
+    return hasFlag(cmd, "--fail-with-body") && !hasFlag(cmd, "-f") && !hasFlag(cmd, "--fail");
+}
 
 /// The design's hard rule, checked against every command a scenario produced.
 void expectNoNameMatchingKills(const FakeP4& p4)
@@ -202,8 +237,9 @@ TEST(P4PowerStrategyTest, PowerOnRunsHelperThenReadoptInThatOrder)
     EXPECT_NE(readopt.find("curl"), std::string::npos) << readopt;
     EXPECT_NE(readopt.find("readopt/7"), std::string::npos)
         << "the proxy readopts one dpid, and it had better be this one: " << readopt;
-    EXPECT_NE(readopt.find("-f"), std::string::npos)
-        << "without -f a 5xx from the proxy exits 0 and a dead readopt reads as success: "
+    EXPECT_TRUE(failsOnNon2xx(readopt))
+        << "without a fail-on-error flag a 5xx from the proxy exits 0 and a dead readopt reads "
+           "as success: "
         << readopt;
     EXPECT_TRUE(readopt.find("-X POST") != std::string::npos ||
                 readopt.find("--request POST") != std::string::npos ||
@@ -212,6 +248,42 @@ TEST(P4PowerStrategyTest, PowerOnRunsHelperThenReadoptInThatOrder)
 
     EXPECT_TRUE(fix.isUp());
     expectNoNameMatchingKills(p4);
+}
+
+TEST(P4PowerStrategyTest, TheReadoptCurlKeepsTheProxysAccountOfWhatBroke)
+{
+    // [Co-developed with claude code -- Adam]
+    // The readopt endpoint answers a failure with the step it died on -- mastership, pipeline,
+    // clone or routes -- precisely so this side can log it. `curl -f` and `--fail-with-body`
+    // both make a 502 exit non-zero, so the seam's control flow cannot tell them apart; the
+    // difference is entirely in whether the body survives, and `-f` deletes it.
+    //
+    // Measured on a live fabric (2026-08-12): powerOn failed, and the kernel log held exactly
+    // `curl: (22) The requested URL returned error: 502` -- no step, no reason. The proxy's log
+    // had only uvicorn's one-line 502. Re-running the same endpoint by hand without `-f`
+    // returned `step: "pipeline"` immediately. The diagnostic had been produced, travelled the
+    // whole way, and was discarded by the caller in its last inch.
+    //
+    // This test is why the flag cannot quietly regress: the assertion an earlier version made,
+    // `readopt.find("-f") != npos`, is satisfied by BOTH flags, so it would have watched the
+    // repair be undone without failing once.
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    FakeP4 p4;
+
+    p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
+
+    ASSERT_EQ(p4.commands.size(), 2u);
+    const std::string& readopt = p4.commands[1];
+
+    EXPECT_TRUE(keepsTheFailureBody(readopt))
+        << "the 502's step detail must reach the kernel log, so the readopt curl needs "
+           "--fail-with-body and must not use plain -f/--fail, which discard it: "
+        << readopt;
+    EXPECT_TRUE(failsOnNon2xx(readopt))
+        << "and it must still exit non-zero on a 502, or the seam reads a dead readopt as "
+           "success: "
+        << readopt;
 }
 
 TEST(P4PowerStrategyTest, PowerOnHelperFailureIsA500AndReadoptNeverRuns)
