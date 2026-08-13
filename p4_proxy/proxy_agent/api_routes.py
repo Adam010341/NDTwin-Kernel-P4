@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 import json
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError
 from proxy_agent import ryu_topology, ryu_flow_stats
@@ -24,6 +25,25 @@ def inject_readopt(client_factory, sample_callback):
     global readopt_client_factory, readopt_sample_callback
     readopt_client_factory = client_factory
     readopt_sample_callback = sample_callback
+
+
+def _grpc_status_name(exc):
+    """
+    The gRPC status name of an exception, or None if it is not a gRPC error.
+
+    [Co-developed with claude code -- Adam]
+    grpc.RpcError exposes code() but the concrete class is an internal name
+    (_MultiThreadedRendezvous, _InactiveRpcError) that means nothing in a log. Duck-typed so this
+    module keeps its lack of a gRPC import; a non-gRPC exception has no code() and falls back.
+    """
+    code = getattr(exc, "code", None)
+    if not callable(code):
+        return None
+    try:
+        status = code()
+    except Exception:  # noqa: BLE001 -- reporting an error must not raise a second one
+        return None
+    return getattr(status, "name", None)
 
 # --- Ryu-shaped topology, polled by the kernel -------------------------------------------
 # [Co-developed with claude code -- Adam]
@@ -95,6 +115,13 @@ async def get_all_paths():
     return ryu_topology.render_destination_paths(
         topology.net, topology.down_link_endpoints(), topology.installed_routes())
 
+# [Co-developed with claude code -- Adam]
+# These three stay `async def` because they must `await request.json()`, so the blocking half is
+# pushed to the threadpool by hand instead. route_flow/unroute_flow/modify_flow all end in a gRPC
+# Write against one switch, and a switch that is alive but not answering blocks that call -- on the
+# event loop, that is the same total outage get_flow_stats caused (see its docstring for the
+# measurement). run_in_threadpool is what FastAPI itself uses for `def` endpoints, so this puts
+# them on the identical footing without changing how the body is parsed or how errors propagate.
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
     """Parses OpenFlow match/actions and delegates to P4 Client"""
@@ -109,7 +136,7 @@ async def add_flow_entry(request: Request):
     # failure and logs it with the endpoint, so this reaches an operator instead of becoming a
     # rule that quietly covers more traffic than was asked for.
     try:
-        success = topology.route_flow(dpid, match, actions)
+        success = await run_in_threadpool(topology.route_flow, dpid, match, actions)
     except UnsupportedMatchError as err:
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
@@ -127,7 +154,7 @@ async def delete_flow_entry(request: Request):
     match = data.get("match", {})
     
     try:
-        success = topology.unroute_flow(dpid, match)
+        success = await run_in_threadpool(topology.unroute_flow, dpid, match)
     except UnsupportedMatchError as err:
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
@@ -149,7 +176,7 @@ async def modify_flow_entry(request: Request):
     # fired on every *successful* modify, because modify_ipv4_route had no `return True` on
     # its success path and the None propagated to here as falsy.
     try:
-        success = topology.modify_flow(dpid, match, actions)
+        success = await run_in_threadpool(topology.modify_flow, dpid, match, actions)
     except UnsupportedMatchError as err:
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
@@ -218,7 +245,7 @@ async def switch_state():
 
 
 @router.get("/stats/flow/{dpid}")
-async def get_flow_stats(dpid: int):
+def get_flow_stats(dpid: int):
     """
     This switch's tables in Ryu's /stats/flow/<dpid> shape.
 
@@ -243,6 +270,22 @@ async def get_flow_stats(dpid: int):
     situation from the caller's side: right after a proxy restart the switch map is empty while
     the kernel is still polling every dpid it knows, and an empty-map answer here would have
     blanked all ten switches' tables until discovery caught up.
+
+    [Co-developed with claude code -- Adam]
+    Deliberately `def`, not `async def` -- the same reason readopt is, and this endpoint is where
+    that reason was learned. read_table_entries blocks on a gRPC stream, so as a coroutine it ran
+    that block *on the event loop*: one bmv2 that stopped answering took the entire agent down,
+    every endpoint, for as long as it stayed stopped. Measured 2026-08-13 with s5 SIGSTOPed --
+    /p4/switch_state went from 1.9 ms to no response at all, and the kernel, unable to read any
+    switch's liveness, walked the graph down from 40/40 edges to 32/40. A single switch's fault
+    amplified into total loss of fabric state.
+
+    py-spy on the live proxy named the frame: MainThread, inside run_endpoint_function ->
+    get_flow_stats -> read_table_entries, with `run_forever` underneath it. The same dump showed
+    the liveness prober idle and healthy and the AnyIO worker pool completely unused -- the
+    Unknown-state evidence the kernel needed was sitting in the cache the whole time, and a free
+    threadpool worker was sitting right there to serve it. Hence `def`: FastAPI dispatches
+    non-coroutine endpoints to that pool, and the loop stays free to answer everyone else.
     """
     client = topology.switches.get(dpid) if topology else None
     if client is None:
@@ -253,9 +296,18 @@ async def get_flow_stats(dpid: int):
     try:
         return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries())
     except Exception as e:
-        print(f"[Proxy Agent] Reading tables from switch {dpid} failed: "
-              f"{type(e).__name__}: {e}")
+        # [Co-developed with claude code -- Adam]
+        # The gRPC status name, not the Python class name. A deadline against a stopped switch
+        # raises _MultiThreadedRendezvous, and that is what the kernel used to log verbatim in its
+        # ReportedFailure warning -- an internal grpc class telling an operator nothing about what
+        # went wrong. `probe()` already made this argument and already reads e.code().name; this
+        # path just never got the same treatment. Found by the 2026-08-13 live run of this fix.
+        #
+        # Read by duck-typing rather than importing grpc: this module has no gRPC dependency today
+        # and the reason to add one would be a single attribute lookup.
+        reason = _grpc_status_name(e) or type(e).__name__
+        print(f"[Proxy Agent] Reading tables from switch {dpid} failed: {reason}: {e}")
         return JSONResponse(
             status_code=503,
-            content={"error": f"reading tables from switch {dpid} failed: {type(e).__name__}"},
+            content={"error": f"reading tables from switch {dpid} failed: {reason}"},
         )

@@ -23,6 +23,7 @@ add_executable(
   test_P4PowerStrategy.cpp
   test_P4Liveness.cpp
   test_RelayResponse.cpp
+  test_RequestDeadlines.cpp
   test_ReverseEdgeLookup.cpp
   test_AllDestinationPaths.cpp
   test_HttpSessionRouting.cpp

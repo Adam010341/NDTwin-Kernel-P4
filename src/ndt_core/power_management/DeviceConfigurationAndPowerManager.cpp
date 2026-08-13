@@ -478,10 +478,7 @@ DeviceConfigurationAndPowerManager::p4LivenessFor(uint64_t dpid,
 std::optional<json>
 DeviceConfigurationAndPowerManager::fetchP4SwitchState()
 {
-    // -w writes the status after the body so a non-2xx is distinguishable from an empty 200, and
-    // --max-time bounds a hung proxy: this runs inside the 1 Hz ping loop.
-    const std::string cmd = "curl -s --max-time 3 -w '\\n%{http_code}' http://" +
-                            AppConfig::P4_PROXY_IP_AND_PORT + "/p4/switch_state 2>/dev/null";
+    const std::string cmd = buildSwitchStateCommand(AppConfig::P4_PROXY_IP_AND_PORT);
 
     const auto fail = [this](const std::string& reason) -> std::optional<json> {
         if (m_switchStateFailures.recordFailure())
@@ -829,6 +826,28 @@ DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gw
     return cmd.str();
 }
 
+/** @brief Builds the P4 liveness request. See the header for why this is a separate function. */
+std::string
+DeviceConfigurationAndPowerManager::buildSwitchStateCommand(const std::string& proxyIpAndPort)
+{
+    // -w writes the status after the body so a non-2xx is distinguishable from an empty 200, and
+    // --max-time bounds a hung proxy: this runs inside the 1 Hz ping loop.
+    return "curl -s --max-time 3 -w '\\n%{http_code}' http://" + proxyIpAndPort +
+           "/p4/switch_state 2>/dev/null";
+}
+
+/** @brief Builds the flow-table request. See the header for why this is a separate function. */
+std::string
+DeviceConfigurationAndPowerManager::buildFlowStatsCommand(const std::string& ipAndPort,
+                                                          uint64_t dpid)
+{
+    // [Co-developed with claude code -- Adam]
+    // --max-time, for the same reason the liveness fetch carries one: it bounds a hung control
+    // plane. This was the last bare `curl -s` in this file. 8 s rather than the liveness poll's
+    // 3 s -- see the header for why the looser bound is the right trade here.
+    return fmt::format("curl -s --max-time 8 -X GET http://{}/stats/flow/{}", ipAndPort, dpid);
+}
+
 /** @brief Reads the smart-plug gateway's reply. See the header for why this is a separate function.
  *
  * [Co-developed with claude code -- Adam]
@@ -993,8 +1012,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                                       ? AppConfig::P4_PROXY_IP_AND_PORT
                                       : AppConfig::RYU_IP_AND_PORT;
 
-        std::string cmd =
-            fmt::format("curl -s -X GET http://{}/stats/flow/{}", ip_and_port, dpid);
+        std::string cmd = buildFlowStatsCommand(ip_and_port, dpid);
 
         // TRACE, not INFO: one line per switch per poll, and the TRACE line just below already
         // reports the same request together with its response, which is the useful half.

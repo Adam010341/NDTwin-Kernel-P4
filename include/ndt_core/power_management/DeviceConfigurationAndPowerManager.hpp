@@ -436,6 +436,41 @@ class DeviceConfigurationAndPowerManager
                                               const std::string& action);
 
     /**
+     * @brief Builds the request that reads per-switch bmv2 liveness from the P4 proxy.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Extracted for the same reason as buildRelayPowerCommand: the method around it needs a live
+     * proxy, so the only assertable thing is the wire format. `--max-time` matters here more than
+     * anywhere else in this file -- this runs inside the 1 Hz ping loop, so an unbounded request
+     * stalls liveness for every switch at once.
+     *
+     * @param proxyIpAndPort Host:port of the P4 proxy (AppConfig::P4_PROXY_IP_AND_PORT).
+     */
+    static std::string buildSwitchStateCommand(const std::string& proxyIpAndPort);
+
+    /**
+     * @brief Builds the request that reads one switch's flow tables from Ryu or the P4 proxy.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * This one was a bare `curl -s` until 2026-08-13 -- the last unbounded request in this file,
+     * and on the worst path to leave unbounded: the sweep is serial over every switch, so one
+     * unresponsive dpid stalled every later dpid's table too. Measured against a SIGSTOPed bmv2,
+     * the proxy never answered at all.
+     *
+     * The bound is deliberately looser than the liveness poll's. The P4 proxy caps its own gRPC
+     * read at 5 s and then answers {"error": ...} naming the switch; cutting before that trades a
+     * body that identifies the failure for an empty one, which the caller can only report as
+     * "switch N and possibly others". Losing that race costs diagnosis, not safety -- an empty
+     * body is already handled by keeping the previous tables.
+     *
+     * @param ipAndPort Host:port of the controller for this switch (Ryu or the P4 proxy).
+     * @param dpid      The switch's datapath id.
+     */
+    static std::string buildFlowStatsCommand(const std::string& ipAndPort, uint64_t dpid);
+
+    /**
      * @brief A plausible synthetic power draw, in milliwatts, for a simulated switch.
      *
      * @param dpid The switch's datapath id, used as the seed.

@@ -398,7 +398,7 @@ class P4RuntimeClient:
                         return param.name
         return None
 
-    def read_table_entries(self):
+    def read_table_entries(self, timeout_s: float = RPC_TIMEOUT_S):
         """
         Every table entry on this switch, with p4info ids resolved to names.
 
@@ -419,6 +419,19 @@ class P4RuntimeClient:
         Raises nothing on a missing name -- an entry referring to an id this p4info does not
         describe is returned with None for that name, so a pipeline/p4info mismatch shows up as
         data instead of an exception on the polling path.
+
+        [Co-developed with claude code -- Adam]
+        `timeout_s` is not optional in practice. Read is a *streaming* call, and without a deadline
+        it waits forever on a switch whose process is alive but not serving -- which is exactly what
+        a SIGSTOPed bmv2 is. Measured 2026-08-13: with s5 stopped, GET /stats/flow/5 never returned
+        (cut off at 25 s), against 3 ms healthy. A py-spy dump caught the proxy's asyncio event loop
+        parked in this very frame, so the whole agent was unreachable, not just this switch --
+        see the callers in api_routes for the other half of that fix.
+
+        DEADLINE_EXCEEDED surfaces as grpc.RpcError, which get_flow_stats already turns into the
+        503 + {"error": ...} body the kernel reads as ReportedFailure and keeps the previous table
+        for. So a timeout degrades to "this switch was unreadable this poll", never to the empty
+        table that Classifier::updateFromQueriedTables would apply as a snapshot.
         """
         req = p4runtime_pb2.ReadRequest()
         req.device_id = self.device_id
@@ -426,7 +439,7 @@ class P4RuntimeClient:
         req.entities.add().table_entry.table_id = 0
 
         entries = []
-        for response in self.stub.Read(req):
+        for response in self.stub.Read(req, timeout=timeout_s):
             for entity in response.entities:
                 if not entity.HasField("table_entry"):
                     continue

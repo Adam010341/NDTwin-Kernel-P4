@@ -154,6 +154,10 @@ class RecordingStub:
         # double that is stricter than the interface it stands in for turns a correct change into a
         # test failure.
         self.write_timeouts = []
+        # Same reasoning as write_timeouts, and the same trap: Read is a *streaming* call, so an
+        # unbounded one waits forever on a switch that is alive but not serving.
+        # [Co-developed with claude code -- Adam]
+        self.read_timeouts = []
         self.write_error = write_error
         self.always = always
         self.read_responses = list(read_responses)
@@ -169,8 +173,9 @@ class RecordingStub:
             error, self.write_error = self.write_error, None  # fail once, then succeed
             raise error
 
-    def Read(self, request):
+    def Read(self, request, timeout=None):
         self.reads.append(request)
+        self.read_timeouts.append(timeout)
         if self.read_error is not None:
             raise self.read_error
         return iter(self.read_responses)
@@ -839,6 +844,47 @@ class WriteDeadlineTest(unittest.TestCase):
         # A tighter bound would make DEADLINE_EXCEEDED report a rule that did land as failed.
         self.client.insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
         self.assertGreaterEqual(min(self.stub.write_timeouts), 1.0)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class ReadDeadlineTest(unittest.TestCase):
+    """
+    Pins the deadline on the table-read path.
+
+    [Co-developed with claude code -- Adam]
+    The read is worse than the write it mirrors: Read is a streaming call, so with no deadline it
+    waits forever rather than failing, and its caller is an HTTP endpoint the kernel polls once per
+    switch per sweep. Measured 2026-08-13 with s5 SIGSTOPed -- alive, not serving -- GET
+    /stats/flow/5 never came back at all (cut off at 25 s) against 3 ms healthy, and because the
+    endpoint was `async def` at the time it took the proxy's whole event loop with it: 40/40 edges
+    down to 32/40 in the kernel's graph. This test guards the keyword argument; the endpoint being
+    `def` is guarded in tests/test_flow_stats_route.py. Both halves are needed, and neither one
+    implies the other.
+    """
+
+    def setUp(self):
+        self.stub = RecordingStub(read_responses=[])
+        self.client = a_client(self.stub)
+
+    def test_a_table_read_carries_a_deadline(self):
+        self.client.read_table_entries()
+        self.assertTrue(self.stub.read_timeouts, "no Read reached the stub")
+        for t in self.stub.read_timeouts:
+            self.assertIsNotNone(t, "a Read was sent with no deadline -- it will hang forever")
+            self.assertGreater(t, 0)
+
+    def test_the_deadline_is_not_so_short_that_a_large_table_is_reported_as_unreadable(self):
+        # A switch holding a real routing table takes longer to dump than one holding four rules.
+        # Too tight a bound turns a healthy switch into a ReportedFailure every poll, and the
+        # kernel would then keep stale tables forever.
+        self.client.read_table_entries()
+        self.assertGreaterEqual(min(self.stub.read_timeouts), 1.0)
+
+    def test_a_caller_can_tighten_the_deadline(self):
+        # The liveness-sensitive callers are not all the same urgency; the default is a ceiling,
+        # not a fixed policy.
+        self.client.read_table_entries(timeout_s=0.25)
+        self.assertEqual(self.stub.read_timeouts, [0.25])
 
 
 class RecordingChannelFactory:
