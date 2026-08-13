@@ -4,7 +4,7 @@ ndtwin-p4-power -- start or stop exactly one bmv2 switch, as root, from the mani
 
 [Co-developed with claude code -- Adam]
 
-This is the privileged half of P4PowerStrategy (Phase 7, doc/phase7_power_mechanism_design.md).
+This is the privileged half of P4PowerStrategy (Phase 7, doc/2026-08-11_phase7_power_mechanism_design.md).
 The kernel runs as an unprivileged user and simple_switch_grpc runs as root, so the kill and the
 relaunch both need root; rather than putting `kill` into NOPASSWD -- which would let the invoking
 user kill any root process on the machine -- this script is the one thing sudoers allows, and it

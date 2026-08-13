@@ -3,7 +3,7 @@
  * Architecture: v1model
  * Target: BMv2
  *
- * Phase 4 of doc/p4_bmv2_support_plan.md.
+ * Phase 4 of doc/2026-07-27_p4_bmv2_support_plan.md.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -237,7 +237,7 @@ parser MyParser(packet_in packet,
     state parse_icmp {
         packet.extract(hdr.icmp);
         // The kernel's FlowKey carries ICMP type/code in the port fields (see
-        // doc/ndt_api.md), so mirroring that here keeps the two consistent.
+        // doc/2026-01-02_ndt_api.md), so mirroring that here keeps the two consistent.
         meta.l4_src_port = (bit<16>)hdr.icmp.icmpType;
         meta.l4_dst_port = (bit<16>)hdr.icmp.icmpCode;
         transition accept;

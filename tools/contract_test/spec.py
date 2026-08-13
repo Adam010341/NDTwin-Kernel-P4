@@ -1,15 +1,15 @@
 """
 Contract definitions for every /ndt/* endpoint the kernel registers.
 
-Three kinds of check per endpoint, matching doc/testing_workflow.md's L2 layer:
+Three kinds of check per endpoint, matching doc/2026-07-27_testing_workflow.md's L2 layer:
 
   1. structure  -- the response is valid JSON with the right fields and types
   2. invariants -- the values make sense together (10 switches, all up, paths non-empty)
   3. error path -- bad input yields a sane 4xx, not a 500 and not a fake success
 
-Shapes are taken from doc/ndt_api.md and cross-checked against the dispatch table in
+Shapes are taken from doc/2026-01-02_ndt_api.md and cross-checked against the dispatch table in
 src/ndt_core/http/HttpSession.cpp. Endpoint names/methods here are the kernel's actual
-registrations, which is why a few appear that ndt_api.md does not document.
+registrations, which is why a few appear that 2026-01-02_ndt_api.md does not document.
 
 [Co-developed with claude code -- Adam]
 """
@@ -222,7 +222,7 @@ def _is_routable_unicast(ip_u32):
     True when a destination could plausibly have a unicast path through the fabric.
 
     `src_ip`/`dst_ip` hold in_addr::s_addr -- network byte order read as a native integer --
-    so the first octet is the low byte on a little-endian host. See doc/ndt_api.md.
+    so the first octet is the low byte on a little-endian host. See doc/2026-01-02_ndt_api.md.
 
     Multicast (224/4), broadcast and link-local (169.254/16) are excluded because they have no
     unicast path by definition, so demanding one is a bug in the check rather than in the
@@ -463,7 +463,7 @@ ENDPOINTS = [
 
     dict(name="get_openflow_capacity", method="GET", path="/ndt/get_openflow_capacity",
          category=READ, schema=Any_(),
-         note="undocumented in ndt_api.md; reads doc/OpenflowCapacity.json"),
+         note="undocumented in 2026-01-02_ndt_api.md; reads doc/2026-01-02_OpenflowCapacity.json"),
 
     dict(name="get_nickname", method="GET", path="/ndt/get_nickname",
          query=lambda ctx: {"dpid": str(ctx.a_dpid)},
@@ -523,7 +523,7 @@ ENDPOINTS = [
          category=ERRORPATH, expect_status=[412, 400, 404],
          schema=Any_(),
          # known_gap removed: handleReleaseLock now answers 412 for a lock that is not held or
-         # whose type is invalid, matching the sibling renew handler and doc/testing_workflow.md.
+         # whose type is invalid, matching the sibling renew handler and doc/2026-07-27_testing_workflow.md.
          # [Co-developed with claude code -- Adam]
          note="releasing an already-released lock must not report success"),
 

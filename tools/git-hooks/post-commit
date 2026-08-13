@@ -88,7 +88,7 @@ Three facts that change how a finding should be graded:
   here can fail when one breaks. A change to a response body, status code, or query parameter of a
   \`/ndt/\` handler is HIGH even with the whole suite green. Name the endpoint and the field: I have
   to check the consumers outside this review, and I can only do that if you tell me which.
-- **The intent is written down.** \`doc/p4_bmv2_support_plan.md\` holds the phase plan and a numbered
+- **The intent is written down.** \`doc/2026-07-27_p4_bmv2_support_plan.md\` holds the phase plan and a numbered
   defect list; \`doc/audit/\` holds the subsystem reviews and my adjudications of them;
   \`CHANGELOG.md\` records what shipped. When a commit says it implements or fixes one of those,
   check it against the document, not just against its own message.

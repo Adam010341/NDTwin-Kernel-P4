@@ -45,7 +45,7 @@ processes, which `mn -c` does not touch.
 Written on startup, removed on exit. Maps switch name to `pid`, `device_id`, `grpc_port`,
 `thrift_port`, `log_file` and the launch `argv`.
 
-`P4PowerStrategy` needs this (Phase 7 of `doc/p4_bmv2_support_plan.md`): Mininet switches
+`P4PowerStrategy` needs this (Phase 7 of `doc/2026-07-27_p4_bmv2_support_plan.md`): Mininet switches
 share the root PID namespace, so powering one switch off by pattern-matching the process
 name kills all ten — which is what the current implementation does. Only verified-live
 switches are listed; an entry for a dead switch would be worse than no entry, because a

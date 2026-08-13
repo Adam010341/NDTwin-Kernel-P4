@@ -6,11 +6,11 @@
  * [Co-developed with claude code -- Adam]
  *
  * Expected behaviour is derived from:
- *   1. doc/p4_bmv2_support_plan.md (issues #4, #5, #12)
- *   2. doc/audit/external-tools-compat-review-2026-08-08.md
+ *   1. doc/2026-07-27_p4_bmv2_support_plan.md (issues #4, #5, #12)
+ *   2. doc/audit/2026-08-08_external-tools-compat-review.md
  *   3. include/ndt_core/collection/TopologyAndFlowMonitor.hpp (interface contract)
  *   4. setting/StaticNetworkTopologyMininet_10Switches.json (data)
- *   5. doc/audit/external-tools-compat-review-2026-08-08.md (external tool expectations)
+ *   5. doc/audit/2026-08-08_external-tools-compat-review.md (external tool expectations)
  *
  * The implementation (.cpp) is read ONLY for function signatures and object
  * construction; no assertion is derived from reading the implementation.
@@ -118,7 +118,7 @@ struct MininetTopologyFixture
 } // namespace
 
 // [Co-developed with claude code -- Adam]
-// Spec source: doc/p4_bmv2_support_plan.md issue #4 —
+// Spec source: doc/2026-07-27_p4_bmv2_support_plan.md issue #4 —
 // "node 和 edge 初始都是 false"
 TEST(MininetTopologyTest, AfterLoadingTopologyAllVerticesAndEdgesAreDisabled)
 {

@@ -4,7 +4,7 @@
 #
 # compare_baseline.py fails on any difference not listed here. That is deliberate: it
 # means each P4 shortfall must be acknowledged with a reason, instead of quietly
-# degrading. When a phase of doc/p4_bmv2_support_plan.md lands, the corresponding entry
+# degrading. When a phase of doc/2026-07-27_p4_bmv2_support_plan.md lands, the corresponding entry
 # should be deleted -- the tool reports unused entries so they do not accumulate.
 #
 # Format (three fields separated by a pipe WITH SPACES around it):
@@ -61,7 +61,7 @@ get_temperature | type differs | temperature is a per-model SNMP feature; both p
 # captured at a moment with no live rates. That is a bad baseline, not a P4 improvement, and it
 # also makes some of these look "unused" when they simply could not occur. A baseline is only
 # usable if get_average_link_usage is non-zero and the flows carry rates at capture time --
-# check before trusting an L4 result. See doc/full_test_runbook.md step 1f.
+# check before trusting an L4 result. See doc/2026-07-30_full_test_runbook.md step 1f.
 get_detected_flow_data | flows_detected: | Phase 5: bmv2 emits no sFlow yet, so no flows are detected
 get_detected_flow_data | any_rate_nonzero: | Phase 5: no telemetry means no rates
 get_detected_flow_data | any_packet_rate_nonzero: | Phase 5: no telemetry means no packet rates

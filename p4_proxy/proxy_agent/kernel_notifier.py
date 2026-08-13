@@ -7,7 +7,7 @@ The kernel does not discover P4 switches on its own. In OVS mode Ryu actively *p
 `intelligent_router.py` calls `/ndt/inform_switch_entered` when a switch connects and
 `/ndt/link_failure_detected` / `link_recovery_detected` when LLDP beacons stop or resume. The
 proxy pushed nothing, which is why the graph stayed inert in P4 mode -- see Phase 6 of
-doc/p4_bmv2_support_plan.md.
+doc/2026-07-27_p4_bmv2_support_plan.md.
 
 `inform_switch_entered` matters most: it is the **only** path that sets `isEnabled` on a vertex
 (HttpSession::handleInformSwitchEntered sets both isUp and isEnabled). Without it BFS pathing,

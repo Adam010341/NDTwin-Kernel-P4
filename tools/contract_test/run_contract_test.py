@@ -4,7 +4,7 @@ L2 contract test for the NDTwin kernel's /ndt/* HTTP API.
 
 Every tool and app in the workspace talks to the kernel only through this API, so
 verifying it here verifies the foundation all of them stand on. See
-doc/testing_workflow.md for how this fits the wider test layers.
+doc/2026-07-27_testing_workflow.md for how this fits the wider test layers.
 
 Checks three things per endpoint:
   1. structure  -- valid JSON, right fields, right types
@@ -22,7 +22,7 @@ Usage
   # include endpoints that change flow rules or power state
   ./run_contract_test.py --topology <file> --allow-mutations
 
-  # verify the schemas themselves against the examples in doc/ndt_api.md
+  # verify the schemas themselves against the examples in doc/2026-01-02_ndt_api.md
   ./run_contract_test.py --self-test
 
 Exit code is 0 only when every selected check passes, so this can gate CI.
@@ -267,14 +267,14 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
 
 def run_self_test(pal: Palette) -> int:
     """
-    Validate the schemas against the examples in doc/ndt_api.md.
+    Validate the schemas against the examples in doc/2026-01-02_ndt_api.md.
 
     This is what makes the suite trustworthy without a running kernel: if a schema
     rejects the documented example, the schema is wrong.
     """
     import selftest_fixtures as fx
 
-    print("Self-test: validating schemas against doc/ndt_api.md examples\n")
+    print("Self-test: validating schemas against doc/2026-01-02_ndt_api.md examples\n")
     passed = failed = 0
     for name, (schema, sample) in fx.FIXTURES.items():
         errs = validate(schema, sample)
@@ -329,7 +329,7 @@ def main() -> int:
     ap.add_argument("--only", metavar="NAME", action="append",
                     help="run only the named check(s); repeatable")
     ap.add_argument("--self-test", action="store_true",
-                    help="validate the schemas against doc/ndt_api.md examples and exit")
+                    help="validate the schemas against doc/2026-01-02_ndt_api.md examples and exit")
     args = ap.parse_args()
 
     pal = Palette(supports_colour())

@@ -3,7 +3,7 @@ Synthesises sFlow v5 datagrams from P4 sampled packets and sends them to NDTwin'
 
 [Co-developed with claude code -- Adam]
 
-Phase 5 of doc/p4_bmv2_support_plan.md. bmv2 has no sFlow agent, so in P4 mode the kernel's
+Phase 5 of doc/2026-07-27_p4_bmv2_support_plan.md. bmv2 has no sFlow agent, so in P4 mode the kernel's
 telemetry is entirely empty: every rate, link utilisation and flow path reads zero. The P4
 pipeline clones 1-in-256 packets to the CPU (see p4_src/ndtwin_switch.p4); this module turns
 those into sFlow datagrams aimed at UDP 6343, which is where the kernel already listens.

@@ -9,7 +9,7 @@ that body comes from `ryu.app.ofctl_rest`; here the proxy produces the same thin
 tables, so the Classifier needs no P4-specific branch.
 
 Four properties of the output are load-bearing, and each one has already caused a real failure
-or is documented as one in doc/p4_bmv2_support_plan.md:
+or is documented as one in doc/2026-07-27_p4_bmv2_support_plan.md:
 
   - **The top level is a map keyed by dpid**, `{"1": [entries]}`, exactly as Ryu answers. The
     old stub returned a bare `[]`, and the kernel wraps whatever it gets as

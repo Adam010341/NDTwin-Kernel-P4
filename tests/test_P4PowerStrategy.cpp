@@ -3,10 +3,10 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * Sources of truth, in order: doc/p4_bmv2_support_plan.md (the Phase 7 acceptance line: commands
+ * Sources of truth, in order: doc/2026-07-27_p4_bmv2_support_plan.md (the Phase 7 acceptance line: commands
  * target a single switch and NEVER contain `pkill -f`), the IPowerStrategy doc comments (ok only
  * when the operation actually happened; an implementation that cannot start a switch must not mark
- * the twin up), and doc/phase7_power_mechanism_design.md decisions 1-3:
+ * the twin up), and doc/2026-08-11_phase7_power_mechanism_design.md decisions 1-3:
  *
  *  - powerOff runs the helper -- `sudo -n /usr/local/sbin/ndtwin-p4-power off <name>` -- and marks
  *    the vertex down only when it succeeds. A helper failure leaves the vertex up: the process was
@@ -339,7 +339,7 @@ TEST(P4PowerStrategyTest, PowerOnReadoptFailureIsA502AndDoesNotMarkUp)
     // The dangerous half-state: the process is alive and answers liveness probes, but it has no
     // pipeline, no clone session, no mastership and no routes. Reporting failure here is what
     // keeps the twin honest -- the liveness probe cannot tell the difference, by design note in
-    // phase7_power_mechanism_design.md, so this OpResult is the only honest witness.
+    // 2026-08-11_phase7_power_mechanism_design.md, so this OpResult is the only honest witness.
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
     FakeP4 p4;

@@ -105,13 +105,13 @@ class WorldFreeTestCase(unittest.TestCase):
 
 
 class IpConversionTest(unittest.TestCase):
-    """doc/ndt_api.md: the integer IP fields hold s_addr, i.e. the address already in
+    """doc/2026-01-02_ndt_api.md: the integer IP fields hold s_addr, i.e. the address already in
     network byte order, so they must be unpacked little-endian on this host. Getting this
     backwards silently reverses every address in the report and the tool then audits host
     pairs that do not exist."""
 
     def test_the_documented_example_converts_to_the_documented_address(self):
-        # ndt_api.md states in as many words: 16777226 is 10.0.0.1, not 1.0.0.10.
+        # 2026-01-02_ndt_api.md states in as many words: 16777226 is 10.0.0.1, not 1.0.0.10.
         self.assertEqual("10.0.0.1", criteria.ip_int_to_str(16777226))
 
     def test_the_host_order_integer_is_a_different_address(self):
@@ -120,7 +120,7 @@ class IpConversionTest(unittest.TestCase):
         self.assertEqual("1.0.0.10", criteria.ip_int_to_str(167772161))
 
     def test_the_api_sample_payload_addresses(self):
-        # Both taken from the get_detected_flow_data example in doc/ndt_api.md.
+        # Both taken from the get_detected_flow_data example in doc/2026-01-02_ndt_api.md.
         self.assertEqual("192.168.1.1", criteria.ip_int_to_str(16885952))
         self.assertEqual("192.168.1.81", criteria.ip_int_to_str(1359063232))
 
@@ -145,7 +145,7 @@ class NamespaceWrappingTest(WorldFreeTestCase):
 
     def test_a_pid_is_passed_to_mnexec_dash_a(self):
         # mnexec -a takes a PID. Passing a *name* is a documented past bug in this repo
-        # (doc/p4_bmv2_support_plan.md item 6) -- the command silently does nothing.
+        # (doc/2026-07-27_p4_bmv2_support_plan.md item 6) -- the command silently does nothing.
         self.assertEqual(["sudo", "-n", "mnexec", "-a", "4242", "ping", "10.0.0.1"],
                          criteria._in_namespace(self.cfg, 4242, ["ping", "10.0.0.1"]))
 

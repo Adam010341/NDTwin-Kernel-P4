@@ -70,7 +70,7 @@ TEST(SimulationRequestValidationTest, TheRequiredFieldListIsExactlyWhatTheSimula
     // Spelled out literally, because the two tests below derive their expectations *from*
     // requiredRequestFields(): if a field were dropped from that list they would both still pass
     // while the endpoint quietly stopped checking it. Verified against
-    // Simulation-Platform-Manager's from_json(SimulationTask) and section 17 of doc/ndt_api.md.
+    // Simulation-Platform-Manager's from_json(SimulationTask) and section 17 of doc/2026-01-02_ndt_api.md.
     const std::vector<std::string> expected = {"simulator", "version", "app_id", "case_id",
                                                "inputfile"};
     EXPECT_EQ(SimulationRequestManager::requiredRequestFields(), expected);

@@ -186,7 +186,7 @@ TEST_F(LockEndpointTest, AReleasedLockIsAcquirableAgain)
         << "release answered 200 but the lock was still held";
 }
 
-/// An absent body still means "the default lock", which doc/ndt_api.md documents as supported.
+/// An absent body still means "the default lock", which doc/2026-01-02_ndt_api.md documents as supported.
 TEST_F(LockEndpointTest, AnAbsentBodyStillReleasesTheDefaultLock)
 {
     ASSERT_TRUE(m_locks->acquireLock(LockManager::DEFAULT_LOCK_TYPE_STR, 30));

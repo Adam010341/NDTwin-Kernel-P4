@@ -32,7 +32,7 @@ protected:
      *
      * The flag was introduced by the change that made these failures visible at all -- baseline kept
      * everything in locals and discarded the result, so it had the opposite bug and not this one.
-     * Found by a review of that change; see doc/audit/commit-review-2026-08-08/power.md H1.
+     * Found by a review of that change; see doc/audit/2026-08-08_commit-review/power.md H1.
      */
     virtual bool executeSystemCommand(const std::string& cmd);
 

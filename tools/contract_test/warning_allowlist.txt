@@ -85,7 +85,7 @@ WARNING | ^cannot find graph vertex for switch IP | transient during convergence
 # when the entry has outlived its reason.
 # ============================================================================
 
-WARNING | P4 BMv2 Power ON from Kernel is currently a stub | known gap: real bmv2 process control lands in Phase 7 of doc/p4_bmv2_support_plan.md
+WARNING | P4 BMv2 Power ON from Kernel is currently a stub | known gap: real bmv2 process control lands in Phase 7 of doc/2026-07-27_p4_bmv2_support_plan.md
 
 
 # ============================================================================
@@ -97,12 +97,12 @@ WARNING | P4 BMv2 Power ON from Kernel is currently a stub | known gap: real bmv
 
 FORBID | Unsupported SFlow Version | the sFlow emitter is producing malformed datagrams; the collector is discarding every sample
 FORBID | Cannot open topology file | the kernel is running without its topology; the whole graph will be empty
-FORBID | No matching node in JSON | a device rename targeted the wrong topology file (see issue 12 in doc/p4_bmv2_support_plan.md)
+FORBID | No matching node in JSON | a device rename targeted the wrong topology file (see issue 12 in doc/2026-07-27_p4_bmv2_support_plan.md)
 FORBID | Failed to bind UDP socket | the sFlow collector port is taken; no telemetry will arrive at all
 FORBID | Failed to create UDP socket | as above
 FORBID | Exceed 100 hop \(potential loop\) | a forwarding loop in the computed path
 FORBID | logger with name .* already exists | Logger::init called twice; a test suite is probably being skipped silently
-FORBID | Cannot open OpenflowCapacity\.json | missing doc/OpenflowCapacity.json; get_openflow_capacity returns an empty 200
+FORBID | Cannot open OpenflowCapacity\.json | missing doc/2026-01-02_OpenflowCapacity.json; get_openflow_capacity returns an empty 200
 
 # --- client errors the L2 contract test provokes deliberately ---------------------
 # [Co-developed with claude code -- Adam]

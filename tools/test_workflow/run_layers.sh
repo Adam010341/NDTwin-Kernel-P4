@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Top-level driver for the test layers in doc/testing_workflow.md.
+# Top-level driver for the test layers in doc/2026-07-27_testing_workflow.md.
 #
 # Picks the right set of layers for what you are doing, so the common cases are one
 # command instead of six:
@@ -130,7 +130,7 @@ mark_log() {
 #   2  cannot tell, because /proc/<pid>/fd is unreadable by this user
 #
 # State 2 is the documented startup. `/proc/PID/fd` is mode 0500 owned by the process's uid, and the
-# manual teaches `sudo -E bin/ndtwin_kernel` (see doc/HANDOFF.md 5, which also warns that a normal
+# manual teaches `sudo -E bin/ndtwin_kernel` (see doc/2026-07-29_HANDOFF.md 5, which also warns that a normal
 # `pkill` cannot kill it). Against a root-owned kernel the glob matched nothing, this returned 1, and
 # the log layer hard-failed with "is not being written by any running kernel" -- while the kernel was
 # writing it live. A guard that fails on the recommended workflow gets worked around, which is how the

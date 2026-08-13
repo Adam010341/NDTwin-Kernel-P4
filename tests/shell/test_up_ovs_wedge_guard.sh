@@ -6,7 +6,7 @@
 #
 # Starting Ryu while a Mininet is already alive is the /stats/flow wedge trigger (empty replies
 # forever, ~1.011 s each -- ofctl's DEFAULT_TIMEOUT; root cause unproven, no recovery short of
-# recreating the network). doc/ovs_manual_test_runbook.md's rule is "never restart Ryu alone",
+# recreating the network). doc/2026-08-10_ovs_manual_test_runbook.md's rule is "never restart Ryu alone",
 # and the 2026-08-13 overnight round showed how easily it happens anyway: the OVS teardown left
 # Mininet running for the morning, and the documented way to bring the stack back was exactly
 # `stack.sh up ovs`. The guard refuses that combination unless --force.

@@ -722,7 +722,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                     // was the more prominent, telling a reader to go and implement
                     // something already finished. Deleted rather than corrected, because
                     // the branch below documents what it does. Found by a review of this
-                    // change; see doc/audit/commit-review-2026-08-08/power.md H2.
+                    // change; see doc/audit/2026-08-08_commit-review/power.md H2.
                     if (graph[v].switchKind == SwitchKind::BMV2)
                     {
                         // [Co-developed with claude code -- Adam]

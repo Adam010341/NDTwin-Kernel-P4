@@ -1,5 +1,5 @@
 """
-Fixtures for --self-test: real response examples copied from doc/ndt_api.md.
+Fixtures for --self-test: real response examples copied from doc/2026-01-02_ndt_api.md.
 
 Purpose: prove the schemas accept what the kernel actually documents, without needing a
 running kernel. If a schema rejects the documented example, the schema is wrong -- and
@@ -16,7 +16,7 @@ from __future__ import annotations
 import spec
 from schema import Any_, MapOf, Num, OneOf, Str, is_ipv4_string
 
-# --- doc/ndt_api.md section 3: GET /ndt/get_graph_data -----------------------------
+# --- doc/2026-01-02_ndt_api.md section 3: GET /ndt/get_graph_data -----------------------------
 GRAPH_DATA_SAMPLE = {
     "nodes": [
         {"device_name": "s4", "dpid": 106225808380928, "ip": [168430090],
@@ -39,7 +39,7 @@ GRAPH_DATA_SAMPLE = {
     ],
 }
 
-# --- doc/ndt_api.md section 4: GET /ndt/get_detected_flow_data ---------------------
+# --- doc/2026-01-02_ndt_api.md section 4: GET /ndt/get_detected_flow_data ---------------------
 FLOW_DATA_SAMPLE = [
     {"dst_ip": 16885952, "dst_port": 55367,
      "estimated_flow_sending_rate_bps_in_the_last_sec": 1712000,
@@ -54,7 +54,7 @@ FLOW_DATA_SAMPLE = [
      "protocol_id": 6, "src_ip": 1359063232, "src_port": 5201},
 ]
 
-# --- doc/ndt_api.md section 5: GET /ndt/get_switch_openflow_table_entries ----------
+# --- doc/2026-01-02_ndt_api.md section 5: GET /ndt/get_switch_openflow_table_entries ----------
 OF_TABLES_SAMPLE = [
     {"dpid": 106225808402492,
      "flows": {"106225808402492": [

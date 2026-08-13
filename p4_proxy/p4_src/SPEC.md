@@ -28,7 +28,7 @@ p4info the proxy loads.
    header appears in the first fragment only. TCP/UDP ports, and ICMP type/code, are lifted
    into metadata (`l4_src_port` / `l4_dst_port`) so the ternary table can key on them without
    reading a header that may be invalid. ICMP type/code occupy the port fields to match how
-   the kernel's `FlowKey` represents them (see `doc/ndt_api.md`).
+   the kernel's `FlowKey` represents them (see `doc/2026-01-02_ndt_api.md`).
 
 3. **Ingress Control (`MyIngress`)** applies, in order:
    - `flow_5tuple` — **ternary**, keyed on ingress port, src/dst IPv4, protocol and both L4

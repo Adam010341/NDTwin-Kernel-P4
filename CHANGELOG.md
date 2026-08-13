@@ -14,10 +14,10 @@ the P4 proxy agent impersonates Ryu's northbound API, and the proxy synthesises 
 into the kernel's existing UDP:6343 collector, so `FlowLinkUsageCollector`, `Classifier`
 and every `/ndt/` metric work without modification.
 
-Progress, remaining work and the per-phase plan: `doc/p4_bmv2_support_plan.md`.
-Test procedure and measured results: `doc/p4_status_and_test_guide.md`.
-Machine-specific setup traps: `doc/environment_gotchas.md`.
-What is still open: `doc/HANDOFF.md`.
+Progress, remaining work and the per-phase plan: `doc/2026-07-27_p4_bmv2_support_plan.md`.
+Test procedure and measured results: `doc/2026-07-29_p4_status_and_test_guide.md`.
+Machine-specific setup traps: `doc/2026-07-29_environment_gotchas.md`.
+What is still open: `doc/2026-07-29_HANDOFF.md`.
 
 ### Fixed (crashes and silent failures)
 
@@ -105,7 +105,7 @@ What is still open: `doc/HANDOFF.md`.
     useful signal — 0 W when a switch is powered off — is unaffected. The neighbouring synthetic
     CPU (10–59%) and temperature (25–49 °C) values were already plausible.
 
-16. **Document the byte order of `src_ip`/`dst_ip` unambiguously** (`doc/ndt_api.md`, 3 places).
+16. **Document the byte order of `src_ip`/`dst_ip` unambiguously** (`doc/2026-01-02_ndt_api.md`, 3 places).
     The existing note, "in network order", is correct — these fields carry `in_addr::s_addr` — but
     it is easy to misread `16777226` as `1.0.0.10` when it is `10.0.0.1`. The note now says so
     explicitly and gives the conversion. Also enumerates the legal `acquire_lock` types
@@ -157,7 +157,7 @@ What is still open: `doc/HANDOFF.md`.
     line -- so `{not json` was "accepted" and the empty reply wrapped as `{"status":""}`. The five
     required fields are Simulation-Platform-Manager's own (`get_to(std::string)` on each), so a body
     that fails the new check would have thrown in a process with no way to answer the caller;
-    `ndt_api.md` §17 already documented 400. Also replaces `std::stoi` for `app_id` in
+    `2026-01-02_ndt_api.md` §17 already documented 400. Also replaces `std::stoi` for `app_id` in
     `/ndt/simulation_completed`, where a mistyped id was a 500 and `"1abc"` silently became app 1
     under a 200 OK. The body still reaches a shell unescaped -- that boundary is stated in the
     header, at the interpolation, and pinned by a test asserting the check is shape-only.
@@ -255,7 +255,7 @@ Date:   Tue Jul 15 12:10:51 2025 +0800
 Release v4.0.0: major API and functionality updates
 
 - Changed to preinstalled all-destination routing entries for scalability (no packet-in per flow; removed initial routing policy selection)
-- Updated disable_switch to recalculate all-destination routes and return differences (see ndt_api.md)
+- Updated disable_switch to recalculate all-destination routes and return differences (see 2026-01-02_ndt_api.md)
 - Renamed APIs:
     - get_openflow_flow_table -> get_switch_openflow_table_entries
     - get_flow_table_data -> get_detected_flow_data
@@ -276,7 +276,7 @@ v4.0.1 major changes:
 - Add ApplicationManager Module to handle application registration and setup NFS
 - Fix Bugs (like weird doubling topology after 5000s)
 - Move HttpSessions function from .hpp to .cpp
-- API changes: add /app_register (see ndt_api.md)
+- API changes: add /app_register (see 2026-01-02_ndt_api.md)
 - Optimize mutex locks and request sending method
 
 ---
@@ -328,7 +328,7 @@ Release v4.2.0
 
 4. Address CORS issue.
 
-5. Add a new API, install_flow_entries_modify_flow_entries_and_delete_flow_entries, to install/modify/delete flow entries at once (see ndt_api.md).
+5. Add a new API, install_flow_entries_modify_flow_entries_and_delete_flow_entries, to install/modify/delete flow entries at once (see 2026-01-02_ndt_api.md).
 ---
 
 
@@ -363,7 +363,7 @@ Release v4.3.0
 
 7. Fix `PurgeIdleFlows`, `flow set`, `flow sending rate` bug.
 
-8. ICMP parsing. For ICMP flows, the 5-tuple reuses the "port" fields: src_port -> ICMP type, dst_port -> ICMP code. For non-ICMP flows, src_port/dst_port keep their usual meaning. (see ndt_api.md)
+8. ICMP parsing. For ICMP flows, the 5-tuple reuses the "port" fields: src_port -> ICMP type, dst_port -> ICMP code. For non-ICMP flows, src_port/dst_port keep their usual meaning. (see 2026-01-02_ndt_api.md)
 ---
 
 ---
@@ -383,7 +383,7 @@ add" cases, malformed parameters answering 500, and `poll()` with a 0 ms timeout
 at idle. Every one is *silent* — nothing crashes, nothing logs, every endpoint answers 200 — which
 is why the premise looked right. So this work is **two** things, and fixing the shared-path
 correctness defects was a prerequisite for the other, because a baseline that lies cannot verify a
-new data plane. See `doc/HANDOFF.md` and the note below on the Ryu wedge for the clearest example.
+new data plane. See `doc/2026-07-29_HANDOFF.md` and the note below on the Ryu wedge for the clearest example.
 
 ### 1. Correctness defects in the shared kernel path (affect OVS and P4 alike)
 
@@ -412,7 +412,7 @@ new data plane. See `doc/HANDOFF.md` and the note below on the Ryu wedge for the
 ### 2. The Ryu flow-stats wedge
 
 Restarting Ryu under a live Mininet wedges `/stats/flow` into returning an empty table forever.
-Reproduced twice and characterised (`doc/audit/ryu-wedge-trace-2026-08-07.tsv`, 151 samples);
+Reproduced twice and characterised (`doc/audit/2026-08-07_ryu-wedge-trace.tsv`, 151 samples);
 **root cause still unproven** after four falsified hypotheses. The harm is fixed without touching
 Ryu: a wedged reply takes 1.011 s against 0.027–0.083 s healthy — and 1.0 s is `DEFAULT_TIMEOUT`
 in `ryu/lib/ofctl_utils.py` — so an empty table that took ≥ 0.5 s is refused and the previous one

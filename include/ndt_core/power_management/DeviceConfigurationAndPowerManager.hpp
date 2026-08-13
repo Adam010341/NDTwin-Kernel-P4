@@ -277,7 +277,7 @@ class DeviceConfigurationAndPowerManager
      * `{"1": []}`. The round trip is the only thing that differs, and it differs widely.
      *
      * Measured on the OVS testbed, 2026-08-07, 151 samples
-     * (`doc/audit/ryu-wedge-trace-2026-08-07.tsv`):
+     * (`doc/audit/2026-08-07_ryu-wedge-trace.tsv`):
      *
      * | state   | round trip      | body    |
      * |---------|-----------------|---------|

@@ -15,7 +15,7 @@
  * byte-for-byte identical to a switch that genuinely has no rules. Both are `{"1": []}`.
  *
  * The one thing that does differ is the round trip, and it differs by 25x. From
- * `doc/audit/ryu-wedge-trace-2026-08-07.tsv`, 151 samples:
+ * `doc/audit/2026-08-07_ryu-wedge-trace.tsv`, 151 samples:
  *
  *     healthy   0.027 - 0.083 s   ~35 KB body
  *     wedged    1.009 - 1.013 s   9-byte body, 116 consecutive samples

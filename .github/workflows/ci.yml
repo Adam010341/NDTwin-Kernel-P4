@@ -14,7 +14,7 @@ name: CI
 # What this catches: a commit that does not build, one that breaks an existing test, and one that
 # lets a test file go silently all-skipped. What it does NOT catch: a false test. A test that cannot
 # fail is green here forever. That is what the mutation gate is for, and the mutation gate is still a
-# human discipline -- see doc/audit/test-independence-analysis-2026-08-09.md.
+# human discipline -- see doc/audit/2026-08-09_test-independence-analysis.md.
 
 on:
   push:

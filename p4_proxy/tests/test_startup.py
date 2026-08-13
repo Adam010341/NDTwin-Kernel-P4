@@ -10,7 +10,7 @@ control plane cannot actually drive and the twin reports paths and rates for a s
 nothing; fail to claim one that works and every flow crossing it has an empty path and a zero rate.
 Neither shows up as an error anywhere.
 
-The expected behaviour here is taken from Phase 6 of doc/p4_bmv2_support_plan.md and from the
+The expected behaviour here is taken from Phase 6 of doc/2026-07-27_p4_bmv2_support_plan.md and from the
 guiding constraint that the proxy must never report a silent success -- not from reading
 main.startup and writing down what it does.
 """

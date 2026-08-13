@@ -180,7 +180,7 @@ def ip_to_host_name(graph):
     A node's `ip` is an array (a host has several), and its entries are the same
     network-byte-order integers as everywhere else in this API -- confirmed against
     VertexProperties::ip (std::vector<uint32_t>) and utils::ipToString, which assigns
-    straight into in_addr::s_addr. String entries are accepted too: doc/ndt_api.md
+    straight into in_addr::s_addr. String entries are accepted too: doc/2026-01-02_ndt_api.md
     describes this field as dotted text in one paragraph and shows integers in its own
     sample, so both are handled rather than guessed at.
     """

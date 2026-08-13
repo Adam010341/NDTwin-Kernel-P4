@@ -10,7 +10,7 @@
  * interval, silently, while `/ndt/get_graph_data` went on reporting the switch as enabled.
  *
  * Expected behaviour is derived from:
- *   1. doc/audit/tfm-spec-unknown-adjudication.md (SU-3 and the Option 1' adjudication)
+ *   1. doc/audit/2026-08-10_tfm-spec-unknown-adjudication.md (SU-3 and the Option 1' adjudication)
  *   2. include/common_types/GraphTypes.hpp (the three flags and what owns each)
  *   3. LLMAgent.cpp:216-217, which is where the kernel states the semantics in its own words:
  *      "(administratively <isEnabled>, powered <isUp>)"

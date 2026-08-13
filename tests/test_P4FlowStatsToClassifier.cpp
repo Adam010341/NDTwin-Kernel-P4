@@ -3,7 +3,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * This is the acceptance test doc/p4_bmv2_support_plan.md asks for in Phase 6: the proxy's
+ * This is the acceptance test doc/2026-07-27_p4_bmv2_support_plan.md asks for in Phase 6: the proxy's
  * response must parse through `Classifier` and yield a non-empty forwarding effect. Without
  * that, `Classifier` stays empty and every flow's `path` is `[]` -- which is exactly the state
  * P4 mode was in before this endpoint existed.

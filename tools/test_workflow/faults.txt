@@ -27,12 +27,12 @@
 #                faults.sh decides WHERE to attach netem by reading the live qdisc tree:
 #                on a TCLink interface the root is htb and netem must hang under the class,
 #                because `... root netem` REPLACES htb silently and the grant cannot put it
-#                back (doc/environment_gotchas.md, 2026-08-13).
+#                back (doc/2026-07-29_environment_gotchas.md, 2026-08-13).
 #
 #   proc_signal  signal=<SIG>  restore=<SIG>  expect=<verdict>
 #                signal a switch process by PID. Never pkill: Mininet nodes share a PID
 #                namespace, so a pattern kill takes out all ten switches
-#                (doc/p4_bmv2_support_plan.md item 6).
+#                (doc/2026-07-27_p4_bmv2_support_plan.md item 6).
 #
 # expect=<verdict> is what tools/twin_audit/criteria.py must say WHILE the fault is in
 # place: moving | still | any. Every round additionally requires "moving" before the fault

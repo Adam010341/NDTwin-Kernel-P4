@@ -39,7 +39,7 @@ case "$cmd" in
         else
             echo "$drift"
             echo "QDISC STATE CHANGED since the snapshot -- an injection left residue or" >&2
-            echo "replaced a root qdisc (see doc/environment_gotchas.md, htb entry)." >&2
+            echo "replaced a root qdisc (see doc/2026-07-29_environment_gotchas.md, htb entry)." >&2
             exit 1
         fi
         ;;

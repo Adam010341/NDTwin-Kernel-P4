@@ -128,7 +128,7 @@ class IntelligentRyu(app_manager.RyuApp):
     # So the rules installed ~60s after startup were the final state for the life of the run.
     # Observed: `link s1 s5 down` with a flow crossing that link -- traffic stopped arriving, was
     # never rerouted, and the twin (correctly) showed the edge down while Ryu's own graph still had
-    # it. See doc/HANDOFF.md section 1g.
+    # it. See doc/2026-07-29_HANDOFF.md section 1g.
     def _active_net(self):
         """The graph routes are computed from: whichever of the two this run is using."""
         return self.dynamic_net if self.is_dynamically_detect_topo else self.static_net
@@ -157,7 +157,7 @@ class IntelligentRyu(app_manager.RyuApp):
             # only place it can still be noticed is here, after the walk.
             #
             # Without it the window was the duration of the walk: 16256 host pairs, about 60s (see
-            # doc/HANDOFF.md 1g). A second link failing in that window was never recomputed, which is
+            # doc/2026-07-29_HANDOFF.md 1g). A second link failing in that window was never recomputed, which is
             # the same silent non-recovery 2c81b26 was written to fix -- and the log said "route
             # reinstall done", meaning the *previous* change. Found by review, not by a test; the
             # tests below cover the debounce but nothing yet drives a change into the walk.

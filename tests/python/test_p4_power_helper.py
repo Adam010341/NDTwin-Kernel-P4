@@ -8,10 +8,10 @@ The helper is run as a real subprocess and judged only on its observable contrac
 stdout (JSON on success, nothing else), stderr (the reason, on any refusal or failure), which
 processes lived and died, and what the manifest file says afterwards.
 
-Expected behaviour is taken from doc/phase7_power_mechanism_design.md (decision 1: the hard
+Expected behaviour is taken from doc/2026-08-11_phase7_power_mechanism_design.md (decision 1: the hard
 rules -- PID-only addressing re-verified against /proc comm AND cmdline, SIGTERM with no
 SIGKILL escalation, no shell in launches, exit 0 only on observed outcomes, atomic manifest
-replacement) and from Phase 7 of doc/p4_bmv2_support_plan.md -- not from reading the helper.
+replacement) and from Phase 7 of doc/2026-07-27_p4_bmv2_support_plan.md -- not from reading the helper.
 
 Fixture trick, from the design doc's own truncation note: /proc/<pid>/comm is capped at 15
 characters, so a *copy* of /bin/sleep named `simple_switch_grpc` runs with comm

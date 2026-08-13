@@ -218,7 +218,7 @@ class IpToHostNameTest(unittest.TestCase):
         self.assertEqual({"10.0.0.1": "h9"}, twin_audit.ip_to_host_name(graph))
 
     def test_string_addresses_are_accepted_too(self):
-        # doc/ndt_api.md calls this field dotted text in one paragraph and shows integers
+        # doc/2026-01-02_ndt_api.md calls this field dotted text in one paragraph and shows integers
         # in its own sample; the C++ type is vector<uint32_t>, so integers are what ship.
         # Both are handled rather than guessed at -- see the report's open-questions list.
         graph = {"nodes": [{"vertex_type": 1, "device_name": "h9", "ip": ["10.0.0.1"]}]}

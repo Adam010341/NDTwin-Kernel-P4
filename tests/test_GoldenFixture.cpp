@@ -3,7 +3,7 @@
 // Golden-fixture test: real sFlow datagrams captured from a working OVS + Ryu + Mininet run,
 // fed to the kernel's own parser.
 //
-// This exists because Phase 5 of doc/p4_bmv2_support_plan.md has the P4 proxy synthesise
+// This exists because Phase 5 of doc/2026-07-27_p4_bmv2_support_plan.md has the P4 proxy synthesise
 // sFlow into this same collector. If the emitter's byte layout differs from what OVS
 // produces, the twin silently gets no telemetry at all -- so the layout the parser requires
 // needs to be a tested fact, not a reading of the code. It was captured with:

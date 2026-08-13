@@ -2,7 +2,7 @@
 Which /ndt/* endpoints each workspace component actually depends on.
 
 Measured, not guessed: produced by grepping every component's source for /ndt/ URLs
-(see doc/testing_workflow.md for the resulting table). This is what makes L3 possible --
+(see doc/2026-07-27_testing_workflow.md for the resulting table). This is what makes L3 possible --
 when the kernel changes an endpoint we can say exactly which components break, instead
 of launching all seven and eyeballing them.
 

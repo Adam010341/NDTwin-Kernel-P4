@@ -744,7 +744,7 @@ class TopologyManager:
         a channel gRPC quietly reconnects, and bmv2 answers COOKIE_ONLY without any pipeline
         loaded, so `p4LivenessFor` would certify the switch Up while it cannot forward a
         single packet. This method is what makes "powered on" true rather than merely
-        reported: doc/phase7_power_mechanism_design.md, decision 2.
+        reported: doc/2026-08-11_phase7_power_mechanism_design.md, decision 2.
 
         A *new* client rather than restarting the old one: stop() closes the channel, poisons
         the outbound queue with its None sentinel, and lets the receiver thread die -- every

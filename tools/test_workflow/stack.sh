@@ -528,7 +528,7 @@ cmd_up() {
     # Starting Ryu while a Mininet is already alive is the known /stats/flow wedge trigger:
     # the switches reconnect to the new Ryu and its flow-stats replies come back empty
     # forever (1.011 s, the ofctl DEFAULT_TIMEOUT) -- root cause unproven, no recovery short
-    # of recreating the network. doc/ovs_manual_test_runbook.md's own rule is "never restart
+    # of recreating the network. doc/2026-08-10_ovs_manual_test_runbook.md's own rule is "never restart
     # Ryu alone"; the 2026-08-13 overnight round nearly walked into it via this exact
     # command. The check reads the mininet: process tags, the same signal mnexec targets.
     if [[ "$mode" == "ovs" && "$force" != "--force" ]]; then

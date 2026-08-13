@@ -11,10 +11,10 @@
  *
  * These tests load a real topology file (StaticNetworkTopologyP4_10Switches_4Hosts.json)
  * and verify the resulting graph against the counts and invariants documented in
- * ndt_api.md and the file's own structure. Nothing is mocked: the graph, mutex, and
+ * 2026-01-02_ndt_api.md and the file's own structure. Nothing is mocked: the graph, mutex, and
  * EventBus are the real objects, exactly as the OvsPowerStrategy Fixture does.
  *
- * The assertions are derived from the spec (ndt_api.md lines 124-250) and the topology
+ * The assertions are derived from the spec (2026-01-02_ndt_api.md lines 124-250) and the topology
  * file's own structure (10 switches, 4 hosts, 40 directed edges), not from reading
  * loadStaticTopologyFromFile's implementation.
  */
@@ -147,7 +147,7 @@ TEST(TopologyAndFlowMonitorTest, LoadingTheP4TopologyProducesTheCorrectNumberOfE
 
 TEST(TopologyAndFlowMonitorTest, SwitchVerticesHaveVertexTypeZeroHostsHaveVertexTypeOne)
 {
-    // Per ndt_api.md lines 127-128: "vertex_type = 0 means a switch, and vertex_type = 1 means a host."
+    // Per 2026-01-02_ndt_api.md lines 127-128: "vertex_type = 0 means a switch, and vertex_type = 1 means a host."
     TopologyFixture fix;
     fix.loadP4Topology();
     std::shared_lock lock(*fix.mutex);
@@ -177,7 +177,7 @@ TEST(TopologyAndFlowMonitorTest, SwitchVerticesHaveVertexTypeZeroHostsHaveVertex
 
 TEST(TopologyAndFlowMonitorTest, HostEdgesHaveDpidZeroOnTheHostSide)
 {
-    // Per ndt_api.md line 130: "At the edge between the switch and host, the dpid
+    // Per 2026-01-02_ndt_api.md line 130: "At the edge between the switch and host, the dpid
     // and interface on the host side are set to 0."
     TopologyFixture fix;
     fix.loadP4Topology();
@@ -218,7 +218,7 @@ TEST(TopologyAndFlowMonitorTest, HostEdgesHaveDpidZeroOnTheHostSide)
 
 TEST(TopologyAndFlowMonitorTest, EveryVertexHasTheFieldsRequiredByTheApiSpec)
 {
-    // Per ndt_api.md lines 150-225 and tools/contract_test/schema.py lines 61-71,
+    // Per 2026-01-02_ndt_api.md lines 150-225 and tools/contract_test/schema.py lines 61-71,
     // every node in the graph response must have: device_name, dpid, ip, is_enabled,
     // is_up, mac, vertex_type, brand_name, device_layer.
     //

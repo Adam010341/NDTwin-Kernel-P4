@@ -1,6 +1,6 @@
 # 測試流程腳本
 
-實作 [doc/testing_workflow.md](../../doc/testing_workflow.md) 的 L0、L1 兩層，以及啟動編排與頂層驅動。
+實作 [doc/2026-07-27_testing_workflow.md](../../doc/2026-07-27_testing_workflow.md) 的 L0、L1 兩層，以及啟動編排與頂層驅動。
 L2 / L3 / L4 的 Python 工具在 [../contract_test/](../contract_test/)。
 
 ---

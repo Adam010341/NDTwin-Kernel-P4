@@ -10,7 +10,7 @@ while Ryu's side has reported it all along.
 
 The behaviour asserted here comes from what the kernel does with the report
 (HttpSession::handleLinkFailure sets the edge down in both directions and emits a
-LinkFailureDetected event) and from Phase 6 of doc/p4_bmv2_support_plan.md -- not from reading
+LinkFailureDetected event) and from Phase 6 of doc/2026-07-27_p4_bmv2_support_plan.md -- not from reading
 check_link_beacons. The clock is injected for every test: a fifteen-second timeout tested by
 waiting fifteen seconds is a test that gets deleted the first time someone is in a hurry.
 """

@@ -2,7 +2,7 @@
 //
 // Cross-language round trip: sFlow synthesised by the Python emitter, parsed by the C++ kernel.
 //
-// Phase 5 of doc/p4_bmv2_support_plan.md replaces a missing sFlow agent with
+// Phase 5 of doc/2026-07-27_p4_bmv2_support_plan.md replaces a missing sFlow agent with
 // p4_proxy/proxy_agent/sflow_emitter.py, so bmv2 telemetry reaches the collector the kernel
 // already listens on. That only works if the two agree byte for byte, and neither side's own
 // tests can establish it: the Python tests compare against captured OVS bytes, which proves
@@ -175,7 +175,7 @@ TEST_F(EmitterRoundtripTest, ParsesEmittedIcmpSampleWithTypeAndCodeInThePortFiel
 {
     // The kernel carries ICMP type and code in the *port* fields of the FlowKey rather than in
     // its icmpType/icmpCode members -- see FlowLinkUsageCollector.cpp, where the key is built
-    // as {srcIp, dstIp, icmpType, icmpCode, protocol}, and doc/ndt_api.md, which documents
+    // as {srcIp, dstIp, icmpType, icmpCode, protocol}, and doc/2026-01-02_ndt_api.md, which documents
     // src_port as the type and dst_port as the code. The P4 pipeline mirrors that by lifting
     // ICMP type/code into the same l4 port metadata the ternary table keys on, so the two
     // representations agree.

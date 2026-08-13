@@ -1,6 +1,6 @@
 # L2 契約測試與 log 檢查
 
-實作 [doc/testing_workflow.md](../../doc/testing_workflow.md) 的 **L2 層**：把「打開元件看看有沒有 error」變成機器判斷的 pass/fail。
+實作 [doc/2026-07-27_testing_workflow.md](../../doc/2026-07-27_testing_workflow.md) 的 **L2 層**：把「打開元件看看有沒有 error」變成機器判斷的 pass/fail。
 
 不需要安裝任何套件，只要 `python3`。
 
@@ -81,7 +81,7 @@ switch(es) not enabled (not connected to a controller): s3(dpid=3)
 | `--url` | kernel 位址，預設 `http://localhost:8000`（或環境變數 `NDT_API_URL`） |
 | `--save-json <目錄>` | 把每個回應存檔。這就是 L4 做 OVS/P4 差異比對的 baseline |
 | `--only <名稱>` | 只跑指定檢查，除錯時用。可重複 |
-| `--self-test` | 用 `doc/ndt_api.md` 的範例驗證 schema 本身，不需要 kernel |
+| `--self-test` | 用 `doc/2026-01-02_ndt_api.md` 的範例驗證 schema 本身，不需要 kernel |
 
 ### 鎖的檢查用 `graph_lock`（不是自訂型別）
 
@@ -104,7 +104,7 @@ acquire → 第二次 acquire 必須 423 → renew → release → 再 acquire �
 - 失敗 → 顯示黃色 `GAP`，**不計入失敗**（否則測試永遠是紅的，就沒人看了）
 - 哪天它**通過了** → 顯示 `FIXED`，並提醒你把標記拿掉
 
-目前唯一一條是 `release_lock_not_held`：`HttpSession::handleReleaseLock` 不管鎖有沒有被持有、型別有沒有效，**一律回 200**，所以「釋放一個沒持有的鎖」跟正常釋放無法區分。`doc/testing_workflow.md` 寫的「應該回 412」目前並未實作。
+目前唯一一條是 `release_lock_not_held`：`HttpSession::handleReleaseLock` 不管鎖有沒有被持有、型別有沒有效，**一律回 200**，所以「釋放一個沒持有的鎖」跟正常釋放無法區分。`doc/2026-07-27_testing_workflow.md` 寫的「應該回 412」目前並未實作。
 
 ### 為什麼預設不跑 mutation
 
@@ -114,7 +114,7 @@ acquire → 第二次 acquire 必須 423 → renew → release → 再 acquire �
 
 ### --self-test 是什麼
 
-它拿 `doc/ndt_api.md` 裡的實際回應範例去驗證 schema。**如果 schema 連文件裡的範例都不接受，那是 schema 寫錯了** — 在這裡發現比對著真系統 debug 便宜太多。
+它拿 `doc/2026-01-02_ndt_api.md` 裡的實際回應範例去驗證 schema。**如果 schema 連文件裡的範例都不接受，那是 schema 寫錯了** — 在這裡發現比對著真系統 debug 便宜太多。
 
 它同時檢查每個不變量的**兩個方向**：好資料要安靜、壞資料要噴錯。這樣才知道檢查不是「永遠都過」的假綠燈。
 
@@ -328,7 +328,7 @@ list 的索引會收斂成 `[]`，所以 4 host 和 128 host 產生相同的簽�
 | `run_contract_test.py` | L2 主程式（CLI、HTTP、報表） |
 | `spec.py` | 端點定義與語意不變量 |
 | `schema.py` | 極簡 schema 驗證器（零依賴） |
-| `selftest_fixtures.py` | `doc/ndt_api.md` 的範例，供 self-test 使用 |
+| `selftest_fixtures.py` | `doc/2026-01-02_ndt_api.md` 的範例，供 self-test 使用 |
 | `components.py` | 各元件的端點依賴表 + kernel 的 dispatch table + 已知缺口 |
 | `l3_component_check.py` | L3 元件契約檢查 |
 | `compare_baseline.py` | L4 OVS/P4 差異比對 |

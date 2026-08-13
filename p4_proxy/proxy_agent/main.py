@@ -13,7 +13,7 @@ app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
 # [Co-developed with claude code -- Adam]
 # Pushes switch/link state to the kernel the way Ryu does. Without this the graph stays inert:
 # inform_switch_entered is the only thing that sets isEnabled. See Phase 6 of
-# doc/p4_bmv2_support_plan.md.
+# doc/2026-07-27_p4_bmv2_support_plan.md.
 kernel = KernelNotifier()
 
 # Built with the notifier already in hand: the beacon watchdog reports link failures through it,

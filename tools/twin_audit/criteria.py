@@ -30,7 +30,7 @@ Hence QUORUM = 2 and the rule "no dissent". A single channel never decides anyth
 
 Both directions, always
 -----------------------
-doc/p4_manual_test_runbook.md (2026-08-10, 3 of 6 host pairs measured asymmetric):
+doc/2026-08-10_p4_manual_test_runbook.md (2026-08-10, 3 of 6 host pairs measured asymmetric):
 forward and return traffic routinely take different switches, so **one direction cannot
 tell you whether two hosts can talk**. A switch failure can break exactly the direction you
 did not look at. Every check here therefore asks both ways and treats "only one way works"
@@ -210,7 +210,7 @@ class Target(object):
 
     `src_pid`/`dst_pid` are Mininet host PIDs. When present, probes run inside that host's
     namespace via mnexec (`mnexec -a` wants a PID, not a name -- passing a name is a
-    documented bug in this repo's history, see doc/p4_bmv2_support_plan.md item 6).
+    documented bug in this repo's history, see doc/2026-07-27_p4_bmv2_support_plan.md item 6).
     When absent the command runs in the caller's namespace, which is what a stubbed test
     and a single-namespace P4 testbed both want.
     """
@@ -248,7 +248,7 @@ class Observation(object):
 def ip_int_to_str(value):
     """Convert the kernel's integer IP fields to dotted quad.
 
-    doc/ndt_api.md: these hold `struct in_addr::s_addr`, i.e. the address in NETWORK byte
+    doc/2026-01-02_ndt_api.md: these hold `struct in_addr::s_addr`, i.e. the address in NETWORK byte
     order, serialised as whatever integer those four bytes make on this (little-endian)
     host. So 16777226 is 10.0.0.1, NOT 1.0.0.10 -- its bytes are 0A 00 00 01, already in
     address order. Unpacking little-endian therefore reads them out in order; using
@@ -313,7 +313,7 @@ def _path_endpoints(path):
     """(first node, last node) of one path, or None if the shape is not what we expect.
 
     A path is a list of hops; each hop's [0] is the node (host IP string at the ends).
-    Source: doc/ovs_manual_test_runbook.md 4h, which reads p[0][0] and p[-1][0].
+    Source: doc/2026-08-10_ovs_manual_test_runbook.md 4h, which reads p[0][0] and p[-1][0].
     """
     if not isinstance(path, list) or len(path) < 2:
         return None

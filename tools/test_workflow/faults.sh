@@ -18,7 +18,7 @@
 #     and the NOPASSWD grants cannot put htb back. So the round is void unless
 #     qdisc_snapshot.sh says the tree came back identical -- an injection tool that
 #     corrupts the experiment silently is worse than no injection tool.
-#     (doc/environment_gotchas.md, 2026-08-13 OVS round.)
+#     (doc/2026-07-29_environment_gotchas.md, 2026-08-13 OVS round.)
 #
 #  2. The verdict comes from tools/twin_audit/criteria.py -- the same three-channel quorum
 #     the twin lie detector uses, not a second opinion written here. One source of truth
@@ -52,7 +52,7 @@
 #                      than fall back to the destructive form. Run tc as uid 0 instead:
 #                        FAULTS_TC="sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py'|head -1) tc"
 #                      (mnexec runs as root, so tc under it needs no tc-specific grant --
-#                      the same escape doc/environment_gotchas.md uses for ovs-ofctl.)
+#                      the same escape doc/2026-07-29_environment_gotchas.md uses for ovs-ofctl.)
 #   FAULTS_KILL        signal command            (default: sudo -n kill)
 #   FAULTS_CRITERIA    verdict command           (default: python3 <root>/tools/twin_audit/criteria.py)
 #   FAULTS_QDISC       qdisc snapshot tool       (default: <here>/qdisc_snapshot.sh)
@@ -232,7 +232,7 @@ inject_link_loss() {
             err "refusing to touch $dev: cannot find a safe netem attach point."
             err "Either the qdisc tree is unreadable, or netem is already present from an"
             err "earlier round. Attaching at root here would replace TCLink's htb and the"
-            err "shaping cannot be restored (doc/environment_gotchas.md)."
+            err "shaping cannot be restored (doc/2026-07-29_environment_gotchas.md)."
             return 1
         fi
         # shellcheck disable=SC2086 -- $where is deliberately two words ("parent 5:1").
@@ -245,7 +245,7 @@ inject_link_loss() {
                 # replaces TCLink's htb -- and NOT the safe `parent H:D` form this script
                 # computes. So on a shaped interface plain `sudo -n tc` cannot do the right
                 # thing at all. mnexec runs as uid 0, so tc under it needs no tc-specific
-                # grant; that is the same escape doc/environment_gotchas.md uses for
+                # grant; that is the same escape doc/2026-07-29_environment_gotchas.md uses for
                 # ovs-ofctl, which is not in sudoers either.
                 err "The NOPASSWD grant for tc covers only the 'root netem' form, which is"
                 err "exactly the form that destroys TCLink's htb. Run tc as uid 0 instead:"
@@ -313,7 +313,7 @@ inject_proc_signal() {
     [[ -n "$OPT_PID" ]] || { err "proc_signal needs --pid"; return 2; }
     # A PID, never a pattern. Mininet nodes share a PID namespace, so `pkill -f
     # simple_switch_grpc` takes out all ten switches -- a documented past bug here
-    # (doc/p4_bmv2_support_plan.md item 6). pkill is a forbidden word on this path.
+    # (doc/2026-07-27_p4_bmv2_support_plan.md item 6). pkill is a forbidden word on this path.
     if ! run_signal "$signal" "$OPT_PID"; then
         err "could not send SIG${signal} to $OPT_PID"
         return 1

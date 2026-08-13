@@ -964,7 +964,7 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     //
     // A batch where *nothing* is applicable still answers 404: 200 with accepted == 0 would tell a
     // caller that only reads the status code that its request was fine when not one entry landed.
-    // See doc/audit/external-tools-compat-review-2026-08-08.md for the client-by-client evidence.
+    // See doc/audit/2026-08-08_external-tools-compat-review.md for the client-by-client evidence.
     auto partition = partitionFlowBatchByKnownDpid(
         std::move(jobs),
         [this](uint64_t dpid) { return m_topologyAndFlowMonitor->getSwitchKind(dpid).has_value(); });
@@ -1357,7 +1357,7 @@ HttpSession::handleInputTextIntent(http::response<http::string_body>& res)
     // below cannot help: a null dereference is a signal, not a C++ exception.
     //
     // stack.sh starts the kernel with --no-ai, so this is the *normal* configuration here, not a
-    // corner case. doc/ndt_api.md carried the defect as a written warning not to call the endpoint;
+    // corner case. doc/2026-01-02_ndt_api.md carried the defect as a written warning not to call the endpoint;
     // a three-line guard is a better mitigation than asking people to remember.
     if (this->m_intentTranslator == nullptr)
     {
@@ -1694,14 +1694,14 @@ void
 HttpSession::handleGetOpenflowCapacity(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Openflow Capacity");
-    std::ifstream file("../doc/OpenflowCapacity.json");
+    std::ifstream file("../doc/2026-01-02_OpenflowCapacity.json");
     if (!file.is_open())
     {
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open OpenflowCapacity.json");
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open 2026-01-02_OpenflowCapacity.json");
         return;
     }
 
-    SPDLOG_LOGGER_INFO(Logger::instance(), "Load OpenflowCapacity.json");
+    SPDLOG_LOGGER_INFO(Logger::instance(), "Load 2026-01-02_OpenflowCapacity.json");
 
     json j;
     file >> j;
@@ -1939,7 +1939,7 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
         std::string lockType = LockManager::DEFAULT_LOCK_TYPE_STR;
 
         // [Co-developed with claude code -- Adam]
-        // An *absent* body still means "release the default lock" -- doc/ndt_api.md documents the
+        // An *absent* body still means "release the default lock" -- doc/2026-01-02_ndt_api.md documents the
         // body as optional and callers rely on it. A body that is present but unparseable is a
         // different thing, and used to be swallowed by an empty catch that degraded the request
         // into releasing the DEFAULT type. That silently released a lock the caller never named.
@@ -1980,7 +1980,7 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
         // 412, matching the sibling renew handler, which answers 412 for exactly these three
         // inputs (expired, not held, invalid type). tools/contract_test/spec.py already expected
         // [412, 400, 404] here and carried a known_gap saying the kernel did not implement it;
-        // doc/testing_workflow.md documents 412 as well. 423 Locked, which doc/ndt_api.md
+        // doc/2026-07-27_testing_workflow.md documents 412 as well. 423 Locked, which doc/2026-01-02_ndt_api.md
         // mentions, is the wrong shape: 423 means "the resource is locked so your request cannot
         // proceed", whereas the failure here is "there was no lock of yours to release".
         if (!m_lockManager->unlock(lockType))

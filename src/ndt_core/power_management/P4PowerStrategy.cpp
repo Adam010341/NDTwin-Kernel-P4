@@ -1,6 +1,6 @@
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 // [Co-developed with claude code -- Adam] -- Phase 7: real power operations via the manifest
-// helper and the proxy's readopt endpoint. Design: doc/phase7_power_mechanism_design.md.
+// helper and the proxy's readopt endpoint. Design: doc/2026-08-11_phase7_power_mechanism_design.md.
 #include "ndt_core/power_management/P4PowerStrategy.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "utils/Logger.hpp"
