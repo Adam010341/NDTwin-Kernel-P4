@@ -40,10 +40,22 @@ class P4RuntimeClient:
         # [Co-developed with claude code -- Adam]
         # True only while this stream holds P4Runtime mastership. Set from the arbitration
         # response, cleared whenever the stream ends. readopt_switch reads it before the
-        # destructive pipeline push: bmv2 applies SetForwardingPipelineConfig even from a
-        # client whose arbitration was refused, while the route writes that would refill the
-        # tables are refused with "Not primary" (live 2026-08-13: readopt against a healthy
-        # switch wiped its tables, installed nothing, and reported success).
+        # destructive pipeline push, and must: this flag being false does NOT stop the switch
+        # from accepting our RPCs.
+        #
+        # Every client built here bids the same hardcoded election_id (0, 1) -- see start()
+        # and the unary calls below. So a second client raised against a switch the first one
+        # still holds is not a lower-priority backup; it presents the incumbent's exact
+        # (device_id, role, election_id). bmv2 terminates its *stream* as a duplicate, leaving
+        # this flag false, but P4Runtime identifies the sender of a unary RPC by the 3-tuple in
+        # the message rather than by the connection it arrived on, so the impostor's
+        # SetForwardingPipelineConfig is accepted and wipes every table.
+        #
+        # That is what happened on 2026-08-13: readopt against a healthy switch wiped its
+        # tables, installed nothing, and reported success. bmv2 was conforming throughout --
+        # measured against a third-party client, a genuinely non-primary push is refused with
+        # PERMISSION_DENIED. doc/2026-08-13_p4runtime-mastership-spec-check.md has the three
+        # scenarios; p4_proxy/reference/p4runtime_mastership_probe.py re-runs them.
         self.mastership_confirmed = False
         
         # [Co-developed with claude code -- Adam]

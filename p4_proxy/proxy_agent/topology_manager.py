@@ -790,13 +790,24 @@ class TopologyManager:
                 time.sleep(settle_s)
                 # [Co-developed with claude code -- Adam]
                 # Destructive gate. SetForwardingPipelineConfig erases every table on the
-                # switch, and bmv2 applies it even from a client whose arbitration was
-                # refused -- while the route writes that would refill the tables are checked
-                # and refused with "Not primary". Against a healthy switch (old client alive
-                # and still primary) the unguarded sequence therefore wiped the tables,
-                # installed nothing, and reported success (live 2026-08-13, s1 and s6). If
-                # this stream did not become primary inside the settle window there is
-                # nothing readopt can safely do; leave the switch untouched and say why.
+                # switch, and a refused arbitration does not stop the switch from accepting
+                # it: every client bids the same hardcoded election_id (0, 1), so against a
+                # healthy switch this "new" client presents the incumbent's own credentials.
+                # bmv2 kills the duplicate *stream* (leaving mastership_confirmed false) but
+                # still honours the unary push, because P4Runtime identifies a unary sender by
+                # the 3-tuple in the message, not by its connection.
+                #
+                # The route writes that would refill the tables are then refused with "Not
+                # primary" -- but only because old.stop() below runs before
+                # install_initial_routes, so by then no primary is left to impersonate. Not
+                # because Write is checked more strictly than the push; measured, both are
+                # accepted while the incumbent is still up.
+                #
+                # Unguarded, that sequence wiped the tables, installed nothing, and reported
+                # success (live 2026-08-13, s1 and s6). If this stream did not become primary
+                # inside the settle window there is nothing readopt can safely do; leave the
+                # switch untouched and say why.
+                # doc/2026-08-13_p4runtime-mastership-spec-check.md, scenarios 2 and 3.
                 if not getattr(new, "mastership_confirmed", False):
                     try:
                         new.stop()

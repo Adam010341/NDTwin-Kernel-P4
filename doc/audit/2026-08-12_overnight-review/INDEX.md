@@ -58,7 +58,7 @@ B1–B4、S 各自 worktree（明寫 reset 到 5d53cf0）；A、C 在主樹但�
 |---|---|
 | readopt 強制接管健康 switch | **不做，永久關閉**。現在的行為（壞了能救、健康不誤傷）就是完成態 |
 | `src_ip` 回整數 | **維持整數不改碼**，定調為「怪癖」；簡報可口頭當「無聲不一致」的例子，不進 bug 頁 |
-| bmv2 非 primary 清表 | **下次開環境做 10 分鐘乾淨對照實驗**；坐實才考慮回報上游 |
+| bmv2 非 primary 清表 | ~~**下次開環境做 10 分鐘乾淨對照實驗**；坐實才考慮回報上游~~ → **已做（2026-08-13 晚，第三方 client 三情境）：bmv2 符合規格，肇因是我方 election id 重用。上游回報取消。** 見 `doc/2026-08-13_p4runtime-mastership-spec-check.md` |
 | 上游合併 | **先問 patty**（草稿見 `DRAFT-message-to-patty.md`，Adam 自己寄）；**並行**做技術分析（U agent 跑中） |
 | repo 轉公開 | **不轉**。CI 改本機跑——已做成 `tools/test_workflow/local_ci.sh` |
 | 他自己的手動 OVS 輪 | 要做，他自己排時間（也是 demo 手感） |

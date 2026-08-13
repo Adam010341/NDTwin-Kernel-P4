@@ -12,7 +12,7 @@
 | 3 | **readopt 接受路徑**（power-cycle 後） | ⚠️ **通過但發現漏洞**：回 200 success 而 `routes_attempted=0`、switch 當下**空表**；~30 秒後才由別的機制補上 |
 | 4 | **qdisc 前後置快照**（新工具首次實戰） | ✅ 零漂移（43 行不變） |
 | 6 | **L5 故障注入首次實戰**：三型跑過，N-4 抓到 🔴 P1（一台 switch 停止回應 → liveness 端點 60s+ 無回應、kernel 圖掉到 32/40） | 見 §6 |
-| 5 | **bmv2 非 primary pipeline push** | 🔴 **坐實**：仲裁被拒的 client 照樣推成 config，s10 規則 **4→0**。任何連得到 gRPC 埠的程式都能清空一台交換器 |
+| 5 | **bmv2 非 primary pipeline push** | ~~🔴 坐實：仲裁被拒的 client 照樣推成 config，s10 規則 **4→0**。任何連得到 gRPC 埠的程式都能清空一台交換器~~ **← 2026-08-13 晚推翻，見 §5 更正橫幅。清表為真，但 bmv2 符合規格；肇因是我方 election id 重用，且「任何程式都能清空」這句不成立** |
 
 ---
 
@@ -107,6 +107,16 @@ netem 零殘留、qdisc 快照零漂移、canary 已停。stack 仍在跑（未 
 ---
 
 ## 5. bmv2 非 primary pipeline push — 對照實驗 ✅ 坐實（2026-08-13 13:5x）
+
+> 🔴 **2026-08-13 晚更正——本節的【推論】與【為什麼這重要】是錯的，不要引用。**
+> 觀察（4→0 清表）為真，但機制不是「bmv2 少做一道檢查」。用第三方 raw gRPC client 重現後
+> 確認：**bmv2 完全符合規格**，真正的非 primary（election id 較低）推 pipeline 會被
+> `PERMISSION_DENIED` 擋下。當時之所以推得過去，是因為本節設計裡那句
+> 「election_id 與正在跑的 proxy **相同**」——**相同就是重複**，而 P4Runtime 規定 unary RPC
+> 的送出者身分依訊息裡的三元組認定，所以那個 client 拿的是現任 primary 的憑證。
+> 「route 才被拒」也不是檢查不對稱，是 `old.stop()` 夾在兩個 RPC 中間。
+> ⭐ **本節末「未驗證，回報上游前必須補」的第二點提的正是這個懷疑，而且它是對的。**
+> **上游回報已取消。** 完整三情境實測見 `doc/2026-08-13_p4runtime-mastership-spec-check.md`。
 
 Adam 裁決：做，拿 s10（不在 h1–h2 路徑上、剛驗證過 power-cycle 能恢復它）。
 

@@ -339,11 +339,18 @@ class ReadoptFailureTest(ReadoptTestBase):
 
 class ReadoptMastershipGateTest(ReadoptTestBase):
     """
-    The destructive gate added 2026-08-13. A readopt against a *healthy* switch meant the
-    old client still held mastership: the new client's arbitration was refused, bmv2
-    nonetheless applied the pipeline push (wiping every table), and then refused every route
-    write with "Not primary" -- so readopt wiped a working switch, installed nothing, and
-    reported success. Observed live on s1 and s6.
+    The destructive gate added 2026-08-13. A readopt against a *healthy* switch meant the old
+    client still held mastership. Because every client bids the same hardcoded election_id
+    (0, 1), the new client presented the incumbent's own credentials: bmv2 killed its
+    duplicate stream (so its arbitration was refused) yet still applied its pipeline push,
+    wiping every table. The route writes then failed with "Not primary" -- not because Write
+    is checked more strictly, but because old.stop() runs before install_initial_routes, so
+    no primary was left by then. readopt therefore wiped a working switch, installed nothing,
+    and reported success. Observed live on s1 and s6.
+
+    The expectations below are unchanged by that correction, and the gate is still the right
+    fix: a client that did not win arbitration must not reach the destructive push.
+    doc/2026-08-13_p4runtime-mastership-spec-check.md has the measured scenarios.
     """
 
     def test_refused_arbitration_fails_before_the_pipeline_push(self):
