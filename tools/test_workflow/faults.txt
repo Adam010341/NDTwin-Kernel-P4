@@ -1,0 +1,63 @@
+# L5 fault catalogue -- one fault type per line, read by faults.sh
+#
+# Purpose: give the fixed bugs a standing guard. The 2026-08-12 static+live review found
+# the same shape three times -- "fix landed, no test CLASS exists" (unidirectional link
+# loss, mastership collision, controller kill). A fix with no fault type behind it is
+# defended only until the next regression.
+#
+# Format (three fields separated by a pipe WITH SPACES around it), the same shape as
+# tools/contract_test/warning_allowlist.txt and baseline_diff_allowlist.txt:
+#
+#   ID | ACTION key=value ... | why this fault type exists / what it guards
+#
+# The separator is " | " (whitespace-pipe-whitespace), not a bare pipe.
+#
+# ID       short handle, <family>-<n>. L = link, N = node. Used on the command line.
+# ACTION   the first word is the injection mechanism; the rest are key=value parameters.
+# reason   free text. Say what regression this catches, not what the command does.
+#
+# WHERE the fault lands is NOT in this file -- it comes from the command line
+# (--iface / --peer-iface / --pid), because the same fault type applies to any link or any
+# switch. That is what keeps "add a fault type" to "add a line".
+#
+# Mechanisms (implemented in faults.sh; a new *type* is a line, a new *mechanism* is code):
+#
+#   link_loss    direction=one|both  loss=<pct>  expect=<verdict>
+#                netem loss on one end (asymmetric) or both ends (symmetric).
+#                faults.sh decides WHERE to attach netem by reading the live qdisc tree:
+#                on a TCLink interface the root is htb and netem must hang under the class,
+#                because `... root netem` REPLACES htb silently and the grant cannot put it
+#                back (doc/environment_gotchas.md, 2026-08-13).
+#
+#   proc_signal  signal=<SIG>  restore=<SIG>  expect=<verdict>
+#                signal a switch process by PID. Never pkill: Mininet nodes share a PID
+#                namespace, so a pattern kill takes out all ten switches
+#                (doc/p4_bmv2_support_plan.md item 6).
+#
+# expect=<verdict> is what tools/twin_audit/criteria.py must say WHILE the fault is in
+# place: moving | still | any. Every round additionally requires "moving" before the fault
+# and "moving" after the revert, and an empty qdisc diff across the whole round -- those
+# are not per-entry, they are the price of admission.
+#
+# [Co-developed with claude code -- Adam]
+
+
+L-2 | link_loss direction=one loss=100% expect=still | Unidirectional link failure -- the 2026-08-13 P0's cause. Loss on ONE end kills LLDP in one direction only, so Ryu fires a single EventLinkDelete and the DiGraph stays asymmetric permanently; install_all_pair_paths then crashed on the missing reverse edge, every rule went stale, and the flow blackholed for 291 s while the twin reported it healthy. Fixed in the BFS both-directions check; nothing re-injects the fault, so this line is the guard.
+
+L-3 | link_loss direction=both loss=30% expect=moving | Gray failure. 30 % loss is under every detector's threshold -- beacons still get through, so link-failure detection never fires and the twin keeps advertising the link as healthy, while rate estimation and failover decisions run on badly skewed data. expect=moving is the FINDING, not a weak assertion: it is an executable statement that connectivity checks are blind here. Catching the damage itself needs rate reconciliation, which twin_audit deliberately does not do (sFlow's 1/256 error floor); revisit when a per-flow loss signal exists.
+
+N-4 | proc_signal signal=STOP restore=CONT expect=still | Switch process alive but not responding. SIGSTOP leaves the process in the table, so pgrep finds it and os.kill(pid, 0) succeeds -- both liveness checks this repo relies on report healthy (memory: "process liveness checks lie in two ways"). Evidence-based liveness should land on the third state, stalled, rather than up or down. THEORY ONLY: never verified against a real bmv2, which is exactly why it is in the catalogue.
+
+
+# TODO -- further types, all reusing the two mechanisms above (each is one more line):
+#
+#   L-4 | link_loss direction=one loss=50% expect=moving | asymmetric gray failure: the
+#         two blind spots above combined, which is the case neither guard covers alone.
+#   N-5 | proc_signal signal=KILL restore=none expect=still | hard controller loss. Needs
+#         a restart mechanism before the "after" check can pass, so it is not yet a line.
+#   N-6 | proc_signal signal=TERM restore=none expect=still | graceful shutdown, to
+#         separate "died" from "left" in the liveness verdict.
+#
+# Mastership collision (the third untested fix) is NOT here: it needs a second P4Runtime
+# client rather than a link or a signal, i.e. a third mechanism. Recorded so the gap stays
+# visible instead of looking covered.
