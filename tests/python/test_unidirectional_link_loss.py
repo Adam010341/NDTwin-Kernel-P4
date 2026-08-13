@@ -23,6 +23,16 @@ the round dying.
 Same reason as test_route_reinstall.py: importing intelligent_router pulls in Ryu, which only
 exists in a separate conda env. The methods under test are read out of the real file by AST and
 executed here, so this tests the shipped source, not a copy.
+
+## Why the graph is a stub rather than networkx
+
+Everything in tests/python runs under plain `python3` and may depend on nothing outside the
+standard library -- l1_unit_tests.sh enforces that, and it caught this file importing networkx
+on its first real run. DiGraphStub below implements only the operations the extracted code
+performs, with the behaviours this test turns on stated and pinned by DiGraphStubTest: a
+missing edge raises KeyError from `net[u][v]` (that KeyError is the defect), `.get` returns
+None, and `has_edge` is direction-sensitive. The stub is why the mutation evidence matters
+doubly here -- the mutants must still go red through it, which they do (see the commit).
 """
 
 from __future__ import annotations
@@ -35,7 +45,56 @@ import textwrap
 import types
 import unittest
 
-import networkx as nx
+
+class _NodeView:
+    """`net.nodes`: iterable of nodes, indexable to each node's attribute dict."""
+
+    def __init__(self, data):
+        self._data = data
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __getitem__(self, node):
+        return self._data[node]
+
+    def __contains__(self, node):
+        return node in self._data
+
+
+class DiGraphStub:
+    """The slice of networkx.DiGraph the extracted code uses. Directed; edges carry attrs."""
+
+    def __init__(self):
+        self._succ = {}
+        self._node_attrs = {}
+
+    def add_node(self, node, **attrs):
+        self._succ.setdefault(node, {})
+        self._node_attrs.setdefault(node, {}).update(attrs)
+
+    def add_edge(self, u, v, **attrs):
+        self.add_node(u)
+        self.add_node(v)
+        self._succ[u][v] = dict(attrs)
+
+    def remove_edge(self, u, v):
+        del self._succ[u][v]
+
+    @property
+    def nodes(self):
+        return _NodeView(self._node_attrs)
+
+    def __getitem__(self, u):
+        # KeyError on an unknown node, and the returned mapping raises KeyError on an unknown
+        # edge -- the exact shape that aborted the recompute.
+        return self._succ[u]
+
+    def neighbors(self, u):
+        return iter(self._succ[u])
+
+    def has_edge(self, u, v):
+        return v in self._succ.get(u, {})
 
 ROUTER = os.path.join(os.path.dirname(__file__), "..", "..", "intelligent_router.py")
 METHODS = (
@@ -106,7 +165,7 @@ def square_net():
 
     Edge u->v carries u's egress port toward v, matching what the topology events store.
     """
-    net = nx.DiGraph()
+    net = DiGraphStub()
     for a, b, port_a, port_b in [(1, 2, 2, 1), (1, 3, 3, 1), (2, 4, 3, 2), (3, 4, 4, 3)]:
         net.add_edge(a, b, port=port_a)
         net.add_edge(b, a, port=port_b)
@@ -121,6 +180,31 @@ def square_net():
 
 def flows_for(router, dst_ip):
     return {dpid: port for dpid, ip, port in router.installed if ip == dst_ip}
+
+
+class DiGraphStubTest(unittest.TestCase):
+    """The stub stands in for networkx here, so the behaviours the tests turn on are pinned."""
+
+    def test_missing_edge_raises_keyerror_and_get_returns_none(self):
+        net = square_net()
+        net.remove_edge(1, 2)
+        with self.assertRaises(KeyError):
+            _ = net[1][2]["port"]
+        self.assertIsNone(net[1].get(2))
+        self.assertEqual(net[2][1]["port"], 1, "the reverse edge must be untouched")
+
+    def test_has_edge_is_direction_sensitive(self):
+        net = square_net()
+        net.remove_edge(1, 2)
+        self.assertFalse(net.has_edge(1, 2))
+        self.assertTrue(net.has_edge(2, 1))
+        self.assertFalse(net.has_edge(1, 99), "an unknown node is not an edge, not an error")
+
+    def test_neighbours_are_successors_only(self):
+        net = square_net()
+        net.remove_edge(1, 2)
+        self.assertEqual(sorted(str(n) for n in net.neighbors(1)), ["3", "h1"])
+        self.assertIn(1, list(net.neighbors(2)), "2 -> 1 survives the one-way removal")
 
 
 class SymmetricBaselineTest(unittest.TestCase):
