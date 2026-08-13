@@ -379,6 +379,25 @@ class ReadoptMastershipGateTest(ReadoptTestBase):
         self.assertEqual(result["routes_installed"], 0)
         self.assertEqual(result["routes_attempted"], 0)
 
+    def test_zero_attempted_says_the_routes_are_pending(self):
+        # Live 2026-08-13: a power-cycled switch was readopted 2 s after boot, before its
+        # beacons resumed, so nothing was routable and this returned a bare 200 while the
+        # switch held no rules at all -- the watchdog installed them ~30 s later. Success is
+        # the right status (adoption did work), but the caller must be able to tell "adopted
+        # and forwarding" from "adopted, tables still empty".
+        self.topo.net.remove_node(H1)
+        self.topo.net.remove_node(H2)
+        result = self.readopt()
+        self.assertIs(result["routes_pending"], True)
+        self.assertIn("links", result["note"])
+
+    def test_installed_routes_are_not_reported_as_pending(self):
+        result = self.readopt()
+        self.assertEqual(result["routes_attempted"], 2)
+        self.assertNotIn("routes_pending", result,
+                         "a switch that took its routes must not look like it is waiting")
+        self.assertNotIn("note", result)
+
 
 class RouteReinstallTest(unittest.TestCase):
     """install_initial_routes(only_dpid=...) directly, the seam readopt relies on."""

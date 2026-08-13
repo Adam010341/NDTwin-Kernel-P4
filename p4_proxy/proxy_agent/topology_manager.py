@@ -851,8 +851,27 @@ class TopologyManager:
 
         print(f"[TopologyManager] readopt {dpid}: pipeline pushed, clone_session={clone_ok}, "
               f"{routes} of {attempted} routes installed")
-        return {"status": "success", "dpid": dpid, "clone_session": clone_ok,
-                "routes_installed": routes, "routes_attempted": attempted}
+        result = {"status": "success", "dpid": dpid, "clone_session": clone_ok,
+                  "routes_installed": routes, "routes_attempted": attempted}
+
+        # [Co-developed with claude code -- Adam]
+        # Nothing was even attempted: this switch's links are still down, so no path in
+        # dest_paths crosses it and there is nothing to write. The adoption did succeed --
+        # mastership, pipeline and clone session are all in place -- but the tables are empty
+        # for as long as rediscovery takes, and the caller is entitled to know that rather
+        # than to read "success" as "forwarding".
+        #
+        # Measured live 2026-08-13: readopt returned in 2 s with attempted=0 and the switch
+        # held no rules; the link-watchdog's recovery path installed all four about 30 s later.
+        # Reporting it as a failure was the other option and is worse -- rediscovery genuinely
+        # takes time, so every ordinary power-on would report failure, and a status nobody can
+        # act on is one everybody learns to ignore.
+        if attempted == 0:
+            result["routes_pending"] = True
+            result["note"] = ("adopted, but no route was installable yet: this switch's links "
+                              "are still down, so no path crosses it. The link watchdog "
+                              "installs them when the beacons resume.")
+        return result
 
     # --- LLDP Discovery Logic ---
     def create_lldp_packet(self, dpid, port):
