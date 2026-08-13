@@ -137,16 +137,44 @@ bool hasFlag(const std::string& cmd, const std::string& flag)
     return std::find(tokens.begin(), tokens.end(), flag) != tokens.end();
 }
 
+/// [Co-developed with claude code -- Adam]
+/// Whole-token matching opened the opposite blind spot: curl bundles short options, so "-sSf"
+/// carries -f without ever producing a "-f" token. A command written that way alongside
+/// --fail-with-body would pass keepsTheFailureBody here and then die at runtime -- curl
+/// refuses the two fail flags together as mutually exclusive -- which is a broken power op
+/// under a green test. Any single-dash token whose letters include 'f' is the fail flag.
+bool hasBundledShortF(const std::string& cmd)
+{
+    for (const std::string& token : commandTokens(cmd)) {
+        if (token.size() > 1 && token[0] == '-' && token[1] != '-'
+            && token.find('f') != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /// Does a non-2xx answer become a non-zero exit? Any member of curl's --fail family does this.
 bool failsOnNon2xx(const std::string& cmd)
 {
-    return hasFlag(cmd, "-f") || hasFlag(cmd, "--fail") || hasFlag(cmd, "--fail-with-body");
+    return hasBundledShortF(cmd) || hasFlag(cmd, "--fail") || hasFlag(cmd, "--fail-with-body");
 }
 
 /// Does the response body survive a non-2xx answer? Only --fail-with-body keeps it.
 bool keepsTheFailureBody(const std::string& cmd)
 {
-    return hasFlag(cmd, "--fail-with-body") && !hasFlag(cmd, "-f") && !hasFlag(cmd, "--fail");
+    return hasFlag(cmd, "--fail-with-body") && !hasBundledShortF(cmd) && !hasFlag(cmd, "--fail");
+}
+
+/// The helpers above are themselves load-bearing: every scenario's curl assertion routes
+/// through them, so their blind spots are the suite's blind spots.
+TEST(CurlFlagHelpersTest, BundledShortOptionsCarryTheFailFlag)
+{
+    EXPECT_TRUE(failsOnNon2xx("curl -sSf http://h/x"));
+    EXPECT_TRUE(hasBundledShortF("curl -fsS http://h/x"));
+    EXPECT_FALSE(keepsTheFailureBody("curl -sSf --fail-with-body http://h/x"));
+    EXPECT_TRUE(keepsTheFailureBody("curl -sS --fail-with-body http://h/x"));
+    EXPECT_FALSE(hasBundledShortF("curl -sS --fail-with-body http://h/x"));
 }
 
 /// The design's hard rule, checked against every command a scenario produced.
