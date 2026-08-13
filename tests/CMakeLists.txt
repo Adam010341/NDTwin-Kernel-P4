@@ -76,3 +76,38 @@ target_link_libraries(
 
 include(GoogleTest)
 gtest_discover_tests(test_routing_strategy)
+
+# [Co-developed with claude code -- Adam]
+# libFuzzer harnesses. Off by default and clang-only: libFuzzer ships with clang, so this needs
+# no install, but it cannot build under GCC. Kept out of the default build because a fuzz target
+# is not a test -- it is a campaign you run deliberately, and its findings become regression
+# cases in test_SFlowParsing.cpp.
+#
+#   cmake -S . -B build-fuzz -DFUZZING=ON -DCMAKE_CXX_COMPILER=clang++ \
+#         -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_FLAGS=-Wno-error=deprecated-declarations
+#   cmake --build build-fuzz -j"$(nproc)"
+#   ./build-fuzz/bin/fuzz_sflow tests/fixtures -max_total_time=60
+option(FUZZING "Build the libFuzzer harnesses (clang only)" OFF)
+if(FUZZING)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "FUZZING=ON requires clang; libFuzzer ships with it and not with GCC")
+  endif()
+  add_executable(fuzz_sflow fuzz/fuzz_sflow.cpp)
+  # On the target rather than the directory: the top-level CMakeLists clears directory
+  # COMPILE_OPTIONS around FetchContent, which is how sanitizer flags have been lost before.
+  target_compile_options(fuzz_sflow PRIVATE -fsanitize=fuzzer,address -g -O1)
+  target_link_options(fuzz_sflow PRIVATE -fsanitize=fuzzer,address)
+  target_link_libraries(
+    fuzz_sflow
+    NdtCore_CollectionLib
+    NdtCore_EventHandlingLib
+    NdtCore_DataManagementLib
+    EventSystemLib
+    UtilsLib
+    ssh
+    OpenSSL::Crypto
+    OpenSSL::SSL
+    Boost::system
+    Boost::url
+  )
+endif()
