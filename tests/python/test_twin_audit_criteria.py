@@ -293,7 +293,14 @@ class CounterCheckTest(WorldFreeTestCase):
         self.samples = list(samples)
         self.reads = 0
 
+        self.probes = 0
+
         def fake(argv, timeout):
+            # check_counters now sends its own probe traffic between the two samples, so the
+            # stub has to tell a counter read from a ping rather than counting calls.
+            if "/proc/net/dev" not in " ".join(argv):
+                self.probes += 1
+                return criteria.CommandResult(self.probe_rc)
             sample = self.samples[self.reads]
             self.reads += 1
             if sample is None:
@@ -302,8 +309,29 @@ class CounterCheckTest(WorldFreeTestCase):
 
         criteria.run_command = fake
 
+    probe_rc = 0
+
     def target(self):
-        return criteria.Target("10.0.0.1", "10.0.0.2", dst_pid=22)
+        return criteria.Target("10.0.0.1", "10.0.0.2", src_pid=11, dst_pid=22)
+
+    def test_it_generates_its_own_probe_traffic_between_the_samples(self):
+        # Live 2026-08-13: as a passive observer this channel read STILL on a perfectly
+        # healthy idle link, which paired with ping=MOVING into a permanent DISPUTED and
+        # stopped the fault harness from ever injecting. Sending between the samples turns
+        # the channel into an experiment: "did the packets I just sent arrive".
+        self.install([procnetdev(1000), procnetdev(1003)])
+        result = criteria.check_counters(self.cfg, self.target())
+        self.assertEqual(MOVING, result.verdict)
+        self.assertEqual(1, self.probes, "exactly one probe, between the two samples")
+
+    def test_a_probe_that_cannot_run_is_unknown_not_still(self):
+        # Without probe traffic the gap measures background noise only, which is the passive
+        # trap again -- so say so instead of reporting the flow as dead.
+        self.probe_rc = None
+        self.install([procnetdev(1000), procnetdev(1000)])
+        result = criteria.check_counters(self.cfg, self.target())
+        self.assertEqual(UNKNOWN, result.verdict)
+        self.assertIn("probe", result.detail)
 
     def test_a_growing_counter_is_moving(self):
         self.install([procnetdev(1000), procnetdev(1400)])

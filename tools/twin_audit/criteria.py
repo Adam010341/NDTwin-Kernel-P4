@@ -383,16 +383,32 @@ def read_rx_packets(cfg, pid):
 
 
 def check_counters(cfg, target):
-    """Two samples of the far end's rx counter, judged on growth.
+    """Two samples of the far end's rx counter with our own probe traffic in between.
 
-    Known weakness, stated so nobody mistakes this for proof on its own: a host receiving
-    unrelated background traffic grows this counter regardless of the flow under audit, so
-    this channel can say MOVING for the wrong reason. That is exactly why QUORUM is 2 and
-    why `ping` and `paths` exist -- one vote, never a verdict.
+    [Co-developed with claude code -- Adam]
+    This channel used to sample, sleep, and sample again -- pure passive observation. On an
+    idle link that reads STILL no matter how healthy the path is, so a quiet network came out
+    as ping=MOVING against counters=STILL: permanent DISPUTED, and the fault harness refused
+    to inject on the grounds that the baseline was broken. Found on the harness's first live
+    run, 2026-08-13; the earlier runs that looked fine had a background flood running.
+
+    Sending between the samples makes it an experiment rather than an observation: the
+    question becomes "did the packets I just sent arrive", which needs no external traffic
+    and is what independence was supposed to mean. It does not collapse into the ping check:
+    this counts arrivals at the far end, so a path that carries packets one way but drops the
+    replies shows up here as MOVING while ping says STILL -- the asymmetry stays visible.
+
+    Known weakness, unchanged: unrelated background traffic to the same host also grows the
+    counter, so this can say MOVING for the wrong reason. One vote, never a verdict.
     """
     first = read_rx_packets(cfg, target.dst_pid)
     if first is None:
         return Observation("counters", UNKNOWN, "peer rx counter unreadable")
+    probe_rc = ping_once(cfg, target.src_pid, target.dst_ip)
+    if probe_rc is None:
+        # The probe could not be launched at all; the sleep alone would measure background
+        # noise, and reporting that as the flow's health is exactly the passive trap above.
+        return Observation("counters", UNKNOWN, "probe traffic could not be generated")
     sleep(cfg.gap_s)
     second = read_rx_packets(cfg, target.dst_pid)
     if second is None:

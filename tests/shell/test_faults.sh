@@ -49,7 +49,7 @@ check "the shipped catalogue lists exactly the three agreed types" "L-2 L-3 N-4"
       "$(catalogue_ids | tr '\n' ' ' | sed 's/ $//')"
 check "commented-out TODO entries are not live types" no \
       "$(catalogue_ids | grep -q 'L-4' && echo yes || echo no)"
-check "the spec field comes back whole" "link_loss direction=one loss=100% expect=still" \
+check "the spec field comes back whole" "link_loss direction=one loss=100% expect=moving" \
       "$(catalogue_field L-2 2)"
 check "the reason field names the incident" yes \
       "$(catalogue_field L-2 3 | grep -q '291 s' && echo yes || echo no)"
@@ -179,6 +179,7 @@ check_pair() {
 }
 
 reset_round
+queue_verdicts moving moving moving   # L-2 expects 'moving' during: P4 reroutes around it
 out="$(run_round L-2 2>&1)"; rc=$?
 check "a well-behaved round passes" 0 "$rc"
 check "it says PASS" yes "$(grep -q "PASS L-2" <<<"$out" && echo yes || echo no)"
@@ -229,7 +230,7 @@ check "and names the baseline verdict it refused" yes \
 
 echo "revert always runs"
 reset_round
-queue_verdicts moving moving moving   # 'during' contradicts the catalogue's expect=still
+queue_verdicts moving still moving   # 'during' contradicts the catalogue's expect=moving
 out="$(run_round L-2 2>&1)"; rc=$?
 check "an unexpected mid-round verdict fails the round" 1 "$rc"
 check "but the netem was still removed" yes \

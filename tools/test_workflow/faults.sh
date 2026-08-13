@@ -72,6 +72,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 FAULTS_TC="${FAULTS_TC:-sudo -n tc}"
 FAULTS_KILL="${FAULTS_KILL:-sudo -n kill}"
 FAULTS_CRITERIA="${FAULTS_CRITERIA:-python3 $ROOT/tools/twin_audit/criteria.py}"
+FAULTS_TWIN_AUDIT="${FAULTS_TWIN_AUDIT:-python3 $ROOT/tools/twin_audit/twin_audit.py}"
 FAULTS_QDISC="${FAULTS_QDISC:-$HERE/qdisc_snapshot.sh}"
 FAULTS_CATALOGUE="${FAULTS_CATALOGUE:-$HERE/faults.txt}"
 FAULTS_SETTLE_S="${FAULTS_SETTLE_S:-5}"
@@ -96,12 +97,35 @@ settle()     { sleep "$1"; }
 qdisc_save() { "$FAULTS_QDISC" save "$1"; }
 qdisc_diff() { "$FAULTS_QDISC" diff "$1"; }
 
+# resolve_pid <ip> -- the Mininet host PID that owns an IP, empty if unknown.
+#
+# [Co-developed with claude code -- Adam]
+# Without this every probe ran in the root namespace: ping could not reach 10.0.0.2 at all
+# and the counter read the host's own NIC (rx in the millions, growing from unrelated
+# background traffic). The round then read "ping still, counters moving" and refused to
+# inject on the grounds that the baseline was broken -- a self-inflicted refusal that looked
+# exactly like a real finding. Found on the harness's first live run, 2026-08-13.
+# twin_audit owns the IP -> host -> PID map; this asks it rather than re-deriving it.
+resolve_pid() {
+    ${FAULTS_TWIN_AUDIT} hosts 2>/dev/null \
+        | awk -v ip="$1" '$1 == ip { sub(/^pid=/, "", $3); print $3; exit }'
+}
+
 # check_pair -- ask criteria.py whether packets move between PAIR_SRC and PAIR_DST.
 # Echoes one of: moving still inconclusive disputed error. Never fails the caller;
 # the verdict is the return value, in text, because the round logic branches on it.
 check_pair() {
-    local out rc
-    out="$(${FAULTS_CRITERIA} check --src-ip "$PAIR_SRC" --dst-ip "$PAIR_DST" 2>&1)"
+    local out rc src_pid dst_pid
+    src_pid="$(resolve_pid "$PAIR_SRC")"
+    dst_pid="$(resolve_pid "$PAIR_DST")"
+    if [[ -z "$src_pid" || -z "$dst_pid" ]]; then
+        err "cannot resolve host PIDs for $PAIR_SRC / $PAIR_DST -- is Mininet running?"
+        err "  every probe would run in the root namespace and measure the wrong machine."
+        echo error
+        return
+    fi
+    out="$(${FAULTS_CRITERIA} check --src-ip "$PAIR_SRC" --dst-ip "$PAIR_DST" \
+           --src-pid "$src_pid" --dst-pid "$dst_pid" 2>&1)"
     rc=$?
     echo "$out" >&2
     case "$rc" in
@@ -248,8 +272,18 @@ revert_link_loss() {
             rc=1
             continue
         fi
-        # shellcheck disable=SC2086
-        run_tc qdisc del dev "$dev" $where netem || rc=1
+        if [[ "$where" == "root" ]]; then
+            # [Co-developed with claude code -- Adam]
+            # No trailing `netem` here. The NOPASSWD grant is the exact argument list
+            # `qdisc del dev s*-eth* root`, and sudo matches it literally -- one extra token
+            # and the revert dies with "a password is required", leaving the fault in place
+            # and voiding the round on the qdisc diff. Measured 2026-08-13, on the harness's
+            # first live run: the injection was permitted, the revert was not.
+            run_tc qdisc del dev "$dev" root || rc=1
+        else
+            # shellcheck disable=SC2086
+            run_tc qdisc del dev "$dev" $where netem || rc=1
+        fi
     done
     INJECTED_IFACES=()
     return $rc
