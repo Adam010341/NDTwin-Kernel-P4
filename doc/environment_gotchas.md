@@ -293,8 +293,20 @@ shaping 靜默消失；`tc qdisc del dev X root` 還原的是預設 qdisc，**�
 「netem 殘留＝0」收尾檢查看不見這種損傷，NOPASSWD 的授權範圍也裝不回 htb。
 （2026-08-13 OVS 夜測輪實測；C 報告 Phase 3 有完整經過。）
 
-- 動手前先 `tc qdisc show dev X`：root 是 htb 的介面，netem 掛 class 下——
-  `sudo -n tc qdisc add dev X parent 5:1 netem loss 100%`（同輪實測非破壞、可乾淨還原）。
+- 動手前先 `tc qdisc show dev X`：root 是 htb 的介面，netem 要掛在 class 底下
+  （`parent 5:1`），**但 NOPASSWD 沒有授權那個形式**——2026-08-13 實測 `sudo -n tc qdisc add
+  dev s1-eth1 parent 5:1 netem loss 1%` 直接回 `sudo: a password is required`。sudoers 只給了
+  三條：`qdisc add dev s[0-9]*-eth[0-9]* root netem *`、`qdisc del … root`、`qdisc show …`。
+  **也就是說唯一免密碼的注入形式，正好就是會替換掉 htb 的那個。**
+  可行的繞法是透過已授權的 `mnexec` 在 root namespace 裡執行 tc（同日實測可用）：
+
+  ```bash
+  TOPO=$(ps -eo pid,args | grep '[t]estbed_topo.py' | awk '{print $1}' | head -1)
+  sudo -n mnexec -a "$TOPO" tc qdisc add dev s1-eth1 parent 5:1 netem loss 100%
+  ```
+
+  注意這實質上繞過了 sudoers 對 tc 參數的限制，只是因為 `mnexec` 被整支授權。要嘛照這樣用，
+  要嘛請 Adam 在 sudoers 補一條 `parent` 形式的規則——後者比較誠實。
 - root 是預設 qdisc 的介面才可以用 `root netem`。P4 testbed（`p4_proxy/mininet/
   p4_testbed_topo.py`）不用 TCLink、無 shaping，屬此類——這也是 P4 runbook §6 的
   root netem 寫法在該環境成立的原因。
