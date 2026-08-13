@@ -579,7 +579,18 @@ class IntelligentRyu(app_manager.RyuApp):
 
                 # Determine out_port toward dst_host
                 if prev_switch is not None:
-                    out_port = net[current_switch][prev_switch]["port"]
+                    # [Co-developed with claude code -- Adam]
+                    # Enqueue already proved this edge existed, but add_flow yields to the event
+                    # loop, so a link event can remove it mid-walk. Losing one switch's entry for
+                    # one round is recoverable -- whatever removed the edge also schedules another
+                    # recompute. Losing the whole round to a KeyError is what froze routing.
+                    edge = net[current_switch].get(prev_switch)
+                    if edge is None:
+                        self.logger.warning(
+                            "edge %s->%s vanished mid-recompute; skipping switch %s for dst %s",
+                            current_switch, prev_switch, current_switch, dst_ip)
+                        continue
+                    out_port = edge["port"]
                     parent_hash[current_switch] = prev_switch
                 else:
                     out_port = self.get_host_port(net, dst_host, current_switch)
@@ -669,8 +680,20 @@ class IntelligentRyu(app_manager.RyuApp):
                 
                     self.logger.info(f"biased neighbors {neighbors}")
                 
+                # [Co-developed with claude code -- Adam]
+                # Only walk a link that exists in BOTH directions. The graph is a DiGraph kept in
+                # sync by per-direction LLDP events, and a unidirectional dataplane failure removes
+                # exactly one of the two directed edges -- the paired EventLinkDelete never fires,
+                # so the asymmetry is a steady state, not a transient. The entry installed at
+                # `neighbor` forwards neighbor -> current and needs the neighbor->current edge for
+                # its out port; walking the half-dead link crashed the whole recompute at that
+                # lookup (KeyError), which froze every route while the twin kept reporting the
+                # flow as healthy (live 2026-08-13: 291 s blackhole, zero self-heal). Skipping the
+                # pair lets BFS reach the switch through any healthy neighbor instead, so traffic
+                # routes around the dead direction.
                 for neighbor in neighbors:
-                    if neighbor not in visited and self.is_switch(neighbor):
+                    if (neighbor not in visited and self.is_switch(neighbor)
+                            and net.has_edge(neighbor, current_switch)):
                         queue.append((neighbor, current_switch))
 
 
@@ -678,18 +701,28 @@ class IntelligentRyu(app_manager.RyuApp):
             for switch in parent_hash:
                 path = []
                 node = switch
-                while node is not None:
-                    if parent_hash.get(node) is not None:
-                        next_hop = parent_hash[node]
-                        if self.is_switch(next_hop):
-                            out_port = net[node][next_hop]["port"]
+                # [Co-developed with claude code -- Adam]
+                # Same mid-walk hazard as the install loop above: these lookups re-read the graph
+                # after every yield, so a vanished edge must cost this one reported path, not the
+                # whole recompute.
+                try:
+                    while node is not None:
+                        if parent_hash.get(node) is not None:
+                            next_hop = parent_hash[node]
+                            if self.is_switch(next_hop):
+                                out_port = net[node][next_hop]["port"]
+                            else:
+                                host = self.find_host_by_ip(net, next_hop)
+                                out_port = net[node][host]["port"]
+                            path.append((node, out_port))
                         else:
-                            host = self.find_host_by_ip(net, next_hop)
-                            out_port = net[node][host]["port"]
-                        path.append((node, out_port))  
-                    else:
-                        path.append((node, 0)) 
-                    node = parent_hash.get(node)
+                            path.append((node, 0))
+                        node = parent_hash.get(node)
+                except KeyError:
+                    self.logger.warning(
+                        "edge vanished mid-recompute while reporting the path via switch %s to "
+                        "%s; dropping that path for this round", switch, dst_ip)
+                    continue
 
 
                 # print(f"Flow path to {dst_ip} through switch {switch}: {' -> '.join(str(n) for n in path)}")
@@ -805,7 +838,11 @@ class IntelligentRyu(app_manager.RyuApp):
         # Our own state first, the remote notification second.
         #
         # The graph is a DiGraph and EventLinkDelete fires once per direction, so removing the one
-        # directed edge named by this event is exactly right -- the paired event removes the other.
+        # directed edge named by this event is exactly right -- when both directions die, the
+        # paired event removes the other. A unidirectional failure fires only this one event and
+        # the asymmetry is then a steady state, which is why install_all_pair_paths refuses to
+        # walk a link that is missing its reverse edge (live 2026-08-13: recompute crashed on the
+        # asymmetric graph and traffic blackholed until the link recovered).
         # Without this the graph kept a link that was down, and every path computed from it was
         # wrong, silently.
         #
