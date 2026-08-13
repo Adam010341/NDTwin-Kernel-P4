@@ -26,3 +26,10 @@ requests>=2.28
 # sequences. Pinned exactly: this repo has been bitten by a typosquat that shipped under a
 # widely-used name (mcp 2.0.0 vendoring a fake httpx), so nothing here floats.
 hypothesis==6.165.5
+
+# Not imported by the proxy. simple_switch_CLI (bmv2) needs the thrift Python binding, and its
+# shebang is `env python3`, so the recipe for reading P4 counters on a live switch is
+#     p4_proxy/venv/bin/python "$(command -v simple_switch_CLI)" --thrift-port <port>
+# -- no root involved, the CLI talks TCP. Kept here so a venv rebuild does not silently
+# re-lose the one interpreter that can drive it (doc/2026-07-29_HANDOFF.md section 4).
+thrift==0.24.0
