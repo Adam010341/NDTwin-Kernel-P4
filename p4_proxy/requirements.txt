@@ -21,3 +21,8 @@ networkx>=3.0
 # proxy_agent/kernel_notifier.py imports this. It was missing, which is what made
 # test_kernel_notifier.py die on a clean interpreter.
 requests>=2.28
+
+# tests/test_topology_properties.py drives the topology graph through random link up/down
+# sequences. Pinned exactly: this repo has been bitten by a typosquat that shipped under a
+# widely-used name (mcp 2.0.0 vendoring a fake httpx), so nothing here floats.
+hypothesis==6.165.5
