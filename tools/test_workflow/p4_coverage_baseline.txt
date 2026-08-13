@@ -10,8 +10,11 @@
 # The uncovered list is the interesting field. On 2026-08-13 it was exactly the eight
 # consecutive lines of the egress BMV2_INSTANCE_TYPE_INGRESS_CLONE branch -- the block that
 # builds the packet_in header for a sampled clone. Symbolic execution follows one packet down
-# one path; the clone is a *second* egress execution, so that branch is unreachable in
-# principle, not by omission. Those eight lines are guarded only by live runs and the
+# one path and will not model the clone's second execution, so a branch keyed on
+# instance_type is unreachable in principle, not by omission. Note the precise cause: it is
+# the *condition*, not the presence of clone. Cross-checked 2026-08-13 against
+# p4lang/tutorials -- flowcache's solution clones too and reaches 100%, because its egress
+# branch keys on egress_port, which the solver can simply choose. Those eight lines are guarded only by live runs and the
 # cross-language round-trip in test_SFlowEmitterRoundtrip.cpp.
 #
 # So a *shorter* list is good news, and a *longer* one means new code landed that no generated

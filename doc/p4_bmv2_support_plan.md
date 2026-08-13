@@ -402,9 +402,23 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 **85.2%（46/54）**，未覆蓋的 8 個節點**不是隨機分佈**，是連續的一整塊 `:414-421`——egress 裡
 處理 `BMV2_INSTANCE_TYPE_INGRESS_CLONE`、替取樣封包組裝 `packet_in` 標頭那一段。
 
-原因是機制性的：取樣走 ingress 的 `clone_preserving_field_list(CloneType.I2E, ...)`，clone 出來的
-封包是**另一次 egress 執行**；符號執行走的是單一封包的單一路徑，不模型化 clone 產生的第二條路徑。
-所以那個分支對它**原理上不可達**，不是「還沒寫測試」。
+原因是機制性的，而且**比「有 clone」更精確**——2026-08-13 拿 p4lang/tutorials 做跨程式對照驗證過：
+
+| 程式 | clone？ | egress 分支的條件 | 語句覆蓋 |
+|---|---|---|---|
+| `tutorials/exercises/basic/basic.p4` | 無 | — | **100%**（3/3） |
+| `tutorials/exercises/flowcache/solution/flowcache.p4` | **有** | `standard_metadata.egress_port == CPU_PORT` | **100%**（35/35） |
+| `ndtwin_switch.p4`（我們） | 有 | `standard_metadata.instance_type == BMV2_INSTANCE_TYPE_INGRESS_CLONE`（:406） | **85.2%**（46/54） |
+
+**所以不可達的原因不是「程式裡有 clone」**——flowcache 有 clone 卻 100%，連
+`clone_preserving_field_list` 那一行本身都被覆蓋到了。真正的原因是**分支條件讀的是只有在
+clone 真的發生後才會被設定的 `instance_type`**：符號執行對單一封包求解一條路徑，
+它能自由選擇 `egress_port` 這種一般 metadata（flowcache 因此可解），但不會去模型化
+「clone 產生了第二個封包、而那個封包的 `instance_type` 被 bmv2 設成 1」這件事。
+
+我們**不能**改用 flowcache 那種 `egress_port == CPU_PORT` 的寫法來換取覆蓋率：我們的
+clone 取樣封包與主動 `send_to_cpu` 的封包 egress_port 都是 CPU_PORT，兩者必須區分
+（見 :406 附近的註解），`instance_type` 是唯一能區分的依據。這是有意識的取捨，不是疏忽。
 
 **後果**：改動 `.p4` 的取樣區塊時，**不能指望自動生成的迴歸網接住**。那 8 行現在的唯一守護者是
 live 流量驗證（runbook §5）與 `tests/test_SFlowEmitterRoundtrip.cpp` 的跨語言 round-trip。
