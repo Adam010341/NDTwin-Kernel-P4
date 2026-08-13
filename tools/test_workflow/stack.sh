@@ -44,6 +44,12 @@ mkdir -p "$LOG_DIR" "$PID_DIR"
 MODE_FILE="$RUN_DIR/mode"
 
 info() { echo "${D}$*${N}"; }
+
+# The mininet: bash tags, one per host/switch shell. A seam so the wedge guard is testable:
+# tests override this to simulate a live or absent Mininet.
+count_mininet_procs() {
+    ps -eo args | awk '$NF ~ /^mininet:/{c++} END{print c+0}'
+}
 ok()   { echo "${G}$*${N}"; }
 warn() { echo "${Y}$*${N}"; }
 err()  { echo "${R}$*${N}" >&2; }
@@ -512,10 +518,30 @@ print(f'{len(sw)} {up} {en} {len(d.get(\"edges\",[]))}')" 2>/dev/null)"
 
 cmd_up() {
     local mode="${1:-}"
+    local force="${2:-}"
     case "$mode" in
         ovs|p4) ;;
-        *) err "usage: $0 up {ovs|p4}"; return 2 ;;
+        *) err "usage: $0 up {ovs|p4} [--force]"; return 2 ;;
     esac
+
+    # [Co-developed with claude code -- Adam]
+    # Starting Ryu while a Mininet is already alive is the known /stats/flow wedge trigger:
+    # the switches reconnect to the new Ryu and its flow-stats replies come back empty
+    # forever (1.011 s, the ofctl DEFAULT_TIMEOUT) -- root cause unproven, no recovery short
+    # of recreating the network. doc/ovs_manual_test_runbook.md's own rule is "never restart
+    # Ryu alone"; the 2026-08-13 overnight round nearly walked into it via this exact
+    # command. The check reads the mininet: process tags, the same signal mnexec targets.
+    if [[ "$mode" == "ovs" && "$force" != "--force" ]]; then
+        local mn_procs
+        mn_procs="$(count_mininet_procs)"
+        if [[ "$mn_procs" -gt 0 ]]; then
+            err "refusing 'up ovs': a Mininet is already running ($mn_procs mininet: processes)."
+            err "Starting Ryu under a live Mininet triggers the /stats/flow wedge (empty replies"
+            err "forever; no recovery). Exit the Mininet CLI first, then re-run this; start"
+            err "Mininet when [2/3] prompts for it. To accept the risk: $0 up ovs --force"
+            return 1
+        fi
+    fi
 
     local topo script
     if [[ "$mode" == "p4" ]]; then
