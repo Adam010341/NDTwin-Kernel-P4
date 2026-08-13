@@ -56,7 +56,7 @@ those wholesale; live runs point them at reality with environment variables:
   NDT_URL                  kernel northbound API   (default: http://localhost:8000)
   PATHS_URL                all_destination_paths host. OVS: Ryu :8080. P4: proxy :8081.
                            (default: http://localhost:8080)
-  TWIN_AUDIT_PING_COUNT    echo requests per direction         (default: 3)
+  TWIN_AUDIT_PING_COUNT    echo requests per direction         (default: 10)
   TWIN_AUDIT_GAP_S         seconds between the two counter samples (default: 2.0)
   TWIN_AUDIT_MIN_GROWTH    packets of growth that count as motion  (default: 1)
   TWIN_AUDIT_TIMEOUT_S     per-command / per-request timeout    (default: 10)
@@ -179,7 +179,7 @@ class Config(object):
 
     def __init__(self, ping="ping", mnexec="sudo -n mnexec", cat="cat",
                  ndt_url="http://localhost:8000", paths_url="http://localhost:8080",
-                 ping_count=3, gap_s=2.0, min_growth=1, timeout_s=10.0):
+                 ping_count=10, gap_s=2.0, min_growth=1, timeout_s=10.0):
         self.ping = ping
         self.mnexec = mnexec
         self.cat = cat
@@ -198,7 +198,7 @@ class Config(object):
             cat=_env("TWIN_AUDIT_CAT", "cat"),
             ndt_url=_env("NDT_URL", "http://localhost:8000"),
             paths_url=_env("PATHS_URL", "http://localhost:8080"),
-            ping_count=_env("TWIN_AUDIT_PING_COUNT", 3),
+            ping_count=_env("TWIN_AUDIT_PING_COUNT", 10),
             gap_s=_env("TWIN_AUDIT_GAP_S", 2.0),
             min_growth=_env("TWIN_AUDIT_MIN_GROWTH", 1),
             timeout_s=_env("TWIN_AUDIT_TIMEOUT_S", 10.0),
@@ -268,9 +268,24 @@ def _in_namespace(cfg, pid, argv):
 
 
 def ping_once(cfg, from_pid, to_ip):
-    """True/False if the answer is trustworthy, None if the probe itself could not run."""
+    """True/False if the answer is trustworthy, None if the probe itself could not run.
+
+    [Co-developed with claude code -- Adam]
+    The count of 10 and `-i 0.2` travel together, and both exist because of faults.txt
+    L-3 (30% loss on both ends). One echo round-trip survives that link with
+    p = 0.7 * 0.7 = 0.49, so three echoes all die with p = 0.51^3 ~= 13% per direction --
+    which is the flaky L-3 verdict the 2026-08-13 live rounds recorded: a loss level the
+    check is supposed to call "moving" flipped its ping vote at coin-toss-ish rates, and
+    any dissent is DISPUTED. Ten echoes put the same event at 0.51^10 < 0.2%.
+    The interval is not a taste choice: ping's default is one echo per second, so ten
+    echoes at the default run ~9 s into run_command's 10 s timeout and the gray-link fix
+    would just trade flaky STILL for flaky UNKNOWN. 0.2 s is the tightest interval
+    iputils grants without privileges. The budget test in test_twin_audit_criteria.py
+    does this arithmetic against the argv actually built, so raising the count without
+    widening the timeout is a red test, not a live surprise.
+    """
     argv = _in_namespace(cfg, from_pid, [
-        cfg.ping, "-c", str(cfg.ping_count), "-W", "1", "-n", to_ip])
+        cfg.ping, "-c", str(cfg.ping_count), "-i", "0.2", "-W", "1", "-n", to_ip])
     result = run_command(argv, cfg.timeout_s)
     if result.rc is None:
         return None

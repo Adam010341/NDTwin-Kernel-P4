@@ -213,6 +213,59 @@ class PingCheckTest(WorldFreeTestCase):
         self.assertEqual(UNKNOWN, result.verdict)
 
 
+class ProbeShapeTest(WorldFreeTestCase):
+    """The ping argv is load-bearing: count, interval and timeout form one budget.
+
+    [Co-developed with claude code -- Adam]
+    faults.txt L-3 injects 30% loss on both ends and expects "moving". One echo survives
+    that link with p = 0.49, so at the old count of three the whole probe died with
+    p = 0.51^3 ~= 13% per direction and the harness's verdict was a coin toss stacked
+    only 7:1 in favour of the truth. These tests pin the two knobs that fix it and the
+    arithmetic that keeps the fix from becoming a different bug.
+    """
+
+    def captured_probe(self, cfg):
+        calls = []
+
+        def fake(argv, timeout):
+            calls.append((list(argv), timeout))
+            return criteria.CommandResult(0)
+
+        criteria.run_command = fake
+        criteria.ping_once(cfg, None, "10.0.0.2")
+        return calls[0]
+
+    def test_the_echo_count_comes_from_the_config_not_a_literal(self):
+        # setUp's config says 3; a hardcoded count would ignore it and make
+        # TWIN_AUDIT_PING_COUNT a lie.
+        argv, _ = self.captured_probe(self.cfg)
+        self.assertEqual("3", argv[argv.index("-c") + 1])
+
+    def test_the_default_count_makes_a_gray_link_flip_negligible(self):
+        # 0.51^10 < 0.2% per direction, against 13% at the old default of three. The
+        # default is what faults.sh runs with, so it is the default that must survive L-3.
+        self.assertGreaterEqual(criteria.Config().ping_count, 10)
+
+    def test_the_interval_is_pinned_at_the_unprivileged_floor(self):
+        # Without -i, ping sends one echo per second and ten echoes brush against
+        # run_command's timeout; 0.2 s is the tightest interval iputils allows without
+        # privileges, in and out of a namespace alike.
+        argv, _ = self.captured_probe(self.cfg)
+        self.assertEqual("0.2", argv[argv.index("-i") + 1])
+
+    def test_the_probe_budget_fits_inside_its_own_timeout(self):
+        # count x interval + the trailing -W wait must sit inside the timeout handed to
+        # run_command, or a raised count converts flaky STILL into flaky UNKNOWN. Parsed
+        # from the argv actually built, so any future change to count, interval, -W or
+        # timeout_s that breaks the budget turns this red before a live run finds it.
+        argv, timeout = self.captured_probe(criteria.Config())
+        count = int(argv[argv.index("-c") + 1])
+        interval = float(argv[argv.index("-i") + 1])
+        wait = float(argv[argv.index("-W") + 1])
+        self.assertLess(count * interval + wait, timeout,
+                        "the probe cannot finish inside the timeout that will kill it")
+
+
 # --- check 2: control-plane path count -----------------------------------------------
 
 
