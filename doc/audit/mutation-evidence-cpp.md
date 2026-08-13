@@ -342,3 +342,53 @@ reach the test that asserts it — exactly as with `order`/`priority` (narrowing
 the assignment). Two independent checks refusing the same bad input is good defence; it just means
 the test needs a mutation aimed at both, and a surviving single-site mutation there is a fact about
 the code's redundancy rather than about the test's weakness.
+
+---
+
+# Appendix 6: the head-of-line fix (7 mutants, verified 2026-08-13)
+
+Covers `1a7d815` "Stop one stalled switch from taking the whole proxy down". Both languages, because
+the fix spans both: the proxy stopped running blocking gRPC on its event loop, and the kernel stopped
+issuing an unbounded `curl`.
+
+`observed failure` is copied from stdout, per this file's opening rule. Python runs used
+`PYTHONDONTWRITEBYTECODE=1`; the harness also refuses to start unless the two production files are
+committed, because its restore step is `git checkout --`.
+
+| test | mutation file:line | old -> new | observed failure |
+|---|---|---|---|
+| `ReadDeadlineTest` (3 tests) | `p4_proxy/proxy_agent/p4_client.py:442` | `self.stub.Read(req, timeout=timeout_s)` -> `self.stub.Read(req)` | `FAILED (failures=2, errors=1)` |
+| `BlockingWorkStaysOffTheEventLoopTest` + route tests | `p4_proxy/proxy_agent/api_routes.py:248` | `def get_flow_stats(dpid: int):` -> `async def get_flow_stats(dpid: int):` | `FAILED (failures=5, errors=3)` — 8 of the file's 9 tests |
+| `test_a_flow_entry_write_runs_on_a_worker_thread` | `p4_proxy/proxy_agent/api_routes.py:139` | `await run_in_threadpool(topology.route_flow, dpid, match, actions)` -> `topology.route_flow(dpid, match, actions)` | `FAILED (failures=1)` |
+| same | `p4_proxy/proxy_agent/api_routes.py:157` | `await run_in_threadpool(topology.unroute_flow, dpid, match)` -> `topology.unroute_flow(dpid, match)` | `FAILED (failures=1)` |
+| same | `p4_proxy/proxy_agent/api_routes.py:179` | `await run_in_threadpool(topology.modify_flow, dpid, match, actions)` -> `topology.modify_flow(dpid, match, actions)` | `FAILED (failures=1)` |
+| `RequestDeadlines.TheFlowTableRequestIsBounded` | `src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:848` | `"curl -s --max-time 8 -X GET ..."` -> `"curl -s -X GET ..."` | `[  FAILED  ] RequestDeadlines.TheFlowTableRequestIsBounded` (+1: `TheFlowTableDeadlineOutlivesTheProxysOwnGrpcDeadline`) |
+| `RequestDeadlines.TheLivenessRequestIsBounded` | `src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:835` | `"curl -s --max-time 3 -w ..."` -> `"curl -s -w ..."` | `[  FAILED  ] RequestDeadlines.TheLivenessRequestIsBounded` (sole failure) |
+
+**7 applied, 7 killed, 0 survived.**
+
+## Correction: `1a7d815`'s own commit message states these as predictions
+
+The "Mutation evidence" paragraph in `1a7d815` was written **before the harness was run**. It is
+substantively right — every mutant did die — but two details are wrong, and the message does not say
+it was predicting:
+
+- it claims the `async def` mutant fails "BlockingWorkStaysOffTheEventLoopTest and four of the
+  existing route tests". The measured result is 8 of 9 tests in that file. Understated.
+- it omits the two C++ mutants entirely; they had not been run when it was written.
+
+Not amended, because `1a7d815` was already pushed by the time this was noticed (carried up by a
+concurrent session's push of the branch, not pushed deliberately). Rewriting published history to
+hide the slip would also destroy the more useful record: this file's opening line says observed
+failure text is "never predicted", and the violation was writing the conclusion into a durable
+artefact before running the thing that would have produced it. The gate caught it in the sense that
+running the harness immediately afterwards is what exposed the discrepancy — but the message had
+already been committed by then, which is the actual process defect.
+
+## Harness note carried over from a same-day incident
+
+`PYTHONDONTWRITEBYTECODE=1` alone is **not** sufficient — pre-existing `__pycache__` must also be
+cleared. A mutant that preserves byte length (e.g. `"<I"` -> `"!I"`) passes the pyc `(mtime, size)`
+validation and therefore never executes, which is indistinguishable from a weak test. Another agent
+reported three false survivors this way on 2026-08-13. The seven mutants above all changed length, so
+this run was not affected, but the harness should clear the caches rather than rely on that.
