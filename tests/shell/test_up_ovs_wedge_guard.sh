@@ -70,5 +70,8 @@ check "guard silent" no "$(grep -q "refusing" <<<"$out" && echo yes || echo no)"
 check "reached the proxy step" yes "$(grep -q "P4 proxy interpreter not found" <<<"$out" && echo yes || echo no)"
 
 echo
-echo "passed $PASS, failed $FAIL"
-[[ "$FAIL" -eq 0 ]]
+if (( FAIL > 0 )); then
+    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+    exit 1
+fi
+echo "Ran $((PASS + FAIL)) checks, all passed"

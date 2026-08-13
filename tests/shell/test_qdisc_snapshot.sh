@@ -75,5 +75,8 @@ out="$("$TOOL" save 2>&1)"; rc=$?
 check "missing file arg is 2" 2 "$rc"
 
 echo
-echo "passed $PASS, failed $FAIL"
-[[ "$FAIL" -eq 0 ]]
+if (( FAIL > 0 )); then
+    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+    exit 1
+fi
+echo "Ran $((PASS + FAIL)) checks, all passed"
