@@ -45,7 +45,7 @@ run_with_stubs() {
     (
         # shellcheck source=/dev/null
         source "$SCRIPT"
-        for j in gcc python asan tsan clang; do
+        for j in gcc python asan tsan clang p4cov; do
             eval "job_$j() { echo $j >> '$RAN'; [[ '$failing' != '$j' ]]; }"
         done
         main "$@" >/dev/null 2>&1
@@ -55,18 +55,18 @@ run_with_stubs() {
 
 ran_jobs() { tr '\n' ' ' < "$RAN" | sed 's/ $//'; }
 
-echo "no arguments -> every job, in workflow order, exit 0"
+echo "no arguments -> every job, in order, exit 0"
 rc="$(run_with_stubs "")"
 check "exit 0" 0 "$rc"
-check "all five ran in order" "gcc python asan tsan clang" "$(ran_jobs)"
+check "all six ran in order" "gcc python asan tsan clang p4cov" "$(ran_jobs)"
 
 echo "one job fails -> exit 1, and the others still run (not fail-fast)"
 rc="$(run_with_stubs asan)"
 check "exit 1" 1 "$rc"
-check "later jobs still ran" "gcc python asan tsan clang" "$(ran_jobs)"
+check "later jobs still ran" "gcc python asan tsan clang p4cov" "$(ran_jobs)"
 
 echo "the last job failing still reaches the exit code"
-rc="$(run_with_stubs clang)"
+rc="$(run_with_stubs p4cov)"
 check "exit 1" 1 "$rc"
 
 echo "named jobs -> only those run"

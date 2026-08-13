@@ -25,7 +25,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-JOBS_ALL=(gcc python asan tsan clang)
+JOBS_ALL=(gcc python asan tsan clang p4cov)
 
 if [[ -t 1 ]]; then
     G=$'\033[32m'; R=$'\033[31m'; D=$'\033[2m'; B=$'\033[1m'; N=$'\033[0m'
@@ -73,6 +73,12 @@ job_tsan() {
     # before main -- current kernels use more mmap entropy than TSan's fixed shadow layout allows.
     TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:history_size=4 \
         setarch "$(uname -m)" -R "$ROOT/build-tsan/bin/test_routing_strategy" || return 1
+}
+
+job_p4cov() {
+    # Not in the GitHub workflow -- p4c is not on the hosted runners. Cheap to keep here: it
+    # returns in milliseconds unless ndtwin_switch.p4 actually changed since the baseline.
+    bash "$ROOT/tools/test_workflow/p4_coverage_gate.sh" || return 1
 }
 
 job_clang() {

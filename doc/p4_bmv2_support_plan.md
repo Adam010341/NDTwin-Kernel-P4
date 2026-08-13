@@ -396,6 +396,21 @@ sampleType==2 (counter): +4+15+3 ifIndex  +5..6 ifSpeed  +9..10 inOctets  +17..1
 - ~~把 `GET /stats/flow/{dpid}` 真正實作出來 — 它現在回傳寫死的 `[]`。~~ ✅ **已完成**
   （`ryu_flow_stats.py` ＋ `p4_client.read_table_entries()`，22 個測試）。以下敘述保留，因為它記錄了
   為什麼 action 一定要是字串形式：`p4_proxy/reference/dump_table.py`（寫作當時在專案根目錄，2026-08-12 `3fc42ed` 搬入 reference/）已經有 P4Runtime 讀表的邏輯，把它併進 `p4_client` 變成 `read_table_entries()`。**輸出要用 Ryu 的格式，而且 action 要用字串（`"OUTPUT:1"`）** — `Classifier::parseActionsArrayIntoEffect`（[Classifier.cpp:824-896](../src/ndt_core/collection/Classifier.cpp#L824-L896)）**只**認字串格式，`{"type":"OUTPUT","port":N}` 這種物件格式會被安靜忽略。少了這一步，Classifier 永遠是空的，每條 flow 的 `"path"` 都會是 `[]`。
+### ⚠️ sFlow 取樣那段程式碼，自動測試生成原理上碰不到（2026-08-13 實測）
+
+`p4testgen`（隨 p4c 出貨，`/usr/local/bin/p4testgen`）對 `ndtwin_switch.p4` 收斂後的語句覆蓋是
+**85.2%（46/54）**，未覆蓋的 8 個節點**不是隨機分佈**，是連續的一整塊 `:414-421`——egress 裡
+處理 `BMV2_INSTANCE_TYPE_INGRESS_CLONE`、替取樣封包組裝 `packet_in` 標頭那一段。
+
+原因是機制性的：取樣走 ingress 的 `clone_preserving_field_list(CloneType.I2E, ...)`，clone 出來的
+封包是**另一次 egress 執行**；符號執行走的是單一封包的單一路徑，不模型化 clone 產生的第二條路徑。
+所以那個分支對它**原理上不可達**，不是「還沒寫測試」。
+
+**後果**：改動 `.p4` 的取樣區塊時，**不能指望自動生成的迴歸網接住**。那 8 行現在的唯一守護者是
+live 流量驗證（runbook §5）與 `tests/test_SFlowEmitterRoundtrip.cpp` 的跨語言 round-trip。
+`tools/test_workflow/p4_coverage_gate.sh` 會盯著這個未覆蓋清單的**形狀**：清單變長＝新增了
+自動測試永遠碰不到的程式碼，閘門會擋下來要求明確裁決。
+
 - ~~把 `pingWorker` 裡那個無條件 `setVertexUp` 換成真的存活偵測~~ ✅ **已完成**（`a8db425`）：
   `GET /p4/switch_state` 回報事實（round-trip 一個真的 P4Runtime RPC + LLDP 新鮮度），kernel 端用
   `p4LivenessFor` 三態判決，**`Unknown` 不動圖**。host 的強制標記已完全移除 —— proxy 的

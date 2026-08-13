@@ -1,0 +1,22 @@
+# P4Testgen statement-coverage baseline for p4_proxy/p4_src/ndtwin_switch.p4.
+#
+# [Co-developed with claude code -- Adam]
+#
+# Written by p4_coverage_gate.sh --update-baseline. Three fields:
+#   sha        git hash-object of the .p4 as measured (working tree, not HEAD)
+#   coverage   fraction of IR statement nodes P4Testgen reached
+#   uncovered  line numbers it can never reach, space separated
+#
+# The uncovered list is the interesting field. On 2026-08-13 it was exactly the eight
+# consecutive lines of the egress BMV2_INSTANCE_TYPE_INGRESS_CLONE branch -- the block that
+# builds the packet_in header for a sampled clone. Symbolic execution follows one packet down
+# one path; the clone is a *second* egress execution, so that branch is unreachable in
+# principle, not by omission. Those eight lines are guarded only by live runs and the
+# cross-language round-trip in test_SFlowEmitterRoundtrip.cpp.
+#
+# So a *shorter* list is good news, and a *longer* one means new code landed that no generated
+# test can reach -- which the gate refuses until someone says that is intended.
+
+sha 77f18bc0e9e03da10b43b7326f787bae643cb31f
+coverage 0.851852
+uncovered 414 415 416 417 418 419 420 421
