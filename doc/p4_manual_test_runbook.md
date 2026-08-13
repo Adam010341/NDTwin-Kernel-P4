@@ -886,7 +886,7 @@ t+18s  seq 跳到 82 並持續遞增   ← 流量已繞道
 **已修（2026-08-13 更正——本段之前寫「還沒修」已過時）**：採用的是「從證據分辨」路線——
 `reroutable_down_endpoints()`（`topology_manager.py`，搜 symbol）現在帶反向檢查：一條 down link
 即使落在 suspect switch 的赦免範圍，只要**反向那筆也 down**，就視為真斷線、不赦免。
-`tests/../test_link_watchdog.py` 以本節這個 `{(5,4),(10,1)}` 場景鎖定此行為。
+`p4_proxy/tests/test_link_watchdog.py` 以本節這個 `{(5,4),(10,1)}` 場景鎖定此行為。
 
 ---
 

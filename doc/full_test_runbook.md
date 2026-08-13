@@ -15,7 +15,7 @@ P4 對照。背景說明、每個功能的證據、已知限制在 [p4_status_an
 | commit | 改了什麼 | 為什麼一定要重測 |
 |---|---|---|
 | `6b3dc0c` | OVS liveness（`pingWorker`）兩個 bug | `is_up` 是 power / CPU / 溫度 / `getAvgLinkUsage` 的**前置條件**，改它會牽動很多輸出 |
-| `0e84234` | 合成電力值 | `get_power_report` 和 `get_single_switch_power_report` 的數值全變 |
+| `0e84234` | 合成電力值 | `/ndt/get_power_report` 和 `getSingleSwitchPowerReport` 的數值全變 |
 | `a142fe0` | `stack.sh` 的收斂閘門改成也要等 all-destination paths；`CONVERGE_WAIT` 60 → 150 | **之後每一次測試都建立在它上面**，而它還沒被端到端跑過一次 |
 
 所以現在的 `.test_run/baseline/ovs` 已經過期，**`compare` 之前必須重抓**。

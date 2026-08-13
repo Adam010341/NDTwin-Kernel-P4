@@ -139,7 +139,7 @@ cd p4_proxy && PYTHONPATH=. python3 tests/test_sflow_emitter.py
 
 | Test suite | 測試數 | 測什麼 |
 |---|---|---|
-| `OpenFlowRoutingStrategyTest` | 2 | OVS 模式下 `installAnEntry` / `deleteAnEntry` 產生的 curl 指令是否正確（Mock 掉 `executeCommand`，不真的打 Ryu） |
+| `RoutingStrategyFixture` | 2 | OVS 模式下 `installAnEntry` / `deleteAnEntry` 產生的 curl 指令是否正確（Mock 掉 `executeCommand`，不真的打 Ryu） |
 | `P4RoutingStrategyTest` | 2 | P4 模式下同上，但 URL/port 走 proxy agent |
 | `ComputeEstimatedRatesTest` | 8 | `sflow::computeEstimatedRates` 在 hops=0 時不能除以零（曾因此 SIGFPE 崩潰）、多 hop 平均、整數除法截斷等邊界 |
 
@@ -226,7 +226,7 @@ get_graph_data  →  必須有 nodes[] 和 edges[]
 
 ### 順手抓到的現有破口
 
-做這份對照表時發現：**Energy-Saving-App 的原始碼裡有一個 POST 到 `/ndt/disable_switch` 的函式，而 kernel 沒有實作這個 endpoint**（`src/app/http.cpp:269`）。
+做這份對照表時發現：**Energy-Saving-App 的原始碼裡有一個 POST 到 `/ndt/disable_switch` 的函式，而 kernel 沒有實作這個 endpoint**（**Energy-Saving-App** 的 `src/app/http.cpp:269`——注意那是另一個 repo，不是本 repo 的路徑）。
 
 ⚠️ **2026-08-10 更正**：原文接著寫「這支呼叫應該一直在拿 404，而 app 把錯誤吃掉了」——
 **那個推論是錯的**。那個函式有 **0 個呼叫點**，是死碼；節能實際走 `/ndt/set_switches_power_state`

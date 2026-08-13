@@ -219,7 +219,7 @@ tools/test_workflow/p4_coverage_gate.sh --update-baseline  # 接受現況為新�
 
 - `components.py` 記錄每個工作區元件實際依賴哪些 `/ndt/*` endpoint。它是**實測不是猜的**：把每個元件的 source 拿來 grep `/ndt/` URL 得出來的。`KERNEL_ENDPOINTS` 是 kernel 真正的 dispatch table，從 `HttpSession.cpp` 的 if/else-if chain 逐行抄錄。method 的細節再次重要：kernel 是 (method, target) 一起 match，GET 打到 POST-only 會 404，看起來像 endpoint 不存在。
 - `l3_component_check.py` 對每個元件做兩種檢查：
-  1. **existence**：它呼叫的每個 endpoint 必須存在。404 代表元件在呼叫 kernel 沒實作的東西。Energy-Saving-App 對 `/ndt/disable_switch` 的呼叫就是這樣被抓到的——不過這個例子後來被更正過，值得完整寫下來，因為它示範了 L3 這種靜態掃描的能力邊界。`components.py` 記錄「app POST 這個 endpoint」是**對的**：`src/app/http.cpp:269` 真的有那段程式碼，而 kernel 真的沒有實作它，L3 也確實印出 MISSING。但那個函式有 **0 個呼叫點**——它是死碼。實際的節能路徑走 `/ndt/set_switches_power_state`（2 個呼叫點，實測回 200）。所以「節能功能從來沒關掉過任何交換機」這個推論是錯的。
+  1. **existence**：它呼叫的每個 endpoint 必須存在。404 代表元件在呼叫 kernel 沒實作的東西。Energy-Saving-App 對 `/ndt/disable_switch` 的呼叫就是這樣被抓到的——不過這個例子後來被更正過，值得完整寫下來，因為它示範了 L3 這種靜態掃描的能力邊界。`components.py` 記錄「app POST 這個 endpoint」是**對的**：**Energy-Saving-App** 的 `src/app/http.cpp:269`（另一個 repo）真的有那段程式碼，而 kernel 真的沒有實作它，L3 也確實印出 MISSING。但那個函式有 **0 個呼叫點**——它是死碼。實際的節能路徑走 `/ndt/set_switches_power_state`（2 個呼叫點，實測回 200）。所以「節能功能從來沒關掉過任何交換機」這個推論是錯的。
 
   這件事的教訓不是 L3 沒用，而是它回答的問題比看起來窄：**它掃的是「原始碼裡出現過哪些 endpoint」，不是「執行時真的會打哪些 endpoint」。** 前者是後者的超集。要區分兩者需要呼叫圖分析或執行期觀測，不在這一層的能力範圍內。把這個限制寫清楚，比讓下一個人再推論一次同樣的錯誤便宜。
   2. **contract**：對 `spec.py` 有涵蓋的 endpoint，跑 L2 的 structure/invariant 檢查，把失敗歸因到依賴它的元件。

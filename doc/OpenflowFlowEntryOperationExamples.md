@@ -1,3 +1,9 @@
+> ⚠️ **Baseline 時期的廠商語法參考，未對現況查證。**
+> 最後實質更新 2026-01-02，且 repo 內目前**沒有任何檔案引用它**。內容是HPE 交換器的 flow entry 操作範例，
+> 保留的理由是 kernel 確實還在跟這類設備對話（`FlowLinkUsageCollector` 有 `sampleType == 3`
+> 的 HPE 分支），但**這份文件本身沒有人對照過現在的程式碼**。當作外部語法備忘看，不要當作
+> 本專案行為的依據。
+
 # HPE
 ---
 ## APPLY_ACTIONS (by default, it means you don't need to specify APPLY_ACTIONS explicitly)

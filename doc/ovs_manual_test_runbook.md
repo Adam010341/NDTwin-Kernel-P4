@@ -258,7 +258,7 @@ stack up. next: ./stack.sh wait
 
 ⚠️ **`paths=pending` 停留約 60 秒是正常的**——那是 `intelligent_router.py:422` 寫死的 `hub.sleep(60)`，也就是使用說明書要你等的那一分鐘。
 
-那 60 秒是**從 10 台交換機全部連上 Ryu 之後**開始算的，不是從 Ryu 啟動算：`load_static_topology()` 只在 `len(self.switches) >= switch_num` 時才被呼叫（`intelligent_router.py:178`，位於 `_switches_changed_handler` 附近）。所以 `paths=installed` 這個訊號其實同時證明了**10 台都連上了**——它比單看 link 數量更強，而不只是「等了一分鐘」。
+那 60 秒是**從 10 台交換機全部連上 Ryu 之後**開始算的，不是從 Ryu 啟動算：`load_static_topology()` 只在 `len(self.switches) >= switch_num` 時才被呼叫（`intelligent_router.py:320`，位於 `get_topology_data` 裡，該函式定義在 `:265`）。所以 `paths=installed` 這個訊號其實同時證明了**10 台都連上了**——它比單看 link 數量更強，而不只是「等了一分鐘」。
 
 ⚠️ **如果 `converged after` 只花了 2 秒，那是閘門又壞了**（只等到 link discovery，沒等到路徑安裝），不要往下做。來源：`stack.sh:195`（P4 收斂才是 2 秒）和 `doc/full_test_runbook.md` §1c。
 

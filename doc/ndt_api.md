@@ -123,7 +123,7 @@ Returned when an unknown exception type is thrown.
 
 ## 3. GET /ndt/get_graph_data
 ### Description
-Returns the complete graph topology configured in *setting/StaticNetworkTopology.json* including nodes and edges, flow information, and edge status.
+Returns the complete graph topology configured in the file passed to `--topology` (e.g. *setting/StaticNetworkTopologyP4_10Switches_4Hosts.json* for P4, *setting/StaticNetworkTopologyMininet_10Switches.json* for OVS) including nodes and edges, flow information, and edge status.
 **vertex_type = 0** means a switch, and **vertex_type = 1** means a host.
 **is_up** – whether the device is powered and reachable (see [is_up in P4 mode](#is_up-in-p4-mode) below).
 
@@ -2936,7 +2936,7 @@ logs an error and returns without setting a body, so the response may be empty.
 ### Description
 
 Returns the static topology as loaded from the JSON configuration file
-(`setting/StaticNetworkTopology.json`), with IP addresses in dotted-quad string form.
+(the file passed to `--topology`; `setting/` holds one per testbed), with IP addresses in dotted-quad string form.
 Unlike `/ndt/get_graph_data`, this endpoint returns the raw topology without live
 state (no `is_up`, `is_enabled`, `flow_set`, or bandwidth utilisation).
 

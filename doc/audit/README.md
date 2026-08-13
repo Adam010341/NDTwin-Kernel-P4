@@ -18,6 +18,28 @@ is unrecorded cannot be re-run.
 | `mutation-evidence-*.md` | Mutation runs. Every `observed failure` is copied from stdout, never predicted. |
 | Loose `*.md`, `ryu-wedge-trace-*.tsv` | Single-topic runbooks, findings and raw traces. |
 
+## Why `audit-be3c242/` is still here
+
+`doc/audit-be3c242/` is the **first** ten-stage subsystem review (2026-07-31, against commit
+`be3c242`). It is kept, not superseded-and-deleted, because it is the only record of what the
+codebase looked like before the P4 work — but it must be read with one rule, which every prompt of
+the second round restated:
+
+> Reference it, never copy from it. It was written against an old commit, and at least five fix
+> commits have since changed the code it describes. Any claim taken from it has to be re-verified
+> against the source as it is now.
+
+A **second** ten-stage plan was written on 2026-08-03 (`doc/audit/00-workflow-plan.md`, 1641 lines)
+intending to redo that review against the current tree, with outputs named
+`doc/audit/NN-<phase-name>-summary.md`. **It was never executed** — no such file was ever created,
+and the review effort went into differently-shaped work instead (the mutation evidence, the scoped
+review of `be3c242..576dd2a`, the thematic `codebase-review/` audits, and the overnight round).
+The plan was deleted 2026-08-13 as dead weight; recover it from git history if the ten-stage
+approach is ever wanted again. Its embedded "environment facts" had rotted badly by then — it
+asserted the repo had no CI (`tools/test_workflow/local_ci.sh` now exists) and quoted a gtest count
+of 156 (now 554), which is itself a good illustration of why a plan document ages worse than a
+findings document.
+
 ## Deliberately kept outside the repo
 
 These live in `~/Documents/NDTwin documentation/` and were left there on purpose (Adam's decision,

@@ -149,6 +149,11 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 
 ### 目前實際壞掉的地方（每一項都已經驗證過，不是猜的）
 
+> ⚠️ **這張表是 `6f32bca` 時期的快照，行號與連結已經漂移**（2026-08-12 B2 首次指出，2026-08-13
+> 機械掃描複驗）。**每一條的判斷仍然成立，錯的只有定位**。已知失效的兩個：
+> `P4RoutingStrategy.cpp#L29-L33`（該檔現在只有 29 行）、`tests/test_P4RoutingStrategy.cpp`
+> （這個測試從未被寫出來）。**要照這張表找程式碼請用符號名 grep，不要用行號。**
+
 | # | 問題 | 位置 |
 |---|---|---|
 | 1 | **程式會被 SIGFPE 殺掉。** `6f32bca` 把 `if (hopsCounter == 0) continue;` 刪掉了，但 `hopsCounter` 還是被當除數用。只要有一條 flow 停了一個 1 秒週期，就會整數除以 0。同一個檔案第 1424 行的姊妹函式還留著這個保護，可見是不小心刪的。 | [FlowLinkUsageCollector.cpp:1309](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L1309), [:1322](../src/ndt_core/collection/FlowLinkUsageCollector.cpp#L1322) |
