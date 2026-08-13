@@ -1,0 +1,176 @@
+// Tests for ApplicationManager's command layer: what std::system()'s return value is taken to
+// mean, and the exact commands composed against the exports file.
+//
+// [Co-developed with claude code -- Adam]
+//
+// First tests this class has ever had (HANDOFF 1i listed it as the last untested manager).
+// They stop at the command layer on purpose: everything past it needs root, an NFS server and
+// /etc/exports, which is why the builders exist as seams at all -- the same reasoning as
+// test_RequestDeadlines.cpp. The sed tests run the real sed against a temp file, because the
+// defect they pin down lives in sed's address semantics, not in string assembly: the inline
+// original was an unanchored substring match, so purging /srv/nfs/1 also deleted the lines for
+// /srv/nfs/10 and /srv/nfs/100 -- every app whose id extends the purged one, silently, at every
+// kernel start (cleanupStaleEntries runs from the constructor).
+
+#include "ndt_core/application_management/ApplicationManager.hpp"
+
+#include <gtest/gtest.h>
+
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
+
+namespace fs = std::filesystem;
+
+/// Reaches the protected statics without constructing the manager, whose constructor walks the
+/// export directory and shells out to sudo exportfs (cleanupStaleEntries).
+struct Seams : ApplicationManager
+{
+    using ApplicationManager::buildExportsPurgeCommand;
+    using ApplicationManager::buildUnexportCommand;
+    using ApplicationManager::exportsLineFor;
+};
+
+// --- describeCommandFailure: decoding std::system()'s wait status ---------------------------
+
+TEST(DescribeCommandFailure, SuccessIsTheEmptyString)
+{
+    // The call sites branch on emptiness; a non-empty "ok" would warn on every success.
+    EXPECT_EQ("", ApplicationManager::describeCommandFailure(0));
+}
+
+TEST(DescribeCommandFailure, MinusOneMeansTheChildWasNeverCreated)
+{
+    const auto why = ApplicationManager::describeCommandFailure(-1);
+    EXPECT_NE(why.find("could not be created"), std::string::npos) << why;
+}
+
+TEST(DescribeCommandFailure, AWaitStatusIsDecodedNotEchoed)
+{
+    // status is a wait status: the exit code lives in the high byte. Reporting 768 for
+    // "exit 3" is the mistake the decoder exists to prevent.
+    const auto why = ApplicationManager::describeCommandFailure(3 << 8);
+    EXPECT_NE(why.find("exit status 3"), std::string::npos) << why;
+    EXPECT_EQ(why.find("768"), std::string::npos) << why;
+}
+
+TEST(DescribeCommandFailure, OneTwoSevenNamesTheShellNotTheCommand)
+{
+    // 127 is "the shell could not execute it" -- on this machine, almost always sudo
+    // refusing a detached process. The wording is what makes the log actionable.
+    const auto why = ApplicationManager::describeCommandFailure(127 << 8);
+    EXPECT_NE(why.find("127"), std::string::npos) << why;
+    EXPECT_NE(why.find("sudo"), std::string::npos) << why;
+}
+
+TEST(DescribeCommandFailure, ASignalIsReportedAsASignal)
+{
+    // Raw wait status 9: WIFSIGNALED, WTERMSIG == 9 (SIGKILL). An OOM-killed exportfs must
+    // not read as an exit code.
+    const auto why = ApplicationManager::describeCommandFailure(9);
+    EXPECT_NE(why.find("signal 9"), std::string::npos) << why;
+}
+
+// --- the composed commands ------------------------------------------------------------------
+
+TEST(UnexportCommand, NamesExportfsAndTheFolder)
+{
+    const auto cmd = Seams::buildUnexportCommand("/srv/nfs/sim/7");
+    EXPECT_EQ(cmd.rfind("sudo ", 0), 0u) << cmd;
+    EXPECT_NE(cmd.find("exportfs -u"), std::string::npos) << cmd;
+    EXPECT_NE(cmd.find("/srv/nfs/sim/7"), std::string::npos) << cmd;
+}
+
+TEST(ExportsLine, StartsWithTheDirectoryAndASpace)
+{
+    // The purge address anchors on exactly this shape: line start, directory, one space.
+    const auto line = Seams::exportsLineFor("/srv/nfs/sim/7");
+    EXPECT_EQ(line.rfind("/srv/nfs/sim/7 ", 0), 0u) << line;
+    EXPECT_NE(line.find("*("), std::string::npos) << line;
+}
+
+// --- the purge, run against a real sed ------------------------------------------------------
+
+namespace
+{
+
+/// Writes `lines` to a temp exports file, runs the purge command for `folder` against it
+/// (with the leading "sudo " stripped: the semantics under test are sed's, and a unit test
+/// must not prompt), and returns the lines that survived.
+std::vector<std::string> purgeSurvivors(const std::string& folder,
+                                        const std::vector<std::string>& lines)
+{
+    static int unique = 0;
+    const fs::path file = fs::temp_directory_path() /
+                          ("ndtwin_exports_purge_" + std::to_string(::getpid()) + "_" +
+                           std::to_string(unique++));
+    {
+        std::ofstream out(file);
+        for (const auto& line : lines)
+        {
+            out << line << "\n";
+        }
+    }
+
+    const std::string cmd = Seams::buildExportsPurgeCommand(folder, file.string());
+    EXPECT_EQ(cmd.rfind("sudo ", 0), 0u) << cmd;
+    EXPECT_EQ(std::system(cmd.substr(5).c_str()), 0) << cmd;
+
+    std::vector<std::string> survivors;
+    std::ifstream in(file);
+    for (std::string line; std::getline(in, line);)
+    {
+        survivors.push_back(line);
+    }
+    fs::remove(file);
+    return survivors;
+}
+
+} // namespace
+
+TEST(ExportsPurge, RemovesExactlyTheLineTheWriterWrote)
+{
+    // Writer and eraser share exportsLineFor, so this is the round trip: what
+    // updateNFSConfig appends, cleanupAppFolder can remove.
+    const auto survivors = purgeSurvivors("/srv/nfs/sim/1",
+                                          {Seams::exportsLineFor("/srv/nfs/sim/1")});
+    EXPECT_TRUE(survivors.empty()) << survivors.size() << " line(s) survived";
+}
+
+TEST(ExportsPurge, APrefixSiblingSurvives)
+{
+    // The defect this file exists for: /srv/nfs/sim/1 is a prefix of /srv/nfs/sim/10 and
+    // /srv/nfs/sim/100, and the unanchored original deleted all three lines. App ids are
+    // sequential integers, so every long-running deployment has these siblings.
+    const auto ten = Seams::exportsLineFor("/srv/nfs/sim/10");
+    const auto hundred = Seams::exportsLineFor("/srv/nfs/sim/100");
+    const auto survivors =
+        purgeSurvivors("/srv/nfs/sim/1",
+                       {Seams::exportsLineFor("/srv/nfs/sim/1"), ten, hundred});
+    EXPECT_EQ(survivors, (std::vector<std::string>{ten, hundred}));
+}
+
+TEST(ExportsPurge, ADotInTheExportRootIsNotAWildcard)
+{
+    // The configured export root is operator input; a '.' in it must match a dot, not any
+    // character. The original escaped only '/'.
+    const auto other = Seams::exportsLineFor("/srv/nfsXd/1");
+    const auto survivors =
+        purgeSurvivors("/srv/nfs.d/1", {Seams::exportsLineFor("/srv/nfs.d/1"), other});
+    EXPECT_EQ(survivors, (std::vector<std::string>{other}));
+}
+
+TEST(ExportsPurge, AMidlineMentionOfTheFolderIsNotItsLine)
+{
+    // '^' does the work here: an unrelated export whose options happen to mention the purged
+    // path (a bind-mount comment, a hand-edited line) is not that folder's export line. The
+    // mention sits mid-line with text after it, so only the anchor separates the two cases --
+    // a pattern that merely requires "<folder><space>" matches this line too.
+    const std::string bystander = "/srv/other *(rw) # mirrors /srv/nfs/sim/1 nightly";
+    const auto survivors =
+        purgeSurvivors("/srv/nfs/sim/1",
+                       {Seams::exportsLineFor("/srv/nfs/sim/1"), bystander});
+    EXPECT_EQ(survivors, (std::vector<std::string>{bystander}));
+}

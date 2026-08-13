@@ -70,6 +70,43 @@ class ApplicationManager
      */
     static std::string describeCommandFailure(int status);
 
+  protected:
+    /**
+     * @brief The exact line updateNFSConfig appends to the exports file for one app directory.
+     *
+     * [Co-developed with claude code -- Adam]
+     * One definition shared by the writer (updateNFSConfig) and the eraser
+     * (buildExportsPurgeCommand), so the two cannot drift: a purge pattern that stops matching
+     * what the writer writes leaves dead exports accumulating with nothing failing.
+     */
+    static std::string exportsLineFor(const std::string& appDir);
+
+    /**
+     * @brief `sudo exportfs -u <folder>`, extracted for the reason set out at
+     * DeviceConfigurationAndPowerManager::buildRelayPowerCommand: the method around it needs
+     * root and a live NFS server, so the only assertable thing is the command itself.
+     * Quoting of `folder` is deliberately unchanged from the inline original -- shell quoting
+     * across every southbound command is the deferred debt tracked in issue #2, and fixing one
+     * call site here would misrepresent the rest as safe.
+     */
+    static std::string buildUnexportCommand(const std::string& folder);
+
+    /**
+     * @brief The sed invocation that removes exactly one app directory's line from an exports
+     * file -- and nothing else's.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The inline original escaped only '/' and anchored nothing, so its address was a
+     * substring match: purging /srv/nfs/1 also deleted the lines for /srv/nfs/10, 11 and 100
+     * (every registered app whose id extends the purged one), and a '.' in the configured
+     * export root matched any character. The address is now anchored to the start of the line
+     * and to the space that separates the directory from its options in exportsLineFor, with
+     * BRE metacharacters escaped. `exportsFile` is a parameter so the sed semantics are
+     * testable against a temp file; production passes /etc/exports.
+     */
+    static std::string buildExportsPurgeCommand(const std::string& folder,
+                                                const std::string& exportsFile);
+
   private:
     std::mutex m_mutex;
     int m_nextAppId;

@@ -100,11 +100,47 @@ ApplicationManager::updateNFSConfig(int appId, const std::string& appDir)
     }
 
     // Example: Allow all clients (rw, sync)
-    exportsFile << appDir << " *(rw,sync,no_subtree_check,root_squash,all_squash)\n";
+    exportsFile << exportsLineFor(appDir) << "\n";
     exportsFile.close();
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Updated /etc/exports for App ID {}", appId);
     return true;
+}
+
+// [Co-developed with claude code -- Adam]
+std::string
+ApplicationManager::exportsLineFor(const std::string& appDir)
+{
+    return appDir + " *(rw,sync,no_subtree_check,root_squash,all_squash)";
+}
+
+// [Co-developed with claude code -- Adam]
+std::string
+ApplicationManager::buildUnexportCommand(const std::string& folder)
+{
+    return "sudo exportfs -u " + folder;
+}
+
+// [Co-developed with claude code -- Adam]
+std::string
+ApplicationManager::buildExportsPurgeCommand(const std::string& folder,
+                                             const std::string& exportsFile)
+{
+    // BRE-escape the folder, then anchor both ends of the directory field: '^' pins the line
+    // start and the trailing space is the separator exportsLineFor writes before the options,
+    // so /srv/nfs/1 cannot claim /srv/nfs/10's line. The '/' must be escaped because it is
+    // also the address delimiter.
+    std::string escaped;
+    escaped.reserve(folder.size());
+    for (const char c : folder)
+    {
+        if (std::strchr(".*[]^$\\/", c) != nullptr)
+        {
+            escaped += '\\';
+        }
+        escaped += c;
+    }
+    return "sudo sed -i '/^" + escaped + " /d' " + exportsFile;
 }
 
 // [Co-developed with claude code -- Adam]
@@ -242,7 +278,7 @@ void ApplicationManager::cleanupAppFolder(const std::string& folder)
         if (fs::exists(folder))
         {
             // Unexport folder
-            std::string cmd = "sudo exportfs -u " + folder;
+            std::string cmd = buildUnexportCommand(folder);
             const auto unexportWhy = describeCommandFailure(std::system(cmd.c_str()));
             if (!unexportWhy.empty())
             {
@@ -252,11 +288,8 @@ void ApplicationManager::cleanupAppFolder(const std::string& folder)
                                    unexportWhy);
             }
 
-            // Escape slashes for sed
-            std::string escapedFolder = std::regex_replace(folder, std::regex("/"), "\\/");
-
             // Remove from /etc/exports
-            std::string sedCmd = "sudo sed -i '/" + escapedFolder + "/d' /etc/exports";
+            std::string sedCmd = buildExportsPurgeCommand(folder, "/etc/exports");
             const auto sedWhy = describeCommandFailure(std::system(sedCmd.c_str()));
             if (!sedWhy.empty())
             {
