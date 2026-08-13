@@ -37,6 +37,14 @@ class P4RuntimeClient:
         self.grpc_addr = grpc_addr
         self.p4info = self._build_p4info(p4info_path)
         self.json_path = json_path
+        # [Co-developed with claude code -- Adam]
+        # True only while this stream holds P4Runtime mastership. Set from the arbitration
+        # response, cleared whenever the stream ends. readopt_switch reads it before the
+        # destructive pipeline push: bmv2 applies SetForwardingPipelineConfig even from a
+        # client whose arbitration was refused, while the route writes that would refill the
+        # tables are refused with "Not primary" (live 2026-08-13: readopt against a healthy
+        # switch wiped its tables, installed nothing, and reported success).
+        self.mastership_confirmed = False
         
         # [Co-developed with claude code -- Adam]
         # This client owns its subchannel pool. grpc-python's default is a process-global pool
@@ -102,12 +110,25 @@ class P4RuntimeClient:
                 if response.HasField("packet"):
                     self.handle_packet_in(response.packet)
                 elif response.HasField("arbitration"):
-                    print(f"[{self.device_id}] Received arbitration response: Mastership confirmed.")
+                    # [Co-developed with claude code -- Adam]
+                    # status.code 0 (OK) means this stream is the primary. A duplicate
+                    # election id never even gets here -- bmv2 kills the stream, which lands
+                    # in the except below -- so both refusal shapes leave the flag false.
+                    self.mastership_confirmed = response.arbitration.status.code == 0
+                    if self.mastership_confirmed:
+                        print(f"[{self.device_id}] Received arbitration response: Mastership confirmed.")
+                    else:
+                        print(f"[{self.device_id}] Arbitration refused: status "
+                              f"{response.arbitration.status.code} "
+                              f"{response.arbitration.status.message!r}")
                 else:
                     print(f"[{self.device_id}] Received unknown stream message.")
         except grpc.RpcError as e:
             if self.is_running:
                 print(f"[{self.device_id}] Stream receiver error: {e.details()}")
+        finally:
+            # A stream that has ended holds no mastership, however it ended.
+            self.mastership_confirmed = False
 
     def handle_packet_in(self, packet):
         """

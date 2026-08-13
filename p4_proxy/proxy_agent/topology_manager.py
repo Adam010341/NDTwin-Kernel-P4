@@ -678,11 +678,15 @@ class TopologyManager:
         `only_dpid` restricts the writes to one switch, for `readopt_switch`: a freshly
         restarted bmv2 has empty tables, and rewriting the other nine switches' rules along
         with it would be forty gRPC round trips to say what those switches already know.
-        Returns the number of rules the switches accepted, so the caller can report it.
+        Returns `(accepted, attempted)`: accepted alone cannot distinguish "nothing was
+        routable" (honest, the watchdog reinstalls later) from "the switch refused every
+        write" (its tables stay empty and nothing schedules a refill) -- readopt needs the
+        difference (live 2026-08-13).
         """
         self.calculate_all_paths(self.reroutable_down_endpoints())
         print("[TopologyManager] Installing initial routes proactively...")
         installed = 0
+        attempted = 0
         for dst, src_paths in self.dest_paths.items():
             # We only care about routing TO hosts
             if self.net.nodes[dst].get('type') != 'host':
@@ -710,11 +714,12 @@ class TopologyManager:
                 # Record only what the switch accepted. The return value was discarded here, so a
                 # failed write was indistinguishable from a successful one, and every consumer
                 # went on being told the route existed.
+                attempted += 1
                 if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
                     with self._net_lock:
                         self._installed_routes[(src, ipv4_dst)] = out_port
                     installed += 1
-        return installed
+        return installed, attempted
 
     def installed_routes(self):
         """
@@ -783,6 +788,24 @@ class TopologyManager:
             try:
                 new.start(push_config=False)
                 time.sleep(settle_s)
+                # [Co-developed with claude code -- Adam]
+                # Destructive gate. SetForwardingPipelineConfig erases every table on the
+                # switch, and bmv2 applies it even from a client whose arbitration was
+                # refused -- while the route writes that would refill the tables are checked
+                # and refused with "Not primary". Against a healthy switch (old client alive
+                # and still primary) the unguarded sequence therefore wiped the tables,
+                # installed nothing, and reported success (live 2026-08-13, s1 and s6). If
+                # this stream did not become primary inside the settle window there is
+                # nothing readopt can safely do; leave the switch untouched and say why.
+                if not getattr(new, "mastership_confirmed", False):
+                    try:
+                        new.stop()
+                    except Exception:  # noqa: BLE001 -- already reporting the first failure
+                        pass
+                    return {"status": "failed", "step": "mastership",
+                            "error": "arbitration was not granted within the settle window; "
+                                     "the old client (or another controller) likely still "
+                                     "holds mastership. The switch was not touched."}
                 new.set_forwarding_pipeline_config()
             except Exception as e:  # noqa: BLE001
                 try:
@@ -810,12 +833,26 @@ class TopologyManager:
                     print(f"[TopologyManager] readopt {dpid}: old client refused to stop "
                           f"cleanly ({type(e).__name__}: {e}); continuing with the new one")
 
-            routes = self.install_initial_routes(only_dpid=dpid)
+            routes, attempted = self.install_initial_routes(only_dpid=dpid)
+
+        # [Co-developed with claude code -- Adam]
+        # Zero installed is still honest when zero were *attempted* (the watchdog may hold
+        # this switch's links down until its beacons resume; its recovery path reinstalls).
+        # Zero installed out of several attempted means the switch refused every write after
+        # accepting the pipeline: its tables are empty, nothing schedules a refill, and
+        # calling that success is how a healthy switch went dark with a 200 (live
+        # 2026-08-13).
+        if attempted > 0 and routes == 0:
+            return {"status": "failed", "step": "routes", "dpid": dpid,
+                    "clone_session": clone_ok,
+                    "error": f"the switch refused all {attempted} route writes after "
+                             f"accepting the pipeline; its tables are empty until a proxy "
+                             f"restart or a link-watchdog recovery reinstalls them"}
 
         print(f"[TopologyManager] readopt {dpid}: pipeline pushed, clone_session={clone_ok}, "
-              f"{routes} routes installed")
-        return {"status": "success", "dpid": dpid,
-                "clone_session": clone_ok, "routes_installed": routes}
+              f"{routes} of {attempted} routes installed")
+        return {"status": "success", "dpid": dpid, "clone_session": clone_ok,
+                "routes_installed": routes, "routes_attempted": attempted}
 
     # --- LLDP Discovery Logic ---
     def create_lldp_packet(self, dpid, port):

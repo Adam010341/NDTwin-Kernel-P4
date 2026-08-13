@@ -52,13 +52,17 @@ class FakeClient:
     """
 
     def __init__(self, dpid, log=None, start_error=None, pipeline_error=None,
-                 clone_ok=True, route_ok=True):
+                 clone_ok=True, route_ok=True, mastership_confirmed=True):
         self.dpid = dpid
         self.log = log if log is not None else []
         self.start_error = start_error
         self.pipeline_error = pipeline_error
         self.clone_ok = clone_ok
         self.route_ok = route_ok
+        # True is the power-cycle default this endpoint was designed for: the old process is
+        # gone, so a fresh arbitration is granted. False models the live 2026-08-13 shape --
+        # readopt against a healthy switch whose old client still held mastership.
+        self.mastership_confirmed = mastership_confirmed
         self.packet_in_callback = None
         self.sample_callback = None
         self.callback_at_start = None
@@ -333,6 +337,49 @@ class ReadoptFailureTest(ReadoptTestBase):
         self.assertEqual(result["step"], "pipeline")
 
 
+class ReadoptMastershipGateTest(ReadoptTestBase):
+    """
+    The destructive gate added 2026-08-13. A readopt against a *healthy* switch meant the
+    old client still held mastership: the new client's arbitration was refused, bmv2
+    nonetheless applied the pipeline push (wiping every table), and then refused every route
+    write with "Not primary" -- so readopt wiped a working switch, installed nothing, and
+    reported success. Observed live on s1 and s6.
+    """
+
+    def test_refused_arbitration_fails_before_the_pipeline_push(self):
+        result = self.readopt(factory=self.factory(mastership_confirmed=False))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["step"], "mastership")
+        self.assertNotIn(("pipeline", 1), self.log,
+                         "the pipeline push wipes every table on the switch; a client that "
+                         "never became primary must not reach it")
+
+    def test_refused_arbitration_keeps_the_old_client_in_place(self):
+        self.readopt(factory=self.factory(mastership_confirmed=False))
+        self.assertIs(self.topo.switches[1], self.old1,
+                      "the old client may still be primary and forwarding fine; swapping in "
+                      "a non-primary client would darken a healthy switch")
+        self.assertTrue(self.made[0].stopped,
+                        "the refused client still holds a channel and a receiver thread")
+
+    def test_all_route_writes_refused_is_a_failure_not_a_success(self):
+        result = self.readopt(factory=self.factory(route_ok=False))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["step"], "routes")
+        self.assertIn("refused all 2", result["error"])
+
+    def test_zero_attempted_routes_is_still_success(self):
+        # The documented honest-zero: nothing is routable right now (the watchdog may hold
+        # this switch's links down until its beacons resume), and the watchdog's recovery
+        # path reinstalls. Modelled structurally: no hosts, so no rule is even wanted.
+        self.topo.net.remove_node(H1)
+        self.topo.net.remove_node(H2)
+        result = self.readopt()
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["routes_installed"], 0)
+        self.assertEqual(result["routes_attempted"], 0)
+
+
 class RouteReinstallTest(unittest.TestCase):
     """install_initial_routes(only_dpid=...) directly, the seam readopt relies on."""
 
@@ -340,21 +387,25 @@ class RouteReinstallTest(unittest.TestCase):
         self.topo, self.c1, self.c2 = build_topology()
 
     def test_only_dpid_writes_to_that_switch_and_no_other(self):
-        installed = self.topo.install_initial_routes(only_dpid=1)
+        installed, attempted = self.topo.install_initial_routes(only_dpid=1)
         self.assertEqual(sorted(r[0] for r in self.c1.routes), sorted([H1, H2]))
         self.assertEqual(self.c2.routes, [])
         self.assertEqual(installed, 2)
+        self.assertEqual(attempted, 2)
 
     def test_the_count_is_rules_the_switches_accepted_not_rules_attempted(self):
         # An honest count is the point: a refused write reported as installed is the same
         # "silent success" shape this repo keeps digging out.
         self.c1.route_ok = False
-        installed = self.topo.install_initial_routes()
+        installed, attempted = self.topo.install_initial_routes()
         self.assertEqual(sorted(r[0] for r in self.c2.routes), sorted([H1, H2]),
                          "switch 2's rules must still be attempted and counted")
         self.assertEqual(installed, 2,
                          "switch 1 refused both writes; counting them anyway tells the "
                          "caller routes exist while packets drop")
+        self.assertEqual(attempted, 4,
+                         "attempted counts what was tried; the gap between it and installed "
+                         "is the refusal signal readopt reads")
 
 
 class SentinelFactory:
