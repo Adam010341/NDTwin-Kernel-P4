@@ -29,6 +29,7 @@ from proxy_agent.topology_manager import (  # noqa: E402
     parse_eth_type,
 )
 from proxy_agent.topology_manager import (  # noqa: E402
+    TopologyManager,
     UnsupportedMatchError,
     unsupported_match_fields,
 )
@@ -236,6 +237,78 @@ class ReportedFieldCapTest(unittest.TestCase):
     def test_exactly_at_the_cap_has_no_suffix(self):
         error = UnsupportedMatchError([f"f{i:02d}" for i in range(MAX_REPORTED_FIELDS)])
         self.assertNotIn("more)", str(error))
+
+
+class RefusalReachesTheEntryPointsTest(unittest.TestCase):
+    """The three REST-facing entry points refuse BEFORE touching the switch.
+
+    [Co-developed with claude code -- Adam]
+    Everything above tests the helper. These drive route_flow / unroute_flow / modify_flow
+    themselves, because the scoped review's finding (2026-07-31, HANDOFF 1k item 3) was
+    precisely that nothing did: all three `raise` statements could be replaced with `pass`
+    and this file stayed green -- which resurrects the silently-narrowed rule end to end
+    while every unit test here keeps passing. The second half of each assertion is the
+    client staying untouched: a refusal issued after the gRPC write is an apology, not a
+    guard, and for unroute_flow it would have already deleted a broader rule than the
+    caller named.
+    """
+
+    FIVE_TUPLE = {"eth_type": 2048, "ipv4_src": "10.0.0.1", "ipv4_dst": "10.0.0.4",
+                  "ip_proto": 17, "udp_src": 35909, "udp_dst": 5001}
+    OUTPUT = [{"type": "OUTPUT", "port": 1}]
+
+    class TouchyClient:
+        """Records every route call; these tests mostly assert the record stays empty."""
+
+        def __init__(self):
+            self.calls = []
+
+        def insert_ipv4_route(self, *args):
+            self.calls.append(("insert", args))
+            return True
+
+        def delete_ipv4_route(self, *args):
+            self.calls.append(("delete", args))
+            return True
+
+        def modify_ipv4_route(self, *args):
+            self.calls.append(("modify", args))
+            return True
+
+    def setUp(self):
+        self.client = self.TouchyClient()
+        self.topo = TopologyManager()
+        self.topo.add_switch(1, self.client)
+
+    def test_route_flow_refuses_the_five_tuple_before_any_write(self):
+        with self.assertRaises(UnsupportedMatchError):
+            self.topo.route_flow(1, dict(self.FIVE_TUPLE), self.OUTPUT)
+        self.assertEqual([], self.client.calls)
+
+    def test_unroute_flow_refuses_before_any_delete(self):
+        with self.assertRaises(UnsupportedMatchError):
+            self.topo.unroute_flow(1, dict(self.FIVE_TUPLE))
+        self.assertEqual([], self.client.calls)
+
+    def test_modify_flow_refuses_before_any_write(self):
+        with self.assertRaises(UnsupportedMatchError):
+            self.topo.modify_flow(1, dict(self.FIVE_TUPLE), self.OUTPUT)
+        self.assertEqual([], self.client.calls)
+
+    def test_a_malformed_match_is_the_same_refusal_not_a_crash(self):
+        # api_routes catches UnsupportedMatchError only; anything else out of this call is a
+        # 500 to an unauthenticated caller.
+        with self.assertRaises(MalformedMatchError):
+            self.topo.route_flow(1, ["ipv4_dst"], self.OUTPUT)
+        self.assertEqual([], self.client.calls)
+
+    def test_a_destination_only_match_still_reaches_the_switch(self):
+        # The control, in this file so the pair travels together: the guard must refuse the
+        # inexpressible, not everything -- smoke the accept path, not just refusals.
+        ok = self.topo.route_flow(1, {"nw_dst": "10.0.0.4"}, [{"type": "OUTPUT", "port": 1}])
+        self.assertTrue(ok)
+        self.assertEqual(1, len(self.client.calls))
+        self.assertEqual("insert", self.client.calls[0][0])
 
 
 if __name__ == "__main__":
