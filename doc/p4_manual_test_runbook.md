@@ -2,7 +2,7 @@
 
 **這份文件是做什麼的**：從乾淨環境開始，逐步啟動 P4/bmv2 stack，在 idle 狀態下確認靜態健康，灌流量驗證 telemetry 鏈路，模擬一條鏈路斷線後觀察偵測與恢復，最後檢查 `admin_disabled` 欄位。全部手動執行，一步一確認。
 
-**什麼時候跑**：任何對 P4 路徑（proxy、bmv2 pipeline、sFlow emitter、kernel 的 P4 分支）的修改之後，以及開始 Phase 7（power management）之前。Phase 7 還不存在，本文件不涵蓋它。
+**什麼時候跑**：任何對 P4 路徑（proxy、bmv2 pipeline、sFlow emitter、kernel 的 P4 分支）的修改之後。（2026-08-13 更正：Phase 7（power management）已完成——`p4_bmv2_support_plan.md` Phase 7 節——但其電源/readopt 流程仍不在本文件涵蓋內，見 §9 的 readopt 條目。）
 
 **涵蓋範圍**：Phase 1–6 全部完成的功能。以下這些從舊文件來的宣稱是錯的，不要照抄：
 
@@ -397,9 +397,9 @@ mininet> h1 ping -c 20000 -i 0.002 10.0.0.4
 grep "sFlow ingest healthy" .test_run/logs/kernel.log
 ```
 
-✅ 預期：至少一行，`rx=` 和 `addressed=` 都有值。**`rx` 是收到的 datagram 總數（含 counter sample），`addressed` 是成功歸戶的 flow sample 數。** idle 時 `addressed=0` 是正常的；有 traffic 時應該 > 0。
+✅ 預期：**有流量時**至少一行，`rx=` 和 `addressed=` 都有值。（2026-08-13 更正：這行 INFO 只在 `rx > 0` 時印，而 **P4 的 emitter 只送 flow sample、沒有 counter sample**——idle 時完全沒有 datagram，`grep` 會是**零行**，且約 60 秒後會出現一筆「沒收到 sFlow」的 WARN，兩者都不是故障。舊版寫「rx 含 counter sample、idle 也有值」是 OVS 的行為，對 P4 不成立。）
 
-⚠️ 這行在 `FlowLinkUsageCollector.cpp:1798-1801`：第一輪是 INFO，之後是 TRACE。所以 `grep` 只會找到一筆。不要用它判斷「流量夠不夠」——用下面的 `get_detected_flow_data` 判斷。
+⚠️ 這行第一輪是 INFO，之後是 TRACE（`FlowLinkUsageCollector.cpp`，搜 `addressed=` 的那個 INFO/TRACE 對）。所以 `grep` 最多找到一筆。不要用它判斷「流量夠不夠」——用下面的 `get_detected_flow_data` 判斷。
 
 ### 5c. 已偵測 flow
 
@@ -496,7 +496,7 @@ done
 ✅ 預期：回傳的是物件不是裸數字，`{"num_of_flows":N,"status":"success"}`。
 
 ⚠️ **這個端點數的是「進來」的 flow，不是「經過」的 flow。** 實作是
-`if (e.dstDpid == dpid) numOfFlows += e.flowSet.size()`（`HttpSession.cpp:1734-1739`），
+`if (e.dstDpid == dpid) numOfFlows += e.flowSet.size()`（`HttpSession.cpp`，用 `grep -n "numOfFlows +="` 找——唯一一中，2026-08-13 時在 :1813。⚠️ 認內容不要認行號：上方不遠處**另一個端點**有長得一樣的 `if (e.dstDpid == dpid)` 判斷式，抄行號會讀錯段），
 也就是**以該 switch 為終點的邊**上的 flow 數。所以：
 
 - 某個方向的**起點** switch，那個方向不會被算到（它沒有對應的入邊）
@@ -570,7 +570,7 @@ sudo -n ifconfig s1-eth1 down
 grep "link failed" .test_run/logs/kernel.log | tail -5
 ```
 
-✅ 預期：大約 11 秒後出現三筆 `link failure detected`：
+✅ 預期：約 **15–20 秒**後出現三筆 `link failure detected`（2026-08-13 更正：`LINK_BEACON_TIMEOUT_S = 15`，加上 poll 間隔；舊版的「11 秒」低於 timeout 本身，不可能發生）：
 
 ```
 link failed on 1:1 -> 5:1
@@ -578,7 +578,7 @@ link failed on 5:1 -> 1:1
 link failed on 6:1 -> 1:2   ← 這是誤報（見上方陷阱），但 watchdog 的證據使它合理
 ```
 
-⚠️ 偵測延遲約 11 秒是 watchdog 的 beacon timeout 加上 poll 間隔，不是 bug。
+⚠️ 偵測延遲約 15–20 秒是 watchdog 的 beacon timeout（15s）加上 poll 間隔，不是 bug。
 
 ### 6c. 確認圖已更新（斷線後約 15 秒）
 
@@ -666,6 +666,12 @@ print('paths:', len(d.get('all_destination_paths',[])))"
 
 ### 6h. ⚠️ 這一節**沒有**驗證到「斷線後重算出新路徑」
 
+> **📌 2026-08-13 狀態 banner（先讀這個再讀本節）**：本節下方的 ❌ 結論與「根因」段是
+> **2026-08-10 的歷史快照**，failover 之後已完成（`ca72d22`）並經兩輪 live 驗證：
+> bmv2 側 2026-08-12 夜實測——斷鏈偵測 2 筆零假訊、canary ping 中斷 **16.63 秒後自癒**、
+> 復原 hitless 零遺失（OVS 對照輪同法 52.42 秒自癒）。步驟照走（用上面 tc netem 版），
+> 預期結果以 §6h 末的「✅ 通過判準」為準；歷史敘述保留供脈絡，不要照抄其結論。
+
 上面 6a–6g 驗的是**偵測**與**移除**，不是**繞路**。證據就在 6f：路徑數 12 → 9，少掉的三條全部是
 到 10.0.0.1 的——那是路徑**消失**，不是路徑**改道**。斷 `s1-eth1` 會連帶癱瘓 s1 的 packet-in
 （見本節開頭的重大陷阱），s1 兩條入向都被判 down，h1 就從可達集合裡整個掉出去。所以這個斷點
@@ -688,8 +694,14 @@ for f in json.load(sys.stdin):
     print([h['node'] if isinstance(h,dict) else h for h in f.get('path',[])])"
 #    例如 h1->h4 走 [10.0.0.1, 1, 6, 10, 7, 4, 10.0.0.4]
 
-# 2. 斷掉「中段」的一跳，不要斷第一跳。以上面的路徑為例是 s6 <-> s10：
-sudo -n ifconfig s6-eth4 down
+# 2. 斷掉「中段」的一跳，不要斷第一跳。以上面的路徑為例是 s6 <-> s10。
+#    （2026-08-13 更正：這一步舊版寫 `ifconfig s6-eth4 down`——那會讓整台 s6 停止轉送、
+#    產生假 link-down、ping 永不恢復，再配上本節「永不恢復＝failover 沒生效」的判準，
+#    照跑保證得出假結論。斷單一鏈路一律用下方 §「正確的故障注入方式」的 tc netem，兩端都下。
+#    s6↔s10 的介面對照 p4_testbed_topo.py 是 s6-eth4 ↔ s10-eth2：）
+sudo -n tc qdisc add dev s6-eth4  root netem loss 100%
+sudo -n tc qdisc add dev s10-eth2 root netem loss 100%
+# （恢復：同兩個介面 `tc qdisc del dev <if> root`）
 
 # 3. 流量繼續跑著，等約 15 秒後再讀一次路徑
 ```
@@ -726,9 +738,12 @@ sudo -n ifconfig s6-eth4 down
 **結論：偵測是對的，繞路不存在。** proxy 偵測到斷線、把邊標 down、從拓撲回覆裡拿掉它、
 **重算出一條新路、把新路推給 kernel** —— 唯獨沒有把新規則裝進 bmv2。
 
-根因很單純：`install_initial_routes()` 全專案只有**一個**呼叫點，在
-`topology_manager.py:655`，條件是 `if not edge_exists`，也就是**發現新鏈路**的時候。
-鏈路**消失**時沒有任何東西呼叫它。
+（2026-08-10 當時的）根因很單純：`install_initial_routes()` 全專案只有**一個**呼叫點，
+條件是 `if not edge_exists`，也就是**發現新鏈路**的時候。鏈路**消失**時沒有任何東西呼叫它。
+**2026-08-13 更正：這已不是現況**——它現在有**三個** production 呼叫點（LLDP 發現、
+`readopt_switch`、link transition——最後一個就是 failover 的修復本體），且回傳值已改為
+`(accepted, attempted)` 兩元組。找它們用 `grep -n "install_initial_routes(" ` 認 symbol，
+不要認行號。
 
 ⚠️ **最危險的不是流量斷掉，是 twin 說它沒斷。** `all_destination_paths` 維持 12，代表 twin
 對外宣告 h1 到 h4 有一條路；那條路只存在於 proxy 的圖裡。任何拿這個 API 做決策的東西
@@ -868,9 +883,10 @@ t+18s  seq 跳到 82 並持續遞增   ← 流量已繞道
 （dst=5，是 suspect）被錯誤保留。這次 h3→h1、h4→h1 的回程理論上會踩到，但因為 s5 整台停擺，
 這個漏洞被蓋住看不出來——換成 `tc netem` 只弄壞單一鏈路之後，這個漏洞就會現形。
 
-**還沒修，怎麼修是 Adam 的決定**：suspect 判定目前是「整台一起赦免」，但赦免範圍不該包含真正
-造成這台 suspect 的那條鏈路。候選方向：suspect 判定期間乾脆不對該 switch 的任何鏈路做 reroute
-（包含真的斷的那條，直到 packet-in 卡住自己解除為止），或想辦法從證據裡分辨哪一條是真的。
+**已修（2026-08-13 更正——本段之前寫「還沒修」已過時）**：採用的是「從證據分辨」路線——
+`reroutable_down_endpoints()`（`topology_manager.py`，搜 symbol）現在帶反向檢查：一條 down link
+即使落在 suspect switch 的赦免範圍，只要**反向那筆也 down**，就視為真斷線、不赦免。
+`tests/../test_link_watchdog.py` 以本節這個 `{(5,4),(10,1)}` 場景鎖定此行為。
 
 ---
 
@@ -937,7 +953,7 @@ violations (admin_disabled AND is_enabled): 0
 | Traffic: detected flows | 2 筆（雙向 ICMP），rate > 0，path 長 7 | sFlow → proxy → kernel 的 ingest 鏈路完整，flow path 正確 |
 | Traffic: `avg_link_usage` | 落在 1e-05～3e-04，上下跳動 | 鏈路使用率有在追蹤流量（**不會單調爬升**，見 §5d） |
 | Traffic: ping | 0% loss, rtt ~12.8ms, TTL=59 | 資料平面正常轉送，hop 數正確 |
-| Link failure detect | 3 筆 `link_failure_detected` POST，約 11s 後 | watchdog 正確偵測到 beacon timeout |
+| Link failure detect | 3 筆 `link_failure_detected` POST，約 15–20s 後（timeout 15s＋poll 間隔） | watchdog 正確偵測到 beacon timeout |
 | Link failure graph | 37/40 up，穩定不 flapping | 失效值正確、沒有振盪 |
 | Link failure paths | 12 → 9 | 失效鏈路被排除在最短路徑搜尋外 |
 | Recovery | ~14s 內回到 40/40 和 12 paths | 偵測是可逆的 |
@@ -965,7 +981,9 @@ violations (admin_disabled AND is_enabled): 0
 | `num_of_flows` = 0 | 流量還在跑嗎；那台交換機在路徑上嗎 | 它不是 OpenFlow 規則數 |
 | `{"error":"Not Found"}` | 端點是 GET 還是 POST；是不是多加了 `?dpid=` | 不是功能沒實作 |
 | `get_detected_flow_data` 回 0 筆 | ping 還在跑嗎（flow 幾秒內老化） | 不是 ingest 壞掉——是流量停了 |
-| `addressed=0` 但 `rx` 在漲 | 沒有真實流量——rx 是 counter sample（週期性），addressed 只對 flow sample 遞增 | 不是 sFlow 壞掉 |
+| `addressed=0` 但 `rx` 在漲 | （2026-08-13 更正）P4 **沒有** counter sample，rx 在漲＝有 flow sample 進來；addressed 不動代表**歸戶失敗**——查 proxy 的 flow 快取與 kernel flow 表（舊解釋「rx 是 counter sample」是 OVS 的行為） | 這在 P4 模式**是**異常，要查 |
+| power off 後 `switches` 少於 10 | 這是 `32afeb9` 之後的**正常**行為：死掉的 switch 從 `/v1.0/topology/switches` **消失**（不再是留在清單裡 `enabled` < 10） | 不要當成 topology 掉資料 |
+| `/p4/readopt/{dpid}` 回 502 `step:"mastership"` | 舊 client 還是 primary（switch 是健康的）。readopt 是給 power-cycle 後用的；2026-08-13 起這種情況被 gate 擋下、**switch 不會被動到**。對健康 switch 不要硬跑 readopt | 不是 readopt 壞掉 |
 | Proxy 有起來但 graph 全是 down | kernel log 找 `curl` 失敗（對 `:8080` 的 ECONNREFUSED）——第一筆是預期的（見 §3b 陷阱），但**持續**出現就不對 | 不是 proxy 的問題 |
 | 斷線後 edges up 變 36 或更少 | 那是 `ifconfig down` 的 side effect（見 §6 陷阱）——同一台 switch 的其他埠也被拖下水 | 不要當成多條鏈路真的同時壞了 |
 
@@ -1012,18 +1030,6 @@ ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
 ```
 
 ✅ 全部無輸出。
-### 5b. 確認流量有被觀測到（terminal A）
-
-```bash
-# kernel log 的 sFlow ingest 健康線（只會有一行 INFO，其餘是 TRACE）
-grep "sFlow ingest healthy" .test_run/logs/kernel.log
-```
-
-✅ 預期：至少一行，格式為 `sFlow ingest healthy: rx=..., app_drop=..., addressed=..., sock_ovfl_total=...`。
-`rx` 是收到的 datagram 總數（含 counter sample），`addressed` 是成功歸戶的 flow sample 數。
-
-⚠️ **這行只在第一輪輸出 INFO**（`FlowLinkUsageCollector.cpp:1798-1801`），之後全部是 TRACE——所以 `grep` 只會找到一筆，而且它的 `rx=` 和 `addressed=` 反映的是**啟動瞬間**的值（通常都是 0）。不要用它判斷「流量夠不夠」——用下面的 `get_detected_flow_data` 判斷。這正是舊文件 `doc/full_test_runbook.md` 的陷阱之一：它教你 watch `addressed=` 的值，但那行根本不會再出現。
-
 
 ---
 

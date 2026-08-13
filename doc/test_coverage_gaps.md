@@ -427,7 +427,7 @@ interfaceSpeed = (ntohl(data[index + baseOffset + 15 + 5]) << 32) | ...
 
 ### 5.2 `p4_proxy` 自己的 Python 測試沒有任何一層在跑
 
-`p4_proxy/tests/test_p4_client.py` 和 `p4_proxy/test_10_routes.py` 存在，
+`p4_proxy/tests/test_p4_client.py` 和 `p4_proxy/reference/test_10_routes.py`（2026-08-12 `3fc42ed` 自 `p4_proxy/` 搬入）存在，
 但 L0 只用 `p4c-bm2-ss` 編譯 P4 pipeline，L1 只跑 C++ gtest binary。
 P4 proxy agent（FastAPI，是 P4 模式下 kernel 唯一的南向對口）的邏輯完全在測試範圍外。
 

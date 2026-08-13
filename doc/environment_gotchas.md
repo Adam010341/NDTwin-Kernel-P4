@@ -284,3 +284,19 @@ sudo -n mnexec -a <pid> /home/adam/miniconda3/bin/py-spy dump --pid <pid>
 ⚠️ **`py-spy dump` 是單一取樣，會騙人。** 我從一張「hub 空閒在 epoll」的 dump 推論「hub 停止調度」，
 連拍 8 張才發現 7 張空閒、1 張在 `lldp_loop` 的 sleep —— hub 正常。要判斷時間花在哪請用
 `py-spy top` 或 `py-spy record`。
+
+## `tc qdisc add ... root netem` 會靜默替換 TCLink 的 htb（2026-08-13）
+
+OVS testbed（`testbed_topo.py`）用 `link=TCLink` 建鏈路，root qdisc 是 htb（頻寬 shaping
+掛在那）。`tc qdisc add dev X root netem ...` 不是「疊一層」，是**把 htb 整個換掉**——
+shaping 靜默消失；`tc qdisc del dev X root` 還原的是預設 qdisc，**不是** htb；常用的
+「netem 殘留＝0」收尾檢查看不見這種損傷，NOPASSWD 的授權範圍也裝不回 htb。
+（2026-08-13 OVS 夜測輪實測；C 報告 Phase 3 有完整經過。）
+
+- 動手前先 `tc qdisc show dev X`：root 是 htb 的介面，netem 掛 class 下——
+  `sudo -n tc qdisc add dev X parent 5:1 netem loss 100%`（同輪實測非破壞、可乾淨還原）。
+- root 是預設 qdisc 的介面才可以用 `root netem`。P4 testbed（`p4_proxy/mininet/
+  p4_testbed_topo.py`）不用 TCLink、無 shaping，屬此類——這也是 P4 runbook §6 的
+  root netem 寫法在該環境成立的原因。
+- 建議紀律：故障輪前後各拍一次 `tc qdisc show` 全量快照做 diff，讓「注入工具自己的
+  side effect」變成可斷言的檢查項，而不是靠人記得。

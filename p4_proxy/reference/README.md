@@ -14,8 +14,12 @@ as "the scripts at the repo root".
 Three of them are named `test_*.py` and **none of them contains a single test case**. That name
 is what made an earlier cleanup plan propose filing them under `p4_proxy/tests/`, which would
 have broken the test suite: `tools/test_workflow/l1_unit_tests.sh` globs
-`p4_proxy/tests/test_*.py`, runs each file directly and parses `Ran N tests`, and reports a file
-that runs no tests as **NO TESTS RAN** — which that runner counts as a failure, not a skip.
+`p4_proxy/tests/test_*.py`, runs each file directly and parses `Ran N tests`, and labels a file
+that runs no tests as **NO TESTS RAN**. (Correction 2026-08-13: for this glob the label alone
+does not increment the runner's failure count — that branch exists for another directory. What
+actually fails the run is the file's own nonzero exit code, e.g. an import error, plus the
+labelled noise in the summary. The conclusion stands either way: these files do not belong in
+the suite's glob.)
 
 The names are kept as they are because several audit documents cite them, and those are
 historical records. This README is the correction.
