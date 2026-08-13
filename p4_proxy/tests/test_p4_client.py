@@ -2,8 +2,14 @@
 Integration check for P4RuntimeClient against a live bmv2 switch.
 
 This is not a unit test: it needs `simple_switch_grpc` actually listening, and it writes real
-table entries. It skips itself when no switch is reachable, so it can sit alongside the unit
-tests without failing a run that has no data plane up.
+table entries. It runs only when NDTWIN_LIVE_SWITCH_OPT_IN=1 is exported; without that it
+skips unconditionally, so it can sit alongside the unit tests without ever touching a switch.
+
+The env gate is the lesson of 2026-08-13: the guards below are safety *preconditions*, but for
+one night they were also the only arming switch, so "switch reachable + proxy down" was enough
+to fire. A routine suite run hit exactly that window while a live round had the proxy stopped,
+and pushed a pipeline config, two routes and a clone session onto the experiment's switch 1.
+Reachability describes the environment; it must never consent on the operator's behalf.
 
 It also skips when the proxy agent is running, because the two cannot share a switch: both
 attach with election_id 1, and P4Runtime allows only one holder. Whoever arrives second gets
@@ -12,13 +18,14 @@ which shows up as this test failing for a reason that has nothing to do with the
 test. Using a higher election_id instead would make the test win, but that would *steal*
 mastership from a running proxy and silently kill its telemetry, which is worse than skipping.
 
-To exercise it, start the P4 testbed and leave the proxy stopped:
+To exercise it, start the P4 testbed, leave the proxy stopped, and opt in explicitly:
 
     sudo python3 p4_proxy/mininet/p4_testbed_topo.py
 
 then
 
-    PYTHONPATH=p4_proxy p4_proxy/venv/bin/python p4_proxy/tests/test_p4_client.py
+    NDTWIN_LIVE_SWITCH_OPT_IN=1 PYTHONPATH=p4_proxy \
+        p4_proxy/venv/bin/python p4_proxy/tests/test_p4_client.py
 
 NDTWIN_L1_OPT_IN -- this token tells tools/test_workflow/l1_unit_tests.sh that a fully skipped run
 of this file is the intended outcome and not a defect. Without it the runner fails any file where
@@ -75,6 +82,9 @@ def a_switch_is_listening(host: str = GRPC_HOST, port: int = GRPC_PORT) -> bool:
     return something_is_listening(port, host)
 
 
+@unittest.skipUnless(os.environ.get("NDTWIN_LIVE_SWITCH_OPT_IN") == "1",
+                     "writes to a live switch; export NDTWIN_LIVE_SWITCH_OPT_IN=1 to opt in "
+                     "(reachability alone must never arm this -- see module docstring)")
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 @unittest.skipUnless(a_switch_is_listening(),
                      f"no bmv2 listening on {GRPC_HOST}:{GRPC_PORT}; "
