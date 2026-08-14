@@ -51,9 +51,18 @@
    **不能預掛代替**：target busy 會讓它們自己的 mount 非零退出，一樣死。正確配方見下節。
    註：NFS 基建本身早佈好（nfs-server active、`/etc/exports` 有 `/srv/nfs/sim`、
    mount point 7/9 建好）——只差 root。
-6. **`setupNFSForApp` 以非 root 跑 kernel 時 chown 失敗（警告、非致命）**：註冊照樣
-   成功（`Registered app 'power' with App ID: N` + 自動建 `/srv/nfs/sim/N`），但
-   「Failed to re-own directory」。all_squash + 777 下實害待 root mount 後那輪驗。
+6. **`setupNFSForApp` 的 chown 失敗＝管線阻斷（2026-08-15 凌晨 live 實證，升級自「非致命警告」）**：
+   完整鏈條——kernel（非 root）建 `/srv/nfs/sim/<id>` 後 chown nobody 失敗 → 目錄停在
+   `adam:adam 775` → export 是 `all_squash`，root 跑的 energy app 寫入被壓成 `nobody`
+   → 對 775 目錄無寫權 → **第一次寫 case input 就失敗** → app 的
+   `canSendNextSimulation` 卡 false → 之後每 60s 週期都 "There is switch powering
+   on/off, skip..."，**決策迴圈永久罷工而 app 看起來活著**（:8001 照聽、lock 照拿）。
+   實測時間軸：App ID 4 於 00:18 註冊，資訊蒐集只發生 3 次（00:17:26／00:21:51／
+   00:22:26），此後零 case POST、`/srv/nfs/sim/4` 零檔案。
+   **修法是裁決題（明早）**：(a) kernel 以 root 跑（chown 就會成功，原設計如此？）
+   (b) `setupNFSForApp` 改 chmod 777 代替 chown（kernel 非 root 也能做）
+   (c) export 加 `anonuid=1000` 把 squash 對準 adam (d) 每次註冊後手動 chmod。
+   另注意 app 每次重啟都重新註冊、id 遞增，`/srv/nfs/sim/` 會累積孤兒目錄（1-4 已四個）。
 7. **Energy-App 的 app_id 全程用註冊回傳的數字**（`preInstall()` 先註冊再 mount
    `/srv/nfs/sim/<N>`）——一度懷疑的「app 掛 power、kernel 建數字」不對齊**不存在**。
    代價是每次啟動都註冊一次、id 遞增（本輪已到 2：curl 測試=1、app 實跑=2）。
@@ -92,3 +101,80 @@ TE/request_manager `kill` 即可。
 session scratchpad（會隨 session 消失）：`visualizer-run.log`、`te-app.log`、
 `energy-app.log`、`request_manager.log`、`sim_server.log`、`integration-session-state.md`。
 持久的：NSR `recorded_info/`＋`logs/`、kernel/proxy log 在 `.test_run/logs/`。
+
+---
+
+# 【2026-08-15 凌晨】OVS/NTG 輪（Adam 起 topo 後全 agent 自跑）
+
+環境切換：P4 stack 收掉（Adam Ctrl-C 他的 energy/sim_server、`sudo mn -c`）→
+Ryu（**6653**，見不符 #1）→ Adam 起 **NTG 自帶的** `testbed_topo.py`（ntg-env python，
+見不符 #2）→ 等 `all-destination paths installed` → kernel（快照 **10 sw／128 hosts／
+288 edges**）→ NTG CLI `flow --config …`。
+
+## OVS 輪結果
+
+| 項 | 結果 | 關鍵數字 |
+|---|---|---|
+| NTG 產流（第 1 輪，原廠 template） | ✅ | 35 對 iperf 全有 bytes（樣本 2MB@30M 與 template 吻合）；但窗僅 ~17s，flow 老化後才查、kernel 端無目擊者（NSR 當時已死，見下） |
+| NTG 產流（第 2 輪，5 分鐘加長版 `~/flow_long_5min.json`） | ✅ | **305 對全數有 bytes、共 5.5 GB**；kernel **同時可見 39 條 flow（26 TCP/13 UDP）**，速率與 template 對得上 |
+| OVS sFlow→kernel 管線 | ✅ | 對照流量 **980.3 Mbps** 含 5 跳路徑（bmv2 天花板 ~170M 的 5.7 倍） |
+| NSR | ✅（復活後） | 5 分鐘窗批次 270KB+、zip 對照常（26K/188K）；**發現 #9 見下** |
+| Web-GUI | ✅ | 1s 輪詢全程 200 |
+| Visualizer | ✅ | 90 秒窗畫 **138 節點**、即時 flow Processed=266/Shown=226——**兩種 fabric 都證完** |
+| TE-App 壅塞遷移 | ✅ **全鏈 live 證實** | 見下方專節 |
+
+## TE 遷移全鏈（本輪壓軸）
+
+注入 980M 重流（h1→h64，120s）→ TE 連三判壅塞（`1→6`、`6→2` @ ~69%）→
+產 1 條遷移項 `{dpid:1, priority:10, match:{eth_type:2048, ipv4_dst:10.0.0.55},
+actions:[OUTPUT:1]}` → kernel 批次端點（**3ms** 後收到）→ Ryu
+`POST /stats/flowentry/modify` **200** → **s1 實表的 `nw_dst=10.0.0.55` 表項
+actions 就地改寫為 `OUTPUT:1`**（duration/counter 保留=modify 正常語意）→ 鎖乾淨釋放。
+
+**隨附觀察（值得再看，未列 bug）**：
+- TE 用 **modify 而非 install**（程式内 `TODO: Change to mod` 的產物）：本次能生效是因
+  router 先裝過**同 match** 表項；若目標表項不存在，OF1.3 的 MODIFY 是**靜默 no-op**
+  ——TE 印 "1 entries are added"、kernel 200、Ryu 200 三綠但資料面不動。
+- 遷移是**就地改寫 router 的表項**（同 priority 10、cookie 皆 0、無 ownership 標記）：
+  router 下次全量重裝路由會**無聲蓋回**遷移結果；且 `te_flow_entry_idle_timeout=0`
+  =永久表項（[[replace-vs-add 家族]]的 TE 變體）。
+- ⚠️ 驗證方法論注記：查證此鏈時連續三個解析假象（追錯 priority 常數 100 vs 實際 10、
+  kernel 端點回 dict 非 list、Ryu dump 用 `nw_dst` 而寫入用 `ipv4_dst`）都指向
+  「no-op」假結論，字串層全文搜尋才破局——**引用表項前先看原始輸出的形狀**。
+
+## 新增發現（續前 8 條）
+
+9. **NSR 一次 connection refused 就永久斷氣，且無聲**（00:27:50，kernel 重啟瞬間）：
+   兩條輪詢執行緒各印一行 `Error fetching data … Connection refused` 後**再無任何 log**；
+   進程續活、батch 機器照轉，**之後只產 0-byte zip**（無聲資料遺失）。連帶：
+   死狀態下 SIGTERM 收不掉（handler 疑似卡 join，要 `kill -9`）。與 energy app 的
+   卡死 flag、TE 的三綠 no-op 同族：**「進程活著」與「在工作」是兩件事**。
+10. **NSR 的 stop 腳本硬寫 `sudo kill`**：NSR 本以使用者權限跑，root 毫無必要；
+    非互動環境（agent、cron）直接失敗。
+11. **NTG topo 撥 6653、官方文件的 Ryu 指令聽 6633**：照文件字面跑 switch 永遠連不上
+    （本輪第一次起就中招，`ovs-vsctl get-controller` 實證後 Ryu 換 port 解決）。
+12. **官方文件的 `sudo ./testbed_topo.py` 在本機必 ImportError**：root 的 python3 無
+    nornir/loguru。可行組合=`sudo <ntg-env python> testbed_topo.py`（腳本自帶
+    dist-packages append 借系統 mininet）。
+13. NTG 實驗 log 完整可靠（sender/receiver 成對 JSON 含 bytes/bps），可直接當
+    ground truth 對帳 kernel 偵測——本輪兩度靠它定案。
+
+## 明早給 Adam 的清單(彙整)
+
+1. **Energy 管線 NFS 權限鏈修法四選一**(發現 6):kernel root / chown→chmod /
+   export anonuid / 手動——建議 (b) `setupNFSForApp` 改 chmod,幾行+一測。
+2. `/srv/nfs/sim/` 孤兒目錄清理(1-4 已四個)+ app 重啟即重註冊的 id 遞增設計。
+3. **NSR 斷線自癒**(發現 9):輪詢執行緒需 retry-on-refused;上游回報或我們修,裁決。
+4. NSR stop 腳本的 sudo(發現 10)——一行改掉,順手。
+5. **NTG port 6653/6633 文件矛盾**(發現 11)+ 直譯器組合(發現 12)——文件更新或
+   topo 改 port,upstream 事務。
+6. TE 的 modify-not-install 與 ownership 觀察(上方專節)——要不要回報 TE 上游,裁決。
+7. (原有)NTG×bmv2 待完成功能、l0 的 L0_WEBGUI_DOCKER_BUILD 全量建置未跑過。
+
+## 環境現況(01:05,本輪結束時)
+
+在跑:NTG 的 Mininet(Adam 終端的 NTG CLI)、Ryu :8080/:6653、kernel :8000(OVS)、
+Web-GUI ×3、NSR(新進程 119019)、request_manager :8002、TE-App(10s 週期,殘留的
+遷移表項在 s1)。已收:P4 全套、energy/sim_server(Adam 手動)、我方測試流量(自然結束)。
+收環境:kernel/Ryu/TE/request_manager 皆 `kill` 即可,Mininet 要 Adam(`exit` NTG CLI
+或 `sudo mn -c`),NSR 用 stop 腳本(注意發現 10 的 sudo)。
