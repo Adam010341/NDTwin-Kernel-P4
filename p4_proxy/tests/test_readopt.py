@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import signal
 import sys
 import tempfile
 import types
@@ -628,6 +629,139 @@ class WriteManifestTest(unittest.TestCase):
         self.assertEqual(entry["argv"], sw.launch_argv,
                          "argv is what 'on' will execute as root; it must round-trip "
                          "byte-for-byte")
+
+
+class ReapManifestSwitchesTest(unittest.TestCase):
+    """
+    Teardown deleted the manifest without stopping what it listed. A switch restarted by
+    ndtwin-p4-power is spawned detached (start_new_session=True) so it can outlive the sudo
+    call that created it -- that is what makes power-on work -- so net.stop() does not reap
+    it, and once the manifest is gone the helper can no longer resolve its name to a pid.
+    Reaping now happens before the file is removed.
+
+    The kill and the liveness check are injected: these tests must never signal a real pid.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="ndtwin_reap.")
+        self.addCleanup(__import__("shutil").rmtree, self.dir, ignore_errors=True)
+        self.path = os.path.join(self.dir, "switches.json")
+        self.signals = []
+
+    def write(self, manifest):
+        with open(self.path, "w") as fh:
+            json.dump(manifest, fh)
+
+    def recording_kill(self, pid, sig):
+        self.signals.append((pid, sig))
+
+    def reap(self, is_switch, **kw):
+        return self.mod.reap_manifest_switches(
+            path=self.path, is_switch=is_switch, kill=self.recording_kill,
+            settle_s=0, **kw)
+
+    def test_a_live_switch_is_signalled_and_reported(self):
+        self.write({"s1": {"pid": 111}})
+        reaped = self.reap(is_switch=lambda pid, **kw: pid == 111)
+        self.assertEqual(reaped, ["s1"])
+        self.assertIn((111, signal.SIGTERM), self.signals)
+
+    def test_a_recycled_pid_is_never_signalled(self):
+        # The whole reason process_is_a_switch exists: teardown runs as root, so killing a
+        # stale manifest pid unchecked would eventually kill an unrelated process.
+        self.write({"s1": {"pid": 222}})
+        reaped = self.reap(is_switch=lambda pid, **kw: False)
+        self.assertEqual(reaped, [])
+        self.assertEqual(self.signals, [],
+                         "a pid that is no longer a bmv2 must not receive any signal")
+
+    def test_sigkill_only_when_sigterm_did_not_take(self):
+        self.write({"s1": {"pid": 333}})
+        self.reap(is_switch=lambda pid, **kw: True)      # still alive on the recheck
+        self.assertEqual(self.signals, [(333, signal.SIGTERM), (333, signal.SIGKILL)])
+
+    def test_no_sigkill_when_the_switch_exited_on_sigterm(self):
+        alive = {"v": True}
+
+        def is_switch(pid, **kw):
+            if alive["v"]:
+                alive["v"] = False       # first call: before the TERM. Second: after it.
+                return True
+            return False
+
+        self.write({"s1": {"pid": 444}})
+        self.reap(is_switch=is_switch)
+        self.assertEqual(self.signals, [(444, signal.SIGTERM)],
+                         "escalating to SIGKILL after a clean exit could hit a recycled pid")
+
+    def test_every_listed_switch_is_reaped_not_just_the_first(self):
+        self.write({"s1": {"pid": 1}, "s2": {"pid": 2}, "s3": {"pid": 3}})
+        reaped = self.reap(is_switch=lambda pid, **kw: True)
+        self.assertEqual(reaped, ["s1", "s2", "s3"])
+        self.assertEqual([p for p, s in self.signals if s == signal.SIGTERM], [1, 2, 3])
+
+    def test_a_missing_manifest_is_not_an_error(self):
+        # Teardown calls this unconditionally; the manifest is absent whenever write_manifest
+        # failed, and that must not take the teardown down with it.
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [])
+
+    def test_a_corrupt_manifest_is_not_an_error(self):
+        with open(self.path, "w") as fh:
+            fh.write("{not json")
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+
+    def test_an_entry_without_a_pid_is_skipped(self):
+        self.write({"s1": {"grpc_port": 50051}, "s2": {"pid": None}})
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [])
+
+    def test_a_refused_kill_does_not_propagate(self):
+        def refusing_kill(pid, sig):
+            raise PermissionError("not yours")
+
+        self.write({"s1": {"pid": 555}})
+        reaped = self.mod.reap_manifest_switches(
+            path=self.path, is_switch=lambda pid, **kw: True, kill=refusing_kill,
+            settle_s=0)
+        self.assertEqual(reaped, ["s1"],
+                         "a switch we could not signal is still reported, so the operator "
+                         "learns it is still out there")
+
+
+class ProcessIsASwitchTest(unittest.TestCase):
+    """Reads /proc/<pid>/cmdline, so it is driven against a fake proc tree."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="ndtwin_proc.")
+        self.addCleanup(__import__("shutil").rmtree, self.root, ignore_errors=True)
+
+    def make(self, pid, cmdline):
+        d = os.path.join(self.root, str(pid))
+        os.makedirs(d)
+        # Real cmdline entries are NUL-separated, which is why the check is a substring
+        # search over bytes rather than a split-and-compare.
+        with open(os.path.join(d, "cmdline"), "wb") as fh:
+            fh.write(cmdline)
+
+    def test_a_bmv2_cmdline_is_recognised(self):
+        self.make(10, b"simple_switch_grpc\x00--device-id\x001\x00")
+        self.assertTrue(self.mod.process_is_a_switch(10, proc_root=self.root))
+
+    def test_an_unrelated_process_is_not(self):
+        self.make(11, b"/usr/bin/python3\x00server.py\x00")
+        self.assertFalse(self.mod.process_is_a_switch(11, proc_root=self.root))
+
+    def test_a_vanished_pid_is_not_a_switch(self):
+        self.assertFalse(self.mod.process_is_a_switch(9999, proc_root=self.root))
 
 
 if __name__ == "__main__":

@@ -246,6 +246,86 @@ def write_manifest(switches, path=MANIFEST_PATH):
         print(f"WARNING: could not write the switch manifest to {path}: {e}")
 
 
+def process_is_a_switch(pid, proc_root="/proc"):
+    """
+    Whether `pid` is currently a bmv2 process rather than whatever inherited that number.
+
+    [Co-developed with claude code -- Adam]
+    A pid recorded minutes ago is not evidence that the same process still holds it: Linux
+    recycles pids, so killing a manifest pid unchecked would eventually kill something
+    unrelated -- as root, since teardown runs under sudo. Reading the cmdline costs one open
+    and turns "this number was a switch once" into "this number is a switch now".
+    """
+    try:
+        with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
+            return b"simple_switch_grpc" in fh.read()
+    except OSError:
+        # Gone, or not ours to look at. Either way there is nothing here to reap.
+        return False
+
+
+def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
+                           kill=os.kill, settle_s=0.5):
+    """
+    Stop every switch still listed in the manifest. Returns the names actually reaped.
+
+    [Co-developed with claude code -- Adam]
+    Teardown used to delete the manifest without stopping what it described. `net.stop()`
+    only reaps Mininet's own children, and a switch that ndtwin-p4-power restarted is not one
+    of them -- the helper spawns with `start_new_session=True` (tools/p4_power_helper.py) so
+    that the switch outlives the sudo invocation that created it, which is precisely what
+    makes power-on work. So such a switch survived teardown, and deleting the manifest then
+    removed the only thing that could still address it: the helper resolves names to pids
+    through this file and nothing else. The result was a process nothing owned and the
+    helper's own "off" could no longer stop.
+
+    Detaching is the feature and is not changed here. What is fixed is the bookkeeping: the
+    registry is now acted on before it is destroyed.
+
+    Not a demo-blocker, and this is worth stating plainly because it was briefly claimed as
+    one: startup already runs `pkill -f simple_switch_grpc` (see main), so a leftover switch
+    never blocks the next run. This is hygiene -- ten idle bmv2 processes should not outlive
+    the topology that owned them.
+
+    Never raises. Teardown must go on to remove the manifest whatever happens here.
+    """
+    try:
+        with open(path) as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        # No manifest, or one we cannot parse. Nothing addressable either way.
+        return []
+
+    doomed = []
+    for name, entry in sorted(manifest.items()):
+        try:
+            pid = entry.get("pid")
+        except AttributeError:
+            continue
+        if pid and is_switch(pid):
+            doomed.append((name, pid))
+
+    for name, pid in doomed:
+        try:
+            kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    # One settle window for all of them rather than per switch: they shut down in parallel,
+    # and ten sequential waits would make an interactive teardown feel hung.
+    if doomed:
+        time.sleep(settle_s)
+
+    for name, pid in doomed:
+        if is_switch(pid):
+            try:
+                kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+    return [name for name, _ in doomed]
+
+
 def main():
     setLogLevel('info')
     
@@ -303,6 +383,12 @@ def main():
 
     CLI(net)
     net.stop()
+    # Before the manifest goes: net.stop() does not reap a switch the power helper restarted,
+    # and once this file is gone nothing can address one. See reap_manifest_switches.
+    reaped = reap_manifest_switches()
+    if reaped:
+        print(f"Reaped {len(reaped)} switch(es) that outlived the topology: "
+              f"{', '.join(reaped)}")
     try:
         os.remove(MANIFEST_PATH)
     except OSError:
