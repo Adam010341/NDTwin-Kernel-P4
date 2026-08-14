@@ -159,6 +159,26 @@ actions 就地改寫為 `OUTPUT:1`**（duration/counter 保留=modify 正常語�
 13. NTG 實驗 log 完整可靠（sender/receiver 成對 JSON 含 bytes/bps），可直接當
     ground truth 對帳 kernel 偵測——本輪兩度靠它定案。
 
+## Log 深掃(subagent,全文= `doc/audit/2026-08-15_integration-log-audit.md`,含裁決前言)
+
+kernel 2,801 requests 零 exception;NSR 5s/TE 10s 節奏對帳吻合。**採信的新發現**:
+14. **kernel.log 每次啟動被截斷**(launcher 的 `>` 重導所致)——P4 era 的 kernel log
+    已無法回看,鑑識能力受損;stack.sh `start_bg` 改 `>>` 或加輪替。
+15. **proxy 的 `inform_switch_entered` 推播在 stack.sh 順序下必死且無重試**,其
+    「permanently degraded」警語是錯誤預測(twin 由拉取路徑填滿,live 實證 10/10)——
+    警語要改真話,或補重試。
+16. **kernel 啟動時 ApplicationManager 的 sudo 清理三連敗**(`exportfs -u`、`sed -i
+    /etc/exports`、`exportfs -ra` 皆 exit 1)——kernel 的 NFS 管理整套假設 root/sudo,
+    與發現 6 同根,修法應一起裁。且其警語「The export is still live」與事實不符
+    (exports 從未寫入成功)。
+17. **NTG 對被 kill 的 unlimited flow 會寫出「多份 JSON 串接」的 log 檔**(第 1 輪
+    70 檔中 10 檔如此,`json.load` 會炸或只讀到 1/315)——對帳工具要用多文件解碼;
+    重算後第 1 輪 35 對全有 bytes、共 2.33 GB(其中一條 unlimited 佔 1.82 GB)。
+18. P4 proxy 對 route table **全量重裝 16 次**(39 add vs 368 冗餘 modify)——效率
+    與冪等性觀察,非錯誤。
+19. Web-GUI 對 `get_graph_data` 的輪詢是設定值的**兩倍**(120/min vs 60/min,
+    最貴的端點)——前端重複抓取,小額效能票。
+
 ## 明早給 Adam 的清單(彙整)
 
 1. **Energy 管線 NFS 權限鏈修法四選一**(發現 6):kernel root / chown→chmod /
