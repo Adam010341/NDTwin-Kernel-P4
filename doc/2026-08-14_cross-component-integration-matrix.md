@@ -218,6 +218,42 @@ destructor 靜默清理)第一次變成**免 root、免 sudo、免 NFS server �
 6. TE 的 modify-not-install 與 ownership 觀察(上方專節)——要不要回報 TE 上游,裁決。
 7. (原有)NTG×bmv2 待完成功能、l0 的 L0_WEBGUI_DOCKER_BUILD 全量建置未跑過。
 
+## 【2026-08-15 下午】NTG×bmv2 結案輪(修復複驗 + 三個新 NTG 發現 + 一個潛伏五週的 P4 測試床 bug)
+
+**結果:待完成功能 [[ntg-bmv2-support-pending-feature]] 交付並 live 驗證**——NTG 經 bridge
+驅動 bmv2 fabric,TCP/UDP 流真實完成(首批 10 sender/19.7MB 時 kernel 同見 **39 條 flow**),
+10 隻 bmv2 全程存活。同輪順帶完成:**四個上午修復全部 live 複驗**(NFS chmod=管線 0.4 秒
+決策鏈真關機、proxy 重試=推播史上首次送達、stale cleanup=零警告、log 輪替);Energy 管線
+全鏈第一次跑通(register→case→sim→callback→`s9 -> off`,fabric 10→7 台整併全程連通);
+bmv2-fast 以 clone 法編裝完成(`/usr/local/bmv2-fast`,旗標 no/no/no 驗證)。
+
+**主發現 #22(本輪之星):P4 測試床的 host 從未關 NIC offload,bulk TCP 從拓撲誕生起就
+不通。** 機制:bmv2 的 pcap 路徑逐 byte 轉發,checksum offload 未填的 TCP 段到對端即被
+丟——握手能過(小段),資料流卡零。五週未爆是因為 P4 側歷來只測 UDP/ICMP;NTG 的 iperf3
+一上(17×"unable to connect" vs ping 8ms 同時成立)立即現形。ethtool 實驗定罪:關
+offload 後同一對 host 16.8MB@23.9Mbps。修復=`disable_host_offloads()` 進共用 topo 基座
+(`c97d9e2`)。**這是「只有真串接才抓得到」的教科書案例:每個元件單獨全綠,組合即死。**
+
+**NTG 發現三連(#20-21,upstream 材料)**:
+- **#20 失敗流讓 RUNNING 計數器永久洩漏**:錯誤路徑不走完成回呼 → 「waiting for all
+  connections to be restored: 303」無限等待 → 同進程後續實驗全數卡死;**連它自己的
+  SIGINT 清理路徑也在等同一個計數器**(Ctrl-C 被吞、退出流程死鎖,只能 SIGTERM)。
+  反向驗證:offload 修復後流量正常完成,`decreasing running count by 1` 正常扣減,
+  實驗自我善終。
+- **#21 空距離桶=整隻工具崩潰**:`_handle_flow_command` 對空 `conns` 做 `randrange(0)`,
+  無驗證無錯誤訊息。本 fabric 的分類真相(裝甲保命後 debug dump 直讀):**全部 host pair
+  落在 far**(near/middle 皆空)——兩種路徑長度 {3,5} 被 3-way k-means 分成「far 獨大」。
+  ⚠️ 我第一次的 template「修正」方向猜反(zip 順序推理 vs 實測 dump),
+  [[arithmetic-that-fits-is-not-the-mechanism]] 又添一例。
+- **bridge 裝甲的兩課**:NTG 的 `command_line` 不可重入(loguru `remove(0)` 單發)→
+  重入前要 no-op 其 logger_config;崩潰預算防熱轉。v2 實測:崩潰印一次、fabric 存活、
+  提示符可用(連 link relationships 都重算成功)。
+
+**操作性結論**:多 actor 同時放行會互踩(energy 整併 vs NTG 起流的 race 讓首輪 iperf 全
+夭折)——串接測試要**一次一個 actor、前一個穩定再放下一個**。`ndtwin-lab` wrapper
+(tools/test_workflow/,**未 commit**——安全面檔案留 Adam 過目後自行 commit/安裝)裝好後
+topo/NTG 打字/energy/sim 全部可由 agent 自駕。
+
 ## 環境現況(01:05,本輪結束時)
 
 在跑:NTG 的 Mininet(Adam 終端的 NTG CLI)、Ryu :8080/:6653、kernel :8000(OVS)、
