@@ -125,13 +125,34 @@ against fast build——它只由 override 檔選用、預設路徑照舊 stock,
   egress 之間,不在 proxy 之後。
 - **與歷史觀察對帳**:8/12「5pps 下 51.2s 才一顆、觀察窗多半空」=cap 不綁、照規格;
   8/13「ping 要 ~500pps 才穩定產生 sample」=撞 cap 後恆 ~0.8/s 的樣子。三天觀察一個模型收齊。
-- **對 twin 的影響**:flow **存在**偵測不受影響(樣本有在到、`twin_audit` 零矛盾);
-  但 kernel 的速率數學以 sampling_rate=256 為常數,**>~200pps 的 P4 側 flow rate 恆常
-  低報**(1786pps 時低報 ~9×)。與「測謊器不做速率對帳」的既有裁決一致,但根因現在
-  有名字了。
-- **下一步(未做,root cause 在 bmv2/PI 源碼層)**:讀 simple_switch_grpc 的 clone→
-  CPU-port→PI packet-in 路徑找節流點;tcpdump :6343 對帳 emitter 端;proxy 加
-  packet-in 計數器。是否回報上游/怎麼修,進裁決清單。
+- **對 twin 的影響(⚠️ 2026-08-15 深夜改寫——初版「恆常低報 ~9×」過度簡化,經
+  8/15 mainDev 的反例快照與 kernel 源碼仲裁後拆成兩軌)**:
+  - **flow 速率點估計:可以讀到近真值。** kernel 是天真 ×samplingRate
+    (`FlowLinkUsageCollector.cpp:1674` `Δbytes×8×256`)**但帶零閘門**:`hopsCounter`
+    只數該秒有樣本的 hop(`:1701`),無樣本的秒被排除在 hop 平均外而非拉低它。
+    單樣本量子=1470B×8×256≈**3.01 Mbps**;clone 若叢發(數顆同秒抵達),該秒估計
+    ≈真值。**mainDev 實測佐證**:08-14 stock、20M UDP,`get_detected_flow_data` 回
+    22.30 Mbps(+11%)——7-8 顆同秒即得此值。代價是**更新稀疏、變異巨大、叢發間
+    讀到 0/舊值**。
+  - **link 用量與一切時間積分量:系統性低報成立。** `m_counterReports`
+    (`:1426-1428`)對每顆樣本連續累積 `bytes×256`,窗口總量=實得樣本數×3.01Mb
+    ——cap 之下窗口積分恆等比縮水(1786pps 時 ~9×)。
+  - flow **存在**偵測不受影響(樣本有在到、`twin_audit` 零矛盾)。
+  - 與「測謊器不做速率對帳」的既有裁決一致,但根因現在有名字了。
+- **stock 側的間接反證與調和(8/15 mainDev 提供)**:08-14/08-15 兩筆 kernel 估計
+  量級全對(22.3M/33.2M 級)——在零閘門+叢發模型下與 clone cap **不矛盾**(見上),
+  不需要假設「stock 當時沒 cap」。惟叢發性本身尚未直接量測(我方只有窗口總數,
+  無到達間隔),列入下輪驗證。
+- **fast build 額外嫌疑(mainDev 自首,尚未檢驗)**:`build_bmv2_fast.sh` 在官方配方
+  外多了 `-DNDEBUG -march=native -fno-semantic-interposition` 三支旗標——但 **cap 在
+  無這些旗標的 stock 上同樣出現**,故三旗標非 cap 主因;它們仍可能解釋 fast(8/20s)
+  與 stock(16/20s)的 2× 差(該差亦可能只是小樣本 Poisson 噪聲)。
+- **下一步(root cause 在 bmv2/PI 源碼層,下輪)**:①讀 simple_switch_grpc 的 clone→
+  CPU-port→PI packet-in 路徑找節流點 ②量 clone 到達間隔(判叢發)+tcpdump :6343
+  對帳 emitter 端+proxy 加 packet-in 計數器 ③純官方配方重編 fast-vanilla A/B 三旗標
+  ④**取樣比率 A/B 進驗證計劃**:任何新 bmv2 build 在信任其數字前,除功能測試外必量
+  `Δcounter[255]/Δcounter[1]`(本節的 20 秒窗方法)——此前驗證計劃只寫功能測試,
+  是個漏。是否回報上游待根因(Adam 已裁決:先查根因)。
 
 ## 解方
 
