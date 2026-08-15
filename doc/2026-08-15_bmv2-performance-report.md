@@ -42,7 +42,7 @@ p4-guide 安裝腳本的預設(`config.log:7` 原文:`./configure --with-pi --wi
 
 | 數字 | 值 | 出處 |
 |---|---|---|
-| `simple_switch_grpc` 吞吐 | **~170 Mbps** | **文獻值**:Chen/Hu/Jin, SIGSIM-PADS '23(他們的 build 條件未載明);**本機從未做過飽和實測** |
+| `simple_switch_grpc` 吞吐 | **~170 Mbps** | **文獻值**:Chen/Hu/Jin, SIGSIM-PADS '23(他們的 build 條件未載明);⚠️ 本機實測(下節)顯示它**不描述本機任一顆 build** |
 | `simple_switch`(非 grpc)中位 | ~1047 Mbps | 同論文 |
 | 官方建議組態實測 | ~917 Mbps 中位 | 上游 `docs/performance.md`(`-O3 --disable-logging-macros --disable-elogger`) |
 | 本機 OVS 對照 | **980 Mbps** | **本機實測** 2026-08-15,同 iperf,受 TCLink 1G 整形壓制 |
@@ -52,6 +52,49 @@ p4-guide 安裝腳本的預設(`config.log:7` 原文:`./configure --with-pi --wi
 兩件:**build 是 -O0+全 logging**(config.log 原文)、**OVS 同機可到 980M**。本機 bmv2
 飽和點多少,**要量了才知道**——依 [[arithmetic-that-fits-is-not-the-mechanism]] 紀律不預測,
 重建驗證計劃第一步就是「舊 build 先量本機基線」,屆時 170 這個文獻值同時接受檢驗。
+
+## 本機飽和實測(2026-08-15,A/B 兩輪,`4b339f2` 的 override seam)
+
+**方法**:`ndtwin-lab topo-start` 起 10-switch fabric(4 hosts、offloads off)+ `stack.sh up p4`
+全 stack(pipeline/routes 由 proxy 推、kernel 輪詢與 sFlow clone 照常=生產態);iperf3 經
+`mnexec` 走 **h1→h2 的 3-hop 路徑(s1→s5→s2)**;兩輪跑一字不差的同一腳本,唯一差異=
+`bmv2_binary_override` 檔(輪 2 指 `/usr/local/bmv2-fast`,`/proc/<pid>/maps` 實證零 stock 庫
+映射)。UDP ramp 1400B×10s/點;loss 為 iperf3 server 端回報。
+
+| 量 | stock(-O0+logging) | bmv2-fast(-O3, no logging) | 倍率 |
+|---|---|---|---|
+| UDP 零損點(1400B) | 25 Mbps(50M 起 15.7% loss) | 300 Mbps(0.17% loss) | **12×** |
+| UDP delivered 天花板 | **~40-42 Mbps**(50→300M offered 全壓平在此) | **~460-530 Mbps**(knee 300→400M;700M offered 時 528) | **~12-13×** |
+| TCP 單流 goodput | 24.2 Mbps | 431.0 Mbps | **17.8×** |
+| TCP 8 平行流合計 | 24.2 Mbps(平行完全不救) | 435.7 Mbps | 18× |
+| 64B 小包 delivered | **~3,619 pps** | **~50,786 pps** | **14×** |
+| 閒置 RTT(3 hops) | 9.1 ms | 2.8 ms | 3.3× |
+| loopback 對照(h1→h1) | 42.4 Gbps | 63.5 Gbps | (host 從不是瓶頸) |
+
+**機制(量出來的,不是推的)**:
+- **天花板是 pps 不是 bps**——stock 輪 1400B 平台 ~3.66k pps ≈ 64B 實測 3.62k pps,包長無關;
+  每包固定成本主導,正是第 1 層(-O0+logging 巨集)的預測形狀。
+- **丟包全發生在第一台 on-path switch 進程內部**:100M burst 實測 h1 送 89,296 →
+  `s1-eth3` RX 89,296(介面層零丟、packet-socket 計數零動)→ `s1-eth1` TX 僅 33,456;
+  下游 s5/s2 對倖存流量零損。丟點在 bmv2 的 input buffer,**介面計數器看不見它**
+  ——對「用 counter 對帳」的任何邏輯是個地雷。
+- **飽和時 on-path 三台各燒 ~165% CPU**(多執行緒分攤),off-path 七台 <1%,CPU-bound 坐實。
+  ⚠️ 途中一度量到「全部 ~0.5%」——那是假象(前一測 server 未釋放、負載根本沒跑),
+  差點又犯 [[arithmetic-that-fits-is-not-the-mechanism]];用 `ip -s link` 前後快照+同步
+  pidstat 才拿到真值。
+- **170 Mbps 文獻值不描述本機任一顆 build**:stock 比它低 4×、fast 比它高 ~3×(且我們量的
+  是 3-hop 路徑不是單 switch)。引用它只能當「量級提示」,不能當本機事實。
+
+**對上層邏輯的含意**:拓撲宣告 1 Gbps 時,P4 側單流利用率上限從 ~4%(stock,比先前
+寫的 17% 更糟)升到 ~43-53%(fast)。TE 的 70% 壅塞門檻在 stock 上物理不可觸發;
+fast 上單流仍差一截,但多流共享 uplink 時已進入可能範圍——TE-on-P4 的實驗從「不可能」
+變成「要設計」。
+
+**輪 2 功能冒煙(上游警告此組態過不了全部 p4c 測試,先驗再信)**:pipeline push+route
+install 全成、graph 10/10 up+enabled+40 edges、12/12 全對 ping 通。未跑完整 L1/CI
+against fast build——它只由 override 檔選用、預設路徑照舊 stock,風險受控。
+原始 JSON 與 per-switch 證據:session scratchpad `results_round1_stock/`、
+`results_round2_fast/`、`droploc/`(session 結束即失效;關鍵數字已全數載於本節)。
 
 ## 解方
 
