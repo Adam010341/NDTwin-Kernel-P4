@@ -214,5 +214,61 @@ class DestinationPathPushTest(NotifierTestBase):
         self.assertEqual(self.notifier.failures, 1)
 
 
+class RenotifyUntilAcknowledgedTest(unittest.TestCase):
+    """
+    The bounded retry behind the startup push.
+
+    [Co-developed with claude code -- Adam]
+    Under stack.sh's ordering the kernel starts last, so the startup switch-entered push always
+    fails and every dpid lands in this loop. Pure-function tests: `notify` and `sleep` are
+    injected, so nothing here needs a kernel, a network, or wall-clock time.
+    """
+
+    def _import(self):
+        from proxy_agent.kernel_notifier import renotify_until_acknowledged
+        return renotify_until_acknowledged
+
+    def test_acknowledged_dpids_leave_the_retry_set(self):
+        renotify = self._import()
+        acks = {1: [False, True], 2: [True]}  # per-dpid script of answers
+        calls = []
+
+        def notify(d):
+            calls.append(d)
+            return acks[d].pop(0)
+
+        left = renotify(notify, [1, 2], attempts=5, interval_s=0, sleep=lambda s: None,
+                        log=lambda m: None)
+        self.assertEqual(left, [])
+        # dpid 2 acknowledged in round one and must not be retried in round two.
+        self.assertEqual(calls, [1, 2, 1])
+
+    def test_gives_up_after_the_attempt_budget(self):
+        renotify = self._import()
+        logged = []
+        left = renotify(lambda d: False, [7], attempts=3, interval_s=0,
+                        sleep=lambda s: None, log=logged.append)
+        self.assertEqual(left, [7])
+        self.assertEqual(len(logged), 1)
+        self.assertIn("never acknowledged", logged[0])
+
+    def test_sleeps_before_every_round_not_after(self):
+        renotify = self._import()
+        sleeps = []
+        renotify(lambda d: True, [1], attempts=5, interval_s=10,
+                 sleep=sleeps.append, log=lambda m: None)
+        # One round was enough: exactly one sleep, before it -- the caller has just finished
+        # a full startup attempt, so an immediate re-push would be pointless.
+        self.assertEqual(sleeps, [10])
+
+    def test_nothing_to_do_means_no_sleeping_at_all(self):
+        renotify = self._import()
+        sleeps = []
+        left = renotify(lambda d: True, [], attempts=5, interval_s=10,
+                        sleep=sleeps.append, log=lambda m: None)
+        self.assertEqual(left, [])
+        self.assertEqual(sleeps, [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

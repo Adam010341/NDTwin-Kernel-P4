@@ -1,5 +1,6 @@
 import asyncio
 import os
+import threading
 import uvicorn
 from fastapi import FastAPI
 from proxy_agent.topology_manager import TopologyManager
@@ -7,12 +8,14 @@ from proxy_agent.p4_client import P4RuntimeClient
 from proxy_agent.sflow_emitter import SFlowEmitter, load_switch_agent_ips
 from proxy_agent.kernel_notifier import KernelNotifier
 from proxy_agent import api_routes
+from proxy_agent import kernel_notifier
 
 app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
 
 # [Co-developed with claude code -- Adam]
-# Pushes switch/link state to the kernel the way Ryu does. Without this the graph stays inert:
-# inform_switch_entered is the only thing that sets isEnabled. See Phase 6 of
+# Pushes switch/link state to the kernel the way Ryu does. The push is the fast path for
+# isEnabled, not the only one -- the kernel's topology poll enables reported switches itself
+# (TopologyAndFlowMonitor.cpp:566). See kernel_notifier.py's module docstring and Phase 6 of
 # doc/2026-07-27_p4_bmv2_support_plan.md.
 kernel = KernelNotifier()
 
@@ -217,11 +220,24 @@ async def startup(clients_factory, sflow, kernel, topo,
     if not not_entered:
         print(f"[Proxy Agent] Kernel acknowledged all {len(entered)} usable switches")
     else:
-        # Loud, because the symptom otherwise looks like a dead data plane rather than a
-        # missed notification.
-        print(f"[Proxy Agent] Kernel acknowledged only {len(entered)}/{len(usable)} switches "
-              f"(missing {not_entered}); the graph will stay partly disabled and paths/rates "
-              f"will be empty for the rest")
+        # [Co-developed with claude code -- Adam]
+        # Under stack.sh's ordering this is the NORMAL case, not a failure: the kernel
+        # deliberately starts after the proxy, so the startup push always lands on a closed
+        # port. Nothing stays broken -- the kernel's topology poll enables switches on its own
+        # (TopologyAndFlowMonitor.cpp:566) -- and a bounded background retry re-pushes so the
+        # notification path still delivers once the kernel is up. The previous message here
+        # declared the graph permanently degraded; the 2026-08-15 overnight audit took it at
+        # its word and misdiagnosed a healthy era.
+        print(f"[Proxy Agent] Kernel did not acknowledge {len(not_entered)}/{len(usable)} "
+              f"switches yet ({not_entered}) -- normal when the kernel starts after the proxy. "
+              f"Its topology poll enables switches on its own; retrying the push in the "
+              f"background for up to 5 minutes.")
+        threading.Thread(
+            target=kernel_notifier.renotify_until_acknowledged,
+            args=(kernel.switch_entered, not_entered),
+            daemon=True,
+            name="switch-entered-retry",
+        ).start()
 
     # Start LLDP dynamic topology discovery
     try:

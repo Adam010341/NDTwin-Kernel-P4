@@ -9,10 +9,15 @@ The kernel does not discover P4 switches on its own. In OVS mode Ryu actively *p
 proxy pushed nothing, which is why the graph stayed inert in P4 mode -- see Phase 6 of
 doc/2026-07-27_p4_bmv2_support_plan.md.
 
-`inform_switch_entered` matters most: it is the **only** path that sets `isEnabled` on a vertex
-(HttpSession::handleInformSwitchEntered sets both isUp and isEnabled). Without it BFS pathing,
-flow-table polling and link-usage attribution all stay switched off, so every flow's `path` is
-empty and every rate is zero even though telemetry is arriving.
+`inform_switch_entered` is the *fast* path that sets `isEnabled` on a vertex
+(HttpSession::handleInformSwitchEntered sets both isUp and isEnabled). It is not the only one:
+the kernel's own topology poll does the same per reported switch
+(TopologyAndFlowMonitor::updateSwitches, TopologyAndFlowMonitor.cpp:566), which is why every
+stack.sh P4 round ever run had enabled switches even though this push always fired before the
+kernel existed and got connection-refused (the kernel deliberately starts last there). What the
+push buys is latency and explicitness -- enabling on the transition instead of on the next
+poll. This paragraph used to claim "only path"; the 2026-08-15 overnight audit believed it and
+concluded a whole era had run on an empty twin. [Co-developed with claude code -- Adam]
 
 Every method here returns a bool and never raises. These are called from the gRPC receive
 thread and the LLDP discovery thread; an exception on either kills that thread and takes the
@@ -82,10 +87,11 @@ class KernelNotifier:
         """
         Tell the kernel a switch is now under control-plane management.
 
-        The single most important call in this file: it is the only thing that sets `isEnabled`.
-        Sent once the switch is genuinely usable -- mastership held, pipeline pushed -- rather
-        than on mastership alone, because a switch with no pipeline cannot forward and the flag
-        means "the control plane can drive this switch".
+        Sets `isEnabled` immediately instead of waiting for the kernel's next topology poll
+        (which reaches the same state on its own; see the module docstring). Sent once the
+        switch is genuinely usable -- mastership held, pipeline pushed -- rather than on
+        mastership alone, because a switch with no pipeline cannot forward and the flag means
+        "the control plane can drive this switch".
         """
         return self._get(f"/ndt/inform_switch_entered?dpid={dpid}",
                          f"switch {dpid} entered")
@@ -142,3 +148,37 @@ class KernelNotifier:
         return self._post("/ndt/inform_all_destination_paths",
                           {"all_destination_paths": paths},
                           f"destination paths ({len(paths)} paths)")
+
+
+def renotify_until_acknowledged(notify, dpids, *, attempts=30, interval_s=10.0,
+                                sleep=None, log=print):
+    """
+    Keep re-pushing switch-entered for the dpids a startup attempt could not deliver.
+
+    [Co-developed with claude code -- Adam]
+    Under stack.sh's P4 ordering the kernel deliberately starts last, so the startup push
+    always fires into a closed port and every dpid lands here. The kernel's own topology poll
+    enables switches anyway (TopologyAndFlowMonitor.cpp:566), so nothing is broken while this
+    retries -- the retry just makes the push path deliver instead of dying on its first and
+    only attempt. Bounded: 30 x 10 s covers the kernel's convergence-gated start with room to
+    spare, and a kernel that never appears stops costing anything after five minutes.
+
+    `notify` is called once per remaining dpid per round and must return truthiness for
+    "acknowledged" (KernelNotifier.switch_entered fits). Sleeps BEFORE each round: the caller
+    just finished a full attempt. Returns the dpids that were never acknowledged.
+    """
+    import time as _time
+    do_sleep = sleep if sleep is not None else _time.sleep
+    remaining = list(dpids)
+    for _ in range(attempts):
+        if not remaining:
+            break
+        do_sleep(interval_s)
+        remaining = [d for d in remaining if not notify(d)]
+    if remaining:
+        log(f"[Proxy Agent] switch-entered was never acknowledged for {remaining} "
+            f"after {attempts} retries; the kernel's topology poll remains the "
+            f"operative enable path")
+    else:
+        log("[Proxy Agent] switch-entered acknowledged for all remaining switches on retry")
+    return remaining
