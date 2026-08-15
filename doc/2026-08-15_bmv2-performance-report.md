@@ -96,6 +96,43 @@ against fast build——它只由 override 檔選用、預設路徑照舊 stock,
 原始 JSON 與 per-switch 證據:session scratchpad `results_round1_stock/`、
 `results_round2_fast/`、`droploc/`(session 結束即失效;關鍵數字已全數載於本節)。
 
+## 深挖輪補充(2026-08-15 晚,usage 刷新後)
+
+**fast build 飽和機制(perf 實測,31,717 樣本,s1@700M)**:
+- **沒有單執行緒牆**:四條 bmv2 worker 各吃 16-36% 一顆核、合計 ≈100%,主執行緒與
+  gRPC 執行緒全閒。天花板不是「一顆核撞滿」,是**每包關鍵路徑跨多段 thread 交接的
+  總成本**。
+- **cycle 去向=資料表示層**(單一函式無一超過 ~5%,千刀萬剮型):GMP 大數
+  (`__gmpz_init_set/import/export/and` 合計 ~10%+)、字串鍵 hashtable 查 PHV 欄位
+  (`_Map_base::at`/`find`/`_Hash_bytes` ~9%+)、malloc/free churn(~9-12%)、
+  `Field::export_bytes`、`Expression::eval_`。與本報告第 2/3 層的源碼分析完全吻合——
+  **configure 旗標已榨完,再上去是上游架構工程**。
+- **丟包位置與 stock 輪同構**:700M 下 s1 收 624,963、轉出 437,301,~99% 損失在第一台
+  switch 的 input buffer;下游每跳僅 ~0.2%。介面計數器與 packet-socket 計數兩層全零。
+
+**⭐ 新缺陷:sFlow clone 取樣存在 ~0.8 clone/s 的硬頂(兩顆 build 都有,非 fast 回歸)**
+- 實測(s1,同窗口 Δ`egress_port_counter[255]`/Δ`[1]`,20 秒窗):
+  | 流量 | 實得 clone | 規格 1/256 應得 |
+  |---|---|---|
+  | 20M/1786pps(fast) | 8 | 140 |
+  | 20M/1786pps(stock) | 16 | 140 |
+  | 5M/446pps(stock) | **16** | 35 |
+  5M 與 20M **絕對數相同**——不是機率性 under-fire,是**時間性定額 ~0.8/s**。
+  模型:`實得 ≈ min(pps/256, ~0.8/s)`,cap 只在 >~200pps 時綁住。
+- **已排除**:P4 源碼正確(`ndtwin_switch.p4:384` uniform [0,255]==0、每個非 CPU 包都過)、
+  編譯 JSON 忠實(`modify_field_rng_uniform 0x0000-0x00ff`)、非 fast 回歸(stock 同病)。
+  cap 出現在 switch 自己的 egress counter=瓶頸在 bmv2 內部 ingress-clone→CPU-port
+  egress 之間,不在 proxy 之後。
+- **與歷史觀察對帳**:8/12「5pps 下 51.2s 才一顆、觀察窗多半空」=cap 不綁、照規格;
+  8/13「ping 要 ~500pps 才穩定產生 sample」=撞 cap 後恆 ~0.8/s 的樣子。三天觀察一個模型收齊。
+- **對 twin 的影響**:flow **存在**偵測不受影響(樣本有在到、`twin_audit` 零矛盾);
+  但 kernel 的速率數學以 sampling_rate=256 為常數,**>~200pps 的 P4 側 flow rate 恆常
+  低報**(1786pps 時低報 ~9×)。與「測謊器不做速率對帳」的既有裁決一致,但根因現在
+  有名字了。
+- **下一步(未做,root cause 在 bmv2/PI 源碼層)**:讀 simple_switch_grpc 的 clone→
+  CPU-port→PI packet-in 路徑找節流點;tcpdump :6343 對帳 emitter 端;proxy 加
+  packet-in 計數器。是否回報上游/怎麼修,進裁決清單。
+
 ## 解方
 
 **主解:`tools/test_workflow/build_bmv2_fast.sh`**——照官方組態重建到**獨立 prefix**
