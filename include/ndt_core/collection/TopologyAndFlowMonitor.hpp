@@ -89,6 +89,12 @@ class TopologyAndFlowMonitor
     std::optional<Graph::edge_descriptor> findEdgeByAgentIpAndPortNoLock(
         const std::pair<uint32_t, uint32_t>& agentIpAndPort) const;
 
+    /// The edge leaving (agentIp, port), but only when its far end is a host (dstDpid == 0 --
+    /// hosts carry no datapath id in this graph). Engaged for the last hop of a flow's path;
+    /// nullopt for switch-to-switch edges and unknown ports.
+    std::optional<Graph::edge_descriptor> findEdgeToHostByAgentIpAndPort(
+        const std::pair<uint32_t, uint32_t>& agentIpAndPort) const;
+
     std::optional<Graph::edge_descriptor> findReverseEdgeByAgentIpAndPort(
         const std::pair<uint32_t, uint32_t>& agentIpAndPort) const;
     std::optional<Graph::edge_descriptor> findReverseEdgeByAgentIpAndPortNoLock(

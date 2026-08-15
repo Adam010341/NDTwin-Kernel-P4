@@ -1204,7 +1204,13 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
             { // Brocade
                 samplingRate = ntohl(data[index + 4]);
                 inputPort = ntohl(data[index + 7]);
-                outputPort = 0;
+                // Word +8 is the sample's output interface. It was hardcoded to 0 here, which
+                // made egress-side attribution impossible for standard flow samples -- the wire
+                // carries the field (both the P4 emitter and OVS fill it), the parser dropped
+                // it, and the last hop of every path read usage=0 forever as a result. Read
+                // before the MININET index shift below, like inputPort.
+                // [Co-developed with claude code -- Adam]
+                outputPort = ntohl(data[index + 8]);
                 if (m_mode == utils::MININET)
                 {
                     flowDataLength = ntohl(data[index + 11]);
@@ -1426,6 +1432,20 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                     m_counterReports[make_pair(agentIp, relevantPort)]
                         .inputByteCountOnALinkMultiplySampingRate +=
                         uint64_t(frameLength) * samplingRate;
+
+                    // The same sample also crossed the sampling switch's *egress* edge. For a
+                    // switch-to-switch edge that credit belongs to the downstream sampler, but
+                    // the last hop of a path ends at a host, which has no sampler -- so the
+                    // egress side is banked here and creditHostBoundEgressEdges pays out only
+                    // the host-bound entries. Guarded on isIngress: an ingress-less sample has
+                    // already been keyed by its output port on the line above, and banking it
+                    // twice would count the same bytes twice. [Co-developed with claude code -- Adam]
+                    if (isIngress && outputPort != 0)
+                    {
+                        m_egressCounterReports[make_pair(agentIp, outputPort)]
+                            .inputByteCountOnALinkMultiplySampingRate +=
+                            uint64_t(frameLength) * samplingRate;
+                    }
                 }
 
                 // [Co-developed with claude code -- Adam]
@@ -1542,6 +1562,20 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                         {
                             m_topologyAndFlowMonitor->touchEdgeFlow(edgeOpt.value(), key);
                         }
+                        // The last hop: the flow's own path already names the egress edge, but
+                        // no downstream sampler exists to touch it when it ends at a host, so
+                        // the sampling switch touches it from its egress metadata. Kept to
+                        // host-bound edges for the same ownership reason as the byte credit.
+                        // [Co-developed with claude code -- Adam]
+                        if (outputPort != 0)
+                        {
+                            if (auto lastHopOpt =
+                                    m_topologyAndFlowMonitor->findEdgeToHostByAgentIpAndPort(
+                                        {agentIp, outputPort}))
+                            {
+                                m_topologyAndFlowMonitor->touchEdgeFlow(lastHopOpt.value(), key);
+                            }
+                        }
                     }
                     else
                     { // Egress flow
@@ -1619,6 +1653,25 @@ FlowLinkUsageCollector::reportMalformedDatagram(size_t len, const char* reason)
                            reason,
                            total,
                            LOG_EVERY);
+    }
+}
+
+// [Co-developed with claude code -- Adam]
+void
+FlowLinkUsageCollector::creditHostBoundEgressEdges()
+{
+    std::unique_lock<std::shared_mutex> lk(m_counterReportsMutex);
+    for (auto& [key, value] : m_egressCounterReports)
+    {
+        // Only the host-bound entries are paid out; a switch far end means the downstream
+        // sampler owns the edge, so that entry is dropped rather than written. The zeroing is
+        // unconditional either way: an entry must not carry bytes into the next second.
+        if (m_topologyAndFlowMonitor->findEdgeToHostByAgentIpAndPort(key).has_value())
+        {
+            m_topologyAndFlowMonitor->updateLinkInfoLeftLinkBandwidth(
+                key, value.inputByteCountOnALinkMultiplySampingRate * 8);
+        }
+        value.inputByteCountOnALinkMultiplySampingRate = 0;
     }
 }
 
@@ -1789,6 +1842,11 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                 value.inputByteCountOnALinkMultiplySampingRate = 0;
             }
         }
+
+        // After the block above, not inside it: this takes m_counterReportsMutex itself, and
+        // the mutex is not recursive. Outside MININET the egress map never fills, so the call
+        // is a natural no-op there.
+        creditHostBoundEgressEdges();
 
         // log socket dropped packet number
         // uint32_t rxq_ovfl = 0;

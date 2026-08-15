@@ -276,6 +276,27 @@ class FlowLinkUsageCollector
         return m_malformedDatagrams.load(std::memory_order_relaxed);
     }
 
+    /**
+     * @brief Writes the accumulated egress byte counts onto switch-to-host edges.
+     *
+     * @details
+     * Link usage is normally credited from the *ingress* side: a sample taken at (switch,
+     * inputPort) is attributed to the edge arriving at that port, so every switch-to-switch
+     * edge is owned by the downstream switch's samples. The final hop of a path has no
+     * downstream sampler -- hosts do not run agents -- so under that rule alone the
+     * switch-to-host edge of every flow reads 0 forever while the bytes demonstrably move
+     * (doc/audit/2026-08-15_fresh-acceptance-report.md §3c).
+     *
+     * This drain closes exactly that gap and nothing else: entries whose far end is another
+     * switch are skipped, because the downstream sampler already owns them and a second
+     * writer would fight it. Runs once per rate-loop second, like the ingress drain above it.
+     *
+     * Protected so tests can run one drain pass without standing up the rate-loop thread.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void creditHostBoundEgressEdges();
+
   private:
     /**
      * @brief Counts a malformed datagram and logs at most one per thousand.
@@ -300,6 +321,13 @@ class FlowLinkUsageCollector
     // value -> last_report_time, last_received_input_octets and
     // last_received_output_octets, ...
     std::map<std::pair<uint32_t, uint32_t>, CounterInfo> m_counterReports;
+
+    // key -> agent_ip and *output* port of the sampling switch. Shares
+    // m_counterReportsMutex with m_counterReports: the two are filled by the same ingest
+    // line and drained by the same rate-loop pass, so a second lock would only add an
+    // ordering question. Only entries whose far end is a host are ever written to the
+    // graph -- see creditHostBoundEgressEdges.
+    std::map<std::pair<uint32_t, uint32_t>, CounterInfo> m_egressCounterReports;
 
     std::atomic<int> m_sockfd{-1};
     std::atomic<bool> m_running{false};

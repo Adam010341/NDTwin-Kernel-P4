@@ -1323,6 +1323,34 @@ TopologyAndFlowMonitor::findEdgeByAgentIpAndPort(
     return nullopt;
 }
 
+// [Co-developed with claude code -- Adam]
+optional<Graph::edge_descriptor>
+TopologyAndFlowMonitor::findEdgeToHostByAgentIpAndPort(
+    const pair<uint32_t, uint32_t>& agentIpAndPort) const
+{
+    std::shared_lock lock(*m_graphMutex);
+    for (auto edgeIt = boost::edges(*m_graph).first; edgeIt != boost::edges(*m_graph).second;
+         ++edgeIt)
+    {
+        auto edge = *edgeIt;
+        const auto& props = (*m_graph)[edge];
+        if (props.srcIp.front() == agentIpAndPort.first and
+            props.srcInterface == agentIpAndPort.second)
+        {
+            // dstDpid == 0 is how the topology loader marks a non-switch endpoint: hosts are
+            // the only vertices without a datapath id (see the dstDpid != 0 branch where edges
+            // are loaded). A switch far end means a sampler exists over there and owns the
+            // edge's accounting; a host far end has no sampler at all.
+            if (props.dstDpid == 0)
+            {
+                return edge;
+            }
+            return nullopt;
+        }
+    }
+    return nullopt;
+}
+
 optional<Graph::edge_descriptor>
 TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
     const pair<uint32_t, uint32_t>& agentIpAndPort) const

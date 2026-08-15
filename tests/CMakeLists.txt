@@ -25,6 +25,7 @@ add_executable(
   test_RelayResponse.cpp
   test_RequestDeadlines.cpp
   test_ReverseEdgeLookup.cpp
+  test_LastHopAttribution.cpp
   test_AllDestinationPaths.cpp
   test_HttpSessionRouting.cpp
   test_LLMResponseParsing.cpp
