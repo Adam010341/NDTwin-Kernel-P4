@@ -267,6 +267,11 @@ start_bg() {
         warn "  $name already running (pid $(cat "$PID_DIR/$name.pid"))"
         return 0
     fi
+    # One generation of history: '>' alone erased the previous era's log at every restart,
+    # which is how the whole P4-era kernel.log vanished during the 2026-08-15 overnight audit
+    # (the OVS restart truncated it; the era had to be reconstructed from the proxy's side).
+    # A .prev keeps each file single-era and the disk bounded. [Co-developed with claude code -- Adam]
+    [[ -s "$log" ]] && mv -f "$log" "$log.prev"
     setsid "$@" >"$log" 2>&1 &
     echo $! >"$PID_DIR/$name.pid"
     info "  started $name (pid $!) -> $log"
