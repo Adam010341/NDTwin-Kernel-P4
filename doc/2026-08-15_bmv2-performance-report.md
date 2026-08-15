@@ -110,49 +110,43 @@ against fast build——它只由 override 檔選用、預設路徑照舊 stock,
 - **丟包位置與 stock 輪同構**:700M 下 s1 收 624,963、轉出 437,301,~99% 損失在第一台
   switch 的 input buffer;下游每跳僅 ~0.2%。介面計數器與 packet-socket 計數兩層全零。
 
-**⭐ 新缺陷:sFlow clone 取樣存在 ~0.8 clone/s 的硬頂(兩顆 build 都有,非 fast 回歸)**
-- 實測(s1,同窗口 Δ`egress_port_counter[255]`/Δ`[1]`,20 秒窗):
-  | 流量 | 實得 clone | 規格 1/256 應得 |
-  |---|---|---|
-  | 20M/1786pps(fast) | 8 | 140 |
-  | 20M/1786pps(stock) | 16 | 140 |
-  | 5M/446pps(stock) | **16** | 35 |
-  5M 與 20M **絕對數相同**——不是機率性 under-fire,是**時間性定額 ~0.8/s**。
-  模型:`實得 ≈ min(pps/256, ~0.8/s)`,cap 只在 >~200pps 時綁住。
-- **已排除**:P4 源碼正確(`ndtwin_switch.p4:384` uniform [0,255]==0、每個非 CPU 包都過)、
-  編譯 JSON 忠實(`modify_field_rng_uniform 0x0000-0x00ff`)、非 fast 回歸(stock 同病)。
-  cap 出現在 switch 自己的 egress counter=瓶頸在 bmv2 內部 ingress-clone→CPU-port
-  egress 之間,不在 proxy 之後。
-- **與歷史觀察對帳**:8/12「5pps 下 51.2s 才一顆、觀察窗多半空」=cap 不綁、照規格;
-  8/13「ping 要 ~500pps 才穩定產生 sample」=撞 cap 後恆 ~0.8/s 的樣子。三天觀察一個模型收齊。
-- **對 twin 的影響(⚠️ 2026-08-15 深夜改寫——初版「恆常低報 ~9×」過度簡化,經
-  8/15 mainDev 的反例快照與 kernel 源碼仲裁後拆成兩軌)**:
-  - **flow 速率點估計:可以讀到近真值。** kernel 是天真 ×samplingRate
-    (`FlowLinkUsageCollector.cpp:1674` `Δbytes×8×256`)**但帶零閘門**:`hopsCounter`
-    只數該秒有樣本的 hop(`:1701`),無樣本的秒被排除在 hop 平均外而非拉低它。
-    單樣本量子=1470B×8×256≈**3.01 Mbps**;clone 若叢發(數顆同秒抵達),該秒估計
-    ≈真值。**mainDev 實測佐證**:08-14 stock、20M UDP,`get_detected_flow_data` 回
-    22.30 Mbps(+11%)——7-8 顆同秒即得此值。代價是**更新稀疏、變異巨大、叢發間
-    讀到 0/舊值**。
-  - **link 用量與一切時間積分量:系統性低報成立。** `m_counterReports`
-    (`:1426-1428`)對每顆樣本連續累積 `bytes×256`,窗口總量=實得樣本數×3.01Mb
-    ——cap 之下窗口積分恆等比縮水(1786pps 時 ~9×)。
-  - flow **存在**偵測不受影響(樣本有在到、`twin_audit` 零矛盾)。
-  - 與「測謊器不做速率對帳」的既有裁決一致,但根因現在有名字了。
-- **stock 側的間接反證與調和(8/15 mainDev 提供)**:08-14/08-15 兩筆 kernel 估計
-  量級全對(22.3M/33.2M 級)——在零閘門+叢發模型下與 clone cap **不矛盾**(見上),
-  不需要假設「stock 當時沒 cap」。惟叢發性本身尚未直接量測(我方只有窗口總數,
-  無到達間隔),列入下輪驗證。
-- **fast build 額外嫌疑(mainDev 自首,尚未檢驗)**:`build_bmv2_fast.sh` 在官方配方
-  外多了 `-DNDEBUG -march=native -fno-semantic-interposition` 三支旗標——但 **cap 在
-  無這些旗標的 stock 上同樣出現**,故三旗標非 cap 主因;它們仍可能解釋 fast(8/20s)
-  與 stock(16/20s)的 2× 差(該差亦可能只是小樣本 Poisson 噪聲)。
-- **下一步(root cause 在 bmv2/PI 源碼層,下輪)**:①讀 simple_switch_grpc 的 clone→
-  CPU-port→PI packet-in 路徑找節流點 ②量 clone 到達間隔(判叢發)+tcpdump :6343
-  對帳 emitter 端+proxy 加 packet-in 計數器 ③純官方配方重編 fast-vanilla A/B 三旗標
-  ④**取樣比率 A/B 進驗證計劃**:任何新 bmv2 build 在信任其數字前,除功能測試外必量
-  `Δcounter[255]/Δcounter[1]`(本節的 20 秒窗方法)——此前驗證計劃只寫功能測試,
-  是個漏。是否回報上游待根因(Adam 已裁決:先查根因)。
+**~~⭐ 新缺陷:sFlow clone 取樣硬頂~~ → ❌ 全案撤回(2026-08-15 深夜,三層判別實驗定案):
+取樣從頭到尾是健康的,「cap」是量測通道的誤認。**
+
+**判別實驗(同一個 60 秒 20M UDP 窗口、同時量三層,stock build)**:
+| 層 | 量測 | 結果 |
+|---|---|---|
+| wire(tcpdump lo:6343) | emitter→kernel 的 sFlow datagram | **1,286 顆/66s ≈ 19.5/s**(全 agent;3 台 on-path 各 ~6.5/s=**規格 1/256** ✓)|
+| kernel(get_graph_data 每秒) | edge 用量的量子倍數 | **每秒 5-7 個量子**=規格取樣率 ✓ |
+| switch(`egress_port_counter[255]`)| 47 秒 Δ | **+21 ≈ 0.44/s** ✗(離群者)|
+
+**真相在 P4 源碼裡,而且是註解明寫的**:egress 的 clone 分支在 `count()` 之前就
+`return`——「`do not count the copy: it is not real egress traffic`」。**`counter[255]`
+從來就不是 clone 計數器**,它數的是真正 punt 到 CPU 的包(LLDP/ARP/packet-in)。
+`LLDP_BEACON_INTERVAL_S = 5`(topology_manager.py:137)× s1 的兩個 fabric 鄰居
+≈0.4-0.8/s——「時間性定額、與流量無關」的特徵完全吻合。5M 與 20M 窗口 clone 數相同、
+stock 與 fast「都有 cap」、fast 8 vs stock 16 的 2× 差:全部是 punt 節奏的樣子,
+與取樣無關。
+
+**連帶撤回/更正**:
+- ~~「>200pps 恆常低報」「link 用量 9× 縮水」~~ 全撤——樣本以規格率抵達,兩個消費端
+  都拿到該拿的樣本;速率誤差就是 1/256 取樣的 Poisson 噪聲(無記憶驗收員實測:
+  per-link ±40%@20M、per-flow ±14%,那才是真實的取樣契約)。
+- ~~驗證計劃的「Δ[255]/Δ[1] 取樣比率法」~~ 方法本身無效(通道不含 clone)。**有效方法**:
+  wire 端 `tcpdump -i lo udp dst port 6343` 數 datagram,或 kernel edge 值的量子倍數。
+- 早前 C10 的「`egress_port_counter[255]`=1 packet=clone 實證」要重讀:依 egress 邏輯,
+  那 1 顆更可能是當時的一次 punt,不是 clone。
+- kernel 估計器「天真 ×256+零閘門」的源碼事實(`:1674`/`:1701`)不變——但用它解釋
+  mainDev 的 22.3M 不再需要叢發假設:樣本本來就以 ~6.7/s 抵達,每秒 5-7 量子,
+  hop 平均自然落在真值 ±15%。mainDev 的兩筆 kernel 估計(22.3M/33.2M)自始正確。
+- mainDev 的三旗標(`-DNDEBUG -march=native -fno-semantic-interposition`)嫌疑隨主案
+  一併解除(本來就被 stock 同現排除);fast-vanilla 重編降為低優先。
+
+**方法論教訓(這一段比結論值錢)**:兩個 20 秒窗口各得 16 顆、完美可重現——但
+[[reproducible-is-not-mechanism]]:可重現只證明我在穩定地量「某個東西」,不證明那是
+我以為的東西。翻案靠的不是更多次重複,是**三層獨立通道對同一事件**;離群的那層就是
+誤認的那層。counter 是不是在數你以為的東西,去讀增量發生的那一行(P4 egress 的
+`return` 早就寫著答案)。
 
 ## 解方
 
