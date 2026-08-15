@@ -30,7 +30,9 @@ struct Seams : ApplicationManager
 {
     using ApplicationManager::buildExportsPurgeCommand;
     using ApplicationManager::buildUnexportCommand;
+    using ApplicationManager::exportsFileHasEntry;
     using ApplicationManager::exportsLineFor;
+    using ApplicationManager::openUpAppDirPermissions;
 };
 
 // --- describeCommandFailure: decoding std::system()'s wait status ---------------------------
@@ -173,4 +175,107 @@ TEST(ExportsPurge, AMidlineMentionOfTheFolderIsNotItsLine)
         purgeSurvivors("/srv/nfs/sim/1",
                        {Seams::exportsLineFor("/srv/nfs/sim/1"), bystander});
     EXPECT_EQ(survivors, (std::vector<std::string>{bystander}));
+}
+
+// --- the non-root registration path (2026-08-15) --------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// Live 2026-08-15: a non-root kernel chown'd nothing, the app directory stayed 775, the NFS
+// export's all_squash then denied the (root-run, squashed-to-nobody) Energy app its first
+// case-input write, and its decision loop wedged permanently on a stuck flag. The fix makes
+// chmod-by-owner do chown's job and turns the whole non-root lifecycle into something a unit
+// test can hold: no sudo, no NFS server, no root anywhere below.
+
+TEST(ExportsFileHasEntry, FindsExactlyTheFoldersOwnLine)
+{
+    const std::string file = testing::TempDir() + "has_entry_exact.exports";
+    {
+        std::ofstream f(file);
+        f << Seams::exportsLineFor("/srv/nfs/sim/1") << "\n";
+        f << Seams::exportsLineFor("/srv/nfs/sim/10") << "\n";
+    }
+    EXPECT_TRUE(Seams::exportsFileHasEntry("/srv/nfs/sim/1", file));
+    EXPECT_FALSE(Seams::exportsFileHasEntry("/srv/nfs/sim/2", file));
+    fs::remove(file);
+}
+
+TEST(ExportsFileHasEntry, AMidlineMentionIsNotTheFoldersLine)
+{
+    // Same rule as the purge address: the line must START with the folder. An unrelated
+    // export whose options mention the path must not make cleanup think a line exists.
+    const std::string file = testing::TempDir() + "has_entry_midline.exports";
+    {
+        std::ofstream f(file);
+        f << "/srv/other *(rw) # mirrors /srv/nfs/sim/1 nightly\n";
+    }
+    EXPECT_FALSE(Seams::exportsFileHasEntry("/srv/nfs/sim/1", file));
+    fs::remove(file);
+}
+
+TEST(ExportsFileHasEntry, AFolderWhoseIdExtendsTheQueriedOneIsNotAMatch)
+{
+    // The same trap the sed anchor exists for: with only /srv/nfs/sim/10 in the file,
+    // asking about /srv/nfs/sim/1 must say no -- the space after the directory is the
+    // separator that keeps prefixes from claiming each other's lines.
+    const std::string file = testing::TempDir() + "has_entry_prefix.exports";
+    {
+        std::ofstream f(file);
+        f << Seams::exportsLineFor("/srv/nfs/sim/10") << "\n";
+    }
+    EXPECT_FALSE(Seams::exportsFileHasEntry("/srv/nfs/sim/1", file));
+    fs::remove(file);
+}
+
+TEST(ExportsFileHasEntry, AnUnreadableFileMeansAttemptCleanupAnyway)
+{
+    // When the exports file cannot be read there is no way to know; the safe fallback is the
+    // old always-attempt behaviour, not a silent skip that could leave a real export live.
+    EXPECT_TRUE(Seams::exportsFileHasEntry("/srv/nfs/sim/1",
+                                           testing::TempDir() + "does_not_exist.exports"));
+}
+
+TEST(OpenUpAppDirPermissions, MakesTheDirectoryWritableForSquashedClients)
+{
+    const fs::path dir = fs::path(testing::TempDir()) / "appmgr_perms_test_dir";
+    fs::create_directories(dir);
+    fs::permissions(dir, fs::perms::owner_all); // start at 700: the failing shape, owner-only
+    ASSERT_TRUE(Seams::openUpAppDirPermissions(dir));
+    const auto p = fs::status(dir).permissions();
+    // all_squash maps every client to nobody; nobody writes through the 'others' bits.
+    EXPECT_EQ(p & fs::perms::others_write, fs::perms::others_write);
+    EXPECT_EQ(p & fs::perms::all, fs::perms::all);
+    fs::remove_all(dir);
+}
+
+TEST(OpenUpAppDirPermissions, AMissingPathReportsFalseNotSuccess)
+{
+    EXPECT_FALSE(Seams::openUpAppDirPermissions(fs::path(testing::TempDir()) / "no_such_dir_x"));
+}
+
+TEST(NonRootLifecycle, RegistrationProvisionsAWritableWorkspaceWithoutRoot)
+{
+    const fs::path exportDir = fs::path(testing::TempDir()) / "appmgr_lifecycle_export";
+    const fs::path mountDir = fs::path(testing::TempDir()) / "appmgr_lifecycle_mount";
+    fs::remove_all(exportDir);
+    fs::create_directories(exportDir);
+
+    fs::path appDir;
+    {
+        ApplicationManager mgr(exportDir.string(), mountDir.string());
+        const int id = mgr.registerApplication("power", "http://localhost:8001/result");
+        EXPECT_GE(id, 1);
+        appDir = exportDir / std::to_string(id);
+        ASSERT_TRUE(fs::exists(appDir)) << appDir;
+        // The functional core of the fix: without root, the workspace must still end up
+        // writable through an all_squash export.
+        const auto p = fs::status(appDir).permissions();
+        EXPECT_EQ(p & fs::perms::all, fs::perms::all);
+        // The per-app export line is best-effort; the setup itself must not report failure
+        // just because /etc/exports is not writable here.
+        EXPECT_TRUE(mgr.setupNFSForApp(id + 1));
+    }
+    // Destructor cleanup: folders go away without sudo ever being involved (their lines were
+    // never in /etc/exports, so cleanup has nothing to unexport and stays silent).
+    EXPECT_FALSE(fs::exists(appDir));
+    fs::remove_all(exportDir);
 }

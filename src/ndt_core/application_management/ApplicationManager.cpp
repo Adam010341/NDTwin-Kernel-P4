@@ -1,19 +1,14 @@
 #include "ndt_core/application_management/ApplicationManager.hpp"
 #include "spdlog/spdlog.h"
 #include "utils/Logger.hpp"
-#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <grp.h>
-#include <iostream>
 #include <optional>
-#include <pwd.h>
 #include <regex>
 #include <sys/types.h>
 #include <sys/wait.h> // for WIFEXITED/WEXITSTATUS, used to decode std::system()'s wait status
-#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -66,17 +61,62 @@ ApplicationManager::setupNFSForApp(int appId)
         m_registeredFolders.push_back(appDir);
     }
 
-    if( !chownRecursive(appDir, "nobody", "nogroup") ) {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "Failed to re‑own directory");
-        return false;
-    }
-
-    if (!updateNFSConfig(appId, appDir))
+    if (!openUpAppDirPermissions(appDir))
     {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Failed to open up permissions on {}; squashed NFS clients will not "
+                           "be able to write their workspace",
+                           appDir);
         return false;
     }
 
-    return reloadNFSServer();
+    // The per-app export line and the reload need root. Their failure is survivable on any
+    // deployment where a parent export already covers m_nfsExportDir (this machine exports
+    // /srv/nfs/sim itself, and clients mount the subdirectory through it), so it must not
+    // fail the registration -- but it is reported truthfully instead of as a blanket
+    // "Failed to set up NFS". [Co-developed with claude code -- Adam]
+    if (!updateNFSConfig(appId, appDir) || !reloadNFSServer())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Per-app export line for {} is not active (writing /etc/exports "
+                           "needs root); clients can still mount it through a parent export "
+                           "of {} if one is configured",
+                           appDir,
+                           m_nfsExportDir);
+    }
+
+    return true;
+}
+
+// [Co-developed with claude code -- Adam]
+bool
+ApplicationManager::openUpAppDirPermissions(const fs::path& appDir)
+{
+    std::error_code ec;
+    fs::permissions(appDir, fs::perms::all, ec);
+    return !ec;
+}
+
+// [Co-developed with claude code -- Adam]
+bool
+ApplicationManager::exportsFileHasEntry(const std::string& folder, const std::string& exportsFile)
+{
+    std::ifstream f(exportsFile);
+    if (!f)
+    {
+        // Cannot know; keep the old always-attempt-cleanup behaviour rather than skipping.
+        return true;
+    }
+    const std::string prefix = folder + " ";
+    std::string line;
+    while (std::getline(f, line))
+    {
+        if (line.rfind(prefix, 0) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::optional<std::string>
@@ -189,115 +229,68 @@ void ApplicationManager::cleanupNFS()
 {
     SPDLOG_INFO("Cleaning up registered NFS folders in {}", m_nfsExportDir);
 
+    bool anyExportWork = false;
     for (const auto& folder : m_registeredFolders)
     {
-        cleanupAppFolder(folder); // Call the new reusable method
+        anyExportWork |= cleanupAppFolder(folder);
     }
 
-    // Reload NFS exports to apply all changes
-    if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+    // Reload NFS exports only when some folder actually had export configuration to remove;
+    // otherwise there is nothing to apply and (for a non-root kernel) nothing to warn about.
+    // [Co-developed with claude code -- Adam]
+    if (anyExportWork)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "'sudo exportfs -ra' failed after cleanup ({}). Stale exports may "
-                           "still be live.",
-                           why);
-    }
-}
-
-bool
-ApplicationManager::chownRecursive(const fs::path& root,
-                                   const std::string& user,
-                                   const std::string& group)
-{
-    // 1. lookup user -> uid
-    struct passwd* pw = getpwnam(user.c_str());
-    if (!pw)
-    {
-        // errno saved before the stream write, which can itself set it: the operands of a
-        // << chain are sequenced left to right, so strerror(errno) is evaluated after the
-        // earlier writes have already run. [Co-developed with claude code -- Adam]
-        const int savedErrno = errno;
-        std::cerr << "User lookup failed (" << user << "): " << std::strerror(savedErrno) << "\n";
-        return false;
-    }
-    uid_t uid = pw->pw_uid;
-
-    // 2. lookup group -> gid
-    struct group* gr = getgrnam(group.c_str());
-    if (!gr)
-    {
-        // errno saved before the stream write, which can itself set it: the operands of a
-        // << chain are sequenced left to right, so strerror(errno) is evaluated after the
-        // earlier writes have already run. [Co-developed with claude code -- Adam]
-        const int savedErrno = errno;
-        std::cerr << "Group lookup failed (" << group << "): " << std::strerror(savedErrno) << "\n";
-        return false;
-    }
-    gid_t gid = gr->gr_gid;
-
-    // 3. walk tree and chown()
-    std::error_code ec;
-    for (auto& entry : fs::recursive_directory_iterator(root, ec))
-    {
-        if (ec)
+        if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
         {
-            std::cerr << "Directory iteration error: " << ec.message() << "\n";
-            return false;
-        }
-        const auto& p = entry.path();
-        if (::chown(p.c_str(), uid, gid) != 0)
-        {
-            // errno saved before the stream write, which can itself set it: the operands of a
-            // << chain are sequenced left to right, so strerror(errno) is evaluated after the
-            // earlier writes have already run. [Co-developed with claude code -- Adam]
-            const int savedErrno = errno;
-            std::cerr << "chown failed for " << p << ": " << std::strerror(savedErrno) << "\n";
-            return false;
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "'sudo exportfs -ra' failed after cleanup ({}). Stale exports may "
+                               "still be live.",
+                               why);
         }
     }
-    // finally, chown the root itself
-    if (::chown(root.c_str(), uid, gid) != 0)
-    {
-        // errno saved before the stream write, which can itself set it: the operands of a
-        // << chain are sequenced left to right, so strerror(errno) is evaluated after the
-        // earlier writes have already run. [Co-developed with claude code -- Adam]
-        const int savedErrno = errno;
-        std::cerr << "chown failed for " << root << ": " << std::strerror(savedErrno) << "\n";
-        return false;
-    }
-
-    return true;
 }
 
 // In ApplicationManager.cpp
 
-void ApplicationManager::cleanupAppFolder(const std::string& folder)
+bool ApplicationManager::cleanupAppFolder(const std::string& folder)
 {
+    bool hadExportLine = false;
     try
     {
         if (fs::exists(folder))
         {
-            // Unexport folder
-            std::string cmd = buildUnexportCommand(folder);
-            const auto unexportWhy = describeCommandFailure(std::system(cmd.c_str()));
-            if (!unexportWhy.empty())
+            // Only touch exportfs and /etc/exports when this folder actually has a line
+            // there. A non-root register path never manages to write one, so for it this
+            // whole block is a silent skip instead of two doomed sudo calls and their
+            // warnings at every start. [Co-developed with claude code -- Adam]
+            hadExportLine = exportsFileHasEntry(folder, "/etc/exports");
+            std::string unexportWhy;
+            std::string sedWhy;
+            if (hadExportLine)
             {
-                SPDLOG_LOGGER_WARN(Logger::instance(),
-                                   "'sudo exportfs -u {}' failed ({}). The export is still live.",
-                                   folder,
-                                   unexportWhy);
-            }
+                // Unexport folder
+                std::string cmd = buildUnexportCommand(folder);
+                unexportWhy = describeCommandFailure(std::system(cmd.c_str()));
+                if (!unexportWhy.empty())
+                {
+                    SPDLOG_LOGGER_WARN(
+                        Logger::instance(),
+                        "'sudo exportfs -u {}' failed ({}). The export may still be live.",
+                        folder,
+                        unexportWhy);
+                }
 
-            // Remove from /etc/exports
-            std::string sedCmd = buildExportsPurgeCommand(folder, "/etc/exports");
-            const auto sedWhy = describeCommandFailure(std::system(sedCmd.c_str()));
-            if (!sedWhy.empty())
-            {
-                SPDLOG_LOGGER_WARN(Logger::instance(),
-                                   "'sudo sed -i' failed to remove {} from /etc/exports ({}). "
-                                   "The entry will be re-exported on the next reload.",
-                                   folder,
-                                   sedWhy);
+                // Remove from /etc/exports
+                std::string sedCmd = buildExportsPurgeCommand(folder, "/etc/exports");
+                sedWhy = describeCommandFailure(std::system(sedCmd.c_str()));
+                if (!sedWhy.empty())
+                {
+                    SPDLOG_LOGGER_WARN(Logger::instance(),
+                                       "'sudo sed -i' failed to remove {} from /etc/exports ({}). "
+                                       "The entry will be re-exported on the next reload.",
+                                       folder,
+                                       sedWhy);
+                }
             }
 
             // Delete folder
@@ -324,6 +317,7 @@ void ApplicationManager::cleanupAppFolder(const std::string& folder)
     {
         SPDLOG_ERROR("Failed during cleanup for '{}': {}", folder, e.what());
     }
+    return hadExportLine;
 }
 
 void ApplicationManager::cleanupStaleEntries()
@@ -336,6 +330,7 @@ void ApplicationManager::cleanupStaleEntries()
     // This regex will match directory names that are composed only of digits
     const std::regex number_pattern("^[0-9]+$");
 
+    bool anyExportWork = false;
     for (const auto& entry : fs::directory_iterator(m_nfsExportDir))
     {
         if (entry.is_directory())
@@ -344,17 +339,21 @@ void ApplicationManager::cleanupStaleEntries()
             if (std::regex_match(filename, number_pattern))
             {
                 SPDLOG_WARN("Found stale application folder from a previous run: {}", entry.path().string());
-                cleanupAppFolder(entry.path().string());
+                anyExportWork |= cleanupAppFolder(entry.path().string());
             }
         }
     }
 
-    // Reload NFS server to make sure all stale entries are fully removed
-    if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+    // Reload only when a stale folder actually had export configuration removed; a start with
+    // nothing to clean stays silent. [Co-developed with claude code -- Adam]
+    if (anyExportWork)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "'sudo exportfs -ra' failed while clearing stale entries ({}). Stale "
-                           "exports from a previous run may still be live.",
-                           why);
+        if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "'sudo exportfs -ra' failed while clearing stale entries ({}). Stale "
+                               "exports from a previous run may still be live.",
+                               why);
+        }
     }
 }

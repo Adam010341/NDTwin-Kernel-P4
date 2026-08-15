@@ -107,6 +107,35 @@ class ApplicationManager
     static std::string buildExportsPurgeCommand(const std::string& folder,
                                                 const std::string& exportsFile);
 
+    /**
+     * @brief Make one app directory writable through an all_squash NFS export: chmod 0777.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Replaces chownRecursive(appDir, "nobody", "nogroup"), which required root and made
+     * non-root kernels fail here on every registration (live 2026-08-15: the Energy app's
+     * squashed-to-nobody writes were then denied on the 775 adam-owned directory, its first
+     * simulation case never got written, and its decision loop wedged permanently). chmod by
+     * the owner needs no privilege and reaches the same goal under BOTH deployments: squashed
+     * anonymous clients can write the workspace. The directory is freshly created and empty,
+     * so nothing recursive is needed.
+     */
+    static bool openUpAppDirPermissions(const fs::path& appDir);
+
+    /**
+     * @brief Does this exports file carry a line for exactly this folder?
+     *
+     * [Co-developed with claude code -- Adam]
+     * The cleanup path used to run `sudo exportfs -u` + `sudo sed -i` unconditionally and then
+     * warn when they failed -- which they always do for a non-root kernel, three misleading
+     * warnings per start, for lines that were never written (the non-root register path cannot
+     * append to /etc/exports in the first place). Checking first makes cleanup silent when
+     * there is nothing to clean. Matching mirrors buildExportsPurgeCommand's anchor: the line
+     * must START with `folder + ' '`, so /srv/nfs/sim/1 does not claim /srv/nfs/sim/10's line.
+     * An unreadable exports file returns true: when we cannot know, fall back to attempting
+     * the old cleanup rather than silently skipping it.
+     */
+    static bool exportsFileHasEntry(const std::string& folder, const std::string& exportsFile);
+
   private:
     std::mutex m_mutex;
     int m_nextAppId;
@@ -120,8 +149,9 @@ class ApplicationManager
     bool updateNFSConfig(int appId, const std::string& appDir);
     bool reloadNFSServer();
     void cleanupNFS();
-    bool chownRecursive(const fs::path& root, const std::string& user, const std::string& group);
-    void cleanupAppFolder(const std::string& folderPath);
+    // Returns whether the folder had an export line to clean (callers reload NFS only if any
+    // folder did -- a start with nothing to clean stays silent). [Co-developed with claude code -- Adam]
+    bool cleanupAppFolder(const std::string& folderPath);
     void cleanupStaleEntries();
     
 };
