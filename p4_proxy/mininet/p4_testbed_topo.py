@@ -203,6 +203,26 @@ def verify_switches(switches, timeout=10.0):
     return [(sw.name, sw.failure_reason() or "unknown") for sw in pending]
 
 
+def disable_host_offloads(hosts):
+    """
+    Turn off checksum/segmentation offloads on every host interface.
+
+    [Co-developed with claude code -- Adam]
+    bmv2's pcap path re-emits frames byte-for-byte, so a TCP segment that left its host
+    with checksum offload pending arrives at the far host carrying a bad checksum and is
+    silently dropped -- handshakes succeed (tiny segments), bulk TCP stalls at zero. This
+    was masked since the topology's creation because every P4-side test used UDP or ICMP;
+    NTG's iperf3 runs surfaced it on 2026-08-15 (seventeen "unable to connect to server"
+    files while ping crossed the same fabric at 8 ms). Verified the same day: with
+    offloads off, the identical TCP pair moved 16.8 MB at 23.9 Mbps. GSO/TSO/GRO go too:
+    a 64 KB super-frame is one pcap packet as far as bmv2 is concerned.
+    """
+    for h in hosts:
+        for intf in h.intfList():
+            if intf.name != 'lo':
+                h.cmd(f'ethtool -K {intf.name} tx off rx off gso off tso off gro off')
+
+
 def write_manifest(switches, path=MANIFEST_PATH):
     """
     Record each switch's PID and ports so one switch can be managed on its own.
@@ -357,6 +377,8 @@ def main():
                 dst_ip = dst.IP() 
                 dst_mac = dst.MAC()
                 src.cmd(f'arp -s {dst_ip} {dst_mac}')
+
+    disable_host_offloads(hosts)
 
     switches = [net.get(f's{i}') for i in range(1, 11)]
     failures = verify_switches(switches)

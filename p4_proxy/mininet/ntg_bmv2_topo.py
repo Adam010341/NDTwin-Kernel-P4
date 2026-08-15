@@ -47,8 +47,8 @@ sys.path.append(NTG_DIR)
 from mininet.net import Mininet
 from mininet.log import setLogLevel
 
-from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, reap_manifest_switches,
-                             verify_switches, write_manifest)
+from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, disable_host_offloads,
+                             reap_manifest_switches, verify_switches, write_manifest)
 
 
 def fail(msg: str) -> None:
@@ -86,6 +86,8 @@ def main() -> None:
         for dst in hosts:
             if src != dst:
                 src.cmd(f'arp -s {dst.IP()} {dst.MAC()}')
+    # Without this, bulk TCP stalls at zero through bmv2 -- see the helper's docstring.
+    disable_host_offloads(hosts)
 
     switches = [net.get(f's{i}') for i in range(1, 11)]
     failures = verify_switches(switches)
