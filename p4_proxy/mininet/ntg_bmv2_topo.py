@@ -109,7 +109,23 @@ def main() -> None:
     os.chdir(NTG_DIR)
     from network_traffic_generator import command_line
     try:
-        command_line(net, config_file_path=os.path.join(NTG_DIR, "NTG.yaml"))
+        # Crash armour, verified necessary live (2026-08-15): an uncaught exception inside
+        # NTG's command loop -- e.g. a flow config that draws from an empty distance bucket
+        # dies at randrange(0) in _handle_flow_command -- used to unwind straight through
+        # here into the finally below, tearing down all ten switches because one command
+        # went wrong. Print the crash, keep the fabric, and re-enter the CLI; only a real
+        # exit (EOF/Ctrl-C/`exit`, which return instead of raising) reaches teardown.
+        while True:
+            try:
+                command_line(net, config_file_path=os.path.join(NTG_DIR, "NTG.yaml"))
+                break
+            except (KeyboardInterrupt, EOFError):
+                break
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                print("\n[ntg_bmv2_topo] NTG's command loop crashed (see traceback above). "
+                      "The fabric is still up; returning to the NTG prompt.\n")
     finally:
         # p4_testbed_topo.main's teardown, verbatim: stop the net, then reap any switch the
         # power helper restarted (net.stop cannot address those) before the manifest goes.
