@@ -20,6 +20,74 @@ from mininet.log import setLogLevel, info
 # all of them). See Phase 7 of doc/2026-07-27_p4_bmv2_support_plan.md.
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
 
+# [Co-developed with claude code -- Adam]
+# The launcher default and its optional override. The override exists for A/B performance
+# runs (doc/2026-08-15_bmv2-performance-report.md): the lab wrapper launches this topology
+# with a fixed root environment, so no env var can reach it -- a file next to the topology
+# is the only channel an unprivileged operator has. One directive line, the absolute path
+# of the simple_switch_grpc to run; blank lines and #-comments are ignored, so commenting
+# the line out re-selects the stock binary.
+DEFAULT_BMV2_BINARY = "simple_switch_grpc"
+BINARY_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "bmv2_binary_override")
+
+
+def resolve_bmv2_launcher(override_path=None):
+    """
+    Which simple_switch_grpc this fabric runs: (binary, lib_dir).
+
+    [Co-developed with claude code -- Adam]
+    Default is the bare name -- PATH lookup, byte-identical to the pre-override behavior.
+    With an override file, the binary comes from its first directive line, and lib_dir is
+    the install prefix's ../lib when that directory exists: the fast build's libraries
+    must accompany its binary or the run silently mixes stock libs into a "fast"
+    measurement (the performance report's trap #3), which is why the derivation is
+    automatic rather than a second line someone can forget.
+
+    A present-but-broken override raises instead of falling back: a fallback would
+    benchmark the stock build under a filename that claims otherwise, and a corrupted
+    comparison is worse than a refused run.
+    """
+    if override_path is None:
+        # Resolved at call time, not bound at def time, so the module attribute stays
+        # patchable and every caller (start(), both mains' pre-flights) sees one source.
+        override_path = BINARY_OVERRIDE_PATH
+    try:
+        with open(override_path, encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except FileNotFoundError:
+        return DEFAULT_BMV2_BINARY, None
+    directive = next((ln.strip() for ln in lines
+                      if ln.strip() and not ln.strip().startswith("#")), None)
+    if directive is None:
+        return DEFAULT_BMV2_BINARY, None
+    if not os.path.isabs(directive):
+        raise ValueError(f"bmv2 binary override must be an absolute path, "
+                         f"got {directive!r} (file: {override_path})")
+    if not (os.path.isfile(directive) and os.access(directive, os.X_OK)):
+        raise ValueError(f"bmv2 binary override names no executable: {directive!r} "
+                         f"(file: {override_path})")
+    lib_dir = os.path.normpath(os.path.join(os.path.dirname(directive), "..", "lib"))
+    return directive, (lib_dir if os.path.isdir(lib_dir) else None)
+
+
+def bmv2_launch_head(binary, lib_dir):
+    """
+    The start of the shell command that launches one switch.
+
+    [Co-developed with claude code -- Adam]
+    LD_LIBRARY_PATH rides in front as a shell env-prefix: the launch goes through the
+    switch's shell (BMv2Switch.start -> self.cmd), where the prefix binds to that process
+    only. Deliberate consequence: the manifest argv then starts with the prefix, and
+    ndtwin-p4-power refuses to relaunch such an entry (its shell-free exec checks
+    basename(argv[0])) -- so under an override, power-ON fails loudly instead of
+    relaunching the fast binary against the stock libraries via the ldconfig cache.
+    Power-OFF is untouched (pid + comm). A refusal an operator can read beats a
+    mixed-library switch nobody notices.
+    """
+    return f"LD_LIBRARY_PATH={lib_dir} {binary}" if lib_dir else binary
+
+
 class BMv2Switch(Switch):
     """BMv2 switch for Mininet"""
     def __init__(self, name, json_path=None, device_id=1, grpc_port=50051, thrift_port=9090, **kwargs):
@@ -35,29 +103,31 @@ class BMv2Switch(Switch):
         self.launch_argv = None
 
     def start(self, controllers):
-        args = ['simple_switch_grpc']
+        binary, lib_dir = resolve_bmv2_launcher()
+        args = [bmv2_launch_head(binary, lib_dir)]
         for port, intf in self.intfs.items():
             if not intf.IP():
                 args.extend(['-i', f'{port}@{intf.name}'])
-                
+
         # args.extend(['--log-console'])
         args.extend(['--thrift-port', str(self.thrift_port)])
         args.extend(['--device-id', str(self.device_id)])
-        
+
         if self.json_path:
             args.append(self.json_path)
         else:
             args.append('--no-p4')
-            
+
         args.append('--')
         args.append('--grpc-server-addr')
         args.append(f'0.0.0.0:{self.grpc_port}')
         args.append('--cpu-port')
         args.append('255')
-        
+
         cmd = ' '.join(args)
         self.launch_argv = cmd
-        info(f"Starting {self.name} (gRPC: {self.grpc_port}, Thrift: {self.thrift_port})\n")
+        info(f"Starting {self.name} (gRPC: {self.grpc_port}, Thrift: {self.thrift_port}, "
+             f"bin: {binary})\n")
         # `echo $!` yields the background PID; cmd() returns the shell's output. Without this
         # there is no handle on the process at all, which is why stop() used a job spec.
         out = self.cmd(f"{cmd} > {self.log_file} 2>&1 & echo $!")
@@ -353,6 +423,15 @@ def main():
     if not os.path.exists(json_path):
         print(f"Error: Compiled P4 JSON not found at {json_path}. Run 'p4c-bm2-ss' first in p4_src.")
         sys.exit(1)
+
+    # Pre-flight the binary choice before anything is torn down: a broken override should
+    # fail here, not after mn -c has already destroyed the running fabric.
+    try:
+        binary, lib_dir = resolve_bmv2_launcher()
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    print(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
 
     os.system('sudo mn -c > /dev/null 2>&1')
     # [Co-developed with claude code -- Adam]

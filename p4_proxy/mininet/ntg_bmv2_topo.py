@@ -48,7 +48,8 @@ from mininet.net import Mininet
 from mininet.log import setLogLevel
 
 from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, disable_host_offloads,
-                             reap_manifest_switches, verify_switches, write_manifest)
+                             reap_manifest_switches, resolve_bmv2_launcher,
+                             verify_switches, write_manifest)
 
 
 def fail(msg: str) -> None:
@@ -70,6 +71,14 @@ def main() -> None:
     except ImportError:
         fail("this interpreter has no 'nornir'; run with the ntg-env python:\n"
              "  sudo /home/adam/miniconda3/envs/ntg-env/bin/python " + __file__)
+
+    # Pre-flight the binary choice before anything is torn down: a broken override should
+    # fail here, not after mn -c has already destroyed the running fabric.
+    try:
+        binary, lib_dir = resolve_bmv2_launcher()
+    except ValueError as e:
+        fail(str(e))
+    print(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
 
     # Reset exactly the way p4_testbed_topo.main does: mn -c does not touch bmv2, and an
     # orphaned switch holding its gRPC port kills this run's twin with "Address already in use".
