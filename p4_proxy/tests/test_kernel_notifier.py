@@ -254,12 +254,14 @@ class RenotifyUntilAcknowledgedTest(unittest.TestCase):
 
     def test_sleeps_before_every_round_not_after(self):
         renotify = self._import()
-        sleeps = []
-        renotify(lambda d: True, [1], attempts=5, interval_s=10,
-                 sleep=sleeps.append, log=lambda m: None)
-        # One round was enough: exactly one sleep, before it -- the caller has just finished
-        # a full startup attempt, so an immediate re-push would be pointless.
-        self.assertEqual(sleeps, [10])
+        # Event order, not sleep count: sleep-after-the-round also produces exactly one sleep
+        # when round one acknowledges, so a counter cannot tell the two apart. The caller has
+        # just finished a full startup attempt -- an immediate re-push would be pointless, so
+        # the sleep must come first.
+        events = []
+        renotify(lambda d: events.append("notify") or True, [1], attempts=5, interval_s=10,
+                 sleep=lambda s: events.append("sleep"), log=lambda m: None)
+        self.assertEqual(events, ["sleep", "notify"])
 
     def test_nothing_to_do_means_no_sleeping_at_all(self):
         renotify = self._import()
