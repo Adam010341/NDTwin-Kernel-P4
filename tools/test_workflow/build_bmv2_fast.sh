@@ -35,17 +35,22 @@ set -euo pipefail
 
 SRC=/home/adam/P4_Source_Code/behavioral-model
 PREFIX=/usr/local/bmv2-fast
-BUILD=/tmp/bmv2-fast-build
+BUILD=/tmp/bmv2-fast-src
 VENV=/home/adam/p4dev-python-venv
 
-# Out-of-tree build: leaves $SRC/Makefile, config.log and config.h untouched, so the
-# existing -O0 build's configuration stays reproducible for comparison.
-rm -rf "$BUILD" && mkdir -p "$BUILD"
-cd "$SRC" && ./autogen.sh
-cd "$BUILD"
+# Build inside a local git clone, not out-of-tree against $SRC: autoconf refuses an
+# out-of-tree configure while the source dir holds an in-tree configuration ("source
+# directory already configured"), and the fix it suggests -- make distclean in $SRC --
+# would destroy the original -O0 build's config.log, which is the provenance evidence the
+# performance report quotes. A clone reproduces HEAD exactly (the version string embeds the
+# commit) and leaves the original tree byte-for-byte untouched. Verified live 2026-08-15:
+# the out-of-tree form failed with exactly that error; the clone form built clean.
+rm -rf "$BUILD"
+git clone --local "$SRC" "$BUILD"
+cd "$BUILD" && ./autogen.sh
 
 PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
-"$SRC"/configure \
+./configure \
   --prefix="$PREFIX" \
   --with-pi \
   --with-thrift \
