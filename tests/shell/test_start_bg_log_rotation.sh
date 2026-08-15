@@ -79,5 +79,8 @@ check "the older era survives in .prev" "era-one" "$(cat "$LOG4.prev" 2>/dev/nul
 check "the newer era is in the main log" "era-two" "$(cat "$LOG4" 2>/dev/null)"
 
 echo
-echo "passed: $PASS  failed: $FAIL"
-[[ $FAIL -eq 0 ]]
+if [[ $FAIL -gt 0 ]]; then
+    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+    exit 1
+fi
+echo "Ran $((PASS + FAIL)) checks, all passed"

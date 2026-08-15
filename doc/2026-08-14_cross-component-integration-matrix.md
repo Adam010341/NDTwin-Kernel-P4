@@ -179,6 +179,33 @@ kernel 2,801 requests 零 exception;NSR 5s/TE 10s 節奏對帳吻合。**採信�
 19. Web-GUI 對 `get_graph_data` 的輪詢是設定值的**兩倍**(120/min vs 60/min,
     最貴的端點)——前端重複抓取,小額效能票。
 
+## 【2026-08-15 白天】修復輪(Adam 裁決:只修我們 repo 的;NFS 用 chmod 版)
+
+| 修復 | commit | 驗證 |
+|---|---|---|
+| **發現 6/16(NFS 權限鏈)**:`setupNFSForApp` 以 `chmod 777`(`fs::permissions`)取代
+  chown-to-nobody——owner 免特權即可讓 all_squash 客戶端寫入,root/非 root 兩種部署同解;
+  per-app export 行改為 best-effort+誠實訊息(母 export 已涵蓋);cleanup 先查
+  `/etc/exports` 有無該行,沒有就整段跳過 sudo(啟動三警語歸零);`chownRecursive` 移除 | `fe6a577` | 7 條新測試(anchor 語意/chmod/完整非 root 生命週期);**mutation 4/4 殺**;571/571 雙路綠 |
+| **發現 14(log 截斷)**:`start_bg` 啟動前把非空 log 輪替成 `.prev`(單檔單 era、
+  磁碟有界兩代) | 上表後續 commit | 7 條 shell 測試;拿掉輪替行的 mutant 紅 |
+| **發現 15(死推播+誇大警語)**:`switch_entered` 失敗後背景有界重試(30×10s);訊息改述
+  事實(kernel 後起是常態、其輪詢路徑 `TopologyAndFlowMonitor.cpp:566` 自會 enable);
+  兩處「唯一路徑」過時註解更正並附引註 | 同上 | 4 條注入時鐘測試;**mutation 3/3 殺**(其中 sleep 順序 mutant 逼出事件序斷言);Ran 21 綠 |
+
+**給報告用的 NFS 修法敘事**(Adam 指定要 documentation):部署以非 root 跑 kernel 時,
+chown 需要的特權不存在,而 chmod-by-owner 不需要——把「誰擁有」換成「誰可寫」,
+在單機實驗環境等價且兩種部署通用。修復把整條非 root 生命週期(註冊→可寫工作區→
+destructor 靜默清理)第一次變成**免 root、免 sudo、免 NFS server 的可單元測試路徑**。
+發現 18(route 重裝 16 次)按「觀察非 bug」歸類,**刻意不修**。
+
+**同日新增交付**:NTG×bmv2 bridge(`p4_proxy/mininet/ntg_bmv2_topo.py`+低速率 template,
+等 Adam sudo 實跑);bmv2 效能報告(`doc/2026-08-15_bmv2-performance-report.md`,
+**兩個翻案**:①現裝 bmv2 是 -O0+全 logging 的 debug build(config.log 實錘),
+非 bmv2 本身的極限;②「170 Mbps 本機實測」的說法是**出處錯誤**——那是文獻值
+(SIGSIM-PADS '23),本機從未量過飽和點,重建驗證時新舊 build 一併量。
+重建腳本 `build_bmv2_fast.sh` 備妥未執行)。
+
 ## 明早給 Adam 的清單(彙整)
 
 1. **Energy 管線 NFS 權限鏈修法四選一**(發現 6):kernel root / chown→chmod /

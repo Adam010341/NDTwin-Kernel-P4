@@ -21,6 +21,20 @@ What is still open: `doc/2026-07-29_HANDOFF.md`.
 
 ### Fixed (crashes and silent failures)
 
+0. **App registration now provisions a writable workspace without root** (2026-08-15,
+   `fe6a577`). `setupNFSForApp` chmods the per-app directory instead of chowning it to
+   nobody — chown needs root, and on the non-root deployment its failure left the
+   directory unwritable through the all_squash export: the Energy app's first simulation
+   case write was denied and its decision loop wedged permanently while looking healthy.
+   The per-app `/etc/exports` line is now best-effort with a truthful message (a parent
+   export covers the directory here), and cleanup checks the exports file before invoking
+   sudo, so a start with nothing to clean is silent. The whole non-root lifecycle
+   (register → writable dir → silent destructor cleanup) is unit-tested with no root,
+   sudo, or NFS server; mutation gate 4/4. Companion tooling fixes from the same
+   integration round: stack.sh logs rotate to `.prev` instead of being erased each
+   restart, and the proxy's switch-entered push retries in the background instead of
+   dying once and declaring the graph permanently degraded.
+
 1. **Fix SIGFPE crash in flow-rate calculation.** The `hopsCounter == 0` divide-by-zero
    guard had been removed; any tracked flow idle for one 1-second tick killed the process.
    Rate arithmetic extracted into `computeEstimatedRates` as a testable seam.
