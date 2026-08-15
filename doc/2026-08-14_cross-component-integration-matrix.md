@@ -238,8 +238,11 @@ offload 後同一對 host 16.8MB@23.9Mbps。修復=`disable_host_offloads()` 進
 - **#20 失敗流讓 RUNNING 計數器永久洩漏**:錯誤路徑不走完成回呼 → 「waiting for all
   connections to be restored: 303」無限等待 → 同進程後續實驗全數卡死;**連它自己的
   SIGINT 清理路徑也在等同一個計數器**(Ctrl-C 被吞、退出流程死鎖,只能 SIGTERM)。
-  反向驗證:offload 修復後流量正常完成,`decreasing running count by 1` 正常扣減,
-  實驗自我善終。
+  反向驗證(含更正):offload 修復後流量正常完成,`decreasing running count by 1` 正常
+  扣減,計數器 303 排水到 **3**——**但那 3 對永遠卡住**(296 成功+4 錯誤+3 失蹤=303),
+  等待迴圈依舊無限。即成功輪也有 ~1% 完成回呼遺失,實驗**不會**真正自我善終,
+  收尾仍需人為中斷(這次計數小,Ctrl-C 的清理路徑有走完、拓撲乾淨收掉)。
+  upstream 回報時這是最有力的量化證據。
 - **#21 空距離桶=整隻工具崩潰**:`_handle_flow_command` 對空 `conns` 做 `randrange(0)`,
   無驗證無錯誤訊息。本 fabric 的分類真相(裝甲保命後 debug dump 直讀):**全部 host pair
   落在 far**(near/middle 皆空)——兩種路徑長度 {3,5} 被 3-way k-means 分成「far 獨大」。
