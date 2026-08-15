@@ -115,6 +115,14 @@ def main() -> None:
         # here into the finally below, tearing down all ten switches because one command
         # went wrong. Print the crash, keep the fabric, and re-enter the CLI; only a real
         # exit (EOF/Ctrl-C/`exit`, which return instead of raising) reaches teardown.
+        #
+        # Re-entry needs two extra pieces, both learned from the armour's own first live
+        # round: command_line is single-shot per process -- its logger_config calls
+        # loguru's remove(0), and handler 0 only exists the first time, so a bare re-entry
+        # dies at line 307 before reaching the prompt. The no-op patch below (our process's
+        # copy of the module; NTG's file is untouched) makes re-entry real. And a crash
+        # budget keeps a fault that fires before the input loop from spinning hot forever.
+        crashes = 0
         while True:
             try:
                 command_line(net, config_file_path=os.path.join(NTG_DIR, "NTG.yaml"))
@@ -124,6 +132,13 @@ def main() -> None:
             except Exception:
                 import traceback
                 traceback.print_exc()
+                crashes += 1
+                if crashes >= 5:
+                    print("\n[ntg_bmv2_topo] NTG crashed 5 times; giving up and tearing down.\n")
+                    break
+                import network_traffic_generator as _ntg_mod
+                _ntg_mod.logger_config = lambda *a, **k: None
+                time.sleep(1)
                 print("\n[ntg_bmv2_topo] NTG's command loop crashed (see traceback above). "
                       "The fabric is still up; returning to the NTG prompt.\n")
     finally:
