@@ -112,8 +112,10 @@ def main() -> None:
         print(f"All {len(switches)} BMv2 switches listening on gRPC 50051 ~ 50060.")
         print(f"Switch manifest: {MANIFEST_PATH}")
     print("Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),")
-    print("then use the NTG prompt below. Low-rate template: flow_bmv2_low.json next to")
-    print("this script. NTG cannot interrupt an experiment -- let flows finish.")
+    print("then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an")
+    print("absolute path -- the cwd moves to NTG's repo before the prompt appears):")
+    print(f"    flow --config {os.path.join(HERE, 'flow_bmv2_low.json')}")
+    print("NTG cannot interrupt an experiment -- let flows finish.")
     print("======================================================================\n")
 
     # NTG resolves NTG.yaml -> ./setting/Mininet.yaml relative to its cwd.
