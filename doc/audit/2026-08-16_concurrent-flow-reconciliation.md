@@ -87,8 +87,11 @@ Round 1 完整觀測到 08-15 結案輪「排水卡 3 永久洩漏」的真機�
 兩輪皆自我善終、計數器歸 0、prompt 回歸,零失蹤。重啟產生新 5-tuple
 (52307 的 src port 39786→41544)再次佐證。
 **「成功輪也漏 ~1%」「實驗不會自我善終」作廢**;錯誤路徑回呼與 SIGINT 兩個子主張
-降級為待重測。詳見 `doc/2026-08-15_ntg-upstream-report-draft.md` 第 1 條更正紀錄
-(upstream 投遞前需 Adam 重裁)。
+經 12:20 的針對性重測(Adam 裁決後執行)**也全數無法重現**:45 秒 kill 風暴
+(process-death+connection-refused)下 183/183 流全走完成路徑、counter 排空、實驗
+善終;對等待中的 NTG 送 SIGINT,12 秒內乾淨退場(訊號落點可能在運行期,誠實保留)。
+NTG 稿第 1 條已定稿為 docs/UX 回報(重啟尾巴無文件+等待訊息不透明),
+詳見 `doc/2026-08-15_ntg-upstream-report-draft.md`。
 
 ## 5. 3c 修復(`e86cb4d`)與 Round 2 驗證
 

@@ -1,6 +1,8 @@
 # NTG 缺陷回報稿(給 NTG 維護者,2026-08-15)
 
 > **內部前言(投遞前刪)**:Adam 2026-08-15 晚裁決「NTG 三條正式回報」的執行稿。
+> **2026-08-16 更新**:第 1 條經 Adam 裁決「先針對性重測再定稿」→ 重測完成,
+> 三個缺陷子主張全數無法重現,**已定稿為 docs/UX 回報**(內文含調查紀錄)。
 > 三條都是 2026-08-15 把 NTG 接上 bmv2 fabric 實測時抓到的(NTG 本身零修改,經
 > `p4_proxy/mininet/ntg_bmv2_topo.py` bridge 驅動);其中 #1/#3 與 fabric 種類無關,
 > 在 NTG 自家 OVS 拓撲上也會發生。完整脈絡在
@@ -15,32 +17,27 @@
 環境:NTG 於 Mininet 模式驅動一個 10-switch bmv2 fabric(4 host),
 `flow --config` 跑 303 個 connection 的實驗,2026-08-15。NTG 程式碼未做任何修改。
 
-### 1. ⚠️ 主張大幅縮水(2026-08-16 凌晨重測)——「計數器洩漏」是誤讀,投遞前要 Adam 重裁
+### 1. 【定稿:docs/UX 回報】interval 結束 ≠ 實驗結束——fixed 流的重啟尾巴無文件記載,等待訊息不透明
 
-> **更正紀錄(2026-08-16)**:本條原主張「成功輪也漏 ~1%(303→3 永卡)、實驗不會
-> 自我善終」。當夜對同一 fabric 重跑同構實驗(varied 1 flow/s + fixed 3×8M,300s
-> interval)兩輪,**兩輪都完整自我善終**:計數器排水到 0、印出 `Experiment completed`、
-> 提示符回歸,零流失蹤。「卡 3」的真機制是 **fixed_traffic 的維持性重啟**:fixed 流
-> 結束時 NTG 會重啟它以維持數量(「waiting for all connections to be restored」的
-> 字面意思),最後一代在 interval 結束前才起跑、還要跑滿自己完整的 duration——
-> 270s duration 的設定下,300s 的 interval 實際要 **~570s** 才收尾(實測 02:41:41
-> interval 結束 → 02:45:47 完成,與 270s 尾巴吻合到秒級)。08-15 的「永久卡住」
-> 是在尾巴走完之前就人為中斷所致,「3 無聲失蹤」= 還在合法運行的最後一代 fixed 流。
-> 「~1% 遺失率」的統計基底既然是這 3 條,一併作廢。
+**現象**:`fixed_traffic` 以「維持 N 條」語意運作——fixed 流結束就重啟以補足數量,
+最後一代在 interval 結束前起跑、跑滿自己完整的 duration。**收尾時間實際是
+`interval + fixed_duration`**(270s duration + 300s interval 實測 ~570s 才
+`Experiment completed`,誤差秒級)。這個行為沒有任何文件記載,而收尾期的
+「waiting for all connections to be restored: N」不說明在等哪些流、還要多久——
+使用者(包括我們)會把合法尾巴誤判成 hang 而人為中斷。
 
-**尚未被推翻、但降級為「單次觀察,機制未確認」的兩件**(2026-08-16 重測時無流量錯誤
-發生,無從檢驗):
-- 錯誤路徑(iperf3 連不上對端)是否跳過完成回呼——08-15 曾見 4 條有錯誤訊息的流,
-  但依當晚「卡 3」的對帳,那 4 條**有**遞減,反而不支持原機制主張。
-- 等待期間 SIGINT 被吞(只能 SIGTERM)——若等待本身是合法尾巴,這仍是個獨立的
-  可用性問題(等待迴圈不響應 Ctrl-C、也不印還剩哪些流/還要多久),但需針對性重測。
+**建議方向**:①文件明載 fixed 流的重啟語意與收尾預算②等待訊息印剩餘流清單
+(host pair/port/預計結束時間)。
 
-**可轉為文件性建議的部分**:interval 結束不等於實驗結束——fixed 流的最後一代會跑滿
-duration,收尾預算是 `interval + fixed_duration`。這個行為完全沒有文件記載,等待訊息
-也不說明在等什麼,值得回報為 docs/UX 缺陷(等待迴圈印出剩餘流清單與預估時間)。
+> **調查紀錄(給維護者的誠實註腳,也是我們自己的更正)**:我們最初把這個尾巴
+> 誤讀成「完成回呼洩漏、計數器永卡」。針對性重測(2026-08-16)三項全數無法重現:
+> ①兩輪同構實驗完整自我善終(counter→0、prompt 回歸);②實驗中途以 45 秒
+> kill 風暴打死途中所有 iperf3(process-death + connection-refused 兩類錯誤),
+> 183/183 全走完成路徑、counter 照常排空、實驗照常善終——錯誤路徑**不會**漏
+> 遞減;③對等待中的 NTG 送 SIGINT,12 秒內乾淨退場。原「洩漏/死鎖」主張撤回。
 
-**投遞裁決(Adam)**:本條要嘛降級為 docs/UX 回報,要嘛先做針對性重測
-(關掉一個目標 host 逼出錯誤路徑)再決定。原三條裡的 #2/#3 不受影響。
+**重現(尾巴行為)**:任何 `fixed_traffic` 配置,`duration` 接近 `interval_duration`
+時最明顯;掐錶對照 interval 結束與 `Experiment completed` 的時間差。
 
 ### 2. 距離分桶為空時,flow 指令直接崩潰(randrange(0))
 
