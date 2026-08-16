@@ -78,7 +78,7 @@ class RecordingStub:
     would quietly succeed.
     """
 
-    def __init__(self, error=None, always=False):
+    def __init__(self, error=None, always=False, times=1):
         self.requests = []
         # [Co-developed with claude code -- Adam]
         # Recorded, and `timeout` accepted, because the real gRPC stub has always taken one. This
@@ -90,16 +90,17 @@ class RecordingStub:
         # without grpc skips every test in here and reports the suite as OK.
         self.write_timeouts = []
         self.error = error
-        self.always = always
+        # With the DELETE-first reset, "an existing session" costs *two* failures before the
+        # MODIFY fallback is reached (the DELETE eats the first). `times` says how many calls
+        # fail; the default 1 now models a first boot, where only the DELETE fails.
+        self.remaining_failures = float("inf") if always else times
 
     def Write(self, request, timeout=None):
         self.requests.append(request)
         self.write_timeouts.append(timeout)
-        if self.error is not None:
-            if self.always:
-                raise self.error
-            error, self.error = self.error, None  # fail once, then succeed
-            raise error
+        if self.error is not None and self.remaining_failures > 0:
+            self.remaining_failures -= 1
+            raise self.error
 
 
 def a_client() -> P4RuntimeClient:
@@ -198,9 +199,15 @@ class CloneSessionRequestTest(unittest.TestCase):
     def setUp(self):
         self.client = a_client()
 
+    def types(self):
+        return [r.updates[0].type for r in self.client.stub.requests]
+
     def sent(self):
-        self.assertEqual(len(self.client.stub.requests), 1)
-        return self.client.stub.requests[0]
+        # The reset semantics send DELETE then INSERT on the happy path; the INSERT is the
+        # request whose content matters.
+        self.assertEqual(self.types(),
+                         [p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT])
+        return self.client.stub.requests[1]
 
     def session(self):
         update = self.sent().updates[0]
@@ -242,13 +249,39 @@ class CloneSessionRequestTest(unittest.TestCase):
         self.assertEqual(self.sent().election_id.low, 1)
         self.assertEqual(self.sent().updates[0].type, p4runtime_pb2.Update.INSERT)
 
+    def test_deletes_the_leftover_session_before_inserting(self):
+        # Reset semantics, measured necessary live (2026-08-16): a proxy restart re-pushes the
+        # pipeline, which resets the P4Runtime server's clone-session bookkeeping while the
+        # PRE's multicast group survives -- the INSERT then "succeeds" on the surviving group
+        # and appends a second CPU replica. Every sampled packet was cloned twice and every
+        # twin figure doubled, uniformly. Deleting first makes the outcome one replica no
+        # matter what an earlier proxy generation left behind.
+        self.client.write_clone_session()
+
+        delete = self.client.stub.requests[0]
+        self.assertEqual(delete.updates[0].type, p4runtime_pb2.Update.DELETE)
+        self.assertEqual(
+            delete.updates[0].entity.packet_replication_engine_entry.clone_session_entry
+            .session_id, SAMPLE_SESSION_ID,
+            "the DELETE must address the same session the INSERT recreates")
+
+    def test_a_failed_delete_is_the_normal_first_boot_and_is_tolerated(self):
+        # On a fresh switch there is nothing to delete; the DELETE fails and the INSERT must
+        # proceed as if nothing happened.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.NOT_FOUND))
+        self.assertTrue(self.client.write_clone_session())
+        self.assertEqual(self.types(),
+                         [p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT])
+
     def test_an_existing_session_is_modified_rather_than_failing(self):
-        # A proxy restart against live switches must reconfigure, not refuse to start.
-        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.ALREADY_EXISTS))
+        # A proxy restart against live switches must reconfigure, not refuse to start. Two
+        # failures: the DELETE eats the first, the INSERT the second, then MODIFY lands.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.ALREADY_EXISTS), times=2)
         self.assertTrue(self.client.write_clone_session())
 
-        types = [r.updates[0].type for r in self.client.stub.requests]
-        self.assertEqual(types, [p4runtime_pb2.Update.INSERT, p4runtime_pb2.Update.MODIFY])
+        self.assertEqual(self.types(), [p4runtime_pb2.Update.DELETE,
+                                        p4runtime_pb2.Update.INSERT,
+                                        p4runtime_pb2.Update.MODIFY])
 
     def test_the_code_bmv2_actually_returns_also_falls_back_to_modify(self):
         # This is the case that matters, and the one the original ALREADY_EXISTS-only check
@@ -258,11 +291,12 @@ class CloneSessionRequestTest(unittest.TestCase):
         # With the old check, every switch reported "clone session failed, NO telemetry from it"
         # on a proxy restart while the session was in fact perfectly good -- the exact scenario
         # the fallback exists for.
-        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNKNOWN))
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNKNOWN), times=2)
         self.assertTrue(self.client.write_clone_session())
 
-        types = [r.updates[0].type for r in self.client.stub.requests]
-        self.assertEqual(types, [p4runtime_pb2.Update.INSERT, p4runtime_pb2.Update.MODIFY])
+        self.assertEqual(self.types(), [p4runtime_pb2.Update.DELETE,
+                                        p4runtime_pb2.Update.INSERT,
+                                        p4runtime_pb2.Update.MODIFY])
 
     def test_any_insert_failure_is_retried_as_modify(self):
         # Deliberately not code-specific: PI/bmv2 has already surprised us once about which
@@ -271,7 +305,7 @@ class CloneSessionRequestTest(unittest.TestCase):
         for code in (grpc.StatusCode.INVALID_ARGUMENT, grpc.StatusCode.UNKNOWN,
                      grpc.StatusCode.ALREADY_EXISTS):
             client = a_client()
-            client.stub = RecordingStub(FakeRpcError(code))
+            client.stub = RecordingStub(FakeRpcError(code), times=2)
             self.assertTrue(client.write_clone_session(), f"no MODIFY retry after {code.name}")
 
     def test_a_real_failure_is_reported_rather_than_swallowed(self):
@@ -279,14 +313,15 @@ class CloneSessionRequestTest(unittest.TestCase):
         # will ever arrive -- the exact failure this phase exists to remove.
         #
         # always=True is the point: the fallback retries every INSERT failure as a MODIFY, so a
-        # stub that fails only once would let the retry succeed and this would pass without
-        # testing anything.
+        # stub that fails a bounded number of times would let a later attempt succeed and this
+        # would pass without testing anything.
         self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.INTERNAL), always=True)
         self.assertFalse(self.client.write_clone_session())
 
-        types = [r.updates[0].type for r in self.client.stub.requests]
-        self.assertEqual(types, [p4runtime_pb2.Update.INSERT, p4runtime_pb2.Update.MODIFY],
-                         "both should have been attempted before giving up")
+        self.assertEqual(self.types(), [p4runtime_pb2.Update.DELETE,
+                                        p4runtime_pb2.Update.INSERT,
+                                        p4runtime_pb2.Update.MODIFY],
+                         "all three should have been attempted before giving up")
 
     def test_a_custom_session_and_port_are_honoured(self):
         self.client.write_clone_session(session_id=300, egress_port=64)

@@ -301,13 +301,33 @@ class P4RuntimeClient:
         Falls back to MODIFY when INSERT fails, so a proxy restart against live switches
         reconfigures the session instead of refusing to start.
 
-        The fallback deliberately triggers on *any* INSERT failure rather than on
-        ALREADY_EXISTS. Measured against a real bmv2: inserting an existing session returns
-        **UNKNOWN with an empty details string**, not ALREADY_EXISTS, so a code-specific check
-        never fired -- every switch reported "clone session failed, NO telemetry from it" on
-        restart while the session was in fact fine. MODIFY on the same session then succeeds.
-        Nothing is masked by being less specific: a genuine failure fails the MODIFY too and is
-        reported.
+        DELETE-first, then INSERT: this write *intends* reset semantics, and the DELETE is
+        kept for the cases it can reach -- but it cannot heal a cross-restart leftover, so
+        the operational rule below matters more than this code.
+
+        Measured live (2026-08-16, reconciliation round 2): a proxy restart re-pushes the
+        pipeline, and after that commit the P4Runtime server's clone-session bookkeeping is
+        empty while the target's PRE state (multicast group 0x8000+session behind the
+        session) survives from the previous proxy generation. The restart's INSERT then
+        "succeeds" and *appends* another CPU-port replica to the surviving group -- every
+        switch ended with mgid 33018 carrying two identical port-255 nodes, every sampled
+        packet was cloned twice, and every twin rate and link-usage figure doubled,
+        uniformly and silently (veth reconciliation caught it: twin/veth ~2.0 on all 22
+        active edges). A third restart, with this DELETE in place, went 2 -> 3: the DELETE
+        is answered NOT_FOUND from the emptied bookkeeping and never touches the orphaned
+        group, so no clone-session API call can clean it up from here.
+
+        **Operational rule: a proxy restart against a warm fabric multiplies telemetry by
+        the number of restarts. Restart the fabric (fresh bmv2 processes) whenever the
+        proxy restarts.** The veth-vs-twin reconciliation harness is what catches this
+        shape; absolute rates alone just look "busier".
+
+        The MODIFY fallback stays, for the path where DELETE+INSERT still fails: without a
+        pipeline re-push the server *does* remember the session, and that INSERT returns
+        **UNKNOWN with an empty details string**, not ALREADY_EXISTS -- measured 2026-08-13
+        (C9) -- so a code-specific check would silently never fire. MODIFY on the same
+        session then replaces its config. Nothing is masked by being less specific: a
+        genuine failure fails the MODIFY too and is reported.
 
         `Replica.port_kind` is a oneof: `egress_port` is the uint32 form and `port` a
         bytestring. Only one may be set. class_of_service must stay 0 -- PI rejects anything
@@ -328,6 +348,14 @@ class P4RuntimeClient:
             replica.egress_port = egress_port
             replica.instance = 1
             return req
+
+        try:
+            # Best-effort reset: a leftover session from an earlier proxy generation must go,
+            # or the INSERT below appends a second replica to it (see the docstring). A
+            # missing session makes this DELETE fail, which is the normal first-boot case.
+            self.stub.Write(build(p4runtime_pb2.Update.DELETE), timeout=RPC_TIMEOUT_S)
+        except grpc.RpcError:
+            pass
 
         try:
             self.stub.Write(build(p4runtime_pb2.Update.INSERT), timeout=RPC_TIMEOUT_S)
