@@ -609,6 +609,28 @@ class P4RuntimeClient:
             print(f"[{self.device_id}] Failed to add route: {e.code()} - {e.details()}")
             return False
 
+    def _ipv4_route_present(self, dst_ip, prefix_len):
+        """
+        Whether ipv4_lpm currently holds an entry for exactly dst_ip/prefix_len.
+
+        [Co-developed with claude code -- Adam]
+        The read-back that lets delete_ipv4_route tell "no such entry" apart from a refused
+        delete, since bmv2 reports both as UNKNOWN (see there). Read-back values come
+        canonicalized -- bmv2 strips leading zero bytes -- so the value is padded back to
+        address width before comparing, or an address with a leading zero octet would never
+        match its own entry.
+        """
+        want = socket.inet_aton(dst_ip)
+        for entry in self.read_table_entries():
+            if entry["is_default"] or entry["table"] != "MyIngress.ipv4_lpm":
+                continue
+            match = entry["match"].get("hdr.ipv4.dstAddr")
+            if not match or match.get("type") != "lpm":
+                continue
+            if match["prefix_len"] == prefix_len and match["value"].rjust(4, b"\x00") == want:
+                return True
+        return False
+
     def delete_ipv4_route(self, dst_ip, prefix_len):
         """Deletes a rule from MyIngress.ipv4_lpm"""
         req = p4runtime_pb2.WriteRequest()
@@ -638,6 +660,23 @@ class P4RuntimeClient:
             # previously every outcome returned None and route_flow answered "success".
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 return True
+            # [Co-developed with claude code -- Adam]
+            # bmv2 never actually says NOT_FOUND: deleting an entry that is not there comes
+            # back UNKNOWN with empty details (live, 2026-08-16), the same opaque status it
+            # uses for genuine failures -- so against the real switch the branch above is
+            # dead and the idempotent-teardown intent degraded to an error the kernel logs
+            # as a failed flow removal. Worse, unroute_flow skips its bookkeeping on False,
+            # so a rule already gone from the switch could never be cleared from
+            # _installed_routes and the twin kept advertising it. Same ambiguity as
+            # insert_ipv4_route's duplicate case, resolved the same way: by checking whether
+            # the caller's goal state holds. Gone -- no matter who removed it -- is done;
+            # still present, or unreadable, stays an honest failure.
+            if e.code() == grpc.StatusCode.UNKNOWN:
+                try:
+                    if not self._ipv4_route_present(dst_ip, prefix_len):
+                        return True
+                except grpc.RpcError:
+                    pass
             print(f"[{self.device_id}] Failed to delete route: {e.code()} - {e.details()}")
             return False
 

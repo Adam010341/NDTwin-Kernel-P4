@@ -988,5 +988,87 @@ class ChannelOptionsTest(unittest.TestCase):
             self.assertIn(("grpc.use_local_subchannel_pool", 1), list(call["options"] or []))
 
 
+# --- delete against bmv2's actual status vocabulary --------------------------------
+
+
+def a_read_response_with_lpm(value, prefix_len, include_default=False):
+    """One ReadResponse holding one ipv4_lpm entry (plus, optionally, the default entry)."""
+    resp = p4runtime_pb2.ReadResponse()
+    te = resp.entities.add().table_entry
+    te.table_id = IPV4_LPM_ID
+    m = te.match.add()
+    m.field_id = DST_ADDR_FIELD_ID
+    m.lpm.value = value
+    m.lpm.prefix_len = prefix_len
+    if include_default:
+        # The default entry a real dump always carries: no match fields, is_default set. The
+        # presence scan must skip it rather than read it as a match-everything entry.
+        default = resp.entities.add().table_entry
+        default.table_id = IPV4_LPM_ID
+        default.is_default_action = True
+    return resp
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class DeleteDisambiguatesBmv2UnknownTest(unittest.TestCase):
+    """
+    bmv2 reports "no such entry to delete" as UNKNOWN with empty details -- never the
+    NOT_FOUND the branch above it was written for (live 2026-08-16) -- and uses the same
+    UNKNOWN for genuine failures. Status alone cannot split those, so the client reads the
+    table back and answers by goal state: gone is done, still-present is a failure.
+    """
+
+    def test_unknown_with_the_entry_gone_counts_as_success(self):
+        # The bmv2-real idempotent case: the entry is not there, which is what the caller
+        # wanted. Before the read-back this answered False, the kernel logged a failed flow
+        # removal, and unroute_flow refused to clear its bookkeeping -- so a rule already
+        # gone from the switch stayed advertised by the twin forever.
+        stub = RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN, details=""),
+                             always=True,
+                             read_responses=[a_read_response_with_lpm(
+                                 socket.inet_aton("10.0.0.9"), 32, include_default=True)])
+        self.assertIs(a_client(stub).delete_ipv4_route("10.0.0.4", 32), True)
+
+    def test_unknown_with_the_entry_still_present_stays_a_failure(self):
+        # The other face of the same status: the switch refused a delete of a rule it still
+        # holds. Claiming success here is the original delete bug wearing a new status code.
+        stub = RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN, details=""),
+                             always=True,
+                             read_responses=[a_read_response_with_lpm(
+                                 socket.inet_aton("10.0.0.4"), 32)])
+        self.assertIs(a_client(stub).delete_ipv4_route("10.0.0.4", 32), False)
+
+    def test_unknown_with_an_unreadable_table_stays_a_failure(self):
+        # If the goal state cannot be verified, the honest answer is still failure.
+        stub = RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN, details=""),
+                             always=True,
+                             read_error=FakeRpcError(grpc.StatusCode.DEADLINE_EXCEEDED))
+        self.assertIs(a_client(stub).delete_ipv4_route("10.0.0.4", 32), False)
+
+    def test_not_found_is_answered_without_a_read(self):
+        # NOT_FOUND is already unambiguous, so success must not cost a table read.
+        stub = RecordingStub(write_error=FakeRpcError(grpc.StatusCode.NOT_FOUND), always=True)
+        self.assertIs(a_client(stub).delete_ipv4_route("10.0.0.4", 32), True)
+        self.assertEqual(stub.reads, [])
+
+    def test_a_canonicalized_readback_still_matches_its_own_entry(self):
+        # bmv2 canonicalizes read-back values by stripping leading zero bytes: 0.0.7.8 goes
+        # onto the wire as 00 00 07 08 and comes back as 07 08. Compared unpadded, the scan
+        # would call the entry absent and report a refused delete as a success.
+        stub = RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN, details=""),
+                             always=True,
+                             read_responses=[a_read_response_with_lpm(b"\x07\x08", 32)])
+        self.assertIs(a_client(stub).delete_ipv4_route("0.0.7.8", 32), False)
+
+    def test_an_entry_with_another_prefix_length_does_not_block_the_success(self):
+        # A /24 over the same bytes is a different rule. Only the exact (value, prefix_len)
+        # pair the delete named may keep the answer at failure.
+        stub = RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN, details=""),
+                             always=True,
+                             read_responses=[a_read_response_with_lpm(
+                                 socket.inet_aton("10.0.0.4"), 24)])
+        self.assertIs(a_client(stub).delete_ipv4_route("10.0.0.4", 32), True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

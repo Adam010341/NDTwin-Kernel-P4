@@ -122,10 +122,36 @@ async def get_all_paths():
 # event loop, that is the same total outage get_flow_stats caused (see its docstring for the
 # measurement). run_in_threadpool is what FastAPI itself uses for `def` endpoints, so this puts
 # them on the identical footing without changing how the body is parsed or how errors propagate.
+
+async def _flowentry_body(request: Request):
+    """
+    The request body as a dict, or a 400 that says what was wrong with it.
+
+    [Co-developed with claude code -- Adam]
+    `await request.json()` raises straight through to a 500 for a body that is not JSON at
+    all, and `data.get(...)` does the same for a body that is JSON but not an object (live
+    2026-08-16). Same defect class MalformedMatchError closed one layer down: a malformed
+    request is the client's error and must be answered as one, not as a proxy crash.
+    """
+    try:
+        data = await request.json()
+    except ValueError:
+        # json.JSONDecodeError and UnicodeDecodeError are both ValueError subclasses.
+        raise HTTPException(status_code=400,
+                            detail={"error": "malformed body",
+                                    "message": "request body is not valid JSON"})
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400,
+                            detail={"error": "malformed body",
+                                    "message": "request body must be a JSON object, got "
+                                               + type(data).__name__})
+    return data
+
+
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
     """Parses OpenFlow match/actions and delegates to P4 Client"""
-    data = await request.json()
+    data = await _flowentry_body(request)
     dpid = data.get("dpid")
     match = data.get("match", {})
     actions = data.get("actions", [])
@@ -147,9 +173,25 @@ async def add_flow_entry(request: Request):
     else:
         return {"status": "error", "message": "Failed to add route"}
 
+@router.post("/stats/flowentry/delete")
 @router.post("/stats/flowentry/delete_strict")
 async def delete_flow_entry(request: Request):
-    data = await request.json()
+    """
+    Both delete routes, because ofctl_rest serves both and the kernel uses both.
+
+    [Co-developed with claude code -- Adam]
+    FlowRoutingManager::deleteAnEntry defaults priority to -1, which HttpRoutingStrategyBase
+    turns into the non-strict POST /stats/flowentry/delete -- the route every priority-less
+    delete takes, and the IntentTranslator's only delete call. This proxy served only
+    /delete_strict, so the kernel's most natural delete answered 404 in P4 mode (live
+    2026-08-16). One handler serves both routes: ipv4_lpm keys on the destination alone and
+    holds one entry per destination, so "this exact rule" and "every rule matching this
+    destination" name the same rule here -- the reason delete_strict already ignores
+    priority. The OpenFlow wildcard half of non-strict (an empty match clears the table) is
+    deliberately not honoured: a match without nw_dst is refused, because an accidental
+    table wipe is the worse failure.
+    """
+    data = await _flowentry_body(request)
     dpid = data.get("dpid")
     match = data.get("match", {})
     
@@ -166,7 +208,7 @@ async def delete_flow_entry(request: Request):
 
 @router.post("/stats/flowentry/modify")
 async def modify_flow_entry(request: Request):
-    data = await request.json()
+    data = await _flowentry_body(request)
     dpid = data.get("dpid")
     match = data.get("match", {})
     actions = data.get("actions", [])
