@@ -54,7 +54,16 @@
 #                      (mnexec runs as root, so tc under it needs no tc-specific grant --
 #                      the same escape doc/2026-07-29_environment_gotchas.md uses for ovs-ofctl.)
 #   FAULTS_KILL        signal command            (default: sudo -n kill)
+#                      Same trap as FAULTS_TC, found on this script's first live round
+#                      (2026-08-16): this machine's sudoers has no NOPASSWD for bare
+#                      `kill`, so the default answers "a password is required" and the
+#                      injection silently degrades to "not-injected". Use the same escape:
+#                        FAULTS_KILL="sudo -n mnexec -a 1 kill"
 #   FAULTS_CRITERIA    verdict command           (default: python3 <root>/tools/twin_audit/criteria.py)
+#                      criteria.py reads PATHS_URL from the environment (default is Ryu's
+#                      :8080). On a P4 stack export PATHS_URL=http://localhost:8081 or the
+#                      paths channel reports unknown all round and the quorum quietly runs
+#                      on two channels -- also learned on the first live round.
 #   FAULTS_QDISC       qdisc snapshot tool       (default: <here>/qdisc_snapshot.sh)
 #   FAULTS_CATALOGUE   catalogue file            (default: <here>/faults.txt)
 #   FAULTS_SETTLE_S    seconds to wait after injecting and after reverting (default: 5)

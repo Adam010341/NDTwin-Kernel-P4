@@ -261,6 +261,10 @@ check "and the second one is the peer" yes \
 
 echo "proc_signal targets a PID and restores it"
 reset_round
+# N-4's live answer (2026-08-16 first real round): the beacon watchdog reroutes around a
+# frozen switch, so the catalogue now expects moving DURING the fault, and so must the
+# stubbed round.
+queue_verdicts moving moving moving
 out="$(run_round N-4 2>&1)"; rc=$?
 check "the round passes" 0 "$rc"
 check "SIGSTOP went to the PID from --pid" yes \
