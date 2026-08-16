@@ -124,6 +124,15 @@ s5:2→s2 2.044;s4:3→h 1.984 vs s7:2→s4 1.992)——兩個獨立估計器對
 
 ### 5b. 意外收穫:proxy 重啟 × warm fabric = 遙測全域 ×2(clone replica 疊加)
 
+> **⚠️ 2026-08-16 下午更新(raw-client 重現輪,`doc/audit/2026-08-16_clone-stacking-raw-repro.md`)**:
+> 疊加機制以第三方 raw client 完整重現(我方 proxy 排除),但本節兩個結論已更正:
+> ①「DELETE 被空簿記回 **NOT_FOUND**」是推論非實錄(best-effort swallow 沒 log 過
+> 狀態碼)——raw 實錄為 **UNKNOWN 空 details**;②「孤兒一旦形成,clone-session API
+> 清不掉」被重現輪 phase E 推翻:**簿記持有 session 時的 DELETE 會銷毀整個群組含
+> 孤兒 replica**。據此 `write_clone_session` 已加 settle pair(註冊成功後再
+> DELETE+INSERT,`79e4f69`),live 驗證 probe 疊到 2 的群組被 plain stack start 收斂
+> 回 1;「proxy 重啟必須連 fabric 重啟」自此降級為防禦縱深,非必要條件。
+
 Round 2 **所有** 22 條活躍邊 twin/veth 均勻落在 1.96-2.39(總比 2.04-2.09),
 flow 積分同步 ×2——不是任何單邊的記帳錯,是**每個取樣封包被克隆兩份**。PRE dump 實錘:
 
