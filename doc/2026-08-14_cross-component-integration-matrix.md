@@ -235,6 +235,13 @@ offload 後同一對 host 16.8MB@23.9Mbps。修復=`disable_host_offloads()` 進
 (`c97d9e2`)。**這是「只有真串接才抓得到」的教科書案例:每個元件單獨全綠,組合即死。**
 
 **NTG 發現三連(#20-21,upstream 材料)**:
+
+> ⚠️ **#20 已於 2026-08-16 凌晨被同 fabric 重測推翻大半,引用前先讀
+> `doc/2026-08-15_ntg-upstream-report-draft.md` 第 1 條的更正紀錄**。一句話版:
+> 「卡 3/永久洩漏」的真機制是 fixed_traffic 的維持性重啟尾巴(最後一代跑滿 duration,
+> 300s interval 實際 ~570s 收尾),重測兩輪都自我善終、計數器歸 0;「~1% 遺失」作廢,
+> 錯誤路徑與 SIGINT 兩個子主張降級為「單次觀察待重測」。本節以下原文保留當歷史紀錄。
+
 - **#20 失敗流讓 RUNNING 計數器永久洩漏**:錯誤路徑不走完成回呼 → 「waiting for all
   connections to be restored: 303」無限等待 → 同進程後續實驗全數卡死;**連它自己的
   SIGINT 清理路徑也在等同一個計數器**(Ctrl-C 被吞、退出流程死鎖,只能 SIGTERM)。
