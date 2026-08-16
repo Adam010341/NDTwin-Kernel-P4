@@ -301,9 +301,9 @@ class P4RuntimeClient:
         Falls back to MODIFY when INSERT fails, so a proxy restart against live switches
         reconfigures the session instead of refusing to start.
 
-        DELETE-first, then INSERT: this write *intends* reset semantics, and the DELETE is
-        kept for the cases it can reach -- but it cannot heal a cross-restart leftover, so
-        the operational rule below matters more than this code.
+        DELETE-first, then INSERT, then a settle pair (DELETE+INSERT again) once the
+        session is registered -- the settle pair is what actually heals a warm fabric,
+        see below.
 
         Measured live (2026-08-16, reconciliation round 2): a proxy restart re-pushes the
         pipeline, and after that commit the P4Runtime server's clone-session bookkeeping is
@@ -313,14 +313,27 @@ class P4RuntimeClient:
         switch ended with mgid 33018 carrying two identical port-255 nodes, every sampled
         packet was cloned twice, and every twin rate and link-usage figure doubled,
         uniformly and silently (veth reconciliation caught it: twin/veth ~2.0 on all 22
-        active edges). A third restart, with this DELETE in place, went 2 -> 3: the DELETE
-        is answered NOT_FOUND from the emptied bookkeeping and never touches the orphaned
-        group, so no clone-session API call can clean it up from here.
+        active edges). A third restart, with this DELETE in place, went 2 -> 3: the
+        leading DELETE lands on the emptied bookkeeping (UNKNOWN with empty details --
+        the raw-client repro's capture; this docstring first said NOT_FOUND, an inference,
+        because the best-effort swallow below never logged the code) and never touches
+        the orphaned group.
 
-        **Operational rule: a proxy restart against a warm fabric multiplies telemetry by
-        the number of restarts. Restart the fabric (fresh bmv2 processes) whenever the
-        proxy restarts.** The veth-vs-twin reconciliation harness is what catches this
-        shape; absolute rates alone just look "busier".
+        The way out came from the same repro's diagnostic phase
+        (doc/audit/2026-08-16_clone-stacking-raw-repro.md, phase E): a DELETE issued while
+        the bookkeeping *does* hold the session destroys the whole backing multicast
+        group, orphaned replicas included. After a successful registration the bookkeeping
+        always holds the session -- so the settle pair below (DELETE, then INSERT again)
+        collapses whatever the group accumulated across any number of pipeline re-commits
+        back to exactly one replica, on every success path. Raw phases A-E: 1 node ->
+        control unchanged -> 2 -> 3 -> 0 on that one delete.
+
+        **Operational note: with the settle pair in place a proxy restart against a warm
+        fabric converges back to a single replica (validated live 2026-08-16: probe-stacked
+        group healed by a plain stack start). Restarting the fabric together with the
+        proxy remains good hygiene -- it also clears table state -- but is no longer what
+        keeps telemetry single.** The veth-vs-twin reconciliation harness is what catches
+        this shape; absolute rates alone just look "busier".
 
         The MODIFY fallback stays, for the path where DELETE+INSERT still fails: without a
         pipeline re-push the server *does* remember the session, and that INSERT returns
@@ -360,7 +373,6 @@ class P4RuntimeClient:
         try:
             self.stub.Write(build(p4runtime_pb2.Update.INSERT), timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Clone session {session_id} -> port {egress_port} installed")
-            return True
         except grpc.RpcError as insert_error:
             # Any INSERT failure, not just ALREADY_EXISTS -- see the docstring. bmv2 reports a
             # duplicate session as UNKNOWN with empty details, so a code-specific check silently
@@ -369,7 +381,6 @@ class P4RuntimeClient:
                 self.stub.Write(build(p4runtime_pb2.Update.MODIFY), timeout=RPC_TIMEOUT_S)
                 print(f"[{self.device_id}] Clone session {session_id} already present, updated "
                       f"(INSERT said {insert_error.code().name})")
-                return True
             except grpc.RpcError as modify_error:
                 # Both failed, so this is a real problem. The status code goes in the message,
                 # not just details(): bmv2 returns some failures with an empty details() string,
@@ -381,6 +392,23 @@ class P4RuntimeClient:
                       f"MODIFY {modify_error.code().name}: {modify_error.details()} "
                       f"-- no telemetry samples will be produced by this switch")
                 return False
+
+        # The settle pair. The session is registered now, so this DELETE is the one that
+        # reaches the backing group (phase E) -- it tears down every replica the group
+        # accumulated, and the INSERT rebuilds it with exactly one. Unconditional on both
+        # success paths above: on a cold fabric it is a cheap rebuild of a fresh group, on
+        # a warm one it is the heal. A failure here is a real failure -- reporting True
+        # would hand back a session that may multiply every sample, which is the exact lie
+        # the reconciliation harness had to catch once already.
+        try:
+            self.stub.Write(build(p4runtime_pb2.Update.DELETE), timeout=RPC_TIMEOUT_S)
+            self.stub.Write(build(p4runtime_pb2.Update.INSERT), timeout=RPC_TIMEOUT_S)
+            return True
+        except grpc.RpcError as settle_error:
+            print(f"[{self.device_id}] Clone session {session_id} settle failed "
+                  f"({settle_error.code().name}: {settle_error.details()}) -- the session "
+                  f"may hold stacked replicas and multiply every sample from this switch")
+            return False
 
     # --- Helper methods for lookups ---
     def _get_table_id(self, name):

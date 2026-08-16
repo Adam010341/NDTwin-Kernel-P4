@@ -78,7 +78,7 @@ class RecordingStub:
     would quietly succeed.
     """
 
-    def __init__(self, error=None, always=False, times=1):
+    def __init__(self, error=None, always=False, times=1, fail_calls=None):
         self.requests = []
         # [Co-developed with claude code -- Adam]
         # Recorded, and `timeout` accepted, because the real gRPC stub has always taken one. This
@@ -94,10 +94,20 @@ class RecordingStub:
         # MODIFY fallback is reached (the DELETE eats the first). `times` says how many calls
         # fail; the default 1 now models a first boot, where only the DELETE fails.
         self.remaining_failures = float("inf") if always else times
+        # `fail_calls` targets failures by 0-based call index instead, for the settle pair:
+        # its writes come *after* a successful registration, which leading-failure counting
+        # cannot reach.
+        self.fail_calls = set(fail_calls or ())
+        self._call_no = -1
 
     def Write(self, request, timeout=None):
+        self._call_no += 1
         self.requests.append(request)
         self.write_timeouts.append(timeout)
+        if self.fail_calls:
+            if self._call_no in self.fail_calls:
+                raise self.error
+            return
         if self.error is not None and self.remaining_failures > 0:
             self.remaining_failures -= 1
             raise self.error
@@ -203,11 +213,14 @@ class CloneSessionRequestTest(unittest.TestCase):
         return [r.updates[0].type for r in self.client.stub.requests]
 
     def sent(self):
-        # The reset semantics send DELETE then INSERT on the happy path; the INSERT is the
-        # request whose content matters.
+        # Happy path: best-effort DELETE, registration INSERT, then the settle pair
+        # (DELETE+INSERT) that collapses a possibly-stacked group to one replica. The
+        # settle INSERT (last) is the write the switch is left holding, so content is
+        # asserted on it.
         self.assertEqual(self.types(),
-                         [p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT])
-        return self.client.stub.requests[1]
+                         [p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT,
+                          p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT])
+        return self.client.stub.requests[3]
 
     def session(self):
         update = self.sent().updates[0]
@@ -250,12 +263,10 @@ class CloneSessionRequestTest(unittest.TestCase):
         self.assertEqual(self.sent().updates[0].type, p4runtime_pb2.Update.INSERT)
 
     def test_deletes_the_leftover_session_before_inserting(self):
-        # Reset semantics, measured necessary live (2026-08-16): a proxy restart re-pushes the
-        # pipeline, which resets the P4Runtime server's clone-session bookkeeping while the
-        # PRE's multicast group survives -- the INSERT then "succeeds" on the surviving group
-        # and appends a second CPU replica. Every sampled packet was cloned twice and every
-        # twin figure doubled, uniformly. Deleting first makes the outcome one replica no
-        # matter what an earlier proxy generation left behind.
+        # Best-effort hygiene for the cases it can reach (a session the server still has in
+        # its bookkeeping). The raw-client repro showed this DELETE cannot reach a
+        # cross-commit orphan -- that is the settle pair's job below -- but where it does
+        # land it must address the same session the INSERT recreates.
         self.client.write_clone_session()
 
         delete = self.client.stub.requests[0]
@@ -271,17 +282,22 @@ class CloneSessionRequestTest(unittest.TestCase):
         self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.NOT_FOUND))
         self.assertTrue(self.client.write_clone_session())
         self.assertEqual(self.types(),
-                         [p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT])
+                         [p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT,
+                          p4runtime_pb2.Update.DELETE, p4runtime_pb2.Update.INSERT])
 
     def test_an_existing_session_is_modified_rather_than_failing(self):
         # A proxy restart against live switches must reconfigure, not refuse to start. Two
-        # failures: the DELETE eats the first, the INSERT the second, then MODIFY lands.
+        # failures: the DELETE eats the first, the INSERT the second, then MODIFY lands --
+        # and the settle pair still follows, because the MODIFY path holds the session in
+        # the bookkeeping just the same.
         self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.ALREADY_EXISTS), times=2)
         self.assertTrue(self.client.write_clone_session())
 
         self.assertEqual(self.types(), [p4runtime_pb2.Update.DELETE,
                                         p4runtime_pb2.Update.INSERT,
-                                        p4runtime_pb2.Update.MODIFY])
+                                        p4runtime_pb2.Update.MODIFY,
+                                        p4runtime_pb2.Update.DELETE,
+                                        p4runtime_pb2.Update.INSERT])
 
     def test_the_code_bmv2_actually_returns_also_falls_back_to_modify(self):
         # This is the case that matters, and the one the original ALREADY_EXISTS-only check
@@ -296,7 +312,9 @@ class CloneSessionRequestTest(unittest.TestCase):
 
         self.assertEqual(self.types(), [p4runtime_pb2.Update.DELETE,
                                         p4runtime_pb2.Update.INSERT,
-                                        p4runtime_pb2.Update.MODIFY])
+                                        p4runtime_pb2.Update.MODIFY,
+                                        p4runtime_pb2.Update.DELETE,
+                                        p4runtime_pb2.Update.INSERT])
 
     def test_any_insert_failure_is_retried_as_modify(self):
         # Deliberately not code-specific: PI/bmv2 has already surprised us once about which
@@ -327,6 +345,45 @@ class CloneSessionRequestTest(unittest.TestCase):
         self.client.write_clone_session(session_id=300, egress_port=64)
         self.assertEqual(self.session().session_id, 300)
         self.assertEqual(self.session().replicas[0].egress_port, 64)
+        # Every write of the sequence must address the same custom session -- a settle pair
+        # aimed at the default id would tear down the wrong session and leave the stacked
+        # one alone.
+        for req in self.client.stub.requests:
+            self.assertEqual(
+                req.updates[0].entity.packet_replication_engine_entry.clone_session_entry
+                .session_id, 300)
+
+    # --- the settle pair -----------------------------------------------------------
+    # Raw-client repro, 2026-08-16 (doc/audit/2026-08-16_clone-stacking-raw-repro.md):
+    # a pipeline commit empties the server's clone bookkeeping while the PRE group
+    # survives, so the next INSERT appends a replica (1 -> 2 -> 3 across restarts) and a
+    # DELETE issued after the commit cannot reach the orphan. Phase E found the one
+    # deletion that can: with the session registered, DELETE destroys the whole backing
+    # group, stacked replicas included. Hence: after every successful registration,
+    # DELETE + INSERT once more, leaving exactly one replica on every path.
+
+    def test_the_settle_pair_recreates_exactly_what_was_registered(self):
+        self.assertTrue(self.client.write_clone_session())
+        requests = self.client.stub.requests
+        self.assertEqual(requests[3], requests[1],
+                         "the settle INSERT must be byte-identical to the registration "
+                         "INSERT, or the heal changes the session it just installed")
+        self.assertEqual(requests[2].updates[0].type, p4runtime_pb2.Update.DELETE)
+
+    def test_a_settle_delete_failure_is_reported_not_swallowed(self):
+        # After a successful registration the bookkeeping holds the session, so this DELETE
+        # failing is a real failure -- answering True would hand back a session that may
+        # still multiply every sample, the exact lie the reconciliation harness caught.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.INTERNAL),
+                                         fail_calls={2})
+        self.assertFalse(self.client.write_clone_session())
+
+    def test_a_settle_insert_failure_is_reported_not_swallowed(self):
+        # Worse than the delete failing: the group is gone and nothing recreates it, so no
+        # telemetry at all. Must be False.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.INTERNAL),
+                                         fail_calls={3})
+        self.assertFalse(self.client.write_clone_session())
 
     def test_the_session_id_is_inside_the_range_pi_accepts(self):
         # PI validates 1 <= session_id < 32768 (pre_clone_mgr.h) and rejects anything else.
