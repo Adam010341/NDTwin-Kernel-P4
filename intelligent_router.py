@@ -15,6 +15,7 @@ from webob import Response
 from time import time
 import ipaddress
 import hashlib
+import os
 from pathlib import Path
 import threading
 import random
@@ -22,7 +23,19 @@ from ryu.lib import hub
 
 # TODO: Change it
 # (1) Static topology JSON path (update to your local file path)
-static_topology_file_path = Path("/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json")
+#
+# [Co-developed with claude code -- Adam]
+# Overridable via NDTWIN_RYU_TOPO_FILE; the default is unchanged, so the normal OVS round
+# behaves exactly as before. This has to be settable because the kernel takes its model from
+# --topology while this file took its own from a module-level constant, and nothing checked
+# that the two agreed. Run them against different models and the failure is silent and
+# confusing: Ryu installs routes for the hosts *its* file declares, so on 2026-08-17 a
+# 10-switch/4-host fabric got s1 rules reading `nw_dst=10.0.0.2 actions=output:4` -- port 4
+# does not exist on that s1, every host pair was 100% loss, and both Ryu's topology view and
+# the kernel's graph reported ten switches, forty edges, all up and enabled.
+static_topology_file_path = Path(os.environ.get(
+    "NDTWIN_RYU_TOPO_FILE",
+    "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
 
 # (2) Deployment mode
 # [Co-developed with claude code -- Adam]
