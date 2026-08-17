@@ -24,6 +24,7 @@ add_executable(
   test_P4Liveness.cpp
   test_RelayResponse.cpp
   test_RequestDeadlines.cpp
+  test_FlowTableCacheOptionalFields.cpp
   test_ReverseEdgeLookup.cpp
   test_LastHopAttribution.cpp
   test_AllDestinationPaths.cpp

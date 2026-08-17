@@ -1912,6 +1912,20 @@ parseIpv4U32(const nlohmann::json& v)
     throw std::runtime_error("ipv4 must be number or string");
 }
 
+// [Co-developed with claude code -- Adam]
+// This runs AFTER HttpSession::processFlowBatch has already enqueued the jobs, so anything it
+// throws is thrown too late to stop the write -- it only replaces the response. It used to read
+// priority/match/actions with .at(), which throws json::out_of_range on a missing key, while
+// makeInstallJob one layer up reads the same three fields with .value() and defaults. A body
+// missing only `priority` therefore programmed the switch and answered
+// 400 {"error":"JSON parsing error"} -- measured live 2026-08-17 on a bmv2 fabric, switch 1 going
+// from five entries to six while the caller was told its request had been rejected. The Web-GUI
+// reaches this: SwitchFlowTable.tsx only sets priority when it parses greater than zero, and its
+// own API notes call the field optional.
+//
+// The accessors below now match makeInstallJob's exactly (priority 0, match {}, actions []), so
+// the two layers agree on what an absent field means and this function can no longer be the one
+// that decides a request failed. Report: doc/audit/2026-08-17_install-rejected-but-applied.md.
 void
 DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
 {
@@ -1967,7 +1981,11 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
     auto extractKey = [](const json& e) {
         int tableId = e.value("table_id", 0);
         int priority = e.value("priority", 0);
-        const json& match = e.at("match");
+        // [Co-developed with claude code -- Adam]
+        // .value(), not .at(), and the defaults are HttpSession's makeInstallJob's -- see the
+        // note above updateOpenFlowTables for what the mismatch cost.
+        static const json kEmptyMatch = json::object();
+        const json& match = e.contains("match") ? e.at("match") : kEmptyMatch;
 
         ndtClassifier::FlowKey fk{};
         fk.ethType = match.value("eth_type", 0);
@@ -2001,9 +2019,9 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
         }
 
         json newFlow;
-        newFlow["priority"] = e.at("priority");
-        newFlow["match"] = e.at("match");
-        newFlow["actions"] = e.at("actions");
+        newFlow["priority"] = e.value("priority", 0);
+        newFlow["match"] = e.value("match", json::object());
+        newFlow["actions"] = e.value("actions", json::array());
         // [Co-developed with claude code -- Adam]
         // table_id is stamped because this array is served from
         // /ndt/get_switch_openflow_table_entries alongside entries polled from Ryu, whose stats
@@ -2031,9 +2049,9 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
             if (fKey == key)
             {
                 // Update fields; we assume match+priority identifies the rule.
-                f["priority"] = e.at("priority");
-                f["match"] = e.at("match");
-                f["actions"] = e.at("actions");
+                f["priority"] = e.value("priority", 0);
+                f["match"] = e.value("match", json::object());
+                f["actions"] = e.value("actions", json::array());
                 // If you may have multiple identical rules, remove this break.
                 break;
             }
