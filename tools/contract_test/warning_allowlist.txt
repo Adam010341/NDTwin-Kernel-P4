@@ -134,3 +134,4 @@ WARNING | ^Received unsupported request: method= | 404 path; L2's unknown_endpoi
 WARNING | ^Rejecting simulation case: body is not valid JSON | 400 path; L2's received_a_simulation_case__malformed
 WARNING | ^Rejecting simulation case: missing required field | 400 path; L2's received_a_simulation_case__missing_fields
 WARNING | ^Rejecting simulation result: app_id .* is not a valid id | 400 path; L2's simulation_completed__malformed
+WARNING | ^intent_translator requested but the translator is disabled | 503 path; L2's intent_translator_text__incomplete_body. stack.sh always starts the kernel --no-ai, so the guard added 2026-08-11 answers every call this way -- the warning is the guard working, not a fault
