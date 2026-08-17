@@ -15,6 +15,7 @@ is unrecorded cannot be re-run.
 | `2026-08-12_overnight-review/` | The 2026-08-12/13 overnight round: live runbooks (P4 and OVS), static review agents B1–B4, the upstream `8b61cdc` analysis, and the W2 live re-verification. `INDEX.md` first. |
 | `2026-08-13_advanced-testing-research/` | Research on testing approaches; two of its recommendations shipped (the P4 coverage gate and the libFuzzer harness). |
 | `2026-07-30_audit-be3c242/` | The first ten-stage subsystem review, against commit `be3c242`. Read the rule below before quoting it. |
+| `2026-08-17_p4-vs-ovs-matched-topology/` | 23 live failover measurements holding the topology constant across P4 and OVS. Retires the "P4 12.5 s vs OVS 291 s" comparison: the 291 s was mostly a since-fixed kernel defect, and the real data-plane gap is **2.0 s, 13 %** (13.7 vs 15.7 s, n=10 each, p=0.0098). Raw ping logs and the measurement script are kept with the report. |
 | `2026-08-08_commit-review/`, `scoped/` | Earlier rounds, by area and by severity tier. |
 | `mutation-evidence-*.md` | Mutation runs. Every `observed failure` is copied from stdout, never predicted. |
 | Loose `*.md`, `ryu-wedge-trace-*.tsv` | Single-topic runbooks, findings and raw traces. |
