@@ -561,8 +561,13 @@ cmd_up() {
     # The two modes start in *opposite* orders, because the direction of the southbound
     # connection is reversed:
     #
-    #   OVS: Ryu is the server. Switches dial out to it (ovs-vsctl set-controller
-    #        tcp:127.0.0.1:6633), so Ryu has to be listening before Mininet starts.
+    #   OVS: Ryu is the server. Switches dial out to it, so Ryu has to be listening before
+    #        Mininet starts. The port is 6653, not 6633: the topology passes RemoteController
+    #        with no port, and Mininet then probes 6653 then 6633 and falls back to 6653 when
+    #        neither answers (mininet/node.py RemoteController.checkListening). 6653 is also
+    #        ryu-manager's default with no flag, so leaving both alone is what makes them meet
+    #        -- passing --ofp-tcp-listen-port 6633 to Ryu breaks it silently, with nothing in
+    #        any log naming the port.
     #   P4:  bmv2 is the server -- simple_switch_grpc listens on 0.0.0.0:50051-50060 -- and the
     #        proxy is a gRPC *client* connecting to each one. So Mininet has to be up first, or
     #        the proxy's first real RPC gets ECONNREFUSED and uvicorn exits before opening :8081.

@@ -26,8 +26,14 @@
 套件在它底下看起來是綠的。且本 repo 走 `unittest` 不是 pytest——**看 `Ran N` 不要只看 `OK`**，
 `__main__` guard 底下的測試根本不會被收集。
 
-**目前基準線（2026-08-17 實測）**：C++ **579 tests / 78 suites**、`p4_proxy/tests` **Ran 454**、
-`tests/shell/test_faults.sh` **Ran 60 checks**。數字對不上就是有人動了碼或收集壞了。
+**目前基準線（2026-08-17 收官後重跑，`13e53df`，local CI 6/6 綠）**：C++ **585 tests /
+79 suites**、`p4_proxy/tests` **453 ran**（另 1 skipped＝`test_p4_client.py` 自己宣告要 live
+switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/test_faults.sh`
+**Ran 60 checks**、p4 覆蓋未覆蓋集 `[414..421]` 不變。數字對不上就是有人動了碼或收集壞了。
+
+⚠️ **加測試的 commit 要回來更新這一行。** 本行第一版寫的是 579/78 與 Ran 454，當天稍後就被
+`1b1f941`／`13e53df` 追過——於是「數字對不上＝有人動了碼」這句話把讀者指向不存在的問題，
+說明書自己變成假警報的來源。
 
 ---
 
@@ -49,10 +55,24 @@ bash tools/test_workflow/stack.sh wait             # 擋到每台 switch 都 up 
 
 ### OVS／Ryu
 
+**順序是 Ryu 先、topo 後**，兩種 fabric 在這裡剛好相反（P4 是 bmv2 先、proxy 後）。原因寫在
+`stack.sh` 的 `up` 區塊：OVS 模式下 Ryu 是 server、switch 撥出去找它，所以 Ryu 沒聽著就先起
+topo，switch 開機時沒有對象可連。
+
 ```bash
+bash tools/test_workflow/stack.sh up ovs           # [1/3] 起 Ryu、等 :8080，然後停在 Mininet 提示
+# 提示還等著的時候，另開一個終端：
 sudo -n /usr/local/sbin/ndtwin-lab ovs-topo-start  # NTG 自帶 topo，128 hosts
-bash tools/test_workflow/stack.sh up ovs           # Ryu -> Mininet -> 等 -> kernel
+# 回到 stack.sh 按 Enter -> 它接著等收斂並起 kernel
 ```
+
+⚠️ **本節上一版把兩行寫反了（topo 先、`stack.sh up ovs` 後），而且那樣照樣會動**——所以它
+沒被抓到。能動的理由是巧合而非設計：`testbed_topo.py` 用的 `RemoteController` 不帶 port，
+Mininet 建構它的時候會依序 probe 6653、6633，**兩個都探不到就 fallback 成 6653**
+（`/usr/lib/python3/dist-packages/mininet/node.py:1556-1564`），而 6653 正好是 ryu-manager
+不帶旗標時的預設（`ofproto_common.OFP_TCP_PORT`）。一旦有人照官方文件給 Ryu 加
+`--ofp-tcp-listen-port 6633`，這個巧合就翻臉：switch 仍去敲 6653，永遠連不上，
+**而且沒有任何訊息提到 port**，只看得到拓撲永不收斂。
 
 ⚠️ **官方手冊（ndtwin.org/docs）有兩處與本機不符，照抄會失敗**（勘誤已寫成
 `doc/2026-08-16_delivery-package/docs-errata.md`，尚未轉交，所以站上仍是舊的）：
