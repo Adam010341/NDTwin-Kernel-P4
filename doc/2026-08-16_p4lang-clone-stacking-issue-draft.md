@@ -1,11 +1,16 @@
 # p4lang/behavioral-model issue 稿:clone session 疊加(2026-08-16)
 
-> **內部前言(投遞前刪)**:Adam 2026-08-16 表單裁決「單獨投 p4lang」的執行稿。
-> 貼到 https://github.com/p4lang/behavioral-model/issues(它同時牽動 PI 的簿記與
-> bmv2 的 PRE,先投 behavioral-model,維護者若判在 PI 會自己轉)。
+> 🚫 **裁決:不投遞,只歸檔(Adam 2026-08-17 表單)。** 取代 08-16 那次的「單獨投 p4lang」。
+> **這份稿子沒有貼出去,也不要貼**——p4lang 上不存在對應的 issue(08-17 以
+> `gh search issues --author Adam010341` 查證過)。本檔從此是內部紀錄:缺陷的完整
+> 陳述留在這裡,是因為它自成一頁、對外可讀,將來若改變主意可以直接用。
+>
+> **內部前言**:原定投 https://github.com/p4lang/behavioral-model/issues(它同時牽動
+> PI 的簿記與 bmv2 的 PRE,先投 behavioral-model,維護者若判在 PI 會自己轉)。
 > 佐證出處:`doc/audit/2026-08-16_clone-stacking-raw-repro.md`(五相原始輸出)、
-> probe=`p4_proxy/reference/clone_stack_probe.py`(貼 issue 時可附上,把 P4INFO_PATH/
-> JSON_PATH 兩行改成任何含 clone extern 的編譯產物即可跑)。
+> probe=`p4_proxy/reference/clone_stack_probe.py`。
+> ⚠️ **我方不受此缺陷影響**:settle pair(`79e4f69`)已讓 `write_clone_session` 在任何
+> 路徑都收斂到單 replica,並經 live heal 驗證。歸檔不代表問題還開著。
 > 正文如下,英文。
 
 ---

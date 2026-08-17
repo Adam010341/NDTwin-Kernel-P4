@@ -57,7 +57,7 @@ pipeline push re-orphaned the group, registration appended, settle collapsed:
 load-bearing to defense in depth. The veth reconciliation harness remains the detector
 for this whole shape.
 
-## What is now upstream-grade
+## What is upstream-grade — and why it was not submitted
 
 Reproduced without our code: a pipeline config commit on `simple_switch_grpc` leaves the
 PRE clone group of a previously-programmed session alive while forgetting the session —
@@ -66,7 +66,13 @@ detection is lost, and a post-commit DELETE cannot reach it. Expected behaviors 
 would each close the hole: clear PRE clone state on commit, or keep session bookkeeping
 across commits, or refuse the dangling-group INSERT. Whether the defect sits in bmv2's
 PI integration or PI's clone manager is for upstream to place; the probe reproduces it
-in five phases on a stock build. **Packaging/submission decision is Adam's (Q4)** — the
-material is ready either way.
+in five phases on a stock build.
+
+🚫 **Submission ruling (Adam, 2026-08-17): not filed — archived only.** This supersedes
+the 08-16 ruling ("file it separately with p4lang"). Nothing was posted: no matching
+issue exists on p4lang, verified 08-17 with `gh search issues --author Adam010341`. The
+prepared issue text stays at `doc/2026-08-16_p4lang-clone-stacking-issue-draft.md`,
+carrying the same ruling banner, ready if that changes. Our own exposure is closed by the
+settle pair (`79e4f69`) below, so the archive is a record, not an open loop.
 
 [Co-developed with claude code -- Adam]

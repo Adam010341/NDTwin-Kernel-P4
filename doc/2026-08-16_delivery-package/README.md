@@ -17,10 +17,12 @@
 原始稿(含內部前言)仍在 `doc/2026-08-15_ntg-upstream-report-draft.md` 與
 `doc/2026-08-15_bmv2-performance-build-public-manual-draft.md`,未動。
 
-**不在此包、等你裁決的**:clone 疊加(proxy 重啟×warm fabric)的 bmv2/PI 上游材料
-已達 upstream-grade(raw client 五相重現+report=
+**不在此包、已裁決的**:clone 疊加(proxy 重啟×warm fabric)的 bmv2/PI 上游材料
+雖已達 upstream-grade(raw client 五相重現+report=
 `doc/audit/2026-08-16_clone-stacking-raw-repro.md`+probe=
-`p4_proxy/reference/clone_stack_probe.py`)——但它的對象是 p4lang GitHub 不是 patty,
-包裝方式(Q4)另問你,見 session 尾表單。
+`p4_proxy/reference/clone_stack_probe.py`),**你 2026-08-17 裁決不投遞、只歸檔**——
+issue 稿(`doc/2026-08-16_p4lang-clone-stacking-issue-draft.md`)已標記不投,
+三處引用同步。我方本身不受影響(settle pair `79e4f69` 已修並 live 驗證)。
+**所以本包三檔就是全部要轉交的東西,對象只有 NTG 維護者與 patty。**
 
 [Co-developed with claude code -- Adam]

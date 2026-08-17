@@ -10,13 +10,27 @@ raw grpc plus the stock p4.v1 protobufs only, the same discipline (and stream ma
 as p4runtime_mastership_probe.py. A repro written on top of the suspect client proves
 nothing; this one exists so the claim can go upstream.
 
-The claim under test, phrased against bmv2/PI internals:
+The claim under test (the PRE-RUN hypothesis, phrased against bmv2/PI internals):
   SetForwardingPipelineConfig(VERIFY_AND_COMMIT) empties the P4Runtime server's
   clone-session bookkeeping, but the multicast group backing the session
   (mgid 0x8000+session) survives in the target PRE. The next INSERT of the same
   session then succeeds -- no duplicate status -- and APPENDS another replica to the
   surviving group. A DELETE issued after the commit is answered NOT_FOUND and never
   reaches the orphaned group, so the stacking is unreachable from the clone-session API.
+
+What the run actually recorded (2026-08-16; full output in
+doc/audit/2026-08-16_clone-stacking-raw-repro.md). The stacking half held; two details
+of the paragraph above did NOT, and both were written into the fix:
+  - the post-commit DELETE answers UNKNOWN with EMPTY DETAILS, not NOT_FOUND. The
+    NOT_FOUND was an inference from a caller that never logged a code -- fourth instance
+    of bmv2's UNKNOWN-for-everything vocabulary. The effective claim (that DELETE cannot
+    reach the orphan from the emptied-bookkeeping state) is unaffected.
+  - "unreachable from the clone-session API" is too broad: phase e shows a DELETE issued
+    while the bookkeeping still HOLDS the session destroys the whole backing group,
+    accumulated replicas included. That is exactly what the settle pair in
+    p4_client.write_clone_session (79e4f69) exploits to heal.
+Upstream status: material is upstream-grade but NOT filed -- archived by Adam's ruling
+of 2026-08-17. Keep this file as the reproduction of record.
 
 Phases -- run one per invocation; each arbitrates (0,1) afresh, which is valid because
 every earlier client is gone by then (all-controllers-offline rebid, measured during C8):
@@ -25,8 +39,9 @@ every earlier client is gone by then (all-controllers-offline rebid, measured du
   b  control        : NO push, duplicate INSERT           -> expect UNKNOWN, PRE unchanged
                       (isolates the trigger: a restart alone does not stack -- the commit does)
   c  gen-2 restart  : push pipeline, INSERT               -> expect OK again; PRE 2 nodes
-  d  gen-3 restart  : push pipeline, DELETE, INSERT       -> DELETE expect NOT_FOUND,
-                      INSERT OK; PRE 3 nodes (the DELETE-first ceiling, live round shape)
+  d  gen-3 restart  : push pipeline, DELETE, INSERT       -> DELETE expect a failure
+                      (predicted NOT_FOUND, measured UNKNOWN ''), INSERT OK; PRE 3 nodes
+                      (the DELETE-first ceiling, live round shape)
   e  diagnostic     : NO push, DELETE                     -> status + what PRE does with the
                       group; answers whether the API can reach the orphans at all
 
