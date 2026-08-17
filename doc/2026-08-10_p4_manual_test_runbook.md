@@ -1,5 +1,10 @@
 # P4/bmv2 手動測試 runbook
 
+> 📍 **入口不是這裡（2026-08-17）**：「我現在該跑什麼」看
+> [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份仍是**現役的手動
+> runbook**——要人工逐步走一輪 P4、或自動路徑失效時用它。起停指令以入口那份為準
+> （`ndtwin-lab topo-start` + `stack.sh up p4`）。
+
 **這份文件是做什麼的**：從乾淨環境開始，逐步啟動 P4/bmv2 stack，在 idle 狀態下確認靜態健康，灌流量驗證 telemetry 鏈路，模擬一條鏈路斷線後觀察偵測與恢復，最後檢查 `admin_disabled` 欄位。全部手動執行，一步一確認。
 
 **什麼時候跑**：任何對 P4 路徑（proxy、bmv2 pipeline、sFlow emitter、kernel 的 P4 分支）的修改之後。（2026-08-13 更正：Phase 7（power management）已完成——`2026-07-27_p4_bmv2_support_plan.md` Phase 7 節——但其電源/readopt 流程仍不在本文件涵蓋內，見 §9 的 readopt 條目。）

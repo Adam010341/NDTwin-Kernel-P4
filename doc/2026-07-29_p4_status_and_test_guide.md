@@ -1,5 +1,10 @@
 # P4/bmv2 支援：目前進度與測試流程
 
+> 📍 **歷史文件（2026-08-17 標記）**：現役入口是
+> [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份的「目前進度」是
+> **2026-07-30 的**現況，Phase 7/8 之後已大幅過時；保留是為了追溯 P4 支援怎麼演進。
+> 要現在的狀態看 `2026-07-27_p4_bmv2_support_plan.md` 與 `2026-07-29_HANDOFF.md`。
+
 對應計畫：[2026-07-27_p4_bmv2_support_plan.md](2026-07-27_p4_bmv2_support_plan.md)　測試分層定義：[2026-07-27_testing_workflow.md](2026-07-27_testing_workflow.md)
 環境陷阱（sudo 設定、`pgrep` 數錯、清理殘留、啟動順序）：[2026-07-29_environment_gotchas.md](2026-07-29_environment_gotchas.md)
 

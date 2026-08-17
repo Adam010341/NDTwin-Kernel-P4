@@ -1,5 +1,10 @@
 # OVS/Ryu 手動測試 runbook
 
+> 📍 **入口不是這裡（2026-08-17）**：「我現在該跑什麼」看
+> [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份仍是**現役的手動
+> runbook**——要人工逐步走一輪 OVS、或自動路徑失效時用它。起停指令以入口那份為準
+> （`ndtwin-lab ovs-topo-start` + `stack.sh up ovs`；Ryu 聽 **6653** 不是 6633）。
+
 **這份文件是做什麼的**：從乾淨環境開始，逐步啟動 OVS/Ryu stack，在 idle 狀態下確認靜態健康，灌流量驗證 telemetry 鏈路，模擬一條鏈路斷線後觀察偵測與恢復。全部手動執行，一步一確認。
 
 **什麼時候跑**：任何對 OVS 路徑（Ryu controller、intelligent_router.py、kernel 的 OVS 分支、sFlow ingest、power/liveness 迴圈）的修改之後。

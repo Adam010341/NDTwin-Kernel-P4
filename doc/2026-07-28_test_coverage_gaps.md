@@ -1,5 +1,9 @@
 # NDTwin 測試工具的涵蓋範圍與已知缺口
 
+> 📍 **入口不是這裡（2026-08-17）**：「我現在該跑什麼」看
+> [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份的角色是**參照**——
+> 判斷某個東西有沒有被測到時用它。缺口清單寫於 2026-07-28，引用前先對現況查證。
+
 配套文件：[2026-07-27_testing_workflow.md](2026-07-27_testing_workflow.md)（五層架構的設計）、
 [tools/test_workflow/README.md](../tools/test_workflow/README.md)、
 [tools/contract_test/README.md](../tools/contract_test/README.md)。

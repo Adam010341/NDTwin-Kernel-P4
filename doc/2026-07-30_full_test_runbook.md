@@ -1,5 +1,10 @@
 # 完整測試流程（OVS + P4 各一輪）
 
+> 📍 **歷史文件（2026-08-17 標記）**：現役入口是
+> [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份是 2026-07-30 建立
+> 第一份基準時的執行腳本，保留是為了追溯當初怎麼建的；**裡面的指令與環境敘述早於
+> `ndtwin-lab` wrapper、`local_ci.sh` 與 `run_layers.sh`，不要照抄**。
+
 **這是一份執行用的 runbook**：從乾淨環境開始，照順序做完，最後得到一份可信的 OVS 基準和一份
 P4 對照。背景說明、每個功能的證據、已知限制在 [2026-07-29_p4_status_and_test_guide.md](2026-07-29_p4_status_and_test_guide.md)；
 機器層面的陷阱（sudo、`pgrep` 數錯、殘留清理）在 [2026-07-29_environment_gotchas.md](2026-07-29_environment_gotchas.md)。

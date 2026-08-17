@@ -43,13 +43,20 @@
 #
 #   FAULTS_TC          tc command                (default: sudo -n tc)
 #                      READ THIS BEFORE THE FIRST LIVE ROUND. Measured with `sudo -n -l` on
-#                      2026-08-13, the NOPASSWD grant for tc is only:
+#                      2026-08-13, the NOPASSWD grant for tc was only:
 #                        tc qdisc add dev s*-eth* root netem * | del dev s*-eth* root | show
-#                      i.e. sudo permits ONLY the `root netem` form -- the one that silently
+#                      i.e. sudo permitted ONLY the `root netem` form -- the one that silently
 #                      replaces TCLink's htb -- and NOT the safe `parent H:D` form this
-#                      script computes. On a shaped interface plain `sudo -n tc` therefore
-#                      cannot do the right thing at all, and this script will refuse rather
-#                      than fall back to the destructive form. Run tc as uid 0 instead:
+#                      script computes, so on a shaped interface plain `sudo -n tc` could not
+#                      do the right thing at all and this script refused rather than fall back
+#                      to the destructive form.
+#                      *** RESOLVED 2026-08-15: Adam added the two parent rules, and
+#                      `sudo -n -l` on 2026-08-17 confirms all four grants are live:
+#                        tc qdisc add dev s*-eth* root netem * | del dev s*-eth* root | show
+#                        tc qdisc add dev s*-eth* parent * netem * | del dev s*-eth* parent *
+#                      The default FAULTS_TC is therefore correct on this machine now, and the
+#                      safe form is the one that gets used on a shaped interface. Keep the
+#                      escape below for any machine whose sudoers is still the 08-13 shape:
 #                        FAULTS_TC="sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py'|head -1) tc"
 #                      (mnexec runs as root, so tc under it needs no tc-specific grant --
 #                      the same escape doc/2026-07-29_environment_gotchas.md uses for ovs-ofctl.)
