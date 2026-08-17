@@ -90,6 +90,11 @@ bash tools/test_workflow/run_layers.sh compare                  # P4 對 OVS 基
 送 `device_name`，文件規定的是 `new_nickname` 與 `new_name`，kernel 一直正確地回 400）。
 **定期跑一次帶 `--mutations` 的輪次**，否則這一半的套件會靜靜爛掉。
 
+⚠️ **跑完 `--mutations` 之後 `git status` 會髒**：`modify_device_name` 會讓 kernel 重寫
+`setting/StaticNetworkTopologyP4_10Switches_4Hosts.json`。即使寫回的是同一個名字，
+kernel 的序列化器會把 `edges` 排到 `nodes` 前面、鍵序也不同，於是產生 ~1300 行的 diff
+——**內容經解析比對完全等價**（2026-08-17 驗過），直接 `git checkout --` 還原即可。
+
 ---
 
 ## 4. 專用工具

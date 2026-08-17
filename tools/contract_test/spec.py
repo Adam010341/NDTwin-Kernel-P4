@@ -708,7 +708,13 @@ ENDPOINTS = [
          note="Web-GUI depends on this. Writes the name back to the topology JSON, so "
               "the body deliberately re-sets the CURRENT name: a rename here would edit "
               "the topology file on disk (and, per issue 12 of the P4 plan, possibly "
-              "the wrong one)"),
+              "the wrong one). EXPECT A DIRTY TREE ANYWAY: even writing the same name "
+              "back re-serialises the whole file, and the kernel's writer emits edges "
+              "before nodes with its own key order, so setting/*.json comes out as a "
+              "~1300-line diff whose content is byte-for-byte equivalent (verified by "
+              "parsing both sides, 2026-08-17). git checkout it after a mutation run. "
+              "Nobody had seen this because the check was sending the wrong field and "
+              "the kernel never got as far as writing"),
 
     dict(name="set_switches_power_state", method="POST",
          path="/ndt/set_switches_power_state",
