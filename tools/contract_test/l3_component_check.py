@@ -89,6 +89,18 @@ def probe_exists(base_url, endpoint, ctx, timeout) -> tuple[bool, int, str]:
         return False, 0, err or "no response"
     if status == 404:
         return False, 404, "kernel returned 404 -- endpoint not implemented"
+    if status == 503:
+        # [Co-developed with claude code -- Adam]
+        # 503 is not the same failure as the 5xx below, and calling it MISSING was wrong.
+        # A route answers 503 when it is routed, reached, and deliberately declining --
+        # /ndt/intent_translator/text does exactly that under --no-ai, which is how
+        # stack.sh always starts the kernel, and that guard is itself the fix for the null
+        # dereference that used to segfault the process (2026-01-02_ndt_api.md section 41).
+        # Reporting the guard as a missing endpoint told the reader the opposite of what
+        # happened, and made L3 fail on every normal run, which is how a red check stops
+        # being read. It exists; the note travels with it so a 503 nobody expected is still
+        # visible.
+        return True, 503, "exists but declining: 503, the documented answer for a disabled feature"
     if status >= 500:
         # The route exists but blew up on a minimal request. Reporting this as "exists"
         # would let an endpoint that 500s on every call look healthy to its consumers.
@@ -237,6 +249,12 @@ def main() -> int:
         if not ok:
             print(f"  {pal.red('MISSING')} /ndt/{ep}  {pal.dim(why)}")
             continue
+
+        # An endpoint can exist and still have something worth saying about it -- a 503
+        # from a deliberately disabled feature is routed and reachable, but a reader who
+        # sees a bare "ok" will not know the feature is off.
+        if why:
+            print(f"  {pal.green('exists')}  /ndt/{ep}  {pal.dim(why)}")
 
         spec_ep = SPEC_BY_ENDPOINT.get(ep)
         if spec_ep is None:
