@@ -153,14 +153,32 @@ TEST(FlowTableCacheOptionalFields, AModifyWithoutPriorityDoesNotThrow)
     EXPECT_NO_THROW(cache->updateOpenFlowTables(mods));
 }
 
-TEST(FlowTableCacheOptionalFields, AnEntryWithoutAMatchDoesNotThrow)
+// The install branch never calls extractKey -- only modify (via the two calls that compare an
+// incoming entry against each cached one) and delete do. The first version of this test used an
+// install batch and a surviving mutant said so: removing extractKey's match guard failed nothing.
+// makeModifyJob and makeDeleteJob both read match with .value(..., object()), so a modify or
+// delete without one is enqueued exactly like the priority case and then throws here.
+TEST(FlowTableCacheOptionalFields, AModifyWithoutAMatchDoesNotThrow)
 {
     auto cache = makeCache();
-    json e = entryWithoutPriority();
-    e.erase("match");
-    // extractKey read match with .at() too, so a body with neither priority nor match threw
-    // before it ever reached the three assignments.
-    EXPECT_NO_THROW(cache->updateOpenFlowTables(installBatch(e)));
+    ASSERT_NO_THROW(cache->updateOpenFlowTables(installBatch(entryWithoutPriority())));
+
+    json e{{"dpid", 1}, {"actions", json::array({{{"type", "OUTPUT"}, {"port", 2}}})}};
+    json mods{{"install_flow_entries", json::array()},
+              {"modify_flow_entries", json::array({e})},
+              {"delete_flow_entries", json::array()}};
+    EXPECT_NO_THROW(cache->updateOpenFlowTables(mods));
+}
+
+TEST(FlowTableCacheOptionalFields, ADeleteWithoutAMatchDoesNotThrow)
+{
+    auto cache = makeCache();
+    ASSERT_NO_THROW(cache->updateOpenFlowTables(installBatch(entryWithoutPriority())));
+
+    json dels{{"install_flow_entries", json::array()},
+              {"modify_flow_entries", json::array()},
+              {"delete_flow_entries", json::array({json{{"dpid", 1}}})}};
+    EXPECT_NO_THROW(cache->updateOpenFlowTables(dels));
 }
 
 } // namespace
