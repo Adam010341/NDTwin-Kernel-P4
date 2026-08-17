@@ -74,7 +74,10 @@ P4 側沒有可修的 idle_timeout 缺陷。要真做,代價是改資料面:編�
 所以忽略它是結構性的、不是疏漏。真正的不對稱是:OVS 下 TE 的 100 **疊在** default 的
 10 之上,P4 下 TE 的寫入**取代**那個目的地唯一的 entry。而且 `install_initial_routes()`
 在**每次鏈路 transition 與 link discovery** 重寫全部 (switch, host) entry
-(`topology_manager.py:1379`、`:1008`)——**TE 的遷移會被下一次 flap 靜默還原**,
+(呼叫點在 `topology_manager.py` 的 `run_watchdog_pass` 與 `handle_packet_in` 的 LLDP 發現分支;
+兩處都用 `grep -n "self.install_initial_routes()"` 現查,**本檔初稿寫死的兩個行號在同一個
+commit 內就被我自己新增的 docstring 推移而失效**——[[cited-line-numbers-are-not-evidence]]
+的字面重演,agy post-commit review 抓到)——**TE 的遷移會被下一次 flap 靜默還原**,
 只有在無 flap 的穩態下才是「永久」。與 replace-vs-add 族的關係因此也要修正:
 它不是「只會加不會刪」,是「單槽取代 + 被無關事件覆寫」。
 

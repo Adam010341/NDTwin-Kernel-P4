@@ -157,8 +157,10 @@ async def add_flow_entry(request: Request):
     The kernel also sends `priority` on every install and `idle_timeout` when an app asks
     for one; both are read nowhere below. That is deliberate on both counts and the reasons
     live in TopologyManager.route_flow's docstring -- priority has no meaning in an LPM
-    table, and no producer in this system asks for ageing. Answering 400 for either would
-    reject every write the kernel makes.
+    table, and no producer in this system asks for ageing. Rejecting them is not the
+    alternative it looks like either: a 400 on `priority` would refuse every write the
+    kernel makes, since it sends the field every time, and a 400 on `idle_timeout` would
+    refuse none, since nothing sends one at all.
     """
     data = await _flowentry_body(request)
     dpid = data.get("dpid")
