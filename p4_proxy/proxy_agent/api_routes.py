@@ -150,7 +150,16 @@ async def _flowentry_body(request: Request):
 
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
-    """Parses OpenFlow match/actions and delegates to P4 Client"""
+    """
+    Parses OpenFlow match/actions and delegates to P4 Client
+
+    [Co-developed with claude code -- Adam]
+    The kernel also sends `priority` on every install and `idle_timeout` when an app asks
+    for one; both are read nowhere below. That is deliberate on both counts and the reasons
+    live in TopologyManager.route_flow's docstring -- priority has no meaning in an LPM
+    table, and no producer in this system asks for ageing. Answering 400 for either would
+    reject every write the kernel makes.
+    """
     data = await _flowentry_body(request)
     dpid = data.get("dpid")
     match = data.get("match", {})

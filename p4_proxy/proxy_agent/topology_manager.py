@@ -537,6 +537,32 @@ class TopologyManager:
         """
         Translates OpenFlow match/actions into P4 Client commands.
         Called when NDTwin POSTs to /stats/flowentry/add
+
+        [Co-developed with claude code -- Adam]
+        The body's `priority` and `idle_timeout` never reach here, and the source review of
+        2026-08-17 settled why neither is a defect -- written down because "silently
+        ignored" reads like one:
+
+        `priority` is not expressible. ipv4_lpm is a single-key LPM table holding one entry
+        per destination, and P4Runtime gives priority only to ternary and range matches; the
+        prefix length is the entire tiebreak. delete_flow_entry's docstring depends on the
+        same fact. The consequence is a real asymmetry worth knowing: under OVS a TE
+        migration at priority 100 *layers over* the default rule at 10, while here it
+        *replaces* the destination's only entry.
+
+        `idle_timeout` has no producer. The kernel omits the field for 0 and -1
+        (HttpRoutingStrategyBase.cpp:181), the TE app's live path sends no timeout key at all
+        and its disabled path sends 0, and the OVS control plane never sets one either -- so
+        nothing in this system asks for ageing in either fabric. Honouring it would mean
+        annotating ipv4_lpm in ndtwin_switch.p4 (all ten tables compile with
+        support_timeout: false), recompiling, re-pushing every pipeline, and handling
+        P4Runtime IdleTimeoutNotification here, because P4Runtime notifies the controller
+        rather than deleting the entry the way OpenFlow does.
+
+        Either way a migration written through this method survives only until the next link
+        transition: install_initial_routes rewrites every (switch, host) entry on any
+        transition and on discovery. Anything built on top of "the rule stays until it ages
+        out" needs that fact first.
         """
         if dpid not in self.switches:
             print(f"[TopologyManager] Switch {dpid} not found for routing!")

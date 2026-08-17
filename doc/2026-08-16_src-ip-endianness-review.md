@@ -48,8 +48,39 @@ kernel 內部慣例刻意、有註解、自洽;API 文件(`doc/2026-01-02_ndt_ap
 - **可攜性**:契約只在 LE host 上穩定。BE 上 kernel 吐的整數值會變,GUI 的反轉與
   TE 的 htonl(BE 上是恆等)會同步失效。本生態全 x86/ARM-LE,理論風險,一行記錄即可。
 - **相鄰觀察(非 src_ip 範圍)**:TE 迴寫帶 `priority` 與 `idle_timeout`;P4 proxy 的
-  `route_flow` 兩者**靜默忽略**(unsupported_match_fields 只驗 match 欄位)——TE 在
-  P4 模式下的遷移規則是**永久的**,不像 OVS 會 idle 老化。與 OVS 路由「只會加」
-  (replace-vs-add 形狀第 7 例)同族;記錄待裁,未修。
+  `route_flow` 兩者**靜默忽略**(unsupported_match_fields 只驗 match 欄位)。
+  ⚠️ **2026-08-17 追查後本條的後半段已更正,見下節。原句寫的「TE 在 P4 模式下的
+  遷移規則是永久的,不像 OVS 會 idle 老化」不成立。**
+
+## 2026-08-17 追查:上面那條相鄰觀察的更正(Adam 裁決「只更正紀錄」)
+
+本輪對 idle_timeout 全鏈重讀,**記載的不對稱不存在**。純源碼考證,無 live(環境當時
+歸 Adam)。三處各自獨立推翻 idle_timeout 那半邊:
+
+| # | 事實 | 出處 |
+|---|---|---|
+| 1 | TE 的**活路徑**是 `migrate_multiple_flows`(`migrate_only_one_flow_per_round = False`),它組的 body **沒有 `idle_timeout` 鍵**,而且打的是 modify 端點;kernel 的 `makeModifyJob` 連 idleTimeout 欄位都沒有 | `Traffic-engineering-App.py:40`/`:500`/`:572`、`HttpSession.cpp:865` |
+| 2 | 唯一會送的那條送的是 **`te_flow_entry_idle_timeout = 0`**,而 kernel 明碼把 `0` 與 `-1` 都當「這個欄位不要送」 | `Traffic-engineering-App.py:39`、`HttpRoutingStrategyBase.cpp:181` |
+| 3 | OVS 控制平面自己也從不設 timeout(全 repo 零 `idle_timeout` 生產點) | `intelligent_router.py`(零命中) |
+
+→ **今天沒有任何生產者要求老化**,所以「P4 不老化、OVS 會老化」的不對稱是虛構的;
+P4 側沒有可修的 idle_timeout 缺陷。要真做,代價是改資料面:編出的 bmv2 JSON **10 張
+表全是 `"support_timeout": false`**、p4info 無 idle 欄位 → 得改 `ndtwin_switch.p4`、
+重編、全 fabric 重推 pipeline,proxy 還要接 P4Runtime 的 IdleTimeoutNotification stream
+自己刪(P4Runtime 是**通知控制器刪**,不像 OpenFlow 由 switch 自行移除)。
+
+**`priority` 那半邊是真的,但形狀與原句不同**:`ipv4_lpm` 是單鍵 LPM、每個目的地
+一個 entry,而 P4Runtime 的 LPM **沒有 priority 概念**(priority 只給 ternary/range),
+所以忽略它是結構性的、不是疏漏。真正的不對稱是:OVS 下 TE 的 100 **疊在** default 的
+10 之上,P4 下 TE 的寫入**取代**那個目的地唯一的 entry。而且 `install_initial_routes()`
+在**每次鏈路 transition 與 link discovery** 重寫全部 (switch, host) entry
+(`topology_manager.py:1379`、`:1008`)——**TE 的遷移會被下一次 flap 靜默還原**,
+只有在無 flap 的穩態下才是「永久」。與 replace-vs-add 族的關係因此也要修正:
+它不是「只會加不會刪」,是「單槽取代 + 被無關事件覆寫」。
+
+**附帶(別人的碼,只記不改、不回報——Adam 2026-08-17 裁決)**:TE 那條死路徑
+`detect_imbalance_and_migrate_one_flow` **開啟即 TypeError**——`:546` 用三個引數呼叫
+需要五個參數(`u, v, data, flow_data_dict, DG`)的函式。它被 `:40` 的旗標關著,所以
+不影響現行行為,也解釋了為何那條路徑的 idle_timeout 從未被任何人驗證過。
 
 [Co-developed with claude code -- Adam]
