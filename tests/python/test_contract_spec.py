@@ -583,10 +583,28 @@ class EndpointTableTest(unittest.TestCase):
     def test_no_error_path_accepts_a_500(self):
         # The whole point of the category: the kernel has already shipped three 500s on malformed
         # input. Accepting 5xx anywhere here would let the next one through.
+        #
+        # 503 is the one exception, and only because it is not the same event. A 500/502/504 on
+        # an error path means an unhandled exception reached the client; a 503 means the route
+        # was reached and deliberately declined -- which is what the --no-ai guard on
+        # intent_translator/text does, and that guard is itself the fix for a null dereference
+        # that used to kill the process. Banning it would force the check to assert a status the
+        # kernel provably does not return (measured live 2026-08-17), i.e. to be deleted. The
+        # same distinction is drawn in l3_component_check.probe_exists.
+        allowed_5xx = {503}
         bad = [(e["name"], e["expect_status"]) for e in spec.ENDPOINTS
                if e["category"] == spec.ERRORPATH
-               and any(s >= 500 for s in e["expect_status"])]
+               and any(s >= 500 and s not in allowed_5xx for s in e["expect_status"])]
         self.assertEqual(bad, [])
+
+    def test_only_the_disabled_translator_is_allowed_to_answer_5xx(self):
+        # The exception above is narrow on purpose: it exists for one endpoint whose 503 is
+        # documented. If a second error path starts accepting 503, that is a decision someone
+        # should have to make here rather than inherit.
+        accepting_503 = sorted(e["name"] for e in spec.ENDPOINTS
+                               if e["category"] == spec.ERRORPATH
+                               and 503 in e["expect_status"])
+        self.assertEqual(accepting_503, ["intent_translator_text__incomplete_body"])
 
     def test_the_lock_conflict_check_requires_423_and_nothing_else(self):
         # This is the only check that proves mutual exclusion works. Accepting a 200 as well
@@ -663,10 +681,23 @@ class DestructiveEndpointTest(unittest.TestCase):
     def test_the_device_rename_writes_back_the_name_it_found(self):
         # modify_device_name writes to the topology JSON on disk, so a real rename here would
         # edit a shipped file (and possibly the wrong one).
+        #
+        # The field is `new_name`, per 2026-01-02_ndt_api.md section 15 and the kernel's own
+        # parse. This assertion said `device_name` until 2026-08-17, which is what the check
+        # was sending -- so the meta-test agreed with the check and both disagreed with the
+        # documented contract, and the kernel had been answering an honest 400 to every run.
+        # Nothing noticed because MUTATE only runs behind --allow-mutations.
         ctx = real_ctx()
         body = self.named("modify_device_name")["body"](ctx)
-        self.assertEqual(body["device_name"], ctx.original_device_name)
+        self.assertEqual(body["new_name"], ctx.original_device_name)
         self.assertEqual(body["dpid"], ctx.a_dpid)
+
+    def test_the_nickname_rename_writes_back_the_nickname_it_found(self):
+        # Same defect, same commit, same reason it went unseen: the field is `new_nickname`.
+        ctx = real_ctx()
+        body = self.named("modify_nickname")["body"](ctx)
+        self.assertEqual(body["new_nickname"], ctx.original_nickname)
+        self.assertEqual(body["identifier"]["value"], ctx.a_dpid)
 
     def test_every_ctx_field_the_spec_reads_is_one_the_runner_actually_supplies(self):
         # The failure this exists for: a query/body lambda that reads a field Context does not
