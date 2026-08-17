@@ -80,9 +80,15 @@ bash tools/test_workflow/run_layers.sh compare                  # P4 對 OVS 基
 為什麼「7 個元件與 kernel 之間唯一的介面就是 `/ndt/*`」使得在一處驗契約等於驗了全部地基。
 
 **規格對照**：`doc/2026-01-02_ndt_api.md` 記載全部 **41** 個端點（§1–§41，與 dispatcher
-逐條相符）；其中 **30** 個有機器檢查。缺機器檢查的十一條是 group/meter 各三（Tier 2，
+逐條相符）；其中 **32** 個有機器檢查（2026-08-17 補上 `historical_logging` 三條與
+`intent_translator/text` 的錯誤路徑一條）。剩下九條沒有：group／meter 各三（Tier 2，
 裁決不動）、`link_failure_detected`／`link_recovery_detected`／`inform_all_destination_paths`
-（proxy 每輪 live 都在打）、`historical_logging`、`intent_translator/text`。
+（proxy 每輪 live 都在打，只是沒契約測試）。
+
+⚠️ **MUTATE 類檢查要 `--allow-mutations` 才會跑**，所以它們很久沒被執行過——2026-08-17
+第一次跑就抓到兩條**自己壞掉的檢查**（`modify_nickname` 送 `nickname`、`modify_device_name`
+送 `device_name`，文件規定的是 `new_nickname` 與 `new_name`，kernel 一直正確地回 400）。
+**定期跑一次帶 `--mutations` 的輪次**，否則這一半的套件會靜靜爛掉。
 
 ---
 

@@ -109,6 +109,9 @@ class Context:
         # would edit a file on disk; set_switches_power_state can cut a real device.
         chosen = next((s for s in switches if s.get("dpid") == self.a_dpid), None) or {}
         self.original_device_name = chosen.get("device_name", "s1")
+        # Same reasoning for the nickname: it is its own topology field, so write back
+        # what is there rather than branding a switch after a test run.
+        self.original_nickname = chosen.get("nickname", self.original_device_name)
         self.a_switch_ip = self._first_ip(chosen) or "127.0.0.1"
 
         # Two host IPs for path queries. Topology stores IPs as network-order uint32.

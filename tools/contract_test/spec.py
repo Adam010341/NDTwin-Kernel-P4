@@ -673,9 +673,14 @@ ENDPOINTS = [
          category=MUTATE, schema=STATUS_OK,
          note="the only path that sets isEnabled=true"),
 
+    # The field is new_nickname, not nickname (2026-01-02_ndt_api.md, modify_nickname's
+    # request table). Sending "nickname" made the kernel answer 400 "key 'new_nickname'
+    # not found", so this check had never passed -- MUTATE only runs under
+    # --allow-mutations, which is rare enough that nobody saw it. Writes the current
+    # nickname back, for the reason modify_device_name below does.
     dict(name="modify_nickname", method="POST", path="/ndt/modify_nickname",
          body=lambda ctx: {"identifier": {"type": "dpid", "value": ctx.a_dpid},
-                           "nickname": "ndt_contract_test"},
+                           "new_nickname": ctx.original_nickname},
          category=MUTATE,
          schema=Obj({"status": Str()}, optional={"message": Str()})),
 
@@ -693,9 +698,11 @@ ENDPOINTS = [
               "creates an NFS directory for the app, so this leaves a stray "
               "'ndt_contract_test' registration behind"),
 
+    # Same defect as modify_nickname: the documented field is new_name (section 15), and
+    # "device_name" earned a 400 every time this check ran.
     dict(name="modify_device_name", method="POST", path="/ndt/modify_device_name",
          body=lambda ctx: {"vertex_type": 0, "dpid": ctx.a_dpid,
-                           "device_name": ctx.original_device_name},
+                           "new_name": ctx.original_device_name},
          category=MUTATE,
          schema=Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
          note="Web-GUI depends on this. Writes the name back to the topology JSON, so "
@@ -710,6 +717,26 @@ ENDPOINTS = [
          schema=MapOf(Str(), key_check=is_ipv4_string, key_desc="IPv4 address"),
          note="Energy-Saving-App depends on this. Deliberately sends action=on to an "
               "already-powered switch: 'off' would cut a real device in TESTBED mode"),
+
+    # Historical logging: an enable/disable pair, in declaration order, for the same
+    # reason the lock sequence is a sequence -- the second call puts the state back.
+    # 2026-01-02_ndt_api.md section 39 documents 500 as the answer when HistoricalDataManager
+    # is absent, which is how stack.sh starts the kernel (--no-ai), so both statuses are
+    # in the contract. What this pins either way is that a documented state value is never
+    # answered with a 4xx: that would mean the parameter contract had moved.
+    dict(name="historical_logging_enable", method="POST", path="/ndt/historical_logging",
+         query={"state": "enable"},
+         category=MUTATE, expect_status=[200, 500],
+         schema=OneOf(Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
+                      Obj({"error": Str(nonempty=True)}, optional={"details": Str()})),
+         note="state is a QUERY parameter, not a body field -- the body is ignored"),
+
+    dict(name="historical_logging_disable", method="POST", path="/ndt/historical_logging",
+         query={"state": "disable"},
+         category=MUTATE, expect_status=[200, 500],
+         schema=OneOf(Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
+                      Obj({"error": Str(nonempty=True)}, optional={"details": Str()})),
+         note="restores whatever the enable above changed"),
 
     # The simulation endpoints forward to the Simulation-Platform-Manager, which is not
     # part of a normal kernel test run, so a success-path contract would be flaky. Their
@@ -735,10 +762,33 @@ ENDPOINTS = [
          body={}, category=ERRORPATH, expect_status=[400, 422],
          schema=Any_()),
 
-    # Not included: intent_translator/text. It needs an OpenAI token, costs money per
-    # call, and its response is model-dependent, so a contract check would be flaky and
-    # expensive. Web-GUI's dependency on it is verified by L3 existence only -- recorded
-    # here so the omission is a decision rather than an oversight.
+    dict(name="historical_logging__bad_state", method="POST",
+         path="/ndt/historical_logging", query={"state": "bad"},
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="section 39 measured this 400 live on a kernel that answers 500 for a "
+              "valid state, so parameter validation provably runs before the availability "
+              "check -- which is why this one check is exact where the pair above has to "
+              "accept two statuses"),
+
+    # The success path of intent_translator/text stays out, for the reasons recorded when
+    # it was first excluded: it needs an OpenAI token, costs money per call, and its
+    # response is model-dependent, so a contract check would be flaky and expensive.
+    # None of that applies to the error path, which needs no token at all -- and the error
+    # path is where the damage was. Until 2026-08-11 the handler dereferenced a null
+    # IntentTranslator, so ONE well-formed POST segfaulted the whole kernel process
+    # (2026-01-02_ndt_api.md section 41); the mitigation was a paragraph asking people not
+    # to call it, and the fix was a guard. Nothing has re-tested that guard since. A body
+    # missing "session" reaches it without an LLM: 400 if validation answers first, 503 if
+    # the disabled-mode guard does, and the section documents both. A 500 or a 200 here is
+    # the regression.
+    dict(name="intent_translator_text__incomplete_body", method="POST",
+         path="/ndt/intent_translator/text",
+         body={"prompt": "contract check -- no intent is expected to be executed"},
+         category=ERRORPATH, expect_status=[400, 503],
+         schema=Any_(),
+         note="guards the null-IntentTranslator crash fixed 2026-08-11; deliberately "
+              "incomplete so no intent can execute even if the kernel has AI enabled"),
 ]
 
 
