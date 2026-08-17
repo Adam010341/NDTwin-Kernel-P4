@@ -14,13 +14,14 @@ is unrecorded cannot be re-run.
 | `2026-07-17_structure-decomposition/` | Component-by-component structural analysis of the kernel, done before the P4 work started. |
 | `2026-08-12_overnight-review/` | The 2026-08-12/13 overnight round: live runbooks (P4 and OVS), static review agents B1–B4, the upstream `8b61cdc` analysis, and the W2 live re-verification. `INDEX.md` first. |
 | `2026-08-13_advanced-testing-research/` | Research on testing approaches; two of its recommendations shipped (the P4 coverage gate and the libFuzzer harness). |
+| `2026-07-30_audit-be3c242/` | The first ten-stage subsystem review, against commit `be3c242`. Read the rule below before quoting it. |
 | `2026-08-08_commit-review/`, `scoped/` | Earlier rounds, by area and by severity tier. |
 | `mutation-evidence-*.md` | Mutation runs. Every `observed failure` is copied from stdout, never predicted. |
 | Loose `*.md`, `ryu-wedge-trace-*.tsv` | Single-topic runbooks, findings and raw traces. |
 
-## Why `2026-07-30_audit-be3c242/` is still here
+## Why `2026-07-30_audit-be3c242/` is kept, and why it used to sit outside
 
-`doc/2026-07-30_audit-be3c242/` is the **first** ten-stage subsystem review (2026-07-31, against commit
+`doc/audit/2026-07-30_audit-be3c242/` is the **first** ten-stage subsystem review (2026-07-31, against commit
 `be3c242`). It is kept, not superseded-and-deleted, because it is the only record of what the
 codebase looked like before the P4 work — but it must be read with one rule, which every prompt of
 the second round restated:
@@ -28,6 +29,15 @@ the second round restated:
 > Reference it, never copy from it. It was written against an old commit, and at least five fix
 > commits have since changed the code it describes. Any claim taken from it has to be re-verified
 > against the source as it is now.
+
+Until 2026-08-17 it lived at `doc/2026-07-30_audit-be3c242/`, one level up, which looked like a
+filing mistake and was asked about as one. It was not: `1f9e4b4` created it on 2026-07-30, and
+`doc/audit/` did not exist until `ef30fde` brought 54 files back from `~/Documents` on 08-13. It
+predates the convention rather than breaking it, and the date-prefix rename (`9e3874c`) moved
+nothing. Moved in here now, because a reader's first question about a layout is the layout's
+problem. The directory name keeps its
+`audit-` stutter on purpose: unchanged, it stays the same greppable identifier it is in the commit
+history and in the several hundred post-commit reviews under `.git/agy-reviews/`.
 
 A **second** ten-stage plan was written on 2026-08-03 (`doc/audit/00-workflow-plan.md`, 1641 lines)
 intending to redo that review against the current tree, with outputs named
