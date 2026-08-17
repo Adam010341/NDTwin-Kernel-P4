@@ -20,6 +20,35 @@ is unrecorded cannot be re-run.
 | `mutation-evidence-*.md` | Mutation runs. Every `observed failure` is copied from stdout, never predicted. |
 | Loose `*.md`, `ryu-wedge-trace-*.tsv` | Single-topic runbooks, findings and raw traces. |
 
+## Every measured number carries the commit it was measured at
+
+**Rule: when a measured figure goes into a document, write the commit beside it.**
+`50.1 s (9467ea0)`, `585 tests / 79 suites (13e53df)`. One token, written once.
+
+A measurement is only true of the code that produced it, and the code moves. Without the commit
+a reader cannot tell a current fact from a historical one, so stale figures keep getting quoted
+as if they were properties of the system. Both of 2026-08-17's instances were found by accident,
+not by anything that looks for them:
+
+| figure | valid for | then quoted for |
+|---|---|---|
+| OVS blackholes **291 s** with zero self-heal | measured overnight 08-12/13; `034da18` fixed it at **09:48 on 08-13** | **4 days**, across 11 files, as a property of OVS. Re-measured 08-17: 50.1 s, and it self-heals |
+| C++ baseline **579 tests / 78 suites** | written 08-17 ~14:00 | hours — `1b1f941` and `13e53df` overtook it the same afternoon, under a line reading "a mismatch means someone changed the code" |
+
+Both were written accurately and neither was wrong when written. Nothing changed them because
+nothing connected the fix to the sentence it invalidated. The commit tag does not prevent the
+rot; it makes the rot **visible to the next reader**, which is the part that failed here.
+
+Two corollaries this repo already follows, now stated:
+
+- **Historical records are not corrected, they are dated.** A finding written against an old
+  commit stays as it is — see the `be3c242` rule below. It is *current-facing* documents (the
+  testing manual's baseline, the fault catalogue's expectations, this index) that must be
+  corrected, because a reader acts on those.
+- **Retire in place, do not delete.** When a figure is superseded, leave the old sentence with a
+  RETIRED marker and the new measurement beside it. `faults.txt`'s L-2 entry is the worked
+  example: the reasoning behind the wrong expectation is still worth reading.
+
 ## Why `2026-07-30_audit-be3c242/` is kept, and why it used to sit outside
 
 `doc/audit/2026-07-30_audit-be3c242/` is the **first** ten-stage subsystem review (2026-07-31, against commit
