@@ -16,6 +16,7 @@ is unrecorded cannot be re-run.
 | `2026-08-13_advanced-testing-research/` | Research on testing approaches; two of its recommendations shipped (the P4 coverage gate and the libFuzzer harness). |
 | `2026-07-30_audit-be3c242/` | The first ten-stage subsystem review, against commit `be3c242`. Read the rule below before quoting it. |
 | `2026-08-17_p4-vs-ovs-matched-topology/` | 23 live failover measurements holding the topology constant across P4 and OVS. Retires the "P4 12.5 s vs OVS 291 s" comparison: the 291 s was mostly a since-fixed kernel defect, and the real data-plane gap is **2.0 s, 13 %** (13.7 vs 15.7 s, n=10 each, p=0.0098). Raw ping logs and the measurement script are kept with the report. |
+| `2026-08-18_pre-report-claim-verification.md` | Checks each figure the progress deck is about to claim, and asks which baseline defects are still live in `8b61cdc`, the lab's current main. Result: 52 of 56 source files are byte-identical to the baseline, so those defects are there verbatim; `FlowLinkUsageCollector` is the one family upstream touched, and it fixed three while leaving three. Neither tree builds under its own `-Werror` on gcc 13.3. Also catches two stale test expectations and one live product defect. |
 | `2026-08-08_commit-review/`, `scoped/` | Earlier rounds, by area and by severity tier. |
 | `mutation-evidence-*.md` | Mutation runs. Every `observed failure` is copied from stdout, never predicted. |
 | Loose `*.md`, `ryu-wedge-trace-*.tsv` | Single-topic runbooks, findings and raw traces. |

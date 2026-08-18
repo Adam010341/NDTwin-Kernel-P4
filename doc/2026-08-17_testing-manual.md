@@ -26,14 +26,16 @@
 套件在它底下看起來是綠的。且本 repo 走 `unittest` 不是 pytest——**看 `Ran N` 不要只看 `OK`**，
 `__main__` guard 底下的測試根本不會被收集。
 
-**目前基準線（2026-08-17 收官後重跑，`13e53df`，local CI 6/6 綠）**：C++ **585 tests /
-79 suites**、`p4_proxy/tests` **453 ran**（另 1 skipped＝`test_p4_client.py` 自己宣告要 live
+**目前基準線（2026-08-18 重跑，`b62bafe`）**：C++ **588 tests / 80 suites**、`p4_proxy/tests` **453 ran**（另 1 skipped＝`test_p4_client.py` 自己宣告要 live
 switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/test_faults.sh`
 **Ran 60 checks**、p4 覆蓋未覆蓋集 `[414..421]` 不變。數字對不上就是有人動了碼或收集壞了。
 
 ⚠️ **加測試的 commit 要回來更新這一行。** 本行第一版寫的是 579/78 與 Ran 454，當天稍後就被
 `1b1f941`／`13e53df` 追過——於是「數字對不上＝有人動了碼」這句話把讀者指向不存在的問題，
 說明書自己變成假警報的來源。
+
+⚠️ **2026-08-18 更新**：`b62bafe`（`setupNFSForApp` 分辨「目錄已存在」與「建不出來」）
+加了 3 條測試、1 個 suite，所以是 585/79 → **588/80**。前一版數字量於 `13e53df`。
 
 📌 **通則：實測數字寫進文件時，一律把當時的 commit 標在旁邊**（像上一段的 `13e53df`）。
 量測只對產生它的那版程式成立，而程式會動；沒有 commit，讀的人分不出「現況」和「歷史」，
