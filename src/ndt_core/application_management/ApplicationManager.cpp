@@ -49,17 +49,52 @@ ApplicationManager::setupNFSForApp(int appId)
 {
     std::string appDir = m_nfsExportDir + "/" + std::to_string(appId);
 
-    // Create directory for this application
-    if (!fs::create_directories(appDir))
+    // [Co-developed with claude code -- Adam]
+    // create_directories answers "did I create anything", not "does it exist now": it returns
+    // false both when creation failed and when the directory was already there. Those two need
+    // opposite handling, so the error_code overload is what separates them.
+    //
+    // Reuse is not an exotic case. m_nextAppId lives in memory and restarts at 1, and
+    // cleanupStaleEntries() only removes a previous run's folder when fs::remove_all succeeds --
+    // which is exactly what fails once a squashed NFS client has left root-owned files in there.
+    // Treating reuse as failure returned before openUpAppDirPermissions, so the permissions that
+    // would let the *next* cleanup succeed were never applied: the condition kept itself alive
+    // across restarts and only cleared by deleting the folder by hand. Observed 2026-08-17 on a
+    // live run (app id 1 reused: warning + permissions skipped; id 2 fresh: clean).
+    //
+    // The error_code overload also closes a second hole the throwing one left open: with a
+    // regular file sitting on the path, create_directories(appDir) *throws* filesystem_error,
+    // and nothing between here and the HTTP layer catches it -- reverting this block turns that
+    // test from a false return into an uncaught exception out of registerApplication.
+    //
+    // Present in baseline 28b8b13 unchanged, and `8b61cdc` (the lab's current main) touches only
+    // FlowLinkUsageCollector, so this file is byte-identical there too.
+    std::error_code ec;
+    const bool created = fs::create_directories(appDir, ec);
+    if (ec)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "Failed to create directory: {}", appDir);
+        SPDLOG_LOGGER_WARN(
+            Logger::instance(), "Failed to create directory {}: {}", appDir, ec.message());
         return false;
     }
-    else
+    if (!created && !fs::is_directory(appDir, ec))
     {
-        // Record it so destructor knows what to clean
-        m_registeredFolders.push_back(appDir);
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} exists but is not a directory, so it cannot serve as an app "
+                           "workspace",
+                           appDir);
+        return false;
     }
+    if (!created)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "App directory {} already existed -- a previous run's folder that "
+                           "cleanup could not remove. Reusing it and re-applying permissions.",
+                           appDir);
+    }
+    // Recorded either way: this process now serves the app out of that directory, so the
+    // destructor owns it. App ids are unique within a process, so this cannot double-add.
+    m_registeredFolders.push_back(appDir);
 
     if (!openUpAppDirPermissions(appDir))
     {

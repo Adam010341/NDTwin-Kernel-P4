@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unistd.h> // geteuid: the reuse tests refuse to run as root, see their comment
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -277,5 +278,107 @@ TEST(NonRootLifecycle, RegistrationProvisionsAWritableWorkspaceWithoutRoot)
     // Destructor cleanup: folders go away without sudo ever being involved (their lines were
     // never in /etc/exports, so cleanup has nothing to unexport and stays silent).
     EXPECT_FALSE(fs::exists(appDir));
+    fs::remove_all(exportDir);
+}
+
+// --- setupNFSForApp on a directory that already exists ---------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// create_directories returns false for two opposite reasons -- "creation failed" and "it was
+// already there" -- and the original treated both as failure, returning before the permissions
+// were applied. Reuse is the normal case rather than the exotic one: m_nextAppId lives in memory
+// and restarts at 1, while cleanupStaleEntries only removes a previous run's folder when
+// fs::remove_all succeeds, and that is exactly what fails when a squashed client left
+// root-owned files behind. So the failure kept itself alive across restarts: the permissions
+// that would let the next cleanup succeed were the ones being skipped.
+//
+// Found on a live run 2026-08-17 (app id 1 reused: warning plus no permissions; id 2 fresh:
+// clean). Present unchanged in baseline 28b8b13.
+//
+// These construct the manager, so they must not run as root: updateNFSConfig would then really
+// append to /etc/exports. As a normal user its ofstream open fails, which short-circuits
+// reloadNFSServer, so nothing shells out at all.
+
+namespace
+{
+/// A previous run's leftover: the directory exists, owner-only, before setup is asked for it.
+fs::path seedLeftoverAppDir(const fs::path& exportDir, int appId)
+{
+    const fs::path appDir = exportDir / std::to_string(appId);
+    fs::create_directories(appDir);
+    fs::permissions(appDir, fs::perms::owner_all); // 700 -- squashed clients cannot write
+    return appDir;
+}
+} // namespace
+
+TEST(SetupNFSForApp, AnAlreadyExistingDirectoryIsReusedAndItsPermissionsReapplied)
+{
+    if (geteuid() == 0)
+    {
+        GTEST_SKIP() << "would append to the real /etc/exports as root";
+    }
+    const fs::path exportDir = fs::path(testing::TempDir()) / "appmgr_reuse_export";
+    const fs::path mountDir = fs::path(testing::TempDir()) / "appmgr_reuse_mount";
+    fs::remove_all(exportDir);
+    fs::create_directories(exportDir);
+
+    ApplicationManager mgr(exportDir.string(), mountDir.string());
+    // Seeded after construction: cleanupStaleEntries() runs from the constructor and deletes
+    // every all-digits folder it finds, which would remove the very condition under test.
+    const fs::path appDir = seedLeftoverAppDir(exportDir, 7);
+    ASSERT_EQ(fs::status(appDir).permissions() & fs::perms::others_write, fs::perms::none)
+        << "seed must start unwritable, or the assertion below proves nothing";
+
+    // The defect: this returned false and left the directory at 700.
+    EXPECT_TRUE(mgr.setupNFSForApp(7));
+    EXPECT_EQ(fs::status(appDir).permissions() & fs::perms::all, fs::perms::all)
+        << "reuse must still open up permissions -- skipping them is what made the condition "
+           "survive every restart";
+
+    fs::remove_all(exportDir);
+}
+
+TEST(SetupNFSForApp, AFreshDirectoryIsStillCreatedAndOpenedUp)
+{
+    if (geteuid() == 0)
+    {
+        GTEST_SKIP() << "would append to the real /etc/exports as root";
+    }
+    const fs::path exportDir = fs::path(testing::TempDir()) / "appmgr_fresh_export";
+    const fs::path mountDir = fs::path(testing::TempDir()) / "appmgr_fresh_mount";
+    fs::remove_all(exportDir);
+    fs::create_directories(exportDir);
+
+    ApplicationManager mgr(exportDir.string(), mountDir.string());
+    const fs::path appDir = exportDir / "3";
+    ASSERT_FALSE(fs::exists(appDir));
+
+    EXPECT_TRUE(mgr.setupNFSForApp(3));
+    ASSERT_TRUE(fs::is_directory(appDir));
+    EXPECT_EQ(fs::status(appDir).permissions() & fs::perms::all, fs::perms::all);
+
+    fs::remove_all(exportDir);
+}
+
+TEST(SetupNFSForApp, APathBlockedByARegularFileStillReportsFailure)
+{
+    if (geteuid() == 0)
+    {
+        GTEST_SKIP() << "would append to the real /etc/exports as root";
+    }
+    // The half the fix must not lose: distinguishing "already there" from "could not create"
+    // has to keep answering false for the second. A regular file sitting on the path is the
+    // cheapest reachable form of it.
+    const fs::path exportDir = fs::path(testing::TempDir()) / "appmgr_blocked_export";
+    const fs::path mountDir = fs::path(testing::TempDir()) / "appmgr_blocked_mount";
+    fs::remove_all(exportDir);
+    fs::create_directories(exportDir);
+
+    ApplicationManager mgr(exportDir.string(), mountDir.string());
+    { std::ofstream blocker(exportDir / "5"); blocker << "not a directory\n"; }
+    ASSERT_TRUE(fs::is_regular_file(exportDir / "5"));
+
+    EXPECT_FALSE(mgr.setupNFSForApp(5));
+
     fs::remove_all(exportDir);
 }
