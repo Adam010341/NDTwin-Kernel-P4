@@ -78,12 +78,24 @@ def bmv2_launch_head(binary, lib_dir):
     [Co-developed with claude code -- Adam]
     LD_LIBRARY_PATH rides in front as a shell env-prefix: the launch goes through the
     switch's shell (BMv2Switch.start -> self.cmd), where the prefix binds to that process
-    only. Deliberate consequence: the manifest argv then starts with the prefix, and
-    ndtwin-p4-power refuses to relaunch such an entry (its shell-free exec checks
-    basename(argv[0])) -- so under an override, power-ON fails loudly instead of
-    relaunching the fast binary against the stock libraries via the ldconfig cache.
-    Power-OFF is untouched (pid + comm). A refusal an operator can read beats a
-    mixed-library switch nobody notices.
+    only. The manifest argv therefore starts with the prefix.
+
+    That used to mean power-ON did not work under an override at all: ndtwin-p4-power's
+    shell-free exec checks basename(argv[0]) and refused the entry. The reasoning was that
+    a refusal an operator can read beats relaunching the fast binary against the stock
+    libraries via the ldconfig cache -- a switch that is neither build.
+
+    Both halves of that were true and the third option was missed. The helper now strips
+    the assignments and derives LD_LIBRARY_PATH from the binary itself, by the same
+    dirname(binary)/../lib rule resolve_bmv2_launcher uses above, so it relaunches with the
+    *right* libraries rather than choosing between wrong and refused. Keep the two
+    derivations identical if either moves.
+
+    Why it mattered enough to revisit: the Energy-Saving App exists to power switches off
+    *and back on*, so under an override it could only ever shut the fabric down. Found live
+    2026-08-18 by powering s5 off and being unable to bring it back.
+
+    Power-OFF was never affected (pid + comm).
     """
     return f"LD_LIBRARY_PATH={lib_dir} {binary}" if lib_dir else binary
 

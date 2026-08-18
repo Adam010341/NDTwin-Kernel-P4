@@ -631,3 +631,133 @@ class OnTimeoutLeavesAnAddressableProcessTest(HelperTestBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OverridePrefixTest(HelperTestBase):
+    """
+    Power-ON under a bmv2 binary override.
+
+    [Co-developed with claude code -- Adam]
+    A topology running an override records its argv with a shell env prefix:
+    "LD_LIBRARY_PATH=<prefix>/lib <prefix>/bin/simple_switch_grpc -i 1@s5-eth1 ...". This launch
+    has no shell, so that prefix used to fail the basename check and power-ON simply did not
+    work while an override was in place -- deliberately, on the reasoning that a loud refusal
+    beats launching the fast binary against stock libraries via the ldconfig cache.
+
+    The cost of that refusal was larger than it looked: the Energy-Saving App exists to power
+    switches off *and back on*, so under an override it could only ever shut the fabric down.
+    Found live 2026-08-18 by powering s5 off and being unable to bring it back.
+
+    The prefix is now stripped and the library path derived from the binary instead -- the same
+    dirname(binary)/../lib rule the topology's resolve_bmv2_launcher applies, so the two cannot
+    drift. Derived rather than read from the manifest because that adds nothing to what is
+    already trusted: load_manifest has established root ownership, and the basename check admits
+    any .../simple_switch_grpc, so the manifest already names the binary this runs as root.
+    """
+
+    # Borrowed rather than inherited: subclassing OnTest would re-run its five tests under a
+    # second name, which inflates the suite count for nothing.
+    listener_argv = OnTest.listener_argv
+    on_entry = OnTest.on_entry
+
+    def _prefixed(self, port, pidfile, lib_dir):
+        plain = self.listener_argv(port, pidfile)
+        return f"LD_LIBRARY_PATH={lib_dir} {plain}"
+
+    def test_an_env_prefixed_argv_still_starts_the_switch(self):
+        # The whole point: this is what an override's manifest looks like, and it used to be
+        # refused outright.
+        port = next(PORTS)
+        pidfile = os.path.join(self.dir, "sw.pid")
+        lib_dir = os.path.join(os.path.dirname(os.path.dirname(FAKE_PY_SWITCH)), "lib")
+        self.write_manifest({"s1": self.on_entry(port, self._prefixed(port, pidfile, lib_dir))})
+
+        rc, out, err = run_helper(["on", "s1"], self.manifest)
+
+        self.assertEqual(rc, 0, f"stderr was: {err}")
+        self.assertEqual(json.loads(out)["status"], "started")
+
+    def test_the_library_path_is_derived_from_the_binary_not_taken_from_the_manifest(self):
+        # A sibling <prefix>/lib exists -> the child must see LD_LIBRARY_PATH pointing at it,
+        # whatever the manifest's own prefix said. Without this the fast binary would resolve
+        # its libraries through the ldconfig cache and silently run against the stock build.
+        port = next(PORTS)
+        envfile = os.path.join(self.dir, "child_env")
+        script = os.path.join(self.dir, "dumpenv.py")
+        with open(script, "w") as fh:
+            fh.write("import os, socket, sys, time\n"
+                     "port, envfile = int(sys.argv[1]), sys.argv[2]\n"
+                     "open(envfile, 'w').write(os.environ.get('LD_LIBRARY_PATH', '<unset>'))\n"
+                     "s = socket.socket()\n"
+                     "s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
+                     "s.bind(('127.0.0.1', port)); s.listen(5)\n"
+                     "time.sleep(90)\n")
+        expected_lib = os.path.join(os.path.dirname(os.path.dirname(FAKE_PY_SWITCH)), "lib")
+        os.makedirs(expected_lib, exist_ok=True)
+        argv = f"LD_LIBRARY_PATH=/wrong/place {FAKE_PY_SWITCH} {script} {port} {envfile}"
+        self.write_manifest({"s1": self.on_entry(port, argv)})
+
+        rc, _, err = run_helper(["on", "s1"], self.manifest)
+        self.assertEqual(rc, 0, f"stderr was: {err}")
+
+        with open(envfile) as fh:
+            seen = fh.read()
+        self.assertEqual(seen, expected_lib,
+                         "the child must get the path derived from its own binary, not the "
+                         "manifest's value -- /wrong/place proves the manifest was consulted")
+
+    def test_no_sibling_lib_directory_means_no_library_path_is_invented(self):
+        # The stock build is on the default loader path and has no <prefix>/lib beside it.
+        # Setting LD_LIBRARY_PATH to a directory that does not exist is not harmless: it
+        # changes resolution order for every library the process loads.
+        port = next(PORTS)
+        envfile = os.path.join(self.dir, "child_env2")
+        script = os.path.join(self.dir, "dumpenv2.py")
+        with open(script, "w") as fh:
+            fh.write("import os, socket, sys, time\n"
+                     "port, envfile = int(sys.argv[1]), sys.argv[2]\n"
+                     "open(envfile, 'w').write(os.environ.get('LD_LIBRARY_PATH', '<unset>'))\n"
+                     "s = socket.socket()\n"
+                     "s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
+                     "s.bind(('127.0.0.1', port)); s.listen(5)\n"
+                     "time.sleep(90)\n")
+        bare = os.path.join(self.dir, "nolibs", "simple_switch_grpc")
+        os.makedirs(os.path.dirname(bare), exist_ok=True)
+        shutil.copy2(os.path.realpath(sys.executable), bare)
+        self.write_manifest(
+            {"s1": self.on_entry(port, f"{bare} {script} {port} {envfile}")})
+
+        rc, _, err = run_helper(["on", "s1"], self.manifest)
+        self.assertEqual(rc, 0, f"stderr was: {err}")
+
+        with open(envfile) as fh:
+            self.assertEqual(fh.read(), "<unset>",
+                             "no sibling lib/ means the loader's own search order stands")
+
+    def test_an_argv_that_is_only_assignments_is_still_refused(self):
+        # Stripping must not turn a nonsense entry into an empty argv that gets launched as
+        # something else. The basename check still has to run on what survives.
+        port = next(PORTS)
+        self.write_manifest({"s1": self.on_entry(port, "LD_LIBRARY_PATH=/x FOO=bar")})
+
+        rc, _, err = run_helper(["on", "s1"], self.manifest)
+
+        self.assertNotEqual(rc, 0)
+        self.assertIn("simple_switch_grpc", err)
+
+    def test_an_absolute_path_containing_an_equals_sign_is_not_mistaken_for_an_assignment(self):
+        # The strip is anchored on "not absolute", so a binary under a directory with '=' in
+        # its name stays the command rather than being eaten as an assignment.
+        port = next(PORTS)
+        pidfile = os.path.join(self.dir, "sw.pid")
+        odd = os.path.join(self.dir, "a=b", "simple_switch_grpc")
+        os.makedirs(os.path.dirname(odd), exist_ok=True)
+        shutil.copy2(os.path.realpath(sys.executable), odd)
+        script = os.path.join(self.dir, "listen.py")
+        self.listener_argv(port, pidfile)  # writes listen.py
+        self.write_manifest({"s1": self.on_entry(port, f"{odd} {script} {port} {pidfile}")})
+
+        rc, out, err = run_helper(["on", "s1"], self.manifest)
+
+        self.assertEqual(rc, 0, f"stderr was: {err}")
+        self.assertEqual(json.loads(out)["status"], "started")

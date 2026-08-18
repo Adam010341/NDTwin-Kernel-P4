@@ -268,11 +268,46 @@ def cmd_on(name):
              f"a second listener behind it")
 
     args = shlex.split(entry["argv"])
+    # An env-prefixed argv ("LD_LIBRARY_PATH=... /path/simple_switch_grpc ...") is what a
+    # topology running under a bmv2 binary override records. Drop the assignments and keep the
+    # command: this launch has no shell, so a "VAR=value" argv[0] would be looked up as a
+    # program name and fail. The values are not applied from here -- see the derivation below
+    # for why they do not need to be. [Co-developed with claude code -- Adam]
+    while args and "=" in args[0] and not args[0].startswith("/"):
+        args = args[1:]
+
     # EXPECTED_NAME, not EXPECTED_COMM: argv comes from the manifest, not from the kernel's
     # truncated comm, so the full name is what a legitimate entry carries.
     if not args or os.path.basename(args[0]) != EXPECTED_NAME:
         fail(f"manifest argv for '{name}' does not start with {EXPECTED_NAME} "
              f"({args[:1]!r}); refusing to execute it")
+
+    # [Co-developed with claude code -- Adam]
+    # Give the binary its own libraries, derived here rather than taken from the manifest.
+    #
+    # A fast bmv2 build lives at <prefix>/bin/simple_switch_grpc with its libraries at
+    # <prefix>/lib. Launched with neither the env prefix nor this, the loader falls back to the
+    # ldconfig cache and the fast binary silently runs against the *stock* libraries -- a switch
+    # that is neither build, and a measurement that reports one while running the other.
+    #
+    # Until now the topology's env-prefixed argv was left to fail the basename check above, on
+    # the reasoning that a loud refusal beats that silent mixing (p4_testbed_topo.bmv2_launch_head
+    # says so). Both were true and the third option was missed: derive the path instead of
+    # choosing between wrong and refused. The cost of the refusal was not small -- the
+    # Energy-Saving App exists to power switches off *and back on*, so under an override it could
+    # only ever shut the fabric down.
+    #
+    # Derived, not read from the manifest, because that adds nothing to what this script already
+    # trusts. It is the same `dirname(binary)/../lib` rule resolve_bmv2_launcher applies on the
+    # topology side, so the two cannot drift; and load_manifest has already established the
+    # manifest is root-owned and not group/other-writable, which is the actual boundary here --
+    # the basename check is a staleness guard, not a security one (it admits any
+    # .../simple_switch_grpc). Anyone who could inject a library path could already choose the
+    # binary.
+    launch_env = os.environ
+    lib_dir = os.path.normpath(os.path.join(os.path.dirname(args[0]), "..", "lib"))
+    if os.path.dirname(args[0]) and os.path.isdir(lib_dir):
+        launch_env = {**os.environ, "LD_LIBRARY_PATH": lib_dir}
 
     # O_NOFOLLOW: the log lives in /tmp, where a symlink planted at the recorded name would
     # otherwise turn a root append into a write to wherever the attacker pointed it.
@@ -285,7 +320,7 @@ def cmd_on(name):
 
     try:
         proc = subprocess.Popen(args, stdout=log_fd, stderr=log_fd,
-                                start_new_session=True, close_fds=True)
+                                start_new_session=True, close_fds=True, env=launch_env)
     except OSError as e:
         fail(f"could not launch {args[0]}: {e}")
     finally:
