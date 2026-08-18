@@ -220,16 +220,45 @@ mapped libraries       : /usr/local/bmv2-fast/lib/libbmpi.so.0.0.0  (fast，不�
 
 ---
 
-## §7 還沒跑的
+## §7 剩下六題，全部跑完（2026-08-18 續）
 
-- **[M-Q10]** 兩種 IP 編碼（整數 network byte order vs 點分字串）會不會對不上
-- **[M-Q9]** `is_enabled = isEnabled && !adminDisabled` 這個折疊不變式實際成不成立
-- **[M-Q8]** P4 上 group/meter 是誠實回 501 還是假裝自己是 OVS
-- **[D-Q12]** top-k 是不是真的照宣稱的欄位降冪排序
-- **[D-Q1]** `get_static_topology_json` 與 `get_graph_data` 的節點／邊集合一不一致
-- **[D-Q11]** `get_path_switch_count` 與實際觀察到的路徑跳數一不一致
+| 題 | 問的是 | 結果 |
+|---|---|---|
+| **[M-Q8]** | P4 上 group/meter 是誠實拒絕還是假裝自己是 OVS | ✅ **六個端點全部回 501**，並附「OpenFlow groups and meters have no direct equivalent」的說明。誠實 |
+| **[D-Q1]** | `get_static_topology_json` 與 `get_graph_data` 的節點／邊集合 | ✅ **14 節點 / 40 邊，兩邊差集皆為 0** |
+| **[D-Q11]** | `get_path_switch_count` 對不對得上實際觀察到的跳數 | ✅ `switch_count: 5` ＝ 實際 `[1,5,9,7,4]` 五跳，**雙向都是** |
+| **[D-Q12]** | top-k 是不是照它宣稱的欄位降冪 | ✅ 降冪（40652 > 17766）。⚠️ 只有兩筆，**排序邏輯只被弱驗證** |
+| **[M-Q10]** | 兩種 IP 編碼會不會對不上 | ✅ 一致。14 個節點的 `ip` **全部是 int**（單一型別），little-endian 解碼全部正確（`192653504 → 192.168.123.11`、`16777226 → 10.0.0.1`）|
+| **[M-Q9]** | `is_enabled = isEnabled && !adminDisabled` 折疊不變式 | 🟡 **空的通過**，見下 |
 
-## §8 原始材料
+### 7a. M-Q9 是空的通過，而文件自己說了
+
+40 條邊、14 個節點，**0 個違反**——但也**0 個 `admin_disabled` 被設過**，所以規則從沒被執行到。
+
+API 文件寫得很直白：
+
+> **Current default.** The kernel runs with `--no-ai`, so the Intent Translator path that sets
+> `adminDisabled` is unreachable. In a default run the field is always `false`.
+
+我回頭驗了呼叫鏈：`disableSwitchAndEdges` / `enableSwitchAndEdges` **各只有一個呼叫點，
+兩個都在 `IntentTranslator.cpp`**（:291 / :310）。而 `--no-ai` 是 `stack.sh` 的預設。
+
+所以 **`admin_disabled` 是一個在預設組態下無法被觸發的 API 欄位**。Muse 問的是「操作者的
+disable 會不會被忽略」，實際答案更前面一步：**預設組態下操作者根本 disable 不了**。
+文件誠實記載了這件事，所以它是已知的設計狀態而不是缺陷——但它是
+「一個功能在多個層次上是死的」（`ee7233b`）那個形狀的活體標本。
+
+### 7b. 查了但不是發現：兩個端點的 IP 型別不同
+
+`get_static_topology_json` 回 `["192.168.123.11"]`（**字串**），
+`get_graph_data` 回 `[192653504]`（**int**）——同樣的欄位名 `src_ip`/`dst_ip`/`node.ip`。
+
+看起來像跨端點的型別漂移，**但文件明寫**：「with IP addresses in dotted-quad string form」
+以及「Unlike `/ndt/get_graph_data`, this endpoint returns the raw topology」。**已記載，不是發現。**
+
+## §8 提問清單已全部執行完畢
+
+## §9 原始材料
 
 `scratchpad/q-deepseek-clean.md`（12 題）、`q-muse.md`（10 題）、agy 輸出（10 題）、
 `q-deepseek.md`（11 題，**已汙染**——`deepseek_agent_task` 的 `repo` 參數不是沙箱，
