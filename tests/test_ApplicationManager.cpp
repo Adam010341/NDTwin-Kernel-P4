@@ -32,6 +32,7 @@ struct Seams : ApplicationManager
     using ApplicationManager::buildExportsPurgeCommand;
     using ApplicationManager::buildUnexportCommand;
     using ApplicationManager::exportsFileHasEntry;
+    using ApplicationManager::isSquashedClientContentFailure;
     using ApplicationManager::exportsLineFor;
     using ApplicationManager::openUpAppDirPermissions;
 };
@@ -381,4 +382,72 @@ TEST(SetupNFSForApp, APathBlockedByARegularFileStillReportsFailure)
     EXPECT_FALSE(mgr.setupNFSForApp(5));
 
     fs::remove_all(exportDir);
+}
+
+// --- isSquashedClientContentFailure: which remove_all failure is the expected one --------------
+//
+// [Co-developed with claude code -- Adam]
+// cleanupStaleEntries logged every filesystem_error at ERROR, including the one that happens on
+// every start of this deployment and is not fixable without root: the export is all_squash, so an
+// application's workspace contents belong to nobody:nogroup, and remove_all needs write permission
+// on the parent of each entry. The real 2026-08-18 line was
+//   cannot remove all: Permission denied [/srv/nfs/sim/1]
+//                                        [/srv/nfs/sim/1/energy_saving_simulator/1.0/case4/input]
+// An ERROR that fires every start for something nobody can act on is how a log stops being read.
+//
+// Tested through the decision rather than the call site, because reproducing the condition needs a
+// directory the test process cannot delete, and creating one needs root.
+
+namespace
+{
+const std::error_code kDenied = std::make_error_code(std::errc::permission_denied);
+}
+
+TEST(SquashedClientContentFailure, TheRealObservedFailureIsRecognised)
+{
+    EXPECT_TRUE(Seams::isSquashedClientContentFailure(
+        kDenied, "/srv/nfs/sim/1", "/srv/nfs/sim/1/energy_saving_simulator/1.0/case4/input"));
+}
+
+TEST(SquashedClientContentFailure, DeniedOnTheFolderItselfStaysAnError)
+{
+    // A different condition -- the folder's own parent is not writable -- and unlike the contents
+    // that is something this code was supposed to control, so it must keep its ERROR.
+    EXPECT_FALSE(Seams::isSquashedClientContentFailure(kDenied, "/srv/nfs/sim/1", "/srv/nfs/sim/1"));
+}
+
+TEST(SquashedClientContentFailure, AnotherAppsFolderIsNotThisOnesContents)
+{
+    // The prefix test must compare path components, not characters: /srv/nfs/sim/10 starts with
+    // the string "/srv/nfs/sim/1" but is a different app's workspace. Same trap the exports-file
+    // matching above already had to solve.
+    EXPECT_FALSE(
+        Seams::isSquashedClientContentFailure(kDenied, "/srv/nfs/sim/1", "/srv/nfs/sim/10/input"));
+}
+
+TEST(SquashedClientContentFailure, ADifferentErrorOnTheSamePathIsNotExcused)
+{
+    // Only permission-denied is the expected one. Anything else below the folder is a real
+    // failure and must not be filed under this.
+    EXPECT_FALSE(Seams::isSquashedClientContentFailure(
+        std::make_error_code(std::errc::device_or_resource_busy),
+        "/srv/nfs/sim/1",
+        "/srv/nfs/sim/1/energy_saving_simulator"));
+    EXPECT_FALSE(Seams::isSquashedClientContentFailure(
+        std::make_error_code(std::errc::read_only_file_system),
+        "/srv/nfs/sim/1",
+        "/srv/nfs/sim/1/energy_saving_simulator"));
+}
+
+TEST(SquashedClientContentFailure, AnEmptySecondPathIsNotEnoughToExcuseIt)
+{
+    // Not every filesystem_error carries a second path. With nothing naming what blocked the
+    // removal there is no evidence for the benign reading, so it keeps ERROR.
+    EXPECT_FALSE(Seams::isSquashedClientContentFailure(kDenied, "/srv/nfs/sim/1", ""));
+}
+
+TEST(SquashedClientContentFailure, TrailingSlashesAndDotsDoNotChangeTheAnswer)
+{
+    EXPECT_TRUE(Seams::isSquashedClientContentFailure(
+        kDenied, "/srv/nfs/sim/1/", "/srv/nfs/sim/1/./energy_saving_simulator/case1"));
 }

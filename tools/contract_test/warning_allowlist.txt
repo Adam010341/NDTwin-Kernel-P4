@@ -121,6 +121,8 @@ FORBID | Cannot open OpenflowCapacity\.json | missing doc/2026-01-02_OpenflowCap
 # tool for that job, and per-endpoint 4xx rates belong in the API metrics, not in a
 # grep for the word error.
 WARNING | ^JSON exception in request handler: | 400 path; L2 sends malformed JSON on purpose
+WARNING | ^Found stale application folder from a previous run: | Every start, by design: cleanupStaleEntries runs from the constructor and reports what it is about to remove. Informative, not a problem
+WARNING | ^Leaving .* in place: .* belongs to a squashed NFS client | Expected on any all_squash deployment and not fixable without root -- the client owns its workspace contents, and remove_all needs write on each parent. Was logged at ERROR until 2026-08-18; see ApplicationManager::isSquashedClientContentFailure
 WARNING | ^Bad entry in request: | 400 path from the makeInstallJob try/catch. No longer reached by install_flow_entry__missing_fields (the shape check answers that one first, 2026-08-18); still reachable by a well-shaped entry whose field TYPES are wrong, e.g. \"priority\": \"high\"
 WARNING | ^Exception in intent_translator: | 400 path; L2 posts an empty intent body
 WARNING | ^Invalid lock type requested: | 400/423 path; L2's acquire_lock_invalid_type

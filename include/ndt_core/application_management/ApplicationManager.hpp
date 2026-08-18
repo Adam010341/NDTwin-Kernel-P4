@@ -3,6 +3,7 @@
 #include "common_types/AppTypes.hpp"
 #include <filesystem>
 #include <mutex>
+#include <system_error> // std::error_code, in isSquashedClientContentFailure's signature
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -135,6 +136,33 @@ class ApplicationManager
      * the old cleanup rather than silently skipping it.
      */
     static bool exportsFileHasEntry(const std::string& folder, const std::string& exportsFile);
+
+    /**
+     * @brief Is this remove_all failure the expected one -- a squashed client owning the contents?
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * @details The export is `all_squash`, so everything an application writes into its workspace
+     * is owned by nobody:nogroup, and `remove_all` needs write permission on the *parent* of each
+     * entry it deletes. openUpAppDirPermissions opens up the top level only -- it replaced a
+     * `chownRecursive` that needed root -- so the client's own subdirectories are not ours to
+     * delete and will not become so. Observed on this machine 2026-08-18:
+     * `cannot remove all: Permission denied [/srv/nfs/sim/1]
+     * [/srv/nfs/sim/1/energy_saving_simulator/1.0/case4/input]`.
+     *
+     * That is a real consequence -- the folder survives and the next registration reuses it, see
+     * setupNFSForApp -- but nothing is broken, so it must not be filed at ERROR alongside failures
+     * that are. Extracted as a decision rather than written inline because the alternative is a
+     * test that has to create a directory it cannot delete, which needs root to set up.
+     *
+     * @param ec         The failure's error code.
+     * @param folder     The app folder cleanup was asked to remove.
+     * @param offending  The path the failure names as blocking it (filesystem_error::path2).
+     * @return true only for permission-denied on something strictly *below* @p folder.
+     */
+    static bool isSquashedClientContentFailure(const std::error_code& ec,
+                                               const std::filesystem::path& folder,
+                                               const std::filesystem::path& offending);
 
   private:
     std::mutex m_mutex;

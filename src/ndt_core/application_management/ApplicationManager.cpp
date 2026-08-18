@@ -1,6 +1,7 @@
 #include "ndt_core/application_management/ApplicationManager.hpp"
 #include "spdlog/spdlog.h"
 #include "utils/Logger.hpp"
+#include <algorithm> // std::mismatch, for the path-prefix test in isSquashedClientContentFailure
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -350,9 +351,58 @@ bool ApplicationManager::cleanupAppFolder(const std::string& folder)
     }
     catch (const fs::filesystem_error& e)
     {
-        SPDLOG_ERROR("Failed during cleanup for '{}': {}", folder, e.what());
+        // [Co-developed with claude code -- Adam]
+        // See isSquashedClientContentFailure: the export is all_squash, so the workspace contents
+        // belong to nobody:nogroup and are not ours to delete. Expected, consequential, and not a
+        // failure of this code -- so it is reported with what it means instead of at ERROR.
+        // Everything else keeps ERROR, or a genuine failure would hide behind this one.
+        if (isSquashedClientContentFailure(e.code(), folder, e.path2()))
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "Leaving {} in place: {} belongs to a squashed NFS client, so "
+                               "removing it needs root. The next registration that reuses this "
+                               "app id will reuse the folder rather than recreate it.",
+                               folder,
+                               e.path2().string());
+        }
+        else
+        {
+            SPDLOG_ERROR("Failed during cleanup for '{}': {}", folder, e.what());
+        }
     }
     return hadExportLine;
+}
+
+// [Co-developed with claude code -- Adam]
+bool
+ApplicationManager::isSquashedClientContentFailure(const std::error_code& ec,
+                                                   const fs::path& folder,
+                                                   const fs::path& offending)
+{
+    if (ec != std::errc::permission_denied || offending.empty())
+    {
+        return false;
+    }
+
+    // Strictly below `folder`. Permission denied on the folder itself is a different condition --
+    // its parent is not writable -- and that one is worth an ERROR, because unlike the contents it
+    // is something this code was supposed to have control over.
+    // lexically_normal keeps a trailing separator as an empty final component, which would then
+    // fail to match the first real component of `offending`. m_nfsExportDir is operator-supplied
+    // config, so "/srv/nfs/sim/" reaching here is a configuration away, not a hypothetical.
+    const auto withoutTrailingSlash = [](fs::path p) {
+        p = p.lexically_normal();
+        return p.filename().empty() ? p.parent_path() : p;
+    };
+    const auto folderPath = withoutTrailingSlash(folder);
+    const auto offendingPath = withoutTrailingSlash(offending);
+    if (offendingPath == folderPath)
+    {
+        return false;
+    }
+    const auto mismatch = std::mismatch(folderPath.begin(), folderPath.end(), offendingPath.begin(),
+                                        offendingPath.end());
+    return mismatch.first == folderPath.end();
 }
 
 void ApplicationManager::cleanupStaleEntries()
