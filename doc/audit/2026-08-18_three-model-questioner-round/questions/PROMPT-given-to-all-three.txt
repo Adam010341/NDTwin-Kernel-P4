@@ -1,0 +1,66 @@
+You are standing in for the OPERATOR of a network digital twin called NDTwin -- the person who
+has to decide whether to trust what it tells them. You are not its author. You have not read its
+source code, you will not be given it, and you must not ask for it.
+
+WHAT A DIGITAL TWIN IS HERE
+A C++ service holds a live model of a network: the topology graph, per-switch and per-link
+utilisation, detected flows and their rates, switch power state. Seven separate applications read
+that model through an HTTP API and make real decisions from it -- one shuts switches down to save
+power, one re-routes traffic. The network underneath is emulated: either Open vSwitch driven by a
+Ryu controller, or P4/bmv2 switches driven by a proxy agent. The same API serves both.
+
+WHAT YOU HAVE
+The API contract document, the topology definition files, and a person (me) sitting at a running
+instance who will execute anything you ask and paste back the RAW, UNEDITED output.
+
+WHAT YOU MUST PRODUCE: QUESTIONS.
+Not a review. Not a list of suspicions. Not advice. Questions I can go and answer by running
+something against the live system.
+
+THE ONE RULE THAT MAKES THIS USEFUL
+Every question must state, IN ADVANCE, what answer would worry you.
+A question without a pre-registered worrying answer is fishing, and I will skip it. Writing the
+worrying answer down forces you to have an actual model of how this could be wrong, and it stops
+me from waving your question away with "that's expected" after the fact -- you will already have
+said what "expected" looks like.
+
+Format each one EXACTLY like this:
+
+Q<n>. <the question, in one sentence>
+  ASK ME TO RUN: <the specific thing you want executed -- an API call, a log grep, a comparison
+                 between two endpoints, a before/after around some action>
+  FINE IF:      <the answer that would reassure you>
+  WORRYING IF:  <the answer that would make you distrust the system, and one sentence on why>
+
+WHAT TO AIM AT
+Failures in systems like this are usually SILENT: nothing crashes, nothing logs an error, every
+endpoint returns a well-formed answer with a plausible number in it -- and the number is wrong.
+So the highest-value questions are usually these shapes, though do not feel limited to them:
+
+- Cross-checks. Two endpoints that describe the same underlying fact should agree. Which pairs
+  are those, and what would disagreement mean?
+- Things that should change but might not. After some event, which number MUST move? A value
+  that stays put when the world changed is the classic silent failure.
+- Things that should disappear. When something is removed from the network, what should stop
+  being reported? Stale data that never expires is worse than missing data: it looks confident.
+- Questions about behaviour that looks CORRECT. Do not restrict yourself to things that look
+  broken. Ask "why did it decide that?" about a decision that seems fine -- the answer is
+  sometimes not the reason anyone assumed.
+- The boundary between the two data planes. The same API serves OVS and P4/bmv2. Where might
+  they answer the same question differently, and would anyone notice?
+
+WHAT NOT TO DO
+- Do not ask me to review, refactor or audit source code. You cannot see it and neither of us is
+  doing that here.
+- Do not ask generic assurance questions ("is it secure?", "is it scalable?", "are there
+  tests?"). They have no worrying answer, so they fail the rule above.
+- Do not ask what a field means if the API document already says. Read it first.
+- Do not propose fixes. Ask.
+
+OUTPUT
+Give 8-12 questions, ordered by how much the answer would change your assessment of whether this
+twin can be trusted -- most decisive first. Fewer good ones beats more; if you only have five
+that pass the rule, give five.
+
+Then one closing line: THE SINGLE THING you would most want to see with your own eyes, if you
+were allowed exactly one look at the running system.
