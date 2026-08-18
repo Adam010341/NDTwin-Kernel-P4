@@ -907,12 +907,35 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
         const auto& vp = graph[v];
-        if (vp.vertexType != VertexType::SWITCH || !vp.isUp)
+        if (vp.vertexType != VertexType::SWITCH)
         {
             continue;
         }
 
         std::string ip_str = utils::ipToString(vp.ip.front());
+
+        // [Co-developed with claude code -- Adam]
+        // A switch that is down gets the documented sentinel, not a missing key.
+        //
+        // `continue` here dropped the entry entirely, so a powered-off switch simply vanished from
+        // the response -- and the Web-GUI's `data[ip] || 0` then rendered it as **0%**, which reads
+        // as an idle switch rather than a dead one. That is the worst available answer: it is
+        // exactly the state the Energy-Saving App is looking for.
+        //
+        // -1 is not invented here. This file already initialises these values to -1 for the SNMP
+        // failure path, the API document says "A value of -1 means SNMP query failed or data is
+        // unavailable", and Web-GUI/src/components/DeviceInformation.tsx has had a
+        // `=== -1 ? unavailable` branch for all three endpoints all along. The sentinel was
+        // documented and consumed at both ends and produced by neither -- for a down switch the
+        // `continue` above always fired first. Found 2026-08-18.
+        //
+        // Non-switch vertices stay omitted: a host has no memory figure to report and never had a key here.
+        if (!vp.isUp)
+        {
+            result_json[ip_str] = -1;
+            continue;
+        }
+
         int memory = -1;
 
         if (m_mode == utils::DeploymentMode::MININET)
@@ -1485,12 +1508,35 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
         const auto& vp = graph[v];
-        if (vp.vertexType != VertexType::SWITCH || !vp.isUp)
+        if (vp.vertexType != VertexType::SWITCH)
         {
             continue;
         }
 
         std::string ip_str = utils::ipToString(vp.ip.front());
+
+        // [Co-developed with claude code -- Adam]
+        // A switch that is down gets the documented sentinel, not a missing key.
+        //
+        // `continue` here dropped the entry entirely, so a powered-off switch simply vanished from
+        // the response -- and the Web-GUI's `data[ip] || 0` then rendered it as **0%**, which reads
+        // as an idle switch rather than a dead one. That is the worst available answer: it is
+        // exactly the state the Energy-Saving App is looking for.
+        //
+        // -1 is not invented here. This file already initialises these values to -1 for the SNMP
+        // failure path, the API document says "A value of -1 means SNMP query failed or data is
+        // unavailable", and Web-GUI/src/components/DeviceInformation.tsx has had a
+        // `=== -1 ? unavailable` branch for all three endpoints all along. The sentinel was
+        // documented and consumed at both ends and produced by neither -- for a down switch the
+        // `continue` above always fired first. Found 2026-08-18.
+        //
+        // Non-switch vertices stay omitted: a host has no CPU to report and never had a key here.
+        if (!vp.isUp)
+        {
+            result[ip_str] = -1;
+            continue;
+        }
+
         int cpu = -1;
 
         if (m_mode == utils::DeploymentMode::MININET)
@@ -1549,7 +1595,17 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
         }
         else if (!vp.isUp)
         {
-            result[ip_str] = "The switch is down.";
+            // [Co-developed with claude code -- Adam]
+            // -1, matching CPU and memory. This used to answer the string "The switch is down.",
+            // which made three sibling endpoints say the same thing three different ways and put
+            // an int and a string under the same key in one JSON object -- `data[ip] + 0` on the
+            // client works until a switch goes down.
+            //
+            // Ironically this string was the only one of the three a user could read: the
+            // Web-GUI's temperature branch falls through to `value || unavailable` and printed it,
+            // while CPU and memory silently rendered 0%. Both now take the -1 branch that
+            // component has always had.
+            result[ip_str] = -1;
             continue;
         }
         else if (vp.brandName != "HPE5520" && m_mode != utils::DeploymentMode::MININET)
