@@ -37,6 +37,7 @@ not up yet.
 """
 
 import sys
+import threading  # the pre-rule discovery burst below runs its pings in parallel
 
 sys.path.append('/usr/lib/python3/dist-packages')
 
@@ -133,6 +134,35 @@ def main():
                 src.cmd(f'arp -s {dst.IP()} {dst.MAC()}')
 
     disable_host_offloads(hosts)
+
+    # [Co-developed with claude code -- Adam]
+    # Every host pings every other, in parallel, right here -- and the position in this file is
+    # the whole point, not the pings.
+    #
+    # Ryu learns a host's IP only from a packet it is punted. intelligent_router installs
+    # proactive rules once it has discovered the topology, and after that traffic is forwarded in
+    # the data plane and never reaches the controller. So a burst that lands *before* the rules
+    # populates `ipv4`, and the identical burst a minute later does not.
+    #
+    # Measured side by side on 2026-08-17: testbed_topo.py does this and had 128/128 hosts
+    # carrying IPs; this fixture did not and had 0/4 after thousands of pings. `updateHosts`
+    # skips a host with an empty ipv4, so those four hosts and their edges read *down* in the twin
+    # while all ten switches read up -- which made the whole cell unusable for host-level
+    # assertions. It did not affect the failover numbers measured in that cell, because those were
+    # real ICMP through the data plane rather than anything the twin reported.
+    #
+    # This refines the earlier reading that static ARP was to blame: the `arp -s` lines above stay,
+    # and the hosts are discovered anyway. What matters is the ordering against rule installation.
+    print(f'Priming controller host discovery: {HOST_NUM}x{HOST_NUM - 1} pings, before rules land')
+    threads = []
+    for src in hosts:
+        for dst in hosts:
+            if src is not dst:
+                t = threading.Thread(target=lambda s=src, d=dst: s.cmd(f'ping -c 1 -W 1 {d.IP()}'))
+                threads.append(t)
+                t.start()
+    for t in threads:
+        t.join()
 
     print('\n' + '=' * 70)
     print(f'OVS matched topology up: 10 switches, {HOST_NUM} hosts, 40 directed edges.')
