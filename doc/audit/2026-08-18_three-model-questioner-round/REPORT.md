@@ -80,7 +80,10 @@ B: POST /ndt/release_lock {"type":"routing_lock"}            → 200 {"status":"
 B: POST /ndt/acquire_lock {"type":"routing_lock","ttl":120}  → 200 {"status":"locked"}
 ```
 
-**B 釋放了它從未持有的鎖，然後拿走了它。**沒有 owner token，`release_lock` 只看鎖存不存在
+**B 釋放了它從未持有的鎖，然後拿走了它。**
+
+**裁決（Adam，2026-08-18）：先記錄，報告前不修。**加 owner token 會改動七個元件的契約，而現在沒有任何一個元件在傳 token。已列入簡報 Page 35「誠實列出未完成」，與佇列那條並列。
+沒有 owner token，`release_lock` 只看鎖存不存在
 （不存在回 412），不看誰持有。七個元件共用這組鎖，其中一個的清理流程可以在另一個操作到一半時
 無聲地把它的 routing lock 抽掉。
 
