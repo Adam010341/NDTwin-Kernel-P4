@@ -147,7 +147,9 @@ POST /ndt/install_flow_entry  {"dpid": 1}
 「只有 dpid、沒有 match 沒有 actions 的 body 也接受」寫成契約。
 audit 文件自己點出的缺口正是這個：**佇列式端點只驗「誠實地說已排隊」，
 沒有任何檢查看得到派送結果**。合理的第三條路是同步驗 body 形狀、
-形狀不可能成立就 400，well-formed 的才 200-queued。**這是 Adam 的裁決。**
+形狀不可能成立就 400，well-formed 的才 200-queued。
+
+✅ **2026-08-18 已裁決並實作（Adam）**——見 §5。契約期望 `[400, 422]` 因此**不需要改**：它現在又是對的了，實測 `install_flow_entry__missing_fields` PASS [400]。
 
 ### 2c. 🔴 log 檢查抓到一個真的：NFS 清理的權限死結（已修一半）
 
@@ -184,6 +186,8 @@ allowlist:127 是 `^refusing flow batch: [0-9]+ dpid\(s\) are not switches`，
 **訊息文字改了、樣式沒跟著改**，所以它同時出現在「未匹配的問題行」和「未使用的 allowlist 條目」兩份清單裡。
 純鷹架腐爛，不影響產品。
 
+✅ **已修**（同一輪）。順帶發現第二條同型的：allowlist:124 `^Bad entry in request:` 的理由寫著它守的是 `install_flow_entry__missing_fields`，而那條測試現在被形狀檢查先攔下來——樣式仍可達（欄位**型別**錯的 well-shaped entry，例如 `"priority": "high"`），但理由已就地更正。
+
 ### 2e. 一條是我自己的操作錯誤，不是缺陷
 
 `get_detected_flow_data` FAIL——我加了 `--traffic` 但當下根本沒有流量在跑
@@ -197,8 +201,8 @@ allowlist:127 是 `^refusing flow batch: [0-9]+ dpid\(s\) are not switches`，
 | # | 事項 | 誰 |
 |---|---|---|
 | 1 | `cleanupStaleEntries` 分辨「squashed client 的子目錄」與真失敗（§2c） | 可直接做 |
-| 2 | `install_flow_entry` 缺欄位要 400 還是 200-queued（§2b） | **Adam 裁決** |
-| 3 | 更新 allowlist:127 的樣式（§2d） | 可直接做 |
+| 2 | ~~`install_flow_entry` 缺欄位要 400 還是 200-queued~~ ✅ **已裁決並實作**（第三條路：形狀同步驗回 400、語意留佇列）。**派送結果查不到**這個缺口列入「已知未完成」，見 §5 | 完成 |
+| 3 | ~~更新 allowlist:127 的樣式~~ ✅ **已修**，連同 allowlist:124 過期的理由 | 完成 |
 | 4 | L4 differential 重跑一輪（需換 stack 到 OVS 再換回來）＋ 重數「14」的口徑（§2a） | 需要換環境 |
 | 5 | 決定要不要把 §1 的結果交給學長姐、以什麼形式 | **Adam 裁決** |
 
@@ -219,3 +223,47 @@ cmake --build /tmp/baseline/build -j4          # exit=0，產出 bin/ndtwin_kern
 # §2 的契約查核（需要活的 stack）
 NO_COLOR=1 bash tools/test_workflow/run_layers.sh api p4    # 不要加 --traffic 除非真的在灌
 ```
+
+
+---
+
+## §5 列入「已知未完成」：佇列式端點查不到派送結果
+
+**2026-08-18 裁決（Adam）**：`install_flow_entry` 走第三條路——**形狀與語意分開**。
+
+| | 誰判斷 | 何時 | 回什麼 |
+|---|---|---|---|
+| **形狀**：這個 body 有沒有可能變成一條規則 | HTTP 執行緒，`describeFlowEntryShapeProblem` | **同步** | 不成立 → **400**，並指名哪一筆的哪個欄位 |
+| **語意**：交換機接不接受這條規則 | FlowDispatcher → proxy → bmv2 | 非同步 | 只寫 kernel log |
+
+實測（活的 P4 stack，kernel 重建後）：
+
+```
+{"dpid": 1}                                       → 400  missing "actions" -- send "actions": [] if a drop rule is what you meant
+{"dpid":1,"priority":1,"match":{…},"actions":[…]} → 200  queued
+{"dpid":1,"priority":0,"actions":[]}              → 200  queued   ← 明確的 drop rule 必須留著能用
+{"dpid":9999,"actions":[]}                        → 404  unknown dpid   ← 既有路徑沒被遮蔽
+```
+
+**全批拒絕而不是部分套用，這一點跟下方 unknown-dpid 的分區刻意相反**：不認識的 dpid 是*資料*
+狀況（拓撲變了），會零星打到一個原本正確的批次，而兩個寫 flow 的應用都丟棄回應，所以整批拒絕
+只會默默丟掉它們的好條目。畸形條目相反，是*呼叫端*的缺陷，不會零星發生——要嘛從不觸發，
+要嘛它送的每一批都一樣錯。套用其餘的等於藏 bug，不是容忍競態。
+
+### 還沒解決的，就是列進未完成的那條
+
+**200 之後，「規則到底有沒有裝上去」沒有任何 API 問得到。**
+
+這不是這次修法造成的，是佇列式端點的結構性缺口——audit 文件自己早就寫著：
+
+> 佇列式端點只驗「誠實地說已排隊」，沒有任何檢查看得到派送結果
+
+**它有多真實**：契約套件 L2 曾經全綠，而同一時間 kernel log 寫著
+`dispatched install failed for dpid 1 (priority 0)`。**綠燈和失敗同時存在**，
+而且沒有任何一層看得到那個矛盾——當初就是追這條矛盾才追出整個缺陷的。
+
+**補法**（新功能，不是修 bug）：查詢端點（`/ndt/get_flow_job_status?job_id=…`）、
+或讓 200 回一個可查的 job id、或至少讓契約套件在 dispatch 之後對交換機表對帳。
+
+**為什麼現在不做**：三個都是新的 API 表面，會動到七個外圍元件的契約。報告前不動。
+**已列入簡報 Page 35「誠實列出未完成」。**

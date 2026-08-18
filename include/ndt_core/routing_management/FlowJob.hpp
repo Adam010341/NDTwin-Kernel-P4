@@ -46,6 +46,65 @@ struct FlowJob {
 };
 
 /**
+ * @brief Why one flow-batch entry cannot become a rule, or an empty string if it can.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @details Shape, not semantics. The distinction is what makes this answerable synchronously on
+ * the HTTP thread: whether a field is present is O(1) and needs nothing outside the entry, while
+ * whether the switch will *accept* the rule needs a round trip and belongs to the dispatcher.
+ *
+ * The gap this closes: `makeInstallJob` reads every field but `dpid` with `value(..., default)`,
+ * so a body of `{"dpid": 1}` became a valid job -- priority 0, empty match, empty actions -- and
+ * the caller got 200 "queued" for something that can never program anything. Answering 200 there
+ * is defensible in isolation (it *was* queued) but it makes "accepted" mean nothing, since a
+ * request with a typo in it is indistinguishable from a correct one.
+ *
+ * Deliberately NOT required, and each for a reason:
+ *
+ *  - **`actions: []` stays legal.** An empty action list is a drop rule, and Ryu's own table-miss
+ *    entry is exactly `"actions": []`. The check is therefore *presence*, not non-emptiness --
+ *    "I want this dropped" and "I forgot to say what to do" are different intents and only the
+ *    second is an error.
+ *  - **`match` is optional.** An absent match is match-all, which is what a table-miss rule needs.
+ *  - **`priority` is optional.** Absent means 0, and both layers now agree on that (`ad49347`
+ *    aligned the table cache with the dispatcher). It degrades precedence rather than inverting
+ *    the rule's meaning, so it does not meet the bar above.
+ *  - **Delete needs only `dpid`.** No match means "delete everything on this switch", which is a
+ *    real operation, and actions are meaningless for a delete.
+ */
+inline std::string
+describeFlowEntryShapeProblem(const nlohmann::json& entry, FlowOp op)
+{
+    if (!entry.is_object())
+    {
+        return "entry is not a JSON object";
+    }
+    if (!entry.contains("dpid"))
+    {
+        return R"(missing "dpid")";
+    }
+    // Non-negative integer, tested without assuming which of nlohmann's two integer storages the
+    // value landed in. is_number_unsigned() alone is not that test: the parser picks it for a
+    // non-negative literal, but a json built in C++ from an int holds number_integer, so the
+    // stricter check passes over the wire and rejects the same dpid constructed in a test or by
+    // any in-process caller. Found exactly that way.
+    const auto& dpid = entry["dpid"];
+    const bool nonNegativeInteger =
+        dpid.is_number_unsigned() ||
+        (dpid.is_number_integer() && dpid.get<std::int64_t>() >= 0);
+    if (!nonNegativeInteger)
+    {
+        return R"("dpid" must be a non-negative integer)";
+    }
+    if (op != FlowOp::Delete && !entry.contains("actions"))
+    {
+        return R"(missing "actions" -- send "actions": [] if a drop rule is what you meant)";
+    }
+    return {};
+}
+
+/**
  * @brief The result of splitting a flow batch into what can be programmed and what cannot.
  *
  * [Co-developed with claude code -- Adam]

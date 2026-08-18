@@ -121,10 +121,11 @@ FORBID | Cannot open OpenflowCapacity\.json | missing doc/2026-01-02_OpenflowCap
 # tool for that job, and per-endpoint 4xx rates belong in the API metrics, not in a
 # grep for the word error.
 WARNING | ^JSON exception in request handler: | 400 path; L2 sends malformed JSON on purpose
-WARNING | ^Bad entry in request: | 400 path; L2's install_flow_entry__missing_fields
+WARNING | ^Bad entry in request: | 400 path from the makeInstallJob try/catch. No longer reached by install_flow_entry__missing_fields (the shape check answers that one first, 2026-08-18); still reachable by a well-shaped entry whose field TYPES are wrong, e.g. \"priority\": \"high\"
 WARNING | ^Exception in intent_translator: | 400 path; L2 posts an empty intent body
 WARNING | ^Invalid lock type requested: | 400/423 path; L2's acquire_lock_invalid_type
-WARNING | ^refusing flow batch: [0-9]+ dpid\(s\) are not switches | 404 path; L2's install_flow_entry__unknown_dpid
+WARNING | ^refusing flow batch: none of its [0-9]+ entries names a switch | 404 path; L2's install_flow_entry__unknown_dpid. Pattern updated 2026-08-18: the message was reworded and this entry still matched the old text, so it showed up as an unmatched problem AND as an unused allowlist entry in the same run
+WARNING | ^refusing flow batch: [0-9]+ of [0-9]+ entries cannot form a rule | 400 path; L2's install_flow_entry__missing_fields. The synchronous shape check, added 2026-08-18: an entry that cannot form a rule whatever the switch answers is refused before anything is queued
 WARNING | ^get_path_switch_count: bad IP parameter | 400 path; L2's get_path_switch_count__bad_ip
 WARNING | ^inform_switch_entered: dpid .* is not an unsigned integer | 400 path; L2's inform_switch_entered__bad_dpid
 WARNING | ^get_nickname: dpid .* is not an unsigned integer | 400 path, same shape as the above

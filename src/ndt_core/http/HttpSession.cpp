@@ -909,6 +909,58 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
         return;
     }
 
+    // [Co-developed with claude code -- Adam]
+    // Shape check, before anything is built or queued. See describeFlowEntryShapeProblem for
+    // what counts as shape and why each optional field is optional.
+    //
+    // This exists because `{"dpid": 1}` used to be answered 200 "queued": every field but dpid is
+    // read with value(..., default), so the entry became a job with an empty match and empty
+    // actions, went out to the proxy, and was refused there -- with the refusal visible only in
+    // the kernel log. The caller was told its request was accepted.
+    //
+    // **All-or-nothing here, unlike the unknown-dpid partition below, and the asymmetry is
+    // deliberate.** That one applies its good entries because an absent dpid is a *data* condition
+    // -- the topology moved, a switch went away -- which happens to a few entries of an otherwise
+    // correct batch, and both flow-writing applications discard the response, so rejecting the
+    // whole batch would silently drop their good entries for a condition they cannot act on. A
+    // malformed entry is the opposite: it is a *caller* defect, so it is not sporadic. Either the
+    // caller composes entries correctly and this never fires, or it does not and every batch it
+    // sends carries the same error. Applying the rest would hide a bug rather than tolerate a race.
+    std::vector<json> shapeProblems;
+    const auto collectShapeProblems = [&](const json& entries, FlowOp op, const char* field) {
+        for (size_t i = 0; i < entries.size(); ++i)
+        {
+            if (const auto why = describeFlowEntryShapeProblem(entries[i], op); !why.empty())
+            {
+                shapeProblems.push_back(json{{"field", field}, {"index", i}, {"problem", why}});
+            }
+        }
+    };
+    collectShapeProblems(ins, FlowOp::Install, "install_flow_entries");
+    collectShapeProblems(mods, FlowOp::Modify, "modify_flow_entries");
+    collectShapeProblems(dels, FlowOp::Delete, "delete_flow_entries");
+
+    if (!shapeProblems.empty())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "refusing flow batch: {} of {} entries cannot form a rule; first is {} "
+                           "at {}[{}]",
+                           shapeProblems.size(),
+                           ins.size() + mods.size() + dels.size(),
+                           shapeProblems.front()["problem"].get<std::string>(),
+                           shapeProblems.front()["field"].get<std::string>(),
+                           shapeProblems.front()["index"].get<size_t>());
+        res.result(http::status::bad_request);
+        res.body() = json{{"status", "error"},
+                          {"error", "malformed flow entry"},
+                          {"entries", shapeProblems},
+                          {"detail", "nothing was queued; these entries cannot form a rule "
+                                     "whatever the switch answers, so the whole batch is "
+                                     "rejected rather than partly applied"}}
+                         .dump();
+        return;
+    }
+
     // Build jobs
     std::vector<FlowJob> jobs;
     jobs.reserve(ins.size() + mods.size() + dels.size());
