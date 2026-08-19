@@ -25,10 +25,34 @@ topo = TopologyManager(kernel_notifier=kernel)
 
 # Build the static topology (Matches MultiSwitchTopo)
 # Hosts
-topo.add_host(ip="10.0.0.1", mac="00:00:00:00:00:01", switch_dpid=1, port=3)
-topo.add_host(ip="10.0.0.2", mac="00:00:00:00:00:02", switch_dpid=2, port=3)
-topo.add_host(ip="10.0.0.3", mac="00:00:00:00:00:03", switch_dpid=3, port=3)
-topo.add_host(ip="10.0.0.4", mac="00:00:00:00:00:04", switch_dpid=4, port=3)
+#
+# This block was four hard-coded add_host calls for 10.0.0.1-4. That is why P4 had never
+# been measured at 128 hosts: the fabric builds fine (verified -- 10/10 bmv2 switches up,
+# twin sees 10 switches / 128 hosts / 288 edges), but the proxy only ever knew four hosts,
+# and at 128 the hard-coded switch/port were also WRONG -- h2 sits on s1 port 4 in that
+# layout, not s2 port 3 -- so even the hosts it did know were unreachable.
+#
+# Derived from the same quarters rule p4_testbed_topo.py uses, reading the same override
+# file, so the two cannot disagree. At the default of 4 this produces exactly the four
+# lines it replaces.
+_OVERRIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                         "mininet", "host_count_override")
+_HOST_NUM = 4
+if os.path.exists(_OVERRIDE):
+    with open(_OVERRIDE) as _fh:
+        for _line in _fh:
+            _line = _line.strip()
+            if _line and not _line.startswith("#"):
+                _HOST_NUM = int(_line)
+                break
+_PER_SWITCH = _HOST_NUM // 4
+for _i in range(1, _HOST_NUM + 1):
+    topo.add_host(
+        ip=f"10.0.0.{_i}",
+        mac=f"00:00:00:00:00:{_i:02x}",
+        switch_dpid=1 + (_i - 1) // _PER_SWITCH,
+        port=3 + (_i - 1) % _PER_SWITCH,
+    )
 
 # Links will be discovered dynamically via LLDP
 

@@ -146,15 +146,23 @@ def failover_cells():
     """The 128-host cell was taken from n=3 to n=10 on 2026-08-19; those seven runs live in
     their own directory so the 2026-08-17 round stays exactly as it was published."""
     dirs = [os.path.join(REPO, "doc/audit/2026-08-17_p4-vs-ovs-matched-topology/raw"),
-            os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_ovs128_n10")]
-    cells = {"P4 / 4 hosts": [], "OVS / 4 hosts": [], "OVS / 128 hosts": []}
+            os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_ovs128_n10"),
+            os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_p4_128")]
+    cells = {"P4 / 4 hosts": [], "OVS / 4 hosts": [],
+             "OVS / 128 hosts": [], "P4 / 128 hosts": []}
     for d in dirs:
         for f in sorted(glob.glob(d + "/*.log")):
             b = os.path.basename(f)
             if b.startswith("base_run"):        # the reverted-router runs, a different question
                 continue
-            key = ("P4 / 4 hosts" if b.startswith("p4_") or b == "ping_p4_4host.log"
-                   else "OVS / 128 hosts" if "128" in b else "OVS / 4 hosts")
+            if b.startswith("p4_128"):
+                key = "P4 / 128 hosts"
+            elif b.startswith("p4_") or b == "ping_p4_4host.log":
+                key = "P4 / 4 hosts"
+            elif "128" in b:
+                key = "OVS / 128 hosts"
+            else:
+                key = "OVS / 4 hosts"
             v = outage_from_pings(f)
             if v is not None:
                 cells[key].append(v)
@@ -180,22 +188,29 @@ def fig_failover(fname):
     ax.set_ylabel("outage (s)")
     ax.set_title("Failover on a matched topology", fontsize=13, color=INK,
                  loc="left", pad=14, weight="bold")
-    ax.text(0, 1.02, "23 live runs, one method, same afternoon. Every run recovered.",
+    ax.text(0, 1.02, f"{sum(len(v) for v in cells.values())} live runs, one method. Every run recovered.",
             transform=ax.transAxes, fontsize=9, color=MUTED)
     ax.text(0.02, 0.03, "P4 is 2.0 s faster (13%)\nWelch t=2.89, p=0.0098\n95% CI 0.55–3.50 s",
             transform=ax.transAxes, fontsize=8.5, color=MUTED, va="bottom")
 
-    k = "OVS / 128 hosts"
-    ax2.boxplot([cells[k]], positions=[0], widths=0.45, patch_artist=True,
-                showfliers=False, medianprops=dict(color=MUTED, lw=1.8),
-                boxprops=dict(facecolor="#F0F0F0", edgecolor=MUTED, lw=1.1),
-                whiskerprops=dict(color=MUTED, lw=1.1), capprops=dict(color=MUTED, lw=1.1))
-    ax2.scatter([0.28] * len(cells[k]), cells[k], s=16, color=MUTED, alpha=0.75, zorder=3)
-    ax2.set_xlim(-0.6, 0.7)
-    ax2.set_xticks([0])
-    ax2.set_xticklabels([f"{k}\nn={len(cells[k])}"])
+    # The 128-host pair. This is the cell the 2026-08-17 round deliberately skipped as "only
+    # an interaction", and the interaction turns out to be the largest effect on the page:
+    # OVS triples going from 4 to 128 hosts, P4 barely moves.
+    big = ["P4 / 128 hosts", "OVS / 128 hosts"]
+    for i, (k, c) in enumerate(zip(big, [ACCENT, WARNC])):
+        if not cells[k]:
+            continue
+        ax2.boxplot([cells[k]], positions=[i], widths=0.45, patch_artist=True,
+                    showfliers=False, medianprops=dict(color=c, lw=1.8),
+                    boxprops=dict(facecolor=ACCENT_BG if c == ACCENT else "#F6EFEE",
+                                  edgecolor=c, lw=1.1),
+                    whiskerprops=dict(color=c, lw=1.1), capprops=dict(color=c, lw=1.1))
+        ax2.scatter([i + 0.28] * len(cells[k]), cells[k], s=14, color=c, alpha=0.75, zorder=3)
+    ax2.set_xlim(-0.6, 1.7)
+    ax2.set_xticks(range(len(big)))
+    ax2.set_xticklabels([f"{k}\nn={len(cells[k])}" for k in big], fontsize=8.5)
     ax2.set_ylabel("outage (s)")
-    ax2.set_title("Topology size dominates", fontsize=11, color=INK, loc="left", pad=14)
+    ax2.set_title("At 128 hosts the gap is 3x", fontsize=11, color=INK, loc="left", pad=14)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, fname), dpi=200)
     plt.close(fig)

@@ -47,9 +47,9 @@ sys.path.append(NTG_DIR)
 from mininet.net import Mininet
 from mininet.log import setLogLevel
 
-from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, disable_host_offloads,
-                             reap_manifest_switches, resolve_bmv2_launcher,
-                             verify_switches, write_manifest)
+from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, _host_count_override,
+                             disable_host_offloads, reap_manifest_switches,
+                             resolve_bmv2_launcher, verify_switches, write_manifest)
 
 
 def fail(msg: str) -> None:
@@ -89,12 +89,27 @@ def main() -> None:
     net = Mininet(topo=MultiSwitchTopo(), controller=None, autoSetMacs=True)
     net.start()
 
-    # Static ARPs between the four hosts, as the plain topology does.
-    hosts = [net.get(f'h{i}') for i in range(1, 5)]
+    # Static ARPs between the hosts, as the plain topology does.
+    #
+    # This was `range(1, 5)` and it is the fourth hard-coded four-host list in this fabric
+    # (the others: the topology's own wiring and ARP loop, and the proxy's add_host table).
+    # It is also the one that actually runs, because ndtwin-lab starts THIS script, not
+    # p4_testbed_topo.py -- which imports cleanly and hides the difference, since the Topo
+    # class does come from there. At 128 hosts every switch installs its 128 routes and the
+    # paths are computed correctly, but nothing pings: the sender never learns the
+    # destination MAC. Measured: adding the pair by hand takes h1 -> h33 from 100% loss to
+    # 0% at 1.6 ms.
+    #
+    # Batched, but in chunks of 32 rather than one command per host. One command per host is
+    # too long: all 127 entries in a single cmd() is ~4.4 kB and Mininet truncates it --
+    # measured, h1 ended up with entries for h2..h112 and nothing after, and a partial ARP
+    # table fails exactly like a broken data plane. 16256 individual cmd() calls is the other
+    # extreme and takes minutes. Chunking is 4 calls per host.
+    hosts = [net.get(f'h{i}') for i in range(1, _host_count_override() + 1)]
     for src in hosts:
-        for dst in hosts:
-            if src != dst:
-                src.cmd(f'arp -s {dst.IP()} {dst.MAC()}')
+        peers = [dst for dst in hosts if dst is not src]
+        for i in range(0, len(peers), 32):
+            src.cmd(" ; ".join(f"arp -s {d.IP()} {d.MAC()}" for d in peers[i:i + 32]))
     # Without this, bulk TCP stalls at zero through bmv2 -- see the helper's docstring.
     disable_host_offloads(hosts)
 

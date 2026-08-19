@@ -32,6 +32,34 @@ BINARY_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "bmv2_binary_override")
 
 
+HOST_COUNT_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                        "host_count_override")
+
+
+def _host_count_override(path=None):
+    """How many hosts this fabric builds. Default 4; one directive line to change it.
+
+    Same shape as the bmv2 binary override next to it: first non-comment, non-blank line
+    wins, blank lines and #-comments ignored, and a malformed file is refused loudly rather
+    than silently falling back -- a run that quietly built the wrong number of hosts would
+    look exactly like a successful one.
+
+    [Co-developed with claude code -- Adam]
+    """
+    path = path or HOST_COUNT_OVERRIDE_PATH
+    if not os.path.exists(path):
+        return 4
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if not line.isdigit():
+                raise ValueError(f"{path}: expected a host count, got {line!r}")
+            return int(line)
+    return 4
+
+
 def resolve_bmv2_launcher(override_path=None):
     """
     Which simple_switch_grpc this fabric runs: (binary, lib_dir).
@@ -250,20 +278,38 @@ class MultiSwitchTopo(Topo):
         self.addLink(switches[8], switches[9], port1=3, port2=4)
         self.addLink(switches[8], switches[10], port1=4, port2=4)
         
-        # Add 4 hosts for testing (128 hosts in BMv2 might be too heavy)
-        HOST_NUM = 4
+        # Host count. Default 4, and the wiring below reproduces the previous hard-coded
+        # four links exactly, so nothing changes unless the seam is used.
+        #
+        # A file rather than an env var, for the same reason bmv2_binary_override is one:
+        # the lab wrapper launches this topology through `tmux new-session` under a fixed
+        # root environment, so no variable set by an unprivileged operator can reach it.
+        # A file beside the topology is the only channel there is. Env var still wins when
+        # the topology is run directly, which is how it gets tested.
+        #
+        # It exists because the old comment here -- "128 hosts in BMv2 might be too heavy"
+        # -- was a guess nobody had tested, and comparing this fabric against the OVS one
+        # at the same host count was otherwise impossible. Must divide by 4.
+        # [Co-developed with claude code -- Adam]
+        HOST_NUM = int(os.environ.get("NDTWIN_P4_HOST_NUM", "0")) or _host_count_override()
+        if HOST_NUM % 4 or HOST_NUM < 4:
+            raise ValueError(
+                f"NDTWIN_P4_HOST_NUM={HOST_NUM}: hosts are split evenly over s1-s4, "
+                f"so it must be a multiple of 4 and at least 4"
+            )
         hosts = []
         for i in range(1, HOST_NUM + 1):
             mac_str = f"00:00:00:00:00:{i:02x}"
             ip_str = f"10.0.0.{i}/24"
             host = self.addHost(f"h{i}", ip=ip_str, mac=mac_str)
             hosts.append(host)
-            
-        # Connect hosts to s1-s4
-        self.addLink(hosts[0], switches[1], port1=1, port2=3)
-        self.addLink(hosts[1], switches[2], port1=1, port2=3)
-        self.addLink(hosts[2], switches[3], port1=1, port2=3)
-        self.addLink(hosts[3], switches[4], port1=1, port2=3)
+
+        # Connect hosts to s1-s4 in equal quarters, switch ports counting from 3 -- the same
+        # split testbed_topo.py uses, so a host index means the same thing on both fabrics.
+        per_switch = HOST_NUM // 4
+        for idx, host in enumerate(hosts):
+            self.addLink(host, switches[1 + idx // per_switch],
+                         port1=1, port2=3 + idx % per_switch)
         
 def verify_switches(switches, timeout=10.0):
     """
@@ -458,16 +504,25 @@ def main():
     net = Mininet(topo=topo, controller=None, autoSetMacs=True)
     net.start()
     
-    # Add static ARPs
-    hosts = [net.get(f'h{i}') for i in range(1, 5)]
+    # Add static ARPs.
+    #
+    # This was `range(1, 5)`: hard-coded to four hosts, like the two other four-host lists
+    # this fabric carried (the proxy's add_host table, and disable_host_offloads below).
+    # At 128 hosts the switches forward correctly and every rule installs, but nothing pings,
+    # because the sender never resolves the destination MAC -- and an unreachable host looks
+    # exactly like a broken data plane. Measured: with the entry added by hand for one pair,
+    # h1 -> h33 goes from 100% loss to 0% at 1.6 ms.
+    #
+    # One batched invocation per host rather than one per pair: at 128 hosts the pairwise
+    # form is 16256 separate `cmd()` round-trips through Mininet and takes minutes; batching
+    # makes it 128. Behaviour at 4 hosts is unchanged.
+    hosts = [net.get(f'h{i}') for i in range(1, _host_count_override() + 1)]
     for src in hosts:
-        for dst in hosts:
-            if src != dst:
-                # Add ARP entry: src knows dst IP -> dst MAC
-                # We extract IP from '10.0.0.x/24' (removing /24)
-                dst_ip = dst.IP() 
-                dst_mac = dst.MAC()
-                src.cmd(f'arp -s {dst_ip} {dst_mac}')
+        entries = " ; ".join(
+            f"arp -s {dst.IP()} {dst.MAC()}" for dst in hosts if dst is not src
+        )
+        if entries:
+            src.cmd(entries)
 
     disable_host_offloads(hosts)
 
