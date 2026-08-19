@@ -446,17 +446,27 @@ ENDPOINTS = [
          schema=MapOf(Str(), key_check=is_ipv4_string, key_desc="IPv4 address"),
          invariants=[inv_power_state_values]),
 
+    # min=-1, not 0: -1 is the documented "unavailable" sentinel, not an out-of-range
+    # utilisation. doc/2026-01-02_ndt_api.md: "A value of -1 means SNMP query failed or data is
+    # unavailable", and Web-GUI's DeviceInformation.tsx renders `=== -1` as "unavailable".
+    # Before 04b8933 the kernel omitted a down switch's key entirely, so the schema never saw
+    # the sentinel and this check passed while inv_util_map_covers_switches failed on the count
+    # instead. Since 04b8933 the key is present with -1 and the schema was the thing that was
+    # wrong. [Co-developed with claude code -- Adam]
     dict(name="get_cpu_utilization", method="GET", path="/ndt/get_cpu_utilization",
          category=READ,
-         schema=MapOf(Num(min=0, max=100), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         schema=MapOf(Num(min=-1, max=100), key_check=is_ipv4_string, key_desc="IPv4 address"),
          invariants=[inv_util_map_covers_switches]),
 
     dict(name="get_memory_utilization", method="GET", path="/ndt/get_memory_utilization",
          category=READ,
-         schema=MapOf(Num(min=0, max=100), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         schema=MapOf(Num(min=-1, max=100), key_check=is_ipv4_string, key_desc="IPv4 address"),
          invariants=[inv_util_map_covers_switches]),
 
-    # Values may be an int or an explanatory string ("The switch is down.").
+    # Values are numeric; a down switch reads -1, the same sentinel as the two endpoints above.
+    # Str() is retained only for kernels older than 04b8933, which returned the literal
+    # "The switch is down." here -- that string is no longer emitted and the branch is dead
+    # against any current build. [Co-developed with claude code -- Adam]
     dict(name="get_temperature", method="GET", path="/ndt/get_temperature",
          category=READ,
          schema=MapOf(OneOf(Num(), Str()), key_check=is_ipv4_string, key_desc="IPv4 address")),

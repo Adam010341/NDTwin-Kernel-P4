@@ -91,7 +91,17 @@ FAULTS_CRITERIA="${FAULTS_CRITERIA:-python3 $ROOT/tools/twin_audit/criteria.py}"
 FAULTS_TWIN_AUDIT="${FAULTS_TWIN_AUDIT:-python3 $ROOT/tools/twin_audit/twin_audit.py}"
 FAULTS_QDISC="${FAULTS_QDISC:-$HERE/qdisc_snapshot.sh}"
 FAULTS_CATALOGUE="${FAULTS_CATALOGUE:-$HERE/faults.txt}"
-FAULTS_SETTLE_S="${FAULTS_SETTLE_S:-5}"
+# 75, not 5. The catalogue's own L-2 entry records the recovery times measured over 23 live runs
+# on 2026-08-17 (9467ea0): P4/4-host 13.7 s, OVS/4-host 15.7 s, OVS/128-host 50.1 s (max observed
+# 53.7 s). Every one of those exceeds a 5 s settle, so the shipped default could not pass on any
+# topology on this machine -- and its failure message says a 'still' reading is a regression, which
+# sent the reader looking for a bug in the data plane instead of at this line. Confirmed on both
+# fabrics 2026-08-18: L-2 at the 5 s default FAILED (OVS during=still, P4 during=disputed) and
+# PASSED unchanged at a longer settle, same fault, same interface, qdisc verified identical.
+# The value has to clear the slowest documented recovery, which is the 128-host OVS cell.
+# Override downward for small topologies where the wait dominates the round.
+# [Co-developed with claude code -- Adam]
+FAULTS_SETTLE_S="${FAULTS_SETTLE_S:-75}"
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
     R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; D=$'\033[2m'; N=$'\033[0m'
