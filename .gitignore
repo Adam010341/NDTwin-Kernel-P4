@@ -29,3 +29,8 @@ build-tsan/
 build-fuzz/
 build-clang/
 test_env/
+
+# Investigation working area. 3.3 GB as of 2026-08-19 -- scratch/lab alone holds the
+# captured pcaps and switch logs from the live rounds, and none of it is reviewable in a
+# diff. Findings worth keeping get promoted to doc/audit/<date>_<topic>/ instead.
+scratch/
