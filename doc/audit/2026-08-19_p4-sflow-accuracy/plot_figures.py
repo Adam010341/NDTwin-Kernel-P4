@@ -142,30 +142,38 @@ def fig_sflow(runs, windows, fname, title, subtitle):
 
 
 # ------------------------------------------------------------- figure 2: failover box plot
+# The 128-host cells were taken from n=3 to n=10 on 2026-08-19; those runs live in their own
+# directories so the 2026-08-17 round stays exactly as it was published. Both the box plot and
+# the raster read these, through failover_key() -- one classifier, so a cell cannot appear on
+# one figure and go missing from the other.
+FAILOVER_DIRS = [os.path.join(REPO, "doc/audit/2026-08-17_p4-vs-ovs-matched-topology/raw"),
+                 os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_ovs128_n10"),
+                 os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_p4_128")]
+
+
+def failover_key(basename):
+    """Which of the four cells a ping log belongs to. Order matters: p4_128_run*.log also
+    satisfies startswith("p4_"), so the 128-host test has to come first."""
+    if basename.startswith("p4_128"):
+        return "P4 / 128 hosts"
+    if basename.startswith("p4_") or basename == "ping_p4_4host.log":
+        return "P4 / 4 hosts"
+    if "128" in basename:
+        return "OVS / 128 hosts"
+    return "OVS / 4 hosts"
+
+
 def failover_cells():
-    """The 128-host cell was taken from n=3 to n=10 on 2026-08-19; those seven runs live in
-    their own directory so the 2026-08-17 round stays exactly as it was published."""
-    dirs = [os.path.join(REPO, "doc/audit/2026-08-17_p4-vs-ovs-matched-topology/raw"),
-            os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_ovs128_n10"),
-            os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_p4_128")]
     cells = {"P4 / 4 hosts": [], "OVS / 4 hosts": [],
              "OVS / 128 hosts": [], "P4 / 128 hosts": []}
-    for d in dirs:
+    for d in FAILOVER_DIRS:
         for f in sorted(glob.glob(d + "/*.log")):
             b = os.path.basename(f)
             if b.startswith("base_run"):        # the reverted-router runs, a different question
                 continue
-            if b.startswith("p4_128"):
-                key = "P4 / 128 hosts"
-            elif b.startswith("p4_") or b == "ping_p4_4host.log":
-                key = "P4 / 4 hosts"
-            elif "128" in b:
-                key = "OVS / 128 hosts"
-            else:
-                key = "OVS / 4 hosts"
             v = outage_from_pings(f)
             if v is not None:
-                cells[key].append(v)
+                cells[failover_key(b)].append(v)
     return cells
 
 
@@ -227,8 +235,8 @@ def fig_decomposition(fname):
     turning it into a ratio is the same mistake as the P4-vs-OVS table this deck already
     retracted. It gets its own row, open-ended, on its own axis.
     """
-    fig, (ax0, ax) = plt.subplots(2, 1, figsize=(9.2, 4.0),
-                                  gridspec_kw={"height_ratios": [1, 2]})
+    fig, (ax0, ax) = plt.subplots(2, 1, figsize=(9.6, 4.9),
+                                  gridspec_kw={"height_ratios": [0.8, 2.6], "hspace": 0.55})
 
     # the categorical term
     ax0.barh([0], [1.0], color=WARNC, height=0.42)
@@ -249,32 +257,46 @@ def fig_decomposition(fname):
                          "when the fault\nwas lifted. Not a slower recovery: no recovery.",
              transform=ax0.transAxes, fontsize=8.5, color=MUTED, va="top")
 
-    # the two that really are multipliers -- derived from the logs, not typed in, so the
-    # figure cannot drift from the measurements the way a transcribed number would
+    # The two multipliers -- derived from the logs, not typed in, so the figure cannot drift
+    # from the measurements the way a transcribed number would.
+    #
+    # Each one is drawn TWICE, once at each level of the other factor, because measuring the
+    # fourth cell (P4 at 128 hosts, 2026-08-19) showed neither has a single value: the plane
+    # is worth 1.15x at 4 hosts and 3.12x at 128, and topology size costs OVS 3.30x but P4
+    # only 1.21x. Reporting either as one bar means quoting whichever level happened to be
+    # measured, which is what the earlier version of this figure did.
     cells = failover_cells()
     m = {k: st.mean(v) for k, v in cells.items()}
-    labels = [f"topology size\n4 → 128 hosts  (n={len(cells['OVS / 128 hosts'])})",
-              f"data plane\nOVS → P4  (n={len(cells['P4 / 4 hosts'])})"]
-    vals = [m["OVS / 128 hosts"] / m["OVS / 4 hosts"], m["OVS / 4 hosts"] / m["P4 / 4 hosts"]]
-    colours = [MUTED, ACCENT]
-    ax.barh(range(2), vals, color=colours, height=0.46)
-    for i, v in enumerate(vals):
-        ax.text(v + 0.06, i, f"{v:.2f}×", va="center", fontsize=10, color=colours[i])
-    ax.set_yticks(range(2))
-    ax.set_yticklabels(labels, fontsize=9)
-    ax.invert_yaxis()
-    ax.set_xlim(0, 4.0)
+    bars = [
+        (2.30, "on OVS", m["OVS / 128 hosts"] / m["OVS / 4 hosts"], WARNC),
+        (1.70, "on P4", m["P4 / 128 hosts"] / m["P4 / 4 hosts"], ACCENT),
+        (0.75, "at 128 hosts", m["OVS / 128 hosts"] / m["P4 / 128 hosts"], ACCENT),
+        (0.15, "at 4 hosts", m["OVS / 4 hosts"] / m["P4 / 4 hosts"], ACCENT),
+    ]
+    for y, lab, v, c in bars:
+        ax.barh([y], [v], color=c, height=0.44)
+        ax.text(v + 0.07, y, f"{v:.2f}×", va="center", fontsize=10, color=c)
+    ax.set_yticks([b[0] for b in bars])
+    ax.set_yticklabels([b[1] for b in bars], fontsize=9)
+    ax.set_ylim(-0.35, 2.95)
+    ax.set_xlim(0, 4.2)
     ax.set_xlabel("how much longer the outage lasts (×)")
+    # Group headings go on the empty rows above each pair, inside the axes -- putting them
+    # outside on the left made tight_layout clip them.
+    for y, txt in [(2.78, "topology size   4 → 128 hosts"),
+                   (1.22, "data plane   OVS → P4")]:
+        ax.text(0.05, y, txt, va="center", fontsize=9.5, color=INK, weight="bold")
 
     fig.suptitle("Three things change how long a link failure lasts — one changes whether "
                  "it ends", fontsize=13, color=INK, x=0.012, ha="left", weight="bold")
-    fig.text(0.012, 0.90, "Same fault, same topology. Only the first is a difference in kind; "
-                          "the other two are multipliers, and note how small they are.",
-             fontsize=9, color=MUTED)
-    fig.tight_layout(rect=[0, 0, 1, 0.87])
+    fig.text(0.012, 0.905, "Same fault, same method, n=10 per cell. The first is a difference "
+                           "in kind. The other two are multipliers —\nbut neither has a single "
+                           "value: each one depends on the level of the other.",
+             fontsize=9, color=MUTED, va="top")
+    fig.tight_layout(rect=[0, 0, 1, 0.84])
     fig.savefig(os.path.join(OUT, fname), dpi=200)
     plt.close(fig)
-    print("wrote", fname)
+    print("wrote", fname, {lab: round(v, 2) for _y, lab, v, _c in bars})
 
 
 # ----------------------------------------------------------- figure 4: throughput A/B pair
@@ -418,15 +440,17 @@ def fig_failover_raster(fname):
     """One row per run, one mark per ping. The box plot compresses each run to a scalar;
     this shows whether the outage really is a single clean gap rather than a flapping tail."""
     pat = re.compile(r"^\[(\d+\.\d+)\]")
-    dirs = [os.path.join(REPO, "doc/audit/2026-08-17_p4-vs-ovs-matched-topology/raw"),
-            os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_ovs128_n10")]
-    groups = {"P4 / 4 hosts": [], "OVS / 4 hosts": [], "OVS / 128 hosts": []}
-    for f in sorted(g for d in dirs for g in glob.glob(d + "/*.log")):
+    # Same three directories and the same classification as failover_cells(); the raster used
+    # to keep a second copy of that logic, which is how it silently lost the P4/128 cell --
+    # p4_128_run*.log matches startswith("p4_") too, so adding the directory without fixing
+    # the order would have quietly folded those runs into the 4-host panel instead.
+    groups = {k: [] for k in ("P4 / 4 hosts", "OVS / 4 hosts",
+                              "P4 / 128 hosts", "OVS / 128 hosts")}
+    for f in sorted(g for d in FAILOVER_DIRS for g in glob.glob(d + "/*.log")):
         bn = os.path.basename(f)
         if bn.startswith("base_run"):
             continue
-        key = ("P4 / 4 hosts" if bn.startswith("p4_") or bn == "ping_p4_4host.log"
-               else "OVS / 128 hosts" if "128" in bn else "OVS / 4 hosts")
+        key = failover_key(bn)
         ts = [float(m.group(1)) for line in open(f)
               if (m := pat.match(line)) and "bytes from" in line]
         if len(ts) < 10:
@@ -438,11 +462,12 @@ def fig_failover_raster(fname):
         t_fault = big[0][1]          # align every run on the last reply before the outage
         groups[key].append(([t - t_fault for t in ts], big[0][0]))
 
-    fig, axes = plt.subplots(1, 3, figsize=(10.2, 4.4),
-                             gridspec_kw={"width_ratios": [1, 1, 1]})
-    for ax, (key, colour) in zip(axes, [("P4 / 4 hosts", ACCENT),
-                                        ("OVS / 4 hosts", WARNC),
-                                        ("OVS / 128 hosts", MUTED)]):
+    # Ordered 4-host pair then 128-host pair, so the eye reads the plane comparison twice and
+    # the third panel's outages visibly run past where the other three have already finished.
+    panels = [("P4 / 4 hosts", ACCENT), ("OVS / 4 hosts", WARNC),
+              ("P4 / 128 hosts", ACCENT), ("OVS / 128 hosts", WARNC)]
+    fig, axes = plt.subplots(1, 4, figsize=(12.4, 4.4), sharex=True)
+    for ax, (key, colour) in zip(axes, panels):
         runs = groups[key]
         for row, (ts, outage) in enumerate(runs):
             xs = [t for t in ts if -8 <= t <= 70]
