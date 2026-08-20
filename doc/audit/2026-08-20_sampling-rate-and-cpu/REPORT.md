@@ -132,6 +132,27 @@ not on the A/B.
 linear fit over five sampled points extrapolates to a 48.5% intercept, and there is no valid
 measurement at zero to compare it against.
 
+> 🔴 **Superseded 2026-08-20 (later the same day).** There is now a valid measurement at zero:
+> the `mzero` pair, re-run on a cold fabric with the control verified before measuring (0
+> non-zero twin readings across 32 edges while 205.9 Mbit/s flowed on s1-eth1, s2-eth3 and
+> s5-eth2). Its poll-off arm reads **2.8%** against the fit's **48.5%** intercept — 45.6 points
+> apart, 65× the 0.7-point noise floor. So the fixed cost is real and large, and it is the
+> *extrapolation* that does not survive, not the statement.
+>
+> Two consequences. **(1)** `206 µs/sample` is the marginal cost between 34.7 and 556.1
+> samples/s and nothing more; dividing one core by it yields "~4,900 samples/s", and that
+> number is **not** a capacity — it runs the line through a region the matrix never measured
+> and where the line is known to be wrong by 46 points at the one end that was checked. Any
+> sample-rate ceiling quoted from this slope should be withdrawn.
+> **(2)** The matrix's own `mnone` cell is not a zero either: `NDTWIN_CLONE_DISABLE=1` never
+> took, and it measures 553.5 samples/s — a replicate of the 1/64 cell wearing a zero's label.
+> It is excluded from the fit (which moves the slope by 1.1 µs/sample, so nothing turns on it).
+>
+> What is now measured: **46.3 of the 57.2 points** of ingest cost at 556 samples/s are already
+> paid at 34.7 samples/s. The cost is dominated by a fixed component whose shape below 34.7
+> samples/s remains unknown. Figure: `page_matrix-decomposition.png`; numbers from
+> `analyse_matrix.py`, which now refuses to fit through a cell whose telemetry is not zero.
+
 ### The cost of sampling, isolated
 
 Deleting the clone session removes every downstream cost — the egress pass on the copy, the

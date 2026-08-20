@@ -618,8 +618,174 @@ def fig_concurrency(fname):
     print("wrote", fname, {r["n"]: (round(r["throughput_rps"], 1), round(r["p50_ms"], 1)) for r in lv})
 
 
+# ------------------------------------------ figure 5: the matrix, decomposed
+def total_sample_rate(label):
+    """Samples per second reaching the kernel, summed over every edge -- not one edge's lambda.
+
+    A flow crossing three switches is sampled at each of them, and the kernel pays for every
+    datagram, so the busiest edge's lambda would understate the load by the number of hops.
+    Same method as analyse_matrix.py, which is the text version of this figure.
+    """
+    rows = load_twin(label)
+    vals = sorted({v for r in rows for v in r["twin"].values() if v > 0})
+    if not vals:
+        return 0.0
+    q = reduce(math.gcd, vals)
+    hz = (len(rows) - 1) / (rows[-1]["t"] - rows[0]["t"])
+    step = max(1, int(round(hz)))
+    return st.mean([sum(rows[i]["twin"].values()) / q for i in range(0, len(rows), step)])
+
+
+def fig_decomposition(fname):
+    """Split the kernel's CPU into baseline, serving the instrument, and ingesting sFlow.
+
+    WHY THE `mnone` CELL IS NOT ON THIS FIGURE
+    ------------------------------------------
+    The matrix was built with a sixth pair, `mnone`, meant to be the intercept: run under
+    NDTWIN_CLONE_DISABLE=1 so nothing is cloned. It is not an intercept. Its twin trace carries
+    480,540,662,784 counter-units over 2,352 non-zero readings and it measures 553.5 samples/s
+    -- a replicate of the 1/64 cell, not a zero. Its CPU says the same thing (67.7/60.0 against
+    67.9/60.1 at 1/64). Including it changes the slope by 1.1 us/sample, so nothing here turns
+    on excluding it; it is excluded because a point labelled "zero" that is not zero is the
+    defect this round has now hit three times.
+
+    The real zero is `mzero`, re-run on a COLD fabric with the control verified before
+    measuring: 0 non-zero twin readings across 32 edges. Its iperf3 client.json is a stub of
+    nulls -- the jq slimming path in measure.sh turns an errored iperf3 into well-formed JSON
+    full of nulls and discards the error text -- so its offered load is taken from the
+    /proc/net/dev counters instead, which are independent of both iperf3 and the kernel. They
+    put 205.9 Mbit/s on s1-eth1, s2-eth3 and s5-eth2 over 293.8 s, the same three hops at the
+    same rate as every other cell. The run happened; only its client-side JSON was lost.
+    """
+    rates = [1024, 512, 256, 128, 64]
+    on = {r: cpu_stats(f"m{r}_poll")["groups"].get("kernel", 0.0) for r in rates}
+    off = {r: cpu_stats(f"m{r}_nopoll")["groups"].get("kernel", 0.0) for r in rates}
+    sr = {r: total_sample_rate(f"m{r}_poll") for r in rates}
+    z_on = cpu_stats("mzero_poll")["groups"].get("kernel", 0.0)
+    z_off = cpu_stats("mzero_nopoll")["groups"].get("kernel", 0.0)
+
+    order = sorted(rates, key=lambda r: sr[r])          # ascending sample rate
+
+    # Fit over the five measured cells only, poll-off arm (the instrument removed).
+    xs, ys = [sr[r] for r in order], [off[r] for r in order]
+    mx, my = st.mean(xs), st.mean(ys)
+    b = (sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+         / sum((x - mx) ** 2 for x in xs))
+    a = my - b * mx
+    worst = max(abs(y - (a + b * x)) for x, y in zip(xs, ys))
+
+    fig, (axA, axB) = plt.subplots(1, 2, figsize=(13.0, 5.6),
+                                   gridspec_kw={"width_ratios": [1.0, 1.12]})
+
+    # ---- A: the decomposition, stacked. Bottom-to-top is cheapest-to-dearest, so the eye
+    # reads the answer -- ingest dominates and the instrument is a constant sliver -- without
+    # having to difference two columns of a table.
+    BASECOL, POLLCOL, INGCOL = GREY, "#A9C3D3", ACCENT
+    labels = ["none\n(measured\nzero)"] + [f"1/{r}" for r in order]
+    base_v = [z_off] + [z_off] * len(order)
+    ing_v = [0.0] + [off[r] - z_off for r in order]
+    poll_v = [z_on - z_off] + [on[r] - off[r] for r in order]
+
+    idx = range(len(labels))
+    axA.bar(idx, base_v, width=0.62, color=BASECOL, label=f"kernel baseline — {z_off:.1f}%")
+    axA.bar(idx, ing_v, width=0.62, bottom=base_v, color=INGCOL, label="ingesting sFlow")
+    axA.bar(idx, poll_v, width=0.62,
+            bottom=[b_ + i_ for b_, i_ in zip(base_v, ing_v)], color=POLLCOL,
+            label="serving the instrument (4 Hz poll of 288 edges)")
+    for i, (b_, i_, p_) in enumerate(zip(base_v, ing_v, poll_v)):
+        axA.text(i, b_ + i_ + p_ + 1.2, f"{b_ + i_ + p_:.1f}", ha="center",
+                 fontsize=8.6, color=MUTED, weight="bold")
+        if i_ > 6:
+            axA.text(i, b_ + i_ / 2, f"{i_:.1f}", ha="center", va="center",
+                     fontsize=8.4, color="white", weight="bold")
+    axA.set_xticks(list(idx))
+    axA.set_xticklabels(labels, fontsize=8.8)
+    axA.set_ylabel("kernel CPU, % of ONE core")
+    axA.set_ylim(0, 82)
+    axA.legend(frameon=False, fontsize=8.3, loc="upper left")
+    axA.set_title("Where the kernel's CPU goes, by sampling rate", fontsize=11.5, color=INK,
+                  loc="left", pad=26, weight="bold")
+    pv = [p for p in poll_v]
+    axA.text(0, 1.055, f"The instrument is a flat {min(pv):.1f}–{max(pv):.1f} points at every "
+                       f"rate, so subtracting it is safe —",
+             transform=axA.transAxes, fontsize=8.4, color=MUTED)
+    axA.text(0, 1.012, "and it is not what the kernel's CPU is spent on.",
+             transform=axA.transAxes, fontsize=8.4, color=MUTED)
+
+    # ---- B: is ingest linear in sample rate? Within the measured decade, yes, and very well.
+    # Outside it the fit is not evidence -- which is the whole point of drawing the zero.
+    axB.axvspan(0, min(xs), color=PANEL, zorder=0)
+    axB.text(min(xs) / 2, 64.5, "never\nmeasured", ha="center", va="top", fontsize=7.6,
+             color=FAINT, style="italic", linespacing=1.3)
+
+    grid = [0, max(xs) * 1.06]
+    axB.plot(grid, [a + b * g for g in grid], color=WARNC, lw=1.3, ls=(0, (5, 4)), zorder=2)
+    axB.plot([min(xs), max(xs)], [a + b * min(xs), a + b * max(xs)],
+             color=ACCENT, lw=2.4, zorder=3)
+    axB.scatter(xs, ys, s=54, color=ACCENT, zorder=4, edgecolor="white", linewidth=1.0)
+    axB.scatter([0], [a], s=70, marker="o", facecolor="white", edgecolor=WARNC,
+                linewidth=1.8, zorder=5)
+    axB.scatter([0], [z_off], s=150, marker="D", color=INK, zorder=5,
+                edgecolor="white", linewidth=1.2)
+
+    # The gap is the finding, so it gets the arrow; the words go in the empty lower half
+    # rather than beside the arrow, where they used to sit on top of the first two cells.
+    axB.annotate("", xy=(0, a), xytext=(0, z_off),
+                 arrowprops=dict(arrowstyle="<->", color=WARNC, lw=1.8))
+    axB.annotate(
+        f"fit extrapolates to {a:.1f}% at zero samples/s\n"
+        f"the cold-fabric control measures {z_off:.1f}%\n"
+        f"{a - z_off:.1f} points apart — {(a - z_off) / 0.7:.0f}× the noise floor,\n"
+        f"so this slope names no rate at which the kernel saturates",
+        xy=(0, (a + z_off) / 2), xytext=(max(xs) * 0.20, 13.5),
+        fontsize=8.8, color=WARNC, weight="bold", linespacing=1.5,
+        arrowprops=dict(arrowstyle="->", color=WARNC, lw=1.1,
+                        connectionstyle="arc3,rad=0.18"))
+
+    axB.text(max(xs) * 0.50, a + b * max(xs) * 0.50 - 11.0,
+             f"{b * 1e4:.0f} µs of CPU per sample\n(largest residual {worst:.1f} pt, "
+             f"noise floor 0.7)", fontsize=8.8, color=ACCENT, weight="bold", linespacing=1.5)
+
+    axB.set_xlim(-max(xs) * 0.05, max(xs) * 1.06)
+    axB.set_ylim(0, 68)
+    axB.set_xlabel("sFlow samples per second reaching the kernel, summed over all edges")
+    axB.set_ylabel("kernel CPU, % of ONE core  (poll off)")
+    axB.set_title("The marginal cost is linear — the line is not", fontsize=11.5, color=INK,
+                  loc="left", pad=26, weight="bold")
+    axB.text(0, 1.055, f"Five cells across a {max(xs) / min(xs):.0f}× range fit a straight line "
+                       f"to within the noise floor. Extended to zero that same line",
+             transform=axB.transAxes, fontsize=8.4, color=MUTED)
+    axB.text(0, 1.012, f"overshoots the measured zero by {a / z_off:.0f}×, so the slope may not "
+                       f"be extrapolated: it gives no rate at which the kernel saturates.",
+             transform=axB.transAxes, fontsize=8.4, color=MUTED)
+
+    fig.suptitle("Almost all of the kernel's sFlow cost is already paid at the lowest rate "
+                 "measured", fontsize=13, color=INK, x=0.012, y=0.982, ha="left", weight="bold")
+    fig.text(0.012, 0.918,
+             f"Going from no telemetry to 34.7 samples/s costs {off[order[0]] - z_off:.1f} points "
+             f"of a core; the next 16× of sampling on top of that costs only "
+             f"{off[order[-1]] - off[order[0]]:.1f} more. Both arms of every",
+             fontsize=9, color=MUTED, va="top")
+    fig.text(0.012, 0.882,
+             "pair ran identical traffic (5,357,127 packets, 200.0 Mbit/s). First 6 s of every "
+             "trace discarded. The `mnone` cell is excluded — see docstring.",
+             fontsize=9, color=MUTED, va="top")
+    fig.tight_layout(rect=[0, 0, 1, 0.86])
+    fig.subplots_adjust(wspace=0.26)
+    fig.savefig(os.path.join(OUT, fname), dpi=200)
+    plt.close(fig)
+    print("wrote", fname, dict(
+        fit_intercept=round(a, 2), us_per_sample=round(b * 1e4, 1),
+        max_resid=round(worst, 2), measured_zero=round(z_off, 2),
+        gap=round(a - z_off, 1),
+        samples=[round(sr[r], 1) for r in order],
+        kernel_off=[round(off[r], 1) for r in order],
+        poll_cost=[round(on[r] - off[r], 1) for r in order]))
+
+
 if __name__ == "__main__":
     fig_tradeoff("page_sampling-tradeoff.png")
     fig_where("page_where-the-cpu-goes.png")
     fig_iperf("page_iperf-competes.png")
     fig_concurrency("page_api-concurrency-envelope.png")
+    fig_decomposition("page_matrix-decomposition.png")

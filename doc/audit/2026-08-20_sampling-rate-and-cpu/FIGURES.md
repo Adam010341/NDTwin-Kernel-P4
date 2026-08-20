@@ -1,8 +1,8 @@
 # Figures — sampling rate and CPU (2026-08-20)
 
-**Status:** IN PROGRESS (stub created before any work; running log below)
+**Status:** DONE — five figures render from committed data.
 
-Task: produce three presentation figures from today's measurement data into
+Task: produce presentation figures from today's measurement data into
 `/home/adam/Desktop/NDTwin slide material 827/figures/`, with a reproducible
 script at `doc/audit/2026-08-20_sampling-rate-and-cpu/plot_figures.py`.
 
@@ -14,10 +14,12 @@ House style copied from `doc/audit/2026-08-19_p4-sflow-accuracy/plot_figures.py`
 - [x] Read 08-19 plot_figures.py for house style
 - [x] Read REPORT.md, compare.py, measure.sh, cpu_probe.py, cpu_report.py
 - [x] Compute stats independently (discard first 6 s of every trace)
-- [ ] Figure 1 page_sampling-tradeoff.png
-- [ ] Figure 2 page_where-the-cpu-goes.png
-- [ ] Figure 3 page_iperf-competes.png
-- [ ] Visually inspect every PNG
+- [x] Figure 1 page_sampling-tradeoff.png
+- [x] Figure 2 page_where-the-cpu-goes.png
+- [x] Figure 3 page_iperf-competes.png
+- [x] Figure 4 page_api-concurrency-envelope.png
+- [x] Figure 5 page_matrix-decomposition.png
+- [x] Visually inspect every PNG
 
 ## Computed vs REPORT.md
 
@@ -75,3 +77,66 @@ show the flow on `s1-eth1` (205.6), `s2-eth3` (205.3) and `s5-eth2` (205.4) Mbit
 It does confirm the §4 claim independently: the three switches with CPU (bmv2-1/2/5) are
 exactly the three switches carrying the flow.
 
+
+**4. Compressing the traces broke `analyse_matrix.py` silently-ish, and it had been left broken.**
+`ae9f12a` taught this directory's readers about `.gz`, but one site was missed: the cell-presence
+test in `main()` was a bare `os.path.exists` on the *uncompressed* name, while the loader beside
+it went through the gz-aware `_open()`. After the traces were committed `.gz`, every cell looked
+absent and the script printed `no cells found -- has matrix.sh produced anything yet?` on a
+complete 14-cell matrix. It does not raise and it does not print a wrong number, so the only
+symptom is a script that appears to have nothing to analyse. Fixed by giving `_open()` a matching
+`_exists()`; this is the third reader in two days broken by the same compression change, and all
+three had the same shape — two code paths reading one piece of evidence.
+
+**5. The matrix's intended intercept is not an intercept, and the real zero was never fitted.**
+`mnone` was run under `NDTWIN_CLONE_DISABLE=1` to be the zero-sampling cell. The flag never took:
+its twin trace holds 480,540,662,784 counter-units over 2,352 non-zero readings and it measures
+**553.5 samples/s**, against 556.1 at 1/64 — it is a replicate of the 1/64 cell wearing a zero's
+label, and its CPU agrees (67.7/60.0 vs 67.9/60.1). `plot_figures.py` had already caught this for
+figure 2 and swapped in the cold-fabric `mzero` re-run; `analyse_matrix.py` had not, and was still
+printing it as the `none` row *and* fitting through it. Both readers now agree, and the fit
+excludes it (slope moves 1.1 µs/sample, so no conclusion turned on it).
+
+Fitting the five genuine cells and then comparing against `mzero_nopoll` is what the round had
+never done: **fit intercept 48.5%, measured zero 2.8%** — 45.6 points apart, 65× the 0.7-point
+noise floor. The line is excellent inside 34.7–556.1 samples/s (largest residual 0.4) and wrong
+outside it, so `206 µs/sample` is a marginal cost over that range and **not** a divisor for a
+capacity. See the REPORT.md correction block for the withdrawn ceiling.
+
+**6. `mzero_nopoll`'s iperf3 client.json is a stub of nulls, and the run is still good.**
+`measure.sh`'s jq slimming path filters `.end.sum` and `.start.test_start` out of iperf3's JSON.
+When iperf3 emits an error object instead of a result, both selectors yield `null` and the path
+writes a *well-formed* 76-byte file of nulls, discarding the error text — so a reader that checks
+the file parses sees nothing wrong, and `is_complete()` rejects the cell as half-written. The run
+itself is intact: the `/proc/net/dev` counters in the twin trace, which are independent of both
+iperf3 and the kernel, put 205.9 Mbit/s on s1-eth1, s2-eth3 and s5-eth2 over the full 293.8 s —
+the same three hops at the same rate as every other cell. Offered load for that cell is therefore
+taken from the counters. The stub-of-nulls behaviour is a live trap for any future run.
+
+**7. The poll-off arm cannot verify its own zero, so the inheritance is checked.**
+`netdev_only.py` records tx counters and no twin readings at all, so `mzero_nopoll` has no
+telemetry of its own to confirm as zero — it inherits that from `mzero_poll`, the poll-on arm of
+the same cold-fabric run, exactly as the matrix's poll-off cells inherit their sample rate. The
+check: the two arms must differ by the polling cost and nothing else. They differ by **7.7
+points**, against a matrix poll column spanning 6.3–8.0. `analyse_matrix.py` now prints this
+rather than assuming it.
+
+**8. The timeline the review session asked for, taken from the traces rather than from mtimes.**
+The other session's `doc/audit/2026-08-20_lab-bringup-inventory/INVENTORY.md` §7.3 records their
+`ndt check` pushing 606 Mbit/s through the fabric at ~16:08 and "spoiling one of their cells".
+mtimes cannot settle which, because gzipping rewrote every file at ~17:00. The epoch stamps
+*inside* the traces can, and they clear all of it:
+
+| window | cells |
+|---|---|
+| 13:21–14:05 | single-factor sweep (`rate256`…`restore_check`) |
+| **14:53:06 – 15:56:55** | **all 12 matrix cells**, back to back, 300 s each |
+| 16:01:59 | their `ndt down` kills the kernel; 16:03:31 it is restarted |
+| ~16:08 | their `ndt check` traffic |
+| **16:45:07 – 16:55:11** | **the `mzero` pair** |
+
+No surviving cell overlaps 16:05–16:12. The matrix finished four minutes before the first
+collision, and the zero pair was re-run 37 minutes after the last one on a cold fabric with its
+control verified before measuring. The spoiled cell was evidently a first attempt at the zero
+point that was discarded and re-run — which is what `mzero` is. **Nothing in the fit is
+contaminated**, and the timeline question blocking the raw-data commit is closed.

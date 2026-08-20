@@ -51,6 +51,13 @@ def _open(path):
         return open(path)
     return gzip.open(path + ".gz", "rt")
 
+
+def _exists(path):
+    """Presence test that agrees with _open(). Testing the uncompressed name alone made every
+    cell look absent once the traces were committed .gz, and main() reported "no cells found"
+    on a complete matrix -- the loaders had been taught about .gz but this check had not."""
+    return os.path.exists(path) or os.path.exists(str(path) + ".gz")
+
 BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "raw")
 WARM = 6.0                       # harness starts pollers, sleeps 2 s, then iperf3
 RATES = [1024, 512, 256, 128, 64]
@@ -160,7 +167,7 @@ def main():
         tag = f"m{rate}" if rate != "none" else "mnone"
         for arm in ("poll", "nopoll"):
             lab = f"{tag}_{arm}"
-            if not os.path.exists(f"{BASE}/{lab}_cpu.jsonl"):
+            if not _exists(f"{BASE}/{lab}_cpu.jsonl"):
                 continue
             if not is_complete(lab):
                 skipped.append(lab)
@@ -214,7 +221,42 @@ def main():
               f"{a1.get('kernel',0)-a2.get('kernel',0):>8.1f} | {a1.get('proxy',0):>8.1f}%"
               f"{a2.get('proxy',0):>9.1f}% | {a1.get('bmv2',0):>8.1f}%{a2.get('bmv2',0):>8.1f}%")
 
-    pts = [(s, k_off) for _, s, _, k_off in table if s is not None]
+    # A row is only an intercept if its telemetry is actually zero. `mnone` was built to be
+    # one -- NDTWIN_CLONE_DISABLE=1 -- and is not: the flag never took, it measures 553.5
+    # samples/s and is a replicate of the 1/64 cell. Fitting through a mislabelled zero is how
+    # an intercept becomes fiction, so the check is made here rather than trusted from the label.
+    print()
+    print("=" * 100)
+    print("ZERO-POINT CHECK -- a cell is an intercept only if its twin readings are all zero")
+    print("=" * 100)
+    for lab in ("mnone_poll", "mzero_poll", "mzero_nopoll"):
+        if not _exists(f"{BASE}/{lab}_twin.jsonl"):
+            continue
+        rows = [r for r in load(f"{BASE}/{lab}_twin.jsonl") if "twin" in r]
+        if not rows:
+            print(f"  {lab:14} no twin readings (poll-off arm records none by design)")
+            continue
+        t0 = rows[0]["t"]
+        rows = [r for r in rows if r["t"] - t0 >= WARM]
+        nz = sum(1 for r in rows for v in r["twin"].values() if v > 0)
+        tot = sum(v for r in rows for v in r["twin"].values())
+        verdict = "TRUE ZERO" if nz == 0 else "NOT A ZERO -- do not fit through it"
+        print(f"  {lab:14} non-zero readings {nz:>6}  sum {tot:>18,}   {verdict}")
+    # The poll-off arm runs netdev_only.py, which records tx counters and no twin readings at
+    # all -- so mzero_nopoll's zero cannot be read off its own trace. It inherits it from
+    # mzero_poll, the poll-on arm of the same cold-fabric run, exactly as the poll-off cells
+    # inherit their sample rate above. The inheritance is checked the same way: the two arms
+    # must differ by the polling cost and nothing else.
+    zp, zn = cpu_cell("mzero_poll"), cpu_cell("mzero_nopoll")
+    if zp and zn:
+        d = zp[1].get("kernel", 0.0) - zn[1].get("kernel", 0.0)
+        polls = [k_on - k_off for rate, _, k_on, k_off in table if rate != "none"]
+        inside = min(polls) - 0.7 <= d <= max(polls) + 0.7
+        print(f"\n  mzero_poll - mzero_nopoll = {d:.1f} points of polling cost; the matrix's own "
+              f"poll column\n  spans {min(polls):.1f}-{max(polls):.1f}. "
+              f"{'Consistent -- the inheritance holds.' if inside else 'OUTSIDE -- inheritance suspect.'}")
+
+    pts = [(s, k_off) for rate, s, _, k_off in table if s is not None and rate != "none"]
     if len(pts) >= 3:
         print()
         print("=" * 100)
@@ -239,6 +281,32 @@ def main():
               f"from iperf3\n  (identical work in every cell) is about 0.7 points, so a residual "
               f"much above that\n  is structure, not noise -- and structure here means the cost "
               f"is NOT linear in samples.")
+
+        # The fit is excellent inside the measured decade and worthless outside it. Printing the
+        # intercept next to the measured zero is what stops the slope being turned into a
+        # saturation rate: 1 core / 206 us reads as "~4,800 samples/s", but that arithmetic
+        # assumes a line through the origin and this line misses the origin by 45 points.
+        zc = cpu_cell("mzero_nopoll")
+        if zc:
+            z = zc[1].get("kernel", 0.0)
+            print()
+            print("=" * 100)
+            print("DOES THE LINE REACH ZERO?  (it does not, so the slope is not a ceiling)")
+            print("=" * 100)
+            print(f"  fitted intercept              {a:>7.2f}%   at 0 samples/s")
+            print(f"  measured zero (mzero_nopoll)  {z:>7.2f}%   telemetry verified zero, cold fabric")
+            print(f"  gap                           {a - z:>7.2f}    points = {(a - z) / 0.7:.0f}x "
+                  f"the 0.7-point noise floor")
+            print()
+            print(f"  So {b * 1e4:.0f} us/sample is the marginal cost between {min(xs):.1f} and "
+                  f"{max(xs):.1f} samples/s,\n  and nothing more. Dividing one core by it gives "
+                  f"{1e6 / (b * 1e4):,.0f} samples/s, and that number is not\n  a capacity: it "
+                  f"extrapolates through a region the matrix never measured, where the\n  line is "
+                  f"known to be wrong by {a - z:.0f} points at the one end that was checked.")
+            print(f"\n  What IS measured: {min(ys) - z:.1f} of the {max(ys) - z:.1f} points of "
+                  f"ingest cost at {max(xs):.0f} samples/s are\n  already paid at "
+                  f"{min(xs):.1f} samples/s. The cost is dominated by a fixed component whose\n"
+                  f"  shape below {min(xs):.1f} samples/s is unknown.")
 
 
 if __name__ == "__main__":
