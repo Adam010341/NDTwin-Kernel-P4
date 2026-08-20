@@ -172,3 +172,63 @@ contaminated**, and the timeline question blocking the raw-data commit is closed
 > its own trace ends. It was therefore written **live, as the null stub**, not produced later
 > by the retroactive slimming — independent confirmation that the iperf3 failure happened
 > during the run, which is what item 6 claims.
+
+**9. The zero point is n=3 and holds to 0.03 points.** Adam ruled the `mzero` pair should be
+repeated (overriding the previous session's "no n=3" judgement, which had been written into
+the state file as settled when it was one session's opinion). Three cold-fabric runs, each
+with the control verified *before* measuring: kernel poll-off **2.84 / 2.92 / 2.92** (mean
+2.89, sd 0.03, range 0.07 — ten times tighter than the 0.7-point noise floor it argues
+against). Poll-on repeats as tightly (10.57/10.43/10.25), putting the polling cost at 7.53
+points, inside the matrix's own 6.3–8.0 column. Both readers and the decomposition figure now
+quote the n=3 mean. All four iperf3 runs produced real result blocks — the c9f3c57 slimming
+fix was not needed, which is the good outcome.
+
+**10. Same-fabric A/B against the 28b8b13 fork point: the reading dispersion is inherited.**
+The professor's question — is the twin's sFlow jitter original or ours? — answered on one OVS
+128-host fabric, one traffic run per arm, one analysis (`analyse_jitter_ab.py`), only the
+kernel binary swapped. Verdict: **both kernels sit on the sampling floor.**
+
+| arm | sd/mean (two carrying edges) | floor 100/√λ | ratio |
+|---|---|---|---|
+| HEAD (`ovsjit_head`) | 12.7% / 12.5% | 11.9% / 12.0% | **1.06 / 1.05** |
+| 28b8b13 (`ovsjit_base`) | 11.8% / 12.2% | 12.0% | **0.98 / 1.02** |
+
+Mean ratio-to-floor 1.05 vs 1.00 — a 0.05 difference, deep inside noise. Neither kernel adds
+avoidable noise and neither smooths (a ratio well below 1 would have meant variance hidden
+behind lag). Corroborates the static evidence: the counter-report rate block, including its
+1-second averaging window, is byte-identical across the fork; the kernel topology model
+(`StaticNetworkTopologyMininet_10Switches.json`) is byte-identical too, so both arms modelled
+the same 288 edges. Provenance: arm A's cpu trace holds exactly `kernel:1166963` (the pid ndt
+logged), arm B's exactly `kernel:1169447` (child of the driver's logged subshell 1169444 —
+see item 11). λ ≈ 70 and q = 2.9614M in both arms: same traffic, same quantum.
+
+Baseline build note: 28b8b13 needed one `CMakeLists.txt` line (`-Werror` → `-Wno-error`;
+2026-04 code under today's GCC trips `warn_unused_result` on `system()` calls and a Boost
+`maybe-uninitialized`). Warning semantics only — the generated code is unchanged, so the
+comparison stands. Built Release in ~3.5 min; worktree at the session scratchpad's
+`baseline-28b8b13/`.
+
+Also inherited, confirmed while the arms ran: **F-1's fabricated health metrics** (`10 +
+hash(ip) % 50`) are at 28b8b13 in three sites of `DeviceConfigurationAndPowerManager.cpp`
+(lines 455/853/1110), and **the fully-serialised northbound API** (`net::io_context ioc{1}`)
+is at 28b8b13 `main.cpp:119`. Neither is ours. And `s2-eth3` carries the flow but produces no
+twin reading under *either* kernel — the monitored-edge-set gap (item 3) is inherited too.
+
+**11. The stray-kernel trap, personally verified.** The A/B driver started the baseline with
+`( cd … && printf '1\n2\n' | ./bin/ndtwin_kernel … ) &` and recorded `$!` — which is the
+**subshell's** pid, not the kernel's. The cleanup killed the subshell; the kernel survived as
+an orphan holding :8000. `ndt down`'s teardown assertion caught it (`:8000 still listening --
+this stack did not start it`) and correctly refused to kill what it didn't start. Orphan
+killed by hand; `ndt clean` verified green afterwards. Same shape as the 開機手冊 session's
+`app_stop` bug from the same afternoon: the pid you recorded is the wrapper, not the target,
+and "stop" plus "verify stopped" must interrogate the same process. Their warning ("claim 只
+保護 ndt 的動詞，擋不住裸指令") predicted this within the hour.
+
+**12. Data-plane jitter at zero sampling is now n=3, and run-to-run noise dwarfs any
+sampling effect.** iperf3 receiver jitter with sampling fully off: **0.0116 / 0.0701 /
+0.0078 ms** across the three replicates — a 9× spread at *identical* configuration. The
+entire spread across a 16× sampling-rate sweep was 0.0100–0.0223 ms (2.2×). So the earlier
+conclusion ("no measurable sampling effect on data-plane jitter") survives n=3 in the
+strongest possible form: the effect of sampling, if any, is far below the run-to-run noise of
+the measurement itself. Loss tells the same story (0.074–0.393% at zero vs 0.29–0.76% across
+the sweep).

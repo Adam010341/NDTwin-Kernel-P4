@@ -286,15 +286,25 @@ def main():
         # intercept next to the measured zero is what stops the slope being turned into a
         # saturation rate: 1 core / 206 us reads as "~4,800 samples/s", but that arithmetic
         # assumes a line through the origin and this line misses the origin by 45 points.
-        zc = cpu_cell("mzero_nopoll")
-        if zc:
-            z = zc[1].get("kernel", 0.0)
+        # n=3 as of the evening of 2026-08-20: three cold-fabric runs, each with the control
+        # verified before measuring. Averaged here; the replicates are also printed, because
+        # a mean that hides a wild replicate would be exactly the kind of number this file
+        # exists to catch.
+        z_reps = []
+        for lab in ("mzero_nopoll", "mzero_nopoll_r2", "mzero_nopoll_r3"):
+            zc = cpu_cell(lab) if _exists(f"{BASE}/{lab}_cpu.jsonl") else None
+            if zc:
+                z_reps.append((lab, zc[1].get("kernel", 0.0)))
+        if z_reps:
+            z = st.mean([v for _, v in z_reps])
             print()
             print("=" * 100)
             print("DOES THE LINE REACH ZERO?  (it does not, so the slope is not a ceiling)")
             print("=" * 100)
             print(f"  fitted intercept              {a:>7.2f}%   at 0 samples/s")
-            print(f"  measured zero (mzero_nopoll)  {z:>7.2f}%   telemetry verified zero, cold fabric")
+            reps = ", ".join(f"{v:.2f}" for _, v in z_reps)
+            print(f"  measured zero (n={len(z_reps)})         {z:>7.2f}%   replicates: {reps} "
+                  f"-- cold fabric, control verified each time")
             print(f"  gap                           {a - z:>7.2f}    points = {(a - z) / 0.7:.0f}x "
                   f"the 0.7-point noise floor")
             print()

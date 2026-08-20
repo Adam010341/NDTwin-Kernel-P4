@@ -661,8 +661,17 @@ def fig_decomposition(fname):
     on = {r: cpu_stats(f"m{r}_poll")["groups"].get("kernel", 0.0) for r in rates}
     off = {r: cpu_stats(f"m{r}_nopoll")["groups"].get("kernel", 0.0) for r in rates}
     sr = {r: total_sample_rate(f"m{r}_poll") for r in rates}
-    z_on = cpu_stats("mzero_poll")["groups"].get("kernel", 0.0)
-    z_off = cpu_stats("mzero_nopoll")["groups"].get("kernel", 0.0)
+    # The zero is n=3 (2026-08-20 evening, Adam's ruling): three cold-fabric runs, each with
+    # the control verified before measuring. They landed at 2.84 / 2.92 / 2.92 -- a 0.07-point
+    # range against the 0.7-point noise floor -- so the mean is used and quoting it as a
+    # single number is honest. Replicates are averaged per-label first, then per-arm.
+    z_on_reps = [cpu_stats(l)["groups"].get("kernel", 0.0)
+                 for l in ("mzero_poll", "mzero_poll_r2", "mzero_poll_r3")]
+    z_off_reps = [cpu_stats(l)["groups"].get("kernel", 0.0)
+                  for l in ("mzero_nopoll", "mzero_nopoll_r2", "mzero_nopoll_r3")]
+    z_on = st.mean(z_on_reps)
+    z_off = st.mean(z_off_reps)
+    z_off_sd = math.sqrt(st.pvariance(z_off_reps))
 
     order = sorted(rates, key=lambda r: sr[r])          # ascending sample rate
 
@@ -734,7 +743,7 @@ def fig_decomposition(fname):
                  arrowprops=dict(arrowstyle="<->", color=WARNC, lw=1.8))
     axB.annotate(
         f"fit extrapolates to {a:.1f}% at zero samples/s\n"
-        f"the cold-fabric control measures {z_off:.1f}%\n"
+        f"the cold-fabric control measures {z_off:.1f}% (n=3, sd {z_off_sd:.2f})\n"
         f"{a - z_off:.1f} points apart — {(a - z_off) / 0.7:.0f}× the noise floor,\n"
         f"so this slope names no rate at which the kernel saturates",
         xy=(0, (a + z_off) / 2), xytext=(max(xs) * 0.20, 13.5),
@@ -777,6 +786,7 @@ def fig_decomposition(fname):
     print("wrote", fname, dict(
         fit_intercept=round(a, 2), us_per_sample=round(b * 1e4, 1),
         max_resid=round(worst, 2), measured_zero=round(z_off, 2),
+        zero_reps=[round(x, 2) for x in z_off_reps],
         gap=round(a - z_off, 1),
         samples=[round(sr[r], 1) for r in order],
         kernel_off=[round(off[r], 1) for r in order],
