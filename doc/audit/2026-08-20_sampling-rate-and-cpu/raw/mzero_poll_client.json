@@ -2,14 +2,14 @@
  "end": {
   "sum": {
    "start": 0,
-   "end": 300.000975,
-   "seconds": 300.000975,
+   "end": 300.00112,
+   "seconds": 300.00112,
    "bytes": 7499977800,
-   "bits_per_second": 199999116.00129065,
-   "jitter_ms": 0.019079141928432554,
-   "lost_packets": 18972,
+   "bits_per_second": 199999134.6678493,
+   "jitter_ms": 0.011605870936770707,
+   "lost_packets": 21030,
    "packets": 5357127,
-   "lost_percent": 0.3541450482693429,
+   "lost_percent": 0.39256116198103946,
    "sender": true
   }
  },

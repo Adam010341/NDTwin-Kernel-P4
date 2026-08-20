@@ -65,8 +65,18 @@ fi
 TWIN_PID=$!
 
 sleep 2
-sudo -n mnexec -a "$H1" iperf3 -c 10.0.0.33 -u -b "${RATE}M" -t "$DUR" -l 1400 \
-    --json > "$OUT/${LABEL}_client.json" 2>&1 &
+# --json emits a per-second intervals[] array -- 300 entries, ~6,700 lines -- that nothing in
+# this directory reads; every analysis takes end.sum and stops. Piping it through jq to keep
+# just that block turns a 6.7k-line file into ~15 lines. Without jq the full output is kept, so
+# a machine missing it degrades to verbose rather than to no data.
+if command -v jq >/dev/null 2>&1; then
+    sudo -n mnexec -a "$H1" iperf3 -c 10.0.0.33 -u -b "${RATE}M" -t "$DUR" -l 1400 --json 2>&1 \
+        | jq '{end: {sum: .end.sum}, start: {test_start: .start.test_start}}' \
+        > "$OUT/${LABEL}_client.json" &
+else
+    sudo -n mnexec -a "$H1" iperf3 -c 10.0.0.33 -u -b "${RATE}M" -t "$DUR" -l 1400 \
+        --json > "$OUT/${LABEL}_client.json" 2>&1 &
+fi
 IPERF_PID=$!
 
 wait $CPU_PID $TWIN_PID 2>/dev/null
