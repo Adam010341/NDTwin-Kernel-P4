@@ -382,6 +382,106 @@ def fig_quantum(panels, fname):
     print("wrote", fname)
 
 
+def sample_stats(rows, edge, q):
+    """Recovers the raw counting process behind the ladder.
+
+    A twin reading divided by the quantum IS the number of sFlow samples that landed in that
+    refresh window, so the sampling process can be tested directly instead of inferred from
+    the spread. One entry per twin *update*, not per poll: the run polls at 4 Hz and the twin
+    refreshes at 1 Hz, so counting polls would quadruple every window and claim four times
+    the samples.
+
+    Returns (lambda, Fano factor). Fano = variance/mean is 1.00 for a Poisson process; above
+    1 means something is adding dispersion beyond the sampling itself.
+    """
+    counts, prev = [], None
+    for r in rows:
+        v = r["twin"].get(edge, 0)
+        if v != prev:
+            counts.append(v / q)
+            prev = v
+    lam = st.mean(counts)
+    return lam, st.pvariance(counts) / lam if lam else 0.0
+
+
+# --------------------------------- figure 5b: the same ladder at 10x the load, both planes
+def fig_quantum_load(grid, fname):
+    """The ladder at two loads, so "the jitter looks broken" can be answered with data.
+
+    grid: [(row_label, [(label, colour, rows, edge), ...]), ...]
+
+    The dispersion is not a property of the instrument, it is 1/sqrt(sample count). Ten times
+    the load puts ten times the samples in the same one-second window, so the same instrument
+    on the same fabric must get sqrt(10) = 3.2x tighter -- and the point of showing both rows
+    is that it does. A single row invites "is that normal?"; two rows answer it.
+
+    Each panel is annotated with lambda (samples per refresh window) and the Fano factor,
+    because those are the quantities that decide the spread. Reporting sd alone lets a reader
+    compare 9.2 against 27 and conclude the low-rate case is worse, when in ratio terms it is
+    the arithmetic working exactly as predicted.
+    """
+    nrow, ncol = len(grid), max(len(p) for _, p in grid)
+    fig, axes = plt.subplots(nrow, ncol, figsize=(11.4, 7.6))
+    for r, (row_label, panels) in enumerate(grid):
+        # sharey within a row only: the two rows are 10x apart, so one shared scale would
+        # squash the low-rate row into a line and destroy the comparison it exists to make.
+        lo = min(min(x["twin"].get(e, 0) for x in rw) for _, _, rw, e in panels) / 1e6
+        hi = max(max(x["twin"].get(e, 0) for x in rw) for _, _, rw, e in panels) / 1e6
+        for c, (label, colour, rows, edge) in enumerate(panels):
+            ax = axes[r][c]
+            q = quantum(rows, edge)
+            t0 = rows[0]["t"]
+            ts = [x["t"] - t0 for x in rows]
+            vs = [x["twin"].get(edge, 0) / 1e6 for x in rows]
+            gt = ((rows[-1]["tx"][edge] - rows[0]["tx"][edge]) * 8
+                  / (rows[-1]["t"] - rows[0]["t"])) / 1e6
+            lam, fano = sample_stats(rows, edge, q)
+
+            # The quantum grid. At 200 Mbit/s there are ~90 rungs across the range and they
+            # read as a wash rather than as lines -- which is the honest picture: the ladder
+            # has become a ramp. Thinner strokes so it stays a texture, not a grey block.
+            k, rungs = 1, 0
+            while k * q / 1e6 < hi * 1.05:
+                rungs += 1
+                k += 1
+            lw = 0.6 if rungs < 30 else 0.35
+            for k in range(1, rungs + 1):
+                ax.axhline(k * q / 1e6, color=RULE, lw=lw, zorder=0)
+
+            ax.step(ts, vs, where="post", color=colour, lw=0.9, zorder=2)
+            ax.axhline(gt, color=INK, lw=1.3, ls="--", zorder=3)
+            ax.set_xlim(0, 300)
+            ax.set_ylim(0, hi * 1.06)
+            if r == nrow - 1:
+                ax.set_xlabel("time (s)")
+            if c == 0:
+                ax.set_ylabel(f"{row_label}\ntwin reading (Mbit/s)")
+            ax.set_title(label, fontsize=10.5, color=colour, loc="left", pad=34,
+                         weight="bold")
+            ax.text(0, 1.115,
+                    f"{lam:.1f} samples per 1 s window · spread ±{1.96*100/math.sqrt(lam):.0f}% "
+                    f"predicted", transform=ax.transAxes, fontsize=8.2, color=MUTED)
+            ax.text(0, 1.055,
+                    f"single readings {min(vs):.0f}–{max(vs):.0f} vs truth {gt:.1f} Mbit/s · "
+                    f"Fano {fano:.2f}", transform=ax.transAxes, fontsize=8.2, color=MUTED)
+    fig.suptitle("The same instrument at 10× the load: dispersion is sample count, not noise",
+                 fontsize=13, color=INK, x=0.012, y=0.985, ha="left", weight="bold")
+    fig.text(0.012, 0.938,
+             "Grey rungs are the only values the twin can report — the quantum is one sample, "
+             "≈3.06 Mbit/s, at both loads. Ten times the traffic puts ten times the samples in "
+             "the same window,",
+             fontsize=9, color=MUTED)
+    fig.text(0.012, 0.915,
+             "so the same ladder gets √10 = 3.2× tighter. Fano ≈ 1.00 means the counts are "
+             "Poisson: the spread is the sampling process itself, with nothing added on top.",
+             fontsize=9, color=MUTED)
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
+    fig.subplots_adjust(hspace=0.62, wspace=0.16, top=0.80)
+    fig.savefig(os.path.join(OUT, fname), dpi=200)
+    plt.close(fig)
+    print("wrote", fname)
+
+
 def fig_per_hop(runs, T, fname):
     """Per-hop consistency along the flow's path.
 
@@ -526,6 +626,14 @@ if __name__ == "__main__":
                   W, "page39_sflow-accuracy-200M.png",
                   "Telemetry accuracy at 200 Mbit/s: synthesised (P4) vs native (OVS)",
                   "Same load on both planes; P4 needed the -O3 bmv2 build to reach it.")
+        # The load comparison answers "that jitter looks abnormal" with the same experiment
+        # at 10x the traffic. It needs both 200 Mbit/s runs, so it lives inside this branch.
+        fig_quantum_load(
+            [("20 Mbit/s", [("OVS — native sampling", ACCENT, ovsB, "s1-eth2"),
+                            ("P4 / bmv2 — synthesised", WARNC, p4s, busiest_edge(p4s))]),
+             ("200 Mbit/s", [("OVS — native sampling", ACCENT, ovsA, "s1-eth2"),
+                             ("P4 / bmv2 — synthesised", WARNC, p4F, busiest_edge(p4F))])],
+            "page39_quantisation-ladder-load.png")
         fig_per_hop([("OVS 200 Mbit/s", ACCENT, ovsA, None),
                      ("P4 200 Mbit/s", WARNC, p4F, None)],
                     30, "page39_per-hop-consistency.png")
