@@ -27,6 +27,7 @@
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
+#include <arpa/inet.h>
 #include <atomic>
 #include <thread>
 #include <filesystem>
@@ -58,6 +59,7 @@ class ProbeCollector : public sflow::FlowLinkUsageCollector
     using sflow::FlowLinkUsageCollector::malformedDatagramCount;
     using sflow::FlowLinkUsageCollector::lookupOfport;
     using sflow::FlowLinkUsageCollector::usesIdentityPortMapping;
+    using sflow::FlowLinkUsageCollector::sampledByteCreditFor;
 };
 
 std::filesystem::path fixtureDir()
@@ -250,6 +252,81 @@ TEST_F(EmitterRoundtripTest, WalksEverySampleInAMultiSampleDatagram)
     EXPECT_TRUE(findFlowWithProtocol(17).has_value()) << "UDP sample not parsed";
     EXPECT_TRUE(findFlowWithProtocol(1).has_value()) << "ICMP sample not parsed";
     EXPECT_EQ(m_collector->malformedDatagramCount(), 0u);
+}
+
+TEST_F(EmitterRoundtripTest, BatchedSamplesBankEverySampleBytes)
+{
+    // WalksEverySampleInAMultiSampleDatagram above proves the parser *chains* through all three
+    // samples: three protocols go in, three flows come out. That is not the same property as
+    // banking all three samples' bytes, and only the second one decides what the twin reports.
+    //
+    // Nothing observable separates them. A parser that walked every sample but credited the
+    // byte counter once would still leave three flows in the flow table, still count zero
+    // malformed datagrams, and still pass every existing assertion -- while understating every
+    // link rate by 3x, silently and uniformly. That is the same shape as the clone-replica
+    // stacking bug, which also produced a uniformly wrong rate that absolute numbers alone
+    // could not distinguish from a busier fabric.
+    //
+    // This matters now rather than in the abstract: the emitter sends one sample per datagram
+    // today, so the batching path has never carried production traffic. Turning batching on to
+    // cut datagram count would make this arithmetic load-bearing overnight.
+    //
+    // The expected values are derived from the single-sample fixtures rather than written down,
+    // so the test cannot drift out of step with the frames the generator happens to build. In
+    // emitted_multi.bin the TCP and ICMP samples arrive on ingress port 1 and the UDP sample on
+    // port 3, so port 1 must bank the sum of two and port 3 the third.
+    // Network byte order, deliberately not converted: the parser stores the agent address as
+    // `uint32_t agentIp = data[2]` straight off the wire (FlowLinkUsageCollector.cpp:960) with
+    // no ntohl, and keys m_counterReports on that value. Passing host order here finds nothing
+    // and the counter reads 0 -- which is why the guards below assert the single-sample credit
+    // is non-zero before comparing anything. Without them this test would have "passed" by
+    // comparing 0 == 0 + 0.
+    const uint32_t agentIp = ::inet_addr("192.168.123.11");
+
+    // Every sample lands on port 0 in this harness, and that is correct rather than a
+    // limitation to work around. In MININET mode the parser rewrites both ports through
+    // lookupOfport() before keying the counter; usesIdentityPortMapping() returns false when no
+    // topology is loaded (it refuses to guess bmv2 semantics for what might be an OVS run), so
+    // the empty ifIndex map maps every ifIndex to 0. relevantPort is therefore 0 for all three
+    // samples.
+    //
+    // The property under test is arithmetic -- was every sample's bytes banked -- not
+    // attribution, which is what the per-edge reconciliation harness covers. Collapsing to one
+    // key actually sharpens it: the batch must equal the sum of the three singles, and a parser
+    // that credited only the first sample would return exactly the TCP figure.
+    auto creditFrom = [&](const std::string& fixture, uint32_t port) -> uint64_t {
+        auto bus = std::make_shared<EventBus>();
+        auto monitor = std::make_shared<TopologyAndFlowMonitor>(
+            std::make_shared<Graph>(),
+            std::make_shared<std::shared_mutex>(),
+            bus,
+            utils::DeploymentMode::MININET);
+        ProbeCollector fresh(monitor, bus, std::make_shared<ndtClassifier::Classifier>());
+        auto bytes = loadFixture(fixture);
+        EXPECT_FALSE(bytes.empty()) << "fixture missing: " << fixture;
+        fresh.handlePacket(bytes.data(), bytes.size());
+        return fresh.sampledByteCreditFor(agentIp, port);
+    };
+
+    constexpr uint32_t PORT = 0;
+    const uint64_t tcpAlone = creditFrom("emitted_tcp.bin", PORT);
+    const uint64_t udpAlone = creditFrom("emitted_udp.bin", PORT);
+    const uint64_t icmpAlone = creditFrom("emitted_icmp.bin", PORT);
+
+    // Without these the test would compare 0 == 0 + 0 + 0 and pass while measuring nothing.
+    // They already earned their place: the first draft keyed the counter on the host-order
+    // agent address and every figure came back 0.
+    ASSERT_GT(tcpAlone, 0u) << "single-sample TCP banked nothing; the key or the mode is wrong";
+    ASSERT_GT(udpAlone, 0u);
+    ASSERT_GT(icmpAlone, 0u);
+
+    const uint64_t batched = creditFrom("emitted_multi.bin", PORT);
+
+    EXPECT_EQ(batched, tcpAlone + udpAlone + icmpAlone)
+        << "a three-sample datagram banked " << batched << " but its samples are worth "
+        << tcpAlone << " + " << udpAlone << " + " << icmpAlone << " = "
+        << (tcpAlone + udpAlone + icmpAlone)
+        << ". Equal to the TCP figure alone would mean only the first sample was credited";
 }
 
 TEST_F(EmitterRoundtripTest, EmittedAndCapturedDatagramsAgreeOnStructure)

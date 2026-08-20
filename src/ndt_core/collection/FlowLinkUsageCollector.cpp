@@ -1657,6 +1657,18 @@ FlowLinkUsageCollector::reportMalformedDatagram(size_t len, const char* reason)
 }
 
 // [Co-developed with claude code -- Adam]
+uint64_t
+FlowLinkUsageCollector::sampledByteCreditFor(uint32_t agentIp, uint32_t port) const
+{
+    // Shared, not unique: this only reads, and the rate loop holds the same mutex while it
+    // drains. Taking it at all matters -- the ingest path writes these entries from worker
+    // threads, so an unlocked read races with a map insert, not merely with a value update.
+    std::shared_lock<std::shared_mutex> lk(m_counterReportsMutex);
+    const auto it = m_counterReports.find(std::make_pair(agentIp, port));
+    return it == m_counterReports.end() ? 0u : it->second.inputByteCountOnALinkMultiplySampingRate;
+}
+
+// [Co-developed with claude code -- Adam]
 void
 FlowLinkUsageCollector::creditHostBoundEgressEdges()
 {

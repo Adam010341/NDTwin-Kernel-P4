@@ -297,6 +297,26 @@ class FlowLinkUsageCollector
      */
     void creditHostBoundEgressEdges();
 
+    /**
+     * @brief Sampled bytes x sampling rate banked so far for one (agent IP, port).
+     *
+     * This is the quantity the rate loop turns into `linkBandwidthUsage` -- it multiplies this
+     * by 8 and resets it -- so it is what every reported link rate is made of.
+     *
+     * Protected as a read-only test seam. Nothing observable distinguishes "walked every sample
+     * in a batched datagram" from "walked the first and banked only its bytes": both leave the
+     * right number of flows in the flow table, and only the accounting differs. A parser that
+     * chained correctly through N samples but banked one would understate every rate by N with
+     * no error anywhere, which is precisely the shape of defect this codebase keeps producing.
+     * Asserting on the flow table alone cannot catch it; this can.
+     *
+     * Returns 0 for an unknown key, which is indistinguishable from a known key that has banked
+     * nothing -- callers that need to tell those apart should assert on a delta.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    uint64_t sampledByteCreditFor(uint32_t agentIp, uint32_t port) const;
+
   private:
     /**
      * @brief Counts a malformed datagram and logs at most one per thousand.
