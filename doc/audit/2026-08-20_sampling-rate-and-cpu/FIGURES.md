@@ -260,3 +260,17 @@ model's edge classification or the fabric's wiring is not what the other believe
 look in some future window (read `get_graph_data`'s edge for s2-eth3 against the Mininet topo
 wiring). OVS-side kernel behaviour for such edges also remains unmeasured; next OVS window can
 check it with one traffic run.
+
+**13b. The "open residue" of item 13 is closed — the premise was wrong.** The 開機手冊
+session resolved it with one line of JSON and two pings: the model's edge entry for s2-eth3
+reads `dst_dpid=0 dst_if=1 dst_ip=10.0.0.33` — it is **h33's own access link** — and a
+discriminating test moved 57,680 bytes across it when h33 pinged and 0 when h1 did. The
+206 Mbit/s on it during the h1→10.0.0.33 runs was the destination's **last hop**, not
+transit. Classification correct, wiring correct, no defect; the path reading in item 3
+(s1 ingress, s5 transit, s2 egress) was consistent with this all along.
+
+The instructive part: both sessions had just read the code that produced the evidence,
+corrected the same filter mistake — and then jointly invented a new mechanism ("a host-facing
+edge carrying transit traffic") to explain the leftover observation, without asking what the
+edge actually connects to. Observation-that-fits is not mechanism any more than
+arithmetic-that-fits is. The spawned investigation task was withdrawn.
