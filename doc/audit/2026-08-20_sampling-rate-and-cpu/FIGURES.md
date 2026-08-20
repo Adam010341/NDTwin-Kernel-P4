@@ -135,8 +135,7 @@ rather than assuming it.
 **8. The timeline the review session asked for, taken from the traces rather than from mtimes.**
 The other session's `doc/audit/2026-08-20_lab-bringup-inventory/INVENTORY.md` §7.3 records their
 `ndt check` pushing 606 Mbit/s through the fabric at ~16:08 and "spoiling one of their cells".
-mtimes cannot settle which, because gzipping rewrote every file at ~17:00. The epoch stamps
-*inside* the traces can, and they clear all of it:
+The epoch stamps *inside* the traces settle it, and they clear all of it:
 
 | window | cells |
 |---|---|
@@ -151,3 +150,25 @@ collision, and the zero pair was re-run 37 minutes after the last one on a cold 
 control verified before measuring. The spoiled cell was evidently a first attempt at the zero
 point that was discarded and re-run — which is what `mzero` is. **Nothing in the fit is
 contaminated**, and the timeline question blocking the raw-data commit is closed.
+
+> ⚠️ **Correction.** An earlier draft of this item said mtimes could not settle the question
+> "because gzipping rewrote every file at ~17:00". That is wrong, and the 開機手冊 session
+> caught it: **gzip preserves the source file's mtime by default.** Checked across all 20
+> `*_twin.jsonl.gz`, every one has an mtime equal to its own last `t` to within a second — so
+> mtime is a perfectly good independent cross-check, and that is in fact how the other session
+> verified this table.
+>
+> What misled me is that the two file types in `raw/` behave differently. The `.gz` traces kept
+> their original mtimes; the **`client.json` files were rewritten in place at 16:53–16:55 by
+> the retroactive jq slimming**, so *their* mtimes sit one to two hours after the runs they
+> describe (`m1024_poll_client.json`: mtime 16:53:11, trace end 14:58:06). I saw that on the
+> client files and generalised it to the directory.
+>
+> Using the in-trace `t` remains the right choice — it is what the data says about itself
+> rather than what the filesystem says about the file — but the reason matters: believing
+> mtime was destroyed would have thrown away a working cross-check for no reason.
+>
+> One detail worth keeping: `mzero_nopoll_client.json` has mtime 16:55:13, two seconds after
+> its own trace ends. It was therefore written **live, as the null stub**, not produced later
+> by the retroactive slimming — independent confirmation that the iperf3 failure happened
+> during the run, which is what item 6 claims.
