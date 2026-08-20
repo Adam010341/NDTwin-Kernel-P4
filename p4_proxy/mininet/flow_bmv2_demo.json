@@ -1,0 +1,47 @@
+{
+  "traffic_generator(iperf_or_iperf3)": "iperf3",
+  "intervals": [
+    {
+      "interval_duration(d/h/m/s)": "2m",
+      "varied_traffic": {
+        "flow_arrival_rate(flow/sec)": 1,
+        "flow_distance_probability": {
+          "near": 0.0,
+          "middle": 0.0,
+          "far": 1.0
+        },
+        "flow_type_probability": {
+          "limited_size_limited_rate_tcp": 0.5,
+          "unlimited_size_limited_rate_limited_duration_udp": 0.5
+        },
+        "flow_parameters": {
+          "limited_size_limited_rate_tcp": {
+            "size(bytes)": "8M",
+            "rate(bits)": "25M"
+          },
+          "unlimited_size_limited_rate_limited_duration_udp": {
+            "rate(bits)": "20M",
+            "duration(sec)": 4
+          }
+        }
+      },
+      "fixed_traffic": {
+        "fixed_flow_number": 4,
+        "flow_distance_probability": {
+          "near": 0.0,
+          "middle": 0.0,
+          "far": 1.0
+        },
+        "flow_type_probability": {
+          "unlimited_size_limited_rate_limited_duration_tcp": 1.0
+        },
+        "flow_parameters": {
+          "unlimited_size_limited_rate_limited_duration_tcp": {
+            "rate(bits)": "50M",
+            "duration(sec)": 20
+          }
+        }
+      }
+    }
+  ]
+}

@@ -51,7 +51,17 @@ sleep 1
 
 python3 "$REPO/tools/test_workflow/cpu_probe.py" "$DUR" 2 "$OUT/${LABEL}_cpu.jsonl" &
 CPU_PID=$!
-python3 "$REPO/doc/audit/2026-08-18_live-full-stack-round/run.py" "$DUR" 4 "$OUT/${LABEL}_twin.jsonl" &
+# POLL=off drops the 4 Hz /ndt/get_graph_data poll. That HTTP work is served BY the kernel
+# process whose CPU is being measured, and on a 128-host / 288-edge graph it is not small --
+# so with it on, "cost of ingesting sFlow" is really "that plus serving my own instrument".
+# Ground truth comes from /proc/net/dev either way and needs nothing from the kernel.
+if [ "${POLL:-on}" = "off" ]; then
+    python3 "$REPO/doc/audit/2026-08-20_sampling-rate-and-cpu/netdev_only.py" \
+        "$DUR" 4 "$OUT/${LABEL}_twin.jsonl" &
+else
+    python3 "$REPO/doc/audit/2026-08-18_live-full-stack-round/run.py" \
+        "$DUR" 4 "$OUT/${LABEL}_twin.jsonl" &
+fi
 TWIN_PID=$!
 
 sleep 2

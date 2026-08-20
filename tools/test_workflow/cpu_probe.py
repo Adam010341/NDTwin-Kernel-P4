@@ -136,10 +136,38 @@ def scan():
     return found
 
 
+def udp_indatagrams():
+    """
+    System-wide UDP datagrams delivered, from /proc/net/snmp.
+
+    A cross-check on how many sFlow datagrams the kernel actually received, usable when the
+    twin is not being polled and so no per-window sample count can be recovered from its
+    readings. It is system-wide rather than per-socket, so it counts any other UDP on the box
+    too -- on this machine, during a run, sFlow dominates it by orders of magnitude, but the
+    number is a corroboration and not a measurement.
+    """
+    try:
+        with open("/proc/net/snmp") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        return None
+    for i, line in enumerate(lines):
+        if line.startswith("Udp:") and i + 1 < len(lines) and lines[i + 1].startswith("Udp:"):
+            keys = line.split()[1:]
+            vals = lines[i + 1].split()[1:]
+            d = dict(zip(keys, vals))
+            if "InDatagrams" in d:
+                return int(d["InDatagrams"])
+    return None
+
+
 def sample():
     row = {"t": round(time.time(), 3), "proc": {}, "thread": {}}
     busy, total = machine_jiffies()
     row["machine"] = {"busy": busy, "total": total}
+    udp = udp_indatagrams()
+    if udp is not None:
+        row["udp_in"] = udp
     for pid, (label, tag) in scan().items():
         cpu = cpu_jiffies(f"/proc/{pid}/stat")
         if cpu is None:
