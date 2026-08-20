@@ -88,7 +88,13 @@ def report(label, title):
     for e, mbps in sorted(edges.items(), key=lambda kv: -kv[1]):
         s = stats_for(rows, e)
         if not s:
-            print(f"  {e:12} tx {mbps:7.1f} Mbit/s   twin read NOTHING")
+            # Not "the twin read nothing": run.py's recorder keeps only edges whose BOTH
+            # endpoints are switches (run.py:63), so an edge the kernel classifies as
+            # host-facing (dst_dpid=0) never enters the trace at all. s2-eth3 is one, and
+            # the 開機手冊 session measured the kernel reporting 215.6 Mbit/s on it live
+            # (2026-08-20) -- the absence below is the recorder's filter, not the kernel's.
+            print(f"  {e:12} tx {mbps:7.1f} Mbit/s   not in the recorded edge set "
+                  f"(run.py keeps inter-switch edges only)")
             continue
         out[e] = s
         print(f"  {e:12} tx {mbps:7.1f} Mbit/s | q={s['q']/1e6:.4f}M lam={s['lam']:6.1f} "

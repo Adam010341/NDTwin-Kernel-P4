@@ -232,3 +232,31 @@ conclusion ("no measurable sampling effect on data-plane jitter") survives n=3 i
 strongest possible form: the effect of sampling, if any, is far below the run-to-run noise of
 the measurement itself. Loss tells the same story (0.074–0.393% at zero vs 0.29–0.76% across
 the sweep).
+
+**13. 🔴 Correction to items 10 and 3: the "monitored-edge gap" is the recorder's filter, not
+the twin's.** Item 10 claimed s2-eth3 "carries the flow and produces no twin reading under
+either kernel — the monitored-edge-set gap is inherited." The 開機手冊 session challenged the
+attribution and is right. The decisive line is in our own poller, `2026-08-18_live-full-stack-
+round/run.py:63`: the twin dict keeps an edge only `if e["src_dpid"] in SW and e["dst_dpid"]
+in SW` — and the kernel graph classifies s2-eth3 as host-facing (`dst_dpid=0`), so the
+recorder drops it before anything is written. "No twin reading in the trace" is therefore a
+statement about the recorder, and its being identical under both kernels carries zero
+information about either. Meanwhile that session measured the kernel live on P4: **s2-eth3
+carrying 206 Mbit/s, twin reporting 215.6 Mbit/s** — the kernel reads the edge fine.
+
+What survives, precisely: the A/B verdict (item 10's table) is untouched — it was computed on
+the two edges that *were* recorded, identically filtered in both arms. Item 3's numbers stand,
+but its framing ("not one of the twin's 32 monitored edges … bounds what 'every link' can
+mean") inherits the same mis-attribution: the 32-edge set is what *these traces* recorded, not
+what the twin monitors. The commit message of d50f8a1 carries the uncorrected sentence;
+this item is the correction of record.
+
+Two things worth keeping from the episode. First, the same filter shape produced the same
+wrong conclusion twice in one evening, in two sessions, against two data planes — theirs in a
+comparison tool, ours in the recorder — and both were caught only by reading the code that
+built the evidence rather than the evidence itself. Second, a genuinely open residue: an edge
+the kernel classifies as **host-facing** is carrying the inter-switch transit flow. Either the
+model's edge classification or the fabric's wiring is not what the other believes — worth a
+look in some future window (read `get_graph_data`'s edge for s2-eth3 against the Mininet topo
+wiring). OVS-side kernel behaviour for such edges also remains unmeasured; next OVS window can
+check it with one traffic run.
