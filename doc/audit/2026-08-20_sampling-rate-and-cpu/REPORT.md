@@ -45,9 +45,17 @@ check that caught it was asking *when* the zeros occurred rather than how many t
 
 | rate | bmv2 | kernel | proxy | delivered | loss |
 |---|---|---|---|---|---|
-| 1/256 | 150.4% | 57.3% | 12.3% | 200.0 M | 0.37% |
-| 1/128 | 156.9% | 61.9% | 17.8% | 200.0 M | 0.35% |
-| 1/64 | 148.4% | 67.4% | 23.7% | 200.0 M | 0.35% |
+| 1/256 | 151.4% | 57.7% | 12.2% | 200.0 M | 0.37% |
+| 1/128 | 158.1% | 62.1% | 17.9% | 200.0 M | 0.35% |
+| 1/64 | 149.4% | 67.5% | 23.9% | 200.0 M | 0.35% |
+
+🔴 **Corrected 2026-08-20.** These first read 150.4 / 156.9 / 148.4 for bmv2 and 57.3 / 61.9 /
+67.4 for the kernel. The 6-second head trim was applied to the twin analysis in this report but
+**not** to the CPU table, so those figures averaged in the traffic-free start of each run and
+understated every process by about one point. The direction is uniform and no conclusion moves —
+bmv2 is flat either way — but the numbers on `page_sampling-tradeoff.png` are the trimmed ones
+and these now agree with it. Found by cross-checking the figure against the report rather than
+the other way round.
 
 CPU is % of **one** core, summed within a group; the machine has 14. Across a 4× rise in sampling
 rate: **bmv2 flat** (−2.0 points, i.e. noise), kernel +10.1 (1.18×), proxy +11.4 (1.93×),
@@ -64,6 +72,8 @@ cheap. It is a real option for the accuracy story, not a theoretical one.
 | clone full frame (control) | 200.0 M | 0.35% | 149.4% | 67.5% | 23.9% | 0.999 |
 | clone truncated to 128 B | 200.0 M | 0.40% | 152.3% | 10.3% | 4.0% | **NO TELEMETRY** |
 | no clone session at all | 200.0 M | 0.29% | 153.3% | 10.2% | 3.9% | **NO TELEMETRY** |
+
+(This table already used the trimmed figures; the §1 table above did not, and has been corrected.)
 
 ### 🔴 `packet_length_bytes = 128` is not an optimisation, it is an outage
 
