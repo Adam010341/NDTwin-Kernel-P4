@@ -69,14 +69,29 @@ sleep 2
 # this directory reads; every analysis takes end.sum and stops. Piping it through jq to keep
 # just that block turns a 6.7k-line file into ~15 lines. Without jq the full output is kept, so
 # a machine missing it degrades to verbose rather than to no data.
-if command -v jq >/dev/null 2>&1; then
-    sudo -n mnexec -a "$H1" iperf3 -c 10.0.0.33 -u -b "${RATE}M" -t "$DUR" -l 1400 --json 2>&1 \
-        | jq '{end: {sum: .end.sum}, start: {test_start: .start.test_start}}' \
-        > "$OUT/${LABEL}_client.json" &
-else
+#
+# Slimming used to launder failures. iperf3 emits {"error": ...} instead of a result when it
+# fails; both selectors then yield null and the old one-liner wrote a *well-formed* file of
+# nulls with the error text discarded, so a dead run and a missing run looked identical and
+# neither looked broken. raw/mzero_nopoll_client.json is 76 bytes of exactly that, and the run
+# behind it was only salvageable because /proc/net/dev had counted the traffic independently.
+# So: capture raw first, slim from the file, and keep everything when there is no result block.
+run_iperf() {
+    local raw="$OUT/${LABEL}_client.raw.json"
+    local err="$OUT/${LABEL}_client.stderr"
     sudo -n mnexec -a "$H1" iperf3 -c 10.0.0.33 -u -b "${RATE}M" -t "$DUR" -l 1400 \
-        --json > "$OUT/${LABEL}_client.json" 2>&1 &
-fi
+        --json >"$raw" 2>"$err"
+    [ -s "$err" ] || rm -f "$err"
+    # The branch lives in slim_client_json.sh so that its test drives the same code this does.
+    if "$REPO/doc/audit/2026-08-20_sampling-rate-and-cpu/slim_client_json.sh" \
+            "$raw" "$OUT/${LABEL}_client.json" "$LABEL"; then
+        rm -f "$raw"
+    else
+        echo "[$LABEL] raw iperf3 output kept at $raw" >&2
+        [ -f "$err" ] && sed "s/^/[$LABEL] iperf3 stderr: /" "$err" >&2
+    fi
+}
+run_iperf &
 IPERF_PID=$!
 
 wait $CPU_PID $TWIN_PID 2>/dev/null

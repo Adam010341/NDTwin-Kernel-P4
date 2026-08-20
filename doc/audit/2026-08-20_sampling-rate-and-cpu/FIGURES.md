@@ -111,7 +111,18 @@ the file parses sees nothing wrong, and `is_complete()` rejects the cell as half
 itself is intact: the `/proc/net/dev` counters in the twin trace, which are independent of both
 iperf3 and the kernel, put 205.9 Mbit/s on s1-eth1, s2-eth3 and s5-eth2 over the full 293.8 s —
 the same three hops at the same rate as every other cell. Offered load for that cell is therefore
-taken from the counters. The stub-of-nulls behaviour is a live trap for any future run.
+taken from the counters.
+
+**Fixed**, because the n=3 top-up Adam ordered re-runs this exact cell. The branch moved out of
+`measure.sh` into `slim_client_json.sh` — measure.sh and `tests/shell/test_slim_client_json.sh`
+now drive one code path, rather than the test re-implementing what it tests, which is the same
+mistake as items 4 and 5. A result slims and exits 0; an error object, a truncated file, or an
+explicit `"sum": null` is kept verbatim and exits 3 with the error text on stderr.
+
+The mechanism is pinned rather than merely plausible: piping an iperf3 error object through the
+*old* filter reproduces the committed `mzero_nopoll_client.json` **byte for byte**, and the test
+asserts that it still does — if that ever stops matching, the story behind the fix is wrong.
+Mutation gate: reverting to always-slim fails 6 of 12 checks, dropping `jq -e` fails 4.
 
 **7. The poll-off arm cannot verify its own zero, so the inheritance is checked.**
 `netdev_only.py` records tx counters and no twin readings at all, so `mzero_nopoll` has no
