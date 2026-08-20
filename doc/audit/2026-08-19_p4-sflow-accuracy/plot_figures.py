@@ -387,19 +387,23 @@ def sample_stats(rows, edge, q):
 
     A twin reading divided by the quantum IS the number of sFlow samples that landed in that
     refresh window, so the sampling process can be tested directly instead of inferred from
-    the spread. One entry per twin *update*, not per poll: the run polls at 4 Hz and the twin
-    refreshes at 1 Hz, so counting polls would quadruple every window and claim four times
-    the samples.
+    the spread.
 
-    Returns (lambda, Fano factor). Fano = variance/mean is 1.00 for a Poisson process; above
-    1 means something is adding dispersion beyond the sampling itself.
+    One entry per refresh *window*, sampled at the twin's own 1 Hz cadence -- NOT one entry per
+    changed value. Counting only changes looks equivalent and is not: when two consecutive
+    windows happen to hold the same count the second becomes invisible, and those collisions
+    are commonest at the mode, so dropping them hollows out the centre of the distribution and
+    biases Fano upward. Measured on these four traces, change-counting discards 9.0-9.7% of
+    windows at 20 Mbit/s (small lambda, frequent collisions) and 3.7-4.0% at 200 Mbit/s,
+    inflating Fano by 0.02-0.09. Found by an audit of this file, not by writing it carefully.
+
+    Returns (lambda, Fano factor). Fano = variance/mean is 1.00 for an ideal Poisson process.
+    Compare against a simulated null rather than against 1.00 exactly: quantisation and the
+    finite window put this estimator slightly off 1.00 even on a perfect Poisson stream.
     """
-    counts, prev = [], None
-    for r in rows:
-        v = r["twin"].get(edge, 0)
-        if v != prev:
-            counts.append(v / q)
-            prev = v
+    hz = (len(rows) - 1) / (rows[-1]["t"] - rows[0]["t"])
+    step = max(1, int(round(hz)))          # polls per refresh window
+    counts = [rows[i]["twin"].get(edge, 0) / q for i in range(0, len(rows), step)]
     lam = st.mean(counts)
     return lam, st.pvariance(counts) / lam if lam else 0.0
 

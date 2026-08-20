@@ -22,10 +22,30 @@ a new experiment. **If a fresh run is wanted, this note does not supply it.**
 
 | run | file | edge | build |
 |---|---|---|---|
-| OVS 20 Mbit/s | `2026-08-18_live-full-stack-round/sflow_runB_20M.jsonl.gz` | s1-eth2 | — |
+| OVS 20 Mbit/s | `2026-08-18_live-full-stack-round/sflow_runB_20M.jsonl.gz` | s1-eth2 † | — |
 | P4 20 Mbit/s | `p4_stock_20M.jsonl.gz` | s1-eth1 | bmv2 stock `-O0` |
-| OVS 200 Mbit/s | `2026-08-18_live-full-stack-round/sflow_runA_200M.jsonl.gz` | s1-eth2 | — |
-| P4 200 Mbit/s | `p4_fast_200M.jsonl.gz` | s5-eth2 | bmv2 fast `-O3` |
+| OVS 200 Mbit/s | `2026-08-18_live-full-stack-round/sflow_runA_200M.jsonl.gz` | s1-eth2 † | — |
+| P4 200 Mbit/s | `p4_fast_200M.jsonl.gz` | s1-eth1 | bmv2 fast `-O3` |
+
+🔴 **Corrected 2026-08-20 after audit.** This table first said the P4 200 Mbit/s edge was
+`s5-eth2`. **It is `s1-eth1`** — the same edge as the P4 20 Mbit/s run. The wrong value came
+from an earlier throwaway script that picked the busiest edge by *tx-byte delta*, while
+`plot_figures.py` picks by *summed twin reading*; the two disagree on three of the four runs,
+and I merged output from both into one table without noticing.
+
+Two consequences, in opposite directions:
+
+- **The "different edge" confound disclosed below does not exist between the two P4 runs.** Both
+  are `s1-eth1`. The load comparison is cleaner than the note originally claimed.
+- **But `busiest_edge()` is dangerously fragile here.** On the P4 200 Mbit/s run the winning
+  edge leads the runner-up by **1.0 quanta out of ~242,000 samples**. That argmax is decided by
+  a single sFlow sample and could flip on a re-run. Any future analysis should name the edge
+  explicitly rather than compute it.
+
+† The two OVS edges are **hard-coded `s1-eth2`, inherited from the 08-18 round — not the busiest
+edge**. `busiest_edge()` would return `s6-eth3` (20 Mbit/s) and `s9-eth3` (200 Mbit/s). Both
+carry the flow, so the analysis stands, but the OVS and P4 cells were not selected by the same
+rule and the note originally did not say so.
 
 Collection protocol (unchanged, `2026-08-18_live-full-stack-round/run.py`): one fixed-rate UDP
 flow; poll `/ndt/get_graph_data` at **4 Hz** while reading `/proc/net/dev` `tx_bytes` for every
@@ -54,12 +74,25 @@ added to `plot_figures.py`. Figure: `figures/page39_quantisation-ladder-load.png
 
 ## Results
 
-| run | λ (samples/window) | Fano | measured sd/mean | 1/√λ predicted |
-|---|---|---|---|---|
-| OVS 20 Mbit/s | 6.84 | **1.43** | 45.7% | 38.2% |
-| P4 20 Mbit/s | 6.81 | 1.08 | 39.7% | 38.3% |
-| OVS 200 Mbit/s | 67.53 | 1.14 | 13.0% | 12.2% |
-| P4 200 Mbit/s | 67.26 | **0.98** | 12.1% | 12.2% |
+| run | λ (samples/window) | Fano (change-counted) | Fano (every window) | measured sd/mean | 1/√λ predicted |
+|---|---|---|---|---|---|
+| OVS 20 Mbit/s | 6.84 | 1.451 | **1.359** | 45.7% | 38.2% |
+| P4 20 Mbit/s | 6.81 | 1.075 | **1.026** | 39.7% | 38.3% |
+| OVS 200 Mbit/s | 67.53 | 1.064 | **1.040** | 13.0% | 12.2% |
+| P4 200 Mbit/s | 67.26 | 0.982 | **0.963** | 12.1% | 12.2% |
+
+🔴 **Corrected 2026-08-20 after audit — the third column is the one to quote.** `sample_stats()`
+appends a count only when the twin reading *changes*. When two consecutive windows happen to
+hold the same number of samples the second one is invisible, and those collisions cluster at the
+mode — so dropping them removes mass from the centre and **biases Fano upward**. Measured drop
+rate: **9.0% / 9.7%** at 20 Mbit/s (where λ is small and collisions are common) and **4.0% /
+3.7%** at 200 Mbit/s. Counting every refresh window instead lowers every Fano by 0.02–0.09.
+
+The qualitative conclusions survive — P4/200M is still the tightest at 0.963, OVS/20M is still
+the clear outlier at 1.359 — but **"Fano ≈ 1.00 means Poisson" must be tested against a
+simulated null, not against 1.00**, because the estimator itself does not score 1.00 on a
+perfect Poisson stream. The figure `page39_quantisation-ladder-load.png` still prints the
+change-counted values and should be re-rendered before use.
 
 **Adam's hypothesis is confirmed.** 10× the load puts 9.9× the samples in the same 1 s window
 and the dispersion falls by 3.5× (OVS) and 3.3× (P4) — √9.9 = 3.15. The jitter is not a
@@ -69,6 +102,11 @@ property of the instrument; it is 1/√(sample count), and sample count is set b
 textbook counting process with nothing added on top.
 
 ## Two corrections to Page 39b
+
+🔴 **RETRACTED IN PART, 2026-08-20, after audit.** Correction (1) below claimed too much and its
+final sentence — that the slide's speculative explanations are "not needed and not supported" —
+**is withdrawn**. Blending is real and is *part* of the effect, but it cannot be the whole of it,
+and I dismissed a rival explanation without testing it. See the retraction block after the table.
 
 **(1) The "P4 散布一致低於理論地板，機制未明" open question is answered, and it was an artefact
 of the analysis script, not a property of bmv2.**
@@ -86,9 +124,47 @@ pushes the spread back up onto the theory line:
 | OVS 200 Mbit/s | 20.7% | **25.6%** | 23.9% |
 | P4 200 Mbit/s | 18.2% | **23.7%** | 23.9% |
 
-Three of the four land on theory once aligned. **The slide's speculative explanations —
-"bmv2 的 `random()` 每包不獨立 / systematic 而非 Bernoulli" — are not needed and are not
-supported.** P4 sits on the floor, it does not sit below it.
+Three of the four land on theory once aligned.
+
+### 🔴 Retraction: blending is real but is not the whole mechanism
+
+The blend argument has a **hard arithmetic floor** that I did not check before publishing it.
+Averaging two adjacent readings with weights `w` and `1-w` scales the variance by
+`w² + (1-w)²`, which is minimised at `w = 0.5` and **cannot go below 0.500**. Measured
+`var(sliced) / var(aligned)`:
+
+| run | observed ratio | blending's hard floor |
+|---|---|---|
+| P4 20 Mbit/s | **0.482** | 0.500 — **violated** |
+| P4 200 Mbit/s | 0.594 | 0.500 |
+| OVS 20 Mbit/s | 0.641 | 0.500 |
+| OVS 200 Mbit/s | 0.665 | 0.500 |
+
+**P4 at 20 Mbit/s reduces variance by more than blending two draws can possibly explain.** So
+something else is also at work, and the mechanism is not established.
+
+Worse, the sentence this replaces declared the slide's two candidate explanations "not needed
+and not supported" — while **quoting only the first of the two**. The slide's second candidate
+was 「連續兩次孿生讀值之間有相關性」 (consecutive twin readings are correlated), and lag-1
+autocorrelation is exactly what would push the ratio below the floor. Measured:
+
+| run | ρ₁ | significance |
+|---|---|---|
+| OVS 20 Mbit/s | −0.094 | 2.2σ — significant |
+| P4 200 Mbit/s | −0.067 | 2.0σ — marginal |
+| OVS 200 Mbit/s | −0.062 | 1.8σ |
+| P4 20 Mbit/s | **−0.032** | **0.8σ — not significant** |
+
+So the correlation hypothesis **is** supported on OVS, and I dismissed it without testing it.
+But it does **not** rescue the one cell that breaks the floor: on P4/20M, ρ₁ is not significant.
+
+**Honest position: P4 does not sit below the floor once aligned (the original open question is
+answered), but *why the sliced estimator under-reports by more than blending allows* is a new
+open question, and neither my explanation nor the slide's covers P4/20M.** Do not put a
+mechanism claim for this on a slide.
+
+This is a repeat of a failure mode already on record: the arithmetic pointed the right
+direction, and I stopped before checking whether the magnitude worked.
 
 **(2) The residual anomaly is OVS at 20 Mbit/s, not P4.** It is the one cell that stays above
 theory after alignment (91.1% vs 74.9%) and the one with Fano 1.43. Restricting to windows
