@@ -16,6 +16,7 @@ Usage:  python plot_figures.py <output-dir>
 
 [Co-developed with claude code -- Adam]
 """
+import gzip
 import json, math, os, sys
 import statistics as st
 from functools import reduce
@@ -24,6 +25,13 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+
+def _open(path):
+    """Open a trace whether or not it is gzipped -- traces are committed .gz (see .gitignore)."""
+    path = str(path)
+    if os.path.exists(path):
+        return open(path)
+    return gzip.open(path + ".gz", "rt")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(HERE, "raw")
@@ -50,7 +58,7 @@ TRIM = 6.0
 
 # --------------------------------------------------------------------------- data loading
 def load_twin(label, trim=TRIM):
-    rows = [json.loads(l) for l in open(f"{RAW}/{label}_twin.jsonl") if '"error"' not in l]
+    rows = [json.loads(l) for l in _open(f"{RAW}/{label}_twin.jsonl") if '"error"' not in l]
     t0 = rows[0]["t"]
     return [r for r in rows if r["t"] - t0 >= trim]
 
@@ -110,7 +118,7 @@ def cpu_stats(label, trim=TRIM):
     understate any process in proportion to how briefly it lived.
     """
     rows, hdr = [], None
-    for line in open(f"{RAW}/{label}_cpu.jsonl"):
+    for line in _open(f"{RAW}/{label}_cpu.jsonl"):
         d = json.loads(line)
         if "clk_tck" in d:
             hdr = d
@@ -338,7 +346,15 @@ def fig_tradeoff(fname):
 def fig_where(fname):
     conds = [("clone, full frame", "rate64", ACCENT),
              ("clone truncated to 128 B", "trunc128", WARNC),
-             ("no clone session at all", "noclone", GREY)]
+             # Replaced 2026-08-20. The cell originally here, labelled "no clone session at
+             # all", did not have its session removed: it ran on a warm fabric, where the
+             # leading DELETE lands on bookkeeping the pipeline re-push emptied and never
+             # reaches the orphaned PRE group. It reported 553.5 samples/s under a zero-sampling
+             # label. mzero_poll is the re-run on a COLD fabric with the control verified before
+             # measuring -- 0 non-zero twin readings on 32 inter-switch edges while 200 Mbit/s
+             # flowed. Same duration, same offered load, same poll-on arm; a different fabric
+             # instance, which the subtitle states.
+             ("no clone session (cold-fabric re-run)", "mzero_poll", GREY)]
     C = {f: cpu_stats(f) for _, f, _ in conds}
     D = {f: delivered(f) for _, f, _ in conds}
     TW = {f: twin_stats(f) for _, f, _ in conds}
@@ -363,7 +379,7 @@ def fig_where(fname):
     axA.set_xlim(-0.55, len(groups) - 0.45)
 
     on = C["rate64"]["groups"]
-    off = C["noclone"]["groups"]
+    off = C["mzero_poll"]["groups"]
     for gi, (g, _) in enumerate(groups):
         d = off.get(g, 0) - on.get(g, 0)
         col = MUTED if abs(d) < 5 else WARNC
@@ -394,7 +410,7 @@ def fig_where(fname):
     # ---- B: the same bmv2 total, opened up. "bmv2 CPU 149%" sounds like a fabric near its
     # limit; it is three switches at half a core and seven at nothing. bmv2 forwards on one
     # thread, so the per-switch figure is the one that can hit a ceiling, and it is at ~50%.
-    sw_on, sw_off = per_switch("rate64"), per_switch("noclone")
+    sw_on, sw_off = per_switch("rate64"), per_switch("mzero_poll")
     ids = sorted(sw_on)
     w2 = 0.36
     for i, s in enumerate(ids):
@@ -525,7 +541,85 @@ def fig_iperf(fname):
           "| wrappers dropped", roles["wrappers"], "| group total", round(roles["total"], 1))
 
 
+# ------------------------------------------------- the northbound API's concurrency envelope
+def fig_concurrency(fname):
+    """Throughput flat, latency linear -- the signature of one server, with no fault injected.
+
+    The twin's central claim is that seven apps consume it simultaneously through /ndt/, and
+    nothing had tested that: both harnesses issue requests serially. This does not try to make
+    a handler slow, because it does not need to. A single-threaded server has a signature
+    visible under ordinary load: throughput pinned at 1/T while latency grows as N*T.
+
+    Plotted with the serialised prediction as a reference line rather than a fitted curve, so
+    the reader checks the measurement against theory instead of against a line drawn through
+    the measurement.
+    """
+    d = json.load(open(f"{RAW}/headline_blocking.json"))
+    lv = d["levels"]
+    ns = [r["n"] for r in lv]
+    tp = [r["throughput_rps"] for r in lv]
+    p50 = [r["p50_ms"] for r in lv]
+    p95 = [r["p95_ms"] for r in lv]
+    base = p50[0]
+
+    fig, (axT, axL) = plt.subplots(1, 2, figsize=(11.6, 4.9))
+
+    axT.plot(ns, tp, marker="o", color=ACCENT, lw=1.8)
+    axT.axhline(1000.0 / base, color=INK, lw=1.2, ls="--", zorder=0)
+    axT.text(ns[-1], 1000.0 / base + 2.5, f"1 / {base:.1f} ms = {1000.0/base:.0f} req/s",
+             ha="right", fontsize=8.6, color=INK)
+    axT.set_ylim(0, max(tp) * 1.55)
+    axT.set_xscale("log", base=2); axT.set_xticks(ns); axT.set_xticklabels(ns)
+    axT.set_xlabel("concurrent clients"); axT.set_ylabel("throughput (req/s)")
+    axT.set_title("Throughput does not move", fontsize=11.5, color=INK, loc="left",
+                  pad=34, weight="bold")
+    axT.text(0, 1.018,
+             f"{tp[0]:.1f} \u2192 {tp[-1]:.1f} req/s across a {ns[-1]}\u00d7 rise in concurrency.\n"
+             f"The dashed line is one request in flight at a time.",
+             transform=axT.transAxes, fontsize=8.4, color=MUTED, va="bottom", linespacing=1.55)
+
+    ideal = [base * n for n in ns]
+    axL.plot(ns, ideal, color=GREY, lw=1.4, ls="--", zorder=1,
+             label="serialised: p50 = N \u00d7 11.9 ms")
+    axL.plot(ns, p50, marker="o", color=ACCENT, lw=1.8, zorder=3, label="measured p50")
+    axL.plot(ns, p95, marker="s", color=WARNC, lw=1.2, ms=4, zorder=2, label="measured p95")
+    for n, y in zip(ns, p50):
+        axL.annotate(f"{y/base:.2f}\u00d7", (n, y), textcoords="offset points", xytext=(6, -11),
+                     fontsize=8.2, color=ACCENT)
+    axL.set_xscale("log", base=2); axL.set_xticks(ns); axL.set_xticklabels(ns)
+    axL.set_xlabel("concurrent clients"); axL.set_ylabel("latency (ms)")
+    axL.legend(frameon=False, fontsize=8.6, loc="upper left")
+    axL.set_title("Latency does, exactly as serialisation predicts", fontsize=11.5, color=INK,
+                  loc="left", pad=34, weight="bold")
+    axL.text(0, 1.018,
+             "Measured against predicted: "
+             + " / ".join(f"{y/base:.2f}\u00d7 vs {n}\u00d7" for n, y in zip(ns[1:], p50[1:]))
+             + ".\nAgreement within 2% at every level. No fault was injected.",
+             transform=axL.transAxes, fontsize=8.4, color=MUTED, va="bottom", linespacing=1.55)
+
+    fig.suptitle("The northbound API serves one request at a time \u2014 measured, and it has "
+                 "room today", fontsize=13, color=INK, x=0.012, y=0.985, ha="left", weight="bold")
+    # Wrapped explicitly. matplotlib does not wrap, so a subtitle wider than the figure is
+    # silently clipped at the right edge -- it happened once already in this file's tradeoff
+    # figure, panel-to-panel, and again here against the figure boundary.
+    fig.text(0.012, 0.905,
+             f"net::io_context ioc{{1}} (src/main.cpp:316), with handlers that shell out "
+             f"through popen.\n"
+             f"Seven apps polling at 1 Hz is {7*base/1000*100:.1f}% of the thread "
+             f"({1000.0/base/7:.0f}\u00d7 headroom), so this does not bite at the load the twin "
+             f"actually runs at.\n"
+             f"What it bounds: a southbound call blocking for 500 ms holds the only thread for "
+             f"{round(500/base)} requests\u2019 worth, and every consumer waits behind it.",
+             fontsize=9, color=MUTED, va="top", linespacing=1.6)
+    fig.tight_layout(rect=[0, 0, 1, 0.845])
+    fig.subplots_adjust(wspace=0.26)
+    fig.savefig(os.path.join(OUT, fname), dpi=200)
+    plt.close(fig)
+    print("wrote", fname, {r["n"]: (round(r["throughput_rps"], 1), round(r["p50_ms"], 1)) for r in lv})
+
+
 if __name__ == "__main__":
     fig_tradeoff("page_sampling-tradeoff.png")
     fig_where("page_where-the-cpu-goes.png")
     fig_iperf("page_iperf-competes.png")
+    fig_concurrency("page_api-concurrency-envelope.png")

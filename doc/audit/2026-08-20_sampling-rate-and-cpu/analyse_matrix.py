@@ -36,6 +36,7 @@ it disagreed by 67% between two cells whose traffic was identical to the packet,
 measure what it was added to measure. Left in the data, unused, and reported as a caveat.
 """
 import glob
+import gzip
 import json
 import math
 import os
@@ -43,19 +44,26 @@ import statistics as st
 from collections import defaultdict
 from functools import reduce
 
+def _open(path):
+    """Open a trace whether or not it is gzipped -- traces are committed .gz (see .gitignore)."""
+    path = str(path)
+    if os.path.exists(path):
+        return open(path)
+    return gzip.open(path + ".gz", "rt")
+
 BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "raw")
 WARM = 6.0                       # harness starts pollers, sleeps 2 s, then iperf3
 RATES = [1024, 512, 256, 128, 64]
 
 
 def load(path):
-    return [json.loads(l) for l in open(path) if '"error"' not in l]
+    return [json.loads(l) for l in _open(path) if '"error"' not in l]
 
 
 def cpu_cell(label):
     """(machine_busy_pct, {group: pct_of_one_core}) for one cell."""
     rows, hdr = [], None
-    for line in open(f"{BASE}/{label}_cpu.jsonl"):
+    for line in _open(f"{BASE}/{label}_cpu.jsonl"):
         d = json.loads(line)
         if "clk_tck" in d:
             hdr = d
@@ -137,7 +145,7 @@ def is_complete(label, min_seconds=200.0):
     except Exception:
         return False
     try:
-        rows = [json.loads(l) for l in open(f"{BASE}/{label}_cpu.jsonl") if '"clk_tck"' not in l]
+        rows = [json.loads(l) for l in _open(f"{BASE}/{label}_cpu.jsonl") if '"clk_tck"' not in l]
         rows = [r for r in rows if "error" not in r]
         if len(rows) < 10 or rows[-1]["t"] - rows[0]["t"] < min_seconds:
             return False

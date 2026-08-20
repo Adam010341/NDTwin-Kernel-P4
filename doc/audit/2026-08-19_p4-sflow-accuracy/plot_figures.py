@@ -85,7 +85,11 @@ def outage_from_pings(path):
     """Longest gap between consecutive replies. Re-derived from the raw logs, not copied
     from the report -- the report is the thing being checked."""
     pat = re.compile(r"^\[(\d+\.\d+)\]")
-    ts = [float(m.group(1)) for line in open(path)
+    # Transparent to .gz: a 300-second ping log is ~470 lines of pure evidence that nobody
+    # diffs, and there are 40 of them. Committing them gzipped is the same rule the .jsonl
+    # traces already follow; this is the reader catching up so the rule can be applied.
+    op = gzip.open if str(path).endswith(".gz") else open
+    ts = [float(m.group(1)) for line in op(path, "rt")
           if (m := pat.match(line)) and "bytes from" in line]
     gaps = [ts[i + 1] - ts[i] for i in range(len(ts) - 1)]
     big = [g for g in gaps if g > 1.0]
@@ -151,9 +155,31 @@ FAILOVER_DIRS = [os.path.join(REPO, "doc/audit/2026-08-17_p4-vs-ovs-matched-topo
                  os.path.join(REPO, "doc/audit/2026-08-19_failover-provenance/raw_p4_128")]
 
 
+
+def ping_logs(d):
+    """Every ping log in a directory, gzipped or not.
+
+    One place, because there are two callers -- the box plot and the raster -- and a classifier
+    that disagrees between them is exactly the defect fixed on 2026-08-19 when the raster was
+    missing a cell the box plot had. Compressing the logs would have re-created it: an earlier
+    edit patched an `os.path.join` form that does not appear here (both sites concatenate), so
+    it matched nothing, and the figures rendered with all four cells EMPTY rather than failing.
+    """
+    return glob.glob(d + "/*.log") + glob.glob(d + "/*.log.gz")
+
+
 def failover_key(basename):
     """Which of the four cells a ping log belongs to. Order matters: p4_128_run*.log also
-    satisfies startswith("p4_"), so the 128-host test has to come first."""
+    satisfies startswith("p4_"), so the 128-host test has to come first.
+
+    The .gz suffix is stripped first, and that is not cosmetic. The exact-match arm below tests
+    `== "ping_p4_4host.log"`; compressing the logs made that name "ping_p4_4host.log.gz", the
+    arm stopped matching, and the run silently reclassified into OVS / 4 hosts -- 9 and 11 where
+    the published figure has 10 and 10. Nothing raised; both cells still had data, just the
+    wrong data. Caught only by diffing the counts against the committed output.
+    """
+    if basename.endswith(".gz"):
+        basename = basename[:-3]
     if basename.startswith("p4_128"):
         return "P4 / 128 hosts"
     if basename.startswith("p4_") or basename == "ping_p4_4host.log":
@@ -167,7 +193,7 @@ def failover_cells():
     cells = {"P4 / 4 hosts": [], "OVS / 4 hosts": [],
              "OVS / 128 hosts": [], "P4 / 128 hosts": []}
     for d in FAILOVER_DIRS:
-        for f in sorted(glob.glob(d + "/*.log")):
+        for f in sorted(ping_logs(d)):
             b = os.path.basename(f)
             if b.startswith("base_run"):        # the reverted-router runs, a different question
                 continue
@@ -550,12 +576,16 @@ def fig_failover_raster(fname):
     # the order would have quietly folded those runs into the 4-host panel instead.
     groups = {k: [] for k in ("P4 / 4 hosts", "OVS / 4 hosts",
                               "P4 / 128 hosts", "OVS / 128 hosts")}
-    for f in sorted(g for d in FAILOVER_DIRS for g in glob.glob(d + "/*.log")):
+    for f in sorted(g for d in FAILOVER_DIRS for g in ping_logs(d)):
         bn = os.path.basename(f)
         if bn.startswith("base_run"):
             continue
         key = failover_key(bn)
-        ts = [float(m.group(1)) for line in open(f)
+        # Same gz-transparency as outage_from_pings. This site was missed the first time and
+        # the raster was the figure that crashed -- which was the good outcome: the box plot,
+        # sharing the same logs through a different reader, had already rendered with silently
+        # wrong cells. A crash is a better failure than a plausible chart.
+        ts = [float(m.group(1)) for line in (gzip.open(f, "rt") if str(f).endswith(".gz") else open(f))
               if (m := pat.match(line)) and "bytes from" in line]
         if len(ts) < 10:
             continue
