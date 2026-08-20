@@ -176,6 +176,69 @@ carry the same mean count as 1 s holds (6.4 vs 6.9), not double.
 tested: iperf3 UDP pacing burstiness at low rate; OVS's sampler not being a clean per-packet
 Bernoulli draw. Note it is absent at 200 Mbit/s on the same plane.
 
+## Answers to the three outstanding review questions (2026-08-20)
+
+Two independent reviews — a Claude audit and a DeepSeek pass — converged on the same defects.
+Four of their questions were answered by the corrections above. These three were not.
+
+### Q4 — does the headline ratio hide the anomaly? **Yes, entirely, and it is quantifiable.**
+
+The note reported "10× the load, 3.4× tighter, √9.9 = 3.15 predicted" as confirmation. Recomputed
+with the corrected estimator:
+
+| plane | λ ratio | observed tightening | pure-Poisson | gap | √(Fano₂₀/Fano₂₀₀) |
+|---|---|---|---|---|---|
+| OVS | 9.95 | 3.432× | 3.155× | **+8.1%** | **1.088** |
+| P4 | 9.90 | 3.249× | 3.147× | +3.2% | 1.033 |
+
+**The gap equals the Fano ratio to within a fraction of a percent on both planes.** So the
+"better than predicted" tightening is not extra precision — it is the over-dispersion at
+20 Mbit/s decaying toward Poisson at 200. The anomaly the note calls unexplained two sections
+later was leaking into its own headline number, unlabelled.
+
+What survives: **λ ∝ rate is arithmetic and 1/√λ is Poisson, so neither is a finding.** The
+empirical content of the sweep is exactly one thing — **Fano ≈ 1**, i.e. that the counts really
+are a Poisson process with nothing added. Adam's hypothesis is confirmed by that, not by the
+3.4×. State it that way.
+
+### Q5 — which commit produced `p4_fast_200M.jsonl.gz`? **`213d209` added it; but the commit is the wrong pin, and that is the real answer.**
+
+Both `.jsonl.gz` files were added by `213d209`, collected against the tree at `b6b75fa`. So
+"no commit documented" is answerable for the file.
+
+🔴 **But a repo commit cannot pin this cell, because the thing that differs is not in the repo.**
+The 200 Mbit/s P4 round required the `-O3` bmv2, selected by `bmv2_binary_override` pointing at
+`/usr/local/bmv2-fast/bin/simple_switch_grpc` — an installed binary, 92,147,960 bytes, built
+2026-08-15 15:11, with **no version file, no build record and no behavioral-model source SHA
+stored anywhere beside it**. `tools/test_workflow/build_bmv2_fast.sh` is the recipe; nothing
+records what it produced.
+
+So the deck's A2b rule — every measured number carries the commit it was measured at — is
+**unsatisfiable for this cell by a commit**. The honest citation names the binary and its build
+date, not a SHA. **Actionable fix: have `build_bmv2_fast.sh` write a manifest (source SHA,
+configure flags, date) into `/usr/local/bmv2-fast/`**, so future rounds can cite the data plane
+they actually ran on. Until that exists, every `-O3` result in this project has an unpinned
+dependency.
+
+### Q7 — the "four rounds, four values" line. **Wrong, and it was copied rather than measured.**
+
+The line "1490/1490/1494/1506 B" sits directly under a four-row table of these four traces,
+which reads as if these traces produced it. They did not — it is a four-round history lifted
+from the slide. Measured on the four traces in this document:
+
+| trace | quantum | frame |
+|---|---|---|
+| OVS 20 Mbit/s | 3,059,712 | 1494 B |
+| OVS 200 Mbit/s | 3,059,712 | 1494 B |
+| P4 20 Mbit/s | 3,051,520 | 1490 B |
+| P4 200 Mbit/s | 3,051,520 | 1490 B |
+
+**Two distinct values, not four. 1506 occurs in none of them.** The underlying claim — the
+quantum is per-flow and must not be hard-coded — still holds (1490 ≠ 1494), but the evidence
+*in this document* is two values from two flow configurations, and the pairs repeat precisely
+because each plane ran the same flow at both loads. Cite the history to the round that produced
+it or drop it.
+
 ## Baseline check (`28b8b13`)
 
 Does the inherited fork have this jitter? **Yes — the arithmetic that produces it is inherited
