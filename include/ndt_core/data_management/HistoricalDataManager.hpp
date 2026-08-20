@@ -91,6 +91,22 @@ class HistoricalDataManager
 
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     utils::DeploymentMode m_mode;
+
+  public:
+    /**
+     * @brief Whether this deployment can actually record anything.
+     *
+     * start() returns early in MININET, so the recorder thread is never spawned and no row is
+     * ever written -- but setLoggingState() still flips the flag and the endpoint still answered
+     * `200 {"status":"success","Historical data logging has been enabled."}`. Both lab stacks run
+     * MININET, so every measurement round this project has taken was against a deployment where
+     * that success message was false. Callers can now ask instead of assuming.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    bool canRecord() const { return m_mode != utils::DeploymentMode::MININET; }
+
+  private:
     std::chrono::minutes m_interval;
     std::atomic<bool> m_running{false};
     std::thread m_thread;

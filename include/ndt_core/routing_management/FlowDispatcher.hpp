@@ -96,10 +96,32 @@ class FlowDispatcher
      */
     void enqueue(std::vector<FlowJob> jobs); // bulk
 
+    /**
+     * @brief How many jobs have been dropped because the dispatcher was already stopped.
+     *
+     * Dropping is the right behaviour -- a worker spawned after stop() has moved workers_ out is
+     * owned by nobody, and destroying a joinable std::thread is std::terminate. What was wrong
+     * was doing it *silently*: both enqueue overloads returned without a log, a counter or a
+     * status, so a batch enqueued during the shutdown window vanished while the HTTP layer had
+     * already answered `200 {"status":"queued"}` and L2/L4 stayed green. The rule the queued
+     * response depends on -- accepted means it will be attempted -- was broken with nothing
+     * anywhere to show it.
+     *
+     * Returning a status instead would be stronger, but the two overloads return void and are
+     * called from several places; a counter plus a warning is the change that adds evidence
+     * without changing the contract, and it is what a test can assert on.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    uint64_t droppedAfterStop() const { return droppedAfterStop_.load(std::memory_order_relaxed); }
+
   private:
     /// Worker thread for one DPID: waits for jobs, pops from queues_[dpid], and calls sender_ in
     /// bursts.
     void workerLoop_(uint64_t dpid);
+
+    /// Counts a shutdown-window drop and warns on the first one. See droppedAfterStop().
+    void noteDropped_(size_t n);
 
     // One queue per DPID
     std::unordered_map<uint64_t, std::deque<FlowJob>> queues_;
@@ -108,6 +130,9 @@ class FlowDispatcher
     std::mutex mtx_;
     std::condition_variable cv_;
     std::atomic<bool> running_{false};
+
+    /// Jobs refused because running_ was already false. See droppedAfterStop().
+    std::atomic<uint64_t> droppedAfterStop_{0};
 
     // Sender callback that applies a batch of FlowJobs to the datapath/controller.
     SenderFn sender_;

@@ -1,5 +1,7 @@
 #include "ndt_core/routing_management/FlowDispatcher.hpp"
 
+#include "utils/Logger.hpp"
+
 FlowDispatcher::FlowDispatcher(SenderFn sender, size_t burstSize)
 : sender_(std::move(sender)), burstSize_(burstSize) {}
 
@@ -42,6 +44,25 @@ void FlowDispatcher::stop() {
     }
 }
 
+// [Co-developed with claude code -- Adam]
+// Records a shutdown-window drop and says so once.
+//
+// Once, not per job: a bulk enqueue arriving during shutdown would otherwise emit a line per
+// job, and the thing worth knowing -- that delivery stopped while callers were still being told
+// "queued" -- is established by the first one. The running total is what a test or a post-mortem
+// reads; the log line is what makes it visible to somebody who was not looking for it.
+void FlowDispatcher::noteDropped_(size_t n)
+{
+    const uint64_t before = droppedAfterStop_.fetch_add(n, std::memory_order_relaxed);
+    if (before == 0 && n > 0)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "FlowDispatcher is stopped; dropping {} flow job(s). Anything that "
+                           "already answered \"queued\" for these will not be delivered.",
+                           n);
+    }
+}
+
 void FlowDispatcher::enqueue(const FlowJob& job) {
     {
         std::lock_guard<std::mutex> lk(mtx_);
@@ -50,6 +71,7 @@ void FlowDispatcher::enqueue(const FlowJob& job) {
         // nobody: its std::thread is destroyed while joinable, which is std::terminate. Dropping
         // the job is the honest outcome -- the dispatcher is shutting down and cannot deliver it.
         if (!running_) {
+            noteDropped_(1);
             return;
         }
         auto& q = queues_[job.dpid];
@@ -67,6 +89,7 @@ void FlowDispatcher::enqueue(std::vector<FlowJob> jobs) {
         std::lock_guard<std::mutex> lk(mtx_);
         // [Co-developed with claude code -- Adam] As the single-job overload.
         if (!running_) {
+            noteDropped_(jobs.size());
             return;
         }
         for (auto& job : jobs) {

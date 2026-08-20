@@ -323,3 +323,32 @@ TEST(HistoricalLoggingStartupTest, ConstructionDoesNotThrowWhenTheOutputDirector
 
     EXPECT_NO_THROW({ HistoricalDataManager manager(monitor, utils::MININET); });
 }
+
+TEST(HistoricalLoggingModeGateTest, MininetReportsThatItCannotRecordRatherThanImplyingItDid)
+{
+    // start() returns early in MININET, so the recorder thread is never spawned and no row is
+    // ever written -- but setLoggingState() still flipped the flag and the endpoint still
+    // answered 200 {"status":"success","Historical data logging has been enabled."}. Both lab
+    // stacks run MININET, so that success message was false on every deployment this project has
+    // measured on. Anyone who enabled logging and then went looking for the CSV found nothing,
+    // with no way to tell a broken recorder from one that was never going to run.
+    //
+    // canRecord() is what lets the handler say so. The flag really is set, which is why the
+    // endpoint stays 200 -- the request was honoured; it is the consequence that needed stating.
+    auto graph = std::make_shared<Graph>();
+    auto mutex = std::make_shared<std::shared_mutex>();
+    auto bus = std::make_shared<EventBus>();
+
+    auto mininetMonitor =
+        std::make_shared<TopologyAndFlowMonitor>(graph, mutex, bus, utils::MININET);
+    HistoricalDataManager mininet(mininetMonitor, utils::MININET);
+    EXPECT_FALSE(mininet.canRecord())
+        << "MININET cannot record: start() returns before spawning the recorder thread";
+
+    auto testbedMonitor =
+        std::make_shared<TopologyAndFlowMonitor>(graph, mutex, bus, utils::TESTBED);
+    HistoricalDataManager testbed(testbedMonitor, utils::TESTBED);
+    EXPECT_TRUE(testbed.canRecord())
+        << "TESTBED is the mode that does start the recorder, so it must not be reported as "
+           "incapable -- a gate that says no to everything is as useless as one that says yes";
+}

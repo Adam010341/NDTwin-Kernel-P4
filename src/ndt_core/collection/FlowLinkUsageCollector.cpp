@@ -1784,8 +1784,29 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
 
                 if (!rates.hasActiveHops)
                 {
-                    // No hop observed traffic this interval; leave the previous estimates
-                    // in place rather than dividing by zero.
+                    // [Co-developed with claude code -- Adam]
+                    // Clear, exactly as the Immediately path a few hundred lines below does.
+                    //
+                    // This used to `continue` without clearing, justified as "leave the previous
+                    // estimates in place rather than dividing by zero" -- but that reason does not
+                    // hold: the divide-by-zero is already prevented by `hasActiveHops` itself, and
+                    // writing 0 divides by nothing. What to report *after* the guard was a separate
+                    // choice, and carrying the old value forward was the wrong one.
+                    //
+                    // The consequence was not cosmetic. getTopKFlowInfoJson orders by
+                    // estimated_packet_rate_in_the_proceeding_1sec_timeslot -- this field -- so a
+                    // flow that stopped kept its last non-zero rate forever, stayed flagged as an
+                    // elephant, and never left top-k. Measured: five and ten seconds after iperf3
+                    // ended, top-k still reported a bit-identical 20.3 Mbps / 10496 pps while
+                    // `_in_the_last_sec` in the same object read 0 (KNOWN-ISSUES A-3, reproduced in
+                    // scratch/phase2/FINDINGS.md E9). Optimistic failure: it shows load that is not
+                    // there, and it looks like stability rather than staleness.
+                    //
+                    // Introduced on this branch by the divide-by-zero guard (31b357a6), so it is
+                    // ours to fix.
+                    info.estimatedFlowSendingRatePeriodically = 0;
+                    info.estimatedPacketSendingRatePeriodically = 0;
+                    info.isElephantFlowPeriodically = false;
                     continue;
                 }
 

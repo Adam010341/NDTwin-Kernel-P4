@@ -91,6 +91,47 @@ The comment at `p4_client.py:347` reads "packet_length_bytes 0 means no truncati
 the emitter truncates instead, since it is the side with tests covering it." That was written as a
 preference. It is now a **requirement**, and the reason is measured rather than stylistic.
 
+### 🔴 RETRACTED 2026-08-20: the "no clone session" control did not do what it says
+
+**The condition labelled "no clone session at all" did not have its clone session removed**, and
+the same is true of the matrix's zero-sampling cells. Any claim in this report that rests on
+comparing against a true zero point is withdrawn.
+
+How it was caught: the matrix repeated the control on a warm fabric and produced kernel 67.7%,
+proxy 26.6%, bmv2 161.6% — indistinguishable from the 1/64 cell **with** sampling on (67.9% /
+26.6%). The twin was still reporting telemetry: 2352 non-zero readings, peaking at 296.8 Mbit/s.
+The control path itself ran correctly — `DELETED (A/B control)` appears ten times in the proxy
+log, `Clone session ... installed` zero times, and `NDTWIN_CLONE_DISABLE=1` is in the proxy's
+environment — so the code did what it was told and the telemetry survived anyway.
+
+The mechanism is documented in `write_clone_session()`'s own docstring and I did not apply it.
+A proxy restart re-pushes the pipeline; after that commit the P4Runtime server's clone-session
+bookkeeping is **empty** while the target's PRE state — the multicast group behind the session —
+survives from the previous proxy generation. A DELETE issued against empty bookkeeping is a
+no-op that never reaches the orphaned group. The working path is `DELETE → INSERT → settle
+(DELETE + INSERT)`: only a DELETE issued while the bookkeeping *holds* the session tears the
+group down. The A/B control does the leading DELETE and returns, so the orphan survives and
+keeps cloning.
+
+**This also undermines the original `noclone` cell in the table above.** Its predecessor was
+`trunc128`, which produced no telemetry either — so "the session was deleted" and "the previous
+condition's truncating session is still installed" are indistinguishable in that data. Its
+kernel figure of 10.2% is not evidence of a zero-sampling baseline.
+
+**A correct control must restart the fabric**, not just the proxy, so bmv2 starts clean and the
+session is never installed. Keeping the fabric warm was a deliberate choice — to hold everything
+except the session constant — and that choice is precisely what invalidated it.
+
+**What survives, by a route that needs nothing deleted:** the sampling-rate sweep varies the
+clone rate 16× on its own (1/1024 → 1/64, 34.7 → 556.1 samples/s) and bmv2's CPU does not move
+outside noise (150.7 / 155.9 at 1/1024 versus 161.1 / 158.6 at 1/64) while delivered throughput
+is 200.0 Mbit/s at every rate. The conclusion that sFlow is not bmv2's bottleneck rests on that,
+not on the A/B.
+
+**What does not survive:** any statement about a fixed cost for "having sampling on at all". The
+linear fit over five sampled points extrapolates to a 48.5% intercept, and there is no valid
+measurement at zero to compare it against.
+
 ### The cost of sampling, isolated
 
 Deleting the clone session removes every downstream cost — the egress pass on the copy, the
@@ -108,6 +149,49 @@ reaches 980.
 
 What sampling *does* cost is **57 points of one core on the kernel and 20 on the proxy** — both
 outside the data plane, and both invisible to any throughput measurement.
+
+## 2b. The northbound API is fully serialised — measured, and it does not bite today
+
+The twin's central claim is that seven applications consume it simultaneously through `/ndt/`.
+Nothing had ever tested that under concurrency: `run_layers.sh` and `run_contract_test.py` issue
+requests serially. `headline_blocking.py` sweeps concurrency against `get_graph_data`, 30 s per
+level, read-only GETs only.
+
+| N | throughput | p50 | p95 | p50 vs N=1 | serialised predicts |
+|---|---|---|---|---|---|
+| 1 | 78.4 req/s | 11.9 ms | 17.7 ms | 1.00× | — |
+| 2 | 84.6 req/s | 23.4 ms | 25.2 ms | **1.96×** | 2.00× |
+| 4 | 84.3 req/s | 47.0 ms | 50.4 ms | **3.93×** | 4.00× |
+| 8 | 84.1 req/s | 93.9 ms | 101.0 ms | **7.87×** | 8.00× |
+| 16 | 84.7 req/s | 188.0 ms | 203.7 ms | **15.75×** | 16.00× |
+
+**Throughput is flat across a 16× rise in concurrency and latency rises linearly** — the
+signature of a single server, with no fault injected to produce it. It needed none: the
+prediction and the measurement agree to within 2% at every level. And `1 / 11.9 ms = 84.0
+req/s`, which is the measured throughput to three figures, so the ceiling is exactly one
+request in flight at a time.
+
+The cause is in `src/main.cpp:316`, `net::io_context ioc{1}` — one thread — with handlers that
+shell out synchronously through `utils::execCommand`'s `popen` (southbound posts at
+`HttpRoutingStrategyBase.cpp:70`, topology polls at `TopologyAndFlowMonitor.cpp:476-502`).
+
+**It does not bite at the load the twin actually runs at**, and that is the honest headline:
+
+| offered load | share of the thread | headroom |
+|---|---|---|
+| 4 apps at 1 Hz | 4.8% | 21× |
+| 7 apps at 1 Hz | 8.3% | 12× |
+| 7 apps at 4 Hz | 33.3% | 3× |
+
+What the number does buy is a quantified limit rather than an assumption. A southbound call
+that blocks for 500 ms — a wedged Ryu or proxy behind `curl` — occupies the only thread for
+**42 requests' worth** of service time, and every consumer stalls behind it for that half
+second. That is a bounded, stated consequence instead of an open question, and it is the form
+this belongs in: an operating envelope, not a defect report.
+
+⚠️ **Single run, single graph size.** Service time scales with graph size (this is the 128-host
+graph, 288 edges); a smaller fabric moves the ceiling up and a larger one moves it down. The
+serialisation itself is a structural property and does not depend on the size.
 
 ## 3. Idle baseline
 

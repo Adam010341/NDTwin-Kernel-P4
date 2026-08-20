@@ -1790,8 +1790,28 @@ HttpSession::handleSetHistoricalLoggingState(http::response<http::string_body>& 
     m_historicalDataManager->setLoggingState(is_enabled);
 
     res.result(http::status::ok);
+
+    // [Co-developed with claude code -- Adam]
+    // Say so when the flag has been set but nothing will be written. HistoricalDataManager::start()
+    // returns early in MININET, so the recorder thread does not exist and no row will ever appear
+    // -- yet this handler used to report plain success either way. Both lab stacks are MININET, so
+    // the reply was false on every deployment this project has actually run. The flag really was
+    // set, which is why this stays 200 rather than becoming an error: the request was honoured,
+    // and it is the consequence that needed stating.
+    if (is_enabled && !m_historicalDataManager->canRecord())
+    {
+        res.body() = json{
+            {"status", "success"},
+            {"recording", false},
+            {"message",
+             "Historical data logging is enabled, but this deployment does not record: the "
+             "recorder is only started outside MININET mode, so no rows will be written."}}.dump();
+        return;
+    }
+
     res.body() = json{
         {"status", "success"},
+        {"recording", is_enabled},
         {"message",
          "Historical data logging has been " +
              (is_enabled ? std::string("enabled") : std::string("disabled")) +

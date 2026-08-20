@@ -306,3 +306,37 @@ TEST(FlowDispatcherTest, DeterministicNoLostWakeupWhenEnqueueRacesWithWorkerSlee
 
     dispatcher.stop();
 }
+
+TEST(FlowDispatcherTest, JobsDroppedAfterStopAreCountedAndNotSilent)
+{
+    // The shutdown window. Dropping is correct -- a worker spawned after stop() has moved
+    // workers_ out is owned by nobody, and destroying a joinable std::thread is std::terminate --
+    // but both enqueue overloads used to return with no log, no counter and no status. A batch
+    // enqueued here vanished while the HTTP layer had already answered 200 {"status":"queued"},
+    // and every layer of the test suite stayed green, because nothing observable distinguished
+    // "delivered" from "silently discarded".
+    //
+    // Asserting on the sender alone cannot catch that: a dropped job and a never-sent job look
+    // identical from there. The counter is what makes the difference observable, which is the
+    // whole reason it exists.
+    Recorder recorder;
+    FlowDispatcher dispatcher(recorder.sender(), /*burstSize*/ 8);
+    dispatcher.start();
+    dispatcher.enqueue(jobFor(1));
+    EXPECT_TRUE(waitFor([&] { return recorder.count() == 1; }));
+    dispatcher.stop();
+
+    EXPECT_EQ(dispatcher.droppedAfterStop(), 0u)
+        << "nothing was refused while the dispatcher was running";
+
+    const size_t deliveredBeforeStop = recorder.count();
+
+    dispatcher.enqueue(jobFor(2));                              // single overload
+    dispatcher.enqueue(std::vector<FlowJob>{jobFor(3), jobFor(4), jobFor(5)});  // bulk overload
+
+    EXPECT_EQ(dispatcher.droppedAfterStop(), 4u)
+        << "expected 1 from the single overload and 3 from the bulk one";
+    EXPECT_EQ(recorder.count(), deliveredBeforeStop)
+        << "a job enqueued after stop() reached the sender, which means a worker was spawned "
+           "after workers_ was moved out -- the crash this refusal exists to prevent";
+}
