@@ -1,0 +1,39 @@
+# install_all_pair_paths walk sweep
+# date:   2026-08-21T19:01:48+08:00
+# commit: e44e956
+# fabric: ovs-topo-start (NTG testbed_topo.py, fixed 128 hosts) for every cell
+# note:   the model varies; the fabric does not. See the header comment.
+
+=== 8 hosts ===
+  UP FAILED (see /tmp/ndt_up_8.out)
+      XX  OVS can only build 4 or 128 hosts, not 8.
+      XX    128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;
+      XX    neither takes a host count, so 'ndt up ovs 8' would build 128 and a model
+      XX    of 8 would be loaded beside it.
+      XX    use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 8
+=== 16 hosts ===
+  UP FAILED (see /tmp/ndt_up_16.out)
+      XX  OVS can only build 4 or 128 hosts, not 16.
+      XX    128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;
+      XX    neither takes a host count, so 'ndt up ovs 16' would build 128 and a model
+      XX    of 16 would be loaded beside it.
+      XX    use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 16
+=== 32 hosts ===
+  UP FAILED (see /tmp/ndt_up_32.out)
+      XX  OVS can only build 4 or 128 hosts, not 32.
+      XX    128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;
+      XX    neither takes a host count, so 'ndt up ovs 32' would build 128 and a model
+      XX    of 32 would be loaded beside it.
+      XX    use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 32
+=== 64 hosts ===
+  UP FAILED (see /tmp/ndt_up_64.out)
+      XX  OVS can only build 4 or 128 hosts, not 64.
+      XX    128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;
+      XX    neither takes a host count, so 'ndt up ovs 64' would build 128 and a model
+      XX    of 64 would be loaded beside it.
+      XX    use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 64
+=== 128 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=3.634s install=0.127s report=3.507s
+  walks logged: 1
+

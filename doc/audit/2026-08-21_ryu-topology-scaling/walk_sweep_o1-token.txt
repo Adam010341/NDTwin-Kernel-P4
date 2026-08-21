@@ -1,0 +1,21 @@
+# install_all_pair_paths walk sweep
+# date:   2026-08-21T19:07:24+08:00
+# commit: e44e956
+# fabric: ovs-topo-start (NTG testbed_topo.py, fixed 128 hosts) for every cell
+# note:   the model varies; the fabric does not. See the header comment.
+
+=== 128 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.246s install=0.096s report=0.150s
+  walks logged: 1
+
+=== 128 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.385s install=0.148s report=0.237s
+  walks logged: 1
+
+=== 128 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.251s install=0.096s report=0.155s
+  walks logged: 1
+

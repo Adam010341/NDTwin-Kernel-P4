@@ -24,7 +24,9 @@ set -uo pipefail
 export NDT_OWNER="${NDT_OWNER:-maindev-0821}"
 
 REPO=/home/adam/Desktop/NDTwin-Kernel
-OUT="$REPO/doc/audit/2026-08-21_ryu-topology-scaling/walk_sweep.txt"
+# Overridable so a re-measurement lands next to the original instead of over it -- the
+# comparison is the deliverable, and it needs both files present, not one plus git archaeology.
+OUT="${WALK_OUT:-$REPO/doc/audit/2026-08-21_ryu-topology-scaling/walk_sweep.txt}"
 LOG="$REPO/.test_run/logs/ryu.log"
 SIZES="${*:-8 16 32 64 128}"
 

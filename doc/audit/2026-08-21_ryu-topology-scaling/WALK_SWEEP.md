@@ -5,6 +5,12 @@
 Measured 2026-08-21 at `91229f5`, OVS plane. Raw output in `walk_sweep.txt`, script
 `walk_sweep.sh`.
 
+> ⚠️ **Superseded in part, same day — read §"Re-measured after the index landed" at the
+> bottom.** The 2.166 s below was real at `91229f5` but two rewrites of `find_host_by_ip`
+> later the walk is **0.25 s** (live, n=3) — and the intermediate shipped version was
+> *slower* than 2.166 s, not faster. The cubic mechanism analysis below still stands; the
+> absolute numbers are history.
+
 ## The question
 
 Experiment ① has to make detection + recompute + rule-install add up to the 51.75 s OVS
@@ -129,3 +135,58 @@ owns `ndt`; not fixed here.
 and correctly identified in every cell by counting veths rather than by trusting the report.
 Any measurement that depends on the *fabric* size, however, cannot use `ndt up ovs <N>` for N
 outside {4, 128} today.
+
+---
+
+## Re-measured after the index landed (2026-08-21, later the same day)
+
+`957a646` implemented the index this file asked for. Re-measuring it — the whole reason the
+number was flagged stale — found it had made the walk **slower**:
+
+| version | live 128-host walk | n | raw file |
+|---|---:|---:|---|
+| `91229f5` linear scan | 2.166 s | 1 | `walk_sweep.txt` / `ryu_128host_walk.log` |
+| `957a646` shipped index | **3.634 s** | 1 | `walk_sweep_after-957a646.txt` |
+| O(1) token fix (`4810e8f`) | **0.246 / 0.385 / 0.251 s** | 3 | `walk_sweep_o1-token.txt` |
+
+### Why the shipped index lost to the scan it replaced
+
+Its cache token was `(id(net), number_of_nodes(), number_of_edges())`, evaluated **per
+lookup**. In networkx, `number_of_edges()` is `size()`, a sum over every node's degree —
+O(V), with no early exit, where the old scan at least stopped at its match. ~180k lookups per
+128-host walk each paid that toll. Confirmed by intervention, not arithmetic: the four-variant
+race in `walk_variants.py` (helpers extracted from their commits by `git show`, same fabric,
+only the helper changed, n=3 per cell) puts the shipped version 1.69× behind the scan at every
+size — the same ratio as the two live n=1 points (3.634/2.166 = 1.68). Raw output:
+`walk_variants.txt`.
+
+The fix keys the token on `(id(net), number_of_nodes())` only — `len()` of a dict, and also
+the only event that can change the mapping, since the index reads per-node `ip_list` (written
+at add, never mutated) and nothing in this program removes a node.
+`tests/python/test_find_host_by_ip.py` now pins the cost discipline with a counting graph:
+zero `number_of_edges`/`size`/`degree` calls across a burst of lookups, or red.
+
+### The two live cells are not like-for-like — the offline race is the evidence
+
+The 2.166 s cell ran with the kernel half-dead (`ndt up` reported 0/10 switches; Ryu had the
+machine to itself); the 3.634 s and 0.25 s cells ran with a live kernel polling Ryu. That
+difference cannot explain a 1.68× slowdown that the offline race reproduces without any
+kernel at all, but it is why the live pairs alone would have been arguable, and why the
+verdict rests on the intervention.
+
+### The mid-size sweep method is dead
+
+The original 8/16/32/64 cells worked by exploiting the `ndt up ovs <N>` defect this file
+reported at the bottom — an N-host *model* loaded beside the fixed 128-host fabric. That
+defect is now fixed (`ndt` refuses N ∉ {4,128}), so the sweep half of `walk_sweep.sh` no
+longer runs. The scaling story is carried by the offline race in `walk_variants.py`, which
+sweeps model sizes without a fabric; live cells exist for 128 hosts only.
+
+### What this does to the failover budget
+
+The recompute term falls from 2.17 s to **0.25 s** of the 51.75 s outage — from ~4% to ~0.5%.
+The residual in `page_failover-budget.png` grows accordingly (the 51.75 s total was recorded
+2026-08-19, when the walk really did cost ~2 s); the figure's fine print says so.
+
+⚠️ Still the startup walk, not the failover walk — that caveat is unchanged, and the
+failover-path measurement (`_route_reinstall_worker`) is still owed.

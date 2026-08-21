@@ -49,32 +49,33 @@ plt.rcParams.update({
 
 
 # ------------------------------------------------------------------ committed data readers
-def walk_terms():
-    """{hosts: (walk, install, report)} parsed from the run's own log lines.
+#: The raw file the recompute term is read from. One file, deliberately: the audit dir now
+#: holds three generations of walk measurement (scan / shipped index / O(1) token, see
+#: WALK_SWEEP.md's re-measurement section), and a reader that merged them would let whichever
+#: file happened to be parsed last decide the figure. The ledger describes the CURRENT
+#: control program, so it reads the current generation's file and nothing else.
+WALK_FILE = "walk_sweep_o1-token.txt"
 
-    Two sources, because the sweep script only greps the Ryu log for a cell whose `ndt up`
-    returned success, and the 128-host cell returned "up, but not verified" -- the kernel
-    reported 0 of 10 switches up, while the fabric built, the model matched and the data plane
-    forwarded. The walk itself had already completed and logged, so its line is in the archived
-    Ryu log rather than in walk_sweep.txt. Read both rather than retyping the number: the
-    kernel-side liveness failure does not touch a measurement taken inside Ryu.
-    """
+#: What the recompute cost when the 51.75 s total was recorded (2026-08-19, pre-index).
+#: Stated in the fine print so the grown residual is attributed, not mysterious.
+WALK_AT_TOTAL_EPOCH = 2.166
+
+
+def walk_terms():
+    """{hosts: (walk, install, report)}, medians over every log line in WALK_FILE."""
     rx = re.compile(r"hosts=(\d+) pairs=(\d+) rules=(\d+) paths=(\d+) "
                     r"walk=([\d.]+)s install=([\d.]+)s report=([\d.]+)s")
-    out = {}
-    for name in ("walk_sweep.txt", "ryu_128host_walk.log"):
-        path = os.path.join(HERE, name)
-        if not os.path.exists(path):
-            continue
-        with open(path, errors="replace") as fh:
-            for line in fh:
-                m = rx.search(line)
-                if m:
-                    out[int(m.group(1))] = (float(m.group(5)), float(m.group(6)),
-                                            float(m.group(7)))
-    if 128 not in out:
-        raise SystemExit("no 128-host walk line in walk_sweep.txt or ryu_128host_walk.log")
-    return out
+    cells = {}
+    with open(os.path.join(HERE, WALK_FILE), errors="replace") as fh:
+        for line in fh:
+            m = rx.search(line)
+            if m:
+                cells.setdefault(int(m.group(1)), []).append(
+                    (float(m.group(5)), float(m.group(6)), float(m.group(7))))
+    if 128 not in cells:
+        raise SystemExit(f"no 128-host walk line in {WALK_FILE}")
+    return {hosts: tuple(st.median(c) for c in zip(*runs))
+            for hosts, runs in cells.items()}, {h: len(r) for h, r in cells.items()}
 
 
 def debounce_seconds():
@@ -133,7 +134,8 @@ def fig_budget(fname):
     p4 = st.mean(cells["P4 / 128 hosts"])
     n = len(cells["OVS / 128 hosts"])
 
-    walk, install, report = walk_terms()[128]
+    walk_cells, walk_n = walk_terms()
+    walk, install, report = walk_cells[128]
     debounce = debounce_seconds()
     query_s = topology_query_ms() / 1000.0
     det = detection_cells()
@@ -152,10 +154,13 @@ def fig_budget(fname):
              f"{detect / total * 100:.0f}% of it is waiting to notice",
              fontsize=14.5, weight="bold", color=INK, va="top")
     fig.text(0.019, 0.913,
-             f"n={n} live runs for the total, n={len(det['B'])} for each measured term. "
+             f"n={n} live runs for the total, n={len(det['B'])} for detection, "
+             f"n={walk_n[128]} for the recompute. "
              f"Ryu needs six consecutive unanswered LLDP probes to\ndeclare a link down, and it "
              f"probes every port in turn -- so adding hosts stretches the gap between two probes "
-             f"of the same one.",
+             f"of the same one.\nRecompute measured on the fixed code "
+             f"({WALK_AT_TOTAL_EPOCH:.2f} s → {walk:.2f} s after indexing the host lookup); "
+             f"the total predates it, so the saved seconds sit in the residual.",
              fontsize=9.5, color=MUTED, va="top", linespacing=1.5)
 
     # ---------------------------------------------------------------- panel 1: the ledger
