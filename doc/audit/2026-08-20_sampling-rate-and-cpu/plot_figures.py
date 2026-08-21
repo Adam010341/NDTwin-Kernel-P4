@@ -27,8 +27,17 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 def _open(path):
-    """Open a trace whether or not it is gzipped -- traces are committed .gz (see .gitignore)."""
+    """Open a trace whether or not it is gzipped -- traces are committed .gz (see .gitignore).
+
+    Handles three callers: the uncompressed name when only the .gz exists, the uncompressed
+    name when it really is uncompressed, and a path that already ends in .gz. The last case
+    was missing and opened a gzip stream in text mode, which fails on the first non-UTF-8
+    byte -- the same "the loader knows about .gz but this path doesn't" shape that broke
+    analyse_matrix.py's presence check when these traces were first compressed.
+    """
     path = str(path)
+    if path.endswith(".gz"):
+        return gzip.open(path, "rt")
     if os.path.exists(path):
         return open(path)
     return gzip.open(path + ".gz", "rt")
@@ -61,6 +70,20 @@ def load_twin(label, trim=TRIM):
     rows = [json.loads(l) for l in _open(f"{RAW}/{label}_twin.jsonl") if '"error"' not in l]
     t0 = rows[0]["t"]
     return [r for r in rows if r["t"] - t0 >= trim]
+
+
+def load_twin_path(path, trim=TRIM, span=None):
+    """Same loader for a trace outside this round's raw/ -- the ladder comparison needs the
+    08-18 run that is already in the deck. `span` truncates to a fixed number of seconds so
+    traces of different lengths can be compared without one of them getting more windows."""
+    rows = [json.loads(l) for l in _open(path) if '"error"' not in l]
+    rows = [r for r in rows if "twin" in r]
+    t0 = rows[0]["t"]
+    rows = [r for r in rows if r["t"] - t0 >= trim]
+    if span is not None:
+        s0 = rows[0]["t"]
+        rows = [r for r in rows if r["t"] - s0 <= span]
+    return rows
 
 
 def busiest_edge(rows):
@@ -793,9 +816,117 @@ def fig_decomposition(fname):
         poll_cost=[round(on[r] - off[r], 1) for r in order]))
 
 
+# ------------------------------------- figure 6: the ladder, across code generations
+def fig_ladder_inherited(fname):
+    """The deck's quantisation ladder next to the same ladder from the 28b8b13 fork point.
+
+    The ladder already in the deck makes one claim -- the staircase is a property of 1-in-256
+    sampling, not of a data plane -- by putting OVS and P4 side by side. This extends it along
+    the other axis: same data plane, same load, same edge, two code generations three months
+    apart. If the staircase and its spread are ours, the fork-point panel should look different.
+
+    All three panels are OVS, one fixed-rate 200 Mbit/s UDP flow, edge s1-eth2, and every trace
+    is trimmed to the same 294 s so no panel gets more refresh windows than another.
+
+    Honest about what is and is not controlled. Panels 2 and 3 are a clean A/B: one fabric, two
+    300 s runs back to back, only the kernel binary swapped. Panel 1 is the run that is in the
+    deck, taken 2026-08-18 on a separate fabric instance -- a different day and a different
+    bring-up, which is exactly why it is worth showing that it lands in the same place anyway.
+    Its quantum differs (1494 B frames against 1446 B), and that is the deck's own point
+    restated: the quantum is a property of the flow's framing, measured per run, never assumed.
+    """
+    A18 = os.path.join(os.path.dirname(HERE), "2026-08-18_live-full-stack-round")
+    SPAN = 294.0
+    EDGE = "s1-eth2"
+    panels = [
+        ("In the deck — 2026-08-18\nkernel of that day", GREY,
+         load_twin_path(f"{A18}/sflow_runA_200M.jsonl.gz", span=SPAN)),
+        ("Today's kernel — 2026-08-20", ACCENT,
+         load_twin_path(f"{RAW}/ovsjit_head_twin.jsonl", span=SPAN)),
+        ("28b8b13 fork point — 2026-08-20\nsame fabric as the middle panel", WARNC,
+         load_twin_path(f"{RAW}/ovsjit_base_twin.jsonl", span=SPAN)),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13.6, 6.2), sharey=True)
+    out = {}
+    for ax, (label, colour, rows) in zip(axes, panels):
+        vals = sorted({r["twin"].get(EDGE, 0) for r in rows if r["twin"].get(EDGE, 0) > 0})
+        q = reduce(math.gcd, vals)
+        t0 = rows[0]["t"]
+        ts = [r["t"] - t0 for r in rows]
+        vs = [r["twin"].get(EDGE, 0) / 1e6 for r in rows]
+        gt = ((rows[-1]["tx"][EDGE] - rows[0]["tx"][EDGE]) * 8
+              / (rows[-1]["t"] - rows[0]["t"])) / 1e6
+
+        # The deck's 20 Mbit/s ladder draws every quantum as a grid line and the staircase is
+        # legible because lambda is ~7. Here lambda is ~70, so that grid is a hundred lines of
+        # grey haze that hides the very thing being compared. The quantum is shown once, as a
+        # scale bar, and the panel spends its ink on the spread instead.
+        band = st.pstdev(vs)
+        ax.axhspan(gt - band, gt + band, color=colour, alpha=0.13, zorder=0)
+        ax.step(ts, vs, where="post", color=colour, lw=0.85, zorder=2)
+        ax.axhline(gt, color=INK, lw=1.3, ls="--", zorder=3)
+
+        # lambda per refresh window, so the spread can be put against its own floor
+        hz = (len(rows) - 1) / (rows[-1]["t"] - rows[0]["t"])
+        step = max(1, int(round(hz)))
+        counts = [rows[i]["twin"].get(EDGE, 0) / q for i in range(0, len(rows), step)]
+        lam = st.mean(counts)
+        sd_mean = math.sqrt(st.pvariance(counts)) / lam * 100
+        floor = 100 / math.sqrt(lam)
+        out[label.split("—")[0].strip()] = dict(
+            q=round(q / 1e6, 4), frame=q // 256 // 8, distinct=len(vals),
+            lam=round(lam, 1), sd_mean=round(sd_mean, 1), floor=round(floor, 1),
+            ratio=round(sd_mean / floor, 2), gt=round(gt, 1))
+
+        # one-quantum scale bar, bottom right -- the step size, without a hundred grid lines
+        xq = SPAN * 0.94
+        ax.plot([xq, xq], [125, 125 + q / 1e6], color=INK, lw=2.0, zorder=4,
+                solid_capstyle="butt")
+        ax.plot([xq - 4, xq + 4], [125, 125], color=INK, lw=1.0, zorder=4)
+        ax.plot([xq - 4, xq + 4], [125 + q / 1e6] * 2, color=INK, lw=1.0, zorder=4)
+        ax.text(xq - 7, 125 + q / 2e6, "1 sample", ha="right", va="center",
+                fontsize=7.6, color=MUTED)
+
+        ax.set_xlim(0, SPAN)
+        ax.set_ylim(115, 305)
+        ax.set_xlabel("time (s)")
+        ax.set_title(label, fontsize=10.5, color=colour, loc="left", pad=54, weight="bold")
+        ax.text(0, 1.115, f"quantum {q/1e6:.2f} Mbit/s = 256 × {q//256//8} B × 8 · "
+                          f"{len(vals)} distinct values",
+                transform=ax.transAxes, fontsize=8.3, color=MUTED)
+        ax.text(0, 1.065, f"mean {st.mean(vs):.2f} vs truth {gt:.2f} Mbit/s "
+                          f"({(st.mean(vs)/gt-1)*100:+.1f}%)",
+                transform=ax.transAxes, fontsize=8.3, color=MUTED)
+        ax.text(0, 1.015, f"spread {sd_mean:.1f}%  ·  sampling floor {floor:.1f}%",
+                transform=ax.transAxes, fontsize=8.3, color=MUTED)
+        ax.text(0.025, 0.045, f"{sd_mean/floor:.2f}× the floor",
+                transform=ax.transAxes, fontsize=10.5, color=colour, weight="bold")
+
+    axes[0].set_ylabel("twin reading (Mbit/s)")
+    ratios = [v["ratio"] for v in out.values()]
+    fig.suptitle("The staircase, and its jitter, predate the fork",
+                 fontsize=13.5, color=INK, x=0.012, y=0.983, ha="left", weight="bold")
+    fig.text(0.012, 0.938,
+             f"Same plane, same 200 Mbit/s flow, same edge, same 294 s window — only the kernel "
+             f"differs. All three land within {min(ratios):.2f}–{max(ratios):.2f}× of the floor "
+             f"that 1-in-256 sampling imposes on any",
+             fontsize=9, color=MUTED, va="top")
+    fig.text(0.012, 0.906,
+             "estimator, so none is adding avoidable noise and none is smoothing. Shaded band "
+             "is ±1 sd about ground truth; the bar at right is one sFlow sample.",
+             fontsize=9, color=MUTED, va="top")
+    fig.tight_layout(rect=[0, 0, 1, 0.885])
+    fig.subplots_adjust(top=0.665, wspace=0.09)
+    fig.savefig(os.path.join(OUT, fname), dpi=200)
+    plt.close(fig)
+    print("wrote", fname, out)
+
+
 if __name__ == "__main__":
     fig_tradeoff("page_sampling-tradeoff.png")
     fig_where("page_where-the-cpu-goes.png")
     fig_iperf("page_iperf-competes.png")
     fig_concurrency("page_api-concurrency-envelope.png")
     fig_decomposition("page_matrix-decomposition.png")
+    fig_ladder_inherited("page_ladder-inherited.png")

@@ -274,3 +274,38 @@ corrected the same filter mistake — and then jointly invented a new mechanism 
 edge carrying transit traffic") to explain the leftover observation, without asking what the
 edge actually connects to. Observation-that-fits is not mechanism any more than
 arithmetic-that-fits is. The spawned investigation task was withdrawn.
+
+**14. Figure 6 — `page_ladder-inherited.png`: the deck's ladder next to the fork point's.**
+The ladder already in the deck (`page39_quantisation-ladder.png`) argues the staircase is a
+property of 1-in-256 sampling rather than of a data plane, by putting OVS and P4 side by side.
+This extends the same argument along the other axis — two code generations three months apart
+— which is what turns "we didn't cause the jitter" from a code-diff claim into a picture.
+
+Three panels, all OVS, all one 200 Mbit/s UDP flow, all edge `s1-eth2`, all trimmed to the
+same 294 s so no panel gets more refresh windows than another:
+
+| panel | spread | floor 100/√λ | ratio |
+|---|---|---|---|
+| In the deck (2026-08-18, kernel of that day) | 13.5% | 12.2% | **1.11** |
+| Today's kernel (2026-08-20) | 12.7% | 11.9% | **1.06** |
+| 28b8b13 fork point (2026-08-20) | 11.8% | 12.0% | **0.98** |
+
+All three land within 0.98–1.11× of the floor. Nothing is adding avoidable noise; nothing is
+smoothing (a ratio well below 1 would mean variance traded for lag). Panels 2 and 3 are the
+clean A/B — one fabric, back to back, only the binary swapped. Panel 1 is the deck's own run
+from a different day and a different bring-up, which is why it is worth showing that it lands
+in the same place regardless.
+
+Two presentation choices worth recording. **The quantum grid was dropped.** The deck's ladder
+draws every quantum as a grid line and that works at 20 Mbit/s where λ ≈ 7; here λ ≈ 70, so
+the same grid is a hundred lines of grey haze covering exactly the thing being compared. The
+quantum appears once instead, as a labelled scale bar, and the panel spends its ink on a ±1 sd
+band. **The deck panel's quantum genuinely differs** (3.06 vs 2.96 Mbit/s, from 1494 B frames
+against 1446 B) — not a discrepancy but the deck's own point restated: the quantum is a
+property of the flow's framing, measured per run and never assumed.
+
+Rendering this turned up a fourth instance of the compression bug family: `_open()` in this
+file resolved the *uncompressed* name and had no branch for a path already ending `.gz`, so
+loading the 08-18 trace by its real filename opened a gzip stream in text mode and died on the
+first non-UTF-8 byte. Fixed in the loader rather than at the call site. It failed loudly, which
+is the one thing that separates it from items 4 and 5.
