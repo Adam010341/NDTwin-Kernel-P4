@@ -77,10 +77,14 @@ class Router:
         self.topology_api_app = object()
         self.switches = {}
         self.install_initial_openflow_entries_completed = installed
+        self._initial_watchdog_started = False
         self.load_static_topology_calls = 0
 
     def load_static_topology(self):
         self.load_static_topology_calls += 1
+
+    def _initial_install_watchdog(self):
+        pass
 
 
 def load_method(switch_count, *, threshold=10):
@@ -105,13 +109,19 @@ def load_method(switch_count, *, threshold=10):
 
     ns = {
         "time": lambda: 0.0,
-        "hub": type("hub", (), {"sleep": staticmethod(lambda _s: None)})(),
+        "hub": type("hub", (), {"sleep": staticmethod(lambda _s: None),
+                                "spawn": staticmethod(lambda _f: None)})(),
         "get_switch": lambda _app, _x: switches,
         "get_link": lambda _app, _x: [],
         "requests": type("requests", (), {
             "get": staticmethod(lambda *_a, **_k: type("R", (), {"status_code": 200})())
         })(),
         "switch_num": threshold,
+        # The waiting-warning enumerates who is absent against the declared fabric; declare a
+        # fabric of exactly `threshold` dpids so "short by one" means dpid `threshold` is missing.
+        "expected_switch_dpids": list(range(1, threshold + 1)),
+        "_switch_num_source": "test stub",
+        "initial_install_deadline": 180,
     }
     exec(compile(ast.Module(body=[func], type_ignores=[]), ROUTER, "exec"), ns)
 
