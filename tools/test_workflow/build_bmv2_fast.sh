@@ -49,16 +49,21 @@ rm -rf "$BUILD"
 git clone --local "$SRC" "$BUILD"
 cd "$BUILD" && ./autogen.sh
 
-PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
-./configure \
-  --prefix="$PREFIX" \
-  --with-pi \
-  --with-thrift \
-  --with-python_prefix="$VENV" \
-  --disable-logging-macros \
-  --disable-elogger \
-  'CXXFLAGS=-O3 -g -DNDEBUG -march=native -fno-semantic-interposition' \
+# One array feeds both ./configure and the manifest below, so the manifest cannot claim
+# flags that did not run.
+CONFIGURE_ARGS=(
+  --prefix="$PREFIX"
+  --with-pi
+  --with-thrift
+  --with-python_prefix="$VENV"
+  --disable-logging-macros
+  --disable-elogger
+  'CXXFLAGS=-O3 -g -DNDEBUG -march=native -fno-semantic-interposition'
   'CFLAGS=-O3 -g -DNDEBUG -march=native'
+)
+
+PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
+./configure "${CONFIGURE_ARGS[@]}"
 
 # The configure recap must print:
 #   Logging macros enabled ........ : no
@@ -68,6 +73,19 @@ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
 make -j"$(nproc)"
 sudo make install   # NOT install-strip: keep symbols so perf/py-spy profiling still works
 
+# A number is only as good as the binary it names. This install has already been mistaken
+# for the -O0 one in an A/B (both runs produced plausible numbers); the manifest makes
+# "which build produced this" a file read instead of an archaeology session.
+sudo tee "$PREFIX/BUILD-MANIFEST" >/dev/null <<EOF
+built:     $(date -u +%Y-%m-%dT%H:%M:%SZ)
+source:    $SRC
+commit:    $(git -C "$BUILD" rev-parse HEAD)
+configure: ${CONFIGURE_ARGS[*]}
+EOF
+
+echo
+echo "Manifest written:"
+cat "$PREFIX/BUILD-MANIFEST"
 echo
 echo "Installed to $PREFIX. Run with:"
 echo "  export LD_LIBRARY_PATH=$PREFIX/lib:\${LD_LIBRARY_PATH:-}"
