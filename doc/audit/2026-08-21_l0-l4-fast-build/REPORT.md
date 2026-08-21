@@ -42,14 +42,21 @@ interpreter), and the lane now picks a networkx-carrying interpreter the same wa
 section picks its protobuf one — so the suites actually *run* in L1 rather than skip, which
 is what the harness's own "a skipped test is not a passing test" rule demands.
 
-5. `test_p4_client` — all-skipped by its own three-layer opt-in design (needs a live switch,
-an explicit write opt-in, and a free mastership). **Run tonight against the live fast bmv2**
-with all three satisfied: pipeline config pushed, clone session 250→255 installed, routes
-written — `Ran 1 ... OK`, exit 0 (`p4_client_live.log`). This is the most direct
-fast-binary evidence in the ladder: real P4Runtime writes, accepted.
+5. `test_slim_client_json.sh` — **mis-attributed in this report's first revision**, which
+named `test_p4_client` here from its SKIPPED line without checking it against the failure
+counter (the opt-in skip has a non-counting branch; the review session re-ran the ladder and
+caught it). The real fifth group: this shell test, added the previous day, ends with
+"passed 12, failed 0" while the lane's parser greps for "Ran N" — so it read as
+NO TESTS RAN from the day it was born, with all 12 checks passing inside its log. **Fixed**:
+it now emits the same "Ran N checks" summary as `test_faults.sh`.
 
-After the fixes the lane reads **L1: 1 problem group** (the opt-in skip, which the harness
-counts by design when not opted in) — and that one has a green live run on record.
+Separately, `test_p4_client` (all-skipped by its three-layer opt-in design, not counted as
+a group) was **run tonight against the live fast bmv2** with all three gates satisfied:
+pipeline config pushed, clone session 250→255 installed, routes written — `Ran 1 ... OK`,
+exit 0 (`p4_client_live.log`). The most direct fast-binary evidence in the ladder: real
+P4Runtime writes, accepted.
+
+After the fixes the lane reads **L1: 0 problem groups**.
 
 ### The harness's own two bugs (first run's L2/L3/L4 noise)
 

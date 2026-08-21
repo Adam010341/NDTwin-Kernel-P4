@@ -100,6 +100,12 @@ check "no arguments exits 2"                "2"    "$?"
 "$TOOL" "$T/nope.json" "$T/nope.out" x >/dev/null 2>&1
 check "missing input exits 2"               "2"    "$?"
 
+# "Ran N checks" is the phrase the L1 lane's parser greps for; the previous "passed N,
+# failed M" summary read as NO TESTS RAN and this file was a problem group from the day it
+# was born, with all 12 checks passing inside the log. Same emitter as test_faults.sh.
 echo
-echo "passed $PASS, failed $FAIL"
-[ "$FAIL" -eq 0 ]
+if [ "$FAIL" -gt 0 ]; then
+    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+    exit 1
+fi
+echo "Ran $((PASS + FAIL)) checks, all passed"
