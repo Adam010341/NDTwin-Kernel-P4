@@ -812,16 +812,24 @@ class IntelligentRyu(app_manager.RyuApp):
         the 128-host report phase 13.7x and dropped the log-log slope from 2.75 to 1.86 -- the
         cubic term was this line and nothing else.
 
-        The cache is rebuilt whenever the graph's shape changes. Node and edge counts are O(1)
-        in networkx, and ip_list is written when a node is added and never mutated afterwards,
-        so that pair is a sufficient token. Keyed on id(net) as well because two graphs are in
-        play -- static_net and dynamic_net -- and _active_net picks between them.
+        The cache is rebuilt when the graph gains a node. That is the only event that can
+        change the mapping: the index reads nothing but per-node ip_list, which is written when
+        a node is added and never mutated afterwards, and nothing in this program removes a
+        node. Keyed on id(net) as well because two graphs are in play -- static_net and
+        dynamic_net -- and _active_net picks between them.
+
+        The token must be O(1) or it IS the scan. The first version of this cache keyed on
+        net.number_of_edges() too, believing it O(1); in networkx it is size(), a sum over
+        every node's degree, evaluated per lookup -- which made the "indexed" walk 1.69x
+        SLOWER than the linear scan it replaced (offline intervention, n=3 at 32/64/128 hosts,
+        ratio matching the live 3.634 s vs 2.166 s pair). Edge count also never belonged in
+        the token: edges do not feed the index. number_of_nodes() is len(a dict).
 
         First match wins, exactly as the scan it replaces: two nodes claiming one address kept
         the earlier one in iteration order, and setdefault preserves that rather than quietly
         changing which host a duplicate resolves to.
         """
-        token = (id(net), net.number_of_nodes(), net.number_of_edges())
+        token = (id(net), net.number_of_nodes())
         if getattr(self, "_host_ip_token", None) != token:
             index = {}
             for node in net.nodes:
