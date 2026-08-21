@@ -224,8 +224,9 @@ def fig_failover(fname):
                  loc="left", pad=14, weight="bold")
     ax.text(0, 1.02, f"{sum(len(v) for v in cells.values())} live runs, one method. Every run recovered.",
             transform=ax.transAxes, fontsize=9, color=MUTED)
-    ax.text(0.02, 0.03, "P4 is 2.0 s faster (13%)\nWelch t=2.89, p=0.0098\n95% CI 0.55–3.50 s",
-            transform=ax.transAxes, fontsize=8.5, color=MUTED, va="bottom")
+    # y=0.03 put the last line on the axis line itself; the descender in "95%" touched it.
+    ax.text(0.02, 0.055, "P4 is 2.0 s faster (13%)\nWelch t=2.89, p=0.0098\n95% CI 0.55–3.50 s",
+            transform=ax.transAxes, fontsize=8.5, color=MUTED, va="bottom", linespacing=1.45)
 
     # The 128-host pair. This is the cell the 2026-08-17 round deliberately skipped as "only
     # an interaction", and the interaction turns out to be the largest effect on the page:
