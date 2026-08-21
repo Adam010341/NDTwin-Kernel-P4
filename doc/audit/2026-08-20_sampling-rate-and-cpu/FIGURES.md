@@ -1,6 +1,6 @@
 # Figures — sampling rate and CPU (2026-08-20)
 
-**Status:** DONE — five figures render from committed data.
+**Status:** DONE — six figures render from committed data.
 
 Task: produce presentation figures from today's measurement data into
 `/home/adam/Desktop/NDTwin slide material 827/figures/`, with a reproducible
@@ -19,6 +19,7 @@ House style copied from `doc/audit/2026-08-19_p4-sflow-accuracy/plot_figures.py`
 - [x] Figure 3 page_iperf-competes.png
 - [x] Figure 4 page_api-concurrency-envelope.png
 - [x] Figure 5 page_matrix-decomposition.png
+- [x] Figure 6 page_ladder-inherited.png
 - [x] Visually inspect every PNG
 
 ## Computed vs REPORT.md
