@@ -1,0 +1,52 @@
+# LLDP guard / backoff false-positive study, 128-host OVS, idle fabric
+# date:   2026-08-21T19:16:12+08:00
+# commit: 6c2b3fd
+# window: 1200s per cell, then a positive control (real netem failure)
+
+## A_default
+   env: <defaults>
+   knob lines in ryu log:
+     (none -- Ryu defaults)
+   fabric: 128 hosts, 160 switch ports (veth count)
+   ryu links at window start: 32
+   idle window: 1200s, zero injections (2026-08-21T19:16:41+08:00)
+   false link deletions during window: 0
+   'topology changed' during window:   0
+   ryu links at window end: 32
+   positive control: iface=s1-eth2 detection=42.6s (+-0.3) detect+debounce+walk=45.9s
+   failover-path walk line (last 'install_all_pair_paths done' in log):
+     install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.242s install=0.092s report=0.151s
+   walks this boot: 3  (first is startup, rest are reinstalls)
+
+## B_guard001
+   env: NDTWIN_RYU_LLDP_GUARD=0.01
+   knob lines in ryu log:
+     NDTWIN: LLDP_SEND_GUARD overridden to 0.01s (default 0.05)
+   fabric: 128 hosts, 160 switch ports (veth count)
+   ryu links at window start: 32
+   idle window: 1200s, zero injections (2026-08-21T19:38:06+08:00)
+   false link deletions during window: 0
+   'topology changed' during window:   0
+   ryu links at window end: 32
+   positive control: iface=s1-eth2 detection=12.8s (+-0.3) detect+debounce+walk=16.1s
+   failover-path walk line (last 'install_all_pair_paths done' in log):
+     install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.241s install=0.090s report=0.151s
+   walks this boot: 3  (first is startup, rest are reinstalls)
+
+## C_guard001_backoff10
+   env: NDTWIN_RYU_LLDP_GUARD=0.01 NDTWIN_RYU_LLDP_BACKOFF=10
+   knob lines in ryu log:
+     NDTWIN: LLDP_SEND_GUARD overridden to 0.01s (default 0.05)
+     NDTWIN: LLDP backoff enabled: never-answered ports probed every 10th sweep (default: every port, every sweep)
+   fabric: 128 hosts, 160 switch ports (veth count)
+   ryu links at window start: 32
+   idle window: 1200s, zero injections (2026-08-21T19:58:58+08:00)
+   false link deletions during window: 0
+   'topology changed' during window:   0
+   ryu links at window end: 32
+   positive control: iface=s1-eth2 detection=14.8s (+-0.3) detect+debounce+walk=18.1s
+   failover-path walk line (last 'install_all_pair_paths done' in log):
+     install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.244s install=0.090s report=0.153s
+   walks this boot: 3  (first is startup, rest are reinstalls)
+
+study complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-21_lldp-guard-false-positives/fp_study.txt
