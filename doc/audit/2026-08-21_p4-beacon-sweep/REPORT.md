@@ -23,11 +23,14 @@ failures via `measure_failover.sh`. Detection is `[TopologyManager] link down` p
 | 1 s | 3 s | 3–4 | 4.3 / 3.9 | 4.6 / 4.4 | **0** |
 
 * **Detection tracks the derivation chain linearly** — timeout, watchdog and grace all
-  follow `LLDP_BEACON_INTERVAL_S`, and the measured times sit at or just above each cell's
-  `3×beacon` timeout, exactly where two-misses-tolerated puts them.
+  follow `LLDP_BEACON_INTERVAL_S`, and each cell's measurements straddle its `3×beacon`
+  timeout inside ±one watchdog interval of phase (13.6 and 15.0 around 15; 8.4–10.9 around
+  9; 6.8–7.0 around 6; 3.9–4.3 around 3). The scan can land just before or just after the
+  third missed beacon, so readings on both sides of the timeout are what the mechanism
+  predicts — not a discrepancy.
 * **Zero false positives at every interval**, including beacon 1 s, where the timeout floor
-  is 3 s on a shared-CPU `-O0` bmv2 — the risk case D-2 called out. ~10 switches × 32
-  directed links × (360 s / beacon) beacons per window of exposure.
+  is 3 s on a shared-CPU `-O0` bmv2 — the risk case D-2 called out. Exposure per window:
+  32 directed inter-switch links × (360 s / beacon) beacon opportunities each.
 * At beacon 1 s the whole P4 outage is **~4.5 s** (was ~14–16 s at the default 5 s).
 
 ## The 5 s cell answers D-2's open puzzle — partly

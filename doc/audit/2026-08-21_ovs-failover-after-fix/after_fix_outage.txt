@@ -1,0 +1,20 @@
+# OVS failover outage with NDTWIN_RYU_LLDP_GUARD=0.01, by fabric size
+# date:   2026-08-21T21:49:00+08:00
+# commit: 45eccba
+# protocol: measure_failover.sh (same instrument as the 51.75 s / 15.70 s 'before' cells)
+
+## 128 hosts (ndt up ovs, guard=0.01)
+   knob: NDTWIN: LLDP_SEND_GUARD overridden to 0.01s (default 0.05)
+   fabric: 160 switch ports (veth count)
+   rep 1  outage=14.35s  (mode=ovs dst=10.0.0.33 iface=s1-eth2 form=parent 5:1 fault=60s)
+   rep 2  outage=18.10s  (mode=ovs dst=10.0.0.33 iface=s1-eth2 form=parent 5:1 fault=60s)
+   rep 3  outage=16.85s  (mode=ovs dst=10.0.0.33 iface=s1-eth2 form=parent 5:1 fault=60s)
+
+## 4 hosts (ndt up ovs4, guard=0.01)
+   knob: NDTWIN: LLDP_SEND_GUARD overridden to 0.01s (default 0.05)
+   fabric: 36 switch ports (veth count)
+   rep 1  outage=14.56s  (mode=ovs dst=10.0.0.4 iface=s1-eth1 form=root fault=60s)
+   rep 2  outage=13.31s  (mode=ovs dst=10.0.0.4 iface=s1-eth1 form=root fault=60s)
+   rep 3  outage=17.06s  (mode=ovs dst=10.0.0.4 iface=s1-eth1 form=root fault=60s)
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-21_ovs-failover-after-fix/after_fix_outage.txt

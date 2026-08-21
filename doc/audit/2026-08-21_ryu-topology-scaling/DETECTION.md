@@ -40,9 +40,16 @@ method as `measure_failover.sh`.
 **The budget closes.** 44.86 + 3.00 debounce + 2.17 walk = 50.0 s against an independently
 measured 51.75 s outage. Predicted detection was 48.0 s against 44.86 measured, within 7%.
 
-Two internal checks fell out of the data rather than being aimed at: every cell's
-`detect+debounce+walk` exceeded its detection by **exactly 3.00 s**, which is
-`reinstall_quiet_period`; and the port counts were 36 and 160 exactly, as the layout predicts.
+Two internal checks fell out of the data rather than being aimed at. The port counts were 36
+and 160 exactly, as the layout predicts. And the gap between `detect+debounce+walk` and
+detection is `reinstall_quiet_period` plus the walk: **exactly 3.00 s at 4 hosts**
+(3.00/3.01/3.01 — the 4-host walk is milliseconds), but **6.4 s in both 128-host cells**
+(6.46/6.43/6.44 and 6.41/6.39/6.40) — 3.00 debounce plus ~3.4 s of walk, which at the time
+these cells ran was the *shipped-index* walk later shown to be slower than the scan it
+replaced (WALK_SWEEP.md's re-measurement section). The 128-host gap is therefore an
+independent live sighting of the slow index, taken before anyone knew to look for it.
+(An earlier revision of this file claimed "exactly 3.00 s in every cell"; the raw numbers
+above say otherwise, and the correction is itself evidence.)
 
 **So the answer to "why is OVS failover so slow at 128 hosts" is: it is not doing anything
 slowly. It is waiting for six LLDP probes, and adding hosts stretches the interval between
@@ -82,19 +89,30 @@ required to call a link dead is exactly what it was.
   by detection time", and this is n=3 over about five minutes with zero spurious deletions —
   nowhere near a false-positive study. **The number above is not a result against that
   criterion.** It says the lever exists and how far it moves; it does not say it is safe.
+  *(Later the same day: the idle false-positive study exists and reads zero across three
+  cells including this guard value — `doc/audit/2026-08-21_lldp-guard-false-positives/
+  REPORT.md`. The loaded-fabric case remains open.)*
 - **The control-channel cost.** At 160 ports, 0.05 -> 0.01 takes LLDP from ~20 to ~100
   packets/s to the controller. Nothing here measured what that does under load.
 - **Whether 0.01 is the right value.** It was chosen to make the effect unambiguous, not
   tuned.
 
-### The better fix, not implemented
+### The better fix — implemented later the same day
 
 Back off on ports that have **never** answered. Host ports never do; a failed inter-switch
 port has answered before, so a "has ever received" bit separates them cleanly and a failed
 link keeps full-rate probing. That makes detection depend on *switch* count instead of host
 count — the scaling goes away rather than being divided by five. Ryu already has the predicate
-(`_is_edge_port`); `lldp_loop` just does not consult it. Roughly ten lines, and it needs the
-false-positive study either way.
+(`_is_edge_port`); `lldp_loop` just does not consult it.
+
+**Shipped as `NDTWIN_RYU_LLDP_BACKOFF=N` (`e44e956`, default off)** and live-validated in the
+false-positive study's cell C (zero idle false deletions, real failure still detected in
+14.8 s). One caveat the implementation carries: the "has ever answered" bit lives in memory, so a Ryu
+**restart** zeroes it. Every port still gets an immediate first probe after restart (Ryu's
+timestamp-None fast path), and a live link's first answer restores full rate at once — but a
+link that was *dead across the restart* answers nothing, gets backed off, and its eventual
+recovery is discovered up to N sweeps late. Discovery delay, not detection delay; the flag's
+user should know it exists.
 
 ## A probe defect worth recording
 

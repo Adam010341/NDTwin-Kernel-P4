@@ -74,7 +74,9 @@ that one line.** (Absolute values are from the offline harness and are smaller t
 its `add_flow` is a list append; only the scaling transfers.)
 
 **Not fixed here.** `install_all_pair_paths` is on the live OVS control path and this round set
-out to measure it, not to change it. Filed as a finding.
+out to measure it, not to change it. Filed as a finding. *(Fixed the same day in `957a646` —
+whose cache token then introduced its own regression; the full three-generation story is in
+the re-measurement section at the bottom.)*
 
 ## What this does to experiment ①'s budget
 
@@ -129,7 +131,9 @@ checks pass anyway:
 
 This is the mirror of the defect fixed earlier the same day: then a 4-host fabric carried a
 128-host Ryu model, now a 128-host fabric carries an N-host model. Reported to the session that
-owns `ndt`; not fixed here.
+owns `ndt`; not fixed here. *(The ndt session fixed it the same evening — `ndt` now refuses
+N ∉ {4,128} outright, which also retired this sweep's mid-size method; see the re-measurement
+section.)*
 
 **It does not invalidate this sweep** -- the walk reads the model, and the fabric was constant
 and correctly identified in every cell by counting veths rather than by trusting the report.

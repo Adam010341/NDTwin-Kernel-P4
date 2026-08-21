@@ -59,10 +59,12 @@ def after_cells():
 
 
 def dotrow(ax, y, values, colour, label):
-    ax.barh([y], [st.mean(values)], height=0.5, color=colour, zorder=2)
+    mean = st.mean(values)
+    ax.barh([y], [mean], height=0.5, color=colour, zorder=2)
     ax.scatter(values, [y] * len(values), s=22, color=INK, alpha=0.55, zorder=3)
-    ax.text(st.mean(values) + 0.7, y, f"{st.mean(values):.1f} s",
-            va="center", fontsize=12, weight="bold", color=colour if colour != OVS_BEFORE else MUTED)
+    # Label inside the bar, anchored left of the earliest dot so no run marker is covered.
+    ax.text(min(min(values), mean) - 1.5, y, f"{mean:.1f} s", va="center", ha="right",
+            fontsize=12, weight="bold", color="white" if colour == OVS_AFTER else BODY)
     ax.text(-1.2, y, label, va="center", ha="right", fontsize=10, color=BODY)
 
 
@@ -89,8 +91,9 @@ def fig_before_after(fname):
             fontsize=9, color=P4C)
 
     ratio = st.mean(before) / st.mean(after)
-    ax.text(st.mean(after) + 9.5, 1, f"— {ratio:.1f}× shorter; detection 44.9 → 11.5 s is "
-            f"the moving term,\n    the six-miss death threshold is untouched",
+    ax.text(st.mean(after) + 6.5, 0.72,
+            f"— {ratio:.1f}× shorter; the moving term is detection\n"
+            f"    (44.9 → 11.5 s); the six-miss death threshold is untouched",
             va="center", fontsize=9.5, color=MUTED)
 
     ax.set_ylim(0.5, 2.75)
@@ -140,8 +143,7 @@ def fig_ovs_vs_p4(fname):
     fig.text(0.02, 0.885,
              f"Growing 4 → 128 hosts: OVS before {b128/b4:.2f}×, "
              f"OVS after {'%.2f×' % (a128/a4) if a4 == a4 else '(4-host cell pending)'}, "
-             f"BMv2/P4 {p2/p1:.2f}×. Bars are means; dots are runs; n varies and is the "
-             f"point of the dots.",
+             f"BMv2/P4 {p2/p1:.2f}×. Bars are means; dots are individual runs.",
              fontsize=9.5, color=MUTED)
 
     path = os.path.join(OUT, fname)

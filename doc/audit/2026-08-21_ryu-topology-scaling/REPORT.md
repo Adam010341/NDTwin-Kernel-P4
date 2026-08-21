@@ -78,7 +78,8 @@ comment's account of 08-17. What is measured here is 100% loss on every pair, pl
 **Blast radius.** The 08-17 figures are unaffected — that round set the variable by hand. What
 is invalid is any OVS 4-host comparison taken with `ndt up ovs4`, and the failure is
 indistinguishable from a broken data plane. Reported to the session that owns `ndt`; not fixed
-here to avoid two writers in one file.
+here to avoid two writers in one file. *(Fixed the same day: `c8d73a5` sets
+`NDTWIN_RYU_TOPO_FILE` in `ndt:742` and adds a real-packet `verify_dataplane`.)*
 
 ### Consequence for this report's own 4-host cell
 
