@@ -276,6 +276,27 @@ CMD_SUFFIX=".cmd"
 
 recorded_cmd() { cat "$PID_DIR/$1$CMD_SUFFIX" 2>/dev/null; }
 
+# When a pid started, as an epoch second. Empty if it cannot be determined.
+#
+# [Co-developed with claude code -- Adam]
+# The one property that separates "the process we started" from "a different process that
+# happens to hold the same number now": a recycled pid necessarily started AFTER we wrote the
+# pidfile. comm and argv cannot do this -- every service here is launched through a wrapper
+# that execs away, so what /proc shows never matches what was asked for.
+#
+# Field 22 of /proc/<pid>/stat is starttime in clock ticks since boot. comm (field 2) may
+# contain spaces and parentheses, so everything up to the last ')' is dropped first; the
+# remainder starts at field 3, which puts starttime at $20.
+proc_start_epoch() {
+    local pid="$1" btime hz ticks
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    btime="$(awk '/^btime /{print $2}' /proc/stat 2>/dev/null)"
+    hz="$(getconf CLK_TCK 2>/dev/null)"; [[ "$hz" =~ ^[0-9]+$ ]] || hz=100
+    ticks="$(sed 's/.*) //' "/proc/$pid/stat" 2>/dev/null | awk '{print $20}')"
+    [[ -n "$btime" && "$ticks" =~ ^[0-9]+$ ]] || return 1
+    echo $(( btime + ticks / hz ))
+}
+
 # Extra identity for services whose behaviour is decided by something that is NOT on their
 # command line. Set by the caller immediately before start_bg; recorded alongside argv and
 # compared with it.
@@ -365,6 +386,25 @@ stop_one() {
     if [[ ! "$pid" =~ ^[0-9]+$ ]] || [[ "$pid" -lt 2 ]]; then
         err "  $pidfile does not contain a usable pid (${pid:-empty}); not killing anything"
         rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
+        return 1
+    fi
+
+    # [Co-developed with claude code -- Adam]
+    # Prove the pid is still ours before signalling it. Measured 2026-08-21: an unrelated pid
+    # written into kernel.pid was killed -- and it is `kill -TERM -$pid`, the whole process
+    # GROUP -- after which this reported "stopped kernel", the teardown assertion went five for
+    # five, and the exit code was 0. Three wrong answers, all silent.
+    #
+    # A stale pidfile is not hypothetical: one survives every abnormal exit, and one survived a
+    # reboot on this machine while `ndt clean` called the result clean.
+    local pf_mtime p_start
+    pf_mtime="$(stat -c %Y "$pidfile" 2>/dev/null)"
+    p_start="$(proc_start_epoch "$pid")"
+    if [[ -n "$pf_mtime" && -n "$p_start" ]] && (( p_start > pf_mtime + 2 )); then
+        err "  refusing to stop $name: pid $pid started $(( p_start - pf_mtime ))s AFTER"
+        err "    $pidfile was written, so it is a different process that reuses the number."
+        err "    Leaving it alone and keeping the pidfile. It is now $(cat "/proc/$pid/comm" 2>/dev/null || echo '?')."
+        err "    If the stack really is gone, delete the stale pidfile: rm $pidfile"
         return 1
     fi
 

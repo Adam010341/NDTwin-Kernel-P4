@@ -272,14 +272,26 @@ cmd_release() {
 #
 # Matched in this shell, not with `ps | grep`, for the reason in trap note 2: a grep child
 # would carry these patterns in its own argv and match itself.
+# What is running that a teardown would destroy the results of.
+#
+# [Co-developed with claude code -- Adam]
+# iperf3 is matched as a CLIENT only. A bare `iperf3` substring also matched an idle server --
+# one that is serving nothing, waiting for a connection that may never come -- and an operator
+# who leaves a server up finds every later `ndt down` refused with the only way out being
+# --force. Fail-closed is the right instinct, but a guard that fires on nothing teaches the
+# habit of forcing past it, and that habit disarms it for the run it exists to protect.
+# A server holds no results; a client is a measurement in progress.
 in_flight() {
     local line cmd
     while read -r line; do
-        for cmd in matrix.sh measure.sh cpu_probe.py iperf3; do
+        for cmd in matrix.sh measure.sh cpu_probe.py; do
             case "$line" in
-                *"$cmd"*) echo "${line:0:100}"; break ;;
+                *"$cmd"*) echo "${line:0:100}"; continue 2 ;;
             esac
         done
+        case "$line" in
+            *"iperf3 -c"*|*"iperf3 --client"*) echo "${line:0:100}" ;;
+        esac
     done < <(ps -eo args= 2>/dev/null)
 }
 
@@ -663,6 +675,25 @@ up_ovs() {
     # 2026-08-17 also changed the topology and could not attribute its difference).
     local ovs_hosts="${1:-128}" ovs_verb=ovs-topo-start
     [[ "$ovs_hosts" == 4 ]] && ovs_verb=ovs-topo-4host
+
+    # [Co-developed with claude code -- Adam]
+    # The OVS plane has exactly two fabric sizes, and neither is a parameter. `ovs-topo-start`
+    # runs NTG's own testbed_topo.py -- another repo, 128 hosts hard-coded, no host argument --
+    # and `ovs-topo-4host` runs ours at 4. Any other N used to pick a *model* of that size and
+    # then build 128 hosts anyway, and report success: measured 2026-08-21, `ndt up ovs 16` gave
+    # "model matches fabric: 16 hosts" over a 128-host fabric with 160 veths.
+    #
+    # This is the mirror of the ovs4 defect fixed earlier the same day (4-host fabric, 128-host
+    # Ryu model). Refused here rather than checked afterwards, because the size is decided by
+    # which verb runs and nothing downstream can change it.
+    if [[ "$ovs_hosts" != 4 && "$ovs_hosts" != 128 ]]; then
+        err "OVS can only build 4 or 128 hosts, not $ovs_hosts."
+        err "  128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;"
+        err "  neither takes a host count, so 'ndt up ovs $ovs_hosts' would build 128 and a model"
+        err "  of $ovs_hosts would be loaded beside it."
+        err "  use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 $ovs_hosts"
+        return 2
+    fi
     local ovs_topo; ovs_topo="$(topo_for_hosts "$ovs_hosts" ovs)"
     if [[ -z "$ovs_topo" ]]; then
         err "no OVS topology model in setting/ has $ovs_hosts hosts"
@@ -727,13 +758,21 @@ up_ovs() {
 
     say "[2/4] data plane (OVS fabric)"
     sudo -n "$LAB" "$ovs_verb" >/dev/null || { err "$ovs_verb failed"; exec 3>&-; rm -f "$fifo" "$out"; return 1; }
-    local want_procs=$(( ovs_hosts + 10 ))
+    # Wait on the HOST count, not on "at least N processes". `-ge` against hosts+10 was
+    # satisfied by any fabric at least that big -- 139 >= 26 -- which is how a 128-host fabric
+    # passed for 16. [Co-developed with claude code -- Adam]
+    local want_procs=$(( ovs_hosts + 10 )) live_hosts
     for i in $(seq 1 300); do
-        n="$(mn_count)"
-        [[ "$n" -ge "$want_procs" ]] && break
+        live_hosts="$(fabric_host_count)"
+        [[ "$live_hosts" -eq "$ovs_hosts" ]] && break
         sleep 1
     done
+    live_hosts="$(fabric_host_count)"
     n="$(mn_count)"
+    if [[ "$live_hosts" -ne "$ovs_hosts" ]]; then
+        err "fabric has $live_hosts hosts, expected $ovs_hosts"
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
+    fi
     if [[ "$n" -lt "$want_procs" ]]; then
         err "fabric did not build: $n host/switch processes"
         exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
@@ -781,8 +820,14 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
     # gate releases on the first exact match. The kernel then pulls the topology once and
     # never retries, so a pull landing in a dip leaves it permanently short of edges with
     # nothing logged. Comparing against the file is what would catch that.
+    # Named for what it compares. It reads the kernel's graph against the topology FILE, and
+    # both sides come from TOPO_OVS -- so for host count it is close to tautological, and
+    # calling it "model matches fabric" claimed a guarantee it does not give. What it does give
+    # is real and is the reason it exists (see above): a kernel that pulled during a link-count
+    # dip shows fewer edges than the file declares. The fabric itself is checked by the host
+    # count above. [Co-developed with claude code -- Adam]
     if [[ "$hosts" == "$want_hosts" && "$edges" == "$want_edges" ]]; then
-        ok "model matches fabric: $hosts hosts, $edges edges"
+        ok "kernel graph matches the model file: $hosts hosts, $edges edges"
     else
         err "model/fabric mismatch: kernel has $hosts hosts / $edges edges," \
             "topology file says $want_hosts / $want_edges"
@@ -815,7 +860,15 @@ cmd_down() {
     if [[ -n "$held" && "$force" != "--force" ]]; then
         err "refusing to tear down: the lab is claimed by $held"
         err "their kernel's pid is in the shared .test_run/pids/, so this would kill it."
-        err "wait for the claim to lapse, or:  ndt down --force"
+        # NDT_OWNER first, deliberately. If the claim is your own -- and it usually is, because
+        # NDT_OWNER has to be set on every command, not just `claim` -- then --force is the
+        # wrong answer twice over: it does not record that you own the lab, and following it
+        # when the claim really is someone else's tears down their work.
+        # [Co-developed with claude code -- Adam]
+        err "if that claim is YOURS, set the same owner and retry:"
+        err "    NDT_OWNER=$held ndt down"
+        err "if it is someone else's, wait for it to lapse. Only override it if you know they"
+        err "have finished:  ndt down --force"
         return 1
     fi
     busy="$(in_flight)"
@@ -1387,6 +1440,14 @@ app_stop() {
         nsr|viz|te)
             local p="$REPO/.test_run/pids/app_$name.pid" pid
             [[ -f "$p" ]] || { info "$name not running"; return 0; }
+            # Refuse a symlink, exactly as stack.sh's stop_one does. This block claimed "same
+            # pid hygiene as stop_one" while copying only the pid<2 check, and a pidfile
+            # replaced by a link to somewhere else was followed and the target killed, with
+            # "ok $name stopped" and rc 0. [Co-developed with claude code -- Adam]
+            if [[ -L "$p" ]]; then
+                err "$name pidfile is a symlink ($p -> $(readlink "$p")); refusing to read it"
+                return 1
+            fi
             pid="$(cat "$p" 2>/dev/null)"
             # Same pid hygiene as stack.sh's stop_one: a pidfile of 1 would make kill -TERM -1
             # signal the whole session.
