@@ -109,9 +109,27 @@ else:
 # for initial_install_wait_limit below ("on expiry it proceeds rather than giving up ... then
 # there are no routes at all").
 #
-# Generous because the legitimate wait is long: Mininet mode sleeps 60s before the walk and the
-# 128-host walk itself is ~60s, and a switch that is merely slow to dial in must not trip this.
+# Generous because the legitimate wait is long: the settle above plus the walk itself. Both are
+# now measured -- settle 10s by default, walk 2.166s at 128 hosts (doc/audit/
+# 2026-08-21_ryu-topology-scaling/WALK_SWEEP.md) -- so 240s has ample room, and a switch that is
+# merely slow to dial in must not trip this.
 initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLINE", "300"))
+
+# [Co-developed with claude code -- Adam]
+# How long to wait after every switch has connected before walking all host pairs and installing
+# routes. Was a bare, undocumented `hub.sleep(60)`.
+#
+# 10 s is measured, not guessed, and it is not the smallest value that worked. At 3 s the
+# 128-host OVS fabric came up and forwarded 3 times out of 3 -- bring-up 73 s -> 19 s, with
+# h1->h64, h64->h128 and h128->h1 all passing, so paths crossing the core and every quarter of
+# the fabric, not just a neighbour. The 4-host fabric went 62 s -> 10 s.
+#
+# The default keeps 3x margin over that because of what the measurement does NOT cover: n=3, one
+# machine, idle, one fabric type. The original 60 s has no recorded reason, so there is no way to
+# know which condition it was chosen for -- a slower host, a bigger fabric, or nothing at all.
+# Margin is the honest response to not knowing, and NDTWIN_RYU_SETTLE_S=60 restores the old
+# behaviour exactly for anyone who finds a case that needs it.
+settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "10"))
 
 detecting_time = 60
 
@@ -578,9 +596,25 @@ class IntelligentRyu(app_manager.RyuApp):
                 else:
                     # self.logger.info("sw to sw")
                     self.static_net.add_edge(edge.get("src_dpid"), edge.get("dst_dpid"), port=edge.get("src_interface"))
-            # Install all-destination routing entries
-            if is_mininet:
-                hub.sleep(60)
+            # Install all-destination routing entries, after letting the fabric settle.
+            #
+            # [Co-developed with claude code -- Adam]
+            # This was a bare `if is_mininet: hub.sleep(60)` with no recorded reason, gated on a
+            # flag that cannot be changed (is_mininet is reassigned True unconditionally at
+            # module level). It dominates OVS bring-up: the whole control-plane start is ~73 s
+            # and the walk it is waiting for takes 2.166 s of that.
+            #
+            # Made settable rather than shortened. Nothing documents what it waits for, the
+            # switch-count gate above already guarantees every switch has connected, and the
+            # routes come from the static model rather than from discovery -- but "I cannot see
+            # why this is needed" is not evidence that it is not, and this is the live control
+            # path for every OVS run. The default is unchanged at 60 s, so this commit alters
+            # no behaviour; NDTWIN_RYU_SETTLE_S is the seam that lets the question be answered
+            # by measurement instead of argument.
+            if settle_seconds > 0:
+                self.logger.info("settling %ss before the all-pairs walk (NDTWIN_RYU_SETTLE_S)",
+                                 settle_seconds)
+                hub.sleep(settle_seconds)
             # [Co-developed with claude code -- Adam]
             # The flag is set AFTER the walk, matching the dynamic path above. It used to be set
             # before, so it was True for the whole ~60 s of the initial install -- and the reinstall
@@ -639,12 +673,34 @@ class IntelligentRyu(app_manager.RyuApp):
 
     
     def find_host_by_ip(self, net, target_ip):
-        for node in net.nodes:
-            node_data = net.nodes[node]
-            if "ip_list" in node_data:
-                if target_ip in node_data["ip_list"]:
-                    return node
-        return None
+        """The host node owning this address, or None.
+
+        [Co-developed with claude code -- Adam]
+        Indexed rather than scanned. This is called from the innermost loop of the all-pairs
+        path reconstruction, so a linear scan of net.nodes made that walk cubic in host count
+        rather than quadratic. Measured by intervention (2026-08-21 sweep, doc/audit/
+        2026-08-21_ryu-topology-scaling/WALK_SWEEP.md): swapping this one helper for a dict cut
+        the 128-host report phase 13.7x and dropped the log-log slope from 2.75 to 1.86 -- the
+        cubic term was this line and nothing else.
+
+        The cache is rebuilt whenever the graph's shape changes. Node and edge counts are O(1)
+        in networkx, and ip_list is written when a node is added and never mutated afterwards,
+        so that pair is a sufficient token. Keyed on id(net) as well because two graphs are in
+        play -- static_net and dynamic_net -- and _active_net picks between them.
+
+        First match wins, exactly as the scan it replaces: two nodes claiming one address kept
+        the earlier one in iteration order, and setdefault preserves that rather than quietly
+        changing which host a duplicate resolves to.
+        """
+        token = (id(net), net.number_of_nodes(), net.number_of_edges())
+        if getattr(self, "_host_ip_token", None) != token:
+            index = {}
+            for node in net.nodes:
+                for ip in net.nodes[node].get("ip_list", ()) or ():
+                    index.setdefault(ip, node)
+            self._host_ip_index = index
+            self._host_ip_token = token
+        return self._host_ip_index.get(target_ip)
 
 
     
