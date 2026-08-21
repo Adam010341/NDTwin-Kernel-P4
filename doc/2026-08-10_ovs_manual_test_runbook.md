@@ -2,8 +2,17 @@
 
 > 📍 **入口不是這裡（2026-08-17）**：「我現在該跑什麼」看
 > [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份仍是**現役的手動
-> runbook**——要人工逐步走一輪 OVS、或自動路徑失效時用它。起停指令以入口那份為準
-> （`ndtwin-lab ovs-topo-start` + `stack.sh up ovs`；Ryu 聽 **6653** 不是 6633）。
+> runbook**——要人工逐步走一輪 OVS 的**驗證**部分時用它。
+>
+> ⚠️ **起停步驟已由入口那份的 §2（開機手冊）取代（2026-08-21）**：現在一律
+> `ndt up ovs` / `ndt down`。本文件裡的 `ndtwin-lab ovs-topo-start` + `stack.sh up ovs`
+> 仍然可用，但**不記帳**，之後 `ndt down` 收不乾淨。
+>
+> 🔴 **本 banner 原本寫的「Ryu 聽 6653 不是 6633」是錯的，2026-08-21 live 實測撤回。**
+> Mininet 的 `RemoteController` 會**依序探測 6653 和 6633、誰應答就連誰**，
+> 兩個都沒人應才 fallback。所以 `--ofp-tcp-listen-port 6633` 是**可以用的**
+> （三臂實測 10/10 connected）。真正的失敗模式是**順序**：Ryu 還沒聽就起 Mininet。
+> 本文件內文 §（`mininet/node.py:1551` 那幾處）也帶著同一個錯誤結論，尚未逐條修正。
 
 **這份文件是做什麼的**：從乾淨環境開始，逐步啟動 OVS/Ryu stack，在 idle 狀態下確認靜態健康，灌流量驗證 telemetry 鏈路，模擬一條鏈路斷線後觀察偵測與恢復。全部手動執行，一步一確認。
 

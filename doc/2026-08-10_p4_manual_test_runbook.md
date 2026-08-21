@@ -2,8 +2,11 @@
 
 > 📍 **入口不是這裡（2026-08-17）**：「我現在該跑什麼」看
 > [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份仍是**現役的手動
-> runbook**——要人工逐步走一輪 P4、或自動路徑失效時用它。起停指令以入口那份為準
-> （`ndtwin-lab topo-start` + `stack.sh up p4`）。
+> runbook**——要人工逐步走一輪 P4 的**驗證**部分時用它。
+>
+> ⚠️ **起停步驟已由入口那份的 §2（開機手冊）取代（2026-08-21）**：現在一律
+> `ndt up` / `ndt down`。本文件裡的 `ndtwin-lab topo-start` + `stack.sh up p4`
+> 仍然可用，但**不記帳**（`.test_run/pids/` 不會有登記），之後 `ndt down` 收不乾淨。
 
 **這份文件是做什麼的**：從乾淨環境開始，逐步啟動 P4/bmv2 stack，在 idle 狀態下確認靜態健康，灌流量驗證 telemetry 鏈路，模擬一條鏈路斷線後觀察偵測與恢復，最後檢查 `admin_disabled` 欄位。全部手動執行，一步一確認。
 
