@@ -474,14 +474,24 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
     // not loaded yet at this point. See configurePortMapping.
     // [Co-developed with claude code -- Adam]
 
-    // Call All Destination When Initialize.
+    // No first fetch here any more, deliberately.
     //
     // [Co-developed with claude code -- Adam]
-    // Kept as an opportunistic first attempt, but it cannot be the only one: at this point the
-    // topology file has not been loaded (another thread does that), so the control plane is not
-    // even known yet, and the control plane itself has not finished LLDP discovery. The refresh
-    // thread below is what actually gets the paths.
-    fetchAllDestinationPaths();
+    // There used to be an "opportunistic" fetchAllDestinationPaths() on this line. It could
+    // never succeed -- the comment on refreshDestinationPathsPeriodically says so itself: at
+    // this point the topology file has not been loaded, so controlPlaneHostAndPort() cannot
+    // tell Ryu from the P4 proxy and the request goes to the wrong host, and the control plane
+    // has not finished discovery anyway. Its stated cost was "gets nothing and returns".
+    //
+    // Its real cost, measured 2026-08-21: main() calls start() before it opens the northbound
+    // HTTP server, this call is synchronous, and a request to an address nothing answers took
+    // 131 seconds. So a fetch that was known to be useless held the entire kernel unavailable
+    // for over two minutes -- :8000 closed, every consumer timing out -- while the logs showed
+    // a healthy startup. stack.sh reported the stack as failed; it was not, it was hostage.
+    //
+    // Removing it costs the first attempt at T+0 and gains it at T+5s (kWhileEmpty) on the
+    // refresh thread, which is where every attempt that has ever succeeded came from.
+    // The curl timeouts added alongside this bound the same failure wherever else it appears.
 
     // [Co-developed with claude code -- Adam]
     // Bound here, on the caller's thread, and before anything is spawned. It used to happen inside
@@ -532,8 +542,11 @@ FlowLinkUsageCollector::refreshDestinationPathsPeriodically()
     {
         const bool haveAny = !getAllPaths().empty();
 
-        // Sleep first: start() has already made one attempt, and sleeping up front also gives
-        // the topology-loading thread a chance to run before the second.
+        // Sleep first, and now this is the *only* place a fetch happens: start() no longer makes
+        // one (see the note there -- it could not succeed and it blocked the HTTP server for two
+        // minutes when the address did not answer). Sleeping up front is still what we want, so
+        // the topology-loading thread has run and controlPlaneHostAndPort() knows which control
+        // plane owns the switches before the first request goes out.
         const auto interval = haveAny ? kOnceLoaded : kWhileEmpty;
         for (auto slept = 0s; slept < interval && m_running.load(); slept += 1s)
         {
@@ -2341,7 +2354,20 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
         // control plane actually owns the switches. Hardcoding Ryu meant P4 mode polled a port
         // nothing was listening on, which is why m_switchCountMap stayed empty and
         // get_path_switch_count answered "Path not found" even with the graph fully enabled.
-        const std::string cmd = "curl -s "
+        // [Co-developed with claude code -- Adam]
+        // The timeouts are not tuning, they are the difference between this returning and this
+        // wedging the process. Measured 2026-08-21: with nothing listening on the address, this
+        // curl took **131 seconds**, because `localhost` sends curl at the IPv6 loopback first
+        // and this machine drops those SYNs rather than refusing them, so it waited out the full
+        // TCP connect timeout. The same request to 127.0.0.1 is refused in 0s. That is the whole
+        // difference between "asks the wrong host and gets nothing", which the comment on
+        // refreshDestinationPathsPeriodically assumed, and a kernel that does not answer for
+        // over two minutes.
+        //
+        // connect-timeout covers the failure that actually bit; max-time bounds a control plane
+        // that accepts the connection and then stalls mid-body. 10s is generous for a response
+        // measured at 0.5s for 934 kB.
+        const std::string cmd = "curl -s --connect-timeout 2 --max-time 10 "
                                 "-H \"User-Agent: NDT-client/1.1\" "
                                 "\"http://" +
                                 controlPlaneHostAndPort() + "/ryu_server/all_destination_paths\"";
