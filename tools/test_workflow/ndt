@@ -92,6 +92,26 @@ bmv2_count() {
     echo "$n"
 }
 
+# How many HOSTS the running fabric has, as opposed to how many switches.
+#
+# [Co-developed with claude code -- Adam]
+# Exists because deciding to reuse a fabric on the switch count alone is not a decision about
+# the fabric at all: every P4 topology this project builds has ten switches, so the test was
+# satisfied by any fabric whatsoever. Measured 2026-08-21: `ndt up 4` against a live 128-host
+# stack reported "already up: 10 switches, reusing", kept the 128-host fabric, restarted the
+# kernel on the 4-host model, and then waited forever for 12 destination paths from a proxy
+# serving 16256. The model/fabric assertion that exists to catch exactly that pairing never
+# ran, because the wait never returned.
+fabric_host_count() {
+    local tag="mininet" n=0 line last
+    tag="${tag}:h"
+    while read -r line; do
+        last="${line##* }"
+        [[ "$last" == "$tag"* && "${last#$tag}" =~ ^[0-9]+$ ]] && n=$(( n + 1 ))
+    done < <(ps -eo args= 2>/dev/null)
+    echo "$n"
+}
+
 mn_count() {
     # The tag is assembled at run time so the literal never appears in any argv, including
     # this script's own -- `mn -c` would SIGKILL a process whose argv carried it.
@@ -476,7 +496,11 @@ up_p4() {
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
     n="$(bmv2_count)"
-    if topo_session && [[ "$n" -eq "$SWITCHES" ]]; then
+    local live_hosts; live_hosts="$(fabric_host_count)"
+    # Reuse requires BOTH counts to match. The switch count alone identifies nothing -- every P4
+    # topology here has ten -- so a fabric of the wrong size passed as "already up". See
+    # fabric_host_count.
+    if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]]; then
         if stale_pipeline; then
             # Reusing here would measure the old pipeline while every readout says the new one.
             err "the fabric predates the current build of ndtwin_switch.json."
@@ -484,8 +508,11 @@ up_p4() {
             err "are NOT running 1/$rate. take it down and back up:  ndt down && ndt up"
             return 1
         fi
-        ok "already up: $n switches, reusing"
+        ok "already up: $n switches, $live_hosts hosts, reusing"
     else
+        if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -ne "$hosts" ]]; then
+            info "the running fabric has $live_hosts hosts, this run wants $hosts; rebuilding it"
+        fi
         if [[ "$n" -gt 0 ]] && ! topo_session; then
             # Orphans outlive `mn -c` and hold :5005x, which makes the next fabric fail to
             # bind with an error that reads like a P4 problem.

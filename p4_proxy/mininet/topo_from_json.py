@@ -56,6 +56,20 @@ def switches(model):
         # bridge_name is what the kernel matches Mininet on (it reads the same field); prefer it
         # so the fabric and the model cannot end up using different names for one switch.
         out.append((int(dpid), node.get("bridge_name") or node.get("device_name") or f"s{dpid}"))
+
+    # [Co-developed with claude code -- Adam]
+    # Two switches sharing a dpid is not a curiosity, it silently deletes links. Every lookup
+    # downstream keys on dpid, so the second switch's cables collapse onto the first's: measured
+    # 2026-08-21, a duplicate dpid took a 20-link fabric to 17 and removed a host's access link
+    # entirely, with the build reporting success. Refused here, where it is one line, rather than
+    # left to be discovered as missing connectivity.
+    seen = {}
+    for dpid, name in out:
+        if dpid in seen:
+            raise TopologyModelError(
+                f"dpid {dpid} is claimed by two switches ({seen[dpid]!r} and {name!r}); "
+                f"links and hosts are addressed by dpid, so one of them would lose its cabling")
+        seen[dpid] = name
     return sorted(out)
 
 

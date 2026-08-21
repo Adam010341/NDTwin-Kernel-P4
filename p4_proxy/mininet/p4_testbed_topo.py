@@ -74,17 +74,41 @@ def _topology_model_path(host_num):
         if not os.path.exists(override):
             raise topo_from_json.TopologyModelError(
                 f"NDTWIN_P4_TOPO_FILE={override} does not exist")
+        # [Co-developed with claude code -- Adam]
+        # The override is checked against the host count too, not trusted on sight. It used to
+        # return here immediately -- which made the docstring above a lie, and produced exactly
+        # the mismatch this function exists to prevent: an override naming the 4-host model with
+        # host_count_override at 128 built a 4-host fabric while the kernel was handed the
+        # 128-host model, silently. Found by review, 2026-08-21.
+        #
+        # An explicit override still wins over the *scan*; what it cannot do is disagree with the
+        # host count the rest of the run is using, because both sides read that count separately.
+        try:
+            declared = len(topo_from_json.hosts(topo_from_json.load(override)))
+        except (OSError, ValueError, KeyError) as exc:
+            raise topo_from_json.TopologyModelError(
+                f"NDTWIN_P4_TOPO_FILE={override} is not a usable topology model: {exc}") from exc
+        if declared != host_num:
+            raise topo_from_json.TopologyModelError(
+                f"NDTWIN_P4_TOPO_FILE={override} declares {declared} hosts but this run wants "
+                f"{host_num} (from NDTWIN_P4_HOST_NUM or host_count_override). Point them at the "
+                f"same size: the fabric would be built from the model while everything else "
+                f"sizes itself from the count.")
         return override
     candidates = sorted(glob.glob(os.path.join(SETTING_DIR, "StaticNetworkTopologyP4_*.json")))
+    unreadable = []
     for path in candidates:
         try:
             if len(topo_from_json.hosts(topo_from_json.load(path))) == host_num:
                 return path
-        except (ValueError, KeyError):
-            continue
+        except (ValueError, KeyError) as exc:
+            # Skipped, but counted: "no model has N hosts" reads as "you need to derive one",
+            # which is the wrong instruction when the right model is sitting there unparseable.
+            unreadable.append(f"{os.path.basename(path)} ({exc.__class__.__name__})")
+    detail = f"; {len(unreadable)} could not be read: {', '.join(unreadable)}" if unreadable else ""
     raise topo_from_json.TopologyModelError(
         f"no P4 topology model in {SETTING_DIR} has {host_num} hosts "
-        f"(looked at {len(candidates)}); derive one with "
+        f"(looked at {len(candidates)}){detail}. Derive one with "
         f"tools/test_workflow/derive_p4_topology_json.py before building this fabric")
 
 

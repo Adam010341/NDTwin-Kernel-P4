@@ -276,6 +276,19 @@ CMD_SUFFIX=".cmd"
 
 recorded_cmd() { cat "$PID_DIR/$1$CMD_SUFFIX" 2>/dev/null; }
 
+# Extra identity for services whose behaviour is decided by something that is NOT on their
+# command line. Set by the caller immediately before start_bg; recorded alongside argv and
+# compared with it.
+#
+# [Co-developed with claude code -- Adam]
+# The P4 proxy takes no arguments at all: it reads host_count_override at import and builds its
+# host table from that. So `ndt up` then `ndt up 4` produced two proxies whose argv were
+# identical while their views of the network were not, and the second run reused a proxy that
+# still believed in 128 hosts. Measured: 4-host fabric, 4-host kernel model, proxy serving 3968
+# destination paths and the kernel reporting 0 of 10 switches up. Comparing argv cannot see
+# this; the fingerprint can.
+START_BG_IDENTITY="${START_BG_IDENTITY:-}"
+
 # start_bg <name> <logfile> <command...>
 start_bg() {
     local name="$1" log="$2"; shift 2
@@ -294,7 +307,7 @@ start_bg() {
         # Comparing argv is enough to separate every case that matters here, because the
         # topology path and the mode are both on the command line.
         local want have
-        want="$(printf '%s\n' "$@")"
+        want="$(printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY")"
         have="$(recorded_cmd "$name")"
         if [[ -n "$have" && "$have" == "$want" ]]; then
             info "  $name already running (pid $(cat "$PID_DIR/$name.pid"), same command)"
@@ -318,7 +331,8 @@ start_bg() {
     [[ -s "$log" ]] && mv -f "$log" "$log.prev"
     setsid "$@" >"$log" 2>&1 &
     echo $! >"$PID_DIR/$name.pid"
-    printf '%s\n' "$@" >"$PID_DIR/$name$CMD_SUFFIX"
+    { printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY"; } \
+        >"$PID_DIR/$name$CMD_SUFFIX"
     info "  started $name (pid $!) -> $log"
 }
 
@@ -660,6 +674,9 @@ cmd_up() {
             return 1
         fi
         # The agent must run with p4_proxy as cwd; it resolves p4info/json relative to it.
+        # The proxy's host table comes from this file, not from its argv -- see START_BG_IDENTITY.
+        START_BG_IDENTITY="hosts=$(sed -n 's/^[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1)" \
         start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
             env PYTHONPATH="$KERNEL_DIR/p4_proxy" \
             bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
