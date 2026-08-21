@@ -382,7 +382,15 @@ def fig_where(fname):
     D = {f: delivered(f) for _, f, _ in conds}
     TW = {f: twin_stats(f) for _, f, _ in conds}
 
-    fig, (axA, axB) = plt.subplots(1, 2, figsize=(12.6, 5.4),
+    # [Co-developed with claude code -- Adam]
+    # Taller than the other figures and with an explicit top margin, because this one carries
+    # five lines of standfirst plus a two-line standfirst per panel. The first version let
+    # matplotlib place them at fixed axes-fraction offsets and every one of them ran past its
+    # own panel: the figure-level lines overflowed the canvas, and the per-panel lines
+    # overprinted each other across the gutter. Text does not wrap, so the line lengths below
+    # are chosen against the available width rather than left to chance -- roughly 78
+    # characters per panel at 8.2pt, 165 across the figure at 9pt.
+    fig, (axA, axB) = plt.subplots(1, 2, figsize=(12.6, 6.5),
                                    gridspec_kw={"width_ratios": [1.0, 1.15]})
 
     # ---- A: CPU by group, three conditions. All at 1/64, i.e. 4x production clone load, so
@@ -398,7 +406,9 @@ def fig_where(fname):
     axA.set_xticks(range(len(groups)))
     axA.set_xticklabels([n for _, n in groups])
     axA.set_ylabel("CPU, % of ONE core")
-    axA.set_ylim(0, 186)
+    # Headroom for two rows of callout above the tallest bar (161.5) and its own value label,
+    # which sits 2.5 above it. 186 put the ratio line straight through that label.
+    axA.set_ylim(0, 201)
     axA.set_xlim(-0.55, len(groups) - 0.45)
 
     on = C["rate64"]["groups"]
@@ -407,28 +417,32 @@ def fig_where(fname):
         d = off.get(g, 0) - on.get(g, 0)
         col = MUTED if abs(d) < 5 else WARNC
         txt = "unchanged" if abs(d) < 5 else f"{d:+.1f} pts"
-        axA.text(gi, 172, txt, ha="center", fontsize=9.5, color=col, weight="bold")
+        axA.text(gi, 189, txt, ha="center", fontsize=9.5, color=col, weight="bold")
         if abs(d) >= 5:
-            axA.text(gi, 163, f"{off[g]/on[g]:.2f}× of the clone-on cost", ha="center",
+            axA.text(gi, 179, f"{off[g]/on[g]:.2f}× of the clone-on cost", ha="center",
                      fontsize=8.0, color=col)
         else:
-            axA.text(gi, 163, f"{d:+.1f} pts — the wrong way", ha="center",
+            axA.text(gi, 179, f"{d:+.1f} pts — the wrong way", ha="center",
                      fontsize=8.0, color=col)
 
+    # One legend for the whole figure, at the bottom. Per-axes legends put it inside the plot
+    # area, where panel A's collided with the delta callouts and the bar-value labels and
+    # panel B's collided with the "one core" rule. The three conditions are the same in both
+    # panels (B just omits the middle one), so one shared key is also the honest structure.
+    # The delivered rate is identical in all three and is stated once in the standfirst, so it
+    # comes out of the keys -- three copies of "200.0 Mbit/s delivered" made the row wider than
+    # the canvas and the outer two labels were clipped.
     handles = [Patch(facecolor=col,
-                     label=f"{lab} — {D[f][0]:.1f} Mbit/s delivered, "
+                     label=f"{lab} · "
                            f"{'telemetry OK' if TW[f]['live'] else 'NO TELEMETRY'}")
                for lab, f, col in conds]
-    axA.legend(handles=handles, frameon=False, fontsize=8.2, loc="upper left",
-               bbox_to_anchor=(0.0, 1.0))
     axA.set_title("Turning sampling off, at 4× production load", fontsize=11.5, color=INK,
-                  loc="left", pad=30, weight="bold")
-    axA.text(0, 1.075, "Deleting the clone session removes every downstream cost and leaves "
-                       "the forwarding path byte-identical.", transform=axA.transAxes,
-             fontsize=8.4, color=MUTED)
-    axA.text(0, 1.020, "bmv2 is nominally HIGHER with sampling off, so the data-plane "
-                       "difference is noise, not a small saving.", transform=axA.transAxes,
-             fontsize=8.4, color=MUTED)
+                  loc="left", pad=50, weight="bold")
+    axA.text(0, 1.055,
+             "Deleting the clone session removes every downstream cost and\n"
+             "leaves the forwarding path byte-identical. bmv2 is nominally\n"
+             "HIGHER with sampling off — that difference is noise, not a saving.",
+             transform=axA.transAxes, fontsize=8.2, color=MUTED, va="bottom", linespacing=1.5)
 
     # ---- B: the same bmv2 total, opened up. "bmv2 CPU 149%" sounds like a fabric near its
     # limit; it is three switches at half a core and seven at nothing. bmv2 forwards on one
@@ -454,36 +468,35 @@ def fig_where(fname):
     axB.set_ylabel("CPU, % of ONE core")
     axB.set_ylim(0, 118)
     axB.set_xlim(-0.7, len(ids) - 0.3)
-    axB.legend(handles=[Patch(facecolor=ACCENT, label="clone, full frame"),
-                        Patch(facecolor=GREY, label="no clone session at all")],
-               frameon=False, fontsize=8.4, loc="upper right")
     axB.set_title("The same total, opened up: 3 of 10 switches do the work",
-                  fontsize=11.5, color=INK, loc="left", pad=30, weight="bold")
+                  fontsize=11.5, color=INK, loc="left", pad=50, weight="bold")
     busy = [s for s in ids if sw_on[s] > 5]
-    axB.text(0, 1.075,
+    idle_max = max(sw_on[s] for s in ids if s not in busy)
+    axB.text(0, 1.055,
              f"s{', s'.join(str(s) for s in busy)} are the switches the flow crosses "
-             f"(confirmed on the tx counters); the other {len(ids)-len(busy)} sit at "
-             f"{max(sw_on[s] for s in ids if s not in busy):.1f}%.",
-             transform=axB.transAxes, fontsize=8.4, color=MUTED)
-    axB.text(0, 1.020,
-             "So \"bmv2 at 150% of a core\" is really three single-threaded switches at half a "
-             "core each — nowhere near their own ceiling.",
-             transform=axB.transAxes, fontsize=8.4, color=MUTED)
+             f"(confirmed on the\ntx counters); the other {len(ids)-len(busy)} sit at "
+             f"{idle_max:.1f}%. So \"bmv2 at 150% of a core\" is really\n"
+             f"three single-threaded switches at half a core each — far from a ceiling.",
+             transform=axB.transAxes, fontsize=8.2, color=MUTED, va="bottom", linespacing=1.5)
 
     fig.suptitle("Deleting sampling entirely costs the data plane nothing — the bill was never "
-                 "there", fontsize=13, color=INK, x=0.012, y=0.982, ha="left", weight="bold")
-    fig.text(0.012, 0.925,
-             f"All three conditions at 1/64, four times production sampling load. Removing "
-             f"100% of the sampling work leaves delivered throughput and bmv2 CPU unchanged, "
-             f"and takes {on['kernel']-off['kernel']:.0f} points off the kernel and "
+                 "there", fontsize=13, color=INK, x=0.012, y=0.985, ha="left", weight="bold")
+    fig.text(0.012, 0.945,
+             f"All three conditions at 1/64, four times production sampling load, and all "
+             f"three delivered {D['rate64'][0]:.1f} Mbit/s. Removing 100%\nof the sampling "
+             f"work leaves throughput and bmv2 CPU unchanged, and takes "
+             f"{on['kernel']-off['kernel']:.0f} points off the kernel and "
              f"{on['proxy']-off['proxy']:.0f} off the proxy.",
-             fontsize=9, color=MUTED, va="top")
+             fontsize=9, color=MUTED, va="top", linespacing=1.5)
     fig.text(0.012, 0.888,
              "Truncating the clone at the switch has the CPU signature of having no clone at "
-             "all — which is the diagnosis: the sample is dropped, not shortened. It produced "
+             "all — which is the diagnosis: the\nsample is dropped, not shortened. It produced "
              "zero telemetry on every edge, silently.",
-             fontsize=9, color=WARNC, va="top")
-    fig.tight_layout(rect=[0, 0, 1, 0.865])
+             fontsize=9, color=WARNC, va="top", linespacing=1.5)
+    fig.legend(handles=handles, frameon=False, fontsize=8.6, loc="lower center",
+               bbox_to_anchor=(0.5, -0.004), ncol=3, columnspacing=2.2,
+               handlelength=1.1, handletextpad=0.55)
+    fig.tight_layout(rect=[0, 0.055, 1, 0.845])
     fig.subplots_adjust(wspace=0.24)
     fig.savefig(os.path.join(OUT, fname), dpi=200)
     plt.close(fig)
