@@ -1,0 +1,26 @@
+# T6 punt-window discriminator, OVS 128 hosts, settle=default(10)
+# date: 2026-08-22T00:02:24+08:00   commit: f05da99
+## boot
+  up ok (0 checks)
+## step 1: baseline learning state (expect ~0/128 at settle=10)
+  0/128 hosts with ipv4
+## step 2: table-miss entry on s1 (packet-in path exists at all?)
+  s1: 130 flows, priority-0 entries: 1, of those to CONTROLLER: 1
+   miss entry actions: ['OUTPUT:CONTROLLER']
+## step 3: CONTROL -- ping h1->10.0.0.33 with rules intact (must NOT teach)
+  h1 pid: 240610
+  ping: 3 packets transmitted, 3 received, 0% packet loss, time 603ms
+  after control ping: 0/128 hosts with ipv4
+## step 4: delete s1's rule toward 10.0.0.33 (make the same ping punt)
+  s1 rules matching dst 10.0.0.33: 1 -> 0
+## step 5: TEST -- same ping, now punting at s1
+  ping: 5 packets transmitted, 0 received, 100% packet loss, time 1213ms
+  after punting ping: 1/128 hosts with ipv4 -- with: 10.0.0.1
+  (hypothesis: 10.0.0.1 -- the packet-in's src -- appears; nothing else does)
+## step 6: kernel graph host-edge count 35s later (does the learned host's edge flip up?)
+  host edges up: 2/256
+   up: 1 -> [16777226]
+   up: 0 -> [192653504]
+## teardown
+  down ok
+done -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/80663333-dc9c-42bd-9c05-499d63b60be1/scratchpad/t6_punt_window.txt
