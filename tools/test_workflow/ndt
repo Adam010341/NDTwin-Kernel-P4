@@ -780,7 +780,11 @@ up_ovs() {
     ok "$n host/switch processes after ${i}s"
 
     say "[3/4] proxy-less convergence + kernel"
-    info "the Ryu app sleeps a hard-coded 60s before installing paths, so this takes >60s"
+    # Was "a hard-coded 60s sleep, so this takes >60s". That sleep is now
+    # NDTWIN_RYU_SETTLE_S (default 10) -- measured 2026-08-21: convergence in 20s, the whole
+    # `ndt up ovs` in 24.1s. The old message survived the change and told every operator to
+    # expect the opposite of what they were about to see. [Co-developed with claude code -- Adam]
+    info "Ryu settles for ${NDTWIN_RYU_SETTLE_S:-10}s before installing paths (NDTWIN_RYU_SETTLE_S)"
     echo "" >&3
     wait "$stack_pid"; local rc=$?
     exec 3>&-; rm -f "$fifo"

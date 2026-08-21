@@ -160,9 +160,10 @@ print(len(d["all_destination_paths"] if isinstance(d, dict) else d))' 2>/dev/nul
 #   intelligent_router.py:282   if is_mininet: hub.sleep(60)
 #   intelligent_router.py:284   install_all_pair_paths(...)   <- fills all_destination_paths
 #
-# That is a hard-coded 60s sleep, which is why a manual start takes about a minute while link
-# discovery finishes in a couple of seconds. Gating on the link counts alone therefore released
-# the kernel roughly 58s early. `all_destination_paths` starts as [] (line 74) and is only
+# That sleep was a hard-coded 60s until 2026-08-21; it is now NDTWIN_RYU_SETTLE_S, default 10.
+# Either way it dominates OVS start-up while link discovery finishes in a couple of seconds, so
+# gating on the link counts alone releases the kernel early -- by ~58s then, ~8s now. The gap
+# shrank but did not close, which is why both conditions below are still required. `all_destination_paths` starts as [] (line 74) and is only
 # assigned in install_all_pair_paths (line 510), so a non-empty list is a direct signal that
 # needs no log scraping.
 #
@@ -188,8 +189,8 @@ paths_installed() {
 # but that discovery has actually finished.
 #
 # Both conditions are required because they are different events with very different timings:
-# link discovery is LLDP between switches (seconds), while path installation sits behind a
-# hard-coded 60s sleep in the Ryu app. See paths_installed().
+# link discovery is LLDP between switches (seconds), while path installation sits behind the
+# Ryu app's settle (NDTWIN_RYU_SETTLE_S, default 10s). See paths_installed().
 #
 # Falls back to sleeping the whole timeout if the endpoint cannot be read at all: proceeding
 # immediately on an unreadable control plane would reintroduce the race this replaces.
@@ -205,7 +206,7 @@ await_convergence() {
     local want_a="${want% *}" want_b="${want#* }"
     if [[ "$mode" == "ovs" ]]; then
         info "  waiting for ${want_a} switches, ${want_b} links, and all-destination paths"
-        info "  the Ryu app sleeps a hard-coded 60s before installing paths, so expect >60s"
+        info "  Ryu settles for ${NDTWIN_RYU_SETTLE_S:-10}s before installing paths (NDTWIN_RYU_SETTLE_S)"
     else
         info "  waiting for link discovery: want ${want_a} destination paths"
     fi
