@@ -1,0 +1,33 @@
+# install_all_pair_paths walk sweep
+# date:   2026-08-21T15:32:37+08:00
+# commit: 91229f5
+# fabric: ovs-topo-start (NTG testbed_topo.py, fixed 128 hosts) for every cell
+# note:   the model varies; the fabric does not. See the header comment.
+
+=== 8 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=8 pairs=56 rules=80 paths=56 walk=0.010s install=0.007s report=0.003s
+  walks logged: 1
+
+=== 16 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=16 pairs=240 rules=160 paths=240 walk=0.018s install=0.009s report=0.009s
+  walks logged: 1
+
+=== 32 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=32 pairs=992 rules=320 paths=992 walk=0.074s install=0.022s report=0.052s
+  walks logged: 1
+
+=== 64 hosts ===
+  fabric hosts (from veth count): 128
+  install_all_pair_paths done: hosts=64 pairs=4032 rules=640 paths=4032 walk=0.331s install=0.044s report=0.286s
+  walks logged: 1
+
+=== 128 hosts ===
+  UP FAILED (see /tmp/ndt_up_128.out)
+      XX  kernel: 10 switches, 0 up, 0 enabled (want 10)
+      ok  model matches fabric: 128 hosts, 288 edges
+      ok  data plane: h1 -> 10.0.0.2 forwards
+    
+    up, but not verified
