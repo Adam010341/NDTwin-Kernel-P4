@@ -86,6 +86,17 @@ class DiGraphStub:
     def nodes(self):
         return _NodeView(self._node_attrs)
 
+    # [Co-developed with claude code -- Adam]
+    # Added for 957a646, which caches the host-IP index and keys the cache on
+    # (id(net), number_of_nodes(), number_of_edges()) so a graph that changed shape cannot be
+    # served a stale index. The stub is deliberately only the slice of networkx the extracted
+    # code touches, so it grows when that code reaches for something new.
+    def number_of_nodes(self):
+        return len(self._node_attrs)
+
+    def number_of_edges(self):
+        return sum(len(v) for v in self._succ.values())
+
     def __getitem__(self, u):
         # KeyError on an unknown node, and the returned mapping raises KeyError on an unknown
         # edge -- the exact shape that aborted the recompute.
