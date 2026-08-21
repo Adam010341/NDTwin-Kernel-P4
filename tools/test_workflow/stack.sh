@@ -661,13 +661,24 @@ cmd_up() {
     # The two modes start in *opposite* orders, because the direction of the southbound
     # connection is reversed:
     #
-    #   OVS: Ryu is the server. Switches dial out to it, so Ryu has to be listening before
-    #        Mininet starts. The port is 6653, not 6633: the topology passes RemoteController
-    #        with no port, and Mininet then probes 6653 then 6633 and falls back to 6653 when
-    #        neither answers (mininet/node.py RemoteController.checkListening). 6653 is also
-    #        ryu-manager's default with no flag, so leaving both alone is what makes them meet
-    #        -- passing --ofp-tcp-listen-port 6633 to Ryu breaks it silently, with nothing in
-    #        any log naming the port.
+    #   OVS: Ryu is the server. Switches dial out to it, so Ryu has to be listening *before*
+    #        Mininet starts -- that ordering is the whole requirement, not the port number.
+    #        The topology passes RemoteController with no port, so Mininet probes 6653 then
+    #        6633 and connects to whichever answers (mininet/node.py:1551-1565
+    #        RemoteController.checkListening). ryu-manager with no --ofp-tcp-listen-port
+    #        opens *both* 6653 and 6633 (the second for backward compatibility), so the
+    #        no-flag invocation below lands on 6653.
+    #
+    #        If Ryu is not listening yet, checkListening falls through to a 6653 default
+    #        (node.py:1564) and the switches dial a dead port -- and no log on either side
+    #        ever names the port. That silent failure is why wait_for_port below is not
+    #        optional.
+    #
+    #        Verified live 2026-08-21, 128-host NTG testbed_topo.py, three arms: no flag ->
+    #        switches on 6653, 10/10 connected; --ofp-tcp-listen-port 6633 -> switches on
+    #        6633, 10/10 connected; the website's verbatim command (with singular
+    #        --observe-link) -> 6633, 10 switches / 32 links, paths installed. An earlier
+    #        version of this comment claimed the 6633 flag "breaks it silently". It does not.
     #   P4:  bmv2 is the server -- simple_switch_grpc listens on 0.0.0.0:50051-50060 -- and the
     #        proxy is a gRPC *client* connecting to each one. So Mininet has to be up first, or
     #        the proxy's first real RPC gets ECONNREFUSED and uvicorn exits before opening :8081.
