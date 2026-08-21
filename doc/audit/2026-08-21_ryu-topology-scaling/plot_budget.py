@@ -87,6 +87,32 @@ def debounce_seconds():
     return float(m.group(1))
 
 
+def detection_cells():
+    """{'A'|'B'|'C': [detection seconds]} from the detection probe's raw output.
+
+    A = 4 hosts at Ryu's default guard, B = 128 hosts at the default, C = 128 hosts with
+    NDTWIN_RYU_LLDP_GUARD=0.01. Section letters rather than labels because the header text
+    carries the settings and would have to be kept in sync twice.
+    """
+    path = os.path.join(HERE, "lldp_detection.txt")
+    rx = re.compile(r"detection=([\d.]+)s")
+    out, cur = {}, None
+    with open(path) as fh:
+        for line in fh:
+            m = re.match(r"## ([ABC])\.", line)
+            if m:
+                cur = m.group(1)
+                out[cur] = []
+                continue
+            d = rx.search(line)
+            if d and cur:
+                out[cur].append(float(d.group(1)))
+    missing = [k for k in "ABC" if not out.get(k)]
+    if missing:
+        raise SystemExit(f"lldp_detection.txt has no cells for {missing}")
+    return out
+
+
 def topology_query_ms():
     """Slowest of the three topology endpoints at 128 hosts, in ms."""
     path = os.path.join(HERE, "ryu_topo_128host.json")
@@ -104,36 +130,41 @@ def topology_query_ms():
 def fig_budget(fname):
     cells = failover_cells()
     total = st.mean(cells["OVS / 128 hosts"])
+    p4 = st.mean(cells["P4 / 128 hosts"])
     n = len(cells["OVS / 128 hosts"])
 
-    walks = walk_terms()
-    walk, install, report = walks[128]
+    walk, install, report = walk_terms()[128]
     debounce = debounce_seconds()
     query_s = topology_query_ms() / 1000.0
-    accounted = walk + debounce + query_s
+    det = detection_cells()
+    detect = st.mean(det["B"])                 # 128 hosts, Ryu default guard
+    detect_fixed = st.mean(det["C"])           # 128 hosts, guard 0.01
+    accounted = detect + walk + debounce + query_s
     gap = total - accounted
 
     fig = plt.figure(figsize=(10.6, 6.6))
-    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.3], hspace=1.15,
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.25], hspace=1.22,
                           left=0.205, right=0.955, top=0.815, bottom=0.085)
     ax, ax2 = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
 
     fig.text(0.019, 0.965,
-             f"An OVS link failure at 128 hosts lasts {total:.1f} s — "
-             f"and only {accounted / total * 100:.0f}% of it is accounted for",
+             f"An OVS link failure at 128 hosts lasts {total:.1f} s, and "
+             f"{detect / total * 100:.0f}% of it is waiting to notice",
              fontsize=14.5, weight="bold", color=INK, va="top")
     fig.text(0.019, 0.913,
-             f"n={n} live runs for the total. Every term on the left was measured this round; "
-             f"the grey is what is left to explain.",
-             fontsize=9.5, color=MUTED, va="top")
+             f"n={n} live runs for the total, n={len(det['B'])} for each measured term. "
+             f"Ryu needs six consecutive unanswered LLDP probes to\ndeclare a link down, and it "
+             f"probes every port in turn -- so adding hosts stretches the gap between two probes "
+             f"of the same one.",
+             fontsize=9.5, color=MUTED, va="top", linespacing=1.5)
 
     # ---------------------------------------------------------------- panel 1: the ledger
     segs = [
-        (query_s,  ACCENT,    f"topology query <{topology_query_ms():.1f} ms"),
-        (install,  "#3B8EA5", f"1,280 rules {install:.2f} s"),
-        (report,   WARNC,     f"16,256 path entries {report:.2f} s"),
+        (detect,   WARNC,     f"detect the failure {detect:.1f} s"),
         (debounce, MUTED,     f"debounce {debounce:.0f} s"),
-        (gap,      GAP,       f"unattributed {gap:.1f} s"),
+        (walk,     "#3B8EA5", f"recompute {walk:.2f} s"),
+        (query_s,  ACCENT,    f"topology query <{topology_query_ms():.1f} ms"),
+        (gap,      GAP,       f"residual {gap:.1f} s"),
     ]
     left = 0.0
     for width, colour, label in segs:
@@ -146,59 +177,51 @@ def fig_budget(fname):
     ax.set_yticks([])
     ax.set_xlabel("seconds of the 128-host OVS outage")
     ax.spines["left"].set_visible(False)
-    ax.text(accounted + gap / 2, 0, f"{gap:.1f} s", ha="center", va="center",
-            fontsize=13, color=INK, weight="bold")
-
-    # The four measured terms are 10% of the bar and cannot be labelled in place.
-    ax.annotate(f"{accounted:.1f} s measured", xy=(accounted / 2, -0.24),
-                xytext=(total * 0.115, -0.86), textcoords="data",
-                fontsize=10, color=INK, ha="center",
-                arrowprops=dict(arrowstyle="-", color=FAINT, lw=1.0))
-    # One row, under the axis label, so it cannot collide with the panel below.
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.60), frameon=False,
+    ax.text(detect / 2, 0, f"{detect:.1f} s", ha="center", va="center",
+            fontsize=13, color="white", weight="bold")
+    # No leader line to the three thin segments: it had to be parked under the axis label to
+    # fit, and the legend below already prints all five values. One statement of a number.
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.62), frameon=False,
               fontsize=8.4, handlelength=0.95, handleheight=0.95, borderpad=0,
               ncol=5, columnspacing=1.15, handletextpad=0.5)
 
-    # ------------------------------------------------- panel 2: the term that was in dispute
+    # ------------------------------------------------------- panel 2: what one constant does
     rows = [
-        (2.15, "asserted in 4 places\ncomments · a test · a commit", 60.0, WARNC, "~60 s"),
-        (1.30, "derived upper bound\n73 s start − 60 s sleep", 13.0, MUTED, "≤ 13 s"),
+        (2.10, f"Ryu default\nLLDP_SEND_GUARD = 0.05 s", detect, WARNC),
+        (1.05, f"one line changed\nLLDP_SEND_GUARD = 0.01 s", detect_fixed, ACCENT),
     ]
-    for y, _label, value, colour, tag in rows:
-        ax2.barh([y], [value], height=0.5, color=colour)
-        ax2.text(value + 1.1, y, tag, va="center", fontsize=11.5,
+    for y, _label, value, colour in rows:
+        ax2.barh([y], [value], height=0.44, color=colour)
+        ax2.text(value + 0.9, y, f"{value:.1f} s", va="center", fontsize=11.5,
                  color=colour, weight="bold")
-
-    # Drawn as its two halves only -- which half it is matters more than the total.
-    ax2.barh([0.35], [install], height=0.5, color="#3B8EA5")
-    ax2.barh([0.35], [report], left=install, height=0.5, color=WARNC)
-    ax2.text(walk + 1.1, 0.35, f"{walk:.2f} s", va="center", fontsize=11.5,
-             color=INK, weight="bold")
-    ax2.text(walk + 6.4, 0.35,
-             f"— {report / walk * 100:.0f}% of it the path table, not the rules",
+    ax2.text(detect_fixed + 6.0, 1.05,
+             f"— {detect / detect_fixed:.1f}x faster; the whole outage becomes ~"
+             f"{detect_fixed + debounce + walk:.0f} s",
              va="center", fontsize=9.5, color=MUTED)
 
-    ax2.axvline(total, color=INK, lw=1.0, ls=(0, (4, 3)))
-    ax2.text(total - 1.0, 2.74, f"the outage it was a term of  ({total:.1f} s)",
-             ha="right", fontsize=9, color=INK)
+    ax2.axvline(p4, color=INK, lw=1.0, ls=(0, (4, 3)))
+    ax2.text(p4 + 0.8, 2.62, f"P4 at 128 hosts, whole outage ({p4:.1f} s)",
+             ha="left", fontsize=9, color=INK)
 
-    ax2.set_yticks([2.15, 1.30, 0.35])
-    ax2.set_yticklabels([rows[0][1], rows[1][1], "measured, this round"], fontsize=9)
-    ax2.set_xlim(0, 66)
-    ax2.set_ylim(-0.15, 2.95)
-    ax2.set_xlabel("seconds attributed to recomputing all-pair routes")
-    ax2.set_title("The largest term had never been measured", loc="left",
-                  fontsize=12.5, weight="bold", pad=26)
-    ax2.text(0, 1.055, "The figure in circulation was larger than the whole outage it was "
-                       "a term of.",
+    ax2.set_yticks([2.10, 1.05])
+    ax2.set_yticklabels([r[1] for r in rows], fontsize=9)
+    ax2.set_xlim(0, 52)
+    ax2.set_ylim(0.35, 2.85)
+    ax2.set_xlabel("seconds to detect a failed inter-switch link, 128 hosts")
+    ax2.set_title("The threshold is untouched -- only the interval between probes",
+                  loc="left", fontsize=12.5, weight="bold", pad=26)
+    ax2.text(0, 1.075,
+             "Still six consecutive misses before a link is called dead. Lowering THAT would "
+             "trade against false positives; this does not.",
              transform=ax2.transAxes, fontsize=9.5, color=MUTED, va="bottom")
+
     path = os.path.join(OUT, fname)
     fig.savefig(path, dpi=150)
     plt.close(fig)
     print(f"wrote {path}")
-    print(f"  total {total:.2f}s (n={n}) | query {query_s * 1000:.2f}ms | "
-          f"walk {walk:.3f}s (install {install:.3f} + report {report:.3f}) | "
-          f"debounce {debounce:.0f}s | gap {gap:.2f}s")
+    print(f"  total {total:.2f}s (n={n}) | detect {detect:.2f}s -> {detect_fixed:.2f}s | "
+          f"walk {walk:.3f}s | debounce {debounce:.0f}s | query {query_s*1000:.2f}ms | "
+          f"residual {gap:.2f}s | P4 {p4:.2f}s")
 
 
 if __name__ == "__main__":
