@@ -32,6 +32,9 @@ OUT="$DIR/beacon_sweep.txt"
 MEASURE="$REPO/doc/audit/2026-08-17_p4-vs-ovs-matched-topology/measure_failover.sh"
 W="${1:-360}"
 REPS="${2:-2}"
+# Overridable so an interrupted run can resume at the cell it died in (the laptop-suspend
+# casualty of 2026-08-21) instead of re-burning finished cells.
+BEACONS="${BEACONS:-5 3 2 1}"
 DST=10.0.0.33
 
 say() { printf '%s\n' "$*" | tee -a "$OUT"; }
@@ -43,7 +46,7 @@ say "# commit: $(cd "$REPO" && git rev-parse --short HEAD)"
 say "# idle window ${W}s per cell, then ${REPS} real failures via measure_failover.sh"
 say ""
 
-for B in 5 3 2 1; do
+for B in $BEACONS; do
     say "## beacon=${B}s"
     ndt down > /tmp/beacon_down.out 2>&1 || { say "   DOWN FAILED; aborting"; exit 1; }
     sleep 2
