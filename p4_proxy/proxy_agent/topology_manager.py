@@ -136,6 +136,34 @@ def unsupported_match_fields(match_dict):
 #: means changing that. [Co-developed with claude code -- Adam]
 LLDP_BEACON_INTERVAL_S = 5
 
+# [Co-developed with claude code -- Adam]
+# Experiment knob for KNOWN-ISSUES D-2 (sweep the beacon interval, measure detection AND false
+# positives). Placed before the derived constants below so timeout, watchdog and startup grace
+# all follow the override -- that derivation chain is the cheap part of the change and splitting
+# it would be a fourth constant to keep in sync.
+#
+# What does NOT follow: kLldpFreshSeconds = 12.0 is a C++ constant
+# (DeviceConfigurationAndPowerManager.hpp) -- at 2.5 s the switch-liveness window tolerates 4.8
+# beacons instead of 2.4, and above 12 s it would start declaring live switches dead. The knob
+# refuses the latter; the former is part of what D-2's experiment is for.
+#
+# The override announces itself, same rule as NDTWIN_RYU_LLDP_GUARD: this repo has shipped a
+# setter with no reader and a reader with no setter, and both produced runs that looked
+# configured and were not.
+_beacon_env = os.environ.get("NDTWIN_P4_BEACON_S")
+if _beacon_env:
+    try:
+        _beacon = float(_beacon_env)
+        if not 0 < _beacon <= 12:
+            raise ValueError
+        LLDP_BEACON_INTERVAL_S = _beacon
+        print(f"NDTWIN: LLDP_BEACON_INTERVAL_S overridden to {LLDP_BEACON_INTERVAL_S}s "
+              f"(default 5); timeout/watchdog/grace derive from it", flush=True)
+    except ValueError:
+        print(f"NDTWIN: ignoring NDTWIN_P4_BEACON_S={_beacon_env!r} (want 0 < s <= 12; above 12 "
+              f"the kernel's kLldpFreshSeconds would declare live switches dead); keeping "
+              f"{LLDP_BEACON_INTERVAL_S}s", flush=True)
+
 #: Used only when the topology file cannot be read. The previous unconditional behaviour, kept as a
 #: fallback so discovery still works, but reported rather than silent.
 LLDP_FALLBACK_PORTS = tuple(range(1, 7))
