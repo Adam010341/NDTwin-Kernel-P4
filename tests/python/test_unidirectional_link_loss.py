@@ -44,6 +44,7 @@ import os
 import textwrap
 import types
 import unittest
+from time import monotonic
 
 
 class _NodeView:
@@ -141,9 +142,15 @@ class FakeDatapath:
 
 def make_router(switch_ids):
     """A stand-in self carrying the real (extracted) methods plus recording fakes."""
+    # Whatever the extracted methods reference at module scope has to be supplied here, because
+    # exec gives them this dict as their globals rather than the real module's. `monotonic` is
+    # the walk timing added 2026-08-21; leaving it out raises NameError from inside the walk,
+    # which reads like a routing bug rather than like a missing stub.
+    # [Co-developed with claude code -- Adam]
     namespace = {
         "hashlib": hashlib,
         "is_all_dst_biased": False,
+        "monotonic": monotonic,
     }
     for name, src in extract_methods().items():
         exec(src, namespace)  # noqa: S102 - executing the shipped source is the point

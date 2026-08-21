@@ -12,7 +12,7 @@ import requests
 import json
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from webob import Response
-from time import time
+from time import time, monotonic
 import ipaddress
 import hashlib
 import os
@@ -673,6 +673,35 @@ class IntelligentRyu(app_manager.RyuApp):
 
 
     def install_all_pair_paths(self, net):
+        # [Co-developed with claude code -- Adam]
+        # Timed because this walk is the largest unattributed term in the 128-host failover
+        # budget, and the two figures on record disagree by 4.6x. Neither was a measurement of
+        # this function:
+        #
+        #   ~13 s  derived -- the OVS control plane was measured starting in 73 s (2026-08-19)
+        #          and the hub.sleep(60) below accounts for 60 of them, leaving <=13 s for the
+        #          JSON parse, the graph build AND this walk. So 13 s is an upper bound on the
+        #          three together, not a reading of the walk.
+        #   ~60 s  asserted -- the comments beside initial_install_deadline and
+        #          initial_install_wait_limit, this method's own tests, and 5affd93's commit
+        #          message all say "the walk is ~60 s over 16256 pairs", sourced from
+        #          doc/2026-07-29_HANDOFF.md 1g -- which predates cc249c8, i.e. predates 128
+        #          hosts being runnable at all.
+        #
+        # Split into two phases because they scale differently and only one of them is what
+        # "16256 pairs" names. The BFS installs one rule per (switch, dst): 1280 at 128 hosts.
+        # The reporting loop that follows builds one entry per ORDERED HOST PAIR -- 16256 --
+        # purely to populate all_destination_paths for the kernel to read. A budget that blames
+        # "path computation" needs to know which half it is blaming, and a fix would differ:
+        # one is OpenFlow writes, the other is a nested Python loop over a list.
+        #
+        # monotonic() rather than the time() imported above: this method runs across hub yields
+        # and a wall-clock step would be indistinguishable from walk time. Logged at warning to
+        # sit at the level the reinstall worker already uses for its own milestones, so one
+        # grep over a run's Ryu log yields every walk it did, startup and failover alike.
+        walk_started = monotonic()
+        report_seconds = 0.0
+        rules_installed = 0
         self.logger.info("install_all_pair_paths")
         self.debug_print_graph(net)
         all_hosts_ip_list = []
@@ -739,6 +768,7 @@ class IntelligentRyu(app_manager.RyuApp):
                 match = parser.OFPMatch(eth_type=0x0800, ipv4_dst=dst_ip)
                 actions = [parser.OFPActionOutput(out_port)]
                 self.add_flow(datapath, priority=10, match=match, actions=actions)
+                rules_installed += 1
 
                 # self.logger.info(
                 #     "Installing flow on switch %s: match(ipv4_dst=%s) -> output(port=%d)",
@@ -821,6 +851,7 @@ class IntelligentRyu(app_manager.RyuApp):
 
 
             # Reconstruct path from any switch back to dst_switch
+            report_started = monotonic()
             for switch in parent_hash:
                 path = []
                 node = switch
@@ -861,8 +892,25 @@ class IntelligentRyu(app_manager.RyuApp):
                         full_path = [(src_ip, out_port)] + path
                         # self.logger.info("Flow path from %s to %s path %s\n\n\n\n\n", src_ip, dst_ip, full_path)
                         all_destination_paths.append(full_path)
-        
+            report_seconds += monotonic() - report_started
+
         self.all_destination_paths = all_destination_paths
+        # [Co-developed with claude code -- Adam]
+        # See the note at the top of this method. `pairs` is n*(n-1) -- ordered, because the
+        # loop above builds an entry per direction -- and is printed so the line can be read
+        # without knowing the host count convention. install = total - report by construction,
+        # so the two always sum; they are not measured independently.
+        walk_seconds = monotonic() - walk_started
+        hosts = len(all_hosts_ip_list)
+        # Milliseconds, not centiseconds: the point of this line is a sweep across host counts,
+        # and the small end of that sweep is fast. A 4-host walk lands around single-digit
+        # milliseconds, which %.2f flattens to 0.00 -- the one scale where the ratio to 128
+        # hosts is most informative would be the one that reads as zero.
+        self.logger.warning(
+            "install_all_pair_paths done: hosts=%d pairs=%d rules=%d paths=%d "
+            "walk=%.3fs install=%.3fs report=%.3fs",
+            hosts, hosts * (hosts - 1), rules_installed, len(all_destination_paths),
+            walk_seconds, walk_seconds - report_seconds, report_seconds)
                         
 
 
