@@ -173,6 +173,96 @@ if _lldp_guard:
               f"keeping Ryu's default {switches.Switches.LLDP_SEND_GUARD}s", flush=True)
 
 # [Co-developed with claude code -- Adam]
+# Probe ports that have never answered an LLDP only every Nth sweep, instead of every sweep.
+#
+# The detection numbers above are charged per port, and on the 128-host fabric 128 of the 160
+# ports are host-facing: nothing on a host answers LLDP, so probing them buys nothing and costs
+# a guard-sleep each, every sweep, forever. One bit tells the two kinds of silent port apart --
+# a failed sw-sw port HAS answered before, a host port never has. Backing off never-answered
+# ports makes sweep cost track switch count rather than host count, without touching the guard
+# (packet rate on the control channel stays put) and without touching `link_loop`'s six-missed-
+# probes threshold: a never-answered port cannot be the source of any link in `self.links`, so
+# the evidence chain for declaring a real link dead is exactly Ryu's. That distinction is the
+# whole justification -- LINK_LLDP_DROP could reach the same speedup, but only by lowering the
+# evidence needed to kill a link, and topology_manager.py argues itself why flappy link reports
+# are worse than slow ones. The price is discovery, not detection: a newly cabled or healed
+# port is noticed up to N sweeps late.
+#
+# Off unless the environment says otherwise: the false-positive rate of faster detection has
+# not been measured, and that measurement is the gate for changing any default here.
+_lldp_backoff = os.environ.get("NDTWIN_RYU_LLDP_BACKOFF")
+if _lldp_backoff:
+    try:
+        _backoff_n = int(_lldp_backoff)
+        if _backoff_n < 2:
+            raise ValueError
+    except ValueError:
+        print(f"NDTWIN: ignoring malformed NDTWIN_RYU_LLDP_BACKOFF={_lldp_backoff!r} "
+              f"(want an integer >= 2); probing every port every sweep as Ryu does", flush=True)
+    else:
+        # The answered-bit rides on PortData via the one call that means "an LLDP sent out of
+        # this port came back": lldp_packet_in_handler -> PortDataState.lldp_received(src).
+        _ryu_lldp_received = switches.PortDataState.lldp_received
+
+        def _lldp_received_marking(self, port):
+            self[port].ever_received = True
+            _ryu_lldp_received(self, port)
+
+        switches.PortDataState.lldp_received = _lldp_received_marking
+
+        def _lldp_loop_with_backoff(self):
+            # Ryu's Switches.lldp_loop with one change: due ports that have never answered are
+            # "sent" by advancing their clock (ports.lldp_sent moves them to the back of the
+            # sweep order, same as a real send would) without a packet-out or a guard-sleep,
+            # except on every Nth pass. Everything else -- the ordered expiry scan, the
+            # timestamp-None fast path for new ports, the wait arithmetic -- is verbatim,
+            # because the scan's early `break` assumes one shared period and list order by
+            # timestamp, and a second period would silently break that assumption.
+            tick = 0
+            while self.is_active:
+                self.lldp_event.clear()
+                tick += 1
+
+                now = time()
+                timeout = None
+                ports_now = []
+                ports = []
+                for (key, data) in self.ports.items():
+                    if data.timestamp is None:
+                        ports_now.append(key)
+                        continue
+
+                    expire = data.timestamp + self.LLDP_SEND_PERIOD_PER_PORT
+                    if expire <= now:
+                        ports.append((key, data))
+                        continue
+
+                    timeout = expire - now
+                    break
+
+                for port in ports_now:
+                    self.send_lldp_packet(port)
+                for port, data in ports:
+                    if getattr(data, "ever_received", False) or tick % _backoff_n == 0:
+                        self.send_lldp_packet(port)
+                        hub.sleep(self.LLDP_SEND_GUARD)      # don't burst
+                    else:
+                        try:
+                            self.ports.lldp_sent(port)
+                        except KeyError:
+                            # same race send_lldp_packet tolerates: ports can be
+                            # modified while this loop runs
+                            pass
+
+                if timeout is not None and ports:
+                    timeout = 0     # We have already slept
+                self.lldp_event.wait(timeout=timeout)
+
+        switches.Switches.lldp_loop = _lldp_loop_with_backoff
+        print(f"NDTWIN: LLDP backoff enabled: never-answered ports probed every "
+              f"{_backoff_n}th sweep (default: every port, every sweep)", flush=True)
+
+# [Co-developed with claude code -- Adam]
 # How long the topology must be quiet before routes are recomputed. One `link a b down` raises an
 # EventLinkDelete per direction, and a switch joining raises a burst, so recomputing on each event
 # would repeat the whole 16256-pair walk several times for one operator action. 3s is well past the
