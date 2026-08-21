@@ -325,7 +325,29 @@ mutual and symmetric:
 | 15:00-15:57 | them | 12-cell matrix; I detected it and stayed off the machine |
 | 16:01:59 | **me** | `ndt down` killed their kernel |
 | 16:03:31 | them | restarted their kernel |
-| ~16:08 | **me** | `ndt check` traffic put 606 Mbit/s through the fabric, spoiling one of their cells |
+| ~16:08 | **me** | `ndt check` traffic put 606 Mbit/s through the fabric, forcing them to re-run a cell |
+
+**Corrected 2026-08-20 evening, and verified independently.** A third session reported that
+no *surviving* cell overlaps my traffic window; I rebuilt the timeline myself from the `t`
+field of all 20 `raw/*_twin.jsonl*` traces rather than taking the report on trust:
+
+```
+12-cell matrix   14:53:06 - 15:56:56      mzero_poll     16:45:07 - 16:50:07
+                                          mzero_nopoll   16:50:11 - 16:55:11
+```
+
+None of the 20 traces intersects 16:05-16:12. So the precise statement is: **my interference
+cost them one re-run, and contaminated no data that reached a conclusion.** The damaged
+attempt was discarded at the time; the surviving zero-point pair is the re-run. Both halves
+matter -- the cost was real, the contamination was not.
+
+**A claim in that same report was wrong and is worth recording, because believing it would
+throw away a good cross-check.** It said the gzip pass at `ae9f12a` reset every trace's mtime
+to ~17:00, so mtime could no longer order events. Checked against all 20 files: **0 where
+mtime differs from the trace's last `t` by more than 5 s** -- gzip preserves the original
+mtime, and every file's mtime is exactly its own trace end. Preferring the in-band `t` field
+is still the better habit (the data's own timestamp beats the filesystem's), but mtime was
+never destroyed, and it is what let me verify the correction above.
 
 **The mechanism is not process groups. It is that `.test_run/pids/` is shared.**
 `stop_one` reads `.test_run/pids/kernel.pid` and does `kill -TERM -$pid` regardless of who
@@ -367,6 +389,109 @@ perfectly. Mininet host processes are root-owned, so `kill -0` as adam returns E
 `process-liveness-checks-lie-in-two-ways`; re-confirmed here, in a script written *after*
 re-reading that note.
 
+### 7.4b Dirty-state teardown: what `down` does and does not clear **[OBS]**
+
+Two dirty states were manufactured and torn down.
+
+**A. Orphaned session + dead fabric under a live kernel** -- made by running
+`ndtwin-lab cleanup` *without* `stack.sh down` and *without* `topo-stop`, which is the
+mis-ordering the docs warn about. `ndt clean` correctly reported not-clean (exit 1, naming
+:8000 and :8081), and `ndt down` then reached clean, exit 0.
+
+Incidental: **`cleanup` did end the tmux session here**, contrary to the trap as written.
+Its `pkill -f ntg_bmv2_topo.py` kills the topology python, and that python *is* the session's
+only command, so the session ends with it. The trap presumably needs a session whose pane has
+outlived its command. Not a reason to change the ordering rule -- `topo-stop` first is still
+right -- but the stated reason is not what was observed.
+
+**B. A kernel started by hand, with no pidfile.** `ndt down` **names it and refuses to claim
+success, but does not kill it**:
+
+```
+[1/3] kernel + proxy/Ryu
+        :8000 is still listening, held by ndtwin_kernel (pid 976972)
+...
+  XX  :8000 still listening -- the next up would measure it
+not clean
+DOWN EXIT=1
+```
+
+The stray survived; killing it by pid then gave clean. This is by design (`stop_one` only
+knows what the stack started) and is the honest behaviour, but it means **"`ndt down` clears
+any mess" is false for processes started outside the stack** -- it detects them rather than
+removing them.
+
+**Resolved: Adam chose an opt-in `--deep`, default off.** Verified in three cases:
+
+| case | result |
+|---|---|
+| `ndt down --deep`, nothing stray | `deep sweep: nothing left holding the ports`, exit 0 |
+| `ndt down` (plain), stray present | stray survives, `not clean`, **exit 1**, and the message now names the fix |
+| `ndt down --deep`, stray present | `killing ndtwin_kernel (pid N) holding :8000`, **clean, exit 0** |
+
+The default stays conservative on purpose: killing a listener you did not start is killing
+someone else's work, which is not hypothetical on this machine. `--deep` names each process
+before signalling it, refuses pids < 2 and its own, escalates TERM -> KILL, and verifies. When
+the socket's owner is invisible (root-owned), it says so rather than silently doing nothing.
+The claim guard still applies, so `--deep` alone cannot blow through another session's
+reservation -- that additionally needs `--force`.
+
+### 7.4c The app launcher leaked a process while reporting success **[OBS -- my own bug]**
+
+First live run of `ndt apps nsr` recorded the wrong pid. The launcher used
+`( cd D && setsid CMD >log 2>&1 & echo $! >pidfile )`; `setsid` detaches into a new session,
+so `$!` named a transient shell -- **the pidfile ended up holding the pid of `ndt` itself**.
+`ndt apps stop nsr` killed that, printed `ok nsr stopped`, and the recorder went on running,
+reparented to init.
+
+Two fixes, and the second matters more than the first:
+
+1. `( cd D && exec nohup CMD >log 2>&1 ) &` -- every step execs rather than forks, so one pid
+   holds from subshell to `nohup` to the program. Verified: the pidfile now names
+   `.../ntg-env/bin/python network_state_recorder.py`.
+2. **`app_stop` now verifies the process is gone before saying "stopped"**, and reports
+   `STILL RUNNING after TERM and KILL` otherwise. The original said "ok" without checking,
+   which is the "reports failure as success" shape this repo keeps re-finding.
+
+Re-tested: start names the real pid, stop leaves nothing behind.
+
+### 7.4d The OVS path, finally run **[OBS]**
+
+> ⚠️ **Corrected 2026-08-21 — the `ovs4` row below is wrong.** It exited 0 and every assertion
+> in it passed, and the fabric was forwarding nothing at all: 100% loss between every host
+> pair. See §8.3. The row is left as written because *what it got wrong* is the finding — every
+> check listed here was satisfied by a dead data plane.
+
+Both OVS variants worked on their first live run, which closes the last untested branch.
+
+| command | time | result |
+|---|---|---|
+| `ndt up ovs` | **1m13s** | 10 switches up+enabled, 128 hosts, 288 edges, exit 0 |
+| `ndt up ovs4` | **1m8s** | 10 switches up+enabled, 4 hosts, 40 edges, exit 0 |
+
+The FIFO/prompt handling held: waiting on the `[2/3]` banner rather than on the prompt string
+is correct, because `read -p` writes its prompt to the terminal and it never arrives over a
+FIFO. Both runs reached the prompt, built the fabric, answered, and converged.
+
+**New finding, and it generalises 7.1: Ryu's link count is not monotonic either.**
+
+```
+ndt up ovs :   links=32 -> 31 -> 29 -> 32      (converged after 70s)
+ndt up ovs4:   links=32 -> 31 -> 32            (converged after 66s)
+```
+
+So the shape found in P4 mode -- a discovery endpoint that dips while it is being rebuilt --
+is not a P4 quirk. It is present on both control planes, and in both cases `stack.sh`'s gate
+releases on the first sample that matches exactly
+([stack.sh:231](tools/test_workflow/stack.sh:231)) while the kernel pulls the topology once
+and never retries. A pull landing in a dip leaves the kernel permanently short of edges with
+nothing logged.
+
+Neither run actually hit it. But the OVS verify was only *printing* the host and edge counts,
+so it would not have noticed; it now **asserts** them against the topology file, the way the
+P4 path already asserted host count. That assertion is what would catch a kernel that pulled
+during a dip.
+
 ### 7.5 `ndt check` validated against real traffic **[OBS]**
 
 With 200 Mbit/s UDP crossing the fabric:
@@ -389,3 +514,134 @@ Two failed attempts came first, and both were instructive:
 
 In both failures `ndt check` printed "under 1 Mbit/s; the ratio is not meaningful yet"
 instead of a number. That is the behaviour worth keeping.
+
+---
+
+## 8. Adversarial review round, 2026-08-21 **[OBS]**
+
+A second session was asked to learn the workflow and then attack it; a third was using the lab
+meanwhile. Six defects came out of it. Two are fixed below with their evidence, one is left
+open and honestly unresolved. **Five of the six are in `ndt` itself** -- the tool written to
+make the lab safe was the least-tested thing touching it, which is the same lesson as
+[[new-tools-are-the-first-thing-under-test]].
+
+Findings reproduced independently before acting on any of them, per the standing rule that a
+report from another agent is evidence, not a verdict.
+
+| # | defect | status |
+|---|---|---|
+| F4 | `down` kills any pid in `.test_run/pids/`, verifies nothing, still reports clean | confirmed, **not fixed** |
+| F5 | `app_stop` follows a symlinked pidfile; `stop_one` refuses to | confirmed, **not fixed** |
+| F6 | an idle `iperf3 -s` blocks every teardown | confirmed, **not fixed** |
+| F9 | `topo_session()` reports absent whenever an app session exists | confirmed, **FIXED** (§8.2) |
+| — | `ndt up ovs4` builds a fabric that forwards nothing | confirmed, **FIXED** (§8.3) |
+| B1/B2 | OVS↔P4 switch silently reuses the previous plane's kernel | code-level only, not reproduced live |
+
+### 8.1 F4 / F5 / F6, reproduced here **[OBS]**
+
+- **F4**: an unrelated `setsid sleep 900` pid written into `.test_run/pids/kernel.pid`; `ndt
+  down` killed it, printed `stopped kernel`, and `verify clean` went five-for-five with rc 0.
+  `stop_one` validates that the pid is an integer ≥ 2 and nothing else -- no `comm`, no start
+  time -- then sends `kill -TERM -$pid`, which is the whole **process group**.
+- **F5**: `.test_run/pids/app_nsr.pid` symlinked elsewhere; `ndt apps stop nsr` followed it,
+  killed the target, printed `ok nsr stopped`, rc 0. `stack.sh:293` refuses symlinks and
+  `app_stop`'s own comment claims "same pid hygiene as stop_one" -- it copied the `pid < 2`
+  check and not the symlink one.
+- **F6**: `iperf3 -s` idle on port 5299, serving nothing, is matched by `in_flight` and blocks
+  teardown with rc 1. Fail-closed and therefore not urgent, but it trains the `--force` habit
+  that disarms the guard for the case it exists to catch.
+
+### 8.2 F9: fixing one liveness bug introduced another in the same function **[OBS -- my own bug]**
+
+`topo_session()` had already been fixed once, on 2026-08-20, for reporting a live session as
+absent (`| grep -q` exits at the first match, `ndtwin-lab` still has its counts line to write,
+SIGPIPE, and `pipefail` turns 141 into the pipeline's status). The fix -- capture first, match
+after -- **dropped the per-line anchoring along with the pipeline**:
+
+```bash
+out="$(sudo -n "$LAB" status 2>/dev/null)"; [[ "$out" == topo:* ]]
+```
+
+`ndtwin-lab status` is `tmux list-sessions`, one line per session, **sorted by name**, and the
+three session names are `topo`, `energy`, `sim`. `energy < sim < topo`, so with any app running
+the blob does not start with `topo:` and a live session reads as absent again. Same symptom,
+new mechanism, one week apart, same function.
+
+The expensive consequence is not the misreport. `up_p4` decides whether to sweep with
+`[[ "$n" -gt 0 ]] && ! topo_session`, so with an app running it calls `cleanup` on a **healthy
+ten-switch fabric** and announces it as `orphan bmv2 process(es) ... sweeping first`. Reports
+success, does the wrong thing, and the message actively misdescribes it.
+
+**Fixed** by merging both callers into one `lab_session <name>` that avoids both traps at once
+-- no pipeline (no SIGPIPE) and line-anchored (no ordering assumption):
+
+```bash
+[[ $'\n'"$out"$'\n' == *$'\n'"$1":* ]]
+```
+
+Acceptance: 13 assertions, including "must still say absent when it genuinely is" and "must not
+be fooled by a session named `topology`". **The same suite fails 3 of 13 against the old
+implementation** -- a test never seen failing is not a test.
+
+Sibling correction, measured rather than assumed: the `| grep -q` SIGPIPE is a **race**, not a
+certainty -- 141 against a deliberately slow producer, but 0 six times out of six against the
+real `ndtwin-lab`. `app_running` therefore carried a *latent* hazard, not an observed defect,
+and is reported as such. It was still folded into the shared helper: two implementations of one
+predicate is how they came to disagree.
+
+### 8.3 `ndt up ovs4` produced a fabric with no forwarding at all **[OBS]**
+
+Found by the reviewing session, reproduced here. `ndt up ovs4` printed
+`ok model matches fabric: 4 hosts, 40 edges` and `up. ready`, and every host pair was 100% loss.
+
+`intelligent_router.py:36-38` takes Ryu's host list from **its own** static topology file, which
+defaults to the 128-host model regardless of the fabric, overridable by `NDTWIN_RYU_TOPO_FILE`.
+That variable had **one reader and zero automated setters** in the entire repo -- the only
+`export` was a hand-typed line in the 2026-08-17 report (`REPORT.md:182`), which is why that
+round's numbers are sound and every scripted run since was not. It is the exact mirror of
+`NDTWIN_CLONE_DISABLE`: committed setters, no reader.
+
+Measured, with the setter present and then removed (mutation gate):
+
+| | with the fix | setter removed |
+|---|---|---|
+| `all_destination_paths` | **902 bytes** | **1,110,528 bytes** |
+| distinct hosts in it | `10.0.0.1`–`10.0.0.4` | 128 |
+| `h1 -> 10.0.0.2` | forwards | **100% loss** |
+| `ndt up ovs4` exit code | 0 | **1** |
+| `model matches fabric` | ok | **still ok** |
+
+The 1,110,528 figure matches the reviewing session's measurement byte for byte, on a separate
+run. The last row is the point: **both topology views were correct**, so no structural check
+could have caught this.
+
+Two fixes. `up_ovs` now sets `NDTWIN_RYU_TOPO_FILE` to the same file as `TOPO_OVS`; and a
+`verify_dataplane` assertion **sends an actual packet** (`mnexec -a <host-pid> ping`), wired
+into both the OVS and P4 verify paths. The P4 path has the same blind spot for a different
+reason -- the destination-path count is what the proxy *says* it installed, and install-then-
+delete on bmv2 has been seen to leave a black hole that still counts as a path.
+
+### 8.4 Unresolved: the topo session reads absent under a pty **[OBS symptom, mechanism UNKNOWN]**
+
+Recorded because it is unfinished, not because it is understood.
+
+Under a pty, `sudo -n ndtwin-lab status` reports no `topo` session **while the fabric is fully
+healthy** -- measured at t=0 with bmv2=10 and both ports open, before anything was torn down.
+Four reproductions under a pty, all absent; three under a pipe, all correctly present. `TERM`
+and `TMUX` are identical in both. The mechanism was **not** isolated.
+
+This matters more than it first appears: an operator at a terminal *is* the pty case, so the
+pty behaviour is the normal one and the pipe runs are the artefact. The consequence is that
+`[2/3] topo-stop` is skipped and teardown falls entirely to `mn -c` in `[3/3]`. Measured
+end state is still clean (bmv2 10→0, veth 160→0), but the orderly Mininet shutdown is being
+skipped.
+
+**Consequence for the Ctrl-C test**: it is not answered. Three attempts; the first two finished
+before the interrupt could fire (teardown collapses to ~3 s under a pty instead of ~13 s), and
+the third delivered a real SIGINT 0.2 s into `mn -c` and left no residue at all -- but on a
+machine that was already effectively clean, so it measured nothing. **The question stands.**
+Next step is specific: hold a live topo session and compare `tmux list-sessions` under a pty
+against the same call under a pipe. That window was missed this round.
+
+Five different mechanisms were proposed for this anomaly during the session and all five were
+wrong. It is left as unknown rather than given a sixth.

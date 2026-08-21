@@ -1,0 +1,1477 @@
+#!/usr/bin/env bash
+#
+# ndt -- one line to bring the lab up, one line to take it down.
+#
+# [Co-developed with claude code -- Adam]
+#
+#   ndt up            bmv2 fabric + P4 proxy + kernel, converged, verified
+#   ndt up ovs        Ryu + OVS fabric + kernel, converged, verified
+#   ndt down          stack -> topo session -> mn -c, then prove the machine is clean
+#   ndt status        what is actually running, plus the state that decides every number
+#   ndt check         post-hoc health: telemetry double-count and the fake-CPU reminder
+#
+# Install (no sudo -- ~/.local/bin is already on PATH):
+#   ln -sf "$PWD/tools/test_workflow/ndt" ~/.local/bin/ndt
+#
+# ---------------------------------------------------------------------------------
+# Why this exists, and what it is allowed to assume
+#
+# The three-command sequence this replaces (topo-start; stack.sh up p4; stack.sh wait) is
+# correct but not safe to type from memory, because the things that decide whether a run is
+# meaningful are not arguments to any of them:
+#
+#   * TOPO_P4 defaults to the 4-host JSON (components.env:74). Run 128 hosts without
+#     exporting it and the kernel loads a static model of a different network -- link
+#     discovery waits for 12 destination paths instead of 16256 and the whole thing reads as
+#     a hang rather than as a misconfiguration. `up` derives TOPO_P4 from the host count
+#     instead of defaulting it, so the pairing cannot be got wrong.
+#   * host_count_override, bmv2_binary_override and the compiled ndtwin_switch.json each
+#     silently change every measurement. `up` and `status` print all three.
+#
+# ---------------------------------------------------------------------------------
+# Two liveness traps this script is built around. Both were re-confirmed live 2026-08-20.
+#
+# 1. `mn -c` (inside `ndtwin-lab cleanup`) runs, from mininet/clean.py:
+#        pkill -9 -f 'mininet:'      and      pkill -9 -f "sudo mnexec"
+#    It matches *command lines*, so it kills any process whose argv merely mentions those
+#    strings -- including the shell that invoked the cleanup, which is why cleanup has to be
+#    typed on a line of its own. A script file is immune: this file's argv is
+#    "/bin/bash .../ndt down", which mentions neither. That is the entire fix, and it is why
+#    teardown is safe to bundle here but was not safe to bundle into a `bash -c` one-liner.
+#    Everything below therefore also avoids putting either string into a *child's* argv --
+#    hence the ps-into-bash counters rather than `awk '$NF ~ /^mininet:/'`.
+#
+# 2. `pgrep -c simple_switch_grpc` returns 0 with ten switches running, because comm is
+#    truncated at 15 characters. The usual fix, `pgrep -cf`, then over-counts: -f matches
+#    command lines, so the shell running the check matches itself whenever the pattern
+#    appears in its own argv (measured: 11 for 10 switches). The `[s]imple...` bracket trick
+#    does not save it either, because the same argv usually also carries the unbracketed
+#    form. Counting `ps -eo comm=` inside this shell has neither failure mode.
+#
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+LAB=/usr/local/sbin/ndtwin-lab
+STACK="$HERE/stack.sh"
+MANIFEST=/tmp/ndtwin_p4_switches.json
+SWITCHES=10
+
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; B=$'\033[1m'; D=$'\033[2m'; N=$'\033[0m'
+else
+    R=''; G=''; Y=''; B=''; D=''; N=''
+fi
+say()  { echo "${B}$*${N}"; }
+info() { echo "${D}  $*${N}"; }
+ok()   { echo "${G}  ok${N}  $*"; }
+warn() { echo "${Y}  !!${N}  $*"; }
+err()  { echo "${R}  XX${N}  $*" >&2; }
+
+# --- counters ---------------------------------------------------------------------
+# Deliberately not pgrep, and deliberately not awk: see trap notes 1 and 2 in the header.
+# Both loops compare inside this shell, so no child process carries a matchable pattern.
+
+bmv2_count() {
+    local n=0 c
+    while read -r c; do [[ "$c" == "simple_switch_g" ]] && n=$(( n + 1 )); done \
+        < <(ps -eo comm= 2>/dev/null)
+    echo "$n"
+}
+
+mn_count() {
+    # The tag is assembled at run time so the literal never appears in any argv, including
+    # this script's own -- `mn -c` would SIGKILL a process whose argv carried it.
+    # Prefix, not equality: the last field is the tag plus the node name ("...:h1").
+    local tag="mininet" n=0 line
+    tag="${tag}:"
+    while read -r line; do
+        [[ "${line##* }" == "$tag"* ]] && n=$(( n + 1 ))
+    done < <(ps -eo args= 2>/dev/null)
+    echo "$n"
+}
+
+port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && exec 3>&- && return 0; return 1; }
+
+# port_listener_pids <port> -- pids listening on it, one per line. Empty when unknowable:
+# without `ss`, or when the socket belongs to another user (root-owned listeners are
+# invisible to us this way). Same approach stack.sh already uses for its stray guard.
+port_listener_pids() {
+    command -v ss >/dev/null 2>&1 || return 0
+    ss -ltnpH "( sport = $1 )" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u
+}
+
+port_listener_desc() {
+    local pids; pids="$(port_listener_pids "$1")"
+    [[ -z "$pids" ]] && { echo "a process this user cannot see (probably root-owned)"; return; }
+    local out="" pid comm
+    for pid in $pids; do
+        comm="$(cat "/proc/$pid/comm" 2>/dev/null || echo '?')"
+        out="${out:+$out, }$comm (pid $pid)"
+    done
+    echo "$out"
+}
+
+# deep_sweep -- kill whatever still holds the stack's ports, whoever started it.
+#
+# Off by default and deliberately so. `stop_one` only knows what this stack started, which is
+# the right default when the machine may have another session on it: killing a listener you
+# did not start is killing someone else's work. But it leaves "ndt down always reaches clean"
+# false for anything hand-started, and that gap is real -- measured 2026-08-20, a kernel
+# launched by hand survived a full `down`, which then correctly reported not-clean and
+# exited 1. `--deep` is the opt-in that closes it.
+#
+# The claim guard still applies: `down` refuses under a foreign claim unless --force, so
+# --deep alone cannot blow through someone else's reservation.
+deep_sweep() {
+    local port pids pid comm killed=0 blind=0
+    for port in 8000 8080 8081; do
+        port_open "$port" || continue
+        pids="$(port_listener_pids "$port")"
+        if [[ -z "$pids" ]]; then
+            err "  :$port is held by $(port_listener_desc "$port") -- --deep cannot address it"
+            blind=1
+            continue
+        fi
+        for pid in $pids; do
+            # Never signal init, and never signal this script or its own process group.
+            if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )) || [[ "$pid" == "$$" ]]; then
+                err "  refusing to signal pid ${pid:-empty} on :$port"
+                continue
+            fi
+            comm="$(cat "/proc/$pid/comm" 2>/dev/null || echo '?')"
+            warn "  killing $comm (pid $pid) holding :$port -- not started by this stack"
+            kill -TERM "$pid" 2>/dev/null
+            local i
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.5
+            done
+            kill -0 "$pid" 2>/dev/null && { kill -KILL "$pid" 2>/dev/null; sleep 1; }
+            if kill -0 "$pid" 2>/dev/null; then
+                err "  pid $pid survived TERM and KILL"
+            else
+                killed=$(( killed + 1 ))
+            fi
+        done
+    done
+    (( killed > 0 )) && ok "deep sweep removed $killed stray listener(s)"
+    (( killed == 0 && blind == 0 )) && info "deep sweep: nothing left holding the ports"
+    return 0
+}
+
+# --- lab claim ---------------------------------------------------------------------
+#
+# Why a file and not a process scan. `in_flight` below detects *measurements*; it cannot
+# detect *ownership*. On 2026-08-20 two sessions collided twice: one tore the stack down
+# while the other's kernel was merely sitting there between experiments, and `in_flight`
+# correctly did not fire because nothing it looks for was running.
+#
+# The coupling that makes this dangerous is already in the repo: `.test_run/pids/` is shared,
+# so `stack.sh down` kills whatever pid is registered there regardless of who put it there.
+# The pidfile is a registry with no owner field. This adds the owner field beside it.
+#
+# Any script may write the file directly; nothing has to call this tool:
+#
+#     .test_run/lab.claim
+#         owner=<free text, required>
+#         expires=<unix seconds, required -- a crashed session must not hold the lab forever>
+#         note=<free text, optional>
+#
+# Workspace-local, not /tmp, for the reason components.env already gives about predictable
+# paths in world-writable directories.
+CLAIM="$REPO/.test_run/lab.claim"
+
+claim_field() { [[ -f "$CLAIM" ]] && sed -n "s/^$1=//p" "$CLAIM" | head -1; }
+
+# foreign_claim -- prints a description when someone else holds an unexpired claim.
+# NDT_OWNER identifies this session. With it unset, any claim counts as foreign, which is the
+# safe default: an unnamed caller cannot prove the claim is its own.
+foreign_claim() {
+    [[ -f "$CLAIM" ]] || return 1
+    local owner exp now note
+    owner="$(claim_field owner)"; exp="$(claim_field expires)"; note="$(claim_field note)"
+    now="$(date +%s)"
+    if [[ ! "$exp" =~ ^[0-9]+$ ]] || (( exp <= now )); then
+        return 1        # expired or malformed -- stale, ignore
+    fi
+    [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]] && return 1   # ours
+    echo "$owner (until $(date -d "@$exp" +%H:%M:%S)${note:+, $note})"
+}
+
+cmd_claim() {
+    local mins="${1:-30}" note="${2:-}"
+    if [[ -z "${NDT_OWNER:-}" ]]; then
+        err "set NDT_OWNER first, so others can tell your claim from theirs:"
+        err "  export NDT_OWNER='my-session-name'"
+        return 2
+    fi
+    local other; other="$(foreign_claim)"
+    if [[ -n "$other" ]]; then
+        err "the lab is already claimed by $other"
+        return 1
+    fi
+    [[ "$mins" =~ ^[0-9]+$ ]] || { err "usage: ndt claim [minutes] [note]"; return 2; }
+    mkdir -p "$(dirname "$CLAIM")"
+    printf 'owner=%s\nexpires=%s\nnote=%s\n' \
+        "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" > "$CLAIM"
+    ok "lab claimed by $NDT_OWNER for ${mins}m${note:+ ($note)}"
+}
+
+cmd_release() {
+    if [[ ! -f "$CLAIM" ]]; then ok "no claim to release"; return 0; fi
+    local other; other="$(foreign_claim)"
+    if [[ -n "$other" && "${1:-}" != "--force" ]]; then
+        err "refusing: the claim belongs to $other"
+        err "if they are gone:  ndt release --force"
+        return 1
+    fi
+    rm -f "$CLAIM"; ok "lab released"
+}
+
+# in_flight -- names the measurement drivers currently running, one per line.
+#
+# Teardown is destructive in a way that is not obvious from the command: `ndt down` on a
+# machine running the sampling-rate matrix throws away hours of measurement, and the matrix
+# gives no sign of itself in `stack.sh status`. Found the hard way on 2026-08-20 -- a matrix
+# launched from another session was three minutes into a 300s cell while this script was
+# being written to tear the same fabric down.
+#
+# Matched in this shell, not with `ps | grep`, for the reason in trap note 2: a grep child
+# would carry these patterns in its own argv and match itself.
+in_flight() {
+    local line cmd
+    while read -r line; do
+        for cmd in matrix.sh measure.sh cpu_probe.py iperf3; do
+            case "$line" in
+                *"$cmd"*) echo "${line:0:100}"; break ;;
+            esac
+        done
+    done < <(ps -eo args= 2>/dev/null)
+}
+
+# lab_session <name> -- is that lab tmux session running?
+#
+# One implementation for all three (topo/energy/sim). There used to be two, and they
+# disagreed; that disagreement is the bug fixed on 2026-08-21.
+#
+# This predicate has two known ways to lie, and it has told both lies. Any rewrite must
+# keep clear of both:
+#
+#  1. `... | grep -q '^topo:'` -- grep -q exits on the first match, ndtwin-lab still has its
+#     counts line to print, and the SIGPIPE that follows becomes the pipeline's status under
+#     `pipefail`. That reported a live topo session as absent. It is a race (measured
+#     2026-08-21: 141 against a slow producer, but 0 six times out of six against the real
+#     ndtwin-lab), which makes it intermittent rather than safe.
+#  2. `[[ "$out" == topo:* ]]` on the whole captured blob -- the fix for (1), and wrong in a
+#     new way: `ndtwin-lab status` is `tmux list-sessions`, one line per session, sorted by
+#     name, plus a counts line. energy < sim < topo, so with an app running the blob does not
+#     *start* with "topo:" and a live topo session read as absent again. Measured: `ndt up`
+#     then called `cleanup` on a healthy 10-switch fabric and called it an orphan sweep.
+#
+# So: capture first (no pipeline, no SIGPIPE), then match per line (no ordering assumption).
+# The wrapping newlines make it a line-anchored prefix test with no subprocess at all.
+# [Co-developed with claude code -- Adam]
+lab_session() {
+    local out
+    out="$(sudo -n "$LAB" status 2>/dev/null)"
+    [[ $'\n'"$out"$'\n' == *$'\n'"$1":* ]]
+}
+
+topo_session() { lab_session topo; }
+
+# --- the state that decides every number ------------------------------------------
+
+host_count() {
+    local f="$REPO/p4_proxy/mininet/host_count_override" line
+    [[ -f "$f" ]] || { echo 4; return; }
+    while read -r line; do
+        line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        echo "$line"; return
+    done < "$f"
+    echo 4
+}
+
+bmv2_binary() {
+    local f="$REPO/p4_proxy/mininet/bmv2_binary_override" line
+    [[ -f "$f" ]] || { echo "simple_switch_grpc (stock, PATH)"; return; }
+    while read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        echo "$line"; return
+    done < "$f"
+    echo "simple_switch_grpc (stock, PATH)"
+}
+
+# The sampling rate the *compiled* pipeline encodes, not the one the .p4 comment claims.
+# Read from the rng bound in the built JSON: random(0, N-1) is one sample in N. Caught a real
+# drift on 2026-08-20 -- the source comment still said 256 while the running fabric was 1024.
+sample_rate() {
+    python3 - "$REPO/p4_proxy/p4_src/build/ndtwin_switch.json" <<'PY' 2>/dev/null || echo "unknown"
+import json, sys
+def walk(o):
+    if isinstance(o, dict):
+        if o.get("op") == "modify_field_rng_uniform":
+            hi = [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
+            if len(hi) == 2:
+                return int(hi[1], 16) + 1
+        for v in o.values():
+            r = walk(v)
+            if r: return r
+    elif isinstance(o, list):
+        for v in o:
+            r = walk(v)
+            if r: return r
+print(walk(json.load(open(sys.argv[1]))) or "unknown")
+PY
+}
+
+# Pick the topology model whose host count matches the fabric we are about to build, by
+# reading the files rather than by hardcoding a mapping. The model families are named after
+# the data plane -- P4_* for bmv2, OVS_*/Mininet_* for Open vSwitch -- and mixing them is the
+# mistake this exists to prevent, so the family is part of the query, not an afterthought.
+#
+# NDT_TOPO short-circuits the whole thing, for a model that does not follow the naming.
+topo_for_hosts() {
+    local want="$1" mode="${2:-p4}"
+    if [[ -n "${NDT_TOPO:-}" ]]; then
+        [[ -f "$NDT_TOPO" ]] && { echo "$NDT_TOPO"; return 0; }
+        return 1
+    fi
+    local pats="StaticNetworkTopologyP4_*.json"
+    [[ "$mode" != p4 ]] && pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json"
+    python3 - "$REPO/setting" "$want" $pats <<'PY' 2>/dev/null
+import glob, json, os, sys
+d, want, pats = sys.argv[1], int(sys.argv[2]), sys.argv[3:]
+for pat in pats:
+    for p in sorted(glob.glob(os.path.join(d, pat))):
+        try:
+            t = json.load(open(p))
+        except Exception:
+            continue
+        if sum(1 for n in t["nodes"] if n.get("vertex_type") == 1) == want:
+            print(p); raise SystemExit
+PY
+}
+
+# set_host_count <n> -- rewrite the override the topology script reads.
+#
+# This is the file that decides how many hosts the fabric builds; nothing else does. It is
+# persistent state, so changing it is announced rather than done quietly -- a later run that
+# inherits a count somebody else set is exactly how a measurement ends up describing a
+# different network than its author thought.
+set_host_count() {
+    local n="$1" f="$REPO/p4_proxy/mininet/host_count_override" cur
+    cur="$(host_count)"
+    [[ "$cur" == "$n" ]] && return 0
+    if (( n % 4 != 0 || n < 4 )); then
+        err "host count must be a multiple of 4 and at least 4 (hosts split over s1-s4); got $n"
+        return 1
+    fi
+    printf '%s\n' "$n" > "$f"
+    warn "host_count_override: $cur -> $n (persistent; affects every later run)"
+}
+
+json_len() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d[sys.argv[1]]))' "$1" 2>/dev/null; }
+
+# stale_pipeline -- true when the running switches were started before the current build of
+# ndtwin_switch.json, i.e. the fabric is running a pipeline that is no longer the one on disk.
+#
+# This is the one way `status` can lie about the sampling rate: the rate is decoded from the
+# built JSON, but bmv2 loaded its copy at exec time and never reloads. Recompiling under a
+# live fabric -- which is exactly what a sampling-rate sweep does -- makes the two disagree
+# with nothing to show for it. The manifest is written immediately after the switches start,
+# so its mtime dates the fabric.
+stale_pipeline() {
+    local built="$REPO/p4_proxy/p4_src/build/ndtwin_switch.json"
+    [[ -e "$MANIFEST" && -e "$built" ]] || return 1
+    [[ "$built" -nt "$MANIFEST" ]]
+}
+
+# --- preflight --------------------------------------------------------------------
+
+preflight() {
+    local mode="$1" bad=0
+    [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
+    if [[ "$mode" == "p4" ]]; then
+        [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }
+        [[ -f "$REPO/p4_proxy/p4_src/build/ndtwin_switch.json" ]] || {
+            err "P4 pipeline not compiled: p4_proxy/p4_src/build/ndtwin_switch.json"; bad=1; }
+    fi
+    return $bad
+}
+
+# --- up ---------------------------------------------------------------------------
+
+up_p4() {
+    local hosts topo binary rate n want_paths
+    # An explicit host count on the command line wins and is written through to the override.
+    if [[ -n "${1:-}" ]]; then
+        [[ "$1" =~ ^[0-9]+$ ]] || { err "usage: ndt up p4 [host-count]"; return 2; }
+        set_host_count "$1" || return 1
+    fi
+    hosts="$(host_count)"
+    topo="$(topo_for_hosts "$hosts" p4)"
+    binary="$(bmv2_binary)"
+    rate="$(sample_rate)"
+
+    if [[ -z "$topo" ]]; then
+        err "no P4 topology model in setting/ has $hosts hosts."
+        err "the kernel would load a model of a different network. derive one first:"
+        err "  python3 tools/test_workflow/derive_p4_topology_json.py \\"
+        err "      setting/StaticNetworkTopologyMininet_10Switches.json \\"
+        err "      setting/StaticNetworkTopologyP4_10Switches_${hosts}Hosts.json"
+        return 1
+    fi
+    want_paths=$(( hosts * (hosts - 1) ))
+
+    local held; held="$(foreign_claim)"
+    if [[ -n "$held" ]]; then
+        err "the lab is claimed by $held; 'ndt up' may restart the stack under them."
+        return 1
+    fi
+    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" ]]; then
+        err "a measurement is running; 'ndt up' may restart the fabric under it:"
+        printf '%s\n' "$busy" | sed 's/^/        /' >&2
+        return 1
+    fi
+
+    say "ndt up p4"
+    info "hosts        $hosts        (p4_proxy/mininet/host_count_override)"
+    info "topology     ${topo#$REPO/}"
+    info "bmv2         $binary"
+    info "sample rate  1/$rate     (compiled into ndtwin_switch.json)"
+    echo
+
+    preflight p4 || return 1
+
+    # -- 1. fabric --
+    say "[1/3] bmv2 fabric"
+    n="$(bmv2_count)"
+    if topo_session && [[ "$n" -eq "$SWITCHES" ]]; then
+        if stale_pipeline; then
+            # Reusing here would measure the old pipeline while every readout says the new one.
+            err "the fabric predates the current build of ndtwin_switch.json."
+            err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
+            err "are NOT running 1/$rate. take it down and back up:  ndt down && ndt up"
+            return 1
+        fi
+        ok "already up: $n switches, reusing"
+    else
+        if [[ "$n" -gt 0 ]] && ! topo_session; then
+            # Orphans outlive `mn -c` and hold :5005x, which makes the next fabric fail to
+            # bind with an error that reads like a P4 problem.
+            warn "$n orphan bmv2 process(es) with no topo session; sweeping first"
+            sudo -n "$LAB" cleanup >/dev/null 2>&1
+        fi
+        topo_session && sudo -n "$LAB" topo-stop >/dev/null 2>&1
+        sudo -n "$LAB" topo-start >/dev/null || { err "topo-start failed"; return 1; }
+        info "waiting for $SWITCHES switches and the manifest"
+        local i
+        for i in $(seq 1 180); do
+            n="$(bmv2_count)"
+            [[ "$n" -ge "$SWITCHES" && -s "$MANIFEST" ]] && break
+            sleep 1
+        done
+        n="$(bmv2_count)"
+        if [[ "$n" -lt "$SWITCHES" || ! -s "$MANIFEST" ]]; then
+            err "fabric did not come up: $n/$SWITCHES switches, manifest $( [[ -s $MANIFEST ]] && echo present || echo missing )"
+            err "look at the pane:  sudo -n $LAB topo-out 40"
+            return 1
+        fi
+        ok "$n switches up after ${i}s, manifest written"
+    fi
+    # The binary that is *running*, not the one the override file names -- a stale fabric
+    # started before an override edit is the difference between 40 and 500 Mbit/s.
+    local running
+    running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
+    [[ -n "$running" ]] && ok "running binary: $running"
+
+    # -- 2 + 3. proxy and kernel, via stack.sh --
+    say "[2/3] proxy + kernel"
+    info "stack.sh prompt is answered immediately: the fabric is already up"
+    # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
+    local out rc
+    out="$(printf '\n' \
+           | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
+             bash "$STACK" up p4 2>&1)"
+    rc=$?
+    if (( rc != 0 )); then
+        err "stack.sh up p4 exited $rc"
+        printf '%s\n' "$out" | tail -20 | sed 's/^/      /'
+        return 1
+    fi
+    printf '%s\n' "$out" | grep -E 'started|converged|up$|waiting for' | sed 's/^/      /'
+
+    # -- verify --
+    say "[3/3] verify"
+    verify_p4 "$topo" "$want_paths"
+}
+
+verify_p4() {
+    local topo="$1" want_paths="$2" rc=0
+
+    # Settle, do not sample. Measured 2026-08-20: stack.sh reported "converged after 4s" at
+    # 16256 paths and a read seconds later returned 13184, with the proxy still installing
+    # routes and the kernel making its one startup topology pull in the same window; it was
+    # then rock-steady at 16256 for 40s. So the count is not a monotonic progress bar, and a
+    # single equality check at an arbitrary instant can read a list mid-repopulation. Require
+    # the target twice, at least 3s apart, before calling it ready.
+    local paths hits=0 i
+    for i in $(seq 1 40); do
+        paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths \
+                 | json_len all_destination_paths)"
+        if [[ "$paths" == "$want_paths" ]]; then
+            hits=$(( hits + 1 ))
+            (( hits >= 2 )) && break
+        else
+            hits=0
+        fi
+        sleep 3
+    done
+    if (( hits >= 2 )); then
+        ok "proxy: $paths/$want_paths destination paths (stable)"
+    else
+        err "proxy: ${paths:-no answer}/$want_paths destination paths, never settled"
+        rc=1
+    fi
+
+    local graph
+    graph="$(curl -sf --max-time 5 http://localhost:8000/ndt/get_graph_data \
+             | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sw=[n for n in d.get('nodes',[]) if n.get('vertex_type')==0]
+print(len(sw), sum(1 for n in sw if n.get('is_up')), sum(1 for n in sw if n.get('is_enabled')),
+      sum(1 for n in d.get('nodes',[]) if n.get('vertex_type')==1), len(d.get('edges',[])))" 2>/dev/null)"
+    if [[ -z "$graph" ]]; then
+        err "kernel: no usable answer from /ndt/get_graph_data"
+        return 1
+    fi
+    read -r total up enabled hosts edges <<<"$graph"
+
+    local want_hosts
+    want_hosts="$(python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/null)"
+
+    if [[ "$total" == "$SWITCHES" && "$up" == "$SWITCHES" ]]; then
+        ok "kernel: $total switches, $up up, $edges edges, $hosts hosts"
+    else
+        err "kernel: $total switches, $up up (want $SWITCHES/$SWITCHES)"
+        rc=1
+    fi
+    # The graph must describe the network we actually built. This is the check that would
+    # have caught a wrong TOPO_P4 -- a 4-host model against a 128-host fabric.
+    if [[ "$hosts" == "$want_hosts" ]]; then
+        ok "model matches fabric: $hosts hosts"
+    else
+        err "model/fabric mismatch: kernel graph has $hosts hosts, topology file has $want_hosts"
+        rc=1
+    fi
+    if [[ "$enabled" != "$SWITCHES" ]]; then
+        # Structural in P4 mode, not a fault: nothing calls /ndt/inform_switch_entered.
+        info "is_enabled=$enabled/$SWITCHES -- expected in P4 mode, nothing calls inform_switch_entered"
+    fi
+    # Same blind spot as the OVS path, for a different reason: the destination-path count
+    # above is what the proxy *says* it installed, and install-then-delete on bmv2 has been
+    # observed to leave a black hole that still counts as a path.
+    verify_dataplane h1 10.0.0.2 \
+        "the proxy reports its paths installed; that is not the same as bmv2 forwarding them" || rc=1
+
+    echo
+    if (( rc == 0 )); then
+        say "up. ${G}ready${N}"
+        info "proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo"
+    else
+        say "up, ${R}but not verified${N} -- do not measure on this"
+    fi
+    return $rc
+}
+
+up_ovs() {
+    # $1 = 128 (NTG's own OVS fabric) or 4 (the P4 test bed's layout on OVS, so a P4-vs-OVS
+    # comparison varies the data plane and nothing else -- every such comparison before
+    # 2026-08-17 also changed the topology and could not attribute its difference).
+    local ovs_hosts="${1:-128}" ovs_verb=ovs-topo-start
+    [[ "$ovs_hosts" == 4 ]] && ovs_verb=ovs-topo-4host
+    local ovs_topo; ovs_topo="$(topo_for_hosts "$ovs_hosts" ovs)"
+    if [[ -z "$ovs_topo" ]]; then
+        err "no OVS topology model in setting/ has $ovs_hosts hosts"
+        return 1
+    fi
+    # Inverted order: Ryu must be listening before the switches dial out, so stack.sh has to
+    # start first and then block on its prompt while the fabric is built. The prompt cannot be
+    # waited for by reading stdout -- `read -p` writes to /dev/tty, and on a FIFO stdin the
+    # string never arrives -- so this waits on the "[2/3]" banner that precedes it. Getting
+    # that wrong does not hang, it does something worse: stack.sh proceeds and brings a proxy
+    # up on an empty fabric that then serves perfectly normal-looking answers.
+    local fifo out i n
+    out="$(mktemp -t ndt_ovs_out.XXXXXX)"
+    fifo="$(mktemp -u -t ndt_ovs_in.XXXXXX)"
+    mkfifo "$fifo" || return 1
+
+    say "ndt up ovs${ovs_hosts/128/}"
+    info "hosts        $ovs_hosts"
+    info "topology     ${ovs_topo#$REPO/}"
+    preflight ovs || { rm -f "$fifo" "$out"; return 1; }
+
+    n="$(mn_count)"
+    if [[ "$n" -gt 0 ]]; then
+        err "a Mininet is already running ($n host/switch processes)."
+        err "starting Ryu under a live Mininet is the /stats/flow wedge trigger."
+        err "take it down first:  ndt down"
+        rm -f "$fifo" "$out"; return 1
+    fi
+
+    say "[1/4] control plane (Ryu)"
+    # NDTWIN_RYU_TOPO_FILE is set to the SAME file as TOPO_OVS, and that is the whole point.
+    #
+    # TOPO_OVS is the kernel's model. Ryu reads its own, from this variable
+    # (intelligent_router.py:36-38), defaulting to the 128-host Mininet model regardless of
+    # how many hosts the fabric actually has. Until 2026-08-21 `ndt` set only the first, so
+    # `ndt up ovs4` built a 4-host fabric, gave the kernel the 4-host model, and let Ryu
+    # install routes for 128 hosts: 100% loss between every pair, while the kernel's graph,
+    # Ryu's /v1.0/topology/hosts and this script's own "model matches fabric" all read
+    # correct. Found by another session, reproduced here.
+    #
+    # The variable had exactly one reader and no automated setter anywhere -- the only
+    # `export` in the repo was a hand-typed line in a report from the 2026-08-17 round, which
+    # is why that round's numbers are sound and every unattended run since was not. This is
+    # the mirror image of NDTWIN_CLONE_DISABLE, which has setters and no reader.
+    # [Co-developed with claude code -- Adam]
+    ( cd "$REPO" && TOPO_OVS="$ovs_topo" NDTWIN_RYU_TOPO_FILE="$ovs_topo" \
+        CONVERGE_WAIT="${CONVERGE_WAIT:-400}" NO_COLOR=1 \
+        bash "$STACK" up ovs < "$fifo" > "$out" 2>&1 ) &
+    local stack_pid=$!
+    exec 3> "$fifo"
+
+    for i in $(seq 1 90); do
+        grep -q '2/3' "$out" && break
+        kill -0 "$stack_pid" 2>/dev/null || { err "stack.sh exited early"; sed 's/^/      /' "$out"; exec 3>&-; rm -f "$fifo" "$out"; return 1; }
+        sleep 1
+    done
+    if ! grep -q '2/3' "$out"; then
+        err "Ryu never reached the Mininet prompt"; sed 's/^/      /' "$out"
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
+    fi
+    ok "Ryu up, prompt reached"
+
+    say "[2/4] data plane (OVS fabric)"
+    sudo -n "$LAB" "$ovs_verb" >/dev/null || { err "$ovs_verb failed"; exec 3>&-; rm -f "$fifo" "$out"; return 1; }
+    local want_procs=$(( ovs_hosts + 10 ))
+    for i in $(seq 1 300); do
+        n="$(mn_count)"
+        [[ "$n" -ge "$want_procs" ]] && break
+        sleep 1
+    done
+    n="$(mn_count)"
+    if [[ "$n" -lt "$want_procs" ]]; then
+        err "fabric did not build: $n host/switch processes"
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
+    fi
+    ok "$n host/switch processes after ${i}s"
+
+    say "[3/4] proxy-less convergence + kernel"
+    info "the Ryu app sleeps a hard-coded 60s before installing paths, so this takes >60s"
+    echo "" >&3
+    wait "$stack_pid"; local rc=$?
+    exec 3>&-; rm -f "$fifo"
+    if (( rc != 0 )); then
+        err "stack.sh up ovs exited $rc"; tail -20 "$out" | sed 's/^/      /'; rm -f "$out"; return 1
+    fi
+    grep -E 'started|converged|up$' "$out" | sed 's/^/      /'
+    rm -f "$out"
+
+    say "[4/4] verify"
+    local graph
+    graph="$(curl -sf --max-time 5 http://localhost:8000/ndt/get_graph_data \
+             | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sw=[n for n in d.get('nodes',[]) if n.get('vertex_type')==0]
+print(len(sw), sum(1 for n in sw if n.get('is_up')), sum(1 for n in sw if n.get('is_enabled')),
+      sum(1 for n in d.get('nodes',[]) if n.get('vertex_type')==1), len(d.get('edges',[])))" 2>/dev/null)"
+    [[ -z "$graph" ]] && { err "kernel: no usable answer from /ndt/get_graph_data"; return 1; }
+    read -r total up enabled hosts edges <<<"$graph"
+
+    # What the topology file says the kernel should have ended up with.
+    local want; want="$(python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "$ovs_topo" 2>/dev/null)"
+    local want_hosts="${want% *}" want_edges="${want#* }"
+
+    local rc=0
+    if [[ "$total" == "$SWITCHES" && "$up" == "$SWITCHES" && "$enabled" == "$SWITCHES" ]]; then
+        ok "kernel: $total switches up+enabled"
+    else
+        err "kernel: $total switches, $up up, $enabled enabled (want $SWITCHES)"
+        rc=1
+    fi
+    # Asserted, not just printed. Ryu's link count is not monotonic during discovery --
+    # measured 2026-08-20: links went 32 -> 31 -> 29 -> 32 while converging, and stack.sh's
+    # gate releases on the first exact match. The kernel then pulls the topology once and
+    # never retries, so a pull landing in a dip leaves it permanently short of edges with
+    # nothing logged. Comparing against the file is what would catch that.
+    if [[ "$hosts" == "$want_hosts" && "$edges" == "$want_edges" ]]; then
+        ok "model matches fabric: $hosts hosts, $edges edges"
+    else
+        err "model/fabric mismatch: kernel has $hosts hosts / $edges edges," \
+            "topology file says $want_hosts / $want_edges"
+        err "the kernel pulls once and never retries -- restart it rather than trusting this"
+        rc=1
+    fi
+
+    verify_dataplane h1 10.0.0.2 \
+        "Ryu computes routes from NDTWIN_RYU_TOPO_FILE, not from the fabric. Check that
+   the Ryu process has it set to ${ovs_topo#$REPO/}" || rc=1
+
+    echo
+    if (( rc == 0 )); then say "up. ${G}ready${N}"; else say "up, ${R}but not verified${N}"; fi
+    return $rc
+}
+
+# --- down -------------------------------------------------------------------------
+
+cmd_down() {
+    local force="" deep="" arg busy held
+    for arg in "$@"; do
+        case "$arg" in
+            --force) force=--force ;;
+            --deep)  deep=--deep ;;
+            "")      ;;
+            *) err "unknown option: $arg (want --force and/or --deep)"; return 2 ;;
+        esac
+    done
+    held="$(foreign_claim)"
+    if [[ -n "$held" && "$force" != "--force" ]]; then
+        err "refusing to tear down: the lab is claimed by $held"
+        err "their kernel's pid is in the shared .test_run/pids/, so this would kill it."
+        err "wait for the claim to lapse, or:  ndt down --force"
+        return 1
+    fi
+    busy="$(in_flight)"
+    if [[ -n "$busy" && "$force" != "--force" ]]; then
+        err "refusing to tear down: a measurement is running."
+        printf '%s\n' "$busy" | sed 's/^/        /' >&2
+        err "tearing the fabric out from under it loses the whole run, and nothing else"
+        err "on this machine would say so. wait for it, or:  ndt down --force"
+        return 1
+    fi
+    [[ -n "$busy" ]] && warn "--force: tearing down with a measurement in flight"
+
+    say "ndt down"
+
+    # Apps first: they poll the kernel API, and left running they spend the teardown logging
+    # connection errors against a stack that is going away.
+    local a started=0
+    for a in $APP_NAMES; do
+        if app_running "$a"; then
+            (( started == 0 )) && say "[0/3] apps"
+            started=1
+            app_stop "$a" >/dev/null 2>&1 && info "stopped $a"
+        fi
+    done
+
+    # Order matters and is not the obvious one: `cleanup` does not stop the topo session, so
+    # cleaning up first leaves a tmux session whose bridge then tries to tear down a fabric
+    # that is already gone.
+    say "[1/3] kernel + proxy/Ryu"
+    local out
+    out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"
+    printf '%s\n' "$out" | grep -E 'stopped|still|held' | sed 's/^/      /'
+
+    say "[2/3] topology session"
+    sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
+
+    say "[3/3] sweep"
+    # Safe to call from inside this script: see trap note 1 in the header. `mn -c` kills by
+    # command line, and this script's argv mentions neither pattern.
+    sudo -n "$LAB" cleanup 2>&1 | sed 's/^/      /'
+
+    # Last, and only when asked: anything still holding the ports was not started by this
+    # stack, so removing it is a decision rather than a cleanup step.
+    if [[ -n "$deep" ]]; then
+        say "[4/4] deep sweep (--deep)"
+        deep_sweep
+    fi
+
+    echo
+    say "verify clean"
+    cmd_clean
+}
+
+# The teardown assertion, separately callable. Exits non-zero if anything survived, because
+# a leftover is not cosmetic: it makes the next run measure the wrong process.
+cmd_clean() {
+    local rc=0 n p
+
+    n="$(bmv2_count)"
+    if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fi
+
+    n="$(mn_count)"
+    if [[ "$n" -eq 0 ]]; then ok "host/switch processes: 0"; else err "host/switch processes: $n still running"; rc=1; fi
+
+    if topo_session; then err "topo tmux session still present"; rc=1; else ok "no topo session"; fi
+
+    if [[ -e "$MANIFEST" ]]; then err "switch manifest still present: $MANIFEST"; rc=1; else ok "no switch manifest"; fi
+
+    for p in 8000 8080 8081; do
+        if port_open "$p"; then
+            err ":$p still listening -- the next up would measure it"
+            err "   this stack did not start it; to kill it too:  ndt down --deep"
+            rc=1
+        fi
+    done
+    (( rc == 0 )) && ok "ports 8000/8080/8081 closed"
+
+    echo
+    if (( rc == 0 )); then say "${G}clean${N}"; else say "${R}not clean${N}"; fi
+    return $rc
+}
+
+# --- status helpers ----------------------------------------------------------------
+
+# claim_line -- one line describing who holds the lab, in the form that answers "can I touch
+# this right now". Relative time first: an absolute "until 17:11:52" makes the reader do
+# arithmetic against the wall clock, which is the moment they get it wrong. The four states
+# are deliberately worded differently -- an expired file must not read like a live claim, and
+# your own claim must not read like someone else's.
+claim_line() {
+    [[ -f "$CLAIM" ]] || { echo "none"; return; }
+    local owner exp now left
+    owner="$(claim_field owner)"; exp="$(claim_field expires)"; now="$(date +%s)"
+    if [[ ! "$exp" =~ ^[0-9]+$ ]]; then
+        echo "malformed (no usable expires=) -- treated as free"; return
+    fi
+    if (( exp <= now )); then
+        printf 'EXPIRED %dm ago (was %s) -- treated as free\n' $(( (now - exp) / 60 )) "$owner"
+        return
+    fi
+    left=$(( (exp - now + 59) / 60 ))
+    if [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]]; then
+        printf 'yours -- %dm left (until %s)\n' "$left" "$(date -d "@$exp" +%H:%M:%S)"
+    else
+        printf '%s -- %dm left (until %s)\n' "$owner" "$left" "$(date -d "@$exp" +%H:%M:%S)"
+    fi
+}
+
+# git_lines -- which code this is. The 2026-08-20 NDTWIN_CLONE_DISABLE episode was an
+# uncommitted edit to p4_client.py silently changing behaviour, believed by two sessions and
+# reverted an hour later; a modified source file is exactly the state that makes a run
+# unreproducible, so it belongs where the operator looks before measuring. Doc and scratch
+# edits are counted but not listed -- they cannot change what the stack does.
+git_lines() {
+    local head dirty behave
+    head="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?')"
+    dirty="$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l)"
+    printf '  %-14s %s' "code" "$head"
+    if [[ "$dirty" == 0 ]]; then echo "  (clean tree)"; return; fi
+    echo "  +$dirty file(s) with uncommitted changes"
+    behave="$(git -C "$REPO" status --porcelain 2>/dev/null \
+              | awk '{print $2}' | grep -E '^(src|include|p4_proxy|tools|setting)/' | head -4)"
+    if [[ -n "$behave" ]]; then
+        local n; n="$(printf '%s\n' "$behave" | wc -l)"
+        printf '  %-14s %s\n' "" "${Y}$n of them can change behaviour:${N}"
+        printf '%s\n' "$behave" | sed 's/^/                 /'
+    fi
+}
+
+netem_count() { tc qdisc show 2>/dev/null | grep -c netem || true; }
+
+# host_pid <hN> -- pid of that Mininet host's namespace, empty if it is not there.
+#
+# The tag is assembled at run time and only ever lives in a variable, never in a child's
+# argv: `mn -c` kills by command line and matches this exact string (see trap note 1).
+host_pid() {
+    local tag="mininet" pid args
+    tag="${tag}:$1"
+    while read -r pid args; do
+        [[ "${args##* }" == "$tag" ]] && { echo "$pid"; return 0; }
+    done < <(ps -eo pid=,args= 2>/dev/null)
+    return 1
+}
+
+# dataplane_ok <hN> <dst-ip> -- 0 forwards, 1 does not, 2 could not be tested.
+#
+# The only assertion in this script that moves a packet, and it exists because the checks
+# either side of it structurally cannot: on 2026-08-21 `ndt up ovs4` produced a fabric where
+# the kernel's graph, Ryu's topology view and "model matches fabric" were all correct and
+# every host pair was 100% loss, because Ryu had computed its routes for a different number
+# of hosts. Topology views agreeing is not forwarding working.
+#
+# `mnexec -a <pid>` rather than `mn` or `ip netns exec`: the hosts belong to a Mininet
+# started in a root tmux session, and mnexec is the form this machine's sudoers allows
+# without a password. [Co-developed with claude code -- Adam]
+dataplane_ok() {
+    local pid; pid="$(host_pid "$1")" || return 2
+    [[ -n "$pid" ]] || return 2
+    sudo -n mnexec -a "$pid" ping -c 2 -W 2 -q "$2" >/dev/null 2>&1 || return 1
+    return 0
+}
+
+# verify_dataplane <hN> <dst-ip> <hint> -- shared reporting for the check above.
+verify_dataplane() {
+    dataplane_ok "$1" "$2"
+    case $? in
+        0) ok "data plane: $1 -> $2 forwards" ;;
+        2) warn "data plane: no namespace for $1; forwarding NOT tested" ;;
+        *) err "data plane: $1 cannot reach $2 -- fabric is up but not forwarding"
+           err "   $3"
+           return 1 ;;
+    esac
+    return 0
+}
+
+# --- status -----------------------------------------------------------------------
+
+cmd_status() {
+    local check="" ; [[ "${1:-}" == "--check" ]] && check=1
+    local hosts topo rate n problems=()
+    hosts="$(host_count)"
+    topo="$(topo_for_hosts "$hosts" p4)"
+    rate="$(sample_rate)"
+
+    # -- who has the machine, and what code is this --
+    say "lab"
+    local cl; cl="$(claim_line)"
+    printf '  %-14s %s\n' "claim" "$cl"
+    case "$cl" in
+        none|EXPIRED*|malformed*|yours*) ;;
+        *) problems+=("the lab is claimed by someone else") ;;
+    esac
+    local note; note="$(claim_field note)"
+    [[ -n "$note" && "$cl" != none && "$cl" != EXPIRED* ]] && printf '  %-14s %s\n' "note" "$note"
+
+    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" ]]; then
+        printf '  %-14s %s\n' "measuring" "$(printf '%s' "$busy" | head -1 | cut -c1-72)"
+        local extra; extra="$(printf '%s\n' "$busy" | wc -l)"
+        (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
+        problems+=("a measurement is in flight")
+    else
+        printf '  %-14s %s\n' "measuring" "nothing"
+    fi
+    git_lines
+    echo
+
+    # -- the state that decides every number --
+    say "configuration"
+    printf '  %-14s %s\n' "hosts" "$hosts"
+    printf '  %-14s %s\n' "topology" "$( [[ -n "$topo" ]] && echo "${topo#$REPO/}" || echo "NONE for $hosts hosts" )"
+    printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
+    if stale_pipeline; then
+        printf '  %-14s 1/%s   %s\n' "sample rate" "$rate" "${Y}<- from the BUILT json; the running switches predate it${N}"
+        problems+=("the fabric predates the current build of ndtwin_switch.json")
+    else
+        printf '  %-14s 1/%s\n' "sample rate" "$rate"
+    fi
+    printf '  %-14s %s\n' "note" "/ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py"
+    echo
+
+    # -- what is running --
+    say "running"
+    n="$(bmv2_count)"; printf '  %-14s %-8s' "bmv2 switches" "$n"
+    printf '%-14s %s\n' "topo session" "$(topo_session && echo present || echo absent)"
+    n="$(mn_count)";   printf '  %-14s %-8s' "host/switch" "$n"
+    printf '%-14s %s\n' "manifest" "$( [[ -e $MANIFEST ]] && echo present || echo absent )"
+    printf '  %-14s %-8s' ":8000 kernel" "$(port_open 8000 && echo open || echo closed)"
+    printf '%-14s %-8s' ":8081 proxy" "$(port_open 8081 && echo open || echo closed)"
+    printf '%s\n' ":8080 ryu $(port_open 8080 && echo open || echo closed)"
+    local running
+    running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
+    [[ -n "$running" ]] && printf '  %-14s %s\n' "binary" "$running"
+    echo
+
+    # -- network health: fetch the graph once and reuse it --
+    local body="" gstate=""
+    if port_open 8000; then
+        body="$(http_get_graph)"
+        [[ -n "$body" ]] && gstate="$(printf '%s' "$body" | graph_summary)"
+    fi
+
+    say "network health"
+    if [[ -n "$gstate" ]]; then
+        read -r g_sw g_up g_en g_sdis g_hosts g_edges g_edown g_edis <<<"$gstate"
+        printf '  %-14s %s up, %s enabled, %s admin-disabled\n' "switches" "$g_up" "$g_en" "$g_sdis"
+        printf '  %-14s %s total, %s down, %s admin-disabled\n' "links" "$g_edges" "$g_edown" "$g_edis"
+        (( g_up  < g_sw )) && problems+=("$(( g_sw - g_up )) switch(es) are down")
+        (( g_sdis > 0 ))   && problems+=("$g_sdis switch(es) are admin-disabled -- a power test may not have been undone")
+        (( g_edown > 0 ))  && problems+=("$g_edown link(s) are down")
+        (( g_edis  > 0 ))  && problems+=("$g_edis link(s) are admin-disabled")
+        # The model the kernel loaded must describe the fabric that exists.
+        local want
+        want="$(python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "$topo" 2>/dev/null)"
+        if [[ -n "$want" && "$g_hosts $g_edges" != "$want" ]]; then
+            printf '  %-14s %s\n' "model" "${R}MISMATCH: graph has $g_hosts hosts / $g_edges edges, file says $want${N}"
+            problems+=("the kernel graph does not match the topology file")
+        fi
+    else
+        printf '  %-14s %s\n' "switches" "kernel not answering; no graph"
+    fi
+    local nem; nem="$(netem_count)"
+    if [[ "${nem:-0}" -gt 0 ]]; then
+        printf '  %-14s %s\n' "tc netem" "${Y}$nem qdisc(s) still shaping -- leftover fault injection?${N}"
+        problems+=("$nem tc netem qdisc(s) are still installed")
+    else
+        printf '  %-14s %s\n' "tc netem" "none"
+    fi
+    local appson="" a
+    for a in $APP_NAMES; do app_running "$a" && appson="${appson:+$appson, }$a"; done
+    printf '  %-14s %s\n' "apps" "${appson:-none running}"
+    case "$appson" in *energy*|*te*) problems+=("an app that changes the network is running: $appson") ;; esac
+    echo
+
+    # -- the numbers themselves --
+    if [[ -n "$gstate" ]]; then
+        say "kernel graph"
+        printf '  %s switches (%s up, %s enabled), %s hosts, %s edges\n' \
+            "$g_sw" "$g_up" "$g_en" "$g_hosts" "$g_edges"
+    fi
+    if port_open 8081; then
+        local paths
+        paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths | json_len all_destination_paths)"
+        say "proxy"
+        echo "  ${paths:-?} destination paths (want $(( hosts * (hosts - 1) )) for $hosts hosts)"
+        [[ -n "$paths" && "$paths" != "$(( hosts * (hosts - 1) ))" ]] &&
+            problems+=("proxy reports $paths destination paths, want $(( hosts * (hosts - 1) ))")
+    fi
+
+    # --check turns the report into a gate. Plain `status` always exits 0, so reading it by
+    # hand never looks like a failure.
+    if [[ -n "$check" ]]; then
+        echo
+        if (( ${#problems[@]} == 0 )); then
+            say "${G}check: ok${N}"
+            return 0
+        fi
+        say "${R}check: ${#problems[@]} problem(s)${N}"
+        printf '  - %s\n' "${problems[@]}"
+        return 1
+    fi
+    return 0
+}
+
+# One graph fetch, reused by every section that needs it.
+http_get_graph() { curl -sf --max-time 5 http://localhost:8000/ndt/get_graph_data 2>/dev/null; }
+
+graph_summary() {
+    python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sw=[n for n in d.get('nodes',[]) if n.get('vertex_type')==0]
+ed=d.get('edges',[])
+print(len(sw),
+      sum(1 for n in sw if n.get('is_up')),
+      sum(1 for n in sw if n.get('is_enabled')),
+      sum(1 for n in sw if n.get('admin_disabled')),
+      sum(1 for n in d.get('nodes',[]) if n.get('vertex_type')==1),
+      len(ed),
+      sum(1 for e in ed if not e.get('is_up')),
+      sum(1 for e in ed if e.get('admin_disabled')))" 2>/dev/null
+}
+
+# --- check ------------------------------------------------------------------------
+
+cmd_check() {
+    # The telemetry double-count from a warm-fabric proxy restart is invisible in absolute
+    # numbers -- twice the bytes just looks like a busier network. It is only visible as a
+    # ratio against the kernel's own view of the same interfaces, which is why this compares
+    # rather than reports. Fixed by the settle pair 79e4f69; kept as a tripwire.
+    say "ndt check"
+    if ! port_open 8000; then err "kernel is not up; nothing to check"; return 1; fi
+
+    # This check polls /ndt/get_graph_data at 4 Hz, and that HTTP work is served by the very
+    # process whose CPU a sampling-rate run is measuring. Running it during a poll-off cell
+    # would silently put the poll back in.
+    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" && "${1:-}" != "--force" ]]; then
+        err "refusing: this polls the kernel at 4 Hz and would perturb a running measurement:"
+        printf '%s\n' "$busy" | sed 's/^/        /' >&2
+        err "wait for it, or accept the contamination:  ndt check --force"
+        return 1
+    fi
+
+    info "sampling the twin and /proc/net/dev for ${NDT_CHECK_SECS:-8}s"
+    python3 - "${NDT_CHECK_SECS:-8}" <<'PY'
+import json, re, sys, time, urllib.request
+
+DUR = float(sys.argv[1])
+HZ = 4.0                      # the twin refreshes usage once a second; sample above that
+URL = "http://localhost:8000/ndt/get_graph_data"
+IFACE = re.compile(r"^s\d+-eth\d+$")
+
+# The twin publishes a *rate* (link_bandwidth_usage_bps), never a cumulative byte count, so
+# the comparison has to be rate against rate over the same window: integrate the twin's rate
+# time-weighted, and take ground truth from the tx_bytes delta on the same interfaces. Naive
+# "sum the twin's byte counters" has nothing to sum -- the edge schema has no such field.
+def netdev():
+    d = {}
+    for line in open("/proc/net/dev"):
+        if ":" not in line:
+            continue
+        name, rest = line.split(":", 1)
+        name = name.strip()
+        if IFACE.match(name):
+            d[name] = int(rest.split()[8])       # tx_bytes
+    return d
+
+try:
+    g0 = json.load(urllib.request.urlopen(URL, timeout=10))
+except Exception as e:
+    print("  XX  cannot read the twin: %s" % e); sys.exit(1)
+SW = {n["dpid"] for n in g0["nodes"] if n.get("vertex_type") == 0}
+
+def twin_rates(g):
+    # Inter-switch edges only, keyed by the interface name /proc/net/dev uses, so the two
+    # sides are summed over exactly the same set of links.
+    return {f"s{e['src_dpid']}-eth{e['src_interface']}": e["link_bandwidth_usage_bps"]
+            for e in g["edges"] if e["src_dpid"] in SW and e["dst_dpid"] in SW}
+
+nd0 = netdev()
+
+# Both sides of the ratio must be summed over the SAME interfaces. They were not: the twin
+# side summed every edge the twin reports, while ground truth summed only the intersection
+# with /proc/net/dev. That matters because the two sets genuinely differ -- an interface can
+# carry traffic and be absent from the twin's monitored edge set (s2-eth3, reported
+# 2026-08-20 and present under two different kernels). Mismatched populations would show up
+# as a skewed ratio and be read as double-counting, which is the one thing this check exists
+# to detect.
+KEYS = set(twin_rates(g0)) & set(nd0)
+# What the comparison leaves out, and why. These are host-facing links: the twin DOES model
+# them (dst_dpid 0 is the host placeholder), the inter-switch filter above is what drops them.
+# Calling them "not monitored" would misattribute the exclusion to the twin.
+EXCLUDED = sorted(set(nd0) - set(twin_rates(g0)))
+FULL = {f"s{e['src_dpid']}-eth{e['src_interface']}": e.get("link_bandwidth_usage_bps")
+        for e in g0["edges"]}
+
+t0 = time.time()
+integral = 0.0                # bit-seconds accumulated from the twin's reported rate
+prev_t, prev_v = None, None
+end = t0 + DUR
+while time.time() < end:
+    t = time.time()
+    try:
+        r = twin_rates(json.load(urllib.request.urlopen(URL, timeout=10)))
+    except Exception:
+        time.sleep(1.0 / HZ); continue
+    v = sum(r[k] for k in KEYS if k in r)
+    if prev_t is not None:
+        integral += prev_v * (t - prev_t)        # value x dt, not one-sample-per-change
+    prev_t, prev_v = t, v
+    slp = 1.0 / HZ - (time.time() - t)
+    if slp > 0:
+        time.sleep(slp)
+t1 = time.time()
+if prev_t is not None:
+    integral += prev_v * (t1 - prev_t)
+nd1 = netdev()
+
+keys = KEYS & set(nd1)
+truth_bits = sum(nd1[k] - nd0[k] for k in keys) * 8
+window = t1 - t0
+twin_bps = integral / window
+truth_bps = truth_bits / window
+
+print("  window               %.1fs over %d inter-switch links" % (window, len(keys)))
+# Say what was left out and why, then flag the case that is actually a fidelity gap: an
+# excluded link that moved bytes while the twin's own edge for it reports zero usage.
+if EXCLUDED:
+    print("  excluded             %d host-facing iface(s) (comparison is inter-switch only)"
+          % len(EXCLUDED))
+    # 1 MB over the window, not "> 0 bytes": LLDP and ARP keep every link faintly busy, and
+    # listing those buries the one link that is actually carrying the flow.
+    carried = sorted(((nd1[k] - nd0[k], k) for k in EXCLUDED
+                      if k in nd1 and nd1[k] - nd0[k] > 1e6), reverse=True)
+    for delta, k in carried[:4]:
+        u = FULL.get(k)
+        note = ("twin reports usage=%s" % u) if u is not None else "no twin edge for it"
+        flag = "  <- twin models it but reports zero" if u == 0 else ""
+        print("      %-12s moved %.1f MB, %s%s" % (k, delta / 1e6, note, flag))
+print("  twin  (integrated)   %.1f Mbit/s" % (twin_bps / 1e6))
+print("  /proc/net/dev        %.1f Mbit/s" % (truth_bps / 1e6))
+if truth_bps < 1e6:
+    print("  --  under 1 Mbit/s crossing the fabric; the ratio is not meaningful yet.")
+    print("      run this while traffic is flowing.")
+else:
+    ratio = twin_bps / truth_bps
+    if ratio > 1.5:
+        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
+    elif ratio < 0.5:
+        verdict = "under-counting"
+    else:
+        verdict = "ok"
+    print("  ratio                %.2f   %s" % (ratio, verdict))
+    print("      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone")
+    print("      replicas. Absolute numbers cannot show this -- only the ratio can.")
+PY
+
+    echo
+    info 'CPU: /ndt/get_cpu_utilization returns 10 + hash(ip) % 50 in MININET mode -- a'
+    info '     constant unrelated to load, which the Web-GUI displays as if it were real.'
+    info '     measure with:  python3 tools/test_workflow/cpu_probe.py <secs> <hz> <out.jsonl>'
+}
+
+# --- apps -------------------------------------------------------------------------
+#
+# The readers and the two apps that act on the network. Deliberately NOT part of `up`: these
+# sit at steps 4-6 of the dependency order in stack.sh's header, and two of them *change the
+# network*, so which ones are running is part of any experiment's setup rather than a default.
+#
+# Web-GUI and NTG are out of scope on purpose. Web-GUI is a Docker container on :3000 that
+# outlives everything here, and NTG is not a separate process at all -- it is the prompt the
+# topology script hands control to, selected by `mode:` in NTG's Mininet.yaml (see `ndt ntg`).
+#
+# Energy and Sim go through ndtwin-lab because it already has NOPASSWD root verbs for them.
+# The other three run fine as the invoking user, so they are started here with pidfiles beside
+# the stack's own.
+APP_NAMES="energy sim nsr viz te"
+
+app_label() {
+    case "$1" in
+        energy) echo "Energy-Saving-App          (CHANGES the network: powers switches down)" ;;
+        sim)    echo "Simulation-Platform-Manager" ;;
+        nsr)    echo "Network-State-Recorder     (records; reads the kernel API)" ;;
+        viz)    echo "Network-Traffic-Visualizer (JavaFX GUI -- needs a display)" ;;
+        te)     echo "Traffic-Engineering-App    (CHANGES the network: installs flow rules)" ;;
+    esac
+}
+
+app_running() {
+    case "$1" in
+        # Through lab_session, not its own `| grep -q`: two implementations of "is this lab
+        # session up" is how topo_session came to disagree with this one. See lab_session for
+        # the two ways the predicate lies. This form was not observed failing, but it is the
+        # fragile shape, and there is no reason to keep a second copy of it.
+        energy) lab_session energy ;;
+        sim)    lab_session sim ;;
+        *)      local p="$REPO/.test_run/pids/app_$1.pid"
+                [[ -f "$p" ]] && kill -0 "$(cat "$p" 2>/dev/null)" 2>/dev/null ;;
+    esac
+}
+
+# app_spawn <name> <dir> <cmd...> -- start a user-side app and record its REAL pid.
+#
+# Not `setsid CMD & echo $!`. setsid detaches into a new session, so the job `$!` names is a
+# transient shell, not the program -- measured 2026-08-20: the pidfile ended up holding the
+# pid of `ndt` itself, `stop` killed that, reported "ok nsr stopped", and the recorder went
+# on running reparented to init. A stop that reports success while the process survives is
+# the failure this repo keeps re-finding, so the pid has to be the program's own.
+#
+# `( cd D && exec nohup CMD )&` keeps one pid from subshell to nohup to CMD, because each
+# step execs rather than forks. nohup detaches it from any HUP without changing the pid.
+app_spawn() {
+    local name="$1" dir="$2"; shift 2
+    local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
+    local log="$log_dir/app_$name.log"
+    [[ -s "$log" ]] && mv -f "$log" "$log.prev"
+    ( cd "$dir" && exec nohup "$@" >"$log" 2>&1 ) &
+    local pid=$!
+    echo "$pid" >"$pid_dir/app_$name.pid"
+    sleep 1
+    if ! kill -0 "$pid" 2>/dev/null; then
+        err "$name exited immediately -- see .test_run/logs/app_$name.log"
+        tail -3 "$log" 2>/dev/null | sed 's/^/      /' >&2
+        rm -f "$pid_dir/app_$name.pid"
+        return 1
+    fi
+    ok "$name started (pid $pid) -> .test_run/logs/app_$name.log"
+}
+
+app_start() {
+    local name="$1"
+    if app_running "$name"; then warn "$name already running"; return 0; fi
+    # shellcheck source=components.env
+    source "$HERE/components.env"
+    local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
+    mkdir -p "$pid_dir" "$log_dir"
+    case "$name" in
+        energy) sudo -n "$LAB" energy-start >/dev/null && ok "energy started (tmux: energy)" ;;
+        sim)    sudo -n "$LAB" sim-start    >/dev/null && ok "sim started (tmux: sim)" ;;
+        nsr)
+            [[ -f "$NSR_DIR/network_state_recorder.py" ]] || { err "NSR not found at $NSR_DIR"; return 1; }
+            app_spawn nsr "$NSR_DIR" "$NTG_PY" network_state_recorder.py ;;
+        viz)
+            if [[ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+                err "viz is a JavaFX GUI and there is no display; not starting it"; return 1
+            fi
+            [[ -x "$VISUALIZER_DIR/network_traffic_visualizer.sh" ]] || { err "viz launcher not found"; return 1; }
+            app_spawn viz "$VISUALIZER_DIR" ./network_traffic_visualizer.sh
+            info "first run builds with maven and is slow" ;;
+        te)
+            [[ -f "$TE_APP_DIR/Traffic-engineering-App.py" ]] || { err "TE app not found"; return 1; }
+            app_spawn te "$TE_APP_DIR" "$TE_PY" Traffic-engineering-App.py ;;
+        *) err "unknown app: $name (known: $APP_NAMES)"; return 1 ;;
+    esac
+}
+
+app_stop() {
+    local name="$1"
+    case "$name" in
+        energy) sudo -n "$LAB" energy-stop >/dev/null 2>&1; ok "energy stopped" ;;
+        sim)    sudo -n "$LAB" sim-stop    >/dev/null 2>&1; ok "sim stopped" ;;
+        nsr|viz|te)
+            local p="$REPO/.test_run/pids/app_$name.pid" pid
+            [[ -f "$p" ]] || { info "$name not running"; return 0; }
+            pid="$(cat "$p" 2>/dev/null)"
+            # Same pid hygiene as stack.sh's stop_one: a pidfile of 1 would make kill -TERM -1
+            # signal the whole session.
+            if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
+                err "$name pidfile is unusable (${pid:-empty}); not killing anything"
+                rm -f "$p"; return 1
+            fi
+            kill -TERM "$pid" 2>/dev/null
+            local i
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.5
+            done
+            kill -0 "$pid" 2>/dev/null && { kill -KILL "$pid" 2>/dev/null; sleep 1; }
+            # Verify. Saying "stopped" without checking is how a leaked recorder went
+            # unnoticed on 2026-08-20.
+            if kill -0 "$pid" 2>/dev/null; then
+                err "$name (pid $pid) is STILL RUNNING after TERM and KILL"
+                return 1
+            fi
+            rm -f "$p"; ok "$name stopped" ;;
+        *) err "unknown app: $name"; return 1 ;;
+    esac
+}
+
+apps_status() {
+    say "apps"
+    local a
+    for a in $APP_NAMES; do
+        printf '  %-8s %-9s %s\n' "$a" \
+            "$(app_running "$a" && echo running || echo -)" "$(app_label "$a")"
+    done
+}
+
+cmd_apps() {
+    local sub="${1:-}"
+    case "$sub" in
+        ""|status)
+            apps_status
+            [[ "$sub" == status ]] && return 0
+            # Only offer the picker on a terminal; piped or scripted, status is the answer.
+            [[ -t 0 && -t 1 ]] || return 0
+            echo
+            if ! port_open 8000; then
+                warn "the kernel is not up (:8000 closed) -- every app below reads its API."
+                warn "run 'ndt up' first, or start them anyway and expect connection errors."
+            fi
+            echo "  which to start? (names or numbers, space separated; empty = none)"
+            local i=1 a
+            for a in $APP_NAMES; do printf '    %d) %-7s %s\n' "$i" "$a" "$(app_label "$a")"; i=$(( i + 1 )); done
+            local reply; read -r -p "  > " reply || return 0
+            [[ -z "${reply// }" ]] && { info "nothing selected"; return 0; }
+            local sel=() tok
+            for tok in $reply; do
+                if [[ "$tok" =~ ^[0-9]+$ ]]; then
+                    sel+=( "$(echo $APP_NAMES | cut -d' ' -f"$tok")" )
+                else
+                    sel+=( "$tok" )
+                fi
+            done
+            for a in "${sel[@]}"; do [[ -n "$a" ]] && app_start "$a"; done
+            ;;
+        stop)
+            shift
+            local targets="${*:-all}"
+            [[ "$targets" == all ]] && targets="$APP_NAMES"
+            local a; for a in $targets; do app_stop "$a"; done
+            ;;
+        *)
+            local a; for a in "$@"; do app_start "$a"; done
+            ;;
+    esac
+}
+
+# --- NTG mode ---------------------------------------------------------------------
+#
+# NTG's prompt and Mininet's CLI are mutually exclusive and chosen by one line in NTG's own
+# config, not by anything here. Reads always; writes only when asked, and says so, because
+# this edits a file in a sibling repo.
+NTG_YAML=/home/adam/Network-Traffic-Generator/setting/Mininet.yaml
+
+cmd_ntg() {
+    [[ -f "$NTG_YAML" ]] || { err "not found: $NTG_YAML"; return 1; }
+    local cur; cur="$(sed -n 's/.*mode:[[:space:]]*"\?\([a-z]*\)"\?.*/\1/p' "$NTG_YAML" | head -1)"
+    case "${1:-}" in
+        "")
+            say "NTG mode: ${cur:-unknown}"
+            info "cli    -> the topology drops into Mininet's CLI"
+            info "prompt -> the topology hands control to NTG's own prompt"
+            info "change it with:  ndt ntg cli|prompt     (takes effect on the next 'ndt up')" ;;
+        cli|prompt)
+            if [[ "$cur" == "$1" ]]; then ok "NTG mode already $1"; return 0; fi
+            sed -i "s/\(mode:[[:space:]]*\)\"\?[a-z]*\"\?/\1\"$1\"/" "$NTG_YAML"
+            warn "edited $NTG_YAML (a sibling repo's config): mode $cur -> $1"
+            info "takes effect on the next 'ndt up'; the running topology keeps its current mode" ;;
+        *) err "usage: ndt ntg [cli|prompt]"; return 2 ;;
+    esac
+}
+
+# --- dispatch ---------------------------------------------------------------------
+
+case "${1:-}" in
+    up)
+        case "${2:-p4}" in
+            p4)   up_p4 "${3:-}" ;;
+            ovs)  up_ovs "${3:-128}" ;;
+            ovs4) up_ovs 4 ;;
+            # A bare number means p4 at that host count -- `ndt up 4` is the short form.
+            [0-9]*) up_p4 "$2" ;;
+            *)    err "usage: ndt up [p4 [hosts] | ovs [hosts] | ovs4]"; exit 2 ;;
+        esac
+        ;;
+    down)    shift; cmd_down "$@" ;;
+    clean)   cmd_clean ;;
+    status)  cmd_status "${2:-}" ;;
+    check)   cmd_check "${2:-}" ;;
+    claim)   shift; cmd_claim "$@" ;;
+    release) cmd_release "${2:-}" ;;
+    apps)    shift; cmd_apps "$@" ;;
+    ntg)     cmd_ntg "${2:-}" ;;
+    *)
+        cat <<EOF
+usage: ndt <command>
+
+  up [what]     bring the whole lab up and verify it
+                  ndt up            p4 at the current host count (default)
+                  ndt up 4          p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up p4 128     p4 at 128 hosts
+                  ndt up ovs        Ryu + OVS, 128 hosts
+                  ndt up ovs4       Ryu + OVS on the P4 test bed's 4-host layout
+                NDT_TOPO=<file> forces a specific kernel model.
+  down [--deep] take it all down and prove the machine is clean
+                  --deep also kills whatever still holds :8000/:8080/:8081, including
+                  processes this stack did not start. Off by default: without it, a
+                  stray is reported and left alone rather than killed.
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+  clean         just the teardown assertion (exit 1 if anything survived)
+  check         telemetry double-count tripwire
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  ndt up derives the kernel's topology model from host_count_override, so the
+  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+  environment variable.
+
+repo: $REPO
+EOF
+        exit 2 ;;
+esac
