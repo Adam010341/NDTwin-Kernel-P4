@@ -232,7 +232,49 @@ check: 1 problem(s)
 | switch ↔ switch（例如 `dpid 1:1 → dpid 5`） | 32 | `True` | `True` |
 
 128 hosts × 2 = 256。**OVS 平面從來不把 host 邊標成 up**，而 P4 平面會
-（同一天的 P4 輪：`288 total, 0 down`）。所以：
+（同一天的 P4 輪：`288 total, 0 down`）。實測到 4 分鐘都沒動（`32 up / 256 down / 0 hosts up`
+每 15 秒取樣一次），所以不是「還沒收斂」。
+
+<details><summary>為什麼——不是設計決定，是資料對不上</summary>
+
+邊的狀態不在模型檔裡。模型檔只有接線（`src_dpid`／`src_interface`／…），
+`loadStaticTopologyFromFile` 把**每一條邊都設成 `isUp=false, isEnabled=false`**
+（`TopologyAndFlowMonitor.cpp:318`），之後只有控制平面回報得到的才會被標 up。
+
+host 邊是靠 `/v1.0/topology/hosts` 標的——一台 host 一條邊，**用 IP 去找**
+（`findEdgeByHostIp`）。而在那之前有一道門：
+
+```cpp
+// TopologyAndFlowMonitor.cpp:618
+{
+    SPDLOG_LOGGER_DEBUG(Logger::instance(), "Skipping host with no IPv4 address");
+    continue;                      // ← 跳過，下面標 up 的兩行不會執行
+}
+```
+
+**Ryu 回報了 128 台，但每一台的 `ipv4` 都是空陣列**（實測，剛開機時與 60 秒後都一樣）：
+
+```json
+{ "mac": "00:00:00:00:00:72", "ipv4": [], "ipv6": ["::", "fe80::200:ff:fe00:72"],
+  "port": { "dpid": "0000000000000004", "name": "s4-eth20" } }
+```
+
+有 IPv6 沒有 IPv4。**而且灌真流量也不會變**——h1 對 10.0.0.2 與 10.0.0.64 各 ping 三次
+全通之後再問，仍然是 128 台、0 台有 ipv4。所以不是「還沒學到」。
+
+P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的模型 render**
+（`ryu_topology.render_hosts`），128 台全部帶著 IP 出場 ⇒ 256 條邊全部標 up。
+
+⇒ **兩個平面的差別不是「有人決定不標 host 邊」，是 Ryu 用學的、proxy 用宣告的。**
+
+🔴 **Ryu 為什麼學不到 IPv4，還沒有結論。** 合理的懷疑是測試床設了 static ARP、
+於是 host 從不送 ARP，而 Ryu 的 host tracker 正是從 ARP 取 IPv4 的（IPv6 走 NDP，
+所以那一欄有值）。**但這個說法在 2026-08-11 被查過並否決**，而且當時的紀錄是
+「128/128 都有 IP」——**跟今天的 0/128 直接矛盾**。兩個量測不可能都對，
+中間有東西變了或條件不同，沒查清楚之前不要引用任何一邊當機制。
+</details>
+
+所以：
 
 - **P4**：`ndt status --check` 回 rc=0 才算過。
 - **OVS**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——

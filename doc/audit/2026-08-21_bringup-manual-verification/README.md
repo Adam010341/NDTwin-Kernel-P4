@@ -45,6 +45,32 @@ check: 1 problem(s)
 
 ⇒ **OVS 沒有一鍵驗收。** 已改成：P4 看 rc=0；OVS 要看「列出來的問題是不是只有這一條」。
 
+#### 1b. 追到底：那 256 條為什麼永遠 down（後續實驗）
+
+**不是設計決定，是資料對不上。** 鏈路：
+
+1. 模型檔**沒有狀態欄位**，只有接線。`loadStaticTopologyFromFile`
+   （`TopologyAndFlowMonitor.cpp:318`）把每一條邊設成 `isUp=false, isEnabled=false`。
+2. 之後只有**控制平面回報得到的**才會被標 up。host 邊由 `/v1.0/topology/hosts` 標，
+   **用 IP 去找對應的邊**（`findEdgeByHostIp`）。
+3. 但在那之前有一道門（`:618`）：**host 沒有 IPv4 就 `continue`**。
+4. 實測 Ryu 回報 **128 台，0 台有 ipv4**——剛開機、60 秒後、以及**灌了真流量之後**
+   （h1→10.0.0.2、h1→10.0.0.64 各三次全通）三次都一樣。有 IPv6（`fe80::…`）沒有 IPv4。
+5. ⇒ 128 台全被跳過 ⇒ 256 條邊維持出廠的 down。
+
+P4 沒有這個問題，因為 **proxy 不用學、直接從自己的模型 render**
+（`ryu_topology.render_hosts`），128 台全部帶 IP 出場。
+
+**持續性實測**（每 15 秒取樣，共 4 分鐘，遠超過 kernel 90 秒的收斂視窗）：
+`32 up / 256 down / 0 hosts up` 從頭到尾一格沒動。**不是「還沒收斂」。**
+
+🔴 **未解的矛盾，不要挑一邊引用。** 合理的懷疑是測試床設了 static ARP ⇒ host 從不送 ARP
+⇒ Ryu 的 host tracker 取不到 IPv4（IPv6 走 NDP，所以那欄有值）。
+**但這個說法 2026-08-11 被查過並否決**，當時的紀錄是「128/128 都有 IP」，
+與今天的 0/128 直接衝突。而 `TopologyAndFlowMonitor.cpp:2007-2014` 的長註解正是寫著
+「ping burst 會教會 Ryu」——**今天的實測顯示 ping 不會**。
+三者不可能都對。沒查清楚之前，這裡只記錄「第 4 步是實測」，不記錄原因。
+
 ### 2. veth 數不是 0
 
 初稿 §2.1 寫「實測 0/0/0/0」。實測**永遠有 4 條 veth**，屬於 Docker
