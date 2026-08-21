@@ -257,11 +257,20 @@ fi
 
 # --- 3b. kernel-side Python and shell tests --------------------------------------
 # [Co-developed with claude code -- Adam]
-# Separate from p4_proxy/tests because these cover the OVS/Ryu side and the test tooling itself, and
-# they run under a plain python3 -- no gRPC, no networkx. Added when a review found that the two
-# things they cover (the route-reinstall debounce and stack.sh's stray-listener guard) had no home to
-# be tested in, and both had shipped broken.
+# Separate from p4_proxy/tests because these cover the OVS/Ryu side and the test tooling itself.
+# Most run under a plain python3, but the walk suites (test_walk_instrumentation,
+# test_find_host_by_ip) build real networkx graphs -- under a bare python3 they read as
+# FAIL ran=0, which is how test_walk_instrumentation was red in this lane from the day it was
+# added. So the lane picks an interpreter that carries networkx when one exists, same move as
+# the P4 section above; plain python3 remains the fallback and runs everything else.
 step "kernel-side Python and shell tests"
+PY_KERNEL="$(command -v python3)"
+for candidate in "$P4_PROXY_PY" python3; do
+    if [[ -n "$candidate" ]] && command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -c "import networkx" >/dev/null 2>&1; then
+        PY_KERNEL="$candidate"; break
+    fi
+done
 shopt -s nullglob
 KERNEL_TESTS=("$KERNEL_DIR"/tests/python/test_*.py "$KERNEL_DIR"/tests/shell/test_*.sh)
 shopt -u nullglob
@@ -276,7 +285,7 @@ else
             # -v so a skip prints "test_x ... skipped 'reason'". Without it unittest prints a bare
             # "s" and the skip count only appears in the summary, which is how the skip check below
             # was dead for these files from the day it was written. Found by agy-review 0117.
-            (cd "$KERNEL_DIR" && python3 "$testfile" -v) >"$log" 2>&1
+            (cd "$KERNEL_DIR" && "$PY_KERNEL" "$testfile" -v) >"$log" 2>&1
         else
             (cd "$KERNEL_DIR" && bash "$testfile") >"$log" 2>&1
         fi
@@ -289,8 +298,8 @@ else
         # found by agy-review 0117; the previous version had one code path for both.
         #
         # "Ran N" counts skipped tests, so N > 0 does not mean anything was asserted. Nothing in
-        # this directory may skip for an environment reason -- these run under plain python3 and
-        # depend on nothing outside it -- so a skip is a broken test.
+        # this directory may skip for an environment reason when $PY_KERNEL carries networkx --
+        # the walk suites' guards are then inert -- so a skip is still a broken test.
         ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
         ran=${ran:-0}
         if [[ "$testfile" == *.py ]]; then

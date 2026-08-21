@@ -22,7 +22,15 @@ import ast
 import os
 import unittest
 
-import networkx as nx
+# The L1 kernel-side lane runs these files under plain python3, which by that lane's own
+# design carries no networkx -- an unguarded import there reads as FAIL ran=0, which is a
+# worse signal than an honest skip. Under p4_proxy/venv (the documented interpreter) the
+# guard is inert and every test runs.
+try:
+    import networkx as nx
+    HAVE_NETWORKX = True
+except ImportError:
+    HAVE_NETWORKX = False
 
 ROUTER = os.path.join(os.path.dirname(__file__), "..", "..", "intelligent_router.py")
 METHOD = "find_host_by_ip"
@@ -40,29 +48,30 @@ def load_helper():
     return ns[METHOD]
 
 
-class CountingGraph(nx.DiGraph):
-    """A DiGraph that counts calls to every method that walks the whole graph.
+if HAVE_NETWORKX:
+    class CountingGraph(nx.DiGraph):
+        """A DiGraph that counts calls to every method that walks the whole graph.
 
-    `number_of_nodes` and `__len__` are deliberately not counted: they are len() of a dict,
-    and the token is allowed to use them.
-    """
+        `number_of_nodes` and `__len__` are deliberately not counted: they are len() of a
+        dict, and the token is allowed to use them.
+        """
 
-    def __init__(self, *a, **k):
-        super().__init__(*a, **k)
-        self.walked = 0
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self.walked = 0
 
-    def number_of_edges(self, u=None, v=None):
-        self.walked += 1
-        return super().number_of_edges(u, v)
+        def number_of_edges(self, u=None, v=None):
+            self.walked += 1
+            return super().number_of_edges(u, v)
 
-    def size(self, weight=None):
-        self.walked += 1
-        return super().size(weight)
+        def size(self, weight=None):
+            self.walked += 1
+            return super().size(weight)
 
-    @property
-    def degree(self):
-        self.walked += 1
-        return super().degree
+        @property
+        def degree(self):
+            self.walked += 1
+            return super().degree
 
 
 class Router:
@@ -77,6 +86,8 @@ def fabric(hosts, offset=0):
     return net
 
 
+@unittest.skipUnless(HAVE_NETWORKX,
+                     "networkx not available; run under p4_proxy/venv/bin/python3")
 class FindHostByIpTest(unittest.TestCase):
     def setUp(self):
         self.helper = load_helper()

@@ -1,0 +1,311 @@
+# L2-L4 rerun, corrected invocation (TOPO_P4=128-host file, no --traffic)
+# date:   2026-08-21T22:14:32+08:00
+# commit: 32ff719
+
+bmv2 binary actually running:
+        1 ]*simple_switch_grpc
+       10 /usr/local/bmv2-fast/bin/simple_switch_grpc
+
+## api p4 (L2 + L3 + log check)
+
+=== L2 API contract (p4) ===
+NDTwin L2 contract test
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyP4_10Switches_128Hosts.json: 10 switches (BMv2), 128 hosts, 288 edges
+  traffic  : not expected
+  mutations: skipped
+  checks   : 39
+
+  PASS [200]  get_graph_data
+  PASS [200]  get_detected_flow_data
+  PASS [200]  get_detected_top_k_flow_data
+  FAIL [200]  get_switch_openflow_table_entries
+           - no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is probably still the [] stub
+           note: feeds the Classifier, which produces every flow's path
+  PASS [200]  get_static_topology_json
+  PASS [200]  get_average_link_usage
+  PASS [200]  get_path_switch_count
+  PASS [200]  get_num_of_flows_passing_a_switch
+  PASS [200]  get_total_input_traffic_load_passing_a_switch
+  FAIL [200]  get_power_report
+           - no power reading for dpid(s): [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  PASS [200]  get_switches_power_state
+  FAIL [200]  get_cpu_utilization
+           - <root>: expected object (map), got null (None)
+  FAIL [200]  get_memory_utilization
+           - <root>: expected object (map), got null (None)
+  FAIL [200]  get_temperature
+           - <root>: expected object (map), got null (None)
+  PASS [200]  get_openflow_capacity
+  PASS [200]  get_nickname
+  PASS [200]  acquire_lock
+  PASS [423]  acquire_lock_conflict
+  PASS [200]  renew_lock
+  PASS [200]  release_lock
+  PASS [200]  acquire_lock_after_release
+  PASS [200]  release_lock_cleanup
+  PASS [412]  release_lock_not_held
+  PASS [423]  acquire_lock_invalid_type
+  PASS [404]  install_flow_entry__unknown_dpid
+  PASS [400]  install_flow_entry__malformed_json
+  PASS [400]  install_flow_entry__missing_fields
+  PASS [400]  get_path_switch_count__bad_ip
+  PASS [200]  get_num_of_flows__unknown_dpid
+  PASS [404]  get_nickname__unknown_dpid
+  PASS [400]  inform_switch_entered__bad_dpid
+  PASS [404]  unknown_endpoint
+  PASS [404]  batch_flow_entries__all_unknown_dpids
+  PASS [400]  received_a_simulation_case__malformed
+  PASS [400]  received_a_simulation_case__missing_fields
+  PASS [400]  simulation_completed__malformed
+  PASS [400]  app_register__missing_fields
+  PASS [400]  historical_logging__bad_state
+  PASS [503]  intent_translator_text__incomplete_body
+
+======================================================================
+34/39 passed in 0.1s
+
+FAILED checks: get_switch_openflow_table_entries, get_power_report, get_cpu_utilization, get_memory_utilization, get_temperature
+
+hint: flow/path/rate checks are skipped without --with-traffic; start traffic and re-run to cover the telemetry path
+
+=== L3 component contract (p4) ===
+NDTwin L3 component contract check
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyP4_10Switches_128Hosts.json: 10 switches (BMv2), 128 hosts, 288 edges
+  components: 7
+
+Shared endpoint checks:
+       ok  /ndt/acquire_lock
+  exists  /ndt/app_register (contract skipped: needs --allow-mutations)
+  exists  /ndt/delete_flow_entry (contract skipped: needs --allow-mutations)
+  MISSING /ndt/disable_switch  not in the kernel's dispatch table
+       ok  /ndt/get_average_link_usage
+   BROKEN  /ndt/get_cpu_utilization
+           - <root>: expected object (map), got null (None)
+       ok  /ndt/get_detected_flow_data
+       ok  /ndt/get_detected_top_k_flow_data
+       ok  /ndt/get_graph_data
+   BROKEN  /ndt/get_memory_utilization
+           - <root>: expected object (map), got null (None)
+       ok  /ndt/get_nickname
+       ok  /ndt/get_path_switch_count
+   BROKEN  /ndt/get_switch_openflow_table_entries
+           - no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is probably still the [] stub
+   BROKEN  /ndt/get_temperature
+           - <root>: expected object (map), got null (None)
+  exists  /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries (contract skipped: needs --allow-mutations)
+       ok  /ndt/install_flow_entry
+  exists  /ndt/intent_translator/text  exists but declining: 503, the documented answer for a disabled feature
+       ok  /ndt/intent_translator/text
+  exists  /ndt/modify_device_name (contract skipped: needs --allow-mutations)
+  exists  /ndt/modify_flow_entry (contract skipped: needs --allow-mutations)
+  exists  /ndt/modify_nickname (contract skipped: needs --allow-mutations)
+       ok  /ndt/received_a_simulation_case
+       ok  /ndt/release_lock
+  exists  /ndt/set_switches_power_state (contract skipped: needs --allow-mutations)
+       ok  /ndt/simulation_completed
+
+======================================================================
+Per-component verdict
+
+  AFFECTED Energy-Saving-App [writes]
+             - /ndt/get_switch_openflow_table_entries contract violated: no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is probably still the [] stub
+             - /ndt/disable_switch missing (known gap)
+  OK       Traffic-Engineering-App [writes] (5 endpoints)
+  AFFECTED Web-GUI [writes]
+             - /ndt/get_switch_openflow_table_entries contract violated: no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is probably still the [] stub
+             - /ndt/get_cpu_utilization contract violated: <root>: expected object (map), got null (None)
+             - /ndt/get_memory_utilization contract violated: <root>: expected object (map), got null (None)
+             - /ndt/get_temperature contract violated: <root>: expected object (map), got null (None)
+  AFFECTED Network-Traffic-Visualizer
+             - /ndt/get_cpu_utilization contract violated: <root>: expected object (map), got null (None)
+             - /ndt/get_memory_utilization contract violated: <root>: expected object (map), got null (None)
+  OK       Network-State-Recorder (2 endpoints)
+  OK       Network-Traffic-Generator (2 endpoints)
+  OK       Simulation-Platform-Manager (3 endpoints)
+
+======================================================================
+3 component(s) affected: Energy-Saving-App, Web-GUI, Network-Traffic-Visualizer
+
+=== log allowlist check ===
+checking lines 1-62 (before the L2 error-path checks);
+crashes are still scanned across the whole file
+Log check: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  parsed   : 61 log lines (info=55, warning=6)
+  window   : lines 1-62 of 449 (the rest is deliberately excluded)
+  allowlist: 36 rule(s) (28 warning, 0 error, 8 forbid)
+
+  note: 1 line(s) did not match the expected log format (stdout from a subprocess?), first at line 2
+
+UNUSED ALLOWLIST ENTRIES (nothing matched them in this log)
+  Expected for warnings that only appear in the other data plane or
+  only during startup. Prune anything that is permanently unused.
+  warning_allowlist.txt:44  WARNING | ^NFS server reloaded\.$
+  warning_allowlist.txt:45  WARNING | ^ControllerAndOtherEventHandler stopped\.$
+  warning_allowlist.txt:46  WARNING | acceptor_\.close\(\) error
+  warning_allowlist.txt:73  WARNING | ^Host \(.*\) not found in static network topology file$
+  warning_allowlist.txt:74  WARNING | ^Edge \(host .*\) not found in static network topology file$
+  warning_allowlist.txt:75  WARNING | ^Link \(dpid .* port .*\) not found in static network topology file$
+  warning_allowlist.txt:76  WARNING | ^edge not found by dpid/port
+  warning_allowlist.txt:77  WARNING | ^No edge found for host IP
+  warning_allowlist.txt:78  WARNING | ^cannot find graph vertex for switch IP
+  warning_allowlist.txt:88  WARNING | P4 BMv2 Power ON from Kernel is currently a stub
+  warning_allowlist.txt:123  WARNING | ^JSON exception in request handler:
+  warning_allowlist.txt:126  WARNING | ^Bad entry in request:
+  warning_allowlist.txt:127  WARNING | ^Exception in intent_translator:
+  warning_allowlist.txt:128  WARNING | ^Invalid lock type requested:
+  warning_allowlist.txt:129  WARNING | ^refusing flow batch: none of its [0-9]+ entries names a switch
+  warning_allowlist.txt:130  WARNING | ^refusing flow batch: [0-9]+ of [0-9]+ entries cannot form a rule
+  warning_allowlist.txt:131  WARNING | ^get_path_switch_count: bad IP parameter
+  warning_allowlist.txt:132  WARNING | ^inform_switch_entered: dpid .* is not an unsigned integer
+  warning_allowlist.txt:133  WARNING | ^get_nickname: dpid .* is not an unsigned integer
+  warning_allowlist.txt:134  WARNING | ^modify_device_name: mac .* is not a MAC address
+  warning_allowlist.txt:135  WARNING | ^modify_nickname: mac .* is not a MAC address
+  warning_allowlist.txt:136  WARNING | ^Received unsupported request: method=
+  warning_allowlist.txt:137  WARNING | ^Rejecting simulation case: body is not valid JSON
+  warning_allowlist.txt:138  WARNING | ^Rejecting simulation case: missing required field
+  warning_allowlist.txt:139  WARNING | ^Rejecting simulation result: app_id .* is not a valid id
+  warning_allowlist.txt:140  WARNING | ^intent_translator requested but the translator is disabled
+
+======================================================================
+PASS: no crashes, and no unexpected warnings or errors
+
+======================================================================
+Summary
+  FAIL   L2 API contract (p4)
+  FAIL   L3 component contract (p4)
+  PASS   log allowlist check
+
+  logs: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs
+2 layer(s) failed
+api exit: 1
+
+## baseline p4 (capture for L4)
+
+=== capture p4 responses ===
+NDTwin L2 contract test
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyP4_10Switches_128Hosts.json: 10 switches (BMv2), 128 hosts, 288 edges
+  traffic  : not expected
+  mutations: skipped
+  checks   : 39
+
+  PASS [200]  get_graph_data
+  PASS [200]  get_detected_flow_data
+  PASS [200]  get_detected_top_k_flow_data
+  FAIL [200]  get_switch_openflow_table_entries
+           - no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is probably still the [] stub
+           note: feeds the Classifier, which produces every flow's path
+  PASS [200]  get_static_topology_json
+  PASS [200]  get_average_link_usage
+  PASS [200]  get_path_switch_count
+  PASS [200]  get_num_of_flows_passing_a_switch
+  PASS [200]  get_total_input_traffic_load_passing_a_switch
+  FAIL [200]  get_power_report
+           - no power reading for dpid(s): [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  PASS [200]  get_switches_power_state
+  FAIL [200]  get_cpu_utilization
+           - <root>: expected object (map), got null (None)
+  FAIL [200]  get_memory_utilization
+           - <root>: expected object (map), got null (None)
+  FAIL [200]  get_temperature
+           - <root>: expected object (map), got null (None)
+  PASS [200]  get_openflow_capacity
+  PASS [200]  get_nickname
+  PASS [200]  acquire_lock
+  PASS [423]  acquire_lock_conflict
+  PASS [200]  renew_lock
+  PASS [200]  release_lock
+  PASS [200]  acquire_lock_after_release
+  PASS [200]  release_lock_cleanup
+  PASS [412]  release_lock_not_held
+  PASS [423]  acquire_lock_invalid_type
+  PASS [404]  install_flow_entry__unknown_dpid
+  PASS [400]  install_flow_entry__malformed_json
+  PASS [400]  install_flow_entry__missing_fields
+  PASS [400]  get_path_switch_count__bad_ip
+  PASS [200]  get_num_of_flows__unknown_dpid
+  PASS [404]  get_nickname__unknown_dpid
+  PASS [400]  inform_switch_entered__bad_dpid
+  PASS [404]  unknown_endpoint
+  PASS [404]  batch_flow_entries__all_unknown_dpids
+  PASS [400]  received_a_simulation_case__malformed
+  PASS [400]  received_a_simulation_case__missing_fields
+  PASS [400]  simulation_completed__malformed
+  PASS [400]  app_register__missing_fields
+  PASS [400]  historical_logging__bad_state
+  PASS [503]  intent_translator_text__incomplete_body
+
+======================================================================
+34/39 passed in 0.0s
+
+FAILED checks: get_switch_openflow_table_entries, get_power_report, get_cpu_utilization, get_memory_utilization, get_temperature
+
+hint: flow/path/rate checks are skipped without --with-traffic; start traffic and re-run to cover the telemetry path
+
+captured 21 response(s) to /home/adam/Desktop/NDTwin-Kernel/.test_run/baseline/p4
+
+captures live in /home/adam/Desktop/NDTwin-Kernel/.test_run/baseline; compare with:  /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/run_layers.sh compare
+
+======================================================================
+Summary
+  PASS   capture p4 responses
+
+  logs: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs
+all layers passed
+baseline exit: 0
+
+## L4 compare (against the settle=60 OVS capture, both idle)
+
+=== L4 OVS/P4 differential ===
+L4 differential: P4 against a OVS baseline
+  OVS      : /home/adam/Desktop/NDTwin-Kernel/.test_run/baseline/ovs (21 endpoint responses)
+  P4       : /home/adam/Desktop/NDTwin-Kernel/.test_run/baseline/p4 (21 endpoint responses)
+  allowlist: 18 accepted difference(s)
+
+ACCEPTED DIFFERENCES (2)
+  get_graph_data: list is empty in P4 but populated in OVS: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+  get_graph_data: list is empty in OVS but populated in P4: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+
+UNEXPECTED DIFFERENCES (4)
+
+  get_path_switch_count
+      [shape] field missing in P4: message (is str in OVS)
+      [shape] extra field in P4: dst_ip (str)
+      [shape] extra field in P4: src_ip (str)
+      [shape] extra field in P4: switch_count (int)
+
+UNUSED ALLOWLIST ENTRIES (the difference they permit did not occur -- possibly now fixed)
+  baseline_diff_allowlist.txt:39  get_graph_data | type differs at nodes\[\]\.brand_name
+  baseline_diff_allowlist.txt:43  get_cpu_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:44  get_memory_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:45  get_temperature | type differs
+  baseline_diff_allowlist.txt:65  get_detected_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:66  get_detected_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:67  get_detected_flow_data | any_packet_rate_nonzero:
+  baseline_diff_allowlist.txt:68  get_detected_top_k_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:69  get_detected_top_k_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:70  get_detected_top_k_flow_data | any_packet_rate_nonzero:
+  baseline_diff_allowlist.txt:71  get_graph_data | any_link_usage_nonzero:
+  baseline_diff_allowlist.txt:72  get_graph_data | any_edge_has_flow_set:
+  baseline_diff_allowlist.txt:73  get_average_link_usage | avg_link_usage_nonzero:
+  baseline_diff_allowlist.txt:74  get_detected_flow_data | list is empty in P4 but populated in OVS: <root list>
+  baseline_diff_allowlist.txt:75  get_detected_top_k_flow_data | list is empty in P4 but populated in OVS: <root list>
+  baseline_diff_allowlist.txt:86  get_graph_data | list is empty in (P4|OVS) but populated in (OVS|P4): edges\[\]\.flow_set\[\]
+  baseline_diff_allowlist.txt:101  get_switch_openflow_table_entries | field missing in P4: \[\]\.flows\.[0-9]+\[\]\.match\.dl_dst
+
+======================================================================
+FAIL: 4 unexpected difference(s) between OVS and P4
+each one is either a bug, or an accepted P4 limitation that belongs in baseline_diff_allowlist.txt with a reason
+
+======================================================================
+Summary
+  FAIL   L4 OVS/P4 differential
+
+  logs: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs
+1 layer(s) failed
+compare exit: 1
+corrected rerun complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-21_l0-l4-fast-build/l2_l4_corrected.txt

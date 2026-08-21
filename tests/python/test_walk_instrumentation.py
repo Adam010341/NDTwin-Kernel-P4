@@ -41,7 +41,14 @@ import re
 import unittest
 from time import monotonic, sleep
 
-import networkx as nx
+# Guarded for the L1 kernel-side lane, which runs under plain python3 without networkx by
+# that lane's own design; an unguarded import there read as FAIL ran=0 since this file was
+# added. Under p4_proxy/venv (the interpreter the docstring names) everything runs.
+try:
+    import networkx as nx
+    HAVE_NETWORKX = True
+except ImportError:
+    HAVE_NETWORKX = False
 
 ROUTER = os.path.join(os.path.dirname(__file__), "..", "..", "intelligent_router.py")
 METHOD = "install_all_pair_paths"
@@ -183,6 +190,8 @@ def run(hosts_per_switch, switch_count=2):
     return r
 
 
+@unittest.skipUnless(HAVE_NETWORKX,
+                     "networkx not available; run under p4_proxy/venv/bin/python3")
 class WalkAccounting(unittest.TestCase):
     """The counts in the log line are the ones the comment promises."""
 
@@ -240,6 +249,8 @@ class WalkAccounting(unittest.TestCase):
 TIMED = 64
 
 
+@unittest.skipUnless(HAVE_NETWORKX,
+                     "networkx not available; run under p4_proxy/venv/bin/python3")
 class WalkTiming(unittest.TestCase):
     """The two phases partition the walk.
 
@@ -274,6 +285,8 @@ class WalkTiming(unittest.TestCase):
                              "report time is measured inside the walk; it cannot exceed it")
 
 
+@unittest.skipUnless(HAVE_NETWORKX,
+                     "networkx not available; run under p4_proxy/venv/bin/python3")
 class PhasesAreLabelledCorrectly(unittest.TestCase):
     """`install` and `report` are not interchangeable, and this is what pins which is which.
 
@@ -314,6 +327,8 @@ class PhasesAreLabelledCorrectly(unittest.TestCase):
         self.assertGreaterEqual(walk, floor * 0.9)
 
 
+@unittest.skipUnless(HAVE_NETWORKX,
+                     "networkx not available; run under p4_proxy/venv/bin/python3")
 class LogLineContract(unittest.TestCase):
     """The line is the interface the sweep parses; keep it greppable."""
 

@@ -14,7 +14,11 @@ from mininet.node import Switch, Host
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 
-import topo_from_json
+# The sibling module resolves when this file runs as a script (its own directory is then
+# sys.path[0]) but not when a test loads this file via importlib from elsewhere -- which is
+# how test_readopt and test_bmv2_binary_override went red the day the JSON wiring landed.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import topo_from_json  # noqa: E402
 
 # [Co-developed with claude code -- Adam]
 # Where the switch manifest is written: name -> pid, grpc_port, thrift_port, device_id.
