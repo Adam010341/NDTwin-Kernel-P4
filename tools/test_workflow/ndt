@@ -57,6 +57,19 @@ STACK="$HERE/stack.sh"
 MANIFEST=/tmp/ndtwin_p4_switches.json
 SWITCHES=10
 
+# Every ndtwin-lab verb reaches tmux, and tmux with a controlling terminal refuses to work
+# without TERM *in the environment* -- unexported counts as absent. `ndtwin-lab` sends tmux's
+# stderr to /dev/null and falls back to `echo "no lab sessions"`, so the failure arrives as a
+# confident wrong answer rather than an error. Under a pty with TERM unexported that made
+# `status` claim no session while one was running, `topo-stop` skip an orderly shutdown, and
+# `up` sweep a healthy fabric as orphans.
+#
+# Exported once here rather than at the 11 call sites: fixing only lab_session was not enough,
+# because topo-start/topo-stop/cleanup each run their own session check inside the wrapper.
+# Measured 2026-08-21 against a live session, 3/3 each way: pipe and setsid correct either way;
+# pty correct only with TERM exported, any value. [Co-developed with claude code -- Adam]
+export TERM="${TERM:-dumb}"
+
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
     R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; B=$'\033[1m'; D=$'\033[2m'; N=$'\033[0m'
 else
@@ -272,9 +285,22 @@ in_flight() {
 # So: capture first (no pipeline, no SIGPIPE), then match per line (no ordering assumption).
 # The wrapping newlines make it a line-anchored prefix test with no subprocess at all.
 # [Co-developed with claude code -- Adam]
+#  3. The answer is also wrong whenever this script runs under a pty with TERM absent from
+#     the *environment* (not merely unset in the shell -- unexported counts as absent).
+#     `ndtwin-lab status` is `tmux list-sessions || echo "no lab sessions"` with tmux's stderr
+#     sent to /dev/null. With a controlling terminal, tmux insists on setting that terminal up
+#     and needs TERM to do it; without one it never tries. So under a pty and no TERM the tmux
+#     call fails, the error is discarded, and the `||` turns it into a confident "no lab
+#     sessions" -- while the same command through a pipe answers correctly.
+#     Measured 2026-08-21 against a live session, 3/3 each way:
+#         pipe / stdin</dev/null / setsid (no ctty)  -> correct
+#         script(1) / forkpty, TERM unexported       -> "no lab sessions"
+#         script(1) / forkpty, TERM exported         -> correct  (any value, even "dumb")
+#     Exporting a TERM here costs nothing and removes the whole class. An interactive
+#     operator exports TERM already and never saw this; an agent or CI harness may not.
 lab_session() {
     local out
-    out="$(sudo -n "$LAB" status 2>/dev/null)"
+    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)"
     [[ $'\n'"$out"$'\n' == *$'\n'"$1":* ]]
 }
 
