@@ -134,6 +134,45 @@ settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "10"))
 detecting_time = 60
 
 # [Co-developed with claude code -- Adam]
+# How long Ryu's link discovery waits between two LLDP sends, in seconds. Ryu's default is
+# 0.05 and it is the single largest term in OVS failover.
+#
+# `Switches.lldp_loop` walks every port it knows and sleeps this long after each send, so the
+# interval between two sends to the SAME port is ports x guard -- and `link_loop` will not
+# declare a link down until LINK_LLDP_DROP=5 consecutive sends have gone unanswered. Detection
+# therefore costs about six sweeps, and a sweep is charged for every port including the
+# host-facing ones, which discover nothing because nothing on a host answers LLDP.
+#
+# Measured 2026-08-21, injecting netem loss 100% into an inter-switch link:
+#
+#   4 hosts    36 ports   detection 13.1 s   of a 15.70 s outage   (84%)
+#   128 hosts  160 ports  detection 44.9 s   of a 51.75 s outage   (87%)
+#
+# So a fabric that adds hosts slows down its own failure detection, with the switch topology
+# unchanged. P4 does not have this shape: its proxy beacons on a fixed interval that does not
+# depend on port count, which is why 4 -> 128 hosts costs OVS 3.30x and P4 only 1.21x.
+#
+# Left at Ryu's default unless the environment says otherwise, because lowering it raises the
+# LLDP packet rate on the control channel (at 160 ports, 0.05 -> 0.01 takes it from 20 to 100
+# packets/s) and that trade has not been measured at scale. Set the variable to try it.
+#
+# The override announces itself. This repo has shipped a flag whose setter was committed and
+# whose reader never existed, and a reader with no setter anywhere -- both produced runs that
+# looked like they had been configured and had not. A run that cannot show the line below in
+# its Ryu log was not using the knob, whatever the command line said.
+_lldp_guard = os.environ.get("NDTWIN_RYU_LLDP_GUARD")
+if _lldp_guard:
+    try:
+        switches.Switches.LLDP_SEND_GUARD = float(_lldp_guard)
+        print(f"NDTWIN: LLDP_SEND_GUARD overridden to "
+              f"{switches.Switches.LLDP_SEND_GUARD}s (default 0.05)", flush=True)
+    except ValueError:
+        # A malformed value keeps Ryu's default rather than crashing the control plane -- but
+        # says so, because silently falling back is how a measurement gets mislabelled.
+        print(f"NDTWIN: ignoring malformed NDTWIN_RYU_LLDP_GUARD={_lldp_guard!r}; "
+              f"keeping Ryu's default {switches.Switches.LLDP_SEND_GUARD}s", flush=True)
+
+# [Co-developed with claude code -- Adam]
 # How long the topology must be quiet before routes are recomputed. One `link a b down` raises an
 # EventLinkDelete per direction, and a switch joining raises a burst, so recomputing on each event
 # would repeat the whole 16256-pair walk several times for one operator action. 3s is well past the

@@ -1,0 +1,25 @@
+# LLDP link-failure detection time -- three cells
+# Assembled 2026-08-21 from three runs of lldp_detection.sh at 07ae07c.
+# t0=netem applied  t1="topology changed"  t2="route reinstall done"
+
+## A. 4 hosts, Ryu default LLDP_SEND_GUARD=0.05   (36 ports)
+  rep 1  iface=s1-eth1  detection=14.77s  detect+debounce+walk=17.77s
+  rep 2  iface=s1-eth1  detection=14.30s  detect+debounce+walk=17.31s
+  rep 3  iface=s1-eth1  detection=10.26s  detect+debounce+walk=13.27s
+  rep 1  iface=s1-eth6  NO DETECTION within 180 s
+  rep 2  iface=s1-eth6  NO DETECTION within 180 s
+
+## B. 128 hosts, Ryu default LLDP_SEND_GUARD=0.05  (160 ports)
+  rep 1  iface=s1-eth2  detection=42.48s  detect+debounce+walk=48.94s
+  rep 2  iface=s1-eth2  detection=45.84s  detect+debounce+walk=52.27s
+  rep 3  iface=s1-eth2  detection=46.25s  detect+debounce+walk=52.69s
+
+## C. 128 hosts, NDTWIN_RYU_LLDP_GUARD=0.01        (160 ports)
+  (override confirmed in ryu.log: "NDTWIN: LLDP_SEND_GUARD overridden to 0.01s")
+  rep 1  iface=s1-eth2  detection=12.74s  detect+debounce+walk=19.15s
+  rep 2  s1 rule toward 10.0.0.33: cookie=0x0, duration=39.855s, table=0, n_packets=0, n_bytes=0, idle_age=88, priority=10,ip,nw_dst=10.0.0.33 actions=output:2
+    s1 inter-switch src ports seen by ryu: 1,2
+  rep 2  iface=s1-eth2  detection=10.84s  detect+debounce+walk=17.23s
+  rep 3  s1 rule toward 10.0.0.33: cookie=0x0, duration=39.248s, table=0, n_packets=0, n_bytes=0, idle_age=163, priority=10,ip,nw_dst=10.0.0.33 actions=output:2
+    s1 inter-switch src ports seen by ryu: 1,2
+  rep 3  iface=s1-eth2  detection=10.95s  detect+debounce+walk=17.35s
