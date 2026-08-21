@@ -56,7 +56,63 @@ static_topology_file_path = Path(os.environ.get(
 is_mininet = True   # True: Mininet, False: physical testbed -- SEE ABOVE, this value is discarded
 
 RYU_SERVER_INSTANCE_NAME = "ndt_ryu_app"
-switch_num = 10
+
+
+# [Co-developed with claude code -- Adam]
+# How many switches must be online before the initial all-pair route walk runs, and which dpids
+# the topology says exist. These are two different questions and used to be one constant:
+#
+#   how many switches are INSTALLED       -- the topology file answers this
+#   how many are EXPECTED ONLINE  today   -- what this gate must actually compare against
+#
+# They are equal only when nothing is deliberately powered off. A site that leaves four of ten
+# switches unpowered got `len(self.switches) >= 10` forever false, and since load_static_topology
+# is the *only* trigger for the initial install, **no route was ever installed** -- with every
+# switch that was up reporting healthy and both topology views correct. The gate itself is right
+# for a site that does bring everything up; the fixed 10 is what was wrong.
+#
+# Order: NDTWIN_RYU_SWITCH_NUM (the deployment's own answer) -> the switch count in the topology
+# file -> 10. Setting the variable is how a site with switches off says so.
+def _expected_switches(path):
+    """(count, sorted dpids) of the switches the topology file declares. ([], 0) if unreadable."""
+    try:
+        with open(path) as fh:
+            topo = json.load(fh)
+    except (OSError, ValueError):
+        return 0, []
+    dpids = sorted(
+        int(n["dpid"]) for n in topo.get("nodes", [])
+        if n and n.get("vertex_type") == 0 and n.get("dpid")
+    )
+    return len(dpids), dpids
+
+
+_declared_count, expected_switch_dpids = _expected_switches(static_topology_file_path)
+
+_env_switch_num = os.environ.get("NDTWIN_RYU_SWITCH_NUM")
+if _env_switch_num and _env_switch_num.isdigit() and int(_env_switch_num) > 0:
+    switch_num = int(_env_switch_num)
+    _switch_num_source = "NDTWIN_RYU_SWITCH_NUM"
+elif _declared_count:
+    switch_num = _declared_count
+    _switch_num_source = f"topology file ({static_topology_file_path.name})"
+else:
+    switch_num = 10
+    _switch_num_source = "built-in default (topology file unreadable)"
+
+# [Co-developed with claude code -- Adam]
+# How long to wait for the full set before installing routes for whatever *is* online.
+#
+# Fail-open, deliberately: partial routing beats no routing. The previous behaviour was to wait
+# forever and say so once, which is indistinguishable from a healthy fabric that is simply still
+# converging -- and it stays that way for the life of the process. Same judgement already made
+# for initial_install_wait_limit below ("on expiry it proceeds rather than giving up ... then
+# there are no routes at all").
+#
+# Generous because the legitimate wait is long: Mininet mode sleeps 60s before the walk and the
+# 128-host walk itself is ~60s, and a switch that is merely slow to dial in must not trip this.
+initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLINE", "300"))
+
 detecting_time = 60
 
 # [Co-developed with claude code -- Adam]
@@ -126,6 +182,10 @@ class IntelligentRyu(app_manager.RyuApp):
         # _schedule_route_reinstall for why this exists at all.
         self.topology_change_seq = 0
         self.reinstall_worker_running = False
+
+        # [Co-developed with claude code -- Adam]
+        # Spawned once, by the first switch to connect; see _initial_install_watchdog.
+        self._initial_watchdog_started = False
         
 
     # [Co-developed with claude code -- Adam]
@@ -145,6 +205,49 @@ class IntelligentRyu(app_manager.RyuApp):
     def _active_net(self):
         """The graph routes are computed from: whichever of the two this run is using."""
         return self.dynamic_net if self.is_dynamically_detect_topo else self.static_net
+
+    def _initial_install_watchdog(self):
+        """Install routes for whatever is online once the wait for the full set has gone on too long.
+
+        [Co-developed with claude code -- Adam]
+        Fail-open. `load_static_topology` behind the switch-count gate is the only trigger for the
+        initial route install, so a threshold that is never reached means no route is ever
+        installed -- and that state is indistinguishable, from outside, from a fabric that is
+        still converging. Every switch that is up answers every probe, both topology views are
+        correct, and nothing forwards.
+
+        Safe to run on a partial fabric: the installer looks its datapaths up with
+        `self.switches.get(...)` and skips the ones that are not connected, which was already
+        made true for the link-event path.
+
+        Deliberately does NOT set install_initial_openflow_entries_completed itself --
+        load_static_topology owns that flag. If more switches arrive later, the link events they
+        raise go through _schedule_route_reinstall and the routes are recomputed with them
+        included.
+        """
+        hub.sleep(initial_install_deadline)
+
+        if self.install_initial_openflow_entries_completed:
+            return
+        if not self.switches:
+            self.logger.error(
+                "%ds after the first switch connected, no switch is connected any more; "
+                "no routes installed", initial_install_deadline,
+            )
+            return
+
+        online = sorted(self.switches)
+        missing = [d for d in expected_switch_dpids if d not in self.switches]
+        self.logger.warning(
+            "installing routes after waiting %ds: %d of %d switches online (threshold from %s). "
+            "Online: %s.%s This is partial routing -- traffic to or through the missing switches "
+            "will not be forwarded. Set NDTWIN_RYU_SWITCH_NUM to the number this deployment "
+            "actually brings up to remove the wait.",
+            initial_install_deadline, len(online), switch_num, _switch_num_source,
+            ", ".join(str(d) for d in online),
+            (" Missing: %s." % ", ".join(str(d) for d in missing)) if missing else "",
+        )
+        self.load_static_topology()
 
     def _schedule_route_reinstall(self, reason):
         """
@@ -295,6 +398,14 @@ class IntelligentRyu(app_manager.RyuApp):
 
         self.logger.info("Complete get_switch")
         self.switches = {sw.dp.id: sw.dp for sw in switch_list}
+
+        # [Co-developed with claude code -- Adam]
+        # Start the clock on the first switch to arrive, not at process start: Ryu is up well
+        # before the fabric is, and timing from process start would spend the budget waiting for
+        # the first switch rather than for the last one.
+        if not self._initial_watchdog_started and not self.install_initial_openflow_entries_completed:
+            self._initial_watchdog_started = True
+            hub.spawn(self._initial_install_watchdog)
         
         
         for sw in switch_list:
@@ -333,20 +444,19 @@ class IntelligentRyu(app_manager.RyuApp):
                 self.load_static_topology()
         elif not self.install_initial_openflow_entries_completed:
             # [Co-developed with claude code -- Adam]
-            # The gate is deliberately unchanged: `switch_num` is a fixed 10 rather than the
-            # count the topology file declares, and whether that threshold is right is a
-            # deployment question, not a code one.
+            # Waiting for the full set is correct for a site that brings everything up: the
+            # all-pair walk is ~60s over 16256 pairs on the 128-host topology, and running it on
+            # a partial graph produces paths that have to be thrown away and redone.
             #
-            # What is being fixed is the silence. `load_static_topology` behind this gate is the
-            # only trigger for the initial route install, so a fabric with fewer switches
-            # connects, reports healthy, answers every liveness probe -- and never installs a
-            # single route, saying nothing about why. The INFO line above prints the count with
-            # no indication that the count is load-bearing.
+            # What must not happen is waiting *forever* in silence, which is what this did when
+            # the threshold was a fixed 10 and the site had switches deliberately unpowered.
+            # _initial_install_watchdog now bounds the wait; this line says how long is left.
+            missing = [d for d in expected_switch_dpids if d not in self.switches]
             self.logger.warning(
-                "%d of %d switches connected; no initial routes will be installed until all %d "
-                "are up. Nothing is wrong yet -- but if this is the final size of the fabric, "
-                "no route will ever be installed and traffic will not be forwarded.",
-                len(self.switches), switch_num, switch_num,
+                "%d of %d switches connected (threshold from %s); waiting up to %ds before "
+                "installing routes for whatever is online.%s",
+                len(self.switches), switch_num, _switch_num_source, initial_install_deadline,
+                (" Not yet connected: %s." % ", ".join(str(d) for d in missing)) if missing else "",
             )
                 
     @set_ev_cls(ofp_event.EventOFPStateChange,
