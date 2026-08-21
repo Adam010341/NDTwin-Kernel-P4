@@ -42,13 +42,21 @@ if ! env NDTWIN_RYU_SETTLE_S=60 timeout 900 ndt up ovs > /tmp/l4_up_ovs.out 2>&1
     exit 1
 fi
 say "  ovs up; kernel graph state (the regression check):"
+# The graph's key is `edges`, not `links`. The first run of this script read the wrong key
+# and printed "links 0 total, 0 down" -- a vacuous check on an empty default that LOOKS
+# clean, which is the worst failure mode a regression check can have. The healthy verdict
+# for that run rests on counting the banked capture itself
+# (.test_run/baseline/ovs/get_graph_data.json: 288 edges, 0 down, 128 hosts with IPs),
+# done independently twice. Caught by the review session; fixed here.
 curl -sf --max-time 10 http://localhost:8000/ndt/get_graph_data 2>/dev/null \
   | python3 -c "
 import json,sys
 try: g=json.load(sys.stdin)
 except Exception: print('    (graph endpoint unreadable)'); sys.exit()
-links=g.get('links',[]); down=[l for l in links if not l.get('is_up',True)]
-print(f'    links {len(links)} total, {len(down)} down')" | tee -a "$OUT"
+e=g.get('edges',[]); down=[x for x in e if not x.get('is_up',True)]
+with_ip=sum(1 for x in e if x.get('dst_ip'))
+print(f'    edges {len(e)} total, {len(down)} down, {with_ip} with dst_ip')
+if not e: print('    WARNING: zero edges -- either the fabric is empty or this parser is wrong; do not read as clean')" | tee -a "$OUT"
 
 if ! bash "$RL" baseline ovs --traffic >> "$OUT" 2>&1; then
     say "  OVS BASELINE CAPTURE FAILED -- L4 will be skipped; continuing to P4 ladder anyway"

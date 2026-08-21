@@ -83,9 +83,12 @@ The corrected rerun (`l2_l4_corrected.txt`) flips `get_graph_data` and
 ## Also banked
 
 * First-ever L4 OVS reference captured on this machine (`.test_run/baseline/ovs`), taken at
-  `NDTWIN_RYU_SETTLE_S=60` and verified healthy — 288 edges, 0 down, all host IPs — because
-  the committed settle=10 default currently produces the known 256-edges-down kernel-graph
-  regression, which a baseline must not bake in.
+  `NDTWIN_RYU_SETTLE_S=60` and verified healthy — 288 edges, 0 down, 128 hosts with IPs.
+  The evidence is a direct count of the banked `get_graph_data.json` (done independently by
+  this session and the review session): the run log's own "links 0 total, 0 down" line was
+  the driver reading a `links` key on a graph whose key is `edges` — a vacuous check on an
+  empty default that looks clean. The driver is fixed and now warns on zero edges instead
+  of reading it as health. The baseline itself was never wrong; the check was.
 * Earlier tonight the entire beacon sweep (four P4 fabric boots, ~50 minutes of runtime,
   detection and forwarding all nominal) ran on this same fast binary — corroborating live
   mileage beyond the ladder.
