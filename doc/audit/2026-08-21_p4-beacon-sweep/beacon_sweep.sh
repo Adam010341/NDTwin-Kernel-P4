@@ -83,10 +83,21 @@ for B in 5 3 2 1; do
         # measure_failover injects ~10 s in (resolve + ping baseline). Anchor t_inject on the
         # netem actually appearing, not on when the child was forked -- the same "assert the
         # injection, then time from it" rule every round here has ended up needing.
+        #
+        # Poll `tc qdisc show dev <iface>`, never the bare no-dev form: sudoers only allows
+        # specific tc invocations, the bare form is not one of them, and `sudo -n` failing
+        # with stderr dropped reads exactly like "no netem anywhere". That misread burned rep
+        # 1 of the first run as INVALID while measure_failover itself was printing "netem
+        # verified present at every check". The iface comes from measure_failover's own
+        # first output line, so this polls the same device the same sudoers-approved way.
         t_inject=""
+        iface=""
         deadline=$(( $(date +%s) + 60 ))
         while (( $(date +%s) < deadline )); do
-            if sudo -n tc qdisc show 2>/dev/null | grep -q netem; then
+            if [[ -z "$iface" ]]; then
+                iface=$(grep -oP 'iface=\K\S+' "/tmp/beacon_meas_${B}_${rep}.out" 2>/dev/null | head -1)
+            fi
+            if [[ -n "$iface" ]] && sudo -n tc qdisc show dev "$iface" 2>/dev/null | grep -q netem; then
                 t_inject=$(date +%s.%N); break
             fi
             kill -0 "$mpid" 2>/dev/null || break
