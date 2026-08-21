@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import glob
 import json
 import os
 import signal
@@ -12,6 +13,8 @@ from mininet.topo import Topo
 from mininet.node import Switch, Host
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
+
+import topo_from_json
 
 # [Co-developed with claude code -- Adam]
 # Where the switch manifest is written: name -> pid, grpc_port, thrift_port, device_id.
@@ -34,6 +37,55 @@ BINARY_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 HOST_COUNT_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         "host_count_override")
+
+
+SETTING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), "setting")
+
+
+def _mac_str(mac, name):
+    """The model stores a host MAC as an integer; Mininet wants the colon form.
+
+    [Co-developed with claude code -- Adam]
+    Falls back to deriving it from the host index when the model has no MAC, which is what
+    the formula this replaced did. Note the old formula was `00:00:00:00:00:{i:02x}` and
+    produced an invalid 7-digit address at i >= 256; formatting the integer as a 48-bit
+    address is correct there instead. Nothing has ever run at that size.
+    """
+    try:
+        value = int(mac)
+    except (TypeError, ValueError):
+        value = 0
+    if value <= 0:
+        value = int(name[1:]) if name[1:].isdigit() else 0
+    return ":".join(f"{(value >> shift) & 0xFF:02x}" for shift in (40, 32, 24, 16, 8, 0))
+
+
+def _topology_model_path(host_num):
+    """The P4 model with this many hosts -- the same rule `ndt up` uses to pick one.
+
+    [Co-developed with claude code -- Adam]
+    Refuses rather than guessing: building a fabric the twin has no model for is the exact
+    failure this reader exists to prevent, so an unmatched host count must stop the run
+    instead of falling back to some other file.
+    """
+    override = os.environ.get("NDTWIN_P4_TOPO_FILE")
+    if override:
+        if not os.path.exists(override):
+            raise topo_from_json.TopologyModelError(
+                f"NDTWIN_P4_TOPO_FILE={override} does not exist")
+        return override
+    candidates = sorted(glob.glob(os.path.join(SETTING_DIR, "StaticNetworkTopologyP4_*.json")))
+    for path in candidates:
+        try:
+            if len(topo_from_json.hosts(topo_from_json.load(path))) == host_num:
+                return path
+        except (ValueError, KeyError):
+            continue
+    raise topo_from_json.TopologyModelError(
+        f"no P4 topology model in {SETTING_DIR} has {host_num} hosts "
+        f"(looked at {len(candidates)}); derive one with "
+        f"tools/test_workflow/derive_p4_topology_json.py before building this fabric")
 
 
 def _host_count_override(path=None):
@@ -258,59 +310,47 @@ class MultiSwitchTopo(Topo):
             s = self.addSwitch(s_name, cls=BMv2Switch, json_path=json_path, 
                                device_id=i, grpc_port=50050+i, thrift_port=9090+i)
             switches[i] = s
-            
-        # Add links between switches (Same as original testbed_topo.py)
-        self.addLink(switches[1], switches[5], port1=1, port2=1)
-        self.addLink(switches[1], switches[6], port1=2, port2=1)
-        self.addLink(switches[2], switches[5], port1=1, port2=2)
-        self.addLink(switches[2], switches[6], port1=2, port2=2)
-        self.addLink(switches[3], switches[7], port1=1, port2=1)
-        self.addLink(switches[3], switches[8], port1=2, port2=1)
-        self.addLink(switches[4], switches[7], port1=1, port2=2)
-        self.addLink(switches[4], switches[8], port1=2, port2=2)
-        
-        self.addLink(switches[5], switches[9], port1=3, port2=1)
-        self.addLink(switches[5], switches[10], port1=4, port2=1)
-        self.addLink(switches[6], switches[9], port1=3, port2=2)
-        self.addLink(switches[6], switches[10], port1=4, port2=2)
-        self.addLink(switches[7], switches[9], port1=3, port2=3)
-        self.addLink(switches[7], switches[10], port1=4, port2=3)
-        self.addLink(switches[8], switches[9], port1=3, port2=4)
-        self.addLink(switches[8], switches[10], port1=4, port2=4)
-        
-        # Host count. Default 4, and the wiring below reproduces the previous hard-coded
-        # four links exactly, so nothing changes unless the seam is used.
-        #
-        # A file rather than an env var, for the same reason bmv2_binary_override is one:
-        # the lab wrapper launches this topology through `tmux new-session` under a fixed
-        # root environment, so no variable set by an unprivileged operator can reach it.
-        # A file beside the topology is the only channel there is. Env var still wins when
-        # the topology is run directly, which is how it gets tested.
-        #
-        # It exists because the old comment here -- "128 hosts in BMv2 might be too heavy"
-        # -- was a guess nobody had tested, and comparing this fabric against the OVS one
-        # at the same host count was otherwise impossible. Must divide by 4.
-        # [Co-developed with claude code -- Adam]
-        HOST_NUM = int(os.environ.get("NDTWIN_P4_HOST_NUM", "0")) or _host_count_override()
-        if HOST_NUM % 4 or HOST_NUM < 4:
-            raise ValueError(
-                f"NDTWIN_P4_HOST_NUM={HOST_NUM}: hosts are split evenly over s1-s4, "
-                f"so it must be a multiple of 4 and at least 4"
-            )
-        hosts = []
-        for i in range(1, HOST_NUM + 1):
-            mac_str = f"00:00:00:00:00:{i:02x}"
-            ip_str = f"10.0.0.{i}/24"
-            host = self.addHost(f"h{i}", ip=ip_str, mac=mac_str)
-            hosts.append(host)
 
-        # Connect hosts to s1-s4 in equal quarters, switch ports counting from 3 -- the same
-        # split testbed_topo.py uses, so a host index means the same thing on both fabrics.
-        per_switch = HOST_NUM // 4
-        for idx, host in enumerate(hosts):
-            self.addLink(host, switches[1 + idx // per_switch],
-                         port1=1, port2=3 + idx % per_switch)
-        
+        # Which model to build from. The host count still selects it -- that is the one knob
+        # the lab wrapper can deliver (see _host_count_override) -- but everything else about
+        # the fabric now comes out of the model itself.
+        HOST_NUM_FOR_MODEL = int(os.environ.get("NDTWIN_P4_HOST_NUM", "0")) or _host_count_override()
+
+        # Links, hosts and host attachment all come from the kernel's own topology model.
+        #
+        # [Co-developed with claude code -- Adam]
+        # These used to be sixteen literal addLink calls, repeated verbatim in three files, with
+        # nothing checking them against the model the twin loads. That is how a fabric and a
+        # model could disagree in silence. Verified identical before the switch-over:
+        # tools/test_workflow/test_topo_from_json.py compares the derived wiring against the
+        # literals it replaces, for all three models, and it is part of the acceptance gate.
+        #
+        # The model is chosen by host count, the same rule `ndt` uses, because the topology is
+        # launched through `tmux` under a fixed root environment where no operator-set variable
+        # arrives -- the same reason host_count_override is a file. NDTWIN_P4_TOPO_FILE still
+        # wins when the topology is run directly, which is how it gets tested.
+        model_path = _topology_model_path(HOST_NUM_FOR_MODEL)
+        model = topo_from_json.load(model_path)
+        info(f"*** topology model: {model_path}\n")
+
+        for a_dpid, a_port, b_dpid, b_port in topo_from_json.switch_links(model):
+            self.addLink(switches[a_dpid], switches[b_dpid], port1=a_port, port2=b_port)
+
+        # Hosts and their attachment, also from the model.
+        #
+        # [Co-developed with claude code -- Adam]
+        # This replaces the "equal quarters over s1-s4, ports from 3" formula, which was a
+        # second copy of a layout the model already stated exactly -- and a third copy lived in
+        # the proxy. The formula also forced HOST_NUM to be a multiple of four; reading the
+        # attachment removes that constraint, because the model says where each host actually
+        # plugs in. Verified to reproduce the formula exactly at 4 and at 128 hosts before this
+        # replaced it (tools/test_workflow/test_topo_from_json.py).
+        for name, ip, mac in topo_from_json.hosts(model):
+            self.addHost(name, ip=f"{ip}/24", mac=_mac_str(mac, name))
+
+        for name, dpid, port in topo_from_json.host_links(model):
+            self.addLink(name, switches[dpid], port1=1, port2=port)
+
 def verify_switches(switches, timeout=10.0):
     """
     Wait for every switch to be up, and report the ones that are not.

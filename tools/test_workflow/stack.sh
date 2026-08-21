@@ -260,12 +260,56 @@ await_convergence() {
 
 # --- process helpers -------------------------------------------------------------
 
+# The command a running service was started with, recorded beside its pidfile.
+#
+# [Co-developed with claude code -- Adam]
+# Recorded rather than read back from /proc, because /proc shows the process that ended up
+# running and every service here is launched through a wrapper that execs away:
+#
+#     want (argv given to start_bg):  env PYTHONPATH=... bash -c "cd ... && .../python main.py"
+#     /proc/<pid>/cmdline:            .../python proxy_agent/main.py
+#
+# Those never match, so comparing against /proc restarts every service on every `up` while
+# reporting it as a changed command -- measured, first run of this check. A sidecar file
+# compares like with like: the same string is written at start and read at reuse.
+CMD_SUFFIX=".cmd"
+
+recorded_cmd() { cat "$PID_DIR/$1$CMD_SUFFIX" 2>/dev/null; }
+
 # start_bg <name> <logfile> <command...>
 start_bg() {
     local name="$1" log="$2"; shift 2
     if is_running "$name"; then
-        warn "  $name already running (pid $(cat "$PID_DIR/$name.pid"))"
-        return 0
+        # [Co-developed with claude code -- Adam]
+        # Reuse only what was started with the SAME command. is_running answers "a pid is
+        # registered under this name and it is alive" -- not "it is the thing you are asking
+        # for". It checks no mode, no topology, not even that the process is the right program.
+        #
+        # So switching data planes silently kept the previous plane's kernel: `ndt up ovs` then
+        # `ndt up` left a kernel serving the P4 fabric with `--topology ...Mininet_10Switches`
+        # and pointing at a Ryu that had already been stopped. Nothing downstream could catch
+        # it either -- the OVS and P4 128-host models both declare 10 switches, 128 hosts and
+        # 288 edges, so "model matches fabric" was satisfied by the wrong model.
+        #
+        # Comparing argv is enough to separate every case that matters here, because the
+        # topology path and the mode are both on the command line.
+        local want have
+        want="$(printf '%s\n' "$@")"
+        have="$(recorded_cmd "$name")"
+        if [[ -n "$have" && "$have" == "$want" ]]; then
+            info "  $name already running (pid $(cat "$PID_DIR/$name.pid"), same command)"
+            return 0
+        fi
+        if [[ -z "$have" ]]; then
+            warn "  $name is running (pid $(cat "$PID_DIR/$name.pid")) but was started before this"
+            warn "    check existed, so what it is serving cannot be verified; restarting it."
+        else
+            warn "  $name is running (pid $(cat "$PID_DIR/$name.pid")) with a DIFFERENT command;"
+            warn "    restarting it, because reusing it would serve the previous run's topology."
+            warn "    was:  $(printf '%s' "$have" | tr '\n' ' ')"
+            warn "    want: $(printf '%s' "$want" | tr '\n' ' ')"
+        fi
+        stop_one "$name"
     fi
     # One generation of history: '>' alone erased the previous era's log at every restart,
     # which is how the whole P4-era kernel.log vanished during the 2026-08-15 overnight audit
@@ -274,6 +318,7 @@ start_bg() {
     [[ -s "$log" ]] && mv -f "$log" "$log.prev"
     setsid "$@" >"$log" 2>&1 &
     echo $! >"$PID_DIR/$name.pid"
+    printf '%s\n' "$@" >"$PID_DIR/$name$CMD_SUFFIX"
     info "  started $name (pid $!) -> $log"
 }
 
@@ -305,7 +350,7 @@ stop_one() {
     # kill and no legitimate child of this script can have them.
     if [[ ! "$pid" =~ ^[0-9]+$ ]] || [[ "$pid" -lt 2 ]]; then
         err "  $pidfile does not contain a usable pid (${pid:-empty}); not killing anything"
-        rm -f "$pidfile"
+        rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
         return 1
     fi
 
@@ -323,7 +368,7 @@ stop_one() {
             info "  stopped $name"
         fi
     fi
-    rm -f "$pidfile"
+    rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
 }
 
 port_open() {

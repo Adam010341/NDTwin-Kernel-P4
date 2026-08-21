@@ -492,7 +492,20 @@ up_p4() {
             warn "$n orphan bmv2 process(es) with no topo session; sweeping first"
             sudo -n "$LAB" cleanup >/dev/null 2>&1
         fi
-        topo_session && sudo -n "$LAB" topo-stop >/dev/null 2>&1
+        # [Co-developed with claude code -- Adam]
+        # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
+        # mirror case ("starting Ryu under a live Mininet is the /stats/flow wedge trigger");
+        # this side used to be a bare `topo-stop >/dev/null 2>&1`, so `ndt up` on a running OVS
+        # fabric destroyed it with no message at all. The asymmetry was invisible because all
+        # three ndtwin-lab verbs name their tmux session `topo`, so the session's existence
+        # cannot tell the two planes apart -- the bridges can.
+        if topo_session && [[ "$(ovs_bridge_count)" -gt 0 ]]; then
+            err "an OVS fabric is running ($(ovs_bridge_count) bridges) under the topo session."
+            err "'ndt up' would tear it down to build a bmv2 fabric in its place."
+            err "take it down first:  ndt down"
+            return 1
+        fi
+        topo_session && { info "stopping the existing topo session"; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         sudo -n "$LAB" topo-start >/dev/null || { err "topo-start failed"; return 1; }
         info "waiting for $SWITCHES switches and the manifest"
         local i
@@ -529,7 +542,7 @@ up_p4() {
         printf '%s\n' "$out" | tail -20 | sed 's/^/      /'
         return 1
     fi
-    printf '%s\n' "$out" | grep -E 'started|converged|up$|waiting for' | sed 's/^/      /'
+    printf '%s\n' "$out" | grep -E 'started|converged|up$|waiting for|already running|DIFFERENT command' | sed 's/^/      /'
 
     # -- verify --
     say "[3/3] verify"
@@ -708,7 +721,7 @@ up_ovs() {
     if (( rc != 0 )); then
         err "stack.sh up ovs exited $rc"; tail -20 "$out" | sed 's/^/      /'; rm -f "$out"; return 1
     fi
-    grep -E 'started|converged|up$' "$out" | sed 's/^/      /'
+    grep -E 'started|converged|up$|already running|DIFFERENT command' "$out" | sed 's/^/      /'
     rm -f "$out"
 
     say "[4/4] verify"
@@ -906,6 +919,10 @@ git_lines() {
 }
 
 netem_count() { tc qdisc show 2>/dev/null | grep -c netem || true; }
+
+# How many OVS bridges exist. The only cheap way to tell an OVS fabric from a bmv2 one:
+# ndtwin-lab names the tmux session `topo` for both. [Co-developed with claude code -- Adam]
+ovs_bridge_count() { sudo -n ovs-vsctl list-br 2>/dev/null | grep -c . || true; }
 
 # host_pid <hN> -- pid of that Mininet host's namespace, empty if it is not there.
 #
