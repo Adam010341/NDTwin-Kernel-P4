@@ -1,0 +1,38 @@
+# does the kernel graph heal after boot? (the run-1 question)
+# date:   2026-08-22T12:20:30+08:00   commit: e5e4980 + uncommitted
+# kernel poll cadence, from source: 5s for the first 90s, then 30s
+
+boot returned after 101s. Sampling both sides every 5s for 120s.
+
+   t_after_boot   ryu(with_ipv4/known)   kernel(edges,down)
+       +0s         128/128                288,0
+       +5s         128/128                288,0
+      +10s         128/128                288,0
+      +15s         128/128                288,0
+      +20s         128/128                288,0
+      +25s         128/128                288,0
+      +30s         128/128                288,0
+      +35s         128/128                288,0
+      +40s         128/128                288,0
+      +45s         128/128                288,0
+      +50s         128/128                288,0
+      +55s         128/128                288,0
+      +60s         128/128                288,0
+      +65s         128/128                288,0
+      +70s         128/128                288,0
+      +75s         128/128                288,0
+      +80s         128/128                288,0
+      +85s         128/128                288,0
+      +90s         128/128                288,0
+      +95s         128/128                288,0
+     +100s         128/128                288,0
+     +105s         128/128                288,0
+     +110s         128/128                288,0
+     +115s         128/128                288,0
+     +120s         128/128                288,0
+
+## verdict
+  Read the down column. Dropping to 0 within a poll or two means run 1 was read too early
+  and the acceptance criterion needs the settle window, not that the fix failed.
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_settle-gate-acceptance/graph_settle.txt

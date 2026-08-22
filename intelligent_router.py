@@ -4,7 +4,7 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISP
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.topology import event, switches
-from ryu.topology.api import get_switch, get_link
+from ryu.topology.api import get_switch, get_link, get_all_host
 from ryu.lib.packet import packet, ethernet, ipv4, ether_types, arp, tcp, udp, icmp
 import networkx as nx
 from ryu.controller import dpset
@@ -109,27 +109,74 @@ else:
 # for initial_install_wait_limit below ("on expiry it proceeds rather than giving up ... then
 # there are no routes at all").
 #
-# Generous because the legitimate wait is long: the settle above plus the walk itself. Both are
-# now measured -- settle 10s by default, walk 2.166s at 128 hosts (doc/audit/
-# 2026-08-21_ryu-topology-scaling/WALK_SWEEP.md) -- so 240s has ample room, and a switch that is
-# merely slow to dial in must not trip this.
+# Generous because the legitimate wait is long: the host-discovery gate above plus the walk
+# itself. Both are measured -- the settle wait is NDTWIN_RYU_SETTLE_S (default 90, and measured
+# to run its full length every time), the walk is 0.25s at 128 hosts (doc/audit/
+# 2026-08-21_ryu-topology-scaling/WALK_SWEEP.md) -- so 300s has room even for a gate that runs
+# its deadline out, and a switch that is merely slow to dial in must not trip this.
 initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLINE", "300"))
 
 # [Co-developed with claude code -- Adam]
-# How long to wait after every switch has connected before walking all host pairs and installing
-# routes. Was a bare, undocumented `hub.sleep(60)`.
+# CEILING on the wait before walking all host pairs -- no longer a fixed sleep. See
+# _await_host_discovery below for what is actually being waited for.
 #
-# 10 s is measured, not guessed, and it is not the smallest value that worked. At 3 s the
-# 128-host OVS fabric came up and forwarded 3 times out of 3 -- bring-up 73 s -> 19 s, with
-# h1->h64, h64->h128 and h128->h1 all passing, so paths crossing the core and every quarter of
-# the fabric, not just a neighbour. The 4-host fabric went 62 s -> 10 s.
+# History, because the two rewrites of this value are the whole lesson:
 #
-# The default keeps 3x margin over that because of what the measurement does NOT cover: n=3, one
-# machine, idle, one fabric type. The original 60 s has no recorded reason, so there is no way to
-# know which condition it was chosen for -- a slower host, a bigger fabric, or nothing at all.
-# Margin is the honest response to not knowing, and NDTWIN_RYU_SETTLE_S=60 restores the old
-# behaviour exactly for anyone who finds a case that needs it.
-settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "10"))
+#   1. It began as a bare, undocumented `hub.sleep(60)`. Nothing recorded what it waited for.
+#   2. 2026-08-21 it became NDTWIN_RYU_SETTLE_S, default 10, on the grounds that the switch-count
+#      gate above already guarantees every switch has connected and 3 s forwarded 3/3. That was
+#      measured honestly and it was still wrong, because it measured the wrong thing: the data
+#      plane forwards fine at 3 s. What breaks is the TWIN'S VIEW of it.
+#   3. Same day, measured with one variable changed and everything else held:
+#
+#        NDTWIN_RYU_SETTLE_S=60 -> Ryu knows 128/128 host IPv4s -> kernel graph 288 up / 0 down
+#        NDTWIN_RYU_SETTLE_S=10 -> Ryu knows   0/128            -> kernel graph  32 up / 256 down
+#
+#      Mechanism: Ryu learns a host's IPv4 only from packet-in (ryu/topology/switches.py:877-885,
+#      inside a packet-in handler). testbed_topo.py pings all 128 hosts right after building them.
+#      Install the all-pairs rules BEFORE that burst and every ICMP packet matches a rule, is
+#      forwarded in the data plane, and never reaches the controller -- so Ryu never learns the
+#      address, the kernel skips every host at TopologyAndFlowMonitor.cpp:618, and all 256 host
+#      edges keep their initial down state. IPv6 link-local has no rules, still misses the table,
+#      and is learned: exactly the ipv4=[] / ipv6=[...] asymmetry that showed up in the API.
+#
+# So the sleep length was silently deciding whether the digital twin could see its own hosts.
+# A fixed number cannot be right here -- it is a race, and the fix is to wait for the event
+# rather than to guess how long the event takes. This value is now the deadline for that wait,
+# not the wait itself; a healthy 128-host fabric exits it early.
+#
+# 0 disables the wait entirely, as before.
+#
+# !! READ THIS BEFORE TRUSTING THE WORD "GATE" ABOVE !!
+#
+# Measured 2026-08-22, two deadlines, everything else held
+# (doc/audit/2026-08-22_settle-gate-acceptance/):
+#
+#     deadline  90s -> gate read 0/128 for the whole  90s, boot 101s, final 128/128, 288 up/0 down
+#     deadline 180s -> gate read 0/128 for the whole 180s, boot 191s, final 128/128, 288 up/0 down
+#
+# The gate has never once observed the event it waits for. Its reading is not blind: an external
+# poller on /v1.0/topology/hosts, sampling every 2 s through the same boot, agrees with it
+# exactly -- 0 hosts with an IPv4 from t+6s until the very end, then 128 in a single step. Both
+# readers are right. There is simply nothing to see while the gate is waiting.
+#
+# And the learning time TRACKS THE DEADLINE. If the burst landed at a fixed t+96s, the 180s run
+# would have seen it and exited early at 96s. It did not. Hosts are learned just after the gate
+# releases, whenever that is. So this is not a gate; it is a fixed sleep with a poll loop
+# attached, and boot time is base + deadline.
+#
+# **The mechanism behind "learning follows the release" is NOT established.** Candidates not yet
+# discriminated: this handler stalling its own app's event queue (it blocks inside an
+# EventSwitchEnter handler, and Ryu dispatches one app's events serially); switches without a
+# table-miss entry dropping the burst instead of punting it; the burst being serialised behind
+# fabric bring-up. Do not write any of those down as the reason -- none has been tested.
+#
+# The default is 90, and the only claim behind it is empirical: the smallest value demonstrated
+# healthy on this machine at 128 hosts. 10 is known broken (0/128 learned, 256 host edges down
+# on a fabric that forwards perfectly). 60 was healthy historically but has NOT been re-measured
+# since the walk got ~9x faster in 4810e8f, which moves the walk earlier relative to everything
+# else -- so that result does not transfer, and 60 was not adopted on the strength of it.
+settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "90"))
 
 detecting_time = 60
 
@@ -672,7 +719,83 @@ class IntelligentRyu(app_manager.RyuApp):
             raise ValueError("MAC int must be in [0, 2^48)")
         return ":".join(f"{(n >> (8*i)) & 0xff:02x}" for i in reversed(range(6)))
 
-            
+    def _hosts_with_ipv4(self) -> int:
+        """How many hosts Ryu currently has an IPv4 address for.
+
+        [Co-developed with claude code -- Adam]
+        `h.ipv4` is a list and is empty until a packet-in from that host carries an IPv4 or ARP
+        header (ryu/topology/switches.py:877-885). Truthiness, not `is not None`: the empty list
+        is the state being waited out.
+        """
+        try:
+            return sum(1 for h in get_all_host(self) if h.ipv4)
+        except Exception:                          # noqa: BLE001 -- see below
+            # Never let a topology-API hiccup abort start-up. Reporting 0 makes the caller wait
+            # out its deadline and proceed, which is the same fail-open behaviour the switch-count
+            # watchdog uses. Crashing here would take the whole control plane down at boot.
+            self.logger.exception("could not read Ryu's host table; treating as 0 learned")
+            return 0
+
+    def _await_host_discovery(self, expected: int, deadline_s: int) -> None:
+        """Block until Ryu knows an IPv4 for every host, or `deadline_s` passes.
+
+        [Co-developed with claude code -- Adam]
+        This replaced a fixed `hub.sleep`. What is really being waited for is the ping burst
+        testbed_topo.py fires after building the hosts: those packets miss the flow table, reach
+        the controller, and are how Ryu learns each host's address. Install the all-pairs rules
+        first and the burst is answered in the data plane instead -- no packet-in, no addresses,
+        and the kernel drops every host at TopologyAndFlowMonitor.cpp:618, leaving all 256 host
+        edges down in a fabric that forwards perfectly. See the NDTWIN_RYU_SETTLE_S comment for
+        the two-arm measurement.
+
+        Waiting for the event rather than for a duration is the point: the old fixed value was a
+        race whose outcome depended on how fast the machine built 128 hosts that day.
+
+        **That intent is not what this code achieves -- see the NDTWIN_RYU_SETTLE_S comment.**
+        Measured at two deadlines, the loop below never once saw a host acquire an IPv4: the
+        addresses appear only after it releases, in a single step, at whatever time that is. So
+        it behaves as a fixed sleep, and the early-exit path has never been taken on a 128-host
+        boot. It is kept because fail-open costs nothing and the early exit is correct if the
+        coupling is ever broken -- not because it is doing the job its name claims.
+
+        **Fail-open.** A deadline that expires is logged and then ignored. A control plane that
+        refuses to install any routes because discovery was incomplete is worse than one whose
+        twin under-reports host links -- the first breaks the network, the second breaks a view.
+        """
+        if expected <= 0 or deadline_s <= 0:
+            # Nothing to gate on (no hosts in the model, or the wait is disabled). Fall back to
+            # the old behaviour so this cannot become a silent no-wait on an unexpected model.
+            if deadline_s > 0:
+                self.logger.info("no hosts in the model; sleeping %ss instead", deadline_s)
+                hub.sleep(deadline_s)
+            return
+
+        waited = 0
+        learned = self._hosts_with_ipv4()
+        while learned < expected and waited < deadline_s:
+            hub.sleep(1)
+            waited += 1
+            learned = self._hosts_with_ipv4()
+            # Progress, not just a verdict. The first live run of this gate reported "0/128 after
+            # 90s" while the REST endpoint served 128/128 a few seconds later, and a single
+            # end-of-wait line cannot tell "the count never moved" from "it moved and we missed
+            # the moment". One line every 10s makes the shape of the wait recoverable from
+            # ryu.log alone. [Co-developed with claude code -- Adam]
+            if waited % 10 == 0:
+                self.logger.info("host discovery: %d/%d after %ss", learned, expected, waited)
+
+        if learned >= expected:
+            self.logger.info(
+                "host discovery complete: %d/%d hosts have an IPv4 after %ss "
+                "(NDTWIN_RYU_SETTLE_S=%s is the ceiling, not the wait)",
+                learned, expected, waited, deadline_s)
+        else:
+            self.logger.warning(
+                "host discovery incomplete after %ss: %d/%d hosts have an IPv4. Installing "
+                "paths anyway. The data plane will forward, but the kernel skips hosts with no "
+                "address, so expect %d host edges to read as down in get_graph_data.",
+                deadline_s, learned, expected, (expected - learned) * 2)
+
     def load_static_topology(self, path: Path = static_topology_file_path):
         if not path.exists():
             self.logger.info(f"Static topology file not found: {path}")
@@ -689,8 +812,9 @@ class IntelligentRyu(app_manager.RyuApp):
             with path.open("r") as f:
                 topo = json.load(f)
             self.logger.info(f"Loaded static topology from {path}")
-            
-            
+
+            expected_hosts = set()
+
             # Add nodes and edges to net
             for node in topo.get("nodes", []):
                 if not node: continue
@@ -702,6 +826,10 @@ class IntelligentRyu(app_manager.RyuApp):
                     ip_list = node.get("ip")
                     mac = node.get("mac")
                     self.static_net.add_node(self.int_to_mac(mac), ip_list=ip_list)
+                    # Counted by MAC, not by len(ip_to_mac): a host may carry several addresses,
+                    # and this number is compared against a count of *hosts* Ryu has learned.
+                    # [Co-developed with claude code -- Adam]
+                    expected_hosts.add(mac)
                     for ip in ip_list:
                         self.ip_to_mac[ip] = mac
                     
@@ -730,20 +858,16 @@ class IntelligentRyu(app_manager.RyuApp):
             # [Co-developed with claude code -- Adam]
             # This was a bare `if is_mininet: hub.sleep(60)` with no recorded reason, gated on a
             # flag that cannot be changed (is_mininet is reassigned True unconditionally at
-            # module level). It dominates OVS bring-up: the whole control-plane start is ~73 s
-            # and the walk it is waiting for takes 2.166 s of that.
+            # module level). It dominates OVS bring-up: the whole control-plane start was ~73 s
+            # and the walk it is waiting for takes 0.25 s of that (128 hosts, live n=3, after the
+            # O(1)-token fix in 4810e8f; the 2.166 s and the slower index figures this comment
+            # carried before are two superseded generations -- see WALK_SWEEP.md).
             #
-            # Made settable rather than shortened. Nothing documents what it waits for, the
-            # switch-count gate above already guarantees every switch has connected, and the
-            # routes come from the static model rather than from discovery -- but "I cannot see
-            # why this is needed" is not evidence that it is not, and this is the live control
-            # path for every OVS run. The default is unchanged at 60 s, so this commit alters
-            # no behaviour; NDTWIN_RYU_SETTLE_S is the seam that lets the question be answered
-            # by measurement instead of argument.
-            if settle_seconds > 0:
-                self.logger.info("settling %ss before the all-pairs walk (NDTWIN_RYU_SETTLE_S)",
-                                 settle_seconds)
-                hub.sleep(settle_seconds)
+            # It is now a gate on the event rather than a guess at its duration. The seam that
+            # made the question answerable by measurement did its job: measuring it showed the
+            # length was deciding whether Ryu ever learns a host address, and therefore whether
+            # the twin can see 256 of its own 288 links. NDTWIN_RYU_SETTLE_S is the deadline.
+            self._await_host_discovery(len(expected_hosts), settle_seconds)
             # [Co-developed with claude code -- Adam]
             # The flag is set AFTER the walk, matching the dynamic path above. It used to be set
             # before, so it was True for the whole ~60 s of the initial install -- and the reinstall

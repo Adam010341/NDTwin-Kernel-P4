@@ -1,0 +1,27 @@
+# gate coupling: is the gate blocking the packet-ins it waits for?
+# date:   2026-08-22T12:07:45+08:00   commit: e5e4980 + uncommitted
+# deadline for this run: NDTWIN_RYU_SETTLE_S=300 (long, so the probe lands mid-window)
+
+## waiting for the gate to open (first progress line in ryu.log)
+  gate is open: host discovery: 0/128 after 110s
+
+## 1. s1's table-miss entry (can anything punt at all?)
+  (flow stats unreadable)
+
+## 2. do the Mininet hosts exist yet?
+  h1 pid: NOT FOUND
+  mininet host processes: 0
+0
+  ryu currently knows: unreadable
+
+## 3. SKIPPED -- no h1 to ping from. The fabric is not built yet, which is itself the
+   answer to (2): the gate is waiting before the hosts exist.
+
+## still inside the window? (the probe is only valid if the gate had not released)
+  yes: no verdict line yet, gate still waiting (11 progress lines)
+
+## letting the boot finish, then the final state for comparison
+  gate verdict: 
+  ryu final:    unreadable
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_settle-gate-acceptance/coupling.txt

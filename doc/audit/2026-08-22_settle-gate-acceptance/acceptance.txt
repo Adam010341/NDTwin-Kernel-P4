@@ -1,0 +1,33 @@
+# P0-1 acceptance: host-discovery gate at DEFAULT settings
+# date:   2026-08-22T12:11:55+08:00
+# commit: e5e4980 (+ uncommitted gate patch if not yet committed)
+
+env check: NDTWIN_RYU_SETTLE_S unset -> the gate runs at its compiled-in default
+code check: 3 references to _await_host_discovery in intelligent_router.py (expect 3: def, call, comment)
+            default deadline = 90
+
+## ovs128_run1
+  boot wall time: 100s
+  gate: host discovery incomplete after 90s: 0/128 hosts have an IPv4. Installing paths anyway. The data plane will forward, but the kernel skips hosts with no address, so expect 256 host edges to read as down in get_graph_data.
+  ryu hosts: 128/128 have ipv4 (want 128) -- PASS   [ipv6-only: 0]
+  kernel graph: 288 edges, 256 down
+
+## ovs128_run2
+  boot wall time: 101s
+  gate: host discovery incomplete after 90s: 0/128 hosts have an IPv4. Installing paths anyway. The data plane will forward, but the kernel skips hosts with no address, so expect 256 host edges to read as down in get_graph_data.
+  ryu hosts: 128/128 have ipv4 (want 128) -- PASS   [ipv6-only: 0]
+  kernel graph: 288 edges, 0 down
+
+## ovs128_run3
+  boot wall time: 100s
+  gate: host discovery incomplete after 90s: 0/128 hosts have an IPv4. Installing paths anyway. The data plane will forward, but the kernel skips hosts with no address, so expect 256 host edges to read as down in get_graph_data.
+  ryu hosts: 128/128 have ipv4 (want 128) -- PASS   [ipv6-only: 0]
+  kernel graph: 288 edges, 0 down
+
+## ovs4
+  boot wall time: 6s
+  gate: host discovery complete: 4/4 hosts have an IPv4 after 0s (NDTWIN_RYU_SETTLE_S=90 is the ceiling, not the wait)
+  ryu hosts: 4/4 have ipv4 (want 4) -- PASS   [ipv6-only: 0]
+  kernel graph: 40 edges, 0 down
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_settle-gate-acceptance/acceptance.txt

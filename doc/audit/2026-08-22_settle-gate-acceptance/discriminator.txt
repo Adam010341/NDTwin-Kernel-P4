@@ -1,0 +1,28 @@
+# gate discriminator: REST host table vs the gate's own reading, same boot
+# date:   2026-08-22T11:58:17+08:00
+# commit: e5e4980 + uncommitted gate work
+
+boot rc=0, wall 101s
+
+## the gate's own series (from ryu.log, one line per 10s of waiting)
+  host discovery: 0/128 after 10s
+  host discovery: 0/128 after 20s
+  host discovery: 0/128 after 30s
+  host discovery: 0/128 after 40s
+  host discovery: 0/128 after 50s
+  host discovery: 0/128 after 60s
+  host discovery: 0/128 after 70s
+  host discovery: 0/128 after 80s
+  host discovery: 0/128 after 90s
+  host discovery incomplete after 90s: 0/128 hosts have an IPv4. Installing paths anyway. The data plane will forward, but the kernel skips hosts with no address, so expect 256 host edges to read as down in get_graph_data.
+
+## the REST series (external observer, every 2s: 'boot_elapsed with_ipv4,total')
+   printed only where it changes, plus the first and last sample
+  t+   0s  -,-
+
+## verdict input
+  first REST sample with any host carrying an ipv4: t+97s
+  (compare against the gate's lines above: if the gate still reads 0 at that time, the
+   gate's read is broken -- H1. If both are 0 together, the burst is late -- H2.)
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_settle-gate-acceptance/discriminator.txt
