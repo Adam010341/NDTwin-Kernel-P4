@@ -63,3 +63,32 @@ moment an IPv4 exists; the whole 256-edges-down regression is upstream of the ke
 |---|---|
 | `t6_punt_window.sh` | the intervention, teardown included; claims the lab under `review-0821` |
 | `t6_punt_window.txt` | raw output of the run this report quotes |
+
+---
+
+## Follow-up 2026-08-22: half of this held, half did not
+
+Measured later the same day, `doc/audit/2026-08-22_settle-gate-acceptance/`:
+
+**Held.** The punt half is confirmed and is now the load-bearing part of this report: IPv4
+reaches Ryu only via packet-in, static ARP closes the ARP path, and the learning window is the
+settle window. An 11-boot curve puts the cliff between `NDTWIN_RYU_SETTLE_S` 10 and 15 -- all
+128 hosts learned or none, no partial regime -- which is exactly the shape this report's
+mechanism predicts. The default is now 40 (boot 52 s, n=3), and both prior records reconcile:
+0/128 was measured at settle=10, 128/128 at settle=60, and neither was wrong.
+
+**Did not hold.** This report treats the boot-time ping burst as the traffic that does the
+teaching. It is not. `burst_timing.sh` counts `testbed_topo.py`'s own 128 "Pinging from hN"
+lines out of the topo session every 4 s: the burst is finished within 32 s of boot, Ryu learns
+nothing from it for the next 65 seconds, and every address appears in the single sample where
+the settle wait releases.
+
+So the intervention here proved that *a* punt teaches Ryu -- which it does, and that stands --
+but not that the boot-time burst is the punt in question. What produces the addresses at release
+is unidentified, and it is a sharper question than before: what happens at release is the
+all-pairs walk installing forwarding rules, which is the last thing that should generate
+packet-ins.
+
+Cross-reference: [`2026-08-22_settle-gate-acceptance/REPORT.md`](../2026-08-22_settle-gate-acceptance/REPORT.md),
+and §1b of [`2026-08-21_bringup-manual-verification/README.md`](../2026-08-21_bringup-manual-verification/README.md),
+whose "三者不可能都對" is closed as two-right-one-wrong.

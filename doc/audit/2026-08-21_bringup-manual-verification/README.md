@@ -64,12 +64,35 @@ P4 沒有這個問題，因為 **proxy 不用學、直接從自己的模型 rend
 **持續性實測**（每 15 秒取樣，共 4 分鐘，遠超過 kernel 90 秒的收斂視窗）：
 `32 up / 256 down / 0 hosts up` 從頭到尾一格沒動。**不是「還沒收斂」。**
 
-🔴 **未解的矛盾，不要挑一邊引用。** 合理的懷疑是測試床設了 static ARP ⇒ host 從不送 ARP
-⇒ Ryu 的 host tracker 取不到 IPv4（IPv6 走 NDP，所以那欄有值）。
-**但這個說法 2026-08-11 被查過並否決**，當時的紀錄是「128/128 都有 IP」，
-與今天的 0/128 直接衝突。而 `TopologyAndFlowMonitor.cpp:2007-2014` 的長註解正是寫著
-「ping burst 會教會 Ryu」——**今天的實測顯示 ping 不會**。
-三者不可能都對。沒查清楚之前，這裡只記錄「第 4 步是實測」，不記錄原因。
+✅ **矛盾已解（2026-08-22）——但解法跟當初猜的不一樣，三者是「兩對一錯」。**
+
+當初寫的是「三者不可能都對」：今天 0/128、舊紀錄 128/128、註解說 ping burst 會教會 Ryu。
+實際上前兩個都對，第三個是錯的。
+
+**前兩個對，因為它們量的是不同的 `NDTWIN_RYU_SETTLE_S`。** 這個值決定 all-pairs 規則多早裝上去，
+而規則一裝上去就再也沒有東西會 punt（static ARP 早就把 ARP 那條路封死了），所以**學習窗＝settle 窗**。
+11 次完整開機的曲線（`doc/audit/2026-08-22_settle-gate-acceptance/settle_bisect.txt`）：
+
+| settle | Ryu 學到 | kernel 圖 |
+|---|---|---|
+| 5 / 10 / 10 | 0/128 | 288 邊、**256 down** |
+| 15 / 20 / 30 / 40(n=3) / 55 / 90 | 128/128 | 288 邊、0 down |
+
+**是懸崖不是斜坡**，分界在 10 與 15 之間。今天的 0/128 量在 settle=10，舊紀錄的 128/128 量在
+settle=60 —— 兩邊都是真的，只是沒人記下當時的 settle 值。機制的介入實驗（刪掉一條規則、同一個
+ping 就教會了 Ryu）在 [`2026-08-22_punt-window-discriminator/REPORT.md`](../2026-08-22_punt-window-discriminator/REPORT.md)。
+
+🔴 **第三個是錯的，而且是今天才推翻的。** `TopologyAndFlowMonitor.cpp:2007-2014` 的註解說開機時
+那輪 ping burst 會教會 Ryu。直接量 burst 的時間（數 `testbed_topo.py` 自己印的 128 行
+"Pinging from hN"）：**burst 在開機後 32 秒內就全部跑完，而 Ryu 在接下來 65 秒內一台都沒學到**，
+128 台的 IPv4 是在 settle 放開的那一個取樣點一次全部出現的。所以
+
+* 「punt 會教會 Ryu」✅ 成立（介入實驗證明的）
+* 「開機那輪 burst 就是教會 Ryu 的那些封包」❌ **不成立**
+
+**真正在 settle 放開那一刻教會 Ryu 的是什麼，還沒查出來** —— 那一刻發生的事是 all-pairs walk
+裝規則，而裝轉發規則正是最不該產生 packet-in 的動作。引用這一節時請把這條缺口一起引用。
+（`settle` 預設已改成 40，開機 52 秒，比 settle=60 時代的 73 秒還快。）
 
 ### 2. veth 數不是 0
 
