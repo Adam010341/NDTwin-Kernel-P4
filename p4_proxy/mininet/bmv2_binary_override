@@ -1,6 +1,9 @@
 # Which simple_switch_grpc the topology launches. First non-comment line wins; it must be
 # an absolute path to an executable, and ../lib beside it is picked up as LD_LIBRARY_PATH.
-# Comment the line out (or delete this file) to go back to the stock /usr/local/bin build.
+# There is NO fallback: delete this file, or comment out every line, and the topology REFUSES
+# to start rather than picking a binary for you. Both installs answer --version identically
+# and differ ~10x in throughput, so a silent choice is a wrong number that looks plausible.
+# To run the stock build, write /usr/local/bin/simple_switch_grpc here instead.
 #
 # Why this is pointed at bmv2-fast (2026-08-17): the stock build is -O0 with full logging,
 # and on it the energy app's consolidation decision is traffic-insensitive -- links are

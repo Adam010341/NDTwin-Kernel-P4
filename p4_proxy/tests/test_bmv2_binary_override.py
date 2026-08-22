@@ -100,10 +100,20 @@ class ResolveLauncherTest(unittest.TestCase):
             fh.write(content)
         return path
 
-    def test_absent_file_selects_stock_binary(self):
+    def test_absent_file_refuses_instead_of_falling_back(self):
+        # Was: an absent file selected the bare name, PATH lookup, the stock -O0 build --
+        # silently. Both installs answer --version identically and differ ~10x in throughput,
+        # so the fallback produced a plausible wrong number that read as "the fabric was busy".
+        # Since 2026-08-22 the fast build is the default and the fallback is gone in BOTH
+        # directions: silence would now hand the fast binary to someone who wanted stock.
         missing = os.path.join(self.tmp, "no_such_file")
-        self.assertEqual(topo.resolve_bmv2_launcher(missing),
-                         ("simple_switch_grpc", None))
+        with self.assertRaises(ValueError) as ctx:
+            topo.resolve_bmv2_launcher(missing)
+        msg = str(ctx.exception)
+        self.assertIn(missing, msg,
+                      "the refusal does not say which file is missing")
+        self.assertIn("simple_switch_grpc", msg,
+                      "the refusal does not show what a valid directive looks like")
 
     def test_valid_override_with_sibling_lib(self):
         binary = self.make_prefix(with_lib=True)
@@ -125,11 +135,16 @@ class ResolveLauncherTest(unittest.TestCase):
         path = self.override("   " + binary + "   \n")
         self.assertEqual(topo.resolve_bmv2_launcher(path)[0], binary)
 
-    def test_commented_out_directive_means_stock(self):
+    def test_commented_out_directive_refuses(self):
+        # The other half of the same silent path: a file that exists but says nothing. Commenting
+        # the line out was the documented way to "go back to stock", which is exactly the gesture
+        # that left no trace in the run's own data.
         binary = self.make_prefix()
         path = self.override("# " + binary + "\n")
-        self.assertEqual(topo.resolve_bmv2_launcher(path),
-                         ("simple_switch_grpc", None))
+        with self.assertRaises(ValueError) as ctx:
+            topo.resolve_bmv2_launcher(path)
+        self.assertIn(path, str(ctx.exception),
+                      "the refusal does not name the file that has no directive")
 
     def test_relative_path_raises_even_when_it_resolves_from_cwd(self):
         """
@@ -183,14 +198,14 @@ class StartWiringTest(unittest.TestCase):
         sw.start(controllers=[])
         return sw
 
-    def test_default_launch_uses_stock_binary(self):
+    def test_launch_refuses_when_the_override_is_absent(self):
+        # End to end, through start(): a fabric with no directive must not come up at all.
+        # It used to come up on the stock binary and look completely normal.
         original = topo.BINARY_OVERRIDE_PATH
         topo.BINARY_OVERRIDE_PATH = os.path.join(self.tmp, "absent")
         self.addCleanup(setattr, topo, "BINARY_OVERRIDE_PATH", original)
-        sw = self.start_switch()
-        self.assertTrue(sw.last_cmd.startswith("simple_switch_grpc "))
-        self.assertEqual(sw.bmv2_pid, 12345)
-        self.assertIn("/tmp/prog.json", sw.launch_argv)
+        with self.assertRaises(ValueError):
+            self.start_switch()
 
     def test_override_reaches_the_launch_command(self):
         bin_dir = os.path.join(self.tmp, "prefix", "bin")

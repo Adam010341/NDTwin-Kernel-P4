@@ -28,13 +28,30 @@ import topo_from_json  # noqa: E402
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
 
 # [Co-developed with claude code -- Adam]
-# The launcher default and its optional override. The override exists for A/B performance
-# runs (doc/2026-08-15_bmv2-performance-report.md): the lab wrapper launches this topology
-# with a fixed root environment, so no env var can reach it -- a file next to the topology
-# is the only channel an unprivileged operator has. One directive line, the absolute path
-# of the simple_switch_grpc to run; blank lines and #-comments are ignored, so commenting
-# the line out re-selects the stock binary.
-DEFAULT_BMV2_BINARY = "simple_switch_grpc"
+# The launcher default and its override. The override file exists because the lab wrapper
+# launches this topology with a fixed root environment, so no env var can reach it -- a file
+# next to the topology is the only channel an unprivileged operator has. One directive line,
+# the absolute path of the simple_switch_grpc to run; blank lines and #-comments are ignored.
+#
+# 2026-08-22: the fast build is the default, and a missing directive is now a REFUSAL rather
+# than a fallback. [Co-developed with claude code -- Adam]
+#
+# It used to be `"simple_switch_grpc"` -- a bare name, PATH lookup, which resolves to the stock
+# -O0 build. Delete or comment out the override and the next run silently benchmarked a binary
+# roughly 10x slower while every filename, note and slide still said "fast". Nothing errored;
+# the number that came back was merely plausible, which reads as "the fabric was busy" rather
+# than as a wrong binary. That is the one silent path bmv2-binary-provenance.md flagged in red.
+#
+# Promoting fast to default does not remove that trap, it INVERTS it: silence would now mean
+# someone who wanted the stock build got the fast one. So neither direction is left silent --
+# resolve_bmv2_launcher raises when the file is absent or carries no directive, and the binary
+# in use is always something a human wrote down.
+#
+# The promotion is licensed by doc/audit/2026-08-22_stock-control-ladder/: the same ladder, same
+# invocation, back to back on both binaries, with each arm verifying from /proc which binary the
+# live switches actually run. Both arms: L0/L1/L2/L3/capture/L4 pass, log allowlist fails
+# identically. "The fast build introduces zero new failures" is now a measurement.
+DEFAULT_BMV2_BINARY = "/usr/local/bmv2-fast/bin/simple_switch_grpc"
 BINARY_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "bmv2_binary_override")
 
@@ -164,11 +181,20 @@ def resolve_bmv2_launcher(override_path=None):
         with open(override_path, encoding="utf-8") as fh:
             lines = fh.readlines()
     except FileNotFoundError:
-        return DEFAULT_BMV2_BINARY, None
+        raise ValueError(
+            f"no bmv2 binary override at {override_path}. This file is tracked and must name "
+            f"the simple_switch_grpc to run -- there is no default to fall back to on purpose. "
+            f"Both installs answer --version identically, so a silent fallback picks a binary "
+            f"that differs by ~10x in throughput and says nothing. "
+            f"Write one absolute path, e.g. {DEFAULT_BMV2_BINARY}") from None
     directive = next((ln.strip() for ln in lines
                       if ln.strip() and not ln.strip().startswith("#")), None)
     if directive is None:
-        return DEFAULT_BMV2_BINARY, None
+        raise ValueError(
+            f"{override_path} has no directive line (every line is blank or a #-comment). "
+            f"Commenting the line out used to re-select the stock build silently; it now "
+            f"refuses, because which binary produced a number must be something a human "
+            f"wrote down. Write one absolute path, e.g. {DEFAULT_BMV2_BINARY}")
     if not os.path.isabs(directive):
         raise ValueError(f"bmv2 binary override must be an absolute path, "
                          f"got {directive!r} (file: {override_path})")

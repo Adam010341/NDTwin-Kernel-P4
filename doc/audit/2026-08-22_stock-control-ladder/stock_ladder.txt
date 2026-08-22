@@ -1,0 +1,67 @@
+# stock vs fast: the same ladder on both bmv2 builds (P0-2)
+# date:   2026-08-22T13:03:06+08:00   commit: 9702d2c
+# TOPO_P4: StaticNetworkTopologyP4_10Switches_128Hosts.json   (fabric is 128 hosts; the default declares 4)
+# arms:   stock fast
+
+==================================================================
+## ARM: stock  (/usr/local/bin/simple_switch_grpc)
+  boot: 36s
+  confirmed live: /usr/local/bin/simple_switch_grpc
+
+  run_layers exit: 1
+
+  layer summary:
+      PASS   L0 build check
+      PASS   L1 unit tests
+      PASS   L2 API contract (p4)
+      PASS   L3 component contract (p4)
+      FAIL   log allowlist check
+      PASS   capture p4 responses
+      PASS   L4 OVS/P4 differential
+
+  failed checks:
+
+==================================================================
+## ARM: fast  (/usr/local/bmv2-fast/bin/simple_switch_grpc)
+  boot: 34s
+  confirmed live: /usr/local/bmv2-fast/bin/simple_switch_grpc
+
+  run_layers exit: 1
+
+  layer summary:
+      PASS   L0 build check
+      PASS   L1 unit tests
+      PASS   L2 API contract (p4)
+      PASS   L3 component contract (p4)
+      FAIL   log allowlist check
+      PASS   capture p4 responses
+      PASS   L4 OVS/P4 differential
+
+  failed checks:
+
+==================================================================
+## the comparison
+  stock:
+        PASS   L0 build check
+        PASS   L1 unit tests
+        PASS   L2 API contract (p4)
+        PASS   L3 component contract (p4)
+        FAIL   log allowlist check
+        PASS   capture p4 responses
+        PASS   L4 OVS/P4 differential
+    failed: 
+  fast:
+        PASS   L0 build check
+        PASS   L1 unit tests
+        PASS   L2 API contract (p4)
+        PASS   L3 component contract (p4)
+        FAIL   log allowlist check
+        PASS   capture p4 responses
+        PASS   L4 OVS/P4 differential
+    failed: 
+
+  Identical sets -> the residuals belong to the plane and the harness, not to the fast
+  build, and 'zero new failures' becomes a measurement instead of an argument.
+  Anything failing on fast but not on stock -> promotion is off.
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_stock-control-ladder/stock_ladder.txt
