@@ -579,6 +579,150 @@ class P4RuntimeClient:
             pass
         return 0, 0
 
+    #: Byte width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N>
+    #: field in ceil(N/8) bytes and bmv2 rejects a value of the wrong width outright, so these
+    #: are not cosmetic. ingress_port is bit<9> -> 2 bytes, which is also why the existing
+    #: ipv4_forward `port` param is written as 2 bytes rather than 1.
+    #: [Co-developed with claude code -- Adam]
+    _FIVE_TUPLE_KEY_BYTES = {
+        "standard_metadata.ingress_port": 2,   # bit<9>
+        "hdr.ipv4.srcAddr": 4,                 # bit<32>
+        "hdr.ipv4.dstAddr": 4,                 # bit<32>
+        "hdr.ipv4.protocol": 1,                # bit<8>
+        "meta.l4_src_port": 2,                 # bit<16>
+        "meta.l4_dst_port": 2,                 # bit<16>
+    }
+
+    @classmethod
+    def _encode_5tuple_value(cls, p4_field, value):
+        """
+        (value_bytes, mask_bytes) for one ternary key.
+
+        The mask is all-ones: every key the caller named is matched exactly. A ternary table is
+        used here for its PRIORITY, not for wildcarding -- keys the caller did not name are
+        simply absent from the entry, which P4Runtime already treats as "don't care". Emitting a
+        partial mask would silently widen a rule the caller wrote precisely.
+        [Co-developed with claude code -- Adam]
+        """
+        width = cls._FIVE_TUPLE_KEY_BYTES[p4_field]
+        if isinstance(value, str) and "." in value:
+            raw = socket.inet_aton(value)
+        else:
+            raw = int(value).to_bytes(width, byteorder="big")
+        if len(raw) != width:
+            raise ValueError(
+                f"{p4_field} takes {width} byte(s), got {len(raw)} from {value!r}")
+        return raw, b"\xff" * width
+
+    def _build_5tuple_entry(self, entry, keys, priority):
+        """Fills a TableEntry for MyIngress.flow_5tuple from {p4_field: value} plus a priority."""
+        entry.table_id = self._get_table_id("MyIngress.flow_5tuple")
+        for p4_field in sorted(keys):
+            value, mask = self._encode_5tuple_value(p4_field, keys[p4_field])
+            m = entry.match.add()
+            m.field_id = self._get_match_field_id("MyIngress.flow_5tuple", p4_field)
+            m.ternary.value = value
+            m.ternary.mask = mask
+        # P4Runtime requires a non-zero priority on a ternary table, and higher wins. OpenFlow
+        # priority means the same thing, so it passes straight through -- this is the whole
+        # reason the table exists: ipv4_lpm has no priority concept at all, so two rules the
+        # kernel believed were ordered were not.
+        entry.priority = int(priority)
+
+    def insert_5tuple_rule(self, keys, priority, next_hop_mac, port):
+        """
+        Inserts a rule into MyIngress.flow_5tuple, which sits in front of ipv4_lpm.
+
+        [Co-developed with claude code -- Adam]
+        `keys` is {p4_field_name: value} as produced by topology_manager.five_tuple_keys.
+        A match here wins over any ipv4_lpm entry for the same destination, because the pipeline
+        applies flow_5tuple first and only falls through on NoAction.
+        """
+        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        req.election_id.low = 1
+
+        update = req.updates.add()
+        update.type = p4runtime_pb2.Update.INSERT
+        entry = update.entity.table_entry
+        self._build_5tuple_entry(entry, keys, priority)
+
+        action = entry.action.action
+        action.action_id = self._get_action_id("MyIngress.ipv4_forward")
+        p1 = action.params.add()
+        p1.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "dstAddr")
+        p1.value = bytes.fromhex(next_hop_mac.replace(":", ""))
+        p2 = action.params.add()
+        p2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
+        p2.value = port.to_bytes(2, byteorder="big")
+
+        try:
+            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "
+                  f"{ {k.split('.')[-1]: v for k, v in keys.items()} } -> port {port}")
+            return True
+        except grpc.RpcError as e:
+            # Same disambiguation as insert_ipv4_route: bmv2 answers UNKNOWN both for "entry
+            # already exists" and for genuine failures, so rather than reading the message we do
+            # what the caller meant and retry as MODIFY. If that fails too it was a real error.
+            if e.code() in (grpc.StatusCode.ALREADY_EXISTS, grpc.StatusCode.UNKNOWN):
+                if self.modify_5tuple_rule(keys, priority, next_hop_mac, port):
+                    return True
+            print(f"[{self.device_id}] Failed to add 5-tuple rule: {e.code()} - {e.details()}")
+            return False
+
+    def modify_5tuple_rule(self, keys, priority, next_hop_mac, port):
+        """Modifies an existing MyIngress.flow_5tuple rule in place."""
+        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        req.election_id.low = 1
+
+        update = req.updates.add()
+        update.type = p4runtime_pb2.Update.MODIFY
+        entry = update.entity.table_entry
+        self._build_5tuple_entry(entry, keys, priority)
+
+        action = entry.action.action
+        action.action_id = self._get_action_id("MyIngress.ipv4_forward")
+        p1 = action.params.add()
+        p1.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "dstAddr")
+        p1.value = bytes.fromhex(next_hop_mac.replace(":", ""))
+        p2 = action.params.add()
+        p2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
+        p2.value = port.to_bytes(2, byteorder="big")
+
+        try:
+            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            return True
+        except grpc.RpcError as e:
+            print(f"[{self.device_id}] Failed to modify 5-tuple rule: {e.code()} - {e.details()}")
+            return False
+
+    def delete_5tuple_rule(self, keys, priority):
+        """
+        Deletes a MyIngress.flow_5tuple rule.
+
+        [Co-developed with claude code -- Adam]
+        The key set AND the priority must match the installed entry: on a ternary table the
+        priority is part of the entry's identity, so deleting with the wrong one removes nothing
+        and reports success. That is the same shape as the OVS-side defect where
+        modify_flow_entry ignored priority and edited a different rule.
+        """
+        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        req.election_id.low = 1
+
+        update = req.updates.add()
+        update.type = p4runtime_pb2.Update.DELETE
+        self._build_5tuple_entry(update.entity.table_entry, keys, priority)
+
+        try:
+            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            return True
+        except grpc.RpcError as e:
+            print(f"[{self.device_id}] Failed to delete 5-tuple rule: {e.code()} - {e.details()}")
+            return False
+
     def insert_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
         """Inserts a rule into MyIngress.ipv4_lpm"""
         req = p4runtime_pb2.WriteRequest()

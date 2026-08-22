@@ -129,5 +129,64 @@ class FiveTupleKeysTest(unittest.TestCase):
                          {"hdr.ipv4.dstAddr": "10.0.0.1"})
 
 
+class EncodeTernaryValueTest(unittest.TestCase):
+    """
+    The wire encoding of a single flow_5tuple key.
+
+    P4Runtime encodes a bit<N> field in ceil(N/8) bytes and bmv2 rejects the wrong width
+    outright, so these widths are load-bearing rather than cosmetic.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from proxy_agent.p4_client import P4RuntimeClient
+        except Exception as exc:            # grpc / p4runtime stubs absent
+            raise unittest.SkipTest(f"p4_client not importable: {exc}")
+        cls.enc = P4RuntimeClient._encode_5tuple_value
+
+    def test_ipv4_addresses_encode_as_four_bytes(self):
+        v, m = self.enc("hdr.ipv4.srcAddr", "10.0.0.2")
+        self.assertEqual(v, b"\x0a\x00\x00\x02")
+        self.assertEqual(m, b"\xff\xff\xff\xff")
+
+    def test_protocol_is_one_byte(self):
+        v, m = self.enc("hdr.ipv4.protocol", 6)
+        self.assertEqual((v, m), (b"\x06", b"\xff"))
+
+    def test_l4_ports_are_two_bytes(self):
+        v, m = self.enc("meta.l4_dst_port", 80)
+        self.assertEqual((v, m), (b"\x00\x50", b"\xff\xff"))
+
+    def test_ingress_port_is_two_bytes_because_it_is_bit9(self):
+        v, m = self.enc("standard_metadata.ingress_port", 2)
+        self.assertEqual((v, m), (b"\x00\x02", b"\xff\xff"))
+
+    def test_every_mask_is_all_ones(self):
+        # THE load-bearing one. The ternary table is used for its priority, not for
+        # wildcarding: keys the caller did not name are simply absent, which P4Runtime already
+        # treats as don't-care. A partial mask here would silently widen a rule someone wrote
+        # precisely -- and it would still install, and traffic would still flow.
+        for field, value in (("hdr.ipv4.srcAddr", "10.0.0.2"),
+                             ("hdr.ipv4.dstAddr", "10.0.0.1"),
+                             ("hdr.ipv4.protocol", 17),
+                             ("meta.l4_src_port", 1234),
+                             ("meta.l4_dst_port", 53),
+                             ("standard_metadata.ingress_port", 3)):
+            with self.subTest(field=field):
+                _, mask = self.enc(field, value)
+                self.assertEqual(set(mask), {0xFF},
+                                 f"{field} got a partial mask: {mask!r}")
+
+    def test_a_value_too_wide_for_its_key_raises(self):
+        # A protocol of 300 is a caller error; encoding it as 0x2C silently would install a rule
+        # matching ICMP-ish traffic nobody asked about.
+        with self.assertRaises(OverflowError):
+            self.enc("hdr.ipv4.protocol", 300)
+
+    def test_an_integer_ipv4_still_encodes_to_its_width(self):
+        v, _ = self.enc("hdr.ipv4.dstAddr", 0x0A000001)
+        self.assertEqual(v, b"\x0a\x00\x00\x01")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
