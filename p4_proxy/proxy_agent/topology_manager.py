@@ -96,6 +96,41 @@ def parse_eth_type(value):
 #: The only match fields the table actually keys on.
 HONOURED_MATCH_FIELDS = frozenset({"nw_dst", "ipv4_dst"})
 
+#: OpenFlow match field -> the flow_5tuple key it becomes. The table is six ternary keys
+#: (ndtwin_switch.p4:307) and has existed since the pipeline was written; nothing on the proxy
+#: side ever compiled to it, so every match richer than a destination was refused with a 400 and
+#: the table sat empty. [Co-developed with claude code -- Adam]
+#:
+#: Both spellings of each field are accepted because both are in use: OF1.0-era names (nw_src,
+#: tp_dst) come from the kernel's own JSON, OF1.3 names (ipv4_src, tcp_dst) from Ryu-shaped
+#: callers. Mapping them to one P4 key rather than picking a winner means a caller never has to
+#: know which vocabulary this proxy prefers.
+#:
+#: `tcp_*` and `udp_*` collapse onto the same key on purpose: the pipeline parses either L4
+#: header into meta.l4_src_port / meta.l4_dst_port, so the protocol is what distinguishes them
+#: and it is a key in its own right.
+FIVE_TUPLE_FIELD_MAP = {
+    "in_port":   "standard_metadata.ingress_port",
+    "nw_src":    "hdr.ipv4.srcAddr",
+    "ipv4_src":  "hdr.ipv4.srcAddr",
+    "nw_dst":    "hdr.ipv4.dstAddr",
+    "ipv4_dst":  "hdr.ipv4.dstAddr",
+    "nw_proto":  "hdr.ipv4.protocol",
+    "ip_proto":  "hdr.ipv4.protocol",
+    "tp_src":    "meta.l4_src_port",
+    "tcp_src":   "meta.l4_src_port",
+    "udp_src":   "meta.l4_src_port",
+    "tp_dst":    "meta.l4_dst_port",
+    "tcp_dst":   "meta.l4_dst_port",
+    "udp_dst":   "meta.l4_dst_port",
+}
+
+#: The fields that, when present, mean this match cannot be an ipv4_lpm entry. Destination alone
+#: still goes to ipv4_lpm: that is the path every existing route takes, it is exact today, and
+#: routing all of them through a ternary table instead would change the behaviour of the entire
+#: fabric to deliver a feature nobody asked it for.
+FIVE_TUPLE_ONLY_FIELDS = frozenset(FIVE_TUPLE_FIELD_MAP) - HONOURED_MATCH_FIELDS
+
 #: Sent on essentially every IPv4 rule. Validated below, but not a key: ipv4_lpm is IPv4 by
 #: construction, so eth_type 0x0800 is a tautology and anything else is unrepresentable.
 ETH_TYPE_FIELDS = frozenset({"dl_type", "eth_type"})
@@ -123,12 +158,52 @@ def unsupported_match_fields(match_dict):
     for field, value in match_dict.items():
         if field in HONOURED_MATCH_FIELDS:
             continue
+        if field in FIVE_TUPLE_FIELD_MAP:
+            # Expressible since the flow_5tuple table was wired up. Before that these were
+            # refused with a 400 naming ipv4_lpm, which was accurate about the table being
+            # written and misleading about the pipeline's capability -- the table was there the
+            # whole time. [Co-developed with claude code -- Adam]
+            continue
         if field in ETH_TYPE_FIELDS:
             if parse_eth_type(value) != IPV4_ETH_TYPE:
                 bad.append(field)
             continue
         bad.append(field)
     return sorted(bad)
+
+
+def needs_five_tuple(match_dict):
+    """
+    Whether this match must go to flow_5tuple rather than ipv4_lpm.
+
+    True as soon as any field beyond the destination appears. Destination-only matches keep
+    going to ipv4_lpm unchanged -- see FIVE_TUPLE_ONLY_FIELDS for why that split rather than
+    sending everything through the ternary table. [Co-developed with claude code -- Adam]
+    """
+    if not isinstance(match_dict, dict):
+        return False
+    return any(f in FIVE_TUPLE_ONLY_FIELDS for f in match_dict)
+
+
+def five_tuple_keys(match_dict):
+    """
+    The flow_5tuple keys this match sets, as {p4_field_name: value}, sorted by field name.
+
+    Collapses the accepted spellings onto one P4 key each. A match that sets the same key twice
+    under two spellings with DIFFERENT values is a contradiction the caller has to resolve --
+    silently keeping whichever dict order surfaced last would install a rule the caller did not
+    ask for, and this table is precisely the one people reach for when they need exactness.
+    [Co-developed with claude code -- Adam]
+    """
+    keys = {}
+    for field, value in sorted(match_dict.items()):
+        p4_field = FIVE_TUPLE_FIELD_MAP.get(field)
+        if p4_field is None:
+            continue
+        if p4_field in keys and keys[p4_field] != value:
+            raise UnsupportedMatchError([field])
+        keys[p4_field] = value
+    return keys
 
 
 #: How often each switch broadcasts an LLDP beacon on its inter-switch ports.
