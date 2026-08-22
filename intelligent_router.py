@@ -110,7 +110,7 @@ else:
 # there are no routes at all").
 #
 # Generous because the legitimate wait is long: the host-discovery gate above plus the walk
-# itself. Both are measured -- the settle wait is NDTWIN_RYU_SETTLE_S (default 90, and measured
+# itself. Both are measured -- the settle wait is NDTWIN_RYU_SETTLE_S (default 40, and measured
 # to run its full length every time), the walk is 0.25s at 128 hosts (doc/audit/
 # 2026-08-21_ryu-topology-scaling/WALK_SWEEP.md) -- so 300s has room even for a gate that runs
 # its deadline out, and a switch that is merely slow to dial in must not trip this.
@@ -171,12 +171,30 @@ initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLI
 # table-miss entry dropping the burst instead of punting it; the burst being serialised behind
 # fabric bring-up. Do not write any of those down as the reason -- none has been tested.
 #
-# The default is 90, and the only claim behind it is empirical: the smallest value demonstrated
-# healthy on this machine at 128 hosts. 10 is known broken (0/128 learned, 256 host edges down
-# on a fabric that forwards perfectly). 60 was healthy historically but has NOT been re-measured
-# since the walk got ~9x faster in 4810e8f, which moves the walk earlier relative to everything
-# else -- so that result does not transfer, and 60 was not adopted on the strength of it.
-settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "90"))
+# The default is 40, chosen off a measured curve rather than off margin-on-a-guess. Every cell
+# is a full 128-host boot, both sides read at t+0 and again 20 s later
+# (doc/audit/2026-08-22_settle-gate-acceptance/settle_bisect.txt):
+#
+#     settle   boot    Ryu     kernel graph      verdict
+#        5      16s    0/128   288e / 256 down   BLIND
+#       10      20s    0/128   288e / 256 down   BLIND   (twice)
+#       15      27s    128     288e /   0 down   ok
+#       20      31s    128     288e /   0 down   ok
+#       30      41s    128     288e /   0 down   ok
+#       40      51s    128     288e /   0 down   ok      (three times)
+#       55      66s    128     288e /   0 down   ok
+#       90     100s    128     288e /   0 down   ok      (three times)
+#
+# The cliff is between 10 and 15, and it is a cliff, not a slope: either every host is learned
+# or none is. 40 sits 4x above the highest failing value and ~2.7x above the cliff's upper
+# bound, with n=3 at 52 s. That is faster than the 73 s the settle=60 era cost AND correct,
+# which is why the deck's OVS number improves rather than regresses.
+#
+# Margin is worth paying for here specifically because the failure is silent and total: the
+# fabric forwards perfectly, every ping passes, and the twin simply cannot see 256 of its own
+# 288 links. Nothing in the boot output says so. A slower machine or a larger fabric moves the
+# cliff and nothing would announce it -- so do not tune this down toward 15 to save 25 seconds.
+settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "40"))
 
 detecting_time = 60
 

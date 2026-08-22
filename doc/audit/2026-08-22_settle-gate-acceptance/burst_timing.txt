@@ -1,0 +1,104 @@
+# burst timing vs the settle wait
+# date:   2026-08-22T12:26:42+08:00   commit: b11ae34 + uncommitted
+
+boot is real: ndt did not refuse, ryu.log is fresh (mtime 19s after start)
+
+   t_boot   pings_printed   ryu_with_ipv4   gate_progress_lines   gate_released
+      20s             128               0                     1   no
+      24s             128               0                     1   no
+      28s             128               0                     2   no
+      32s             128               0                     2   no
+      37s             128               0                     3   no
+      41s             128               0                     3   no
+      45s             128               0                     3   no
+      49s             128               0                     4   no
+      53s             128               0                     4   no
+      57s             128               0                     5   no
+      61s             128               0                     5   no
+      65s             128               0                     5   no
+      69s             128               0                     6   no
+      73s             128               0                     6   no
+      77s             128               0                     7   no
+      81s             128               0                     7   no
+      85s             128               0                     7   no
+      89s             128               0                     8   no
+      93s             128               0                     8   no
+      97s             128             128                     9   YES
+     101s             128             128                     9   YES
+   (boot process exited)
+     105s             128             128                     9   YES
+   (boot process exited)
+     109s             128             128                     9   YES
+   (boot process exited)
+     113s             128             128                     9   YES
+   (boot process exited)
+     117s             128             128                     9   YES
+   (boot process exited)
+     121s             128             128                     9   YES
+   (boot process exited)
+     125s             128             128                     9   YES
+   (boot process exited)
+     130s             128             128                     9   YES
+   (boot process exited)
+     134s             128             128                     9   YES
+   (boot process exited)
+     138s             128             128                     9   YES
+   (boot process exited)
+     142s             128             128                     9   YES
+   (boot process exited)
+     146s             128             128                     9   YES
+   (boot process exited)
+     150s             128             128                     9   YES
+   (boot process exited)
+     154s             128             128                     9   YES
+   (boot process exited)
+     158s             128             128                     9   YES
+   (boot process exited)
+     162s             128             128                     9   YES
+   (boot process exited)
+     166s             128             128                     9   YES
+   (boot process exited)
+     170s             128             128                     9   YES
+   (boot process exited)
+     174s             128             128                     9   YES
+   (boot process exited)
+     178s             128             128                     9   YES
+   (boot process exited)
+     182s             128             128                     9   YES
+   (boot process exited)
+     186s             128             128                     9   YES
+   (boot process exited)
+     190s             128             128                     9   YES
+   (boot process exited)
+     194s             128             128                     9   YES
+   (boot process exited)
+     198s             128             128                     9   YES
+   (boot process exited)
+     202s             128             128                     9   YES
+   (boot process exited)
+     206s             128             128                     9   YES
+   (boot process exited)
+     210s             128             128                     9   YES
+   (boot process exited)
+     214s             128             128                     9   YES
+   (boot process exited)
+     218s             128             128                     9   YES
+   (boot process exited)
+     223s             128             128                     9   YES
+   (boot process exited)
+     227s             128             128                     9   YES
+   (boot process exited)
+     231s             128             128                     9   YES
+   (boot process exited)
+     235s             128             128                     9   YES
+   (boot process exited)
+     239s             128             128                     9   YES
+   (boot process exited)
+
+## verdict
+  If pings_printed reached 128 while gate_released was still 'no', the burst fires during
+  the wait and its packets are being lost -- waiting longer cannot help (shape A).
+  If pings_printed stayed 0 until gate_released flipped to YES, the wait is delaying the
+  burst rather than protecting it, and the boot time is recoverable (shape B).
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_settle-gate-acceptance/burst_timing.txt

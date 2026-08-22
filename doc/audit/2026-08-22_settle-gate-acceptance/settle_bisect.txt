@@ -1,0 +1,15 @@
+# how short can NDTWIN_RYU_SETTLE_S be before the twin goes blind?
+# date:   2026-08-22T12:40:37+08:00   commit: b11ae34
+# known:  10 -> 0/128 (broken).  90 -> 128/128, boot 101s.  burst done by t+32s.
+
+  settle   boot    ryu@t+0   graph@t+0      ryu@t+20   graph@t+20    verdict
+  15       27s     128        288e/0d        128        288e/0d        OK
+  40       51s     128        288e/0d        128        288e/0d        OK
+  40       52s     128        288e/0d        128        288e/0d        OK
+  40       52s     128        288e/0d        128        288e/0d        OK
+
+## reading it
+  The lowest settle with verdict OK is the boot-time floor for a correct twin.
+  A cell that is OK at t+20 but not t+0 is the kernel's 5s poll catching up, not a failure.
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_settle-gate-acceptance/settle_bisect.txt

@@ -138,14 +138,17 @@ sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
 
 ✅ 看到 `mininet>` 就成功。
 
-⚠️ 啟動時它會自己跑一輪 128 台 host 平行 ping。**那不是自我測試，是整個 twin 唯一一次學到主機
-IP 的機會**（丟包數字本身可以忽略，但這一輪不能少）。
+⚠️ 啟動時它會自己跑一輪 128 台 host 平行 ping，**那一輪的 `100% packet loss` 可以忽略**。
 
-Ryu 只從 packet-in 學主機的 IPv4（`ryu/topology/switches.py:877-885`），而 `testbed_topo.py` 已經
-幫每台主機寫好靜態 ARP，所以 ARP 那條路是封死的。等 all-pairs 規則裝上去之後，每個 ICMP 封包
-都會在資料平面被轉走、再也不會上送控制器 —— 學習窗就是 **[交換機連上, all-pairs 裝好]** 這一段，
-關上之後任何流量都補不回來。機制的介入實驗在
-`doc/audit/2026-08-22_punt-window-discriminator/REPORT.md`。
+但**不要**因此以為那輪 ping 沒作用、或反過來以為它就是 twin 學主機 IP 的來源 —— 兩種說法都被
+2026-08-22 的實測推翻了（`doc/audit/2026-08-22_settle-gate-acceptance/burst_timing.txt`）：
+那 128 個 ping 在開機後 **32 秒內就全部跑完**，而 Ryu 在**接下來 65 秒內一台都沒學到**，
+128 台的 IPv4 是在 settle 等待放開的**那一個取樣點**一次全部出現的。
+
+Ryu 只從 packet-in 學主機 IPv4（`ryu/topology/switches.py:877-885`），而 `testbed_topo.py` 已經
+幫每台主機寫好靜態 ARP，把 ARP 那條路封死了 —— 這部分（2026-08-22 `e5e4980` 的介入實驗，
+`doc/audit/2026-08-22_punt-window-discriminator/REPORT.md`）仍然成立。**但「開機那輪 ping 就是
+教 Ryu 的那個封包」是錯的**，觸發點是等待放開的那一刻，機制還沒查出來。
 
 錯過這一窗的後果不是「網路壞掉」，而是更難發現的那種：**資料平面完全正常，但 kernel 在
 `TopologyAndFlowMonitor.cpp:618` 跳過每一台沒有 IP 的主機，`get_graph_data` 會有 256 條 host 邊
@@ -167,20 +170,28 @@ Ryu 只從 packet-in 學主機的 IPv4（`ryu/topology/switches.py:877-885`）�
   waiting for kernel API on :8000 . up
 ```
 
-⚠️ **`paths=pending` 停留約 90 秒是正常的**（舊版文件寫 60 秒，那是 2026-08-21 之前的值）。
-那個等待現在是 `NDTWIN_RYU_SETTLE_S`，預設 90，不再是寫死的 `hub.sleep(60)`。
+⚠️ **`paths=pending` 停留約 40 秒是正常的**（舊版文件寫 60 秒，那是 2026-08-21 之前的值）。
+那個等待現在是 `NDTWIN_RYU_SETTLE_S`，預設 40，不再是寫死的 `hub.sleep(60)`。
 
 它擋住的就是上面 §1b 講的那件事：**規則一裝上去，學習窗就關了。** 所以這個等待不是「保守起見多等
-一下」，而是 twin 看不看得見自己 128 台主機的分界線。實測（`doc/audit/2026-08-22_settle-gate-acceptance/`）：
+一下」，而是 twin 看不看得見自己 128 台主機的分界線。11 次完整開機實測
+（`doc/audit/2026-08-22_settle-gate-acceptance/settle_bisect.txt`）：
 
 | `NDTWIN_RYU_SETTLE_S` | Ryu 學到的主機 | kernel 圖 | `ndt up ovs` |
 |---|---|---|---|
-| 10（2026-08-21 的預設，已知壞） | 0/128 | 288 邊、**256 down** | ~25 s |
-| 90（現在的預設） | 128/128 | 288 邊、0 down | ~100 s |
+| 5 | 0/128 | 288 邊、**256 down** | 16 s |
+| 10（2026-08-21 的預設，已知壞，今天重現兩次） | 0/128 | 288 邊、**256 down** | 20 s |
+| 15 | 128/128 | 288 邊、0 down | 27 s |
+| 20 | 128/128 | 288 邊、0 down | 31 s |
+| **40（現在的預設，n=3）** | 128/128 | 288 邊、0 down | **52 s** |
+| 90 | 128/128 | 288 邊、0 down | 100 s |
 
-⚠️ **快不等於好。** 那個 25 秒的開機數字之所以快，正是因為它在主機被學到之前就把路由裝好了 ——
-速度和 256 條 down 邊是同一件事。看到 `ndt up ovs` 只花二十幾秒，先去查 `get_graph_data` 的
-down 數再高興。
+🔑 **這是懸崖不是斜坡** —— 要嘛 128 台全學到、要嘛一台都沒有，分界在 10 到 15 之間。40 是刻意
+留了 4 倍餘裕（對最高的失敗值 10），不是「跑得動的最小值」。
+
+⚠️ **快不等於好。** 那個二十幾秒的開機數字之所以快，正是因為它在主機被學到之前就把路由裝好了 ——
+速度和 256 條 down 邊是同一件事。**失敗是無聲的**：資料平面完全正常、ping 全通、開機輸出不會有
+任何警告，只有 `get_graph_data` 的 down 數會說話。看到 `ndt up ovs` 只花二十幾秒，先去查那個數字。
 
 那 60 秒是**從 10 台交換機全部連上 Ryu 之後**開始算的，不是從 Ryu 啟動算：
 `load_static_topology()` 只在 `len(self.switches) >= switch_num` 時才被呼叫
