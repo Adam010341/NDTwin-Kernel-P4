@@ -35,16 +35,25 @@ MAX_REPORTED_FIELDS = 12
 
 
 class UnsupportedMatchError(ValueError):
-    """Raised when a match asks for something ipv4_lpm cannot express."""
+    """Raised when a match asks for something no table in the pipeline can express."""
 
     def __init__(self, fields):
         self.fields = sorted(fields)
         shown = self.fields[:MAX_REPORTED_FIELDS]
         extra = len(self.fields) - len(shown)
+        # The message used to read "ipv4_lpm keys on the destination address only", which was
+        # true when that was the only table written and became misleading the moment
+        # flow_5tuple was wired up: a caller sending ip_proto was told the destination-only
+        # table could not honour it, when in fact it now can be honoured, and a caller sending
+        # dl_dst was told the right thing for the wrong reason. Name both tables and what they
+        # cover, so the error says which rules are worth rewriting.
+        # [Co-developed with claude code -- Adam]
         super().__init__(
-            "ipv4_lpm keys on the destination address only; cannot honour: "
+            "no table can honour: "
             + ", ".join(shown)
             + (f" (+{extra} more)" if extra > 0 else "")
+            + " -- ipv4_lpm keys on the destination address, flow_5tuple on "
+              "in_port/src/dst/proto/L4 ports"
         )
 
 

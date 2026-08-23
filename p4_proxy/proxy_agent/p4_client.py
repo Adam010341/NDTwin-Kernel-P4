@@ -540,6 +540,23 @@ class P4RuntimeClient:
                                    for p in a.params},
                     }
 
+                # Direct-counter data, when the switch returns it. Both ingress tables carry a
+                # direct_counter (ndtwin_switch.p4:263-264) precisely so per-entry byte and
+                # packet counts can reach /stats/flow/<dpid> in the shape the kernel's
+                # Classifier expects; until now they were dropped here and the renderer
+                # hardcoded zeroes.
+                #
+                # Read defensively rather than assumed: P4Runtime only populates counter_data
+                # for tables that actually have a direct counter, and a switch that does not
+                # send it must degrade to 0 rather than raise on the polling path -- the same
+                # rule the id lookups above follow. A zero here is therefore not proof of an
+                # idle rule, only of a rule whose counter was not reported.
+                # [Co-developed with claude code -- Adam]
+                counters = None
+                if te.HasField("counter_data"):
+                    counters = {"bytes": te.counter_data.byte_count,
+                                "packets": te.counter_data.packet_count}
+
                 entries.append({
                     "table": self._table_name(te.table_id),
                     "priority": te.priority,
@@ -548,6 +565,7 @@ class P4RuntimeClient:
                     "is_default": te.is_default_action,
                     "match": match,
                     "action": action,
+                    "counters": counters,
                 })
         return entries
 

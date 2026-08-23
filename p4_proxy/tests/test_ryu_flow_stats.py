@@ -188,5 +188,44 @@ class RuleSelectionTest(unittest.TestCase):
             self.assertIn(key, flow)
 
 
+class CounterPassthroughTest(unittest.TestCase):
+    """
+    Direct-counter values must reach the payload.
+
+    Both ingress tables carry a direct_counter (ndtwin_switch.p4:263-264) added specifically so
+    /stats/flow/<dpid> could report per-entry byte and packet counts. Until 2026-08-24 the
+    renderer hardcoded zeroes, so a rule carrying gigabytes reported the same numbers as one
+    that had never matched -- and the endpoint's whole purpose is telling those apart.
+    """
+
+    def flows(self, entries):
+        return rf.render_flow_stats(1, entries)["1"]
+
+    def test_real_counters_reach_the_payload(self):
+        entry = an_lpm_route()
+        entry["counters"] = {"bytes": 123456, "packets": 789}
+        flow = self.flows([entry])[0]
+        self.assertEqual(flow["byte_count"], 123456)
+        self.assertEqual(flow["packet_count"], 789)
+
+    def test_absent_counters_still_render_zero_rather_than_missing(self):
+        # The L4 differential compares shapes against an OVS baseline, so the keys must exist
+        # even when the switch said nothing. This is also the ambiguity worth knowing about:
+        # 0 here means "not reported" as well as "idle", and the payload cannot say which.
+        entry = an_lpm_route()
+        entry.pop("counters", None)
+        flow = self.flows([entry])[0]
+        self.assertEqual(flow["byte_count"], 0)
+        self.assertEqual(flow["packet_count"], 0)
+
+    def test_a_null_counters_field_does_not_raise(self):
+        # read_table_entries sets counters=None when the switch returned no counter_data; the
+        # renderer runs on the kernel's 1 Hz polling path and must not raise there.
+        entry = an_lpm_route()
+        entry["counters"] = None
+        flow = self.flows([entry])[0]
+        self.assertEqual((flow["byte_count"], flow["packet_count"]), (0, 0))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -41,9 +41,19 @@ class UnsupportedMatchFieldsTest(unittest.TestCase):
         self.assertEqual(unsupported_match_fields({"dl_type": 2048, "nw_dst": "10.0.0.4"}), [])
         self.assertEqual(unsupported_match_fields({"eth_type": 2048, "ipv4_dst": "10.0.0.4"}), [])
 
-    def test_the_five_tuple_that_was_silently_narrowed_is_now_named(self):
-        # The regression. Every field beyond the destination has to be reported, because each one
-        # the caller sent and we ignored widens the rule's reach.
+    def test_the_five_tuple_is_now_honoured_rather_than_refused(self):
+        # SUPERSEDED, deliberately, on 2026-08-24. This used to assert that every field beyond
+        # the destination was NAMED IN A REFUSAL -- correct while ipv4_lpm was the only table
+        # the proxy wrote, because a field accepted and ignored widens the rule's reach.
+        #
+        # The pipeline's ternary flow_5tuple table (ndtwin_switch.p4:307) is now wired up, so
+        # this exact match is expressible and gets installed instead of refused. The original
+        # concern is unchanged and still enforced -- silently narrowing a rule is still
+        # forbidden -- it is just no longer narrowing, because the rule now goes somewhere that
+        # can hold all of it.
+        #
+        # Kept as an accept-path assertion rather than deleted, so a regression that re-refuses
+        # the 5-tuple is caught here where the original defect was recorded.
         self.assertEqual(
             unsupported_match_fields(
                 {
@@ -55,7 +65,7 @@ class UnsupportedMatchFieldsTest(unittest.TestCase):
                     "udp_dst": 5001,
                 }
             ),
-            ["ip_proto", "ipv4_src", "udp_dst", "udp_src"],
+            [],
         )
 
     def test_a_non_ipv4_eth_type_is_refused_rather_than_served_as_ipv4(self):
@@ -74,13 +84,23 @@ class UnsupportedMatchFieldsTest(unittest.TestCase):
         self.assertEqual(unsupported_match_fields({"dl_type": None, "nw_dst": "10.0.0.4"}),
                          ["dl_type"])
 
-    def test_l2_and_ingress_fields_are_refused(self):
-        # The kernel's own flow-stats mapping knows dl_dst and in_port, so they are realistic
-        # inputs; ipv4_lpm keys on neither.
+    def test_l2_fields_are_still_refused(self):
+        # The kernel's own flow-stats mapping knows dl_dst, so it is a realistic input, and
+        # NEITHER table keys on it. This half of the original assertion is the half that must
+        # survive the flow_5tuple work: the loud refusal for genuinely unrepresentable fields is
+        # the whole reason a caller can trust a 200.
         self.assertEqual(
-            unsupported_match_fields({"nw_dst": "10.0.0.4", "in_port": 1,
+            unsupported_match_fields({"nw_dst": "10.0.0.4",
                                       "dl_dst": "00:00:00:00:00:04"}),
-            ["dl_dst", "in_port"],
+            ["dl_dst"],
+        )
+
+    def test_in_port_is_no_longer_refused_because_the_ternary_table_keys_on_it(self):
+        # The other half, split out because it changed meaning: flow_5tuple's first key is
+        # standard_metadata.ingress_port, so in_port went from unrepresentable to expressible.
+        self.assertEqual(
+            unsupported_match_fields({"nw_dst": "10.0.0.4", "in_port": 1}),
+            [],
         )
 
     def test_an_empty_or_absent_match_names_nothing(self):
@@ -99,11 +119,16 @@ class UnsupportedMatchFieldsTest(unittest.TestCase):
 
 
 class UnsupportedMatchErrorTest(unittest.TestCase):
-    def test_the_message_names_the_table_and_every_offending_field(self):
+    def test_the_message_names_both_tables_and_every_offending_field(self):
+        # The message names both tables since 2026-08-24. Naming only ipv4_lpm told a caller
+        # that a field the pipeline CAN now express was unexpressible, and told a caller with a
+        # genuinely bad field the right thing for the wrong reason. An operator reading this
+        # needs to know which rules are worth rewriting.
         err = UnsupportedMatchError({"udp_dst", "ip_proto"})
         self.assertEqual(err.fields, ["ip_proto", "udp_dst"])
         text = str(err)
         self.assertIn("ipv4_lpm", text)
+        self.assertIn("flow_5tuple", text)
         self.assertIn("ip_proto", text)
         self.assertIn("udp_dst", text)
 
@@ -253,6 +278,13 @@ class RefusalReachesTheEntryPointsTest(unittest.TestCase):
     caller named.
     """
 
+    # The refusal fixture changed on 2026-08-24. It used to be a 5-tuple match, which was
+    # inexpressible while ipv4_lpm was the only table written; that match is now installed into
+    # flow_5tuple, so it no longer exercises a refusal at all. What these tests are actually
+    # about -- the guard firing BEFORE the switch is touched -- is unchanged, so the fixture
+    # moves to a field neither table can key on. [Co-developed with claude code -- Adam]
+    UNSUPPORTED = {"eth_type": 2048, "ipv4_dst": "10.0.0.4",
+                   "dl_dst": "00:00:00:00:00:04"}
     FIVE_TUPLE = {"eth_type": 2048, "ipv4_src": "10.0.0.1", "ipv4_dst": "10.0.0.4",
                   "ip_proto": 17, "udp_src": 35909, "udp_dst": 5001}
     OUTPUT = [{"type": "OUTPUT", "port": 1}]
@@ -275,25 +307,46 @@ class RefusalReachesTheEntryPointsTest(unittest.TestCase):
             self.calls.append(("modify", args))
             return True
 
+        def insert_5tuple_rule(self, *args):
+            self.calls.append(("insert5", args))
+            return True
+
+        def delete_5tuple_rule(self, *args):
+            self.calls.append(("delete5", args))
+            return True
+
+        def modify_5tuple_rule(self, *args):
+            self.calls.append(("modify5", args))
+            return True
+
     def setUp(self):
         self.client = self.TouchyClient()
         self.topo = TopologyManager()
         self.topo.add_switch(1, self.client)
 
-    def test_route_flow_refuses_the_five_tuple_before_any_write(self):
+    def test_route_flow_refuses_before_any_write(self):
         with self.assertRaises(UnsupportedMatchError):
-            self.topo.route_flow(1, dict(self.FIVE_TUPLE), self.OUTPUT)
+            self.topo.route_flow(1, dict(self.UNSUPPORTED), self.OUTPUT)
         self.assertEqual([], self.client.calls)
 
     def test_unroute_flow_refuses_before_any_delete(self):
         with self.assertRaises(UnsupportedMatchError):
-            self.topo.unroute_flow(1, dict(self.FIVE_TUPLE))
+            self.topo.unroute_flow(1, dict(self.UNSUPPORTED))
         self.assertEqual([], self.client.calls)
 
     def test_modify_flow_refuses_before_any_write(self):
         with self.assertRaises(UnsupportedMatchError):
-            self.topo.modify_flow(1, dict(self.FIVE_TUPLE), self.OUTPUT)
+            self.topo.modify_flow(1, dict(self.UNSUPPORTED), self.OUTPUT)
         self.assertEqual([], self.client.calls)
+
+    def test_the_five_tuple_now_reaches_the_ternary_table_instead_of_being_refused(self):
+        # The other side of the fixture change, kept here so the pair travels together: the
+        # match these tests used to prove was REFUSED must now be proved INSTALLED, and
+        # installed into flow_5tuple rather than quietly narrowed into ipv4_lpm.
+        ok = self.topo.route_flow(1, dict(self.FIVE_TUPLE), self.OUTPUT, 100)
+        self.assertTrue(ok)
+        self.assertEqual(1, len(self.client.calls))
+        self.assertEqual("insert5", self.client.calls[0][0])
 
     def test_a_malformed_match_is_the_same_refusal_not_a_crash(self):
         # api_routes catches UnsupportedMatchError only; anything else out of this call is a

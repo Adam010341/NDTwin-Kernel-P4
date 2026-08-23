@@ -214,13 +214,16 @@ class ThreadRecordingTopology:
         self.threads.append(threading.get_ident())
         return True
 
-    def route_flow(self, dpid, match, actions):
+    # `priority` is forwarded by the handlers as of 2026-08-24 -- meaningless for ipv4_lpm,
+    # mandatory for the ternary flow_5tuple table a richer match compiles to. These stubs only
+    # care which thread they ran on, so they accept it and ignore it.
+    def route_flow(self, dpid, match, actions, priority=None):
         return self._record()
 
-    def unroute_flow(self, dpid, match):
+    def unroute_flow(self, dpid, match, priority=None):
         return self._record()
 
-    def modify_flow(self, dpid, match, actions):
+    def modify_flow(self, dpid, match, actions, priority=None):
         return self._record()
 
 

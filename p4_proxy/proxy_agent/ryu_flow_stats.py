@@ -161,10 +161,19 @@ def entry_to_ryu(entry: dict) -> Optional[dict]:
         "priority": max(0, int(entry.get("priority") or 0)),
         "match": match,
         "actions": _actions_to_ryu(entry.get("action")),
-        # Counters the kernel tolerates being absent but Ryu always sends. Zeroed rather than
-        # omitted so the payload shape matches OVS's, which the L4 differential compares.
-        "byte_count": 0,
-        "packet_count": 0,
+        # Counters the kernel tolerates being absent but Ryu always sends. Still emitted even
+        # when unknown, so the payload shape matches OVS's, which the L4 differential compares.
+        #
+        # These were hardcoded zeroes. Both ingress tables carry a direct_counter
+        # (ndtwin_switch.p4:263-264) added for exactly this endpoint, and the values were being
+        # read off the switch and then dropped one layer below. A rule with real traffic on it
+        # now reports real traffic. [Co-developed with claude code -- Adam]
+        #
+        # Absent counter data still renders 0, and that is indistinguishable from a genuinely
+        # idle rule -- an ambiguity the payload shape cannot express, so it is recorded here
+        # rather than papered over.
+        "byte_count": int((entry.get("counters") or {}).get("bytes") or 0),
+        "packet_count": int((entry.get("counters") or {}).get("packets") or 0),
         "duration_sec": 0,
         "duration_nsec": 0,
         "idle_timeout": 0,
