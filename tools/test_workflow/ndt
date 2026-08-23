@@ -282,17 +282,34 @@ cmd_release() {
 # habit of forcing past it, and that habit disarms it for the run it exists to protect.
 # A server holds no results; a client is a measurement in progress.
 in_flight() {
-    local line cmd
-    while read -r line; do
+    # Matched on the EXECUTABLE, not on the command line.
+    #
+    # This used to scan `ps -eo args=` for the substring "iperf3 -c", which matches any process
+    # whose argv merely mentions it -- including the shell running this very check. Demonstrated
+    # 2026-08-23: a one-liner containing the string made `ndt status` report a measurement in
+    # flight on an empty machine. Same family as the three other self-matching process scans hit
+    # that day; the rule is that argv substring matching cannot distinguish "is the thing" from
+    # "talks about the thing".
+    #
+    # `comm` is the kernel's name for the executable, so a shell that mentions iperf3 is a bash,
+    # not an iperf3. It is truncated to 15 characters, which "iperf3" and "python3" survive.
+    # The script matches still need argv (they run under bash/python), so those exclude this
+    # process and its parent explicitly. [Co-developed with claude code -- Adam]
+    local pid comm args cmd
+    while read -r pid comm args; do
+        [[ "$pid" == "$$" || "$pid" == "$PPID" ]] && continue
+        if [[ "$comm" == "iperf3" ]]; then
+            case "$args" in
+                *" -c "*|*" --client "*) echo "${args:0:100}" ;;
+            esac
+            continue
+        fi
         for cmd in matrix.sh measure.sh cpu_probe.py; do
-            case "$line" in
-                *"$cmd"*) echo "${line:0:100}"; continue 2 ;;
+            case "$args" in
+                *"$cmd"*) echo "${args:0:100}"; continue 2 ;;
             esac
         done
-        case "$line" in
-            *"iperf3 -c"*|*"iperf3 --client"*) echo "${line:0:100}" ;;
-        esac
-    done < <(ps -eo args= 2>/dev/null)
+    done < <(ps -eo pid=,comm=,args= 2>/dev/null)
 }
 
 # lab_session <name> -- is that lab tmux session running?
@@ -1080,10 +1097,26 @@ cmd_status() {
 
     local busy; busy="$(in_flight)"
     if [[ -n "$busy" ]]; then
-        printf '  %-14s %s\n' "measuring" "$(printf '%s' "$busy" | head -1 | cut -c1-72)"
         local extra; extra="$(printf '%s\n' "$busy" | wc -l)"
-        (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
-        problems+=("a measurement is in flight")
+        # A measurement process cannot be measuring a fabric that does not exist. iperf3 can
+        # outlive the fabric it was driving -- a client whose control channel never completes
+        # just sits there, and one was found still running 32 hours after its fabric was torn
+        # down (review session, 2026-08-23). Reporting that as "measuring" tells every reader,
+        # human and cross-session, that the lab is busy when it is merely dirty, and the
+        # advice attached to it ("wait for it") is then exactly wrong: waiting never ends.
+        #
+        # No timestamps needed -- the absence of a fabric is a stronger statement than any
+        # age comparison. [Co-developed with claude code -- Adam]
+        if [[ "$(mn_count)" -eq 0 ]]; then
+            printf '  %-14s %s\n' "orphaned" "$(printf '%s' "$busy" | head -1 | cut -c1-64)"
+            (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
+            printf '  %-14s %s\n' "" "no fabric is running, so these are leftovers, not a measurement"
+            problems+=("orphaned measurement processes with no fabric -- 'ndt clean' reaps them")
+        else
+            printf '  %-14s %s\n' "measuring" "$(printf '%s' "$busy" | head -1 | cut -c1-72)"
+            (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
+            problems+=("a measurement is in flight")
+        fi
     else
         printf '  %-14s %s\n' "measuring" "nothing"
     fi
