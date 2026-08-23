@@ -1,0 +1,27 @@
+# LLDP guard / backoff false-positive study -- LOADED fabric, 128-host OVS
+# date:   2026-08-23T22:45:03+08:00
+# commit: 1790491
+# window: 1200s per cell under NTG load, then a positive control
+# idle counterpart: doc/audit/2026-08-21_lldp-guard-false-positives/fp_study.txt (0/0/0)
+
+## cell C
+   env: NDTWIN_RYU_LLDP_GUARD=0.01 NDTWIN_RYU_LLDP_BACKOFF=10
+   knob lines in ryu log:
+     NDTWIN: LLDP_SEND_GUARD overridden to 0.01s (default 0.05)
+     NDTWIN: LLDP backoff enabled: never-answered ports probed every 10th sweep (default: every port, every sweep)
+   ryu links at start: 32
+   starting NTG: flow --config loaded_flow.json
+   load check: fabric moved 3711 MiB in 15s (from /proc/net/dev)
+   loaded window: 1200s, zero injections (2026-08-23T22:47:08+08:00)
+   LOADED FALSE link deletions during window: 0
+   'topology changed' during window:          0
+   bytes moved across the whole window:       270951 MiB
+   ryu links at window end: 32
+   positive control: iface=s1-eth2 detection=11.6s (+-0.3)
+
+==================================================================
+## the decision number
+  ## cell C
+     LOADED FALSE link deletions during window: 0
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-22_loaded-fp-study/loaded_fp_study.txt
