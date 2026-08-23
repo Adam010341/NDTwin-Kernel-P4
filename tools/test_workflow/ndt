@@ -780,11 +780,17 @@ up_ovs() {
     ok "$n host/switch processes after ${i}s"
 
     say "[3/4] proxy-less convergence + kernel"
-    # Was "a hard-coded 60s sleep, so this takes >60s". That sleep is now
-    # NDTWIN_RYU_SETTLE_S (default 10) -- measured 2026-08-21: convergence in 20s, the whole
-    # `ndt up ovs` in 24.1s. The old message survived the change and told every operator to
-    # expect the opposite of what they were about to see. [Co-developed with claude code -- Adam]
-    info "Ryu settles for ${NDTWIN_RYU_SETTLE_S:-10}s before installing paths (NDTWIN_RYU_SETTLE_S)"
+    # Was "a hard-coded 60s sleep, so this takes >60s", then "default 10". The default is 40 as
+    # of 2026-08-22 and the whole `ndt up ovs` takes ~52s; 10 is known to leave the twin unable
+    # to see 128 of its own hosts (doc/audit/2026-08-22_settle-gate-acceptance/).
+    #
+    # This message has now been wrong twice, in both directions, for the same reason: the
+    # fallback here is a SECOND copy of a default that lives in intelligent_router.py, and
+    # nothing makes them move together. Read it from the source of truth instead, so the next
+    # change to that default cannot leave this line lying. [Co-developed with claude code -- Adam]
+    local settle_default
+    settle_default="$(grep -oP 'NDTWIN_RYU_SETTLE_S", "\K[0-9]+' "$REPO/intelligent_router.py" 2>/dev/null)"
+    info "Ryu settles for ${NDTWIN_RYU_SETTLE_S:-${settle_default:-?}}s before installing paths (NDTWIN_RYU_SETTLE_S)"
     echo "" >&3
     wait "$stack_pid"; local rc=$?
     exec 3>&-; rm -f "$fifo"
