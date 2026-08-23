@@ -172,6 +172,28 @@ def unsupported_match_fields(match_dict):
     return sorted(bad)
 
 
+def p4_priority(openflow_priority):
+    """
+    OpenFlow priority -> P4Runtime priority for a ternary entry.
+
+    [Co-developed with claude code -- Adam]
+    Both are "higher wins", so the mapping is order-preserving by construction. The +1 exists
+    because OpenFlow's range starts at 0 and P4Runtime rejects priority 0 on a ternary table:
+    shifting the whole scale keeps every relative ordering the caller intended while making the
+    lowest band expressible. Clamping 0 to 1 instead would collapse priorities 0 and 1 onto each
+    other, which is a silent reordering of exactly the rules a caller was most careful about.
+
+    A missing priority becomes 0 -> 1, the lowest band, which is the right default for a table
+    that sits in FRONT of ipv4_lpm: an unprioritised 5-tuple rule should still win over the
+    destination-only fallback, but lose to anything anyone bothered to rank.
+    """
+    try:
+        of = int(openflow_priority) if openflow_priority is not None else 0
+    except (TypeError, ValueError):
+        of = 0
+    return max(0, of) + 1
+
+
 def needs_five_tuple(match_dict):
     """
     Whether this match must go to flow_5tuple rather than ipv4_lpm.
@@ -636,7 +658,7 @@ class TopologyManager:
             data.append({"node": formatted_node, "paths": formatted_paths})
         return data
 
-    def route_flow(self, dpid, match_dict, actions_dict):
+    def route_flow(self, dpid, match_dict, actions_dict, priority=None):
         """
         Translates OpenFlow match/actions into P4 Client commands.
         Called when NDTwin POSTs to /stats/flowentry/add
@@ -678,25 +700,46 @@ class TopologyManager:
         bad = unsupported_match_fields(match_dict)
         if bad:
             print(f"[TopologyManager] Refusing rule for DPID {dpid}: "
-                  f"ipv4_lpm cannot honour {bad}")
+                  f"neither table can honour {bad}")
             raise UnsupportedMatchError(bad)
 
         # Parse match (OpenFlow JSON)
         # NDTwin sends: {"dl_type": 2048, "nw_dst": "10.0.0.1"}
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
-        if not ipv4_dst:
-            print("[TopologyManager] Unsupported match criteria (needs nw_dst)")
-            return False
-            
+
         # Parse actions
         # NDTwin sends: [{"type": "OUTPUT", "port": 1}]
         out_port = None
         for action in actions_dict:
             if action.get("type") == "OUTPUT":
                 out_port = action.get("port")
-                
+
         if out_port is None:
             print("[TopologyManager] No OUTPUT action found")
+            return False
+
+        # ---- the 5-tuple branch -----------------------------------------------------------
+        # [Co-developed with claude code -- Adam]
+        # A match naming anything beyond the destination goes to flow_5tuple, which sits in
+        # front of ipv4_lpm and has real priority. Note this is NOT recorded in
+        # _installed_routes: that map is keyed (dpid, ipv4_dst) and answers "which port does
+        # this switch use for this destination", which a 5-tuple rule does not have a
+        # single-valued answer to -- two rules can send the same destination different ways on
+        # different L4 ports. Writing one in would make render_destination_paths confidently
+        # wrong rather than silent, and silent is the honest state until the renderer grows a
+        # notion of finer-grained rules.
+        if needs_five_tuple(match_dict):
+            keys = five_tuple_keys(match_dict)
+            prio = p4_priority(priority)
+            next_hop_mac = "00:00:00:00:00:00"
+            if ipv4_dst and ipv4_dst in self.net.nodes:
+                next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
+            print(f"[TopologyManager] Pushing 5-tuple rule to DPID {dpid} "
+                  f"prio={prio} keys={sorted(keys)} -> port {out_port}")
+            return bool(client.insert_5tuple_rule(keys, prio, next_hop_mac, out_port))
+
+        if not ipv4_dst:
+            print("[TopologyManager] Unsupported match criteria (needs nw_dst)")
             return False
             
         # For a full implementation, we need to know the destination MAC if routing to a host.
@@ -725,7 +768,7 @@ class TopologyManager:
                 self._installed_routes[(dpid, ipv4_dst)] = out_port
         return success
 
-    def unroute_flow(self, dpid, match_dict):
+    def unroute_flow(self, dpid, match_dict, priority=None):
         if dpid not in self.switches:
             return False
 
@@ -735,11 +778,25 @@ class TopologyManager:
         bad = unsupported_match_fields(match_dict)
         if bad:
             print(f"[TopologyManager] Refusing delete for DPID {dpid}: "
-                  f"ipv4_lpm cannot honour {bad}")
+                  f"neither table can honour {bad}")
             raise UnsupportedMatchError(bad)
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
+
+        # [Co-developed with claude code -- Adam]
+        # The priority is part of a ternary entry's identity, so a delete that omits it removes
+        # nothing and reports success -- the same shape as the OVS-side defect where
+        # modify_flow_entry ignored priority and edited someone else's rule. The caller must
+        # send the priority it installed with; p4_priority maps both through the same shift, so
+        # a delete matching the install's OpenFlow priority hits the same entry.
+        if needs_five_tuple(match_dict):
+            keys = five_tuple_keys(match_dict)
+            prio = p4_priority(priority)
+            print(f"[TopologyManager] Deleting 5-tuple rule on DPID {dpid} "
+                  f"prio={prio} keys={sorted(keys)}")
+            return bool(client.delete_5tuple_rule(keys, prio))
+
         if not ipv4_dst:
             return False
             
@@ -754,7 +811,7 @@ class TopologyManager:
                 self._installed_routes.pop((dpid, ipv4_dst), None)
         return success
 
-    def modify_flow(self, dpid, match_dict, actions_dict):
+    def modify_flow(self, dpid, match_dict, actions_dict, priority=None):
         if dpid not in self.switches:
             return False
 
@@ -762,22 +819,33 @@ class TopologyManager:
         bad = unsupported_match_fields(match_dict)
         if bad:
             print(f"[TopologyManager] Refusing modify for DPID {dpid}: "
-                  f"ipv4_lpm cannot honour {bad}")
+                  f"neither table can honour {bad}")
             raise UnsupportedMatchError(bad)
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
-        if not ipv4_dst:
-            return False
-            
+
         out_port = None
         for action in actions_dict:
             if action.get("type") == "OUTPUT":
                 out_port = action.get("port")
-                
+
         if out_port is None:
             return False
-            
+
+        # As unroute_flow: on a ternary table the priority identifies the entry. A modify with
+        # the wrong one edits nothing and says it worked. [Co-developed with claude code -- Adam]
+        if needs_five_tuple(match_dict):
+            keys = five_tuple_keys(match_dict)
+            prio = p4_priority(priority)
+            next_hop_mac = "00:00:00:00:00:00"
+            if ipv4_dst and ipv4_dst in self.net.nodes:
+                next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
+            return bool(client.modify_5tuple_rule(keys, prio, next_hop_mac, out_port))
+
+        if not ipv4_dst:
+            return False
+
         next_hop_mac = "00:00:00:00:00:00"
         if ipv4_dst in self.net.nodes:
             next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")

@@ -58,16 +58,20 @@ class RecordingTopology:
         self.verdict = verdict
         self.calls = []
 
-    def route_flow(self, dpid, match, actions):
-        self.calls.append(("route", dpid, match, actions))
+    # `priority` is passed through as of 2026-08-24: it is meaningless for ipv4_lpm but both
+    # meaningful and mandatory for the ternary flow_5tuple table a richer match now compiles to.
+    # Recorded rather than merely accepted, so a handler that silently stopped forwarding it
+    # fails here instead of at a switch. [Co-developed with claude code -- Adam]
+    def route_flow(self, dpid, match, actions, priority=None):
+        self.calls.append(("route", dpid, match, actions, priority))
         return self.verdict
 
-    def unroute_flow(self, dpid, match):
-        self.calls.append(("unroute", dpid, match))
+    def unroute_flow(self, dpid, match, priority=None):
+        self.calls.append(("unroute", dpid, match, priority))
         return self.verdict
 
-    def modify_flow(self, dpid, match, actions):
-        self.calls.append(("modify", dpid, match, actions))
+    def modify_flow(self, dpid, match, actions, priority=None):
+        self.calls.append(("modify", dpid, match, actions, priority))
         return self.verdict
 
 
@@ -143,7 +147,10 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
                                    "priority": 100}).encode()
                 reply = call(api_routes.delete_flow_entry, body)
                 self.assertEqual(reply["status"], expected)
-                self.assertEqual(recorder.calls, [("unroute", 1, {"nw_dst": "10.0.0.4"})])
+                # The priority the body carried must reach the manager: on the ternary table a
+                # delete that loses it removes nothing and still reports success.
+                self.assertEqual(recorder.calls,
+                                 [("unroute", 1, {"nw_dst": "10.0.0.4"}, 100)])
 
     def test_a_delete_without_a_destination_is_refused_not_a_wipe(self):
         # OpenFlow's non-strict delete treats an empty match as "clear the table". Serving

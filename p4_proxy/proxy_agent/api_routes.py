@@ -154,13 +154,17 @@ async def add_flow_entry(request: Request):
     Parses OpenFlow match/actions and delegates to P4 Client
 
     [Co-developed with claude code -- Adam]
-    The kernel also sends `priority` on every install and `idle_timeout` when an app asks
-    for one; both are read nowhere below. That is deliberate on both counts and the reasons
-    live in TopologyManager.route_flow's docstring -- priority has no meaning in an LPM
-    table, and no producer in this system asks for ageing. Rejecting them is not the
-    alternative it looks like either: a 400 on `priority` would refuse every write the
-    kernel makes, since it sends the field every time, and a 400 on `idle_timeout` would
-    refuse none, since nothing sends one at all.
+    The kernel sends `priority` on every install and `idle_timeout` when an app asks for one.
+
+    `priority` is now READ, and this comment used to say it never was. It had no meaning while
+    every rule went to ipv4_lpm -- an LPM table's tiebreak is the prefix length and nothing
+    else -- but a match naming more than a destination now compiles to the ternary flow_5tuple
+    table, where priority is both meaningful and mandatory. It is still ignored for the
+    destination-only path, which is every rule the kernel itself writes, so this changes nothing
+    for existing callers. [Co-developed with claude code -- Adam]
+
+    `idle_timeout` is still read nowhere, and still deliberately: no producer in this system
+    asks for ageing, and rejecting it would refuse nothing since nothing sends one.
     """
     data = await _flowentry_body(request)
     dpid = data.get("dpid")
@@ -173,7 +177,8 @@ async def add_flow_entry(request: Request):
     # failure and logs it with the endpoint, so this reaches an operator instead of becoming a
     # rule that quietly covers more traffic than was asked for.
     try:
-        success = await run_in_threadpool(topology.route_flow, dpid, match, actions)
+        success = await run_in_threadpool(topology.route_flow, dpid, match, actions,
+                                          data.get("priority"))
     except UnsupportedMatchError as err:
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
@@ -207,7 +212,8 @@ async def delete_flow_entry(request: Request):
     match = data.get("match", {})
     
     try:
-        success = await run_in_threadpool(topology.unroute_flow, dpid, match)
+        success = await run_in_threadpool(topology.unroute_flow, dpid, match,
+                                          data.get("priority"))
     except UnsupportedMatchError as err:
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
@@ -229,7 +235,8 @@ async def modify_flow_entry(request: Request):
     # fired on every *successful* modify, because modify_ipv4_route had no `return True` on
     # its success path and the None propagated to here as falsy.
     try:
-        success = await run_in_threadpool(topology.modify_flow, dpid, match, actions)
+        success = await run_in_threadpool(topology.modify_flow, dpid, match, actions,
+                                          data.get("priority"))
     except UnsupportedMatchError as err:
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
