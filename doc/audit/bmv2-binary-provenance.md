@@ -109,9 +109,17 @@ sha256 above is for: it is the only thing here that would notice.
 
 ## Open
 
-- `build_bmv2_fast.sh` still writes no manifest into `/usr/local/bmv2-fast/` — confirmed empty
-  of any build record on 2026-08-21 (only `bin/`, `include/`, `lib/`). The fix proposed in
-  `METHOD_jitter-and-load.md:215` (source SHA + configure flags + date) is unimplemented.
+- ~~`build_bmv2_fast.sh` writes no manifest~~ — **closed.** Future builds sign their own work
+  (`38e0c44`), and the already-installed binary was backfilled on 2026-08-24 by
+  `tools/test_workflow/manifest_backfill.sh`, run by Adam under sudo. `/usr/local/bmv2-fast/BUILD-MANIFEST`
+  now exists, root-owned, and the script verified sha256 `3ff54b5c…` against the row below
+  before writing a word — it refuses rather than label a binary it cannot identify.
+
+  ⚠️ **That file is a RECONSTRUCTION and says so in its own header.** The build tree is gone, so
+  its fields come from this document plus the binary's `--version`; only `sha256`, `size` and
+  `version` were read from the artifact itself. Do not cite it as a build-time record. The
+  configure recap, the toolchain version and byte-reproducibility remain unrecoverable and are
+  listed as such inside the manifest rather than guessed.
 - Neither `ndt check` nor `ndt up` compares the running binary against an expected identity;
   they print the path and move on.
 - The fast build is **not byte-reproducible**: its build tree `/tmp/bmv2-fast-src` is gone, and
