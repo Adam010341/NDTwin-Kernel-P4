@@ -6,7 +6,14 @@ eventlet.monkey_patch()
 import os, sys, signal, time
 sys.path.insert(0, "/home/adam/Desktop/NDTwin-Kernel")
 
-os.environ["NDTWIN_RYU_GREENLET_DUMP"] = "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/d2e2d151-039a-43b5-b79f-ef14684eabaa/scratchpad/gdump.txt"
+# Was hardcoded to a scratchpad path belonging to the session that wrote this file. That session
+# is gone; the directory goes with it, so the dump would land nowhere and the smoke would "pass"
+# by writing to a path nobody reads. Use a temp file owned by this run instead, and print it.
+# [Co-developed with claude code -- Adam]
+import tempfile
+_dump_fd, _dump_path = tempfile.mkstemp(prefix="ndtwin_gdump_smoke_", suffix=".txt")
+os.close(_dump_fd)
+os.environ["NDTWIN_RYU_GREENLET_DUMP"] = _dump_path
 
 # Import only the dump machinery, not the whole Ryu app.
 import importlib.util, types
@@ -33,4 +40,17 @@ os.kill(os.getpid(), signal.SIGUSR2)
 eventlet.sleep(0.3)
 os.kill(os.getpid(), signal.SIGUSR2)   # second dump, to diff like the py-spy pair
 eventlet.sleep(0.3)
-print("DUMPS DONE")
+# "DUMPS DONE" used to print unconditionally -- which is how a dump path pointing at a deleted
+# session's scratchpad survived here unnoticed. A smoke test that cannot fail is not a test.
+_n = os.path.getsize(_dump_path)
+if _n == 0:
+    print(f"FAIL: SIGUSR2 handler wrote nothing to {_dump_path}")
+    sys.exit(1)
+with open(_dump_path) as _fh:
+    _txt = _fh.read()
+_dumps = _txt.count("greenlet dump  pid=")
+_parked = _txt.count("state=parked")
+if _dumps != 2:
+    print(f"FAIL: expected 2 dumps, found {_dumps} in {_dump_path}")
+    sys.exit(1)
+print(f"DUMPS DONE: {_dumps} dumps, {_parked} parked frames, {_n} bytes -> {_dump_path}")

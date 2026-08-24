@@ -15,6 +15,21 @@ flag halves boot time.
 
 Thirty boots today, zero failures, across both the fixed and the unfixed router.
 
+**Which second is which** (two numbers exist for every boot and they must not be cited
+interchangeably — the review round independently recomputed from the same raws and got the other
+one, reporting control 47–48s and async 20–21s):
+
+| metric | source | control | async | ratio |
+|---|---|---|---|---|
+| `wall=` — the whole `ndt up ovs` | this report's tables | 52–53s | 26s | 2.00× |
+| `converged after Ns` — the convergence wait only | `await_convergence`, inside the up.out | 47–48s | 20–21s | 2.28× |
+
+The ~5s delta is Ryu start, fabric build, kernel start and verify — real work, outside the
+convergence window. **Both are correct; neither is the other.** The 2× headline survives either
+choice, which is why the async result is safe to state, but an unlabelled "26s" and an unlabelled
+"20-21s" describing the same run is exactly how this repo's walk figure went through three
+contradictory generations.
+
 ## What this establishes
 
 **1. The wedge does not reproduce today, at the commit that produced it.** The control ran the
@@ -29,8 +44,20 @@ against. **§5-P item 4's verification remains open, not passed.**
 
 There was a second, independent reason to doubt the attribution before the control ran: `d1d973d`
 only acts when `get_all_host` stalls past 5s, and it announces itself in the log when it does.
-**No boot in any arm logged that warning**, and every boot matched the timing of the baseline's
-*successes* rather than looking rescued. A fix that never fired cannot be what changed the outcome.
+No boot showed signs of having been rescued — every one matched the timing of the baseline's
+*successes*, not a ride-out.
+
+⚠️ **Correction (review round, N-1): the log half of that claim is much thinner than first written.**
+An earlier draft said "no boot in any arm logged that warning". The archiving policy here keeps
+`ryu.log` only on FAILURE, and there were no failures — so **almost no logs were retained**. The
+actual disk evidence is a *single* live spot-check during the async arm (`grep -c` → 0). The control
+arm cannot contribute at all: its router has the timeout code reverted out, so the warning is
+impossible there by construction, not by observation. The 20 HEAD-code boots left no log behind.
+
+**The load-bearing evidence for "d1d973d did not fire" is therefore the timing signature, not the
+logs.** That signature is strong (30/30 boots at success-timing, two distinct modes 52–53s and 26s
+with no intermediate) and the control is independent of both. The conclusion stands; its support is
+narrower than stated. **Harness fix for next time: archive `ryu.log` on every boot, not just failures.**
 
 **3. The async flag halves boot time: 26s vs 52s.** This one *is* attributable — same day, same
 machine, same harness, single variable, n=10 each, and the banner was asserted present in `ryu.log`
@@ -52,6 +79,22 @@ router — shows **20 notifications / 10 unique**, i.e. two per switch. Successf
 of these, not fewer. The failing boots' 12 is a **truncated** count: the app stops notifying when
 it wedges. Symptom, not trigger. The comparison only worked because a successful-boot log was
 captured to compare against; the failing logs alone would have supported the wrong conclusion.
+
+**Sharpened**: every one of those lines, in both logs, is a `Failed to notify NDT (switch enter)`
+**retry** — 12/12 and 20/20, zero successful notifications, because the kernel is not listening yet
+at that point in the boot. Both logs carry the same 10 unique dpids. So the difference is not which
+switches appeared, it is **how far the retry loop got**: the healthy boot completes a second round
+for all ten, the wedged boot manages a second attempt for only two before the app stops draining.
+That is the truncation, measured directly.
+
+⚠️ **Unreconciled with the review round (N-2).** The review reports this same 12 decomposing as
+`entered 2 + stateChange 10`, matching a USR2 frame dump's `entered=2/10`. That does not reproduce
+here: `grep -c "inform_switch_entered"` is **12**, not 2, and is homogeneous — every line is a
+`Failed to notify` retry, with `state_change` lines counting **10 in both** the failing and the
+successful log. Two possibilities: they are measuring a different quantity (plausibly the dump's
+internal counters rather than these log lines), or one decomposition is wrong. **Both sides agree
+on the direction and on the refutation** — this affects only the finer mechanism. Query sent; do
+not cite the decomposition until it reconciles.
 
 ## Leading hypothesis for the non-reproduction (untested)
 
