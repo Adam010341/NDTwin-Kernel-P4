@@ -1,0 +1,7 @@
+
+# summoning run: does CPU contention reproduce the boot wedge?
+# date:    2026-08-24T20:56:36+0800   commit: d8c2ea4
+# router:  sha256=d19020b1a1dcf932  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=3.92
+# wedge was seen at uptime ~67h in a PRIOR boot session; all clean runs are this session
+# load arm: 14 busy-loop workers (nproc); interleaved L/Q, 8 pairs

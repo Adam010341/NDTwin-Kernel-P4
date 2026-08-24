@@ -1,0 +1,52 @@
+
+# summoning run: does CPU contention reproduce the boot wedge?
+# date:    2026-08-24T21:25:18+0800   commit: d8c2ea4
+# router:  sha256=d19020b1a1dcf932  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=4.40
+# wedge was seen at uptime ~67h in a PRIOR boot session; all clean runs are this session
+# load arm: 14 busy-loop workers (nproc); interleaved L/Q, 8 pairs
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p1: FAILED  wall=87s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     class=HEALTHY
+## quiet_p1: CONVERGED  wall=52s  XX=0  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p2: FAILED  wall=87s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     class=HEALTHY
+## quiet_p2: CONVERGED  wall=52s  XX=0  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p3: FAILED  wall=91s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     class=HEALTHY
+## quiet_p3: CONVERGED  wall=52s  XX=0  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p4: FAILED  wall=83s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     class=HEALTHY
+## quiet_p4: CONVERGED  wall=53s  XX=0  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p5: FAILED  wall=78s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=HEALTHY-XX
+## quiet_p5: FAILED  wall=52s  XX=1  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p6: FAILED  wall=93s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=HEALTHY-XX
+## quiet_p6: FAILED  wall=52s  XX=1  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p7: FAILED  wall=79s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     class=HEALTHY
+## quiet_p7: CONVERGED  wall=52s  XX=0  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+     dump: 635 lines, 0 in _events_sem.acquire
+     class=SETTLE-HOSTS
+## loaded_p8: FAILED  wall=77s  XX=0  hosts=0/128  graph=288e/256d  entered=10/10 statechange=10/10
+     class=HEALTHY
+## quiet_p8: CONVERGED  wall=52s  XX=0  hosts=128/128  graph=288e/0d  entered=10/10 statechange=10/10
+# LOADED: 8 of 8 failed    QUIET: 2 of 8 failed    (contaminated: 0)
+# wedge signature to look for: entered truncated (<10) while statechange=10/10
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_boot-ring-summon/boot_summon.txt

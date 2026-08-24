@@ -1,0 +1,9 @@
+
+# persistence probe: is the loaded-boot host failure permanent or merely late?
+# date: 2026-08-24T21:52:37+0800  commit: d8c2ea4
+# uptime_h=4.85  boot_id=b8b44406-0096-4c4b-a58e-5c26ea9b0286
+# load up: 14/14 workers
+# boot done; sampling every 15s. load stays UP for the first 10 minutes.
+t+0s  hosts=0/128  edges=288  down=256  loaded=1
+t+15s  hosts=0/128  edges=288  down=256  loaded=1
+t+30s  hosts=0/128  edges=288  down=256  loaded=1
