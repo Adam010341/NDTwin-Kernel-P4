@@ -1,0 +1,14 @@
+
+# fail probe -- 15:22:31  commit 9ff705f
+## attempt 1: booting
+   t+20s links=31 -> this boot is HEALTHY, not probing
+## attempt 2: booting
+   t+20s links=32 -> this boot is HEALTHY, not probing
+## attempt 3: booting
+   links still ? at t+150 -- FAILING BOOT CAUGHT, probing live
+   PROBE is_connected: 10/10
+   PROBE lldp rule map: s1:n_packets=63 s2:n_packets=63 s3:n_packets=62 s4:n_packets=63 s5:n_packets=125 s6:n_packets=127 s7:n_packets=124 s8:n_packets=125 s9:n_packets=125 s10:n_packets=125
+   PROBE ryu switches/ports: 
+   PROBE +20s delta check: s1:n_packets=69 s5:n_packets=137 s9:n_packets=137
+   probe complete -> raw/diag3_*
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/fail_probe.txt

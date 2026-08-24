@@ -1,0 +1,23 @@
+
+# ten OVS boots at plain defaults -- convergence rate (phase 1, full-stack round)
+# date:   2026-08-24T12:23:11+0800   commit: 79cd66a
+# env check: NDTWIN_RYU_SETTLE_S=unset  NDTWIN_RYU_LLDP_GUARD=unset  NDTWIN_RYU_LLDP_BACKOFF=unset
+## boot 1: ndt up EXITED NONZERO (wall 414s) -- see rate_boot1_up.out
+## boot 1: FAILED  wall=414s  XX=3  ryu_hosts=?/128  graph=288e/288d
+## boot 2: ndt up EXITED NONZERO (wall 414s) -- see rate_boot2_up.out
+## boot 2: FAILED  wall=414s  XX=3  ryu_hosts=?/128  graph=288e/288d
+## boot 3: ndt up EXITED NONZERO (wall 413s) -- see rate_boot3_up.out
+## boot 3: FAILED  wall=413s  XX=3  ryu_hosts=?/128  graph=288e/288d
+## boot 4: ndt up EXITED NONZERO (wall 414s) -- see rate_boot4_up.out
+## boot 4: FAILED  wall=414s  XX=3  ryu_hosts=?/128  graph=288e/288d
+## boot 5: CONVERGED  wall=58s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 6: ndt up EXITED NONZERO (wall 414s) -- see rate_boot6_up.out
+## boot 6: FAILED  wall=414s  XX=3  ryu_hosts=?/128  graph=288e/288d
+## boot 7: CONVERGED  wall=58s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 8: CONVERGED  wall=7626s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 9: ndt up EXITED NONZERO (wall 415s) -- see rate_boot9_up.out
+## boot 9: FAILED  wall=415s  XX=3  ryu_hosts=?/128  graph=288e/288d
+## boot 10: CONVERGED  wall=58s  XX=0  ryu_hosts=128/128  graph=288e/0d
+# leaving the last fabric up for phase 2 (claim review-0824 held)
+# rate: 6 of 10 failed to converge
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/boot_rate.txt

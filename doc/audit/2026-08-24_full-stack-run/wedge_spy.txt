@@ -1,0 +1,19 @@
+
+# wedge spy -- 15:36:16
+## attempt 1: booting
+   WEDGE CAUGHT (links=? at t+120), ryu pid=unknown
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/wedge_spy.txt
+
+# wedge spy -- 15:40:21
+## attempt 1: booting
+   t+20s links=32 -> HEALTHY, next attempt
+## attempt 2: booting
+   t+20s links=32 -> HEALTHY, next attempt
+## attempt 3: booting
+   WEDGE CAUGHT (links=? at t+120), ryu pid=1828060
+   dumps -> raw/spy3_dump{1,2}.txt
+   DUMP1: Thread 0x73E00A777600 (active): "MainThread"
+   DUMP1:     do_poll (eventlet/hubs/epolls.py:31)
+   DUMP1:     wait (eventlet/hubs/poll.py:80)
+   DUMP1:     run (eventlet/hubs/hub.py:365)
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/wedge_spy.txt

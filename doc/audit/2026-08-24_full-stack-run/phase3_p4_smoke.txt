@@ -1,0 +1,28 @@
+
+# phase 3: P4 smoke -- 16:12:21  commit 72fbae6
+     ok  10 switches up after 5s, manifest written
+     ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+     ok  proxy: 12/12 destination paths (stable)
+     ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
+     ok  model matches fabric: 4 hosts
+     ok  data plane: h1 -> 10.0.0.2 forwards
+## binary identity (from /proc, not config)
+   live switch binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+## twin health
+   kernel graph: 40 edges, 0 down
+## five-tuple regression (rerun of the P2-5 live gate on this fresh fabric)
+   five_tuple_live.sh exit 0
+         prio=0 match={'nw_dst': '10.0.0.1', 'dl_type': 2048} -> OUTPUT:3 pkts=2 bytes=196
+         prio=0 match={'nw_dst': '10.0.0.2', 'dl_type': 2048} -> OUTPUT:1 pkts=2 bytes=196
+         prio=0 match={'nw_dst': '10.0.0.3', 'dl_type': 2048} -> OUTPUT:1 pkts=0 bytes=0
+         prio=0 match={'nw_dst': '10.0.0.4', 'dl_type': 2048} -> OUTPUT:1 pkts=0 bytes=0
+     HTTP 200
+         prio=101 match={'nw_dst': '10.0.0.2', 'nw_proto': 6, 'tp_dst': 5001, 'dl_type': 2048} -> OUTPUT:2 pkts=0 bytes=0
+         prio=0 match={'nw_dst': '10.0.0.1', 'dl_type': 2048} -> OUTPUT:3 pkts=2 bytes=196
+         prio=0 match={'nw_dst': '10.0.0.2', 'dl_type': 2048} -> OUTPUT:1 pkts=2 bytes=196
+## sFlow liveness (samples arriving at the kernel?)
+   get_detected_flow_data response bytes: 0
+0 -> 0
+0 (10s apart)
+# fabric torn down; phase 3 complete
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/phase3_p4_smoke.txt

@@ -1,0 +1,4 @@
+
+# ten OVS boots at plain defaults -- convergence rate (phase 1, full-stack round)
+# date:   2026-08-24T12:22:29+0800   commit: 79cd66a
+# env check: NDTWIN_RYU_SETTLE_S=unset  NDTWIN_RYU_LLDP_GUARD=unset  NDTWIN_RYU_LLDP_BACKOFF=unset

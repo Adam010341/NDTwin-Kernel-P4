@@ -1,0 +1,56 @@
+
+# wedge round 3 (SIGUSR2 + self-heal watch) -- 16:14:46  commit 72fbae6
+## attempt 1: booting
+   t+30s links=32 -> HEALTHY, next attempt
+## attempt 2: booting
+   t+30s links=32 -> HEALTHY, next attempt
+## attempt 3: booting
+   t+30s links=32 -> HEALTHY, next attempt
+## attempt 4: booting
+   WEDGE CAUGHT, ryu pid=1956414 -- taking greenlet dumps
+   dump1: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/raw/usr2_attempt4_d1.txt
+   dump2: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/raw/usr2_attempt4_d2.txt
+   VERDICT grep (greenlets parked in a queue put):
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+           File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+   greenlets blocked in queue put: 0
+## self-heal watch: leaving the wedged fabric alone until t+900s, polling links/30s
+   heal-watch t+34s links=?
+   heal-watch t+68s links=?
+   heal-watch t+102s links=?
+   heal-watch t+136s links=?
+   heal-watch t+170s links=?
+   heal-watch t+204s links=?
+   heal-watch t+238s links=?
+   heal-watch t+272s links=?
+   heal-watch t+306s links=?
+   heal-watch t+340s links=?
+   heal-watch t+374s links=?
+   heal-watch t+408s links=?
+   heal-watch t+442s links=?
+   heal-watch t+476s links=?
+   heal-watch t+510s links=?
+   heal-watch t+545s links=?
+   heal-watch t+579s links=?
+   heal-watch t+613s links=?
+   heal-watch t+647s links=?
+   heal-watch t+681s links=?
+   heal-watch t+715s links=?
+   heal-watch t+749s links=?
+   heal-watch t+783s links=?
+   heal-watch t+817s links=?
+   heal-watch t+851s links=?
+   heal-watch t+885s links=?
+   heal-watch t+919s links=?
+   SELF-HEAL: no
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/wedge_usr2.txt

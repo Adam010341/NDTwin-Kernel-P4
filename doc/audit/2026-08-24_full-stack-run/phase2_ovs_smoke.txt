@@ -1,0 +1,25 @@
+
+# phase 2: OVS smoke -- 15:49:47  commit a9ac3b3
+## boot attempt 1: CONVERGED
+## 1. get_path_switch_count series (10 samples, 12s apart, first query after boot)
+   sample 1: HTTP 200
+   sample 2: HTTP 200
+   sample 3: HTTP 200
+   sample 4: HTTP 200
+   sample 5: HTTP 200
+   sample 6: HTTP 200
+   sample 7: HTTP 200
+   sample 8: HTTP 200
+   sample 9: HTTP 200
+   sample 10: HTTP 200
+## 2. northbound install -> forwarding changes -> delete -> reverts
+   baseline h1->h2: ok
+   install (divert h2 traffic at s1 -> port 3 = h1's own port, a deterministic dead end): HTTP 200
+   h1->h2 after divert: diverted   (expect diverted -- the rule outranks the route)
+   delete: HTTP 200 ; h1->h2 after delete: ok   (expect ok -- no install-then-delete black hole)
+## 3. failover drill at defaults (netem 100% loss on s1-eth2, time link-down detection)
+   link-down detected after: 52s (links now 31; idle-defaults expectation ~45-50s)
+   healed and re-discovered after: 5s (links 32/32)
+   kernel graph after drill: 288 edges, 0 down
+# fabric left UP for phase 3 hand-off
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_full-stack-run/phase2_ovs_smoke.txt
