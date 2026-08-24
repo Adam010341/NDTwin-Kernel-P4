@@ -216,7 +216,12 @@ the moment the coupling is understood -- but the source says plainly that the ea
 never fired on a 128-host boot.
 
 
-## 🔬 2026-08-24: candidate (1) is real, and is NOT the cause
+## 🔬 2026-08-24: candidate (1) is real, and is HALF THE CYCLE
+
+⚠️ **This section was written twice and the first version is left below, struck through in
+prose, because the correction is the point.** On the phase-1 evidence I recorded candidate (1)
+as "confirmed present, exonerated as cause". The frame-level dump that followed shows that
+verdict was too weak: the stall is not a bystander, it is the first edge of the ring.
 
 This report listed three untested candidates for "why learning follows the release", the first
 being *this handler stalling its own app's event queue* (it blocks inside an `EventSwitchEnter`
@@ -231,9 +236,38 @@ handler, and Ryu dispatches one app's events serially). The review session's pha
   empty 109-byte body for the **entire** boot, so the all-pairs walk has no edges to install
   over. The stall is a real secondary symptom of a primary failure elsewhere.
 
-So candidate (1) moves from "untested" to "confirmed present, exonerated as cause". Candidates
-(2) and (3) remain untested. The open question this report ends on is unchanged in substance but
-sharper in location: it is upstream of the walk, in LLDP link discovery.
+### The correction, from the USR2 frame dump
+
+The reasoning above rests on "the Switches app is not the one being blocked". **It is.** The
+in-process greenlet dump (`raw/usr2_attempt4_d{1,2}.txt`, instrument added in `7f7de4a`) shows
+twelve greenlets parked in `_events_sem.acquire()`, every one of them emitting into
+IntelligentRyu's full buffer — ten datapath serve loops, `link_loop`, and **the Switches app's
+own event loop, blocked at `switches.py:818` while emitting `EventLinkAdd`**.
+
+So link discovery never failed. It *succeeded*, and wedged while announcing its first link.
+
+That closes the ring, and candidate (1) is one of its two edges:
+
+1. This handler blocks inside `EventSwitchEnter` (candidate 1) → IntelligentRyu stops draining.
+2. Its buffer is bounded at 128 and shared with every punted packet-in from ten datapaths →
+   fills in ~50 s.
+3. Anything emitting into it blocks — including Switches' own loop, which is where LLDP
+   processing and topology REST live.
+4. The gate's `get_all_host()` is a request-reply *into that now-dead app*, with no timeout, so
+   IntelligentRyu waits forever for a reply that cannot come. Neither side can break out.
+
+Candidate (1) therefore moves "untested" → "present but exonerated" → **"present, and the edge
+that starts the ring"**. Candidates (2) and (3) are moot: the question they were competing to
+answer is settled.
+
+Both fixes cut an edge. `72fbae6` (async install, flag-gated) removes edge 1; `d1d973d`
+(bounded host read) removes edge 4. Either alone should prevent closure; neither is live-verified
+yet.
+
+A note on how nearly this was missed: the confirming grep was aimed at `in put`, because I said
+so — Ryu's buffer is a queue **and a semaphore**, and a full one blocks in `_events_sem.acquire()`.
+The review session's search found zero and they checked the frames rather than trusting the
+pattern. A shape-specific detector returning 0 only ever disproves that shape.
 
 Do not read this as the settle work being wrong — the settle cliff, the burst timing and the
 0/128-vs-128/128 arithmetic all still hold on boots that converge. It means those measurements
