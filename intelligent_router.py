@@ -198,6 +198,97 @@ settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "40"))
 
 detecting_time = 60
 
+
+# ---------------------------------------------------------------------------------------------
+# SIGUSR2 -> dump every greenlet's stack. [Co-developed with claude code -- Adam]
+#
+# Built for one specific open question and kept because the answer needs re-checking after any
+# fix: on 2026-08-24 six of ten default OVS boots wedged with LLDP link discovery producing
+# nothing at all, and py-spy could not name the culprit. Two dumps of a wedged Ryu ten seconds
+# apart were byte-identical -- one thread, parked in eventlet's epoll, no runnable greenlet
+# (doc/audit/2026-08-24_full-stack-run/REPORT.md). That rules out any busy-spin, and it is where
+# py-spy stops being useful: it reads THREAD stacks, and a parked greenlet's frames live on the
+# heap, not on any thread.
+#
+# The surviving hypothesis is a queue cycle -- each Ryu app has a bounded hub.Queue(128), a put
+# into a full queue blocks the emitter, and blocking work inside an EventSwitchEnter handler
+# lets LLDP packet-ins fill that app's queue until the Switches app's own emitter blocks and
+# stops draining its queue, where LLDP processing lives. It survived its falsification attempt
+# but stays INFERRED, because nothing so far can see the parked frames.
+#
+# This is what sees them. Sending SIGUSR2 walks the heap for greenlet objects and writes each
+# one's stack, so a wedged process can say where every coroutine is parked. If the hypothesis is
+# right, the dump shows a datapath greenlet inside a queue `put`; if it shows something else,
+# the hypothesis dies and that is worth just as much.
+#
+# Three deliberate choices:
+#   * Inert until signalled, so installing it changes nothing about a normal run.
+#   * Every step wrapped -- a diagnostic that can crash the control plane it is diagnosing is
+#     worse than no diagnostic. Failures here degrade to a line in the log.
+#   * Appends rather than truncates, and stamps each dump, so two dumps taken seconds apart can
+#     be diffed the way the py-spy pair was -- "identical" was itself the finding that ruled out
+#     busy-spin.
+GREENLET_DUMP_PATH = os.environ.get("NDTWIN_RYU_GREENLET_DUMP",
+                                    "/tmp/ndtwin_ryu_greenlets.txt")
+
+
+def _dump_greenlets(signum=None, frame=None):
+    """Write every live greenlet's parked stack to GREENLET_DUMP_PATH."""
+    try:
+        import gc
+        import traceback
+        import greenlet as _greenlet
+        from datetime import datetime
+
+        lines = ["", "=" * 78,
+                 f"greenlet dump  pid={os.getpid()}  at={datetime.now().isoformat(timespec='seconds')}",
+                 "=" * 78]
+        found = 0
+        for obj in gc.get_objects():
+            try:
+                if not isinstance(obj, _greenlet.greenlet):
+                    continue
+            except Exception:            # isinstance can trip on odd heap objects
+                continue
+            found += 1
+            try:
+                state = ("dead" if obj.dead
+                         else "current" if obj is _greenlet.getcurrent()
+                         else "parked")
+                lines.append(f"\n--- greenlet {hex(id(obj))}  state={state}"
+                             f"  parent={hex(id(obj.parent)) if obj.parent else 'none'}")
+                gr_frame = getattr(obj, "gr_frame", None)
+                if gr_frame is None:
+                    lines.append("    (no frame -- not started, or dead)")
+                else:
+                    # The frames of a PARKED greenlet: exactly what py-spy cannot reach.
+                    lines.extend("    " + ln.rstrip()
+                                 for ln in traceback.format_stack(gr_frame))
+            except Exception as exc:     # noqa: BLE001 -- one bad greenlet must not stop the dump
+                lines.append(f"    (unreadable: {exc!r})")
+        lines.append(f"\n{found} greenlet object(s) on the heap")
+
+        with open(GREENLET_DUMP_PATH, "a") as fh:
+            fh.write("\n".join(lines) + "\n")
+    except Exception as exc:             # noqa: BLE001 -- never let the diagnostic kill Ryu
+        try:
+            print(f"NDTWIN: greenlet dump failed: {exc!r}", flush=True)
+        except Exception:
+            pass
+
+
+def _install_greenlet_dump_handler():
+    try:
+        import signal
+        signal.signal(signal.SIGUSR2, _dump_greenlets)
+        print(f"NDTWIN: SIGUSR2 dumps greenlet stacks to {GREENLET_DUMP_PATH} "
+              f"(kill -USR2 <ryu pid>)", flush=True)
+    except Exception as exc:             # noqa: BLE001
+        print(f"NDTWIN: could not install SIGUSR2 greenlet dump: {exc!r}", flush=True)
+
+
+_install_greenlet_dump_handler()
+
 # [Co-developed with claude code -- Adam]
 # How long Ryu's link discovery waits between two LLDP sends, in seconds. Ryu's default is
 # 0.05 and it is the single largest term in OVS failover.
