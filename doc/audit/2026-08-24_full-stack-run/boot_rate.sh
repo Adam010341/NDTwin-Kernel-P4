@@ -1,21 +1,33 @@
 #!/usr/bin/env bash
 # boot_rate.sh -- phase 1 of the 2026-08-24 full-stack round: ten OVS boots at plain
 # defaults, measuring the convergence rate that 2026-08-24_path-switch-count-404/REPORT.md
-# estimated at 3-of-5. Every iteration's raw is numbered, never overwritten (the C-1 lesson
-# from scratch/review-2026-08-24/corrections.md: rerun-clobbered raws inverted a citation).
+# estimated at 3-of-5.
 #
 # [Co-developed with claude code -- Adam]
+#
+# Numbering protects raws within ONE run only -- a second invocation would truncate the
+# same filenames (boot-ring-verify caught this against the header's original "never
+# overwritten" claim, which was wrong across runs). So: this script now REFUSES to start
+# if prior raws exist; move them aside deliberately or work from git.
 #
 # Per boot: ndt up ovs (no env overrides) -> twin health read at t+0 and t+20 (the kernel
 # re-polls every 5s, so a t+0 read races it; acceptance criterion is "healthy within poll
 # cadence") -> on failure keep ryu.log for the failing-vs-succeeding diff the 404 report
 # asked for -> ndt down.
+#
+# Wall-clock caveat: wall times span suspend (baseline boot 8 read 7626s across a 2h sleep);
+# check journalctl for suspend entry/exit before quoting any wall from this file.
 set -uo pipefail
-export NDT_OWNER=review-0824
+export NDT_OWNER="${NDT_OWNER:-review-0824}"
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 RAW="$DIR/raw"; mkdir -p "$RAW"
 OUT="$DIR/boot_rate.txt"
+if ls "$RAW"/rate_boot1_up.out >/dev/null 2>&1; then
+    echo "boot_rate: raws from a previous run exist in $RAW -- refusing to truncate them." >&2
+    echo "Move them aside (e.g. mkdir $RAW/run_\$(date +%H%M) && mv $RAW/rate_boot* there) first." >&2
+    exit 1
+fi
 RYU=http://localhost:8080
 KERNEL=http://localhost:8000
 RYULOG="/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log"
