@@ -70,27 +70,48 @@ fired, no routes were installed, and `ndt`'s own verification caught it: *"data 
 reach 10.0.0.2 -- fabric is up but not forwarding"*, with the kernel reporting 10 switches,
 0 up. The rerun of the same cell booted normally (32 links) and produced the clean window above.
 
-So it is **transient, not deterministic** -- and that is not reassuring, because the mechanism is
-plausible rather than mysterious. `NDTWIN_RYU_LLDP_BACKOFF=10` probes never-answered ports every
-tenth sweep. **At bootstrap every port is a never-answered port**, including every inter-switch
-link, so the backoff cuts initial probing tenfold exactly when discovery has nothing yet to go
-on. Combined with `guard=0.01` shortening each sweep, the first probe of a given port can land
-late enough that discovery does not bootstrap inside the convergence window.
+So it is **transient, not deterministic**.
 
-Counting every boot known at this configuration: idle study cell C (ok), loaded run 1 (**failed**),
-loaded run 2 (ok). **One bootstrap failure in three.**
+### 🔴 CORRECTION, 2026-08-24: this was NOT the backoff's fault
+
+The paragraph that stood here blamed `NDTWIN_RYU_LLDP_BACKOFF=10`, reasoning that it probes
+never-answered ports every tenth sweep and that *at bootstrap every port is a never-answered
+port*, so it starves discovery exactly when discovery has nothing to go on. The mechanism is
+plausible and the arithmetic fits. **It is also unsupported, and the next default-configuration
+boot refuted it.**
+
+While running P1-3 two days later, an OVS boot at **plain defaults** — no `guard`, no `backoff`,
+`settle=40` — failed with the identical signature:
+
+```
+XX  kernel: 10 switches, 0 up, 0 enabled (want 10)
+XX  data plane: h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding
+```
+
+(`doc/audit/2026-08-24_path-switch-count-404/raw/boot2_up.out`.) The failure is therefore a
+property of OVS bring-up on this machine, not of the backoff knob. Attributing it to the knob
+was the classic error: one failure, in the cell carrying a distinctive environment variable, and
+no defaults control run to check it against.
+
+What is actually known: across roughly twenty OVS boots this week at settle values from 5 to 180,
+with and without both knobs, **two failed to converge** — the cell C boot and this defaults boot.
+That is a low, real, intermittent rate with **no evidence it differs between configurations**.
+
+**The recommendation below does not change, but its reason must.** Holding the backoff is still
+right — it is a knob whose safety is unproven — but "it prevents the fabric converging one boot
+in three" was never established, and anyone who went hunting for a bootstrap bug inside the
+backoff patch on the strength of it would be looking in the wrong place.
 
 ## Verdict
 
 * **`guard=0.01` (cell B): the gate is passed.** Zero loaded false positives, positive control
   3.1x faster under load, and no boot has ever failed at this setting.
-* **`backoff=10` (cell C): the gate is NOT passed, on a criterion this study was not designed to
-  test.** Whatever its false-positive count turns out to be, a knob that prevents the fabric from
-  converging one boot in three cannot become a default on the strength of a clean 20-minute
-  window. The failure is silent in the worst way -- the fabric is up, every process is running,
-  and only an end-to-end reachability check notices. Its window did come back zero, and its
-  detection is the fastest of the three at 11.6 s; neither changes the recommendation, because
-  the objection is to a knob that sometimes leaves the fabric unable to forward at all.
+* **`backoff=10` (cell C): hold it, but see the correction above for why.** Its window came back
+  zero and its detection is the fastest of the three at 11.6 s, so nothing in *this study's own
+  measurements* argues against it. The reason to hold is narrower than first written: it is an
+  unproven knob with no independent evidence behind it, and the bootstrap failure once cited
+  against it turns out to happen at plain defaults too. Promote it only on its own evidence, not
+  on the absence of a fault it was wrongly charged with.
 
 Recommendation: promote the guard, hold the backoff. Fixing the backoff is not obviously hard --
 exempting ports that have never been probed *at all* from the deprioritisation, rather than

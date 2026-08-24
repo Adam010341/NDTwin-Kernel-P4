@@ -1,0 +1,45 @@
+# P1-3: is the get_path_switch_count 404 reproducible at the fixed default?
+# date:   2026-08-24T11:35:15+08:00   commit: a327d5a
+# plan:   3 boots x 10 samples every 12s, path count recorded per sample
+
+## boot 1
+  UP FAILED -- see raw/boot1_up.out
+      ok  kernel graph matches the model file: 128 hosts, 288 edges
+      XX  data plane: h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding
+      XX     Ryu computes routes from NDTWIN_RYU_TOPO_FILE, not from the fabric. Check that
+       the Ryu process has it set to setting/StaticNetworkTopologyMininet_10Switches.json
+    
+    up, but not verified
+## boot 2
+  boot: 58s
+  asking about 10.0.0.1 -> 10.0.0.99
+
+     sample   http   paths_known   note
+          1    404             2   <-- THE 404 REPRODUCED
+          2    200             2   
+          3    200             2   
+          4    200             2   
+          5    200             2   
+          6    200             2   
+          7    200             2   
+          8    200             2   
+          9    200             2   
+         10    200             2   
+
+## boot 3
+  UP FAILED -- see raw/boot3_up.out
+      ok  kernel graph matches the model file: 128 hosts, 288 edges
+      XX  data plane: h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding
+      XX     Ryu computes routes from NDTWIN_RYU_TOPO_FILE, not from the fabric. Check that
+       the Ryu process has it set to setting/StaticNetworkTopologyMininet_10Switches.json
+    
+    up, but not verified
+==================================================================
+## tally over 3 boot(s)
+  200: 9    404: 1    other: 0
+
+  REPRODUCED. Compare paths_known on the 404 rows against the 200 rows: a 404 in a
+  trough supports the non-monotonic-snapshot theory; a 404 at full count refutes it and
+  the cause is elsewhere.
+
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_path-switch-count-404/repro_404.txt
