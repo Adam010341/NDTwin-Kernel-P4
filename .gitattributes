@@ -1,0 +1,22 @@
+# Raw diagnostic output from audit runs: greenlet dumps, ryu logs, per-boot stdout,
+# controller captures. These are committed on purpose -- the C-1 discipline is that a raw
+# backing a published number has to survive, and several conclusions under doc/audit/ are
+# only checkable against these files. Deleting them to shrink the diff would destroy the
+# evidence base, which is the opposite of the lesson that put them here.
+#
+# What they should not do is consume review budget. 271 files / ~42k lines sit under these
+# paths, and they account for essentially all of this branch's diff growth from ~115k
+# insertions (08-21) to ~155k (08-24) -- e.g. a single commit added usr2_attempt4_d2.txt
+# (6,328 lines) and usr2_attempt4_d1.txt (3,107).
+#
+# linguist-generated=true collapses them in GitHub PR diffs and drops them from language
+# stats, while leaving them fully readable and diffable locally.
+#
+# Deliberately NOT `-diff`: that would also suppress the local diff, which would hide an
+# accidental edit to files whose whole value is that they are untouched write-once evidence.
+# [Co-developed with claude code -- Adam]
+doc/audit/**/raw/**        linguist-generated=true
+
+# Same reasoning for the loose raws that predate the raw/ convention.
+doc/audit/**/*_ryu.log     linguist-generated=true
+doc/audit/**/*.pcap        linguist-generated=true
