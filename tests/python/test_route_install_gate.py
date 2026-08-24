@@ -78,6 +78,9 @@ class Router:
         self.switches = {}
         self.install_initial_openflow_entries_completed = installed
         self._initial_watchdog_started = False
+        # Added 2026-08-24 for the async-install path. This stub has now been short of a real
+        # attribute twice; the first time (_initial_watchdog_started) is why this file exists.
+        self._static_topology_spawned = False
         self.load_static_topology_calls = 0
 
     def load_static_topology(self):
@@ -87,7 +90,16 @@ class Router:
         pass
 
 
-def load_method(switch_count, *, threshold=10):
+
+def _hub_recording(spawned):
+    """A hub stub whose spawn() records the callable instead of running it."""
+    return type("hub", (), {
+        "sleep": staticmethod(lambda _s: None),
+        "spawn": staticmethod(lambda f, *a, **k: spawned.append(f)),
+    })()
+
+
+def load_method(switch_count, *, threshold=10, async_install=False):
     """
     Compiles the real get_topology_data against stubs, with `switch_count` switches connected.
 
@@ -106,17 +118,20 @@ def load_method(switch_count, *, threshold=10):
 
     switches = [type("Sw", (), {"dp": type("Dp", (), {"id": i})()})()
                 for i in range(1, switch_count + 1)]
+    spawned = []
 
     ns = {
         "time": lambda: 0.0,
-        "hub": type("hub", (), {"sleep": staticmethod(lambda _s: None),
-                                "spawn": staticmethod(lambda _f: None)})(),
+        "hub": _hub_recording(spawned),
         "get_switch": lambda _app, _x: switches,
         "get_link": lambda _app, _x: [],
         "requests": type("requests", (), {
             "get": staticmethod(lambda *_a, **_k: type("R", (), {"status_code": 200})())
         })(),
         "switch_num": threshold,
+        # The async-install flag and its spawn target. Injected as a module global so a test can
+        # exercise either branch without depending on the process environment.
+        "_async_topology_install": async_install,
         # The waiting-warning enumerates who is absent against the declared fabric; declare a
         # fabric of exactly `threshold` dpids so "short by one" means dpid `threshold` is missing.
         "expected_switch_dpids": list(range(1, threshold + 1)),
@@ -126,6 +141,7 @@ def load_method(switch_count, *, threshold=10):
     exec(compile(ast.Module(body=[func], type_ignores=[]), ROUTER, "exec"), ns)
 
     router = Router()
+    router.spawned = spawned
     ev = type("Ev", (), {"switch": type("S", (), {"dp": type("D", (), {"id": 1})()})()})()
     return (lambda: ns[METHOD](router, ev)), router
 
@@ -173,6 +189,62 @@ class RouteInstallGateTest(unittest.TestCase):
         self.assertEqual(router.load_static_topology_calls, 0,
                          "the gate opened below its threshold -- the warning was supposed to be "
                          "the whole change")
+
+
+class AsyncTopologyInstallTest(unittest.TestCase):
+    """
+    Whether the settle wait and the all-pairs walk run ON the event handler.
+
+    [Co-developed with claude code -- Adam]
+    `load_static_topology` blocks for the settle wait plus the walk. Inline, that blocking sits
+    on this app's event queue, which Ryu bounds at 128 -- and this app also observes
+    EventOFPPacketIn, so punted LLDP fills those slots at ~2.5/s while the handler is stuck.
+    The review session's phase-1 diagnosis makes that the cycle behind six-of-ten boot failures,
+    and its operative conclusion is that any fix keeping blocking work in EventSwitchEnter keeps
+    the cycle.
+
+    The flag is off by default because the mechanism is INFERRED, not confirmed. Both branches
+    are tested so flipping it is a one-line change with coverage already in place, rather than a
+    switch nobody has exercised -- this repo has shipped one of those in each direction.
+    """
+
+    def test_inline_by_default(self):
+        run, router = load_method(switch_count=10, threshold=10)
+        run()
+        self.assertEqual(router.load_static_topology_calls, 1,
+                         "the default path must still install routes")
+        self.assertNotIn(router.load_static_topology, router.spawned,
+                         "the walk was handed to a greenlet with the flag off")
+
+    def test_async_spawns_instead_of_blocking(self):
+        run, router = load_method(switch_count=10, threshold=10, async_install=True)
+        run()
+        self.assertEqual(router.load_static_topology_calls, 0,
+                         "the handler ran the walk inline despite the async flag -- which is "
+                         "exactly the blocking this flag exists to remove")
+        self.assertIn(router.load_static_topology, router.spawned,
+                      "the walk was not handed to a greenlet")
+
+    def test_async_spawns_at_most_one_walk(self):
+        # THE load-bearing one. install_initial_openflow_entries_completed is only set after the
+        # walk finishes, so every enter event arriving inside that window sees it False. Without
+        # its own guard set BEFORE the spawn, each would spawn another walk -- concurrent
+        # all-pairs walks issuing OFPFC_ADD for the same (switch, ipv4_dst), which is a defect
+        # this file already had to fix once for the reinstall worker.
+        run, router = load_method(switch_count=10, threshold=10, async_install=True)
+        run()
+        run()
+        run()
+        walks = [f for f in router.spawned if f == router.load_static_topology]
+        self.assertEqual(len(walks), 1,
+                         f"three enter events spawned {len(walks)} walks")
+
+    def test_the_spawned_callable_is_the_walk(self):
+        # A spawn of the wrong callable would satisfy every count above and install nothing.
+        run, router = load_method(switch_count=10, threshold=10, async_install=True)
+        run()
+        self.assertIn(router.load_static_topology, router.spawned)
+
 
 
 if __name__ == "__main__":

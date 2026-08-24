@@ -196,6 +196,17 @@ initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLI
 # cliff and nothing would announce it -- so do not tune this down toward 15 to save 25 seconds.
 settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "40"))
 
+# [Co-developed with claude code -- Adam]
+# Run load_static_topology in a spawned greenlet instead of inline in the EventSwitchEnter
+# handler. See the call site for why that matters (bounded per-app event queue + this app also
+# observing EventOFPPacketIn = the queue-fill cycle behind the 6-of-10 boot failures).
+# Default off until the mechanism is confirmed and the async path measured -- see the call site
+# for the exact test that would justify flipping it.
+_async_topology_install = os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL", "0") == "1"
+if _async_topology_install:
+    print("NDTWIN: load_static_topology will run OFF the event handler "
+          "(NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=1)", flush=True)
+
 detecting_time = 60
 
 
@@ -489,6 +500,10 @@ class IntelligentRyu(app_manager.RyuApp):
         # [Co-developed with claude code -- Adam]
         # Spawned once, by the first switch to connect; see _initial_install_watchdog.
         self._initial_watchdog_started = False
+        # Same shape, for the async load_static_topology path: set BEFORE the spawn, because
+        # install_initial_openflow_entries_completed is only set after the walk finishes and
+        # several enter events can arrive inside that window.
+        self._static_topology_spawned = False
         
 
     # [Co-developed with claude code -- Adam]
@@ -744,7 +759,40 @@ class IntelligentRyu(app_manager.RyuApp):
         self.logger.info(f"len(self.switches) {len(self.switches)}")
         if len(self.switches) >= switch_num:
             if not self.install_initial_openflow_entries_completed:
-                self.load_static_topology()
+                # [Co-developed with claude code -- Adam]
+                # `load_static_topology` blocks for the settle wait plus the all-pairs walk, and
+                # this is an EventSwitchEnter handler -- so that blocking happens ON THIS APP'S
+                # EVENT QUEUE, which Ryu bounds at 128 (app_manager.py:160). A put into a full
+                # queue blocks the emitter, and this app also observes EventOFPPacketIn, so every
+                # punted LLDP lands in the same queue at ~2.5/s: 128 slots fill in ~50 s.
+                #
+                # That is the cycle the review session's phase-1 diagnosis describes
+                # (doc/audit/2026-08-24_full-stack-run/REPORT.md) for the 6-of-10 boot failures,
+                # and their conclusion is the reason this branch exists: *any fix that keeps
+                # blocking work inside EventSwitchEnter keeps the cycle*. Spawning returns the
+                # handler immediately so the queue keeps draining.
+                #
+                # OFF BY DEFAULT, and that is not timidity: the mechanism is still INFERRED (the
+                # SIGUSR2 dump added alongside this is what would confirm it), and shipping an
+                # unverified change to the boot path is exactly how the settle regression got in.
+                # This flag has a named owner and a named test rather than being a dead switch:
+                # flip it after a defaults x10 on a fabric that shows the async path taking the
+                # walk, and compare the failure rate against the 6-of-10 baseline.
+                #
+                # The spawn guard is separate from install_initial_openflow_entries_completed
+                # because that flag is only set AFTER the walk finishes -- several enter events
+                # can arrive inside that window, and without its own guard each would spawn its
+                # own walk. That is the same defect this file already fixed once for the
+                # reinstall worker.
+                if _async_topology_install:
+                    if not self._static_topology_spawned:
+                        self._static_topology_spawned = True
+                        self.logger.info(
+                            "spawning load_static_topology off the event handler "
+                            "(NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=1)")
+                        hub.spawn(self.load_static_topology)
+                else:
+                    self.load_static_topology()
         elif not self.install_initial_openflow_entries_completed:
             # [Co-developed with claude code -- Adam]
             # Waiting for the full set is correct for a site that brings everything up: the
