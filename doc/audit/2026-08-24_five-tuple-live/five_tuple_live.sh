@@ -158,9 +158,21 @@ PY
 say ""
 
 say "## 5. does traffic follow it? (counters before/after a matching flow)"
-say "  sending tcp/5001 from h1 -> $H2IP"
-sudo -n mnexec -a "$H1" timeout 6 bash -c "echo probe | nc -w 3 $H2IP 5001" \
-     > "$DIR/raw/probe.out" 2>&1
+# Independent proof that packets were actually emitted, so a zero counter cannot be confused
+# with a probe that never sent anything. nc against a closed port still emits SYNs, and those
+# match the rule -- what matters is that they leave h1. [Co-developed with claude code -- Adam]
+H1IF=$(sudo -n mnexec -a "$H1" sh -c "ls /sys/class/net | grep -v lo | head -1" 2>/dev/null)
+TX_BEFORE=$(sudo -n mnexec -a "$H1" sh -c "cat /sys/class/net/$H1IF/statistics/tx_packets" 2>/dev/null || echo 0)
+say "  sending tcp/5001 from h1 -> $H2IP  (h1 iface $H1IF, tx before $TX_BEFORE)"
+for _ in 1 2 3; do
+    sudo -n mnexec -a "$H1" timeout 4 bash -c "echo probe | nc -w 2 $H2IP 5001" \
+         >> "$DIR/raw/probe.out" 2>&1
+done
+TX_AFTER=$(sudo -n mnexec -a "$H1" sh -c "cat /sys/class/net/$H1IF/statistics/tx_packets" 2>/dev/null || echo 0)
+say "  h1 tx_packets: $TX_BEFORE -> $TX_AFTER  (delta $(( TX_AFTER - TX_BEFORE )))"
+if (( TX_AFTER - TX_BEFORE == 0 )); then
+    say "  WARNING: h1 sent nothing, so a zero counter below says nothing about the rule."
+fi
 sleep 3
 dump after_traffic | tee -a "$OUT"
 say ""

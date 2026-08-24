@@ -504,7 +504,16 @@ class P4RuntimeClient:
         req = p4runtime_pb2.ReadRequest()
         req.device_id = self.device_id
         # table_id 0 means "every table", which is what reference/dump_table.py does.
-        req.entities.add().table_entry.table_id = 0
+        requested = req.entities.add().table_entry
+        requested.table_id = 0
+        # Ask for direct-counter data. P4Runtime treats a present (even empty) counter_data in
+        # the REQUEST as "send me the counters"; a bare table_id read returns entries with the
+        # field unset, which is exactly what the 2026-08-24 live run measured -- every entry
+        # reported 0 packets and 0 bytes, including LPM rules that had certainly carried the
+        # fabric's own boot traffic. The unit tests could not see this: they hand the renderer a
+        # counters dict and check it survives, which exercises everything below the switch and
+        # nothing above it. [Co-developed with claude code -- Adam]
+        requested.counter_data.SetInParent()
 
         entries = []
         for response in self.stub.Read(req, timeout=timeout_s):

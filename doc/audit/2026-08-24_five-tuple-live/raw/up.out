@@ -6,15 +6,15 @@ ndt up p4
 
 [1/3] bmv2 fabric
   waiting for 10 switches and the manifest
-  ok  10 switches up after 4s, manifest written
+  ok  10 switches up after 5s, manifest written
   ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
 [2/3] proxy + kernel
   stack.sh prompt is answered immediately: the fabric is already up
-        started p4_proxy (pid 1225341) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
-        waiting for P4 proxy agent on :8081 ... up
+        started p4_proxy (pid 1288307) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 ..... up
         waiting for link discovery: want 12 destination paths
-          paths=7              paths=12                                                        converged after 4s
-        started kernel (pid 1225508) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+          paths=12                                                        converged after 2s
+        started kernel (pid 1288469) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
         waiting for kernel API on :8000 . up
 [3/3] verify
   ok  proxy: 12/12 destination paths (stable)
