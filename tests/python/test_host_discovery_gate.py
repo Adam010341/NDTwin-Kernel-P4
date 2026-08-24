@@ -97,6 +97,39 @@ class Router:
         self.hosts = hosts
 
 
+
+class _FakeTimeout(Exception):
+    """
+    Stands in for eventlet's Timeout: usable as a context manager AND raisable.
+
+    `entered` records every `with` that used it. Without that, a test could pass while the
+    wrapper was absent entirely -- a stub that raises the timeout itself exercises the
+    except-branch either way. The mutation gate caught exactly that: deleting the
+    `with hub.Timeout(...)` from the source left every test green.
+    """
+
+    entered = []
+
+    def __init__(self, seconds=None, *a):
+        super().__init__(f"timed out after {seconds}s")
+        self.seconds = seconds
+
+    def __enter__(self):
+        _FakeTimeout.entered.append(self.seconds)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+def _hub_with_timeout(clock):
+    """hub stub carrying both sleep and a Timeout usable as a context manager."""
+    return type("hub", (), {
+        "sleep": staticmethod(clock.sleep),
+        "Timeout": _FakeTimeout,
+    })()
+
+
 def load_gate(hosts, *, on_tick=None, get_all_host=None):
     """
     Compiles both real methods against stubs.
@@ -117,8 +150,9 @@ def load_gate(hosts, *, on_tick=None, get_all_host=None):
 
     clock = Clock(on_tick=on_tick)
     ns = {
-        "hub": type("hub", (), {"sleep": staticmethod(clock.sleep)})(),
+        "hub": _hub_with_timeout(clock),
         "get_all_host": get_all_host or (lambda _app: hosts),
+        "HOST_QUERY_TIMEOUT_S": 5,
     }
     module = ast.Module(body=[funcs[n] for n in METHODS], type_ignores=[])
     exec(compile(module, ROUTER, "exec"), ns)
@@ -230,6 +264,101 @@ class AwaitHostDiscoveryTest(unittest.TestCase):
         self.assertTrue(all(s <= 1 for s in clock.sleeps),
                         f"polled in steps of {sorted(set(clock.sleeps))}s; an event landing "
                         f"early inside one of those is not noticed until it ends")
+
+
+class HostReadTimeoutTest(unittest.TestCase):
+    """
+    A read that never returns must not be able to outlive the deadline that bounds it.
+
+    [Co-developed with claude code -- Adam]
+    `get_all_host` is a request-reply with no timeout of its own. On 2026-08-24 a wedged Ryu was
+    caught with its event loop parked in exactly this call -- send_request -> reply_q.get() --
+    waiting on a Switches app that was itself blocked emitting into this app's full buffer.
+
+    The reason `_await_host_discovery`'s ceiling did not save it is the part worth a test: the
+    deadline is checked BETWEEN polls, so a poll that never returns is never between polls. A
+    deadline the bounded operation can evade by blocking inside one iteration is not a deadline.
+    """
+
+    def test_the_read_is_actually_wrapped_in_a_timeout(self):
+        # The structural half, and the one the mutation gate demanded: a stub that raises the
+        # timeout itself will exercise the except-branch whether or not the source still wraps
+        # the call, so deleting `with hub.Timeout(...)` left every other test here green.
+        _FakeTimeout.entered.clear()
+        _, _, _, count = load_gate([FakeHost(["10.0.0.1"])])
+        count()
+        self.assertEqual(_FakeTimeout.entered, [5],
+                         "the host-table read was not performed inside a Timeout -- the deadline "
+                         "in _await_host_discovery is unenforceable again")
+
+    def test_a_timed_out_read_is_counted_as_zero_and_says_why(self):
+        # Scope, stated because the name could imply more: with a stub hub this exercises the
+        # HANDLING of a timeout, not eventlet's timer actually firing. That the wrapper is
+        # present and its except-branch is reached is what lives in this file; that eventlet
+        # interrupts a real blocked reply_q.get() is eventlet's contract, and the wedge dump is
+        # the evidence it was missing before.
+        def hangs(_app):
+            raise _FakeTimeout(5)
+
+        router, _, _, count = load_gate([], get_all_host=hangs)
+        self.assertEqual(count(), 0, "a timed-out read must report nothing learned")
+        joined = " | ".join(router.logger.warnings)
+        self.assertIn("blocked", joined.lower(),
+                      f"the timeout was swallowed without saying the app may be stuck: {joined}")
+
+    def test_a_timing_out_read_does_not_stall_the_wait_loop(self):
+        # End to end within the stub: with every read raising the timeout, the gate must still
+        # reach its deadline and proceed, rather than the exception escaping and aborting the
+        # boot path. This is the half the deadline could not previously reach.
+        def hangs(_app):
+            raise _FakeTimeout(5)
+
+        _, clock, run, _ = load_gate([FakeHost() for _ in range(4)], get_all_host=hangs)
+        run(4, 10)
+        self.assertEqual(clock.elapsed, 10,
+                         "the wait did not run its deadline out -- a hanging read escaped it")
+
+    def test_the_timeout_is_not_confused_with_a_normal_failure(self):
+        # A generic exception keeps the pre-existing fail-open behaviour and its own message, so
+        # a hang and a hiccup stay distinguishable in the log.
+        def boom(_app):
+            raise RuntimeError("topology API hiccup")
+
+        router, _, _, count = load_gate([], get_all_host=boom)
+        self.assertEqual(count(), 0)
+        self.assertTrue(router.logger.exceptions,
+                        "a non-timeout failure lost its exception log")
+
+
+
+class ShippedTimeoutDefaultTest(unittest.TestCase):
+    """
+    The default actually compiled into the source, not the one the harness injects.
+
+    [Co-developed with claude code -- Adam]
+    Every other test here injects HOST_QUERY_TIMEOUT_S into the extraction namespace, so none of
+    them can see the shipped value. The mutation gate proved it: changing the module default to 0
+    left all of them green. A 0 makes eventlet's Timeout fire immediately, so every host-table
+    read times out, the gate always reports nothing learned, and it always runs its deadline out
+    -- a silent reversal of the whole point, on a boot path where "slower and blind" looks a lot
+    like "still converging".
+    """
+
+    def test_the_default_is_a_usable_positive_number(self):
+        import re
+        with open(ROUTER) as fh:
+            src = fh.read()
+        m = re.search(r'HOST_QUERY_TIMEOUT_S = float\(os\.environ\.get\(\s*'
+                      r'"NDTWIN_RYU_HOST_QUERY_TIMEOUT_S",\s*"([^"]+)"', src)
+        self.assertIsNotNone(m, "HOST_QUERY_TIMEOUT_S default not found -- renamed or removed?")
+        value = float(m.group(1))
+        self.assertGreater(value, 0,
+                           "a non-positive timeout fires instantly: every read would report "
+                           "nothing learned and the gate would always run its deadline out")
+        self.assertLessEqual(value, 60,
+                            "a timeout this long cannot bound a boot-path read usefully -- the "
+                            "wait it protects is itself only tens of seconds")
+
 
 
 if __name__ == "__main__":

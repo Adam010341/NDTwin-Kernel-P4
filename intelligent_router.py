@@ -202,6 +202,13 @@ settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "40"))
 # observing EventOFPPacketIn = the queue-fill cycle behind the 6-of-10 boot failures).
 # Default off until the mechanism is confirmed and the async path measured -- see the call site
 # for the exact test that would justify flipping it.
+#: How long a single host-table read may block before it is treated as "nothing learned".
+#: Not a tuning knob -- it is the thing that makes _await_host_discovery's deadline enforceable
+#: at all. See _hosts_with_ipv4 for the wedge this was caught in. A few seconds is generous for
+#: an in-process request-reply; anything longer means the answering app is in trouble, which is
+#: exactly what the caller needs to stop waiting on. [Co-developed with claude code -- Adam]
+HOST_QUERY_TIMEOUT_S = float(os.environ.get("NDTWIN_RYU_HOST_QUERY_TIMEOUT_S", "5"))
+
 _async_topology_install = os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL", "0") == "1"
 if _async_topology_install:
     print("NDTWIN: load_static_topology will run OFF the event handler "
@@ -884,8 +891,35 @@ class IntelligentRyu(app_manager.RyuApp):
         header (ryu/topology/switches.py:877-885). Truthiness, not `is not None`: the empty list
         is the state being waited out.
         """
+        # [Co-developed with claude code -- Adam]
+        # THE TIMEOUT IS LOAD-BEARING, and its absence was a defect in this function.
+        #
+        # `get_all_host` is a request-reply: send_request -> reply_q.get(), and that get has no
+        # timeout of its own. If the app that must answer is itself blocked, this waits forever.
+        # That is not hypothetical -- it is where the 2026-08-24 wedge was caught red-handed
+        # (raw/usr2_attempt4_d{1,2}.txt): IntelligentRyu's event loop parked at
+        #   get_topology_data -> load_static_topology -> _await_host_discovery
+        #     -> _hosts_with_ipv4 -> send_request -> reply_q.get()
+        # waiting on a Switches app that was itself blocked emitting EventLinkAdd into this app's
+        # full buffer. Both sides unbounded, so the cycle was permanent.
+        #
+        # The subtle part, and the reason a deadline did not save it: _await_host_discovery
+        # checks its deadline BETWEEN polls. A poll that never returns is never between polls, so
+        # the 40 s ceiling could not fire. A deadline that the operation it bounds can evade by
+        # blocking inside a single iteration is not a deadline.
+        #
+        # Timing out and reporting 0 keeps the existing fail-open contract: the caller keeps
+        # waiting and eventually proceeds without full discovery, which degrades the twin's view
+        # rather than the network.
         try:
-            return sum(1 for h in get_all_host(self) if h.ipv4)
+            with hub.Timeout(HOST_QUERY_TIMEOUT_S):
+                return sum(1 for h in get_all_host(self) if h.ipv4)
+        except hub.Timeout:
+            self.logger.warning(
+                "host-table read did not answer within %ss -- the topology app may be blocked; "
+                "treating as 0 learned and letting the deadline run",
+                HOST_QUERY_TIMEOUT_S)
+            return 0
         except Exception:                          # noqa: BLE001 -- see below
             # Never let a topology-API hiccup abort start-up. Reporting 0 makes the caller wait
             # out its deadline and proceed, which is the same fail-open behaviour the switch-count
