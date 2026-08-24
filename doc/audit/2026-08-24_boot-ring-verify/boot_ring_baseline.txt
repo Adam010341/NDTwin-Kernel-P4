@@ -1,0 +1,27 @@
+
+# boot-ring verification, arm=baseline -- ten OVS boots, cap 600s
+# date:   2026-08-24T18:25:51+0800   commit: a4364c5
+# router:  sha256=d192329b91170298  matches HEAD
+# baseline for comparison: 6 of 10 failed, at 79cd66a (pre-d1d973d)
+# env: ASYNC=unset SETTLE=unset GUARD=unset BACKOFF=unset
+## boot 1: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 2: CONVERGED  wall=53s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 3: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 4: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 5: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 6: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 7: CONVERGED  wall=53s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 8: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 9: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+## boot 10: CONVERGED  wall=52s  XX=0  ryu_hosts=128/128  graph=288e/0d
+# rate: 0 of 10 failed to converge  (contaminated, excluded: 0)
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_boot-ring-verify/boot_ring_baseline.txt
+#
+# CORRECTION (appended after the run, raw rows above untouched -- C-1 discipline):
+# The "# router: ... matches HEAD" line above is WRONG. This arm ran intelligent_router.py
+# reverted to 79cd66a. The check used `git diff --quiet -- <path>`, which compares worktree to
+# INDEX; `git checkout <commit> -- <path>` stages what it writes, so both sides agreed. The
+# sha256 on that line (d192329b91170298) is correct and IS the baseline router -- HEAD's is
+# d19020b1a1dcf932. Revert was independently verified by grep before the run (HOST_QUERY_TIMEOUT_S
+# absent, _async_topology_install absent, SIGUSR2 handler absent) and restored after (sha back to
+# d19020b1a1dcf932, git diff HEAD clean). Script fixed to use `git diff --quiet HEAD --`.

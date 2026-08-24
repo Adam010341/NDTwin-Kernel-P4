@@ -30,7 +30,12 @@ set -uo pipefail
 ARM="${1:-}"
 case "$ARM" in
     t_only|async) ;;
-    *) echo "usage: $0 <t_only|async>" >&2; exit 2 ;;
+    # Same-day control: intelligent_router.py reverted to 79cd66a by hand before running this.
+    # Discriminates "d1d973d fixed the wedge" from "today's conditions do not trigger it" -- the
+    # t_only arm cannot, because its timeout logs nothing on a boot that never needed rescuing.
+    # NOTE: the baseline predates 7f7de4a, so SIGUSR2 is absent and dumps will be empty by design.
+    baseline) ;;
+    *) echo "usage: $0 <t_only|async|baseline>" >&2; exit 2 ;;
 esac
 
 export NDT_OWNER=maindev-v3
@@ -64,6 +69,13 @@ done
 say ""
 say "# boot-ring verification, arm=$ARM -- ten OVS boots, cap ${CAP}s"
 say "# date:   $(date +%Y-%m-%dT%H:%M:%S%z)   commit: $(git -C "$REPO" rev-parse --short HEAD)"
+# HEAD is not the independent variable -- the control arm reverts intelligent_router.py alone,
+# which leaves HEAD reading 8340367 while the boot path is the baseline's. Record the file.
+# `git diff --quiet -- <path>` compares the worktree against the INDEX, not HEAD. `git checkout
+# <commit> -- <path>` stages what it writes, so both sides matched and the baseline arm printed
+# "matches HEAD" while running the reverted router -- a check whose whole purpose was to catch that.
+# `git diff --quiet HEAD --` is the comparison that was meant. The sha256 was correct throughout.
+say "# router:  sha256=$(sha256sum "$REPO/intelligent_router.py" | cut -c1-16)  $(git -C "$REPO" diff --quiet HEAD -- intelligent_router.py && echo "matches HEAD" || echo "MODIFIED vs HEAD")"
 say "# baseline for comparison: 6 of 10 failed, at 79cd66a (pre-d1d973d)"
 say "# env: ASYNC=${NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL:-unset} SETTLE=${NDTWIN_RYU_SETTLE_S:-unset} GUARD=${NDTWIN_RYU_LLDP_GUARD:-unset} BACKOFF=${NDTWIN_RYU_LLDP_BACKOFF:-unset}"
 
