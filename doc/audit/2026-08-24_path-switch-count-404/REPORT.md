@@ -72,10 +72,18 @@ The review session ran the ×10 I asked for (`2026-08-24_full-stack-run/boot_rat
 defaults, `79cd66a`). **Six of ten boots failed to converge**, so my 3-of-5 was not a small-sample
 artefact — it was, if anything, optimistic.
 
-The distribution is **bimodal with no middle state**: every success took 58 s, every failure took
-413–415 s. A system whose boot time has two values that far apart is not "sometimes slow", it is
-two different outcomes wearing one name. (Boot 8's 7626 s is a laptop suspend during the run —
-convergence still counted, timing void.)
+The **outcome** is bimodal with no middle state: a boot either converges or it does not.
+
+⚠️ The *durations* are not evidence of that, and I first presented them as if they were. Every
+success took 58 s — that is a real convergence time. Every failure took 413–415 s, and **that
+number is `ndt`'s own give-up constant while waiting for the converged marker**, not anything the
+defect does. The tightness of the failure cluster measures the harness, not the fault. Corrected
+by the review session, 2026-08-24.
+
+The failure state also **persists past that point** rather than resolving: boot 1's `ryu.log`
+shows the kernel still receiving 158-byte empty paths seven minutes after Ryu started. So it is a
+stable condition, not something that flips at ~400 s. (Boot 8's 7626 s is a laptop suspend
+mid-run — convergence still counted, timing void.)
 
 **And the signature is not what this report assumed.** "0 up, 0 enabled" is *not* switches failing
 to connect: on all six failures `ryu.log` shows `EventOFPStateChange` 10/10 and the t+300 waiter
