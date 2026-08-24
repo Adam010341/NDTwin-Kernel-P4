@@ -80,21 +80,35 @@ of these, not fewer. The failing boots' 12 is a **truncated** count: the app sto
 it wedges. Symptom, not trigger. The comparison only worked because a successful-boot log was
 captured to compare against; the failing logs alone would have supported the wrong conclusion.
 
-**Sharpened**: every one of those lines, in both logs, is a `Failed to notify NDT (switch enter)`
-**retry** — 12/12 and 20/20, zero successful notifications, because the kernel is not listening yet
-at that point in the boot. Both logs carry the same 10 unique dpids. So the difference is not which
-switches appeared, it is **how far the retry loop got**: the healthy boot completes a second round
-for all ten, the wedged boot manages a second attempt for only two before the app stops draining.
-That is the truncation, measured directly.
+**Resolved, and it points at the exact call site.** `Failed to notify NDT (switch enter)` is
+**one string emitted from two different handlers**, which is why a flat `grep -c` looks homogeneous
+and is not:
 
-⚠️ **Unreconciled with the review round (N-2).** The review reports this same 12 decomposing as
-`entered 2 + stateChange 10`, matching a USR2 frame dump's `entered=2/10`. That does not reproduce
-here: `grep -c "inform_switch_entered"` is **12**, not 2, and is homogeneous — every line is a
-`Failed to notify` retry, with `state_change` lines counting **10 in both** the failing and the
-successful log. Two possibilities: they are measuring a different quantity (plausibly the dump's
-internal counters rather than these log lines), or one decomposition is wrong. **Both sides agree
-on the direction and on the refutation** — this affects only the finer mechanism. Query sent; do
-not cite the decomposition until it reconciles.
+| emitting handler | marker line | notify site | failing | success |
+|---|---|---|---|---|
+| `@set_ev_cls(event.EventSwitchEnter)` → `get_topology_data` | `Switch entered:` (`:754`) | **`:763`** | **2** | 10 |
+| `@set_ev_cls(ofp_event.EventOFPStateChange)` → `_state_change_handler` | `connected (EventOFPStateChange)` (`:827`) | **`:857`** | 10 | 10 |
+| | | **total** | **12** | **20** |
+
+Both sums match the flat counts exactly. Per-dpid, the failing boot reached the enter handler for
+**only dpids 1 and 2**, while **all ten** reached the state-change handler — and the interleaving
+shows dpid 1 passing through both in order (`connected` → notify → `Switch entered: 1` → notify).
+
+⇒ **The truncation is precisely and only in the `EventSwitchEnter` handler — the handler the ring
+blocks inside.** Lower-level `EventOFPStateChange` keeps flowing throughout. This independently
+corroborates §5-P's recorded signature (`EventOFPStateChange` 10/10 while `/v1.0/topology/links`
+stays empty) and the frame dump's `entered=2/10`. It remains a **symptom**, but a well-localised
+one: it names the blocked call site rather than merely showing that something stopped.
+
+Two corrections folded in here. **Mine**: an earlier draft called this a truncated *retry loop*
+completing a second round — wrong. There is no retry; it is two distinct handlers each notifying
+once per switch. **The review round's**: their decomposition (2 and 10) is numerically exact, but
+their site attribution was inverted — they reported `:763` as the state-change path and `:857` as
+the enter handler, and placed the truncation at `:857`. The decorators put it the other way, and
+the marker adjacency confirms it: `Switch entered:` at `:754` belongs to `:763`. **The truncation
+is at `:763`.** Their conclusion ("truncation is in the enter handler") is right; the line number
+attached to it was not. `:831` holds a commented-out `Switch entered:` from an older revision —
+dead echo, counts nothing.
 
 ## Leading hypothesis for the non-reproduction (untested)
 
