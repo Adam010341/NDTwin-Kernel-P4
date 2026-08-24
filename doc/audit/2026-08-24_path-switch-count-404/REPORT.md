@@ -4,6 +4,9 @@
 
 Run 2026-08-24 at `a327d5a`. Raw: `repro_404.txt`, `raw/`. Driver: `repro_404.sh`.
 
+Note the recorded series was sampled at **12 s** (`GAP=12` on the invocation); the driver's
+in-file default is 15 s, so a bare re-run will not line up with these timestamps.
+
 ## The 404 reproduces
 
 It was last recorded as "did not reproduce, n=1". It reproduces:
@@ -47,6 +50,12 @@ Of the boots attempted across the two P1-3 runs, with **no** environment overrid
 |---|---|---|---|
 | first | up | **FAILED** | (killed mid-run) |
 | second | **FAILED** | up | **FAILED** |
+
+⚠️ **The first run's rows exist only in prose** (review correction C-1b). `repro_404.sh`
+reused per-boot filenames, so re-running it overwrote the first round's transcripts — including
+the one a correction block in the loaded-fp report had cited as evidence, which briefly left
+that citation pointing at a *successful* boot. The driver now archives each run under a sequence
+number. The second run's rows are on disk; the first run's are not.
 
 Three of five boots with a known outcome did not converge, every one with the same signature:
 

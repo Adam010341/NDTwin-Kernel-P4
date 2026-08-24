@@ -46,7 +46,7 @@ Boot: 36 s stock, 34 s fast. Failed contract checks: none on either arm.
 the harness, not of the fast build. "The fast build introduces zero new failures" is no longer
 an argument.
 
-## Two of last night's five "P4-plane gaps" were the harness
+## Last night's five "P4-plane gaps" and four L4 diffs were the harness, not the plane
 
 Last night's ladder left five P4-plane contract gaps (`/stats/flow` `[]` stub, `get_power_report`
 empty, cpu/memory/temperature null) and four L4 diffs. Tonight, on **both** binaries, L2/L3/L4
@@ -59,8 +59,10 @@ all pass. The difference is not the binary -- it is the invocation:
 * `--traffic` is dropped. It requires flows/paths/rates and was passed with no generator
   running, which failed every flow-presence check by construction.
 
-So the honest revision of last night's report: of its residual reds, the ones that survive a
-corrected invocation on **both** binaries number one -- the log allowlist.
+So the honest revision of last night's report: of its residual reds, exactly **one** survives a
+corrected invocation on **both** binaries -- the log allowlist, which is not one of the five gaps.
+All five gaps and all four L4 diffs pass once TOPO_P4 names the right model and --traffic is
+dropped. (An earlier heading here said "two of five", a number matching no set in the evidence.)
 
 ## Promotion
 

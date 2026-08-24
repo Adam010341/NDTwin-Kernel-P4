@@ -25,8 +25,10 @@ Same three cells, so the two studies are directly comparable:
 ## The load was real, and asserted from outside NTG
 
 NTG drove it (`flow --config loaded_flow.json` into the topo session, 4 flows/s arriving plus 8
-sustained, TCP and UDP, middle and far host pairs). The fabric moved **2.5--3.7 GiB per 15 s**
-at the check, and **219--264 GiB across a full 20-minute window**.
+sustained, TCP and UDP, middle and far host pairs). The fabric moved **2.5--3.6 GiB per 15 s**
+at the check, and **214--265 GiB across a full 20-minute window**.
+(All GiB figures are MiB/1024 -- an earlier revision divided some by 1000 and some by 1024 in the
+same table, a <=2.4% inconsistency that touched no decision number since every cell scored 0.)
 
 That assertion reads `/proc/net/dev` rather than NTG's own output, on the same principle that a
 config file is not evidence of which binary ran. It earned its place immediately: the first
@@ -37,15 +39,17 @@ smoke run reported 0 MiB while NTG's own logs showed 112 successful flows at 11 
 
 | cell | load in window | false link deletions | `topology changed` | links at end | positive control |
 |---|---|---|---|---|---|
-| A (defaults) | 264 GiB | **0** | 0 | 32 | 49.3 s |
-| B (guard 0.01) | 219 GiB | **0** | 0 | 32 | 15.9 s |
+| A (defaults) | 258 GiB | **0** | 0 | 32 | 49.3 s |
+| B (guard 0.01) | 214 GiB | **0** | 0 | 32 | 15.9 s |
 | C (guard + backoff) | 265 GiB | **0** | 0 | 32 | 11.6 s |
 
 Every cell's positive control detected a real netem failure, so none of the zeros is the vacuous
 kind that a fabric incapable of detecting anything would also produce.
 
 **Zero loaded false positives at every configuration**, matching the idle study. On the question
-it was commissioned to answer, the guard is clean under ~1.7 Gbps of aggregate traffic.
+it was commissioned to answer, the guard is clean under **1.5--1.9 Gbps** of aggregate traffic
+(derived from the same MiB totals; the earlier "~1.7 Gbps" came from the mixed-divisor figures
+corrected above).
 
 A second result falls out of the positive controls: the detection speedup **survives load**.
 49.3 s -> 15.9 s is 3.1x for the guard alone, against 3.9x measured idle, and the backoff cell
@@ -88,14 +92,25 @@ XX  kernel: 10 switches, 0 up, 0 enabled (want 10)
 XX  data plane: h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding
 ```
 
-(`doc/audit/2026-08-24_path-switch-count-404/raw/boot2_up.out`.) The failure is therefore a
-property of OVS bring-up on this machine, not of the backoff knob. Attributing it to the knob
-was the classic error: one failure, in the cell carrying a distinctive environment variable, and
-no defaults control run to check it against.
+⚠️ **That transcript no longer exists.** `repro_404.sh` wrote each boot's output to a name it
+reused, so a second invocation of the driver overwrote `raw/boot2_up.out` with a *successful*
+boot — this citation briefly pointed at the opposite of what it claims. Caught by the review
+session on 2026-08-24 (correction C-1b); the driver now archives each run under a sequence
+number instead. The surviving evidence for the defaults failures is the 3-of-5 table in
+[`2026-08-24_path-switch-count-404/REPORT.md`](../2026-08-24_path-switch-count-404/REPORT.md),
+whose first-round rows exist **only in prose** for the same reason.
 
-What is actually known: across roughly twenty OVS boots this week at settle values from 5 to 180,
-with and without both knobs, **two failed to converge** — the cell C boot and this defaults boot.
-That is a low, real, intermittent rate with **no evidence it differs between configurations**.
+The failure is therefore a property of OVS bring-up on this machine, not of the backoff knob.
+Attributing it to the knob was the classic error: one failure, in the cell carrying a
+distinctive environment variable, and no defaults control run to check it against.
+
+**Rate — superseded, read the second line.** This block first said "across roughly twenty OVS
+boots this week … two failed to converge … a low, real, intermittent rate". That was written
+before the P1-3 runs and is now the optimistic half of a contradiction: those runs saw **three
+failures in five known-outcome boots at plain defaults**. Cite the 404 report's figure, not this
+one. What survives from the original sentence is the part that mattered — **no evidence the rate
+differs between configurations** — and the attribution correction stands on three defaults
+failures rather than one.
 
 **The recommendation below does not change, but its reason must.** Holding the backoff is still
 right — it is a knob whose safety is unproven — but "it prevents the fabric converging one boot

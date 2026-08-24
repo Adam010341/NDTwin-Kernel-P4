@@ -31,6 +31,7 @@ export NDT_OWNER="${NDT_OWNER:-fable-0822}"
 REPO=/home/adam/Desktop/NDTwin-Kernel
 DIR="$REPO/doc/audit/2026-08-24_path-switch-count-404"
 OUT="$DIR/repro_404.txt"
+RAWDIR="$DIR/raw"
 KERNEL=http://localhost:8000
 RYU=http://localhost:8080
 BOOTS="${BOOTS:-3}"
@@ -38,7 +39,32 @@ SAMPLES="${SAMPLES:-12}"
 GAP="${GAP:-15}"
 
 mkdir -p "$DIR/raw"
+# --- keep the previous run's evidence -------------------------------------------------------
+# Re-running a driver used to destroy the round it was re-running: the output table was
+# truncated on entry, and same-named per-cell raws were overwritten in place, so a second
+# invocation left no trace of the first. That cost real evidence twice -- this study's own first
+# round never reached disk, and a correction block in 2026-08-22_loaded-fp-study/REPORT.md ended
+# up citing a raw file a later run had replaced with the OPPOSITE result: a successful boot
+# standing as the evidence for a failure.
+#
+# The pattern is the one that worked by hand in the loaded-fp study
+# (raw/run1_AB_ok_C_failed.txt): before writing anything, move what is there aside under a
+# sequence number. Nothing is overwritten; runs accumulate.
+# [Co-developed with claude code -- Adam]
+archive_previous() {
+    local n=1
+    [[ -s "$OUT" ]] || return 0
+    while [[ -e "${OUT%.txt}.run${n}.txt" ]]; do n=$(( n + 1 )); done
+    mv "$OUT" "${OUT%.txt}.run${n}.txt"
+    if [[ -d "$RAWDIR" ]] && [[ -n "$(ls -A "$RAWDIR" 2>/dev/null)" ]]; then
+        mkdir -p "$RAWDIR/run${n}"
+        find "$RAWDIR" -maxdepth 1 -type f -exec mv -t "$RAWDIR/run${n}" {} +
+    fi
+    printf 'archived previous run to %s\n' "$(basename "${OUT%.txt}.run${n}.txt")"
+}
+
 say() { printf '%s\n' "$*" | tee -a "$OUT"; }
+archive_previous
 : > "$OUT"
 trap 'ndt down >/dev/null 2>&1' EXIT
 

@@ -181,6 +181,14 @@ read is what produced an unexplainable "256 down"):
 | 55 | 66 s | 128 | 288e / 0 down | ok |
 | 90 | 100 s | 128 | 288e / 0 down | ok |
 
+⚠️ **Disk evidence for this table is incomplete** (review correction C-1a, 2026-08-24).
+`settle_bisect.sh` truncated its output file on entry and reused per-cell raw filenames, so the
+committed `settle_bisect.txt` holds only the last invocation's four rows, and five of the eleven
+rows above — the 10-repeat, the first two 40s, the 90 — have no independent file behind them.
+They are transcribed from runs whose output a later run replaced. The driver now archives each
+run under a sequence number; these rows stay because they were read off the terminal at the
+time, but they carry less weight than the four that survive on disk.
+
 Two things this settles that no amount of reading could:
 
 1. **The regression is real and reproduces on demand.** settle=10 was measured broken yesterday

@@ -26,8 +26,10 @@
 #      marked, and the fields that genuinely cannot be recovered are listed as unrecoverable
 #      rather than guessed.
 #
-# Idempotent: re-running overwrites with identical content (the timestamp line records the
-# *build*, which is fixed, not the run). Safe to re-run after a reboot or by mistake.
+# Idempotent in the way that matters: re-running overwrites with identical content EXCEPT the
+# `reconstructed:` stamp, which records when the reconstruction was performed and therefore
+# changes every run. The build's own fields are fixed. An earlier version of this comment
+# claimed byte-identical output, which its own `date -u` line contradicted.
 #
 # ## Installation (Adam runs these two lines; this script must not try to)
 #
