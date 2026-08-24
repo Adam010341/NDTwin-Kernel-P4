@@ -215,6 +215,30 @@ claim. The machinery is kept because fail-open costs nothing and the early exit 
 the moment the coupling is understood -- but the source says plainly that the early exit has
 never fired on a 128-host boot.
 
+
+## 🔬 2026-08-24: candidate (1) is real, and is NOT the cause
+
+This report listed three untested candidates for "why learning follows the release", the first
+being *this handler stalling its own app's event queue* (it blocks inside an `EventSwitchEnter`
+handler, and Ryu dispatches one app's events serially). The review session's phase-1 diagnosis
+(`2026-08-24_full-stack-run/phase1_diagnosis_notes.md`) tested it:
+
+* **It happens.** On failing boots the gate and the switch-count waiter sleep inside the first
+  `EventSwitchEnter` handler and `entered` runs only **2 of 10** times, against **10 of 10** on a
+  healthy boot. The queue really is stalled, exactly as candidate (1) described.
+* **It is not the culprit.** Link discovery lives in the *Switches* app, which is not the app
+  being blocked, and that is where the actual failure sits: `/v1.0/topology/links` returns an
+  empty 109-byte body for the **entire** boot, so the all-pairs walk has no edges to install
+  over. The stall is a real secondary symptom of a primary failure elsewhere.
+
+So candidate (1) moves from "untested" to "confirmed present, exonerated as cause". Candidates
+(2) and (3) remain untested. The open question this report ends on is unchanged in substance but
+sharper in location: it is upstream of the walk, in LLDP link discovery.
+
+Do not read this as the settle work being wrong — the settle cliff, the burst timing and the
+0/128-vs-128/128 arithmetic all still hold on boots that converge. It means those measurements
+were taken on the successful half of a bimodal population that nobody had noticed was bimodal.
+
 ## Still open
 
 * **What actually teaches Ryu at release.** The burst is over by t+32 and teaches nothing; every

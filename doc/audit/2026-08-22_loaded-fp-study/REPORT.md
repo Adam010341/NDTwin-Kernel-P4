@@ -104,11 +104,18 @@ The failure is therefore a property of OVS bring-up on this machine, not of the 
 Attributing it to the knob was the classic error: one failure, in the cell carrying a
 distinctive environment variable, and no defaults control run to check it against.
 
+**Settled at code level on 2026-08-24, not just statistically:** the sweep patch lives inside the
+`if _lldp_backoff:` branch, so a defaults run executes the stock loop and the knob cannot reach
+it. Combined with the measured **6-of-10 defaults failure rate**
+(`2026-08-24_full-stack-run/boot_rate.txt`), the knob is exonerated twice over. The real fault is
+that LLDP link discovery produces nothing for the whole boot -- `/v1.0/topology/links` stays
+empty -- which is also what cell C's "0 link events" was showing.
+
 **Rate — superseded, read the second line.** This block first said "across roughly twenty OVS
 boots this week … two failed to converge … a low, real, intermittent rate". That was written
-before the P1-3 runs and is now the optimistic half of a contradiction: those runs saw **three
-failures in five known-outcome boots at plain defaults**. Cite the 404 report's figure, not this
-one. What survives from the original sentence is the part that mattered — **no evidence the rate
+before the P1-3 runs and is now the optimistic half of a contradiction: those runs saw three failures in five known-outcome
+boots at plain defaults, and a dedicated ×10 then measured **six failures in ten**. Cite that
+figure (`2026-08-24_full-stack-run/boot_rate.txt`), not this one. What survives from the original sentence is the part that mattered — **no evidence the rate
 differs between configurations** — and the attribution correction stands on three defaults
 failures rather than one.
 

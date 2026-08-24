@@ -57,13 +57,44 @@ the one a correction block in the loaded-fp report had cited as evidence, which 
 that citation pointing at a *successful* boot. The driver now archives each run under a sequence
 number. The second run's rows are on disk; the first run's are not.
 
-Three of five boots with a known outcome did not converge, every one with the same signature:
+In my own two runs, three of five boots with a known outcome did not converge (superseded by
+the 6-of-10 above, and consistent with it), every one with the same signature:
 
 ```
 XX  kernel: 10 switches, 0 up, 0 enabled (want 10)
 ok  kernel graph matches the model file: 128 hosts, 288 edges
 XX  data plane: h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding
 ```
+
+### ✅ SUPERSEDED by a measured rate: 6 of 10, and the mechanism is now located
+
+The review session ran the ×10 I asked for (`2026-08-24_full-stack-run/boot_rate.txt`, plain
+defaults, `79cd66a`). **Six of ten boots failed to converge**, so my 3-of-5 was not a small-sample
+artefact — it was, if anything, optimistic.
+
+The distribution is **bimodal with no middle state**: every success took 58 s, every failure took
+413–415 s. A system whose boot time has two values that far apart is not "sometimes slow", it is
+two different outcomes wearing one name. (Boot 8's 7626 s is a laptop suspend during the run —
+convergence still counted, timing void.)
+
+**And the signature is not what this report assumed.** "0 up, 0 enabled" is *not* switches failing
+to connect: on all six failures `ryu.log` shows `EventOFPStateChange` 10/10 and the t+300 waiter
+seeing 10 of 10 online and installing routes on schedule. What is empty is
+`/v1.0/topology/links` — a 109-byte empty body for the whole boot, paths likewise — so **LLDP link
+discovery produced nothing at all**, and the all-pairs walk ran correctly over a graph with no
+edges. My cell C observation ("10 connected / 0 link events") is the same fault seen from
+outside.
+
+A discriminator worth keeping, because the two failures read alike in prose:
+
+| failure | kernel graph | what is broken |
+|---|---|---|
+| settle regression (fixed) | 288 edges, **256** down | host IPv4 never learned; switch-switch links fine |
+| this defect (open) | 288 edges, **288** down | *no* link discovered at all |
+
+Also resolved: the LLDP backoff is exonerated at code level, not just statistically — the sweep
+patch sits inside the `if _lldp_backoff:` branch, so a defaults run executes the stock loop and
+cannot be affected by it.
 
 Two things follow, and they point in opposite directions from what has already been written down:
 
