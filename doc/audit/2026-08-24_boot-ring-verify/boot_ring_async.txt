@@ -1,0 +1,27 @@
+
+# boot-ring verification, arm=async -- ten OVS boots, cap 600s
+# date:   2026-08-24T18:00:11+0800   commit: 8340367
+# baseline for comparison: 6 of 10 failed, at 79cd66a (pre-d1d973d)
+# env: ASYNC=1 SETTLE=unset GUARD=unset BACKOFF=unset
+## boot 1: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 2: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 3: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 4: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 5: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 6: CONVERGED  wall=27s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 7: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 8: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 9: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+## boot 10: CONVERGED  wall=26s  XX=0  ryu_hosts=128/128  graph=288e/0d
+     flag asserted: async banner present in ryu.log
+# rate: 0 of 10 failed to converge  (contaminated, excluded: 0)
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_boot-ring-verify/boot_ring_async.txt

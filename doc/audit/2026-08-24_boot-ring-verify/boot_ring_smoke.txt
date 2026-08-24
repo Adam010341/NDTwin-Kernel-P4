@@ -1,0 +1,8 @@
+
+# boot-ring verification, arm=t_only -- ten OVS boots, cap 600s
+# date:   2026-08-24T17:44:04+0800   commit: 8340367
+# baseline for comparison: 6 of 10 failed, at 79cd66a (pre-d1d973d)
+# env: ASYNC=unset SETTLE=unset GUARD=unset BACKOFF=unset
+## boot 1: CONVERGED  wall=53s  XX=0  ryu_hosts=128/128  graph=288e/0d
+# rate: 0 of 1 failed to converge  (contaminated, excluded: 0)
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_boot-ring-verify/boot_ring_t_only.txt
