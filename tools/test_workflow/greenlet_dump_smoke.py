@@ -42,17 +42,29 @@ os.kill(os.getpid(), signal.SIGUSR2)   # second dump, to diff like the py-spy pa
 eventlet.sleep(0.3)
 # "DUMPS DONE" used to print unconditionally -- which is how a dump path pointing at a deleted
 # session's scratchpad survived here unnoticed. A smoke test that cannot fail is not a test.
+# Cleanup policy, rewritten after the shadow review of 186f5eb caught two defects here:
+#   * the old code printed "-> {_dump_path}" and unlinked on the very NEXT line, so anyone who
+#     followed the path it had just advertised found nothing;
+#   * the unlink sat AFTER three sys.exit(1) calls, so every failure path leaked the file --
+#     which is the exact principle ("cleanup placed after the code that can fail is not
+#     cleanup") that the SAME commit fixed in probe_persistence.sh and wrote into its message.
+#
+# Policy now: on FAILURE keep the dump and name it, because it is the evidence you need. On
+# SUCCESS remove it and say so, because nothing is left to look at.
+def _fail(msg):
+    print(f"FAIL: {msg}")
+    print(f"      dump KEPT for inspection: {_dump_path}")
+    sys.exit(1)
+
 _n = os.path.getsize(_dump_path)
 if _n == 0:
-    print(f"FAIL: SIGUSR2 handler wrote nothing to {_dump_path}")
-    sys.exit(1)
+    _fail("SIGUSR2 handler wrote nothing")
 with open(_dump_path) as _fh:
     _txt = _fh.read()
 _dumps = _txt.count("greenlet dump  pid=")
 _parked = _txt.count("state=parked")
 if _dumps != 2:
-    print(f"FAIL: expected 2 dumps, found {_dumps} in {_dump_path}")
-    sys.exit(1)
+    _fail(f"expected 2 dumps, found {_dumps}")
 # The whole point of this tool is capturing PARKED greenlet stacks -- that is what py-spy
 # structurally cannot see. Reporting the parked count without asserting on it means the parked
 # detection could break completely and this smoke would still print a green line. Found by the
@@ -60,8 +72,7 @@ if _dumps != 2:
 # This script parks several greenlets on purpose (one blocked on a full bounded queue), so zero
 # is never correct here.
 if _parked < 1:
-    print(f"FAIL: {_parked} parked frames -- the dump captured no parked greenlet, "
-          f"which is the one thing this tool exists to do. See {_dump_path}")
-    sys.exit(1)
-print(f"DUMPS DONE: {_dumps} dumps, {_parked} parked frames, {_n} bytes -> {_dump_path}")
-os.unlink(_dump_path)   # shadow review: mkstemp files were never cleaned up
+    _fail(f"{_parked} parked frames -- the dump captured no parked greenlet, "
+          f"which is the one thing this tool exists to do")
+print(f"DUMPS DONE: {_dumps} dumps, {_parked} parked frames, {_n} bytes (dump removed)")
+os.unlink(_dump_path)

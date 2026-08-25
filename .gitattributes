@@ -20,3 +20,16 @@ doc/audit/**/raw/**        linguist-generated=true
 # Same reasoning for the loose raws that predate the raw/ convention.
 doc/audit/**/*_ryu.log     linguist-generated=true
 doc/audit/**/*.pcap        linguist-generated=true
+
+# Per-run result transcripts. Same reasoning as raw/ above: machine-generated, write-once, and
+# they are the evidence a conclusion is checked against -- so they stay in the tree, but they
+# should not consume review budget. Added 2026-08-25 after the branch diff reached 184,798
+# insertions, of which only 127,721 were reviewable and the rest was captured evidence.
+#
+# NOTE for anyone measuring: this does NOT change `git diff --stat`. linguist-generated only
+# affects GitHub's PR view (collapsed, excluded from language stats). Locally the raw count
+# stays high, which is correct -- the lines really are there.
+doc/audit/**/*.txt         linguist-generated=true
+doc/audit/**/*.tsv         linguist-generated=true
+doc/audit/**/*.out         linguist-generated=true
+doc/audit/**/*.json        linguist-generated=true

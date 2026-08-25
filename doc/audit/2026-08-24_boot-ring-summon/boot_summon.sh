@@ -221,7 +221,12 @@ for mode in loaded quiet; do
         contaminated=$((contaminated+1)); continue
     fi
 
-    xx=$(grep -cE '^\s+XX' "$upout" || true)
+    # The occurrence my "swept the whole file for this shape" claim MISSED, found by the shadow
+    # review. `|| true` handles the 0-match case (grep -c prints 0, exits 1) but NOT the error
+    # case: if $upout is missing, grep prints nothing, xx="" and `[ "$xx" -eq 0 ]` dies with
+    # "integer expression expected". Error-path only, so it never fired here -- but the claim
+    # that I had swept every instance was false. Sweeping is not finding.
+    xx=$(grep -cE '^\s+XX' "$upout" 2>/dev/null); [[ "$xx" =~ ^[0-9]+$ ]] || xx=0
     read -r hosts edges down <<< "$(twin_read)"
     if (( capped == 0 )) && [ "$xx" -eq 0 ] && [ "$hosts" = "128" ] && [ "$down" = "0" ]; then
         verdict="CONVERGED"
