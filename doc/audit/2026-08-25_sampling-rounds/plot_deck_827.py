@@ -416,10 +416,11 @@ def fig_merge_gate(name="page_merge-gate.png"):
     ]
 
     fig = plt.figure(figsize=WIDE)
-    _title(fig, "Merge merges — and nothing else moved",
-           "One cell at 1-in-256, two arms, one value changed (NDTWIN_SFLOW_BATCH 1 → 8). "
-           "Same binary, quantum identical to the bit.")
-    gs = fig.add_gridspec(1, 3, left=0.055, right=0.985, top=0.755, bottom=0.135, wspace=0.28)
+    _title(fig, "Merge merges — and whether it helps is still undecided",
+           "Left three: the gate at 1-in-256, one value changed (NDTWIN_SFLOW_BATCH 1 → 8). "
+           "Right: the same change at 1-in-8, where the wall is.")
+    gs = fig.add_gridspec(1, 4, left=0.045, right=0.985, top=0.755, bottom=0.135, wspace=0.34,
+                          width_ratios=[1, 1, 1, 1.25])
 
     for i, (head, ylab, a, b, is_effect) in enumerate(panels):
         ax = fig.add_subplot(gs[0, i])
@@ -453,13 +454,41 @@ def fig_merge_gate(name="page_merge-gate.png"):
         _frame(ax, ylab)
         ax.set_title(head, color=INK, fontsize=13, fontweight="bold", loc="left", pad=9)
 
-    fig.text(0.012, 0.030,
-             "A merge that moved either control would be an implementation bug, not a working "
-             "merge — that reading was fixed before the run.",
-             ha="left", color=MUTED, fontsize=11)
-    fig.text(0.985, 0.030,
-             "Effect on the sampling ceiling: NOT MEASURED.",
-             ha="right", color=WARNC, fontsize=12, fontweight="bold")
+    # ---- panel 4: the wall test, and why it decides nothing
+    #
+    # The control ran twice, before and after the treatment, and the two controls bracket it.
+    # Drawn on a time axis because the ordering IS the finding: 22.0 -> 29.5 is the fabric
+    # degrading underneath the experiment, and no bar chart grouped by condition would show it.
+    ax = fig.add_subplot(gs[0, 3])
+    seq = [(0, 22.01, "batch = 1", GREY), (5, 17.64, "batch = 8", ACCENT),
+           (10, 29.49, "batch = 1", GREY)]
+    xs = [s[0] for s in seq]
+    ys = [s[1] for s in seq]
+    ctrl = [(x, y) for x, y, lab, _ in seq if lab == "batch = 1"]
+    ax.plot([c[0] for c in ctrl], [c[1] for c in ctrl], "-", color=GREY, lw=2.2,
+            zorder=2, label="control drifting")
+    for x, y, lab, col in seq:
+        ax.plot([x], [y], "o", ms=15, color=col, mec="white", mew=2.2, zorder=4)
+        ax.text(x, y + 1.4, f"{y:.1f}%", ha="center", color=INK, fontsize=12, fontweight="bold")
+        ax.text(x, y - 2.4, lab, ha="center", va="top", color=MUTED, fontsize=10)
+    ax.annotate("", xy=(11.9, 29.49), xytext=(11.9, 22.01),
+                arrowprops=dict(arrowstyle="<|-|>", color=WARNC, lw=2, shrinkA=0, shrinkB=0))
+    ax.text(12.4, 25.7, "same\nsetting,\n7.5 pts\napart", ha="left", va="center",
+            color=WARNC, fontsize=11, fontweight="bold")
+    ax.set_xticks([0, 5, 10])
+    ax.set_xticklabels(["t = 0", "+5 min", "+10 min"], color=MUTED, fontsize=10.5)
+    ax.set_xlim(-2.4, 17.5)
+    ax.set_ylim(12, 34)
+    _frame(ax, "receiver packet loss (%), 1-in-8")
+    ax.set_title("At the wall: undecided", color=INK, fontsize=13, fontweight="bold",
+                 loc="left", pad=9)
+
+    # One footer, not two: at four panels the two lines ran into each other and printed on top
+    # of one another. The gate's point is already carried by the two flat control panels.
+    fig.text(0.5, 0.028,
+             "Flat controls are why the merge is sound; a control that moves 7.5 points is why "
+             "its 4.4-point gain cannot be claimed.",
+             ha="center", color=WARNC, fontsize=12, fontweight="bold")
     _save(fig, name)
 
 
