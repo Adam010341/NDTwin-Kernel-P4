@@ -371,6 +371,19 @@ def _dump_greenlets(signum=None, frame=None):
                 lines.append(f"    last_start={_ago(_app._topology_last_start)}"
                              f"  last_ok={_ago(_app._topology_last_ok)}"
                              f"  dirty={_app._topology_dirty.is_set()}")
+                # Arrival rate and the fill time it implies. t_fill is what a BLOCKED loop would
+                # take to overflow 128 slots at this rate -- the pre-B question, answered by
+                # arithmetic on a measured rate rather than by a failure-rate A/B that B made
+                # impossible to run.
+                _pc = _app._pktin_count
+                _pt = _app._pktin_first_t
+                if _pt is not None and _now > _pt:
+                    _rate = _pc / (_now - _pt)
+                    _fill = (128.0 / _rate) if _rate > 0 else float("inf")
+                    lines.append(f"    packet_in={_pc} over {_now - _pt:.1f}s"
+                                 f"  rate={_rate:.2f}/s  t_fill(128 slots)={_fill:.1f}s")
+                else:
+                    lines.append(f"    packet_in={_pc}  rate=n/a (none yet)")
                 if (_app._topology_last_start is not None
                         and (_app._topology_last_ok is None
                              or _app._topology_last_ok < _app._topology_last_start)):
@@ -657,6 +670,18 @@ class IntelligentRyu(app_manager.RyuApp):
         self._topology_coalesced = 0
         self._topology_last_start = None
         self._topology_last_ok = None
+        # [Co-developed with claude code -- Adam]
+        # Arrival rate into THIS app's 128-slot event queue. Every packet-in punted to the
+        # controller lands here, and LLDP dominates that traffic at boot, so this is the number
+        # the LLDP guard actually moves.
+        #
+        # It exists to answer a question the post-B measurement cannot: whether guard 0.05 -> 0.01
+        # changed how long a blocked event loop needs before its queue overflows. After B the
+        # queue never fills at any guard value, so comparing failure rates between guard settings
+        # proves nothing about the pre-B fabric -- but 128 slots divided by the measured arrival
+        # rate gives the fill time directly, and that IS comparable.
+        self._pktin_count = 0
+        self._pktin_first_t = None
         global _APP_FOR_DUMP
         _APP_FOR_DUMP = self
 
@@ -1766,6 +1791,10 @@ class IntelligentRyu(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        # [Co-developed with claude code -- Adam] see _pktin_count in __init__.
+        if self._pktin_first_t is None:
+            self._pktin_first_t = time()
+        self._pktin_count += 1
         msg = ev.msg
         datapath = msg.datapath
         dpid = datapath.id
