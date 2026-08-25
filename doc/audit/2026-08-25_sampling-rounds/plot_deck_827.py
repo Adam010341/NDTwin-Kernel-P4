@@ -384,9 +384,89 @@ def fig_period(name="page_loop-period.png"):
     _save(fig, name)
 
 
+def udp_dgram(path):
+    """arm -> datagrams per second on the proxy -> kernel hop."""
+    out = {}
+    for line in open(path):
+        m = re.search(r"UDPDGRAM (\S+) \d+ over [\d.]+s = ([\d.]+)/s", line)
+        if m:
+            out[m.group(1)] = float(m.group(2))
+    return out
+
+
+# ----------------------------------------------------------------- fig 5: merge gate
+def fig_merge_gate(name="page_merge-gate.png"):
+    """What a gate looks like: the intended quantity moves, the controls do not.
+
+    Three different units, so three panels. The two flat panels are the point -- a merge that
+    dropped lambda or ratio would be an implementation bug (E-P4 said so before the run), not a
+    working merge, and the only way to show "nothing else moved" is to show it.
+    """
+    v = verdicts(f"{ROUND}/gate_e.out")
+    d = udp_dgram(f"{ROUND}/gate_e.out")
+    B1, B8 = "e256b1_poll", "e256b8_poll"
+
+    panels = [
+        ("The intended effect", "datagrams/s, proxy → kernel",
+         d[B1], d[B8], True),
+        ("Control: samples collected", "λ, single-side samples/s",
+         v[B1]["lam"], v[B8]["lam"], False),
+        ("Control: rate accounting", "twin / counter ratio",
+         v[B1]["ratio"], v[B8]["ratio"], False),
+    ]
+
+    fig = plt.figure(figsize=WIDE)
+    _title(fig, "Merge merges — and nothing else moved",
+           "One cell at 1-in-256, two arms, one value changed (NDTWIN_SFLOW_BATCH 1 → 8). "
+           "Same binary, quantum identical to the bit.")
+    gs = fig.add_gridspec(1, 3, left=0.055, right=0.985, top=0.755, bottom=0.135, wspace=0.28)
+
+    for i, (head, ylab, a, b, is_effect) in enumerate(panels):
+        ax = fig.add_subplot(gs[0, i])
+        cols = [GREY, ACCENT if is_effect else FAINT]
+        bars = ax.bar([0, 1], [a, b], width=0.5, color=cols, edgecolor="white", linewidth=2)
+        top = max(a, b)
+        for bar, val in zip(bars, (a, b)):
+            txt = f"{val:,.1f}" if val >= 10 else f"{val:.3f}"
+            ax.text(bar.get_x() + bar.get_width() / 2, val + top * 0.035, txt,
+                    ha="center", color=INK, fontsize=12.5, fontweight="bold")
+        if is_effect:
+            ideal = a / 8.0
+            ax.axhline(ideal, color=WARNC, lw=1.4, ls=(0, (5, 3)), zorder=4)
+            ax.text(1.52, ideal, "ideal 8×", ha="right", va="bottom",
+                    color=WARNC, fontsize=10.5, fontweight="bold")
+            ax.text(0.5, top * 0.60, f"{a / b:.2f}× fewer", ha="center",
+                    color=WARNC, fontsize=13.5, fontweight="bold")
+        else:
+            # Two decimals, not one: lambda moves -0.76% and ratio -0.79%, which both round to
+            # -0.8% and then read as a copy-paste error rather than as two independent controls
+            # that happened to land together.
+            ax.text(0.5, top * 0.60, f"{(b / a - 1) * 100:+.2f}%", ha="center",
+                    color=FAINT, fontsize=13.5, fontweight="bold")
+            ax.set_ylim(0, top * 1.32)
+        if is_effect:
+            ax.set_ylim(0, top * 1.32)
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["batch = 1\n(unchanged behaviour)", "batch = 8\n(merge on)"],
+                           color=MUTED, fontsize=10.5)
+        ax.set_xlim(-0.6, 1.6)
+        _frame(ax, ylab)
+        ax.set_title(head, color=INK, fontsize=13, fontweight="bold", loc="left", pad=9)
+
+    fig.text(0.012, 0.030,
+             "A merge that moved either control would be an implementation bug, not a working "
+             "merge — that reading was fixed before the run.",
+             ha="left", color=MUTED, fontsize=11)
+    fig.text(0.985, 0.030,
+             "Effect on the sampling ceiling: NOT MEASURED.",
+             ha="right", color=WARNC, fontsize=12, fontweight="bold")
+    _save(fig, name)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     fig_truncate()
     fig_ceiling()
     fig_bottleneck()
     fig_period()
+    fig_merge_gate()
