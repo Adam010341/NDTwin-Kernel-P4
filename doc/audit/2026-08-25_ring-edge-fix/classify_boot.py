@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Three-leg boot classifier for Phase 2 (PREREG.md 5-bis R1).
 
+🔴 SCOPE: PRE-B CORPUS ONLY. B (bfb0569) moved the rebuild off the event loop, which changed this
+log grammar for the third time: `Topology update triggered` now counts REBUILDS, not events, and
+events are counted by `switch-enter queued for topology rebuild` instead. A post-B boot reads
+ent=10 with trig/gsw/glk=2 and is perfectly healthy, so every rule below would misclassify it.
+Phase 3 judges by the invariant (assert_invariant.py) plus the fidelity pair; this file is kept
+for reading the archived pre-B corpus and must not be pointed at new runs.
+
 WHY THIS EXISTS. Phase 0 classified boots by cumulative counters:
 `triggered - "Complete get_switch" == 1` meant "parked in get_switch". That rule
 held 47/47 on archived logs -- but it was validated on the log grammar of an

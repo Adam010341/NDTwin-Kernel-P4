@@ -3,6 +3,7 @@
   flagged  async_p3_greenlets.txt       loops=6  hits=2  e.g. get_switch
   flagged  async_p4_greenlets.txt       loops=6  hits=2  e.g. get_link
   flagged  defaults_p1_greenlets.txt    loops=6  hits=2  e.g. get_switch
+  flagged  wedge_111502_greenlets.txt   loops=6  hits=2  e.g. get_all_host
 
-5 known-bad dumps, 0 missed
+6 known-bad dumps, 0 missed
 PASS: the checker detects the pre-B violation it is meant to detect

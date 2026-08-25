@@ -58,6 +58,12 @@ def main():
         known_bad += sorted(glob.glob(os.path.join(here, "..",
                                                    "2026-08-25_ring-fix-verify", "raw",
                                                    "*_greenlets.txt")))
+        # The THIRD site. Everything above parks in get_switch or get_link, so without this the
+        # selftest only ever proved detection for two of the three calls it claims to cover --
+        # and get_all_host is the one d1d973d already bounded, i.e. the site whose signature is
+        # least like the others. Added on the auditer's independent recheck, which included it.
+        known_bad += sorted(glob.glob(os.path.join(here, "..", "2026-08-25_host-learning-curve",
+                                                   "raw", "wedge_*_greenlets.txt")))
         if not known_bad:
             print("🔴 selftest cannot run: no pre-B dumps found")
             return 2
