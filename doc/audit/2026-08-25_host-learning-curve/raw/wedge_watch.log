@@ -1,3 +1,0 @@
-[111502] WEDGE DETECTED pid=1647153 age=104s links_http=000 body=<none> -- dumping
-[111502] dump: 2537 lines, 12 in _events_sem.acquire
-[111502] ryu 1647153 gone; re-armed

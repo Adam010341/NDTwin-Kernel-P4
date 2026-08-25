@@ -1,20 +1,0 @@
-ndt up ovs
-  hosts        128
-  topology     setting/StaticNetworkTopologyMininet_10Switches.json
-[1/4] control plane (Ryu)
-  ok  Ryu up, prompt reached
-[2/4] data plane (OVS fabric)
-  ok  139 host/switch processes after 2s
-[3/4] proxy-less convergence + kernel
-  Ryu settles for 5s before installing paths (NDTWIN_RYU_SETTLE_S)
-        started ryu (pid 720875) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
-        waiting for Ryu REST on :8080 . up
-          switches=0 links=0 paths=pending              switches=10 links=32 paths=pending              switches=10 links=32 paths=installed                                                        converged after 13s
-        started kernel (pid 734228) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
-        waiting for kernel API on :8000 . up
-[4/4] verify
-  ok  kernel: 10 switches up+enabled
-  ok  kernel graph matches the model file: 128 hosts, 288 edges
-  ok  data plane: h1 -> 10.0.0.2 forwards
-
-up. ready

@@ -1,0 +1,6 @@
+# Raw artifacts live on the `audit-raw` orphan branch, not here.
+#   git show audit-raw:doc/audit/2026-08-25_host-learning-curve/raw/<file>
+# Untracked deliberately: they are ~166k lines that belong in the evidence trail, not in a
+# pull request diff. They are NOT regenerable -- do not "clean" this directory.
+*
+!.gitignore

@@ -1,9 +1,0 @@
-ndt up ovs
-  hosts        128
-  topology     setting/StaticNetworkTopologyMininet_10Switches.json
-[1/4] control plane (Ryu)
-  ok  Ryu up, prompt reached
-[2/4] data plane (OVS fabric)
-  ok  139 host/switch processes after 3s
-[3/4] proxy-less convergence + kernel
-  Ryu settles for 40s before installing paths (NDTWIN_RYU_SETTLE_S)
