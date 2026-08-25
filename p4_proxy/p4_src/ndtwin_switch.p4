@@ -51,6 +51,28 @@ const bit<32> SAMPLE_SESSION = 250;
 // kernel's existing rate calculations apply unchanged.
 const bit<16> SAMPLE_RATE = 256;
 
+// Bytes of each sampled copy actually sent to the CPU port. The rest is discarded in egress,
+// before the copy ever reaches the proxy.
+//
+// [Co-developed with claude code -- Adam]
+// WHY. The 08-25 ladder measured the ceiling: at 1-in-8 the receiver starts losing real traffic
+// (5.1%, then 45.3 / 70.8 / 85.2 climbing to 1-in-1), and the per-process CPU says the proxy
+// plateaus at ~145% exactly there while bmv2 PEAKS at 206% and then falls -- starved, not
+// saturated. So the wall is the telemetry pipeline, and until now every sampled copy carried a
+// full 1442 B frame the proxy had to read.
+//
+// SAFE FOR THE RATE MATHS. sFlow needs the ORIGINAL frame length, and that travels in
+// meta.sample_frame_length -> hdr.packet_in.frame_length, which is set from ingress metadata and
+// is unaffected by how many bytes of payload survive. Truncating changes what is copied, not
+// what is reported.
+//
+// 🔴 NOT THE SAME KNOB AS THE ONE THAT FAILED. bmv2's runtime `packet_length_bytes=128` on the
+// mirror session was measured on 08-20 and silently killed telemetry outright (every edge read
+// zero, no error anywhere). This is the P4 `truncate()` extern, a different mechanism -- but it
+// has the same failure MODE, so PREREG-D §2 requires a 1/256 cell to pass (ratio ~= 1.00, samples
+// non-zero) plus independent proof that truncation actually happened, BEFORE climbing.
+const bit<32> SAMPLE_TRUNC_BYTES = 128;
+
 // Index of the metadata field list preserved across the ingress-to-egress clone.
 const bit<8> FL_SAMPLE = 1;
 
@@ -419,6 +441,10 @@ control MyEgress(inout headers hdr,
             hdr.packet_in.sampling_rate = SAMPLE_RATE;
             hdr.packet_in._pad = 0;
             hdr.packet_out.setInvalid();
+            // Send only the head of the copy. Must come after packet_in is populated: the count
+            // is of bytes ON THE WIRE, so it covers the emitted packet_in header too, and
+            // setting it earlier would be measuring a packet that does not exist yet.
+            truncate(SAMPLE_TRUNC_BYTES);
             return;   // do not count the copy: it is not real egress traffic
         }
 
