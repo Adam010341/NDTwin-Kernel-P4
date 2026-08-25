@@ -878,20 +878,25 @@ class IntelligentRyu(app_manager.RyuApp):
             # rather than merely missing. Aborting matches what the empty-switch-list branch above
             # already does, and the next EventSwitchEnter runs the whole thing again.
             #
-            # The cost I predicted for this branch did not survive its own measurement, and the
-            # correction matters more than the prediction did. I wrote that aborting here would
-            # leave the kernel un-notified and the twin showing this switch down. Measured
-            # (2026-08-25 Phase 2, fixa1): seven rounds took this abort, and the twin still
-            # converged to 288 edges with none down and all 128 hosts addressed.
+            # 🔴 THIS BRANCH HAS NEVER EXECUTED. Stated up front because the comment that
+            # stood here claimed it had, and misattributed the evidence: the seven aborts and all
+            # 28 timeouts measured in Phase 2 (fixa1) were the get_switch exit above, never this
+            # one -- `grep -c "Link list unavailable" ` is 0 across every log in doc/audit.
             #
-            # The reason is that the twin does not learn topology from this notification at all --
-            # the kernel POLLS Ryu's REST topology API, and every push from here failed with
-            # ECONNREFUSED in all six boots of both arms because the kernel is not listening yet
-            # when switches enter. What the wedge actually breaks is that polling: a wedged boot
-            # served 4 GET /v1.0/topology/switches, a recovered one served 26.
+            # So the get_switch ceiling is what Phase 2 verified. This one is unexercised
+            # insurance, and the case it insures against is real rather than theoretical: Phase 0
+            # boot1 wedged with the event loop parked in exactly this call.
             #
-            # So the real cost of aborting is a delayed poll, not a lost notification. Left as an
-            # abort rather than a fall-through because the reason for it stands on its own: a walk
+            # The fidelity cost I predicted for it is therefore also unmeasured. What IS measured,
+            # from the get_switch exit that did run: aborting does not cost the twin anything,
+            # because the twin does not learn topology from the notification this returns before.
+            # The kernel POLLS Ryu's REST API -- every push from this handler failed with
+            # ECONNREFUSED in all six boots of both arms, the kernel not being up yet when
+            # switches enter -- and what a wedge actually breaks is that poll: 4 GET
+            # /v1.0/topology/switches on a wedged boot against 26 on a recovered one, with the
+            # kernel blind for 148s in between before it catches up.
+            #
+            # Aborting rather than falling through stands on its own reason regardless: a walk
             # over nodes-without-edges computes wrong paths, not missing ones.
             self.logger.warning(
                 "Link list unavailable after timeout — aborting topology update"
