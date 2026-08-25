@@ -23,7 +23,8 @@ WARM_S="${WARM_S:-20}"    # discarded ramp at each end
 POLL_S=$((FLOW_S + 40))
 WIN_S=$((FLOW_S - 2 * WARM_S))
 
-echo "=== $LABEL: flows ${FLOW_S}s, window ${WIN_S}s, pollers ${POLL_S}s ==="
+echo "=== $LABEL: flows ${FLOW_S}s, window ${WIN_S}s, pollers ${POLL_S}s, "\
+     "limit=${FLOW_LIMIT:-0} scale=${RATE_SCALE:-1} ==="
 
 # --- pre-conditions. PREREG section 5: none of these may be assumed. ------------------------
 python3 - "$OUT" <<'PY'
@@ -65,7 +66,8 @@ sleep 4
 
 # --- flows ----------------------------------------------------------------------------------
 T_FLOW_START=$(date +%s.%N)
-bash "$HERE/run_flows.sh" "$OUT" "$FLOW_S" 2>&1 | tee "$OUT/flows.log"
+FLOW_LIMIT="${FLOW_LIMIT:-0}" RATE_SCALE="${RATE_SCALE:-1}" \
+    bash "$HERE/run_flows.sh" "$OUT" "$FLOW_S" 2>&1 | tee "$OUT/flows.log"
 T_FLOW_END=$(date +%s.%N)
 
 wait "$VP" "$TP" 2>/dev/null

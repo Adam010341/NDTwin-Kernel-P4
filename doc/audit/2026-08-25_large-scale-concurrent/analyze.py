@@ -37,7 +37,14 @@ HOST_DPID = 0            # hosts carry dpid 0 in the topology model; confirmed a
 
 # --------------------------------------------------------------------------- veth ground truth
 def read_veth(path, t_lo=None, t_hi=None):
-    """{iface: (rx_delta, tx_delta)} between the first and last sample inside the window."""
+    """{iface: (rx_delta, tx_delta)} between the first and last sample inside the window.
+
+    Also returns the span actually realised. That matters more than it looks: the pollers do not
+    hit their nominal 2 s -- the veth one spawns 160 reads per sweep -- so the veth stream and
+    the twin stream cover slightly different spans of the same window. Integrating each over its
+    OWN span and dividing gives a ratio that carries the difference, which would read as a
+    telemetry error. The caller aligns them using this.
+    """
     first, last = {}, {}
     n = 0
     with open(path) as fh:
@@ -56,12 +63,15 @@ def read_veth(path, t_lo=None, t_hi=None):
             first.setdefault(iface, (ts, rx, tx))
             last[iface] = (ts, rx, tx)
     out = {}
+    span_lo = span_hi = None
     for iface, (t1, rx1, tx1) in first.items():
         t2, rx2, tx2 = last[iface]
         if t2 <= t1:
             continue
         out[iface] = (rx2 - rx1, tx2 - tx1, t2 - t1)
-    return out, n
+        span_lo = t1 if span_lo is None else min(span_lo, t1)
+        span_hi = t2 if span_hi is None else max(span_hi, t2)
+    return out, n, (span_lo, span_hi)
 
 
 # --------------------------------------------------------------------------- twin per-edge
@@ -184,6 +194,107 @@ def summarise(rows, sampling_n=256):
     return out
 
 
+def active_window(path, frac=0.35):
+    """The span where the fabric is actually carrying traffic, read off the veth stream itself.
+
+    The nominal window in meta.json starts when run_plane.sh recorded T_FLOW_START, but
+    run_flows.sh then spends a minute resolving 128 host namespaces and clearing stale servers
+    before a single packet moves. Anchoring on the nominal window therefore folds a dead period
+    into the measurement: the RATIO survives it (both streams see the same dead time) but the
+    per-edge sample counts, the error floors derived from them, and any statement about offered
+    load do not.
+
+    So: total bytes per sweep, and keep the contiguous span above `frac` of the peak sweep rate.
+    """
+    sweeps = collections.defaultdict(int)
+    with open(path) as fh:
+        fh.readline()
+        for line in fh:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) != 4:
+                continue
+            sweeps[round(float(parts[0]), 1)] += int(parts[2]) + int(parts[3])
+    ts = sorted(sweeps)
+    if len(ts) < 4:
+        return None
+    rates = [((sweeps[ts[i + 1]] - sweeps[ts[i]]) / max(1e-9, ts[i + 1] - ts[i]), ts[i], ts[i + 1])
+             for i in range(len(ts) - 1)]
+    peak = max(r for r, _, _ in rates)
+    live = [(a, b) for r, a, b in rates if r >= frac * peak]
+    if not live:
+        return None
+    return live[0][0], live[-1][1]
+
+
+# --------------------------------------------------------------------------- loss attribution
+def ip_from_packed(n):
+    """The graph packs IPv4 little-endian: 192653504 -> 192.168.123.11."""
+    return ".".join(str((n >> s) & 0xFF) for s in (0, 8, 16, 24))
+
+
+def host_ports(graph_body):
+    """{host_ip: (switch_dpid, iface_no)} from the switch->host edges."""
+    out = {}
+    for e in graph_body.get("edges", []):
+        if e["dst_dpid"] == HOST_DPID and e.get("dst_ip"):
+            out[ip_from_packed(e["dst_ip"][0])] = (e["src_dpid"], e["src_interface"])
+    return out
+
+
+def attribute_loss(rundir, veth):
+    """PREREG A-6: did the fabric drop it, or did the receiving host?
+
+    iperf3 reports loss measured at the RECEIVER, so it covers both "bmv2 or a veth queue
+    dropped the packet" and "the iperf3 process was not scheduled and its socket buffer
+    overflowed". Those need different fixes and look identical in the loss column.
+
+    The discriminator is the switch port facing the server. Its TX is what the fabric handed to
+    the host. If that matches what the client offered but iperf3 saw less, the packet crossed
+    the whole fabric and died on the host side.
+    """
+    import glob
+    first = None
+    with open(os.path.join(rundir, "graph.jsonl")) as fh:
+        for line in fh:
+            rec = json.loads(line)
+            if rec["body"]:
+                first = rec["body"]
+                break
+    if first is None:
+        return None
+    ports = host_ports(first)
+
+    per_port_offered = collections.defaultdict(float)
+    per_port_received = collections.defaultdict(float)
+    flows = 0
+    for p in sorted(glob.glob(os.path.join(rundir, "iperf", "cli_*.json"))):
+        try:
+            j = json.load(open(p))
+            s = j["end"]["sum"]
+        except Exception:
+            continue
+        srv = os.path.basename(p).split("_to_")[1].rsplit("_", 1)[0]      # e.g. h68
+        ip = f"10.0.0.{srv[1:]}"
+        if ip not in ports:
+            continue
+        flows += 1
+        dpid, ifno = ports[ip]
+        iface = f"s{dpid}-eth{ifno}"
+        secs = s.get("seconds") or 1.0
+        offered = s["bits_per_second"] * secs / 8.0
+        lost = s.get("lost_percent", 0.0) / 100.0
+        per_port_offered[iface] += offered
+        per_port_received[iface] += offered * (1.0 - lost)
+
+    tot_off = sum(per_port_offered.values())
+    tot_rcv = sum(per_port_received.values())
+    tot_veth = sum(veth[i][1] for i in per_port_offered if i in veth)   # tx toward the host
+    return {"flows": flows, "offered": tot_off, "iperf_received": tot_rcv,
+            "veth_tx_to_host": tot_veth,
+            "delivered_by_fabric_pct": 100.0 * tot_veth / tot_off if tot_off else None,
+            "seen_by_iperf_pct": 100.0 * tot_rcv / tot_off if tot_off else None}
+
+
 # --------------------------------------------------------------------------- selftest
 def selftest(tmpdir):
     """Known input, known answer, and one edge that MUST be flagged."""
@@ -221,7 +332,7 @@ def selftest(tmpdir):
             ]}
             fh.write(json.dumps({"ts": ts, "body": body}) + "\n")
 
-    veth, nrows = read_veth(vp)
+    veth, nrows, _span = read_veth(vp)
     graph, ok, miss = read_graph(gp)
     rows = reconcile(veth, graph)
     s = summarise(rows)
@@ -267,6 +378,8 @@ def main():
     ap.add_argument("--dir", help="run directory holding veth.tsv, graph.jsonl, flows.jsonl")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--window", help="t_lo,t_hi unix seconds to restrict to")
+    ap.add_argument("--auto-window", action="store_true",
+                    help="derive the window from when the veth counters are actually moving")
     ap.add_argument("--json", help="write the row table here")
     a = ap.parse_args()
 
@@ -280,11 +393,26 @@ def main():
     t_lo = t_hi = None
     if a.window:
         t_lo, t_hi = (float(x) for x in a.window.split(","))
+    elif a.auto_window:
+        w = active_window(os.path.join(a.dir, "veth.tsv"))
+        if not w:
+            print("🔴 INCONCLUSIVE: no active period found in the veth stream")
+            return 2
+        t_lo, t_hi = w
+        print(f"auto window: {t_hi - t_lo:.0f}s of moving counters")
 
-    veth, nrows = read_veth(os.path.join(a.dir, "veth.tsv"), t_lo, t_hi)
-    graph, ok, miss = read_graph(os.path.join(a.dir, "graph.jsonl"), t_lo, t_hi)
-    print(f"veth: {len(veth)} interfaces from {nrows} rows")
+    veth, nrows, span = read_veth(os.path.join(a.dir, "veth.tsv"), t_lo, t_hi)
+    # Integrate the twin over the span the veth ACTUALLY covers, not the nominal window: the two
+    # pollers run at different real rates, and a ratio built from mismatched spans is wrong by
+    # exactly the mismatch.
+    graph, ok, miss = read_graph(os.path.join(a.dir, "graph.jsonl"), span[0], span[1])
+    print(f"veth: {len(veth)} interfaces from {nrows} rows, "
+          f"span {span[1]-span[0]:.1f}s" if span[0] else "veth: no usable span")
     print(f"twin: {ok} usable graph samples, {miss} failed polls, {len(graph)} distinct edges")
+    if ok < 3:
+        print("🔴 INCONCLUSIVE: fewer than three twin samples inside the veth span -- the "
+              "integration has nothing to integrate over.")
+        return 2
     if not veth or not ok:
         print("🔴 INCONCLUSIVE: one of the two streams is empty. Absence of a discrepancy in an "
               "empty comparison is not evidence.")
@@ -318,6 +446,18 @@ def main():
     dec = collections.Counter(r["declared"] for r in rows if r["declared"])
     for d, n in dec.most_common():
         print(f"  {d:>14,} bps  x{n}")
+
+    att = attribute_loss(a.dir, veth)
+    if att and att["offered"]:
+        print(f"\nloss attribution (PREREG A-6), {att['flows']} flows:")
+        print(f"  offered by clients        {att['offered']/1e9:8.3f} GB")
+        print(f"  handed to hosts by fabric {att['veth_tx_to_host']/1e9:8.3f} GB  "
+              f"({att['delivered_by_fabric_pct']:.1f}% of offered)")
+        print(f"  seen by iperf3 receivers  {att['iperf_received']/1e9:8.3f} GB  "
+              f"({att['seen_by_iperf_pct']:.1f}% of offered)")
+        gap = att["delivered_by_fabric_pct"] - att["seen_by_iperf_pct"]
+        print(f"  => fabric lost {100 - att['delivered_by_fabric_pct']:.1f} pts, "
+              f"host lost {gap:.1f} pts")
 
     if a.json:
         with open(a.json, "w") as fh:
