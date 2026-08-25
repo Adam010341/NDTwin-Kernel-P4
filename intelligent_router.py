@@ -209,6 +209,24 @@ settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "40"))
 #: exactly what the caller needs to stop waiting on. [Co-developed with claude code -- Adam]
 HOST_QUERY_TIMEOUT_S = float(os.environ.get("NDTWIN_RYU_HOST_QUERY_TIMEOUT_S", "5"))
 
+#: The same protection for the OTHER two topology reads, which are the ones actually caught
+#: holding the ring. [Co-developed with claude code -- Adam]
+#:
+#: HOST_QUERY_TIMEOUT_S above bounds get_all_host. It was the third of three untimed
+#: request-reply calls reachable from the EventSwitchEnter handler, and bounding it moved the
+#: wedge to the other two rather than ending it: measured 2026-08-25, both ring-fix arms wedged
+#: with the event loop parked in get_switch or get_link, never in the bounded host read
+#: (doc/audit/2026-08-25_ring-edge-fix/). These two calls sit EARLIER in the same handler than
+#: the async spawn does, so 72fbae6 could not help them either.
+#:
+#: TOPO_DEADLINE_S replaces a literal 20 that could not be enforced. The old loop re-checked
+#: `time() - start < 20` between iterations, so a single call that never returned was never
+#: "between iterations" and the bound never fired -- the same defect, in the same file, that
+#: _await_host_discovery had. The per-call timeout is now the SMALLER of the query timeout and
+#: the budget left, which is what makes the deadline mean what it says.
+TOPO_QUERY_TIMEOUT_S = float(os.environ.get("NDTWIN_RYU_TOPO_QUERY_TIMEOUT_S", "5"))
+TOPO_DEADLINE_S = float(os.environ.get("NDTWIN_RYU_TOPO_DEADLINE_S", "20"))
+
 # [Co-developed with claude code -- Adam]
 # 2026-08-25: default flipped OFF -> ON (Adam's ruling). Set the variable to "0" to opt out.
 #
@@ -780,6 +798,37 @@ class IntelligentRyu(app_manager.RyuApp):
         )
         datapath.send_msg(mod_add)
 
+    def _bounded_topo_read(self, what, budget_s, fn):
+        """Run one topology request-reply with a ceiling. Returns None if it did not answer.
+
+        [Co-developed with claude code -- Adam]
+        `get_switch`/`get_link` are request-reply: send the event to the `switches` app and block
+        on `reply_q.get()`, which has no timeout of its own (ryu/base/app_manager.py:279). When
+        the answering app is itself blocked, that get never returns -- and because this runs ON
+        this app's event loop, the loop stops draining, its 128-slot queue fills, and the very app
+        we are waiting for blocks trying to emit EventLinkAdd into it. That is the ring, observed
+        rather than argued: both queues at 128/128, twelve emitters blocked on ours and this
+        loop parked in here (doc/audit/2026-08-25_ring-edge-fix/raw/boot{1,2}_greenlets.txt).
+
+        Returning None instead of raising keeps each caller free to choose: the switch read
+        retries until its deadline, the link read gives up the round. Neither may park the loop.
+
+        The warning is not decoration -- it is how a run proves the timeout was actually in the
+        binary. A boot that wedges with zero of these lines means the fix did not land, which is
+        a different finding from the fix not working, and PREREG 5-bis R2 orders them apart.
+        """
+        if budget_s <= 0:
+            return None
+        try:
+            with hub.Timeout(min(budget_s, TOPO_QUERY_TIMEOUT_S)):
+                return fn()
+        except hub.Timeout:
+            self.logger.warning(
+                "topology read did not answer within %.1fs (%s) -- the topology app may be "
+                "blocked; giving up this attempt rather than parking the event loop",
+                min(budget_s, TOPO_QUERY_TIMEOUT_S), what)
+            return None
+
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
         # ------ Update topology info ------
@@ -787,8 +836,13 @@ class IntelligentRyu(app_manager.RyuApp):
 
         start = time()
         switch_list = []
-        while time() - start < 20:
-            switch_list = get_switch(self.topology_api_app, None)
+        while True:
+            remaining = TOPO_DEADLINE_S - (time() - start)
+            if remaining <= 0:
+                break
+            switch_list = self._bounded_topo_read(
+                "get_switch", remaining,
+                lambda: get_switch(self.topology_api_app, None)) or []
             if switch_list:
                 break
             hub.sleep(1)
@@ -815,7 +869,23 @@ class IntelligentRyu(app_manager.RyuApp):
             if not self.dynamic_net.has_node(sw.dp.id):
                 self.dynamic_net.add_node(sw.dp.id)
 
-        links_list = get_link(self.topology_api_app, None)
+        links_list = self._bounded_topo_read(
+            "get_link", TOPO_QUERY_TIMEOUT_S,
+            lambda: get_link(self.topology_api_app, None))
+        if links_list is None:
+            # Abort rather than continue with no links. Continuing would hand the all-pair walk a
+            # graph with nodes and no edges, and the paths it computed from that would be wrong
+            # rather than merely missing. Aborting matches what the empty-switch-list branch above
+            # already does, and the next EventSwitchEnter runs the whole thing again.
+            #
+            # The cost is named on purpose: this returns BEFORE the "Switch entered:" line below,
+            # so the kernel is not told this switch came up and the twin shows it down until a
+            # later round succeeds. That is the fidelity price of the timeout, and it is why the
+            # Phase 2 read-out checks edge and host counts and not just the absence of a wedge.
+            self.logger.warning(
+                "Link list unavailable after timeout — aborting topology update"
+            )
+            return
         self.logger.info("Complete get_link")
         
         for link in links_list:

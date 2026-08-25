@@ -17,3 +17,19 @@
          ofp_event                    0/128  balance=128
          switches                     128/128  balance=-43   <== 43 emitter(s) BLOCKED writing to this queue
 ## boot1: WEDGE@get_link  wall=413s  trig=3 gsw=3 glk=2 ent=2  timeouts=40  hosts_ipv4=-1  edges(total down)=288 288  P1=ok
+     dump: 4423 lines, 30 in _events_sem.acquire, 82 in reply_q.get
+     --- queue census (last dump) ---
+         IntelligentRyu               128/128  balance=-12   <== 12 emitter(s) BLOCKED writing to this queue
+         RestStatsApi                 0/128  balance=128
+         TopologyAPI                  0/128  balance=128
+         dpset                        0/128  balance=128
+         ofp_event                    0/128  balance=128
+         switches                     128/128  balance=-18   <== 18 emitter(s) BLOCKED writing to this queue
+## boot2: WEDGE@get_switch  wall=411s  trig=4 gsw=3 glk=3 ent=3  timeouts=40  hosts_ipv4=-1  edges(total down)=288 288  P1=ok
+## boot3: HEALTHY  wall=54s  trig=10 gsw=10 glk=10 ent=10  timeouts=0  hosts_ipv4=128  edges(total down)=288 0  P1=ok
+
+# ---------------------------------------------------------------------------
+# RESULT: wedge=2  healthy=1  void=0  (of 3)
+# VERDICT: TARGET ALIVE (2/3) -> Phase 2 fix arm MAY run
+# (verdict applies the stop condition written in PREREG.md before this ran)
+# torn down (rc=0)

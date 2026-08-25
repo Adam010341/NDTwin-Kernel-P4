@@ -32,7 +32,10 @@ TRIG = "Topology update triggered"
 GSW  = "Complete get_switch"
 GLK  = "Complete get_link"
 ENT  = "Switch entered:"
-ABRT = "Switch list is empty after timeout"
+# Fix A gives the handler two healthy give-up exits, not one; both must count as
+# "recovered", or the second would be read as a park.
+ABRT  = "Switch list is empty after timeout"
+ABRT2 = "Link list unavailable after timeout"
 HTO  = "host-table read did not answer"
 # The line fix A must emit when its timeout fires. Absent + parked == injection
 # failure, not falsification (PREREG 5-bis R2), so it is counted separately.
@@ -40,7 +43,7 @@ TOPO_TO = "topology read did not answer"
 
 
 def counts(text):
-    return {k: text.count(k) for k in (TRIG, GSW, GLK, ENT, ABRT, HTO, TOPO_TO)}
+    return {k: text.count(k) for k in (TRIG, GSW, GLK, ENT, ABRT, ABRT2, HTO, TOPO_TO)}
 
 
 def last_chain(text):
@@ -50,7 +53,7 @@ def last_chain(text):
         return "NO-INVOCATION", {}
     tail = text[i:]
     seen = {"gsw": GSW in tail, "glk": GLK in tail,
-            "ent": ENT in tail, "abort": ABRT in tail}
+            "ent": ENT in tail, "abort": (ABRT in tail or ABRT2 in tail)}
     if seen["ent"]:
         # NOT "the handler returned". `Switch entered:` is logged at :793, and the
         # handler goes on to notify (:797) and then to load_static_topology (:851).
@@ -114,7 +117,7 @@ def main():
         for f in files:
             t = open(f, errors="replace").read()
             c = counts(t)
-            if c[ABRT]:
+            if c[ABRT] or c[ABRT2]:
                 skipped += 1
                 print(f"  SKIP (abort present, grammars differ by design) {os.path.basename(f)}")
                 continue
@@ -139,7 +142,7 @@ def main():
         print(f"  verdict     : {state}")
         print(f"  last chain  : {chain}")
         print(f"  counts      : trig={c[TRIG]} gsw={c[GSW]} glk={c[GLK]} ent={c[ENT]}")
-        print(f"  aborts={c[ABRT]}  host-timeouts={c[HTO]}  topo-timeouts={c[TOPO_TO]}")
+        print(f"  aborts={c[ABRT]}+{c[ABRT2]}  host-timeouts={c[HTO]}  topo-timeouts={c[TOPO_TO]}")
         if c[TOPO_TO] == 0 and state.startswith("WEDGE"):
             print("  ⚠️  zero topology-timeout lines: check the injection landed"
                   " before reading this as falsification (PREREG 5-bis R2)")
