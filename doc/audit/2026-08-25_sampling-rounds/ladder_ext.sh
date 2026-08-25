@@ -82,9 +82,15 @@ say "kernel binary sha256: $(sha256sum "$REPO/build/bin/ndtwin_kernel" | cut -d'
 say "bmv2 binary  sha256: $(sha256sum /usr/local/bmv2-fast/bin/simple_switch_grpc | cut -d' ' -f1)"
 say "boot_id: $(cat /proc/sys/kernel/random/boot_id)  uptime: $(cut -d' ' -f1 /proc/uptime)s"
 
+# Ticket D re-runs the top of this ladder with truncate(128) on, and needs its own cell names so
+# the two generations can sit in one raw/ without a prefix eating the other -- `r0*` would match
+# both. Defaults reproduce the original ticket-B run exactly.
+RATES="${RATES:-32 16 8 4 2 1}"
+PREFIX="${PREFIX:-r}"
+
 CONSEC_SAT=0
-for RATE in 32 16 8 4 2 1; do
-    CELL=$(printf "r%03d_poll" "$RATE")
+for RATE in $RATES; do
+    CELL=$(printf "%s%03d_poll" "$PREFIX" "$RATE")
     say "--- SAMPLE_RATE = 1/$RATE  cell=$CELL ---"
     teardown
     compile_at "$RATE" || exit 1

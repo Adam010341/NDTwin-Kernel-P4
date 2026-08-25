@@ -1,0 +1,9 @@
+[19:35:30] === gate_d start, DUR=120s per arm, PREREG f64897b §D-2 ===
+[19:35:30] --- arm d256full_poll: SAMPLE_TRUNC_BYTES=16384, rate 1/256 ---
+[19:38:16]     VERDICT cell=d256full_poll  mark=OK  ratio=0.9979  gt_mbit=205.8  lost_pct=0.1224  lam=69.56  quantum=2953216  spread=12.83  floor=11.99  distinct=32
+[19:38:16]     GRPCBYTES d256full_poll delta=13391634 start=2043996 end=15435630
+[19:38:16] --- arm d256trunc_poll: SAMPLE_TRUNC_BYTES=128, rate 1/256 ---
+[19:41:03]     VERDICT cell=d256trunc_poll  mark=OK  ratio=1.016  gt_mbit=205.7  lost_pct=0.2373  lam=70.76  quantum=2953216  spread=11.43  floor=11.89  distinct=35
+[19:41:03]     GRPCBYTES d256trunc_poll delta=2389369 start=2093703 end=4483072
+[19:41:03] --- restoring production config (1/256, truncate 128) ---
+[19:41:39] === gate_d complete, production restored ===

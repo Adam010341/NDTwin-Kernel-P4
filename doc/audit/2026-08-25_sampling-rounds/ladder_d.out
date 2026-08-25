@@ -1,0 +1,18 @@
+[19:41:58] === ladder_ext start, DUR=300s/cell, PREREG a7c2bd7 ===
+[19:41:58] kernel binary sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[19:41:58] bmv2 binary  sha256: 3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a
+[19:41:58] boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime: 96027.67s
+[19:41:58] --- SAMPLE_RATE = 1/8  cell=t008_poll ---
+[19:42:35]     kept kernel.log (5 thread-id lines)
+[19:47:40]     VERDICT cell=t008_poll  mark=DATAPLANE-HURT  ratio=0.9656  gt_mbit=191.4  lost_pct=8.11  lam=2003  quantum=92288  spread=14.58  floor=2.234  distinct=201
+[19:47:40] --- SAMPLE_RATE = 1/4  cell=t004_poll ---
+[19:48:24]     kept kernel.log (5 thread-id lines)
+[19:53:30]     VERDICT cell=t004_poll  mark=DATAPLANE-HURT  ratio=1.002  gt_mbit=95.25  lost_pct=50.14  lam=2068  quantum=46144  spread=40.54  floor=2.199  distinct=211
+[19:53:30] --- SAMPLE_RATE = 1/2  cell=t002_poll ---
+[19:54:13]     kept kernel.log (5 thread-id lines)
+[19:59:19]     VERDICT cell=t002_poll  mark=DATAPLANE-HURT  ratio=1.034  gt_mbit=47.3  lost_pct=74.44  lam=2126  quantum=23072  spread=36.12  floor=2.169  distinct=206
+[19:59:19] --- SAMPLE_RATE = 1/1  cell=t001_poll ---
+[19:59:56]     kept kernel.log (5 thread-id lines)
+[20:05:01]     VERDICT cell=t001_poll  mark=DATAPLANE-HURT  ratio=1.023  gt_mbit=21.19  lost_pct=87.11  lam=1880  quantum=11536  spread=50.19  floor=2.306  distinct=192
+[20:05:01] --- restoring production config (1/256) ---
+[20:05:42] === ladder_ext complete, production config restored ===
