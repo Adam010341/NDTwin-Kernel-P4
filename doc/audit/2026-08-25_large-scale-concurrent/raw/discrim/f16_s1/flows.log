@@ -1,0 +1,9 @@
+flows: 16   duration: 20s
+  all 32 host namespaces resolved
+  servers listening: 16 / 16
+  rate ladder:       2 1      12 5       2 20 
+  16 clients launched at 1787643761.469523853; waiting 20s + drain
+  all clients returned at 1787643781.529320358
+
+  flows with a result: 16, without: 0
+  offered total: 102.0 Mbit/s

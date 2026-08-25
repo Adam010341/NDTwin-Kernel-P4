@@ -1,0 +1,29 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.28, port 40760
+[  8] local 10.0.0.60 port 5201 connected to 10.0.0.28 port 54136
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-1.00   sec  31.4 KBytes   258 Kbits/sec  1.857 ms  0/23 (0%)  
+[  8]   1.00-2.00   sec  30.1 KBytes   246 Kbits/sec  3.291 ms  0/22 (0%)  
+[  8]   2.00-3.00   sec  30.1 KBytes   246 Kbits/sec  2.362 ms  0/22 (0%)  
+[  8]   3.00-4.00   sec  30.1 KBytes   246 Kbits/sec  4.365 ms  0/22 (0%)  
+[  8]   4.00-5.00   sec  31.4 KBytes   257 Kbits/sec  6.703 ms  0/23 (0%)  
+[  8]   5.00-6.00   sec  30.1 KBytes   247 Kbits/sec  4.156 ms  0/22 (0%)  
+[  8]   6.00-7.00   sec  31.4 KBytes   258 Kbits/sec  2.698 ms  0/23 (0%)  
+[  8]   7.00-8.00   sec  30.1 KBytes   246 Kbits/sec  3.480 ms  0/22 (0%)  
+[  8]   8.00-9.00   sec  30.1 KBytes   246 Kbits/sec  5.588 ms  0/22 (0%)  
+[  8]   9.00-10.00  sec  31.4 KBytes   258 Kbits/sec  3.276 ms  0/23 (0%)  
+[  8]  10.00-11.00  sec  30.1 KBytes   246 Kbits/sec  4.466 ms  0/22 (0%)  
+[  8]  11.00-12.00  sec  30.1 KBytes   246 Kbits/sec  5.176 ms  0/22 (0%)  
+[  8]  12.00-13.00  sec  30.1 KBytes   246 Kbits/sec  7.560 ms  0/22 (0%)  
+[  8]  13.00-14.00  sec  31.4 KBytes   258 Kbits/sec  7.523 ms  0/23 (0%)  
+[  8]  14.00-15.00  sec  30.1 KBytes   246 Kbits/sec  6.318 ms  0/22 (0%)  
+[  8]  15.00-16.00  sec  30.1 KBytes   246 Kbits/sec  6.630 ms  0/22 (0%)  
+[  8]  16.00-17.00  sec  31.4 KBytes   258 Kbits/sec  3.197 ms  0/23 (0%)  
+[  8]  17.00-18.00  sec  30.1 KBytes   246 Kbits/sec  2.543 ms  0/22 (0%)  
+[  8]  18.00-19.00  sec  30.1 KBytes   246 Kbits/sec  3.643 ms  0/22 (0%)  
+[  8]  19.00-20.00  sec  31.4 KBytes   258 Kbits/sec  2.584 ms  0/23 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-20.00  sec   611 KBytes   250 Kbits/sec  2.584 ms  0/447 (0%)  receiver

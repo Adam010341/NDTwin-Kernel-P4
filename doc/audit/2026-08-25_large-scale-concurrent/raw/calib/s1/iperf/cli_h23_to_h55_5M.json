@@ -1,0 +1,25 @@
+{
+	"start":	{
+		"connected":	[],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux adam-Yoga-7-2-in-1-16IML9 7.0.0-30-generic #30~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Aug  7 13:27:52 UTC 2 x86_64",
+		"timestamp":	{
+			"time":	"Tue, 25 Aug 2026 07:37:43 GMT",
+			"timesecs":	1787643463
+		},
+		"connecting_to":	{
+			"host":	"10.0.0.55",
+			"port":	5201
+		},
+		"cookie":	"dblrqke3ncrqejljccjxuh3lkfwcqmrvw65s",
+		"target_bitrate":	5000000,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	212992,
+		"rcvbuf_actual":	212992
+	},
+	"intervals":	[],
+	"end":	{
+	},
+	"error":	"unable to read from stream socket: Resource temporarily unavailable"
+}

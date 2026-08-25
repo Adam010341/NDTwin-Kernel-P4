@@ -1,0 +1,22 @@
+{
+	"start":	{
+		"connected":	[],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux adam-Yoga-7-2-in-1-16IML9 7.0.0-30-generic #30~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Aug  7 13:27:52 UTC 2 x86_64",
+		"timestamp":	{
+			"time":	"Tue, 25 Aug 2026 07:37:51 GMT",
+			"timesecs":	1787643471
+		},
+		"connecting_to":	{
+			"host":	"10.0.0.112",
+			"port":	5201
+		},
+		"cookie":	"flh7b5sh6c4lrajee3y3msjq66hehmmooh3m",
+		"target_bitrate":	5000000,
+		"fq_rate":	0
+	},
+	"intervals":	[],
+	"end":	{
+	},
+	"error":	"control socket has closed unexpectedly"
+}

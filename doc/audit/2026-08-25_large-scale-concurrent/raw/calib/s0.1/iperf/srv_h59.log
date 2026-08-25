@@ -1,0 +1,29 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.27, port 34232
+[  8] local 10.0.0.59 port 5201 connected to 10.0.0.27 port 38363
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-1.00   sec  61.5 KBytes   504 Kbits/sec  2.055 ms  0/45 (0%)  
+[  8]   1.00-2.00   sec  58.8 KBytes   482 Kbits/sec  2.640 ms  0/43 (0%)  
+[  8]   2.00-3.00   sec  62.9 KBytes   515 Kbits/sec  4.090 ms  0/46 (0%)  
+[  8]   3.00-4.00   sec  60.2 KBytes   493 Kbits/sec  2.156 ms  0/44 (0%)  
+[  8]   4.00-5.00   sec  61.5 KBytes   504 Kbits/sec  2.103 ms  0/45 (0%)  
+[  8]   5.00-6.00   sec  61.5 KBytes   504 Kbits/sec  2.579 ms  0/45 (0%)  
+[  8]   6.00-7.00   sec  60.2 KBytes   493 Kbits/sec  2.406 ms  0/44 (0%)  
+[  8]   7.00-8.00   sec  61.5 KBytes   504 Kbits/sec  2.709 ms  0/45 (0%)  
+[  8]   8.00-9.00   sec  60.2 KBytes   494 Kbits/sec  2.580 ms  0/44 (0%)  
+[  8]   9.00-10.00  sec  58.8 KBytes   482 Kbits/sec  3.906 ms  2/45 (4.4%)  
+[  8]  10.00-11.00  sec  61.5 KBytes   504 Kbits/sec  5.237 ms  0/45 (0%)  
+[  8]  11.00-12.00  sec  60.2 KBytes   493 Kbits/sec  4.638 ms  0/44 (0%)  
+[  8]  12.00-13.00  sec  61.5 KBytes   504 Kbits/sec  3.343 ms  0/45 (0%)  
+[  8]  13.00-14.00  sec  61.5 KBytes   504 Kbits/sec  2.905 ms  0/45 (0%)  
+[  8]  14.00-15.00  sec  60.2 KBytes   493 Kbits/sec  3.901 ms  0/44 (0%)  
+[  8]  15.00-16.00  sec  58.8 KBytes   482 Kbits/sec  3.829 ms  0/43 (0%)  
+[  8]  16.00-17.00  sec  64.3 KBytes   527 Kbits/sec  5.586 ms  0/47 (0%)  
+[  8]  17.00-18.00  sec  60.2 KBytes   493 Kbits/sec  5.121 ms  0/44 (0%)  
+[  8]  18.00-19.00  sec  61.5 KBytes   504 Kbits/sec  3.991 ms  0/45 (0%)  
+[  8]  19.00-20.00  sec  61.5 KBytes   504 Kbits/sec  3.763 ms  0/45 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-20.01  sec  1.19 MBytes   499 Kbits/sec  3.763 ms  2/893 (0.22%)  receiver

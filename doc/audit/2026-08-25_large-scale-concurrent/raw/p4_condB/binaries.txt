@@ -1,0 +1,5 @@
+label=p4_condB
+flow_s=340 warm_s=20 win_s=300
+bmv2: 
+kernel: 2346817 ./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json --no-ai
+proxy: 2327961 tmux -L ndtwinlab new-session -d -s topo -c /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/ntg_bmv2_topo.py

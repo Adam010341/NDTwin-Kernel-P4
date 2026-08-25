@@ -1,0 +1,29 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.91, port 39210
+[  8] local 10.0.0.123 port 5201 connected to 10.0.0.91 port 53066
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-1.00   sec  61.5 KBytes   504 Kbits/sec  1.173 ms  0/45 (0%)  
+[  8]   1.00-2.00   sec  60.2 KBytes   493 Kbits/sec  3.865 ms  0/44 (0%)  
+[  8]   2.00-3.00   sec  60.2 KBytes   493 Kbits/sec  5.956 ms  1/45 (2.2%)  
+[  8]   3.00-4.00   sec  61.5 KBytes   504 Kbits/sec  5.073 ms  0/45 (0%)  
+[  8]   4.00-5.00   sec  43.8 KBytes   358 Kbits/sec  15.269 ms  0/32 (0%)  
+[  8]   5.00-6.00   sec  77.9 KBytes   639 Kbits/sec  8.718 ms  0/57 (0%)  
+[  8]   6.00-7.00   sec  58.8 KBytes   482 Kbits/sec  5.744 ms  0/43 (0%)  
+[  8]   7.00-8.00   sec  61.5 KBytes   504 Kbits/sec  5.276 ms  0/45 (0%)  
+[  8]   8.00-9.00   sec  52.0 KBytes   426 Kbits/sec  13.417 ms  1/39 (2.6%)  
+[  8]   9.00-10.00  sec  50.6 KBytes   414 Kbits/sec  11.298 ms  0/37 (0%)  
+[  8]  10.00-11.00  sec  79.3 KBytes   651 Kbits/sec  4.071 ms  1/59 (1.7%)  
+[  8]  11.00-12.00  sec  60.2 KBytes   493 Kbits/sec  1.773 ms  0/44 (0%)  
+[  8]  12.00-13.00  sec  62.9 KBytes   515 Kbits/sec  2.071 ms  0/46 (0%)  
+[  8]  13.00-14.00  sec  56.1 KBytes   459 Kbits/sec  7.069 ms  0/41 (0%)  
+[  8]  14.00-15.00  sec  58.8 KBytes   482 Kbits/sec  12.995 ms  0/43 (0%)  
+[  8]  15.00-16.00  sec  68.4 KBytes   560 Kbits/sec  5.115 ms  0/50 (0%)  
+[  8]  16.00-17.00  sec  58.8 KBytes   481 Kbits/sec  3.704 ms  1/44 (2.3%)  
+[  8]  17.00-18.00  sec  60.2 KBytes   491 Kbits/sec  5.376 ms  0/44 (0%)  
+[  8]  18.00-19.00  sec  56.1 KBytes   461 Kbits/sec  16.141 ms  0/41 (0%)  
+[  8]  19.00-20.00  sec  65.6 KBytes   538 Kbits/sec  4.945 ms  1/49 (2%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-20.00  sec  1.19 MBytes   497 Kbits/sec  4.945 ms  5/893 (0.56%)  receiver

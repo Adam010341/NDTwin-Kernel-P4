@@ -1,0 +1,29 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.21, port 38160
+[  8] local 10.0.0.53 port 5201 connected to 10.0.0.21 port 36363
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-1.00   sec  12.3 KBytes   101 Kbits/sec  0.908 ms  0/9 (0%)  
+[  8]   1.00-2.00   sec  9.57 KBytes  78.4 Kbits/sec  4.465 ms  1/8 (12%)  
+[  8]   2.00-3.00   sec  12.3 KBytes   101 Kbits/sec  13.662 ms  1/10 (10%)  
+[  8]   3.00-4.00   sec  12.3 KBytes   101 Kbits/sec  11.236 ms  0/9 (0%)  
+[  8]   4.00-5.00   sec  10.9 KBytes  89.6 Kbits/sec  11.798 ms  0/8 (0%)  
+[  8]   5.00-6.00   sec  9.57 KBytes  78.4 Kbits/sec  22.283 ms  1/8 (12%)  
+[  8]   6.00-7.00   sec  5.47 KBytes  44.8 Kbits/sec  30.254 ms  3/7 (43%)  
+[  8]   7.00-8.00   sec  17.8 KBytes   146 Kbits/sec  37.657 ms  0/13 (0%)  
+[  8]   8.00-9.00   sec  12.3 KBytes   101 Kbits/sec  24.414 ms  0/9 (0%)  
+[  8]   9.00-10.00  sec  9.57 KBytes  78.4 Kbits/sec  21.119 ms  0/7 (0%)  
+[  8]  10.00-11.00  sec  6.84 KBytes  56.0 Kbits/sec  30.477 ms  1/6 (17%)  
+[  8]  11.00-12.00  sec  8.20 KBytes  67.2 Kbits/sec  48.158 ms  1/7 (14%)  
+[  8]  12.00-13.00  sec  6.84 KBytes  56.0 Kbits/sec  43.009 ms  4/9 (44%)  
+[  8]  13.00-14.00  sec  10.9 KBytes  89.6 Kbits/sec  43.168 ms  0/8 (0%)  
+[  8]  14.00-15.00  sec  15.0 KBytes   123 Kbits/sec  70.078 ms  5/16 (31%)  
+[  8]  15.00-16.00  sec  12.3 KBytes   101 Kbits/sec  42.341 ms  0/9 (0%)  
+[  8]  16.00-17.00  sec  8.20 KBytes  67.2 Kbits/sec  38.135 ms  1/7 (14%)  
+[  8]  17.00-18.00  sec  8.20 KBytes  67.2 Kbits/sec  38.705 ms  3/9 (33%)  
+[  8]  18.00-19.00  sec  6.84 KBytes  56.0 Kbits/sec  49.896 ms  5/10 (50%)  
+[  8]  19.00-20.00  sec  8.20 KBytes  67.2 Kbits/sec  41.309 ms  4/10 (40%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-20.00  sec   204 KBytes  83.4 Kbits/sec  41.309 ms  30/179 (17%)  receiver

@@ -1,0 +1,61 @@
+flows: 64   duration: 340s
+  all 128 host namespaces resolved
+  servers listening: 64 / 64
+  rate ladder:       8 0.1      48 0.5       8 2 
+  64 clients launched at 1787643968.288417355; waiting 340s + drain
+  all clients returned at 1787644309.787048187
+  ⚠️  cli_h10_to_h74_0.5M.json: 0.50 Mbit/s, 15.4% lost
+  ⚠️  cli_h11_to_h75_0.5M.json: 0.50 Mbit/s, 16.5% lost
+  ⚠️  cli_h12_to_h76_0.5M.json: 0.50 Mbit/s, 16.4% lost
+  ⚠️  cli_h13_to_h77_0.1M.json: 0.10 Mbit/s, 15.6% lost
+  ⚠️  cli_h14_to_h78_0.5M.json: 0.50 Mbit/s, 16.0% lost
+  ⚠️  cli_h15_to_h79_0.5M.json: 0.50 Mbit/s, 16.0% lost
+  ⚠️  cli_h16_to_h80_0.5M.json: 0.50 Mbit/s, 16.4% lost
+  ⚠️  cli_h17_to_h49_2M.json: 2.00 Mbit/s, 15.4% lost
+  ⚠️  cli_h18_to_h50_0.5M.json: 0.50 Mbit/s, 9.8% lost
+  ⚠️  cli_h19_to_h51_0.5M.json: 0.50 Mbit/s, 9.6% lost
+  ⚠️  cli_h1_to_h65_2M.json: 2.00 Mbit/s, 20.2% lost
+  ⚠️  cli_h20_to_h52_0.5M.json: 0.50 Mbit/s, 10.1% lost
+  ⚠️  cli_h21_to_h53_0.1M.json: 0.10 Mbit/s, 8.5% lost
+  ⚠️  cli_h22_to_h54_0.5M.json: 0.50 Mbit/s, 9.9% lost
+  ⚠️  cli_h23_to_h55_0.5M.json: 0.50 Mbit/s, 10.0% lost
+  ⚠️  cli_h24_to_h56_0.5M.json: 0.50 Mbit/s, 10.4% lost
+  ⚠️  cli_h25_to_h57_2M.json: 2.00 Mbit/s, 16.1% lost
+  ⚠️  cli_h26_to_h58_0.5M.json: 0.50 Mbit/s, 10.7% lost
+  ⚠️  cli_h27_to_h59_0.5M.json: 0.50 Mbit/s, 10.7% lost
+  ⚠️  cli_h28_to_h60_0.5M.json: 0.50 Mbit/s, 11.0% lost
+  ⚠️  cli_h29_to_h61_0.1M.json: 0.10 Mbit/s, 10.3% lost
+  ⚠️  cli_h2_to_h66_0.5M.json: 0.50 Mbit/s, 14.9% lost
+  ⚠️  cli_h30_to_h62_0.5M.json: 0.50 Mbit/s, 10.8% lost
+  ⚠️  cli_h31_to_h63_0.5M.json: 0.50 Mbit/s, 10.8% lost
+  ⚠️  cli_h32_to_h64_0.5M.json: 0.50 Mbit/s, 11.2% lost
+  ⚠️  cli_h33_to_h97_2M.json: 2.00 Mbit/s, 8.3% lost
+  ⚠️  cli_h34_to_h98_0.5M.json: 0.50 Mbit/s, 6.4% lost
+  ⚠️  cli_h35_to_h99_0.5M.json: 0.50 Mbit/s, 6.4% lost
+  ⚠️  cli_h36_to_h100_0.5M.json: 0.50 Mbit/s, 6.6% lost
+  ⚠️  cli_h37_to_h101_0.1M.json: 0.10 Mbit/s, 6.5% lost
+  ⚠️  cli_h38_to_h102_0.5M.json: 0.50 Mbit/s, 6.4% lost
+  ⚠️  cli_h39_to_h103_0.5M.json: 0.50 Mbit/s, 6.6% lost
+  ⚠️  cli_h3_to_h67_0.5M.json: 0.50 Mbit/s, 14.9% lost
+  ⚠️  cli_h40_to_h104_0.5M.json: 0.50 Mbit/s, 6.9% lost
+  ⚠️  cli_h41_to_h105_2M.json: 2.00 Mbit/s, 8.6% lost
+  ⚠️  cli_h42_to_h106_0.5M.json: 0.50 Mbit/s, 6.9% lost
+  ⚠️  cli_h43_to_h107_0.5M.json: 0.50 Mbit/s, 6.9% lost
+  ⚠️  cli_h44_to_h108_0.5M.json: 0.50 Mbit/s, 6.9% lost
+  ⚠️  cli_h45_to_h109_0.1M.json: 0.10 Mbit/s, 6.9% lost
+  ⚠️  cli_h46_to_h110_0.5M.json: 0.50 Mbit/s, 7.2% lost
+  ⚠️  cli_h47_to_h111_0.5M.json: 0.50 Mbit/s, 6.9% lost
+  ⚠️  cli_h48_to_h112_0.5M.json: 0.50 Mbit/s, 7.0% lost
+  ⚠️  cli_h4_to_h68_0.5M.json: 0.50 Mbit/s, 15.4% lost
+  ⚠️  cli_h5_to_h69_0.1M.json: 0.10 Mbit/s, 12.4% lost
+  ⚠️  cli_h6_to_h70_0.5M.json: 0.50 Mbit/s, 14.8% lost
+  ⚠️  cli_h7_to_h71_0.5M.json: 0.50 Mbit/s, 15.6% lost
+  ⚠️  cli_h81_to_h113_2M.json: 2.00 Mbit/s, 5.7% lost
+  ⚠️  cli_h89_to_h121_2M.json: 2.00 Mbit/s, 5.8% lost
+  ⚠️  cli_h8_to_h72_0.5M.json: 0.50 Mbit/s, 15.9% lost
+  🔴 cli_h93_to_h125_0.1M.json: unable to read from stream socket: Resource temporarily unavailable
+  🔴 cli_h94_to_h126_0.5M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h9_to_h73_2M.json: 2.00 Mbit/s, 21.2% lost
+
+  flows with a result: 62, without: 2
+  offered total: 40.2 Mbit/s

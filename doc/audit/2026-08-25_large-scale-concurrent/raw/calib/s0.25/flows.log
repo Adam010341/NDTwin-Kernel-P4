@@ -1,0 +1,73 @@
+flows: 64   duration: 20s
+  all 128 host namespaces resolved
+  servers listening: 64 / 64
+  rate ladder:       8 0.25      48 1.25       8 5 
+  64 clients launched at 1787643581.528404748; waiting 20s + drain
+  all clients returned at 1787643611.790593342
+  ⚠️  cli_h10_to_h74_1.25M.json: 1.25 Mbit/s, 55.0% lost
+  ⚠️  cli_h11_to_h75_1.25M.json: 1.25 Mbit/s, 53.7% lost
+  ⚠️  cli_h12_to_h76_1.25M.json: 1.25 Mbit/s, 55.8% lost
+  ⚠️  cli_h13_to_h77_0.25M.json: 0.25 Mbit/s, 50.1% lost
+  ⚠️  cli_h14_to_h78_1.25M.json: 1.25 Mbit/s, 56.6% lost
+  ⚠️  cli_h15_to_h79_1.25M.json: 1.25 Mbit/s, 57.4% lost
+  ⚠️  cli_h16_to_h80_1.25M.json: 1.25 Mbit/s, 57.3% lost
+  ⚠️  cli_h17_to_h49_5M.json: 4.99 Mbit/s, 66.8% lost
+  ⚠️  cli_h18_to_h50_1.25M.json: 1.25 Mbit/s, 42.9% lost
+  ⚠️  cli_h19_to_h51_1.25M.json: 1.25 Mbit/s, 44.2% lost
+  ⚠️  cli_h1_to_h65_5M.json: 5.00 Mbit/s, 69.6% lost
+  ⚠️  cli_h20_to_h52_1.25M.json: 1.25 Mbit/s, 44.9% lost
+  ⚠️  cli_h21_to_h53_0.25M.json: 0.25 Mbit/s, 36.5% lost
+  ⚠️  cli_h22_to_h54_1.25M.json: 1.25 Mbit/s, 44.9% lost
+  ⚠️  cli_h23_to_h55_1.25M.json: 1.25 Mbit/s, 46.5% lost
+  ⚠️  cli_h24_to_h56_1.25M.json: 1.25 Mbit/s, 45.3% lost
+  ⚠️  cli_h25_to_h57_5M.json: 5.00 Mbit/s, 69.3% lost
+  ⚠️  cli_h26_to_h58_1.25M.json: 1.25 Mbit/s, 47.2% lost
+  ⚠️  cli_h27_to_h59_1.25M.json: 1.25 Mbit/s, 48.7% lost
+  ⚠️  cli_h28_to_h60_1.25M.json: 1.25 Mbit/s, 48.9% lost
+  ⚠️  cli_h29_to_h61_0.25M.json: 0.25 Mbit/s, 41.8% lost
+  ⚠️  cli_h2_to_h66_1.25M.json: 1.25 Mbit/s, 49.4% lost
+  ⚠️  cli_h30_to_h62_1.25M.json: 1.25 Mbit/s, 48.6% lost
+  ⚠️  cli_h31_to_h63_1.25M.json: 1.25 Mbit/s, 48.5% lost
+  ⚠️  cli_h32_to_h64_1.25M.json: 1.25 Mbit/s, 49.3% lost
+  ⚠️  cli_h33_to_h97_5M.json: 5.00 Mbit/s, 34.3% lost
+  🔴 cli_h34_to_h98_1.25M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h35_to_h99_1.25M.json: 1.25 Mbit/s, 23.9% lost
+  ⚠️  cli_h36_to_h100_1.25M.json: 1.25 Mbit/s, 24.4% lost
+  🔴 cli_h37_to_h101_0.25M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h38_to_h102_1.25M.json: 1.25 Mbit/s, 25.0% lost
+  ⚠️  cli_h39_to_h103_1.25M.json: 1.25 Mbit/s, 25.3% lost
+  ⚠️  cli_h3_to_h67_1.25M.json: 1.25 Mbit/s, 51.1% lost
+  ⚠️  cli_h40_to_h104_1.25M.json: 1.25 Mbit/s, 24.7% lost
+  ⚠️  cli_h41_to_h105_5M.json: 5.00 Mbit/s, 34.5% lost
+  ⚠️  cli_h42_to_h106_1.25M.json: 1.25 Mbit/s, 26.8% lost
+  ⚠️  cli_h43_to_h107_1.25M.json: 1.25 Mbit/s, 26.5% lost
+  ⚠️  cli_h44_to_h108_1.25M.json: 1.25 Mbit/s, 25.8% lost
+  ⚠️  cli_h45_to_h109_0.25M.json: 0.25 Mbit/s, 23.0% lost
+  ⚠️  cli_h46_to_h110_1.25M.json: 1.25 Mbit/s, 27.9% lost
+  ⚠️  cli_h47_to_h111_1.25M.json: 1.25 Mbit/s, 27.0% lost
+  ⚠️  cli_h48_to_h112_1.25M.json: 1.25 Mbit/s, 28.9% lost
+  ⚠️  cli_h4_to_h68_1.25M.json: 1.25 Mbit/s, 51.4% lost
+  ⚠️  cli_h5_to_h69_0.25M.json: 0.25 Mbit/s, 41.6% lost
+  ⚠️  cli_h6_to_h70_1.25M.json: 1.25 Mbit/s, 53.3% lost
+  ⚠️  cli_h7_to_h71_1.25M.json: 1.25 Mbit/s, 53.0% lost
+  ⚠️  cli_h81_to_h113_5M.json: 5.00 Mbit/s, 25.6% lost
+  ⚠️  cli_h82_to_h114_1.25M.json: 1.25 Mbit/s, 14.1% lost
+  ⚠️  cli_h83_to_h115_1.25M.json: 1.25 Mbit/s, 13.8% lost
+  ⚠️  cli_h84_to_h116_1.25M.json: 1.25 Mbit/s, 14.9% lost
+  ⚠️  cli_h85_to_h117_0.25M.json: 0.25 Mbit/s, 12.8% lost
+  ⚠️  cli_h86_to_h118_1.25M.json: 1.25 Mbit/s, 14.3% lost
+  ⚠️  cli_h87_to_h119_1.25M.json: 1.25 Mbit/s, 15.7% lost
+  ⚠️  cli_h88_to_h120_1.25M.json: 1.25 Mbit/s, 15.2% lost
+  ⚠️  cli_h89_to_h121_5M.json: 5.00 Mbit/s, 26.5% lost
+  ⚠️  cli_h8_to_h72_1.25M.json: 1.25 Mbit/s, 52.8% lost
+  ⚠️  cli_h90_to_h122_1.25M.json: 1.25 Mbit/s, 16.7% lost
+  ⚠️  cli_h91_to_h123_1.25M.json: 1.25 Mbit/s, 16.0% lost
+  ⚠️  cli_h92_to_h124_1.25M.json: 1.25 Mbit/s, 16.0% lost
+  ⚠️  cli_h93_to_h125_0.25M.json: 0.25 Mbit/s, 12.3% lost
+  ⚠️  cli_h94_to_h126_1.25M.json: 1.25 Mbit/s, 15.4% lost
+  ⚠️  cli_h95_to_h127_1.25M.json: 1.25 Mbit/s, 16.0% lost
+  ⚠️  cli_h96_to_h128_1.25M.json: 1.25 Mbit/s, 17.2% lost
+  ⚠️  cli_h9_to_h73_5M.json: 5.00 Mbit/s, 70.2% lost
+
+  flows with a result: 62, without: 2
+  offered total: 100.5 Mbit/s

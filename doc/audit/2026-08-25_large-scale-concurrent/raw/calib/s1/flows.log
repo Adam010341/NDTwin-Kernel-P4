@@ -1,0 +1,72 @@
+flows: 64   duration: 20s
+  all 128 host namespaces resolved
+  servers listening: 64 / 64
+  rate ladder:       8 1      48 5       8 20 
+  64 clients launched at 1787643462.513940895; waiting 20s + drain
+  all clients returned at 1787643517.627311284
+  ⚠️  cli_h10_to_h74_5M.json: 5.00 Mbit/s, 85.8% lost
+  ⚠️  cli_h11_to_h75_5M.json: 5.00 Mbit/s, 86.4% lost
+  ⚠️  cli_h12_to_h76_5M.json: 5.00 Mbit/s, 86.3% lost
+  ⚠️  cli_h13_to_h77_1M.json: 1.00 Mbit/s, 82.2% lost
+  ⚠️  cli_h14_to_h78_5M.json: 5.00 Mbit/s, 86.2% lost
+  ⚠️  cli_h15_to_h79_5M.json: 5.00 Mbit/s, 86.9% lost
+  ⚠️  cli_h16_to_h80_5M.json: 5.00 Mbit/s, 86.2% lost
+  🔴 cli_h17_to_h49_20M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h18_to_h50_5M.json: 5.00 Mbit/s, 65.8% lost
+  🔴 cli_h19_to_h51_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h1_to_h65_20M.json: 19.99 Mbit/s, 94.2% lost
+  ⚠️  cli_h20_to_h52_5M.json: 5.00 Mbit/s, 66.2% lost
+  ⚠️  cli_h21_to_h53_1M.json: 1.00 Mbit/s, 81.2% lost
+  ⚠️  cli_h22_to_h54_5M.json: 5.00 Mbit/s, 68.0% lost
+  🔴 cli_h23_to_h55_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  🔴 cli_h24_to_h56_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  🔴 cli_h25_to_h57_20M.json: unable to read from stream socket: Resource temporarily unavailable
+  🔴 cli_h26_to_h58_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h27_to_h59_5M.json: 5.00 Mbit/s, 69.8% lost
+  🔴 cli_h28_to_h60_5M.json: unable to send control message - port may not be available, the other side may have stopped running, etc.: Broken pipe
+  🔴 cli_h29_to_h61_1M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h2_to_h66_5M.json: 5.00 Mbit/s, 84.0% lost
+  ⚠️  cli_h30_to_h62_5M.json: 5.00 Mbit/s, 67.4% lost
+  ⚠️  cli_h31_to_h63_5M.json: 5.00 Mbit/s, 67.7% lost
+  🔴 cli_h32_to_h64_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h33_to_h97_20M.json: 20.00 Mbit/s, 86.0% lost
+  ⚠️  cli_h34_to_h98_5M.json: 5.00 Mbit/s, 71.6% lost
+  ⚠️  cli_h35_to_h99_5M.json: 4.99 Mbit/s, 71.2% lost
+  ⚠️  cli_h36_to_h100_5M.json: 5.00 Mbit/s, 71.4% lost
+  ⚠️  cli_h37_to_h101_1M.json: 1.00 Mbit/s, 67.1% lost
+  ⚠️  cli_h38_to_h102_5M.json: 5.00 Mbit/s, 71.7% lost
+  ⚠️  cli_h39_to_h103_5M.json: 5.00 Mbit/s, 72.0% lost
+  ⚠️  cli_h3_to_h67_5M.json: 5.00 Mbit/s, 84.1% lost
+  ⚠️  cli_h40_to_h104_5M.json: 5.00 Mbit/s, 72.1% lost
+  ⚠️  cli_h41_to_h105_20M.json: 20.00 Mbit/s, 86.3% lost
+  ⚠️  cli_h42_to_h106_5M.json: 4.99 Mbit/s, 72.3% lost
+  ⚠️  cli_h43_to_h107_5M.json: 4.99 Mbit/s, 72.3% lost
+  ⚠️  cli_h44_to_h108_5M.json: 5.00 Mbit/s, 67.9% lost
+  ⚠️  cli_h45_to_h109_1M.json: 1.00 Mbit/s, 68.9% lost
+  ⚠️  cli_h47_to_h111_5M.json: 5.00 Mbit/s, 72.6% lost
+  🔴 cli_h48_to_h112_5M.json: control socket has closed unexpectedly
+  ⚠️  cli_h4_to_h68_5M.json: 5.00 Mbit/s, 84.7% lost
+  ⚠️  cli_h5_to_h69_1M.json: 1.00 Mbit/s, 78.7% lost
+  ⚠️  cli_h6_to_h70_5M.json: 5.00 Mbit/s, 84.9% lost
+  ⚠️  cli_h7_to_h71_5M.json: 5.00 Mbit/s, 84.9% lost
+  ⚠️  cli_h81_to_h113_20M.json: 20.00 Mbit/s, 71.8% lost
+  ⚠️  cli_h82_to_h114_5M.json: 5.00 Mbit/s, 49.2% lost
+  ⚠️  cli_h83_to_h115_5M.json: 5.00 Mbit/s, 49.7% lost
+  ⚠️  cli_h84_to_h116_5M.json: 5.00 Mbit/s, 50.1% lost
+  🔴 cli_h85_to_h117_1M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h86_to_h118_5M.json: 5.00 Mbit/s, 51.3% lost
+  ⚠️  cli_h87_to_h119_5M.json: 5.00 Mbit/s, 48.9% lost
+  ⚠️  cli_h88_to_h120_5M.json: 5.00 Mbit/s, 51.1% lost
+  ⚠️  cli_h89_to_h121_20M.json: 19.98 Mbit/s, 73.1% lost
+  ⚠️  cli_h8_to_h72_5M.json: 5.00 Mbit/s, 85.6% lost
+  ⚠️  cli_h90_to_h122_5M.json: 5.00 Mbit/s, 47.2% lost
+  ⚠️  cli_h91_to_h123_5M.json: 4.99 Mbit/s, 53.0% lost
+  🔴 cli_h92_to_h124_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h93_to_h125_1M.json: 1.00 Mbit/s, 41.5% lost
+  ⚠️  cli_h94_to_h126_5M.json: 5.00 Mbit/s, 53.0% lost
+  ⚠️  cli_h95_to_h127_5M.json: 5.00 Mbit/s, 51.6% lost
+  🔴 cli_h96_to_h128_5M.json: unable to read from stream socket: Resource temporarily unavailable
+  ⚠️  cli_h9_to_h73_20M.json: 19.99 Mbit/s, 95.2% lost
+
+  flows with a result: 51, without: 13
+  offered total: 320.9 Mbit/s

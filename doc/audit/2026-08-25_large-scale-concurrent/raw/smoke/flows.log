@@ -1,0 +1,73 @@
+flows: 64   duration: 30s
+  all 128 host namespaces resolved
+  servers listening: 64 / 64
+  rate ladder:       8 1      48 5       8 20 
+  64 clients launched at 1787643300.246577497; waiting 30s + drain
+  all clients returned at 1787643347.646367284
+  ⚠️  cli_h10_to_h74_5M.json: 5.00 Mbit/s, 91.4% lost
+  ⚠️  cli_h11_to_h75_5M.json: 4.99 Mbit/s, 91.4% lost
+  ⚠️  cli_h12_to_h76_5M.json: 5.00 Mbit/s, 91.1% lost
+  ⚠️  cli_h13_to_h77_1M.json: 1.00 Mbit/s, 80.5% lost
+  🔴 cli_h14_to_h78_5M.json: no usable result (KeyError)
+  ⚠️  cli_h15_to_h79_5M.json: 5.00 Mbit/s, 39.7% lost
+  ⚠️  cli_h16_to_h80_5M.json: 5.00 Mbit/s, 91.6% lost
+  🔴 cli_h17_to_h49_20M.json: no usable result (KeyError)
+  ⚠️  cli_h18_to_h50_5M.json: 5.00 Mbit/s, 85.9% lost
+  ⚠️  cli_h19_to_h51_5M.json: 5.00 Mbit/s, 86.6% lost
+  ⚠️  cli_h1_to_h65_20M.json: 20.00 Mbit/s, 95.8% lost
+  ⚠️  cli_h20_to_h52_5M.json: 5.00 Mbit/s, 88.2% lost
+  ⚠️  cli_h21_to_h53_1M.json: 1.00 Mbit/s, 74.1% lost
+  ⚠️  cli_h22_to_h54_5M.json: 5.00 Mbit/s, 89.1% lost
+  🔴 cli_h23_to_h55_5M.json: no usable result (KeyError)
+  ⚠️  cli_h24_to_h56_5M.json: 5.00 Mbit/s, 89.3% lost
+  ⚠️  cli_h25_to_h57_20M.json: 20.00 Mbit/s, 95.7% lost
+  ⚠️  cli_h26_to_h58_5M.json: 5.00 Mbit/s, 90.6% lost
+  🔴 cli_h27_to_h59_5M.json: no usable result (KeyError)
+  ⚠️  cli_h28_to_h60_5M.json: 5.00 Mbit/s, 90.1% lost
+  ⚠️  cli_h29_to_h61_1M.json: 1.00 Mbit/s, 80.6% lost
+  ⚠️  cli_h2_to_h66_5M.json: 5.00 Mbit/s, 88.9% lost
+  ⚠️  cli_h30_to_h62_5M.json: 5.00 Mbit/s, 90.9% lost
+  🔴 cli_h31_to_h63_5M.json: no usable result (KeyError)
+  ⚠️  cli_h32_to_h64_5M.json: 5.00 Mbit/s, 89.7% lost
+  ⚠️  cli_h33_to_h97_20M.json: 20.00 Mbit/s, 90.0% lost
+  ⚠️  cli_h34_to_h98_5M.json: 4.99 Mbit/s, 75.4% lost
+  ⚠️  cli_h35_to_h99_5M.json: 4.99 Mbit/s, 76.2% lost
+  ⚠️  cli_h36_to_h100_5M.json: 5.00 Mbit/s, 75.7% lost
+  🔴 cli_h37_to_h101_1M.json: no usable result (KeyError)
+  ⚠️  cli_h38_to_h102_5M.json: 5.00 Mbit/s, 76.2% lost
+  ⚠️  cli_h39_to_h103_5M.json: 4.99 Mbit/s, 76.0% lost
+  ⚠️  cli_h3_to_h67_5M.json: 4.99 Mbit/s, 89.8% lost
+  ⚠️  cli_h40_to_h104_5M.json: 5.00 Mbit/s, 77.0% lost
+  ⚠️  cli_h41_to_h105_20M.json: 19.98 Mbit/s, 91.0% lost
+  ⚠️  cli_h42_to_h106_5M.json: 5.00 Mbit/s, 77.1% lost
+  ⚠️  cli_h43_to_h107_5M.json: 5.00 Mbit/s, 77.2% lost
+  ⚠️  cli_h44_to_h108_5M.json: 5.00 Mbit/s, 76.9% lost
+  ⚠️  cli_h45_to_h109_1M.json: 1.00 Mbit/s, 67.0% lost
+  ⚠️  cli_h46_to_h110_5M.json: 5.00 Mbit/s, 76.7% lost
+  ⚠️  cli_h47_to_h111_5M.json: 5.00 Mbit/s, 76.9% lost
+  ⚠️  cli_h48_to_h112_5M.json: 5.00 Mbit/s, 77.5% lost
+  ⚠️  cli_h4_to_h68_5M.json: 4.99 Mbit/s, 89.5% lost
+  ⚠️  cli_h5_to_h69_1M.json: 1.00 Mbit/s, 76.2% lost
+  ⚠️  cli_h6_to_h70_5M.json: 5.00 Mbit/s, 90.5% lost
+  ⚠️  cli_h7_to_h71_5M.json: 4.99 Mbit/s, 90.7% lost
+  ⚠️  cli_h81_to_h113_20M.json: 20.00 Mbit/s, 81.2% lost
+  ⚠️  cli_h82_to_h114_5M.json: 5.00 Mbit/s, 58.1% lost
+  ⚠️  cli_h83_to_h115_5M.json: 5.00 Mbit/s, 58.2% lost
+  ⚠️  cli_h84_to_h116_5M.json: 5.00 Mbit/s, 58.4% lost
+  ⚠️  cli_h85_to_h117_1M.json: 1.00 Mbit/s, 37.4% lost
+  🔴 cli_h86_to_h118_5M.json: no usable result (KeyError)
+  ⚠️  cli_h87_to_h119_5M.json: 5.00 Mbit/s, 58.5% lost
+  ⚠️  cli_h88_to_h120_5M.json: 5.00 Mbit/s, 58.0% lost
+  🔴 cli_h89_to_h121_20M.json: no usable result (KeyError)
+  ⚠️  cli_h8_to_h72_5M.json: 5.00 Mbit/s, 90.8% lost
+  ⚠️  cli_h90_to_h122_5M.json: 5.00 Mbit/s, 58.3% lost
+  ⚠️  cli_h91_to_h123_5M.json: 5.00 Mbit/s, 59.7% lost
+  ⚠️  cli_h92_to_h124_5M.json: 5.00 Mbit/s, 57.8% lost
+  🔴 cli_h93_to_h125_1M.json: no usable result (KeyError)
+  ⚠️  cli_h94_to_h126_5M.json: 5.00 Mbit/s, 52.7% lost
+  ⚠️  cli_h95_to_h127_5M.json: 5.00 Mbit/s, 58.8% lost
+  🔴 cli_h96_to_h128_5M.json: no usable result (KeyError)
+  🔴 cli_h9_to_h73_20M.json: no usable result (KeyError)
+
+  flows with a result: 53, without: 11
+  offered total: 315.9 Mbit/s

@@ -1,0 +1,6 @@
+scale    offered_Mb flows_ok     loss_p50  loss_p90  cpu_busy  note
+1        320.9      51/64        71.8      86.3      47%       over
+0.5      166.5      55/64        59.1      63.2      54%       over
+0.25     100.5      62/64        41.6      56.6      53%       over
+0.1      40.8       64/64        0.2       0.6       64%       USABLE
+0.05     20.4       64/64        0.0       0.2       67%       USABLE

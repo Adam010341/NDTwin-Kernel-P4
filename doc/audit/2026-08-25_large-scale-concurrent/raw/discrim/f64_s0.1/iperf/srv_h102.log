@@ -1,0 +1,30 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.38, port 51460
+[  8] local 10.0.0.102 port 5201 connected to 10.0.0.38 port 50930
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-1.00   sec  61.5 KBytes   504 Kbits/sec  3.907 ms  0/45 (0%)  
+[  8]   1.00-2.00   sec  60.2 KBytes   493 Kbits/sec  6.662 ms  0/44 (0%)  
+[  8]   2.00-3.00   sec  60.2 KBytes   493 Kbits/sec  10.179 ms  0/44 (0%)  
+[  8]   3.00-4.00   sec  60.2 KBytes   493 Kbits/sec  11.193 ms  1/45 (2.2%)  
+[  8]   4.00-5.00   sec  57.4 KBytes   470 Kbits/sec  10.932 ms  1/43 (2.3%)  
+[  8]   5.00-6.00   sec  35.5 KBytes   290 Kbits/sec  15.776 ms  0/26 (0%)  
+[  8]   6.00-7.00   sec  62.9 KBytes   516 Kbits/sec  19.582 ms  10/56 (18%)  
+[  8]   7.00-8.00   sec  47.9 KBytes   392 Kbits/sec  20.732 ms  5/40 (12%)  
+[  8]   8.00-9.00   sec  80.7 KBytes   661 Kbits/sec  8.545 ms  0/59 (0%)  
+[  8]   9.00-10.00  sec  61.5 KBytes   504 Kbits/sec  3.097 ms  0/45 (0%)  
+[  8]  10.00-11.00  sec  60.2 KBytes   493 Kbits/sec  4.175 ms  0/44 (0%)  
+[  8]  11.00-12.00  sec  61.5 KBytes   504 Kbits/sec  4.361 ms  0/45 (0%)  
+[  8]  12.00-13.00  sec  60.2 KBytes   493 Kbits/sec  6.948 ms  0/44 (0%)  
+[  8]  13.00-14.00  sec  60.2 KBytes   493 Kbits/sec  5.748 ms  1/45 (2.2%)  
+[  8]  14.00-15.00  sec  54.7 KBytes   448 Kbits/sec  9.674 ms  0/40 (0%)  
+[  8]  15.00-16.00  sec  60.2 KBytes   493 Kbits/sec  14.260 ms  0/44 (0%)  
+[  8]  16.00-17.00  sec  67.0 KBytes   549 Kbits/sec  7.474 ms  0/49 (0%)  
+[  8]  17.00-18.01  sec  60.2 KBytes   490 Kbits/sec  9.483 ms  1/45 (2.2%)  
+[  8]  18.01-19.00  sec  58.8 KBytes   483 Kbits/sec  11.536 ms  0/43 (0%)  
+[  8]  19.00-20.00  sec  54.7 KBytes   449 Kbits/sec  14.861 ms  4/44 (9.1%)  
+[  8]  20.00-20.09  sec  2.73 KBytes   261 Kbits/sec  15.964 ms  0/2 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-20.09  sec  1.16 MBytes   485 Kbits/sec  15.964 ms  23/892 (2.6%)  receiver

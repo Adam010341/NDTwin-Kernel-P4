@@ -1,0 +1,29 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.36, port 58304
+[  8] local 10.0.0.100 port 5201 connected to 10.0.0.36 port 50807
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-1.00   sec  31.4 KBytes   258 Kbits/sec  1.977 ms  0/23 (0%)  
+[  8]   1.00-2.00   sec  30.1 KBytes   246 Kbits/sec  1.980 ms  0/22 (0%)  
+[  8]   2.00-3.00   sec  30.1 KBytes   246 Kbits/sec  2.684 ms  0/22 (0%)  
+[  8]   3.00-4.00   sec  30.1 KBytes   246 Kbits/sec  1.309 ms  0/22 (0%)  
+[  8]   4.00-5.00   sec  31.4 KBytes   258 Kbits/sec  3.750 ms  0/23 (0%)  
+[  8]   5.00-6.00   sec  30.1 KBytes   246 Kbits/sec  3.909 ms  0/22 (0%)  
+[  8]   6.00-7.00   sec  30.1 KBytes   246 Kbits/sec  6.452 ms  0/22 (0%)  
+[  8]   7.00-8.00   sec  31.4 KBytes   258 Kbits/sec  5.428 ms  0/23 (0%)  
+[  8]   8.00-9.00   sec  30.1 KBytes   246 Kbits/sec  5.828 ms  0/22 (0%)  
+[  8]   9.00-10.00  sec  30.1 KBytes   246 Kbits/sec  4.076 ms  0/22 (0%)  
+[  8]  10.00-11.00  sec  31.4 KBytes   258 Kbits/sec  3.819 ms  0/23 (0%)  
+[  8]  11.00-12.00  sec  28.7 KBytes   235 Kbits/sec  4.705 ms  1/22 (4.5%)  
+[  8]  12.00-13.00  sec  30.1 KBytes   246 Kbits/sec  8.017 ms  0/22 (0%)  
+[  8]  13.00-14.00  sec  31.4 KBytes   258 Kbits/sec  8.307 ms  0/23 (0%)  
+[  8]  14.00-15.00  sec  30.1 KBytes   246 Kbits/sec  5.524 ms  0/22 (0%)  
+[  8]  15.00-16.00  sec  30.1 KBytes   246 Kbits/sec  10.787 ms  0/22 (0%)  
+[  8]  16.00-17.00  sec  30.1 KBytes   246 Kbits/sec  8.111 ms  0/22 (0%)  
+[  8]  17.00-18.00  sec  30.1 KBytes   246 Kbits/sec  4.580 ms  0/22 (0%)  
+[  8]  18.00-19.00  sec  31.4 KBytes   258 Kbits/sec  5.070 ms  0/23 (0%)  
+[  8]  19.00-20.00  sec  31.4 KBytes   258 Kbits/sec  3.846 ms  0/23 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  8]   0.00-20.03  sec   610 KBytes   249 Kbits/sec  3.846 ms  1/447 (0.22%)  receiver

@@ -1,0 +1,5 @@
+flows    scale    offered_Mb  per_flow_Mb loss_p50  loss_p90  note
+16       1        102.0       6.37       1.1       2.2       marginal  (16/16 flows)
+32       0.5      102.0       3.19       24.8      31.0      LOSSY  (32/32 flows)
+64       0.25     83.0        1.46       34.1      46.3      LOSSY  (57/64 flows)
+64       0.1      40.8        0.64       12.8      23.0      LOSSY  (64/64 flows)
