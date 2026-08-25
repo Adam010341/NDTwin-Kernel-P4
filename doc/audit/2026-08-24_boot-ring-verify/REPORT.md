@@ -94,6 +94,22 @@ Both sums match the flat counts exactly. Per-dpid, the failing boot reached the 
 **only dpids 1 and 2**, while **all ten** reached the state-change handler — and the interleaving
 shows dpid 1 passing through both in order (`connected` → notify → `Switch entered: 1` → notify).
 
+⚠️ **Scope of what this string can count** (added 2026-08-25 with R-1, `f84f738`). At the time
+these counts were taken, `Failed to notify` covered **network-layer failures only**. `requests`
+does not raise on 4xx/5xx, so a notification that was *delivered and rejected* — an HTTP 500 from
+the kernel — was logged by the success line as `Notified NDT ... status: 500` and **would not
+appear in these counts at all**.
+
+That does not weaken the numbers above: in these boots the kernel was not yet listening, so every
+failure was `ECONNREFUSED`, i.e. genuinely network-layer, and the 12/20 totals are complete for
+what occurred. But the string measures **reachability, not acceptance**, and a future run against
+a *live* kernel could see rejections that this counting method is blind to.
+
+**As of `f84f738` the HTTP layer is covered too**: each site now emits a separate
+`NDT REJECTED ...` warning at `status_code >= 400`. A rerun should count **both** strings —
+`Failed to notify` for the transport layer and `NDT REJECTED` for the application layer — or it
+will inherit exactly the blind spot this note describes.
+
 ⇒ **The truncation is precisely and only in the `EventSwitchEnter` handler — the handler the ring
 blocks inside.** Lower-level `EventOFPStateChange` keeps flowing throughout. This independently
 corroborates §5-P's recorded signature (`EventOFPStateChange` 10/10 while `/v1.0/topology/links`
