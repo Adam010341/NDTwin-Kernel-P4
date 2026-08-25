@@ -1,0 +1,32 @@
+{
+  "end": {
+    "sum": {
+      "start": 0,
+      "end": 300.003066,
+      "seconds": 300.003066,
+      "bytes": 3374991200,
+      "bits_per_second": 89999568.5342768,
+      "jitter_ms": 0.0377191658314631,
+      "lost_packets": 851,
+      "packets": 2410708,
+      "lost_percent": 0.035300832784393631,
+      "sender": true
+    }
+  },
+  "start": {
+    "test_start": {
+      "protocol": "UDP",
+      "num_streams": 1,
+      "blksize": 1400,
+      "omit": 0,
+      "duration": 300,
+      "bytes": 0,
+      "blocks": 0,
+      "reverse": 0,
+      "tos": 0,
+      "target_bitrate": 90000000,
+      "bidir": 0,
+      "fqrate": 0
+    }
+  }
+}

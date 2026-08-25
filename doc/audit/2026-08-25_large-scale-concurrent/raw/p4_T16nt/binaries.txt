@@ -1,0 +1,6 @@
+label=p4_T16nt
+flow_s=340 warm_s=20 win_s=300
+bmv2: 
+kernel: 3390539 ./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json --no-ai
+kernel_instances: 1
+proxy: 3371646 tmux -L ndtwinlab new-session -d -s topo -c /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/ntg_bmv2_topo.py
