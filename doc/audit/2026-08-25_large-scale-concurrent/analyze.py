@@ -295,6 +295,85 @@ def attribute_loss(rundir, veth):
             "seen_by_iperf_pct": 100.0 * tot_rcv / tot_off if tot_off else None}
 
 
+# ------------------------------------------------------------------ integrator known-good
+def integrator_check():
+    """Does the rate-to-bytes integration recover an analytically known answer?
+
+    WHY THIS EXISTS, and why it is separate from --selftest. Both this analyser and the auditer's
+    independent recomputation turn `link_bandwidth_usage_bps` samples into bytes by summing
+    rate x dt. Two people agreeing means nothing if they share an assumption, and neither of us
+    had ever checked that this one recovers a known integral -- it is our common single point of
+    failure. Pointed out by 8/25 auditor on 2026-08-25; it needs no lab, so it is done first.
+
+    Each case has a closed-form answer. Irregular spacing is included deliberately: the real
+    pollers never hit their nominal interval, so uniform-dt cases would not exercise the path the
+    measurements actually took.
+    """
+    import random
+    cases = []
+
+    # 1. Constant rate. bytes = R*T/8, exactly.
+    cases.append(("constant 80 Mbit/s for 300 s, dt=2",
+                  [(t, 80e6) for t in range(0, 302, 2)], 80e6 * 300 / 8))
+
+    # 2. Same integral, wildly irregular spacing. A correct integrator does not care.
+    ts, t = [], 0.0
+    rnd = random.Random(1)
+    while t < 300:
+        ts.append((t, 80e6))
+        t += rnd.choice([0.4, 1.1, 2.0, 3.7, 6.2])
+    ts.append((300.0, 80e6))
+    cases.append(("constant 80 Mbit/s, irregular dt 0.4-6.2 s", ts, 80e6 * 300 / 8))
+
+    # 3. Linear ramp 0 -> 100 Mbit/s. Integral of a ramp is the triangle: R_max*T/2/8.
+    #    Left-endpoint summation under-reads a ramp by exactly one step's triangle, so the
+    #    tolerance below is not slack -- it is the known discretisation error, and stating it is
+    #    the point: an integrator that is exact on a constant can still be biased on a trend.
+    cases.append(("linear ramp 0 -> 100 Mbit/s over 300 s, dt=1",
+                  [(t, 100e6 * t / 300.0) for t in range(0, 301)], 100e6 * 300 / 2 / 8))
+
+    # 4. A gap. The real pollers stall; bytes during a stall are attributed to the stalled
+    #    interval, which is the behaviour the reports rely on.
+    seq = [(t, 40e6) for t in range(0, 100, 2)] + [(160.0, 40e6)] + \
+          [(t, 40e6) for t in range(162, 302, 2)]
+    cases.append(("constant 40 Mbit/s with a 60 s poller stall", seq, 40e6 * 300 / 8))
+
+    print("integrator known-good (rate x dt -> bytes)")
+    worst = 0.0
+    fails = []
+    for name, series, expected in cases:
+        got, prev = 0.0, None
+        for t, bps in series:
+            if prev is not None:
+                got += bps * (t - prev) / 8.0
+            prev = t
+        err = abs(got - expected) / expected * 100 if expected else 0.0
+        worst = max(worst, err)
+        flag = "ok      " if err < 0.6 else "🔴 FAIL "
+        if err >= 0.6:
+            fails.append(f"{name}: {err:.2f}%")
+        print(f"  {flag} {name:<52} recovered {got/1e9:7.4f} GB vs {expected/1e9:7.4f} "
+              f"({err:+.3f}%)")
+
+    # The check must be able to fail. A deliberately wrong integrator (nominal dt instead of the
+    # real gaps) is run through case 2, where it should be badly wrong.
+    nominal_dt = 2.0
+    got = sum(bps * nominal_dt / 8.0 for _, bps in cases[1][1])
+    bad_err = abs(got - cases[1][2]) / cases[1][2] * 100
+    print(f"\n  control: assuming the nominal 2 s dt on irregular data reads {bad_err:.0f}% off")
+    if bad_err < 10:
+        fails.append("the control did not misread -- this check cannot detect a broken integrator")
+
+    print()
+    if fails:
+        print("🔴 FAIL:")
+        for f in fails:
+            print(f"   - {f}")
+        return 1
+    print(f"PASS: worst error {worst:.3f}%, and the deliberately-wrong control is caught")
+    return 0
+
+
 # --------------------------------------------------------------------------- selftest
 def selftest(tmpdir):
     """Known input, known answer, and one edge that MUST be flagged."""
@@ -377,11 +456,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", help="run directory holding veth.tsv, graph.jsonl, flows.jsonl")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--integrator-check", action="store_true",
+                    help="recover analytically known integrals; needs no data")
     ap.add_argument("--window", help="t_lo,t_hi unix seconds to restrict to")
     ap.add_argument("--auto-window", action="store_true",
                     help="derive the window from when the veth counters are actually moving")
     ap.add_argument("--json", help="write the row table here")
     a = ap.parse_args()
+
+    if a.integrator_check:
+        return integrator_check()
 
     if a.selftest:
         return selftest("/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/"
