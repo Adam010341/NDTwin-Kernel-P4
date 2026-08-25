@@ -22,7 +22,11 @@
 # [Co-developed with claude code -- Adam]
 set -uo pipefail
 OUT="${1:?outdir}"; DUR="${2:?flow seconds}"
+# Absolutised: iperf3 runs under `sudo mnexec`, and a relative --logfile path there fails to
+# create the file, so the server never starts and the guard below reports 0/64 with no other
+# clue. Cost me a run on 2026-08-25 when I called this directly instead of via run_plane.sh.
 mkdir -p "$OUT/iperf"
+OUT="$(cd "$OUT" && pwd)"
 
 host_pid() {
     # "mininet:<host>" with $NF, so h1 does not match h12 the way a substring grep would.
@@ -88,7 +92,10 @@ for i in $(seq 0 $((N-1))); do
         --logfile "$OUT/iperf/srv_${s}.log" >/dev/null 2>&1
 done
 sleep 3
-up=$(pgrep -c -f "iperf3 -s -1" || true)
+# -x on the process NAME, not -f on the command line: `pgrep -f "iperf3 -s -1"` matches any
+# shell whose argv contains that text, including the command doing the counting. Measured on
+# 2026-08-25 with exactly one server running: -f said 2, -x said 1, ps said 1.
+up=$(pgrep -c -x iperf3 || true)
 echo "  servers listening: $up / $N"
 if [ "$up" -lt "$N" ]; then
     echo "FATAL: only $up of $N servers came up; a client hitting a dead server logs an error and" >&2
