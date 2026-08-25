@@ -42,3 +42,13 @@ scratch/
 # 33k lines and 89 MB that diff as pure noise. Commit the .gz, keep the plain file local.
 doc/audit/**/raw/*.jsonl
 doc/audit/**/raw/*_server.log
+
+# --- audit raw artifacts ------------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+# Raw logs and dumps live on the `audit-raw` orphan branch, not on a working branch: they were
+# 166k lines of every pull request diff and none of the review. Per-round raw/ directories carry
+# their own .gitignore too, but only after someone remembers to add one -- a round created on
+# 2026-08-25 did not, and 279k lines went into a commit before the amend. This rule covers every
+# future round without anyone remembering.
+doc/audit/*/raw/*
+!doc/audit/*/raw/.gitignore
