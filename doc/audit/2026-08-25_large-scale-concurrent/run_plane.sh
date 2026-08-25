@@ -15,6 +15,24 @@ LABEL="${1:?label, e.g. p4 or ovs}"
 OUT="$HERE/raw/$LABEL"
 mkdir -p "$OUT"
 
+# C-bis-3: exactly one run may write this directory. Twice on 2026-08-25 two runs wrote the same
+# output concurrently -- interleaved pollers, files growing, progress moving, everything looking
+# entirely normal. Discipline did not catch either; an assertion does. The stale-lock case is
+# distinguished from the live one by checking whether the recorded pid is still alive.
+LOCK="$OUT/.run.lock"
+if [[ -f "$LOCK" ]]; then
+    other="$(cat "$LOCK" 2>/dev/null)"
+    if [[ -n "$other" ]] && kill -0 "$other" 2>/dev/null; then
+        echo "🔴 REFUSING: pid $other is already writing $OUT." >&2
+        echo "   Two runs sharing an output directory interleave their pollers and the result" >&2
+        echo "   looks healthy. Kill it, or pick another label." >&2
+        exit 1
+    fi
+    echo "  ${D:-}stale lock from pid ${other:-?} (not running) -- taking over${N:-}"
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
 # Overridable so the plumbing can be smoke-tested at 30 s before a 6-minute run commits to it.
 # New harnesses are the first thing under test: every previous one's first live run found a
 # defect in the harness, not in the system.

@@ -241,7 +241,7 @@ def host_ports(graph_body):
     return out
 
 
-def attribute_loss(rundir, veth):
+def attribute_loss(rundir, veth, window_s=None):
     """PREREG A-6: did the fabric drop it, or did the receiving host?
 
     iperf3 reports loss measured at the RECEIVER, so it covers both "bmv2 or a veth queue
@@ -280,7 +280,13 @@ def attribute_loss(rundir, veth):
         flows += 1
         dpid, ifno = ports[ip]
         iface = f"s{dpid}-eth{ifno}"
-        secs = s.get("seconds") or 1.0
+        # C-bis-4, and this IS the A-6 fix. This used to multiply the client's rate by its own
+        # duration -- 340 s -- while the veth side was integrated over the ~300 s analysis
+        # window. Two differently-sourced windows in one ratio, so it drifted with the window
+        # choice and, on condition A, produced a delivered fraction that could not coexist with
+        # the measured loss. Scoring the rate over the ANALYSIS window puts both sides on the
+        # same span and makes the comparison mean something.
+        secs = window_s if window_s else (s.get("seconds") or 1.0)
         offered = s["bits_per_second"] * secs / 8.0
         lost = s.get("lost_percent", 0.0) / 100.0
         per_port_offered[iface] += offered
@@ -531,9 +537,10 @@ def main():
     for d, n in dec.most_common():
         print(f"  {d:>14,} bps  x{n}")
 
-    att = attribute_loss(a.dir, veth)
+    att = attribute_loss(a.dir, veth, window_s=(span[1] - span[0]) if span[0] else None)
     if att and att["offered"]:
-        print(f"\nloss attribution (PREREG A-6), {att['flows']} flows:")
+        print(f"\nloss attribution (PREREG A-6 / C-bis-4, offered scored over the "
+              f"{span[1]-span[0]:.0f}s analysis window), {att['flows']} flows:")
         print(f"  offered by clients        {att['offered']/1e9:8.3f} GB")
         print(f"  handed to hosts by fabric {att['veth_tx_to_host']/1e9:8.3f} GB  "
               f"({att['delivered_by_fabric_pct']:.1f}% of offered)")
