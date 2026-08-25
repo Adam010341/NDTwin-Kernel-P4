@@ -53,4 +53,15 @@ _parked = _txt.count("state=parked")
 if _dumps != 2:
     print(f"FAIL: expected 2 dumps, found {_dumps} in {_dump_path}")
     sys.exit(1)
+# The whole point of this tool is capturing PARKED greenlet stacks -- that is what py-spy
+# structurally cannot see. Reporting the parked count without asserting on it means the parked
+# detection could break completely and this smoke would still print a green line. Found by the
+# post-commit shadow review, which is right that a number you print but never check is decoration.
+# This script parks several greenlets on purpose (one blocked on a full bounded queue), so zero
+# is never correct here.
+if _parked < 1:
+    print(f"FAIL: {_parked} parked frames -- the dump captured no parked greenlet, "
+          f"which is the one thing this tool exists to do. See {_dump_path}")
+    sys.exit(1)
 print(f"DUMPS DONE: {_dumps} dumps, {_parked} parked frames, {_n} bytes -> {_dump_path}")
+os.unlink(_dump_path)   # shadow review: mkstemp files were never cleaned up

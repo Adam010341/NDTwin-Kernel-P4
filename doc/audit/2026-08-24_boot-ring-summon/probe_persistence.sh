@@ -41,7 +41,33 @@ say() { printf '%s\n' "$*" | tee -a "$OUT"; }
 load_count() { local n; n=$(pgrep -c -f "$LOADMARK" 2>/dev/null); [[ "$n" =~ ^[0-9]+$ ]] || n=0; echo "$n"; }
 load_start() { local i; for i in $(seq "$WORKERS"); do setsid bash -c "while :; do :; done # $LOADMARK" >/dev/null 2>&1 & done; sleep 2; }
 load_stop() { local p t=0; while [ "$(load_count)" -gt 0 ] && [ "$t" -lt 5 ]; do for p in $(pgrep -f "$LOADMARK" 2>/dev/null); do kill -KILL "$p" 2>/dev/null; done; sleep 1; t=$((t+1)); done; }
-trap 'load_stop >/dev/null 2>&1' EXIT INT TERM
+# Teardown must be armed BEFORE anything can exit. The first version of this script had no
+# teardown at all and leaked a fabric for ~12 hours; the first FIX put it at the end of the file,
+# which still leaked on every early exit -- the worker ABORT below, or Ctrl-C -- because the trap
+# was not installed yet when those fire. A cleanup handler defined after the code that can fail
+# is not a cleanup handler.
+#
+# Two more defects from the same shadow review are fixed here: `ndt down`'s status was swallowed
+# and "fabric torn down" printed unconditionally, so a FAILED teardown read as a successful one;
+# and PROBE_HOLD=0 is a non-empty string, so the obvious way to say "no, do not hold" turned the
+# hold ON.
+#
+# PROBE_HOLD=1 reproduces the 12h reading DELIBERATELY instead of by forgetting to clean up.
+teardown() {
+    case "${PROBE_HOLD:-}" in
+        ""|0|false|no)
+            local rc=0
+            ndt down >/dev/null 2>&1 || rc=$?
+            if (( rc == 0 )); then
+                say "# fabric torn down (ndt down rc=0)"
+            else
+                say "# 🔴 ndt down FAILED rc=$rc -- fabric may still be up; check 'ndt status'"
+            fi ;;
+        *)
+            say "# PROBE_HOLD=${PROBE_HOLD} -- leaving the fabric up ON PURPOSE. Run 'ndt down' when done." ;;
+    esac
+}
+trap 'load_stop >/dev/null 2>&1; teardown' EXIT INT TERM
 
 twin() {
     local h g
@@ -93,19 +119,4 @@ done
 load_stop
 say "# final: $(twin)"
 
-# Tear the fabric down. The first run of this script did NOT, and the failed fabric -- 139
-# host/switch processes, the kernel, and Ryu -- stayed up for ~12 hours until someone noticed.
-# A probe that leaves its subject running is a leak, and the next person to measure anything
-# inherits a machine with a dead OVS fabric on it.
-#
-# The accident was informative, which does not make it acceptable: the 11.8h reading it produced
-# (hosts=0/128, 256 down, byte-identical to t+0 on an idle machine) is recorded above and is now
-# the strongest persistence evidence we have. Reproduce that DELIBERATELY with PROBE_HOLD=1
-# rather than by forgetting to clean up.
-if [[ -n "${PROBE_HOLD:-}" ]]; then
-    say "# PROBE_HOLD set -- leaving the fabric up ON PURPOSE. Run 'ndt down' when finished."
-else
-    ndt down >/dev/null 2>&1
-    say "# fabric torn down"
-fi
 say "done -> $OUT"

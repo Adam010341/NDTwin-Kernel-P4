@@ -203,8 +203,13 @@ for mode in loaded quiet; do
     # The wedge truncates ONLY the enter side (2 of 10) while state-change stays 10/10.
     # A merely slow machine would not show that asymmetry, so this separates "summoned the
     # wedge" from "made everything slow".
-    ent=$(grep -c "Switch entered:" "$RAW/${tag}_ryu.log" 2>/dev/null || echo 0)
-    stc=$(grep -c "connected (EventOFPStateChange)" "$RAW/${tag}_ryu.log" 2>/dev/null || echo 0)
+    # `grep -c || echo 0` emits "0\n0" on no-match -- grep -c PRINTS 0 and exits 1, so the
+    # fallback appends a second zero and any arithmetic on it dies. This is the identical defect
+    # documented and fixed in load_count above, reintroduced 150 lines away in the SAME commit,
+    # and found by the post-commit shadow review rather than by me. Fixing the instance you are
+    # debugging is not fixing the bug: grep the file for every occurrence of the shape.
+    ent=$(grep -c "Switch entered:" "$RAW/${tag}_ryu.log" 2>/dev/null); [[ "$ent" =~ ^[0-9]+$ ]] || ent=0
+    stc=$(grep -c "connected (EventOFPStateChange)" "$RAW/${tag}_ryu.log" 2>/dev/null); [[ "$stc" =~ ^[0-9]+$ ]] || stc=0
 
     if [[ "$mode" == "loaded" ]]; then
         load_stop
