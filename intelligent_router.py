@@ -759,6 +759,18 @@ class IntelligentRyu(app_manager.RyuApp):
             self.logger.info(
                 "Notified NDT (switch enter), status: %s", response.status_code
             )
+            # [Co-developed with claude code -- Adam]
+            # requests does NOT raise on 4xx/5xx -- only on transport failures -- so the line above
+            # reported a kernel REJECTION as though it were a delivery: HTTP 500 read exactly like
+            # 200. The `Failed to notify` warning below therefore covers the network layer only,
+            # which is why counting that string measures reachability and not acceptance. Inherited
+            # defect -- present on main at all four notify sites. Found by the shadow review (R-1).
+            if response.status_code >= 400:
+                self.logger.warning(
+                    "NDT REJECTED the switch-enter notification: HTTP %s from %s -- delivered "
+                    "but not accepted, so the kernel's view of this switch is stale",
+                    response.status_code, api_url
+                )
         except Exception as e:
             self.logger.warning("Failed to notify NDT (switch enter): %s", str(e))
 
@@ -853,6 +865,18 @@ class IntelligentRyu(app_manager.RyuApp):
                 self.logger.info(
                     "Notified NDT (switch enter), status: %s", response.status_code
                 )
+                # [Co-developed with claude code -- Adam]
+                # requests does NOT raise on 4xx/5xx -- only on transport failures -- so the line above
+                # reported a kernel REJECTION as though it were a delivery: HTTP 500 read exactly like
+                # 200. The `Failed to notify` warning below therefore covers the network layer only,
+                # which is why counting that string measures reachability and not acceptance. Inherited
+                # defect -- present on main at all four notify sites. Found by the shadow review (R-1).
+                if response.status_code >= 400:
+                    self.logger.warning(
+                        "NDT REJECTED the switch-enter notification: HTTP %s from %s -- delivered "
+                        "but not accepted, so the kernel's view of this switch is stale",
+                        response.status_code, api_url
+                    )
             except Exception as e:
                 self.logger.warning("Failed to notify NDT (switch enter): %s", str(e))
         elif ev.state == DEAD_DISPATCHER:
@@ -1555,6 +1579,14 @@ class IntelligentRyu(app_manager.RyuApp):
             # accepts and never replies, parking the greenlet.
             response = requests.post(api_url, json=data, headers=headers, timeout=(2, 5))
             self.logger.warning("Notified NDT, status code: %s", response.status_code)
+            # See the R-1 note at the switch-enter site: requests does not raise on 4xx/5xx,
+            # so this line alone cannot distinguish accepted from rejected.
+            if response.status_code >= 400:
+                self.logger.warning(
+                    "NDT REJECTED this notification: HTTP %s from %s -- delivered but not "
+                    "accepted; the kernel's view is now stale",
+                    response.status_code, api_url
+                )
         except Exception as e:
             self.logger.warning("Failed to notify NDT: %s", str(e))
 
@@ -1611,6 +1643,14 @@ class IntelligentRyu(app_manager.RyuApp):
         try:
             response = requests.post(api_url, json=data, headers=headers, timeout=(2, 5))
             self.logger.warning("Notified NDT, status code: %s", response.status_code)
+            # See the R-1 note at the switch-enter site: requests does not raise on 4xx/5xx,
+            # so this line alone cannot distinguish accepted from rejected.
+            if response.status_code >= 400:
+                self.logger.warning(
+                    "NDT REJECTED this notification: HTTP %s from %s -- delivered but not "
+                    "accepted; the kernel's view is now stale",
+                    response.status_code, api_url
+                )
         except Exception as e:
             self.logger.warning("Failed to notify NDT: %s", str(e))
 

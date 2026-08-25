@@ -52,8 +52,14 @@ git show main:intelligent_router.py | grep -c "Notified NDT"      # -> 4
 git show main:intelligent_router.py | grep -c "raise_for_status"  # -> 0
 ```
 
-Found by the post-commit shadow reviewer (agy 0450, R-1). Fixed on this branch 2026-08-25 —
-additive warning at `status_code >= 400`, no control-flow change.
+Found by the post-commit shadow reviewer (agy 0450, R-1). **Fixed 2026-08-25** — an additive
+warning at `status_code >= 400` at all four sites; no control-flow change, so a delivered-and-
+accepted notification behaves exactly as before and only a *rejected* one now says so.
+
+⚠️ This line previously read "Fixed on this branch" while the fix was **reverted and uncommitted**
+— it had been applied, then rolled back to protect a running experiment whose subject was this
+file. The audit session caught the overstatement. A defect inventory that describes a fix as landed
+before it lands is the same class of error as the inventory itself documents.
 
 ### A-3. `get_path_switch_count` answers 404 before its path map fills
 
