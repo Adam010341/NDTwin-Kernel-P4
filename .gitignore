@@ -52,3 +52,5 @@ doc/audit/**/raw/*_server.log
 # future round without anyone remembering.
 doc/audit/*/raw/*
 !doc/audit/*/raw/.gitignore
+doc/audit/2026-08-25_sampling-rounds/ladder_ext.log
+doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
