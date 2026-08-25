@@ -334,17 +334,32 @@ _install_greenlet_dump_handler()
 # whose reader never existed, and a reader with no setter anywhere -- both produced runs that
 # looked like they had been configured and had not. A run that cannot show the line below in
 # its Ryu log was not using the knob, whatever the command line said.
+# [Co-developed with claude code -- Adam]
+# 2026-08-25: 0.01 is now the DEFAULT rather than an opt-in override (Adam's ruling).
+#
+# Evidence for the value, and only this evidence: the loaded false-positive study measured
+# ZERO false positives across all six cells (doc/audit/2026-08-22_loaded-fp-study/), and the
+# detection speed-up was 3.9x. Nothing here bears on the boot ring or on settle -- those are
+# separate open defects and this knob is not a fix for either.
+#
+# Ryu's own default is 0.05. At 160 ports the packet rate on the control channel goes from
+# 20/s to 100/s, which is the cost being accepted for the 3.9x.
+NDTWIN_LLDP_GUARD_DEFAULT = 0.01
+switches.Switches.LLDP_SEND_GUARD = NDTWIN_LLDP_GUARD_DEFAULT
+print(f"NDTWIN: LLDP_SEND_GUARD default is {NDTWIN_LLDP_GUARD_DEFAULT}s "
+      f"(Ryu ships 0.05; override with NDTWIN_RYU_LLDP_GUARD)", flush=True)
+
 _lldp_guard = os.environ.get("NDTWIN_RYU_LLDP_GUARD")
 if _lldp_guard:
     try:
         switches.Switches.LLDP_SEND_GUARD = float(_lldp_guard)
         print(f"NDTWIN: LLDP_SEND_GUARD overridden to "
-              f"{switches.Switches.LLDP_SEND_GUARD}s (default 0.05)", flush=True)
+              f"{switches.Switches.LLDP_SEND_GUARD}s (default {NDTWIN_LLDP_GUARD_DEFAULT})", flush=True)
     except ValueError:
-        # A malformed value keeps Ryu's default rather than crashing the control plane -- but
+        # A malformed value keeps the default rather than crashing the control plane -- but
         # says so, because silently falling back is how a measurement gets mislabelled.
         print(f"NDTWIN: ignoring malformed NDTWIN_RYU_LLDP_GUARD={_lldp_guard!r}; "
-              f"keeping Ryu's default {switches.Switches.LLDP_SEND_GUARD}s", flush=True)
+              f"keeping {switches.Switches.LLDP_SEND_GUARD}s", flush=True)
 
 # [Co-developed with claude code -- Adam]
 # Probe ports that have never answered an LLDP only every Nth sweep, instead of every sweep.
