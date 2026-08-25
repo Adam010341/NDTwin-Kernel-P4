@@ -1,0 +1,10 @@
+flows: 64   duration: 200s
+  all 128 host namespaces resolved
+  servers listening: 64 / 64
+  rate ladder:       8 0.1      48 0.5       8 2 
+  64 clients launched at 1787655915.113129917; waiting 200s + drain
+  all clients returned at 1787656115.620760457
+  ⚠️  cli_h9_to_h73_2M.json: 2.00 Mbit/s, 5.1% lost
+
+  flows with a result: 64, without: 0
+  offered total: 40.8 Mbit/s
