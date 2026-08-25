@@ -1,0 +1,6 @@
+# Raw artifacts live on the `audit-raw` orphan branch, not here.
+#   git show audit-raw:doc/audit/2026-08-25_large-scale-concurrent/raw/<file>
+# Untracked deliberately: they are the evidence trail, not a pull request diff. They are NOT
+# regenerable -- do not "clean" this directory.
+*
+!.gitignore
