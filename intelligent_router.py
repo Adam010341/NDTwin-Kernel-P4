@@ -292,6 +292,12 @@ GREENLET_DUMP_PATH = os.environ.get("NDTWIN_RYU_GREENLET_DUMP",
                                     "/tmp/ndtwin_ryu_greenlets.txt")
 
 
+#: Set by IntelligentRyu.__init__ so the SIGUSR2 dump can read the topology worker's heartbeat.
+#: A plain module global rather than anything cleverer: there is exactly one instance of this app
+#: per process, and the dump must work even when the app is wedged. [Co-developed with claude code -- Adam]
+_APP_FOR_DUMP = None
+
+
 def _dump_greenlets(signum=None, frame=None):
     """Write every live greenlet's parked stack to GREENLET_DUMP_PATH."""
     try:
@@ -346,6 +352,32 @@ def _dump_greenlets(signum=None, frame=None):
         # X's own event loop is parked in a request-reply to app Y.
         #
         # Same three rules as the dump above: inert until signalled, every step wrapped, appended.
+        # [Co-developed with claude code -- Adam]
+        # Topology worker heartbeat. Moving the rebuild off the event loop removes the wedge and
+        # buys a quieter failure in its place: a worker that stops rebuilding reports nothing,
+        # where a wedge at least hung the boot visibly. These four numbers are what makes that
+        # detectable -- rebuilds that never advance, or a last_start with no matching last_ok,
+        # is a stalled worker, and the stack above says where it stalled.
+        try:
+            _app = _APP_FOR_DUMP
+            if _app is not None:
+                _now = time()
+                def _ago(t):
+                    return "never" if t is None else f"{_now - t:.1f}s ago"
+                lines.append("\n--- topology worker heartbeat ---")
+                lines.append(f"    rebuilds={_app._topology_rebuilds}"
+                             f"  coalesced={_app._topology_coalesced}"
+                             f"  pending_dpids={sorted(_app._pending_switch_dpids)}")
+                lines.append(f"    last_start={_ago(_app._topology_last_start)}"
+                             f"  last_ok={_ago(_app._topology_last_ok)}"
+                             f"  dirty={_app._topology_dirty.is_set()}")
+                if (_app._topology_last_start is not None
+                        and (_app._topology_last_ok is None
+                             or _app._topology_last_ok < _app._topology_last_start)):
+                    lines.append("    <== a rebuild STARTED and has not finished: worker is in it now")
+        except Exception as exc:             # noqa: BLE001
+            lines.append(f"--- topology worker heartbeat unavailable: {exc!r}")
+
         try:
             from ryu.base.app_manager import SERVICE_BRICKS
             lines.append("\n--- app event queues (qsize/maxsize, sem balance) ---")
@@ -607,7 +639,27 @@ class IntelligentRyu(app_manager.RyuApp):
         # install_initial_openflow_entries_completed is only set after the walk finishes and
         # several enter events can arrive inside that window.
         self._static_topology_spawned = False
-        
+
+        # [Co-developed with claude code -- Adam]
+        # Topology rebuilds run on a worker greenlet, never on the event loop. See
+        # _topology_worker for why, and doc/audit/2026-08-25_ring-edge-fix/PREREG-B.md for the
+        # invariant this exists to establish.
+        #
+        # A set rather than a list: the dpids are what to notify, and an enter arriving twice for
+        # the same switch is one notification, not two.
+        self._pending_switch_dpids = set()
+        self._topology_dirty = hub.Event()
+        self._topology_worker_started = False
+        # Heartbeat, read by the SIGUSR2 dump. A worker that stops updating the topology in
+        # silence is the failure mode this design TRADES FOR the wedge, so it has to be visible:
+        # a wedge announces itself by hanging the boot, a stalled worker announces nothing.
+        self._topology_rebuilds = 0
+        self._topology_coalesced = 0
+        self._topology_last_start = None
+        self._topology_last_ok = None
+        global _APP_FOR_DUMP
+        _APP_FOR_DUMP = self
+
 
     # [Co-developed with claude code -- Adam]
     #
@@ -831,6 +883,64 @@ class IntelligentRyu(app_manager.RyuApp):
 
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
+        """Queue a rebuild and return. NOTHING in this method may block.
+
+        [Co-developed with claude code -- Adam]
+        This used to be where the whole topology rebuild happened, and that is what made the boot
+        ring possible: a synchronous request-reply to the `switches` app, running ON this app's
+        event loop, so that when `switches` was slow this loop stopped draining, its 128-slot
+        queue filled, and `switches` blocked emitting EventLinkAdd into it -- each side waiting
+        for the other. Bounding the calls (fix A) made that recoverable. Moving them off the loop
+        makes it impossible, which is a different and better property.
+
+        The invariant, stated so it can be tested rather than believed: no unbounded operation and
+        no synchronous topology request-reply runs on this app's event loop. It is checked
+        directly against SIGUSR2 dumps -- the `_event_loop` greenlet's frames must never contain
+        get_switch/get_link/get_all_host -- and that check does not need the wedge to be
+        reproducible, which every other test of this bug has.
+
+        The per-switch notification moved too. It is bounded at (2,5)s, so it cannot deadlock, but
+        bounded is not the same as free: ten switches at five seconds each is fifty seconds of a
+        loop that is not draining a 128-slot queue, and filling that queue is half of the ring.
+        """
+        dpid = ev.switch.dp.id
+        # Separates "events arrived" from "rebuilds ran", which coalescing otherwise makes
+        # impossible to tell apart -- `Topology update triggered` now counts rebuilds, not events.
+        self.logger.info("switch-enter queued for topology rebuild (dpid=%s)", dpid)
+        self._pending_switch_dpids.add(dpid)
+        if self._topology_dirty.is_set():
+            self._topology_coalesced += 1
+        self._topology_dirty.set()
+
+        if not self._topology_worker_started:
+            self._topology_worker_started = True
+            hub.spawn(self._topology_worker)
+
+    def _topology_worker(self):
+        """Rebuild the topology whenever something marked it dirty. Runs off the event loop.
+
+        [Co-developed with claude code -- Adam]
+        Coalescing, not one rebuild per event. Ten switches entering at boot would otherwise run
+        ten concurrent rebuilds racing over the same graph, each with its own twenty-second
+        get_switch loop. What is actually required is weaker and cheaper: *at least one complete
+        rebuild after the last event*. The dirty flag is cleared BEFORE the rebuild starts, so an
+        event arriving during a rebuild re-marks it and earns another pass -- clearing it after
+        would drop exactly that event and break the property.
+        """
+        while True:
+            self._topology_dirty.wait()
+            self._topology_dirty.clear()
+            self._topology_rebuilds += 1
+            self._topology_last_start = time()
+            try:
+                self._rebuild_topology()
+                self._topology_last_ok = time()
+            except Exception:            # noqa: BLE001 -- a worker that dies stops the twin
+                # Silently, which is the whole risk of this design. Log loudly and keep the
+                # loop alive; the heartbeat in the SIGUSR2 dump is what catches the rest.
+                self.logger.exception("topology rebuild failed; worker continues")
+
+    def _rebuild_topology(self):
         # ------ Update topology info ------
         self.logger.info("Topology update triggered")
 
@@ -913,10 +1023,39 @@ class IntelligentRyu(app_manager.RyuApp):
             self.dynamic_net.add_edge(dst, src, port=dst_port)
 
         # ------ Update switch is_up state ------
-        dpid = ev.switch.dp.id
-        api_url = f"http://localhost:8000/ndt/inform_switch_entered?dpid={dpid}"
-        self.logger.info("Switch entered: %s", dpid)
+        # [Co-developed with claude code -- Adam]
+        # Drained under coalescing: one rebuild may answer for several enters, so this notifies
+        # every dpid queued since the last pass instead of the single `ev` it used to receive.
+        # Taken by swap rather than iterated in place -- an enter arriving mid-loop must land in
+        # the NEXT batch, not mutate the set being walked. Extracted so that property has a test
+        # of its own: left inline, a mutation to it survived the worker suite untouched, because
+        # the suite stubs out the rebuild this used to be buried in.
+        for dpid in self._drain_pending_dpids():
+            api_url = f"http://localhost:8000/ndt/inform_switch_entered?dpid={dpid}"
+            self.logger.info("Switch entered: %s", dpid)
+            self._notify_switch_entered(dpid, api_url)
 
+        self._maybe_install_initial_routes()
+
+    def _drain_pending_dpids(self):
+        """Take the queued dpids and leave an empty set behind, in one step.
+
+        [Co-developed with claude code -- Adam]
+        The swap is the point. Notifying is bounded but not instant -- (2,5)s per switch -- and an
+        EventSwitchEnter can land anywhere inside that window. Iterating the live set would either
+        raise or silently drop whichever arrived mid-walk; swapping first means it is simply part
+        of the next batch. Sorted so a run's log order is stable and diffable.
+        """
+        pending, self._pending_switch_dpids = self._pending_switch_dpids, set()
+        return sorted(pending)
+
+    def _notify_switch_entered(self, dpid, api_url):
+        """One bounded switch-enter notification. Runs on the worker, not the event loop.
+
+        [Co-developed with claude code -- Adam]
+        Unchanged in behaviour from when this was inline; only its caller moved. Kept as its own
+        method so the per-dpid loop above stays readable and so the (2,5) timeout has one home.
+        """
         try:
             # [Co-developed with claude code -- Adam] (connect, read) -- see _state_change_handler.
             response = requests.get(api_url, timeout=(2, 5))
@@ -938,16 +1077,31 @@ class IntelligentRyu(app_manager.RyuApp):
         except Exception as e:
             self.logger.warning("Failed to notify NDT (switch enter): %s", str(e))
 
+    def _maybe_install_initial_routes(self):
+        """Install the initial routes once enough switches are up. Worker context, not the loop.
+
+        [Co-developed with claude code -- Adam]
+        Split out of the EventSwitchEnter handler when the rebuild moved to _topology_worker.
+        Behaviour is unchanged; what changed is what "blocking here" costs. It used to stall the
+        event loop, which is how the ring formed. It now stalls only the worker, which delays the
+        next rebuild and nothing else -- so NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL stops being the
+        difference between a wedge and a boot, and becomes an ordinary latency choice. Left as it
+        is rather than retired: that claim deserves its own measurement, not a same-commit
+        assumption.
+        """
         # After connecting to all switches, try to read static topology file first, if it dose not exist, then try to detect topolody dynamically
         self.logger.info(f"len(self.switches) {len(self.switches)}")
         if len(self.switches) >= switch_num:
             if not self.install_initial_openflow_entries_completed:
                 # [Co-developed with claude code -- Adam]
-                # `load_static_topology` blocks for the settle wait plus the all-pairs walk, and
-                # this is an EventSwitchEnter handler -- so that blocking happens ON THIS APP'S
-                # EVENT QUEUE, which Ryu bounds at 128 (app_manager.py:160). A put into a full
-                # queue blocks the emitter, and this app also observes EventOFPPacketIn, so every
-                # punted LLDP lands in the same queue at ~2.5/s: 128 slots fill in ~50 s.
+                # HISTORICAL, and no longer the situation -- kept because it is why this branch
+                # exists. `load_static_topology` blocks for the settle wait plus the all-pairs
+                # walk, and this USED TO RUN inside the EventSwitchEnter handler, so that blocking
+                # happened ON THIS APP'S EVENT QUEUE, which Ryu bounds at 128
+                # (app_manager.py:160). A put into a full queue blocks the emitter, and this app
+                # also observes EventOFPPacketIn, so every punted LLDP landed in the same queue at
+                # ~2.5/s: 128 slots fill in ~50 s. Since the rebuild moved to _topology_worker,
+                # none of this runs on the event loop at all.
                 #
                 # That is the cycle the review session's phase-1 diagnosis describes
                 # (doc/audit/2026-08-24_full-stack-run/REPORT.md) for the 6-of-10 boot failures,
