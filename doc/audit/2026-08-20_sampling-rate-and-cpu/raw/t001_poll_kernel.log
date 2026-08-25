@@ -1,0 +1,33 @@
+[2026-08-25 19:59:52.647] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-08-25 19:59:52.647] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+[2026-08-25 19:59:52.647] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-08-25 19:59:52.647] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-08-25 19:59:52.647] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-08-25 19:59:52.648] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-25 19:59:52.648] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-08-25 19:59:52.648] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-25 19:59:52.648] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-08-25 19:59:52.648] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m471[0m [96mstart[0m] Collector Starts Up
+[2026-08-25 19:59:52.648] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2036[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-08-25 19:59:52.648] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m465[0m [96mlog_thread_ids[0m] [run] pid=2809749 tid=2809769
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m465[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=2809749 tid=2809770
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m465[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=2809749 tid=2809771
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m465[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=2809749 tid=2809772
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m465[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=2809749 tid=2809773
+[2026-08-25 19:59:52.648] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m707[0m [96mrun[0m] Run with 20 workers
+[2026-08-25 19:59:52.648] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-08-25 19:59:52.648] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-08-25 19:59:52.649] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m748[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-08-25 19:59:52.662] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1169[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: bmv2 (10 switch(es))
+[2026-08-25 19:59:52.663] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m145[0m [96mconfigureTopologyApiUrls[0m] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+[2026-08-25 19:59:52.841] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2058[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 280 edges up
+[2026-08-25 19:59:53.144] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-25 19:59:53.145] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-08-25 19:59:56.147] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-25 19:59:56.147] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-25 19:59:56.147] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-25 19:59:56.161] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-25 19:59:56.162] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket

@@ -1,0 +1,5 @@
+label=ovs_condA
+flow_s=340 warm_s=20 win_s=300
+bmv2: 
+kernel: 2872522 ./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json --no-ai
+proxy: 

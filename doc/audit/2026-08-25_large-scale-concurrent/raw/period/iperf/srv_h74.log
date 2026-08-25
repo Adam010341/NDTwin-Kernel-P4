@@ -655,3 +655,7 @@ Accepted connection from 10.0.0.10, port 35872
 - - - - - - - - - - - - - - - - - - - - - - - - -
 [ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
 [  8]   0.00-200.02 sec  11.4 MBytes   480 Kbits/sec  12.696 ms  360/8929 (4%)  receiver
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.10, port 56494

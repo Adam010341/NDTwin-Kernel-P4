@@ -653,3 +653,7 @@ Accepted connection from 10.0.0.13, port 36376
 - - - - - - - - - - - - - - - - - - - - - - - - -
 [ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
 [  8]   0.00-200.07 sec  2.28 MBytes  95.6 Kbits/sec  5.394 ms  78/1786 (4.4%)  receiver
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.13, port 41214
