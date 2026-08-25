@@ -261,4 +261,10 @@ Bringing up the p4 stack
   started p4_proxy (pid 3195348) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
   waiting for P4 proxy agent on :8081 ..... up
   waiting for link discovery: want 16256 destination paths
-    paths=5792              paths=8768              paths=3968              paths=4256              paths=4224              paths=4864              paths=5792              paths=6240              paths=6912          
+    paths=5792              paths=8768              paths=3968              paths=4256              paths=4224              paths=4864              paths=5792              paths=6240              paths=6912              paths=3968              paths=16256                                                        converged after 45s
+[3/3] kernel
+  started kernel (pid 3211259) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[22:41:07] === run_c complete, production restored ===

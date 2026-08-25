@@ -1,0 +1,7 @@
+[22:48:45] === ctl_c start: qa090 params (1/32 @ 90 Mbit/s), twice, one rebuild between ===
+[22:50:03]     zc090a_poll kernel pid=3215165
+[22:55:08]     VERDICT cell=zc090a_poll  mark=OK  ratio=1.008  gt_mbit=92.69  lost_pct=0.01485  lam=253.2  quantum=369152  spread=7.852  floor=6.285  distinct=67
+[22:55:08] --- REBUILD between the two runs (this is the variable under test) ---
+[22:56:32]     zc090b_poll kernel pid=3215165
+[23:01:37]     VERDICT cell=zc090b_poll  mark=OK  ratio=0.9972  gt_mbit=92.69  lost_pct=0.0353  lam=250.4  quantum=369152  spread=8.753  floor=6.32  distinct=73
+[23:01:37] --- restoring production config (1/256) ---

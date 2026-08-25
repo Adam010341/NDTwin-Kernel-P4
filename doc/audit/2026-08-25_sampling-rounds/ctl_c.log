@@ -1,0 +1,109 @@
+[22:48:45] === ctl_c start: qa090 params (1/32 @ 90 Mbit/s), twice, one rebuild between ===
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3218355) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 ...... up
+  waiting for link discovery: want 16256 destination paths
+    paths=124              paths=8576              paths=12032              paths=5280              paths=5376              paths=3968              paths=4224              paths=4064              paths=3968              paths=16256                                                        converged after 45s
+[3/3] kernel
+  started kernel (pid 3234430) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[22:50:03]     zc090a_poll kernel pid=3215165
+[zc090a_poll] h1=3215538 h33=3215605  90Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/zc090a_poll_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/zc090a_poll_twin.jsonl
+[zc090a_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/zc090a_poll_{cpu,twin}.jsonl, zc090a_poll_client.json
+[22:55:08]     VERDICT cell=zc090a_poll  mark=OK  ratio=1.008  gt_mbit=92.69  lost_pct=0.01485  lam=253.2  quantum=369152  spread=7.852  floor=6.285  distinct=67
+[22:55:08] --- REBUILD between the two runs (this is the variable under test) ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3239982) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 ..... up
+  waiting for link discovery: want 16256 destination paths
+    paths=155              paths=5152              paths=6304              paths=7616              paths=8256              paths=8544              paths=5824              paths=5728              paths=5344              paths=7040              paths=14208              paths=16256                                                        converged after 51s
+[3/3] kernel
+  started kernel (pid 3256152) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[22:56:32]     zc090b_poll kernel pid=3215165
+[zc090b_poll] h1=3237241 h33=3237305  90Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/zc090b_poll_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/zc090b_poll_twin.jsonl
+[zc090b_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/zc090b_poll_{cpu,twin}.jsonl, zc090b_poll_client.json
+[23:01:37]     VERDICT cell=zc090b_poll  mark=OK  ratio=0.9972  gt_mbit=92.69  lost_pct=0.0353  lam=250.4  quantum=369152  spread=8.753  floor=6.32  distinct=73
+[23:01:37] --- restoring production config (1/256) ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3261747) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 ...... up
+  waiting for link discovery: want 16256 destination paths
+    paths=5728              paths=8512              paths=4800              paths=5312              paths=7168              paths=7488              paths=6368              paths=5792              paths=3968              paths=4608              paths=4992              paths=6016              paths=7040          

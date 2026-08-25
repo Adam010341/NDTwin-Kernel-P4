@@ -12,3 +12,4 @@
 [22:33:21] --- level B  cell=qb251  1/32 @ 251 Mbit/s ---
 [22:39:49]     VERDICT B cell=qb251_poll  mark=OK  ratio=1.002  gt_mbit=258.3  lost_pct=0.184  lam=701.3  quantum=369152  spread=5.786  floor=3.776  distinct=98
 [22:39:49] --- restoring production config (1/256, truncate 128) ---
+[22:41:07] === run_c complete, production restored ===
