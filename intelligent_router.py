@@ -310,6 +310,45 @@ def _dump_greenlets(signum=None, frame=None):
                 lines.append(f"    (unreadable: {exc!r})")
         lines.append(f"\n{found} greenlet object(s) on the heap")
 
+        # [Co-developed with claude code -- Adam]
+        # Per-app event queue depth, and who is blocked trying to write to it.
+        #
+        # The stacks above show a greenlet parked in `_send_event -> _events_sem.acquire()`, but
+        # NOT which app's queue it is blocking on: `send_event_to_observers` loops over observers
+        # and the observer name is not in the frame. Every wedge dump so far has had to close that
+        # gap by elimination -- "the only event loop that is parked is IntelligentRyu's, so its
+        # queue must be the full one" -- which is an inference, not an observation.
+        #
+        # These two numbers make it an observation:
+        #   qsize/maxsize  -- a queue AT maxsize is the one emitters are blocking on.
+        #   sem balance    -- eventlet's Semaphore.balance is counter minus waiters, so a NEGATIVE
+        #                     balance names the app whose queue has blocked emitters waiting, and
+        #                     its magnitude counts them.
+        # A ring is then readable directly off the dump: app X's queue full with N waiters, while
+        # X's own event loop is parked in a request-reply to app Y.
+        #
+        # Same three rules as the dump above: inert until signalled, every step wrapped, appended.
+        try:
+            from ryu.base.app_manager import SERVICE_BRICKS
+            lines.append("\n--- app event queues (qsize/maxsize, sem balance) ---")
+            for _name, _brick in sorted(SERVICE_BRICKS.items()):
+                try:
+                    _q = getattr(_brick, "events", None)
+                    _sem = getattr(_brick, "_events_sem", None)
+                    _qs = _q.qsize() if _q is not None else "?"
+                    _mx = getattr(_q, "maxsize", "?") if _q is not None else "?"
+                    _bal = getattr(_sem, "balance", "?") if _sem is not None else "?"
+                    _flag = ""
+                    if isinstance(_bal, int) and _bal < 0:
+                        _flag = f"   <== {-_bal} emitter(s) BLOCKED writing to this queue"
+                    elif _qs == _mx:
+                        _flag = "   <== FULL"
+                    lines.append(f"    {_name:<28} {_qs}/{_mx}  balance={_bal}{_flag}")
+                except Exception as exc:     # noqa: BLE001 -- one bad brick must not stop the dump
+                    lines.append(f"    {_name:<28} (unreadable: {exc!r})")
+        except Exception as exc:             # noqa: BLE001
+            lines.append(f"--- app event queues unavailable: {exc!r}")
+
         with open(GREENLET_DUMP_PATH, "a") as fh:
             fh.write("\n".join(lines) + "\n")
     except Exception as exc:             # noqa: BLE001 -- never let the diagnostic kill Ryu
