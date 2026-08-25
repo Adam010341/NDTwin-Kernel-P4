@@ -1,0 +1,332 @@
+loading app /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(1641322) wsgi starting up on http://0.0.0.0:8080
+(1641322) accepted ('127.0.0.1', 54546)
+(1641322) accepted ('127.0.0.1', 54554)
+127.0.0.1 - - [24/Aug/2026 15:11:26] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.009806
+(1641322) accepted ('127.0.0.1', 54562)
+127.0.0.1 - - [24/Aug/2026 15:11:26] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000843
+(1641322) accepted ('127.0.0.1', 54576)
+127.0.0.1 - - [24/Aug/2026 15:11:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000500
+(1641322) accepted ('127.0.0.1', 36824)
+127.0.0.1 - - [24/Aug/2026 15:11:28] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000618
+(1641322) accepted ('127.0.0.1', 36836)
+127.0.0.1 - - [24/Aug/2026 15:11:28] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.001996
+(1641322) accepted ('127.0.0.1', 36846)
+127.0.0.1 - - [24/Aug/2026 15:11:28] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000477
+(1641322) accepted ('127.0.0.1', 36848)
+127.0.0.1 - - [24/Aug/2026 15:11:30] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.001746
+(1641322) accepted ('127.0.0.1', 36852)
+127.0.0.1 - - [24/Aug/2026 15:11:30] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000751
+(1641322) accepted ('127.0.0.1', 36862)
+127.0.0.1 - - [24/Aug/2026 15:11:30] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000552
+(1641322) accepted ('127.0.0.1', 36874)
+127.0.0.1 - - [24/Aug/2026 15:11:32] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.002554
+(1641322) accepted ('127.0.0.1', 36884)
+127.0.0.1 - - [24/Aug/2026 15:11:32] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000873
+(1641322) accepted ('127.0.0.1', 36888)
+127.0.0.1 - - [24/Aug/2026 15:11:33] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.002091
+Datapath ID: 1
+Datapath ID: 6
+Datapath ID: 10
+Datapath ID: 3
+Datapath ID: 2
+Datapath ID: 8
+Datapath ID: 9
+Datapath ID: 7
+Datapath ID: 4
+Datapath ID: 5
+Switch 0000000000000001 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf5d19d0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 1
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf535610>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 7
+7 of 10 switches connected (threshold from topology file (StaticNetworkTopologyMininet_10Switches.json)); waiting up to 300s before installing routes for whatever is online. Not yet connected: 3, 5, 9.
+Switch 000000000000000a connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf5926a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000004 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf596a90>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000002 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf535520>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000008 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf53ce50>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000007 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf5966d0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000006 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf53c520>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000005 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf535160>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000009 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf54d970>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000003 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf5552e0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 10
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3ecf569250>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+Loaded static topology from /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+(1641322) accepted ('127.0.0.1', 36890)
+(1641322) accepted ('127.0.0.1', 36898)
+(1641322) accepted ('127.0.0.1', 46654)
+(1641322) accepted ('127.0.0.1', 46660)
+127.0.0.1 - - [24/Aug/2026 15:11:41] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000599
+(1641322) accepted ('127.0.0.1', 46662)
+(1641322) accepted ('127.0.0.1', 46664)
+(1641322) accepted ('127.0.0.1', 46418)
+127.0.0.1 - - [24/Aug/2026 15:11:49] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000435
+(1641322) accepted ('127.0.0.1', 46430)
+(1641322) accepted ('127.0.0.1', 46436)
+(1641322) accepted ('127.0.0.1', 46450)
+127.0.0.1 - - [24/Aug/2026 15:11:57] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000611
+(1641322) accepted ('127.0.0.1', 43176)
+(1641322) accepted ('127.0.0.1', 43190)
+(1641322) accepted ('127.0.0.1', 43198)
+127.0.0.1 - - [24/Aug/2026 15:12:05] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000573
+(1641322) accepted ('127.0.0.1', 43200)
+(1641322) accepted ('127.0.0.1', 43004)
+(1641322) accepted ('127.0.0.1', 43012)
+127.0.0.1 - - [24/Aug/2026 15:12:13] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000590
+(1641322) accepted ('127.0.0.1', 43022)
+(1641322) accepted ('127.0.0.1', 56690)
+(1641322) accepted ('127.0.0.1', 56704)
+127.0.0.1 - - [24/Aug/2026 15:12:21] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000606
+(1641322) accepted ('127.0.0.1', 56716)
+(1641322) accepted ('127.0.0.1', 56720)
+(1641322) accepted ('127.0.0.1', 34614)
+127.0.0.1 - - [24/Aug/2026 15:12:30] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000474
+(1641322) accepted ('127.0.0.1', 34618)
+(1641322) accepted ('127.0.0.1', 34632)
+(1641322) accepted ('127.0.0.1', 45828)
+127.0.0.1 - - [24/Aug/2026 15:12:38] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000578
+(1641322) accepted ('127.0.0.1', 45834)
+(1641322) accepted ('127.0.0.1', 45850)
+(1641322) accepted ('127.0.0.1', 45856)
+(1641322) accepted ('127.0.0.1', 45868)
+127.0.0.1 - - [24/Aug/2026 15:12:46] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000508
+(1641322) accepted ('127.0.0.1', 39148)
+(1641322) accepted ('127.0.0.1', 39160)
+(1641322) accepted ('127.0.0.1', 39176)
+127.0.0.1 - - [24/Aug/2026 15:12:54] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000491
+(1641322) accepted ('127.0.0.1', 39178)
+(1641322) accepted ('127.0.0.1', 39984)
+(1641322) accepted ('127.0.0.1', 39994)
+127.0.0.1 - - [24/Aug/2026 15:13:02] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000980
+(1641322) accepted ('127.0.0.1', 40006)
+(1641322) accepted ('127.0.0.1', 40018)
+(1641322) accepted ('127.0.0.1', 42682)
+127.0.0.1 - - [24/Aug/2026 15:13:10] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000473
+(1641322) accepted ('127.0.0.1', 42694)
+(1641322) accepted ('127.0.0.1', 42704)
+(1641322) accepted ('127.0.0.1', 50746)
+127.0.0.1 - - [24/Aug/2026 15:13:18] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000476
+(1641322) accepted ('127.0.0.1', 50760)
+(1641322) accepted ('127.0.0.1', 50772)
+(1641322) accepted ('127.0.0.1', 50786)
+127.0.0.1 - - [24/Aug/2026 15:13:27] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000551
+(1641322) accepted ('127.0.0.1', 54108)
+(1641322) accepted ('127.0.0.1', 54120)
+(1641322) accepted ('127.0.0.1', 54124)
+127.0.0.1 - - [24/Aug/2026 15:13:35] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000705
+(1641322) accepted ('127.0.0.1', 54138)
+(1641322) accepted ('127.0.0.1', 35758)
+(1641322) accepted ('127.0.0.1', 35770)
+(1641322) accepted ('127.0.0.1', 35786)
+127.0.0.1 - - [24/Aug/2026 15:13:43] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000611
+(1641322) accepted ('127.0.0.1', 35790)
+(1641322) accepted ('127.0.0.1', 60928)
+(1641322) accepted ('127.0.0.1', 60944)
+127.0.0.1 - - [24/Aug/2026 15:13:51] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000557
+(1641322) accepted ('127.0.0.1', 60958)
+(1641322) accepted ('127.0.0.1', 60960)
+(1641322) accepted ('127.0.0.1', 42948)
+127.0.0.1 - - [24/Aug/2026 15:13:59] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.001071
+(1641322) accepted ('127.0.0.1', 42950)
+(1641322) accepted ('127.0.0.1', 42954)
+(1641322) accepted ('127.0.0.1', 42966)
+127.0.0.1 - - [24/Aug/2026 15:14:07] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000590
+(1641322) accepted ('127.0.0.1', 37824)
+(1641322) accepted ('127.0.0.1', 37836)
+(1641322) accepted ('127.0.0.1', 37838)
+127.0.0.1 - - [24/Aug/2026 15:14:15] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000557
+(1641322) accepted ('127.0.0.1', 48308)
+(1641322) accepted ('127.0.0.1', 48316)
+(1641322) accepted ('127.0.0.1', 48328)
+127.0.0.1 - - [24/Aug/2026 15:14:23] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000583
+(1641322) accepted ('127.0.0.1', 48332)
+(1641322) accepted ('127.0.0.1', 38582)
+(1641322) accepted ('127.0.0.1', 38586)
+127.0.0.1 - - [24/Aug/2026 15:14:32] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000467
+(1641322) accepted ('127.0.0.1', 38598)
+(1641322) accepted ('127.0.0.1', 38606)
+(1641322) accepted ('127.0.0.1', 60254)
+(1641322) accepted ('127.0.0.1', 60266)
+127.0.0.1 - - [24/Aug/2026 15:14:40] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000506
+(1641322) accepted ('127.0.0.1', 60270)
+(1641322) accepted ('127.0.0.1', 60282)
+(1641322) accepted ('127.0.0.1', 33364)
+127.0.0.1 - - [24/Aug/2026 15:14:48] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000572
+(1641322) accepted ('127.0.0.1', 33378)
+(1641322) accepted ('127.0.0.1', 33386)
+(1641322) accepted ('127.0.0.1', 33388)
+127.0.0.1 - - [24/Aug/2026 15:14:56] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.002025
+(1641322) accepted ('127.0.0.1', 45700)
+(1641322) accepted ('127.0.0.1', 45702)
+(1641322) accepted ('127.0.0.1', 45718)
+127.0.0.1 - - [24/Aug/2026 15:15:04] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000716
+(1641322) accepted ('127.0.0.1', 45726)
+(1641322) accepted ('127.0.0.1', 58596)
+(1641322) accepted ('127.0.0.1', 58600)
+127.0.0.1 - - [24/Aug/2026 15:15:12] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000600
+(1641322) accepted ('127.0.0.1', 58616)
+(1641322) accepted ('127.0.0.1', 52880)
+(1641322) accepted ('127.0.0.1', 52886)
+127.0.0.1 - - [24/Aug/2026 15:15:20] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000569
+(1641322) accepted ('127.0.0.1', 52898)
+(1641322) accepted ('127.0.0.1', 52906)
+(1641322) accepted ('127.0.0.1', 46042)
+127.0.0.1 - - [24/Aug/2026 15:15:29] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000481
+(1641322) accepted ('127.0.0.1', 46048)
+(1641322) accepted ('127.0.0.1', 46058)
+(1641322) accepted ('127.0.0.1', 46064)
+127.0.0.1 - - [24/Aug/2026 15:15:37] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000420
+(1641322) accepted ('127.0.0.1', 44988)
+(1641322) accepted ('127.0.0.1', 45004)
+(1641322) accepted ('127.0.0.1', 45012)
+(1641322) accepted ('127.0.0.1', 45026)
+127.0.0.1 - - [24/Aug/2026 15:15:45] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000575
+(1641322) accepted ('127.0.0.1', 45028)
+(1641322) accepted ('127.0.0.1', 60054)
+(1641322) accepted ('127.0.0.1', 60064)
+127.0.0.1 - - [24/Aug/2026 15:15:53] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000471
+(1641322) accepted ('127.0.0.1', 60068)
+(1641322) accepted ('127.0.0.1', 52374)
+(1641322) accepted ('127.0.0.1', 52382)
+127.0.0.1 - - [24/Aug/2026 15:16:01] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000578
+(1641322) accepted ('127.0.0.1', 52398)
+(1641322) accepted ('127.0.0.1', 52404)
+(1641322) accepted ('127.0.0.1', 50688)
+127.0.0.1 - - [24/Aug/2026 15:16:09] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000385
+(1641322) accepted ('127.0.0.1', 50702)
+(1641322) accepted ('127.0.0.1', 50704)
+(1641322) accepted ('127.0.0.1', 42528)
+127.0.0.1 - - [24/Aug/2026 15:16:17] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000609
+(1641322) accepted ('127.0.0.1', 42544)
+(1641322) accepted ('127.0.0.1', 42552)
+(1641322) accepted ('127.0.0.1', 42568)
+127.0.0.1 - - [24/Aug/2026 15:16:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000568
+(1641322) accepted ('127.0.0.1', 53304)
+(1641322) accepted ('127.0.0.1', 53316)
+installing routes after waiting 300s: 10 of 10 switches online (threshold from topology file (StaticNetworkTopologyMininet_10Switches.json)). Online: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10. This is partial routing -- traffic to or through the missing switches will not be forwarded. Set NDTWIN_RYU_SWITCH_NUM to the number this deployment actually brings up to remove the wait.
+Loaded static topology from /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+(1641322) accepted ('127.0.0.1', 53318)
+127.0.0.1 - - [24/Aug/2026 15:16:34] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000454
+(1641322) accepted ('127.0.0.1', 53332)
+(1641322) accepted ('127.0.0.1', 50718)
+(1641322) accepted ('127.0.0.1', 50722)
+(1641322) accepted ('127.0.0.1', 50730)
+127.0.0.1 - - [24/Aug/2026 15:16:42] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000554
+(1641322) accepted ('127.0.0.1', 50736)
+(1641322) accepted ('127.0.0.1', 50738)
+(1641322) accepted ('127.0.0.1', 37572)
+127.0.0.1 - - [24/Aug/2026 15:16:50] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000495
+(1641322) accepted ('127.0.0.1', 37582)
+(1641322) accepted ('127.0.0.1', 37596)
+(1641322) accepted ('127.0.0.1', 36528)
+127.0.0.1 - - [24/Aug/2026 15:16:58] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000596
+(1641322) accepted ('127.0.0.1', 36534)
+(1641322) accepted ('127.0.0.1', 36546)
+(1641322) accepted ('127.0.0.1', 36556)
+127.0.0.1 - - [24/Aug/2026 15:17:06] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000586
+(1641322) accepted ('127.0.0.1', 60290)
+(1641322) accepted ('127.0.0.1', 60298)
+(1641322) accepted ('127.0.0.1', 60306)
+127.0.0.1 - - [24/Aug/2026 15:17:14] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000551
+(1641322) accepted ('127.0.0.1', 60308)
+(1641322) accepted ('127.0.0.1', 52880)
+(1641322) accepted ('127.0.0.1', 52884)
+127.0.0.1 - - [24/Aug/2026 15:17:23] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000591
+(1641322) accepted ('127.0.0.1', 52900)
+(1641322) accepted ('127.0.0.1', 44520)
+(1641322) accepted ('127.0.0.1', 44536)
+127.0.0.1 - - [24/Aug/2026 15:17:31] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000575
+(1641322) accepted ('127.0.0.1', 44544)
+(1641322) accepted ('127.0.0.1', 44552)
+(1641322) accepted ('127.0.0.1', 33252)
+127.0.0.1 - - [24/Aug/2026 15:17:39] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000601
+(1641322) accepted ('127.0.0.1', 33262)
+(1641322) accepted ('127.0.0.1', 33276)
+(1641322) accepted ('127.0.0.1', 33288)
+(1641322) accepted ('127.0.0.1', 33296)
+127.0.0.1 - - [24/Aug/2026 15:17:47] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000473
+(1641322) accepted ('127.0.0.1', 50986)
+(1641322) accepted ('127.0.0.1', 50988)
+(1641322) accepted ('127.0.0.1', 50990)
+127.0.0.1 - - [24/Aug/2026 15:17:55] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000455
+(1641322) accepted ('127.0.0.1', 51004)
+(1641322) accepted ('127.0.0.1', 45372)
+(1641322) accepted ('127.0.0.1', 45378)
+127.0.0.1 - - [24/Aug/2026 15:18:03] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000573
+(1641322) accepted ('127.0.0.1', 45388)
+(1641322) accepted ('127.0.0.1', 37110)
+(1641322) accepted ('127.0.0.1', 37116)
+127.0.0.1 - - [24/Aug/2026 15:18:11] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000565
+(1641322) accepted ('127.0.0.1', 37132)
+(1641322) accepted ('127.0.0.1', 37136)
+(1641322) accepted ('127.0.0.1', 37146)
+127.0.0.1 - - [24/Aug/2026 15:18:16] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000510
+(1641322) accepted ('127.0.0.1', 54594)
+(1641322) accepted ('127.0.0.1', 54598)
+127.0.0.1 - - [24/Aug/2026 15:18:21] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000498
+127.0.0.1 - - [24/Aug/2026 15:18:22] "GET /stats/flow/1 HTTP/1.1" 200 116 1.001870
+(1641322) accepted ('127.0.0.1', 54604)
+127.0.0.1 - - [24/Aug/2026 15:18:23] "GET /stats/flow/2 HTTP/1.1" 200 116 1.002366
+(1641322) accepted ('127.0.0.1', 54620)
+127.0.0.1 - - [24/Aug/2026 15:18:24] "GET /stats/flow/3 HTTP/1.1" 200 116 1.001605
+(1641322) accepted ('127.0.0.1', 54632)
+127.0.0.1 - - [24/Aug/2026 15:18:25] "GET /stats/flow/4 HTTP/1.1" 200 116 1.002542
+(1641322) accepted ('127.0.0.1', 54642)
+(1641322) accepted ('127.0.0.1', 54652)
+127.0.0.1 - - [24/Aug/2026 15:18:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000541
+127.0.0.1 - - [24/Aug/2026 15:18:26] "GET /stats/flow/5 HTTP/1.1" 200 116 1.001842
+(1641322) accepted ('127.0.0.1', 54656)
+127.0.0.1 - - [24/Aug/2026 15:18:27] "GET /stats/flow/6 HTTP/1.1" 200 116 1.001642
+(1641322) accepted ('127.0.0.1', 50520)
+127.0.0.1 - - [24/Aug/2026 15:18:29] "GET /stats/flow/7 HTTP/1.1" 200 116 1.002450
+(1641322) accepted ('127.0.0.1', 50530)
+127.0.0.1 - - [24/Aug/2026 15:18:30] "GET /stats/flow/8 HTTP/1.1" 200 116 1.002302
+(1641322) accepted ('127.0.0.1', 50542)
+127.0.0.1 - - [24/Aug/2026 15:18:31] "GET /stats/flow/9 HTTP/1.1" 200 116 1.001986
+(1641322) accepted ('127.0.0.1', 50544)
+(1641322) accepted ('127.0.0.1', 50554)
+127.0.0.1 - - [24/Aug/2026 15:18:31] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000541
+127.0.0.1 - - [24/Aug/2026 15:18:32] "GET /stats/flow/10 HTTP/1.1" 200 118 1.002314
+(1641322) accepted ('127.0.0.1', 50558)
+127.0.0.1 - - [24/Aug/2026 15:18:36] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000573
+(1641322) accepted ('127.0.0.1', 59368)
+(1641322) accepted ('127.0.0.1', 59378)
+127.0.0.1 - - [24/Aug/2026 15:18:41] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000526
+(1641322) accepted ('127.0.0.1', 59388)
+127.0.0.1 - - [24/Aug/2026 15:18:43] "GET /stats/flow/1 HTTP/1.1" 200 116 1.002291
+(1641322) accepted ('127.0.0.1', 59402)
+(1641322) accepted ('127.0.0.1', 59414)
+127.0.0.1 - - [24/Aug/2026 15:18:44] "GET /stats/flow/2 HTTP/1.1" 200 116 1.001905
+(1641322) accepted ('127.0.0.1', 59430)
+127.0.0.1 - - [24/Aug/2026 15:18:45] "GET /stats/flow/3 HTTP/1.1" 200 116 1.002146
+(1641322) accepted ('127.0.0.1', 59432)

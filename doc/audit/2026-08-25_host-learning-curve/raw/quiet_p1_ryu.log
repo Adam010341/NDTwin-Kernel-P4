@@ -1,0 +1,978 @@
+loading app /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py
+NDTWIN: SIGUSR2 dumps greenlet stacks to /tmp/ndtwin_ryu_greenlets.txt (kill -USR2 <ryu pid>)
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(1485854) wsgi starting up on http://0.0.0.0:8080
+(1485854) accepted ('127.0.0.1', 40056)
+(1485854) accepted ('127.0.0.1', 40064)
+127.0.0.1 - - [25/Aug/2026 10:34:12] "GET /v1.0/topology/hosts HTTP/1.1" 200 109 0.015195
+(1485854) accepted ('127.0.0.1', 54930)
+127.0.0.1 - - [25/Aug/2026 10:34:14] "GET /v1.0/topology/hosts HTTP/1.1" 200 109 0.000886
+(1485854) accepted ('127.0.0.1', 54936)
+127.0.0.1 - - [25/Aug/2026 10:34:15] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000946
+(1485854) accepted ('127.0.0.1', 54946)
+127.0.0.1 - - [25/Aug/2026 10:34:15] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000910
+(1485854) accepted ('127.0.0.1', 54948)
+127.0.0.1 - - [25/Aug/2026 10:34:15] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000675
+(1485854) accepted ('127.0.0.1', 54964)
+127.0.0.1 - - [25/Aug/2026 10:34:16] "GET /v1.0/topology/hosts HTTP/1.1" 200 109 0.000796
+(1485854) accepted ('127.0.0.1', 54966)
+127.0.0.1 - - [25/Aug/2026 10:34:17] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000560
+(1485854) accepted ('127.0.0.1', 54980)
+127.0.0.1 - - [25/Aug/2026 10:34:17] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000571
+(1485854) accepted ('127.0.0.1', 54992)
+127.0.0.1 - - [25/Aug/2026 10:34:17] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.001215
+(1485854) accepted ('127.0.0.1', 55006)
+127.0.0.1 - - [25/Aug/2026 10:34:19] "GET /v1.0/topology/hosts HTTP/1.1" 200 109 0.000835
+(1485854) accepted ('127.0.0.1', 55018)
+127.0.0.1 - - [25/Aug/2026 10:34:19] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000716
+(1485854) accepted ('127.0.0.1', 55020)
+127.0.0.1 - - [25/Aug/2026 10:34:19] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.002443
+(1485854) accepted ('127.0.0.1', 55028)
+127.0.0.1 - - [25/Aug/2026 10:34:19] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000454
+(1485854) accepted ('127.0.0.1', 55034)
+127.0.0.1 - - [25/Aug/2026 10:34:21] "GET /v1.0/topology/hosts HTTP/1.1" 200 109 0.000574
+(1485854) accepted ('127.0.0.1', 55042)
+127.0.0.1 - - [25/Aug/2026 10:34:21] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000745
+(1485854) accepted ('127.0.0.1', 55058)
+127.0.0.1 - - [25/Aug/2026 10:34:21] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000776
+(1485854) accepted ('127.0.0.1', 55064)
+127.0.0.1 - - [25/Aug/2026 10:34:21] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000513
+Datapath ID: 6
+Datapath ID: 1
+Datapath ID: 3
+Datapath ID: 8
+Datapath ID: 10
+Datapath ID: 2
+Datapath ID: 7
+Datapath ID: 9
+Datapath ID: 4
+Datapath ID: 5
+Switch 0000000000000006 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c64839d6e20>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 6
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c648395b1f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 4
+4 of 10 switches connected (threshold from topology file (StaticNetworkTopologyMininet_10Switches.json)); waiting up to 300s before installing routes for whatever is online. Not yet connected: 1, 3, 4, 5, 7, 10.
+Switch 0000000000000008 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c648395bd30>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000002 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c6483963fd0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000009 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c648396da90>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000005 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c64839767f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000003 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c6483963fd0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000007 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c648395b310>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 000000000000000a connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c64839014c0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000001 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c648396d880>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000004 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c6483908cd0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 8
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7c6483915730>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+Loaded static topology from /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+(1485854) accepted ('127.0.0.1', 55072)
+(1485854) accepted ('127.0.0.1', 50206)
+(1485854) accepted ('127.0.0.1', 50214)
+(1485854) accepted ('127.0.0.1', 50230)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 50244)
+127.0.0.1 - - [25/Aug/2026 10:34:30] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000637
+(1485854) accepted ('127.0.0.1', 50260)
+(1485854) accepted ('127.0.0.1', 50268)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 41806)
+(1485854) accepted ('127.0.0.1', 41816)
+(1485854) accepted ('127.0.0.1', 41828)
+127.0.0.1 - - [25/Aug/2026 10:34:38] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000657
+(1485854) accepted ('127.0.0.1', 41838)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 41844)
+(1485854) accepted ('127.0.0.1', 41858)
+(1485854) accepted ('127.0.0.1', 41866)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 43702)
+127.0.0.1 - - [25/Aug/2026 10:34:46] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000441
+(1485854) accepted ('127.0.0.1', 43712)
+(1485854) accepted ('127.0.0.1', 43714)
+(1485854) accepted ('127.0.0.1', 43726)
+(1485854) accepted ('127.0.0.1', 43736)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 59392)
+127.0.0.1 - - [25/Aug/2026 10:34:54] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000614
+(1485854) accepted ('127.0.0.1', 59402)
+(1485854) accepted ('127.0.0.1', 59410)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 59418)
+(1485854) accepted ('127.0.0.1', 59434)
+(1485854) accepted ('127.0.0.1', 59444)
+127.0.0.1 - - [25/Aug/2026 10:35:02] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000485
+(1485854) accepted ('127.0.0.1', 59460)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 37306)
+(1485854) accepted ('127.0.0.1', 37308)
+(1485854) accepted ('127.0.0.1', 37324)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 37338)
+127.0.0.1 - - [25/Aug/2026 10:35:10] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000518
+(1485854) accepted ('127.0.0.1', 37340)
+(1485854) accepted ('127.0.0.1', 37346)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 35836)
+(1485854) accepted ('127.0.0.1', 35850)
+(1485854) accepted ('127.0.0.1', 35862)
+127.0.0.1 - - [25/Aug/2026 10:35:18] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000586
+(1485854) accepted ('127.0.0.1', 35874)
+(1485854) accepted ('127.0.0.1', 35876)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 35884)
+(1485854) accepted ('127.0.0.1', 51178)
+(1485854) accepted ('127.0.0.1', 51190)
+127.0.0.1 - - [25/Aug/2026 10:35:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000703
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+host discovery: 0/128 after 10s
+(1485854) accepted ('127.0.0.1', 51192)
+(1485854) accepted ('127.0.0.1', 51208)
+(1485854) accepted ('127.0.0.1', 51216)
+(1485854) accepted ('127.0.0.1', 51226)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 46862)
+127.0.0.1 - - [25/Aug/2026 10:35:35] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000586
+(1485854) accepted ('127.0.0.1', 46866)
+(1485854) accepted ('127.0.0.1', 46878)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 46888)
+(1485854) accepted ('127.0.0.1', 46890)
+(1485854) accepted ('127.0.0.1', 46898)
+127.0.0.1 - - [25/Aug/2026 10:35:43] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000606
+(1485854) accepted ('127.0.0.1', 46900)
+(1485854) accepted ('127.0.0.1', 56694)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 56704)
+(1485854) accepted ('127.0.0.1', 56720)
+(1485854) accepted ('127.0.0.1', 56722)
+127.0.0.1 - - [25/Aug/2026 10:35:51] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000450
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 56734)
+(1485854) accepted ('127.0.0.1', 56744)
+(1485854) accepted ('127.0.0.1', 34924)
+(1485854) accepted ('127.0.0.1', 34938)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 34954)
+127.0.0.1 - - [25/Aug/2026 10:35:59] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000608
+(1485854) accepted ('127.0.0.1', 34958)
+(1485854) accepted ('127.0.0.1', 34972)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 34984)
+(1485854) accepted ('127.0.0.1', 34314)
+(1485854) accepted ('127.0.0.1', 34316)
+127.0.0.1 - - [25/Aug/2026 10:36:07] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000576
+(1485854) accepted ('127.0.0.1', 34330)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 34344)
+(1485854) accepted ('127.0.0.1', 34350)
+(1485854) accepted ('127.0.0.1', 34366)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 34348)
+127.0.0.1 - - [25/Aug/2026 10:36:15] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000986
+(1485854) accepted ('127.0.0.1', 34358)
+(1485854) accepted ('127.0.0.1', 34372)
+(1485854) accepted ('127.0.0.1', 34378)
+(1485854) accepted ('127.0.0.1', 34384)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 59652)
+127.0.0.1 - - [25/Aug/2026 10:36:23] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000576
+(1485854) accepted ('127.0.0.1', 59666)
+(1485854) accepted ('127.0.0.1', 59680)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+host discovery: 0/128 after 20s
+(1485854) accepted ('127.0.0.1', 59692)
+(1485854) accepted ('127.0.0.1', 59694)
+(1485854) accepted ('127.0.0.1', 59698)
+(1485854) accepted ('127.0.0.1', 59714)
+127.0.0.1 - - [25/Aug/2026 10:36:32] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000598
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 51516)
+(1485854) accepted ('127.0.0.1', 51530)
+(1485854) accepted ('127.0.0.1', 51546)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 51556)
+(1485854) accepted ('127.0.0.1', 51566)
+127.0.0.1 - - [25/Aug/2026 10:36:40] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000451
+(1485854) accepted ('127.0.0.1', 51576)
+(1485854) accepted ('127.0.0.1', 48088)
+(1485854) accepted ('127.0.0.1', 48098)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 48106)
+(1485854) accepted ('127.0.0.1', 48118)
+127.0.0.1 - - [25/Aug/2026 10:36:48] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000602
+(1485854) accepted ('127.0.0.1', 48126)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 48136)
+(1485854) accepted ('127.0.0.1', 48150)
+(1485854) accepted ('127.0.0.1', 39622)
+(1485854) accepted ('127.0.0.1', 39628)
+127.0.0.1 - - [25/Aug/2026 10:36:56] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000604
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 39636)
+(1485854) accepted ('127.0.0.1', 39640)
+(1485854) accepted ('127.0.0.1', 39656)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 44728)
+(1485854) accepted ('127.0.0.1', 44730)
+127.0.0.1 - - [25/Aug/2026 10:37:04] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000462
+(1485854) accepted ('127.0.0.1', 44738)
+(1485854) accepted ('127.0.0.1', 44752)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 44762)
+(1485854) accepted ('127.0.0.1', 44772)
+(1485854) accepted ('127.0.0.1', 44788)
+127.0.0.1 - - [25/Aug/2026 10:37:12] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000921
+(1485854) accepted ('127.0.0.1', 60258)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 60272)
+(1485854) accepted ('127.0.0.1', 60284)
+(1485854) accepted ('127.0.0.1', 60290)
+(1485854) accepted ('127.0.0.1', 60292)
+127.0.0.1 - - [25/Aug/2026 10:37:20] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000561
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 60296)
+(1485854) accepted ('127.0.0.1', 49732)
+(1485854) accepted ('127.0.0.1', 49748)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+host discovery: 0/128 after 30s
+(1485854) accepted ('127.0.0.1', 49756)
+(1485854) accepted ('127.0.0.1', 49766)
+127.0.0.1 - - [25/Aug/2026 10:37:29] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000466
+(1485854) accepted ('127.0.0.1', 49778)
+(1485854) accepted ('127.0.0.1', 49782)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 42624)
+(1485854) accepted ('127.0.0.1', 42632)
+(1485854) accepted ('127.0.0.1', 42648)
+127.0.0.1 - - [25/Aug/2026 10:37:37] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000607
+(1485854) accepted ('127.0.0.1', 42656)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 42660)
+(1485854) accepted ('127.0.0.1', 42666)
+(1485854) accepted ('127.0.0.1', 36082)
+(1485854) accepted ('127.0.0.1', 36098)
+127.0.0.1 - - [25/Aug/2026 10:37:45] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000581
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 36112)
+(1485854) accepted ('127.0.0.1', 36128)
+(1485854) accepted ('127.0.0.1', 36134)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 36138)
+(1485854) accepted ('127.0.0.1', 36154)
+127.0.0.1 - - [25/Aug/2026 10:37:53] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000556
+(1485854) accepted ('127.0.0.1', 57544)
+(1485854) accepted ('127.0.0.1', 57552)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 57564)
+(1485854) accepted ('127.0.0.1', 57574)
+(1485854) accepted ('127.0.0.1', 57576)
+127.0.0.1 - - [25/Aug/2026 10:38:01] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000602
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 57580)
+(1485854) accepted ('127.0.0.1', 45140)
+(1485854) accepted ('127.0.0.1', 45156)
+(1485854) accepted ('127.0.0.1', 45162)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 45168)
+127.0.0.1 - - [25/Aug/2026 10:38:09] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000570
+(1485854) accepted ('127.0.0.1', 45180)
+(1485854) accepted ('127.0.0.1', 45186)
+(1485854) accepted ('127.0.0.1', 56264)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 56266)
+(1485854) accepted ('127.0.0.1', 56270)
+127.0.0.1 - - [25/Aug/2026 10:38:17] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000612
+(1485854) accepted ('127.0.0.1', 56286)
+(1485854) accepted ('127.0.0.1', 56290)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1485854) accepted ('127.0.0.1', 56296)
+(1485854) accepted ('127.0.0.1', 58324)
+(1485854) accepted ('127.0.0.1', 58334)
+127.0.0.1 - - [25/Aug/2026 10:38:25] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000621
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+host discovery: 0/128 after 40s
+host discovery incomplete after 40s: 0/128 hosts have an IPv4. Installing paths anyway. The data plane will forward, but the kernel skips hosts with no address, so expect 256 host edges to read as down in get_graph_data.
+install_all_pair_paths
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 288 ===
+1 -> 5: {'port': 1}
+1 -> 6: {'port': 2}
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+2 -> 5: {'port': 1}
+2 -> 6: {'port': 2}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+3 -> 7: {'port': 1}
+3 -> 8: {'port': 2}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+4 -> 7: {'port': 1}
+4 -> 8: {'port': 2}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+5 -> 1: {'port': 1}
+5 -> 9: {'port': 3}
+5 -> 2: {'port': 2}
+5 -> 10: {'port': 4}
+6 -> 1: {'port': 1}
+6 -> 9: {'port': 3}
+6 -> 2: {'port': 2}
+6 -> 10: {'port': 4}
+7 -> 3: {'port': 1}
+7 -> 9: {'port': 3}
+7 -> 4: {'port': 2}
+7 -> 10: {'port': 4}
+8 -> 3: {'port': 1}
+8 -> 9: {'port': 3}
+8 -> 4: {'port': 2}
+8 -> 10: {'port': 4}
+9 -> 5: {'port': 1}
+9 -> 6: {'port': 2}
+9 -> 7: {'port': 3}
+9 -> 8: {'port': 4}
+10 -> 5: {'port': 1}
+10 -> 6: {'port': 2}
+10 -> 7: {'port': 3}
+10 -> 8: {'port': 4}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+00:00:00:00:00:3c -> 2: {'port': 0}
+00:00:00:00:00:3d -> 2: {'port': 0}
+00:00:00:00:00:3e -> 2: {'port': 0}
+00:00:00:00:00:3f -> 2: {'port': 0}
+00:00:00:00:00:40 -> 2: {'port': 0}
+00:00:00:00:00:41 -> 3: {'port': 0}
+00:00:00:00:00:42 -> 3: {'port': 0}
+00:00:00:00:00:43 -> 3: {'port': 0}
+00:00:00:00:00:44 -> 3: {'port': 0}
+00:00:00:00:00:45 -> 3: {'port': 0}
+00:00:00:00:00:46 -> 3: {'port': 0}
+00:00:00:00:00:47 -> 3: {'port': 0}
+00:00:00:00:00:48 -> 3: {'port': 0}
+00:00:00:00:00:49 -> 3: {'port': 0}
+00:00:00:00:00:4a -> 3: {'port': 0}
+00:00:00:00:00:4b -> 3: {'port': 0}
+00:00:00:00:00:4c -> 3: {'port': 0}
+00:00:00:00:00:4d -> 3: {'port': 0}
+00:00:00:00:00:4e -> 3: {'port': 0}
+00:00:00:00:00:4f -> 3: {'port': 0}
+00:00:00:00:00:50 -> 3: {'port': 0}
+00:00:00:00:00:51 -> 3: {'port': 0}
+00:00:00:00:00:52 -> 3: {'port': 0}
+00:00:00:00:00:53 -> 3: {'port': 0}
+00:00:00:00:00:54 -> 3: {'port': 0}
+(1485854) accepted ('127.0.0.1', 58348)
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.587s install=0.226s report=0.361s
+Static topology initialized, all-destination paths installed.
+Topology update triggered
+(1485854) accepted ('127.0.0.1', 58352)
+(1485854) accepted ('127.0.0.1', 58364)
+(1485854) accepted ('127.0.0.1', 58380)
+(1485854) accepted ('127.0.0.1', 60612)
+127.0.0.1 - - [25/Aug/2026 10:38:34] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.051482
+(1485854) accepted ('127.0.0.1', 60616)
+(1485854) accepted ('127.0.0.1', 60632)
+(1485854) accepted ('127.0.0.1', 60646)
+(1485854) accepted ('127.0.0.1', 60648)
+(1485854) accepted ('127.0.0.1', 45222)
+(1485854) accepted ('127.0.0.1', 45224)
+(1485854) accepted ('127.0.0.1', 45226)
+(1485854) accepted ('127.0.0.1', 45234)
+(1485854) accepted ('127.0.0.1', 45244)
+(1485854) accepted ('127.0.0.1', 45256)
+(1485854) accepted ('127.0.0.1', 53730)
+(1485854) accepted ('127.0.0.1', 53742)
+(1485854) accepted ('127.0.0.1', 53752)
+(1485854) accepted ('127.0.0.1', 53762)
+(1485854) accepted ('127.0.0.1', 53766)
+(1485854) accepted ('127.0.0.1', 37820)
+(1485854) accepted ('127.0.0.1', 37832)
+(1485854) accepted ('127.0.0.1', 37842)
+(1485854) accepted ('127.0.0.1', 37852)
+(1485854) accepted ('127.0.0.1', 37854)
+(1485854) accepted ('127.0.0.1', 57902)
+(1485854) accepted ('127.0.0.1', 57904)
+(1485854) accepted ('127.0.0.1', 57912)
+(1485854) accepted ('127.0.0.1', 57924)
+(1485854) accepted ('127.0.0.1', 56246)
+(1485854) accepted ('127.0.0.1', 56250)
+(1485854) accepted ('127.0.0.1', 56252)
+(1485854) accepted ('127.0.0.1', 56264)
+(1485854) accepted ('127.0.0.1', 56266)
+(1485854) accepted ('127.0.0.1', 56278)
+(1485854) accepted ('127.0.0.1', 37244)
+(1485854) accepted ('127.0.0.1', 37260)
+(1485854) accepted ('127.0.0.1', 37270)
+(1485854) accepted ('127.0.0.1', 37282)
+(1485854) accepted ('127.0.0.1', 55880)
+(1485854) accepted ('127.0.0.1', 55882)
+(1485854) accepted ('127.0.0.1', 55896)
+(1485854) accepted ('127.0.0.1', 55910)
+(1485854) accepted ('127.0.0.1', 55926)
+(1485854) accepted ('127.0.0.1', 55934)
+(1485854) accepted ('127.0.0.1', 55064)
+(1485854) accepted ('127.0.0.1', 55078)
+(1485854) accepted ('127.0.0.1', 55084)
+(1485854) accepted ('127.0.0.1', 55098)
+(1485854) accepted ('127.0.0.1', 49696)
+(1485854) accepted ('127.0.0.1', 49704)
+(1485854) accepted ('127.0.0.1', 49720)
+(1485854) accepted ('127.0.0.1', 49734)
+(1485854) accepted ('127.0.0.1', 49748)
+(1485854) accepted ('127.0.0.1', 49750)
+(1485854) accepted ('127.0.0.1', 40640)
+(1485854) accepted ('127.0.0.1', 40654)
+(1485854) accepted ('127.0.0.1', 40668)
+(1485854) accepted ('127.0.0.1', 40680)
+(1485854) accepted ('127.0.0.1', 45104)
+(1485854) accepted ('127.0.0.1', 45112)
+(1485854) accepted ('127.0.0.1', 45116)
+(1485854) accepted ('127.0.0.1', 45122)
+(1485854) accepted ('127.0.0.1', 45138)
+(1485854) accepted ('127.0.0.1', 59966)
+(1485854) accepted ('127.0.0.1', 59982)
+(1485854) accepted ('127.0.0.1', 59984)
+(1485854) accepted ('127.0.0.1', 59994)
+(1485854) accepted ('127.0.0.1', 60004)
+(1485854) accepted ('127.0.0.1', 55096)
+(1485854) accepted ('127.0.0.1', 55112)
+(1485854) accepted ('127.0.0.1', 55114)
+(1485854) accepted ('127.0.0.1', 55124)
+(1485854) accepted ('127.0.0.1', 55128)
+(1485854) accepted ('127.0.0.1', 51254)
+(1485854) accepted ('127.0.0.1', 51258)
+(1485854) accepted ('127.0.0.1', 51262)
+(1485854) accepted ('127.0.0.1', 51270)
+(1485854) accepted ('127.0.0.1', 51280)
+(1485854) accepted ('127.0.0.1', 56532)
+127.0.0.1 - - [25/Aug/2026 10:41:04] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.056011
+(1485854) accepted ('127.0.0.1', 56536)
+(1485854) accepted ('127.0.0.1', 56540)
+(1485854) accepted ('127.0.0.1', 56554)
+127.0.0.1 - - [25/Aug/2026 10:41:10] "GET /stats/flow/1 HTTP/1.1" 200 116 1.002207
+(1485854) accepted ('127.0.0.1', 56558)
+127.0.0.1 - - [25/Aug/2026 10:41:11] "GET /stats/flow/2 HTTP/1.1" 200 116 1.002170
+(1485854) accepted ('127.0.0.1', 56562)
+127.0.0.1 - - [25/Aug/2026 10:41:12] "GET /stats/flow/3 HTTP/1.1" 200 116 1.002679
+(1485854) accepted ('127.0.0.1', 56578)
+127.0.0.1 - - [25/Aug/2026 10:41:13] "GET /stats/flow/4 HTTP/1.1" 200 116 1.002242
+(1485854) accepted ('127.0.0.1', 47916)
+(1485854) accepted ('127.0.0.1', 47928)
+127.0.0.1 - - [25/Aug/2026 10:41:15] "GET /stats/flow/5 HTTP/1.1" 200 116 1.002167
+(1485854) accepted ('127.0.0.1', 47932)
+127.0.0.1 - - [25/Aug/2026 10:41:16] "GET /stats/flow/6 HTTP/1.1" 200 116 1.002068
+(1485854) accepted ('127.0.0.1', 47948)
+127.0.0.1 - - [25/Aug/2026 10:41:17] "GET /stats/flow/7 HTTP/1.1" 200 116 1.002197
+(1485854) accepted ('127.0.0.1', 47950)
+127.0.0.1 - - [25/Aug/2026 10:41:18] "GET /stats/flow/8 HTTP/1.1" 200 116 1.002372
+(1485854) accepted ('127.0.0.1', 47964)
+(1485854) accepted ('127.0.0.1', 47980)
+127.0.0.1 - - [25/Aug/2026 10:41:19] "GET /stats/flow/9 HTTP/1.1" 200 116 1.002321
+(1485854) accepted ('127.0.0.1', 47988)
+127.0.0.1 - - [25/Aug/2026 10:41:20] "GET /stats/flow/10 HTTP/1.1" 200 118 1.002541
+(1485854) accepted ('127.0.0.1', 47990)
+(1485854) accepted ('127.0.0.1', 56314)
+(1485854) accepted ('127.0.0.1', 56330)
+(1485854) accepted ('127.0.0.1', 56342)
+127.0.0.1 - - [25/Aug/2026 10:41:31] "GET /stats/flow/1 HTTP/1.1" 200 116 1.001855
+(1485854) accepted ('127.0.0.1', 56354)
+127.0.0.1 - - [25/Aug/2026 10:41:32] "GET /stats/flow/2 HTTP/1.1" 200 116 1.001596
+(1485854) accepted ('127.0.0.1', 56362)
+127.0.0.1 - - [25/Aug/2026 10:41:33] "GET /stats/flow/3 HTTP/1.1" 200 116 1.001857
+(1485854) accepted ('127.0.0.1', 56370)
+127.0.0.1 - - [25/Aug/2026 10:41:34] "GET /stats/flow/4 HTTP/1.1" 200 116 1.001976
+(1485854) accepted ('127.0.0.1', 48712)
+(1485854) accepted ('127.0.0.1', 48718)
+127.0.0.1 - - [25/Aug/2026 10:41:35] "GET /stats/flow/5 HTTP/1.1" 200 116 1.002363
+(1485854) accepted ('127.0.0.1', 48728)
+127.0.0.1 - - [25/Aug/2026 10:41:36] "GET /stats/flow/6 HTTP/1.1" 200 116 1.001684
+(1485854) accepted ('127.0.0.1', 48740)
+127.0.0.1 - - [25/Aug/2026 10:41:37] "GET /stats/flow/7 HTTP/1.1" 200 116 1.001440
+(1485854) accepted ('127.0.0.1', 48744)
+127.0.0.1 - - [25/Aug/2026 10:41:38] "GET /stats/flow/8 HTTP/1.1" 200 116 1.001937
+(1485854) accepted ('127.0.0.1', 48750)
+(1485854) accepted ('127.0.0.1', 48754)
+127.0.0.1 - - [25/Aug/2026 10:41:39] "GET /stats/flow/9 HTTP/1.1" 200 116 1.001340
+(1485854) accepted ('127.0.0.1', 48758)
+127.0.0.1 - - [25/Aug/2026 10:41:40] "GET /stats/flow/10 HTTP/1.1" 200 118 1.001658
+(1485854) accepted ('127.0.0.1', 48764)
+(1485854) accepted ('127.0.0.1', 52122)
+(1485854) accepted ('127.0.0.1', 52130)
+(1485854) accepted ('127.0.0.1', 52146)
+127.0.0.1 - - [25/Aug/2026 10:41:51] "GET /stats/flow/1 HTTP/1.1" 200 116 1.001613
+(1485854) accepted ('127.0.0.1', 52154)
+127.0.0.1 - - [25/Aug/2026 10:41:52] "GET /stats/flow/2 HTTP/1.1" 200 116 1.001663
+(1485854) accepted ('127.0.0.1', 52160)
+127.0.0.1 - - [25/Aug/2026 10:41:53] "GET /stats/flow/3 HTTP/1.1" 200 116 1.001965
+(1485854) accepted ('127.0.0.1', 52176)
+127.0.0.1 - - [25/Aug/2026 10:41:54] "GET /stats/flow/4 HTTP/1.1" 200 116 1.001771
+(1485854) accepted ('127.0.0.1', 41962)
+(1485854) accepted ('127.0.0.1', 41970)
+127.0.0.1 - - [25/Aug/2026 10:41:55] "GET /stats/flow/5 HTTP/1.1" 200 116 1.002259
+(1485854) accepted ('127.0.0.1', 41984)
+127.0.0.1 - - [25/Aug/2026 10:41:56] "GET /stats/flow/6 HTTP/1.1" 200 116 1.001789
+(1485854) accepted ('127.0.0.1', 41988)
+127.0.0.1 - - [25/Aug/2026 10:41:57] "GET /stats/flow/7 HTTP/1.1" 200 116 1.001593
+(1485854) accepted ('127.0.0.1', 42002)
+127.0.0.1 - - [25/Aug/2026 10:41:58] "GET /stats/flow/8 HTTP/1.1" 200 116 1.001936
+(1485854) accepted ('127.0.0.1', 42004)
+(1485854) accepted ('127.0.0.1', 42006)
+127.0.0.1 - - [25/Aug/2026 10:41:59] "GET /stats/flow/9 HTTP/1.1" 200 116 1.001799
+(1485854) accepted ('127.0.0.1', 42022)
+127.0.0.1 - - [25/Aug/2026 10:42:00] "GET /stats/flow/10 HTTP/1.1" 200 118 1.001974
+(1485854) accepted ('127.0.0.1', 42032)
+(1485854) accepted ('127.0.0.1', 52934)
+127.0.0.1 - - [25/Aug/2026 10:42:05] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.064708
+(1485854) accepted ('127.0.0.1', 52942)
+(1485854) accepted ('127.0.0.1', 52956)
+(1485854) accepted ('127.0.0.1', 52970)
+127.0.0.1 - - [25/Aug/2026 10:42:11] "GET /stats/flow/1 HTTP/1.1" 200 116 1.001428
+(1485854) accepted ('127.0.0.1', 52972)
+127.0.0.1 - - [25/Aug/2026 10:42:12] "GET /stats/flow/2 HTTP/1.1" 200 116 1.001911
+(1485854) accepted ('127.0.0.1', 52988)
+127.0.0.1 - - [25/Aug/2026 10:42:13] "GET /stats/flow/3 HTTP/1.1" 200 116 1.001868
+(1485854) accepted ('127.0.0.1', 53004)
+127.0.0.1 - - [25/Aug/2026 10:42:14] "GET /stats/flow/4 HTTP/1.1" 200 116 1.001498
+(1485854) accepted ('127.0.0.1', 48780)
+(1485854) accepted ('127.0.0.1', 48794)
+127.0.0.1 - - [25/Aug/2026 10:42:15] "GET /stats/flow/5 HTTP/1.1" 200 116 1.001657
+(1485854) accepted ('127.0.0.1', 48798)
+127.0.0.1 - - [25/Aug/2026 10:42:16] "GET /stats/flow/6 HTTP/1.1" 200 116 1.002228
+(1485854) accepted ('127.0.0.1', 48806)
+127.0.0.1 - - [25/Aug/2026 10:42:17] "GET /stats/flow/7 HTTP/1.1" 200 116 1.001968
+(1485854) accepted ('127.0.0.1', 48816)
+127.0.0.1 - - [25/Aug/2026 10:42:18] "GET /stats/flow/8 HTTP/1.1" 200 116 1.002293
+(1485854) accepted ('127.0.0.1', 48824)
+(1485854) accepted ('127.0.0.1', 48832)
+127.0.0.1 - - [25/Aug/2026 10:42:19] "GET /stats/flow/9 HTTP/1.1" 200 116 1.001284
+(1485854) accepted ('127.0.0.1', 48836)
+127.0.0.1 - - [25/Aug/2026 10:42:20] "GET /stats/flow/10 HTTP/1.1" 200 118 1.001291
+(1485854) accepted ('127.0.0.1', 48844)
+(1485854) accepted ('127.0.0.1', 48786)
+(1485854) accepted ('127.0.0.1', 48796)
+(1485854) accepted ('127.0.0.1', 48808)
+127.0.0.1 - - [25/Aug/2026 10:42:31] "GET /stats/flow/1 HTTP/1.1" 200 116 1.001907
+(1485854) accepted ('127.0.0.1', 48812)
+127.0.0.1 - - [25/Aug/2026 10:42:32] "GET /stats/flow/2 HTTP/1.1" 200 116 1.001310
+(1485854) accepted ('127.0.0.1', 48820)
+127.0.0.1 - - [25/Aug/2026 10:42:33] "GET /stats/flow/3 HTTP/1.1" 200 116 1.002220
+(1485854) accepted ('127.0.0.1', 48822)
+127.0.0.1 - - [25/Aug/2026 10:42:34] "GET /stats/flow/4 HTTP/1.1" 200 116 1.002124
+(1485854) accepted ('127.0.0.1', 38834)
+(1485854) accepted ('127.0.0.1', 38840)
+127.0.0.1 - - [25/Aug/2026 10:42:35] "GET /stats/flow/5 HTTP/1.1" 200 116 1.001952
+(1485854) accepted ('127.0.0.1', 38850)
+127.0.0.1 - - [25/Aug/2026 10:42:36] "GET /stats/flow/6 HTTP/1.1" 200 116 1.002320
+(1485854) accepted ('127.0.0.1', 38852)
+127.0.0.1 - - [25/Aug/2026 10:42:37] "GET /stats/flow/7 HTTP/1.1" 200 116 1.002240
+(1485854) accepted ('127.0.0.1', 38862)
+127.0.0.1 - - [25/Aug/2026 10:42:38] "GET /stats/flow/8 HTTP/1.1" 200 116 1.001637
+(1485854) accepted ('127.0.0.1', 38864)
+(1485854) accepted ('127.0.0.1', 38874)
+127.0.0.1 - - [25/Aug/2026 10:42:39] "GET /stats/flow/9 HTTP/1.1" 200 116 1.002059
+(1485854) accepted ('127.0.0.1', 38890)
+127.0.0.1 - - [25/Aug/2026 10:42:40] "GET /stats/flow/10 HTTP/1.1" 200 118 1.002079
+(1485854) accepted ('127.0.0.1', 38892)
+(1485854) accepted ('127.0.0.1', 45760)
+(1485854) accepted ('127.0.0.1', 45772)
+(1485854) accepted ('127.0.0.1', 45774)
+127.0.0.1 - - [25/Aug/2026 10:42:51] "GET /stats/flow/1 HTTP/1.1" 200 116 1.001962
+(1485854) accepted ('127.0.0.1', 45790)
+127.0.0.1 - - [25/Aug/2026 10:42:52] "GET /stats/flow/2 HTTP/1.1" 200 116 1.002193
+(1485854) accepted ('127.0.0.1', 45794)
+127.0.0.1 - - [25/Aug/2026 10:42:53] "GET /stats/flow/3 HTTP/1.1" 200 116 1.001602
+(1485854) accepted ('127.0.0.1', 47518)
+127.0.0.1 - - [25/Aug/2026 10:42:54] "GET /stats/flow/4 HTTP/1.1" 200 116 1.001293
+(1485854) accepted ('127.0.0.1', 47520)
+(1485854) accepted ('127.0.0.1', 47534)
+127.0.0.1 - - [25/Aug/2026 10:42:55] "GET /stats/flow/5 HTTP/1.1" 200 116 1.002089
+(1485854) accepted ('127.0.0.1', 47546)
+127.0.0.1 - - [25/Aug/2026 10:42:56] "GET /stats/flow/6 HTTP/1.1" 200 116 1.002093
+(1485854) accepted ('127.0.0.1', 47554)
+127.0.0.1 - - [25/Aug/2026 10:42:57] "GET /stats/flow/7 HTTP/1.1" 200 116 1.002156
+(1485854) accepted ('127.0.0.1', 47568)
+127.0.0.1 - - [25/Aug/2026 10:42:58] "GET /stats/flow/8 HTTP/1.1" 200 116 1.001516
+(1485854) accepted ('127.0.0.1', 47582)
+(1485854) accepted ('127.0.0.1', 47590)
+127.0.0.1 - - [25/Aug/2026 10:42:59] "GET /stats/flow/9 HTTP/1.1" 200 116 1.002053
+(1485854) accepted ('127.0.0.1', 47600)
+127.0.0.1 - - [25/Aug/2026 10:43:01] "GET /stats/flow/10 HTTP/1.1" 200 118 1.001413

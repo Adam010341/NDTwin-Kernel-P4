@@ -1,0 +1,1539 @@
+loading app /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py
+NDTWIN: load_static_topology will run OFF the event handler (NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL, default since 2026-08-25; set 0 to opt out)
+NDTWIN: SIGUSR2 dumps greenlet stacks to /tmp/ndtwin_ryu_greenlets.txt (kill -USR2 <ryu pid>)
+NDTWIN: LLDP_SEND_GUARD default is 0.01s (Ryu ships 0.05; override with NDTWIN_RYU_LLDP_GUARD)
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(1944343) wsgi starting up on http://0.0.0.0:8080
+(1944343) accepted ('127.0.0.1', 59592)
+(1944343) accepted ('127.0.0.1', 59608)
+127.0.0.1 - - [25/Aug/2026 13:46:51] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.013373
+(1944343) accepted ('127.0.0.1', 59624)
+127.0.0.1 - - [25/Aug/2026 13:46:51] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.002422
+(1944343) accepted ('127.0.0.1', 59640)
+127.0.0.1 - - [25/Aug/2026 13:46:51] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000576
+(1944343) accepted ('127.0.0.1', 59646)
+127.0.0.1 - - [25/Aug/2026 13:46:53] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000769
+(1944343) accepted ('127.0.0.1', 59656)
+127.0.0.1 - - [25/Aug/2026 13:46:53] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000807
+(1944343) accepted ('127.0.0.1', 59664)
+127.0.0.1 - - [25/Aug/2026 13:46:53] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000521
+(1944343) accepted ('127.0.0.1', 42664)
+127.0.0.1 - - [25/Aug/2026 13:46:55] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000831
+(1944343) accepted ('127.0.0.1', 42670)
+127.0.0.1 - - [25/Aug/2026 13:46:55] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000743
+(1944343) accepted ('127.0.0.1', 42672)
+127.0.0.1 - - [25/Aug/2026 13:46:55] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000455
+(1944343) accepted ('127.0.0.1', 42688)
+127.0.0.1 - - [25/Aug/2026 13:46:57] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.001323
+(1944343) accepted ('127.0.0.1', 42696)
+127.0.0.1 - - [25/Aug/2026 13:46:57] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000776
+(1944343) accepted ('127.0.0.1', 42710)
+127.0.0.1 - - [25/Aug/2026 13:46:57] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000968
+Datapath ID: 1
+Datapath ID: 6
+Datapath ID: 3
+Datapath ID: 10
+Datapath ID: 8
+Datapath ID: 2
+Datapath ID: 9
+Datapath ID: 7
+Datapath ID: 4
+Datapath ID: 5
+Switch 0000000000000001 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500f2caf0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 1
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797501974a30>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 5
+5 of 10 switches connected (threshold from topology file (StaticNetworkTopologyMininet_10Switches.json)); waiting up to 300s before installing routes for whatever is online. Not yet connected: 2, 3, 4, 9, 10.
+Switch 0000000000000006 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500efa5e0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000008 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500e8d3a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000007 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500e8db80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000005 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500efa4c0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000009 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ee6850>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000004 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ea1910>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 000000000000000a connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ea7910>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000002 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ea7520>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000003 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ea1190>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 6
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500eeb3a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+spawning load_static_topology off the event handler (NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=1)
+Topology update triggered
+Loaded static topology from /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+Complete get_switch
+Complete get_link
+Switch entered: 8
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500e393a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+Topology update triggered
+(1944343) accepted ('127.0.0.1', 42714)
+(1944343) accepted ('127.0.0.1', 42720)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 52374)
+127.0.0.1 - - [25/Aug/2026 13:47:05] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000624
+(1944343) accepted ('127.0.0.1', 52390)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 52402)
+(1944343) accepted ('127.0.0.1', 40042)
+127.0.0.1 - - [25/Aug/2026 13:47:14] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000468
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 40050)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 40058)
+Switch list is empty after timeout — aborting topology update
+Topology update triggered
+(1944343) accepted ('127.0.0.1', 40066)
+127.0.0.1 - - [25/Aug/2026 13:47:22] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000376
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 60354)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 60366)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 60368)
+127.0.0.1 - - [25/Aug/2026 13:47:30] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000575
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 60374)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 44294)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 44296)
+127.0.0.1 - - [25/Aug/2026 13:47:38] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000472
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 44310)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+Switch list is empty after timeout — aborting topology update
+Topology update triggered
+(1944343) accepted ('127.0.0.1', 44326)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 45202)
+127.0.0.1 - - [25/Aug/2026 13:47:46] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000637
+(1944343) accepted ('127.0.0.1', 45204)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 45216)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 40078)
+127.0.0.1 - - [25/Aug/2026 13:47:54] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000681
+(1944343) accepted ('127.0.0.1', 40082)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+host discovery: 0/128 after 10s
+(1944343) accepted ('127.0.0.1', 40090)
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+Switch list is empty after timeout — aborting topology update
+Topology update triggered
+(1944343) accepted ('127.0.0.1', 40096)
+127.0.0.1 - - [25/Aug/2026 13:48:02] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000608
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 50250)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 50262)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 50272)
+127.0.0.1 - - [25/Aug/2026 13:48:11] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000601
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 50280)
+(1944343) accepted ('127.0.0.1', 46142)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 46156)
+127.0.0.1 - - [25/Aug/2026 13:48:19] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000601
+(1944343) accepted ('127.0.0.1', 46162)
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+Switch list is empty after timeout — aborting topology update
+Topology update triggered
+(1944343) accepted ('127.0.0.1', 47400)
+(1944343) accepted ('127.0.0.1', 47416)
+127.0.0.1 - - [25/Aug/2026 13:48:27] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000433
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 47422)
+(1944343) accepted ('127.0.0.1', 47432)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 36876)
+127.0.0.1 - - [25/Aug/2026 13:48:35] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.001028
+(1944343) accepted ('127.0.0.1', 36884)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 36892)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 36902)
+127.0.0.1 - - [25/Aug/2026 13:48:43] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000645
+Switch list is empty after timeout — aborting topology update
+Topology update triggered
+(1944343) accepted ('127.0.0.1', 33940)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 33946)
+(1944343) accepted ('127.0.0.1', 33948)
+127.0.0.1 - - [25/Aug/2026 13:48:51] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000955
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 33954)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 52922)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+host discovery: 0/128 after 20s
+(1944343) accepted ('127.0.0.1', 52936)
+127.0.0.1 - - [25/Aug/2026 13:48:59] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000699
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 52938)
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+Switch list is empty after timeout — aborting topology update
+Topology update triggered
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 38422)
+(1944343) accepted ('127.0.0.1', 38428)
+127.0.0.1 - - [25/Aug/2026 13:49:08] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.001061
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 38430)
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 38446)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+(1944343) accepted ('127.0.0.1', 51002)
+127.0.0.1 - - [25/Aug/2026 13:49:16] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000496
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 51016)
+(1944343) accepted ('127.0.0.1', 51018)
+topology read did not answer within 5.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+host-table read did not answer within 5.0s -- the topology app may be blocked; treating as 0 learned and letting the deadline run
+(1944343) accepted ('127.0.0.1', 57134)
+127.0.0.1 - - [25/Aug/2026 13:49:24] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000578
+topology read did not answer within 2.0s (get_switch) -- the topology app may be blocked; giving up this attempt rather than parking the event loop
+Switch list is empty after timeout — aborting topology update
+Link added: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+topology changed (link 1 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d78b50>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+topology changed (link 1 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d0c730>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+topology changed (link 3 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d137c0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+topology changed (link 3 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ea1c10>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+topology changed (link 2 -> 5 up); route reinstall scheduled
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 145.829915
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 142.786203
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 137.691482
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 134.647398
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 129.556184
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 126.517432
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 121.416781
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 118.375374
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 113.283472
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 110.241907
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 105.144805
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 102.098111
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 97.013022
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 93.971029
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 88.874442
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 85.830514
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 80.733793
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 77.688270
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 72.591336
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 69.548775
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 64.463028
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 61.417675
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 56.324507
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 53.281813
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 48.179074
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 45.138090
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 40.040295
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 36.996223
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 31.903862
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 28.864876
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 23.771103
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 20.725688
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 15.627202
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 12.584962
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ca35b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=2, port_no=2, LIVE> to Port<dpid=6, port_no=2, LIVE>
+topology changed (link 2 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500c92940>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=2, LIVE> to Port<dpid=6, port_no=4, LIVE>
+topology changed (link 10 -> 6 up); route reinstall scheduled
+Traceback (most recent call last):
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 598, in handle_one_response
+    write(b''.join(towrite))
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 537, in write
+    wfile.writelines(towrite)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/socket.py", line 699, in write
+    return self._sock.send(b)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 396, in send
+    return self._send_loop(self.fd.send, data, flags)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 383, in _send_loop
+    return send_method(data, *args)
+BrokenPipeError: [Errno 32] Broken pipe
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/switches HTTP/1.1" 200 0 7.497724
+127.0.0.1 - - [25/Aug/2026 13:49:25] "GET /v1.0/topology/links HTTP/1.1" 200 4594 4.450855
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cf18b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+topology changed (link 10 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500c82400>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+topology changed (link 10 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500c92c70>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=3, LIVE> to Port<dpid=7, port_no=4, LIVE>
+topology changed (link 10 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ca3640>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+topology changed (link 4 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cf1fd0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+topology changed (link 4 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x79750173f7c0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+topology changed (link 9 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500e35760>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+removed edge 1 -> 5 from the routing graph
+topology changed (link 1 -> 5 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500eba2e0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+topology changed (link 9 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cd5520>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+removed edge 1 -> 6 from the routing graph
+topology changed (link 1 -> 6 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cce2b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=4, LIVE> to Port<dpid=10, port_no=3, LIVE>
+topology changed (link 7 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cc4bb0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+removed edge 3 -> 7 from the routing graph
+topology changed (link 3 -> 7 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cc46a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=4, LIVE> to Port<dpid=10, port_no=1, LIVE>
+topology changed (link 5 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cceeb0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+removed edge 3 -> 8 from the routing graph
+topology changed (link 3 -> 8 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x79750173f4c0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=4, LIVE> to Port<dpid=10, port_no=2, LIVE>
+topology changed (link 6 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cc4af0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+removed edge 2 -> 5 from the routing graph
+topology changed (link 2 -> 5 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dfa550>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=4, LIVE> to Port<dpid=10, port_no=4, LIVE>
+topology changed (link 8 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cbe280>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=2, port_no=2, LIVE> to Port<dpid=6, port_no=2, LIVE>
+removed edge 2 -> 6 from the routing graph
+topology changed (link 2 -> 6 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cc4b50>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=3, LIVE> to Port<dpid=9, port_no=3, LIVE>
+topology changed (link 7 -> 9 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cd5310>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=10, port_no=2, LIVE> to Port<dpid=6, port_no=4, LIVE>
+removed edge 10 -> 6 from the routing graph
+topology changed (link 10 -> 6 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cce160>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=3, LIVE> to Port<dpid=9, port_no=1, LIVE>
+topology changed (link 5 -> 9 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500df0970>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+removed edge 10 -> 8 from the routing graph
+topology changed (link 10 -> 8 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d35d00>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=3, LIVE> to Port<dpid=9, port_no=2, LIVE>
+topology changed (link 6 -> 9 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cce430>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+removed edge 10 -> 5 from the routing graph
+topology changed (link 10 -> 5 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x79750173f580>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=3, LIVE> to Port<dpid=9, port_no=4, LIVE>
+topology changed (link 8 -> 9 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dc6b80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=10, port_no=3, LIVE> to Port<dpid=7, port_no=4, LIVE>
+removed edge 10 -> 7 from the routing graph
+topology changed (link 10 -> 7 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d35250>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=2, LIVE> to Port<dpid=6, port_no=3, LIVE>
+topology changed (link 9 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500e334c0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+removed edge 4 -> 7 from the routing graph
+topology changed (link 4 -> 7 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dc6910>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=3, LIVE> to Port<dpid=7, port_no=3, LIVE>
+topology changed (link 9 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cd55b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link deleted: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+removed edge 4 -> 8 from the routing graph
+topology changed (link 4 -> 8 down); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d80cd0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=1, LIVE> to Port<dpid=1, port_no=1, LIVE>
+topology changed (link 5 -> 1 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d2d340>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=1, LIVE> to Port<dpid=1, port_no=2, LIVE>
+topology changed (link 6 -> 1 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d2df10>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=1, LIVE> to Port<dpid=3, port_no=1, LIVE>
+topology changed (link 7 -> 3 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d80040>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=1, LIVE> to Port<dpid=3, port_no=2, LIVE>
+topology changed (link 8 -> 3 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7975034c94f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=2, LIVE> to Port<dpid=4, port_no=1, LIVE>
+topology changed (link 7 -> 4 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dfa550>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=2, LIVE> to Port<dpid=4, port_no=2, LIVE>
+topology changed (link 8 -> 4 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500d236a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=2, LIVE> to Port<dpid=2, port_no=1, LIVE>
+topology changed (link 5 -> 2 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dbfd90>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=2, LIVE> to Port<dpid=2, port_no=2, LIVE>
+topology changed (link 6 -> 2 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dfac40>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+Added edge to the routing graph: 1:1 -> 5:1
+topology changed (link 1 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ce21f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+Added edge to the routing graph: 2:1 -> 5:2
+topology changed (link 2 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500c92d00>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+Added edge to the routing graph: 10:1 -> 5:4
+topology changed (link 10 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500e35880>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+Added edge to the routing graph: 1:2 -> 6:1
+topology changed (link 1 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cd56a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=2, port_no=2, LIVE> to Port<dpid=6, port_no=2, LIVE>
+Added edge to the routing graph: 2:2 -> 6:2
+topology changed (link 2 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ca37f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+Added edge to the routing graph: 3:2 -> 8:1
+topology changed (link 3 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cf1a90>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=2, LIVE> to Port<dpid=6, port_no=4, LIVE>
+Added edge to the routing graph: 10:2 -> 6:4
+topology changed (link 10 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500c82430>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+Added edge to the routing graph: 3:1 -> 7:1
+topology changed (link 3 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500c92490>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+Added edge to the routing graph: 10:4 -> 8:4
+topology changed (link 10 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500dc6730>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+Added edge to the routing graph: 4:2 -> 8:2
+topology changed (link 4 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500ca30d0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=3, LIVE> to Port<dpid=7, port_no=4, LIVE>
+Added edge to the routing graph: 10:3 -> 7:4
+topology changed (link 10 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cfcee0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+Added edge to the routing graph: 4:1 -> 7:2
+topology changed (link 4 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x797500cf1b20>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+(1944343) accepted ('127.0.0.1', 57144)
+127.0.0.1 - - [25/Aug/2026 13:49:26] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.087459
+(1944343) accepted ('127.0.0.1', 57160)
+127.0.0.1 - - [25/Aug/2026 13:49:26] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.091948
+(1944343) accepted ('127.0.0.1', 57176)
+127.0.0.1 - - [25/Aug/2026 13:49:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000368
+host discovery complete: 128/128 hosts have an IPv4 after 27s (NDTWIN_RYU_SETTLE_S=40 is the ceiling, not the wait)
+install_all_pair_paths
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 288 ===
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+1 -> 5: {'port': 1}
+1 -> 6: {'port': 2}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+2 -> 5: {'port': 1}
+2 -> 6: {'port': 2}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+3 -> 8: {'port': 2}
+3 -> 7: {'port': 1}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+4 -> 8: {'port': 2}
+4 -> 7: {'port': 1}
+5 -> 1: {'port': 1}
+5 -> 9: {'port': 3}
+5 -> 2: {'port': 2}
+5 -> 10: {'port': 4}
+6 -> 1: {'port': 1}
+6 -> 9: {'port': 3}
+6 -> 2: {'port': 2}
+6 -> 10: {'port': 4}
+7 -> 3: {'port': 1}
+7 -> 9: {'port': 3}
+7 -> 4: {'port': 2}
+7 -> 10: {'port': 4}
+8 -> 3: {'port': 1}
+8 -> 9: {'port': 3}
+8 -> 4: {'port': 2}
+8 -> 10: {'port': 4}
+9 -> 5: {'port': 1}
+9 -> 6: {'port': 2}
+9 -> 7: {'port': 3}
+9 -> 8: {'port': 4}
+10 -> 5: {'port': 1}
+10 -> 6: {'port': 2}
+10 -> 8: {'port': 4}
+10 -> 7: {'port': 3}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+00:00:00:00:00:3c -> 2: {'port': 0}
+00:00:00:00:00:3d -> 2: {'port': 0}
+00:00:00:00:00:3e -> 2: {'port': 0}
+00:00:00:00:00:3f -> 2: {'port': 0}
+00:00:00:00:00:40 -> 2: {'port': 0}
+00:00:00:00:00:41 -> 3: {'port': 0}
+00:00:00:00:00:42 -> 3: {'port': 0}
+00:00:00:00:00:43 -> 3: {'port': 0}
+00:00:00:00:00:44 -> 3: {'port': 0}
+00:00:00:00:00:45 -> 3: {'port': 0}
+00:00:00:00:00:46 -> 3: {'port': 0}
+00:00:00:00:00:47 -> 3: {'port': 0}
+00:00:00:00:00:48 -> 3: {'port': 0}
+00:00:00:00:00:49 -> 3: {'port': 0}
+00:00:00:00:00:4a -> 3: {'port': 0}
+00:00:00:00:00:4b -> 3: {'port': 0}
+00:00:00:00:00:4c -> 3: {'port': 0}
+00:00:00:00:00:4d -> 3: {'port': 0}
+00:00:00:00:00:4e -> 3: {'port': 0}
+00:00:00:00:00:4f -> 3: {'port': 0}
+00:00:00:00:00:50 -> 3: {'port': 0}
+00:00:00:00:00:51 -> 3: {'port': 0}
+00:00:00:00:00:52 -> 3: {'port': 0}
+00:00:00:00:00:53 -> 3: {'port': 0}
+00:00:00:00:00:54 -> 3: {'port': 0}
+00:00:00:00:00:55 -> 3: {'port': 0}
+00:00:00:00:00:56 -> 3: {'port': 0}
+00:00:00:00:00:57 -> 3: {'port': 0}
+00:00:00:00:00:58 -> 3: {'port': 0}
+00:00:00:00:00:59 -> 3: {'port': 0}
+00:00:00:00:00:5a -> 3: {'port': 0}
+00:00:00:00:00:5b -> 3: {'port': 0}
+00:00:00:00:00:5c -> 3: {'port': 0}
+00:00:00:00:00:5d -> 3: {'port': 0}install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.715s install=0.277s report=0.439s
+Static topology initialized, all-destination paths installed.
+(1944343) accepted ('127.0.0.1', 57184)
+127.0.0.1 - - [25/Aug/2026 13:49:28] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002658
+(1944343) accepted ('127.0.0.1', 57194)
+127.0.0.1 - - [25/Aug/2026 13:49:28] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000949
+(1944343) accepted ('127.0.0.1', 57208)
+127.0.0.1 - - [25/Aug/2026 13:49:28] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.055669
+(1944343) accepted ('127.0.0.1', 57214)
+127.0.0.1 - - [25/Aug/2026 13:49:31] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002629
+(1944343) accepted ('127.0.0.1', 57226)
+127.0.0.1 - - [25/Aug/2026 13:49:31] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001989
+(1944343) accepted ('127.0.0.1', 57238)
+127.0.0.1 - - [25/Aug/2026 13:49:31] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.001067
+recomputing all-pair routes after topology change
+install_all_pair_paths
+
+00:00:00:00:00:5e -> 3: {'port': 0}
+00:00:00:00:00:5f -> 3: {'port': 0}
+00:00:00:00:00:60 -> 3: {'port': 0}
+00:00:00:00:00:61 -> 4: {'port': 0}
+00:00:00:00:00:62 -> 4: {'port': 0}
+00:00:00:00:00:63 -> 4: {'port': 0}
+00:00:00:00:00:64 -> 4: {'port': 0}
+00:00:00:00:00:65 -> 4: {'port': 0}
+00:00:00:00:00:66 -> 4: {'port': 0}
+00:00:00:00:00:67 -> 4: {'port': 0}
+00:00:00:00:00:68 -> 4: {'port': 0}
+00:00:00:00:00:69 -> 4: {'port': 0}
+00:00:00:00:00:6a -> 4: {'port': 0}
+00:00:00:00:00:6b -> 4: {'port': 0}
+00:00:00:00:00:6c -> 4: {'port': 0}
+00:00:00:00:00:6d -> 4: {'port': 0}
+00:00:00:00:00:6e -> 4: {'port': 0}
+00:00:00:00:00:6f -> 4: {'port': 0}
+00:00:00:00:00:70 -> 4: {'port': 0}
+00:00:00:00:00:71 -> 4: {'port': 0}
+00:00:00:00:00:72 -> 4: {'port': 0}
+00:00:00:00:00:73 -> 4: {'port': 0}
+00:00:00:00:00:74 -> 4: {'port': 0}
+00:00:00:00:00:75 -> 4: {'port': 0}
+00:00:00:00:00:76 -> 4: {'port': 0}
+00:00:00:00:00:77 -> 4: {'port': 0}
+00:00:00:00:00:78 -> 4: {'port': 0}
+00:00:00:00:00:79 -> 4: {'port': 0}
+00:00:00:00:00:7a -> 4: {'port': 0}
+00:00:00:00:00:7b -> 4: {'port': 0}
+00:00:00:00:00:7c -> 4: {'port': 0}
+00:00:00:00:00:7d -> 4: {'port': 0}
+00:00:00:00:00:7e -> 4: {'port': 0}
+00:00:00:00:00:7f -> 4: {'port': 0}
+00:00:00:00:00:80 -> 4: {'port': 0}
+all_destination_paths in
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 288 ===
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+1 -> 5: {'port': 1}
+1 -> 6: {'port': 2}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+2 -> 5: {'port': 1}
+2 -> 6: {'port': 2}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+3 -> 8: {'port': 2}
+3 -> 7: {'port': 1}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+4 -> 8: {'port': 2}
+4 -> 7: {'port': 1}
+5 -> 1: {'port': 1}
+5 -> 9: {'port': 3}
+5 -> 2: {'port': 2}
+5 -> 10: {'port': 4}
+6 -> 1: {'port': 1}
+6 -> 9: {'port': 3}
+6 -> 2: {'port': 2}
+6 -> 10: {'port': 4}
+7 -> 3: {'port': 1}
+7 -> 9: {'port': 3}
+7 -> 4: {'port': 2}
+7 -> 10: {'port': 4}
+8 -> 3: {'port': 1}
+8 -> 9: {'port': 3}
+8 -> 4: {'port': 2}
+8 -> 10: {'port': 4}
+9 -> 5: {'port': 1}
+9 -> 6: {'port': 2}
+9 -> 7: {'port': 3}
+9 -> 8: {'port': 4}
+10 -> 5: {'port': 1}
+10 -> 6: {'port': 2}
+10 -> 8: {'port': 4}
+10 -> 7: {'port': 3}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+00:00:00:00:00:3c -> 2: {'port': 0}
+00:00:00:00:00:3d -> 2: {'port': 0}
+00:00:00:00:00:3e -> 2: {'port': 0}
+00:00:00:00:00:3f -> 2: {'port': 0}
+00:00:00:00:00:40 -> 2: {'port': 0}
+00:00:00:00:00:41 -> 3: {'port': 0}
+00:00:00:00:00:42 -> 3: {'port': 0}
+00:00:00:00:00:43 -> 3: {'port': 0}
+00:00:00:00:00:44 -> 3: {'port': 0}
+00:00:00:00:00:45 -> 3: {'port': 0}
+00:00:00:00:00:46 -> 3: {'port': 0}
+00:00:00:00:00:47 -> 3: {'port': 0}
+00:00:00:00:00:48 -> 3: {'port': 0}
+00:00:00:00:00:49 -> 3: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.652s install=0.246s report=0.407s
+route reinstall done
+(1944343) accepted ('127.0.0.1', 51058)
+127.0.0.1 - - [25/Aug/2026 13:49:36] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.047679
+(1944343) accepted ('127.0.0.1', 51060)
+127.0.0.1 - - [25/Aug/2026 13:49:36] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001613
+(1944343) accepted ('127.0.0.1', 51070)
+127.0.0.1 - - [25/Aug/2026 13:49:36] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001891
+(1944343) accepted ('127.0.0.1', 51082)
+127.0.0.1 - - [25/Aug/2026 13:49:36] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.001305

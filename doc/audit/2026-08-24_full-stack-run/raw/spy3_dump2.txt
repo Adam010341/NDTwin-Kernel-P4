@@ -1,0 +1,7 @@
+Process 1828060: /home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ryu-manager --observe-links /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest
+Python v3.8.20 (/home/adam/miniconda3/envs/ryu-env/bin/python3.8)
+
+Thread 0x73E00A777600 (active): "MainThread"
+    do_poll (eventlet/hubs/epolls.py:31)
+    wait (eventlet/hubs/poll.py:80)
+    run (eventlet/hubs/hub.py:365)

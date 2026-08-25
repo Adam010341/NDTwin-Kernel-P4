@@ -1,0 +1,6 @@
+ndt up ovs
+  hosts        128
+  topology     setting/StaticNetworkTopologyMininet_10Switches.json
+  XX  a Mininet is already running (1 host/switch processes).
+  XX  starting Ryu under a live Mininet is the /stats/flow wedge trigger.
+  XX  take it down first:  ndt down
