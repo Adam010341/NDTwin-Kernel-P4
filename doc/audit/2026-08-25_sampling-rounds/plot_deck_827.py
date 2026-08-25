@@ -371,9 +371,15 @@ def fig_period(name="page_loop-period.png"):
             "the instrument is broken, not a result.",
             color=FAINT, fontsize=10.5, va="bottom")
     _frame(ax, "measured rate-loop period (ms)")
+    # Say "cleanest window", not "idle": the idle windows are not one regime. mainDev measured
+    # 1000.1 ms on a nearly empty model right after a rebuild and 1012.1 ms after 39 minutes with
+    # 288 edges and 27 counter reports -- the loop body slows as its own bookkeeping grows. The
+    # plotted point is the mean over the idle windows, so the 0.1 ms claim belongs to the minimum.
+    lo_idle = min(conds[0][1])
     fig.text(0.985, 0.030,
-             "Idle lands 0.1 ms above the loop's own sleep — a broken instrument would not do "
-             "that, so this is a positive control, not just a reading.",
+             f"The cleanest idle window reads {lo_idle:.1f} ms — {lo_idle - 1000:.1f} ms above the "
+             "loop's own sleep. A broken instrument would not land there, so idle is a positive "
+             "control, not just a reading.",
              ha="right", color=WARNC, fontsize=11, fontweight="bold")
     _save(fig, name)
 
