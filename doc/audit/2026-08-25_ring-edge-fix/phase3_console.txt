@@ -1,0 +1,31 @@
+
+# ============================================================================
+# PHASE 3 -- B: rebuild off the event loop. Invariant primary, boot secondary.
+# ============================================================================
+# date:    2026-08-25T14:25:59+0800   commit: c986ca0
+# router:  sha256=164b77238ae1543d  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=21.41
+# context: Phase 0 measured the target at 2/3 (uptime 20.09h, same boot_id)
+# note:    target rate is CONTEXT here, not a gate -- the invariant does not need the wedge
+# boots:   3   dump sampled every 6s during boot
+## b1: CONVERGED  invariant=HOLDS  wall=59s
+     dumps=9  event-loop stacks examined=52  violations=0
+     events_queued=10  rebuilds=2 (coalesced 8)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+## b2: CONVERGED  invariant=HOLDS  wall=56s
+     dumps=9  event-loop stacks examined=54  violations=0
+     events_queued=10  rebuilds=2 (coalesced 8)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+## b3: CONVERGED  invariant=HOLDS  wall=59s
+     dumps=9  event-loop stacks examined=53  violations=0
+     events_queued=10  rebuilds=2 (coalesced 8)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+
+# ---------------------------------------------------------------------------
+# RESULT: converged=3  not-converged=0  void=0  invariant-violations=0 (of 3)
+# VERDICT: PASS -- invariant held across every sampled dump AND all boots converged.
+#          Claim is the invariant, NOT a wedge rate: this says the ring's precondition
+#          cannot arise from this handler, not that no ring can ever form. The
+#          occupation-source census is still not done (PREREG-B section 6).
+# (read-out per PREREG-B.md sections 1 and 3; injection asserted before any of it)
+# torn down (rc=0)
