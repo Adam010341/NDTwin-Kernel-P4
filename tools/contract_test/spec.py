@@ -422,13 +422,26 @@ ENDPOINTS = [
     # timer; immediately after boot that map is empty or partial, and the contract harness runs
     # right after bring-up, so it queries inside exactly that window.
     #
-    # 🔴 HONEST GAP, and it is the reason this is an allowlist rather than a fix: nobody has
-    # caught the map mid-fill and watched it populate. The evidence is the POSITION of the failure
-    # in the series -- strong, and circumstantial. Worse, the column added to discriminate this
-    # measured nothing: repro_404.sh's `paths_known` reported a constant 2 on every row including
-    # the 404, because the extractor took len() of the endpoint's JSON and counted top-level keys
-    # rather than paths. So the conclusion rests on series position alone. Do not upgrade "strong
-    # circumstantial" to "confirmed" without catching the fill.
+    # STRENGTHENED 2026-08-25 by the audit session's seal run
+    # (scratch/review-2026-08-25/seal_404_transient.txt). On a boot that was CLEAN by every
+    # available check -- `ndt up` rc=0, "10 switches up+enabled", graph matching 128 hosts /
+    # 288 edges, h1 -> 10.0.0.2 forwarding, no XX at all -- the same endpoint went:
+    #
+    #     t+0  ->  404        t+30  ->  200        t+90  ->  200
+    #
+    # That is the recovery measured directly on one boot, not inferred from where a failure fell
+    # in a series, and the clean-boot precondition rules out "the 404 came from a degraded fabric"
+    # -- which is exactly the objection the post-commit shadow review raised against the two-arm
+    # acceptance below.
+    #
+    # 🔴 THE GAP THAT REMAINS, and it is still why this is an allowlist rather than a fix: what has
+    # been measured is the ANSWER flipping, not the MAP filling. Nobody has watched the path map
+    # populate. "First query lands before a timer-driven fetch completes" is still the inferred
+    # cause of an observed recovery. Note also that the column originally added to discriminate
+    # this measured nothing -- repro_404.sh's `paths_known` reported a constant 2 on every row
+    # including the 404, because the extractor took len() of the endpoint's JSON and counted
+    # top-level keys rather than paths. Do not write the mechanism down as confirmed until someone
+    # has instrumented the fill itself.
     #
     # WHAT THIS TRADES AWAY: a path map that is permanently empty -- not transiently -- now passes
     # this check, because 404 is the same answer in both cases and this endpoint cannot tell them
