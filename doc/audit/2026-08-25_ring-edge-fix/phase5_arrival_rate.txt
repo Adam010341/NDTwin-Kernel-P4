@@ -1,0 +1,47 @@
+
+# ============================================================================
+# PHASE 5 -- ARRIVAL RATE, and the pre-B fill time it implies (PREREG-B appendix, prop b)
+# ============================================================================
+# date:    2026-08-25T14:55:50+0800   commit: 28b4d91
+# router:  sha256=63d9b74d4ef96013  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=21.91
+# context: Phase 0 measured the target at 2/3 (uptime 20.09h, same boot_id)
+# note:    target rate is CONTEXT here, not a gate -- the invariant does not need the wedge
+# measuring: packet-in arrival rate into IntelligentRyu queue -> t_fill(128 slots)
+# pairs:   2 interleaved (guard default 0.01 vs 0.05)  dump every 6s
+# baseline: pre-B wedges peaked 128/128 (12 and 43 blocked); B boots peaked 1/128
+## g001_p1: CONVERGED  invariant=HOLDS  wall=56s
+     dumps=9  event-loop stacks examined=53  violations=0
+     events_queued=10  rebuilds=3 (coalesced 7)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+     peak IntelligentRyu=1/128  |  nonzero: IntelligentRyu=1/128
+     ARRIVAL: packet_in=2942 over 42.4s  rate=69.39/s  t_fill(128 slots)=1.8s
+## g005_p1: CONVERGED  invariant=HOLDS  wall=59s
+     dumps=9  event-loop stacks examined=53  violations=0
+     events_queued=10  rebuilds=2 (coalesced 8)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+     peak IntelligentRyu=2/128  |  nonzero: IntelligentRyu=2/128, switches=1/128
+     ARRIVAL: packet_in=2306 over 40.9s  rate=56.32/s  t_fill(128 slots)=2.3s
+## g001_p2: CONVERGED  invariant=HOLDS  wall=59s
+     dumps=9  event-loop stacks examined=54  violations=0
+     events_queued=10  rebuilds=2 (coalesced 8)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+     peak IntelligentRyu=0/128  |  nonzero: none -- every queue empty in every sample
+     ARRIVAL: packet_in=3027 over 42.3s  rate=71.59/s  t_fill(128 slots)=1.8s
+## g005_p2: CONVERGED  invariant=HOLDS  wall=58s
+     dumps=9  event-loop stacks examined=54  violations=0
+     events_queued=10  rebuilds=2 (coalesced 8)  topo-timeouts=0  aborts=0
+     hosts_ipv4=128  edges(total down)=288 0
+     peak IntelligentRyu=0/128  |  nonzero: none -- every queue empty in every sample
+     ARRIVAL: packet_in=2467 over 41.6s  rate=59.30/s  t_fill(128 slots)=2.2s
+
+# ---------------------------------------------------------------------------
+# RESULT: converged=4  not-converged=0  void=0  invariant-violations=0
+# COMPARE the peak-queue lines between g001 and g005 rows above -- that is the question.
+# VERDICT: boots healthy in both arms. Guard verdict is the peak-queue comparison,
+#          NOT this line. PASS -- invariant held across every sampled dump AND all boots converged.
+#          Claim is the invariant, NOT a wedge rate: this says the ring's precondition
+#          cannot arise from this handler, not that no ring can ever form. The
+#          occupation-source census is still not done (PREREG-B section 6).
+# (read-out per PREREG-B.md sections 1 and 3; injection asserted before any of it)
+# torn down (rc=0)
