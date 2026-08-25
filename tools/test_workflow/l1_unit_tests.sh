@@ -263,14 +263,30 @@ fi
 # FAIL ran=0, which is how test_walk_instrumentation was red in this lane from the day it was
 # added. So the lane picks an interpreter that carries networkx when one exists, same move as
 # the P4 section above; plain python3 remains the fallback and runs everything else.
+#
+# [Co-developed with claude code -- Adam]
+# 2026-08-25: the ryu env goes FIRST, and the probe now asks for ryu as well as networkx. Two
+# reasons, one old and one new. The old one: on this machine neither $P4_PROXY_PY nor plain
+# python3 carries networkx, so the walk suites had been skipping -- and this lane calls a skip a
+# failure -- meaning the fix above never actually took effect here. The new one: the ring round's
+# suites (test_topology_worker_coalescing, test_topology_read_timeouts) drive the real Ryu
+# greenlet primitives, so networkx alone is not enough to run them.
+#
+# Ordered probe, not "first that exists": a candidate carrying both wins over one carrying
+# neither, and the bare python3 fallback still runs everything that needs no imports.
 step "kernel-side Python and shell tests"
 PY_KERNEL="$(command -v python3)"
-for candidate in "$P4_PROXY_PY" python3; do
+for candidate in "$RYU_PY" "$HOME/miniconda3/envs/ryu-env/bin/python" "$P4_PROXY_PY" python3; do
     if [[ -n "$candidate" ]] && command -v "$candidate" >/dev/null 2>&1 \
-            && "$candidate" -c "import networkx" >/dev/null 2>&1; then
+            && "$candidate" -c "import networkx, ryu" >/dev/null 2>&1; then
         PY_KERNEL="$candidate"; break
     fi
 done
+if ! "$PY_KERNEL" -c "import networkx, ryu" >/dev/null 2>&1; then
+    # Say which one, because "N skip(s)" below names the symptom and not the cause.
+    echo "  ${Y}note${N} ${D}no interpreter with networkx+ryu found; suites needing them will" \
+         "skip, and this lane counts a skip as a failure. Set RYU_PY to override.${N}"
+fi
 shopt -s nullglob
 KERNEL_TESTS=("$KERNEL_DIR"/tests/python/test_*.py "$KERNEL_DIR"/tests/shell/test_*.sh)
 shopt -u nullglob

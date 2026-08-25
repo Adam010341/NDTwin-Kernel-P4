@@ -13,6 +13,11 @@ These tests exercise the real `IntelligentRyu._topology_worker` bound to a stub 
 than a reimplementation of it, so a change to the shipped loop can actually fail them.
 
 Run: PYTHONDONTWRITEBYTECODE=1 <ryu-env>/bin/python tests/python/test_topology_worker_coalescing.py
+
+This file imports Ryu, which lives in its own conda env, so under the CI lane's interpreter it
+would abort at import and read as a hard failure rather than a skip -- the same shape
+test_walk_instrumentation had. Guarded the way test_find_host_by_ip guards networkx: skip with a
+reason that names the interpreter, so a red line means the tests ran and failed.
 """
 import os
 import sys
@@ -20,8 +25,13 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from ryu.lib import hub                                          # noqa: E402
-import intelligent_router as ir                                  # noqa: E402
+try:
+    from ryu.lib import hub                                      # noqa: E402
+    import intelligent_router as ir                              # noqa: E402
+    HAVE_RYU = True
+except ImportError:                                              # pragma: no cover
+    HAVE_RYU = False
+    hub = ir = None
 
 
 class _StubLogger:
@@ -66,6 +76,8 @@ class _Worker:
         return hub.spawn(ir.IntelligentRyu._topology_worker, self)
 
 
+@unittest.skipUnless(HAVE_RYU,
+                     "needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu")
 class CoalescingTest(unittest.TestCase):
 
     def test_an_event_arriving_mid_rebuild_still_gets_a_rebuild(self):
@@ -127,6 +139,8 @@ class CoalescingTest(unittest.TestCase):
         self.assertGreaterEqual(w._topology_last_ok, w._topology_last_start)
 
 
+@unittest.skipUnless(HAVE_RYU,
+                     "needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu")
 class DrainTest(unittest.TestCase):
     """_drain_pending_dpids: the swap that keeps a mid-notify enter for the next batch."""
 

@@ -1124,9 +1124,28 @@ class IntelligentRyu(app_manager.RyuApp):
                 # walk, and this USED TO RUN inside the EventSwitchEnter handler, so that blocking
                 # happened ON THIS APP'S EVENT QUEUE, which Ryu bounds at 128
                 # (app_manager.py:160). A put into a full queue blocks the emitter, and this app
-                # also observes EventOFPPacketIn, so every punted LLDP landed in the same queue at
-                # ~2.5/s: 128 slots fill in ~50 s. Since the rebuild moved to _topology_worker,
-                # none of this runs on the event loop at all.
+                # also observes EventOFPPacketIn, so every punted packet-in landed in the same
+                # queue. Since the rebuild moved to _topology_worker, none of this runs on the
+                # event loop at all.
+                #
+                # CORRECTED 2026-08-25, and the correction is not cosmetic. This comment used to
+                # read "punted LLDP ... at ~2.5/s: 128 slots fill in ~50 s". Nobody had ever
+                # measured that. Phase 5 of doc/audit/2026-08-25_ring-edge-fix instrumented the
+                # counter and got 56-72/s averaged over a boot and 136-210/s over the opening six
+                # seconds, so 128 slots fill in 1.8-2.3 s -- 0.6-0.9 s during the burst. The
+                # comment was off by 20-80x, in the direction that makes the ring EASIER to form:
+                # every blocking event down here (the settle wait, the walk, the 10x5s notify
+                # chain) outruns the fill time by one to two orders of magnitude, so the queue is
+                # already full long before any of them return.
+                #
+                # The "LLDP" half is wrong too. Cutting NDTWIN_RYU_LLDP_GUARD five-fold
+                # (0.05 -> 0.01) moved the measured rate only 1.22x (57.8 -> 70.5/s) where an
+                # LLDP-dominated stream would move ~5x. Two lines of the library say why the
+                # guard has so little leverage: switches.py:947-949 throttles only the REFRESH
+                # sends (ceiling 1/guard = 20/s at stock, already under the 57.8/s we measured),
+                # while switches.py:945-946 sends to never-probed ports with no throttle at all
+                # -- and boot is exactly when that list is long. Which source actually fills the
+                # queue is still unmeasured; treat "LLDP" as the guess it always was.
                 #
                 # That is the cycle the review session's phase-1 diagnosis describes
                 # (doc/audit/2026-08-24_full-stack-run/REPORT.md) for the 6-of-10 boot failures,

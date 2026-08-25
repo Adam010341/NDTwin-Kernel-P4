@@ -18,6 +18,10 @@ WHAT THEY PIN, beyond "it logs something":
 The second is the fidelity question I guessed at in a comment and never measured.
 
 Run: PYTHONDONTWRITEBYTECODE=1 <ryu-env>/bin/python tests/python/test_topology_read_timeouts.py
+
+Ryu and networkx live in a conda env of their own, so under the CI lane's interpreter this file
+would abort at import and read as a hard failure rather than a skip. Guarded the way
+test_find_host_by_ip guards networkx -- a red line here means the tests ran and failed.
 """
 import os
 import sys
@@ -25,9 +29,14 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-import networkx as nx                                            # noqa: E402
-from ryu.lib import hub                                          # noqa: E402
-import intelligent_router as ir                                  # noqa: E402
+try:
+    import networkx as nx                                        # noqa: E402
+    from ryu.lib import hub                                      # noqa: E402
+    import intelligent_router as ir                              # noqa: E402
+    HAVE_RYU = True
+except ImportError:                                              # pragma: no cover
+    HAVE_RYU = False
+    nx = hub = ir = None
 
 
 class _Log:
@@ -72,11 +81,6 @@ class _Rebuilder:
         self._pending_switch_dpids = {1, 2}
         self.notified = []
 
-    # real methods under test
-    _bounded_topo_read = ir.IntelligentRyu._bounded_topo_read
-    _drain_pending_dpids = ir.IntelligentRyu._drain_pending_dpids
-    _rebuild_topology = ir.IntelligentRyu._rebuild_topology
-
     def _notify_switch_entered(self, dpid, api_url):
         self.notified.append(dpid)
 
@@ -84,10 +88,22 @@ class _Rebuilder:
         pass
 
 
+# The real methods under test, bound after the class body rather than inside it: a class
+# attribute is evaluated at definition time, so `_bounded_topo_read = ir.IntelligentRyu...`
+# inline would make this module unimportable wherever Ryu is absent -- which is every
+# interpreter but one, including the CI lane's.
+if HAVE_RYU:
+    _Rebuilder._bounded_topo_read = ir.IntelligentRyu._bounded_topo_read
+    _Rebuilder._drain_pending_dpids = ir.IntelligentRyu._drain_pending_dpids
+    _Rebuilder._rebuild_topology = ir.IntelligentRyu._rebuild_topology
+
+
 def _blocks_forever(*_a, **_k):
     hub.Queue().get()          # the exact primitive app_manager.py:279 parks in
 
 
+@unittest.skipUnless(HAVE_RYU,
+                     "needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu/networkx")
 class GetLinkTimeoutTest(unittest.TestCase):
     """The branch with no runtime evidence anywhere in doc/audit."""
 
@@ -137,6 +153,8 @@ class GetLinkTimeoutTest(unittest.TestCase):
                          "one that succeeded")
 
 
+@unittest.skipUnless(HAVE_RYU,
+                     "needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu/networkx")
 class GetSwitchTimeoutTest(unittest.TestCase):
     """The exit Phase 2 did exercise (7 aborts, 28 timeouts) -- pinned so it stays that way."""
 

@@ -9,6 +9,14 @@ the source as a measured fact and would have been quoted onward.
 
 Raw: `acceptance.txt`, `discriminator.txt`, `raw/`. Drivers alongside.
 
+> **勘誤 2026-08-25 — 步驟 2 的「fills in ~50 s」（本文第 253 行）是錯的，差 20–80 倍。**
+> 那個數字繼承自一段從未有人量過的註解。`doc/audit/2026-08-25_ring-edge-fix` 的 Phase 5
+> 加了計數器實測：整個開機平均 **56–72/s**、開頭六秒 **136–210/s** ⇒ 128 格在
+> **1.8–2.3 秒**（爆發期 **0.6–0.9 秒**）就填滿，不是 50 秒。
+> 方向對本報告的結論**有利**——環比本文描述的更容易形成，四步推理不變、只是第 2 步快得多。
+> 同時作廢的還有「punted LLDP」這個歸因：guard 改五倍只動了 1.22×，佇列的填充來源仍未指認。
+> 🔴 引用本報告時請一併引用這條勘誤。
+
 ## What the patch claims
 
 > Wait for the event rather than for a duration. `NDTWIN_RYU_SETTLE_S` is now a deadline, not a

@@ -3,7 +3,7 @@ Tests for the switch-count gate that decides whether initial routes are installe
 
 [Co-developed with claude code -- Adam]
 
-`get_topology_data` ends with:
+The gate is:
 
     if len(self.switches) >= switch_num:
         if not self.install_initial_openflow_entries_completed:
@@ -17,6 +17,18 @@ load-bearing.
 
 The gate itself is deliberately unchanged: whether 10 is the right threshold is a deployment
 question the owner is reviewing. What is tested here is that the silent case stopped being silent.
+
+## The gate moved, and this file did not notice for a while
+
+It used to sit at the tail of `get_topology_data`. The ring fix (2026-08-25) moved the whole
+rebuild onto `_topology_worker` and left `get_topology_data` as a queueing shim, so the gate now
+lives in `_maybe_install_initial_routes`. **Every test in this file errored against the new
+handler and the ring round shipped without running them** -- extracting a method by name is only
+as good as the name, and a rename or a move turns these from "passing" into "erroring", which is
+at least loud. Retargeted 2026-08-25.
+
+`SwitchEnterHandlerTest` was added at the same time and covers what the shim itself now promises,
+because that was the part with no test at this level: the coalescing suite stubs the handler out.
 
 ## Why the method is extracted rather than imported
 
@@ -33,7 +45,8 @@ import os
 import unittest
 
 ROUTER = os.path.join(os.path.dirname(__file__), "..", "..", "intelligent_router.py")
-METHOD = "get_topology_data"
+METHOD = "_maybe_install_initial_routes"       # the gate; moved here from get_topology_data
+HANDLER = "get_topology_data"                  # what is left of the handler after the ring fix
 
 
 class Recorder:
@@ -68,8 +81,26 @@ class FakeNet:
         self.edges.append((a, b))
 
 
+class DirtyFlag:
+    """hub.Event's two methods that the handler uses, and a record of every set()."""
+
+    def __init__(self):
+        self._set = False
+        self.sets = 0
+
+    def is_set(self):
+        return self._set
+
+    def set(self):
+        self._set = True
+        self.sets += 1
+
+    def clear(self):
+        self._set = False
+
+
 class Router:
-    """The attributes get_topology_data touches, and nothing else."""
+    """The attributes the gate and the switch-enter handler touch, and nothing else."""
 
     def __init__(self, installed=False):
         self.logger = Recorder()
@@ -79,14 +110,23 @@ class Router:
         self.install_initial_openflow_entries_completed = installed
         self._initial_watchdog_started = False
         # Added 2026-08-24 for the async-install path. This stub has now been short of a real
-        # attribute twice; the first time (_initial_watchdog_started) is why this file exists.
+        # attribute three times; the first (_initial_watchdog_started) is why this file exists,
+        # and the third was the ring fix moving the rebuild onto a worker.
         self._static_topology_spawned = False
         self.load_static_topology_calls = 0
+        # What get_topology_data became after the ring fix: a queue, a flag and a worker.
+        self._pending_switch_dpids = set()
+        self._topology_dirty = DirtyFlag()
+        self._topology_coalesced = 0
+        self._topology_worker_started = False
 
     def load_static_topology(self):
         self.load_static_topology_calls += 1
 
     def _initial_install_watchdog(self):
+        pass
+
+    def _topology_worker(self):
         pass
 
 
@@ -99,9 +139,9 @@ def _hub_recording(spawned):
     })()
 
 
-def load_method(switch_count, *, threshold=10, async_install=False):
+def load_method(switch_count, *, threshold=10, async_install=False, method=METHOD, router=None):
     """
-    Compiles the real get_topology_data against stubs, with `switch_count` switches connected.
+    Compiles the real gate (or handler) against stubs, with `switch_count` switches connected.
 
     Returns (bound_callable, router). `switch_num` is injected as the module global the method
     reads, so a test can state the threshold it is exercising rather than depend on today's 10.
@@ -110,8 +150,8 @@ def load_method(switch_count, *, threshold=10, async_install=False):
         tree = ast.parse(fh.read())
 
     func = next((n for n in ast.walk(tree)
-                 if isinstance(n, ast.FunctionDef) and n.name == METHOD), None)
-    assert func is not None, f"{METHOD} not found in {ROUTER} -- was it renamed?"
+                 if isinstance(n, ast.FunctionDef) and n.name == method), None)
+    assert func is not None, f"{method} not found in {ROUTER} -- was it renamed?"
     # The method carries Ryu's @set_ev_cls; the decorator is registration, not behaviour, and
     # evaluating it would need the Ryu import this whole approach exists to avoid.
     func.decorator_list = []
@@ -140,10 +180,16 @@ def load_method(switch_count, *, threshold=10, async_install=False):
     }
     exec(compile(ast.Module(body=[func], type_ignores=[]), ROUTER, "exec"), ns)
 
-    router = Router()
+    router = Router() if router is None else router
     router.spawned = spawned
-    ev = type("Ev", (), {"switch": type("S", (), {"dp": type("D", (), {"id": 1})()})()})()
-    return (lambda: ns[METHOD](router, ev)), router
+    router.switches = {i: object() for i in range(1, switch_count + 1)}
+
+    if method == HANDLER:
+        # The only method here that still takes an event.
+        return (lambda dpid=1: ns[method](
+            router, type("Ev", (), {"switch": type("S", (), {"dp": type("D", (), {"id": dpid})()})()})()
+        )), router
+    return (lambda: ns[method](router)), router
 
 
 class RouteInstallGateTest(unittest.TestCase):
@@ -198,14 +244,22 @@ class AsyncTopologyInstallTest(unittest.TestCase):
     [Co-developed with claude code -- Adam]
     `load_static_topology` blocks for the settle wait plus the walk. Inline, that blocking sits
     on this app's event queue, which Ryu bounds at 128 -- and this app also observes
-    EventOFPPacketIn, so punted LLDP fills those slots at ~2.5/s while the handler is stuck.
+    EventOFPPacketIn, so punted packet-ins fill those slots while the handler is stuck.
     The review session's phase-1 diagnosis makes that the cycle behind six-of-ten boot failures,
     and its operative conclusion is that any fix keeping blocking work in EventSwitchEnter keeps
     the cycle.
 
-    The flag is off by default because the mechanism is INFERRED, not confirmed. Both branches
-    are tested so flipping it is a one-line change with coverage already in place, rather than a
-    switch nobody has exercised -- this repo has shipped one of those in each direction.
+    This docstring used to say "punted LLDP ... at ~2.5/s", a number nobody had measured.
+    Measured 2026-08-25 (doc/audit/2026-08-25_ring-edge-fix Phase 5): 56-72/s over a boot,
+    136-210/s over the opening burst, so the 128 slots fill in 1.8-2.3 s rather than the ~50 s
+    the old figure implied -- and the LLDP guard moves that rate only 1.22x across a five-fold
+    change, so the stream is not LLDP-dominated either. See intelligent_router's comment on the
+    same branch for the library lines that explain the missing leverage.
+
+    The flag is no longer load-bearing: since the rebuild moved to _topology_worker neither
+    branch runs on the event loop, so this is now an ordinary latency choice rather than the
+    difference between a wedge and a boot. Both branches stay tested because that reclassification
+    is itself an unverified claim -- it was made in the same commit that moved the rebuild.
     """
 
     def test_inline_by_default(self):
@@ -245,6 +299,86 @@ class AsyncTopologyInstallTest(unittest.TestCase):
         run()
         self.assertIn(router.load_static_topology, router.spawned)
 
+
+class SwitchEnterHandlerTest(unittest.TestCase):
+    """What `get_topology_data` still promises now that the rebuild left it.
+
+    [Co-developed with claude code -- Adam]
+    The ring fix reduced this handler to three things -- record the dpid, mark the topology
+    dirty, make sure a worker exists -- and its whole value is that none of them can block. The
+    coalescing suite next door stubs the handler out to test the worker, so until now nothing
+    exercised the shipped handler body at all; the gate suite in this file did, and stopped
+    silently when the gate moved out from under it.
+
+    The load-bearing one is the single spawn. Ten switches enter at boot, and a handler that
+    spawned per event would start ten workers on the same dirty flag -- ten concurrent rebuilds,
+    which is the defect the coalescing worker exists to prevent, reintroduced one level up.
+    """
+
+    def _handler(self, router=None):
+        return load_method(switch_count=10, threshold=10, method=HANDLER, router=router)
+
+    def test_the_dpid_is_queued_for_the_worker(self):
+        run, router = self._handler()
+        run(dpid=7)
+        self.assertEqual(router._pending_switch_dpids, {7},
+                         "the worker drains this set; a dpid missing from it is a switch that "
+                         "never gets notified")
+
+    def test_it_marks_the_topology_dirty(self):
+        run, router = self._handler()
+        run()
+        self.assertTrue(router._topology_dirty.is_set(),
+                        "the worker waits on this flag -- unset means the rebuild never runs")
+
+    def test_the_worker_is_spawned_exactly_once_for_ten_switches(self):
+        run, router = self._handler()
+        for dpid in range(1, 11):
+            run(dpid=dpid)
+        workers = [f for f in router.spawned if f == router._topology_worker]
+        self.assertEqual(len(workers), 1,
+                         f"ten enter events spawned {len(workers)} workers; each one is another "
+                         f"concurrent rebuild of the same graph")
+        self.assertEqual(router._pending_switch_dpids, set(range(1, 11)),
+                         "every switch that entered must still be queued for the batch")
+
+    def test_a_second_event_while_dirty_is_counted_as_coalesced(self):
+        # The counter is what the SIGUSR2 dump reports; if it never moves, the dump says the
+        # worker is keeping up when it is actually behind.
+        run, router = self._handler()
+        run(dpid=1)
+        self.assertEqual(router._topology_coalesced, 0, "the first event coalesced nothing")
+        run(dpid=2)
+        run(dpid=3)
+        self.assertEqual(router._topology_coalesced, 2)
+
+    def test_it_says_a_switch_was_queued_rather_than_rebuilt(self):
+        # `Topology update triggered` counts rebuilds after the fix, so without this line the
+        # event count and the rebuild count become impossible to tell apart in a log.
+        run, router = self._handler()
+        run(dpid=4)
+        joined = " | ".join(router.logger.infos)
+        self.assertIn("queued", joined.lower(),
+                      f"nothing in the log distinguishes an event from a rebuild: {joined}")
+        self.assertIn("4", joined, f"the line does not say which switch: {joined}")
+
+    def test_the_handler_does_not_read_the_topology(self):
+        """The invariant, at the one place it can be checked without a fabric.
+
+        Any get_switch/get_link/get_all_host in this body is a synchronous request-reply back on
+        the event loop, which is the ring. Checked against the source rather than a run, because
+        a call that is present but not taken on this path would still close the ring on another.
+        """
+        with open(ROUTER) as fh:
+            tree = ast.parse(fh.read())
+        func = next(n for n in ast.walk(tree)
+                    if isinstance(n, ast.FunctionDef) and n.name == HANDLER)
+        called = {n.func.id for n in ast.walk(func)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+        forbidden = called & {"get_switch", "get_link", "get_all_host", "send_request"}
+        self.assertEqual(forbidden, set(),
+                         f"{HANDLER} calls {sorted(forbidden)} -- a synchronous request-reply on "
+                         f"the event loop is the ring this fix removed")
 
 
 if __name__ == "__main__":
