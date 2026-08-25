@@ -70,20 +70,32 @@ def main():
                 last[k] = v
         time.sleep(0.02)
 
-    # THE ESTIMATOR, and the first version of it was wrong. An edge only CHANGES value when it
-    # received new samples that iteration; at 1/256 a lightly-loaded edge has none in some passes,
-    # so its value goes 0 -> 0, no transition is recorded, and the gap to the next one is 2x or 3x
-    # the period. Taking a median over all edges therefore measures "period x average number of
-    # iterations skipped", which is biased UP and has a huge spread -- the first run gave a median
-    # of 1.539 s over a range of 0.383-2.916, which is that artefact and not a period.
+    # THE ESTIMATOR, third rewrite. Per-edge gaps have an unavoidable bias: an edge only changes
+    # when it got samples, so some iterations are skipped, and any per-edge statistic is either
+    # inflated (median, which averages in the skipped multiples) or deflated (a low percentile,
+    # which picks the short tail of the single-period cluster). The first gave 1.539, the second
+    # 1.135, and the second is a LOWER BOUND -- which is exactly the size of the "residual" I was
+    # about to go hunting for.
     #
-    # Two fixes, both needed. Rank edges by how often they move and keep only the busiest, which
-    # are the ones that get samples every pass. Then take the 10th percentile of their gaps rather
-    # than the median: the smallest real gaps are the un-skipped iterations, and a skipped
-    # iteration can only ever make a gap larger, never smaller.
-    # Switch-to-switch only. Host edges each carry one flow, so at 1/256 they miss whole
-    # iterations; core edges aggregate 16-32 flows and move on nearly every pass, which is the
-    # precondition for a gap to BE the period rather than a multiple of it.
+    # The fix is to stop looking at edges one at a time. The loop writes EVERY edge each pass, so
+    # across all edges together nearly every iteration produces at least one transition. Cluster
+    # the transition timestamps from all edges: each cluster is one iteration of the loop, and the
+    # spacing between cluster centres is the period, with no skipping to correct for.
+    all_ts = sorted(t for pts in series.values() for t, _ in pts)
+    clusters = []
+    for t in all_ts:
+        if clusters and t - clusters[-1][-1] < 0.35:      # same pass: writes land back to back
+            clusters[-1].append(t)
+        else:
+            clusters.append([t])
+    centres = [sum(c) / len(c) for c in clusters if len(c) >= 2]
+    cluster_gaps = sorted(centres[i + 1] - centres[i] for i in range(len(centres) - 1))
+    cluster_gaps = [g for g in cluster_gaps if g < 2.5]    # a gap that big is a missed cluster
+    cluster_period = statistics.mean(cluster_gaps) if len(cluster_gaps) >= 10 else None
+
+    # Kept for comparison, so the report can show the two estimators disagreeing in exactly the
+    # direction predicted: switch-to-switch edges only, tenth percentile of their gaps, which is
+    # a LOWER bound on the period because a skipped iteration can only lengthen a gap.
     core = {k: v for k, v in series.items()
             if not k.startswith("0:") and ":0" not in k.split("->")[1]}
     ranked = sorted(core.items(), key=lambda kv: -len(kv[1]))
@@ -95,7 +107,9 @@ def main():
         if len(gaps) >= 8:
             per_edge[k] = gaps[max(0, int(len(gaps) * 0.10))]
 
-    res = {"polls": n, "failed_polls": miss, "poll_hz": n / dur if dur else 0,
+    res = {"cluster_period_s": cluster_period, "clusters": len(centres),
+           "cluster_gap_median": statistics.median(cluster_gaps) if cluster_gaps else None,
+           "polls": n, "failed_polls": miss, "poll_hz": n / dur if dur else 0,
            "edges_that_moved": len(series), "edges_usable": len(per_edge),
            "per_edge_median_gap": per_edge}
     res["transitions_per_edge"] = {k: len(v) for k, v in
@@ -112,9 +126,13 @@ def main():
         print("🔴 INCONCLUSIVE: no edge changed often enough to time a period. Either there is no "
               "traffic, or the poll rate is below the loop rate. Not evidence of anything.")
         return 2
-    print(f"\nloop period: median {res['period_median_s']:.3f} s "
+    if cluster_period:
+        print(f"\n🔑 loop period from CLUSTERED transitions (all edges): "
+              f"mean {cluster_period:.3f} s over {len(cluster_gaps)} gaps, "
+              f"median {res['cluster_gap_median']:.3f}")
+    print(f"\nper-edge p10 estimator (lower bound, for comparison): median {res['period_median_s']:.3f} s "
           f"(range {res['period_min_s']:.3f}-{res['period_max_s']:.3f} over {len(per_edge)} edges)")
-    p = res["period_median_s"]
+    p = cluster_period or res["period_median_s"]
     print(f"\npredicted over-report from this period: {p:.3f}x")
     print(f"measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)")
     if p < 1.05:
