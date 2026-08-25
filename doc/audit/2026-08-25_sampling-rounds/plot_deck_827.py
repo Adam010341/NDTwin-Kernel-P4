@@ -463,6 +463,166 @@ def fig_merge_gate(name="page_merge-gate.png"):
     _save(fig, name)
 
 
+# ----------------------------------------------------------------- fig 6: shared-code bias
+#
+# The ratios are RECOMPUTED FROM RAW here rather than read out of analyze.py. That is deliberate:
+# analyze.py prints ratio next to per-edge min, and reading the wrong one of those two columns is
+# what produced "the headline did not reproduce" and cost a night. A figure that re-derives the
+# number from veth counters and twin bps cannot inherit that mistake.
+SCALE_RAW = f"{SCALE}/raw"
+RUNS = [("P4\n16 flows", "p4_condB"), ("OVS\n16 flows", "ovs_condB"),
+        ("P4\n64 flows", "p4_condA"), ("OVS\n64 flows", "ovs_condA")]
+CLASSES = ("host->switch", "switch->host", "switch->switch")
+
+
+def scale_ratios(run):
+    """class -> twin_bytes / veth_bytes over meta.json's nominal window.
+
+    Both sides are summed over the SAME edge population -- every edge that has a twin series, a
+    matching veth counter, and non-zero traffic. Splitting those populations is how a bias gets
+    read as double-counting.
+    """
+    p = f"{SCALE_RAW}/{run}/"
+    meta = json.load(open(p + "meta.json"))
+    lo, hi = meta["window_lo"], meta["window_hi"]
+
+    snaps = sorted((json.loads(l)["ts"], json.loads(l)["body"]["edges"])
+                   for l in open(p + "graph.jsonl"))
+    twin = {}
+    for i, (ts, edges) in enumerate(snaps):
+        nxt = snaps[i + 1][0] if i + 1 < len(snaps) else ts
+        dt = min(nxt, hi) - max(ts, lo)
+        if dt <= 0:
+            continue
+        for e in edges:
+            k = (e["src_dpid"], e["src_interface"], e["dst_dpid"], e["dst_interface"])
+            twin[k] = twin.get(k, 0.0) + e["link_bandwidth_usage_bps"] * dt / 8.0
+
+    series = {}
+    with open(p + "veth.tsv") as f:
+        next(f)
+        for line in f:
+            ts, iface, rx, tx = line.split("\t")
+            series.setdefault(iface, []).append((float(ts), int(rx), int(tx)))
+    for v in series.values():
+        v.sort()
+
+    def counter(iface, t, idx):
+        v = series.get(iface)
+        if not v:
+            return None
+        if t <= v[0][0]:
+            return float(v[0][idx])
+        if t >= v[-1][0]:
+            return float(v[-1][idx])
+        a, b = 0, len(v) - 1
+        while b - a > 1:
+            m = (a + b) // 2
+            (a, b) = (m, b) if v[m][0] <= t else (a, m)
+        if v[b][idx] < v[a][idx]:          # counter reset -- refuse to guess
+            return None
+        span = v[b][0] - v[a][0]
+        return (float(v[a][idx]) + (float(v[b][idx]) - float(v[a][idx]))
+                * ((t - v[a][0]) / span) if span > 0 else float(v[a][idx]))
+
+    agg = {c: [0.0, 0.0] for c in CLASSES}
+    for (sd, si, dd, di), tb in twin.items():
+        if sd == 0 and dd != 0:
+            cls, iface, idx = CLASSES[0], f"s{dd}-eth{di}", 1      # rx at the switch
+        elif dd == 0 and sd != 0:
+            cls, iface, idx = CLASSES[1], f"s{sd}-eth{si}", 2      # tx from the switch
+        elif sd != 0 and dd != 0:
+            cls, iface, idx = CLASSES[2], f"s{sd}-eth{si}", 2
+        else:
+            continue
+        a, b = counter(iface, lo, idx), counter(iface, hi, idx)
+        if a is None or b is None or b - a <= 0:
+            continue
+        agg[cls][0] += b - a
+        agg[cls][1] += tb
+    return {c: (t / v) for c, (v, t) in agg.items() if v > 0}
+
+
+def _box(ax, x, y, w, h, label, face, edge, fs=10.5, tc=None):
+    ax.add_patch(plt.Rectangle((x, y), w, h, facecolor=face, edgecolor=edge,
+                               linewidth=1.8, zorder=3))
+    ax.text(x + w / 2, y + h / 2, label, ha="center", va="center",
+            color=tc or INK, fontsize=fs, fontweight="bold", zorder=4)
+
+
+def fig_concurrency_shared(name="page_shared-code-bias.png"):
+    """Left: why the cause must be in shared code. Right: the twelve measurements saying so."""
+    data = {run: scale_ratios(run) for _, run in RUNS}
+
+    fig = plt.figure(figsize=WIDE)
+    _title(fig, "Two sampling paths with nothing in common, one shared bias",
+           "The sample-generation paths share no code at all; accounting and publishing are the "
+           "same file. Both planes read high — so the cause is after the join.")
+    gs = fig.add_gridspec(1, 2, left=0.035, right=0.982, top=0.775, bottom=0.115,
+                          wspace=0.16, width_ratios=[1.22, 1])
+
+    # ---- left: the argument
+    ax = fig.add_subplot(gs[0, 0])
+    ax.set_xlim(0, 100); ax.set_ylim(0, 100); ax.axis("off")
+    for s in ("top", "right", "left", "bottom"):
+        ax.spines[s].set_visible(False)
+
+    _box(ax, 2, 66, 21, 15, "bmv2\nclone-to-CPU", "#DCE7EE", ACCENT)
+    _box(ax, 26, 66, 15, 15, "proxy", "#DCE7EE", ACCENT)
+    _box(ax, 44, 66, 15, 15, "gRPC", "#DCE7EE", ACCENT)
+    ax.text(2, 84, "P4 plane", color=ACCENT, fontsize=12, fontweight="bold")
+
+    _box(ax, 2, 30, 57, 15, "OVS's own sFlow agent", "#F2E0DC", WARNC)
+    ax.text(2, 48, "OVS plane", color=WARNC, fontsize=12, fontweight="bold")
+
+    for y0 in (73.5, 37.5):
+        ax.annotate("", xy=(66, 56), xytext=(59.5, y0),
+                    arrowprops=dict(arrowstyle="-|>", color=FAINT, lw=2.2))
+    _box(ax, 66, 40, 31, 32,
+         "SHARED\n\nFlowLinkUsage-\nCollector\n\naccounting +\npublishing", "#E6E6E6", MUTED,
+         fs=11)
+    ax.annotate("", xy=(81.5, 24), xytext=(81.5, 39),
+                arrowprops=dict(arrowstyle="-|>", color=WARNC, lw=2.6))
+    ax.text(81.5, 19, "published bit-rate", ha="center", color=INK,
+            fontsize=11.5, fontweight="bold")
+    ax.text(81.5, 12.5, "reads high on BOTH planes", ha="center", color=WARNC,
+            fontsize=11.5, fontweight="bold")
+    ax.text(2, 12.5, "Nothing above the join is shared —\n"
+            "different code, different packet path,\ndifferent process.",
+            color=MUTED, fontsize=11, va="center")
+
+    # ---- right: the measurements
+    ax = fig.add_subplot(gs[0, 1])
+    ax.axhline(1.0, color=INK, lw=1.6, zorder=2)
+    ax.text(-0.42, 1.005, "1.00 = twin agrees with the counters", color=MUTED,
+            fontsize=10.5, va="bottom")
+    ax.axvspan(-0.5, 1.5, color=ACCENT_BG, zorder=0)
+    for i, (lab, run) in enumerate(RUNS):
+        vals = [data[run][c] for c in CLASSES if c in data[run]]
+        for v in vals:
+            ax.plot([i], [v], "o", ms=13, color=ACCENT, mec="white", mew=2, zorder=4)
+        # Three decimals, not two: OVS-64 spans 1.389-1.392, which at two decimals prints
+        # "1.39-1.39" and reads as a typo rather than as the flatness that is the point.
+        ax.text(i, max(vals) + 0.022, f"{min(vals):.3f}–{max(vals):.3f}", ha="center",
+                color=INK, fontsize=10.5, fontweight="bold")
+    ovs64 = [data["ovs_condA"][c] for c in CLASSES if c in data["ovs_condA"]]
+    ax.annotate("three different packet paths,\nsame multiplier — 0.2% apart",
+                xy=(3.13, sum(ovs64) / len(ovs64)), xytext=(1.75, 1.075),
+                color=WARNC, fontsize=11.5, fontweight="bold",
+                arrowprops=dict(arrowstyle="-|>", color=WARNC, lw=1.8))
+    ax.set_xticks(range(len(RUNS)))
+    ax.set_xticklabels([r[0] for r in RUNS], color=MUTED, fontsize=11.5)
+    ax.set_xlim(-0.5, len(RUNS) - 0.4)
+    _frame(ax, "twin ÷ interface counters")
+    ax.set_title("Every edge class, every run, above 1.00",
+                 color=INK, fontsize=13, fontweight="bold", loc="left", pad=9)
+    fig.text(0.982, 0.028,
+             "Heights are per-run: the same configuration measured 14.8% apart on two fabric "
+             "generations, so compare the direction, not the magnitudes.",
+             ha="right", color=MUTED, fontsize=10.5)
+    _save(fig, name)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     fig_truncate()
@@ -470,3 +630,4 @@ if __name__ == "__main__":
     fig_bottleneck()
     fig_period()
     fig_merge_gate()
+    fig_concurrency_shared()
