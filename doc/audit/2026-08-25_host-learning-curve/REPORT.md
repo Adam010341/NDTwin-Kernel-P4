@@ -39,10 +39,15 @@ confirming again that the gate is a constant, not a variable.
 **The loaded arm is unchanged. Only the quiet arm moved.** That is the third independent strike
 against CPU contention as the ring's trigger — and note the direction is counter-intuitive: load
 does not make the ring *more* likely, it appears to **substitute a different failure** that
-completes in ~80s instead of hanging for 411s. Uptime remains the only covariate standing, now
-with a far sharper contrast than the single reboot boundary that suggested it.
+completes in ~80s instead of hanging for 411s.
 
-⚠️ Still a correlation. Two uptime points, one machine, no controlled manipulation.
+🔴 **CORRECTED 2026-08-25 (audit session).** This section said "uptime remains the only covariate
+standing". **The very next round killed that framing.** At 17.48 h the quiet arm wedged 4/4; at
+18.43 h — *same `boot_id`, one hour later, no reboot in between* — defaults wedged only 1/4. So the
+rate is **not monotonic in uptime**, and "a reboot clears it" does not fit either, because nothing
+was rebooted. What survives is narrower: the reboot-boundary correlation (session −1 at ~67 h
+wedged 6/10; session 0's first 50 boots produced zero rings), with **non-monotonic behaviour inside
+a session and no known mechanism**. See `2026-08-25_ring-fix-verify/REPORT.md`.
 
 ## The dump — `7f7de4a`'s first capture of a live ring
 
