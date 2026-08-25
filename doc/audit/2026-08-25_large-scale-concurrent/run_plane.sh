@@ -52,7 +52,18 @@ PY
   echo "label=$LABEL"
   echo "flow_s=$FLOW_S warm_s=$WARM_S win_s=$WIN_S"
   echo "bmv2: $(pgrep -a simple_switch_grpc | head -1)"
-  echo "kernel: $(pgrep -a ndtwin_kernel | head -1)"
+  # NOT `pgrep -a ndtwin_kernel | head -1`. That takes the LOWEST matching pid, not the one this
+  # fabric started, so a kernel that outlived a teardown silently wins -- and `stopped kernel` in
+  # the log does not prove it died. The 8/25 sampling session hit exactly this on 2026-08-25:
+  # two runs reported the same pid and they briefly concluded a rebuild had not happened, when
+  # the bring-up log showed two different pids. My own four runs happened to be right, but by
+  # luck rather than method, so the method is fixed and the count is asserted.
+  k_all="$(pgrep -a ndtwin_kernel || true)"
+  k_n="$(printf '%s\n' "$k_all" | grep -c . || true)"
+  echo "kernel: $(printf '%s\n' "$k_all" | head -1)"
+  echo "kernel_instances: $k_n"
+  [ "$k_n" = 1 ] || echo "  🔴 $k_n kernels match, so the pid above may not be this fabric's --" \
+                        "cross-check the bring-up log's 'started kernel (pid N)' before using it"
   echo "proxy: $(pgrep -af 'proxy_agent|p4_proxy' | head -1)"
 } > "$OUT/binaries.txt"
 cat "$OUT/binaries.txt" | sed 's/^/  /'
