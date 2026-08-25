@@ -1722,9 +1722,71 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     const auto rateLoopStartedAt = std::chrono::steady_clock::now();
     constexpr auto kNoSampleGrace = std::chrono::seconds(60);
 
+    // [Co-developed with claude code -- Adam]
+    // THE PERIOD OF THIS LOOP IS THE DENOMINATOR OF EVERY RATE IT PUBLISHES, and until this line
+    // existed nobody had measured it. The accumulator below is drained once per iteration and
+    // handed on as bits-per-second (see updateLinkInfoLeftLinkBandwidth), which is only correct
+    // if an iteration takes exactly one second. It cannot: the sleep is a full second and the
+    // body runs after it. So every reported link rate is over-stated by (real period / 1 s).
+    //
+    // Measured externally four different ways on 2026-08-25 and all four were untrustworthy --
+    // 1.539, 1.135, 1.032, 0.873, the last below the sleep's own floor and therefore impossible.
+    // Polling the HTTP graph cannot resolve this; the loop has to say so itself.
+    //
+    // It is also the acceptance instrument for the fix. Once the accumulator is divided by the
+    // measured interval instead of an assumed one, this line must read ~1000 ms forever.
+    //
+    // Logged every iteration at DEBUG (off by default) and summarised at INFO every 30, so the
+    // steady state is greppable without the per-second flood this file has had to undo before.
+    // flows and counters are here because the body walks both, so they are the first thing to
+    // look at if the period grows.
+    auto lastIterStart = std::chrono::steady_clock::now();
+    uint64_t iterCount = 0;
+    double periodSumMs = 0.0, periodMinMs = 1e30, periodMaxMs = 0.0;
+
     while (m_running.load())
     {
         this_thread::sleep_for(chrono::seconds(1));
+
+        {
+            const auto nowIter = std::chrono::steady_clock::now();
+            const double periodMs =
+                std::chrono::duration<double, std::milli>(nowIter - lastIterStart).count();
+            lastIterStart = nowIter;
+            ++iterCount;
+            // Skip the first: lastIterStart was set before the loop, so interval 1 is short by
+            // however long setup took and is not a period at all.
+            if (iterCount > 1)
+            {
+                periodSumMs += periodMs;
+                periodMinMs = std::min(periodMinMs, periodMs);
+                periodMaxMs = std::max(periodMaxMs, periodMs);
+            }
+
+            size_t nFlows = 0, nCounters = 0;
+            {
+                shared_lock fl(m_flowInfoTableMutex);
+                nFlows = m_flowInfoTable.size();
+            }
+            {
+                shared_lock cl(m_counterReportsMutex);
+                nCounters = m_counterReports.size();
+            }
+
+            SPDLOG_LOGGER_DEBUG(Logger::instance(),
+                                "rate loop period {:.1f} ms (flows={}, counters={})",
+                                periodMs, nFlows, nCounters);
+            if (iterCount > 1 && iterCount % 30 == 0)
+            {
+                SPDLOG_LOGGER_INFO(
+                    Logger::instance(),
+                    "rate loop period over {} iterations: mean {:.1f} ms, min {:.1f}, max {:.1f} "
+                    "(flows={}, counters={}) -- this is the denominator every published bps "
+                    "assumes is 1000",
+                    iterCount - 1, periodSumMs / double(iterCount - 1), periodMinMs, periodMaxMs,
+                    nFlows, nCounters);
+            }
+        }
 
         // Estimate average flow sending rate
         {
