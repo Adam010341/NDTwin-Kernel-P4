@@ -45,12 +45,28 @@ fi
 
 echo "=== starting from $REPO/build/bin/ndtwin_kernel ==="
 echo "  on-disk sha256: $(sha256sum "$REPO/build/bin/ndtwin_kernel" | awk '{print $1}')"
-( cd "$REPO/build" && nohup ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai \
-    >>"$LOG" 2>&1 & echo $! > "$PIDF" )
-new="$(cat "$PIDF")"
+# `( cd X && nohup Y & echo $! )` records the wrong pid. The `&` backgrounds the whole
+# `cd && nohup` list, so bash forks a subshell to run it and $! is that subshell -- which
+# keeps the parent's argv and whose /proc/<pid>/exe is /usr/bin/bash. The kernel is its
+# child, one pid higher. That is exactly what happened on the first live run of this script:
+# it recorded 3487292, a bash wrapper, while the kernel ran as 3487293. Backgrounding a
+# single simple command from the top level instead lets bash exec into it, so $! is the
+# process itself. Every liveness and identity check downstream reads that pid, so getting it
+# wrong here would have poisoned all of them at once.
+cd "$REPO/build" || { echo "🔴 cannot cd to $REPO/build"; exit 1; }
+nohup ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai >>"$LOG" 2>&1 &
+new=$!
+cd - >/dev/null || true
+echo "$new" > "$PIDF"
 echo "  new pid: $new"
 sleep 2
 kill -0 "$new" 2>/dev/null || { echo "🔴 new kernel died immediately -- see $LOG"; tail -20 "$LOG"; exit 1; }
+# The launcher above is the reason this next assertion has to be about bytes rather than
+# liveness: `kill -0` on the bash wrapper succeeded too.
+case "$(readlink -f "/proc/$new/exe" 2>/dev/null)" in
+    */ndtwin_kernel) : ;;
+    *) echo "🔴 pid $new is $(readlink -f /proc/$new/exe), not the kernel -- launcher recorded a wrapper"; exit 1 ;;
+esac
 
 # THE assertion. A path is not the bytes; this is.
 got="$(sha256sum "/proc/$new/exe" 2>/dev/null | awk '{print $1}')"
