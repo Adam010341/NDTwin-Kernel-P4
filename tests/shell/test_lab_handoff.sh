@@ -56,9 +56,26 @@ NDT="$SANDBOX/tools/test_workflow/ndt"
 lab_section() { bash "$NDT" status 2>/dev/null | sed -n '/^lab/,/^$/p'; }
 has_handoff()  { lab_section | grep -qi "handoff" && echo yes || echo no; }
 
+# THE FIXTURE IS DELIBERATELY UNMISTAKABLE, and that is the load-bearing part of it.
+#
+# The first version of this check used by=8/25 sampling / at=<today> / note=ticket D done, safe
+# to tear down. The real handoff written by that session an hour later read "ticket D finished
+# 20:05. Fabric left up and freshly restored -- take it or tear it down". Near enough word for
+# word. When I leaked the fixture into the live workspace, the only thing distinguishing it from
+# a genuine handoff was the by= and at= fields, which nobody interrogates on a note that reads
+# perfectly plausibly -- and its instruction was "safe to tear down", i.e. it would have induced
+# a destructive action against a fabric someone was running on.
+#
+# So the fixture now announces itself. An owner nobody has, an epoch timestamp, and a note whose
+# first words tell a human reading it in a live workspace that a test leaked. Suggested by the
+# 8/25 sampling session after the near miss; it costs nothing and removes the whole failure mode.
 write_handoff() {
-    printf 'by=8/25 sampling\nat=2026-08-25T20:15:00+08:00\nfabric=up\ntopology=p4 128\nnote=%s\n' \
-        "ticket D done, safe to tear down" > "$SANDBOX/.test_run/lab.handoff"
+    printf 'by=%s\nat=%s\nfabric=up\ntopology=%s\nnote=%s\n' \
+        "TEST-DO-NOT-TRUST" \
+        "1970-01-01T00:00:00Z" \
+        "TEST FIXTURE -- not a real topology" \
+        "SYNTHETIC FIXTURE from tests/shell/test_lab_handoff.sh. If you are reading this in a live workspace a test leaked; it is NOT a handoff and says nothing about the lab." \
+        > "$SANDBOX/.test_run/lab.handoff"
 }
 
 echo "ndt status handoff line"
@@ -72,11 +89,11 @@ check "no handoff file, no handoff line" "no" "$(has_handoff)"
 write_handoff
 check "handoff shown when the lab is unclaimed" "yes" "$(has_handoff)"
 check "it says who left it" "yes" \
-      "$(lab_section | grep -q '8/25 sampling' && echo yes || echo no)"
+      "$(lab_section | grep -q 'TEST-DO-NOT-TRUST' && echo yes || echo no)"
 check "it says what state the fabric is in" "yes" \
       "$(lab_section | grep -q 'fabric up' && echo yes || echo no)"
 check "it carries the free-text note" "yes" \
-      "$(lab_section | grep -q 'safe to tear down' && echo yes || echo no)"
+      "$(lab_section | grep -q 'SYNTHETIC FIXTURE' && echo yes || echo no)"
 check "it states the rule, so the reader need not remember it" "yes" \
       "$(lab_section | grep -q 'the lab is free' && echo yes || echo no)"
 
@@ -87,12 +104,41 @@ printf 'owner=someone else\nexpires=%s\nnote=busy\n' "$(( $(date +%s) + 3600 ))"
 check "a live claim suppresses the handoff line" "no" "$(has_handoff)"
 check "and the claim itself is still reported" "yes" \
       "$(lab_section | grep -q 'someone else' && echo yes || echo no)"
+check "the fixture is not mistakable for a real handoff" "yes" \
+      "$(write_handoff; grep -q 'TEST-DO-NOT-TRUST' "$SANDBOX/.test_run/lab.handoff" \
+         && grep -q '1970' "$SANDBOX/.test_run/lab.handoff" && echo yes || echo no)"
 
 # 4. An expired claim is treated as free everywhere else in this tool, so the handoff must come
 #    back with it -- otherwise a crashed session hides the note forever.
 printf 'owner=someone else\nexpires=%s\nnote=busy\n' "$(( $(date +%s) - 60 ))" \
     > "$SANDBOX/.test_run/lab.claim"
 check "an expired claim does not hide the handoff" "yes" "$(has_handoff)"
+
+# 6. Claiming invalidates the note. Adam's ruling, argued by the 8/25 sampling session: deletion
+#    must follow RESPONSIBILITY, not reading. A reader who merely looked and left would otherwise
+#    destroy the note for whoever actually takes the lab, two readers race, and it relies on
+#    someone remembering. The rename keeps an interrupted handover reconstructable.
+rm -f "$SANDBOX/.test_run/lab.claim" "$SANDBOX/.test_run/lab.handoff.prev"
+write_handoff
+NDT_OWNER="test-owner" bash "$NDT" claim 5 "unit test" >/dev/null 2>&1
+check "claiming removes the handoff" "no" \
+      "$([[ -f "$SANDBOX/.test_run/lab.handoff" ]] && echo yes || echo no)"
+check "and keeps it as .prev, so an interrupted handover survives" "yes" \
+      "$([[ -f "$SANDBOX/.test_run/lab.handoff.prev" ]] && echo yes || echo no)"
+check "so status shows no handoff once someone owns the lab" "no" "$(has_handoff)"
+
+# 7. Releasing must NOT resurrect it. The next holder gets "no handoff" -- which is the correct
+#    direction to fail -- rather than a note describing a fabric two owners ago.
+NDT_OWNER="test-owner" bash "$NDT" release >/dev/null 2>&1
+check "releasing does not bring the old note back" "no" "$(has_handoff)"
+
+# 8. Claiming with no note present must not invent one or fail.
+rm -f "$SANDBOX/.test_run/lab.claim" "$SANDBOX/.test_run/lab.handoff" "$SANDBOX/.test_run/lab.handoff.prev"
+NDT_OWNER="test-owner" bash "$NDT" claim 5 "unit test" >/dev/null 2>&1
+check "claiming with no handoff present is fine" "0" "$?"
+check "and does not create one" "no" \
+      "$([[ -f "$SANDBOX/.test_run/lab.handoff" ]] && echo yes || echo no)"
+NDT_OWNER="test-owner" bash "$NDT" release >/dev/null 2>&1
 
 # 5. A truncated handoff must degrade, not break: the writer is a peer session, not this tool,
 #    so half-written and hand-edited files are expected input.

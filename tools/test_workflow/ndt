@@ -275,6 +275,25 @@ cmd_claim() {
     mkdir -p "$(dirname "$CLAIM")"
     printf 'owner=%s\nexpires=%s\nnote=%s\n' \
         "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" > "$CLAIM"
+    # [Co-developed with claude code -- Adam]
+    # Claiming invalidates any handoff note. Adam ruled this after the 8/25 sampling session
+    # argued it, and their argument is the right one: deletion has to be tied to taking
+    # RESPONSIBILITY, not to reading. "Whoever reads it deletes it" fails three ways -- a reader
+    # who merely looked and walked away destroys the note for the next person who actually takes
+    # the lab; two sessions checking at once race; and it relies on a human remembering, which is
+    # the exact class of unwritten expectation that caused the ambiguity this whole mechanism
+    # exists to fix.
+    #
+    # Renamed rather than removed, so an interrupted handover can still be reconstructed.
+    #
+    # The residual risk is someone claiming and releasing without writing a new note. Then the old
+    # one is already gone and status degrades to "no handoff" rather than showing a stale one --
+    # which is the correct direction to fail. A missing note costs a question; a note that says
+    # "safe to tear down" about a live fabric costs an experiment.
+    if [[ -f "$HANDOFF" ]]; then
+        mv -f "$HANDOFF" "$HANDOFF.prev" 2>/dev/null \
+            && echo "  ${D}previous handoff note superseded by this claim (kept as lab.handoff.prev)${N}"
+    fi
     ok "lab claimed by $NDT_OWNER for ${mins}m${note:+ ($note)}"
 }
 
