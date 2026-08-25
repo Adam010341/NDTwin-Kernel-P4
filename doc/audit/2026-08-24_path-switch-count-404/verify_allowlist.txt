@@ -1,0 +1,26 @@
+
+# P1-3 acceptance: startup 404 vs the contract gate
+# date: 2026-08-25T09:48:28+0800  commit: 0634cd7
+# uptime_h=16.78
+
+=== arm: after ===
+  ndt up exited nonzero -- see verify_after_up.out
+  first direct query returned HTTP 404
+  contract rc=1
+    PASS [404]  get_path_switch_count
+  PASS [400]  get_path_switch_count__bad_ip
+
+# mutation applied: expect_status -> [200]
+
+=== arm: before ===
+  first direct query returned HTTP 404
+  contract rc=1
+    FAIL [404]  get_path_switch_count
+  PASS [400]  get_path_switch_count__bad_ip
+FAILED checks: get_switch_openflow_table_entries, get_path_switch_count, get_power_report, get_cpu_utilization, get_memory_utilization, get_temperature
+# spec.py restored to the working-tree version (uncommitted changes present, expected)
+
+# READ THIS BEFORE BELIEVING THE RESULT:
+#   valid   -> 'after' saw HTTP 404 and passed, 'before' saw 404 and failed on this endpoint
+#   invalid -> neither arm saw a 404; the transient did not occur and nothing was tested
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_path-switch-count-404/verify_allowlist.txt

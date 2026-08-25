@@ -83,27 +83,55 @@ success. That is a defect in the verification, separate from the defect in the d
 
 ## Mechanism: open, deliberately
 
-Loaded boots do **more** host learning and **more** route recomputation than quiet ones:
+🔴 **CORRECTED 2026-08-25.** The first version of this section claimed loaded boots do "**more**
+host learning" on the strength of 197 vs 93 MAC→port log lines. **That was wrong, and it was the
+centrepiece of the argument.** The audit session challenged the table's provenance (note S-1);
+re-deriving it refuted my own claim.
 
-| | MAC→port entries | all-pair installs | hosts with IPv4 | down |
-|---|---|---|---|---|
-| loaded | **197** | 3–4 | **0** | 256 |
-| quiet | 93 | 2 | 128 | 0 |
+Provenance first — the exact commands, run against the archived `raw/*_ryu.log`:
 
-So "load shortens the learning window" **does not fit** — a slower walk should widen it, and MAC
-learning is abundant. The failure is specific to **IPv4 association**, which is a different table
-from MAC→port: `hosts=N/128` counts `/v1.0/topology/hosts` entries carrying an `ipv4` field, and per
-the punt-window mechanism that field is only populated from IP packet-ins, with ARP blocked by
-static ARP.
+```
+grep -cE "^[0-9a-f]{2}(:[0-9a-f]{2}){5} -> "  <log>   # MAC→port LOG LINES  (not distinct hosts)
+grep -oE "^[0-9a-f]{2}(:[0-9a-f]{2}){5}" <log> | sort -u | wc -l   # distinct MACs
+grep -c  "install_all_pair_paths done"        <log>   # COMPLETED installs
+```
 
-Connecting the extra all-pair reinstalls to zero IPv4 would be a story that fits the numbers. The
-next step is to open the code that populates that field, not to write the story. **Do not cite a
-mechanism for this until someone has.**
+| | MAC→port **lines** | **distinct MACs** | completed all-pair installs | walk time | hosts with IPv4 | down |
+|---|---|---|---|---|---|---|
+| loaded (p3) | 197 | **128** | **2** | **1.207 s / 1.190 s** | **0** | 256 |
+| quiet (p3) | 93 | **128** | **1** | **0.239 s** | 128 | 0 |
 
-En route I nearly recorded the opposite of the table above: a normalized `diff` of the two logs put
-the MAC→port lines in the "only in quiet" column, because the diff was over sorted line *shapes*
-whose MAC values differ. Counting refuted it. That was the fifth wrong mechanism killed in this
-session's work.
+Two corrections fall out:
+
+1. **MAC learning is identical, not greater.** Both arms learn all **128** distinct MACs. The
+   197-vs-93 line count is an artifact of *how often the table is dumped*: the MAC lines cluster
+   around each install marker (loaded: lines 545–634, 813–850, 1154–1222; quiet: a single 523–615
+   block). Loaded dumps it more often because it installs more often. Counting lines where I should
+   have counted distinct keys turned "printed twice" into "learned more".
+2. **"3–4 installs vs 2" were log lines, not installs.** Each install emits a start line *and* a
+   `done:` line, so the completed-install counts are **2 vs 1**. The audit session's
+   `install_all_pair_paths done` is the correct measure; my unanchored `install_all_pair_paths`
+   double-counted. Their reported 2/1 and my 4/2 are the same observation under different strings.
+
+What survives, and is now measured rather than inferred: under load the all-pair install runs
+**twice instead of once**, and each walk takes **~5× longer** (1.2 s vs 0.24 s). Both arms' `done:`
+lines report an *identical* `hosts=128 pairs=16256 rules=1280 paths=16256` — so the model-driven
+install sees all 128 hosts and installs every path in both cases.
+
+So the failure is still specific to **IPv4 association** — a different table from both MAC→port and
+the static model. `hosts=N/128` counts `/v1.0/topology/hosts` entries carrying an `ipv4` field,
+which per the punt-window mechanism is populated only from IP packet-ins, with ARP blocked by static
+ARP. "Load shortens the learning window" still **does not fit**: the walk is slower, which should
+widen it.
+
+**The mechanism remains open and must stay open.** The next step is to read the code that populates
+that field. **Do not cite a mechanism for this until someone has.**
+
+Two wrong mechanisms died in this section alone. First, a normalized `diff` put the MAC→port lines
+in the "only in quiet" column — an artifact of diffing sorted line *shapes* whose MAC values differ
+— and counting refuted it. Then the count itself was refuted by counting *distinct* keys instead of
+lines. Both had a plausible story attached and both were wrong; the second one survived into a
+committed report and was caught only because a reviewer asked where the numbers came from.
 
 ## Caveats, recorded rather than left to be found
 
