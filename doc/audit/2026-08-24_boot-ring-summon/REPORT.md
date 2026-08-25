@@ -1,7 +1,15 @@
-# Summoning round — CPU contention does not summon the ring, but it breaks settle
+# Summoning round — CPU contention does not summon the ring; it breaks host learning *after* the gate
 
-**Headline: the boot ring did not reproduce in 16 boots. What CPU contention reproduces, 8 out
-of 8, is a different and permanent failure — `settle=40` closing with zero host IPv4s learned.**
+**Headline: the boot ring did not reproduce in 16 boots. What CPU contention reproduces, 8 out of 8,
+is a different and permanent failure — the twin ending with zero host IPv4s and 256 edges down.**
+
+⚠️ **Title and headline corrected 2026-08-25.** Both originally blamed `settle=40`. They were wrong:
+the settle gate times out at `0/128` on **all 16 boots, including every healthy one**, so it cannot
+be what separates the arms. The failure is downstream of it — see "The finding that matters".
+
+⚠️ **The class name `SETTLE-HOSTS` in the raw data is therefore a misnomer.** It is left unchanged
+because the raws are write-once evidence and renaming them retroactively would be worse than a
+badly-named-but-defined label. Read it as "twin ends with no host IPv4s", not as "settle caused it".
 
 ## Why this experiment, and not "dirty vs cold"
 
@@ -72,9 +80,39 @@ value and is now independently confirmed for the load-induced case rather than i
 
 ## The finding that matters
 
-**`settle=40` is not robust under CPU contention — 8/8, permanently, producing a twin blind to all
-128 hosts.** §5-P already recorded that this default came from a bisect curve with one sample per
-point and that "選值的依據比它看起來的弱". This is direct evidence it does not hold off an idle machine.
+🔴 **RETRACTED AND REPLACED 2026-08-25.** This section said: *"`settle=40` is not robust under CPU
+contention — 8/8"*. **The attribution was wrong.** It went into this report, into memory, and was
+relayed to the audit session as a new open finding before I caught it.
+
+`intelligent_router.py:975-989` logs a host-learning progress trace every 10 s. It was in all 16
+archived `ryu.log`s the whole time and I had not read it. Every boot — **loaded and quiet alike** —
+reads:
+
+```
+host discovery: 0/128 after 10s / 20s / 30s / 40s
+host discovery incomplete after 40s: 0/128 hosts have an IPv4. Installing paths anyway.
+```
+
+**16 of 16, byte-identical, including all eight quiet boots that ended perfectly healthy at
+128/128.**
+
+⇒ **The settle gate is not the discriminator.** It times out at `0/128` on every boot, including
+every successful one. The two arms diverge *entirely after* the gate gives up and paths install:
+quiet learns all 128 hosts in that window, loaded never does.
+
+So the correct statement is:
+
+> Loaded and quiet behave **identically** at the settle gate (16/16 time out at 40 s with 0/128).
+> The difference is **post-install host learning**: quiet acquires 128 hosts after the gate
+> releases, loaded acquires none. **The defect is downstream of the settle value, not in it.**
+
+The observations are untouched — loaded ends 0/128 with 256 down and stays there for 12 hours;
+quiet ends 128/128. What was wrong was hanging them on `settle`. And the follow-on inference —
+"raise settle and it will hold under load" — is now not merely unsupported but *doubtful*: the gate
+already times out on healthy boots, so granting it more time does not change that it times out.
+
+This also killed the experiment it implied. A settle sweep (40/60/90/150) would have been tuning a
+knob the evidence says is not connected to the outcome.
 
 **And `ndt` reports `up. ready` while it happens.** Its `[4/4] verify` passes all three checks,
 because "kernel graph matches the model file: 128 hosts, 288 edges" counts **edges**, not their
