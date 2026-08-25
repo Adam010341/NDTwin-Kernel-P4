@@ -87,3 +87,7 @@ t+1182s  hosts=0/128  edges=288  down=256  loaded=0
 t+1198s  hosts=0/128  edges=288  down=256  loaded=0
 # final: 0 288 256
 done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_boot-ring-summon/probe_persistence.txt
+=== 12-HOUR persistence reading, captured before teardown ===
+# UNPLANNED: probe_persistence.sh has no teardown, so the failed fabric stayed up.
+# ryu pid 1125499 started Mon Aug 24 21:52:44; reading now:
+t+42390s  hosts=0/128  edges/down=288 256  loaded=0

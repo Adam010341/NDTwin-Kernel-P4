@@ -92,4 +92,20 @@ done
 
 load_stop
 say "# final: $(twin)"
+
+# Tear the fabric down. The first run of this script did NOT, and the failed fabric -- 139
+# host/switch processes, the kernel, and Ryu -- stayed up for ~12 hours until someone noticed.
+# A probe that leaves its subject running is a leak, and the next person to measure anything
+# inherits a machine with a dead OVS fabric on it.
+#
+# The accident was informative, which does not make it acceptable: the 11.8h reading it produced
+# (hosts=0/128, 256 down, byte-identical to t+0 on an idle machine) is recorded above and is now
+# the strongest persistence evidence we have. Reproduce that DELIBERATELY with PROBE_HOLD=1
+# rather than by forgetting to clean up.
+if [[ -n "${PROBE_HOLD:-}" ]]; then
+    say "# PROBE_HOLD set -- leaving the fabric up ON PURPOSE. Run 'ndt down' when finished."
+else
+    ndt down >/dev/null 2>&1
+    say "# fabric torn down"
+fi
 say "done -> $OUT"

@@ -60,6 +60,12 @@ from "learned after t+20". `probe_persistence.sh` settles it: one loaded boot, t
 **80 of 80 samples at `hosts=0/128, down=256`.** Ten minutes under load, then ten minutes idle —
 no recovery at any point. Removing the cause does not undo the effect.
 
+**Extended to ~12 hours, by accident.** This script had no teardown, so the failed fabric stayed up
+overnight. Read again at **t+42390 s (11.8 h)** on a fully idle machine: `hosts=0/128, 288 edges,
+256 down` — byte-identical to t+0. That is the strongest persistence evidence in this round, and it
+exists because of a leak, not a design: 139 host/switch processes, the kernel and Ryu ran for half a
+day unattended. The script now tears down, with `PROBE_HOLD=1` to hold the fabric deliberately.
+
 So "FAILED" is the right word, and this matches the settle-*value* regression's known shape: once
 the learning window closes empty, it stays closed. That property was established for the settle
 value and is now independently confirmed for the load-induced case rather than inherited.
@@ -118,7 +124,8 @@ session's work.
 
 ## Harness defects, all three found on the first live run
 
-All three were in the load lifecycle, and all three are the reason the file looks paranoid:
+All in the load lifecycle, and the reason that file looks paranoid. A fourth, in the probe, is
+above: no teardown, which leaked a whole fabric for 12 hours.
 
 1. **Command-substitution deadlock.** `workers_up=$(load_start)` hangs forever — `$(...)` waits for
    every background child to close stdout and the busy-loops inherit that pipe. **18 minutes, zero
