@@ -1,0 +1,2537 @@
+
+==============================================================================
+greenlet dump  pid=1647153  at=2026-08-25T11:15:02
+==============================================================================
+
+--- greenlet 0x789270c56940  state=parked  parent=none
+      File "/home/adam/miniconda3/envs/ryu-env/bin/ryu-manager", line 8, in <module>
+    sys.exit(main())
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/cmd/manager.py", line 109, in main
+    hub.joinall(services)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 103, in joinall
+    t.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 181, in wait
+    return self._exit_event.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/event.py", line 125, in wait
+    result = hub.switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926fe8bf80  state=current  parent=0x789270c56940
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e8eac40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/switches.py", line 949, in lldp_loop
+    hub.sleep(self.LLDP_SEND_GUARD)      # don't burst
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 36, in sleep
+    hub.switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8eae40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/switches.py", line 975, in link_loop
+    self.send_event_to_observers(event.EventLinkDelete(link))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e896c80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 283, in _event_loop
+    ev, state = self.events.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e896e80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/switches.py", line 818, in lldp_packet_in_handler
+    self.send_event_to_observers(event.EventLinkAdd(link))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89d0c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+      File "/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py", line 802, in get_topology_data
+    self.load_static_topology()
+      File "/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py", line 1061, in load_static_topology
+    self._await_host_discovery(len(expected_hosts), settle_seconds)
+      File "/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py", line 969, in _await_host_discovery
+    learned = self._hosts_with_ipv4()
+      File "/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py", line 916, in _hosts_with_ipv4
+    return sum(1 for h in get_all_host(self) if h.ipv4)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 44, in get_all_host
+    return get_host(app)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89d300  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 283, in _event_loop
+    ev, state = self.events.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89d500  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 283, in _event_loop
+    ev, state = self.events.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89d700  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 283, in _event_loop
+    ev, state = self.events.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89dac0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 205, in server_loop
+    server.serve_forever()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 150, in serve_forever
+    sock, addr = self.server.accept()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 230, in accept
+    self._trampoline(fd, read=True, timeout=self.gettimeout(), timeout_exc=_timeout_exc)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 208, in _trampoline
+    return trampoline(fd, read=read, write=write, timeout=timeout,
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/__init__.py", line 159, in trampoline
+    return hub.switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89dc40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 152, in __call__
+    self.server_loop(self.ofp_tcp_listen_port,
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 205, in server_loop
+    server.serve_forever()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 150, in serve_forever
+    sock, addr = self.server.accept()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 230, in accept
+    self._trampoline(fd, read=True, timeout=self.gettimeout(), timeout_exc=_timeout_exc)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 208, in _trampoline
+    return trampoline(fd, read=read, write=write, timeout=timeout,
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/__init__.py", line 159, in trampoline
+    return hub.switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e89df80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 328, in __call__
+    self.serve_forever()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 193, in serve_forever
+    eventlet.wsgi.server(self.server, self.handle, self.logger)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 990, in server
+    client_socket, client_addr = sock.accept()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 230, in accept
+    self._trampoline(fd, read=True, timeout=self.gettimeout(), timeout_exc=_timeout_exc)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenio/base.py", line 208, in _trampoline
+    return trampoline(fd, read=read, write=write, timeout=timeout,
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/__init__.py", line 159, in trampoline
+    return hub.switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86f440  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86f3c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86f6c0  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e86f980  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86f5c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e85ffc0  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e84d880  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8c3080  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8c3c80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8b8240  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8c5500  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e8774c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e877340  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e884340  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8845c0  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e884cc0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86aa80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e884b80  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e884e80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86a1c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86a180  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86a200  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e86a340  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86a3c0  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e86f340  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86f200  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86ff40  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e86fe80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 551, in datapath_connection_factory
+    datapath.serve()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 469, in serve
+    self._recv_loop()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 211, in deactivate
+    method(self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 361, in _recv_loop
+    self.ofp_brick.send_event_to_observers(ev, self.state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 326, in send_event_to_observers
+    self.send_event(observer, ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 315, in send_event
+    SERVICE_BRICKS[name]._send_event(ev, state)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 302, in _send_event
+    self._events_sem.acquire()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/semaphore.py", line 120, in acquire
+    hubs.get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e8526c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/controller/controller.py", line 388, in _send_loop
+    buf, close_socket = self.send_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e873100  state=dead  parent=0x78926fe8bf80
+    (no frame -- not started, or dead)
+
+--- greenlet 0x78926e875340  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/lib/hub.py", line 60, in _launch
+    return func(*args, **kwargs)
+      File "/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py", line 553, in _initial_install_watchdog
+    hub.sleep(initial_install_deadline)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 36, in sleep
+    hub.switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e86ad00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6c9900  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6cb7c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926f0491c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6d54c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6d5ac0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6d5d40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6dac00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6e3a80  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6e4840  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6ec900  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6e3940  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6f6080  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6f8d00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6fcf00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e703080  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e68a3c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e68af00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e693300  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e696440  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e707240  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6a17c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6a5b00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6ae940  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6b4e40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6b7a00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6bbac0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6bfc40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e64b0c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e64bcc0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e64dd40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6542c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e65c6c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e660300  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e667640  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e658400  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e66ae00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e676c00  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e677900  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e67db40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e685240  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e6889c0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e60dcc0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e610e40  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e613fc0  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 70, in list_switches
+    return self._switches(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 21, in get_switch
+    rep = app.send_request(event.EventSwitchRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e61b240  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e61e500  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e623580  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e627780  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 90, in list_hosts
+    return self._hosts(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 39, in get_host
+    rep = app.send_request(event.EventHostRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+--- greenlet 0x78926e62e980  state=parked  parent=0x78926fe8bf80
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/greenthread.py", line 221, in main
+    result = function(*args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 825, in process_request
+    proto.__init__(conn_state, self)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 357, in __init__
+    self.handle()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 390, in handle
+    self.handle_one_request()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 466, in handle_one_request
+    self.handle_one_response()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/wsgi.py", line 573, in handle_one_response
+    result = self.application(self.environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 129, in __call__
+    resp = self.call_func(req, *args, **kw)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/webob/dec.py", line 193, in call_func
+    return self.func(req, *args, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 80, in list_links
+    return self._links(req, **kwargs)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/topology/api.py", line 30, in get_link
+    rep = app.send_request(event.EventLinkRequest(dpid))
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/base/app_manager.py", line 279, in send_request
+    return req.reply_q.get()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 322, in get
+    return waiter.wait()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/queue.py", line 141, in wait
+    return get_hub().switch()
+      File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/eventlet/hubs/hub.py", line 313, in switch
+    return self.greenlet.switch()
+
+94 greenlet object(s) on the heap

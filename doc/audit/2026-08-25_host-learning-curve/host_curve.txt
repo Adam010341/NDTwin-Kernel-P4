@@ -1,0 +1,17 @@
+
+# host-learning curve: when do the 128 IPv4s appear, loaded vs quiet?
+# date:    2026-08-25T10:30:25+0800   commit: 186f5eb
+# router:  sha256=d19020b1a1dcf932  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=17.48
+# 4 pairs, interleaved; poll 2s; +120s after ndt up returns; load=14 workers
+## loaded_p1: up_done=79s  endpoint_up=4s  first_host=-1s  all128=-1s  final=0/128  installs=2  gate='40s: 0/128'
+## quiet_p1: up_done=411s  endpoint_up=2s  first_host=-1s  all128=-1s  final=-1/128  installs=1  gate='40s: 0/128'
+## loaded_p2: up_done=92s  endpoint_up=5s  first_host=-1s  all128=-1s  final=0/128  installs=2  gate='40s: 0/128'
+## quiet_p2: up_done=411s  endpoint_up=2s  first_host=-1s  all128=-1s  final=-1/128  installs=1  gate='40s: 0/128'
+## loaded_p3: up_done=95s  endpoint_up=5s  first_host=-1s  all128=-1s  final=0/128  installs=2  gate='40s: 0/128'
+## quiet_p3: up_done=412s  endpoint_up=3s  first_host=-1s  all128=-1s  final=-1/128  installs=1  gate='40s: 0/128'
+## loaded_p4: up_done=79s  endpoint_up=5s  first_host=-1s  all128=-1s  final=0/128  installs=2  gate='40s: 0/128'
+## quiet_p4: up_done=411s  endpoint_up=2s  first_host=-1s  all128=-1s  final=-1/128  installs=1  gate='40s: 0/128'
+# curves in raw/*_curve.tsv (elapsed_s, hosts_with_ipv4; -1 = endpoint not answering)
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_host-learning-curve/host_curve.txt
+# fabric torn down (rc=0)
