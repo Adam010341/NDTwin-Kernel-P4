@@ -337,16 +337,19 @@ def fig_period(name="page_loop-period.png"):
     conds = [("idle\n(0 flows)", t16[0]), ("16 flows", t16[16]), ("64 flows", t64[64])]
 
     fig = plt.figure(figsize=WIDE)
-    _title(fig, "The hard-coded denominator is real, load-dependent — and too small to be the cause",
-           "Every published bit-rate divides by exactly 1000 ms. Amendment C predicted "
-           "1160–1200 ms if that alone explained the bias. It came in at 1042.")
+    _title(fig, "The hard-coded denominator is real, and it grows with load",
+           "Every published bit-rate divides by exactly 1000 ms. The loop actually takes 1042 ms "
+           "under sixteen flows and 1248 under sixty-four.")
     ax = fig.add_subplot(111)
     fig.subplots_adjust(left=0.075, right=0.985, top=0.755, bottom=0.135)
 
-    ax.axhspan(1160, 1200, color=ACCENT_BG, zorder=0)
-    ax.text(-0.42, 1180, "pre-registered prediction, if the hard-coded denominator\n"
-            "were the whole story  (1160–1200 ms)", ha="left", va="center",
-            color=ACCENT, fontsize=11.5, fontweight="bold")
+    # The 1160-1200 band is GONE, and so is the "explains 4 of 18 points" caption that rested on
+    # it. Amendment C's interval was anchored on a floor of 1.156-1.193 measured on the 15:53
+    # fabric generation, while T was measured on the 23:2x one, whose own ratio is 1.03-1.05.
+    # Scoring the prediction across generations put the two sides of a ratio in different
+    # populations -- the very error this project has a memory about. Within one generation T/1000
+    # tracks the measured ratio closely, which is a stronger result than the one the band framed,
+    # but it is an unregistered observation and does not belong on a slide as a scored prediction.
     ax.axhline(1000, color=FAINT, lw=1.4, ls=(0, (5, 3)), zorder=1)
 
     for i, (lab, vals) in enumerate(conds):
@@ -357,14 +360,6 @@ def fig_period(name="page_loop-period.png"):
         ax.text(i + 0.11, m + 14, f"{m:,.1f} ms", va="bottom", color=INK, fontsize=13,
                 fontweight="bold")
         ax.text(i + 0.11, m - 16, f"n={len(vals)} windows", va="top", color=MUTED, fontsize=10)
-
-    # The gap IS the finding, so draw it. Amendment C's interval was about the floor, and the
-    # floor is the 16-flow quantity, so the comparison is against that point specifically.
-    m16 = sum(conds[1][1]) / len(conds[1][1])
-    ax.annotate("", xy=(1, 1160), xytext=(1, m16),
-                arrowprops=dict(arrowstyle="<|-|>", color=WARNC, lw=2, shrinkA=0, shrinkB=0))
-    ax.text(0.92, (1160 + m16) / 2, f"{1160 - m16:.0f} ms\nshort", ha="right", va="center",
-            color=WARNC, fontsize=12.5, fontweight="bold")
 
     ax.set_xticks(range(len(conds)))
     ax.set_xticklabels([c[0] for c in conds], color=MUTED, fontsize=12)
@@ -377,8 +372,8 @@ def fig_period(name="page_loop-period.png"):
             color=FAINT, fontsize=10.5, va="bottom")
     _frame(ax, "measured rate-loop period (ms)")
     fig.text(0.985, 0.030,
-             "1042 ms accounts for about 4 of the 18 points — under a quarter. "
-             "Committing to the interval in advance is what stopped it becoming \"the answer\".",
+             "Idle lands 0.1 ms above the loop's own sleep — a broken instrument would not do "
+             "that, so this is a positive control, not just a reading.",
              ha="right", color=WARNC, fontsize=11, fontweight="bold")
     _save(fig, name)
 
