@@ -1,0 +1,3 @@
+
+55 logs, 0 skipped, 0 disagreements
+PASS: three-leg rule reproduces the Phase 0 rule on the historical corpus
