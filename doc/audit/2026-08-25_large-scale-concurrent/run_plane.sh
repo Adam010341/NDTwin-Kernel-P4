@@ -11,6 +11,7 @@
 # [Co-developed with claude code -- Adam]
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 LABEL="${1:?label, e.g. p4 or ovs}"
 OUT="$HERE/raw/$LABEL"
 mkdir -p "$OUT"
@@ -69,7 +70,13 @@ PY
 {
   echo "label=$LABEL"
   echo "flow_s=$FLOW_S warm_s=$WARM_S win_s=$WIN_S"
-  echo "bmv2: $(pgrep -a simple_switch_grpc | head -1)"
+  echo "flow_limit=${FLOW_LIMIT:-0} rate_scale=${RATE_SCALE:-1}"
+  # `pgrep -a simple_switch_grpc` (18 chars) matches nothing: /proc/PID/comm is capped at 15 and
+  # pgrep without -f compares against comm. It does not error -- it prints a warning to stderr
+  # that this block discards and then succeeds with empty output, so `bmv2:` came out blank in
+  # every round of 2026-08-25 and nobody noticed, because a blank field looks like a formatting
+  # quirk rather than a failed identification. -f matches the full command line.
+  echo "bmv2: $(pgrep -af simple_switch_grpc | head -1)"
   # NOT `pgrep -a ndtwin_kernel | head -1`. That takes the LOWEST matching pid, not the one this
   # fabric started, so a kernel that outlived a teardown silently wins -- and `stopped kernel` in
   # the log does not prove it died. The 8/25 sampling session hit exactly this on 2026-08-25:
@@ -78,10 +85,21 @@ PY
   # luck rather than method, so the method is fixed and the count is asserted.
   k_all="$(pgrep -a ndtwin_kernel || true)"
   k_n="$(printf '%s\n' "$k_all" | grep -c . || true)"
+  k_pid="$(printf '%s\n' "$k_all" | head -1 | awk '{print $1}')"
   echo "kernel: $(printf '%s\n' "$k_all" | head -1)"
   echo "kernel_instances: $k_n"
   [ "$k_n" = 1 ] || echo "  🔴 $k_n kernels match, so the pid above may not be this fabric's --" \
                         "cross-check the bring-up log's 'started kernel (pid N)' before using it"
+  # A pid and an argv name a FILE PATH; they do not name the bytes that are executing. Replacing
+  # build/bin/ndtwin_kernel does not touch a process already exec'd from it, and on 2026-08-26
+  # that was the live state of this machine: on-disk 3367d0e9, running 5b30e448. The four rounds
+  # of 2026-08-25 recorded neither, which is why "did the binary change between 15:53 and 23:38"
+  # had to be reconstructed from commit timestamps instead of read off the record. /proc/PID/exe
+  # is the authoritative one -- it follows the inode, so it stays right after an overwrite.
+  # The build is byte-reproducible (same source -> same sha256, verified by 8/25 sampling on
+  # 2026-08-26), so these hashes are comparable across days and across sessions.
+  echo "kernel_sha256_ondisk: $(sha256sum "$REPO_ROOT/build/bin/ndtwin_kernel" 2>/dev/null | awk '{print $1}')"
+  echo "kernel_sha256_running: $(sha256sum "/proc/$k_pid/exe" 2>/dev/null | awk '{print $1}')"
   echo "proxy: $(pgrep -af 'proxy_agent|p4_proxy' | head -1)"
 } > "$OUT/binaries.txt"
 cat "$OUT/binaries.txt" | sed 's/^/  /'
