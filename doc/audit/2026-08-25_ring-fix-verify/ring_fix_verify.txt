@@ -1,0 +1,22 @@
+
+# ring fix verification: does 72fbae6 (async install) prevent the wedge?
+# date:    2026-08-25T11:27:19+0800   commit: 52267aa
+# router:  sha256=d19020b1a1dcf932  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=18.43
+# baseline: quiet boots wedged 4/4 at uptime 18.0h (2026-08-25_host-learning-curve)
+# NOTE d1d973d's timeout fired ~40x in each of those 4 wedges -- edge 4 alone is not enough
+# 4 pairs interleaved: defaults vs ASYNC=1
+     dump: 4453 lines, 49 in _events_sem.acquire, 63 in reply_q.get
+## defaults_p1: RING-WEDGE  wall=411s  hosts=-1/128  graph=288 288  entered=2/10 statechange=10/10  banner=0
+## async_p1: HEALTHY  wall=58s  hosts=128/128  graph=288 0  entered=10/10 statechange=10/10  banner=1
+## defaults_p2: HEALTHY  wall=60s  hosts=128/128  graph=288 0  entered=10/10 statechange=10/10  banner=0
+## async_p2: HEALTHY  wall=56s  hosts=128/128  graph=288 0  entered=10/10 statechange=10/10  banner=1
+## defaults_p3: HEALTHY  wall=58s  hosts=128/128  graph=288 0  entered=10/10 statechange=10/10  banner=0
+     dump: 4503 lines, 74 in _events_sem.acquire, 38 in reply_q.get
+## async_p3: RING-WEDGE  wall=411s  hosts=-1/128  graph=288 288  entered=3/10 statechange=10/10  banner=1
+## defaults_p4: HEALTHY  wall=58s  hosts=128/128  graph=288 0  entered=10/10 statechange=10/10  banner=0
+     dump: 4525 lines, 85 in _events_sem.acquire, 27 in reply_q.get
+## async_p4: RING-WEDGE  wall=411s  hosts=-1/128  graph=288 288  entered=2/10 statechange=10/10  banner=1
+# DEFAULTS: 1 wedged of 4    ASYNC: 2 wedged of 4
+done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_ring-fix-verify/ring_fix_verify.txt
+# torn down (rc=0)
