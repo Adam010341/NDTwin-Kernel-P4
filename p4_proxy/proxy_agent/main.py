@@ -68,7 +68,16 @@ app.include_router(api_routes.router)
 # topo.switches is the authority, so shutdown reads it directly. (The Phase 7 design doc said
 # this swap was safe because only api_routes and main held references -- main's reference was
 # exactly the problem.)
-sflow = SFlowEmitter()
+# [Co-developed with claude code -- Adam]
+# Ticket E wiring. batch_size defaults to 1, which the emitter documents as byte-for-byte the old
+# behaviour -- so with the variable unset nothing changes, and the A/B differs by one value.
+#
+# 🔴 An env var whose reader does not exist is this repo's most-repeated bug shape: NDTWIN_CLONE_DISABLE
+# shipped a committed setter, committed docs and zero readers, so a run that set it was sampling
+# normally while being labelled a zero point. This IS the reader. The gate does not take its
+# existence on trust either -- it checks that the datagram count actually falls, which is the only
+# evidence that the value reached the emitter.
+sflow = SFlowEmitter(batch_size=int(os.environ.get("NDTWIN_SFLOW_BATCH", "1")))
 
 #: How long to let mastership settle before pushing pipelines. bmv2 accepts the arbitration
 #: message before it has finished electing, and a config push in that window is rejected.
