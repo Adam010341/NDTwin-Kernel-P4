@@ -24,3 +24,17 @@ FAILED checks: get_switch_openflow_table_entries, get_path_switch_count, get_pow
 #   valid   -> 'after' saw HTTP 404 and passed, 'before' saw 404 and failed on this endpoint
 #   invalid -> neither arm saw a 404; the transient did not occur and nothing was tested
 done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-24_path-switch-count-404/verify_allowlist.txt
+
+# CORRECTION appended 2026-08-25, from the post-commit shadow review of dd2ea62 (agy/Gemini).
+# The review was right on the fact: the `after` arm's `ndt up` exited nonzero and this script
+# only logged it, so a reader had to take on trust that its 404 came from the startup transient.
+#
+# Retro-classified with the check the script now applies:
+#   after   setup=DEGRADED -- XX "10 switches, 0 up, 0 enabled", but graph matched
+#           (128 hosts / 288 edges) and h1 -> 10.0.0.2 forwarded. That is the benign
+#           HEALTHY-XX verify transient from the summoning round, not a dead fabric. USABLE.
+#   before  setup=CLEAN -- "up. ready", all three verify checks passed.
+#
+# The conclusion is unchanged, and the reason is specific: the arm that demonstrates the gate
+# REJECTS a 404 (`before`, expect_status=[200] -> FAIL) booted clean. So the flip is attributable
+# to the spec change alone, and does not rest on the degraded arm.

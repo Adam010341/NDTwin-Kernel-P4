@@ -42,8 +42,30 @@ run_arm() {   # $1 = after|before
     say "=== arm: $arm ==="
 
     ndt down >/dev/null 2>&1; sleep 3
-    if ! timeout 600 ndt up ovs > "$RAW/verify_${arm}_up.out" 2>&1; then
-        say "  ndt up exited nonzero -- see verify_${arm}_up.out"
+    local up_rc=0
+    timeout 600 ndt up ovs > "$RAW/verify_${arm}_up.out" 2>&1 || up_rc=$?
+
+    # A setup failure must not be a log line you scroll past. The first version of this script
+    # only said "ndt up exited nonzero" and carried on -- and the `after` arm DID exit nonzero,
+    # which means a reader had to take on trust that the 404 came from the startup transient
+    # rather than from a broken fabric. Found by the post-commit shadow review of dd2ea62.
+    #
+    # Not a hard abort, because the observed nonzero was `XX kernel: 10 switches, 0 up, 0 enabled`
+    # on a fabric whose graph matched (128 hosts / 288 edges) and whose data plane forwarded --
+    # the known benign verify transient catalogued as HEALTHY-XX in the summoning round. Killing
+    # the run on that would discard good arms. Instead the arm is CLASSIFIED, so the distinction
+    # is in the artefact rather than in the reader's head.
+    if (( up_rc != 0 )); then
+        if grep -q "data plane: h1 -> 10.0.0.2 forwards" "$RAW/verify_${arm}_up.out" \
+           && grep -q "kernel graph matches the model file" "$RAW/verify_${arm}_up.out"; then
+            say "  ⚠️ setup=DEGRADED (ndt up rc=$up_rc) but graph matched and data plane forwards"
+            say "     -> arm usable; the 404 is not attributable to a dead fabric"
+        else
+            say "  🔴 setup=BROKEN (ndt up rc=$up_rc), graph or forwarding failed"
+            say "     -> ARM VOID: a 404 here proves nothing about the startup transient"
+        fi
+    else
+        say "  setup=CLEAN (ndt up rc=0)"
     fi
 
     # Query IMMEDIATELY. The transient is the point; any delay here can silently make the run
