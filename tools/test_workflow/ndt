@@ -215,7 +215,34 @@ deep_sweep() {
 # paths in world-writable directories.
 CLAIM="$REPO/.test_run/lab.claim"
 
+# --- lab handoff -------------------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# What the claim file cannot say: "I released, but I left the fabric up on purpose."
+#
+# On 2026-08-25 a session released its claim at 18:44 and left a P4 128-host fabric running
+# because rebuilding one costs 35-40 s and the next user would want it. Three minutes later
+# `status` said `claim none` while ten bmv2 switches, a kernel and a proxy were all listening.
+# Nothing in the repo could distinguish "free, take it" from "someone is mid-experiment", so
+# Adam ended up being the one who had to judge it -- which is what this exists to stop.
+#
+# The rule the two sessions agreed, and which this only *reports*: the claim is the sole
+# source of truth. No claim means the lab is free INCLUDING whatever fabric is on it, and the
+# next holder may tear it down. This file records what was left and why, so that decision
+# needs no guesswork and no message to anyone.
+#
+# Read-only here. Nothing writes it automatically: a releasing session writes it, in whatever
+# form suits, and `release` deliberately does not generate one -- an auto-written note would
+# say only what the tool can infer, and the useful part ("safe to tear down", "mid-ladder,
+# please don't") is exactly the part it cannot.
+#
+#     .test_run/lab.handoff
+#         by=<who left it>          at=<timestamp>       fabric=up|down
+#         topology=<e.g. p4 128>    note=<free text>
+HANDOFF="$REPO/.test_run/lab.handoff"
+
 claim_field() { [[ -f "$CLAIM" ]] && sed -n "s/^$1=//p" "$CLAIM" | head -1; }
+handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1; }
 
 # foreign_claim -- prints a description when someone else holds an unexpired claim.
 # NDT_OWNER identifies this session. With it unset, any claim counts as foreign, which is the
@@ -1094,6 +1121,19 @@ cmd_status() {
     esac
     local note; note="$(claim_field note)"
     [[ -n "$note" && "$cl" != none && "$cl" != EXPIRED* ]] && printf '  %-14s %s\n' "note" "$note"
+
+    # Only when nobody holds the lab. While a claim is live the claim IS the answer, and a
+    # stale handoff line beside it would be two voices on the same question.
+    if [[ -f "$HANDOFF" && ( "$cl" == none || "$cl" == EXPIRED* ) ]]; then
+        local h_by h_at h_fab h_topo h_note
+        h_by="$(handoff_field by)"; h_at="$(handoff_field at)"
+        h_fab="$(handoff_field fabric)"; h_topo="$(handoff_field topology)"
+        h_note="$(handoff_field note)"
+        printf '  %-14s %s\n' "handoff" \
+            "left by ${h_by:-?} at ${h_at:-?}${h_fab:+ -- fabric $h_fab}${h_topo:+ ($h_topo)}"
+        [[ -n "$h_note" ]] && printf '  %-14s %s\n' "" "$h_note"
+        printf '  %-14s %s\n' "" "no claim: the lab is free, this fabric included -- tear it down if you want"
+    fi
 
     local busy; busy="$(in_flight)"
     if [[ -n "$busy" ]]; then
