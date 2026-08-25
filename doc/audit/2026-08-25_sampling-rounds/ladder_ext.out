@@ -1,0 +1,6 @@
+[18:07:52] === ladder_ext start, DUR=300s/cell, PREREG a7c2bd7 ===
+[18:07:52] kernel binary sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[18:07:52] bmv2 binary  sha256: 3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a
+[18:07:52] boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime: 90381.14s
+[18:07:52] --- SAMPLE_RATE = 1/32  cell=r032_poll ---
+[18:08:22]     kept kernel.log (5 thread-id lines)
