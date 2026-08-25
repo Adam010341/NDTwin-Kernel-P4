@@ -209,10 +209,34 @@ settle_seconds = int(os.environ.get("NDTWIN_RYU_SETTLE_S", "40"))
 #: exactly what the caller needs to stop waiting on. [Co-developed with claude code -- Adam]
 HOST_QUERY_TIMEOUT_S = float(os.environ.get("NDTWIN_RYU_HOST_QUERY_TIMEOUT_S", "5"))
 
-_async_topology_install = os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL", "0") == "1"
+# [Co-developed with claude code -- Adam]
+# 2026-08-25: default flipped OFF -> ON (Adam's ruling). Set the variable to "0" to opt out.
+#
+# THE ONLY EVIDENCE FOR THIS FLIP IS BOOT TIME: wall 26s vs 52s, n=10 per arm, single variable,
+# same machine and evening, on an IDLE machine, with the banner below asserted present on all
+# ten async boots (doc/audit/2026-08-24_boot-ring-verify/).
+#
+# 🔴 IT IS NOT A FIX FOR THE BOOT RING, and this must not drift into being described as one.
+# It was tested against a live reproducing ring on 2026-08-25 and WEDGED TWICE with the flag
+# asserted active (doc/audit/2026-08-25_ring-fix-verify/). Two counterexamples are on record.
+# The ring survives this fix and d1d973d individually; §5-P's "cut any one edge and the ring
+# cannot close" is refuted by measurement.
+#
+# Also unmeasured, so also not claimable: whether the 26s holds under CPU load, and whether this
+# helps or hurts the separate post-install host-learning failure.
+_async_topology_install = os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL", "1") == "1"
 if _async_topology_install:
+    # The leading sentence is stable ON PURPOSE: harnesses grep it to assert the flag actually
+    # reached Ryu (doc/audit/2026-08-24_boot-ring-verify, .../2026-08-25_ring-fix-verify). Do not
+    # reword it without updating those. The parenthetical now distinguishes default-on from
+    # explicitly-on -- it used to print "=1" unconditionally, which became a lie the moment the
+    # default flipped, and an assertion that reads a lie is worse than no assertion.
+    _how = "explicitly set" if os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL") else "default since 2026-08-25"
     print("NDTWIN: load_static_topology will run OFF the event handler "
-          "(NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=1)", flush=True)
+          f"(NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL, {_how}; set 0 to opt out)", flush=True)
+else:
+    print("NDTWIN: load_static_topology runs INSIDE the event handler "
+          "(NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=0)", flush=True)
 
 detecting_time = 60
 

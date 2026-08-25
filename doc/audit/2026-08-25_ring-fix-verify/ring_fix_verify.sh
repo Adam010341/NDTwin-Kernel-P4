@@ -118,7 +118,18 @@ for arm in defaults async; do
     if [[ "$arm" == "async" && "$banner" -eq 0 ]]; then
         say "## $tag: 🔴 ASYNC BANNER ABSENT -- ran WITHOUT the fix; row is not evidence"
     elif [[ "$arm" == "defaults" && "$banner" -ne 0 ]]; then
+        # 🔴 STALE AS OF 2026-08-25: the async default was flipped OFF -> ON (d807798's sibling
+        # commit), so "plain defaults" now RUNS ASYNC and this check would abort every defaults
+        # boot. It was correct for the run it was written for -- that run's raws are recorded at
+        # the old default -- and it is left in place with this note rather than silently rewritten,
+        # because the results above were produced under the assumption it encodes.
+        #
+        # A rerun must EITHER pin NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=0 in the defaults arm (making
+        # it a "pre-flip defaults" control, which is what the recorded comparison actually was)
+        # OR drop this check and rename the arm. Do not just delete the check: the two choices
+        # answer different questions.
         say "## $tag: 🔴 async banner present in the DEFAULTS arm -- environment leak; aborting"
+        say "     (if this fired after 2026-08-25, see the note above: the default flipped)"
         exit 3
     fi
 
