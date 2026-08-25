@@ -1,0 +1,14 @@
+[22:01:20] === run_c start, DUR=300s/cell, PREREG 760775f ===
+[22:01:20] --- level A  cell=qa090  1/32 @ 90 Mbit/s ---
+[22:07:48]     VERDICT A cell=qa090_poll  mark=OK  ratio=0.9998  gt_mbit=92.7  lost_pct=0.00531  lam=251.1  quantum=369152  spread=7.229  floor=6.311  distinct=65
+[22:07:48] --- level A  cell=qa180  1/64 @ 180 Mbit/s ---
+[22:14:16]     VERDICT A cell=qa180_poll  mark=OK  ratio=0.9972  gt_mbit=185.3  lost_pct=0.04351  lam=250.3  quantum=738304  spread=9.625  floor=6.321  distinct=66
+[22:14:16] --- level A  cell=qa360  1/128 @ 360 Mbit/s ---
+[22:20:35]     VERDICT A cell=qa360_poll  mark=OK  ratio=0.9947  gt_mbit=369.6  lost_pct=0.6658  lam=249  quantum=1476608  spread=6.371  floor=6.338  distinct=68
+[22:20:35] --- level B  cell=qb063  1/8 @ 63 Mbit/s ---
+[22:26:58]     VERDICT B cell=qb063_poll  mark=OK  ratio=1.002  gt_mbit=64.89  lost_pct=0.01476  lam=704.4  quantum=92288  spread=9.12  floor=3.768  distinct=104
+[22:26:58] --- level B  cell=qb126  1/16 @ 126 Mbit/s ---
+[22:33:21]     VERDICT B cell=qb126_poll  mark=OK  ratio=1.001  gt_mbit=129.8  lost_pct=0.03167  lam=704  quantum=184576  spread=7.896  floor=3.769  distinct=102
+[22:33:21] --- level B  cell=qb251  1/32 @ 251 Mbit/s ---
+[22:39:49]     VERDICT B cell=qb251_poll  mark=OK  ratio=1.002  gt_mbit=258.3  lost_pct=0.184  lam=701.3  quantum=369152  spread=5.786  floor=3.776  distinct=98
+[22:39:49] --- restoring production config (1/256, truncate 128) ---

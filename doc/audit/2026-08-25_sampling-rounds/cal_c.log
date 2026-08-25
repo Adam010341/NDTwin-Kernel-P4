@@ -1,0 +1,67 @@
+[21:55:48] === cal_c start (PREREG 70f2e64 C-1-6) ===
+[21:55:48] truncate constant in source: SAMPLE_TRUNC_BYTES = 128
+Shutting down (reverse order)
+  stopped kernel
+  stopped ryu
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3042809) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 ..... up
+  waiting for link discovery: want 16256 destination paths
+    paths=8032              paths=10240              paths=8704              paths=9088              paths=3968              paths=8096              paths=8864              paths=6016              paths=7040              paths=16256                                                        converged after 44s
+[3/3] kernel
+  started kernel (pid 3058785) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[cal063_poll] h1=3039849 h33=3039914  63Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal063_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal063_poll_twin.jsonl
+[cal063_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal063_poll_{cpu,twin}.jsonl, cal063_poll_client.json
+[21:57:32]     CAL offered=63 cell=cal063_poll  mark=OK  ratio=1.05  gt_mbit=64.89  lost_pct=0  lam=23.07  quantum=2953216  spread=25.72  floor=20.82  distinct=11
+[cal090_poll] h1=3039849 h33=3039914  90Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal090_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal090_poll_twin.jsonl
+[cal090_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal090_poll_{cpu,twin}.jsonl, cal090_poll_client.json
+[21:57:57]     CAL offered=90 cell=cal090_poll  mark=OK  ratio=0.9717  gt_mbit=92.7  lost_pct=0.003111  lam=30.5  quantum=2953216  spread=22.4  floor=18.11  distinct=10
+[cal126_poll] h1=3039849 h33=3039914  126Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal126_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal126_poll_twin.jsonl
+[cal126_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal126_poll_{cpu,twin}.jsonl, cal126_poll_client.json
+[21:58:22]     CAL offered=126 cell=cal126_poll  mark=OK  ratio=1.052  gt_mbit=129.7  lost_pct=0.08623  lam=46.21  quantum=2953216  spread=11.46  floor=14.71  distinct=11
+[cal180_poll] h1=3039849 h33=3039914  180Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal180_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal180_poll_twin.jsonl
+[cal180_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal180_poll_{cpu,twin}.jsonl, cal180_poll_client.json
+[21:58:46]     CAL offered=180 cell=cal180_poll  mark=OK  ratio=1.015  gt_mbit=185.4  lost_pct=0.2374  lam=63.43  quantum=2953216  spread=14.35  floor=12.56  distinct=13
+[cal251_poll] h1=3039849 h33=3039914  251Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal251_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal251_poll_twin.jsonl
+[cal251_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal251_poll_{cpu,twin}.jsonl, cal251_poll_client.json
+[21:59:11]     CAL offered=251 cell=cal251_poll  mark=OK  ratio=1.027  gt_mbit=258.4  lost_pct=0.1502  lam=92.07  quantum=2953216  spread=13.16  floor=10.42  distinct=13
+[cal360_poll] h1=3039849 h33=3039914  360Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal360_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal360_poll_twin.jsonl
+[cal360_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal360_poll_{cpu,twin}.jsonl, cal360_poll_client.json
+[21:59:36]     CAL offered=360 cell=cal360_poll  mark=OK  ratio=1.007  gt_mbit=368.2  lost_pct=1.778  lam=125.5  quantum=2953216  spread=7.582  floor=8.926  distinct=12
+[cal502_poll] h1=3039849 h33=3039914  502Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal502_poll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal502_poll_twin.jsonl
+[cal502_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/cal502_poll_{cpu,twin}.jsonl, cal502_poll_client.json
+[22:00:01]     CAL offered=502 cell=cal502_poll  mark=DATAPLANE-HURT  ratio=0.9951  gt_mbit=441.5  lost_pct=16.1  lam=149.9  quantum=2953216  spread=9.069  floor=8.169  distinct=14
+[22:00:01] === cal_c complete ===

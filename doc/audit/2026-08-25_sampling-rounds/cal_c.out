@@ -1,0 +1,10 @@
+[21:55:48] === cal_c start (PREREG 70f2e64 C-1-6) ===
+[21:55:48] truncate constant in source: SAMPLE_TRUNC_BYTES = 128
+[21:57:32]     CAL offered=63 cell=cal063_poll  mark=OK  ratio=1.05  gt_mbit=64.89  lost_pct=0  lam=23.07  quantum=2953216  spread=25.72  floor=20.82  distinct=11
+[21:57:57]     CAL offered=90 cell=cal090_poll  mark=OK  ratio=0.9717  gt_mbit=92.7  lost_pct=0.003111  lam=30.5  quantum=2953216  spread=22.4  floor=18.11  distinct=10
+[21:58:22]     CAL offered=126 cell=cal126_poll  mark=OK  ratio=1.052  gt_mbit=129.7  lost_pct=0.08623  lam=46.21  quantum=2953216  spread=11.46  floor=14.71  distinct=11
+[21:58:46]     CAL offered=180 cell=cal180_poll  mark=OK  ratio=1.015  gt_mbit=185.4  lost_pct=0.2374  lam=63.43  quantum=2953216  spread=14.35  floor=12.56  distinct=13
+[21:59:11]     CAL offered=251 cell=cal251_poll  mark=OK  ratio=1.027  gt_mbit=258.4  lost_pct=0.1502  lam=92.07  quantum=2953216  spread=13.16  floor=10.42  distinct=13
+[21:59:36]     CAL offered=360 cell=cal360_poll  mark=OK  ratio=1.007  gt_mbit=368.2  lost_pct=1.778  lam=125.5  quantum=2953216  spread=7.582  floor=8.926  distinct=12
+[22:00:01]     CAL offered=502 cell=cal502_poll  mark=DATAPLANE-HURT  ratio=0.9951  gt_mbit=441.5  lost_pct=16.1  lam=149.9  quantum=2953216  spread=9.069  floor=8.169  distinct=14
+[22:00:01] === cal_c complete ===
