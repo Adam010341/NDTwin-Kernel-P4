@@ -158,7 +158,16 @@ for b in $(seq 1 "$BOOTS"); do
         void=$((void+1)); continue
     fi
 
-    if (( ent >= 10 )); then cls="HEALTHY"; ok=$((ok+1)); else wedge=$((wedge+1)); cls="$state"; fi
+    # 🔴 CORRECTED 2026-08-25 after fixa1: `ent >= 10` is NOT a success test. It counts how
+    # often ONE handler ran to its log line; fixa1 scored 3 while its twin converged completely.
+    # The twin's state comes from the kernel POLLING Ryu, not from anything ent measures.
+    # Success is the fidelity pair, and the ring is judged separately from it.
+    edges_total=$(printf '%s' "$g" | awk '{print $1}'); edges_down=$(printf '%s' "$g" | awk '{print $2}')
+    if [[ "$edges_down" == "0" && "$h" == "128" ]]; then
+        cls="CONVERGED ($state)"; ok=$((ok+1))
+    else
+        cls="NOT-CONVERGED ($state)"; wedge=$((wedge+1))
+    fi
     h=$(curl -sf --max-time 5 "$RYU/v1.0/topology/hosts" 2>/dev/null | python3 -c "
 import json,sys
 try: print(sum(1 for x in json.load(sys.stdin) if x.get('ipv4')))
@@ -177,7 +186,8 @@ say ""
 say "# ---------------------------------------------------------------------------"
 say "# RESULT: wedge=$wedge  healthy=$ok  void=$void  (of $BOOTS)"
 n=$(( wedge + ok ))
-say "# Phase 0 baseline at this boot_id: 2 of 3 wedged (uptime 20.09h)"
+say "# Phase 0 baseline, same boot_id ~1h earlier: ring 2/3, converged 1/3"
+say "# NOTE success = fidelity pair (edges_down==0 and hosts_ipv4==128), NOT ent>=10"
 if (( n == 0 )); then
     say "# VERDICT: no usable boots -- rerun"
 elif (( wedge == 0 )); then

@@ -1,0 +1,34 @@
+
+# ============================================================================
+# PHASE 2 -- fix A: bounded get_switch/get_link (PREREG 5-bis read-out)
+# ============================================================================
+# date:    2026-08-25T13:46:41+0800   commit: cce9c5d
+# router:  sha256=51b8afd877744358  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=20.75
+# arm:     CURRENT defaults (async ON since 1b25cda) -- NOT ring_fix_verify's 'defaults'
+# gate:    Phase 0 said TARGET ALIVE 2/3 at uptime 20.09h, same boot_id
+# read:    BREAK / RELOCATE / FALSIFY -- but ONLY after the injection assertion
+# boots:   3
+     dump: 643 lines, 0 in _events_sem.acquire, 0 in reply_q.get
+     --- queue census (last dump) ---
+         IntelligentRyu               0/128  balance=128
+         RestStatsApi                 0/128  balance=128
+         TopologyAPI                  0/128  balance=128
+         dpset                        0/128  balance=128
+         ofp_event                    0/128  balance=128
+         switches                     0/128  balance=128
+## fixa1: RECOVERED-BUT-INCOMPLETE  wall=167s  chain=ABORTED-HEALTHY  trig=10 gsw=3 glk=3 ent=3
+     topo-timeouts=28  aborts=7+0  host-timeouts=24  hosts_ipv4=128  edges(total down)=288 0
+## fixa2: HEALTHY  wall=54s  chain=REACHED-ENT  trig=10 gsw=10 glk=10 ent=10
+     topo-timeouts=0  aborts=0+0  host-timeouts=0  hosts_ipv4=128  edges(total down)=288 0
+## fixa3: HEALTHY  wall=54s  chain=REACHED-ENT  trig=10 gsw=10 glk=10 ent=10
+     topo-timeouts=0  aborts=0+0  host-timeouts=0  hosts_ipv4=128  edges(total down)=288 0
+
+# ---------------------------------------------------------------------------
+# RESULT: wedge=1  healthy=2  void=0  (of 3)
+# Phase 0 baseline at this boot_id: 2 of 3 wedged (uptime 20.09h)
+# VERDICT: still wedging 1/3 -- read the per-boot state above:
+#          WEDGE:PARKED@get_switch/get_link  -> FALSIFY (mechanism wrong)
+#          any other parked site             -> RELOCATE (mechanism right, fix partial)
+# (read-out per PREREG.md 5-bis; injection asserted before any of this)
+# torn down (rc=0)

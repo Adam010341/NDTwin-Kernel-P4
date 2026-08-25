@@ -1,0 +1,6 @@
+PASS reply_q.get() interrupted at 1.00s
+PASS _events_sem.acquire() interrupted at 1.00s
+PASS the non-timeout path still returns the value
+PASS remaining-budget clamp bounds the call at 0.30s
+
+ALL PASS

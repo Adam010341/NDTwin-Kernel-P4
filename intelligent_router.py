@@ -878,10 +878,21 @@ class IntelligentRyu(app_manager.RyuApp):
             # rather than merely missing. Aborting matches what the empty-switch-list branch above
             # already does, and the next EventSwitchEnter runs the whole thing again.
             #
-            # The cost is named on purpose: this returns BEFORE the "Switch entered:" line below,
-            # so the kernel is not told this switch came up and the twin shows it down until a
-            # later round succeeds. That is the fidelity price of the timeout, and it is why the
-            # Phase 2 read-out checks edge and host counts and not just the absence of a wedge.
+            # The cost I predicted for this branch did not survive its own measurement, and the
+            # correction matters more than the prediction did. I wrote that aborting here would
+            # leave the kernel un-notified and the twin showing this switch down. Measured
+            # (2026-08-25 Phase 2, fixa1): seven rounds took this abort, and the twin still
+            # converged to 288 edges with none down and all 128 hosts addressed.
+            #
+            # The reason is that the twin does not learn topology from this notification at all --
+            # the kernel POLLS Ryu's REST topology API, and every push from here failed with
+            # ECONNREFUSED in all six boots of both arms because the kernel is not listening yet
+            # when switches enter. What the wedge actually breaks is that polling: a wedged boot
+            # served 4 GET /v1.0/topology/switches, a recovered one served 26.
+            #
+            # So the real cost of aborting is a delayed poll, not a lost notification. Left as an
+            # abort rather than a fall-through because the reason for it stands on its own: a walk
+            # over nodes-without-edges computes wrong paths, not missing ones.
             self.logger.warning(
                 "Link list unavailable after timeout — aborting topology update"
             )

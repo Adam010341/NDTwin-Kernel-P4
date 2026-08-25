@@ -1,0 +1,77 @@
+# corpus manifest -- why the count moved 47 -> 55 -> 57 (and why the auditer says 56)
+# generated 2026-08-25T13:50:39+0800, HEAD cce9c5d
+
+## A. my first sweep (47): all doc/audit *ryu*.log EXCLUDING 2026-08-25_ring-fix-verify
+  doc/audit/2026-08-21_ryu-topology-scaling/ryu_128host_walk.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_10_ryu.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_15_ryu.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_20_ryu.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_30_ryu.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_40_ryu.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_55_ryu.log
+  doc/audit/2026-08-22_settle-gate-acceptance/raw/bisect_5_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p1_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p2_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p3_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p4_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p5_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p6_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p7_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/loaded_p8_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/probe_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p1_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p2_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p3_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p4_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p5_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p6_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p7_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/quiet_p8_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/smoke_loaded_p1_ryu.log
+  doc/audit/2026-08-24_boot-ring-summon/raw/smoke_quiet_p1_ryu.log
+  doc/audit/2026-08-24_boot-ring-verify/raw/baseline_boot10_SUCCESS_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/diag3_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/prev_spy1_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/rate_boot1_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/rate_boot2_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/rate_boot3_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/rate_boot4_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/rate_boot6_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/rate_boot9_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/spy3_ryu.log
+  doc/audit/2026-08-24_full-stack-run/raw/u2_4_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/loaded_p1_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/loaded_p2_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/loaded_p3_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/loaded_p4_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/quiet_p1_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/quiet_p2_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/quiet_p3_ryu.log
+  doc/audit/2026-08-25_host-learning-curve/raw/quiet_p4_ryu.log
+  COUNT=46
+
+## B. + ring-fix-verify (the 8 that motivated this round; excluded from A only because
+##   they were the round under investigation, not because they are different in kind)
+  doc/audit/2026-08-25_ring-fix-verify/raw/async_p1_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/async_p2_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/async_p3_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/async_p4_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/defaults_p1_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/defaults_p2_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/defaults_p3_ryu.log
+  doc/audit/2026-08-25_ring-fix-verify/raw/defaults_p4_ryu.log
+  COUNT=8
+
+## C. + this round's own boots (grow as the round runs -- this is the moving part)
+  doc/audit/2026-08-25_ring-edge-fix/raw/boot1_ryu.log
+  doc/audit/2026-08-25_ring-edge-fix/raw/boot2_ryu.log
+  doc/audit/2026-08-25_ring-edge-fix/raw/boot3_ryu.log
+  doc/audit/2026-08-25_ring-edge-fix/raw/fixa1_ryu.log
+  COUNT=4
+
+## D. NOT in any of mine: the auditer's 56 additionally includes the two live originals
+##   .test_run/logs/ryu.log and ryu.log.prev (md5-verified as the async_p4 / defaults_p4
+##   bodies; the archived copies are prefixes of them). Deliberately excluded here: they
+##   are the same boots already counted in B, so including them double-counts.
+
+## TOTAL NOW = A + B + C = 58
