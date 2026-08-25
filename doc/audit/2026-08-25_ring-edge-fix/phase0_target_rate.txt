@@ -1,0 +1,19 @@
+
+# ============================================================================
+# PHASE 0 -- current-defaults wedge rate (gate for the Phase 2 fix arm)
+# ============================================================================
+# date:    2026-08-25T13:07:01+0800   commit: 10c4bb7
+# router:  sha256=fb6cf727ba565ff7  matches HEAD
+# boot_id: b8b44406-0096-4c4b-a58e-5c26ea9b0286  uptime_h=20.09
+# arm:     CURRENT defaults (async ON since 1b25cda) -- NOT ring_fix_verify's 'defaults'
+# stop:    >=2/3 wedge -> Phase 2 may run;  0/3 -> STOP;  1/3 -> extend to 6
+# boots:   3
+     dump: 4473 lines, 55 in _events_sem.acquire, 57 in reply_q.get
+     --- queue census (last dump) ---
+         IntelligentRyu               128/128  balance=-12   <== 12 emitter(s) BLOCKED writing to this queue
+         RestStatsApi                 0/128  balance=128
+         TopologyAPI                  0/128  balance=128
+         dpset                        0/128  balance=128
+         ofp_event                    0/128  balance=128
+         switches                     128/128  balance=-43   <== 43 emitter(s) BLOCKED writing to this queue
+## boot1: WEDGE@get_link  wall=413s  trig=3 gsw=3 glk=2 ent=2  timeouts=40  hosts_ipv4=-1  edges(total down)=288 288  P1=ok

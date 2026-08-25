@@ -1,0 +1,6 @@
+empty     : 0 / 4  balance = 4
+full      : 4 / 4  balance = 0
+3 blocked : 4 / 4  balance = -3
+after 1 drain: 4 / 4  balance = -2
+
+PASS: qsize hits maxsize and balance counts blocked emitters exactly
