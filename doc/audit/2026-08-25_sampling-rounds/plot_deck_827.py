@@ -652,6 +652,132 @@ def fig_concurrency_shared(name="page_shared-code-bias.png"):
     _save(fig, name)
 
 
+# ----------------------------------------------------------------- fig 7: does merge pay off
+CPU_RE = re.compile(r"CPU (\S+) proxy=([\d.]+) kernel=([\d.]+) bmv2=([\d.]+)")
+F_CELLS = [("f16b1a_poll", 1), ("f16b8a_poll", 8), ("f16b1b_poll", 1),
+           ("f16b8b_poll", 8), ("f16b1c_poll", 1), ("f16b8c_poll", 8)]
+
+
+def wall_f(path=None):
+    """cell -> {proxy, kernel, bmv2, dgram, lost, gt} parsed from the ticket F log."""
+    path = path or f"{ROUND}/wall_f.out"
+    cpu, dg = {}, {}
+    for line in open(path):
+        m = CPU_RE.search(line)
+        if m:
+            cpu[m.group(1)] = dict(proxy=float(m.group(2)), kernel=float(m.group(3)),
+                                   bmv2=float(m.group(4)))
+        m = re.search(r"UDPDGRAM (\S+) \d+ over [\d.]+s = ([\d.]+)/s", line)
+        if m:
+            dg[m.group(1)] = float(m.group(2))
+    v = verdicts(path)
+    out = {}
+    for cell in cpu:
+        out[cell] = dict(cpu[cell], dgram=dg.get(cell),
+                         lost=v.get(cell, {}).get("lost_pct"),
+                         gt=v.get(cell, {}).get("gt_mbit"))
+    return out
+
+
+def fig_merge_effect(name="page_merge-effect.png"):
+    """Effect against its own noise, at a working point chosen so the noise is small.
+
+    Ticket E asked this at 1/8 and could not answer: the control moved 7.5 points against a
+    4.4-point effect. The fix is not more repeats, it is a stable working point -- so this is
+    1/16, where the same fabric rebuilt twice moved proxy CPU by 0.3 points.
+    """
+    d = wall_f()
+    have = [(c, b) for c, b in F_CELLS if c in d and d[c].get("proxy") is not None]
+    if not have:
+        print("fig_merge_effect: no ticket F data yet, skipping")
+        return
+    b1 = [d[c]["proxy"] for c, b in have if b == 1]
+    b8 = [d[c]["proxy"] for c, b in have if b == 8]
+
+    fig = plt.figure(figsize=WIDE)
+    _title(fig, "Does merge pay for itself? Measured where the measurement is steady",
+           "Six runs at 1-in-16, alternating, one value changed. The three batch=1 runs are "
+           "also the drift baseline — the check that decided ticket E.")
+    gs = fig.add_gridspec(1, 3, left=0.055, right=0.985, top=0.755, bottom=0.135, wspace=0.30,
+                          width_ratios=[1.5, 1, 1])
+
+    # -- sequence: effect and drift in one picture
+    ax = fig.add_subplot(gs[0, 0])
+    for i, (c, b) in enumerate(have):
+        col = ACCENT if b == 8 else GREY
+        ax.plot([i], [d[c]["proxy"]], "o", ms=14, color=col, mec="white", mew=2, zorder=4)
+        ax.text(i, d[c]["proxy"] + 1.1, f"{d[c]['proxy']:.1f}", ha="center", color=INK,
+                fontsize=11, fontweight="bold")
+    xs1 = [i for i, (c, b) in enumerate(have) if b == 1]
+    ax.plot(xs1, b1, "-", color=GREY, lw=2, zorder=2)
+    ax.set_xticks(range(len(have)))
+    ax.set_xticklabels([f"batch\n{b}" for _, b in have], color=MUTED, fontsize=10.5)
+    ax.set_xlim(-0.6, len(have) - 0.4)
+    _frame(ax, "proxy CPU, % of one core")
+    ax.set_title("Run order", color=INK, fontsize=13, fontweight="bold", loc="left", pad=9)
+
+    # -- effect vs its own noise, for both consumers. The kernel is included because its saving
+    # is the larger one: merge removes datagrams from the receive side too, not just sends.
+    ax = fig.add_subplot(gs[0, 1])
+    k1 = [d[c]["kernel"] for c, b in have if b == 1]
+    k8 = [d[c]["kernel"] for c, b in have if b == 8]
+    groups = [("proxy", b1, b8), ("kernel", k1, k8)]
+    for j, (lab, v1, v8) in enumerate(groups):
+        for k, (vals, col) in enumerate(((v1, GREY), (v8, ACCENT))):
+            x = j + (k - 0.5) * 0.42
+            m = sum(vals) / len(vals)
+            ax.bar([x], [m], width=0.38, color=col, edgecolor="white", linewidth=2, zorder=3)
+            if len(vals) > 1:
+                ax.vlines(x, min(vals), max(vals), color=INK, lw=2.5, zorder=5)
+            ax.text(x, m + 3.0, f"{m:.1f}", ha="center", color=INK, fontsize=11.5,
+                    fontweight="bold")
+        ax.text(j, min(min(v1), min(v8)) * 0.42,
+                f"{(sum(v8)/len(v8))/(sum(v1)/len(v1)) * 100 - 100:+.1f}%",
+                ha="center", color=WARNC, fontsize=13, fontweight="bold")
+    spread1 = (max(b1) - min(b1)) if len(b1) > 1 else float("nan")
+    eff = (sum(b1) / len(b1)) - (sum(b8) / len(b8))
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels([g[0] for g in groups], color=MUTED, fontsize=11.5)
+    ax.set_xlim(-0.62, len(groups) - 0.38)
+    ax.set_ylim(0, max(k1) * 1.30)
+    _frame(ax, "CPU, % of one core")
+    ax.plot([], [], "s", ms=10, color=GREY, label="batch = 1")
+    ax.plot([], [], "s", ms=10, color=ACCENT, label="batch = 8")
+    lg = ax.legend(loc="upper left", frameon=False, fontsize=10.5, handletextpad=0.5)
+    for t in lg.get_texts():
+        t.set_color(MUTED)
+    ax.set_title("Mean, bar = observed range", color=INK, fontsize=13, fontweight="bold",
+                 loc="left", pad=9)
+
+    # -- the assertion that merge was actually on
+    ax = fig.add_subplot(gs[0, 2])
+    g1 = [d[c]["dgram"] for c, b in have if b == 1 and d[c]["dgram"]]
+    g8 = [d[c]["dgram"] for c, b in have if b == 8 and d[c]["dgram"]]
+    if g1 and g8:
+        for j, (vals, col) in enumerate(((g1, GREY), (g8, ACCENT))):
+            m = sum(vals) / len(vals)
+            ax.bar([j], [m], width=0.5, color=col, edgecolor="white", linewidth=2, zorder=3)
+            ax.text(j, m + max(g1) * 0.04, f"{m:,.0f}", ha="center", color=INK,
+                    fontsize=12.5, fontweight="bold")
+        ax.text(0.5, max(g1) * 0.55, f"{(sum(g1)/len(g1))/(sum(g8)/len(g8)):.2f}× fewer",
+                ha="center", color=WARNC, fontsize=12.5, fontweight="bold")
+        ax.set_ylim(0, max(g1) * 1.25)
+    ax.set_xticks([0, 1]); ax.set_xticklabels(["batch = 1", "batch = 8"],
+                                              color=MUTED, fontsize=10.5)
+    ax.set_xlim(-0.6, 1.6)
+    _frame(ax, "datagrams/s, proxy → kernel")
+    ax.set_title("Assertion: merge was on", color=INK, fontsize=13, fontweight="bold",
+                 loc="left", pad=9)
+
+    # "+9.7" reads as a rise; the quantity is a saving. Say which way it goes.
+    verdict = ("larger than" if eff > spread1 else "inside") if spread1 == spread1 else "?"
+    fig.text(0.5, 0.028,
+             f"Merge saves {eff:.1f} points of proxy CPU at identical sample volume; the same "
+             f"setting repeated varies {spread1:.1f}. The saving is {verdict} its own noise.",
+             ha="center", color=WARNC, fontsize=12, fontweight="bold")
+    _save(fig, name)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     fig_truncate()
@@ -660,3 +786,4 @@ if __name__ == "__main__":
     fig_period()
     fig_merge_gate()
     fig_concurrency_shared()
+    fig_merge_effect()

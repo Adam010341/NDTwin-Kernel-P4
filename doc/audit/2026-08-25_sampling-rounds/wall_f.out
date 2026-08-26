@@ -1,0 +1,41 @@
+[02:59:00] === wall_f start: 1/16, alternating batch, DUR=120s ===
+[02:59:01] SELFTEST SELFTEST PASS
+[02:59:01] compiled at SAMPLE_RATE=16 SAMPLE_TRUNC_BYTES=128
+[02:59:01] --- arm f16b1a_poll: NDTWIN_SFLOW_BATCH=1, rate 1/16 ---
+[02:59:41]     kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[02:59:41]     p4 constants const bit<16> SAMPLE_RATE = 16; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[03:01:46]     VERDICT cell=f16b1a_poll  mark=OK  ratio=0.9968  gt_mbit=205.9  lost_pct=0.04363  lam=1112  quantum=184576  spread=3.873  floor=2.999  distinct=78
+[03:01:46]     UDPDGRAM f16b1a_poll 399930 over 119.5s = 3346.2/s
+[03:01:46]     CPU f16b1a_poll proxy=71.0 kernel=102.9 bmv2=172.3
+[03:01:46] --- arm f16b8a_poll: NDTWIN_SFLOW_BATCH=8, rate 1/16 ---
+[03:02:23]     kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[03:02:23]     p4 constants const bit<16> SAMPLE_RATE = 16; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[03:04:27]     VERDICT cell=f16b8a_poll  mark=OK  ratio=1.003  gt_mbit=206  lost_pct=0.02413  lam=1119  quantum=184576  spread=6.011  floor=2.989  distinct=40
+[03:04:27]     UDPDGRAM f16b8a_poll 53413 over 119.5s = 446.9/s
+[03:04:28]     CPU f16b8a_poll proxy=62.8 kernel=86.3 bmv2=170.5
+[03:04:28] --- arm f16b1b_poll: NDTWIN_SFLOW_BATCH=1, rate 1/16 ---
+[03:05:04]     kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[03:05:04]     p4 constants const bit<16> SAMPLE_RATE = 16; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[03:07:09]     VERDICT cell=f16b1b_poll  mark=OK  ratio=1.001  gt_mbit=206  lost_pct=0.03626  lam=1117  quantum=184576  spread=5.026  floor=2.993  distinct=71
+[03:07:09]     UDPDGRAM f16b1b_poll 397456 over 119.5s = 3325.5/s
+[03:07:09]     CPU f16b1b_poll proxy=72.3 kernel=104.7 bmv2=174.4
+[03:07:09] --- arm f16b8b_poll: NDTWIN_SFLOW_BATCH=8, rate 1/16 ---
+[03:07:46]     kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[03:07:46]     p4 constants const bit<16> SAMPLE_RATE = 16; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[03:09:50]     VERDICT cell=f16b8b_poll  mark=OK  ratio=1.004  gt_mbit=206  lost_pct=0.03463  lam=1120  quantum=184576  spread=4.276  floor=2.988  distinct=53
+[03:09:50]     UDPDGRAM f16b8b_poll 53780 over 119.5s = 450.0/s
+[03:09:51]     CPU f16b8b_poll proxy=62.9 kernel=87.2 bmv2=170.8
+[03:09:51] --- arm f16b1c_poll: NDTWIN_SFLOW_BATCH=1, rate 1/16 ---
+[03:10:32]     kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[03:10:32]     p4 constants const bit<16> SAMPLE_RATE = 16; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[03:12:37]     VERDICT cell=f16b1c_poll  mark=OK  ratio=1.003  gt_mbit=205.9  lost_pct=0.03551  lam=1120  quantum=184576  spread=4.949  floor=2.989  distinct=74
+[03:12:37]     UDPDGRAM f16b1c_poll 398070 over 119.5s = 3330.6/s
+[03:12:37]     CPU f16b1c_poll proxy=73.8 kernel=103.3 bmv2=179.2
+[03:12:37] --- arm f16b8c_poll: NDTWIN_SFLOW_BATCH=8, rate 1/16 ---
+[03:13:18]     kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[03:13:18]     p4 constants const bit<16> SAMPLE_RATE = 16; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[03:15:23]     VERDICT cell=f16b8c_poll  mark=OK  ratio=0.9955  gt_mbit=206  lost_pct=0.01363  lam=1111  quantum=184576  spread=5.255  floor=3  distinct=55
+[03:15:23]     UDPDGRAM f16b8c_poll 53094 over 119.5s = 444.2/s
+[03:15:23]     CPU f16b8c_poll proxy=62.3 kernel=86.5 bmv2=169.6
+[03:15:23] --- restoring production: 1/256, truncate 128, batch unset ---
+[03:16:05] === wall_f complete, production restored ===
