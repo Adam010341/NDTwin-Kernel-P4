@@ -61,7 +61,7 @@ try:
     from p4.config.v1 import p4info_pb2
 
     from proxy_agent import p4_client as p4_client_module
-    from proxy_agent.p4_client import P4RuntimeClient
+    from proxy_agent.p4_client import P4RuntimeClient, CounterNotFound
 
     class FakeRpcError(grpc.RpcError):
         """
@@ -718,17 +718,57 @@ class EgressCounterTest(unittest.TestCase):
         client = a_client(stub=RecordingStub(read_responses=[self.a_counter_response(15000, 12)]))
         self.assertEqual(client.read_egress_counter(2), (15000, 12))
 
-    def test_a_p4info_without_the_counter_reports_zero_rather_than_raising(self):
+    # --- the three outcomes must not share a value ------------------------------------------
+    #
+    # These four tests replace two that asserted (0, 0) for a missing counter and for a failed
+    # read. Those tests passed, and what they pinned was the defect: the value that means "this
+    # port forwarded nothing" was also the value that meant "there is no such counter" and "the
+    # connection dropped". The old assertions are not deleted so much as split -- each failure now
+    # has its own test, and a real zero has one too.
+
+    def test_a_p4info_without_the_counter_raises_rather_than_reporting_zero(self):
         client = a_client()
         client.p4info.ClearField("counters")
-        self.assertEqual(client.read_egress_counter(1), (0, 0))
+        with self.assertRaises(CounterNotFound):
+            client.read_egress_counter(1)
         self.assertEqual(client.stub.reads, [], "a read was attempted with no counter id")
 
-    def test_a_read_failure_reports_zero_rather_than_raising(self):
-        # Polled per port per switch; a transient gRPC failure should cost one sample, not take
-        # down the caller.
+    def test_an_unknown_counter_name_raises_and_never_returns_zero(self):
+        # NEGATIVE CONTROL. Ask for a counter that cannot exist and assert the answer is not a
+        # number at all. Without this, every other test here could pass against a method that
+        # answered (0, 0) to everything -- which is exactly what the previous version did.
+        client = a_client()
+        with self.assertRaises(CounterNotFound) as caught:
+            client.read_egress_counter(1, counter_name="MyEgress.no_such_counter")
+        self.assertIn("no_such_counter", str(caught.exception))
+        self.assertEqual(client.stub.reads, [])
+
+    def test_a_read_failure_reports_no_sample_rather_than_zero(self):
+        # Polled per port per switch, so a transient gRPC failure must still not take the caller
+        # down -- that part of the old behaviour was right. What changes is the value: None cannot
+        # be summed, averaged, or compared against a veth counter by accident.
         client = a_client(stub=RecordingStub(read_error=FakeRpcError(grpc.StatusCode.UNAVAILABLE)))
+        self.assertIsNone(client.read_egress_counter(1))
+
+    def test_a_read_that_returns_no_entry_reports_no_sample(self):
+        # bmv2 omits an entry it holds no state for. "Nothing reported" is not "nothing forwarded".
+        client = a_client(stub=RecordingStub(read_responses=[p4runtime_pb2.ReadResponse()]))
+        self.assertIsNone(client.read_egress_counter(1))
+
+    def test_a_genuine_zero_is_still_reported_as_zero(self):
+        # The point of the change is not to make zero unreachable. An idle port really does read
+        # (0, 0), and that has to remain distinguishable from the two failures above.
+        client = a_client(stub=RecordingStub(read_responses=[self.a_counter_response(0, 0, index=1)]))
         self.assertEqual(client.read_egress_counter(1), (0, 0))
+
+    def test_a_counter_whose_id_is_zero_is_found(self):
+        # `if not counter_id` treated a legitimate id of 0 as absent. P4Runtime ids are unsigned,
+        # so this is reachable, and it would have surfaced as a counter that vanished for one
+        # pipeline build and not another.
+        client = a_client(stub=RecordingStub(read_responses=[self.a_counter_response(5, 1, index=1)]))
+        client.p4info.counters[0].preamble.id = 0
+        self.assertEqual(client.read_egress_counter(1), (5, 1))
+        self.assertEqual(client.stub.reads[0].entities[0].counter_entry.counter_id, 0)
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")

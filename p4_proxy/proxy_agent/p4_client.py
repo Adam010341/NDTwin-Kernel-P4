@@ -1,3 +1,4 @@
+import logging
 import threading
 import queue
 import grpc
@@ -28,6 +29,18 @@ RPC_TIMEOUT_S = 5.0
 # is silently dropped by bmv2.
 SAMPLE_SESSION_ID = 250
 CPU_PORT = 255
+
+
+class CounterNotFound(LookupError):
+    """
+    A counter was asked for by name and this pipeline's P4Info does not contain it.
+
+    Separate from a read failure on purpose. This one cannot be retried and cannot be sampled
+    around: the running pipeline does not have the counter, so any number returned would be
+    invented. LookupError so an over-broad `except Exception` in a polling loop still catches it,
+    but it can be caught specifically by anything that wants to tell the two apart.
+    [Co-developed with claude code -- Adam]
+    """
 
 
 class P4RuntimeClient:
@@ -579,23 +592,55 @@ class P4RuntimeClient:
         return entries
 
     # --- Table Operations ---
-    def read_egress_counter(self, port):
+    #: The egress counter's name in ndtwin_switch.p4. A parameter rather than a literal so a test
+    #: can ask for a counter that does not exist -- the negative control for the defect below.
+    EGRESS_COUNTER_NAME = "MyEgress.egress_port_counter"
+
+    def read_egress_counter(self, port, counter_name=None):
+        """
+        (byte_count, packet_count) for one egress port, or None if it could not be read.
+
+        THREE OUTCOMES, THREE RETURN SHAPES.  This method used to answer `0, 0` to all of them:
+        counter absent from P4Info, RPC failed, and the port genuinely forwarded nothing.  A
+        caller comparing bmv2's own count against a veth counter is asking "did packets reach the
+        pipeline"; the interesting answer is zero, and zero was also what a misconfigured pipeline
+        and a dropped connection returned.  The instrument's failure mode was identical to its
+        most newsworthy finding.  [Co-developed with claude code -- Adam]
+
+          counter not in P4Info -> raises CounterNotFound.  Structural and permanent: the pipeline
+                                   does not have this counter, so no amount of retrying helps and
+                                   a number would be a fabrication.
+          read failed / no entry -> returns None.  Transient: one lost sample, and the polling
+                                   caller stays up, which is why the old code swallowed it. None
+                                   still cannot be summed or averaged by accident.
+          read succeeded         -> returns (bytes, packets), including a truthful (0, 0).
+
+        `None` is deliberately not unpackable: `b, p = client.read_egress_counter(x)` raises at the
+        call site instead of quietly binding zeros. There are no production callers today, so the
+        cost of the stricter contract is zero and it is cheapest to impose before the first one.
+        """
+        name = counter_name if counter_name is not None else self.EGRESS_COUNTER_NAME
         counter_id = None
         for counter in self.p4info.counters:
-            if counter.preamble.name == "MyEgress.egress_port_counter":
+            if counter.preamble.name == name:
                 counter_id = counter.preamble.id
                 break
-                
-        if not counter_id:
-            return 0, 0
-            
+
+        # `is None`, not falsiness: P4Runtime ids are unsigned and an id of 0 is falsy, so the old
+        # `if not counter_id` would have reported a real counter as missing.
+        if counter_id is None:
+            raise CounterNotFound(
+                "counter %r is not in this pipeline's P4Info (%d counters present). This is a "
+                "wiring or pipeline-version error, not a measurement of zero."
+                % (name, len(self.p4info.counters)))
+
         req = p4runtime_pb2.ReadRequest()
         req.device_id = self.device_id
         entity = req.entities.add()
         counter_entry = entity.counter_entry
         counter_entry.counter_id = counter_id
         counter_entry.index.index = port
-        
+
         try:
             for response in self.stub.Read(req):
                 for entity in response.entities:
@@ -603,8 +648,14 @@ class P4RuntimeClient:
                         data = entity.counter_entry.data
                         return data.byte_count, data.packet_count
         except Exception as e:
-            pass
-        return 0, 0
+            logging.warning("egress counter read failed for port %s: %s -- reporting no sample, "
+                            "not zero", port, e)
+            return None
+        # The RPC succeeded and reported nothing for this index. Still not a zero reading: bmv2
+        # omits an entry it has no state for, which is a different fact from "no packets".
+        logging.warning("egress counter read for port %s returned no counter_entry -- reporting "
+                        "no sample, not zero", port)
+        return None
 
     #: Byte width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N>
     #: field in ceil(N/8) bytes and bmv2 rejects a value of the wrong width outright, so these
