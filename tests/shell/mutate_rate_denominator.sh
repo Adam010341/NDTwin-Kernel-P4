@@ -92,6 +92,35 @@ s=s.replace(store,"",1)
 p.write_text(s.replace(guard, store+guard, 1))
 ' ZeroIntervalDoesNotRecordADivisor
 
+# --- NEGATIVE CONTROL: leave one of the two rate-publishing sites unfixed ------------------
+# The auditor's requirement: without having seen this red, "every site is asserted" is a claim
+# with no evidence. This reverts creditHostBoundEgressEdges to ignore the interval it is handed,
+# which is exactly the partial fix Q-ter warned produces a wrong verdict rather than a visible
+# failure.
+printf '\n=== NEGATIVE CONTROL: host-bound site ignores its interval ===\n'
+echo "  expect: LastHopAttributionTest.TheHostBoundSiteDividesByTheIntervalItWasGiven"
+FLUC=src/ndt_core/collection/FlowLinkUsageCollector.cpp
+FSHA=$(sha256sum "$FLUC" | cut -d' ' -f1); FBAK=$(mktemp); cp -p "$FLUC" "$FBAK"
+python3 - "$FLUC" <<'PYEOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+old = "key, value.inputByteCountOnALinkMultiplySampingRate, elapsedSeconds);"
+new = "key, value.inputByteCountOnALinkMultiplySampingRate, 1.0);"
+assert old in s, "anchor missing"
+p.write_text(s.replace(old, new, 1))
+PYEOF
+if cmake --build build --target test_routing_strategy -j4 >/dev/null 2>&1; then
+    if ./build/bin/test_routing_strategy --gtest_filter='LastHopAttributionTest.TheHostBoundSite*' >/dev/null 2>&1; then
+        echo "  🔴 THE PARTIAL FIX SURVIVED -- one site could ship unfixed and nothing would say so."
+    else
+        echo "  ✅ red: the unfixed site is detected"
+    fi
+else
+    echo "  ⚠️  mutant does not compile"
+fi
+cp -p "$FBAK" "$FLUC"; touch "$FLUC"
+[[ "$(sha256sum "$FLUC" | cut -d' ' -f1)" == "$FSHA" ]] || { echo "🔴 FLUC restore failed" >&2; exit 2; }
+
 printf '\n=== 3. sentinel -1.0 becomes 0.0 (header file, run separately) ===\n'
 echo "  expect: DivisorStartsAtASentinelNotZero"
 HDR=include/ndt_core/collection/TopologyAndFlowMonitor.hpp

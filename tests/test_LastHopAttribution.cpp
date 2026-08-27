@@ -261,6 +261,30 @@ TEST_F(LastHopAttributionTest, FindEdgeToHostReturnsTheHostBoundEdgeOnly)
         << "a port with no edge at all";
 }
 
+TEST_F(LastHopAttributionTest, TheHostBoundSiteDividesByTheIntervalItWasGiven)
+{
+    // NEGATIVE CONTROL for ticket Q, required by the auditor: "deliberately leave one site
+    // unfixed and assert it must go red -- without having seen it red, 'every site is asserted'
+    // has no evidence behind it."
+    //
+    // There are two sites that publish a rate. Fixing one and not the other produces a read-out
+    // where one edge class is corrected and another is not, which reads as "further from 1" or
+    // "a third mechanism is acting" -- both wrong verdicts aimed at problems that do not exist.
+    // This is the assertion for the switch->host site; the main-loop site is not reachable from
+    // a unit test (it lives inside a threaded loop that sleeps a second per iteration) and is
+    // covered by segment 2's live gate instead. That split is stated rather than papered over.
+    //
+    // To exercise the control: change creditHostBoundEgressEdges' call to
+    // updateLinkInfoLeftLinkBandwidth to pass a literal 1.0 instead of elapsedSeconds. This test
+    // must fail. tests/shell/mutate_rate_denominator.sh does exactly that.
+    feed("emitted_udp.bin");
+    m_collector->creditHostBoundEgressEdges(2.0);
+
+    EXPECT_EQ(usageOf(m_edgeToHost), kUdpFrameLen * kSamplingRate * 8 / 2)
+        << "the same bytes over two seconds is half the rate; the one-second value here means "
+           "this call site ignored the interval it was handed";
+}
+
 TEST_F(LastHopAttributionTest, OneSampleCreditsTheLastHopEdgeWithSampledBytesTimesRate)
 {
     feed("emitted_udp.bin");
