@@ -1067,8 +1067,31 @@ TopologyAndFlowMonitor::updateLinkInfo(pair<uint32_t, uint32_t> agentIpAndPort,
 void
 TopologyAndFlowMonitor::updateLinkInfoLeftLinkBandwidth(
     std::pair<uint32_t, uint32_t> agentIpAndPort,
-    uint64_t estimatedIn)
+    uint64_t accumulatedBytes,
+    double elapsedSeconds)
 {
+    // [Co-developed with claude code -- Adam]
+    // A non-positive interval cannot produce a rate. Publishing anything here -- 0, the
+    // undivided byte count, a clamped interval -- puts a number on an edge that looks exactly
+    // like a measurement, and the reader has no way to tell it apart from a real one. Refuse,
+    // say so, and leave the edge holding its previous value, which at least IS a measurement.
+    if (!(elapsedSeconds > 0.0))
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "rate update skipped: elapsed interval {} s is not positive, so "
+                            "{} bytes cannot be converted to a rate. Edge left unchanged.",
+                            elapsedSeconds,
+                            accumulatedBytes);
+        return;
+    }
+    m_lastRateDivisorSeconds.store(elapsedSeconds);
+
+    // The whole point of ticket Q: this division did not exist. The accumulator was handed on as
+    // `bytes * 8` and consumed as bits-per-second, which is only correct when the interval is
+    // exactly one second -- and the rate loop sleeps a full second and then runs its body.
+    const uint64_t estimatedIn =
+        static_cast<uint64_t>(static_cast<double>(accumulatedBytes) * 8.0 / elapsedSeconds);
+
     auto edgeOpt = findEdgeByAgentIpAndPort(agentIpAndPort);
     if (!edgeOpt.has_value())
     {

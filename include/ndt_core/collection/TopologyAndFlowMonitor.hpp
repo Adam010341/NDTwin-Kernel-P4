@@ -78,8 +78,30 @@ class TopologyAndFlowMonitor
                         uint64_t leftOut,
                         uint64_t interfaceSpeed);
 
+    // [Co-developed with claude code -- Adam]
+    // Takes BYTES and the interval they accumulated over, and does the bits-per-second
+    // conversion itself. It used to take a finished bps figure, and both callers produced that
+    // figure as `accumulator * 8` -- no division by anything. The rate loop's period is a second
+    // of sleep PLUS the body, never exactly 1000 ms, so every published rate was overstated by
+    // (real period / 1 s).
+    //
+    // WHY THE SIGNATURE CHANGED RATHER THAN THE CALL SITES. There are two call sites, and a
+    // partial fix is worse than none: ticket Q's read-out table would show one edge class
+    // corrected and another not, which reads as "further from 1" or "a third mechanism is
+    // acting" -- both wrong verdicts pointing at problems that do not exist. Taking an argument
+    // that did not exist before makes a missed call site a compile error instead.
+    //
+    // elapsedSeconds must be the interval between the PREVIOUS drain of the accumulator and this
+    // one, not the loop's start-to-start period: the bytes accumulated over the former.
     void updateLinkInfoLeftLinkBandwidth(std::pair<uint32_t, uint32_t> agentIpAndPort,
-                                         uint64_t estimatedIn);
+                                         uint64_t accumulatedBytes,
+                                         double elapsedSeconds);
+
+    // The divisor the most recent call actually used. Ticket Q's acceptance gate asserts this
+    // equals the independently measured interval for the same iteration, which is a check the
+    // code can fail -- unlike "the loop period should read ~1000 ms", which stays true whether
+    // or not the division was ever added.
+    double lastRateDivisorSeconds() const { return m_lastRateDivisorSeconds.load(); }
 
     std::optional<Graph::vertex_descriptor> findVertexByIp(uint32_t ip) const;
     std::optional<Graph::vertex_descriptor> findVertexByIpNoLock(uint32_t ip) const;
@@ -356,6 +378,12 @@ class TopologyAndFlowMonitor
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<std::shared_mutex> m_graphMutex;
     std::shared_ptr<EventBus> m_eventBus;
+
+    // [Co-developed with claude code -- Adam]
+    // Written by updateLinkInfoLeftLinkBandwidth, read by ticket Q's acceptance gate. Starts at
+    // a negative sentinel rather than 0: zero is a legal-looking divisor and would let "nobody
+    // has published a rate yet" pass a gate that is checking the divisor was correct.
+    std::atomic<double> m_lastRateDivisorSeconds{-1.0};
 
     utils::DeploymentMode m_mode;
 

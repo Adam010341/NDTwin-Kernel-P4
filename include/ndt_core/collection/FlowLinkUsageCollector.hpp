@@ -295,7 +295,9 @@ class FlowLinkUsageCollector
      *
      * [Co-developed with claude code -- Adam]
      */
-    void creditHostBoundEgressEdges();
+    // Takes the drain-to-drain interval; see updateLinkInfoLeftLinkBandwidth for why bytes and
+    // an interval rather than a finished bps. [Co-developed with claude code -- Adam]
+    void creditHostBoundEgressEdges(double elapsedSeconds);
 
     /**
      * @brief Sampled bytes x sampling rate banked so far for one (agent IP, port).

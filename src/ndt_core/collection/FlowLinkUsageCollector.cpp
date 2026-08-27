@@ -1683,18 +1683,20 @@ FlowLinkUsageCollector::sampledByteCreditFor(uint32_t agentIp, uint32_t port) co
 
 // [Co-developed with claude code -- Adam]
 void
-FlowLinkUsageCollector::creditHostBoundEgressEdges()
+FlowLinkUsageCollector::creditHostBoundEgressEdges(double elapsedSeconds)
 {
     std::unique_lock<std::shared_mutex> lk(m_counterReportsMutex);
     for (auto& [key, value] : m_egressCounterReports)
     {
         // Only the host-bound entries are paid out; a switch far end means the downstream
         // sampler owns the edge, so that entry is dropped rather than written. The zeroing is
-        // unconditional either way: an entry must not carry bytes into the next second.
+        // unconditional either way: an entry must not carry bytes into the next interval.
         if (m_topologyAndFlowMonitor->findEdgeToHostByAgentIpAndPort(key).has_value())
         {
+            // Bytes and the interval, not a pre-multiplied bps. This is the switch->host edge
+            // class; the main loop below serves the other two. [Co-developed with claude code -- Adam]
             m_topologyAndFlowMonitor->updateLinkInfoLeftLinkBandwidth(
-                key, value.inputByteCountOnALinkMultiplySampingRate * 8);
+                key, value.inputByteCountOnALinkMultiplySampingRate, elapsedSeconds);
         }
         value.inputByteCountOnALinkMultiplySampingRate = 0;
     }
@@ -1741,6 +1743,10 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     // flows and counters are here because the body walks both, so they are the first thing to
     // look at if the period grows.
     auto lastIterStart = std::chrono::steady_clock::now();
+    // Separate from lastIterStart on purpose: this one marks where the accumulators were last
+    // zeroed, which is the interval the bytes actually banked over.
+    // [Co-developed with claude code -- Adam]
+    auto lastDrainAt = std::chrono::steady_clock::now();
     uint64_t iterCount = 0;
     double periodSumMs = 0.0, periodMinMs = 1e30, periodMaxMs = 0.0;
 
@@ -1920,6 +1926,18 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
             }
         }
 
+        // [Co-developed with claude code -- Adam]
+        // The interval the accumulators actually covered: previous drain to this drain. NOT the
+        // loop's start-to-start period measured at the top of the body -- the accumulators are
+        // zeroed down here, so bytes bank from one drain to the next, and the two intervals
+        // differ by however much the work above this point jitters. They agree on average, which
+        // is exactly why using the wrong one would survive an eyeball check and then miss ticket
+        // Q's 1% gate.
+        const auto nowDrain = std::chrono::steady_clock::now();
+        const double drainElapsedSeconds =
+            std::chrono::duration<double>(nowDrain - lastDrainAt).count();
+        lastDrainAt = nowDrain;
+
         // Estimate left link bandwidth using flow sample
         if (m_mode == utils::MININET)
         {
@@ -1944,9 +1962,13 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                     SPDLOG_LOGGER_WARN(Logger::instance(), "Other Side Agent Miss");
                     continue;
                 }
+                // Bytes and the interval, not a pre-multiplied bps. This is host->switch and
+                // switch->switch; creditHostBoundEgressEdges serves switch->host.
+                // [Co-developed with claude code -- Adam]
                 m_topologyAndFlowMonitor->updateLinkInfoLeftLinkBandwidth(
                     agentKeyOtherSideOpt.value(),
-                    counter.inputByteCountOnALinkMultiplySampingRate * 8);
+                    counter.inputByteCountOnALinkMultiplySampingRate,
+                    drainElapsedSeconds);
                 value.inputByteCountOnALinkMultiplySampingRate = 0;
             }
         }
@@ -1954,7 +1976,7 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         // After the block above, not inside it: this takes m_counterReportsMutex itself, and
         // the mutex is not recursive. Outside MININET the egress map never fills, so the call
         // is a natural no-op there.
-        creditHostBoundEgressEdges();
+        creditHostBoundEgressEdges(drainElapsedSeconds);
 
         // log socket dropped packet number
         // uint32_t rxq_ovfl = 0;
