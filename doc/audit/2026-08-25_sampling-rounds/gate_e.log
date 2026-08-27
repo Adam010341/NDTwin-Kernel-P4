@@ -1,0 +1,107 @@
+[01:02:15] === gate_e start (BRIEF-E E-2) ===
+[01:02:15] SELFTEST SELFTEST PASS
+[01:02:15] --- arm e256b1_poll: NDTWIN_SFLOW_BATCH=1 ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3531803) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 .... up
+  waiting for link discovery: want 16256 destination paths
+    paths=6400              paths=11040              paths=15808              paths=16256                                                        converged after 14s
+[3/3] kernel
+  started kernel (pid 3542919) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[01:03:02]     kernel sha256(on disk) 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[e256b1_poll] h1=3524137 h33=3524201  200Mbit/s for 120s
+done: 240 samples over 120s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e256b1_poll_cpu.jsonl
+done: 480 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e256b1_poll_twin.jsonl
+[e256b1_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e256b1_poll_{cpu,twin}.jsonl, e256b1_poll_client.json
+[01:05:06]     VERDICT cell=e256b1_poll  mark=OK  ratio=1.016  gt_mbit=205.9  lost_pct=0.09777  lam=70.81  quantum=2953216  spread=11.52  floor=11.88  distinct=34
+[01:05:06]     UDPDGRAM e256b1_poll 25074 over 119.5s = 209.8/s
+[01:05:06] --- arm e256b8_poll: NDTWIN_SFLOW_BATCH=8 ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3553295) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 .... up
+  waiting for link discovery: want 16256 destination paths
+    paths=8064              paths=8544              paths=11904              paths=16256                                                        converged after 12s
+[3/3] kernel
+  started kernel (pid 3563917) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[01:05:47]     kernel sha256(on disk) 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[e256b8_poll] h1=3545159 h33=3545223  200Mbit/s for 120s
+done: 240 samples over 120s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e256b8_poll_cpu.jsonl
+done: 480 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e256b8_poll_twin.jsonl
+[e256b8_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e256b8_poll_{cpu,twin}.jsonl, e256b8_poll_client.json
+[01:07:52]     VERDICT cell=e256b8_poll  mark=OK  ratio=1.008  gt_mbit=205.8  lost_pct=0.1592  lam=70.27  quantum=2953216  spread=12.04  floor=11.93  distinct=14
+[01:07:52]     UDPDGRAM e256b8_poll 3652 over 119.5s = 30.6/s
+[01:07:52] --- restoring production (batch unset) ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 3574381) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 .... up
+  waiting for link discovery: want 16256 destination paths
+    paths=31              paths=5376              paths=8064              paths=10368              paths=16256                                                        converged after 13s
+[3/3] kernel
+  started kernel (pid 3584504) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 .[01:08:33] === gate_e complete ===
+ up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait

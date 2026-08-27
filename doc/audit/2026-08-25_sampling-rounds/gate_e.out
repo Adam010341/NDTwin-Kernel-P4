@@ -1,0 +1,13 @@
+CLAIMED at 01:02:15, launching gate_e
+[01:02:15] === gate_e start (BRIEF-E E-2) ===
+[01:02:15] SELFTEST SELFTEST PASS
+[01:02:15] --- arm e256b1_poll: NDTWIN_SFLOW_BATCH=1 ---
+[01:03:02]     kernel sha256(on disk) 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[01:05:06]     VERDICT cell=e256b1_poll  mark=OK  ratio=1.016  gt_mbit=205.9  lost_pct=0.09777  lam=70.81  quantum=2953216  spread=11.52  floor=11.88  distinct=34
+[01:05:06]     UDPDGRAM e256b1_poll 25074 over 119.5s = 209.8/s
+[01:05:06] --- arm e256b8_poll: NDTWIN_SFLOW_BATCH=8 ---
+[01:05:47]     kernel sha256(on disk) 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[01:07:52]     VERDICT cell=e256b8_poll  mark=OK  ratio=1.008  gt_mbit=205.8  lost_pct=0.1592  lam=70.27  quantum=2953216  spread=12.04  floor=11.93  distinct=14
+[01:07:52]     UDPDGRAM e256b8_poll 3652 over 119.5s = 30.6/s
+[01:07:52] --- restoring production (batch unset) ---
+[01:08:33] === gate_e complete ===

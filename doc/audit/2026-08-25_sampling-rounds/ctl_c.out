@@ -5,3 +5,4 @@
 [22:56:32]     zc090b_poll kernel pid=3215165
 [23:01:37]     VERDICT cell=zc090b_poll  mark=OK  ratio=0.9972  gt_mbit=92.69  lost_pct=0.0353  lam=250.4  quantum=369152  spread=8.753  floor=6.32  distinct=73
 [23:01:37] --- restoring production config (1/256) ---
+[23:03:00] === ctl_c complete, production restored ===

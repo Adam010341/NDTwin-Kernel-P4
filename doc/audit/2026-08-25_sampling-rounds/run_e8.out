@@ -1,0 +1,19 @@
+[02:14:09] === run_e8 start: 1/8, two arms, one fabric generation ===
+[02:14:09] kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[02:14:09] bmv2   sha256 3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a
+[02:15:28] fabric up, edges=288  (this generation serves BOTH arms)
+[02:17:33] ARM1 cell=e8b1_poll  mark=SATURATED+DATAPLANE-HURT  ratio=0.9288  gt_mbit=160.8  lost_pct=22.01  lam=1617  quantum=92288  spread=18.54  floor=2.487  distinct=107
+[02:17:33] --- restarting PROXY ONLY with NDTWIN_SFLOW_BATCH=8 (fabric untouched) ---
+[02:18:34] ABORT: proxy did not reopen :8081
+[02:19:13] --- proxy relaunch, this time with the recipe from p4_proxy.cmd ---
+[02:19:43] proxy restarted with BATCH=8, edges=288 (arm1 generation had 288)
+[02:21:48] ARM2 cell=e8b8_poll  mark=DATAPLANE-HURT  ratio=0.9545  gt_mbit=169.3  lost_pct=17.64  lam=1.258e+06  quantum=128  spread=29.5  floor=0.08918  distinct=108
+[02:21:48] === run_e8 complete ===
+[02:24:35] ARM3 PREREG: batch=1 AFTER arm2. ~22 => effect real; ~17.6 => warm-up not merge; between => noise band only, no point estimate.
+[02:24:35] ARM3 truncate=128 asserted
+[02:24:35] ARM3 kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[02:25:05] ARM3 edges=288 (must be 288)
+[02:27:12] ARM3 cell=e8b1r_poll  mark=SATURATED+DATAPLANE-HURT  ratio=0.8833  gt_mbit=132  lost_pct=29.49  lam=1266  quantum=92288  spread=60.88  floor=2.81  distinct=82
+[02:27:12] === arm3 complete ===
+  ok  lab released
+[02:38:10] === restored and released ===
