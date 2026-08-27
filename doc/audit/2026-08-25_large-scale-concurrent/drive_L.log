@@ -1,0 +1,211 @@
+### amendment L: 5 arms, flow_s=340, settle=30s, start 11:57:12
+
+############ L_Q (burners=0) 11:57:12 ############
+=== arm L_Q: burners=0 flow_s=340 win_s=300 (claim ok: 8/27 mainDev) ===
+  waiting for flows to start...
+  flows up at 11:57:17; T window = +20s for 300s
+  T rep 1/3 (100s)
+  T| polls: 657 at 6.6 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.040 s over 95 gaps, median 1.042
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.944 s (range 0.920-0.952 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.040x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+  T rep 2/3 (100s)
+  T| polls: 659 at 6.6 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.047 s over 94 gaps, median 1.044
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.954 s (range 0.935-0.966 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.047x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+  T rep 3/3 (100s)
+  T| polls: 672 at 6.7 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.045 s over 94 gaps, median 1.047
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.954 s (range 0.941-0.965 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.045x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+=== arm L_Q done ===
+  burners: all 0 dead
+  settling 30s
+
+############ L_B7 (burners=7) 12:04:03 ############
+=== arm L_B7: burners=7 flow_s=340 win_s=300 (claim ok: 8/27 mainDev) ===
+  burners: 277176 277177 277178 277179 277180 277181 277182
+  waiting for flows to start...
+  flows up at 12:04:08; T window = +20s for 300s
+  T rep 1/3 (100s)
+  T| polls: 508 at 5.1 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.036 s over 96 gaps, median 1.055
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.931 s (range 0.911-0.953 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.036x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+  T rep 2/3 (100s)
+  T| polls: 480 at 4.8 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.057 s over 93 gaps, median 1.067
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.913 s (range 0.911-0.967 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.057x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| => period is above 1 s but does not match the bias; something else is also acting
+  T rep 3/3 (100s)
+  T| polls: 472 at 4.7 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.036 s over 95 gaps, median 1.067
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.915 s (range 0.894-0.947 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.036x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+=== arm L_B7 done ===
+  burners: all 7 dead
+  settling 30s
+
+############ L_B14 (burners=14) 12:10:55 ############
+=== arm L_B14: burners=14 flow_s=340 win_s=300 (claim ok: 8/27 mainDev) ===
+  burners: 309980 309981 309982 309983 309984 309985 309986 309987 309988 309989 309990 309991 309992 309993
+  waiting for flows to start...
+  flows up at 12:11:01; T window = +20s for 300s
+  T rep 1/3 (100s)
+  T| polls: 428 at 4.3 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.074 s over 92 gaps, median 1.079
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.934 s (range 0.918-0.948 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.074x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| => period is above 1 s but does not match the bias; something else is also acting
+  T rep 2/3 (100s)
+  T| polls: 388 at 3.9 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.054 s over 93 gaps, median 1.085
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.892 s (range 0.892-0.938 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.054x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| => period is above 1 s but does not match the bias; something else is also acting
+  T rep 3/3 (100s)
+  T| polls: 363 at 3.6 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.085 s over 91 gaps, median 1.083
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.893 s (range 0.883-0.916 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.085x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| => period is above 1 s but does not match the bias; something else is also acting
+=== arm L_B14 done ===
+  burners: all 14 dead
+  settling 30s
+
+############ L_B28 (burners=28) 12:17:49 ############
+=== arm L_B28: burners=28 flow_s=340 win_s=300 (claim ok: 8/27 mainDev) ===
+  burners: 337007 337008 337009 337010 337011 337012 337013 337014 337015 337016 337017 337018 337019 337020 337021 337022 337023 337024 337025 337026 337027 337028 337029 337030 337031 337032 337033 337034
+  waiting for flows to start...
+  flows up at 12:17:55; T window = +20s for 300s
+  T rep 1/3 (100s)
+  T| polls: 203 at 2.0 Hz (0 failed)
+  T| edges that changed: 44, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.092 s over 81 gaps, median 1.051
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.877 s (range 0.838-0.956 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.092x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| => period is above 1 s but does not match the bias; something else is also acting
+  T rep 2/3 (100s)
+  T| polls: 194 at 1.9 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.061 s over 89 gaps, median 1.012
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.860 s (range 0.832-0.885 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.061x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| => period is above 1 s but does not match the bias; something else is also acting
+  T rep 3/3 (100s)
+  T| polls: 211 at 2.1 Hz (0 failed)
+  T| edges that changed: 43, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.049 s over 92 gaps, median 1.045
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.851 s (range 0.843-0.873 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.049x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+=== arm L_B28 done ===
+  burners: all 28 dead
+  settling 30s
+
+############ L_Qp (burners=0) 12:24:48 ############
+=== arm L_Qp: burners=0 flow_s=340 win_s=300 (claim ok: 8/27 mainDev) ===
+  waiting for flows to start...
+  flows up at 12:24:53; T window = +20s for 300s
+  T rep 1/3 (100s)
+  T| polls: 364 at 3.6 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.020 s over 97 gaps, median 1.055
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.889 s (range 0.856-0.919 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.020x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+  T rep 2/3 (100s)
+  T| polls: 485 at 4.8 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.033 s over 96 gaps, median 1.050
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.935 s (range 0.909-0.956 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 1.033x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+  T rep 3/3 (100s)
+  T| polls: 328 at 3.3 Hz (0 failed)
+  T| edges that changed: 40, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 0.997 s over 100 gaps, median 1.031
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.832 s (range 0.798-0.841 over 12 edges)
+  T| 
+  T| predicted over-report from this period: 0.997x
+  T| measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)
+  T| 🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause
+=== arm L_Qp done ===
+  burners: all 0 dead
+  settling 30s
+
+### all 5 arms done at 12:31:40
