@@ -84,7 +84,11 @@ for row in "${ROWS[@]}"; do
     c="${CLIENTS[$pair]}"; s="${SERVERS[$pair]}"
     port=$(( 5300 + pair ))
     sudo -n mnexec -a "${PID[$s]}" iperf3 -s -1 --daemon -p "$port" >/dev/null 2>&1
-    sudo -n mnexec -a "${PID[$c]}" iperf3 -c "10.0.0.${c#h}" -p "$port" -t "$dur" -b 20M \
+    # [Co-developed with claude code -- Adam]
+    # Dial the SERVER's address. This read `10.0.0.${c#h}` -- the client's own -- so every flow
+    # connected to itself, where nothing listens. 68 of 69 came back "unable to connect to
+    # server" having moved 0 bytes, while the arm reported "result files: 68/72" and looked fine.
+    sudo -n mnexec -a "${PID[$c]}" iperf3 -c "10.0.0.${s#h}" -p "$port" -t "$dur" -b 20M \
         --json --logfile "$OUT/f_${at}_${pair}.json" >/dev/null 2>&1 &
     STARTED+=("$!")
 done
@@ -93,10 +97,35 @@ echo "  all flows launched, waiting for the tail"
 for p in "${STARTED[@]}"; do wait "$p" 2>/dev/null; done
 echo "t_end=$(date +%s)" >> "$OUT/churn.meta"
 
-# The count of result files is the assertion that flows actually ran. A churn arm that launched
-# nothing would otherwise look like a churn arm with a perfect path-fill ratio.
+# [Co-developed with claude code -- Adam]
+# This used to count result files and call that "the assertion that flows actually ran". It is
+# not one: a client that cannot reach its server still writes a result file, containing an error.
+# The count read 68/72 through a run in which every single flow transferred zero bytes -- the
+# guard was written for exactly this failure and could not see it, because a file is not a
+# transfer. Count bytes.
 n_res=$(ls "$OUT"/f_*.json 2>/dev/null | wc -l)
+read -r n_ok n_err bytes < <(python3 - "$OUT" <<'PY'
+import glob, json, os, sys
+ok = err = 0; total = 0
+for f in glob.glob(os.path.join(sys.argv[1], "f_*.json")):
+    try:
+        d = json.load(open(f))
+    except Exception:
+        err += 1; continue
+    if "error" in d:
+        err += 1
+    else:
+        total += d.get("end", {}).get("sum_sent", {}).get("bytes", 0); ok += 1
+print(ok, err, total)
+PY
+)
 echo "  churn done $(date '+%H:%M:%S'); result files: $n_res / ${#ROWS[@]}"
-echo "n_result_files=$n_res" >> "$OUT/churn.meta"
+echo "  flows that MOVED DATA: $n_ok  failed: $n_err  total: $(( bytes / 1000000 )) MB"
+{ echo "n_result_files=$n_res"; echo "n_flows_transferred=$n_ok"; echo "n_flows_failed=$n_err"
+  echo "bytes_sent=$bytes"; } >> "$OUT/churn.meta"
+if (( n_ok == 0 )); then
+    echo "  🔴 NO FLOW TRANSFERRED ANY DATA -- this arm measured an idle fabric, not churn." >&2
+    exit 1
+fi
 [ "$n_res" -eq 0 ] && { echo "🔴 no flow produced a result -- this is not a churn arm"; exit 1; }
 exit 0
