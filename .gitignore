@@ -66,3 +66,5 @@ doc/audit/2026-08-25_sampling-rounds/raw_gil/
 doc/audit/2026-08-25_sampling-rounds/gil_g.log
 doc/audit/2026-08-25_sampling-rounds/raw_h/
 doc/audit/2026-08-25_sampling-rounds/h_probe.log
+doc/audit/2026-08-25_sampling-rounds/raw_n/
+doc/audit/2026-08-25_sampling-rounds/*.log

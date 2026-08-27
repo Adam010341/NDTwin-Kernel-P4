@@ -1,4 +1,0 @@
-s1-eth1: qdisc noqueue 0: root refcnt 2 
-s1-eth2: qdisc noqueue 0: root refcnt 2 
-s5-eth3: qdisc noqueue 0: root refcnt 2 
-h1-eth0-peer(s1-eth3): qdisc noqueue 0: root refcnt 2 
