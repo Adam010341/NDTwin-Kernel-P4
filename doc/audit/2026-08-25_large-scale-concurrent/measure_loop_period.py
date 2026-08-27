@@ -6,19 +6,31 @@ loop iteration, hands the accumulator x 8 straight through as link_bandwidth_usa
 on that path divides by elapsed time (:1447, :1885-1888, TopologyAndFlowMonitor.cpp:1090-1096).
 The loop is `sleep_for(1s)` at the TOP of the body (:1725-1727), so its real period is one second
 plus however long the body takes. If that is right, every reported rate is over-stated by exactly
-(real period / 1 s), and the 1.227 and 1.193 measured on 2026-08-25 should show up here as a
-period of 1.19-1.23 s.
+(real period / 1 s).
+
+🔴 DO NOT COMPARE ACROSS ROUNDS. This docstring used to say the 1.227x and 1.193x measured on
+2026-08-25 should turn up here as a period of 1.19-1.23 s, and the tool used to print a verdict
+against exactly that. REPORT.md section 0 retracted that comparison, and 2026-08-27 then measured
+the quiet-arm period at 1043.9 ms in one fabric generation and 1001.7 ms in the next -- 42 ms
+apart, about seven times the rep spread, while the 14-burner arms of the same two generations
+agreed to within 3 ms. The period is a property of a generation AND a load, not of the binary.
+Compare arms measured in the same window; do not carry a period across a rebuild.
 
 HOW. The loop writes usage for every edge once per iteration, so a loaded edge's value CHANGES on
 a step function whose width is the period. Poll faster than the loop and time the steps. No
 instrumentation, no rebuild, and it reads the shipped binary rather than a rebuilt one.
 
 WHY THIS IS NOT CIRCULAR. The period is measured from wall-clock timestamps of value transitions.
-The ratio it is compared against came from byte totals against veth counters. Neither derives from
-the other; if the mechanism is wrong they will simply disagree.
+Any ratio it gets compared against comes from byte totals against veth counters. Neither derives
+from the other; if the mechanism is wrong they will simply disagree.
 
-FALSIFIES THE CLAIM: a measured period of ~1.00 s. That would mean the loop does keep 1 Hz and the
-over-report comes from somewhere else entirely.
+FALSIFIES THE CLAIM: a measured period of ~1.00 s IN THE SAME ARM as the ratio it is being asked
+to explain. That would mean the loop keeps 1 Hz there and the over-report comes from elsewhere.
+
+WHAT THIS TOOL DOES NOT DO. It does not decide anything. It prints the period it measured and the
+over-report a 1000 ms denominator would produce at that period, and stops. Deciding whether the
+denominator explains a given round's bias needs the ratio from the same window, which lives in the
+round's own analysis -- not in here.
 
 Usage: measure_loop_period.py <out.json> <seconds>
 [Co-developed with claude code -- Adam]
@@ -133,14 +145,25 @@ def main():
     print(f"\nper-edge p10 estimator (lower bound, for comparison): median {res['period_median_s']:.3f} s "
           f"(range {res['period_min_s']:.3f}-{res['period_max_s']:.3f} over {len(per_edge)} edges)")
     p = cluster_period or res["period_median_s"]
-    print(f"\npredicted over-report from this period: {p:.3f}x")
-    print(f"measured on 2026-08-25: 1.227x (64 flows) / 1.193x (16 flows)")
-    if p < 1.05:
-        print("🔴 the loop DOES hold ~1 Hz -- the hard-coded denominator is not the cause")
-    elif 1.10 <= p <= 1.35:
-        print("=> consistent with the reported bias")
-    else:
-        print("=> period is above 1 s but does not match the bias; something else is also acting")
+    # This tool used to end by comparing p against the 1.227x/1.193x measured on 2026-08-25 and
+    # printing a verdict -- "the loop DOES hold ~1 Hz, the hard-coded denominator is not the
+    # cause", in red, in a full sentence. Three things were wrong with that and only one of them
+    # was that the comparison had since been retracted in REPORT.md section 0:
+    #
+    #   * the number it compared against came from a different fabric generation, which is exactly
+    #     the comparison that was retracted;
+    #   * a verdict belongs to whoever is reading the round, not to the instrument, and this one
+    #     went on to be written into four arms' drive logs where a later reader would meet it with
+    #     none of that context and every reason to read it as a finding;
+    #   * p is not one number. Across ticket P's own arms it ran 1.001 to 1.090 with load, so a
+    #     threshold on a single reading was answering a question the data cannot answer alone.
+    #
+    # It now reports what it measured and stops. Interpretation is the round's job.
+    print(f"\nperiod: {p:.4f} s over {len(cluster_gaps) if cluster_period else len(per_edge)} "
+          f"{'gaps' if cluster_period else 'edges'}"
+          f"  =>  a 1000 ms hard-coded denominator would over-report by {(p - 1.0) * 100:+.1f}%")
+    print("(one reading from one arm. Compare arms measured in the same window, not across "
+          "rounds -- the quiet-arm period moved 42 ms between two fabric generations on 2026-08-27.)")
     return 0
 
 
