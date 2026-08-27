@@ -103,6 +103,69 @@ if (now <= info.endTime) { continue; }   // 跳過，永不清除
 把系統時鐘往回撥、看那條流是否永不消失。**這比「ingest 重播舊紀錄」那個描述更具體。**
 ⇒ 建議**開成 W 的子項或獨立工單**，因為它與 15 秒尾巴是**兩個不同的缺陷**。
 
+## W-2-ter. 🔴 **Energy-Saving-App 讀了它,而嚴重度取決於在哪個分支上跑**
+
+審查員要的三個答案:
+
+### ① `flowDataList` 有沒有進到會影響輸出的計算? —— **有**
+
+`energy_saving_app.cpp:743` 把整包塞進 `json2sim["flowDataList"]`,
+再經 `send_case` 送給 **`energy_saving_simulator`(獨立 ELF,無原始碼)**。
+**app 自己的決策(`findRedundantNodes`)只讀 `Graph`**,不讀 flowDataList
+⇒ **它是給模擬器用的,而模擬器的裁決決定要不要真的關機。**
+
+### ② 逐流還是聚合? —— **逐流**
+
+`strings energy_saving_simulator` 命中 `flowDataList`,以及:
+
+```
+flow ip:{}->{}, port:{}->{} NOT allocated.
+flow ip:{}->{}, port:{}->{} NOT in any link
+flow not found ip:{}->{}, port:{}->{}
+flow:{}->{}, port:{}->{}, oldband={}, newband={}, diff={}
+flowPathDiffs        flows are EMPTY!
+```
+
+⇒ **它按 5-tuple 逐流處理,而且做每條流的頻寬差分(`oldband`/`newband`/`diff`)。**
+⇒ **92% 的死流會被當成活流逐一處理。**
+
+### ③ 有沒有把流當負載指標? —— **有,而且這是分支相依的**
+
+**逐流頻寬差分就是負載指標。** 那麼死流帶什麼速率?
+
+| 分支 | 停掉的流回報的速率 | 後果 |
+|---|---|---|
+| **本分支**(`fix/flow-rate-divide-by-zero`) | **0**(`FLUC:1911`,guard `31b357a`) | 死流貢獻 0 頻寬 ⇒ **沒有幻影負載** |
+| 🔴 **`origin/main`(baseline)** | **保留最後一個非零值** | **幻影負載是真的** |
+
+`git merge-base --is-ancestor 31b357a origin/main` ⇒ **不是祖先,baseline 沒有這個 guard。**
+
+而 `FLUC:1896-1910` 的註解逐字記著 baseline 的行為與實測:
+
+> 一條停掉的流**永遠保留它最後的非零速率、一直被標成 elephant、永遠不離開 top-k**。
+> 實測:iperf3 結束後 5 秒與 10 秒,top-k 仍回報**逐位元相同**的 20.3 Mbps / 10496 pps。
+> **樂觀型失敗:它顯示不存在的負載,而且看起來像穩定不像陳舊。**
+
+⇒ 🔴 **在 baseline 上,W 的 13× 尾巴 × 陳舊非零速率 = 送給省電模擬器的幻影負載。**
+**方向是「看到不存在的負載」⇒ 拒絕關掉其實閒置的交換機 ⇒ 正好抵銷這個 app 的目的。**
+✅ **在本分支上,尾巴仍在(13×),但死流速率是 0 ⇒ 頻寬不被高估。**
+
+⚠️ **我不宣稱的**:
+- **模擬器讀哪一個速率欄位**(`_in_the_last_sec` 對 `_in_the_proceeding_1sec_timeslot`)。
+  baseline 上**只有後者**會保留陳舊值,前者讀 0。**無原始碼,未確認。**
+- **模擬器是否用「流的數量」本身當指標**(`flows are EMPTY!` 暗示有計數檢查)。
+  **若有,13× 在兩個分支上都會咬人,與速率無關。**
+
+## W-2-quater. 🔑 這是給今晚 chaos 差異臂的一個**預先寫下的預測**
+
+chaos 要跑 baseline 對現版做差異比對。**上面那張表就是一個可否證的預測:**
+
+> **baseline 的 `get_detected_top_k_flow_data` 在流量停止後仍會回報非零速率(且逐位不變);
+> 本分支會回報 0。**
+
+**流量停止後 5–10 秒查兩邊的 top-k 即可。** 若 baseline 沒有重現,
+**上面整段對 baseline 的歸因就要撤回。**
+
 ## W-3. 待做（**都不需要實驗室，除了最後一項**）
 
 1. **讀 Energy-Saving-App 的模擬**：`flowDataList` 是否影響關機決策？影響到什麼程度？
