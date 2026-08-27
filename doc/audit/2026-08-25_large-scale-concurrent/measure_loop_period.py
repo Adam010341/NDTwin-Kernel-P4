@@ -162,8 +162,12 @@ def main():
     print(f"\nperiod: {p:.4f} s over {len(cluster_gaps) if cluster_period else len(per_edge)} "
           f"{'gaps' if cluster_period else 'edges'}"
           f"  =>  a 1000 ms hard-coded denominator would over-report by {(p - 1.0) * 100:+.1f}%")
-    print("(one reading from one arm. Compare arms measured in the same window, not across "
-          "rounds -- the quiet-arm period moved 42 ms between two fabric generations on 2026-08-27.)")
+    print("(one reading from one arm. On 2026-08-27 two quiet arms of the SAME generation came "
+          "out 42 ms apart, so a single arm carries roughly that much regardless of its rep "
+          "spread -- compare arms, and do not read agreement finer than ~40 ms as precision.)")
+    print("⚠️  untested at long periods: a slower loop spreads one iteration's writes over more "
+          "wall-clock, so a cluster can split and this estimate reads LOW. Cross-checked against "
+          "the in-loop instrument only at ~1042 ms (1043.9 vs 1041.2). Above that, unvalidated.")
     return 0
 
 

@@ -72,7 +72,36 @@ def main():
         for name, v, cl, po in rows:
             print(f"{'':7} {'':>3} {'':>4}    {name}: {v:.1f} ms from {cl} clusters, {po} polls")
 
+    # THE ERROR TERM. Reps inside one arm are three reads of one arm, not three samples of "the
+    # quiet condition" -- they share that arm's fabric state, its neighbours, everything. Using
+    # their spread as the error term for a BETWEEN-ARM comparison understates it by however much
+    # arms differ from each other, which here is a factor of five. Each generation ran two quiet
+    # arms, so the between-arm spread is measurable rather than assumed.
+    print("\n--- quiet arms: the right error term is BETWEEN arms, not between reps ---")
+    quiet = {1: [("L_Q", "L_Qp")], 2: [("P_Q", "P_Qp")]}
+    gen_means = {}
+    for gen, pairs in quiet.items():
+        for a, b in pairs:
+            if a not in stats or b not in stats:
+                print(f"  gen {gen}: {a}/{b} incomplete")
+                continue
+            ma, mb = stats[a][0], stats[b][0]
+            reps_sd = f"{stats[a][1]:.1f}/{stats[b][1]:.1f}"
+            gen_means[gen] = (ma + mb) / 2, abs(ma - mb)
+            print(f"  gen {gen}: {a} {ma:.1f} vs {b} {mb:.1f}  ->  between-arm gap "
+                  f"{abs(ma - mb):.1f} ms   (within-arm rep SDs: {reps_sd})")
+    if len(gen_means) == 2:
+        (m1, s1), (m2, s2) = gen_means[1], gen_means[2]
+        # SD from a pair is |diff|/sqrt(2); pool the two generations.
+        sd = math.sqrt(((s1 / math.sqrt(2)) ** 2 + (s2 / math.sqrt(2)) ** 2) / 2)
+        se = sd * math.sqrt(1 / 2 + 1 / 2)
+        print(f"\n  gen1 quiet mean {m1:.1f}  vs  gen2 quiet mean {m2:.1f}  ->  "
+              f"delta {m1 - m2:+.1f} ms, between-arm SE {se:.1f}, delta/SE = {abs(m1-m2)/se:.2f}")
+        print(f"  => the quiet period moves ~{max(s1, s2):.0f} ms between arms of the SAME "
+              f"generation. Any single quiet arm carries that, not its rep SD.")
+
     print("\n--- cross-generation pairs (same burner count) ---")
+    print("    (single arm per cell, so these SEs are within-arm and UNDERSTATE the real spread)")
     for a, b in (("L_Q", "P_Q"), ("L_B14", "P_B14"), ("L_B28", "P_B28"), ("L_Qp", "P_Qp")):
         if a not in stats or b not in stats:
             print(f"{a} vs {b}: incomplete, no comparison")

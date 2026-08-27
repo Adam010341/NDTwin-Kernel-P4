@@ -1,0 +1,35 @@
+=== arm Q_T64: burners=0 flow_s=340 win_s=300 (claim ok: 8/27 mainDev) ===
+  waiting for flows to start...
+  flows up at 17:34:57; T window = +20s for 300s
+  T rep 1/3 (100s)
+  T| polls: 398 at 4.0 Hz (0 failed)
+  T| edges that changed: 98, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.061 s over 90 gaps, median 1.163
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 1.002 s (range 0.989-1.042 over 12 edges)
+  T| 
+  T| period: 1.0609 s over 90 gaps  =>  a 1000 ms hard-coded denominator would over-report by +6.1%
+  T| (one reading from one arm. Compare arms measured in the same window, not across rounds -- the quiet-arm period moved 42 ms between two fabric generations on 2026-08-27.)
+  T rep 2/3 (100s)
+  T| polls: 323 at 3.2 Hz (0 failed)
+  T| edges that changed: 91, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.049 s over 94 gaps, median 1.164
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 1.020 s (range 1.008-1.074 over 12 edges)
+  T| 
+  T| period: 1.0486 s over 94 gaps  =>  a 1000 ms hard-coded denominator would over-report by +4.9%
+  T| (one reading from one arm. Compare arms measured in the same window, not across rounds -- the quiet-arm period moved 42 ms between two fabric generations on 2026-08-27.)
+  T rep 3/3 (100s)
+  T| polls: 308 at 3.1 Hz (0 failed)
+  T| edges that changed: 92, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.032 s over 96 gaps, median 1.121
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.981 s (range 0.898-1.071 over 12 edges)
+  T| 
+  T| period: 1.0324 s over 96 gaps  =>  a 1000 ms hard-coded denominator would over-report by +3.2%
+  T| (one reading from one arm. Compare arms measured in the same window, not across rounds -- the quiet-arm period moved 42 ms between two fabric generations on 2026-08-27.)
+=== arm Q_T64 done ===
+  burners: all 0 dead
