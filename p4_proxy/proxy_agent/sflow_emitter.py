@@ -258,9 +258,32 @@ class SFlowEmitter:
                  collector: tuple[str, int] = DEFAULT_COLLECTOR,
                  max_header_bytes: int = DEFAULT_MAX_HEADER_BYTES,
                  sock: Optional[socket.socket] = None,
-                 started_at: Optional[float] = None):
+                 started_at: Optional[float] = None,
+                 batch_size: int = 1,
+                 batch_max_delay_s: float = 0.2):
         self.collector = collector
         self.max_header_bytes = max_header_bytes
+        # [Co-developed with claude code -- Adam]
+        # Datagram batching -- build_datagram has always accepted a list, and until now the only
+        # production caller passed a list of one. The capability shipped with tests and zero
+        # users, and its own docstring said either was fine ("the kernel handles either, so
+        # callers may send one at a time"), so nothing was ever measured about the difference.
+        #
+        # DEFAULT 1 IS EXACTLY THE OLD BEHAVIOUR, byte for byte, and that is deliberate: this is
+        # here to be measured against, not to be switched on because batching is what OVS does.
+        # Batching trades syscalls for latency and for blast radius -- one lost UDP datagram now
+        # costs `batch_size` samples instead of one -- and neither side of that trade has a
+        # number yet.
+        #
+        # Per-dpid, because an sFlow datagram carries exactly one agent address: samples from two
+        # switches cannot legally share one. So the buffer is keyed by dpid and a busy switch
+        # never waits on a quiet one.
+        self.batch_size = max(1, int(batch_size))
+        self.batch_max_delay_s = batch_max_delay_s
+        self._pending: dict[int, list] = {}
+        self._pending_since: dict[int, float] = {}
+        self.batches_flushed_full = 0
+        self.batches_flushed_aged = 0
         # Injectable so tests do not need a socket at all.
         self._sock = sock or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._agents: dict[int, SwitchAgent] = {}
@@ -301,15 +324,32 @@ class SFlowEmitter:
 
     def emit(self, dpid: int, sample: SampledPacket, uptime_ms: int) -> bool:
         """
-        Sends one sampled packet as a single-sample datagram.
+        Sends one sampled packet, or buffers it when batching is on.
 
         Returns False when the switch is unregistered or the send fails, rather than raising:
         this runs on the gRPC receive path, where an exception would kill the stream thread
-        and silently end telemetry for that switch.
+        and silently end telemetry for that switch. With batching on, True means "accepted",
+        not "already on the wire" -- the send happens at flush.
         """
         agent = self._agents.get(dpid)
         if agent is None:
             return False
+
+        if self.batch_size > 1:
+            self._pending.setdefault(dpid, []).append(sample)
+            self._pending_since.setdefault(dpid, time.monotonic())
+            ok = True
+            if len(self._pending[dpid]) >= self.batch_size:
+                self.batches_flushed_full += 1
+                ok = self._flush_one(dpid, uptime_ms)
+            # Sweep every dpid, not just this one: a switch that goes quiet mid-batch would
+            # otherwise hold its samples until it spoke again, which for a failing link is
+            # exactly when the telemetry matters most.
+            for other in [d for d, t in self._pending_since.items()
+                          if d != dpid and time.monotonic() - t >= self.batch_max_delay_s]:
+                self.batches_flushed_aged += 1
+                self._flush_one(other, uptime_ms)
+            return ok
 
         try:
             datagram = build_datagram([sample], agent, uptime_ms, self.max_header_bytes)
@@ -329,7 +369,48 @@ class SFlowEmitter:
         self.samples_sent += 1
         return True
 
+    def _flush_one(self, dpid: int, uptime_ms: int) -> bool:
+        """Send whatever is buffered for one switch. Empties the buffer either way."""
+        samples = self._pending.pop(dpid, [])
+        self._pending_since.pop(dpid, None)
+        if not samples:
+            return True
+        agent = self._agents.get(dpid)
+        if agent is None:
+            return False
+        try:
+            datagram = build_datagram(samples, agent, uptime_ms, self.max_header_bytes)
+        except (ValueError, struct.error, OSError):
+            return False
+        try:
+            self._sock.sendto(datagram, self.collector)
+        except OSError:
+            self.send_errors += 1
+            return False
+        self.datagrams_sent += 1
+        self.samples_sent += len(samples)
+        return True
+
+    def flush(self, uptime_ms: Optional[int] = None) -> None:
+        """Send every buffered sample now.
+
+        [Co-developed with claude code -- Adam]
+        Batching without this has a tail: the last partial batch of a switch that stops sending
+        sits in memory until it sends again, which may be never. Called from close(), and a
+        caller running the emitter for long periods should call it on a timer as well.
+        """
+        if uptime_ms is None:
+            uptime_ms = self.uptime_ms()
+        for dpid in list(self._pending):
+            self._flush_one(dpid, uptime_ms)
+
     def close(self) -> None:
+        # Flush BEFORE closing the socket, or shutting down silently discards whatever the last
+        # partial batches held.
+        try:
+            self.flush()
+        except Exception:                # noqa: BLE001 -- close must not raise
+            pass
         try:
             self._sock.close()
         except OSError:

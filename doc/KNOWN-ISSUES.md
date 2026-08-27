@@ -498,6 +498,27 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
 
 ## E-2. 潛伏：一個旗標之遙的靜默故障
 
+### sFlow batching 的老化清掃只在有樣本進來時跑 ⇒ **整個 fabric 同時安靜下來，尾巴留在記憶體裡**
+
+- **狀態**：**潛伏**。旗標是 `NDTWIN_SFLOW_BATCH`，**生產預設 1 ＝ batching 關閉 ⇒ 目前不咬人**。
+  truncate／merge 若採用（工單 D/E/F 在評估）就會咬。
+- **機制**：`sflow_emitter.py` 的老化 sweep 掛在 `emit()` 裡
+  ——**只有樣本進來時才會檢查別的 dpid 有沒有過期**。若整個 fabric 同時安靜，
+  沒有任何 `emit()` 被呼叫 ⇒ **每台交換機最後一批部分樣本留在記憶體裡直到 `close()`**。
+- 🔴 **緩解措施存在，而且它自己寫下了需求，但沒有呼叫者**：`flush()` 的 docstring 明寫
+  *"a caller running the emitter for long periods should call it on a timer as well"*，
+  而 `main.py` **只在 `close()` 呼叫它，沒有任何 timer**。
+  ⇒ [[existence-is-not-wiring]] 的變體：**不是「有呼叫點沒定義」，是「有定義零呼叫者」，
+  而且需求是這段碼自己寫下的。**
+- **本輪不修**（修它是行為改變，要有量測支撐），**改為用測試釘住現況**：
+  `tests/python/test_sflow_emitter_batching.py::QuietFabricTailIsPinnedNotFixed`
+  斷言「整個 fabric 安靜時尾巴仍在 `_pending` 裡」⇒ **未來要修，必須來這裡把斷言改掉，
+  不能不知不覺地修掉。**
+- **影響量級**：每台交換機最多 `batch_size - 1` 個樣本。batch=8 時＝10 台 × 7 ＝ 70 個樣本
+  停在最後一次安靜之後，直到下一次流量或關機。
+- **要修的話的形狀**：`main.py` 起一個 timer 週期呼叫 `flush()`，週期 ≤ `batch_max_delay_s`。
+
+
 ### OVS 電源開機把交換機指向 `6633`，目前能通是**巧合**
 
 - **狀態**：**不是缺陷**（實測驗證），但是**潛伏風險**
