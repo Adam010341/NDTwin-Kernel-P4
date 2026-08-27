@@ -137,3 +137,41 @@ value.inputByteCountOnALinkMultiplySampingRate = 0;          // 累加器每輪�
 不宣稱殘差的成因（見 Q-6，留空）。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 Q-bis（append-only，2026-08-27 下午，仍未改任何一行碼）
+
+審查員接受 Q-1 的反對並自己讀碼確認：`:1753-1755` 的 `periodMs` 量在 `sleep_for(1s)` **之後**
+⇒ 週期＝1000 ms ＋ 前一輪本體 ⇒ **修法 (A) 不動睡眠與本體，週期仍讀 1043 ms、會被原閘門誤殺。**
+
+## Qb-1. 🔴 原閘門作廢，而**錯的源頭在原始碼註解裡**
+
+`FlowLinkUsageCollector.cpp:1736-1737` 寫著：
+
+> *Once the accumulator is divided by the measured interval instead of an assumed one,
+> **this line must read ~1000 ms forever**.*
+
+**那句話不成立**，理由同上。審查員是**從這段註解抄成工單條款的，沒有自己推一遍**。
+
+🔴 **交付要順手修掉那句註解**（掛 attribution、寫明它為什麼錯）。
+理由：那是 `1-quater` 的執行者會讀的第一段文字，**它已經騙過一個人了**。
+⇒ 同 [[cited-line-numbers-are-not-evidence]]：**註解裡的宣稱也是宣稱。**
+
+## Qb-2. 新驗收儀器（取代 Q-3 與判讀表第四列）
+
+> **記錄「實際被當成除數用的那個值」，並斷言它等於同一輪量到的經過時間（容差 1%）。
+> 兩者不符 ⇒ 改錯地方，不看其他數字。**
+
+檢查的是**自我一致性**而非某個特定數值 ⇒ **對 (A)、(B)、(A)+(B) 三種修法都有效**。
+採 (B) 時**額外**加：穩態週期須讀 **1000 ± 20 ms**（那是 (B) 自己的驗收，不是 (A) 的）。
+
+## Qb-3. 🔴 (B) 的追趕守衛（審查員要求，理由是這個 repo 的前科）
+
+`sleep_until(next += 1s)`：**若本體超過 1 s，`next` 落在過去 ⇒ 迴圈不睡、連續空轉追趕 ⇒ CPU 燒滿**
+——本 repo 已經有過一個 idle 100% CPU 的 bug（`poll()` 用 0 ms timeout）。
+
+**寫法定死**：`next` 落後於 `now` 時**直接跳到下一個未來刻度，不累積補償**；
+**跳過時記一筆** —— 那本身就是「本體超時」的訊號，對 P 與 Q 都有用。
+
+[Co-developed with claude code -- Adam]
