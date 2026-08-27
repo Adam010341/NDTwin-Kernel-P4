@@ -122,6 +122,28 @@ def m_constants():
     return int(idle.group(1)) / 1000.0, (int(band.group(1)), int(band.group(2))), int(refute.group(1))
 
 
+def m_preflight():
+    """[(dur_lo, dur_hi, sha8, cadence, [ratios])] from amendment M-ter's measured table.
+
+    Parsed out of the committed prereg rather than transcribed, because these three rows are the
+    reason the ten arms were not run and a slide is going to carry them.
+    """
+    rows = []
+    for line in _read(f"{MDIR}/PREREG.md").splitlines():
+        if not line.startswith("|") or "`" not in line:
+            continue
+        sha = re.search(r"`([0-9a-f]{8})`", line)
+        dur = re.search(r"\*{0,2}(\d+)[–-](\d+) s", line)
+        cad = re.search(r"（(1 m?s)）", line)
+        if not (sha and dur and cad):
+            continue
+        ratios = [float(v) for v in re.findall(r"(?<![\d.])([01]\.\d{3})(?![\d])", line)]
+        if len(ratios) == 3:
+            rows.append((int(dur.group(1)), int(dur.group(2)), sha.group(1), cad.group(1), ratios))
+    assert len(rows) == 3, f"M-ter pre-flight table: {len(rows)} rows parsed, want 3"
+    return rows
+
+
 # ---------------------------------------------------------------------------- shared style
 def _frame(ax, ylab=None, xlab=None):
     if ylab:
@@ -403,81 +425,84 @@ def fig_what_1khz_buys():
 
 # =========================================================================== figure 4 (M)
 def fig_dose_response():
-    _idle, band, refute = m_constants()
+    idle_s, band, _refute = m_constants()
+
+    pre = m_preflight()
 
     fig = plt.figure(figsize=WIDE)
     _title(fig,
-           "The arithmetic came before the data — and it moved the experiment",
-           "The churn schedule is deterministic, so the expected result can be computed before any "
-           "flow starts. Computed that way, the ticket's own churn spec lands outside the ticket's "
-           "own prediction band.",
-           "PRE-DATA ARITHMETIC · NO ARM HAS RUN", "predicted")
+           "A two-minute pre-flight refuted the arithmetic, before ten arms ran",
+           "The prediction was written down first, so it could be checked cheaply. It was wrong — "
+           "and wrong in the opposite direction, which is what made the cause findable rather than "
+           "just the number wrong.",
+           "PRE-FLIGHT · THE TEN ARMS WERE NOT RUN", "predicted")
 
-    ax = fig.add_axes([0.052, AXES_Y, 0.575, AXES_H])
-    _frame(ax, ylab="Predicted share of flow-seconds with a `path`  (%)",
+    ax = fig.add_axes([0.052, AXES_Y, 0.545, AXES_H])
+    _frame(ax, ylab="Share of listed flows with a `path`  (%)",
            xlab="Mean flow lifetime under churn  (s)")
 
     xs = [1.0 + i * 0.02 for i in range(int((11.0 - 1.0) / 0.02) + 1)]
-    ys = [(1.0 - 0.5 / x) * 100 for x in xs]
-
+    ax.plot(xs, [(1.0 - 0.5 / x) * 100 for x in xs], color=GREY, linewidth=2.4,
+            linestyle="--", zorder=4)
     ax.axhspan(band[0], band[1], color=ACCENT_BG, zorder=1)
-    ax.text(10.85, band[0] + 0.8, f"prediction band  {band[0]}–{band[1]}%", fontsize=11.5,
-            color=ACCENT, ha="right", va="bottom", fontweight="bold")
-    ax.axhline(refute, color=WARNC, linewidth=1.6, linestyle="--", zorder=4)
-    ax.text(1.15, refute + 0.6, f"refutation line ≥{refute}%  (the ticket's own)", fontsize=11,
-            color=WARNC, ha="left", va="bottom", fontweight="bold")
+    ax.text(10.8, 89.2, f"predicted band  {band[0]}–{band[1]}%", fontsize=11,
+            color=ACCENT, ha="right", va="top", fontweight="bold")
+    ax.text(6.2, 79.0, "predicted:  1 − 0.5 / lifetime", fontsize=11.5, color=GREY,
+            ha="left", va="top", fontweight="bold")
 
-    ax.plot(xs, ys, color=INK, linewidth=2.5, zorder=5)
+    # measured pre-flight points, at the midpoint of each dose range
+    for lo, hi, sha, cad, ratios in pre:
+        x = (lo + hi) / 2
+        col = ACCENT if cad == "1 s" else FAINT
+        for r in ratios:
+            ax.plot([x], [r * 100], "o", ms=13, color=col, zorder=7, alpha=0.85,
+                    markeredgecolor="white", markeredgewidth=1.6)
+        lab = f"{lo}–{hi} s @ {cad}"
+        ax.annotate(lab, (x, min(ratios) * 100), textcoords="offset points",
+                    xytext=(0, -16), ha="center", va="top", fontsize=10.5, color=col,
+                    fontweight="bold")
 
-    #                  x     label            colour  (dx, dy)   ha       va
-    doses = [(7.5, "5–10 s ticket spec", WARNC, (16, 4), "left", "top"),
-             (5.5, "3–8 s", GREY, (6, -14), "left", "top"),
-             (3.5, "2–5 s", ACCENT, (13, 16), "left", "bottom"),
-             (2.5, "1–4 s adopted", ACCENT, (13, -10), "left", "top")]
-    for x, lab, col, (dx, dy), ha, va in doses:
-        y = (1.0 - 0.5 / x) * 100
-        ax.plot([x], [y], "o", ms=13, color=col, zorder=7,
-                markeredgecolor="white", markeredgewidth=1.6)
-        ax.annotate(f"{lab}\n{y:.1f}%", (x, y), textcoords="offset points", xytext=(dx, dy),
-                    ha=ha, va=va, fontsize=11, color=col, fontweight="bold")
+    # the contradiction, drawn
+    ax.annotate("", xy=(2.5, 99.0), xytext=(2.5, 81.5),
+                arrowprops=dict(arrowstyle="-|>", color=WARNC, linewidth=2.4))
+    ax.text(2.85, 90.0, "measured 19 points\nABOVE the prediction —\nand rising as flows shorten",
+            fontsize=11, color=WARNC, ha="left", va="center", fontweight="bold")
+
     ax.set_xlim(1.0, 11.0)
-    ax.set_ylim(48, 100)
+    ax.set_ylim(74, 103)
 
-    # --- the finding, in words, beside the curve ---------------------------------------------
-    axT = fig.add_axes([0.672, AXES_Y, 0.298, AXES_H])
+    # --- what it turned out to be ------------------------------------------------------------
+    axT = fig.add_axes([0.642, AXES_Y, 0.328, AXES_H])
     axT.set_xlim(0, 1)
     axT.set_ylim(0, 1)
     axT.axis("off")
     axT.add_patch(Rectangle((0, 0), 1, 1, transform=axT.transAxes, facecolor=PANEL,
                             edgecolor=RULE, linewidth=1.0))
-    axT.text(0.055, 0.945, "Why the spec had to change", fontsize=13.5, color=INK,
+    axT.text(0.05, 0.955, "What the metric was actually counting", fontsize=13.5, color=INK,
              fontweight="bold", transform=axT.transAxes, va="top")
-    spec = (1.0 - 0.5 / 7.5) * 100          # the ticket's own dose, from the same closed form
-    adopted = (1.0 - 0.5 / 2.5) * 100
     body = [
-        (f"At the ticket's own churn spec of 5–10 s flows, the predicted "
-         f"result is {spec:.1f}%.", INK),
-        (f"That is outside the predicted band, and only {abs(refute - spec):.1f} points "
-         f"from the refutation line at {refute}% — closer than any plausible "
-         f"measurement spread.", WARNC),
-        ("So the run could not have separated \"1 Hz is cheap\" from "
-         "\"my churn was too mild to show the cost\".", MUTED),
-        (f"Flows of 1–4 s put the prediction at {adopted:.0f}%, mid-band. Both doses "
-         f"run, so a dose-response tells no-effect apart from not-enough-dose.", ACCENT),
+        (f"The denominator is \"flows the API lists\", and a finished flow stays "
+         f"listed for the {idle_s:.0f} s idle timeout — already holding a path.", INK),
+        ("So the denominator fills with flows that cannot fail the test, and the "
+         "ratio pins near 1 whatever the cadence is.", WARNC),
+        ("Shortening flows makes it worse: the tail is set by the idle timeout, "
+         "not by how long flows live. Hence the reversed direction.", MUTED),
+        ("The metric was replaced instead. The pre-flight cost two minutes; the ten "
+         "arms would have produced a confident wrong verdict.", ACCENT),
     ]
     y = 0.845
     for text, col in body:
-        wrapped = "\n".join(textwrap.wrap(text, 44))
-        axT.text(0.055, y, wrapped, fontsize=11, color=col, transform=axT.transAxes,
-                 va="top", linespacing=1.5)
-        y -= 0.062 * (wrapped.count("\n") + 1) + 0.055
+        wrapped = "\n".join(textwrap.wrap(text, 50))
+        axT.text(0.05, y, wrapped, fontsize=10.5, color=col, transform=axT.transAxes,
+                 va="top", linespacing=1.45)
+        y -= 0.052 * (wrapped.count("\n") + 1) + 0.040
 
     _foot(fig,
-          "Closed form: at 1 Hz a new flow waits 0.5 s on average for its first recompute, so the "
-          "empty-path share of all flow-seconds is 0.5 / mean lifetime. Every point here is that one "
-          "expression. Nothing here is measured — the value of writing it down is that it was "
-          "falsifiable before the arms ran. (The ticket's table prints 93.6% for the 5–10 s row where "
-          "this form gives 93.3%; its other three rows match to the decimal.)",
+          "Measured rows are amendment M-ter's pre-flight table (committed); the dashed curve is the "
+          "closed form 1 − 0.5/lifetime that they refute. The judgement table would have read the flat "
+          "~1.00 as \"the mechanism is refuted\", when what is refuted is the metric's ability to see "
+          "it. The size of the dilution is in the pre-flight readout (868fa0e); its raw output is not "
+          "yet committed, so it is not plotted here.",
           x=0.052, width=150)
     _save(fig, "page_M_dose-response.png")
 
