@@ -1,0 +1,331 @@
+{"t": 1787803977.7036319, "procs": {"199566": {"utime": 20262, "stime": 2845, "threads": 51}, "319714": {"utime": 0, "stime": 0, "threads": 1}, "319716": {"utime": 3, "stime": 0, "threads": 1}}, "clk_tck": 100}
+{"t": 1787803982.9114406, "procs": {"199566": {"utime": 20329, "stime": 2855, "threads": 51}, "319716": {"utime": 3, "stime": 0, "threads": 1}}, "clk_tck": 100}
+{"t": 1787803988.0960033, "procs": {"199566": {"utime": 20369, "stime": 2864, "threads": 51}, "319716": {"utime": 3, "stime": 0, "threads": 1}}, "clk_tck": 100}
+{"t": 1787803993.2644837, "procs": {"199566": {"utime": 20425, "stime": 2876, "threads": 51}, "319716": {"utime": 3, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787803998.9214087, "procs": {"199566": {"utime": 20552, "stime": 2883, "threads": 51}, "319716": {"utime": 3, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804004.7137547, "procs": {"199566": {"utime": 20603, "stime": 2894, "threads": 51}, "319716": {"utime": 3, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804010.5002496, "procs": {"199566": {"utime": 20669, "stime": 2903, "threads": 51}, "319716": {"utime": 3, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804016.2883062, "procs": {"199566": {"utime": 20736, "stime": 2910, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804021.7172348, "procs": {"199566": {"utime": 20844, "stime": 2920, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804026.9715664, "procs": {"199566": {"utime": 20879, "stime": 2929, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804032.1237826, "procs": {"199566": {"utime": 20925, "stime": 2938, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804037.3217893, "procs": {"199566": {"utime": 20993, "stime": 2949, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804043.1676962, "procs": {"199566": {"utime": 21038, "stime": 2958, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804048.8622937, "procs": {"199566": {"utime": 21106, "stime": 2971, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804054.543968, "procs": {"199566": {"utime": 21153, "stime": 2982, "threads": 51}, "319716": {"utime": 4, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804060.3126478, "procs": {"199566": {"utime": 21216, "stime": 2991, "threads": 51}, "319716": {"utime": 5, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804066.0523858, "procs": {"199566": {"utime": 21335, "stime": 3001, "threads": 51}, "319716": {"utime": 5, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804071.3592477, "procs": {"199566": {"utime": 21476, "stime": 3012, "threads": 51}, "319716": {"utime": 5, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804076.8332367, "procs": {"199566": {"utime": 21529, "stime": 3023, "threads": 51}, "319716": {"utime": 5, "stime": 1, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804082.2139897, "procs": {"199566": {"utime": 21631, "stime": 3032, "threads": 51}, "319716": {"utime": 5, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804087.5592551, "procs": {"199566": {"utime": 21727, "stime": 3043, "threads": 51}, "319716": {"utime": 5, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804093.0052724, "procs": {"199566": {"utime": 21772, "stime": 3054, "threads": 51}, "319716": {"utime": 5, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804098.3871694, "procs": {"199566": {"utime": 21844, "stime": 3063, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804103.8512332, "procs": {"199566": {"utime": 21888, "stime": 3074, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804109.1376376, "procs": {"199566": {"utime": 21931, "stime": 3083, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804114.4400666, "procs": {"199566": {"utime": 21989, "stime": 3092, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804119.9638748, "procs": {"199566": {"utime": 22034, "stime": 3099, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804125.2793086, "procs": {"199566": {"utime": 22116, "stime": 3108, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804130.6048784, "procs": {"199566": {"utime": 22161, "stime": 3118, "threads": 51}, "319716": {"utime": 6, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804135.9522297, "procs": {"199566": {"utime": 22222, "stime": 3126, "threads": 51}, "319716": {"utime": 7, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804142.0979714, "procs": {"199566": {"utime": 22334, "stime": 3135, "threads": 51}, "319716": {"utime": 7, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804148.7723265, "procs": {"199566": {"utime": 22505, "stime": 3145, "threads": 51}, "319716": {"utime": 7, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804155.194233, "procs": {"199566": {"utime": 22560, "stime": 3156, "threads": 51}, "319716": {"utime": 7, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804161.4322684, "procs": {"199566": {"utime": 22611, "stime": 3166, "threads": 51}, "319716": {"utime": 7, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804168.5202293, "procs": {"199566": {"utime": 22667, "stime": 3175, "threads": 51}, "319716": {"utime": 7, "stime": 2, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804174.1242478, "procs": {"199566": {"utime": 22715, "stime": 3186, "threads": 51}, "319716": {"utime": 7, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804180.8782268, "procs": {"199566": {"utime": 22782, "stime": 3196, "threads": 51}, "319716": {"utime": 7, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804187.5220883, "procs": {"199566": {"utime": 22828, "stime": 3207, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804195.0982416, "procs": {"199566": {"utime": 22886, "stime": 3218, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804202.145356, "procs": {"199566": {"utime": 22922, "stime": 3225, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804207.254735, "procs": {"199566": {"utime": 22988, "stime": 3234, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804213.9872396, "procs": {"199566": {"utime": 23108, "stime": 3243, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804220.5002356, "procs": {"199566": {"utime": 23222, "stime": 3245, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804225.826103, "procs": {"199566": {"utime": 23230, "stime": 3246, "threads": 51}, "319716": {"utime": 8, "stime": 3, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804231.0132818, "procs": {"199566": {"utime": 23263, "stime": 3248, "threads": 51}, "319716": {"utime": 8, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804236.483849, "procs": {"199566": {"utime": 23270, "stime": 3251, "threads": 51}, "319716": {"utime": 8, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804241.7784514, "procs": {"199566": {"utime": 23309, "stime": 3254, "threads": 51}, "319716": {"utime": 8, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804246.828866, "procs": {"199566": {"utime": 23320, "stime": 3256, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804251.8896978, "procs": {"199566": {"utime": 23358, "stime": 3261, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804256.9597883, "procs": {"199566": {"utime": 23373, "stime": 3264, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804262.0220976, "procs": {"199566": {"utime": 23418, "stime": 3269, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804267.090607, "procs": {"199566": {"utime": 23432, "stime": 3274, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804272.1592054, "procs": {"199566": {"utime": 23461, "stime": 3277, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804277.660727, "procs": {"199566": {"utime": 23480, "stime": 3278, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804283.1273124, "procs": {"199566": {"utime": 23552, "stime": 3279, "threads": 51}, "319716": {"utime": 9, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804288.2992268, "procs": {"199566": {"utime": 23624, "stime": 3281, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804293.4172106, "procs": {"199566": {"utime": 23630, "stime": 3283, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804298.5187008, "procs": {"199566": {"utime": 23667, "stime": 3285, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804304.6798363, "procs": {"199566": {"utime": 23688, "stime": 3288, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804311.6852155, "procs": {"199566": {"utime": 23758, "stime": 3295, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804316.8796594, "procs": {"199566": {"utime": 23794, "stime": 3301, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804322.6336627, "procs": {"199566": {"utime": 23846, "stime": 3311, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804330.2471595, "procs": {"199566": {"utime": 23891, "stime": 3318, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804335.3613002, "procs": {"199566": {"utime": 23922, "stime": 3324, "threads": 51}, "319716": {"utime": 10, "stime": 4, "threads": 1}}, "clk_tck": 100}
+{"t": 1787804339.6781998, "procs": {"199566": {"utime": 23949, "stime": 3329, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804344.6922143, "procs": {"199566": {"utime": 24076, "stime": 3336, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804349.6952088, "procs": {"199566": {"utime": 24110, "stime": 3343, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804354.695822, "procs": {"199566": {"utime": 24140, "stime": 3351, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804359.6962416, "procs": {"199566": {"utime": 24193, "stime": 3357, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804364.696325, "procs": {"199566": {"utime": 24306, "stime": 3364, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804369.6979947, "procs": {"199566": {"utime": 24345, "stime": 3372, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804374.6980767, "procs": {"199566": {"utime": 24392, "stime": 3380, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804379.6982436, "procs": {"199566": {"utime": 24423, "stime": 3387, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804384.6983275, "procs": {"199566": {"utime": 24462, "stime": 3393, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804389.70121, "procs": {"199566": {"utime": 24509, "stime": 3399, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804394.7042036, "procs": {"199566": {"utime": 24540, "stime": 3406, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804399.7042842, "procs": {"199566": {"utime": 24579, "stime": 3411, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}, "343411": {"utime": 0, "stime": 0, "threads": 1, "cmd": "/bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1787801069098-2i7l5f.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'unsetenv'; \\builtin u"}}, "clk_tck": 100}
+{"t": 1787804404.705476, "procs": {"199566": {"utime": 24629, "stime": 3417, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}, "343411": {"utime": 0, "stime": 0, "threads": 1, "cmd": "/bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1787801069098-2i7l5f.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'unsetenv'; \\builtin u"}}, "clk_tck": 100}
+{"t": 1787804409.7110195, "procs": {"199566": {"utime": 24717, "stime": 3422, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}, "343411": {"utime": 0, "stime": 0, "threads": 1, "cmd": "/bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1787801069098-2i7l5f.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'unsetenv'; \\builtin u"}}, "clk_tck": 100}
+{"t": 1787804414.7132142, "procs": {"199566": {"utime": 24760, "stime": 3429, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804419.7139475, "procs": {"199566": {"utime": 24816, "stime": 3437, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804424.7153285, "procs": {"199566": {"utime": 24841, "stime": 3443, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804429.7280676, "procs": {"199566": {"utime": 24884, "stime": 3448, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804434.7300608, "procs": {"199566": {"utime": 24924, "stime": 3455, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804439.7320592, "procs": {"199566": {"utime": 24953, "stime": 3461, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804444.7347457, "procs": {"199566": {"utime": 25009, "stime": 3468, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804449.7352138, "procs": {"199566": {"utime": 25120, "stime": 3473, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804454.735318, "procs": {"199566": {"utime": 25153, "stime": 3479, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804459.736266, "procs": {"199566": {"utime": 25207, "stime": 3488, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804464.7364461, "procs": {"199566": {"utime": 25238, "stime": 3495, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804469.737337, "procs": {"199566": {"utime": 25322, "stime": 3501, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804474.7391067, "procs": {"199566": {"utime": 25397, "stime": 3506, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804479.74622, "procs": {"199566": {"utime": 25421, "stime": 3512, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804484.7463033, "procs": {"199566": {"utime": 25449, "stime": 3519, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804489.7510328, "procs": {"199566": {"utime": 25501, "stime": 3525, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804494.7532196, "procs": {"199566": {"utime": 25527, "stime": 3532, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804499.7743235, "procs": {"199566": {"utime": 25570, "stime": 3541, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804504.7819831, "procs": {"199566": {"utime": 25631, "stime": 3550, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804509.7820697, "procs": {"199566": {"utime": 25662, "stime": 3558, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804514.7821796, "procs": {"199566": {"utime": 25711, "stime": 3565, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804519.78337, "procs": {"199566": {"utime": 25747, "stime": 3573, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804524.7842174, "procs": {"199566": {"utime": 25775, "stime": 3580, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804529.7860022, "procs": {"199566": {"utime": 25824, "stime": 3588, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804534.786082, "procs": {"199566": {"utime": 25940, "stime": 3593, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804539.7863412, "procs": {"199566": {"utime": 25971, "stime": 3599, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804544.7893393, "procs": {"199566": {"utime": 26093, "stime": 3604, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804549.7898772, "procs": {"199566": {"utime": 26131, "stime": 3610, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804554.7899604, "procs": {"199566": {"utime": 26153, "stime": 3614, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804559.7914948, "procs": {"199566": {"utime": 26322, "stime": 3618, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804564.7916648, "procs": {"199566": {"utime": 26465, "stime": 3629, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804569.7960482, "procs": {"199566": {"utime": 26626, "stime": 3652, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804574.7963445, "procs": {"199566": {"utime": 26707, "stime": 3661, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804579.7995238, "procs": {"199566": {"utime": 26809, "stime": 3668, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804584.8082106, "procs": {"199566": {"utime": 26914, "stime": 3681, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804589.8088927, "procs": {"199566": {"utime": 27060, "stime": 3699, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804594.8089907, "procs": {"199566": {"utime": 27187, "stime": 3708, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804599.8100011, "procs": {"199566": {"utime": 27287, "stime": 3714, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804604.8100672, "procs": {"199566": {"utime": 27357, "stime": 3722, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804609.810637, "procs": {"199566": {"utime": 27396, "stime": 3729, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804614.8107042, "procs": {"199566": {"utime": 27437, "stime": 3736, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804619.8107688, "procs": {"199566": {"utime": 27478, "stime": 3744, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804624.8110652, "procs": {"199566": {"utime": 27505, "stime": 3750, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804629.820589, "procs": {"199566": {"utime": 27557, "stime": 3756, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804634.821571, "procs": {"199566": {"utime": 27591, "stime": 3763, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804639.822985, "procs": {"199566": {"utime": 27726, "stime": 3769, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804644.834208, "procs": {"199566": {"utime": 27925, "stime": 3777, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804649.834288, "procs": {"199566": {"utime": 28083, "stime": 3797, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804654.8343735, "procs": {"199566": {"utime": 28138, "stime": 3799, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804659.834464, "procs": {"199566": {"utime": 28359, "stime": 3816, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804664.834544, "procs": {"199566": {"utime": 28471, "stime": 3822, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804669.834616, "procs": {"199566": {"utime": 28496, "stime": 3825, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804674.8346927, "procs": {"199566": {"utime": 28505, "stime": 3829, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804679.8347828, "procs": {"199566": {"utime": 28539, "stime": 3833, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804684.8348634, "procs": {"199566": {"utime": 28549, "stime": 3835, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804689.8349414, "procs": {"199566": {"utime": 28572, "stime": 3839, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804694.835023, "procs": {"199566": {"utime": 28580, "stime": 3842, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804699.8350956, "procs": {"199566": {"utime": 28637, "stime": 3845, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804704.8357766, "procs": {"199566": {"utime": 28672, "stime": 3851, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804709.835851, "procs": {"199566": {"utime": 28703, "stime": 3859, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804714.8359194, "procs": {"199566": {"utime": 28749, "stime": 3866, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804719.8372076, "procs": {"199566": {"utime": 28781, "stime": 3873, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804724.8375177, "procs": {"199566": {"utime": 28893, "stime": 3879, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804729.839224, "procs": {"199566": {"utime": 28938, "stime": 3887, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804734.8398569, "procs": {"199566": {"utime": 28974, "stime": 3895, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804739.8400013, "procs": {"199566": {"utime": 29037, "stime": 3903, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804744.8412318, "procs": {"199566": {"utime": 29071, "stime": 3911, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804749.8430777, "procs": {"199566": {"utime": 29136, "stime": 3918, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804754.843189, "procs": {"199566": {"utime": 29177, "stime": 3926, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804759.8437734, "procs": {"199566": {"utime": 29214, "stime": 3935, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804764.8444524, "procs": {"199566": {"utime": 29274, "stime": 3944, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804769.8446167, "procs": {"199566": {"utime": 29358, "stime": 3951, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804774.8455234, "procs": {"199566": {"utime": 29444, "stime": 3961, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804779.847035, "procs": {"199566": {"utime": 29481, "stime": 3970, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804784.8472056, "procs": {"199566": {"utime": 29518, "stime": 3976, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804789.8472922, "procs": {"199566": {"utime": 29641, "stime": 3983, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804794.8477006, "procs": {"199566": {"utime": 29672, "stime": 3991, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804799.8492544, "procs": {"199566": {"utime": 29722, "stime": 3999, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804804.8497837, "procs": {"199566": {"utime": 29760, "stime": 4007, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804809.8498614, "procs": {"199566": {"utime": 29795, "stime": 4018, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804814.8499806, "procs": {"199566": {"utime": 29843, "stime": 4025, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804819.8525476, "procs": {"199566": {"utime": 29873, "stime": 4034, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804824.852624, "procs": {"199566": {"utime": 29948, "stime": 4042, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804829.8528378, "procs": {"199566": {"utime": 29984, "stime": 4050, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804834.8531756, "procs": {"199566": {"utime": 30028, "stime": 4059, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804839.8541718, "procs": {"199566": {"utime": 30081, "stime": 4066, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804844.8542044, "procs": {"199566": {"utime": 30174, "stime": 4071, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804849.8557346, "procs": {"199566": {"utime": 30295, "stime": 4076, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804854.8587263, "procs": {"199566": {"utime": 30333, "stime": 4082, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804859.8592799, "procs": {"199566": {"utime": 30390, "stime": 4091, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804864.8593848, "procs": {"199566": {"utime": 30426, "stime": 4100, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804869.8595893, "procs": {"199566": {"utime": 30462, "stime": 4108, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804874.859912, "procs": {"199566": {"utime": 30517, "stime": 4117, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804879.8602207, "procs": {"199566": {"utime": 30555, "stime": 4126, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804884.8603036, "procs": {"199566": {"utime": 30616, "stime": 4136, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804889.8618202, "procs": {"199566": {"utime": 30648, "stime": 4144, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804894.8632073, "procs": {"199566": {"utime": 30689, "stime": 4152, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804899.8634195, "procs": {"199566": {"utime": 30739, "stime": 4161, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804904.8635259, "procs": {"199566": {"utime": 30772, "stime": 4168, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804909.8635962, "procs": {"199566": {"utime": 30826, "stime": 4177, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804914.863769, "procs": {"199566": {"utime": 31006, "stime": 4180, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804919.8662167, "procs": {"199566": {"utime": 31050, "stime": 4189, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804924.8672156, "procs": {"199566": {"utime": 31091, "stime": 4197, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804929.8675601, "procs": {"199566": {"utime": 31126, "stime": 4203, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804934.8684306, "procs": {"199566": {"utime": 31173, "stime": 4210, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804939.8684654, "procs": {"199566": {"utime": 31204, "stime": 4217, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804944.8685389, "procs": {"199566": {"utime": 31265, "stime": 4223, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804949.86862, "procs": {"199566": {"utime": 31298, "stime": 4231, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804954.8697538, "procs": {"199566": {"utime": 31328, "stime": 4239, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804959.8703105, "procs": {"199566": {"utime": 31379, "stime": 4248, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804964.870448, "procs": {"199566": {"utime": 31412, "stime": 4256, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804969.871428, "procs": {"199566": {"utime": 31466, "stime": 4264, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804974.8716247, "procs": {"199566": {"utime": 31518, "stime": 4271, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804979.871721, "procs": {"199566": {"utime": 31605, "stime": 4279, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804984.871881, "procs": {"199566": {"utime": 31668, "stime": 4286, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804989.8719559, "procs": {"199566": {"utime": 31762, "stime": 4293, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804994.8725362, "procs": {"199566": {"utime": 31814, "stime": 4303, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787804999.872653, "procs": {"199566": {"utime": 31851, "stime": 4310, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805004.8727534, "procs": {"199566": {"utime": 31891, "stime": 4320, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805009.8728418, "procs": {"199566": {"utime": 31947, "stime": 4327, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805014.8734932, "procs": {"199566": {"utime": 31981, "stime": 4336, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805019.873666, "procs": {"199566": {"utime": 32045, "stime": 4343, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805024.8737402, "procs": {"199566": {"utime": 32079, "stime": 4349, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805029.8737864, "procs": {"199566": {"utime": 32119, "stime": 4356, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805034.8738964, "procs": {"199566": {"utime": 32166, "stime": 4365, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805039.8739738, "procs": {"199566": {"utime": 32197, "stime": 4373, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805044.8740568, "procs": {"199566": {"utime": 32255, "stime": 4375, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805049.874143, "procs": {"199566": {"utime": 32292, "stime": 4377, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805054.8742056, "procs": {"199566": {"utime": 32314, "stime": 4378, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805059.8742888, "procs": {"199566": {"utime": 32321, "stime": 4379, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805064.8743548, "procs": {"199566": {"utime": 32340, "stime": 4381, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805069.8744295, "procs": {"199566": {"utime": 32347, "stime": 4383, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805074.8745067, "procs": {"199566": {"utime": 32365, "stime": 4384, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805079.8745813, "procs": {"199566": {"utime": 32370, "stime": 4387, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805084.8746583, "procs": {"199566": {"utime": 32391, "stime": 4389, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805089.874735, "procs": {"199566": {"utime": 32397, "stime": 4390, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805094.8748379, "procs": {"199566": {"utime": 32415, "stime": 4392, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805099.8749146, "procs": {"199566": {"utime": 32422, "stime": 4394, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805104.8749907, "procs": {"199566": {"utime": 32474, "stime": 4396, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805109.8750665, "procs": {"199566": {"utime": 32512, "stime": 4397, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805114.8751428, "procs": {"199566": {"utime": 32533, "stime": 4399, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805119.8752093, "procs": {"199566": {"utime": 32541, "stime": 4401, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805124.8752966, "procs": {"199566": {"utime": 32560, "stime": 4404, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805129.8753698, "procs": {"199566": {"utime": 32567, "stime": 4405, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805134.8754516, "procs": {"199566": {"utime": 32585, "stime": 4407, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805139.8755262, "procs": {"199566": {"utime": 32593, "stime": 4410, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805144.8756144, "procs": {"199566": {"utime": 32613, "stime": 4413, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805149.8756874, "procs": {"199566": {"utime": 32627, "stime": 4415, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805154.8757613, "procs": {"199566": {"utime": 32635, "stime": 4418, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805159.8758392, "procs": {"199566": {"utime": 32654, "stime": 4419, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805164.8759158, "procs": {"199566": {"utime": 32690, "stime": 4421, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805169.875993, "procs": {"199566": {"utime": 32738, "stime": 4422, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805174.876072, "procs": {"199566": {"utime": 32745, "stime": 4425, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805179.8761494, "procs": {"199566": {"utime": 32762, "stime": 4428, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805184.8762171, "procs": {"199566": {"utime": 32768, "stime": 4429, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805189.8762877, "procs": {"199566": {"utime": 32790, "stime": 4431, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805194.8764174, "procs": {"199566": {"utime": 32796, "stime": 4433, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805199.8765008, "procs": {"199566": {"utime": 32813, "stime": 4435, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805204.876582, "procs": {"199566": {"utime": 32820, "stime": 4436, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805209.876673, "procs": {"199566": {"utime": 32839, "stime": 4438, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805214.8767588, "procs": {"199566": {"utime": 32847, "stime": 4441, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805219.8768313, "procs": {"199566": {"utime": 32873, "stime": 4443, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805224.876909, "procs": {"199566": {"utime": 32912, "stime": 4446, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805229.8769886, "procs": {"199566": {"utime": 32958, "stime": 4449, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805234.8770726, "procs": {"199566": {"utime": 32972, "stime": 4451, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805239.8771455, "procs": {"199566": {"utime": 32993, "stime": 4454, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805244.8772492, "procs": {"199566": {"utime": 33000, "stime": 4456, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805249.8773222, "procs": {"199566": {"utime": 33024, "stime": 4457, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805254.877402, "procs": {"199566": {"utime": 33030, "stime": 4459, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805259.8774729, "procs": {"199566": {"utime": 33050, "stime": 4461, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805264.8775616, "procs": {"199566": {"utime": 33057, "stime": 4463, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805269.8776402, "procs": {"199566": {"utime": 33080, "stime": 4465, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805274.8777165, "procs": {"199566": {"utime": 33086, "stime": 4467, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805279.8777933, "procs": {"199566": {"utime": 33108, "stime": 4469, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805284.877944, "procs": {"199566": {"utime": 33148, "stime": 4471, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805289.8780122, "procs": {"199566": {"utime": 33172, "stime": 4474, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805294.878109, "procs": {"199566": {"utime": 33210, "stime": 4477, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805299.8781927, "procs": {"199566": {"utime": 33232, "stime": 4481, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805304.8782687, "procs": {"199566": {"utime": 33240, "stime": 4483, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805309.878336, "procs": {"199566": {"utime": 33250, "stime": 4485, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805314.8784113, "procs": {"199566": {"utime": 33271, "stime": 4487, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805319.8784902, "procs": {"199566": {"utime": 33281, "stime": 4489, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805324.8785741, "procs": {"199566": {"utime": 33308, "stime": 4492, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805329.8786457, "procs": {"199566": {"utime": 33316, "stime": 4494, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805334.8787181, "procs": {"199566": {"utime": 33335, "stime": 4496, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805339.878802, "procs": {"199566": {"utime": 33343, "stime": 4498, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805344.8788674, "procs": {"199566": {"utime": 33391, "stime": 4500, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805349.8789384, "procs": {"199566": {"utime": 33397, "stime": 4501, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805354.8790128, "procs": {"199566": {"utime": 33444, "stime": 4503, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805359.8790832, "procs": {"199566": {"utime": 33450, "stime": 4505, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805364.879159, "procs": {"199566": {"utime": 33469, "stime": 4508, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805369.879211, "procs": {"199566": {"utime": 33477, "stime": 4510, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805374.8792808, "procs": {"199566": {"utime": 33499, "stime": 4512, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805379.8793519, "procs": {"199566": {"utime": 33508, "stime": 4513, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805384.8794327, "procs": {"199566": {"utime": 33533, "stime": 4516, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805389.879533, "procs": {"199566": {"utime": 33541, "stime": 4518, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805394.8796132, "procs": {"199566": {"utime": 33565, "stime": 4520, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805399.8796844, "procs": {"199566": {"utime": 33572, "stime": 4523, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805404.879763, "procs": {"199566": {"utime": 33624, "stime": 4526, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805409.8798397, "procs": {"199566": {"utime": 33633, "stime": 4529, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805414.8799148, "procs": {"199566": {"utime": 33687, "stime": 4530, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805419.880021, "procs": {"199566": {"utime": 33695, "stime": 4533, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805424.8801742, "procs": {"199566": {"utime": 33714, "stime": 4537, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805429.8802457, "procs": {"199566": {"utime": 33723, "stime": 4539, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805434.8803182, "procs": {"199566": {"utime": 33743, "stime": 4542, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805439.8803864, "procs": {"199566": {"utime": 33752, "stime": 4545, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805444.8804588, "procs": {"199566": {"utime": 33767, "stime": 4548, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805449.880528, "procs": {"199566": {"utime": 33781, "stime": 4550, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805454.8806067, "procs": {"199566": {"utime": 33788, "stime": 4552, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805459.8806944, "procs": {"199566": {"utime": 33810, "stime": 4556, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805464.8807745, "procs": {"199566": {"utime": 33849, "stime": 4559, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805469.8808477, "procs": {"199566": {"utime": 33873, "stime": 4561, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805474.88093, "procs": {"199566": {"utime": 33915, "stime": 4564, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805479.8810112, "procs": {"199566": {"utime": 33937, "stime": 4566, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805484.8810961, "procs": {"199566": {"utime": 33945, "stime": 4567, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805489.8811653, "procs": {"199566": {"utime": 33973, "stime": 4569, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805494.88122, "procs": {"199566": {"utime": 34009, "stime": 4572, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805499.8813055, "procs": {"199566": {"utime": 34037, "stime": 4575, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805504.8813763, "procs": {"199566": {"utime": 34045, "stime": 4577, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805509.8814533, "procs": {"199566": {"utime": 34067, "stime": 4579, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805514.8815484, "procs": {"199566": {"utime": 34073, "stime": 4581, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805519.8816311, "procs": {"199566": {"utime": 34091, "stime": 4584, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805524.8817127, "procs": {"199566": {"utime": 34129, "stime": 4585, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805529.8817954, "procs": {"199566": {"utime": 34148, "stime": 4587, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805534.8818755, "procs": {"199566": {"utime": 34185, "stime": 4588, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805539.8819563, "procs": {"199566": {"utime": 34205, "stime": 4590, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805544.8820302, "procs": {"199566": {"utime": 34211, "stime": 4591, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805549.8821013, "procs": {"199566": {"utime": 34232, "stime": 4593, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805554.8822076, "procs": {"199566": {"utime": 34239, "stime": 4594, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805559.8822894, "procs": {"199566": {"utime": 34264, "stime": 4596, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805564.8823576, "procs": {"199566": {"utime": 34270, "stime": 4598, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805569.882431, "procs": {"199566": {"utime": 34291, "stime": 4599, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805574.8824973, "procs": {"199566": {"utime": 34297, "stime": 4601, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805579.8825657, "procs": {"199566": {"utime": 34317, "stime": 4603, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805584.8826423, "procs": {"199566": {"utime": 34324, "stime": 4604, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805589.882763, "procs": {"199566": {"utime": 34379, "stime": 4606, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805594.8828359, "procs": {"199566": {"utime": 34388, "stime": 4608, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805599.8829186, "procs": {"199566": {"utime": 34430, "stime": 4609, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805604.883007, "procs": {"199566": {"utime": 34443, "stime": 4611, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805609.8830972, "procs": {"199566": {"utime": 34450, "stime": 4612, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805614.8831787, "procs": {"199566": {"utime": 34468, "stime": 4614, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805619.8832068, "procs": {"199566": {"utime": 34474, "stime": 4616, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805624.883286, "procs": {"199566": {"utime": 34496, "stime": 4618, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805629.8833714, "procs": {"199566": {"utime": 34502, "stime": 4619, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805634.8834474, "procs": {"199566": {"utime": 34521, "stime": 4622, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805639.8835206, "procs": {"199566": {"utime": 34528, "stime": 4622, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805644.8836074, "procs": {"199566": {"utime": 34547, "stime": 4625, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805649.8837001, "procs": {"199566": {"utime": 34583, "stime": 4626, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805654.8837786, "procs": {"199566": {"utime": 34603, "stime": 4629, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805659.8838613, "procs": {"199566": {"utime": 34652, "stime": 4630, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805664.8839574, "procs": {"199566": {"utime": 34674, "stime": 4633, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}
+{"t": 1787805669.884042, "procs": {"199566": {"utime": 34682, "stime": 4636, "threads": 51, "cmd": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python proxy_agent/main.py "}}, "clk_tck": 100}

@@ -1,0 +1,31 @@
+auto window: 333s of moving counters
+veth: 160 interfaces from 4160 rows, span 322.2s
+twin: 98 usable graph samples, 0 failed polls, 288 distinct edges
+
+class            edges loaded   veth GB   twin GB   ratio  per-edge min     max
+host->switch       128     16     4.233     3.066  0.7243         0.373   1.086
+switch->host       128     16     1.967     1.949  0.9906         0.766   1.205
+switch->switch      32     11     7.150     6.798  0.9507         0.720   1.088
+
+first-sample bps (P4: edges reporting the declared 1 Gbit/s before any sample):
+               0 bps  x253
+       5,906,432 bps  x11
+       2,953,216 bps  x11
+       8,859,648 bps  x5
+      17,719,296 bps  x2
+      14,766,080 bps  x2
+
+loaded veth edges the twin reports as zero (P5: the ~3 Mbit/s quantisation):
+  (0 such edges)
+
+declared capacity seen by the twin (P8: 10 Gbit/s links Mininet never shaped):
+   1,000,000,000 bps  x272
+  10,000,000,000 bps  x16
+
+loss attribution (PREREG A-6 / C-bis-4, offered scored over the 322s analysis window), 16 flows:
+  offered by clients           4.107 GB
+  handed to hosts by fabric    1.967 GB  (47.9% of offered)
+  seen by iperf3 receivers     1.920 GB  (46.7% of offered)
+  => fabric lost 52.1 pts, host lost 1.2 pts
+
+rows -> raw/L_B28/rows.json

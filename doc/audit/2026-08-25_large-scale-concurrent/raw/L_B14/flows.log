@@ -1,0 +1,21 @@
+flows: 16   duration: 340s
+  all 32 host namespaces resolved
+  servers listening: 16 / 16
+  rate ladder:       2 1      12 5       2 20 
+  16 clients launched at 1787803876.495578949; waiting 340s + drain
+  all clients returned at 1787804217.055892603
+  ⚠️  cli_h13_to_h77_5M.json: 5.00 Mbit/s, 26.3% lost
+  ⚠️  cli_h17_to_h49_20M.json: 20.00 Mbit/s, 35.2% lost
+  ⚠️  cli_h1_to_h65_20M.json: 20.00 Mbit/s, 39.7% lost
+  ⚠️  cli_h21_to_h53_5M.json: 5.00 Mbit/s, 20.9% lost
+  ⚠️  cli_h25_to_h57_5M.json: 5.00 Mbit/s, 21.1% lost
+  ⚠️  cli_h29_to_h61_5M.json: 5.00 Mbit/s, 21.2% lost
+  ⚠️  cli_h33_to_h97_1M.json: 1.00 Mbit/s, 7.6% lost
+  ⚠️  cli_h37_to_h101_5M.json: 5.00 Mbit/s, 8.4% lost
+  ⚠️  cli_h41_to_h105_5M.json: 5.00 Mbit/s, 8.7% lost
+  ⚠️  cli_h45_to_h109_5M.json: 5.00 Mbit/s, 8.5% lost
+  ⚠️  cli_h5_to_h69_5M.json: 5.00 Mbit/s, 26.0% lost
+  ⚠️  cli_h9_to_h73_5M.json: 5.00 Mbit/s, 26.1% lost
+
+  flows with a result: 16, without: 0
+  offered total: 102.0 Mbit/s
