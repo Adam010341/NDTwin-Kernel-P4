@@ -3,6 +3,7 @@
 #include "common_types/GraphTypes.hpp" // for SwitchKind
 #include "common_types/SFlowType.hpp" // for Path, CounterInfo, FlowInfo
 #include "utils/Utils.hpp"            // for DeploymentMode
+#include <chrono>
 #include <atomic>                     // for atomic
 #include <cstdint>                    // for uint32_t
 #include <map>                        // for map
@@ -32,6 +33,22 @@ namespace sflow
 #define SFLOW_PORT 6343
 #define BUFFER_SIZE 65535
 #define FLOW_IDLE_TIMEOUT 15000 // milliseconds
+
+// [Co-developed with claude code -- Adam]
+// Ticket M. How often calFlowPathByQueried re-derives every tracked flow's path, and therefore
+// the freshness bound on the API's `path` field. It was 1 ms, which cost 46.31% of the kernel's
+// CPU on one thread and was paid in full at the lowest sampling rate -- a fixed cost, not a
+// per-sample one.
+//
+// It sits next to FLOW_IDLE_TIMEOUT because the pair is what matters, not either alone: a flow
+// that starts and ends inside one interval never gets a path at all. At 1 ms that was
+// impossible; at 1 s it needs a flow shorter than a second, which is ordinary. The ratio here
+// is 1:15 against the idle timeout, so a flow that survives to be timed out has had at least a
+// dozen chances -- but a short flow has not, and that is what ticket M's churn arm measures.
+//
+// Named rather than a literal so an arm can report which value it measured instead of citing a
+// line number that moves. This file's own line numbers moved during ticket Q.
+constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 
 struct Packet; // forward declare
 template <typename T>

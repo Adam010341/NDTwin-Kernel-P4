@@ -2945,7 +2945,28 @@ FlowLinkUsageCollector::calFlowPathByQueried()
                                passes);
         }
 
-        std::this_thread::sleep_for(std::chrono::microseconds(1000));
+        // [Co-developed with claude code -- Adam]
+        // Ticket M: was microseconds(1000), i.e. this loop re-derived every tracked flow's path
+        // a thousand times a second. Profiling attributed 46.31% of the kernel's CPU to this one
+        // function, on a single thread, and that cost was paid in full at the LOWEST sampling
+        // rate -- it is a fixed cost, not a per-sample one.
+        //
+        // WHAT THE 1 kHz WAS BUYING, written down before the wait was touched: exactly one
+        // thing, a 1 ms freshness bound on the API's `path` field. flowPath has a single reader
+        // in the whole repo (getFlowInfoJson, :2256) and one writer (:2864); tests/, tools/ and
+        // p4_proxy/ have none. At 1 Hz the bound becomes 1 s.
+        //
+        // THE RISK IS NOT PERFORMANCE, IT IS SHORT FLOWS. Between a flow appearing and the next
+        // pass, its `path` is empty: 0.5 s on average, 1 s worst case. FLOW_IDLE_TIMEOUT is
+        // 15 s (include/.../FlowLinkUsageCollector.hpp:34), so a flow shorter than one pass can
+        // live and die without ever having a path. A steady 300-second-flow workload would show
+        // this as 0.5/300 = 0.17% and report green, which is why ticket M's churn arm exists --
+        // this project has already shipped a speedup that measured CPU and connectivity green
+        // while what broke was model fidelity.
+        //
+        // The interval is a named constant so the arms can state which value they measured
+        // rather than citing a line number that moves.
+        std::this_thread::sleep_for(kFlowPathRecomputeInterval);
     }
 }
 
