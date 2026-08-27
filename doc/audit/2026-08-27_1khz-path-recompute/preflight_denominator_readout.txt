@@ -1,0 +1,72 @@
+schedule: 72 flows, 68 of them transferred bytes
+   t  expected_alive  api_flows  with_path   ratio
+   1               8         18          0   0.000
+   2               4         19         19   1.000
+   3               2         22         19   0.864
+   4               1         22         22   1.000
+   5               0         22         22   1.000
+   6               8         24         22   0.917
+   7               7         38         38   1.000
+   8               6         38         38   1.000
+   9               4         39         38   0.974
+  10               0         41         39   0.951
+  11               8         42         41   0.976
+  12               8         62         42   0.677
+  13               5         62         62   1.000
+  14               3         62         62   1.000
+  15               0         63         63   1.000
+  16               8         63         63   1.000
+  17               8         74         71   0.959
+  18               8         66         66   1.000
+  19               5         62         62   1.000
+  20               0         63         63   1.000
+  21               6         77         77   1.000
+  22               6         76         76   1.000
+  23               4         74         74   1.000
+  24               3         72         72   1.000
+  25               0         68         68   1.000
+  26               8         75         58   0.773
+  27               6         71         71   1.000
+  28               5         72         71   0.986
+  29               3         66         66   1.000
+  30               0         62         61   0.984
+  31               8         71         55   0.775
+  32               7         72         71   0.986
+  33               3         73         72   0.986
+  34               2         74         73   0.986
+  35               0         67         67   1.000
+  36               6         72         63   0.875
+  37               3         71         71   1.000
+  38               3         66         66   1.000
+  39               1         63         63   1.000
+  40               0         56         56   1.000
+  41               8         70         55   0.786
+  42               8         67         66   0.985
+  43               6         64         64   1.000
+  44               3         60         60   1.000
+
+lowest api_flows / expected_alive over the run: 2.25
+  ~1.0  => the table holds what ran; the auditor's selection hypothesis fails
+  <<1.0 => the flows 6-2 exists to catch are missing from its DENOMINATOR, and the
+           metric is structurally blind to the cost ticket M is supposed to measure
+
+==============================================================================
+SUMMARY -- the figure quoted as '13x dilution' (ticket M pre-flight, 2026-08-27)
+==============================================================================
+  mean expected_alive (from the deterministic churn schedule) : 4.7
+  mean api_flows      (/ndt/get_detected_flow_data)           : 63.0
+  INFLATION                                                   : 13.3x
+  => 92% of listed flows had already finished
+
+  FLOW_IDLE_TIMEOUT = 15 s; new flows = 1.6/s
+  => tail holds ~25 finished-but-listed flows at any instant
+
+  DILUTION ARITHMETIC (why 6-2 cannot separate the two binaries):
+    if every new flow spent its whole first second pathless,
+    that is 1.6 pathless of 63 listed = 2.6% dip
+    observed mean shortfall from 1.0                          = 3.6%
+    -> same order; the model accounts for the observation
+
+  6-2 is NOT pinned: mean 0.9635, min 0.677, 16/39 samples < 0.99
+  It is DAMPED ~13x. A true 20-point effect would surface as ~1.5 points,
+  which is inside arm-to-arm noise -- hence the metric was replaced, not the dose.
