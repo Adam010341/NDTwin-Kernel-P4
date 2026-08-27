@@ -151,8 +151,13 @@ actions 就地改寫為 `OUTPUT:1`**（duration/counter 保留=modify 正常語�
    卡死 flag、TE 的三綠 no-op 同族：**「進程活著」與「在工作」是兩件事**。
 10. **NSR 的 stop 腳本硬寫 `sudo kill`**：NSR 本以使用者權限跑，root 毫無必要；
     非互動環境（agent、cron）直接失敗。
-11. **NTG topo 撥 6653、官方文件的 Ryu 指令聽 6633**：照文件字面跑 switch 永遠連不上
-    （本輪第一次起就中招，`ovs-vsctl get-controller` 實證後 Ryu 換 port 解決）。
+11. ~~**NTG topo 撥 6653、官方文件的 Ryu 指令聽 6633**：照文件字面跑 switch 永遠連不上~~
+    🔴 **2026-08-21 live 複驗否證，這條是錯的**：照文件逐字跑 **10/10 個 switch 都連上**。
+    Mininet 的 `RemoteController.checkListening`（`mininet/node.py:1551`）在沒明指 port 時
+    **`for port in 6653, 6633:` 兩個都探、誰回應連誰**，6653 只是兩個都不通時的退路。
+    當初 `ovs-vsctl get-controller` 讀到 6653 沒讀錯，但那是**協商結果**不是**規格**。
+    詳見 `doc/2026-08-16_delivery-package/docs-errata.md` 末節與
+    `doc/2026-08-17_testing-manual.md` §2.2 的摺疊區。
 12. **官方文件的 `sudo ./testbed_topo.py` 在本機必 ImportError**：root 的 python3 無
     nornir/loguru。可行組合=`sudo <ntg-env python> testbed_topo.py`（腳本自帶
     dist-packages append 借系統 mininet）。

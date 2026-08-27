@@ -3,8 +3,12 @@
 > **內部前言(投遞前刪除)**——給 Adam:
 > - 建議落點:**installation-manual 的 P4 環境節**(讀者正是照 p4-guide 步驟裝環境的人),
 >   developer-manual 放一行 cross-ref 即可。
-> - 建議與**兩條既欠的 errata 一起提交給 patty**(Ryu 6653 非 6633、testbed_topo 要用
->   ntg-env 的 python 跑),一次談完。
+> - 建議與**尚欠的 errata 一起提交給 patty**,一次談完。
+>   🔴 **08-21 更新:原本要一起送的兩條剩一條。**「Ryu 6653 非 6633」**已撤回——它是錯的**
+>   (live 複驗 10/10 連上;Mininet 兩個 port 都探)。**不要把它送出去。**
+>   仍成立的只有「testbed_topo 要用 ntg-env 的 python 跑」,而且送之前要註明
+>   **站上有兩支同名檔案、只有 NTG 頁那支適用**。見
+>   `doc/2026-08-16_delivery-package/docs-errata.md`。
 > - 數字出處:`doc/2026-08-15_bmv2-performance-report.md`「本機飽和實測」節(head `5d2c038`);
 >   evidence 底稿在 repo,公開文只放配方與校準數字。
 > - override 檔機制是我們 repo 的 seam(`4b339f2`);公開文以「NDTwin 的 P4 testbed 提供」
