@@ -1,0 +1,63 @@
+
+arm     burn   span   samp/s  edge GB  samp/GB  bmv2 CPU%  proxy%    h->s    s->h    s->s  drops
+P_Q        0    339    129.5    20.15    2,179      167.2    11.6  1.0257  1.0511  1.0344      0
+P_B14     14    337     85.5    14.50    1,984      118.8     9.9  0.8332  1.0471  1.0179      0
+P_B28     28    313     67.8    11.45    1,856      101.1     9.5  0.6502  1.1179  0.9465      0
+P_Qp       0    342    130.6    21.06    2,120      164.6    12.6  1.0083  1.0571  1.0406      0
+
+--- per class: veth = data plane, twin = telemetry ---
+    host->switch is measured on ingress RX (offered in); the other two on TX (forwarded out)
+arm     burn                host->switch              switch->host            switch->switch
+                veth GB  twin GB   ratio  veth GB  twin GB   ratio  veth GB  twin GB   ratio
+P_Q        0      4.323    4.435  1.0257    3.874    4.072  1.0511   11.951   12.362  1.0344
+P_B14     14      3.931    3.275  0.8332    2.626    2.750  1.0471    7.943    8.086  1.0179
+P_B28     28      3.826    2.488  0.6502    1.653    1.848  1.1179    5.972    5.653  0.9465
+P_Qp       0      4.465    4.502  1.0083    4.080    4.313  1.0571   12.510   13.018  1.0406
+
+  B28/Q per class, each side normalised by its own arm's span:
+    host->switch     veth 0.9573   twin 0.6068   ratio-of-ratios 0.6339
+    switch->host     veth 0.4615   twin 0.4908   ratio-of-ratios 1.0635
+    switch->switch   veth 0.5406   twin 0.4946   ratio-of-ratios 0.9150
+
+--- abort conditions (P-7) ---
+  P_Q     ✅ samples_sent monotonic   169 polls
+  P_Q     ✅ emitter wired (no 503)   0 x 503
+  P_Q     ✅ polls all landed         0 lost  of 169 -- transport, not signal
+  P_Q     ✅ 10 switches throughout   saw [10]
+  P_Q     ✅ udp drops zero           delta 0, rx_max 960
+  P_Q     ✅ no edge near ceiling     0 edges >= 0.9 Gbit/s
+  P_B14   ✅ samples_sent monotonic   168 polls
+  P_B14   ✅ emitter wired (no 503)   0 x 503
+  P_B14   ✅ polls all landed         0 lost  of 168 -- transport, not signal
+  P_B14   ✅ 10 switches throughout   saw [10]
+  P_B14   ✅ udp drops zero           delta 0, rx_max 960
+  P_B14   ✅ no edge near ceiling     0 edges >= 0.9 Gbit/s
+  P_B28   ✅ samples_sent monotonic   155 polls
+  P_B28   ✅ emitter wired (no 503)   0 x 503
+  P_B28   🔴 polls all landed         1 lost ['000'] of 155 -- transport, not signal
+  P_B28   ✅ 10 switches throughout   saw [10]
+  P_B28   ✅ udp drops zero           delta 0, rx_max 0
+  P_B28   ✅ no edge near ceiling     0 edges >= 0.9 Gbit/s
+  P_Qp    ✅ samples_sent monotonic   170 polls
+  P_Qp    ✅ emitter wired (no 503)   0 x 503
+  P_Qp    ✅ polls all landed         0 lost  of 170 -- transport, not signal
+  P_Qp    ✅ 10 switches throughout   saw [10]
+  P_Qp    ✅ udp drops zero           delta 0, rx_max 0
+  P_Qp    ✅ no edge near ceiling     0 edges >= 0.9 Gbit/s
+
+--- sentinel, every metric (P-8) ---
+  samples/s              |Q'-Q| = 1.095  vs  |B14-Q|/2 = 22.02   ✅ interpretable
+  bmv2 CPU%              |Q'-Q| = 2.628  vs  |B14-Q|/2 = 24.19   ✅ interpretable
+  samples/GB             |Q'-Q| = 58.78  vs  |B14-Q|/2 = 97.16   ✅ interpretable
+  twin ratio host->switch |Q'-Q| = 0.01743  vs  |B14-Q|/2 = 0.09625   ✅ interpretable
+  twin ratio switch->host |B14-Q| = 0.004062 is 0.4% of Q -- NO EFFECT TO TEST, sentinel not meaningful (drift 0.005938)
+  twin ratio switch->switch |B14-Q| = 0.01642 is 1.6% of Q -- NO EFFECT TO TEST, sentinel not meaningful (drift 0.00627)
+
+--- read-out table (P-5) ---
+  samples/s B28/Q = 0.5238  (67.8 vs 129.5 per s)   per-bmv2 CPU: lower than Q
+  => NONE OF THE ABOVE -- record standalone, do not round into a neighbour
+  [supplementary, not pre-registered] samples/GB B28/Q = 0.8520  (1,856 vs 2,179 per GB)
+    ~1.0 => the fabric simply carried less; sampling per byte is intact.
+    <1.0 => each forwarded byte yielded fewer samples: sampling itself degraded.
+
+wrote P_summary.json

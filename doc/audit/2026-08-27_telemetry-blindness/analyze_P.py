@@ -185,6 +185,13 @@ def sentinel(name, q, b14, qp):
     if None in (q, b14, qp):
         return f"  {name:<22} NO-DATA in one of Q / B14 / Q' -- sentinel not evaluable"
     drift, effect = abs(qp - q), abs(b14 - q)
+    # The sentinel divides by the effect, so a metric that B14 barely moved fails it for arithmetic
+    # reasons and prints CONFOUNDED -- which reads exactly like the problem it exists to detect.
+    # An instrument must not have a failure mode that imitates its own finding, and this is one:
+    # say "nothing to test" out loud instead of flagging a red that means the opposite.
+    if effect < 0.02 * abs(q):
+        return (f"  {name:<22} |B14-Q| = {effect:.4g} is {100*effect/abs(q):.1f}% of Q -- "
+                f"NO EFFECT TO TEST, sentinel not meaningful (drift {drift:.4g})")
     bad = drift > effect / 2
     return (f"  {name:<22} |Q'-Q| = {drift:.4g}  vs  |B14-Q|/2 = {effect/2:.4g}   "
             + ("🔴 CONFOUNDED" if bad else "✅ interpretable"))
@@ -230,6 +237,34 @@ def main():
               f"{fmt(t.get('switch->switch', {}).get('ratio')):>8}"
               f"{fmt(r['udp']['drops_delta'], 'd'):>7}{flag}")
 
+    # The three classes are NOT measured the same way, and the whole reading of this round turns on
+    # it: reconcile() keys host-sourced edges off the destination interface's RX and switch-sourced
+    # edges off the source interface's TX. So host->switch is what was OFFERED into a switch and the
+    # other two are what was FORWARDED out of one. A single "veth GB" column hides that.
+    CLASSES = ("host->switch", "switch->host", "switch->switch")
+    print("\n--- per class: veth = data plane, twin = telemetry ---")
+    print("    host->switch is measured on ingress RX (offered in); the other two on TX (forwarded out)")
+    print(f"{'arm':7}{'burn':>5}  " + "".join(f"{c:>26}" for c in CLASSES))
+    print(f"{'':12}  " + "".join(f"{'veth GB':>9}{'twin GB':>9}{'ratio':>8}" for _ in CLASSES))
+    for r in reps:
+        if r["status"] != "ok":
+            continue
+        line = f"{r['arm']:7}{r['burners']:>5}  "
+        for c in CLASSES:
+            v = r["twin"].get(c)
+            line += (f"{v['veth_GB']:>9.3f}{v['twin_GB']:>9.3f}{v['ratio']:>8.4f}"
+                     if v else f"{'NO-DATA':>26}")
+        print(line)
+    qr, br = by.get("P_Q"), by.get("P_B28")
+    if qr and br and qr["status"] == "ok" and br["status"] == "ok":
+        print("\n  B28/Q per class, each side normalised by its own arm's span:")
+        for c in CLASSES:
+            qv, bv = qr["twin"][c], br["twin"][c]
+            qs, bs = qr["span_s"], br["span_s"]
+            print(f"    {c:<16} veth {(bv['veth_GB']/bs)/(qv['veth_GB']/qs):.4f}"
+                  f"   twin {(bv['twin_GB']/bs)/(qv['twin_GB']/qs):.4f}"
+                  f"   ratio-of-ratios {bv['ratio']/qv['ratio']:.4f}")
+
     print("\n--- abort conditions (P-7) ---")
     for r in reps:
         if r["status"] != "ok":
@@ -266,6 +301,8 @@ def main():
                    g(b14, ["sflow", "samples_per_s"]), g(qp, ["sflow", "samples_per_s"])))
     print(sentinel("bmv2 CPU%", g(q, ["bmv2", "pct_of_wall"]),
                    g(b14, ["bmv2", "pct_of_wall"]), g(qp, ["bmv2", "pct_of_wall"])))
+    print(sentinel("samples/GB", g(q, ["sflow", "samples_per_GB"]),
+                   g(b14, ["sflow", "samples_per_GB"]), g(qp, ["sflow", "samples_per_GB"])))
     for cls in ("host->switch", "switch->host", "switch->switch"):
         print(sentinel(f"twin ratio {cls}", g(q, ["twin", cls, "ratio"]),
                        g(b14, ["twin", cls, "ratio"]), g(qp, ["twin", cls, "ratio"])))
