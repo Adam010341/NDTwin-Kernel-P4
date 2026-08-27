@@ -57,3 +57,5 @@ doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
 # Ticket G: 245 py-spy dumps, 15 MB uncompressed. The tarball beside it is committed.
 doc/audit/2026-08-25_sampling-rounds/raw_gil/
 doc/audit/2026-08-25_sampling-rounds/gil_g.log
+doc/audit/2026-08-25_sampling-rounds/raw_h/
+doc/audit/2026-08-25_sampling-rounds/h_probe.log

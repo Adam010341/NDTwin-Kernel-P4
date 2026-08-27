@@ -1,0 +1,68 @@
+[12:42:39] === h_probe start: ticket H steps 0-2, 1/8 ===
+[12:42:39] SELFTEST SELFTEST PASS (futex/socket/other/unreadable, moved values dropped, empty dir empty)
+[12:42:40] compiled at SAMPLE_RATE=8 SAMPLE_TRUNC_BYTES=128
+[12:43:48] proxy pid 394852  os-threads 50
+[12:43:48] kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[12:43:48] p4 constants const bit<16> SAMPLE_RATE = 8; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[12:43:48] edges 288
+[12:43:48] --- ARM idle-before (control: no traffic, sleepers should be absent) ---
+[12:44:31]     arm i1: 25 iterations, 0 dump failures
+[12:44:31] --- ARM load: 200 Mbit/s UDP ---
+[12:47:25]     arm l: 90 iterations, 0 dump failures
+[12:47:25] --- ARM idle-after (drift baseline) ---
+[12:48:17]     arm i2: 25 iterations, 0 dump failures
+[12:48:17] --- ANALYSIS ---
+==============================================================================
+TICKET H  dir=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_h/i1
+--- step 0: what the emit(363) sleepers are parked in (25 iterations) ---
+  emit sleepers seen 0, joined to a stable wchan 0 (n/a)
+  NO-DATA: nothing to classify
+--- step 1: collector socket 127.0.0.1:6343 ---
+  rx_queue  min 0  max 0      (registered: queue empty => (a) out)
+  drops     first 0  last 0  delta 0   <- CUMULATIVE, read as a difference
+  VERDICT step 1: (a) OUT -- queue empty and no drops
+--- step 2: does py-spy's `active` mean what I assumed? ---
+  threads with a stable state across the dump: 1267/1271 = 100% (floor 60%)
+  agreement 863/867 = 99.5%
+      py-spy active=True  but /proc state=S : 4
+  VERDICT step 2: flag is sound -- (d) out
+==============================================================================
+TICKET H  dir=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_h/l
+--- step 0: what the emit(363) sleepers are parked in (90 iterations) ---
+  emit sleepers seen 38, joined to a stable wchan 23 (61%)
+      futex            15   65.2%
+      unreadable        8   34.8%
+  raw wchan strings (verbatim, so this can be reclassified):
+        15  futex_do_wait
+         8  0
+  by thread:
+      Thread-3 (_stream_receiver {'unreadable': 3, 'futex': 4}
+      Thread-6 (_stream_receiver {'futex': 6, 'unreadable': 2}
+      Thread-15 (_stream_receive {'unreadable': 3, 'futex': 5}
+  VERDICT step 0: futex share 0.652 -> NONE OF THE ABOVE (e) -- record verbatim, do not force
+--- step 1: collector socket 127.0.0.1:6343 ---
+  rx_queue  min 0  max 960      (registered: queue empty => (a) out)
+  drops     first 0  last 0  delta 0   <- CUMULATIVE, read as a difference
+  VERDICT step 1: (a) REVIVED as DROPS, not blocking -- ticket E's 'no samples lost' must be re-verified
+--- step 2: does py-spy's `active` mean what I assumed? ---
+  threads with a stable state across the dump: 4322/4590 = 94% (floor 60%)
+  agreement 2883/2961 = 97.4%
+      py-spy active=True  but /proc state=S : 56
+      py-spy active=False but /proc state=R : 22
+  VERDICT step 2: flag is sound -- (d) out
+==============================================================================
+TICKET H  dir=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_h/i2
+--- step 0: what the emit(363) sleepers are parked in (25 iterations) ---
+  emit sleepers seen 0, joined to a stable wchan 0 (n/a)
+  NO-DATA: nothing to classify
+--- step 1: collector socket 127.0.0.1:6343 ---
+  rx_queue  min 0  max 0      (registered: queue empty => (a) out)
+  drops     first 0  last 0  delta 0   <- CUMULATIVE, read as a difference
+  VERDICT step 1: (a) OUT -- queue empty and no drops
+--- step 2: does py-spy's `active` mean what I assumed? ---
+  threads with a stable state across the dump: 1266/1275 = 99% (floor 60%)
+  agreement 865/866 = 99.9%
+      py-spy active=True  but /proc state=S : 1
+  VERDICT step 2: flag is sound -- (d) out
+[12:48:18] --- restoring production: 1/256, truncate 128 ---
+[12:49:38] === h_probe complete, production restored ===
