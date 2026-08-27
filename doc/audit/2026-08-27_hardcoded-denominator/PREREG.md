@@ -271,3 +271,53 @@ Q-4 的區間是拿①的 **1043.9 ms**（⇒ 分母造成 **+4.4%** 高報）�
 **它其實還說了第二件事：安靜臂的 `T` 這一格本身在動。** 我只讀了前半。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 Q-quinquies（append-only，2026-08-27 18:0x，**仍未改任何一行碼**）
+
+## Qq5-1. 🔴 **Q-ter 的邊類對應是錯的**（讀碼更正，來源：工單 P §5-bis）
+
+Q-ter 寫：
+
+> `:1697` 服務的是 **host-bound 邊**，而工單①量的三個類別裡有兩個
+> （`host→switch`、`switch→host`）就是它們。
+
+**`host→switch` 不是 `:1697` 服務的。** `FlowLinkUsageCollector.cpp:1444-1461` 把**同一個樣本**
+記進兩張表（一張按 ingress port、一張按 egress port），然後：
+
+| 站點 | 付出的表 | **服務的邊類** |
+|---|---|---|
+| **`:1949`** 主迴圈 | `m_counterReports`（按 ingress） | **`host→switch` ＋ `switch→switch`** |
+| **`:1697`** `creditHostBoundEgressEdges` | `m_egressCounterReports`（按 egress，只付 host-bound） | **只有 `switch→host`** |
+
+`:1697` 的註解自己寫著：*"a switch far end means the downstream sampler owns the edge"*
+⇒ switch→switch 的 egress 側被**丟棄不寫**，由下游的 ingress 側負責。
+
+## Qq5-2. 對 Q 的影響：**結論不變，預期換位**
+
+- ✅ **「兩處都要修」不變。** 兩處都是 `累加器 * 8` 送進 `updateLinkInfoLeftLinkBandwidth`，同一個缺陷。
+- 🔴 **「修了哪一處 ⇒ 哪一類會動」的對應要換：**
+
+| 若只修 | 會動的邊類 | 不會動的 |
+|---|---|---|
+| `:1949` | host→switch、switch→switch | switch→host |
+| `:1697` | switch→host | 另外兩類 |
+
+⇒ **驗收要對三類分別預期**，不能只看總體。Q-ter 警告過的誤判（讀成「更偏離 1」或「有第三個機制」）
+**在錯誤的對應下仍然會發生，只是換一個方向。**
+
+## Qq5-3. 🔴 **`host→switch` 那一類的 ratio 不適合當 Q 的驗收指標**
+
+工單 P §5-bis：`host→switch` 的**分子**是樣本（只有進到 P4 管線的封包才被取樣），
+**分母**是 veth 的 **RX**（Linux 在介面上數的，**含 bmv2 來不及讀走的**）。
+⇒ **那一欄混進了一個與分母無關的效應**（bmv2 ingest 存活率），而且它在負載下很大（B28 掉到 0.65）。
+
+⇒ **Q 的驗收優先用 `switch→switch`（`:1949`）與 `switch→host`（`:1697`）**，
+兩者的分母都只含「已通過上游」的位元組。**`host→switch` 照記但不當判準**，
+直到 P §8 的 veth pair 對帳做完。
+
+⚠️ **這與 Q-quater 的工作點決定沒有衝突**：14 burners 仍是 `T` 唯一跨世代複製的那一格。
+但**要注意 14 burners 也會放大 bmv2 的 ingest 丟包** ⇒ 更加不能用 `host→switch` 當判準。
+
+[Co-developed with claude code -- Adam]

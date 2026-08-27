@@ -153,13 +153,12 @@ twin ratio switch->switch |B14-Q| = 1.6% of Q -- NO EFFECT TO TEST
 
 ## §5. 本報告**不**宣稱的（含一個被我自己殺掉的解釋）
 
-### 不宣稱機制
+### 不宣稱機制（但 §5-bis 的讀碼把候選收窄到一個）
 
-P-9 寫明本輪只做定位。**下面這個是候選，不是結論。**
+P-9 寫明本輪只做定位。**§5-bis 是讀碼的結果，不是量測；它排除了兩個候選、留下一個。**
 
-`ndtwin_switch.p4:425` 有一個 per-egress-port counter，註解寫 *"Used for link utilisation"*。
-**若 switch-sourced 邊走 counter（精確）而 host-sourced 邊走 sFlow 樣本（統計），上表每一格都能解釋。**
-🔴 **我沒有讀 kernel 那一側的兩條路徑，所以這只是候選。** 見 §8。
+🔴 **我自己先前寫的候選已被自己的讀碼否掉**：我曾提「`ndtwin_switch.p4:425` 的 per-egress-port
+counter 可能供應 switch-sourced 邊」。**錯的。** 見 §5-bis：**三類邊全部由 sFlow 樣本供應，沒有 counter 路徑。**
 
 ### 🔴 被方向否掉的解釋：「是掉包」
 
@@ -181,6 +180,42 @@ P-9 寫明本輪只做定位。**下面這個是候選，不是結論。**
 📌 順帶一個**沒有追下去**的觀察：既然被丟棄的封包照樣被取樣，
 **分身在丟包時應該「高報」轉發量**。這與 `switch→host` 的 B28 ratio `1.1179`（四臂最高）方向一致，
 **但我沒有量它，不宣稱。**
+
+## §5-bis. 讀碼：**三類邊都由樣本供應，而只有一類的分母算得到 bmv2 沒吃進去的封包**
+
+`FlowLinkUsageCollector.cpp:1444-1461` —— **同一個樣本被記進兩張表**：
+
+```cpp
+m_counterReports[(agentIp, relevantPort)] += frameLength * samplingRate;   // 按 ingress 記
+if (isIngress && outputPort != 0)
+    m_egressCounterReports[(agentIp, outputPort)] += frameLength * samplingRate;  // 按 egress 記
+```
+
+然後：
+- **`:1949`（主迴圈）** 付出 `m_counterReports`，寫給 ingress port 的**對面那條邊**
+  ⇒ **`host→switch` 與 `switch→switch`**。
+- **`:1697`（`creditHostBoundEgressEdges`）** 付出 `m_egressCounterReports`，
+  **只付 host-bound 的**（switch far end「歸下游取樣器」）⇒ **`switch→host`**。
+
+⇒ **沒有 counter 路徑。三類全是樣本。** 因此「一類走 counter 所以準」的解釋不成立。
+
+### 🔑 那麼差別在**分母**，而且只有一類的分母含 bmv2 沒吃進去的封包
+
+| 類別 | twin（分子） | veth（分母） | 分母是否含「bmv2 沒吃進去的」 |
+|---|---|---|---|
+| **host→switch** | 樣本，按 **ingress** port | 該交換機介面的 **RX** | 🔴 **含** |
+| switch→switch | 樣本，按下游 **ingress** port | 上游介面的 **TX** | 不含（已通過上游） |
+| switch→host | 樣本，按 **egress** port | 該介面的 **TX** | 不含 |
+
+取樣在 P4 的 **ingress 尾端**（`ndtwin_switch.p4:403-412`）⇒ **只有進到管線的封包才會被取樣**。
+而 veth 的 **RX 是 Linux 在介面上數的**，**包含 bmv2 來不及讀走的那些**。
+
+⇒ **`host→switch` 是唯一一類，分子量「bmv2 處理了的」、分母量「到達介面的」。**
+**CPU 被搶走時 bmv2 讀不贏來包，兩者就分家 —— 而那是真實的資料面丟包，被讀成遙測少報。**
+
+⚠️ **這是讀碼推出的機制候選，不是量測。** 大小方向一致（B28 的 iperf 丟包 42.2%、h→s 缺口 35%），
+但**同向不等於同因**。**便宜的決定性測試**：比對同一條 veth pair 兩端
+（host 側 TX 對 switch 側 RX）—— 若相等，丟包發生在 **bmv2 之內**而不在線上。**本輪未做。**
 
 ### 其他不宣稱
 
@@ -235,12 +270,30 @@ P-9 寫明本輪只做定位。**下面這個是候選，不是結論。**
 
 ## §8. 這輪留給下一張工單的
 
-**唯一的問題：為什麼只有 `host→switch`？**
+§5-bis 已經回答了「為什麼只有 `host→switch`」的**結構**部分（分母含 bmv2 沒吃進去的封包）。
+剩下的是**量測**：
 
-兩類邊在 kernel 裡是不是走不同的資料來源（樣本 vs counter）？
-這**直接決定工單 Q 的標的對不對** —— Q 要修的兩處分母（`:1697` host-bound、`:1949` 主迴圈，見 Q-ter）
-**恰好也是按邊類分開的**。若兩件事在同一條線上，Q 的修法與驗收都要重想。
+1. **veth pair 對帳**（不需要新儀器，不需要重建）：同一條 veth pair 的 host 側 TX 對 switch 側 RX。
+   相等 ⇒ 丟包在 **bmv2 之內**；不等 ⇒ 在線上。**這一步就能把「遙測少報」與「資料面丟包」分開。**
+2. 若確認在 bmv2 之內：`host→switch` 的 ratio **本來就不該當遙測準確度用**，
+   ①與 P 的那一欄要改標成「**bmv2 ingest 存活率**」。
 
-**建議：Q 開跑前先讀 kernel 那兩條路徑。** 那是讀碼，不需要實驗室。
+## §8-bis. 🔴 這改了工單 Q 的預註冊：**Q-ter 的邊類對應是錯的**
+
+Q-ter 寫：
+
+> `:1697` 服務的是 **host-bound 邊**，而工單①量的三個類別裡有兩個
+> （`host→switch`、`switch→host`）就是它們。
+
+**`host→switch` 不是 `:1697` 服務的。** 照 §5-bis：
+
+| 站點 | 服務的邊類 |
+|---|---|
+| `:1949` 主迴圈 | **`host→switch` ＋ `switch→switch`** |
+| `:1697` `creditHostBoundEgressEdges` | **只有 `switch→host`** |
+
+⇒ **「兩處都要修」的結論不變**，但**「修了哪一處會讓哪一類動」的對應要換**。
+Q-ter 自己就警告過：對應錯會讓判讀表讀成「更偏離 1」或「有第三個機制」，**兩個都是錯的裁決**。
+**已寫成 Q-quinquies。**
 
 [Co-developed with claude code -- Adam]
