@@ -47,6 +47,13 @@
 namespace
 {
 
+// [Co-developed with claude code -- Adam]
+// Ticket Q gave creditHostBoundEgressEdges the interval its bytes accumulated over, because the
+// rate it feeds was never divided by one. These tests are about WHICH edge gets the bytes, not
+// about the rate, so they pass exactly one second: bytes * 8 / 1.0 is the arithmetic they were
+// written against, and every expected value below is unchanged.
+constexpr double kOneSecond = 1.0;
+
 // The agent the committed fixtures are emitted from (dpid 1 in the topology below maps to
 // 192.168.123.11), and the ports inside them.
 const std::string kAgentIpStr = "192.168.123.11";
@@ -75,6 +82,7 @@ class ProbeCollector : public sflow::FlowLinkUsageCollector
     }
 
     using sflow::FlowLinkUsageCollector::creditHostBoundEgressEdges;
+
     using sflow::FlowLinkUsageCollector::handlePacket;
 };
 
@@ -260,7 +268,7 @@ TEST_F(LastHopAttributionTest, OneSampleCreditsTheLastHopEdgeWithSampledBytesTim
     EXPECT_EQ(usageOf(m_edgeToHost), 0u)
         << "ingest banks the bytes; only the rate-loop drain may write the graph";
 
-    m_collector->creditHostBoundEgressEdges();
+    m_collector->creditHostBoundEgressEdges(kOneSecond);
 
     EXPECT_EQ(usageOf(m_edgeToHost), kUdpFrameLen * kSamplingRate * 8)
         << "one sampled frame is worth frameLength x samplingRate bytes on the last hop";
@@ -270,7 +278,7 @@ TEST_F(LastHopAttributionTest, SwitchToSwitchEgressEntriesAreDroppedNotWritten)
 {
     feed("emitted_tcp.bin"); // egress port 2: the edge to the peer switch
 
-    m_collector->creditHostBoundEgressEdges();
+    m_collector->creditHostBoundEgressEdges(kOneSecond);
 
     EXPECT_EQ(usageOf(m_edgeToPeer), 0u)
         << "the downstream switch's ingress samples own this edge; the egress bank must "
@@ -280,12 +288,12 @@ TEST_F(LastHopAttributionTest, SwitchToSwitchEgressEntriesAreDroppedNotWritten)
 TEST_F(LastHopAttributionTest, TheCreditDecaysToZeroWhenTrafficStops)
 {
     feed("emitted_udp.bin");
-    m_collector->creditHostBoundEgressEdges();
+    m_collector->creditHostBoundEgressEdges(kOneSecond);
     ASSERT_NE(usageOf(m_edgeToHost), 0u);
 
     // A second pass with no new samples: the accumulator was zeroed by the first, so the
     // edge must read idle, exactly like every ingress-credited edge does.
-    m_collector->creditHostBoundEgressEdges();
+    m_collector->creditHostBoundEgressEdges(kOneSecond);
 
     EXPECT_EQ(usageOf(m_edgeToHost), 0u)
         << "a drained entry that still carries last second's bytes would freeze the edge "
@@ -297,7 +305,7 @@ TEST_F(LastHopAttributionTest, TwoSamplesInOneSecondAccumulate)
     feed("emitted_udp.bin");
     feed("emitted_udp.bin");
 
-    m_collector->creditHostBoundEgressEdges();
+    m_collector->creditHostBoundEgressEdges(kOneSecond);
 
     EXPECT_EQ(usageOf(m_edgeToHost), 2 * kUdpFrameLen * kSamplingRate * 8)
         << "samples within one second must add, not overwrite";
@@ -315,7 +323,7 @@ TEST_F(LastHopAttributionTest, AnIngressLessSampleIsNotBankedTwice)
     data[14 * 4] = data[14 * 4 + 1] = data[14 * 4 + 2] = data[14 * 4 + 3] = 0;
 
     m_collector->handlePacket(data.data(), data.size());
-    m_collector->creditHostBoundEgressEdges();
+    m_collector->creditHostBoundEgressEdges(kOneSecond);
 
     EXPECT_EQ(usageOf(m_edgeToHost), 0u)
         << "an ingress-less sample is already keyed by its output port in the ingress bank; "

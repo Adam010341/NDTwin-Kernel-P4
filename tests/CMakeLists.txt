@@ -4,6 +4,7 @@ add_executable(
   test_LoggerEnvironment.cpp
   test_RoutingStrategies.cpp
   test_EstimatedRates.cpp
+  test_RateDenominator.cpp
   test_SwitchKindDispatch.cpp
   test_SFlowParsing.cpp
   test_GoldenFixture.cpp
