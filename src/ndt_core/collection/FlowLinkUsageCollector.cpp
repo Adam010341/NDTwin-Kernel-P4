@@ -6,6 +6,7 @@
 #include "utils/Logger.hpp"
 #include "utils/KeyedFailureLog.hpp"
 #include "utils/Utils.hpp"
+#include <limits>
 #include <algorithm>
 #include <arpa/inet.h>
 #include <array>
@@ -1748,6 +1749,10 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     // [Co-developed with claude code -- Adam]
     auto lastDrainAt = std::chrono::steady_clock::now();
     uint64_t iterCount = 0;
+    // Anchors for the windowed mean above: the summary prints the interval since the previous
+    // summary, not since process start. [Co-developed with claude code -- Adam]
+    uint64_t lastSummaryIter = 1;
+    double lastSummarySumMs = 0.0;
     double periodSumMs = 0.0, periodMinMs = 1e30, periodMaxMs = 0.0;
 
     while (m_running.load())
@@ -1784,13 +1789,31 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
                                 periodMs, nFlows, nCounters);
             if (iterCount > 1 && iterCount % 30 == 0)
             {
+                // [Co-developed with claude code -- Adam]
+                // This line used to report only `mean` over ALL iterations since start, calling
+                // it "the denominator every published bps assumes is 1000". A cumulative mean is
+                // not the current period: at 64 flows on 2026-08-25 it printed 1106.3 ms while
+                // the actual windowed period was 1248.7 -- 143 ms low, and the gap grows as early
+                // low values keep dragging. Anyone who grepped this line got a number that was
+                // systematically wrong in the direction that makes the defect look smaller.
+                //
+                // Both figures are printed now and each says which it is. "last 30" is the one
+                // to read; "since start" is kept because a drift between the two IS the signal
+                // that the loop is slowing down.
+                const double windowMeanMs =
+                    (iterCount - lastSummaryIter > 0)
+                        ? (periodSumMs - lastSummarySumMs) / double(iterCount - lastSummaryIter)
+                        : std::numeric_limits<double>::quiet_NaN();
                 SPDLOG_LOGGER_INFO(
                     Logger::instance(),
-                    "rate loop period over {} iterations: mean {:.1f} ms, min {:.1f}, max {:.1f} "
-                    "(flows={}, counters={}) -- this is the denominator every published bps "
-                    "assumes is 1000",
-                    iterCount - 1, periodSumMs / double(iterCount - 1), periodMinMs, periodMaxMs,
+                    "rate loop period: last {} iters mean {:.1f} ms | since start ({} iters) mean "
+                    "{:.1f} ms, min {:.1f}, max {:.1f} (flows={}, counters={}) -- the LAST-N "
+                    "figure is the current denominator; the since-start one lags it",
+                    iterCount - lastSummaryIter, windowMeanMs, iterCount - 1,
+                    periodSumMs / double(iterCount - 1), periodMinMs, periodMaxMs,
                     nFlows, nCounters);
+                lastSummaryIter = iterCount;
+                lastSummarySumMs = periodSumMs;
             }
         }
 
@@ -1977,6 +2000,25 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         // the mutex is not recursive. Outside MININET the egress map never fills, so the call
         // is a natural no-op there.
         creditHostBoundEgressEdges(drainElapsedSeconds);
+
+        // [Co-developed with claude code -- Adam]
+        // Ticket Q's acceptance gate, made observable. The criterion is that the value actually
+        // used as the divisor equals the interval measured for the same iteration -- and the
+        // getter that holds it is C++, unreachable from a live kernel. Logging both, from the
+        // same iteration, is what lets the gate run against a running process.
+        //
+        // They are logged as two separate numbers rather than as a pre-computed "ok": a boolean
+        // computed in here would be the code grading its own homework, and a reader could not
+        // tell a passing check from a check that never ran.
+        if (m_mode == utils::MININET && iterCount > 1 && iterCount % 30 == 0)
+        {
+            const double used = m_topologyAndFlowMonitor->lastRateDivisorSeconds();
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "rate divisor check: measured_interval_s={:.6f} divisor_used_s={:.6f}"
+                               " (ticket Q gate: these must agree to 1%; a negative divisor means "
+                               "no rate has been published yet, which is not a pass)",
+                               drainElapsedSeconds, used);
+        }
 
         // log socket dropped packet number
         // uint32_t rxq_ovfl = 0;
