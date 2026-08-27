@@ -22,6 +22,16 @@
 # -- two processes instead of 321.  Field 1 is "iface:", field 2 is rx_bytes, field 10 is
 # tx_bytes; the leading header lines are skipped by requiring the colon.
 #
+# v2 TIMESTAMP CHANGE (2026-08-27, after the S-1 self-proof).  The first version took its
+# timestamp from awk's systime(), which is WHOLE SECONDS.  That made every measured sweep interval
+# an integer, so the S-1 run could only ever report gaps of exactly 2 or 3 s -- and its p95 landed
+# on 3.000 against a registered "< 3.0 s" threshold.  The registration had claimed quantisation
+# could not decide the verdict; it decided it.  The underlying cadence was fine (mean gap 2.107 s,
+# 50 gaps of 2 and 6 of 3 = cumulative drift aliasing, not stalling), but the instrument could not
+# show it.  So the instrument was fixed rather than the threshold moved: `date +%s.%N` gives ns
+# resolution at a cost of one subshell+exec per sweep.  That is 2 process creations instead of 1,
+# against the old poller's ~320 -- the property under test survives, and now it is measurable.
+#
 # WHY NOT nice -n -20.  Negative nice needs CAP_SYS_NICE, and this machine's sudoers grants only
 # a fixed list that does not include renice or chrt.  Raising priority is therefore not available
 # without asking Adam for a new sudoers entry, and the spawn fix alone is measured below to be
@@ -33,10 +43,9 @@ printf 'ts\tiface\trx_bytes\ttx_bytes\n' > "$OUT"
 end=$(( $(date +%s) + DUR ))
 n=0
 while [ "$(date +%s)" -lt "$end" ]; do
-    # One read, one awk. `date` is a builtin-free spawn too, so the timestamp comes from awk's
-    # own clock via systime() -- keeping the per-sweep process count at exactly one.
-    awk -v OFS='\t' '
-        BEGIN { ts = systime() }
+    # One read, one awk, plus one `date` for a sub-second timestamp (see v2 note above).
+    ts=$(date +%s.%N)
+    awk -v OFS='\t' -v ts="$ts" '
         /:/ {
             split($1, f, ":")
             name = f[1] != "" ? f[1] : $1
