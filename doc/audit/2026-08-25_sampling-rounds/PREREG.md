@@ -1098,3 +1098,45 @@ idle 且持有 GIL。**我的過濾器篩 `name=="emit"` 不篩行號，他篩 `
 輸出 `raw_h/{i1,l,i2}/`、`h_probe.out`。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 H-0-bis：上機前又修一個**靜默**的讀取器，並順手指認了工單 G 裡那 16 條匿名執行緒
+
+## H-0-bis-1. `/proc/<tid>/stat` 的狀態欄不是「第 3 個欄位」
+
+`h_probe.sh` 的 `snap_state` 原本用 `awk '{print $1, $3}'`。
+**`comm` 可以含空白**（`/proc/pid/stat` 的第二欄），一條叫 `AnyIO worker th` 的執行緒會讓
+`$3` 變成 **`worker`**，而 `h_parse.py` 的 `s.split()[0] == "R"` 會把它**安靜地讀成「沒在跑」**。
+
+實測對照（同一行輸入）：
+
+| 讀法 | 輸出 |
+|---|---|
+| 舊 `awk '{print $1, $3}'` | `4242 worker` 🔴 |
+| 新（取最後一個 `)` 之後的第一欄） | `4242 S` ✅ |
+
+🔑 **這個 bug 在這台機器上跑一百次也不會現形**：現在 proxy 的 `comm` 全是單字
+（`python` / `event_engine` / `lifeguard` / `grpc_global_tim`）。
+**它會等到某個版本開始用 Python 執行緒名當 comm 的那天才發作**，而那天它只會讓 step 2
+的一致率悄悄變差。已改成與 `gil_parse.py::read_task_stat` 相同的解析法。
+
+## H-0-bis-2. 🔑 工單 G 裡「py-spy 看不見的 ~16 條原生執行緒（~33% CPU）」——**名字有了**
+
+查 `comm` 的時候順手數出來：
+
+| comm | 條數 |
+|---|---|
+| `python` | 35 |
+| **`event_engine`** | **14** |
+| `grpc_global_tim` | 1 |
+| `lifeguard` | 1 |
+| | **51 條，其中非 Python 的正好 16** |
+
+⇒ **G-1-4 那 16 條匿名執行緒＝gRPC 的 C 層 event engine 執行緒池**（14＋2）。
+數目與工單 G 由 `/proc` 帳算出的 16 條**逐條吻合**，而且這是**另一個獨立來源**
+（`comm` 對 py-spy 的可見性），不是同一份資料重讀。
+
+⚠️ **仍不宣稱**它們在做什麼——只宣稱**它們是誰**。那 ~33% 的歸屬要等 H 的結果。
+
+[Co-developed with claude code -- Adam]

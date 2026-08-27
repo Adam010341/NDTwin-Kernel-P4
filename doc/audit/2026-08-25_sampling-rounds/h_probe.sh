@@ -70,8 +70,13 @@ proxy_pid() { ss -ltnp 2>/dev/null | grep ":8081" | grep -oE "pid=[0-9]+" | cut 
 snap_wchan() { local p=$1; for t in /proc/"$p"/task/*/wchan; do
                    local tid=${t%/wchan}; tid=${tid##*/}
                    echo "$tid $(cat "$t" 2>/dev/null || echo -)"; done > "$2"; }
+# comm can contain spaces, so the state is NOT field 3 by whitespace: a thread named
+# "AnyIO worker th" would yield "worker" as its state and h_parse would silently read that as
+# "not running". Everything after the LAST ')' is positional, so the state is the first field
+# there. This proxy happens to use single-word comms (python / event_engine / lifeguard), which
+# is exactly why the bug would have gone unseen until a build that names threads differently.
 snap_state() { local p=$1; for t in /proc/"$p"/task/*/stat; do
-                   awk '{print $1, $3}' "$t" 2>/dev/null; done > "$2"; }
+                   sed -n 's/^\([0-9]*\) .*) \([^ ]*\) .*/\1 \2/p' "$t" 2>/dev/null; done > "$2"; }
 # mawk has no strtonum, so the hex port is matched as a string and the queues parsed in python.
 snap_udp()   { python3 - "$1" <<'PY'
 import sys
