@@ -1,0 +1,324 @@
+[
+ {
+  "arm": "P_Q",
+  "status": "ok",
+  "burners": 0,
+  "window": [
+   1787819965.9,
+   1787820304.8
+  ],
+  "span_s": 338.89999985694885,
+  "twin": {
+   "host->switch": {
+    "veth_GB": 4.323443348,
+    "twin_GB": 4.434553776025757,
+    "ratio": 1.0256995221360206,
+    "edges": 128,
+    "loaded": 16
+   },
+   "switch->host": {
+    "veth_GB": 3.874343872,
+    "twin_GB": 4.072390069008606,
+    "ratio": 1.0511173513636443,
+    "edges": 128,
+    "loaded": 16
+   },
+   "switch->switch": {
+    "veth_GB": 11.951460363,
+    "twin_GB": 12.3621203173078,
+    "ratio": 1.0343606506514589,
+    "edges": 32,
+    "loaded": 8
+   }
+  },
+  "twin_samples_ok": 123,
+  "twin_samples_failed": 0,
+  "edge_GB": 20.149247583,
+  "sflow": {
+   "samples_sent": 43899,
+   "datagrams_sent": 43899,
+   "send_errors": 0,
+   "samples_per_s": 129.53378583219225,
+   "samples_per_GB": 2178.6917759171197,
+   "monotonic": true,
+   "grams_monotonic": true,
+   "polls": 169,
+   "wiring_503": 0,
+   "lost_polls": 0,
+   "lost_poll_codes": null
+  },
+  "bmv2": {
+   "cpu_s": 566.63,
+   "pct_of_wall": 167.1968132898132,
+   "per_switch_cpu_s": {
+    "s1": 119.11,
+    "s10": 0.59,
+    "s2": 82.84,
+    "s3": 80.35,
+    "s4": 61.68,
+    "s5": 96.57,
+    "s6": 0.57,
+    "s7": 71.99,
+    "s8": 0.6,
+    "s9": 52.33
+   },
+   "n_switches_seen": [
+    10
+   ],
+   "switch_count_ok": true,
+   "pids_survived": 10
+  },
+  "proxy": {
+   "cpu_s": 39.38,
+   "pct_of_wall": 11.619946891892143
+  },
+  "udp": {
+   "drops_delta": 0,
+   "rx_queue_max": 960,
+   "polls": 68
+  },
+  "near_ceiling_edges": []
+ },
+ {
+  "arm": "P_B14",
+  "status": "ok",
+  "burners": 14,
+  "window": [
+   1787820391.8,
+   1787820728.4
+  ],
+  "span_s": 336.60000014305115,
+  "twin": {
+   "host->switch": {
+    "veth_GB": 3.930768433,
+    "twin_GB": 3.2750832267941896,
+    "ratio": 0.833191596660558,
+    "edges": 128,
+    "loaded": 14
+   },
+   "switch->host": {
+    "veth_GB": 2.626435622,
+    "twin_GB": 2.750023295842163,
+    "ratio": 1.0470552839014773,
+    "edges": 128,
+    "loaded": 14
+   },
+   "switch->switch": {
+    "veth_GB": 7.943081523,
+    "twin_GB": 8.085549953591796,
+    "ratio": 1.0179361662321185,
+    "edges": 32,
+    "loaded": 8
+   }
+  },
+  "twin_samples_ok": 119,
+  "twin_samples_failed": 0,
+  "edge_GB": 14.500285578,
+  "sflow": {
+   "samples_sent": 28774,
+   "datagrams_sent": 28774,
+   "send_errors": 0,
+   "samples_per_s": 85.48425427145389,
+   "samples_per_GB": 1984.3747107750928,
+   "monotonic": true,
+   "grams_monotonic": true,
+   "polls": 168,
+   "wiring_503": 0,
+   "lost_polls": 0,
+   "lost_poll_codes": null
+  },
+  "bmv2": {
+   "cpu_s": 399.97,
+   "pct_of_wall": 118.82650024658864,
+   "per_switch_cpu_s": {
+    "s1": 87.99,
+    "s10": 0.61,
+    "s2": 55.72,
+    "s3": 57.3,
+    "s4": 49.3,
+    "s5": 61.07,
+    "s6": 0.6,
+    "s7": 52.7,
+    "s8": 0.64,
+    "s9": 34.04
+   },
+   "n_switches_seen": [
+    10
+   ],
+   "switch_count_ok": true,
+   "pids_survived": 10
+  },
+  "proxy": {
+   "cpu_s": 33.2,
+   "pct_of_wall": 9.863339270912176
+  },
+  "udp": {
+   "drops_delta": 0,
+   "rx_queue_max": 960,
+   "polls": 67
+  },
+  "near_ceiling_edges": []
+ },
+ {
+  "arm": "P_B28",
+  "status": "ok",
+  "burners": 28,
+  "window": [
+   1787820844.0,
+   1787821157.3
+  ],
+  "span_s": 313.2999999523163,
+  "twin": {
+   "host->switch": {
+    "veth_GB": 3.826018719,
+    "twin_GB": 2.487624297877441,
+    "ratio": 0.6501861283437806,
+    "edges": 128,
+    "loaded": 16
+   },
+   "switch->host": {
+    "veth_GB": 1.652943466,
+    "twin_GB": 1.8477973173410644,
+    "ratio": 1.1178829496283962,
+    "edges": 128,
+    "loaded": 16
+   },
+   "switch->switch": {
+    "veth_GB": 5.972469205,
+    "twin_GB": 5.652865446540772,
+    "ratio": 0.9464871651089194,
+    "edges": 32,
+    "loaded": 8
+   }
+  },
+  "twin_samples_ok": 94,
+  "twin_samples_failed": 0,
+  "edge_GB": 11.45143139,
+  "sflow": {
+   "samples_sent": 21256,
+   "datagrams_sent": 21256,
+   "send_errors": 0,
+   "samples_per_s": 67.84551549069622,
+   "samples_per_GB": 1856.1871678820755,
+   "monotonic": true,
+   "grams_monotonic": true,
+   "polls": 155,
+   "wiring_503": 0,
+   "lost_polls": 1,
+   "lost_poll_codes": [
+    "000"
+   ]
+  },
+  "bmv2": {
+   "cpu_s": 316.73,
+   "pct_of_wall": 101.09479733425016,
+   "per_switch_cpu_s": {
+    "s1": 58.86,
+    "s10": 0.61,
+    "s2": 46.55,
+    "s3": 43.84,
+    "s4": 44.33,
+    "s5": 45.76,
+    "s6": 0.6,
+    "s7": 45.13,
+    "s8": 0.64,
+    "s9": 30.41
+   },
+   "n_switches_seen": [
+    10
+   ],
+   "switch_count_ok": true,
+   "pids_survived": 10
+  },
+  "proxy": {
+   "cpu_s": 29.85,
+   "pct_of_wall": 9.527609321590527
+  },
+  "udp": {
+   "drops_delta": 0,
+   "rx_queue_max": 0,
+   "polls": 62
+  },
+  "near_ceiling_edges": []
+ },
+ {
+  "arm": "P_Qp",
+  "status": "ok",
+  "burners": 0,
+  "window": [
+   1787821244.0,
+   1787821585.7
+  ],
+  "span_s": 341.7000000476837,
+  "twin": {
+   "host->switch": {
+    "veth_GB": 4.465095163,
+    "twin_GB": 4.502010224277344,
+    "ratio": 1.00826747469645,
+    "edges": 128,
+    "loaded": 16
+   },
+   "switch->host": {
+    "veth_GB": 4.080340294,
+    "twin_GB": 4.313144028374268,
+    "ratio": 1.0570549801242306,
+    "edges": 128,
+    "loaded": 16
+   },
+   "switch->switch": {
+    "veth_GB": 12.510123646,
+    "twin_GB": 13.018418428860961,
+    "ratio": 1.040630676182284,
+    "edges": 32,
+    "loaded": 8
+   }
+  },
+  "twin_samples_ok": 141,
+  "twin_samples_failed": 0,
+  "edge_GB": 21.055559103,
+  "sflow": {
+   "samples_sent": 44636,
+   "datagrams_sent": 44636,
+   "send_errors": 0,
+   "samples_per_s": 130.62920688841416,
+   "samples_per_GB": 2119.91521011856,
+   "monotonic": true,
+   "grams_monotonic": true,
+   "polls": 170,
+   "wiring_503": 0,
+   "lost_polls": 0,
+   "lost_poll_codes": null
+  },
+  "bmv2": {
+   "cpu_s": 562.33,
+   "pct_of_wall": 164.56833477363998,
+   "per_switch_cpu_s": {
+    "s1": 116.93,
+    "s10": 0.71,
+    "s2": 81.72,
+    "s3": 80.77,
+    "s4": 57.62,
+    "s5": 96.38,
+    "s6": 0.68,
+    "s7": 72.84,
+    "s8": 0.75,
+    "s9": 53.93
+   },
+   "n_switches_seen": [
+    10
+   ],
+   "switch_count_ok": true,
+   "pids_survived": 10
+  },
+  "proxy": {
+   "cpu_s": 42.99,
+   "pct_of_wall": 12.581211587357569
+  },
+  "udp": {
+   "drops_delta": 0,
+   "rx_queue_max": 0,
+   "polls": 68
+  },
+  "near_ceiling_edges": []
+ }
+]
