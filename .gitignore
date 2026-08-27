@@ -48,10 +48,17 @@ doc/audit/**/raw/*_server.log
 # Raw logs and dumps live on the `audit-raw` orphan branch, not on a working branch: they were
 # 166k lines of every pull request diff and none of the review. Per-round raw/ directories carry
 # their own .gitignore too, but only after someone remembers to add one -- a round created on
-# 2026-08-25 did not, and 279k lines went into a commit before the amend. This rule covers every
-# future round without anyone remembering.
-doc/audit/*/raw/*
-!doc/audit/*/raw/.gitignore
+# 2026-08-25 did not, and 279k lines went into a commit before the amend.
+#
+# The line below used to read `raw/*` and claimed, right here, to cover "every future round
+# without anyone remembering". It did not. A round on 2026-08-27 wrote to raw_n/, raw_gil/ and
+# raw_h/, which `raw/*` does not match, and 166k lines went onto the working branch -- while the
+# same round dutifully gzipped its tarballs, so the author clearly was managing volume and was
+# simply outside the pattern's literal reach. Widened to `raw*` so a suffix cannot slip past it.
+# The claim of completeness is deleted rather than reworded: this rule covers directories whose
+# names start with raw, and nothing else.
+doc/audit/*/raw*/*
+!doc/audit/*/raw*/.gitignore
 doc/audit/2026-08-25_sampling-rounds/ladder_ext.log
 doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
 # Ticket G: 245 py-spy dumps, 15 MB uncompressed. The tarball beside it is committed.
