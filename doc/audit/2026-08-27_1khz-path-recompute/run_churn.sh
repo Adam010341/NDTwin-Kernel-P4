@@ -45,7 +45,18 @@ rnd = random.Random(seed)
 sched = []
 for t in range(0, total, every):
     for _ in range(batch):
-        sched.append({"at": t, "pair": rnd.randrange(npair), "dur": rnd.randint(5, 10)})
+        # [Co-developed with claude code -- Adam]
+        # 1-4 s, mean 2.5, per amendment M-bis. This drew 5-10 s (mean 7.5), which is the
+        # ticket's ORIGINAL spec -- M-bis superseded it precisely because 5-10 s cannot reach
+        # M-5's predicted 70-90% band, and the script was never updated.
+        #
+        # The arithmetic, which the pre-flight then confirmed: at a 1 s recompute a flow waits
+        # 0.5 s on average for its first path, so the share of its life without one is 0.5/dur.
+        # At 7.5 s that is 6.7% -- a ratio near 0.93, and the pre-flight measured 0.94-1.00.
+        # At 2.5 s it is 20%, i.e. ~0.80, inside the predicted band. Running the arms on the old
+        # spec would have produced ~0.95, read as "the mechanism is refuted" off the read-out
+        # table, when what was actually wrong was the flow length.
+        sched.append({"at": t, "pair": rnd.randrange(npair), "dur": rnd.randint(1, 4)})
 json.dump({"seed": seed, "total_s": total, "every_s": every, "batch": batch,
            "n_flows": len(sched), "flows": sched}, open(out, "w"), indent=1)
 print(f"  schedule: {len(sched)} flows, seed={seed}, {total}s, batch of {batch} every {every}s")
