@@ -135,6 +135,10 @@ def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BAS
 # clients (paths and port numbering live here) and to hand new ones the sFlow callback,
 # exactly as startup() does for the originals. [Co-developed with claude code -- Adam]
 api_routes.inject_readopt(build_p4_client, sflow.handle_sample)
+# The emitter itself, for GET /sflow/stats. [Co-developed with claude code -- Adam]
+# Ticket P needs the send-side counters readable; sflow_emitter.py is deliberately untouched
+# because four measurement rounds were taken against its current uncommitted contents.
+api_routes.inject_emitter(sflow)
 
 
 async def startup(clients_factory, sflow, kernel, topo,

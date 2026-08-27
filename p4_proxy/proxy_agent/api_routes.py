@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
+import time
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError
 from proxy_agent import ryu_topology, ryu_flow_stats
 
@@ -25,6 +26,23 @@ def inject_readopt(client_factory, sample_callback):
     global readopt_client_factory, readopt_sample_callback
     readopt_client_factory = client_factory
     readopt_sample_callback = sample_callback
+
+
+# Injected for GET /sflow/stats (ticket P). [Co-developed with claude code -- Adam]
+# The emitter already counts datagrams_sent, samples_sent and send_errors and has done since it
+# was written; nothing in this repository ever read them. Ticket 1 measured telemetry losing 34%
+# of its bytes under CPU contention and could not say which stage lost them, because the send
+# side had no observable. This is the reader those counters never had.
+#
+# The emitter instance is injected rather than reached through readopt_sample_callback.__self__,
+# which would work -- a bound method carries its instance -- but would make "handle_sample happens
+# to be a method" part of this module's contract by accident.
+sflow_emitter = None
+
+
+def inject_emitter(emitter):
+    global sflow_emitter
+    sflow_emitter = emitter
 
 
 def _grpc_status_name(exc):
@@ -55,6 +73,38 @@ def _grpc_status_name(exc):
 # /ndt/inform_switch_entered alone is not enough: measured on a live kernel it took switches
 # from 0/10 to 10/10 enabled but left edges at 0/40, so BFS still found no path. Edges are
 # enabled by updateLinks(), which only runs off this poll.
+
+
+@router.get("/sflow/stats")
+async def sflow_stats():
+    """Send-side sFlow counters, raw and cumulative. [Co-developed with claude code -- Adam]
+
+    Ticket P splits a 34% telemetry shortfall across four stages, and this is the only one with no
+    observable. samples_sent falling with the twin puts the loss upstream in bmv2; samples_sent
+    holding while the twin falls puts it downstream, in the kernel, which would be a bug rather
+    than a resource limit.
+
+    Cumulative counters are returned raw, with the wall clock beside them, because the caller must
+    differentiate two reads over a window. This project has already published a number obtained by
+    averaging a cumulative counter, and it looked entirely reasonable.
+
+    Not wired is an ERROR, never zeros. Returning zeros when the emitter was never injected is
+    indistinguishable from "the send side stopped sending" -- which is precisely the signal this
+    endpoint exists to detect, so the one failure it must not have is the one that mimics its own
+    finding. This repo's largest live defect family is a writer with no reader; the second-largest
+    is a reader that silently reports the absence of its own wiring as data.
+    """
+    if sflow_emitter is None:
+        raise HTTPException(status_code=503,
+                            detail="sflow emitter not injected -- this is a wiring failure, "
+                                   "not a measurement of zero")
+    return {
+        "t": time.time(),
+        "datagrams_sent": sflow_emitter.datagrams_sent,
+        "samples_sent": sflow_emitter.samples_sent,
+        "send_errors": sflow_emitter.send_errors,
+        "batch_size": getattr(sflow_emitter, "batch_size", None),
+    }
 
 
 @router.get("/v1.0/topology/switches")
