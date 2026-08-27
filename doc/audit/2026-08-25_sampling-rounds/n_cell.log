@@ -1,0 +1,29 @@
+[13:06:03] === cell smoke: 2 flows x 8s, all crossing the core ===
+[13:06:03] --- qdisc state (access s1-eth1 / core s5-eth3) ---
+[13:06:03] --- 'Bandwidth limit ... ignoring' lines in the topo session ---
+[13:06:04]     count = 32
+[13:06:04] --- starting 2 servers ---
+[13:06:04]     2/2 servers started
+[13:06:06] --- 2 TCP flows for 8s ---
+[13:06:14] --- per-core-link rate over 8.162174289s (interface counters, not iperf3) ---
+[13:06:14] === cell smoke done ===
+[13:06:31] === cell N0_unchanged: 32 flows x 30s, all crossing the core ===
+[13:06:31] --- qdisc state (access s1-eth1 / core s5-eth3) ---
+[13:06:31] --- 'Bandwidth limit ... ignoring' lines in the topo session ---
+[13:06:31]     count = 32
+[13:06:31] --- starting 32 servers ---
+[13:06:36]     32/32 servers started
+[13:06:38] --- 32 TCP flows for 30s ---
+[13:07:10] --- per-core-link rate over 31.719975386s (interface counters, not iperf3) ---
+[13:07:10] === cell N0_unchanged done ===
+[13:09:23] === cell N0_unchanged: 32 flows x 30s, all crossing the core ===
+[13:09:23] --- qdisc state (access s1-eth1 / core s5-eth3) ---
+[13:09:23] --- 'Bandwidth limit ... ignoring' lines in the topo session ---
+[13:09:23]     count = 32
+[13:09:23] --- clearing stale iperf3 (once, root PID namespace is shared) ---
+[13:09:24] --- starting 32 servers ---
+[13:09:26]     32 iperf3 servers alive after the loop (want >= 32)
+[13:09:26]     32/32 servers started
+[13:09:28] --- 32 TCP flows for 30s ---
+[13:10:00] --- per-core-link rate over 31.852316994s (interface counters, not iperf3) ---
+[13:10:00] === cell N0_unchanged done ===
