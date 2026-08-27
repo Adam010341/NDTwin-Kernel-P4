@@ -1563,3 +1563,62 @@ sha256 回到 **`ead4d84a…`** ✅；別的 session 三個未提交改動**全�
 診斷 B（`/proc/stat`）兩格都有做。**照實記，不淡化。**
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 N-4：收尾——兩則環境更正，以及還原目標的正確判準
+
+## N-4-1. 🔴 VM 的關機時間：**13:14:33，而且是關機不是暫停**
+
+`開機手冊` 自陳並驗證（用 `vm.pid` 記的 pid，不是 pattern）：**13:14:33 完全關機**，
+0 vCPU / 0 GB。**時間落在 N-0（13:09）之後、N-1（13:18）之前** ⇒
+**增補 N-3-6 的敘述成立**：N-0 有 VM、N-1 沒有。
+
+## N-4-2. 🔴 但我對「記憶體壓力」的歸因要收窄一半
+
+我把「`MemAvailable` 4 GB、`swap` 已用 9 GB」寫成 VM 造成的**當下壓力**。`開機手冊` 指出：
+
+- **`MemAvailable` 與 direct-reclaim 讀數**（12:5x 的 20,013 頁／N-0 的 173,569 頁）
+  取在 **13:14:33 之前** ⇒ **歸因成立**。
+- 🔴 **`swap 已用 9 GB` 不同**：**VM 關掉之後 swap 不會自己還回去**
+  ⇒ 那 9 GB 可能是**殘留**而不是**當下的壓力**。**兩者對 N 的判讀差很多。**
+
+⇒ **收窄**：本輪只宣稱「N-0 期間有實測到的 direct reclaim」，
+**不宣稱** N-1 期間的 swap 佔用代表當時有記憶體壓力。
+（N-1 的 `MemAvailable` 起點 6.56 GB，正是 VM 離場後釋放出來的。）
+
+## N-4-3. 🔴 還原的正確判準：**sha256，而不是 `git status` 乾淨**
+
+審查員與 mainDev 查出三個不同的雜湊：
+
+| 版本 | sha256 |
+|---|---|
+| **我動手前的磁碟狀態（＝還原目標）** | **`ead4d84a…`** |
+| `git HEAD` 的乾淨版 | `50f9bb17…` |
+| 我改過之後 | `f890f607…` |
+
+磁碟上那份與 HEAD 差在**一份 7/8 的環境修補**（`sys.path.append` ×2、
+`command_line(config_file_path=)`、結尾換行），**與頻寬無關、也不是我的**。
+
+🔑 **判準因此反過來**：還原正確的證據是 **sha256 == `ead4d84a…`**，
+**而不是 `git status` 乾淨**——**在這裡 `git status` 乾淨反而代表弄錯了**
+（應該仍顯示 ` M testbed_topo.py`）。
+
+**實測已驗**：還原後 sha256 = `ead4d84a…` ✅、
+`git status --porcelain` 仍有 `M NTG.yaml`／`M setting/Mininet.yaml`／`M testbed_topo.py`／`?? flow` ✅。
+
+## N-4-4. `Bandwidth limit` 檢查：**標為「不適用於改法 A」**（審查員認錯並確認）
+
+審查員原話：工單原文寫錯是他的錯。**維持只動接取層**——因為核心 `s5-eth3`
+**現在就是 `noqueue`**，拿掉 `bw=10000` 也還是 `noqueue`，**零物理差異**，
+只換來更大的 diff 和一個超出 Adam 裁決的改動。
+⇒ **真正的注入自證是接取 qdisc `htb`→`noqueue`**，已驗。
+
+## N-4-5. 未完成項（交給下一任）
+
+**診斷 A（twin/veth）兩格都沒採集**（見 N-3-8）。補做需 ~15 分鐘：
+改法 A → 重建 fabric → 跑 → 還原，並在 `n_cell.sh` 裡接上
+`poll_twin.sh` / `poll_veth.sh`，再用 `analyze.py` 出表。
+⚠️ **`ratio` 與 `per-edge min` 是相鄰欄**，讀法照增補 N-1-1 的三步防呆。
+
+[Co-developed with claude code -- Adam]
