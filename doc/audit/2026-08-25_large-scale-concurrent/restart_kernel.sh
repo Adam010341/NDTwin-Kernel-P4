@@ -100,8 +100,16 @@ PY
 )"
     set -- $out
     echo "  t+$((i*5))s: edges=${1:-?} down=${2:-?} ipv4=${3:-?}"
-    [[ "${2:-1}" == "0" && "${3:-0}" == "128" ]] && { echo "  ok  converged"; exit 0; }
+    # [Co-developed with claude code -- Adam]
+    # down==0 && ipv4==128 does NOT see a short path set. The kernel pulls destination paths
+    # exactly once and never retries, and the count has been observed falling back from 16256 to
+    # 13184 mid-convergence -- a pull that lands in that dip leaves a permanently crippled model
+    # with nothing in the log, while every check above still reads green. 16256 = 128 * 127.
+    paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths \
+             | python3 -c 'import sys,json; d=json.load(sys.stdin); v=d.get("all_destination_paths",d); print(len(v))' 2>/dev/null || echo 0)"
+    echo "       paths=$paths (want 16256)"
+    [[ "${2:-1}" == "0" && "${3:-0}" == "128" && "$paths" == "16256" ]] && { echo "  ok  converged"; exit 0; }
     sleep 5
 done
-echo "🔴 model never converged (down!=0 or ipv4!=128) -- NOT a measurement"
+echo "🔴 model never converged (down!=0, ipv4!=128, or paths!=16256) -- NOT a measurement"
 exit 1
