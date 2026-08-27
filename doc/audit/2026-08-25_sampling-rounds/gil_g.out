@@ -1,0 +1,98 @@
+[11:37:13] === gil_g start: 1/8, three arms, one fabric generation ===
+[11:37:13] SELFTEST SELFTEST PASS (parked->W=0, busy->W=2, two-owners flagged, all-failed->None)
+[11:37:13] compiled at SAMPLE_RATE=8 SAMPLE_TRUNC_BYTES=128
+[11:37:55] proxy pid 182176  exe /home/adam/miniconda3/bin/python3.13  os-threads 51
+[11:37:55] kernel sha256 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+[11:37:55] bmv2   sha256 3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a
+[11:37:55] emitter sha256 5bdf97ebe32e0a57a2ced00f926447f2986ff9252f2832b2b9ae99bcf0ef582e (mainDev uncommitted, +84/-3, mtime 08-25 14:48 = pre-F)
+[11:37:55] p4 constants const bit<16> SAMPLE_RATE = 8; const bit<32> SAMPLE_TRUNC_BYTES = 128; 
+[11:37:55] edges 0
+[11:37:55] --- ARM I1: idle, no traffic ---
+[11:38:38]     arm i1: 40 dumps, 0 failed, window 42.922611581s
+[11:38:38] --- ARM L: 200 Mbit/s UDP, dumps over the middle ---
+[11:40:55]     arm l: 105 dumps, 3 failed, window 111.169635908s
+[11:41:13]     PERTURBATION pre-dump  148.2%
+[11:41:13]     PERTURBATION dumped    144.3%
+[11:41:13]     PERTURBATION post-dump 146.6%
+[11:41:13] --- ARM I2: idle again (drift baseline) ---
+[11:42:06]     arm i2: 40 dumps, 0 failed, window 42.910419183s
+[11:42:06] --- ANALYSIS ---
+==============================================================================
+ARM i1   dir=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_gil/i1
+  dumps            40 ok, 0 failed 
+  thread-set sizes {35: 37, 34: 3}
+  G  (GIL held)    0.000   -> H-GIL REFUTED
+  W  (queued)      mean 0.20  max 2  hist {0: 33, 1: 6, 2: 1}
+                   -> NO QUEUE (non-runners are blocked on I/O; GIL held but uncontended)
+  GIL owners (share of dumps):
+      (none)
+  per-thread, sorted by CPU (independent of py-spy):
+      thread                          cpu%    gil% active%  modal top frame
+      MainThread                      3.1%    0.0%    0.0%  selectors.py:452(select)
+      Thread-1 (_run)                 0.6%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-4 (_run)                 0.4%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-7 (_run)                 0.4%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-10 (_run)                0.4%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-3 (_stream_receiver)     0.3%    0.0%    0.0%  threading.py:363(wait)
+      Thread-6 (_stream_receiver)     0.3%    0.0%    0.0%  threading.py:363(wait)
+      Thread-9 (_stream_receiver)     0.3%    0.0%    0.0%  threading.py:363(wait)
+      Thread-12 (_stream_receiver)    0.3%    0.0%    0.0%  threading.py:363(wait)
+      Thread-19 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-25 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      liveness-probe                  0.2%    0.0%    0.0%  threading.py:363(wait)
+      TOTAL over all 50 os threads: 10.6%
+==============================================================================
+ARM l   dir=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_gil/l
+  dumps            102 ok, 3 failed ['dump_0038.json', 'dump_0073.json', 'dump_0090.json']
+  thread-set sizes {35: 102}
+  G  (GIL held)    0.461   -> H-GIL REFUTED
+  W  (queued)      mean 1.64  max 8  hist {0: 10, 1: 42, 2: 35, 3: 10, 4: 3, 5: 1, 8: 1}
+                   -> QUEUE (threads have Python work and are not running)
+  GIL owners (share of dumps):
+      Thread-4 (_run)               15.7%
+      Thread-3 (_stream_receiver)   10.8%
+      Thread-6 (_stream_receiver)    8.8%
+      Thread-1 (_run)                6.9%
+      Thread-13 (_run)               2.9%
+      MainThread                     1.0%
+  per-thread, sorted by CPU (independent of py-spy):
+      thread                          cpu%    gil% active%  modal top frame
+      Thread-3 (_stream_receiver)    20.5%   10.8%    8.8%  threading.py:363(wait)
+      Thread-6 (_stream_receiver)    20.4%    8.8%   13.7%  threading.py:363(wait)
+      Thread-15 (_stream_receiver)   20.4%    0.0%   16.7%  threading.py:363(wait)
+      Thread-1 (_run)                17.0%    6.9%   25.5%  grpc/_channel.py:1716(channel_spin)
+      Thread-4 (_run)                16.8%   15.7%   19.6%  grpc/_channel.py:1716(channel_spin)
+      Thread-13 (_run)               16.7%    2.9%   23.5%  grpc/_channel.py:1716(channel_spin)
+      (tid 183184, not in py-spy)     2.1%    0.0%    0.0%  -
+      (tid 183178, not in py-spy)     2.1%    0.0%    0.0%  -
+      (tid 183172, not in py-spy)     2.1%    0.0%    0.0%  -
+      (tid 183179, not in py-spy)     2.1%    0.0%    0.0%  -
+      (tid 183181, not in py-spy)     2.1%    0.0%    0.0%  -
+      (tid 183182, not in py-spy)     2.0%    0.0%    0.0%  -
+      TOTAL over all 51 os threads: 144.1%
+==============================================================================
+ARM i2   dir=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_gil/i2
+  dumps            40 ok, 0 failed 
+  thread-set sizes {35: 40}
+  G  (GIL held)    0.025   -> H-GIL REFUTED
+  W  (queued)      mean 0.03  max 1  hist {0: 39, 1: 1}
+                   -> NO QUEUE (non-runners are blocked on I/O; GIL held but uncontended)
+  GIL owners (share of dumps):
+      MainThread                     2.5%
+  per-thread, sorted by CPU (independent of py-spy):
+      thread                          cpu%    gil% active%  modal top frame
+      MainThread                      2.8%    2.5%    2.5%  selectors.py:452(select)
+      AnyIO worker thread             0.7%    0.0%    0.0%  threading.py:359(wait)
+      Thread-1 (_run)                 0.4%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      liveness-probe                  0.3%    0.0%    2.5%  threading.py:363(wait)
+      Thread-4 (_run)                 0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-7 (_run)                 0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-10 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-13 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-16 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      Thread-22 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      (tid 183184, not in py-spy)     0.2%    0.0%    0.0%  -
+      Thread-19 (_run)                0.2%    0.0%    0.0%  grpc/_channel.py:1716(channel_spin)
+      TOTAL over all 51 os threads: 8.9%
+[11:42:06] --- restoring production: 1/256, truncate 128, batch unset ---
+[11:43:25] === gil_g complete, production restored ===
