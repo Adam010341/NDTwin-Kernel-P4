@@ -1,0 +1,20 @@
+[16:15:07] === N1d_changeA: 32 flows x 30s + twin/veth reconciliation ===
+[16:15:07] --- topology actually running (qdisc on named ifaces) ---
+[16:15:09]     servers: 32 started, 32 ALIVE (want >= 32)
+[16:15:09] --- pollers for 55s (veth ground truth + twin's own view) ---
+[16:15:12] --- 32 TCP flows for 30s ---
+twin: 20 attempts, graph ok=20, flows ok=20
+veth: 12 samples, 1920 rows, 160 interfaces
+[16:16:06] --- core-link rates (interface counters) ---
+[16:16:06] --- DIAGNOSTIC A: twin vs veth (never reads the printed ratio column) ---
+[16:16:06] === N1d_changeA done ===
+[16:17:31] === N1d_moderate: 8 flows x 30s + twin/veth reconciliation ===
+[16:17:31] --- topology actually running (qdisc on named ifaces) ---
+[16:17:32]     servers: 8 started, 8 ALIVE (want >= 8)
+[16:17:32] --- pollers for 55s (veth ground truth + twin's own view) ---
+[16:17:35] --- 8 TCP flows for 30s ---
+twin: 23 attempts, graph ok=23, flows ok=23
+veth: 14 samples, 2240 rows, 160 interfaces
+[16:18:29] --- core-link rates (interface counters) ---
+[16:18:29] --- DIAGNOSTIC A: twin vs veth (never reads the printed ratio column) ---
+[16:18:29] === N1d_moderate done ===

@@ -1,0 +1,21 @@
+[16:15:07] === N1d_changeA: 32 flows x 30s + twin/veth reconciliation ===
+[16:15:07] --- topology actually running (qdisc on named ifaces) ---
+    s1-eth1: qdisc noqueue 0: root refcnt 2 
+    s1-eth3: qdisc noqueue 0: root refcnt 2 
+    s5-eth3: qdisc noqueue 0: root refcnt 2 
+[16:15:09]     servers: 32 started, 32 ALIVE (want >= 32)
+[16:15:09] --- pollers for 55s (veth ground truth + twin's own view) ---
+[16:15:12] --- 32 TCP flows for 30s ---
+[16:16:06] --- core-link rates (interface counters) ---
+      s5-eth4     61.377 Gbit/s
+      s6-eth4     37.606 Gbit/s
+      s5-eth3     29.122 Gbit/s
+      s6-eth3     18.901 Gbit/s
+      MAX         61.377 Gbit/s   TOTAL 147.058
+[16:16:06] --- DIAGNOSTIC A: twin vs veth (never reads the printed ratio column) ---
+      NO-DATA: analyze.py produced no rows ([Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/raw_n/N1d_changeA/rows.json')
+  ENV N1d_changeA: aggregate busy 99.7%  iowait 0.0%  steal 0.0%
+       per-core busy: min 99%  median 100%  max 100%   cores >=95%: 14/14
+       MemAvailable 4863876 -> 3565812 kB   direct-reclaim pages scanned: 0
+       -> SATURATED (diagnostic only, does not enter any verdict)
+[16:16:06] === N1d_changeA done ===

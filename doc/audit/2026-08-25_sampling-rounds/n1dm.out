@@ -1,0 +1,27 @@
+[16:17:31] === N1d_moderate: 8 flows x 30s + twin/veth reconciliation ===
+[16:17:31] --- topology actually running (qdisc on named ifaces) ---
+    s1-eth1: qdisc noqueue 0: root refcnt 2 
+    s1-eth3: qdisc noqueue 0: root refcnt 2 
+    s5-eth3: qdisc noqueue 0: root refcnt 2 
+[16:17:32]     servers: 8 started, 8 ALIVE (want >= 8)
+[16:17:32] --- pollers for 55s (veth ground truth + twin's own view) ---
+[16:17:35] --- 8 TCP flows for 30s ---
+[16:18:29] --- core-link rates (interface counters) ---
+      s5-eth3     22.032 Gbit/s
+      s6-eth3     21.893 Gbit/s
+      s5-eth4     21.684 Gbit/s
+      s6-eth4     20.140 Gbit/s
+      MAX         22.032 Gbit/s   TOTAL  85.798
+[16:18:29] --- DIAGNOSTIC A: twin vs veth (never reads the printed ratio column) ---
+      loaded edges 176   veth 1138.356 GB   twin 5.525 GB
+      twin/veth = 0.0049   (computed from named fields, not the printed column)
+      analyze.py's own summary rows:
+         host->switch       128     16   137.744     0.888  0.0064         0.002   0.058
+         switch->host       128     16   198.425     0.865  0.0044         0.001   0.095
+         switch->switch      32     23   802.187     3.773  0.0047         0.002   0.039
+      -> twin UNDER-reports by 99.5%
+  ENV N1d_moderate: aggregate busy 99.5%  iowait 0.0%  steal 0.0%
+       per-core busy: min 99%  median 100%  max 100%   cores >=95%: 14/14
+       MemAvailable 1866988 -> 2688136 kB   direct-reclaim pages scanned: 110864
+       -> SATURATED (diagnostic only, does not enter any verdict)
+[16:18:29] === N1d_moderate done ===
