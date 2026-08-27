@@ -896,3 +896,48 @@ CPU 被搶走時這個執行緒直接變慢 ⇒ 本體耗時變長 ⇒ `T` 變�
 本輪做到了，所以錯誤是可診斷的而不是致命的。
 
 [Co-developed with claude code -- Adam]
+
+## L-6-sexies. 取樣率的出處：本輪釘到位元組，而 `p4_T16nt` **哪裡都沒記**
+
+**寫於 12:11，`L_B7` 收尾中，仍無任何臂被分析。** 審查員要求「`p4_T16nt` 當時的取樣率要**查證＋寫明出處**，別讓它停在假設」。
+
+### (a) `p4_T16nt`（08-25 23:37）：**那一輪沒有記錄取樣率**
+
+查過的地方與結果：
+
+| 來源 | 有沒有取樣率 |
+|---|---|
+| `raw/p4_T16nt/meta.json` | ❌ 只有 label ＋四個視窗時戳 |
+| `raw/p4_T16nt/binaries.txt` | ❌ 只有 `flow_s/warm_s/win_s`、kernel、proxy；**`bmv2:` 是空的**（D-4 修的 15 字元 comm 截斷，修在那些輪次之後） |
+| `raw/p4_T16nt/kernel.log` | ❌ 只有「Listening for sFlow on UDP port 6343」與 ingest 健康行 |
+
+**能拿到的最強證據是間接的**：`ndtwin_switch.p4` 在該輪之前的最後一次 commit 是
+`f64897b`（08-25 19:30，truncate 那次），其 `SAMPLE_RATE = 256`。
+
+🔴 **但 source 不等於跑著的 pipeline**——`ndt up` 不重編 `.p4`，而那段期間有 session
+臨時 `sed` 過常數再還原。⇒ **正確的措辭是「source 說 256、該輪未留執行期證據」，
+不是「該輪是 1/256」。** 引用時照這個講。
+
+### (b) 本輪：三環證據鏈，每一環都是位元組
+
+| 環 | 證據 |
+|---|---|
+| 1. source | `ndtwin_switch.p4:52` `const bit<16> SAMPLE_RATE = 256`，mtime **11:42:23** |
+| 2. 編譯產物 | `p4_src/build/ndtwin_switch.json` 內含 **`"0x0100"` ＝ 256**，sha256 `0b19d789d74fc996…`，mtime **11:42:24** |
+| 3. **跑著的 process** | **11 個 `simple_switch_grpc` 全部啟動於 11:42:24 之後，0 個在之前** |
+
+⇒ 第 3 環是關鍵的那一環，因為 **argv 指的是路徑不是位元組**（`kernel_sha256_running`
+就是為這個加的），而**「`ndt up` 不重編、bmv2 握舊 JSON」是本 repo 記載過的陷阱**。
+沒有第 3 環，前兩環只證明「磁碟上有一份說 256 的 pipeline」。
+
+⚠️ 一處不消解的小差異：`pgrep -f simple_switch_grpc` 數到 **11**，而 `ndt status` 報 **10 switches**。
+多的那個最可能是包裝行程（`-f` 會匹配整條命令列）。**結論不受影響**（要判的是「有沒有任何一個
+早於 JSON」，答案是 0），但差異照記不抹平。
+
+### (c) 這是本輪相對於前幾輪的一個淨改善，也是一個該補的縫
+
+`run_plane.sh` 的 `binaries.txt` **不記取樣率**——所以下一輪若沒人手動補，
+會重複 `p4_T16nt` 的缺口。**本輪是我手動補的，不是 harness 給的。**
+建議（不在本輪範圍）：把上面三環加進 `run_plane.sh`，與 `kernel_sha256_running` 並列。
+
+[Co-developed with claude code -- Adam]
