@@ -27,3 +27,14 @@
 [13:09:28] --- 32 TCP flows for 30s ---
 [13:10:00] --- per-core-link rate over 31.852316994s (interface counters, not iperf3) ---
 [13:10:00] === cell N0_unchanged done ===
+[13:18:10] === cell N1_changeA: 32 flows x 30s, all crossing the core ===
+[13:18:10] --- qdisc state (access s1-eth1 / core s5-eth3) ---
+[13:18:10] --- 'Bandwidth limit ... ignoring' lines in the topo session ---
+[13:18:10]     count = 32
+[13:18:10] --- clearing stale iperf3 (once, root PID namespace is shared) ---
+[13:18:11] --- starting 32 servers ---
+[13:18:14]     32 iperf3 servers alive after the loop (want >= 32)
+[13:18:14]     32/32 servers started
+[13:18:16] --- 32 TCP flows for 30s ---
+[13:19:11] --- per-core-link rate over 54.547179318s (interface counters, not iperf3) ---
+[13:19:11] === cell N1_changeA done ===

@@ -1,0 +1,30 @@
+[13:18:10] === cell N1_changeA: 32 flows x 30s, all crossing the core ===
+[13:18:10] --- qdisc state (access s1-eth1 / core s5-eth3) ---
+    s1-eth1: qdisc noqueue 0: root refcnt 2 
+    s1-eth2: qdisc noqueue 0: root refcnt 2 
+    s5-eth3: qdisc noqueue 0: root refcnt 2 
+    h1-eth0-peer(s1-eth3): qdisc noqueue 0: root refcnt 2 
+[13:18:10] --- 'Bandwidth limit ... ignoring' lines in the topo session ---
+[13:18:10]     count = 32
+[13:18:10] --- clearing stale iperf3 (once, root PID namespace is shared) ---
+[13:18:11] --- starting 32 servers ---
+[13:18:14]     32 iperf3 servers alive after the loop (want >= 32)
+[13:18:14]     32/32 servers started
+[13:18:16] --- 32 TCP flows for 30s ---
+[13:19:11] --- per-core-link rate over 54.547179318s (interface counters, not iperf3) ---
+      s5-eth4     53.142 Gbit/s
+      s6-eth4     27.765 Gbit/s
+      s5-eth3     24.239 Gbit/s
+      s6-eth3     16.744 Gbit/s
+      s7-eth4      0.017 Gbit/s
+      s8-eth4      0.013 Gbit/s
+      s8-eth3      0.009 Gbit/s
+      s7-eth3      0.006 Gbit/s
+      MAX         53.142 Gbit/s   <- SINGLE CORE LINK MAX (the ticket's question)
+      TOTAL      121.934 Gbit/s   (all eight core links together)
+      ECMP split across the top four: 53.14, 27.77, 24.24, 16.74
+  ENV N1_changeA: aggregate busy 98.7%  iowait 0.0%  steal 0.0%
+       per-core busy: min 98%  median 99%  max 99%   cores >=95%: 14/14
+       MemAvailable 6562688 -> 2388360 kB   direct-reclaim pages scanned: 60070
+       -> SATURATED (diagnostic only, does not enter any verdict)
+[13:19:11] === cell N1_changeA done ===
