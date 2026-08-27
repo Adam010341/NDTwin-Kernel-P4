@@ -1752,3 +1752,63 @@ sha256 回到 **`ead4d84a…`** ✅；別的 session 三個未提交改動**全�
 而非親自量測。**兩個人在同一件事上犯了同一個錯：拿舊觀察當現況。**）
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 N-7：夾制機制**已指認，而且兩條路徑都夾**
+
+## N-7-1. Flow-sample 路徑（審查員找到，我獨立打開驗過）
+
+`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:1089-1095`：
+
+```cpp
+uint64_t leftIn = estimatedIn > edgeProps.linkBandwidth ? 0 : edgeProps.linkBandwidth - estimatedIn;
+edgeProps.linkBandwidthUtilization = (1.0 - (double)leftIn / edgeProps.linkBandwidth) * 100;
+edgeProps.linkBandwidthUsage = leftIn > edgeProps.linkBandwidth ? 0 : edgeProps.linkBandwidth - leftIn;
+```
+
+- `estimatedIn ≤ linkBandwidth` ⇒ `usage = estimatedIn` ✅
+- **`estimatedIn > linkBandwidth` ⇒ `leftIn = 0` ⇒ `usage = linkBandwidth`** 🔴 **夾住**
+
+🆕 **而且 `linkBandwidthUtilization` 一起被夾在 100%**（`leftIn = 0` ⇒ `(1−0)×100`）
+⇒ **「使用率 100%」在這個實作裡不代表滿載，只代表「≥ 宣告容量」。**
+
+## N-7-2. 🆕 計數器路徑：審查員標為待查，**我追完了——也夾**
+
+`TopologyAndFlowMonitor.cpp:1057` 的 `linkBandwidthUsage = interfaceSpeed - leftOut`
+**本身沒有三元夾制**，但 `leftOut` 是**參數**。往上追一層——
+唯一呼叫者 `FlowLinkUsageCollector.cpp:1184`，而它在 **`:1163`** 算：
+
+```cpp
+leftOut = (avgOut > interfaceSpeed) ? 0 : (interfaceSpeed - avgOut);
+```
+
+⇒ `avgOut > interfaceSpeed` ⇒ `leftOut = 0` ⇒ `usage = interfaceSpeed − 0 = interfaceSpeed`
+⇒ **同樣夾在宣告容量上，只是夾的動作發生在上游。**
+
+🔑 **兩條路徑都夾** ⇒ **`linkBandwidthUsage` 在結構上永遠不可能超過該邊的宣告容量。**
+增補 N-5-3 的「與夾制高度一致的觀察」**升級為機制已指認**。
+
+## N-7-3. 這直接切開工單 N 的兩個宣稱
+
+| 宣稱 | 狀態 |
+|---|---|
+| **資料面**跑得到 53–61 Gbit/s | ✅ 成立（介面計數器 ＋ iperf3 互證） |
+| **分身量得到** 53–61 Gbit/s | 🔴 **false**——超過宣告容量之後它回報的是宣告值 |
+
+⇒ **deck 上這兩句必須分開講。** 分身的可觀測範圍**上限就是模型裡寫的容量**。
+
+## N-7-4. 🔴 一個仍然未解的矛盾：審查員的兩封訊息互相牴觸
+
+- 前一封：`ndtwin-vm`（pid 648825）**16:14:12 重啟**、163% CPU ⇒ 我的補做（16:15–16:19）在 VM 在場時跑。
+- 後一封：「53.142 → 61.377，**兩次 VM 都不在 ⇒ 可逐值比較，記成變異**」。
+
+**兩者不能同時成立。**
+
+🔑 **但增補 N-6 的收回不依賴哪一封是對的**：我收回的理由是
+**我當時根本沒量過**，不是「我接受了 VM 在場」。
+⇒ **維持 confounded，不因為後一封而回復成「變異」。**
+要改回來需要的是**當時的量測**，而那份量測不存在
+（`cell_env.py` 沒記行程清單——見 N-6-5）。
+
+[Co-developed with claude code -- Adam]
