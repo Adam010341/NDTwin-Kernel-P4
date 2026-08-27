@@ -4,7 +4,15 @@ at all", which the registered W does not distinguish.
 
 [Co-developed with claude code -- Adam]
 
-WRITTEN BEFORE THE LOADED ARM WAS READ.  This file exists because the IDLE arm -- which the
+WRITTEN BEFORE THE LOADED ARM WAS READ -- BUT NOT BEFORE IT FINISHED.  The first version of this
+comment said the loaded arm was still being written when this landed, and cited
+raw_gil/l/window.txt as proof.  That was wrong, and the command that checked it printed the
+refutation in the same line I read past: arm L finished at 11:40:55, this file was saved at
+11:41:08, thirteen seconds later.  What is actually true is narrower and is the part that
+matters: the refinement was decided from arm i1 alone, and no command read arm l before this file
+existed.  The honest evidence is the transcript order, not the mtimes.
+
+This file exists because the IDLE arm -- which the
 pre-registration names as the classifier's known-good input -- came back with W = 0.20 instead of
 0, and the six offending dumps were a startup thread (`switch-entered-retry` in
 kernel_notifier.renotify_until_acknowledged) plus two receivers sitting at grpc/_channel.py:932.
@@ -18,6 +26,8 @@ gil_parse.py IS NOT EDITED.  The registered W stays exactly as registered and is
 primary number; this only adds a second, clearly-labelled reading beside it.  Changing the
 instrument after seeing the treatment arm is the move pre-registration exists to prevent, so the
 refinement is derived from the control arms alone and both numbers are always printed together.
+That protection does not depend on the timing claim above being right -- it depends on where the
+justification came from, which is arm i1 and the grpc source, both quoted here.
 
 THE REFINEMENT.  py-spy reports `active` from the OS thread state, independently of `owns_gil`:
   owns_gil=True                -> holds the interpreter
