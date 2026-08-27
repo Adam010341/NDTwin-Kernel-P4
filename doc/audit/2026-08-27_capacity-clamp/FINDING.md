@@ -149,9 +149,42 @@ leftOut = (avgOut > interfaceSpeed) ? 0 : (interfaceSpeed - avgOut);
    **「該不該改」留給 Adam。**
 2. **沒有討論修法。**
 3. **完全閒置的邊讀什麼，本次沒有量**（所有觀察都取自有流量的邊）。
-4. 🔴 **未答**：**哪一條路徑在什麼情況下被使用**（MININET 對 TESTBED、P4 對 OVS），
-   以及**第 1 節量到的 1.000 Gbit/s 走的是哪一條**。
-   追碼只追到「兩條各自會不會夾」，**沒追「誰在什麼時候被呼叫」**。**不猜。**
+4. ~~未答：哪一條路徑在什麼情況下被使用~~ ⇒ **已答，見第 6-bis 節。**
+
+---
+
+## 6-bis. 哪一條路徑在跑？**MININET 模式下只有 flow-sample 那條**
+
+`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1101-1106`，
+在**計數器樣本**的分支（`sampleType == 2 || 4`）裡：
+
+```cpp
+if (m_mode == utils::MININET)
+{
+    SPDLOG_LOGGER_TRACE(...);
+    continue;
+}
+```
+
+`continue` **跳過該分支底下的全部程式碼**——包括 `:1162-1163` 的 `leftIn`/`leftOut` 計算
+與 `:1184` 的 `updateLinkInfo()` 呼叫。
+
+⇒ **MININET 模式下計數器路徑（寫入點 2、3）從不執行。**
+⇒ 今天所有量測都跑在 `--mode mininet`（`pgrep -ax ndtwin_kernel` 可查），
+   所以**第 1 節量到的 1.000 Gbit/s 走的是 flow-sample 路徑（`TAFM:1095`）**。
+⇒ 計數器路徑只在 **TESTBED** 模式下有機會執行（真實 Brocade / HPE 硬體）。
+
+### 🔴 一個尚未發生但形狀已知的風險：**同一個欄位有兩個寫入者**
+
+`linkBandwidthUsage` 被兩條路徑寫。**在 MININET 下只有一個寫入者活著，所以今天不咬人**，
+但在 TESTBED 下兩條都可能活 ⇒ **對同一條邊給出不同的答案**：
+一條用 `edgeProps.linkBandwidth`（模型宣告值）當上限，
+另一條用 `interfaceSpeed`（sFlow 回報的介面速率）當上限——**兩個來源不保證相等**。
+
+⚠️ **本文不宣稱這曾經發生過**，只記下形狀：
+這是本 repo「**應該取代、卻只會新增**」那一族的近親——
+**每次看到一個欄位有多個寫入者，就要問「舊值什麼時候消失、誰贏」**。
+**TESTBED 模式下沒有人驗證過這一點。**
 
 ---
 
