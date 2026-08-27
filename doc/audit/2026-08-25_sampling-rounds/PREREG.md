@@ -1049,3 +1049,52 @@ P(GIL 被持有│有人排隊)=0.432，卻沒有把 `sendto` 那 44 次單獨�
 ——工單 G 已證直譯器有一半時間是空的。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 H-0：跑之前的三處修正（G-2-6 關閉、分類器符號、行號過濾）
+
+## H-0-1. G-2-6 **關閉**——那 1 次觀察被指認了
+
+審查員指認：第 60 次是 `emit` 內的 **`:355`**（`build_datagram` 那一行），Thread-6、
+idle 且持有 GIL。**我的過濾器篩 `name=="emit"` 不篩行號，他篩 `:363`** ⇒ 差的就是這一次。
+**兩邊的過濾器各自都正確，44 那格不受影響。** 不再列為待對帳。
+
+## H-0-2. 🔴 分類器符號更正：`sk_stream_wait_memory` 是 **TCP 的**
+
+我原本把它當成候選 (a)（卡在送出）的判準。**UDP 的 `SOCK_DGRAM` 送出路徑永遠不會停在那裡**
+⇒ 若照原樣跑，**(a) 會變成不可證偽**：它永遠不會觸發，而我會把「沒觸發」讀成「(a) 出局」。
+
+跑之前寫死的四個桶（審查員給的符號）：
+
+| 桶 | wchan 符號 | 對應候選 |
+|---|---|---|
+| `send-wait` | `sock_wait_for_wmem`／`sock_alloc_send_pskb` | (a) 真的卡在 UDP 送出 |
+| `futex` | `futex`／`do_futex` | (b) GIL 重取（含喚醒延遲） |
+| `reclaim` | `shrink_*`／`try_to_free_pages`／`congestion_wait` | (c) direct reclaim |
+| `timer-sleep` | `hrtimer_nanosleep`／`schedule_hrtimeout` | 自願睡眠，**不算任何候選** |
+| 其餘 | 原值逐字進報告 | (e) |
+
+`sk_stream_wait_memory` **留在 `send-wait` 裡**——不是因為它會出現，而是**萬一它出現我要看見**。
+
+## H-0-3. 行號進入過濾器，而被排除的要**印出來**
+
+`emit()` 裡至少有兩個有意義的行（`:355` build_datagram、`:363` sendto）。問題問的是**送出**
+⇒ 判準只採 `:363`。**但 `emit()` 內其他行的觀察要計數並印出**，
+因為「被我的過濾器吃掉」和「不存在」不可以長得一樣（G-2-6 差的那一次正是這個形狀）。
+
+## H-0-4. 儀器的煙霧測試抓到它自己一個會改變裁決的缺陷
+
+用替身行程（**不是** mainDev 正在量的 proxy——`py-spy dump` 會暫停目標）跑完整條管線：
+
+1. 第一件事發現 **step 0 只有 NO-DATA 那條分支跑得到**（frame 過濾器寫死在真實檔名）。
+2. 參數化後真的驅動 accept path，**才露出真缺陷**：`hrtimer_nanosleep` 被分類成 `futex`。
+   那是 `time.sleep()` 停的地方 ⇒ **一條自願睡覺的執行緒會被算成 GIL 競爭的證據**，
+   而 step 0 的裁決正是看 futex 佔比 ≥0.80。現在它有自己的桶、selftest 斷言它。
+
+⇒ 同「八條拒絕路徑全綠、accept path 100% 壞掉」的形狀，這次在上機前抓到。
+
+**檔案**：`h_probe.sh`（採集）、`h_parse.py`（分析，三個註冊檢查各有一個呼叫）、
+輸出 `raw_h/{i1,l,i2}/`、`h_probe.out`。
+
+[Co-developed with claude code -- Adam]
