@@ -22,7 +22,23 @@ import sys
 import json
 import math
 
+# THREE GATES, NOT ONE (auditor's correction, 2026-08-27 night; PREREG S-3).
+#
+# The original gate was p95 alone, and p95 is BLIND to the failure the gate exists to catch.
+# Ticket N's disaster was a single 24.7 s hole landing exactly when traffic started.  In a 300-
+# sweep stage one outlier sits at rank 300; p95 reads rank 285 and never sees it.  selftest_gates()
+# below demonstrates this on synthetic data rather than asserting it.
+#
+#   (a) max   < MAX_LIMIT    a single hole -- the one p95 cannot see
+#   (b) p95   < P95_LIMIT    overall cadence -- the original gate, kept
+#   (c) no gap >= P95_LIMIT inside the first RAMP_WINDOW s after traffic starts
+#
+# (c) is the real lesson: a hole mid-stage costs analyze.py a little; the same hole at the start
+# voids the cell.  Position decides the damage, not just size.  (c) needs a traffic-start
+# timestamp, so it applies to ladder stages, NOT to this self-proof, which has no such moment.
 P95_LIMIT = 3.0          # S-1-3 #1: new poller must be under this
+MAX_LIMIT = 5.0          # gate (a)
+RAMP_WINDOW = 30.0       # gate (c), ladder only
 CONTROL_MIN = 3.0        # S-1-3 #2: old poller must be at or above it, or the load was too weak
 ORDER_TOL = 1.0          # S-1-3 #3
 MIN_SWEEPS_NEW = 54      # 90% of 120s / 2s
@@ -98,14 +114,52 @@ def verdict(a1, a2, a3):
         out.append("ORDER EFFECT: A1 %.3f vs A3 %.3f differ by more than %.1f s -- report only"
                    % (a1["p95"], a3["p95"], ORDER_TOL))
         return out
-    if a1["p95"] < P95_LIMIT and a3["p95"] < P95_LIMIT:
-        out.append("PASS -- new poller p95 A1 %.3f / A3 %.3f s, both < %.1f s"
-                   % (a1["p95"], a3["p95"], P95_LIMIT))
+    fails = []
+    for a in (a1, a3):
+        if a["p95"] >= P95_LIMIT:
+            fails.append("(b) %s p95 %.3f >= %.1f" % (a["arm"], a["p95"], P95_LIMIT))
+        if a["max"] >= MAX_LIMIT:
+            fails.append("(a) %s max %.3f >= %.1f" % (a["arm"], a["max"], MAX_LIMIT))
+    if fails:
+        out.append("FAIL -- " + "; ".join(fails) +
+                   ". Process spawns were not the only cause; the ladder stays blocked.")
     else:
-        out.append("FAIL -- new poller p95 A1 %.3f / A3 %.3f s, not both < %.1f s. Process "
-                   "spawns were not the only cause; the ladder stays blocked."
-                   % (a1["p95"], a3["p95"], P95_LIMIT))
+        out.append("PASS -- (a) max A1 %.3f / A3 %.3f < %.1f s; (b) p95 A1 %.3f / A3 %.3f "
+                   "< %.1f s.  [(c) ramp gate not applicable: a self-proof has no traffic start]"
+                   % (a1["max"], a3["max"], MAX_LIMIT, a1["p95"], a3["p95"], P95_LIMIT))
     return out
+
+
+def ramp_gate(path, traffic_start):
+    """Gate (c), for ladder stages: no gap >= P95_LIMIT in the first RAMP_WINDOW s of traffic.
+
+    Separate from arm()/verdict() because it needs a fact those do not have -- the moment traffic
+    started.  A stage that cannot supply it does not silently pass this gate; it reports N/A.
+    """
+    sw = sweeps(path)
+    gaps = [(a[0], b[0] - a[0]) for a, b in zip(sw, sw[1:])]
+    inside = [(t, g) for t, g in gaps if traffic_start <= t <= traffic_start + RAMP_WINDOW]
+    bad = [(t, g) for t, g in inside if g >= P95_LIMIT]
+    return {"gate": "c", "window_s": RAMP_WINDOW, "gaps_in_window": len(inside),
+            "violations": [(round(t - traffic_start, 2), round(g, 3)) for t, g in bad],
+            "verdict": "PASS" if not bad else "FAIL"}
+
+
+def selftest_gates():
+    """Show that p95 is blind to the hole gate (a) exists for -- do not merely assert it."""
+    # 300 sweeps, 2 s apart, with ONE 24.7 s hole at the start: exactly ticket N's shape.
+    ts, t = [], 1000.0
+    for i in range(300):
+        ts.append(t)
+        t += 24.7 if i == 3 else 2.0
+    gaps = [round(b - a, 3) for a, b in zip(ts, ts[1:])]
+    blind = p95(gaps)
+    assert blind < P95_LIMIT, "expected p95 to miss the hole, got %s" % blind
+    assert max(gaps) >= MAX_LIMIT, max(gaps)
+    r = ramp_gate.__doc__ is not None
+    assert r
+    print("  gate demo: one 24.7 s hole among 300 sweeps -> p95 %.3f s (PASSES the p95 gate, "
+          "blind), max %.1f s (gate (a) catches it)" % (blind, max(gaps)))
 
 
 def selftest():
@@ -149,8 +203,14 @@ def selftest():
     # and a new poller that also stalls must FAIL even with a firing control
     v = verdict(arm(stalled, "A1", True), arm(stalled, "A2", False), arm(stalled, "A3", True))
     assert any("VOID" in x for x in v), v          # stalled has only 20 sweeps -> completeness
+    # gate (c): a hole 5 s after traffic starts must FAIL; the same hole 200 s later must not.
+    holed = write("holed", [(1000 + 2 * i, IFACES) for i in range(3)] +
+                           [(1030 + 2 * i, IFACES) for i in range(30)])
+    assert ramp_gate(holed, 1000.0)["verdict"] == "FAIL", ramp_gate(holed, 1000.0)
+    assert ramp_gate(holed, 800.0)["verdict"] == "PASS", ramp_gate(holed, 800.0)
+    selftest_gates()
     print("SELFTEST PASS (p95=2.0; mid-sweep death, early exit, weak control, stalled-new "
-          "all caught; slow old poller correctly allowed)")
+          "all caught; slow old poller correctly allowed; gates a/c verified)")
 
 
 if __name__ == "__main__":
