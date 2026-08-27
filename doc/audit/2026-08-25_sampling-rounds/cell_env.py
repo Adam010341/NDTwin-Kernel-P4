@@ -21,12 +21,49 @@ whole round later.
 
 Both are diagnostics.  They do not participate in any ticket's verdict.
 """
+import os
 import sys
+
+
+def top_processes(n=5):
+    """Who else is on this machine, by CPU and by RSS.
+
+    THIS LINE IS THE ONE THAT WAS MISSING.  On 2026-08-27 a QEMU VM was started at 16:14:12 and
+    shut down at 16:26:33 by another session; a make-up run sat inside that window, and because
+    this file recorded CPU and memory but never *who*, nobody could settle afterwards whether
+    the cell had carried it.  It took three separate transcript searches that day to attribute a
+    file author, a VM, and a stray script -- transcript archaeology is the most expensive layer
+    of attribution and this is the cheapest, so it should never have been the fallback.
+
+    Read straight from /proc rather than `ps -o pcpu`: that column is an average over the
+    process's whole lifetime, not an instantaneous rate, and reporting it as current load is how
+    the same VM got described as 163% CPU while its build had already finished.
+    """
+    procs = []
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            with open("/proc/%s/stat" % d) as fh:
+                r = fh.read()
+            comm = r[r.index("(") + 1:r.rindex(")")]
+            f = r[r.rindex(")") + 1:].split()
+            jiffies = int(f[11]) + int(f[12])          # utime + stime, cumulative
+            with open("/proc/%s/statm" % d) as fh:
+                rss = int(fh.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+        except Exception:
+            continue                                    # process exited mid-scan: normal
+        procs.append((int(d), comm, jiffies, rss))
+    return procs
 
 
 def snapshot(path):
     """Copy the lines of /proc/stat we need, plus memory, verbatim."""
     out = []
+    # pid comm cumulative-jiffies rss -- differenced across the two snapshots, so the CPU figure
+    # is this cell's, not the process's lifetime average.
+    for pid, comm, j, rss in top_processes():
+        out.append("proc\t%d\t%s\t%d\t%d" % (pid, comm, j, rss))
     for line in open("/proc/stat"):
         if line.startswith("cpu") or line.startswith("procs_"):
             out.append(line.rstrip())
@@ -40,15 +77,21 @@ def snapshot(path):
 
 
 def parse(path):
-    cpus, meta = {}, {}
+    cpus, meta, procs = {}, {}, {}
     for line in open(path):
+        if line.startswith("proc\t"):
+            _, pid, comm, j, rss = line.rstrip("\n").split("\t")
+            procs[int(pid)] = (comm, int(j), int(rss))
+            continue
         f = line.split()
+        if not f:
+            continue
         if f[0].startswith("cpu"):
             # user nice system idle iowait irq softirq steal guest guest_nice
             cpus[f[0]] = [int(x) for x in f[1:]]
         elif len(f) >= 2:
             meta[f[0].rstrip(":")] = f[1]
-    return cpus, meta
+    return cpus, meta, procs
 
 
 def busy(before, after):
@@ -64,8 +107,8 @@ def busy(before, after):
 
 
 def report(before_path, after_path, label=""):
-    a_cpu, a_meta = parse(before_path)
-    b_cpu, b_meta = parse(after_path)
+    a_cpu, a_meta, a_proc = parse(before_path)
+    b_cpu, b_meta, b_proc = parse(after_path)
     agg = busy(a_cpu["cpu"], b_cpu["cpu"])
     if agg is None:
         print("  ENV %s: NO-DATA (counters did not move -- same snapshot twice?)" % label)
@@ -86,6 +129,22 @@ def report(before_path, after_path, label=""):
     print("       MemAvailable %s -> %s kB   direct-reclaim pages scanned: %d"
           % (a_meta.get("MemAvailable"), b_meta.get("MemAvailable"), ps))
     # The registered word for this cell, so a later reader does not have to re-judge it.
+    tck = os.sysconf("SC_CLK_TCK")
+    movers = []
+    for pid, (comm, j, rss) in b_proc.items():
+        if pid in a_proc:
+            dj = j - a_proc[pid][1]
+            if dj > 0:
+                movers.append((dj / tck, comm, pid, rss))
+    movers.sort(reverse=True)
+    if movers:
+        print("       busiest neighbours this cell (cpu-seconds, from /proc not ps -o pcpu):")
+        for sec, comm, pid, rss in movers[:5]:
+            print("         %-18s pid %-8d %6.1f cpu-s  rss %5.0f MB" % (comm[:18], pid, sec, rss/1e6))
+        gone = sorted(set(a_proc) - set(b_proc))
+        new = sorted(set(b_proc) - set(a_proc))
+        if gone or new:
+            print("       churn: %d exited, %d appeared during the cell" % (len(gone), len(new)))
     verdict = ("SATURATED" if agg[0] >= 90.0 else
                "BUSY" if agg[0] >= 60.0 else "NOT SATURATED")
     print("       -> %s (diagnostic only, does not enter any verdict)" % verdict)
@@ -94,7 +153,7 @@ def report(before_path, after_path, label=""):
 
 
 def selftest():
-    import tempfile, os
+    import tempfile
     d = tempfile.mkdtemp()
     a, b = os.path.join(d, "a"), os.path.join(d, "b")
     # known-good: one core fully busy, one fully idle -> aggregate 50%
@@ -104,6 +163,15 @@ def selftest():
                        "cpu1 0 0 0 100 0 0 0 0\nMemAvailable: 50 kB\npgscan_direct 7\n")
     r = report(a, b, "selftest")
     assert abs(r["busy"] - 50.0) < 0.01, r["busy"]
+    # the neighbour column: a process that burned CPU inside the cell must be visible, and one
+    # that merely existed must not be -- otherwise the column reports lifetime totals again.
+    ck = os.sysconf("SC_CLK_TCK")
+    open(a, "a").write("proc\t111\tqemu\t0\t3300000000\nproc\t222\tidler\t500\t1000\n")
+    open(b, "a").write("proc\t111\tqemu\t%d\t3300000000\nproc\t222\tidler\t500\t1000\n" % (7 * ck))
+    _, _, ap = parse(a)
+    _, _, bp = parse(b)
+    assert bp[111][1] - ap[111][1] == 7 * ck, "busy neighbour must show 7 cpu-seconds"
+    assert bp[222][1] - ap[222][1] == 0, "an idle neighbour must show zero, not its lifetime 500"
     assert r["cores_pegged"] == 1, r["cores_pegged"]
     assert r["reclaim_pages"] == 7, r["reclaim_pages"]
     assert r["verdict"] == "NOT SATURATED", r["verdict"]
