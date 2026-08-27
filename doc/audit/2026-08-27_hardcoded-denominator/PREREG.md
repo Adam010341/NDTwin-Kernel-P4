@@ -175,3 +175,42 @@ value.inputByteCountOnALinkMultiplySampingRate = 0;          // 累加器每輪�
 **跳過時記一筆** —— 那本身就是「本體超時」的訊號，對 P 與 Q 都有用。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 增補 Q-ter（append-only，2026-08-27 16:1x，**仍未改任何一行碼**）
+
+## Qt-1. 🔴 我的 Q-0 只點名了一處，**實際上有兩處**
+
+`grep -n "MultiplySampingRate" FlowLinkUsageCollector.cpp`：
+
+| 行 | 函式 | 服務的邊 |
+|---|---|---|
+| **`:1697`** | `creditHostBoundEgressEdges()` | **host-bound egress 邊**（`findEdgeToHostByAgentIpAndPort`） |
+| **`:1949`** | `calAvgFlowSendingRatesPeriodically()` | 主迴圈 |
+
+**兩處都是 `累加器 * 8` 直接送進 `updateLinkInfoLeftLinkBandwidth`，兩處都每輪清零。**
+`:1697` 自己的註解就寫著 *"an entry must not carry bytes into the **next second**"*
+——**同一個「一輪等於一秒」的假設，同一個缺陷。**
+
+⇒ **兩處都要修。** 我的 Q-0 寫「標的：`:1947-1949`」是**不完整的**，此增補補上。
+
+### 為什麼這件事在動手前發現很重要
+
+`:1697` 服務的是 **host-bound 邊**，而工單①量的三個類別裡有兩個
+（`host→switch`、`switch→host`）就是它們。
+⇒ **只修 `:1949` 會產生「部分邊類修好、部分沒修」的結果**，
+而那在 Q-5 的判讀表裡會長得像**「更偏離 1」**（⇒ 誤判為「分母不是主因，回頭重審①」）
+或**「還有第三個機制」**——**兩個都是錯的裁決，而且都會把後續工作導向不存在的問題。**
+
+📌 這是「[[existence-is-not-wiring]] 的反面」：不是找到呼叫點就以為找到定義，
+而是**找到一處就以為那是全部**。**`grep` 要數完，不要 `| head`。**
+
+## Qt-2. 對交付的影響
+
+- Q-8 的「一處改動」改為 **兩處改動**（同一個 helper，兩個呼叫點共用）。
+- 測試要**同時覆蓋兩條路徑**：主迴圈與 host-bound egress。
+- **驗收儀器（Qb-2：除數 == 同輪經過時間）要對兩處各斷言一次**，
+  否則「其中一處沒改到」正好是它偵測不到的那個缺口。
+
+[Co-developed with claude code -- Adam]
