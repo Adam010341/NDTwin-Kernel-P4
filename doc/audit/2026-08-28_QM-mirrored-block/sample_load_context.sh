@@ -18,14 +18,26 @@
 # [Co-developed with claude code -- Adam]
 set -uo pipefail
 
-OUT="$(dirname "$0")/raw/load_context_auditor.tsv"
+# One file per run. The first version wrote a fixed filename and opened it with `>`, so the
+# second invocation truncated the first run's data -- which is what happened: this script was
+# started at 09:36 for block 1, re-run at ~10:10 for block 2, and 09:36-10:10 is simply gone.
+# A tool whose whole purpose is to preserve information that cannot be recovered afterwards
+# destroyed exactly that. `>` is never right for a measurement file; the filename has to be
+# unique per run, and the header appended only when the file is new.
+RUN_ID="${1:-$(date +%Y%m%dT%H%M%S)}"
+OUT="$(dirname "$0")/raw/load_context_auditor.${RUN_ID}.tsv"
 INTERVAL_S=10
 MAX_MIN=50                      # hard bound: cannot outlive the block by much
 
 mkdir -p "$(dirname "$OUT")"
 
+if [[ -e "$OUT" ]]; then
+    echo "refusing to touch existing $OUT -- pass a different run id" >&2
+    exit 1
+fi
+
 # Header names the units, so a reader does not have to guess which column is which.
-printf 'iso_time\tload1\tmem_avail_mb\tswap_used_mb\tswap_in_kbps\tswap_out_kbps\tqemu_n\tqemu_rss_mb\n' > "$OUT"
+printf 'iso_time\tload1\tmem_avail_mb\tswap_used_mb\tswap_in_kbps\tswap_out_kbps\tqemu_n\tqemu_rss_mb\n' >> "$OUT"
 
 deadline=$(( $(date +%s) + MAX_MIN * 60 ))
 prev_si=0; prev_so=0; first=1
