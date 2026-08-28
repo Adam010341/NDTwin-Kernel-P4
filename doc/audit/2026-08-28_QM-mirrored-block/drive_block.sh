@@ -72,13 +72,18 @@ say "### block ${#ARMS[@]} arms  flow_s=$FLOW_S churn_s=$CHURN_S poll=${POLL_HZ}
 # The northbound API serves one request at a time, so a 10 Hz poller may be perturbing the very
 # thing it measures. This runs the sampler against an IDLE fabric first. Without it the whole
 # block's M numbers are uninterpretable -- M-quater says so in as many words.
+# NOT `pgrep -axf`: -x compares the pattern against the WHOLE command line, so combined with -f
+# it is permanently false for any process that has arguments. Two sessions read "kernel dead" off
+# `pgrep -axf ndtwin_kerne[l]` this morning while a40e04ce was running the whole time (FINDINGS
+# F-1). The header is printed inside the branch that actually runs, not before the check, so a
+# deferred baseline cannot leave a line claiming one happened.
 if [[ ! -s "$OUT/pollbase/flows.json" ]]; then
-    say "--- poll-only baseline (no traffic, 60 s) ---"
     if pgrep -f 'ndtwin_kerne[l]' >/dev/null; then
+        say "--- poll-only baseline (no traffic, 60 s) ---"
         python3 "$HERE/sample_flow_path_latency.py" "$OUT/pollbase" "$POLL_HZ" 60 2>&1 \
             | tee -a "$OUT/progress.txt"
     else
-        say "  ⚠️  no kernel running yet; baseline deferred to after the first arm's swap"
+        say "--- poll-only baseline deferred: no kernel yet, will run after the first swap ---"
     fi
 fi
 
@@ -97,7 +102,7 @@ for spec in "${ARMS[@]}"; do
 
     # Deferred baseline: the first arm's kernel is the first one available.
     if [[ ! -s "$OUT/pollbase/flows.json" ]]; then
-        say "--- poll-only baseline (no traffic, 60 s) ---"
+        say "--- poll-only baseline (no traffic, 60 s, binary $sha) ---"
         python3 "$HERE/sample_flow_path_latency.py" "$OUT/pollbase" "$POLL_HZ" 60 2>&1 \
             | tee -a "$OUT/progress.txt"
     fi
