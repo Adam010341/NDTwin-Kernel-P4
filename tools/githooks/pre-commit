@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Refuse to commit audit raw artifacts anywhere except the `audit-raw` orphan branch.
+#
+# WHY A HOOK AND NOT A .gitignore RULE. .gitignore already covers these paths, and has since
+# 2026-08-25. It was widened once (`raw/*` -> `raw*`) after a round wrote to raw_n/ and slipped
+# past. Neither version stopped anything, because the failure was never that the pattern missed:
+# `git add -f` walks past .gitignore by design, 44 commits used it, and 128 files ended up
+# tracked on a working branch. A pattern is advice to `git add`. This is a gate on `git commit`,
+# and -f cannot reach it -- the hook reads the index, which is where -f has already put the file.
+#
+# The check is on the INDEX, so it is blind to how the file got there: -f, `git add -A` from a
+# directory whose .gitignore was deleted, a `git commit -a`, an editor's source-control panel.
+# All of them arrive at the same place.
+#
+# 🔴 THIS HOOK ONLY RUNS IF IT IS INSTALLED. Hooks are not carried by clone, fetch or checkout.
+# A fresh clone has no gate at all and looks exactly like a protected one. tools/githooks/
+# install.sh links it; `ndt status` does not check for it. If you are reading this because you
+# are wondering whether the gate is live, the answer is `ls -l "$(git rev-parse --git-path
+# hooks/pre-commit)"`, not this file's existence.
+#
+# Linked worktrees share the common .git/hooks directory, so installing once covers every
+# worktree of this repo, including the disposable ones used to write to audit-raw.
+#
+# [Co-developed with claude code -- Adam]
+set -uo pipefail
+
+# The branch of the worktree doing the commit, not of the main checkout: hooks run with cwd
+# inside the committing worktree, so symbolic-ref answers for the right one. A detached HEAD has
+# no branch to compare and is refused rather than waved through -- an unknown branch is not
+# evidence of audit-raw.
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)')"
+[[ "$branch" == "audit-raw" ]] && exit 0
+
+# --diff-filter=d excludes deletions. Removing raw from a working branch is the whole point of
+# this rule, so a commit that only deletes must pass; blocking it would make the fix
+# unperformable by the gate that demands it. Renames and type changes still count as arrivals.
+#
+# 🔴 The trailing `*` is load-bearing. Written as 'doc/audit/*/raw*/' this pathspec matches
+# nothing at all and the hook exits 0 on every commit -- a gate that reports success while
+# passing everything, which is how the first version of this file behaved and would have shipped
+# had the refuse path not been run. `*` does cross `/` in a pathspec, so one is enough for any
+# depth: raw/capacity/ladder.tsv matches.
+#
+# Two exemptions, both narrow:
+#
+#   .gitignore    the per-round keeper that says where the raw went. Excluding it would make the
+#                 signpost unplaceable.
+#
+#   *.gz *.zst    a compressed archive is the form .gitignore:42 already tells people to commit
+#     *.tar.gz    ("Commit the .gz, keep the plain file local"), and 17 such files are tracked
+#                 today under 2026-08-19_failover-provenance/. It is also not the thing this
+#                 rule exists to stop: the complaint was 115k lines of diff, and a gz adds none.
+#                 Deliberate, and deliberately reversible -- if the goal becomes "no evidence on
+#                 a working branch at all" rather than "no diff noise", delete this line and move
+#                 those 17 files across.
+offenders="$(git diff --cached --name-only --diff-filter=d -z \
+    -- 'doc/audit/*/raw*/*' \
+    | tr '\0' '\n' \
+    | grep -v '/\.gitignore$' \
+    | grep -viE '\.(gz|zst|xz|bz2)$' || true)"
+
+[[ -z "$offenders" ]] && exit 0
+
+n=$(printf '%s\n' "$offenders" | wc -l)
+{
+  echo
+  echo "🔴 pre-commit: $n raw artifact(s) staged on branch '$branch'."
+  echo
+  printf '%s\n' "$offenders" | head -20 | sed 's/^/    /'
+  [[ "$n" -gt 20 ]] && echo "    ... and $((n - 20)) more"
+  echo
+  echo "Raw belongs on the audit-raw orphan branch. Working branches carry the round's"
+  echo "analysis and its README, not its evidence. To move these across:"
+  echo
+  echo "    git worktree add /tmp/rawwt audit-raw"
+  echo "    # copy the files in at the same paths, then:"
+  echo "    git -C /tmp/rawwt add -A doc && git -C /tmp/rawwt commit"
+  echo "    git worktree remove /tmp/rawwt"
+  echo "    git restore --staged <the paths above>"
+  echo
+  echo "If this really is an exception, --no-verify skips this check. Say in the commit"
+  echo "message which file and why, because the next person will find it with git log and"
+  echo "will otherwise read it as the rule not applying."
+  echo
+} >&2
+exit 1
