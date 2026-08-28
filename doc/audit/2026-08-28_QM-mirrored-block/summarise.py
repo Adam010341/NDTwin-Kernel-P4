@@ -81,6 +81,18 @@ def load_M(raw, label):
             "summary": d["summary"]}
 
 
+def load_churn(raw, label):
+    """What the workload actually did on this arm. The arms share a deterministic schedule, but
+    individual clients still fail, so the offered load is not identical by construction -- it has
+    to be read. A failure count that moves with the binary would be a confounder, not noise."""
+    p = os.path.join(raw, label, "churn", "churn.meta")
+    if not os.path.exists(p):
+        return None
+    d = dict(l.strip().split("=", 1) for l in open(p) if "=" in l)
+    return {"ok": int(d.get("n_flows_transferred", 0)), "failed": int(d.get("n_flows_failed", 0)),
+            "mb": int(d.get("bytes_sent", 0)) // 1_000_000}
+
+
 def pct(xs, p):
     return None if not xs else xs[min(len(xs) - 1, int(p * len(xs)))]
 
@@ -101,13 +113,19 @@ def main():
     print("=" * 78)
 
     print(f"\n{'arm':<5}{'cond':<6}{'T (ms)':>9}" + "".join(f"{c:>16}" for c in CLASSES)
-          + f"{'M lat (s)':>11}{'never':>7}")
+          + f"{'M lat (s)':>11}{'never':>7}{'churn ok/fail':>15}")
     for a in ARM_ORDER:
-        r, m = R[a] or {}, Mx[a]
+        r, m, ch = R[a] or {}, Mx[a], load_churn(raw, a)
         med = pct(m["lat"], 0.5) if m and m["lat"] else None
         print(f"{a:<5}{COND[a]:<6}{fmt(T[a]):>9}"
               + "".join(f"{fmt(r.get(c), 4):>16}" for c in CLASSES)
-              + f"{fmt(med, 3):>11}{(m['never'] if m else '--'):>7}")
+              + f"{fmt(med, 3):>11}{(m['never'] if m else '--'):>7}"
+              + (f"{ch['ok']}/{ch['failed']}" if ch else "--").rjust(15))
+    chs = [load_churn(raw, a) for a in ARM_ORDER]
+    fails = [c["failed"] for c in chs if c]
+    if len(fails) > 1 and max(fails) - min(fails) > 5:
+        print(f"  ⚠️  churn failures range {min(fails)}-{max(fails)} across arms: the offered load "
+              f"is NOT identical by construction. Check whether the failures track the binary.")
 
     # --- PREREG 3-1: the drift gate --------------------------------------------------------
     print("\n--- drift meter (base arms at positions 1 and 6) ---")
