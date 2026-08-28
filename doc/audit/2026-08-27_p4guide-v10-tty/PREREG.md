@@ -81,3 +81,127 @@ dpkg-preconfigure: unable to re-open stdin:
 ## 結果（跑完之後 append 在這裡，不要改上面）
 
 _（尚未執行）_
+
+---
+
+## 補註 2026-08-28 09:5x（**在兩臂都還沒有結果之前寫**，append-only）
+
+### 起點的決定，以及一個偏離原本兩個候選的理由
+
+原文列的候選是 `post-6.6-16h26` 或 `ovs-complete`。實際採用 **`post-6.6-16h26`**，
+理由是**讀者走到 §6.1 時的機器就是那個狀態**，所以從它出發的裁決直接回答
+「§6.1 對我們的讀者管不管用」。
+
+但真正決定成敗的不是選哪個快照，是**乾淨度**——這一點由 2026-08-27 深夜那輪證實：
+它 `rc=0` 而 bmv2 沒建，log 指名了原因是 `[ -d behavioral-model ]` 命中前一輪的殘留而跳過建置。
+**混淆因子 #3 照著寫的樣子發作了。** 所以新增一個共同起點 `ab-base`：
+
+- 建立時斷言 `DIRTY_COUNT=0`（`~/behavioral-model`／`~/p4c`／`~/PI`／`~/tutorials`／
+  `~/p4setup.bash`／`~/.local`／`/usr/local/bin/{p4c-bm2-ss,simple_switch,simple_switch_grpc,p4c}`／
+  `/usr/local/lib/libprotobuf.a`／`/usr/local/include/bm`／`/usr/local/lib/lib{bm,simpleswitch,pi}*`）
+- **每一臂開跑前再驗一次**，防「restore 靜默 no-op」
+- p4-guide 在 base 裡就 clone 並釘在 `a2f9f8c5fd64f37d10ea2ce06f8821893a79a841`，
+  安裝器 sha256 `8e3e0615ebde5b66cc6bcbce2a2cf6750b046a193096ac2a2a69ca2fec5c74dc`
+  ⇒ **混淆因子 #4 消除，不再只是記錄**
+
+⚠️ `~/p4-guide` **刻意不列入** dirty 清單：它是安裝器自己的原始碼，不會造成跳過，
+且準備腳本無條件 `rm -rf` 後重 clone。同一次把清單**改嚴**（補上 `/usr/local` 的建置產物），
+淨結果比原本嚴。
+
+### 兩臂怎麼分辨，以及每臂如何斷言自己是哪一臂
+
+| 臂 | 啟動 | 預期 |
+|---|---|---|
+| NOTTY | `setsid nohup bash -c '… < /dev/null'` | `controlling_tty: NO` |
+| TTY | `tmux new-session -d`（配 pty） | `controlling_tty: YES` |
+
+用 tmux 而非原文寫的 `ssh -tt`：`-tt` 會把「臂能不能活幾小時」綁在我的連線上，
+那是**第二個差異**，不是一個。兩臂都與我的 shell 卸離，只差 controlling terminal。
+
+🔑 **每臂在安裝器啟動前先斷言自己的注入成功**，判準是 `exec 3</dev/tty` 能不能開——
+正是 debconf 說它缺的那個東西。**不符就中止該臂**，因為在沒有 tty 的情況下跑「TTY 臂」
+會讓實驗靜默退化成同一臂跑兩次，而且不會有任何跡象。
+
+### 🔴 新增第 5 條混淆因子：資源不足會偽裝成實驗結果
+
+**由審查員指出，在結果出來之前寫下。**
+
+`simple_switch_grpc: MISSING` **同時是合法的實驗結果、也是資源不足的簽名**。
+本次的驗收判準（產物在不在）**分辨不出這兩者**——這正是「儀器不能長得像自己的發現」。
+
+host 現況：available 4 G、swap 已用 8 G、**兩個** qemu 在跑，而兩臂是**序列**執行的
+4–5 小時，鄰居（mainDev 的 kernel＋churn 流量）的負載**會不平均地落在其中一臂**。
+
+**判準（現在就定，不等看到結果）**：
+
+1. **binary 缺席時，必須連同「最後一段建置錯誤」一起記錄**，不可以只記 `MISSING`。
+   build log 裡有這個資訊，撈出來即可。
+2. **因逾時、被 OOM killer 殺掉、或 qemu 消失而缺席的臂 ＝ 作廢，不是結果。**
+   與 #1（網路）、#2（磁碟）同級處理。
+3. 每臂記錄牆鐘時間與收工時的 host `available`／`swap`，供事後判斷是否落在不對稱的負載下。
+
+⚠️ **不對稱在牆鐘時間，不在記憶體配額**：VM 是 `-m 6G` 固定配額，guest 看到的記憶體兩臂相同，
+所以編譯本身是對稱的；host 真的殺掉 qemu 的話那一臂會整個消失，是**看得見**的失敗。
+
+
+---
+
+## 臂 1（NOTTY）結果 ＋ 跑臂 2 之前的預測（2026-08-28 09:36 / 09:5x）
+
+### 臂 1：NOTTY ＝ **FAILURE**
+
+| | |
+|---|---|
+| 注入斷言 | `controlling_tty: NO`、`stdin_is_tty: NO`、`ps tty` 欄位 `'?'` ✅ |
+| 牆鐘 | 09:23 → 09:36（**13 分鐘**，與 2026-08-27 23:00 那次的約 10 分鐘同量級） |
+| `installer_rc` | 1（僅供參考） |
+| **產物** | `simple_switch_grpc` MISSING、`simple_switch` MISSING、`p4c-bm2-ss` MISSING |
+| `/usr/local/bin` | 只有 `pi_convert_p4info`、`pi_gen_fe_defines`、`pi_gen_native_json` |
+| 混淆因子 #1 網路 | 0 命中 |
+| 混淆因子 #2 磁碟 | 51 G 可用 |
+| 混淆因子 #3 污染 | skip-because-present **0** 命中 |
+| 混淆因子 #5 資源 | dmesg 無 OOM、qemu 仍在、host available 4 G／swap 8.4 G |
+
+### 🔑 失敗的機制已指名，而且**與 tty 無關**
+
+```
++ PATCH_DIR=/home/tester/p4-guide/bin/patches
++ patch -p1
+patching file install_deps.sh
+Hunk #1 FAILED at 1.
+1 out of 1 hunk FAILED -- saving rejects to file install_deps.sh.rej
+```
+
+安裝器把 `behavioral-model` clone 在**移動中的 HEAD**（`fdd3b89`，2026-08-24；
+`INSTALL_BEHAVIORAL_MODEL_SOURCE_VERSION` 預設為空 ⇒ 不釘），
+然後套 p4-guide 自帶的 patch。**behavioral-model 加了 SPDX 授權標頭**，
+`install_deps.sh` 開頭從 `#!/bin/bash` + `set -e` 變成中間夾三行授權註解，
+patch 的上下文因此對不上。
+
+**獨立乾跑驗證**（`patch -p1 --dry-run`，每個 patch 各自記 rc，對 HEAD `fdd3b89`）：
+
+| patch | 使用者 | rc |
+|---|---|---|
+| `behavioral-model-support-fedora.patch` | **v10** | **1**（Hunk #1 FAILED at 1） |
+| `behavioral-model-support-venv-thrift-0.22.0.patch` | **v10** | **1**（can't find file to patch） |
+| `behavioral-model-adjust-ubuntu-packges.patch` | **v8** | **0** |
+| `behavioral-model-support-venv-2026-apr.patch` | **v8** | **0**（offset 4 行） |
+
+⇒ **v10 的失敗是 p4-guide 的 patch 對 behavioral-model HEAD 過期**，
+**不是 24.04 的性質、不是機器的性質、也不是 tty 的性質**。
+它是**時間相依**的：在 behavioral-model 那個 commit 之前跑會成功。
+
+### 🔴 在跑臂 2 之前寫下的預測
+
+> **TTY 臂會在同一個 `patch -p1` 步驟失敗，產物同樣三個全缺，牆鐘同量級（10–20 分鐘）。**
+> ⇒ 落在**第 3 列（兩臂都失敗）**。
+
+**依據**：`patch(1)` 不讀 `/dev/tty`，失敗發生在任何 debconf 互動之前的純檔案操作。
+
+⚠️ **這個預測很強，所以更要先寫**。若 TTY 臂**通過**了那一步，
+那不是「tty 假說得證」，而是**我對機制的理解有洞**，要當成第 4 列（沒有現成解釋）處理，
+**不可以塞進最近的分支**。這正是本檔一開始設第 4 列的理由。
+
+📌 **明確不宣稱**：上表只證明 v8 的兩個 patch **套得上**。
+**套得上是必要條件不是充分條件** —— v8 能不能真的裝完，需要它自己的乾淨室實跑，尚未執行。
+

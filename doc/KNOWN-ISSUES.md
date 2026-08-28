@@ -82,25 +82,50 @@
 
 ### A-3 流量停止後 top-k 還在報舊速率約 15 秒
 
-- **狀態**：OPEN。**是本分支 `fix/flow-rate-divide-by-zero` 自己引入的**
+- **狀態**：🟢 **RESOLVED（2026-08-20，`aabe605`）。2026-08-28 讀碼確認並更正本條目。**
+  這個條目在修好之後仍被標成 OPEN 過 8 天，期間還被編輯過，**沒有人回頭改狀態**。
 - **平面**：兩者
-- **失效方向**：樂觀（顯示不存在的負載）
-- **會發生什麼**：iperf3 結束後 5 秒、10 秒，top-k 還在送**位元完全相同**的
+- **失效方向**（當時）：樂觀（顯示不存在的負載）
+- **曾經發生什麼**：iperf3 結束後 5 秒、10 秒，top-k 還在送**位元完全相同**的
   20.3 Mbps / 10496 pps，同一個物件裡的 `_in_the_last_sec` 卻是 `0`
-- **機制**：`estimated_*_in_the_proceeding_1sec_timeslot` 在沒有 hop 看到流量時**沿用舊值**
-  （`FlowLinkUsageCollector.cpp:1773-1778`），而 `_in_the_last_sec` 在同樣條件下**歸零**
-  （`:1975-1982`）——`getTopKFlowInfoJson` 偏偏用沿用的那個排序（`:2167-2172`）：
+- **機制**：`31b357a6`（2026-07-27）的除零守衛改成 `continue` 而**沒有清除**，
+  於是 `estimated_*_in_the_proceeding_1sec_timeslot` 沿用舊值；
+  `getTopKFlowInfoJson` 正好用那個欄位排序（現行 `FlowLinkUsageCollector.cpp:2339-2344`）。
+- **修法**：`aabe605` 把清除加回來（現行 `:1911-1913`），並在原地留下為什麼的說明：
   ```cpp
   if (!rates.hasActiveHops)
   {
-      // No hop observed traffic this interval; leave the previous estimates
-      // in place rather than dividing by zero.
+      // ... the divide-by-zero is already prevented by `hasActiveHops` itself, and
+      // writing 0 divides by nothing. What to report *after* the guard was a separate
+      // choice, and carrying the old value forward was the wrong one.
+      info.estimatedFlowSendingRatePeriodically = 0;
+      info.estimatedPacketSendingRatePeriodically = 0;
+      info.isElephantFlowPeriodically = false;
       continue;
   }
   ```
-- **來源**：`git blame` → `31b357a6`（2026-07-27），**除零守衛的修法引入了這個不對稱**
-- **示範影響**：停掉流量後看 top-k 會看到殘影。外觀問題，但如果台下有人盯著看會很難解釋
-- **證據**：實測，`scratch/phase2/FINDINGS.md` E9
+- 🔴 **分支歸屬更正（2026-08-28）。** 本條目原本被引用來支持
+  「**baseline 保留陳舊速率、本分支歸零**」——**那是反的**。
+  `origin/main` 的對應處一直都清除，逐字為：
+  ```cpp
+  if (hopsCounter == 0)
+  {
+      // No active hop in this interval, so explicitly clear periodic rates.
+      info.estimatedFlowSendingRatePeriodically = 0;
+      info.estimatedPacketSendingRatePeriodically = 0;
+      continue;
+  }
+  ```
+  （`git show origin/main:src/ndt_core/collection/FlowLinkUsageCollector.cpp` 的 1453-1459 行）
+  且兩邊的判準等價：`computeEstimatedRates` 在 `hopsCounter <= 0` 時回
+  `hasActiveHops == false`（`include/common_types/SFlowType.hpp:446-449`）。
+  ⇒ **保留是本分支自己引入、又自己修掉的，從來不是 baseline 的性質。**
+  受影響的下游見 `doc/audit/2026-08-27_flow-table-idle-tail/NEXT.md` 的更正段。
+- ⚠️ **仍然開著的殘留屬於 B-x，不屬於這裡**：修好之後死流的速率是 **0**，
+  但那條流**還是會被列出來 15 秒**。「報舊速率」已修，「還在名單上」沒修。
+- 📌 本條目原先引的行號 `:1773-1778`／`:2167-2172` 實際指向 rate-loop 的除錯日誌與
+  immediate 路徑的 elephant 旗標，**都不是它描述的東西**。行號會腐爛，引用前要重查。
+- **證據**：當時實測 `scratch/phase2/FINDINGS.md` E9；本次更正為讀碼，未重跑
 
 ### A-4 OVS 4-host cell 完全沒有遙測
 
@@ -402,6 +427,31 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   這條是**母體**——速率全部正確歸零，那 92% 仍然會被列出來。
 - ✅ **修法契約相容**：`Obj` 的 `strict` 預設 False（`tools/contract_test/schema.py:129-138`），
   新增一個存活性欄位不會讓契約測試變紅，不必先改契約。
+
+### B-x 的排序後果——**一個被提出的加乘效應，實測不成立**
+
+有人提出：top-k 用 `estimated_packet_rate_in_the_proceeding_1sec_timeslot` 排序
+（`FlowLinkUsageCollector.cpp:2339-2344`，兩個分支都一樣），
+而死流會在該欄位保留舊速率 ⇒ **死流會贏過活流搶進前 K 名**。
+
+🔴 **這個加乘在兩個分支上都不成立，因為前提已經不對了。**
+
+| | 死流的 `_in_the_proceeding_1sec_timeslot` |
+|---|---|
+| `origin/main` | **0**（一直都清除，`FLUC:1453-1459`） |
+| 本分支（現行） | **0**（`aabe605` 修回清除，`:1911-1913`） |
+| 本分支（`31b357a6`…`aabe605` 之間） | 保留舊值 ⇐ **A-3 的那個窗口，已關閉** |
+
+⇒ 死流在兩個分支上都排到**最底**，不會擠掉活流。
+
+⚠️ **但母體問題仍然成立，而且它自己就夠難看**：`getTopKFlowInfoJson` 取
+`min(k, size)` 且**不過濾**（`:2347`）。預設 `k = 50`（`HttpSession.cpp:589`），
+churn 工作點只有 **4.7** 條流真的在送封包
+⇒ **回傳的 50 筆裡約 45 筆是速率 0 的死流**。清單不是被死流「灌到前面」，是**被屍體填滿**。
+
+🔑 這條的教訓是**兩個缺陷可以看起來相乘而實際不相乘**：
+A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修掉，所以相遇的只剩一邊。
+**在把兩個缺陷相乘之前，先確認兩個都還活著。**
 
 
 ## C. 靜默的正確性問題（不影響示範，影響可信度）

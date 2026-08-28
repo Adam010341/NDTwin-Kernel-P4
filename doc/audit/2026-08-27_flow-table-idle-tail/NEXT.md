@@ -78,3 +78,73 @@
 差別只在**這次的交接是被動的，而被動的交接不會等你**。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+## 🔴 更正（2026-08-28，讀碼）：上面「chaos 差異臂的預測」把分支寫反了
+
+**針對本檔第 51-59 行那段預先寫下的預測。原文保留不動，更正寫在這裡。**
+
+原文預測：
+
+> baseline 的 `get_detected_top_k_flow_data` 在流量停止後 5–10 秒仍會回報非零、
+> 逐位元相同的速率；本分支會回報 0。
+
+**後半對，前半反了。baseline 從來不保留陳舊速率。**
+
+### 證據
+
+`git show origin/main:src/ndt_core/collection/FlowLinkUsageCollector.cpp` 的 1453-1459 行：
+
+```cpp
+if (hopsCounter == 0)
+{
+    // No active hop in this interval, so explicitly clear periodic rates.
+    info.estimatedFlowSendingRatePeriodically = 0;
+    info.estimatedPacketSendingRatePeriodically = 0;
+    continue;
+}
+```
+
+兩個分支的判準等價：本分支的 `!rates.hasActiveHops` 來自 `computeEstimatedRates`，
+它在 `hopsCounter <= 0` 時回 `hasActiveHops == false`
+（`include/common_types/SFlowType.hpp:441-453`）。
+
+時序：
+
+| commit | 日期 | `_in_the_proceeding_1sec_timeslot` 對死流 |
+|---|---|---|
+| `origin/main`（無 `31b357a6`） | — | **清成 0**（一直都是） |
+| `31b357a6` | 2026-07-27 | **保留舊值** ⇐ 除零守衛 `continue` 而沒清 |
+| `aabe605` | 2026-08-20 | **清成 0**（修回來，現行 `:1911-1913`） |
+
+`31b357a6` 與 `aabe605` **都是 HEAD 的祖先**，`31b357a6` **不是** `origin/main` 的祖先。
+
+### 這條更正推翻了什麼
+
+1. **原文第 56-57 行的依據被誤讀了。** `FLUC:1896-1910` 的註解確實記著
+   「iperf3 結束後 5 秒與 10 秒仍回報逐位相同的 20.3 Mbps / 10496 pps」，
+   但同一段註解的最後一句是 **“Introduced on this branch by the divide-by-zero guard
+   (31b357a6), so it is ours to fix.”** ——**那次量測量的是本分支的壞窗口，不是 baseline。**
+   🔑 讀到一半就停下來，會把「我們自己造成的」讀成「baseline 的性質」。
+
+2. **原文第 59 行的觸發條件已經滿足。** 它寫「若 baseline 沒有重現 ⇒ `d38d209`
+   裡整段對 baseline 的歸因要撤回」。**baseline 在碼上就不會重現**，
+   所以那段歸因現在就該複查，不必等臂跑完。
+
+3. **`KNOWN-ISSUES` A-3 的狀態是錯的**，已於 2026-08-28 更正為 RESOLVED（`aabe605`）。
+   它被標成 OPEN 過 8 天，期間文件還被編輯過。
+
+### 差異臂還是值得跑，但要換問題
+
+原本要問的「baseline 會不會殘影」在碼上已經有答案（不會）。**改問這個**：
+
+> **兩個分支的 `get_detected_top_k_flow_data` 在流量停止後，
+> 回傳筆數是否都仍為 `min(50, 流表大小)`，且其中大部分速率為 0？**
+
+因為 `getTopKFlowInfoJson` 取 `min(k, size)` 且**不過濾**（`FLUC:2347`，`k` 預設 50，
+`HttpSession.cpp:589`），而 churn 工作點只有 4.7 條流真的在送封包
+⇒ **預期兩臂都回約 50 筆、其中約 45 筆速率為 0。** 這是 W 的母體問題，兩個分支都有，
+**和 A-3 那個已修的數值問題無關**。同一輪資料就能答。
+
+[Co-developed with claude code -- Adam]
