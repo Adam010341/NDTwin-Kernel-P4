@@ -1,6 +1,6 @@
-t0=1787881405
-t_end=1787881584
+t0=1787883752
+t_end=1787883931
 n_result_files=140
-n_flows_transferred=136
-n_flows_failed=4
-bytes_sent=454950912
+n_flows_transferred=134
+n_flows_failed=6
+bytes_sent=494665728
