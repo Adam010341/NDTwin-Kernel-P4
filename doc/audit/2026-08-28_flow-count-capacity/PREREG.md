@@ -139,3 +139,56 @@ Cell order, both passes, mirrored so linear drift cancels:
 
 Raw goes to the `audit-raw` branch, never to a working branch; the pre-commit hook from `f1df56e`
 enforces it. Figures citing raw resolve through `audit-raw` by content hash (`aa10c8e`).
+
+---
+
+## 10. AMENDMENT-1 — registered 2026-08-28 evening by `8/28 mainDev`, before any data
+
+**Not one packet of this round has been sent.** This amendment cites only pre-existing data
+(`doc/audit/2026-08-28_jitter-working-point/raw/capacity_interleave/`) and only tightens.
+
+### The problem: the registered clean threshold sits inside the noise at its own anchor rung
+
+§3 sets **clean = every flow's loss ≤ 0.5%**. Full-precision `lost_percent` from the three
+interleaved 160 Mbit reps that established the n=1 anchor — read from the JSON, not from the
+rounded table in `01_capacity.md`:
+
+| rep | `sum_received.lost_percent` | clean at ≤0.5%? |
+|---|---|---|
+| `i1_160M` | 0.3579148 | ✅ |
+| `i3_160M` | **0.5005557** | ❌ **by 0.0006 pp** |
+| `i5_160M` | 0.0665074 | ✅ |
+
+**One rep in three classifies the anchor rung as not clean.** The instrument this round reuses,
+`measure_bmv2_capacity.sh`, runs **one 8 s rep per rung**, so the highest-clean-rung decision
+inside an arm rests on a single draw from a distribution the threshold bisects.
+
+This is the same defect `01_capacity.md:27` names as having invalidated the first capacity
+measurement — one rep per cell, so rung-to-rung differences are drowned by within-rung variance.
+**§7 fixed the replication unit at the arm level; it did not fix it at the rung level, and the
+clean-rung determination lives at the rung level.**
+
+**Consequence, stated before the data:** the ladder has no rung between 110 and 160, so n=1
+reports either 160 or 110 on one 8 s coin flip — a **31% swing in the anchor of the entire
+curve**, larger than the 20 Mbit that separates the two models at n=2 (138 vs 118), which is the
+separation this round exists to measure.
+
+### The amendment
+
+1. **Ambiguous band ⇒ 3 reps, scored on the median.** Any rung whose first rep lands in
+   **0.2% ≤ loss ≤ 1.0%** is repeated to 3 reps and scored on the **median**. Below 0.2% and
+   above 1.0%, one rep stands. Median rather than mean because the 160M triple's median is
+   0.358% — clean and stable — while its mean is dragged by the tail rep.
+2. **The budget comes from the bottom of the ladder**, following the rule HANDOFF-CONTEXT §4
+   wrote down in advance: rungs `1 2 3` Mbit are almost certainly clean at every n, so they run
+   one rep and are dropped first if an arm exceeds its time box. **Never drop from the top.**
+3. **Nothing else changes.** Intervals, cell order, replication unit, both-readouts, the load
+   gate, and the abandon criterion stand as registered in §1–§9.
+
+### What this amendment does not do
+
+It changes no registered interval and no prediction, and it *cannot*: no data from this round
+exists to have suggested one. It changes only how a single rung is scored, in the direction of
+more evidence per decision.
+
+**[Co-developed with claude code -- Adam]**
