@@ -1,0 +1,20 @@
+==============================================================================
+LOAD-STEP CHECK -- PREREG amendment A. Thresholds committed in f2d43c7, pre-data.
+==============================================================================
+
+arm  cond    samples     busy  busy min  busy max    load1
+B1   base         51    0.864     0.049     1.000    27.37
+Q2   Q            53    0.870     0.053     1.000    28.04
+M3   M            51    0.859     0.069     1.000    30.28
+M4   M            51    0.855     0.061     1.000    29.50
+Q5   Q            49    0.865     0.084     1.000    32.58
+B6   base         47    0.842     0.032     1.000    30.93
+
+--- per-comparison verdicts (PREREG A-3) ---
+  ticket Q  base<->Q   dbusy 0.015 (void>0.1) dload1 1.16 (void>3.0)  =>  PASS
+  ticket M  Q<->M      dbusy 0.011 (void>0.1) dload1 0.42 (void>3.0)  =>  PASS
+
+--- within-condition step check (PREREG A-3) ---
+  base  B1 vs B6: dbusy 0.022  =>  no step
+  Q     Q2 vs Q5: dbusy 0.005  =>  no step
+  M     M3 vs M4: dbusy 0.005  =>  no step

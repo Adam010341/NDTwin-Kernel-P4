@@ -1,0 +1,5 @@
+round_start=1787880321
+arms=S_B1:3367d0e9 S_M2:a40e04ce
+flow_s=70 churn_s=40
+churn_seed=20260828 poll_hz=10 warm_s=20 win_s=30
+round_end=1787880620

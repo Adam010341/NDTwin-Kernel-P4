@@ -1,0 +1,26 @@
+==========================================================================
+KERNEL PROCESS CPU BY ARM  (suffix='')   🔴 POST-HOC, NOT PRE-REGISTERED
+==========================================================================
+
+arm  cond  kHz     cpu (s)  wall (s)   cores  threads
+B1   base  1k        176.8     277.5   0.637       47
+Q2   Q     1k        182.6     277.5   0.658       47
+M3   M     1          81.4     278.5   0.292       47
+M4   M     1          80.1     281.0   0.285       47
+Q5   Q     1k        176.1     276.8   0.636       47
+B6   base  1k        173.1     279.6   0.619       47
+
+--- may base and Q be pooled as one 1 kHz group? (auditor's precondition) ---
+  base 0.628 cores   Q 0.647 cores   |diff| 0.019   largest within-condition spread 0.022
+  => POOL: Q's fix does not move CPU beyond the within-condition spread
+
+--- ticket M's BENEFIT: 1 kHz vs 1 Hz path recompute ---
+  1 kHz (B1+Q2+Q5+B6): 0.638 cores
+  1 Hz  (M3+M4): 0.289 cores
+  saved: +0.349 cores  =  +54.7% of the kernel's CPU
+
+  ⚠️  This is the kernel PROCESS's CPU. It already excludes the fabric, the churn generator
+      and the pollers, which is why no common baseline has to be subtracted here --
+      the process boundary does that subtraction.
+  🔴 POST-HOC: no interval was registered for this before the data. Lower strength than
+      Q's ratio and M's latency, both of which were.

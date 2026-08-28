@@ -1,0 +1,16 @@
+=== arm S_B1: burners=0 flow_s=70 win_s=30 (claim ok: 8/28 mainDev) ===
+  waiting for flows to start...
+  flows up at 09:26:29; T window = +20s for 30s
+  T rep 1/1 (30s)
+  T| polls: 221 at 7.4 Hz (0 failed)
+  T| edges that changed: 68, usable for timing: 12
+  T| 
+  T| 🔑 loop period from CLUSTERED transitions (all edges): mean 1.040 s over 28 gaps, median 1.043
+  T| 
+  T| per-edge p10 estimator (lower bound, for comparison): median 0.960 s (range 0.958-0.975 over 12 edges)
+  T| 
+  T| period: 1.0396 s over 28 gaps  =>  a 1000 ms hard-coded denominator would over-report by +4.0%
+  T| (one reading from one arm. On 2026-08-27 two quiet arms of the SAME generation came out 42 ms apart, so a single arm carries roughly that much regardless of its rep spread -- compare arms, and do not read agreement finer than ~40 ms as precision.)
+  T| ⚠️  untested at long periods: a slower loop spreads one iteration's writes over more wall-clock, so a cluster can split and this estimate reads LOW. Cross-checked against the in-loop instrument only at ~1042 ms (1043.9 vs 1041.2). Above that, unvalidated.
+=== arm S_B1 done ===
+  burners: all 0 dead

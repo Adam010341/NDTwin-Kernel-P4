@@ -1,0 +1,45 @@
+==============================================================================
+READ-OUT -- PREREG section 9. Arms present: B1, Q2, M3, M4, Q5, B6
+==============================================================================
+
+arm  cond     T (ms)    host->switch    switch->host  switch->switch  M lat (s)  never  churn ok/fail
+B1   base     1079.7          1.1177          1.1482          1.1243      0.100      0          135/5
+Q2   Q        1125.3          0.9589          0.9909          0.9841      0.105      0          136/4
+M3   M        1058.3          0.9808          0.9980          0.9762      0.607      0          134/6
+M4   M        1049.3          0.9969          1.0123          0.9889      0.532      0          136/4
+Q5   Q        1076.6          1.0039          0.9850          0.9750      0.100      0          136/4
+B6   base     1074.0          1.1024          1.0901          1.0820      0.100      0          136/4
+
+--- drift meter (base arms at positions 1 and 6) ---
+  |T(B1) - T(B6)| = 5.7 ms  (gate 90 ms)  => PASS
+  third same-generation measurement of the quiet between-arm spread (prior: 27.2, 41.6 ms)
+
+--- ticket Q ---
+  base T = 1076.8 ms over 2 arm(s)  =>  predicted over-report +7.7%  =>  powered
+  host->switch     base 1.1101  Q 0.9814  delta +0.1287
+  switch->host     base 1.1191  Q 0.9880  delta +0.1312
+  switch->switch   base 1.1032  Q 0.9796  delta +0.1236
+  PRIMARY: mean per-class delta = +0.1278  (predicted ~+0.0768 from T)
+  ratio drift |B1-B6| = 0.0386 vs half-effect 0.0639  =>  PASS
+  (first measurement of the between-arm ratio spread: 0.0386, n=1 difference)
+
+--- ticket M (t_first_path - t_first_seen) ---
+  Q     n=669  mean 0.136s  median 0.101s  p95 0.398s  never 0  (right-censored 0, left-censored 42 excluded)  arms=['Q2', 'Q5']
+  M     n=643  mean 0.606s  median 0.600s  p95 1.187s  never 0  (right-censored 3, left-censored 39 excluded)  arms=['M3', 'M4']
+  EFFECT (M - Q) = +0.470 s  =>  in the registered 0.4-0.6 s band
+
+--- linearity diagnostic (5:3:1), PREREG 1-bis: NOT a gate ---
+  base  separation 5  within-condition T difference +5.7 ms  => implied slope +1.1 ms/position
+  Q     separation 3  within-condition T difference +48.8 ms  => implied slope +16.3 ms/position
+  M     separation 1  within-condition T difference +9.0 ms  => implied slope +9.0 ms/position
+  each difference carries ~43 ms of arm noise, so only a GROSS violation (e.g. M's difference largest) is readable here.
+
+--- detection latency (twin first sees a flow) -- never measured before, reported only ---
+  B1    flows 333   polls 1633 (0 failed)  achieved gap median 0.1006s p95 0.266s max 1.0596s
+  Q2    flows 364   polls 1821 (0 failed)  achieved gap median 0.1005s p95 0.2025s max 0.564s
+  M3    flows 335   polls 1582 (0 failed)  achieved gap median 0.101s p95 0.284s max 0.8258s
+  M4    flows 350   polls 1634 (0 failed)  achieved gap median 0.1011s p95 0.2431s max 0.9811s
+  Q5    flows 347   polls 1465 (0 failed)  achieved gap median 0.102s p95 0.3401s max 1.1344s
+  B6    flows 346   polls 1520 (0 failed)  achieved gap median 0.1012s p95 0.3043s max 1.0689s
+  IDLE BASELINE (no traffic): gap median 0.1001s p95 0.1001s max 0.1005s, 0/600 failed
+  => compare against the arms above: if the arms are slower, the 10 Hz poller is contending with the workload on a northbound API that serves one request at a time.

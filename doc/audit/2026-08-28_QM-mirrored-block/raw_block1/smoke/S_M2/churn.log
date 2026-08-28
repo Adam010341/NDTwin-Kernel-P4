@@ -1,0 +1,6 @@
+  schedule: 16 flows, seed=20260828, 40s, batch of 2 every 5s
+  all 128 host namespaces resolved
+  churn start 09:29:04, 16 flows over 40s
+  all flows launched, waiting for the tail
+  churn done 09:29:40; result files: 16 / 16
+  flows that MOVED DATA: 16  failed: 0  total: 57 MB
