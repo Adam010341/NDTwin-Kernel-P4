@@ -44,6 +44,9 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else "."
 EXPECT_CPU_ROWS = 6          # six arms in the CPU table
 EXPECT_CORE_LINKS = 8        # n0.out / n1.out each list eight core links
 NROUND = f"{REPO}/doc/audit/2026-08-25_sampling-rounds"
+CAPFILE = f"{REPO}/doc/audit/2026-08-28_jitter-working-point/01_capacity.md"
+EXPECT_LADDER_LOW = 6        # interleaved 160/100 rungs
+EXPECT_LADDER_HIGH = 3       # 320 / 640 / 1280
 EXPECT_LAT_ROWS = 2          # the M latency table has one column per condition
 
 
@@ -85,6 +88,28 @@ def core_links(path):
     tot = re.search(r"TOTAL\s+([\d.]+) Gbit/s", txt)
     assert mx and tot, f"{path}: no MAX/TOTAL line"
     return links, float(mx.group(1)), float(tot.group(1))
+
+
+def bmv2_ladder():
+    """(low, high) from the committed capacity round.
+
+    low  = [(rate_mbit, loss_pct)]        the interleaved 160/100 rungs
+    high = [(rate_mbit, loss_mean, delivered_mean)]
+    """
+    txt = _read(CAPFILE)
+    low = [(int(m.group(2)), float(m.group(3)))
+           for m in re.finditer(r"^\|\s*(\d)\s*\|\s*(\d+)\s*\|\s*\*{0,2}([\d.]+)%", txt, re.M)]
+    assert len(low) == EXPECT_LADDER_LOW, f"low ladder: {len(low)} rungs, want {EXPECT_LADDER_LOW}"
+
+    high = []
+    for m in re.finditer(r"^\|\s*(\d{3,4})\s*\|\s*\*{0,2}([\d.]+)%\*{0,2}\s*\|\s*\*{0,2}([\d.]+)%"
+                         r"\*{0,2}\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|", txt, re.M):
+        rate = int(m.group(1))
+        loss = (float(m.group(2)) + float(m.group(3))) / 2
+        deliv = (float(m.group(4)) + float(m.group(5))) / 2
+        high.append((rate, loss, deliv))
+    assert len(high) == EXPECT_LADDER_HIGH, f"high ladder: {len(high)} rows, want {EXPECT_LADDER_HIGH}"
+    return low, high
 
 
 def _save(fig, name):
@@ -184,73 +209,101 @@ def fig_m_cost_and_benefit():
           f"Source: REPORT.md (committed); every number is parsed from it and the parses assert "
           f"their yield. CPU is /proc/<kernel pid>/stat utime+stime — the kernel process, not the "
           f"machine, which ran 87% busy. Q2/Q5 carry ticket Q's fix but still recompute at 1 kHz. "
-          f"{saving_pct:.1f}% is computed from the six arm values; REPORT.md's 51.3% averages the "
-          f"means after rounding, the same rounding-then-subtracting slip corrected earlier today.",
+          f"{saving_pct:.2f}% at full precision. Three figures were briefly in circulation — "
+          f"51.22, 51.25, 51.3 — differing in the third significant digit, while this quantity's "
+          f"within-condition spread is 0.033 cores, about 5%. They are indistinguishable inside "
+          f"the measurement's own noise: what needed correcting was a precision claim, not the "
+          f"effect, which is 'about half' on every version.",
           width=168)
     _save(fig, "page_M_cost-and-benefit.png")
 
 
 # ------------------------------------------------------------------- figure: bandwidth ceiling
 def fig_bandwidth_ceiling():
-    """Ticket N: the '10 G is unreachable' ceiling was the access layer, not the fabric."""
-    before, b_max, b_tot = core_links(f"{NROUND}/n0.out")
-    after,  a_max, a_tot = core_links(f"{NROUND}/n1.out")
+    """Both forwarding planes' ceilings, and why one cannot be carried to the other.
 
-    # Same interface order in both panels, sorted by the AFTER value, so the eye compares
-    # like with like rather than following two independent rankings.
+    The first version of this figure showed only OVS, because on the day it was drawn only
+    OVS had been measured. Adam asked where bmv2 was. bmv2's ceiling was measured the same
+    afternoon, and the 113x gap is the point: a working point established on one plane is
+    meaningless on the other, which is exactly the mistake the jitter round nearly made.
+    """
+    before, b_max, b_tot = core_links(f"{NROUND}/n0.out")
+    after, a_max, a_tot = core_links(f"{NROUND}/n1.out")
+    low, high = bmv2_ladder()
+
     order = [n for n, _ in sorted(after, key=lambda kv: -kv[1])]
     bmap, amap = dict(before), dict(after)
 
-    AY, AH = 0.205, 0.435
+    AY, AH = 0.205, 0.425
     fig = plt.figure(figsize=WIDE)
     _title(fig,
-           "The bandwidth ceiling was the access layer, not the fabric",
-           f"Eight core links, same topology, same traffic. The only change is removing the "
-           f"access-layer bw= shaping. Single-link maximum goes {b_max:.3f} → {a_max:.3f} Gbit/s "
-           f"and the eight together go {b_tot:.2f} → {a_tot:.1f}. The belief that 10 Gbit/s was "
-           f"arithmetically out of reach was measuring the shaper.",
+           "The two forwarding planes' ceilings differ by 113x",
+           f"Left: OVS — removing the access-layer bw= shaping takes a single core link from "
+           f"{b_max:.3f} to {a_max:.1f} Gbit/s, so the '10 G is unreachable' belief was measuring "
+           f"the shaper. Right: bmv2 saturates at about {high[-1][2]/1000:.2f} Gbit/s delivered "
+           f"no matter what is offered. A working point from one plane means nothing on the other.",
            "MEASURED", "measured", sub_width=168)
 
-    ax = fig.add_axes([0.055, AY, 0.90, AH])
-    _frame(ax, ylab="per-link throughput (Gbit/s, log scale)")
-    xs = range(len(order))
+    # ---- left: OVS, the shaper artefact
+    axL = fig.add_axes([0.055, AY, 0.42, AH])
+    _frame(axL, ylab="per-link throughput (Gbit/s, log)")
     w = 0.38
     for i, name in enumerate(order):
-        ax.bar(i - w / 2, max(bmap[name], 1e-3), width=w, color=GREY, zorder=3)
-        ax.bar(i + w / 2, max(amap[name], 1e-3), width=w, color=ACCENT, zorder=3)
-    ax.set_yscale("log")
-    ax.set_ylim(8e-4, 260)
-    ax.set_xticks(list(xs))
-    ax.set_xticklabels(order, fontsize=10.5, color=INK)
-    ax.set_xlim(-0.75, len(order) - 0.25)
+        axL.bar(i - w / 2, max(bmap[name], 1e-3), width=w, color=GREY, zorder=3)
+        axL.bar(i + w / 2, max(amap[name], 1e-3), width=w, color=ACCENT, zorder=3)
+    axL.set_yscale("log")
+    axL.set_ylim(8e-4, 400)
+    axL.set_xticks(range(len(order)))
+    axL.set_xticklabels(order, fontsize=8.5, color=MUTED, rotation=45, ha="right")
+    axL.set_xlim(-0.75, len(order) - 0.25)
+    axL.axhline(10, color=WARNC, ls="--", lw=1.5, zorder=2)
+    axL.text(len(order) - 0.35, 12, "10 Gbit/s", fontsize=10, color=WARNC,
+             fontweight="bold", ha="right", va="bottom")
+    axL.text(-0.6, 250, "before — access-layer bw= present", fontsize=10,
+             color=GREY, fontweight="bold", va="center")
+    axL.text(-0.6, 110, "after — bw= removed", fontsize=10,
+             color=ACCENT, fontweight="bold", va="center")
+    for i, name in enumerate(order[:1]):
+        axL.text(i + w / 2, amap[name] * 1.3, f"{amap[name]:.1f}", ha="center",
+                 fontsize=10.5, color=ACCENT, fontweight="bold")
+    axL.set_title("OVS — the ceiling was the access layer", fontsize=12, color=INK,
+                  fontweight="bold", pad=12, loc="left")
 
-    # The 10 G line is the whole point: it was believed unreachable and four links clear it.
-    ax.axhline(10, color=WARNC, ls="--", lw=1.6, zorder=2)
-    ax.text(len(order) - 0.45, 12.5,
-            "10 Gbit/s — previously believed arithmetically unreachable",
-            fontsize=10.5, color=WARNC, fontweight="bold", ha="right", va="bottom")
+    # ---- right: bmv2, a real ceiling
+    axR = fig.add_axes([0.575, AY, 0.39, AH])
+    _frame(axR, ylab="delivered (Mbit/s)", xlab="offered (Mbit/s, log)")
+    lo_pts = sorted({r for r, _ in low})
+    offered = lo_pts + [r for r, _, _ in high]
+    delivered = ([r * (1 - sum(l for rr, l in low if rr == r) / len([1 for rr, _ in low if rr == r]) / 100)
+                  for r in lo_pts] + [d for _, _, d in high])
+    axR.plot(offered, offered, ls="--", lw=1.4, color=FAINT, zorder=2)
+    axR.plot(offered, delivered, "o-", lw=2.2, ms=7, color=ACCENT, zorder=4)
+    axR.set_xscale("log")
+    axR.set_xlim(70, 1800)
+    axR.set_ylim(0, 620)
+    axR.axhline(high[-1][2], color=WARNC, ls=":", lw=1.6, zorder=3)
+    axR.text(1750, high[-1][2] + 18, f"delivered ceiling ≈ {high[-1][2]:.0f} Mbit/s",
+             fontsize=10, color=WARNC, fontweight="bold", ha="right")
+    axR.text(150, 330, "y = x\n(if nothing were lost)", fontsize=9.5, color=MUTED, rotation=32)
+    for r, loss, d in high:
+        axR.annotate(f"{loss:.0f}% lost", xy=(r, d), xytext=(0, -22),
+                     textcoords="offset points", fontsize=9.5, color=MUTED, ha="center")
+    axR.set_title("bmv2 — a real ceiling, CPU-bound", fontsize=12, color=INK,
+                  fontweight="bold", pad=12, loc="left")
 
-    # Legend lives over the four right-hand links, which carry ~0.01 Gbit/s in both
-    # conditions, so the space above them is empty at every y. Putting it top-left sat it
-    # on the tallest bar and its value label.
-    ax.text(4.35, 170, "before — access-layer bw= present", fontsize=11,
-            color=GREY, fontweight="bold", va="center")
-    ax.text(4.35, 62, "after — access-layer bw= removed", fontsize=11,
-            color=ACCENT, fontweight="bold", va="center")
-
-    for i, name in enumerate(order[:4]):
-        ax.text(i + w / 2, amap[name] * 1.25, f"{amap[name]:.1f}", ha="center",
-                fontsize=10, color=ACCENT, fontweight="bold")
-        ax.text(i - w / 2, max(bmap[name], 1e-3) * 1.25, f"{bmap[name]:.3f}", ha="center",
-                fontsize=9, color=MUTED)
+    fig.text(0.517, 0.44, f"{a_max * 1000 / high[-1][2]:.0f}×", fontsize=26, color=OKC,
+             fontweight="bold", ha="center", va="center",
+             bbox=dict(facecolor="#EFF4F1", edgecolor=OKC, linewidth=1.1,
+                       boxstyle="round,pad=0.34"))
 
     _foot(fig,
-          "Source: doc/audit/2026-08-25_sampling-rounds/n0.out and n1.out, both committed; the "
-          "parse asserts eight core links in each. The four right-hand links carry almost nothing "
-          "in both conditions — they are not on the path this traffic takes, and they are shown "
-          "so the panel is the whole fabric rather than the four links that make the point. "
-          "This measures the OVS testbed; bmv2's own per-link ceiling has never been measured, "
-          "and the jitter round needs it first.",
+          "Sources, all committed: OVS from doc/audit/2026-08-25_sampling-rounds/n0.out and "
+          "n1.out (parse asserts eight core links each); bmv2 from "
+          "doc/audit/2026-08-28_jitter-working-point/01_capacity.md. bmv2's number is a single "
+          "flow; sixteen flows together reach only ~48 Mbit/s, because the bottleneck is the "
+          "switch's per-packet CPU and not the link — so even within bmv2 a single-flow ceiling "
+          "does not extrapolate. That is why the jitter round could not use either number "
+          "directly, and why it returned H3 on this plane.",
           width=168)
     _save(fig, "page_bandwidth-ceiling.png")
 
