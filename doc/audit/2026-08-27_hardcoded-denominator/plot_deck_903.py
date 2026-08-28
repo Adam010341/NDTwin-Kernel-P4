@@ -182,8 +182,13 @@ def _frame(ax, ylab=None, xlab=None):
 # Vertical budget for a WIDE page, fixed once so no figure has to re-derive it. The stamp sits on
 # its own row ABOVE the title rather than beside it: a long title and a long stamp on one baseline
 # collide, and which one wins depends on the font the renderer happens to pick.
-BAND = dict(stamp=0.975, title=0.905, sub=0.815, foot=0.105)
-AXES_Y, AXES_H = 0.225, 0.485
+# foot was 0.105, which put the last line of every footer off the bottom of the canvas -- both
+# 9/03 figures rendered with zero bottom margin and their source citation truncated mid-word.
+# It reads fine in a notebook, where the figure is scaled to fit, and only shows in the file.
+BAND = dict(stamp=0.975, title=0.905, sub=0.815, foot=0.163)
+# Bottom raised 0.06 (top held) when foot moved up: the band was sized for a three-line footer
+# and every figure in this deck has four or five, so the axes had to give back the difference.
+AXES_Y, AXES_H = 0.285, 0.425
 
 
 def _title(fig, main, sub, stamp, kind, sub_width=150):

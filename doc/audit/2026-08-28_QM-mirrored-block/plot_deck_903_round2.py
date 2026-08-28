@@ -133,7 +133,7 @@ def fig_m_cost_and_benefit():
 
     # Axes sit lower than the sibling script's default: this subtitle wraps to two lines and
     # the panel titles need clearance under it. The first render collided in five places.
-    AY, AH = 0.205, 0.425
+    AY, AH = 0.265, 0.365   # bottom raised with BAND["foot"]; see AXES_Y in the sibling script
 
     fig = plt.figure(figsize=WIDE)
     _title(fig,
@@ -224,8 +224,17 @@ def fig_bandwidth_ceiling():
 
     The first version of this figure showed only OVS, because on the day it was drawn only
     OVS had been measured. Adam asked where bmv2 was. bmv2's ceiling was measured the same
-    afternoon, and the 113x gap is the point: a working point established on one plane is
+    afternoon, and the two-order gap is the point: a working point established on one plane is
     meaningless on the other, which is exactly the mistake the jitter round nearly made.
+
+    On the bmv2 build, graded honestly because the footer has no room to: the run that produced
+    01_capacity.md did NOT hash the binary it launched, and measure_bmv2_capacity.sh does not
+    record it either -- unlike the 08-25 scripts beside it, which all sha256 the switch. What
+    the footer cites is provenance by CONFIGURATION: bmv2_binary_override (mtime 08-22) names
+    the fast build, the binary itself (mtime 08-15) is older still, neither was touched after
+    the 08-28 run, and the topology refuses to start when no binary is named, so there is no
+    silent third option. Inferring the build from the throughput instead would be circular --
+    that is the reasoning this figure exists to reject.
     """
     before, b_max, b_tot = core_links(f"{NROUND}/n0.out")
     after, a_max, a_tot = core_links(f"{NROUND}/n1.out")
@@ -234,10 +243,16 @@ def fig_bandwidth_ceiling():
     order = [n for n, _ in sorted(after, key=lambda kv: -kv[1])]
     bmap, amap = dict(before), dict(after)
 
-    AY, AH = 0.205, 0.425
+    # The headline ratio must come from the same expression as the badge below it. It used to be
+    # the literal "113x" while the badge computed 109x from the data -- a slide contradicting
+    # itself in two places, and the hardcoded half could never track a re-measurement. Same shape
+    # as the 08-27 hardcoded-denominator round, in our own figure.
+    ratio = a_max * 1000 / high[-1][2]
+
+    AY, AH = 0.265, 0.365   # bottom raised with BAND["foot"]; see AXES_Y in the sibling script
     fig = plt.figure(figsize=WIDE)
     _title(fig,
-           "The two forwarding planes' ceilings differ by 113x",
+           f"The two forwarding planes' ceilings differ by {ratio:.0f}x",
            f"Left: OVS — removing the access-layer bw= shaping takes a single core link from "
            f"{b_max:.3f} to {a_max:.1f} Gbit/s, so the '10 G is unreachable' belief was measuring "
            f"the shaper. Right: bmv2 — the -O3 no-logging build — saturates at about "
@@ -260,10 +275,12 @@ def fig_bandwidth_ceiling():
     axL.axhline(10, color=WARNC, ls="--", lw=1.5, zorder=2)
     axL.text(len(order) - 0.35, 12, "10 Gbit/s", fontsize=10, color=WARNC,
              fontweight="bold", ha="right", va="bottom")
-    axL.text(-0.6, 250, "before — access-layer bw= present", fontsize=10,
-             color=GREY, fontweight="bold", va="center")
-    axL.text(-0.6, 110, "after — bw= removed", fontsize=10,
-             color=ACCENT, fontweight="bold", va="center")
+    # Legend sits on the right: the tall bars are the first four, so left-anchored labels
+    # collided with the 53.1 value label on the top bar.
+    axL.text(len(order) - 0.35, 250, "before — access-layer bw= present", fontsize=10,
+             color=GREY, fontweight="bold", va="center", ha="right")
+    axL.text(len(order) - 0.35, 100, "after — bw= removed", fontsize=10,
+             color=ACCENT, fontweight="bold", va="center", ha="right")
     for i, name in enumerate(order[:1]):
         axL.text(i + w / 2, amap[name] * 1.3, f"{amap[name]:.1f}", ha="center",
                  fontsize=10.5, color=ACCENT, fontweight="bold")
@@ -271,7 +288,7 @@ def fig_bandwidth_ceiling():
                   fontweight="bold", pad=12, loc="left")
 
     # ---- right: bmv2, a real ceiling
-    axR = fig.add_axes([0.575, AY, 0.39, AH])
+    axR = fig.add_axes([0.625, AY, 0.345, AH])
     _frame(axR, ylab="delivered (Mbit/s)", xlab="offered (Mbit/s, log)")
     lo_pts = sorted({r for r, _ in low})
     offered = lo_pts + [r for r, _, _ in high]
@@ -292,7 +309,8 @@ def fig_bandwidth_ceiling():
     axR.set_title("bmv2 — a real ceiling, CPU-bound", fontsize=12, color=INK,
                   fontweight="bold", pad=12, loc="left")
 
-    fig.text(0.517, 0.44, f"{a_max * 1000 / high[-1][2]:.0f}×", fontsize=26, color=OKC,
+    # Badge goes in the gutter between the panels; it used to sit on top of the right y-axis.
+    fig.text(0.545, 0.44, f"{ratio:.0f}×", fontsize=26, color=OKC,
              fontweight="bold", ha="center", va="center",
              bbox=dict(facecolor="#EFF4F1", edgecolor=OKC, linewidth=1.1,
                        boxstyle="round,pad=0.34"))
@@ -304,13 +322,9 @@ def fig_bandwidth_ceiling():
           "flow; sixteen flows together reach only ~48 Mbit/s, because the bottleneck is the "
           "switch's per-packet CPU and not the link — so even within bmv2 a single-flow ceiling "
           "does not extrapolate. That is why the jitter round could not use either number "
-          "directly, and why it returned H3 on this plane. The bmv2 figure names its build "
-          "because there are two installs on this machine 12-18x apart: "
-          "/usr/local/bmv2-fast/bin/simple_switch_grpc, sha256 3ff54b5c, selected by "
-          "p4_proxy/mininet/bmv2_binary_override (which the topology requires - there is no "
-          "fallback). Both that file and the binary predate the run and were untouched after "
-          "it, so this is provenance by configuration; the run itself did not hash what it "
-          "launched.",
+          "directly, and why it returned H3 on this plane. The build is named because two "
+          "installs here differ 12-18x: bmv2-fast/bin/simple_switch_grpc, sha256 3ff54b5c, "
+          "fixed by p4_proxy/mininet/bmv2_binary_override, which the topology requires.",
           width=168)
     _save(fig, "page_bandwidth-ceiling.png")
 
