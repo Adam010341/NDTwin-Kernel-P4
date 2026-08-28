@@ -240,8 +240,9 @@ def fig_bandwidth_ceiling():
            "The two forwarding planes' ceilings differ by 113x",
            f"Left: OVS — removing the access-layer bw= shaping takes a single core link from "
            f"{b_max:.3f} to {a_max:.1f} Gbit/s, so the '10 G is unreachable' belief was measuring "
-           f"the shaper. Right: bmv2 saturates at about {high[-1][2]/1000:.2f} Gbit/s delivered "
-           f"no matter what is offered. A working point from one plane means nothing on the other.",
+           f"the shaper. Right: bmv2 — the -O3 no-logging build — saturates at about "
+           f"{high[-1][2]/1000:.2f} Gbit/s delivered no matter what is offered. A working point "
+           f"from one plane means nothing on the other.",
            "MEASURED", "measured", sub_width=168)
 
     # ---- left: OVS, the shaper artefact
@@ -303,7 +304,13 @@ def fig_bandwidth_ceiling():
           "flow; sixteen flows together reach only ~48 Mbit/s, because the bottleneck is the "
           "switch's per-packet CPU and not the link — so even within bmv2 a single-flow ceiling "
           "does not extrapolate. That is why the jitter round could not use either number "
-          "directly, and why it returned H3 on this plane.",
+          "directly, and why it returned H3 on this plane. The bmv2 figure names its build "
+          "because there are two installs on this machine 12-18x apart: "
+          "/usr/local/bmv2-fast/bin/simple_switch_grpc, sha256 3ff54b5c, selected by "
+          "p4_proxy/mininet/bmv2_binary_override (which the topology requires - there is no "
+          "fallback). Both that file and the binary predate the run and were untouched after "
+          "it, so this is provenance by configuration; the run itself did not hash what it "
+          "launched.",
           width=168)
     _save(fig, "page_bandwidth-ceiling.png")
 
