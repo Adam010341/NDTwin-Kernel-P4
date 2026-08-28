@@ -311,4 +311,88 @@ is one such round.
    is required to agree with**, and agreement or disagreement with it proves nothing on its own —
    the same rule §1 applies to the 12 Mbit figure.
 
+---
+
+## 12. AMENDMENT-3 — how a second §6 gate firing is to be read
+
+**Registered 2026-08-29 00:37:35 +0800 by `8/28 mainDev`, directed by `8/28 auditor`.**
+**Appended; nothing above is edited.**
+
+### 12.0 🔴 Approval conditions, stated honestly — the first one is NOT met in its literal form
+
+The three conditions for amending a pre-registration are: zero packets this round, reasons citing
+only pre-existing data, tightening only. **Condition 1 is not satisfied literally: pass B started
+00:35:30 and arm 1 (`n16_b`) was mid-ladder at the 12 M/flow rung when this was written.**
+
+What is true, and what a later reader should check rather than take on trust:
+
+| | status at 00:37:35 |
+|---|---|
+| arms this rule judges (`n8_b`, `n1_b`, `n2_b`) | **not run** — `raw/` contained exactly one pass-B directory, `n16_b` |
+| arm in flight (`n16_b`) | **not referenced by this rule at all** |
+| the quantity this rule reads (`busy_fraction` of `n8_b`) | **did not exist** |
+| condition 2 — reasons cite only pre-existing data | met: pass A `arm.meta` and load traces only |
+| condition 3 — tightening only | met: **the gate itself is not touched.** This removes post-hoc freedom about how to read its output; it adds none |
+
+⇒ **This is a reading rule registered before its input exists, not a gate change.** Written this
+way because "we registered it before the data" is precisely the claim a later reader cannot verify
+unless the state at registration time is recorded.
+
+### 12.1 Why a rule is needed
+
+Running `analyse_p1_3.py` on pass A, the §6 relative busy-fraction gate fired on **`n8_a`**
+(busy 0.7134 vs median 0.4465, past the +0.15 absolute clause) ⇒ §6 says rerun.
+
+A supplementary diagnostic (unregistered, printed in its own panel) showed CPU per unit of traffic
+actually moved rising monotonically with n: 0.00219 → 0.00266 → 0.00379 → **0.00946** for
+n = 1,2,4,8. That is this round's own premise — per-packet CPU growing more expensive as flows are
+added — so the gate may be firing on the cell's own effect rather than on foreign load.
+
+🔴 **That diagnostic is post-hoc and appeared ten minutes after the gate blocked this session's own
+arm. It is not admissible as a reason to keep `n8_a`.** But it makes a falsifiable prediction about
+data that does not yet exist, and pass B produces that data at no extra cost.
+
+### 12.2 The registered prediction and its four readings
+
+> **If §6 measures the cell's own forwarding intensity, `n8_b` will also fire, and `n1_b`/`n2_b`
+> will not.**
+
+| pass B result | reading — fixed now, not selectable later |
+|---|---|
+| **`n8_b` fires; `n1_b`,`n2_b` do not** | §6 **has no discriminating power in this design** — it measures the cell's own effect. n=8 keeps both arms, with disclosure. Record: **this round had no working detector for foreign contamination.** |
+| **only `n8_a` fired; `n8_b` does not** | The gate was right; `n8_a` was contaminated. Fail `n8_a` as registered, then **run `n8_c`** (146 s) so the cell still has two arms — **not "no verdict"**. |
+| **`n8_b` fires and `n1_b`/`n2_b` also fire** | Foreign load ran throughout ⇒ **the whole round is in doubt**; go back and find what was on the machine. |
+| **none of the above** | Report as observed. **Do not force it into the nearest row.** |
+
+The fourth row is deliberate: a criterion with no "none of the above" pushes surprises into
+whichever bucket looks closest.
+
+### 12.3 🔴 The methodological limitation this round cannot fix
+
+Neither gate available to this round separates **foreign load** from **this cell is simply working
+harder**:
+
+- `load1 > 3.0` (withdrawn, §11.2) — fires on the arm's own forwarding.
+- `/proc/stat` busy fraction (§6, in force) — measures **total** CPU, of which the arm's own
+  forwarding is the dominant term. **Making the comparison relative did not cure this**; it turned
+  absolute self-firing into relative self-firing, because different cells legitimately forward at
+  different intensities.
+
+⇒ **Reported as a limitation of the round, not as a dispute about one cell.**
+
+📌 A third instance of the same disease, found by `8/28 auditor`: the median §6 uses as its
+reference **is `n16_a`** (sorted: 0.1987 / 0.3643 / **0.4465** / 0.4606 / 0.7134), and `n16_a`'s
+arm-mean is depressed by dead air from its 27/256 failed control channels. **The gate's reference
+point is the arm most diluted by instrument failure.** (It does not change the verdict — restoring
+it to ~0.7 still leaves `n8_a` firing — but it is the same shape a third time.)
+
+### 12.4 What is explicitly NOT done here
+
+- The §6 gate is **not modified**. Its verdict is printed unchanged by `analyse_p1_3.py`.
+- Intervals, ladder, models, clean threshold and rep rule are **not touched**.
+- **The correct fix — attributing CPU to the arm via `/proc/<pid>/stat` `utime+stime` deltas across
+  the 10 `simple_switch_grpc` processes and iperf3, so that foreign load = total busy − attributable
+  — belongs to tickets ① and ②**, whose PREREGs have zero data. 🔴 **It must not be applied
+  retroactively to ③.**
+
 **[Co-developed with claude code -- Adam]**
