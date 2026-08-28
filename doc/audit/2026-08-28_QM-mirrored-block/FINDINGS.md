@@ -546,3 +546,52 @@ hook 每個 commit 寫一個 `.git/agy-reviews/<seq>-<sha>.md`。
 我的曲線量測作廢）。**時長與重疊是實測，幅度不是。**
 
 ---
+
+## F-16 🔴 **這個 remote 設定讓「什麼是公開的」在結構上無法從本地 ref 得知**
+
+```
+p4  fetch = git@github.com:Adam010341/NDTwin-Kernel-P4.git      ← PRIVATE
+p4  push  = git@github.com:Adam010341/NDTwin-Kernel-P4.git      ← PRIVATE
+p4  push  = git@github.com:ndtwin-lab/NDTwin-Kernel-P4.git      ← 🔴 PUBLIC
+```
+
+⇒ **`git push p4` 會發佈到公開 repo，而 `p4/main` 反映的是私有 repo。**
+
+🔑 **不管多仔細看 tracking ref，都看不到公開狀態。這不是粗心，是設定造成的結構性盲區。**
+
+**唯一可靠的做法**：直接對公開 URL 打 `git ls-remote` 或 `gh repo view`。
+我最後就是這樣才確定的——**而我第一次的結論（答案對）是從 `p4/main` 推的，路徑是錯的。**
+
+### 實測的公開曝光量（我自己數的，與審查員獨立吻合）
+
+| 樹 | 檔案數 |
+|---|---|
+| `main` / `fix`（`20cd80b`） | **999**（`doc/audit/` 佔 **563**） |
+| **`audit-raw`（`4ffe9c5`）** | **2,743**，其中 **2,742 是 raw dump** |
+| **合計** | **約 3,700** |
+
+🔴 **`audit-raw` 是一條專門用來裝 raw dump 的分支** ——
+`.gitignore:60` 擋 `doc/audit/*/raw*/*` 是為了不讓 raw 進 `main`，
+**而這條分支繞過了它，並且是公開的。只看 `main` 的清理會漏掉四分之三。**
+
+主樹揭露項（我的計數）：**57** 個檔案指名 session／角色、**168** 個含 `/home/adam`。
+
+### 📌 兩件必須和選項一起呈給 Adam，不能只給選項
+
+1. **`NDTwin-Kernel` 從 08-26 就公開了** ⇒ 那不是今天的事，**可能是他早就知道且刻意的**。
+   若是，路徑與版本字串那兩件他很可能本來就接受（author email 一直都在裡面）。
+2. **公開可能是他自己裁的** ⇒ **「轉回 private」等於撤銷他的決定**，更不能由我們發動。
+
+⇒ **問題要問成**「已經公開 N 小時、內容是這些（附數字），要維持／轉回 private 整理／其他」，
+**不要問成「要不要關掉」。**
+
+### 🔑 兩個 session 都給了假的安全感
+
+審查員對兩個 session 下「不要 push」，我對他說「commit 安全、push 不安全」
+——**而那時已經 push 且公開三小時**。
+
+> **在給別人一個「不要做 X」的指示之前，先確認 X 還沒發生。**
+
+⚠️ **擋錯地方比不擋更糟**：它讓收到指示的人以為擋住了。
+
+---
