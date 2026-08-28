@@ -55,6 +55,44 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+# --- the deck is version-locked, and the divergence is measured, not hypothetical -----------
+# [Co-developed with claude code -- Adam]
+# There are two matplotlibs reachable here and they are easy to confuse, because .plotvenv's
+# python IS miniconda's python -- the same binary, symlinked, with a different site-packages:
+#
+#     .plotvenv/bin/python3  -> /home/adam/miniconda3/bin/python3.13   matplotlib 3.11.1
+#     miniconda3/bin/python3 -> /home/adam/miniconda3/bin/python3.13   matplotlib 3.10.8
+#
+# Same interpreter, opposite answers to "is matplotlib installed". Rendered 2026-08-28 on both:
+#
+#                                     3.11.1        3.10.8      bottom margin differs by
+#     page_bandwidth-ceiling.png      27 px         45 px               18 px
+#     page_M_cost-and-benefit.png     65 px         79 px               14 px
+#
+# and the PNGs differ by hash. The margins are what the crop fix (54551bc) was verified on, so
+# the verification is version-dependent. Worse, measured directly: the pre-fix figure that
+# 3.11.1 renders CLIPPED (0 px margin, 0.1411 ink on the last pixel row) renders CLEAN on
+# 3.10.8 (11 px, 0.0000). On the wrong interpreter the defect does not reproduce at all, so a
+# reviewer would conclude there was never a bug -- and a deck rendered there is silently
+# different from the one in the slide directory.
+#
+# Hence: refuse by default rather than warn. The escape hatch exists because .plotvenv is a
+# single point of failure five days before 9/03, but taking it has to be a decision someone
+# made, not a default they fell into.
+_WANT_MPL = "3.11.1"
+if matplotlib.__version__ != _WANT_MPL and not os.environ.get("DECK_ALLOW_MPL_MISMATCH"):
+    sys.exit(
+        f"\nplot_deck_903_round2.py: WRONG MATPLOTLIB -- refusing to render.\n"
+        f"  want        : {_WANT_MPL}\n"
+        f"  got         : {matplotlib.__version__}\n"
+        f"  interpreter : {sys.executable}\n"
+        f"  use         : \"/home/adam/Desktop/NDTwin slide material/"
+        f"NDTwin Slide material 820/.plotvenv/bin/python3\"\n\n"
+        f"These versions do not render the same figure: bottom margins differ by 14-18 px and\n"
+        f"the pre-fix clipping defect does not even reproduce on 3.10.8. Set\n"
+        f"DECK_ALLOW_MPL_MISMATCH=1 to override, and then do not compare the output against\n"
+        f"any margin measured on {_WANT_MPL}.\n")
+
 REPO = "/home/adam/Desktop/NDTwin-Kernel"
 HERE = f"{REPO}/doc/audit/2026-08-28_QM-mirrored-block"
 PRIOR = f"{REPO}/doc/audit/2026-08-27_hardcoded-denominator"
