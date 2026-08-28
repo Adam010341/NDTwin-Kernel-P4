@@ -25,4 +25,13 @@
 重跑流程：對照本表驗 sha256 → 依 `raw/README.md` 重生 txt → 跑 `sweep_keywords.sh`。
 「未查證」欄照實標——venue／年來自 PDF 內文自述，arXiv 條目的正式發表狀態沒有另行查核。
 
+## 檢索第一輪新增（2026-08-28 深夜；非原 14 篇，裁決見 `SEARCH-ROUND-1.md`）
+
+| 代號 | 檔名 | sha256 | venue／年 |
+|---|---|---|---|
+| PADS26-OFFLOAD | `3806789.3810263.pdf` | `13a2a86829126d6b0b1cbfe6fd8baad8b30166a90e906d412e16cc91d56ec164` | SIGSIM-PADS 2026 |
+| MDPI-NET25 | `network-05-00021.pdf`（在 `~/Downloads/`，尚未搬進 paper 目錄） | `9895afc11b276db5c00b3c82a9f3855902c418b266d677bfd551aaf33c7057fd` | MDPI Network 5(21), 2025 |
+| MDPI-NET25-PRE | `preprints202504.2530.v1.pdf` | `abef2d9e0d5626b2e7a6a4acbd6cf36b80d3b3c1beb6408acab354b56be0e131` | Preprints.org 2025-04（同文預印本） |
+| P4DOCKER24 | `29948-217-24388-1-10-20240813.pdf` | `a054a172ee9960d9686f2734b99a6e9242849e7688b8904920502f2d83cb488c` | WPEIF/SBRC 系 demo，2024（venue 未逐字查證） |
+
 [Co-developed with claude code -- Adam]
