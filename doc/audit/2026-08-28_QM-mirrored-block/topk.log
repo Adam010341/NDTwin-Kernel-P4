@@ -1,0 +1,38 @@
+
+############ W_base  binary=3367d0e9  10:47:06 ############
+=== old kernel: pid 1962975 ===
+  running sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  dead
+=== starting from /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel ===
+  on-disk sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  new pid: 2003216
+  running sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  ok  binary under measurement matches the one requested
+=== waiting for :8000 ===
+=== waiting for the model to agree with the fabric ===
+  t+5s: edges=288 down=0 ipv4=128
+       paths=16256 (want 16256)
+  ok  converged
+  churn rc=0: flows that MOVED DATA: 92  failed: 2  total: 582 MB
+  traffic stopped 10:49:15; polling the tail for 40s
+    topk: 170 polls (0 failed) -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-28_QM-mirrored-block/raw_topk/W_base/topk.jsonl
+
+############ W_branch  binary=a40e04ce  10:50:00 ############
+=== old kernel: pid 2003216 ===
+  running sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  dead
+=== starting from /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel ===
+  on-disk sha256: a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7
+  new pid: 2007137
+  running sha256: a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7
+  ok  binary under measurement matches the one requested
+=== waiting for :8000 ===
+=== waiting for the model to agree with the fabric ===
+  t+5s: edges=288 down=0 ipv4=128
+       paths=16256 (want 16256)
+  ok  converged
+  churn rc=0: flows that MOVED DATA: 92  failed: 2  total: 581 MB
+  traffic stopped 10:52:09; polling the tail for 40s
+    topk: 170 polls (0 failed) -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-28_QM-mirrored-block/raw_topk/W_branch/topk.jsonl
+
+### top-k arms done 10:52:53
