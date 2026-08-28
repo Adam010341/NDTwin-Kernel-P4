@@ -1,13 +1,13 @@
 {
  "summary": {
-  "t_start": 1787883021.6564,
-  "t_end": 1787883081.7078,
+  "t_start": 1787880321.0835,
+  "t_end": 1787880381.1361,
   "requested_hz": 10.0,
   "n_polls": 600,
   "n_polls_failed": 0,
   "achieved_gap_median_s": 0.1001,
   "achieved_gap_p95_s": 0.1001,
-  "achieved_gap_max_s": 0.1005,
+  "achieved_gap_max_s": 0.1002,
   "n_flows_seen": 0,
   "n_left_censored": 0,
   "n_never_path": 0
