@@ -205,3 +205,75 @@ patch 的上下文因此對不上。
 📌 **明確不宣稱**：上表只證明 v8 的兩個 patch **套得上**。
 **套得上是必要條件不是充分條件** —— v8 能不能真的裝完，需要它自己的乾淨室實跑，尚未執行。
 
+
+---
+
+## 結果：**第 3 列（兩臂都失敗）**。2026-08-28 09:56 定案
+
+| | **NOTTY** | **TTY** |
+|---|---|---|
+| 注入斷言 | `controlling_tty: NO`、`tty(1): not a tty`、`ps tty '?'` | `controlling_tty: YES`、`tty(1): /dev/pts/0`、`ps tty 'pts/0'` |
+| 牆鐘 | 09:23 → 09:36（13 分） | 09:40 → 09:56（16 分） |
+| `installer_rc` | 1 | 1 |
+| `simple_switch_grpc` | **MISSING** | **MISSING** |
+| `simple_switch` | **MISSING** | **MISSING** |
+| `p4c-bm2-ss` | **MISSING** | **MISSING** |
+| `/usr/local/bin` | 只有 3 個 `pi_*` | 只有 3 個 `pi_*` |
+| 死在哪 | `patch -p1` → `Hunk #1 FAILED at 1` | **同一行** |
+| **controlling-tty 抱怨** | **17** | **0** |
+| 網路失敗（#1） | 0 | 0 |
+| 磁碟（#2） | 51 G 可用 | 51 G 可用 |
+| 污染（#3） | 0 | 0 |
+| 資源（#5） | 無 OOM、qemu 存活、非逾時 | host available 4.5 G、swap 8.2 G、非逾時 |
+
+### 🔑 這個對照最有力的一格是「17 → 0」
+
+tty 變數**確實生效了**——debconf 的 controlling-tty 抱怨在 TTY 臂完全消失。
+**而結果一模一樣。** 所以這不是「變數沒作用所以看不出差別」，
+是**變數作用了，且與結果無關**。
+
+⇒ 依判讀表第 3 列：**「v10 在 24.04 裝不起來」成立，且這個對照本身就是證據。**
+⇒ 2026-08-27 23:00 那次失敗**不是**我卸離執行造成的。原本的懷疑被自己的實驗否證。
+
+### 事前寫下的預測，逐項對帳
+
+預測（本檔上一節，寫於跑臂 2 之前）：
+> TTY 臂會在同一個 `patch -p1` 步驟失敗，產物同樣三個全缺，牆鐘同量級（10–20 分鐘）。落在第 3 列。
+
+**三項全中。** 依據是「`patch(1)` 不讀 `/dev/tty`」，機制層的推理，不是外插。
+
+### 真正的成因（與 tty 無關，且**時間相依**）
+
+`install-p4dev-v10.sh` 把 `behavioral-model` clone 在**移動中的 HEAD**
+（`INSTALL_BEHAVIORAL_MODEL_SOURCE_VERSION` 預設為空 ⇒ 不釘），
+本次拿到 `fdd3b89`（2026-08-24），然後套 p4-guide 自帶的 patch。
+behavioral-model 加了 SPDX 授權標頭，`install_deps.sh` 開頭改變，patch 的上下文對不上。
+
+**獨立乾跑（`patch -p1 --dry-run`，逐個記 rc）：**
+
+| patch | 誰用 | rc |
+|---|---|---|
+| `behavioral-model-support-fedora.patch` | **v10** | **1** |
+| `behavioral-model-support-venv-thrift-0.22.0.patch` | **v10** | **1** |
+| `behavioral-model-adjust-ubuntu-packges.patch` | **v8** | **0** |
+| `behavioral-model-support-venv-2026-apr.patch` | **v8** | **0** |
+
+⇒ **不是 24.04 的性質、不是機器的性質、不是 tty 的性質，是 p4-guide 的 patch 對上游過期。**
+⇒ 在 behavioral-model 那個 commit 之前跑，同一支腳本會成功。**這句話對文件很重要**：
+它意味著「v10 曾經可用」與「v10 現在不可用」可以同時為真，
+而且 **v8 今天可用不保證下個月可用**——它靠的是它那兩個 patch 剛好還套得上。
+
+### 📌 仍然明確不宣稱
+
+- **v8 能不能裝完**：上表只證明它的 patch **套得上**，那是必要條件不是充分條件。
+  乾淨室實跑於 2026-08-28 09:58 開跑（`ab-results/v8-tty/`），**本節寫下時尚無結果**。
+- **v10 的其他失敗模式**：本對照只走到第一個致命點就結束了。
+  patch 修好之後 v10 會不會再死在別的地方，**沒有證據**。
+
+### 附帶結果（獨立於本對照，兩臂都沒用到）
+
+2026-08-27 深夜那輪 v10 `rc=0` 而 bmv2 沒建，log 指名原因：
+`[ -d behavioral-model ]` 命中前一輪殘留 ⇒ 跳過整個建置 ⇒ 印 `install: 0 sec` ⇒ 回 0。
+⇒ **使用者第一次失敗後直接重跑，會得到一個宣稱成功的半套安裝。**
+這條與 tty 對照無關，也與 v8/v10 之選無關，**對文件獨立成立**。
+
