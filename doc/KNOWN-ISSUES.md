@@ -389,6 +389,20 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ⚠️ **保留 15 秒可能是刻意的**（避免短流一閃即逝）。**缺陷在於端點沒有把它表達出來，不在保留本身。**
 
+**2026-08-28：規格揭露查核已完成**（[`03_spec-disclosure-check.md`](audit/2026-08-27_flow-table-idle-tail/03_spec-disclosure-check.md)）。
+判定規則事前寫在 `NEXT.md:25-30`，結果落在「**沒寫**」那一支 ⇒ 上面的措辭維持不變。查核同時定出兩件事：
+
+- 🔴 **文件不只是沒說，是說了相反的話。** §4 稱這個端點回傳 “all **active** flows”
+  （`doc/2026-01-02_ndt_api.md:358`）。所以這不是「規格沉默、實作自由發揮」，
+  是**規格做了宣稱而實作牴觸它**——可被引用來反駁 twin 讀數的等級。
+- 🔴 **同一個母體涵蓋兩個端點。** `get_detected_top_k_flow_data` 的
+  `getTopKFlowInfoJson` 直接呼叫 `getFlowInfoJson()`（`FlowLinkUsageCollector.cpp:2336`），
+  而後者走訪整張 `m_flowInfoTable` **無存活性過濾**（`:2291-2327`）；文件 2395 行用了字面相同的
+  “Top-K **active** flows”。**與既有的 top-k 殘影條目是不同的缺陷**：那條是速率**數值**沿用舊值，
+  這條是**母體**——速率全部正確歸零，那 92% 仍然會被列出來。
+- ✅ **修法契約相容**：`Obj` 的 `strict` 預設 False（`tools/contract_test/schema.py:129-138`），
+  新增一個存活性欄位不會讓契約測試變紅，不必先改契約。
+
 
 ## C. 靜默的正確性問題（不影響示範，影響可信度）
 
