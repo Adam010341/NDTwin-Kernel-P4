@@ -273,8 +273,21 @@ cmd_claim() {
     fi
     [[ "$mins" =~ ^[0-9]+$ ]] || { err "usage: ndt claim [minutes] [note]"; return 2; }
     mkdir -p "$(dirname "$CLAIM")"
-    printf 'owner=%s\nexpires=%s\nnote=%s\n' \
-        "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" > "$CLAIM"
+    # [Co-developed with claude code -- Adam]
+    # exclusive_cpu: the claim protects the fabric and the build, and until 2026-08-28 it
+    # protected nothing else. On that day a sibling session ran a 4-vCPU compile inside another
+    # session's six-arm measurement window without touching a single thing the claim covers --
+    # no build, no binary, no fabric. The contamination was asymmetric across the arms, which is
+    # exactly what the experiment's design could not absorb.
+    #
+    # This was ALREADY KNOWN: the memory note vm-on-this-machine-is-invisible-to-ndt-status says
+    # in as many words that a VM does not collide on the network but competes for CPU, RAM and
+    # I/O with nothing to tell anyone. Knowing was not a mechanism. So the declaration is only
+    # half of this change -- cmd_status reads it unconditionally and --check fails on it. A field
+    # nobody reads is the same failure in a new location.
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\n' \
+        "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
+        "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" > "$CLAIM"
     # [Co-developed with claude code -- Adam]
     # Claiming invalidates any handoff note. Adam ruled this after the 8/25 sampling session
     # argued it, and their argument is the right one: deletion has to be tied to taking
@@ -1140,6 +1153,39 @@ cmd_status() {
     esac
     local note; note="$(claim_field note)"
     [[ -n "$note" && "$cl" != none && "$cl" != EXPIRED* ]] && printf '  %-14s %s\n' "note" "$note"
+
+    # [Co-developed with claude code -- Adam]
+    # Printed UNCONDITIONALLY while a claim is live, and never behind a flag. The whole point of
+    # this line is to be seen by someone who was not looking for it -- a session about to start a
+    # VM or a compile, who has no reason to suspect a measurement is running. A field that only
+    # appears when you ask for it protects nobody.
+    #
+    # Declared AND actual, side by side. The declaration alone would repeat the failure it exists
+    # to prevent: on 2026-08-28 the claim was correct, honoured by everyone who read it, and the
+    # machine was still at load 30 because the contention came from something the claim did not
+    # describe. Showing load1 next to the declaration turns "I promised" into "and here is
+    # whether it held".
+    if [[ "$cl" != none && "$cl" != EXPIRED* ]]; then
+        local excl l1 ncpu
+        excl="$(claim_field exclusive_cpu)"; excl="${excl:-no}"
+        l1="$(cut -d' ' -f1 /proc/loadavg 2>/dev/null)"
+        ncpu="$(nproc 2>/dev/null || echo 1)"
+        if [[ "$excl" == yes ]]; then
+            # Threshold on load1 rather than CPU%: CPU occupancy saturates at 1.0, so once the
+            # machine is full it cannot report how full. load1 has no ceiling. Choosing the
+            # bounded quantity here is the mistake this line was written in response to.
+            if awk "BEGIN{exit !($l1 > $ncpu * 1.5)}" 2>/dev/null; then
+                printf '  %-14s %s\n' "exclusive cpu" \
+                    "${R:-}yes -- but load1 is $l1 on $ncpu cores, so it is NOT holding${N:-}"
+                problems+=("a measurement claimed exclusive CPU, but load1 is $l1 on $ncpu cores")
+            else
+                printf '  %-14s %s\n' "exclusive cpu" "yes (load1 $l1 on $ncpu cores -- holding)"
+            fi
+            printf '  %-14s %s\n' "" "🔴 do not start a VM, a compile, or any heavy local job"
+        else
+            printf '  %-14s %s\n' "exclusive cpu" "no (heavy local jobs may overlap this claim)"
+        fi
+    fi
 
     # Only when nobody holds the lab. While a claim is live the claim IS the answer, and a
     # stale handoff line beside it would be two voices on the same question.

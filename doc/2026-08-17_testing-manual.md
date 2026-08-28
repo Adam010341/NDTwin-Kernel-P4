@@ -623,6 +623,43 @@ NDT_OWNER=<你的名字> ndt release
 🔴 **claim 只擋 `ndt` 的動詞，擋不住裸指令。** 直接跑 `./bin/ndtwin_kernel` 或
 `ndtwin-lab topo-start` 一樣會撞進去。**它是約定不是鎖。**
 
+### 🔴 要獨佔 CPU 的量測：`NDT_EXCLUSIVE_CPU=1`（2026-08-28 新增）
+
+```bash
+NDT_OWNER=<你的名字> NDT_EXCLUSIVE_CPU=1 ndt claim 60 "六臂量測，不要開 VM"
+```
+
+**為什麼有這個欄位**：claim 保護 fabric 與 build，**從來不保護 CPU**。
+08-28 一個 session 在另一個 session 的六臂量測窗內跑 4 vCPU 編譯，
+**沒有碰 build、沒有碰 binary、沒有碰 fabric**——claim 涵蓋的東西一項都沒動——
+而污染在六個臂之間**不對稱**，正好是那個實驗設計唯一無法吸收的形狀。
+
+⚠️ **這件事當時記憶裡已經寫著了**（VM 不撞網路但搶 CPU/RAM/I-O，而沒有機制會通知別人）。
+**知道不等於有機制**，所以這個欄位**同時**做了兩件事：
+
+| | |
+|---|---|
+| **宣告** | `ndt claim` 寫 `exclusive_cpu=yes` |
+| **讀取** | `ndt status` **無條件**印出來（不是加旗標才印），並且**把宣告與實際並排** |
+
+`ndt status` 在有 claim 時一律顯示這一行，例如：
+
+```
+  exclusive cpu  yes (load1 3.2 on 14 cores -- holding)
+                 🔴 do not start a VM, a compile, or any heavy local job
+```
+
+實際負載超過 `1.5 × 核心數` 時改印 **`yes -- but load1 is N ... so it is NOT holding`**，
+並讓 **`ndt status --check` 失敗**。
+
+🔑 **只加欄位不加讀取端等於沒做**——那只是把同一個失效換一個位置重演。
+**門檻用 `load1` 不用 CPU%**：CPU 佔用率會在 1.0 飽和，機器滿了之後它就無法再表達有多滿；
+`load1` 沒有上界。08-28 那次正是因為主判準選了有上界的量而漏掉的
+（六臂 `busy_max` 全部 = 1.000，`Δbusy` 只有 0.005）。
+
+📌 **門檻是拿當初那次事故校準的**：block 1 的 `load1` 是 27–31，門檻 `1.5 × 14 = 21`
+⇒ **當時會被擋下來。**
+
 ---
 
 ## 3. 對跑著的 stack 驗契約（L2–L4）
