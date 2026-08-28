@@ -160,3 +160,80 @@ kernel 不在時會走「deferred」分支，但**標題已經印出去了** ⇒
 （本專案上一次把單臂讀數當成精度，付出的代價是 `10.9 SE` 其實是 `0.31`。）
 
 ---
+
+## F-8 🔴 **撤回**：我註冊的 chaos 差異臂預測，前半是反的——baseline 從來不保留陳舊速率
+
+`開機手冊` 更正（`06287c2`），**我自己複驗過才收下**（不是照單全收）：
+
+我在 `NEXT.md:53-54` 寫的：
+
+> baseline 的 `get_detected_top_k_flow_data` 在流量停止後 5–10 秒仍會回報非零、
+> 逐位元相同的速率；本分支會回報 0。
+
+**後半對，前半反了。**
+
+### 我自己跑的複驗
+
+```
+git show origin/main:src/.../FlowLinkUsageCollector.cpp   :1453-1459
+    if (hopsCounter == 0) {
+        // No active hop in this interval, so explicitly clear periodic rates.
+        info.estimatedFlowSendingRatePeriodically = 0;
+        info.estimatedPacketSendingRatePeriodically = 0;
+        continue;
+    }
+git merge-base --is-ancestor 31b357a HEAD  → YES    origin/main → no
+git merge-base --is-ancestor aabe605 HEAD  → YES    origin/main → no
+```
+
+| commit | 死流的 `_in_the_proceeding_1sec_timeslot` |
+|---|---|
+| `origin/main` | **清成 0**（一直都是） |
+| `31b357a`（本分支，07-27） | **保留舊值** ⇐ 除零守衛的 `continue` 跳過了清除 |
+| `aabe605`（本分支，08-20） | **清成 0**，修回來了 |
+
+⇒ **兩個分支今天都清成 0。差異臂原本要問的那件事，在碼上已經沒有差異。**
+
+### 🔑 誤讀是怎麼發生的：**我讀到註解的一半就停了**
+
+我引的依據是 `FLUC:1896-1910` 的註解，它**確實**記著實測
+「iperf3 結束後 5 秒與 10 秒仍回報逐位相同的 20.3 Mbps / 10496 pps」。
+
+**而同一段註解的最後一句是：**
+
+> **Introduced on this branch by the divide-by-zero guard (31b357a6), so it is ours to fix.**
+
+**那次量測量的是我們自己的壞窗口。** 我讀了量測、沒讀歸屬，
+於是「**我們造成的**」變成「**baseline 的性質**」。
+
+📌 這與記憶裡「**沒讀全文就叫別人讀**」是同一形狀，
+但更難防：**證據是真的、數字是真的、行號是對的**——錯的是**它屬於誰**。
+⇒ 這是 [[cited-line-numbers-are-not-evidence]] 的變體：**引到的行是真的，但那一行講的是另一個分支。**
+
+### 立刻的後果（三個）
+
+1. 🔴 **`NEXT.md:59` 我自己註冊的觸發條件已經滿足**（「若 baseline 沒有重現 ⇒ `d38d209`
+   裡整段對 baseline 的歸因要撤回」）。**baseline 在碼上就不會重現 ⇒ 那段現在就撤回，不必等臂。**
+   `d38d209` 的「嚴重度分支相依」**不成立**：兩個分支的死流速率都是 0。
+   ⚠️ `d38d209` 的**另一半**——「模擬器逐流消費這個端點」——**不受影響，仍然成立**。
+2. 🔴 **審查員的「加乘效應」不成立**：他推論「top-k 用保留舊值的欄位排序 ⇒ 死流搶進前 K」。
+   兩個分支都清成 0 ⇒ **死流排到最底**，不是搶進前面。
+3. **差異臂仍值得跑，但要換問題**（`開機手冊` 的版本，我同意）：
+   `getTopKFlowInfoJson` 取 `min(k, size)` 且**不過濾**（`FLUC:2347`、`k` 預設 50）
+   ⇒ **兩臂都應回約 50 筆、其中約 45 筆速率 0**。
+   **清單不是被死流「灌到前面」，是被屍體填滿**——那是 W 的**母體**問題，兩個分支都有。
+
+### ⚠️ 一個我**沒有**驗、但推論得到的
+
+baseline binary `3367d0e9` 的原始碼**應該**包含 `aabe605`（08-20），
+因為它是①／P／Q_T64（08-25 之後）量的那顆。**這是日期推論，不是實測。**
+若要當結論用，去驗那顆 binary 的來源 commit。
+
+### 📌 教訓（`開機手冊` 寫的，我原樣收下並加一句）
+
+> **要把兩個缺陷相乘之前，先確認兩個都還活著。**
+
+加一句：**兩個缺陷之一是我自己一小時前寫進預註冊的，而我沒有回去查它是否還活著。**
+預註冊保護的是「不要事後改判準」，**它不保護「當初寫下去的前提就是錯的」。**
+
+---
