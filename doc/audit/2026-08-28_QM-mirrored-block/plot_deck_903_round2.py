@@ -18,6 +18,33 @@ Run:
   "/home/adam/Desktop/NDTwin slide material/NDTwin Slide material 820/.plotvenv/bin/python3" \
       plot_deck_903_round2.py "<outdir>"
 
+THE INTERPRETER ABOVE IS THE ONE THAT WORKS, AND IT IS EASY TO CONCLUDE IT DOES NOT EXIST.
+    Verified 2026-08-28 19:4x: .plotvenv is Python 3.13.13 with matplotlib 3.11.1, numpy 2.5.2.
+    Two of us independently concluded "no interpreter on this machine can render these figures",
+    because we searched $PATH and the named conda/virtualenvs. A venv that is never activated is
+    on no PATH, so `compgen -c`, `which`, and a list of the lab envs all miss it -- while the
+    answer sat in this docstring, in the file we were about to run. Read the script before
+    hunting for its dependencies.
+
+    The `__pycache__/*.cpython-313.pyc` beside these scripts is NOT evidence that some
+    interpreter once had matplotlib. CPython writes the .pyc at compile time, before the module
+    body executes, so a module whose `import matplotlib` raises still leaves one behind
+    (verified directly). Both 3.13s here would produce the same filename, so it does not even
+    identify which.
+
+Crop fix (54551bc) verified by rendering, 2026-08-28, not by reading the diff:
+                                        bottom margin   ink on last pixel row
+    page_bandwidth-ceiling.png   before        0 px           0.1411   <- clipped
+                                 after        27 px           0.0000
+    page_M_cost-and-benefit.png  before       65 px           0.0000
+                                 after        65 px           0.0000
+    page_Q_assumed-denominator   before       28 px           0.0000   (plot_deck_903.py)
+    .png                         after       102 px           0.0000
+    So the fix is real, and it repaired exactly one figure. 54551bc's message says "Every
+    figure in the 9/03 deck was cut off at the bottom edge"; measured, one of the three was.
+    The other two gained margin they did not need. Left as-is -- the figures are correct now,
+    and the commit is public; only the message overstates.
+
 [Co-developed with claude code -- Adam]
 """
 import os
