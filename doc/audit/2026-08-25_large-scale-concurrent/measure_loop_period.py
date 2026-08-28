@@ -10,11 +10,23 @@ plus however long the body takes. If that is right, every reported rate is over-
 
 🔴 DO NOT COMPARE ACROSS ROUNDS. This docstring used to say the 1.227x and 1.193x measured on
 2026-08-25 should turn up here as a period of 1.19-1.23 s, and the tool used to print a verdict
-against exactly that. REPORT.md section 0 retracted that comparison, and 2026-08-27 then measured
-the quiet-arm period at 1043.9 ms in one fabric generation and 1001.7 ms in the next -- 42 ms
-apart, about seven times the rep spread, while the 14-burner arms of the same two generations
-agreed to within 3 ms. The period is a property of a generation AND a load, not of the binary.
-Compare arms measured in the same window; do not carry a period across a rebuild.
+against exactly that. REPORT.md section 0 retracted that comparison.
+
+It then said the quiet period was 1043.9 ms "in one fabric generation and 1001.7 ms in the next --
+42 ms apart", and concluded the period is a property of a GENERATION and a load. That is also
+retracted (60dcca6 retracted it in the printed footer and missed this docstring; 2026-08-28 found
+it still here). It compared ONE arm of generation 1 against ONE arm of generation 2, so the
+generation was aliased onto the arm. With the arm as the unit of replication:
+
+    gen 1 quiet arms   1043.9, 1016.7   mean 1030.3   the two are 27.2 ms apart
+    gen 2 quiet arms   1001.7, 1043.3   mean 1022.5   the two are 41.6 ms apart
+    delta 7.8 ms, between-arm SE 24.9, delta/SE = 0.31  -- no generation effect established
+
+The surviving fact is smaller and more useful: **two quiet arms of the SAME generation differ by
+27-42 ms**, measured twice. Load has not been shown to exceed that either -- 16 flows, 64 flows
+and 16+B14 all sat inside one between-arm spread. So the period is a property of the ARM, and an
+arm is what you have to replicate. Compare arms measured in the same window; do not carry a
+period across a rebuild; and do not read agreement finer than ~40 ms as precision.
 
 HOW. The loop writes usage for every edge once per iteration, so a loaded edge's value CHANGES on
 a step function whose width is the period. Poll faster than the loop and time the steps. No
