@@ -61,6 +61,12 @@ EXPECT_DIVISOR = 7           # raw/Q_Q1.divisor: seven live checks, matching the
 
 
 # --------------------------------------------------------------------------------- parsing
+def _git(*args):
+    """git stdout, stripped; None if the command failed."""
+    p = subprocess.run(["git", "-C", REPO, *args], capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
 def _read(path):
     """Read a source file, but refuse unless git can hand the same bytes back.
 
@@ -70,16 +76,53 @@ def _read(path):
     would have deleted the evidence behind the headline number while the slide kept asserting
     it was safe. So the caption is now enforced here instead of written by hand: an untracked
     source cannot be plotted at all.
+
+    [Co-developed with claude code -- Adam]
+    2026-08-28: this guard and the pre-commit hook added in f1df56e were mutually exclusive,
+    and each was right on its own. The hook refuses doc/audit/*/raw*/* on any branch but
+    audit-raw; this guard demanded the cited readouts be tracked on the working branch. The Q
+    figures could not be rendered from a clean checkout at all, and the remediation text below
+    still told the reader to `git add -f`, a path the hook had just closed. 54551bc got the
+    deck out by staging without committing, which is a workaround: the bytes were in nobody's
+    history, so the very failure this guard exists to prevent was live while the guard passed.
+
+    Resolved by asking what the guard is FOR rather than what it did. Its purpose is that a
+    `git clean -fd` must not be able to destroy the evidence behind a plotted number -- that
+    the bytes are recoverable from history by someone else. Tracked-on-this-branch was one way
+    to satisfy that; committed-on-audit-raw is another, and it is where the raw now lives by
+    rule. So either is accepted.
+
+    The audit-raw arm compares CONTENT, not existence: it hashes the file being plotted and
+    requires that hash to equal the blob stored at the same path on audit-raw. Existence alone
+    would let a locally edited file be plotted while the footnote pointed at a stale copy that
+    says something else -- a citation that resolves to the wrong bytes is worse than one that
+    fails to resolve, because it renders and looks right.
     """
     rel = os.path.relpath(path, REPO)
-    tracked = subprocess.run(["git", "-C", REPO, "ls-files", "--error-unmatch", "--", rel],
-                             capture_output=True, text=True).returncode == 0
-    assert tracked, (
-        f"{rel} is not tracked by git, so the figure cannot claim it as a source.\n"
-        f"  git add -f -- {rel}\n"
-        f"(-f because doc/audit/*/raw*/* is gitignored; the readouts a slide cites are the "
-        f"documented exception -- see 8c9e841, which force-added the M pre-flight readout "
-        f"for exactly this reason.)")
+
+    if _git("ls-files", "--error-unmatch", "--", rel) is not None:
+        pass                                            # tracked here: unchanged, the common case
+    else:
+        local = _git("hash-object", "--", path)
+        stored = _git("rev-parse", f"audit-raw:{rel}")
+        if stored is None:
+            raise AssertionError(
+                f"{rel} is not tracked on this branch and is not on audit-raw, so the figure\n"
+                f"cannot claim it as a source. Raw belongs on audit-raw:\n"
+                f"    git worktree add /tmp/rawwt audit-raw\n"
+                f"    mkdir -p /tmp/rawwt/{os.path.dirname(rel)} && cp {rel} /tmp/rawwt/{rel}\n"
+                f"    git -C /tmp/rawwt add -A doc && git -C /tmp/rawwt commit\n"
+                f"    git worktree remove /tmp/rawwt\n"
+                f"(NOT `git add -f` -- the pre-commit hook from f1df56e refuses raw on this "
+                f"branch, and that is deliberate.)")
+        if local != stored:
+            raise AssertionError(
+                f"{rel} differs from the copy committed on audit-raw.\n"
+                f"  plotting: {local}\n"
+                f"  audit-raw: {stored}\n"
+                f"The figure would cite bytes that nobody can retrieve. Commit the current file "
+                f"to audit-raw, or plot the stored one -- do not caption the difference away.")
+
     with open(path, encoding="utf-8", errors="replace") as fh:
         return fh.read()
 
