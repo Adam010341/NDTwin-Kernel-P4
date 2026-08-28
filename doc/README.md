@@ -67,6 +67,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 
 | 檔案 | 地位 | 下一步是誰 |
 |---|---|---|
+| [2026-08-29_bmv2-performance-study.md](2026-08-29_bmv2-performance-study.md) | **草稿（現役維護中）** | related work／方法／效度定稿；**§4 的 ③ 已填**（兩臂單調、區間作廢＝結果，`387d3ea`）；**①② 空位待收案**；之後是 Adam 的 full paper 底稿 |
 | [2026-08-16_delivery-package/](2026-08-16_delivery-package/) | **待轉交** | **Adam**：NTG 三條給 NTG 維護者、手冊條目與三條勘誤給 patty。三檔已定稿、內部前言已移除 |
 | [2026-08-15_ntg-upstream-report-draft.md](2026-08-15_ntg-upstream-report-draft.md) | 草稿（原稿） | 乾淨版在投遞包裡；這份保留內部前言 |
 | [2026-08-15_bmv2-performance-build-public-manual-draft.md](2026-08-15_bmv2-performance-build-public-manual-draft.md) | 草稿（原稿） | 同上 |

@@ -106,6 +106,13 @@ curve with the same apparent precision.
 one exact match is unremarkable. It is recorded because it is the cell that fires the abandon
 criterion.
 
+> 📌 **08-29 auditor restatement (recorded by the report session; same numbers, stronger frame):**
+> in ladder-rung terms the five cells differ by **at most one rung** (n=2: zero rungs). "1.5–2×"
+> *is* the distance between adjacent marks on this ×1.5 ladder, not a noise magnitude. ⇒ **The two
+> arms agree within instrument resolution; the ladder's coarseness is the error bar (±1 rung).**
+> The paragraph above stands, with its reason replaced: a single arm is not imprecise — it simply
+> cannot resolve past ±1 rung, so a single-arm curve carries false apparent precision.
+
 ---
 
 ## 5. AMENDMENT-3: the registered prediction about the §6 gate was confirmed
