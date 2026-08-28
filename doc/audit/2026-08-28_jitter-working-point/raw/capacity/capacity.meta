@@ -1,7 +1,0 @@
-drop_onset_mbit=160
-last_clean_mbit=80
-loss_threshold_pct=1.0
-step_s=8
-ladder=5 10 20 40 80 160 320 640 1280
-working_point_lo_mbit=56
-working_point_hi_mbit=64

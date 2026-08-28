@@ -1,6 +1,14 @@
-# Raw artifacts live on the `audit-raw` orphan branch, not here.
-#   git show audit-raw:doc/audit/2026-08-22_settle-gate-acceptance/raw/<file>
-# Untracked deliberately: they are ~166k lines that belong in the evidence trail, not in a
-# pull request diff. They are NOT regenerable -- do not "clean" this directory.
+# Raw artifacts are not tracked on a working branch. They live on the `audit-raw` orphan branch.
+#
+#   git ls-tree -r --name-only audit-raw -- <this directory>/    # what is preserved
+#   git show audit-raw:<this directory>/<file>                   # read one
+#
+# That first command is here instead of a sentence stating where this round's raw is, because
+# such a sentence goes stale the moment someone adds a round and forgets to move its raw --
+# which is what put 128 files back onto a working branch after two earlier sweeps. Ask git.
+#
+# If the ls-tree comes back empty, this round's raw exists in this directory and nowhere else.
+# Some rounds are instead preserved as a committed .tar.gz beside their round directory. Either
+# way it is evidence, it is not regenerable, and it must not be "cleaned".
 *
 !.gitignore

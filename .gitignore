@@ -59,12 +59,17 @@ doc/audit/**/raw/*_server.log
 # names start with raw, and nothing else.
 doc/audit/*/raw*/*
 !doc/audit/*/raw*/.gitignore
+#
+# A pattern here is advice, not a gate: `git add -f` walks straight past it, and 44 commits did
+# exactly that. The gate is tools/githooks/pre-commit, which refuses raw on any branch but
+# audit-raw. Install it with tools/githooks/install.sh -- an uninstalled hook enforces nothing.
 doc/audit/2026-08-25_sampling-rounds/ladder_ext.log
 doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
 # Ticket G: 245 py-spy dumps, 15 MB uncompressed. The tarball beside it is committed.
-doc/audit/2026-08-25_sampling-rounds/raw_gil/
+# These three used to be listed as directories (`raw_gil/`), which is redundant with the `raw*`
+# rule above and had one side effect: ignoring the directory stops git descending into it, so
+# the `!.gitignore` exception could never fire and these three rounds were the only ones whose
+# raw/ carried no note saying where their artifacts went. Dropped in favour of the general rule.
 doc/audit/2026-08-25_sampling-rounds/gil_g.log
-doc/audit/2026-08-25_sampling-rounds/raw_h/
 doc/audit/2026-08-25_sampling-rounds/h_probe.log
-doc/audit/2026-08-25_sampling-rounds/raw_n/
 doc/audit/2026-08-25_sampling-rounds/*.log
