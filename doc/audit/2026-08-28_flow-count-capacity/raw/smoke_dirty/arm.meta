@@ -1,0 +1,17 @@
+arm=smoke_dirty
+n_flows=1
+started=2026-08-28 19:53:45 +0800
+ladder=640
+step_s=3
+clean_pct=0.5
+amb_band=0.2-1.0
+host_pair=h1->h65 (10.0.0.65), distinguished by port
+kernel_sha256_start=a40e04ce
+switch_binary=/usr/local/bmv2-fast/bin/simple_switch_grpc
+switch_count=10
+highest_clean_per_flow_mbit=none
+aggregate_clean_mbit=none
+ladder_truncated_at=not-truncated
+kernel_sha256_end=a40e04ce
+finished=2026-08-28 19:53:49 +0800
+load1_max=4.90

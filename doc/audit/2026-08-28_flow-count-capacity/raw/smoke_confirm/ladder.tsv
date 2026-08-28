@@ -1,0 +1,3 @@
+rate_mbit	reps	loss_scored	loss_reps	agg_sent	agg_recv	clean
+45	3	0.0000	0.1328,0.0000,0.0000	44.98	44.95	yes
+160	3	0.1354	0.0443,0.4085,0.1354	159.93	159.58	yes

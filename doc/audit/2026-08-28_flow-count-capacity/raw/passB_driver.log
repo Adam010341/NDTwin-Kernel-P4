@@ -1,0 +1,113 @@
+############ P1-3 begins 2026-08-29 00:35:30 ############
+pre-run context (disclosed, not hidden):
+  agy_instances=0  agy_cpu_total=0.0%
+  load1=1.02
+  bmv2=10  kernel=1
+
+===== arm 1/5 : n=16 pass B =====
+### P1-3 arm n16_b  n=16  h1->h65  step 8s  clean<=0.5%  00:35:31
+      1 M/flow  reps 1  loss   0.0000%  agg_sent    16.01  agg_recv    16.00  clean=yes
+      2 M/flow  reps 3  loss   0.9797%  agg_sent    32.01  agg_recv    31.67  clean=no
+      3 M/flow  reps 1  loss   4.5264%  agg_sent    48.00  agg_recv    45.94  clean=no
+      5 M/flow  reps 1  loss  14.3337%  agg_sent    79.99  agg_recv    69.56  clean=no
+      8 M/flow  reps 1  loss  46.1767%  agg_sent   127.99  agg_recv    71.90  clean=no
+     12 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+     20 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+     30 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+     45 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+     70 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+    110 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+    160 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+    240 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+  ✅ confirmed 1M  reps 0.0000,0.0000,0.2797  median 0.0000% <= 0.5%
+### n16_b done  highest clean 1 M/flow  =>  aggregate 16.0 Mbit
+### busy_fraction 0.4533  (gate: rerun if > median arm + 0.15 absolute -- decided across arms, not here)
+
+===== arm 2/5 : n=8 pass B =====
+### P1-3 arm n8_b  n=8  h1->h65  step 8s  clean<=0.5%  00:41:48
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     8.01  agg_recv     8.01  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent    16.00  agg_recv    16.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    24.00  agg_recv    23.99  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    40.00  agg_recv    39.98  clean=yes
+      8 M/flow  reps 3  loss   0.0175%  agg_sent    63.99  agg_recv    63.80  clean=yes
+     12 M/flow  reps 3  loss   0.7467%  agg_sent    95.99  agg_recv    95.45  clean=no
+     20 M/flow  reps 1  loss   7.6024%  agg_sent   159.99  agg_recv   149.19  clean=no
+     30 M/flow  reps 1  loss  30.2562%  agg_sent   239.98  agg_recv   171.73  clean=no
+     45 M/flow  reps 1  loss  55.1929%  agg_sent   359.94  agg_recv   165.75  clean=no
+  ⚠️  two consecutive rungs above 25% loss -- stopping the climb at 45M.
+     Rungs above 45M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 8M  reps 0.1400,0.8225,0.0525  median 0.1400% <= 0.5%
+### n8_b done  highest clean 8 M/flow  =>  aggregate 64.0 Mbit
+### busy_fraction 0.7044  (gate: rerun if > median arm + 0.15 absolute -- decided across arms, not here)
+
+===== arm 3/5 : n=4 pass B =====
+### P1-3 arm n4_b  n=4  h1->h65  step 8s  clean<=0.5%  00:44:35
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     4.00  agg_recv     4.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     8.00  agg_recv     8.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    12.00  agg_recv    12.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    20.00  agg_recv    20.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent    32.00  agg_recv    31.99  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    47.99  agg_recv    47.99  clean=yes
+     20 M/flow  reps 3  loss   0.0000%  agg_sent    79.99  agg_recv    79.96  clean=yes
+     30 M/flow  reps 3  loss   0.0140%  agg_sent   119.99  agg_recv   119.95  clean=yes
+     45 M/flow  reps 3  loss   0.1058%  agg_sent   179.97  agg_recv   179.68  clean=yes
+     70 M/flow  reps 3  loss   1.7442%  agg_sent   279.96  agg_recv   276.59  clean=no
+    110 M/flow  reps 1  loss  25.7488%  agg_sent   439.94  agg_recv   379.37  clean=no
+    160 M/flow  reps 1  loss  49.0781%  agg_sent   639.91  agg_recv   402.19  clean=no
+  ⚠️  two consecutive rungs above 25% loss -- stopping the climb at 160M.
+     Rungs above 160M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45M  reps 0.0716,0.1960,0.1462  median 0.1462% <= 0.5%
+### n4_b done  highest clean 45 M/flow  =>  aggregate 180.0 Mbit
+### busy_fraction 0.4504  (gate: rerun if > median arm + 0.15 absolute -- decided across arms, not here)
+
+===== arm 4/5 : n=2 pass B =====
+### P1-3 arm n2_b  n=2  h1->h65  step 8s  clean<=0.5%  00:48:24
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     2.00  agg_recv     2.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     4.00  agg_recv     4.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent     6.00  agg_recv     6.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    10.00  agg_recv    10.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent    16.00  agg_recv    16.00  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    24.00  agg_recv    24.00  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent    40.00  agg_recv    39.99  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent    59.99  agg_recv    59.99  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent    89.99  agg_recv    89.98  clean=yes
+     70 M/flow  reps 3  loss   0.0360%  agg_sent   139.98  agg_recv   139.84  clean=yes
+    110 M/flow  reps 3  loss   0.0827%  agg_sent   219.97  agg_recv   219.74  clean=yes
+    160 M/flow  reps 3  loss   0.3710%  agg_sent   319.95  agg_recv   318.72  clean=yes
+    240 M/flow  reps 1  loss  20.5070%  agg_sent   479.93  agg_recv   384.57  clean=no
+  ⚠️  160M FAILED confirmation (median 0.7710% > 0.5%) -- walking down
+  ✅ confirmed 110M  reps 0.1082,0.1489,0.1731  median 0.1489% <= 0.5%
+### n2_b done  highest clean 110 M/flow  =>  aggregate 220.0 Mbit
+### busy_fraction 0.3552  (gate: rerun if > median arm + 0.15 absolute -- decided across arms, not here)
+
+===== arm 5/5 : n=1 pass B =====
+### P1-3 arm n1_b  n=1  h1->h65  step 8s  clean<=0.5%  00:52:31
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     1.00  agg_recv     1.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     2.00  agg_recv     2.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent     3.00  agg_recv     3.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent     5.00  agg_recv     5.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent     8.00  agg_recv     8.00  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    12.00  agg_recv    12.00  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent    20.00  agg_recv    20.00  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent    30.00  agg_recv    29.99  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent    44.99  agg_recv    44.99  clean=yes
+     70 M/flow  reps 1  loss   0.0000%  agg_sent    69.99  agg_recv    69.98  clean=yes
+    110 M/flow  reps 3  loss   0.3399%  agg_sent   109.98  agg_recv   109.47  clean=yes
+    160 M/flow  reps 3  loss   0.0403%  agg_sent   159.97  agg_recv   159.88  clean=yes
+    240 M/flow  reps 3  loss   0.2369%  agg_sent   239.96  agg_recv   239.37  clean=yes
+  ✅ confirmed 240M  reps 0.8518,0.2089,0.0980  median 0.2089% <= 0.5%
+### n1_b done  highest clean 240 M/flow  =>  aggregate 240.0 Mbit
+### busy_fraction 0.2048  (gate: rerun if > median arm + 0.15 absolute -- decided across arms, not here)
+
+############ P1-3 arms complete 2026-08-29 00:56:10 ############
+cell     arm        clean_perflow aggregate      busy_fraction
+n=1      a          160          160.0          0.1987
+n=1      b          240          240.0          0.2048
+n=2      a          110          220.0          0.3643
+n=2      b          110          220.0          0.3552
+n=4      a          30           120.0          0.4606
+n=4      b          45           180.0          0.4504
+n=8      a          5            40.0           0.7134
+n=8      b          8            64.0           0.7044
+n=16     a          2            32.0           0.4465
+n=16     b          1            16.0           0.4533

@@ -1,0 +1,20 @@
+arm=n1_a
+n_flows=1
+started=2026-08-28 20:15:15 +0800
+ladder=1 2 3 5 8 12 20 30 45 70 110 160 240
+step_s=8
+clean_pct=0.5
+rep_rule=nonzero-to-2.0pct => 3 reps median; exact 0.0000 => 1 rep (AMENDMENT-2 11.1)
+host_pair=h1->h65 (10.0.0.65), distinguished by port
+kernel_sha256_start=a40e04ce
+switch_binary=/usr/local/bmv2-fast/bin/simple_switch_grpc
+switch_count=10
+highest_clean_per_flow_mbit=160
+aggregate_clean_mbit=160.0
+ladder_truncated_at=not-truncated
+top_rung_confirmation=160:0.0788,0.3019,0.1041=>0.1041 
+kernel_sha256_end=a40e04ce
+finished=2026-08-28 20:18:35 +0800
+busy_fraction=0.1987
+load1_max=5.02  # pre-screen only, not a gate
+samples=100

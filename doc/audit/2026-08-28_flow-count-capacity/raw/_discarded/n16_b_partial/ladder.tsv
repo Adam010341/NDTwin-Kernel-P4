@@ -1,0 +1,9 @@
+rate_mbit	reps	loss_scored	loss_reps	agg_sent	agg_recv	clean
+1	1	0.0000	0.0000	16.02	16.00	yes
+2	3	0.5598	0.5598,0.6298,0.3499	32.01	31.85	no
+3	1	2.1465	2.1465	48.00	47.10	no
+5	1	10.5263	10.5263	80.00	72.30	no
+8	1	25.7788	25.7788	127.98	94.06	no
+12	1	-1	-1	-1	-1	NO_MEASUREMENT
+20	1	-1	-1	-1	-1	NO_MEASUREMENT
+30	1	-1	-1	-1	-1	NO_MEASUREMENT
