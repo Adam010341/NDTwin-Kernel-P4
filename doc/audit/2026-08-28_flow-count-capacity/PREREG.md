@@ -192,3 +192,123 @@ exists to have suggested one. It changes only how a single rung is scored, in th
 more evidence per decision.
 
 **[Co-developed with claude code -- Adam]**
+
+---
+
+## 11. AMENDMENT-2 — registered 2026-08-28 ~20:0x by `8/28 mainDev`, still before any arm data
+
+Two tightenings required by `8/28 auditor` on AMENDMENT-1, plus three cross-checks found in
+08-15 material that nobody had used. **No cell of this round has been measured.** The only traffic
+this instrument has sent is four labelled runs in `raw/smoke_*` — instrument validation, not cells.
+
+### 11.1 The ambiguous band was reverse-engineered. Replacing it with a rule that has no tunable edge.
+
+AMENDMENT-1 set the band at 0.2%–1.0%. The auditor's objection is correct and the arithmetic is
+worse than the objection states:
+
+| | ratio |
+|---|---|
+| measured within-rung spread at 160M (0.0665 / 0.3579 / 0.5006) | **7.53×** |
+| AMENDMENT-1's band (0.2 → 1.0) | 5× |
+
+**The measured noise is wider than the band meant to contain it**, and the band's edges were placed
+by looking at where 160M's three reps happened to land — using a result to set a rule, even though
+the data is old.
+
+But the 100M triple shows the deeper problem: **0.0000 / 0.3892 / 0.0238**. One rep at that rung
+lost *no datagram at all* while another lost 0.389%. A spread that includes an exact zero is not
+multiplicative, so **no ratio-based band can be derived from it**, and widening 0.2 to 0.1 would
+just be a smaller arbitrary edge.
+
+⇒ **Registered rule, replacing AMENDMENT-1's band:**
+
+> **Any rung whose first rep reports loss > 0.0000% is repeated to three reps and scored on the
+> median. Only an exact 0.0000% — not one datagram lost — is settled by a single rep.**
+> Above **2.0%** a single rep stands and the rung is dirty.
+
+**Why an exact zero is the one reading a single draw can settle:** it is the only value on this
+scale with a hard physical floor. Every nonzero reading on this fabric sits in a distribution
+whose observed within-rung span reaches 0.5006 at a rung that is genuinely clean, so no nonzero
+reading is licensed as "safely far from 0.5%". This removes the tunable lower edge rather than
+choosing a defensible value for it, and it is strictly more replication than either
+AMENDMENT-1 or the auditor's suggested widening.
+
+**Why 2.0% at the top is not the same kind of arbitrary:** the largest within-rung spread observed
+anywhere is 0.5 percentage points *absolute*. A rung reading above 2.0% would have to move four
+times that to reach the threshold. The cost of being wrong there is also asymmetric — a rung
+misclassified as dirty cannot become the *highest clean rung*, which is the only quantity extracted.
+
+#### 11.1(b) — the hole in the rule above, found while validating it, and closed
+
+Validating this rule, 160 M/flow at n=1 read **exactly 0.0000%** — while the three reps of the
+same rung in `capacity_interleave` read 0.0665 / 0.3579 / 0.5006. **An exact zero and a 0.5006
+come from the same rung.** So "zero has a hard physical floor" justifies that *no datagram was
+lost on that draw*; it does **not** establish that the rung's median is safely below 0.5%.
+
+That hole can only change the answer in one place: the rung finally reported as the **highest
+clean** one. A rung wrongly called clean lower down is invisible — a higher clean rung supersedes
+it. A rung wrongly called clean at the top *is* the answer.
+
+⇒ **Registered:** the rung finally reported as the highest clean rung is **re-confirmed with three
+reps and scored on the median, regardless of its first reading.** If the confirmation fails, the
+ladder walks down to the next clean candidate and confirms that one. Both the first reading and
+the confirmation are recorded, so a disagreement between them is visible rather than overwritten.
+
+Cost is two extra reps per arm. This closes the hole at the only rung where it can alter the
+result, rather than paying three reps at every zero-reading rung.
+
+### 11.2 The load gate measures the wrong quantity. Switching to the one §6 already collects.
+
+**Decision: option B.** Registered now, before any arm data.
+
+The auditor measured, independently and with `/proc/<pid>/stat` differencing rather than `ps`
+lifetime averages: total CPU across the `agy` instances was **209.3%** while `load1` read **6.11**.
+This machine has **14 cores** (`nproc` = 14, verified here). 209.3% of 14 cores is ~15% utilisation
+with twelve cores idle.
+
+`load1` counts uninterruptible sleep and is a one-minute decaying average ⇒ **lagging and
+composite**. On a 14-core box `load1 max > 3.0` measures neither "is the machine busy now" nor
+"how busy".
+
+⇒ **The gate becomes the in-window busy fraction from `/proc/stat` deltas — the quantity §6 was
+already sampling every 2 s.** §6's *relative* clause is retained verbatim: an arm is rerun if its
+in-window busy fraction exceeds the median arm's by more than **0.15 absolute**. The absolute
+`load1 > 3.0` clause is **withdrawn**; `load1` is still recorded in `arm.meta` as a coarse
+pre-screen, and is no longer a gate.
+
+🔴 **The reason this is not "moving a threshold because it blocked me"**, which would be the worst
+possible justification: the absolute clause would have fired on **the arm's own forwarding load**.
+This round's premise is that bmv2's bottleneck is per-packet CPU, so an arm pushing 160 Mbit
+through ten software switches raises `load1` *by working correctly*. A gate that fires on the
+signal it exists to protect cannot discriminate contamination from operation. That defect holds
+whether or not the gate is currently in my way — and at the moment of this decision it is **not**:
+`load1` is 2.53 with zero `agy` running, so both option A and option B permit the run to start.
+
+### 11.3 Three things found in 08-15 material, recorded before the run
+
+The auditor flagged that the receiver-bottleneck sweep's candidate list came from a keyword grep,
+so rounds whose prose avoids those words were never in it. `doc/2026-08-15_bmv2-performance-report.md`
+is one such round.
+
+1. ✅ **The receiver control §5 asks for already exists.** Loopback h1→h1 measured **42.4 Gbps**
+   (stock) and **63.5 Gbps** (bmv2-fast) — roughly 400× above the top of this ladder. §5's
+   receiver null check should **cite this**, not re-derive it.
+
+2. 🔴 **A landmine for §5's interface readout.** That round measured loss occurring *inside the
+   bmv2 process's input buffer*, where a per-interface drop counter cannot see it: h1 sent 89,296,
+   `s1-eth3` RX recorded 89,296 with zero interface-level loss and zero packet-socket movement,
+   while `s1-eth1` TX was only 33,456. ⇒ **§5's `/proc/net/dev` readout is only informative read as
+   ingress-port RX versus egress-port TX on the same switch.** Read as per-interface drops it
+   reports zero while a third of the traffic is disappearing. The runner captures both sides; the
+   analysis must pair them, and this round's report must state which pairing it used.
+
+3. ⚠️ **A cross-check to explain, not to reconcile against.** That round put bmv2-fast's UDP
+   zero-loss point at **300 Mbps** (1400 B, 3-hop h1→h2, **4-host** fabric); today's anchor is
+   ~160 Mbit (2-hop h1→h65, **128-host** fabric). Same binary family, different fabric size and
+   path length. This is registered as an **open observation**: if the 128-host fabric roughly halves
+   single-flow capacity, that is a table-occupancy effect, which is precisely the confound §2 avoids
+   by separating flows with ports rather than host pairs. **It is not a number this round's n=1 cell
+   is required to agree with**, and agreement or disagreement with it proves nothing on its own —
+   the same rule §1 applies to the 12 Mbit figure.
+
+**[Co-developed with claude code -- Adam]**
