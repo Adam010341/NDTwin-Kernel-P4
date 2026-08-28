@@ -1,0 +1,77 @@
+### block 2 arms  flow_s=70 churn_s=40 poll=10Hz  start 2026-08-28 09:25:21
+--- poll-only baseline (no traffic, 60 s) ---
+  path-latency: 0 flows, 0 never got a path, 0 left-censored; polls 600 (0 failed), gap median 0.1001s p95 0.1001s max 0.1002s
+
+############ S_B1  binary=3367d0e9  09:26:21 ############
+=== old kernel: pid 1070106 ===
+  running sha256: a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7
+  dead
+=== starting from /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel ===
+  on-disk sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  new pid: 1567801
+  running sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  ok  binary under measurement matches the one requested
+=== waiting for :8000 ===
+=== waiting for the model to agree with the fabric ===
+  t+5s: edges=288 down=0 ipv4=128
+       paths=16256 (want 16256)
+  ok  converged
+  waiting for steady flows...
+  steady flows up at 09:26:29
+  churn: 40 s, batch 2 every 5 s, seed 20260828
+  churn: flows that MOVED DATA: 16  failed: 0  total: 51 MB
+    path-latency: 61 flows, 0 never got a path, 20 left-censored; polls 678 (0 failed), gap median 0.1001s p95 0.1178s max 0.2798s
+  ok  baseline: no divisor instrument (ABSENT, not a pass)
+  T: period: 1.0396 s over 28 gaps
+  settling 5s
+
+############ S_M2  binary=a40e04ce  09:28:21 ############
+=== old kernel: pid 1567801 ===
+  running sha256: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  dead
+=== starting from /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel ===
+  on-disk sha256: a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7
+  new pid: 1582562
+  running sha256: a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7
+  ok  binary under measurement matches the one requested
+=== waiting for :8000 ===
+=== waiting for the model to agree with the fabric ===
+  t+5s: edges=288 down=0 ipv4=128
+       paths=16256 (want 16256)
+  ok  converged
+  waiting for steady flows...
+  steady flows up at 09:28:29
+  churn: 40 s, batch 2 every 5 s, seed 20260828
+  churn: flows that MOVED DATA: 16  failed: 0  total: 57 MB
+    path-latency: 65 flows, 0 never got a path, 19 left-censored; polls 670 (0 failed), gap median 0.1001s p95 0.1177s max 0.4745s
+  ✅ GATE: 3/3 live, worst 0.0000% (<= 1%)
+  T: period: 1.0242 s over 28 gaps
+  settling 5s
+
+### all 2 arms done at 2026-08-28 09:30:20
+==============================================================================
+READ-OUT -- PREREG section 9. Arms present: none yet
+==============================================================================
+
+arm  cond     T (ms)    host->switch    switch->host  switch->switch  M lat (s)  never
+B1   base         --              --              --              --         --     --
+Q2   Q            --              --              --              --         --     --
+M3   M            --              --              --              --         --     --
+M4   M            --              --              --              --         --     --
+Q5   Q            --              --              --              --         --     --
+B6   base         --              --              --              --         --     --
+
+--- drift meter (base arms at positions 1 and 6) ---
+  both base arms not yet run
+
+--- ticket Q ---
+
+--- ticket M (t_first_path - t_first_seen) ---
+  Q     no arm yet
+  M     no arm yet
+
+--- linearity diagnostic (5:3:1), PREREG 1-bis: NOT a gate ---
+
+--- detection latency (twin first sees a flow) -- never measured before, reported only ---
+  IDLE BASELINE (no traffic): gap median 0.1001s p95 0.1001s max 0.1002s, 0/600 failed
+  => compare against the arms above: if the arms are slower, the 10 Hz poller is contending with the workload on a northbound API that serves one request at a time.
