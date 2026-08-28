@@ -26,6 +26,7 @@ distinction rather than leaving it to the speaker.
 """
 import os
 import re
+import subprocess
 import sys
 import textwrap
 
@@ -61,6 +62,24 @@ EXPECT_DIVISOR = 7           # raw/Q_Q1.divisor: seven live checks, matching the
 
 # --------------------------------------------------------------------------------- parsing
 def _read(path):
+    """Read a source file, but refuse unless git can hand the same bytes back.
+
+    Two of these figures print "Source: ..., committed" in their footnote. That was a claim,
+    not a check, and it was false for both Q panels: drive_Q.log had never been `git add`ed,
+    and raw/*.divisor is excluded by .gitignore:60 (`doc/audit/*/raw*/*`). A `git clean -fd`
+    would have deleted the evidence behind the headline number while the slide kept asserting
+    it was safe. So the caption is now enforced here instead of written by hand: an untracked
+    source cannot be plotted at all.
+    """
+    rel = os.path.relpath(path, REPO)
+    tracked = subprocess.run(["git", "-C", REPO, "ls-files", "--error-unmatch", "--", rel],
+                             capture_output=True, text=True).returncode == 0
+    assert tracked, (
+        f"{rel} is not tracked by git, so the figure cannot claim it as a source.\n"
+        f"  git add -f -- {rel}\n"
+        f"(-f because doc/audit/*/raw*/* is gitignored; the readouts a slide cites are the "
+        f"documented exception -- see 8c9e841, which force-added the M pre-flight readout "
+        f"for exactly this reason.)")
     with open(path, encoding="utf-8", errors="replace") as fh:
         return fh.read()
 
