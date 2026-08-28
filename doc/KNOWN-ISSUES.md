@@ -622,6 +622,30 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
 
 ## E-2. 潛伏：一個旗標之遙的靜默故障
 
+### 🔴 `getTopKFlowInfoJson` 對同一個 `std::shared_mutex` 遞迴取 shared lock
+
+- **狀態**：**潛伏**。依 C++ 標準是**未定義行為**，但在目前的執行環境下**不會卡死**，
+  所以**不宣稱它是活的缺陷**。列在這裡是因為變成缺陷的條件是具名且可驗的。
+- **碼**：`FlowLinkUsageCollector.cpp:2335` 取 `shared_lock(m_flowInfoTableMutex)`，
+  下一行 `:2336` 呼叫的 `getFlowInfoJson()` **對同一個 mutex 再取一次**（`:2293`）。
+  `m_flowInfoTableMutex` 是 `std::shared_mutex`（`FlowLinkUsageCollector.hpp:387`），
+  同一個 mutex 上有 **5 個 writer** 取 `unique_lock`（`:1486 :1822 :2109 :2272 :2924`）。
+- **為什麼現在不咬人**：glibc 的 `pthread_rwlock` 預設是 `PTHREAD_RWLOCK_PREFER_READER_NP`，
+  reader 不會為等待中的 writer 讓路，所以同執行緒遞迴 rdlock 會成功。
+- 🔴 **會變成缺陷的條件（具名、可測）**：
+  1. rwlock 種類改成 writer 優先（`PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP`），或
+  2. libstdc++ 換成 condvar 版的 `shared_mutex` 實作（未定義 `_GLIBCXX_USE_PTHREAD_RWLOCK_T` 時）
+  ⇒ 兩者之一成立時，**writer 卡在兩次 shared 取得之間就會自我死鎖**。
+- 🔑 **一旦卡死就是整顆 API 卡死，不是一個端點**：北向 API 一次只服務一個請求
+  （見 memory `northbound-api-serialises`），所以一條卡住的處理執行緒會佔住整個伺服器。
+- **修法**：把 `getFlowInfoJson` 的鎖抽出來（拆成一個不取鎖的內部版本，
+  由兩個呼叫端各自取一次），不要靠底層 rwlock 的偏好設定。
+- 📌 **順帶**：`getTopKFlowInfoJson` 在持有 shared lock 的情況下對整個 JSON 陣列做
+  `std::sort`（`:2339-2352`），臨界區長度與流表大小成 O(n log n)。這與死鎖無關，
+  但它讓上面那個窗口變寬。
+- **證據**：讀碼（2026-08-28）。**未實測**，也沒有已知的觸發紀錄。
+
+
 ### sFlow batching 的老化清掃只在有樣本進來時跑 ⇒ **整個 fabric 同時安靜下來，尾巴留在記憶體裡**
 
 - **狀態**：**潛伏**。旗標是 `NDTWIN_SFLOW_BATCH`，**生產預設 1 ＝ batching 關閉 ⇒ 目前不咬人**。
