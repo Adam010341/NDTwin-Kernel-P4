@@ -1,0 +1,15 @@
+# Which simple_switch_grpc the topology launches. First non-comment line wins; it must be
+# an absolute path to an executable, and ../lib beside it is picked up as LD_LIBRARY_PATH.
+# There is NO fallback: delete this file, or comment out every line, and the topology REFUSES
+# to start rather than picking a binary for you. Both installs answer --version identically
+# and differ ~10x in throughput, so a silent choice is a wrong number that looks plausible.
+# To run the stock build, write /usr/local/bin/simple_switch_grpc here instead.
+#
+# Why this is pointed at bmv2-fast (2026-08-17): the stock build is -O0 with full logging,
+# and on it the energy app's consolidation decision is traffic-insensitive -- links are
+# declared 1 Gbps while the switches top out around 22 Mbps, so utilisation never leaves
+# ~2% and the decision is identical with and without traffic (measured: same three
+# switches, same order, both runs). Same ceiling that stops TE from ever seeing its 70%
+# threshold. [Co-developed with claude code -- Adam]
+
+/usr/local/bmv2-fast/bin/simple_switch_grpc
