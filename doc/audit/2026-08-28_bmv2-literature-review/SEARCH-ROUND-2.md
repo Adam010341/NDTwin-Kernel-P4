@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1 | **Gallenmüller TUM 博論 2021 含 bmv2 build 對照（-O0 vs -O3、5–10×）**（Muse #13，中偏高） | 找到博論本體（*Data-Driven Analysis and Modeling of Packet Processing Systems*，NET-2021-02-1）、抓 PDF、pdftotext 全文 7,818 行、grep | ❌ **REFUTED＝記憶捏造**：`bmv2`/`behavioral model` 全文 **0 命中**；`P4` 僅 2 次、皆在結語前瞻段（txt 7067–7069）。博論量的是 DPDK/MoonGen 系，無任何 bmv2 內容 |
 | 2 | **T4P4S 系列對 bmv2 做過封包大小掃描、圖上 pps 水平**（Muse #16，中） | 搜尋＋抓 ELTE T4P4S 課程投影片（Lecture-6.pdf） | ⚠️ **UNCONFIRMED**：投影片無 bmv2 量測；HPSR'18 原文未取得全文。列**觀察名單**（full paper 前補驗）。即使屬實，形狀＝「圖裡有、結論沒寫」＝ TSSA 同型，是展品不是先行 |
-| 3 | **folklore 通道**（README/issues/SO/部落格都知道 build 影響大；兩家皆高信心） | README 原文確認：*"Build flags can have a massive impact on performance"*；issues #311/#823 本就已知 | ✅ **CONFIRMED——而且是我們的證據不是威脅**：知識存在於專案文件與論壇，**規範不存在於文獻**（17 篇 0 報告）。審稿人「已知 folklore 不算新」的反駁，答案就是這個落差本身 |
+| 3 | **folklore 通道**（README/issues/SO/部落格都知道 build 影響大；兩家皆高信心） | ~~README 原文確認~~ **08-29 更正（poster 外審抓到）：我 08-28 標的「README 原文確認」是拼裝引文＝假確認**——README **無** "massive impact"，該句在 `docs/performance.md`＝"which flags were used to build bmv2: this can have a massive impact."（08-29 對 main 與 `f0b7d201` 逐字重驗）；README 實句＝`--disable-logging-macros` 的效能說明；issues #311/#823 本就已知 | ✅ **CONFIRMED——folklore 論點不變（知識在官方文件、規範不在文獻），但引文出處與字串已更正**：知識存在於專案文件與論壇，**規範不存在於文獻**（17 篇 0 報告）。審稿人「已知 folklore 不算新」的反駁，答案就是這個落差本身 |
 | 4 | MoonGen IMC'15 曾量 bmv2 ~40–50 kpps（Muse #2，高） | 未驗（優先級後移） | ⚠️ 觀察名單（2015 年 bmv2 尚極早期，疑年代錯置混淆） |
 | 5 | DeepSeek 全清單（47 條，多為泛型標題、自標低信心） | 抽樣搜尋無一命中具體文獻 | 🗄️ 歸檔為噪聲；其高信心項（README/SO）與 #3 重複 |
 

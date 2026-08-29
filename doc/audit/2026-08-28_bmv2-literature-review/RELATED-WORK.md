@@ -5,6 +5,7 @@
 **行號引註**：指 `pdftotext -layout` 輸出的行號（重生方式見 `raw/README.md`；全文 txt 不入 repo——公開 repo 不能收論文全文）。
 
 ⚠️ **範圍限制**：這 14 篇來自關鍵字搜尋，**不是系統性檢索**。本檔只支撐「**這 14 篇裡**沒有」等級的宣稱，不支撐「文獻裡沒有人」。
+📌 **14→18 的沿革（08-29 補記）**：檢索兩輪擴充 4 篇（+3＝`SEARCH-ROUND-1.md`：PADS'26／MDPI Network'25／P4Docker；+1＝`SEARCH-ROUND-2.md`：P4sim）。**本檔逐篇表維持原 14 篇**，擴充篇目之逐篇證據在各 round 檔；合併統計（12 篇量測）見 `doc/2026-08-29_bmv2-performance-study.md` §2-1；逐篇「儀器極限檢查」編碼另見 `LIMIT-CODING.md`。
 
 ## 0. 檔名 → 論文身分
 

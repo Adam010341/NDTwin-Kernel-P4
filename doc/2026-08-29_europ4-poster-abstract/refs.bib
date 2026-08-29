@@ -1,35 +1,42 @@
-% Titles verified against the PDFs in the paper corpus (pdftotext of page 1)
-% except where marked TODO. Do NOT trust remembered titles — verify before submit.
+% Titles/authors verified against the PDFs in the paper corpus (pdftotext of page 1)
+% or the cited web documents (fetched 2026-08-29). Do NOT trust remembered titles.
+% Kohler has NO umlaut (PDF page 1: "Thomas Kohler"). Fernando entry = journal
+% version (Network 5(2), 2025); conclusions vs preprint still to be hand-checked
+% before any "peer-reviewed" wording returns to the text (NOTES.md).
 % [Co-developed with claude code -- Adam]
 
 @article{chen2025tomacs,
-  author  = {Chen, Gong and Hu, Zheng and Qu, Yanfeng and Jin, Dong},
-  title   = {Enhancing P4-Based Network Emulation Fidelity Through a Lightweight Virtual Time System and Application Evaluation},
-  journal = {ACM Transactions on Modeling and Computer Simulation},
-  volume  = {35},
-  number  = {2},
-  year    = {2025}
+  author    = {Chen, Gong and Hu, Zheng and Qu, Yanfeng and Jin, Dong},
+  title     = {Enhancing P4-Based Network Emulation Fidelity Through a Lightweight Virtual Time System and Application Evaluation},
+  journal   = {ACM Transactions on Modeling and Computer Simulation},
+  volume    = {35},
+  number    = {2},
+  articleno = {16},
+  numpages  = {24},
+  year      = {2025},
+  doi       = {10.1145/3725530}
 }
 
 @inproceedings{chen2023pads,
   author    = {Chen, Gong and Hu, Zheng and Jin, Dong},
   title     = {Enhancing Fidelity of P4-Based Network Emulation with a Lightweight Virtual Time System},
-  booktitle = {Proc.\ ACM SIGSIM-PADS},
+  booktitle = {Proc.\ ACM SIGSIM Conf.\ on Principles of Advanced Discrete Simulation (SIGSIM-PADS~'23)},
   year      = {2023}
 }
 
 @inproceedings{waind2024pads,
   author    = {Waind, Luke and Chen, Gong and Hu, Zheng and Jin, Dong},
   title     = {Comparative Analysis and Evaluation of P4-Based Network Emulation Testing Environments},
-  booktitle = {Proc.\ ACM SIGSIM-PADS},
+  booktitle = {Proc.\ ACM SIGSIM Conf.\ on Principles of Advanced Discrete Simulation (SIGSIM-PADS~'24)},
   year      = {2024}
 }
 
 @inproceedings{waind2026pads,
   author    = {Waind, Luke and Jin, Dong},
   title     = {Data-Plane Programmable Network Emulation Testbed with Dynamic Hardware Offloading},
-  booktitle = {Proc.\ ACM SIGSIM-PADS},
-  year      = {2026}
+  booktitle = {Proc.\ ACM SIGSIM Conf.\ on Principles of Advanced Discrete Simulation (SIGSIM-PADS~'26)},
+  year      = {2026},
+  doi       = {10.1145/3806789.3810263}
 }
 
 @inproceedings{kumazoe2023icncc,
@@ -48,25 +55,25 @@
 }
 
 @article{fernando2025network,
-  author  = {Fernando, TODO and Xiao, TODO and Spring, TODO and Che, TODO},
-  title   = {TODO: verify full title and author first names from network-05-00021.pdf},
-  journal = {Network (MDPI)},
+  author  = {Fernando, Omesh A. and Xiao, Hannan and Spring, Joseph and Che, Xianhui},
+  title   = {A Performance Evaluation for Software Defined Networks with {P4}},
+  journal = {Network},
   volume  = {5},
-  number  = {1},
+  number  = {2},
   pages   = {21},
-  year    = {2025}
+  year    = {2025},
+  doi     = {10.3390/network5020021}
 }
 
 @inproceedings{kohler2018p4cep,
-  author    = {K{\"o}hler, Thomas and others},
+  author    = {Kohler, Thomas and Mayer, Ruben and D{\"u}rr, Frank and Maa{\ss}, Marius and Bhowmik, Sukanya and Rothermel, Kurt},
   title     = {{P4CEP}: Towards In-Network Complex Event Processing},
-  booktitle = {Proc.\ ACM SIGCOMM Workshop on In-Network Computing (NetCompute)},
-  year      = {2018},
-  note      = {TODO: verify author list from PDF (page 1 is image-based)}
+  booktitle = {Proc.\ ACM SIGCOMM 2018 Morning Workshop on In-Network Computing (NetCompute~'18)},
+  year      = {2018}
 }
 
 @article{zhang2021benchmarking,
-  author  = {Zhang, Tianzhu and Linguaglossa, Leonardo and Giaccone, Paolo and Iannone, Luigi and others},
+  author  = {Zhang, Tianzhu and Linguaglossa, Leonardo and Giaccone, Paolo and Iannone, Luigi and Roberts, James},
   title   = {Performance Benchmarking of State-of-the-Art Software Switches for {NFV}},
   journal = {Computer Networks},
   volume  = {188},
@@ -83,7 +90,24 @@
 
 @misc{bmv2repo,
   author       = {{The P4 Language Consortium}},
-  title        = {p4lang/behavioral-model: {README} and docs/performance.md},
+  title        = {p4lang/behavioral-model: {README}},
+  year         = {2026},
   howpublished = {\url{https://github.com/p4lang/behavioral-model}},
   note         = {Accessed 2026-08-29}
+}
+
+@misc{bmv2perf,
+  author       = {{The P4 Language Consortium}},
+  title        = {p4lang/behavioral-model: docs/performance.md},
+  year         = {2026},
+  howpublished = {\url{https://github.com/p4lang/behavioral-model/blob/main/docs/performance.md}},
+  note         = {Accessed 2026-08-29; identical wording at commit \texttt{f0b7d201}}
+}
+
+@misc{p4guide,
+  author       = {Fingerhut, Andy},
+  title        = {p4-guide: install scripts for the P4 development tools},
+  year         = {2026},
+  howpublished = {\url{https://github.com/jafingerhut/p4-guide}},
+  note         = {\texttt{bin/install-p4dev-v8.sh}; accessed 2026-08-29}
 }
