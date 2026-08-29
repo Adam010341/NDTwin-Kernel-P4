@@ -197,9 +197,50 @@ median3() { printf '%s\n' "$1" "$2" "$3" | sort -g | sed -n 2p; }
 echo "### 1 arm $ARM  build=$BUILD  payload ${PAYLOAD}B  $C->$S (one hop)  step ${STEP_S}s  $(date '+%H:%M:%S')"
 printf 'rate_mbit\treps\tloss_scored\tloss_reps\tsent_pps\trecv_pps\tclean\n' > "$OUT/ladder.tsv"
 
+# ---------------------------------------------------------------- ladder generation
+# RATES_MBIT=AUTO is ①b: the ladder has NO FIXED TOP. It climbs x1.5 (rounded to two significant
+# figures, which is what the original hand-written sequence already was) and stops ONLY when the
+# registered saturation rule fires.
+#
+# 🔴 Why it must be a rule and not a number. ① ended with both fast arms clean at 360 M -- the top
+# rung -- so R = 8.0 was the largest value the instrument could emit, not a measurement. Lengthening
+# the ladder can only move R UPWARD, i.e. toward "this build really is 12x faster", which is the
+# more publishable direction. If a person picked the new top, that person could pick where R lands.
+# Nobody picks it here: the climb ends where loss ends it.
+#
+# RUNAWAY_MAX is a bug backstop, not a design choice. If it ever fires, the arm says so loudly and
+# the result must not be read as a saturation point.
+RUNAWAY_MAX="${RUNAWAY_MAX:-40}"
+next_rung() { awk -v p="$1" 'BEGIN{
+    v = p * 1.5; e = int(log(v)/log(10)); s = 10 ^ (e - 1); printf "%d", int(v / s + 0.5) * s }'; }
+
+# AUTO = ①'s REGISTERED rungs verbatim, then keep going x1.5 past the top until the rule stops it.
+# The registered lower rungs are not regenerated -- they are the pre-registered ladder and stay
+# byte-identical. Only the extension above 360 M is rule-driven, and that is the part ① never had.
+BASE_LADDER="1 2 3 5 8 12 20 30 45 70 110 160 240 360"
+if [[ "$RATES_MBIT" == "AUTO" ]]; then
+    PENDING="$BASE_LADDER"
+    LADDER_MODE="auto: registered rungs then x1.5 with NO fixed top; ends only at the saturation rule"
+else
+    PENDING="$RATES_MBIT"
+    LADDER_MODE="fixed: $RATES_MBIT"
+fi
+echo "ladder_mode=$LADDER_MODE" >> "$OUT/arm.meta"
+
 BURNER_PIDS=""
-best_clean=""; hot=0; rung_i=0
-for k in $RATES_MBIT; do
+best_clean=""; hot=0; rung_i=0; last_k=""
+while :; do
+    read -r k rest <<<"$PENDING"
+    if [[ -z "$k" ]]; then
+        [[ "$RATES_MBIT" == "AUTO" ]] || break          # fixed ladder: exhausted, done
+        k="$(next_rung "$last_k")"                      # AUTO: rule generates the next rung
+        rest=""
+        (( rung_i >= RUNAWAY_MAX )) && {
+            echo "  🔴 RUNAWAY GUARD at rung $rung_i (${k} M) -- the saturation rule never fired."
+            echo "     This is an instrument bug. The highest clean rung below is NOT a saturation point."
+            echo "ladder_truncated_at=RUNAWAY_GUARD_${k}" >> "$OUT/arm.meta"; break; }
+    fi
+    PENDING="$rest"; last_k="$k"
     rung_i=$((rung_i + 1))
     # positive control: burners start partway through, so `external` must visibly step up
     if (( BURNERS > 0 )) && (( rung_i == 4 )) && [[ -z "$BURNER_PIDS" ]]; then
