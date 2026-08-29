@@ -47,8 +47,28 @@ log 正本＝`smoke_driver.log`；每臂 meta 與 iperf JSON＝`raw/smoke_{stock
 ## 誠實揭露
 
 - 單臂/build、3 階短梯、未預註冊 ⇒ 只作審查佐證，**不得進 abstract**。
-- external residual 0.0911/0.0974，但單臂無「對中位臂」的 gate 可用（① 的 gate 定義
-  需要多臂）——照錄不裁。
 - 量測窗內零 commit；lab 已 release、fabric 留用（handoff 已寫）；override byte-exact 還原。
+
+### 外來負載（08-29 14:1x 補；起因＝`8/29 auditor` 通報）
+
+〔O，auditor 實測〕claim 期間有兩個**非本 session** 的 `agy` 複審行程（複審 `a8bec55`／
+`efd2fe1`，皆先於 claim 起、兩臂皆在場）；per-PID `utime+stime` 3 秒差分合計
+**≈1% of one core**＝機器 busy fraction ≈0.0007。（判法照 auditor：**不用 `load1`**。）
+
+〔O，跨輪對帳（`arm.meta` 的 `external`，同一定義：total−bmv2−iperf3）〕：
+
+| | external |
+|---|---|
+| ①b fast 臂 | 0.0152 / 0.0298 |
+| **本 smoke fast 臂** | **0.0974（Δ≈+0.07 ≈ 1 整核外來 busy，agy 只佔其中 ~1%）** |
+| ① stock 四臂範圍 | 0.0377–0.1028（**四臂全讀 45**） |
+| 本 smoke stock 臂 | 0.0911（落在該範圍內） |
+
+**後果**：(a) **stock 側重現不受影響**——① 自己的 stock 臂跨過我的 external 水位，階不動；
+(b) **fast 側的階翻轉多了一個已記錄的環境共變量**——我的窗比 ①b 的 fast 臂多 ≈1 核
+外來 busy，0.02pp 的差**不能歸因也不能排除**任何單一來源 ⇒ 本 smoke **不構成對 360 的
+反證**，它示範的仍是：360 這一階的答案對環境級噪聲不魯棒，**該報的是量化區間不是階**；
+(c) 裁定**不重跑**——兩種讀值都活在註冊區間內，第三讀無決策資訊；差額歸屬輪若碰
+fast 側階，把「頂階騎門檻腰＋external 共變量」列已知威脅。
 
 [Co-developed with claude code -- Adam]
