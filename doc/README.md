@@ -67,6 +67,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 
 | 檔案 | 地位 | 下一步是誰 |
 |---|---|---|
+| [2026-08-29_europ4-poster-abstract/](2026-08-29_europ4-poster-abstract/) | **草稿（未投）** | **Adam**：過三道關（教授署名／chairs 回信給入口／12月到場）後 Overleaf 編譯、與教授定稿、投出；`NOTES.md` 是投稿前檢查表 |
 | [2026-08-29_bmv2-performance-study.md](2026-08-29_bmv2-performance-study.md) | **草稿（現役維護中）** | **全定稿**：§4 由四工單收案填滿——①＝H2 主張收窄（三跳 12×／單跳 8.0×，`e82ac6f`）、②＝H1「16× 歧義」（`c3bfe50`）、③＝兩臂單調（`387d3ea`）；唯 OVS 同梯對照待裁；下一步＝Adam 的 full paper 底稿 |
 | [2026-08-16_delivery-package/](2026-08-16_delivery-package/) | **待轉交** | **Adam**：NTG 三條給 NTG 維護者、手冊條目與三條勘誤給 patty。三檔已定稿、內部前言已移除 |
 | [2026-08-15_ntg-upstream-report-draft.md](2026-08-15_ntg-upstream-report-draft.md) | 草稿（原稿） | 乾淨版在投遞包裡；這份保留內部前言 |
