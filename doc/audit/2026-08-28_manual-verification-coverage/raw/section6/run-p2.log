@@ -1,0 +1,271 @@
+=== sections 6.2-6.6 replay, started 2026-08-29T19:40:05+00:00 ===
+shell pid 1295   starting cwd: /home/tester
+(sourced ~/p4setup.bash, as 6.1's installer instructs)
+
+############ SECTION 6.2 -- Compile the NDTwin P4 pipeline ############
+
+--- [1] 6.2 cd to the project root
+    cwd-before: /home/tester
+    $ cd /home/tester/Desktop/NDTwin-Kernel
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [2] 6.2 make the build directory
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ mkdir -p p4_proxy/p4_src/build
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [3] 6.2 compile the pipeline
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ p4c-bm2-ss --arch v1model     -o p4_proxy/p4_src/build/ndtwin_switch.json     --p4runtime-files p4_proxy/p4_src/build/ndtwin_switch.p4info.txt     p4_proxy/p4_src/ndtwin_switch.p4
+p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- ACCEPTANCE 6.2: both outputs must EXIST and be NON-EMPTY.
+    'the command exited 0' is not the criterion -- an empty file would pass that.
+
+--- [4] 6.2 ndtwin_switch.json is non-empty
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ test -s p4_proxy/p4_src/build/ndtwin_switch.json && wc -c p4_proxy/p4_src/build/ndtwin_switch.json
+75852 p4_proxy/p4_src/build/ndtwin_switch.json
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [5] 6.2 ndtwin_switch.p4info.txt is non-empty
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ test -s p4_proxy/p4_src/build/ndtwin_switch.p4info.txt && wc -c p4_proxy/p4_src/build/ndtwin_switch.p4info.txt
+4051 p4_proxy/p4_src/build/ndtwin_switch.p4info.txt
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [6] 6.2 the JSON actually parses and declares tables (not just bytes on disk)
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ python3 -c "import json;d=json.load(open('p4_proxy/p4_src/build/ndtwin_switch.json'));print('pipelines:',len(d.get('pipelines',[])),' tables:',sum(len(p.get('tables',[])) for p in d.get('pipelines',[])))"
+pipelines: 2  tables: 10
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+############ SECTION 6.3 -- Create the P4 proxy agent's Python environment ############
+
+--- [7] 6.3 create the venv
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ python3 -m venv p4_proxy/venv
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [8] 6.3 install requirements
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt
+Collecting grpcio>=1.50.0 (from -r p4_proxy/requirements.txt (line 6))
+  Downloading grpcio-1.83.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+Collecting protobuf==3.20.3 (from -r p4_proxy/requirements.txt (line 14))
+  Using cached protobuf-3.20.3-py2.py3-none-any.whl.metadata (720 bytes)
+Collecting p4runtime==1.4.1 (from -r p4_proxy/requirements.txt (line 15))
+  Using cached p4runtime-1.4.1-py3-none-any.whl.metadata (10 kB)
+Collecting fastapi>=0.95.0 (from -r p4_proxy/requirements.txt (line 17))
+  Downloading fastapi-0.141.1-py3-none-any.whl.metadata (27 kB)
+Collecting uvicorn>=0.22.0 (from -r p4_proxy/requirements.txt (line 18))
+  Downloading uvicorn-0.52.4-py3-none-any.whl.metadata (6.6 kB)
+Collecting networkx>=3.0 (from -r p4_proxy/requirements.txt (line 19))
+  Downloading networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+Collecting requests>=2.28 (from -r p4_proxy/requirements.txt (line 23))
+  Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting hypothesis==6.165.5 (from -r p4_proxy/requirements.txt (line 28))
+  Downloading hypothesis-6.165.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.7 kB)
+Collecting thrift==0.24.0 (from -r p4_proxy/requirements.txt (line 45))
+  Downloading thrift-0.24.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.7 kB)
+Collecting googleapis-common-protos>=1.52 (from p4runtime==1.4.1->-r p4_proxy/requirements.txt (line 15))
+  Using cached googleapis_common_protos-1.75.2-py3-none-any.whl.metadata (8.5 kB)
+Collecting sortedcontainers<3.0.0,>=2.1.0 (from hypothesis==6.165.5->-r p4_proxy/requirements.txt (line 28))
+  Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+Collecting typing-extensions~=4.12 (from grpcio>=1.50.0->-r p4_proxy/requirements.txt (line 6))
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting starlette>=0.46.0 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading starlette-1.6.0-py3-none-any.whl.metadata (6.4 kB)
+Collecting pydantic>=2.9.0 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 110.2/110.2 kB 1.3 MB/s eta 0:00:00
+Collecting typing-inspection>=0.4.2 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting click>=7.0 (from uvicorn>=0.22.0->-r p4_proxy/requirements.txt (line 18))
+  Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting h11>=0.8 (from uvicorn>=0.22.0->-r p4_proxy/requirements.txt (line 18))
+  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting charset_normalizer<4,>=2 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Downloading charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.9/45.9 kB 1.0 MB/s eta 0:00:00
+Collecting idna<4,>=2.5 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Downloading idna-3.19-py3-none-any.whl.metadata (9.2 kB)
+Collecting urllib3<3,>=1.26 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Using cached certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+INFO: pip is looking at multiple versions of googleapis-common-protos to determine which version is compatible with other requirements. This could take a while.
+Collecting googleapis-common-protos>=1.52 (from p4runtime==1.4.1->-r p4_proxy/requirements.txt (line 15))
+  Using cached googleapis_common_protos-1.75.1-py3-none-any.whl.metadata (8.5 kB)
+  Using cached googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+  Using cached googleapis_common_protos-1.74.0-py3-none-any.whl.metadata (9.2 kB)
+  Using cached googleapis_common_protos-1.73.1-py3-none-any.whl.metadata (9.2 kB)
+  Using cached googleapis_common_protos-1.73.0-py3-none-any.whl.metadata (9.4 kB)
+Collecting annotated-types>=0.6.0 (from pydantic>=2.9.0->fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.5 (from pydantic>=2.9.0->fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting anyio<5,>=3.6.2 (from starlette>=0.46.0->fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+Using cached protobuf-3.20.3-py2.py3-none-any.whl (162 kB)
+Using cached p4runtime-1.4.1-py3-none-any.whl (44 kB)
+Downloading hypothesis-6.165.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 4.4 MB/s eta 0:00:00
+Downloading thrift-0.24.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (539 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 539.6/539.6 kB 3.5 MB/s eta 0:00:00
+Downloading grpcio-1.83.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.0/7.0 MB 4.8 MB/s eta 0:00:00
+Downloading fastapi-0.141.1-py3-none-any.whl (131 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 132.0/132.0 kB 1.9 MB/s eta 0:00:00
+Downloading uvicorn-0.52.4-py3-none-any.whl (79 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 79.9/79.9 kB 617.5 kB/s eta 0:00:00
+Downloading networkx-3.6.1-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 5.9 MB/s eta 0:00:00
+Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 1.3 MB/s eta 0:00:00
+Downloading annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Using cached certifi-2026.7.22-py3-none-any.whl (136 kB)
+Downloading charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (248 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 248.8/248.8 kB 2.5 MB/s eta 0:00:00
+Downloading click-8.5.0-py3-none-any.whl (125 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 125.3/125.3 kB 2.0 MB/s eta 0:00:00
+Using cached googleapis_common_protos-1.73.0-py3-none-any.whl (297 kB)
+Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+Downloading idna-3.19-py3-none-any.whl (68 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 68.5/68.5 kB 1.2 MB/s eta 0:00:00
+Downloading pydantic-2.13.5-py3-none-any.whl (472 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 472.6/472.6 kB 4.0 MB/s eta 0:00:00
+Downloading pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 6.3 MB/s eta 0:00:00
+Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+Downloading starlette-1.6.0-py3-none-any.whl (75 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 76.0/76.0 kB 788.5 kB/s eta 0:00:00
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 kB 835.6 kB/s eta 0:00:00
+Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 131.1/131.1 kB 1.7 MB/s eta 0:00:00
+Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 125.8/125.8 kB 1.4 MB/s eta 0:00:00
+Installing collected packages: thrift, sortedcontainers, urllib3, typing-extensions, protobuf, networkx, idna, hypothesis, h11, click, charset_normalizer, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, requests, pydantic-core, grpcio, googleapis-common-protos, anyio, starlette, pydantic, p4runtime, fastapi
+Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.14.2 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 fastapi-0.141.1 googleapis-common-protos-1.73.0 grpcio-1.83.1 h11-0.16.0 hypothesis-6.165.5 idna-3.19 networkx-3.6.1 p4runtime-1.4.1 protobuf-3.20.3 pydantic-2.13.5 pydantic-core-2.46.5 requests-2.34.2 sortedcontainers-2.4.0 starlette-1.6.0 thrift-0.24.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.7.0 uvicorn-0.52.4
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- ACCEPTANCE 6.3: the page's protobuf claim is that 3.20.3 is REQUIRED because
+    p4runtime's _pb2 modules refuse to import under 4.21+. Test by importing, not by
+    reading the pin: a satisfied pin that cannot import is the failure being guarded.
+
+--- [9] 6.3 protobuf version actually installed
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ p4_proxy/venv/bin/pip show protobuf | grep -i '^version'
+Version: 3.20.3
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [10] 6.3 p4runtime imports (this is what the pin exists to protect)
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ p4_proxy/venv/bin/python -c "import p4.v1.p4runtime_pb2 as m; print('p4runtime_pb2 imported OK')"
+p4runtime_pb2 imported OK
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+############ SECTION 6.4 -- Point the kernel at the P4 proxy agent ############
+The page shows two settings and says AppConfig.hpp is compile-time. 6.0's callout warns
+that on the WRONG repo this file exists but lacks these settings, which reads as 'I have
+the wrong version'. So check for the settings, not for the file.
+
+--- [11] 6.4 P4_PROXY_IP_AND_PORT present?
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ grep -n 'P4_PROXY_IP_AND_PORT' setting/AppConfig.hpp
+10:    static const std::string P4_PROXY_IP_AND_PORT = "localhost:8081";
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [12] 6.4 ALLOW_MIXED_DATAPLANE present, and false as the page says?
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ grep -n 'ALLOW_MIXED_DATAPLANE' setting/AppConfig.hpp
+15:    static constexpr bool ALLOW_MIXED_DATAPLANE = false;
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+############ SECTION 6.5 -- Choose the fabric size  (S5: 4 hosts, the variant the page provides) ############
+S5 SUBSTITUTION: the page's example is 128 hosts and it also ships a 4-host model,
+saying 'if you use it, put 4 in host_count_override'. This VM has 4 vCPU. Following the
+page's own 4-host branch -- not inventing a size.
+
+--- [13] 6.5 write the host count
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ echo 4 > p4_proxy/mininet/host_count_override && cat p4_proxy/mininet/host_count_override
+4
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [14] 6.5 the 4-host topology model the page names exists
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ ls -l setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+-rw-rw-r-- 1 tester tester 16960 Aug 29 16:55 setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [15] 6.5 the topology script the page names exists (page: already in the repo, you do not create it)
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ ls -l p4_proxy/mininet/p4_testbed_topo.py
+-rwxrwxr-x 1 tester tester 31870 Aug 29 16:55 p4_proxy/mininet/p4_testbed_topo.py
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+############ SECTION 6.6 -- Check the BMv2 binary override  (f00d69f, never yet executed) ############
+The page's table lists four outcomes. Rows 1-3 are refusals and are exercised below by
+running the topology script a reader runs. Row 4 ('Starts') is deferred to T-2, where a
+fabric is actually brought up -- see this script's header.
+    (pristine override saved to /tmp/override.pristine and restored at the end)
+
+--- the page's OWN verification snippet, run verbatim, on the shipped file
+
+--- [16] 6.6 page snippet: which binary is selected?
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ p=$(grep -vE '^[[:space:]]*(#|$)' p4_proxy/mininet/bmv2_binary_override | head -1);       echo "selected: ${p:-<none -- the fabric will refuse to start>}";       [ -x "$p" ] && echo 'OK: exists and is executable' || echo 'PROBLEM: not an executable on this machine'
+selected: /usr/local/bmv2-fast/bin/simple_switch_grpc
+PROBLEM: not an executable on this machine
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- ROW 1: leave the bmv2-fast path you did not build
+    page predicts: bmv2 binary override names no executable: '/usr/local/bmv2-fast/...'
+--- [17] 6.6 row 1 -- shipped override, fast build absent
+      Error: bmv2 binary override names no executable: '/usr/local/bmv2-fast/bin/simple_switch_grpc' (file: /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override)
+
+--- ROW 2: comment the line out
+    page predicts: ... has no directive line (every line is blank or a #-comment)
+      (every non-comment line now commented; grep -c of directive lines: 0)
+--- [18] 6.6 row 2 -- commented out
+      Error: /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override has no directive line (every line is blank or a #-comment). Commenting the line out used to re-select the stock build silently; it now refuses, because which binary produced a number must be something a human wrote down. Write one absolute path, e.g. /usr/local/bmv2-fast/bin/simple_switch_grpc
+
+--- ROW 3: delete the file
+    page predicts: no bmv2 binary override at ... there is no default to fall back to on purpose
+--- [19] 6.6 row 3 -- file deleted
+      Error: no bmv2 binary override at /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override. This file is tracked and must name the simple_switch_grpc to run -- there is no default to fall back to on purpose. Both installs answer --version identically, so a silent fallback picks a binary that differs by ~10x in throughput and says nothing. Write one absolute path, e.g. /usr/local/bmv2-fast/bin/simple_switch_grpc
+
+--- ROW 4: write the stock path -- the page says this STARTS.
+    NOT exercised here. 'Starts' means a fabric comes up, which is T-2 on this machine.
+    Recorded as DEFERRED so it is not mistaken for tested: a guard that refuses
+    everything, including what it should permit, passes rows 1-3 perfectly.
+
+--- [20] 6.6 restore pristine, then set the stock path as the page instructs
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ printf '/usr/local/bin/simple_switch_grpc\n' >> p4_proxy/mininet/bmv2_binary_override;       sed -i 's#^/usr/local/bmv2-fast#\##' p4_proxy/mininet/bmv2_binary_override;       grep -vE '^[[:space:]]*(#|$)' p4_proxy/mininet/bmv2_binary_override
+/usr/local/bin/simple_switch_grpc
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+--- [21] 6.6 and that path is a real executable on this machine
+    cwd-before: /home/tester/Desktop/NDTwin-Kernel
+    $ p=$(grep -vE '^[[:space:]]*(#|$)' p4_proxy/mininet/bmv2_binary_override | head -1); test -x "$p" && echo "OK: $p"
+OK: /usr/local/bin/simple_switch_grpc
+    rc=0   cwd-after: /home/tester/Desktop/NDTwin-Kernel
+
+############ RESULT (6.2-6.6) ############
+steps run: 21    non-zero exits: 0
+NOTE: 6.6 rows 1-3 are EXPECTED to make the topology script fail. Their failures are the
+      result, not a problem -- read the messages against the page's table.
+git status of the tracked override (page says dirty is expected, do not revert):
+   M p4_proxy/mininet/bmv2_binary_override
+finished 2026-08-29T19:40:26+00:00

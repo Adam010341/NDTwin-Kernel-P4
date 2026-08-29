@@ -1,0 +1,8 @@
+  conda          present (correct)
+  ryu-env        present (correct)
+  mn             present (correct)
+  ovs-vsctl      present (correct)
+  cmake          present (correct)
+  ninja          present (correct)
+  kernel binary  present (correct)
+  p4c-bm2-ss     absent (correct)

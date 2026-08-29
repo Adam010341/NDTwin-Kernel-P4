@@ -1,0 +1,17 @@
+--- neighbours on this host ---
+loadavg:  0.33 1.12 1.83   (cores: 14)
+mem avail: 9635 MiB   swap used: 2046 MiB
+LAB CLAIM PRESENT:
+    owner=開機手冊
+    expires=1788041986
+    note=Installation Manual SECTION 6 clean-room replay, part 1 (6.0 + 6.1 install-p4dev-v8.sh, the page says 1-2 hours). Starts from post-s5-run2 snapshot. 4-vCPU QEMU VM. WARNING: the VM is INVISIBLE to 'measuring' -- heavy build load on the same cores for hours. Do not time anything against this window. No fabric, no kernel, no bmv2 on the HOST touched.
+    exclusive_cpu=no
+  -> exclusive_cpu is not set: starting is allowed, but TELL THEM. A heavy
+     build still perturbs anything they are timing, and they cannot see it.
+-------------------------------
+qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
+qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
+qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
+qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
+started (pid 25459), ssh on :2222, mem 6G, 4 vcpu
+watchdog 25474 will stop this VM after 10800s if nobody else does

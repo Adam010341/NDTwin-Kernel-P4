@@ -1,0 +1,82 @@
+=== T-2 started 2026-08-29T19:49:25+00:00   cwd: /home/tester/Desktop/NDTwin-Kernel ===
+override in force: /usr/local/bin/simple_switch_grpc
+host_count_override: 4
+
+############ TERMINAL 1 -- BMv2 Mininet topology (the User Manual's first P4 terminal) ############
+rm: cannot remove '/tmp/ndtwin_p4_switches.json': Operation not permitted
+    topology pid 4264 (recorded at spawn)
+    All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060
+    Switch manifest: /tmp/ndtwin_p4_switches.json
+--- the manual says confirm with the MANIFEST, not the message above
+    switches in manifest: 10
+    PASS: 10 switches passed verification
+
+############ TERMINAL 2 -- P4 proxy agent ############
+    proxy pid 4780 (recorded at spawn)
+    PASS: proxy reached the switches with no connection refusals
+
+############ WAITING FOR PATHS -- two agreeing samples, per the manual's own warning ############
+The manual documents a 99.8% reading that is stable-looking and wrong, so 'it stopped
+changing' is not the criterion; two consecutive equal samples is.
+    +3s  count=0
+    +6s  count=0
+    +9s  count=0
+    +12s  count=0
+    +15s  count=0
+    +18s  count=0
+    +21s  count=0
+    +24s  count=0
+    +27s  count=0
+    +30s  count=0
+    +33s  count=0
+    +36s  count=0
+    +39s  count=0
+    +42s  count=0
+    +45s  count=0
+    +48s  count=0
+    +51s  count=0
+    +54s  count=0
+    +57s  count=0
+    +60s  count=0
+    +63s  count=0
+    +66s  count=0
+    +69s  count=0
+    +72s  count=0
+    +75s  count=0
+    +78s  count=0
+    +81s  count=0
+    +84s  count=0
+    +87s  count=0
+    +90s  count=0
+    +93s  count=0
+    +96s  count=0
+    +99s  count=0
+    +102s  count=0
+    +105s  count=0
+    +108s  count=0
+    +111s  count=0
+    +114s  count=0
+    +117s  count=0
+    +120s  count=0
+    FAIL: paths never settled (last=0)
+    NOTE: manual says the 4-host fabric settles at 12; got 0
+
+############ TERMINAL 3 -- NDTwin Kernel (starts LAST in both modes) ############
+    kernel pid 6315 (recorded at spawn)
+--- does the kernel actually ANSWER? (not: did the process start)
+    GET /ndt/get_graph_data -> HTTP 200
+    PASS: kernel answered on :8000
+--- does the TWIN see the switches? (Adam's item 2, and the point of a digital twin)
+    nodes=14  edges=40  switch-like=14
+    FAIL: twin reports 14 switches, expected 10
+    PASS: 40 edges = the 4-host fabric
+
+############ DATAPATH -- pingall through the BMv2 switches ############
+    (see Results line above -- non-zero drop)
+
+############ SHUTDOWN -- reverse order, as the User Manual instructs ############
+    cleaned up (mn -c)
+
+############ T-2 RESULT ############
+failures: 1
+finished 2026-08-29T19:53:33+00:00

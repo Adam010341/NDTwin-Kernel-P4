@@ -1,0 +1,706 @@
+/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:331: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:336: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [4782]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8081): address already in use
+INFO:     Waiting for application shutdown.
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[4] Received arbitration response: Mastership confirmed.
+[5] Received arbitration response: Mastership confirmed.
+[6] Received arbitration response: Mastership confirmed.
+[7] Received arbitration response: Mastership confirmed.
+[8] Received arbitration response: Mastership confirmed.
+[9] Received arbitration response: Mastership confirmed.
+[10] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[4] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 4
+[5] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 5
+[6] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 6
+[7] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 7
+[8] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 8
+[9] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 9
+[10] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 10
+[1] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[2] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[3] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 3 sampling to sFlow as 192.168.123.13
+[4] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 4 sampling to sFlow as 192.168.123.14
+[5] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 5 sampling to sFlow as 192.168.123.15
+[6] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 6 sampling to sFlow as 192.168.123.16
+[7] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 7 sampling to sFlow as 192.168.123.17
+[8] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 8 sampling to sFlow as 192.168.123.18
+[9] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 9 sampling to sFlow as 192.168.123.19
+[10] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 10 sampling to sFlow as 192.168.123.20
+[Kernel] switch 1 entered: ok
+[Kernel] switch 2 entered: ok
+[Kernel] switch 3 entered: ok
+[Kernel] switch 4 entered: ok
+[Kernel] switch 5 entered: ok
+[Kernel] switch 6 entered: ok
+[Kernel] switch 7 entered: ok
+[Kernel] switch 8 entered: ok
+[Kernel] switch 9 entered: ok
+[Kernel] switch 10 entered: ok
+[Proxy Agent] Kernel acknowledged all 10 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[TopologyManager] link watchdog seeded with 32 declared links
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[Proxy Agent] Started LLDP link watchdog...
+[TopologyManager] Discovered link: S2-p2 -> S6-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S3-p1 -> S7-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S3-p2 -> S8-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[Proxy Agent] Started liveness polling...
+[TopologyManager] Discovered link: S5-p2 -> S2-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S7-p3 -> S9-p3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S7-p2 -> S4-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[Proxy Agent] Shutting down...
+[5] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Discovered link: S5-p4 -> S10-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[3] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Discovered link: S6-p1 -> S1-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S9-p1 -> S5-p3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[1] Failed to modify route: StatusCode.PERMISSION_DENIED - Not primary
+[1] Failed to add route: StatusCode.UNKNOWN - 
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S9-p2 -> S6-p3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Failed to modify route: StatusCode.PERMISSION_DENIED - Not primary
+[1] Failed to add route: StatusCode.UNKNOWN - 
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Added route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Failed to modify route: StatusCode.PERMISSION_DENIED - Not primary
+[1] Failed to add route: StatusCode.UNKNOWN - 
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[8] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[10] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Discovered link: S4-p2 -> S8-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Discovered link: S10-p3 -> S7-p4
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[8] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[3] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[10] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[9] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Added route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Discovered link: S8-p3 -> S9-p4
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[8] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Added route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - Not primary
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[2] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)Exception in thread Thread-24 (_stream_receiver):
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 136, in _stream_receiver
+    self.handle_packet_in(response.packet)
+Exception in thread Thread-15 (_stream_receiver):
+Traceback (most recent call last):
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 184, in handle_packet_in
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.packet_in_callback(self.device_id, ingress_port, packet.payload)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 1214, in handle_packet_in
+Exception in thread Thread-27 (_stream_receiver):
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+    self.install_initial_routes()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 924, in install_initial_routes
+Exception in thread Thread-30 (_stream_receiver):
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+    if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+    self.run()
+    self._target(*self._args, **self._kwargs)
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 837, in insert_ipv4_route
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 136, in _stream_receiver
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+Exception in thread Thread-18 (_stream_receiver):
+    self.handle_packet_in(response.packet)
+    self._target(*self._args, **self._kwargs)
+Exception in thread Thread-21 (_stream_receiver):
+    self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+Traceback (most recent call last):
+    self._target(*self._args, **self._kwargs)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 184, in handle_packet_in
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 136, in _stream_receiver
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 136, in _stream_receiver
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1165, in __call__
+Traceback (most recent call last):
+    self.handle_packet_in(response.packet)
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 184, in handle_packet_in
+    self.handle_packet_in(response.packet)
+    self.packet_in_callback(self.device_id, ingress_port, packet.payload)
+    self.packet_in_callback(self.device_id, ingress_port, packet.payload)
+    state, call = self._blocking(
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 1214, in handle_packet_in
+    self.run()
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 1214, in handle_packet_in
+                  ^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 184, in handle_packet_in
+    self.install_initial_routes()
+    self.run()
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1136, in _blocking
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 924, in install_initial_routes
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self.packet_in_callback(self.device_id, ingress_port, packet.payload)
+    call = self._channel.segregated_call(
+    self.install_initial_routes()
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 1214, in handle_packet_in
+    if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 924, in install_initial_routes
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 837, in insert_ipv4_route
+    self._target(*self._args, **self._kwargs)
+    self.install_initial_routes()
+    self._target(*self._args, **self._kwargs)
+    self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 136, in _stream_receiver
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 136, in _stream_receiver
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1165, in __call__
+    if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+    state, call = self._blocking(
+                  ^^^^^^^^^^^^^^^
+    self.handle_packet_in(response.packet)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1136, in _blocking
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 184, in handle_packet_in
+    self.handle_packet_in(response.packet)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 924, in install_initial_routes
+ValueError: Cannot invoke RPC on closed channel!
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 184, in handle_packet_in
+    call = self._channel.segregated_call(
+    if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 837, in insert_ipv4_route
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 837, in insert_ipv4_route
+    self.packet_in_callback(self.device_id, ingress_port, packet.payload)
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+    self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+    self.packet_in_callback(self.device_id, ingress_port, packet.payload)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 1214, in handle_packet_in
+    self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1165, in __call__
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 1214, in handle_packet_in
+    self.install_initial_routes()
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1136, in _blocking
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 924, in install_initial_routes
+    state, call = self._blocking(
+ValueError: Cannot invoke RPC on closed channel!
+    self.install_initial_routes()
+                  ^^^^^^^^^^^^^^^
+    if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+    call = self._channel.segregated_call(
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1136, in _blocking
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 837, in insert_ipv4_route
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+    self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py", line 924, in install_initial_routes
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1165, in __call__
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+    state, call = self._blocking(
+                  ^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1136, in _blocking
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+    call = self._channel.segregated_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+    if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
+    call = self._channel.segregated_call(
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py", line 837, in insert_ipv4_route
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+    self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1165, in __call__
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+    state, call = self._blocking(
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+                  ^^^^^^^^^^^^^^^
+  File "/home/tester/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.12/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+INFO:     Application shutdown complete.
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+
+[8] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[6] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[8] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Discovered link: S6-p4 -> S10-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
