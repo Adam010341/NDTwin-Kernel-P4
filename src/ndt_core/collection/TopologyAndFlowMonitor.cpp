@@ -2764,7 +2764,19 @@ TopologyAndFlowMonitor::getAvgLinkUsage(const Graph& g) const
         // the full intersection, so an administratively disabled link with residual traffic still
         // counted towards the average. Made consistent when adminDisabled was introduced -- an
         // operator who takes a link out of service should not see it in the utilisation figure
-        // that Energy-Saving-App reads.
+        // this endpoint reports.
+        //
+        // 2026-08-29: this comment used to end "...the utilisation figure that Energy-Saving-App
+        // reads", and that was false. Energy-Saving-App declares a client for this endpoint
+        // (include/app/http.hpp:34, defined src/app/http.cpp:393) and never calls it; its power
+        // decision at src/app/energy_saving_app.cpp:926 reads group_avg_link_utilization
+        // (src/common/types.cpp:396), computed from the graph, which never touches this function.
+        // A sweep of all seven sibling repos named in tools/test_workflow/components.env found no
+        // other caller. The change above is still right -- the reason given for it was not.
+        // Stated rather than deleted so the next reader does not re-derive the same wrong premise;
+        // see doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md.
+        // Zero in-repo callers is not a licence to change the response: /ndt/ is a cross-repo
+        // contract and the client above is one line away from being live.
         if (!isUsable(g[e]))
         {
             continue;

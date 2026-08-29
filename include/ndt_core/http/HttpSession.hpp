@@ -589,9 +589,25 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * it: `isUp` alone was the only one of the six availability checks not taking the full
      * intersection, so a link an operator had taken out of service still counted towards the
      * average as long as residual traffic was flowing over it. The .cpp comment above the filter
-     * records the same reasoning. This figure is what Energy-Saving-App reads, so a header that
-     * teaches the superseded predicate is a header that misdescribes the input to another
-     * component's decisions.
+     * records the same reasoning. A header that teaches the superseded predicate misdescribes
+     * what this endpoint reports.
+     *
+     * 2026-08-29: the sentence above used to justify that with "This figure is what
+     * Energy-Saving-App reads, so ... misdescribes the input to another component's decisions".
+     * That premise was false, and it is worth saying so rather than quietly deleting it, because
+     * it was the stated *reason* for a change and reasons outlive conclusions. Energy-Saving-App
+     * declares a client for this endpoint (include/app/http.hpp:34, defined at
+     * src/app/http.cpp:393) and nothing calls it; its power decision
+     * (src/app/energy_saving_app.cpp:926) reads group_avg_link_utilization
+     * (src/common/types.cpp:396) computed from the graph, which never reaches this handler. All
+     * seven sibling repos listed in tools/test_workflow/components.env were swept, including
+     * Traffic-Engineering-App, which builds its paths by concatenation and so needed its endpoint
+     * list read out rather than grepped; none reference this one. Evidence and the consumer
+     * inventory: doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md.
+     *
+     * The documentation fix itself stands on its own merits. And no in-repo caller is not a
+     * licence to change the response body: /ndt/ is a cross-repo contract, and a written but
+     * uncalled client is one line away from being a caller.
      *
      * For each qualifying directed edge, utilization is computed as:
      *   linkBandwidthUsage / linkBandwidth
