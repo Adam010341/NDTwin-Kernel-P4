@@ -1,0 +1,97 @@
+
+############ fast_a  (build=fast)  2026-08-29 10:14:32 ############
+--- selecting fast and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1802    TX +15
+  s1-eth4    RX +15      TX +1802
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: fast  (/usr/local/bmv2-fast/bin/simple_switch_grpc, EventLogger=0)  kernel negctl=0 posctl=5
+### 1 arm fast_a  build=fast  payload 1400B  h1->h2 (one hop)  step 8s  10:15:45
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.5 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.2 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.3 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.4 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.2 pps  recv    2678.1 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.3 pps  recv    4017.1 pps  clean=yes
+     70 M     reps 1  loss   0.0000%  sent    6249.0 pps  recv    6248.8 pps  clean=yes
+    110 M     reps 3  loss   0.0038%  sent    9819.8 pps  recv    9819.4 pps  clean=yes
+    160 M     reps 3  loss   0.0306%  sent   14282.7 pps  recv   14281.8 pps  clean=yes
+    240 M     reps 3  loss   0.2199%  sent   21425.0 pps  recv   21424.3 pps  clean=yes
+    360 M     reps 3  loss   0.4294%  sent   32137.4 pps  recv   32136.7 pps  clean=yes
+  ✅ confirmed 360 M  reps 0.1431,0.1256,0.2462  median 0.1431% <= 0.5%
+### total_busy=0.1435
+### bmv2_share=0.0266
+### iperf3_share=0.0659
+### external=0.0510
+### samples=225
+
+############ stock_b  (build=stock)  2026-08-29 10:19:31 ############
+--- selecting stock and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1803    TX +14
+  s1-eth4    RX +14      TX +1803
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: stock  (/usr/local/bin/simple_switch_grpc, EventLogger=24)  kernel negctl=0 posctl=5
+### 1 arm stock_b  build=stock  payload 1400B  h1->h2 (one hop)  step 8s  10:20:48
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.4 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.1 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.1 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.3 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.2 pps  recv    2677.9 pps  clean=yes
+     45 M     reps 3  loss   0.3174%  sent    4017.3 pps  recv    3994.8 pps  clean=yes
+     70 M     reps 1  loss  24.4924%  sent    6249.0 pps  recv    6136.0 pps  clean=no
+    110 M     reps 1  loss  49.3559%  sent    9819.7 pps  recv    9623.2 pps  clean=no
+    160 M     reps 1  loss  57.5175%  sent   14283.4 pps  recv   13996.8 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 160 M.
+     Rungs above 160 M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45 M  reps 0.0000,0.0000,0.0000  median 0.0000% <= 0.5%
+### total_busy=0.2307
+### bmv2_share=0.0661
+### iperf3_share=0.0618
+### external=0.1028
+### samples=153
+
+############ fast_b  (build=fast)  2026-08-29 10:23:22 ############
+--- selecting fast and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1802    TX +16
+  s1-eth4    RX +15      TX +1802
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: fast  (/usr/local/bmv2-fast/bin/simple_switch_grpc, EventLogger=0)  kernel negctl=0 posctl=5
+### 1 arm fast_b  build=fast  payload 1400B  h1->h2 (one hop)  step 8s  10:24:35
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.5 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.2 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.3 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.4 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.2 pps  recv    2678.2 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.4 pps  recv    4017.3 pps  clean=yes
+     70 M     reps 1  loss   0.0000%  sent    6249.1 pps  recv    6249.0 pps  clean=yes
+    110 M     reps 3  loss   0.0000%  sent    9819.8 pps  recv    9819.7 pps  clean=yes
+    160 M     reps 3  loss   0.0096%  sent   14283.4 pps  recv   14282.9 pps  clean=yes
+    240 M     reps 3  loss   0.0572%  sent   21425.5 pps  recv   21425.1 pps  clean=yes
+    360 M     reps 3  loss   0.1964%  sent   32137.7 pps  recv   32136.8 pps  clean=yes
+  ✅ confirmed 360 M  reps 0.2100,0.1101,0.1610  median 0.1610% <= 0.5%
+### total_busy=0.1380
+### bmv2_share=0.0251
+### iperf3_share=0.0637
+### external=0.0491
+### samples=225
+
+############ ① arms complete 2026-08-29 10:28:21 ############
+arm        build   clean_mbit     external    EventLogger sha
+fast_a     fast    360            0.0510      0           3ff54b5c
+fast_b     fast    360            0.0491      0           3ff54b5c
+stock_a    stock   45             0.0654      24          327fa7d1
+stock_b    stock   45             0.1028      24          327fa7d1

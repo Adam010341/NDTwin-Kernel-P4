@@ -1,0 +1,31 @@
+arm=fast_b
+build=fast
+switch_binary_resolved=/usr/local/bmv2-fast/bin/simple_switch_grpc  # from argv (launcher's claim); /proc/exe needs root, see AMENDMENT-1 8.5
+switch_binary_override_agrees=/usr/local/bmv2-fast/bin/simple_switch_grpc
+switch_binary_sha256=3ff54b5c
+build_signature_EventLogger=0  # fast=0 stock>0 (--disable-elogger); both directions asserted
+kernel_negctl_3367d0e9_hits=0  # must be 0
+kernel_posctl_a40e04ce_hits=5  # must be 5
+payload_bytes=1400
+started=2026-08-29 10:24:35 +0800
+ladder_mbit=1 2 3 5 8 12 20 30 45 70 110 160 240 360
+step_s=8
+clean_pct=0.5
+rep_rule=nonzero-to-2.0pct => 3 reps median; exact 0.0000 => 1 rep (3's AMENDMENT-2 11.1)
+host_pair=h1->h2 (10.0.0.2)
+kernel_sha256_start=a40e04ce
+switch_binary=/usr/local/bmv2-fast/bin/simple_switch_grpc
+switch_count=10
+switch_pids=3335511 3335512 3335513 3335514 3335515 3335516 3335517 3335519 3335520 3335522
+burners=0
+gate=external residual (AMENDMENT-1 7.2), not total busy
+ladder_truncated_at=not-truncated
+highest_clean_mbit=360
+top_rung_confirmation=360:0.2100,0.1101,0.1610=>0.1610 
+kernel_sha256_end=a40e04ce
+finished=2026-08-29 10:28:21 +0800
+total_busy=0.1380
+bmv2_share=0.0251
+iperf3_share=0.0637
+external=0.0491
+samples=225

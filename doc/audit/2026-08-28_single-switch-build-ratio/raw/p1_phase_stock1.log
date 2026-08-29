@@ -1,0 +1,31 @@
+### positive control, STOCK build (not inherited)
+  ✅ confirmed 8 M  reps 0.0000,0.0000,0.0000  median 0.0000% <= 0.5%
+### total_busy=0.3218
+### bmv2_share=0.0161
+### iperf3_share=0.0473
+### external=0.2584
+### samples=41
+
+### arm: stock_a
+### build asserted: stock  (/usr/local/bin/simple_switch_grpc, EventLogger=24)  kernel negctl=0 posctl=5
+### 1 arm stock_a  build=stock  payload 1400B  h1->h2 (one hop)  step 8s  10:11:11
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.4 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.1 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.2 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.2 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.2 pps  recv    2677.8 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.2 pps  recv    4016.8 pps  clean=yes
+     70 M     reps 1  loss  12.1152%  sent    6248.9 pps  recv    6110.4 pps  clean=no
+    110 M     reps 1  loss  39.3964%  sent    9819.9 pps  recv    9615.9 pps  clean=no
+    160 M     reps 1  loss  56.8717%  sent   14283.4 pps  recv   13964.5 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 160 M.
+     Rungs above 160 M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45 M  reps 0.0000,0.0000,0.0000  median 0.0000% <= 0.5%
+### total_busy=0.1865
+### bmv2_share=0.0615
+### iperf3_share=0.0597
+### external=0.0654
+### samples=135
