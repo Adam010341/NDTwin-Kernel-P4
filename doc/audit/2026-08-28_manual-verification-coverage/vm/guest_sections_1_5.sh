@@ -34,6 +34,10 @@
 #       ahead and which no reader following this page ever obtains. See SNIPPET-CANONICAL.md.
 #   S3  `ryu-manager` (2.5) blocks forever, which the page now says is the success case. Run
 #       in the background, checked for the loaded-app banner, then SIGINT -- the page's Ctrl-C.
+#   S4  `mkdir -p ~/Desktop`, added 2026-08-30 after run 1. NOT a fix and NOT a finding being
+#       papered over: run 1 proved the page assumes this directory and never creates it (M-1),
+#       which stopped that run before 4.2 and 5 ran at all. This workaround exists so runs 2+
+#       can reach the sections M-1 hid. Remove it the day the page creates the directory itself.
 #
 # [Co-developed with claude code -- Adam]
 # ============================================================================================
@@ -185,6 +189,16 @@ echo "    reading the Results line by name, as the page now instructs:"
 grep -n '\*\*\* Results:' ~/pingall.log | sed 's/^/      /' || { echo "      NOT FOUND -- the page's named line is absent"; fail_n=$((fail_n+1)); }
 echo "    (for contrast, the LAST line, which the page warns is not the answer:)"
 tail -1 ~/pingall.log | sed 's/^/      /'
+
+# --------------------------------------------------------------------------------------------
+banner "S4 SUBSTITUTION -- create ~/Desktop, which the page assumes and never creates"
+echo "ADDED 2026-08-30, AFTER the first run, and it is NOT a fix -- it is a workaround so the"
+echo "rest of the manual can be reached. Run 1 established M-1: section 1 asks for 'Ubuntu"
+echo "24.04 LTS' without saying Desktop edition, the page then uses ~/Desktop thirteen times,"
+echo "and on a server install 4.1's 'cd ~/Desktop' fails while the NEXT command, the clone,"
+echo "succeeds into \$HOME. Sections 4.2 and 5 were therefore never reached at all."
+echo "M-1 stands on run 1's evidence; this line exists only so runs 2+ can test what follows it."
+sayc "S4 create ~/Desktop (page never tells the reader to)" "mkdir -p \$HOME/Desktop && ls -ld \$HOME/Desktop"
 
 # --------------------------------------------------------------------------------------------
 banner "SECTION 4.1 -- Download Source Code (P4 variant, per the page's 'if unsure, clone the P4 one')"
