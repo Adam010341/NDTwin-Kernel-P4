@@ -1,0 +1,146 @@
+############ 2 packet-size sweep begins 2026-08-29 09:13:38 ############
+pre-run context (disclosed, not hidden):
+  agy=0  bmv2=10
+  load1=3.33
+  top non-bmv2 CPU:  100 ps
+
+===== arm 1/6 : 64B pass A =====
+### 2 arm f64_a  frame 64B (payload 22)  h1->h65  step 8s  09:13:38
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.9 pps  clean=yes
+      8 kpps  reps 3  loss   0.0016%  sent    7998.7 pps  recv    7997.9 pps  clean=yes
+     12 kpps  reps 3  loss   0.1563%  sent   11997.9 pps  recv   11996.8 pps  clean=yes
+     20 kpps  reps 3  loss   0.1788%  sent   19996.8 pps  recv   19994.1 pps  clean=yes
+     30 kpps  reps 1  loss   2.0211%  sent   29995.9 pps  recv   29993.3 pps  clean=no
+     45 kpps  reps 1  loss  19.4918%  sent   44994.0 pps  recv   44985.3 pps  clean=no
+     70 kpps  reps 1  loss  43.1254%  sent   69990.7 pps  recv   69985.0 pps  clean=no
+    110 kpps  reps 1  loss  61.3281%  sent  109985.0 pps  recv  109965.4 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 20 kpps  reps 0.2100,0.5788,0.3813  median 0.3813% <= 0.5%
+### total_busy=0.3079
+### bmv2_share=0.1481
+### iperf3_share=0.0699
+### external=0.0899
+### samples=180
+
+===== arm 2/6 : 256B pass A =====
+### 2 arm f256_a  frame 256B (payload 214)  h1->h65  step 8s  09:16:59
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.6 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.9 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.8 pps  recv    7997.9 pps  clean=yes
+     12 kpps  reps 3  loss   0.1136%  sent   11998.1 pps  recv   11996.7 pps  clean=yes
+     20 kpps  reps 3  loss   0.1625%  sent   19996.8 pps  recv   19991.3 pps  clean=yes
+     30 kpps  reps 3  loss   1.0535%  sent   29995.2 pps  recv   29991.3 pps  clean=no
+     45 kpps  reps 1  loss  17.3980%  sent   44993.5 pps  recv   44987.9 pps  clean=no
+     70 kpps  reps 1  loss  41.6429%  sent   69990.2 pps  recv   69978.3 pps  clean=no
+    110 kpps  reps 1  loss  60.3867%  sent  109985.3 pps  recv  109976.2 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 20 kpps  reps 0.2744,0.1400,0.2557  median 0.2557% <= 0.5%
+### total_busy=0.3343
+### bmv2_share=0.1660
+### iperf3_share=0.0713
+### external=0.0970
+### samples=180
+
+===== arm 3/6 : 1024B pass A =====
+### 2 arm f1024_a  frame 1024B (payload 982)  h1->h65  step 8s  09:20:21
+      1 kpps  reps 1  loss   0.0000%  sent    1000.0 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.3 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.3 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.8 pps  clean=yes
+      8 kpps  reps 3  loss   0.0672%  sent    7998.6 pps  recv    7997.9 pps  clean=yes
+     12 kpps  reps 3  loss   0.0760%  sent   11998.1 pps  recv   11997.1 pps  clean=yes
+     20 kpps  reps 3  loss   0.6613%  sent   19996.8 pps  recv   19993.5 pps  clean=no
+     30 kpps  reps 3  loss   1.1505%  sent   29995.6 pps  recv   29990.2 pps  clean=no
+     45 kpps  reps 1  loss  20.7017%  sent   44993.5 pps  recv   44988.9 pps  clean=no
+     70 kpps  reps 1  loss  41.1214%  sent   69989.5 pps  recv   69978.4 pps  clean=no
+    110 kpps  reps 1  loss  58.3804%  sent  109985.5 pps  recv  109962.9 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 12 kpps  reps 0.0448,0.0740,0.2240  median 0.0740% <= 0.5%
+### total_busy=0.3248
+### bmv2_share=0.1511
+### iperf3_share=0.0686
+### external=0.1052
+### samples=197
+
+===== arm 4/6 : 1024B pass B =====
+### 2 arm f1024_b  frame 1024B (payload 982)  h1->h65  step 8s  09:24:00
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 3  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 3  loss   0.0000%  sent    4999.2 pps  recv    4998.8 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.5 pps  recv    7997.7 pps  clean=yes
+     12 kpps  reps 3  loss   0.2521%  sent   11998.0 pps  recv   11997.1 pps  clean=yes
+     20 kpps  reps 3  loss   0.4857%  sent   19996.7 pps  recv   19994.9 pps  clean=yes
+     30 kpps  reps 3  loss   1.0739%  sent   29995.4 pps  recv   29991.6 pps  clean=no
+     45 kpps  reps 1  loss  16.6913%  sent   44992.7 pps  recv   44986.4 pps  clean=no
+     70 kpps  reps 1  loss  42.0499%  sent   69988.9 pps  recv   69982.1 pps  clean=no
+    110 kpps  reps 1  loss  58.6402%  sent  109983.8 pps  recv  109967.4 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 20 kpps  reps 0.5826,0.2888,0.4969  median 0.4969% <= 0.5%
+### total_busy=0.2952
+### bmv2_share=0.1499
+### iperf3_share=0.0698
+### external=0.0754
+### samples=215
+
+===== arm 5/6 : 256B pass B =====
+### 2 arm f256_b  frame 256B (payload 214)  h1->h65  step 8s  09:27:58
+      1 kpps  reps 1  loss   0.0000%  sent    1000.0 pps  recv     999.9 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.3 pps  clean=yes
+      5 kpps  reps 3  loss   0.0125%  sent    4999.2 pps  recv    4998.6 pps  clean=yes
+      8 kpps  reps 3  loss   0.0063%  sent    7998.8 pps  recv    7997.8 pps  clean=yes
+     12 kpps  reps 3  loss   0.0906%  sent   11998.1 pps  recv   11995.7 pps  clean=yes
+     20 kpps  reps 3  loss   0.1244%  sent   19996.7 pps  recv   19994.1 pps  clean=yes
+     30 kpps  reps 3  loss   0.8793%  sent   29995.5 pps  recv   29991.8 pps  clean=no
+     45 kpps  reps 1  loss  16.7676%  sent   44993.6 pps  recv   44987.3 pps  clean=no
+     70 kpps  reps 1  loss  39.9459%  sent   69988.7 pps  recv   69977.4 pps  clean=no
+    110 kpps  reps 1  loss  56.7919%  sent  109985.0 pps  recv  109970.5 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 20 kpps  reps 0.0644,0.2919,0.0675  median 0.0675% <= 0.5%
+### total_busy=0.2798
+### bmv2_share=0.1456
+### iperf3_share=0.0693
+### external=0.0650
+### samples=215
+
+===== arm 6/6 : 64B pass B =====
+### 2 arm f64_b  frame 64B (payload 22)  h1->h65  step 8s  09:31:55
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.7 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.7 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.1 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.6 pps  clean=yes
+      8 kpps  reps 3  loss   0.0125%  sent    7998.7 pps  recv    7998.1 pps  clean=yes
+     12 kpps  reps 3  loss   0.0375%  sent   11998.1 pps  recv   11996.9 pps  clean=yes
+     20 kpps  reps 3  loss   0.6119%  sent   19996.5 pps  recv   19993.5 pps  clean=no
+     30 kpps  reps 3  loss   1.9673%  sent   29995.3 pps  recv   29992.4 pps  clean=no
+     45 kpps  reps 1  loss  16.9322%  sent   44992.9 pps  recv   44989.2 pps  clean=no
+     70 kpps  reps 1  loss  42.3028%  sent   69989.2 pps  recv   69981.2 pps  clean=no
+    110 kpps  reps 1  loss  57.7563%  sent  109984.6 pps  recv  109973.5 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 12 kpps  reps 0.3417,0.0125,0.0542  median 0.0542% <= 0.5%
+### total_busy=0.2304
+### bmv2_share=0.1476
+### iperf3_share=0.0716
+### external=0.0111
+### samples=198
+
+############ 2 arms complete 2026-08-29 09:35:34 ############
+frame      arm    clean_kpps     external     total_busy   bmv2_share
+64B        a      20             0.0899       0.3079       0.1481
+64B        b      12             0.0111       0.2304       0.1476
+256B       a      20             0.0970       0.3343       0.1660
+256B       b      20             0.0650       0.2798       0.1456
+1024B      a      12             0.1052       0.3248       0.1511
+1024B      b      20             0.0754       0.2952       0.1499

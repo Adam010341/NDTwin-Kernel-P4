@@ -1,0 +1,4 @@
+generator_ceiling_kpps=770.7
+estimate_kpps=254
+vs_estimate=above
+final_gate=pending -- 5x this round's bmv2 64B pps, decided at analysis time

@@ -1,0 +1,25 @@
+arm=f64_b
+frame_bytes=64
+payload_bytes=22
+started=2026-08-29 09:31:55 +0800
+ladder_kpps=1 2 3 5 8 12 20 30 45 70 110 160 240
+step_s=8
+clean_pct=0.5
+rep_rule=nonzero-to-2.0pct => 3 reps median; exact 0.0000 => 1 rep (3's AMENDMENT-2 11.1)
+host_pair=h1->h65 (10.0.0.65)
+kernel_sha256_start=a40e04ce
+switch_binary=/usr/local/bmv2-fast/bin/simple_switch_grpc
+switch_count=10
+switch_pids=2483268 2483269 2483270 2483271 2483272 2483273 2483274 2483275 2483276 2483277
+burners=0
+gate=external residual (AMENDMENT-1 7.2), not total busy
+ladder_truncated_at=110
+highest_clean_kpps=12
+top_rung_confirmation=12:0.3417,0.0125,0.0542=>0.0542 
+kernel_sha256_end=a40e04ce
+finished=2026-08-29 09:35:14 +0800
+total_busy=0.2304
+bmv2_share=0.1476
+iperf3_share=0.0716
+external=0.0111
+samples=198

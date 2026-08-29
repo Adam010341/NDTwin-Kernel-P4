@@ -1,0 +1,10 @@
+control=sender_side_64B_loopback
+started=2026-08-29 09:06:14 +0800
+purpose=PREREG section 3 -- generator pps ceiling at 64 B frames, NOT through bmv2
+payload_bytes=22
+frame_bytes=64
+path=h1 -> 127.0.0.1 inside h1 netns (loopback; no bmv2 in path)
+step_s=10
+reps=3
+estimate_target_kpps=254  # 5x 08-15's 50.8 kpps; final gate is vs THIS round's bmv2 64B pps
+finished=2026-08-29 09:06:48 +0800
