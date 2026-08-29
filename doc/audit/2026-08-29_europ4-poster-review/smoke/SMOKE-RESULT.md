@@ -71,4 +71,19 @@ log 正本＝`smoke_driver.log`；每臂 meta 與 iperf JSON＝`raw/smoke_{stock
 (c) 裁定**不重跑**——兩種讀值都活在註冊區間內，第三讀無決策資訊；差額歸屬輪若碰
 fast 側階，把「頂階騎門檻腰＋external 共變量」列已知威脅。
 
+### 追記（auditor 續報 14:3x）：那 ≈1 核的候選主角＋「這是閘門做對了」
+
+- 〔O，auditor 量（機器相對閒時）〕`claude`＋`claude-desktop` **38 個行程 ≈29.4% of one
+  core**、chrome/gnome-shell/Xorg/node ≈21.7% ⇒ 非 fabric 非量測合計 **≈51% of one core
+  在閒時**——smoke 窗內 4–5 個 session 併行思考／跑工具時衝到 ≈1 核，量級合理。
+  〔auditor 自標強度，照錄〕`ps %CPU` 是生命期平均、且未在 smoke 窗內量
+  ⇒ **解釋得了量級、證明不了那一次**。①b 通宵跑、併行 session 少——方向也對。
+- 🔑 **正面判讀（採 auditor 原話）**：external 殘差本來就把 Claude session 算進去 ⇒
+  **0.0974 不是閘門瞎了，是閘門正確回報了「污染存在」**——缺的只是歸因，而歸因現在
+  有量級相符的候選。這是「保護真的擋住它要擋的東西」的正例（此類記憶多為反例）。
+- ⚠️ **自指註記**：本審查自己的 session 群（含兩個外部 agent、跨 session 訊息處理）
+  就在候選集合裡——「記錄實驗的動作本身污染實驗」的審查版。
+- 差額歸屬輪的工具序（auditor 議、本席同意）：**per-PID `utime+stime` 成對差分為主**
+  （兩次取差＋確認無子行程，漏後者會把 fork 出去的工作算成零）、殘差法為輔助總量檢查。
+
 [Co-developed with claude code -- Adam]
