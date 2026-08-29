@@ -8,16 +8,32 @@ on the VM disk, `s1-5.log` (234 KB).
 Criterion, per the standing instruction: **what is under test is whether a person following the
 page can get there — not whether a script exits clean.**
 
-| | |
-| :--- | ---: |
-| steps run | 47 |
-| non-zero exits | 13 |
-| kernel binary built | **NO** |
-| wall clock | **6 m 26 s** |
+**Run 2** (2026-08-30 00:50–01:04) followed, with an announced `mkdir -p ~/Desktop` (S4) so the
+sections M-1 hid could be reached. Both runs are reported here.
 
-🔴 **The 6-minute wall clock is itself the headline.** A successful §1–§5 includes a `cmake` +
-`ninja` build the manual says takes one to two hours. It finished in six minutes because **the
-build never ran**.
+| | run 1 | run 2 (with S4) |
+| :--- | ---: | ---: |
+| steps run | 47 | 48 |
+| non-zero exits | **13** | **2** |
+| kernel binary built | **NO** | **yes** — 11.8 MB, 90 ninja targets |
+| wall clock | 6 m 26 s | 13 m 56 s |
+
+Run 2's two non-zero exits are both accounted for: step 21 is the failure §2.6's callout
+documents as expected, and step 48 is harness defect H-14 below. **Nothing in run 2 is an
+unexplained failure.**
+
+### ✏️ Correction — my own, in the first version of this file
+
+The first version of this document called run 1's 6-minute wall clock "the headline", on the
+grounds that "the manual says the build takes one to two hours". **That was wrong.** The "one to
+two hours" in the manual is the callout at §6's `install-p4dev-v8.sh` — the **P4 toolchain**
+build. **§4.2 gives no time estimate at all.** Run 2 measured the real §4.2 build: **90 ninja
+targets, about 7 minutes** on 2 cores.
+
+So "six minutes is suspiciously fast" was never a valid inference; a complete §1–§5 takes about
+fourteen. The way run 1's build was proven not to have run is the cmake error and the absent
+binary, quoted below — evidence that never needed the timing argument. I reached for a number
+that made the finding sound bigger and misattributed it in the process. M-1 itself is unaffected.
 
 ---
 
@@ -153,26 +169,73 @@ The log notes ryu-manager "survived Ctrl-C (SIGINT)". It did not receive one. Ct
 SIGINT to the foreground **process group**; the harness backgrounded ryu-manager and signalled a
 single pid, then waited 3 s. Not evidence about the page's stop instruction either way.
 
+### H-16 🔴 — the dpid check prints a number that contradicts the claim, and passes anyway
+
+Step 43 says it is testing `b41b9e4`'s claim that the topology JSON holds **exactly 138 dpid
+nodes**. Run 2 printed:
+
+```
+dpid occurrences: 714
+    rc=0
+```
+
+A reader of that log concludes the claim is refuted by a factor of five. **It is not.** The check
+counts the *substring* `dpid` in `json.dumps(d)`, and each node carries it about five times over
+its nested port entries. Counting objects that actually hold a `dpid` key:
+
+```
+objects that HAVE a dpid key: 138
+nodes: list of 138          edges: list of 288
+```
+
+**`b41b9e4`'s claim is correct.** Two separate faults in one step: the instrument measures
+something other than what it names, and it **asserts nothing** — it prints and returns 0, so it
+would "pass" for any value whatsoever. Fix is `len(d["nodes"])` plus an actual comparison to 138.
+
+🔑 This is the same shape as H-14: a check with no discriminating power, whose green result was
+never evidence. The difference is that this one also printed a number **loud enough to look like
+a finding**, which is worse — a quiet useless check wastes a slot; a loud one manufactures a
+false result.
+
 ---
 
-## 🔴 What this run did NOT test
+## ✅ What run 2 established — including the thing this replay was commissioned for
+
+**§4.2.4, the step `b41b9e4` added, does what it was added to do.** Run 2, verbatim:
+
+```
+--- [39] 4.2.3 ninja           rc=0   cwd-after: .../NDTwin-Kernel/build
+--- [40] 4.2.4 return to the project root (the step b41b9e4 added)
+                               rc=0   cwd-after: .../NDTwin-Kernel     <-- out of build/
+```
+
+and §5 then lands where the page says it should, with the negative half of the assertion holding:
+
+```
+--- [45] 5 -- landed at the project root, not inside build/?
+    -rwxrwxr-x 1 tester tester 9362 .../NDTwin-Kernel/testbed_topo.py
+    correct: not in build/
+    rc=0
+```
+
+The cwd chain — a reader inside `build/` when §5 says to edit `testbed_topo.py`, with §6.4 later
+running `rm -rf build` — **is fixed, and is now verified by execution rather than by reading.**
+
+The build is real: **90 ninja targets**, `bin/ndtwin_kernel` at 11,839,016 bytes.
+
+## 🔴 What is still NOT tested
 
 Overstating coverage here would be worse than the defect found.
 
 | section | status |
 | :--- | :--- |
-| §1, §2.1(B), §2.2, §2.3, §2.4, §2.5, §2.7, §3.1, §3.2, §3.3 | **exercised, pass** |
-| §2.1 option A | **untested** — see H-14 |
-| §2.6 | partially — the file was staged, but the move to the project root never happened |
-| **§4.2 (compile)** | **NEVER RAN.** cmake failed on the wrong directory; there was no build |
-| **§5** | **NOT validly tested.** Steps 43–45 ran with cwd `~/build`; step 45's grep read a copy sitting in the wrong directory and returned rc=0 anyway |
+| §1, §2.1(B), §2.2–§2.7, §3.1–§3.3, §4.1, §4.2, §5 | **exercised, pass** (run 2) |
+| §2.1 **option A** | 🔴 **still untested** — H-14; the check has no discriminating power |
+| §2.6 §3 "138 dpid nodes" | claim **verified separately** and holds; the in-run check does not test it (H-16) |
+| §4.1 on a machine **without** `~/Desktop` | 🔴 **fails** — M-1, unfixed in the manual. Run 2 only passes because S4 works around it |
 
-So §4.2 and §5 — including whether `b41b9e4`'s added "return to the project root" step actually
-fixes the cwd chain, the reason this replay was commissioned — **remain unverified.** A second
-run is needed after M-1 is fixed, and it will take one to two hours rather than six minutes.
-
-Step 45 returning **rc=0 while testing nothing** is worth its own note: it grepped a file it had
-itself copied into `~/build`, so it would have passed no matter where the reader ended up.
+🔴 **Run 2 does not retire M-1.** It was run with the workaround in place; a reader on Ubuntu
+Server still hits exactly what run 1 hit. M-1 stays open until the page changes.
 
 ---
 
