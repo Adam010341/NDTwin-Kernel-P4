@@ -1,0 +1,139 @@
+
+############ b_stock_a  (build=stock)  2026-08-29 10:39:34 ############
+--- selecting stock and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1804    TX +16
+  s1-eth4    RX +14      TX +1804
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: stock  (/usr/local/bin/simple_switch_grpc, EventLogger=24)  kernel negctl=0 posctl=5
+### 1 arm b_stock_a  build=stock  payload 1400B  h1->h2 (one hop)  step 8s  10:40:48
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.4 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.1 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.2 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.3 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.2 pps  recv    2678.0 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.3 pps  recv    4016.8 pps  clean=yes
+     70 M     reps 1  loss   4.4444%  sent    6249.0 pps  recv    6123.1 pps  clean=no
+    110 M     reps 1  loss  37.8002%  sent    9819.7 pps  recv    9621.3 pps  clean=no
+    160 M     reps 1  loss  56.9575%  sent   14283.2 pps  recv   13997.8 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 160 M.
+     Rungs above 160 M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45 M  reps 0.0000,0.0000,0.0000  median 0.0000% <= 0.5%
+### total_busy=0.1557
+### bmv2_share=0.0588
+### iperf3_share=0.0592
+### external=0.0377
+### samples=135
+
+############ b_fast_a  (build=fast)  2026-08-29 10:43:05 ############
+--- selecting fast and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1802    TX +16
+  s1-eth4    RX +15      TX +1803
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: fast  (/usr/local/bmv2-fast/bin/simple_switch_grpc, EventLogger=0)  kernel negctl=0 posctl=5
+### 1 arm b_fast_a  build=fast  payload 1400B  h1->h2 (one hop)  step 8s  10:44:17
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.5 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.2 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.3 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.4 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.3 pps  recv    2678.2 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.2 pps  recv    4016.9 pps  clean=yes
+     70 M     reps 1  loss   0.0000%  sent    6249.0 pps  recv    6248.8 pps  clean=yes
+    110 M     reps 3  loss   0.0000%  sent    9819.8 pps  recv    9819.4 pps  clean=yes
+    160 M     reps 3  loss   0.0578%  sent   14283.3 pps  recv   14283.0 pps  clean=yes
+    240 M     reps 3  loss   0.0443%  sent   21425.2 pps  recv   21424.6 pps  clean=yes
+    360 M     reps 3  loss   0.1540%  sent   32137.5 pps  recv   32136.5 pps  clean=yes
+    540 M     reps 1  loss  25.8020%  sent   48205.9 pps  recv   48204.0 pps  clean=no
+    810 M     reps 1  loss  46.3992%  sent   72308.8 pps  recv   72305.9 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 810 M.
+     Rungs above 810 M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 360 M  reps 0.1711,0.3493,0.2933  median 0.2933% <= 0.5%
+### total_busy=0.1228
+### bmv2_share=0.0278
+### iperf3_share=0.0651
+### external=0.0298
+### samples=242
+
+############ b_stock_b  (build=stock)  2026-08-29 10:48:21 ############
+--- selecting stock and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1804    TX +15
+  s1-eth4    RX +15      TX +1804
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: stock  (/usr/local/bin/simple_switch_grpc, EventLogger=24)  kernel negctl=0 posctl=5
+### 1 arm b_stock_b  build=stock  payload 1400B  h1->h2 (one hop)  step 8s  10:49:35
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.8 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.4 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.1 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.2 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.2 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.2 pps  recv    2677.9 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.4 pps  recv    4016.7 pps  clean=yes
+     70 M     reps 1  loss   7.6389%  sent    6248.8 pps  recv    6123.6 pps  clean=no
+    110 M     reps 1  loss  37.5966%  sent    9819.5 pps  recv    9623.0 pps  clean=no
+    160 M     reps 1  loss  56.9505%  sent   14283.1 pps  recv   13981.5 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 160 M.
+     Rungs above 160 M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45 M  reps 0.0000,0.0000,0.0000  median 0.0000% <= 0.5%
+### total_busy=0.1545
+### bmv2_share=0.0581
+### iperf3_share=0.0588
+### external=0.0377
+### samples=135
+
+############ b_fast_b  (build=fast)  2026-08-29 10:51:52 ############
+--- selecting fast and restarting the fabric ---
+  fabric up
+--- re-verifying ONE HOP on the rebuilt fabric ---
+  s1-eth3    RX +1803    TX +14
+  s1-eth4    RX +14      TX +1803
+  => 2 interfaces on 1 switch(es): ✅ ONE HOP
+### build asserted: fast  (/usr/local/bmv2-fast/bin/simple_switch_grpc, EventLogger=0)  kernel negctl=0 posctl=5
+### 1 arm b_fast_b  build=fast  payload 1400B  h1->h2 (one hop)  step 8s  10:53:10
+      1 M     reps 1  loss   0.0000%  sent      89.4 pps  recv      89.4 pps  clean=yes
+      2 M     reps 1  loss   0.0000%  sent     178.6 pps  recv     178.6 pps  clean=yes
+      3 M     reps 1  loss   0.0000%  sent     267.9 pps  recv     267.9 pps  clean=yes
+      5 M     reps 1  loss   0.0000%  sent     446.5 pps  recv     446.5 pps  clean=yes
+      8 M     reps 1  loss   0.0000%  sent     714.2 pps  recv     714.2 pps  clean=yes
+     12 M     reps 1  loss   0.0000%  sent    1071.3 pps  recv    1071.3 pps  clean=yes
+     20 M     reps 1  loss   0.0000%  sent    1785.5 pps  recv    1785.5 pps  clean=yes
+     30 M     reps 1  loss   0.0000%  sent    2678.3 pps  recv    2678.1 pps  clean=yes
+     45 M     reps 1  loss   0.0000%  sent    4017.2 pps  recv    4016.8 pps  clean=yes
+     70 M     reps 1  loss   0.0000%  sent    6248.9 pps  recv    6248.7 pps  clean=yes
+    110 M     reps 1  loss   0.0000%  sent    9819.5 pps  recv    9819.2 pps  clean=yes
+    160 M     reps 3  loss   0.0096%  sent   14283.4 pps  recv   14283.0 pps  clean=yes
+    240 M     reps 3  loss   0.0700%  sent   21424.9 pps  recv   21424.2 pps  clean=yes
+    360 M     reps 3  loss   0.3275%  sent   32137.8 pps  recv   32136.2 pps  clean=yes
+    540 M     reps 1  loss  26.6154%  sent   48206.0 pps  recv   48203.4 pps  clean=no
+    810 M     reps 1  loss  44.8385%  sent   72308.3 pps  recv   72306.0 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 810 M.
+     Rungs above 810 M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 360 M  reps 0.1805,0.1610,0.3858  median 0.1805% <= 0.5%
+### total_busy=0.1115
+### bmv2_share=0.0287
+### iperf3_share=0.0675
+### external=0.0152
+### samples=225
+
+############ ① arms complete 2026-08-29 10:56:57 ############
+arm        build   clean_mbit     external    EventLogger sha
+b_fast_a   fast    360            0.0298      0           3ff54b5c
+b_fast_b   fast    360            0.0152      0           3ff54b5c
+b_stock_a  stock   45             0.0377      24          327fa7d1
+b_stock_b  stock   45             0.0377      24          327fa7d1
+fast_a     fast    360            0.0510      0           3ff54b5c
+fast_b     fast    360            0.0491      0           3ff54b5c
+stock_a    stock   45             0.0654      24          327fa7d1
+stock_b    stock   45             0.1028      24          327fa7d1

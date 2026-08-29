@@ -1,0 +1,32 @@
+arm=b_stock_a
+build=stock
+switch_binary_resolved=/usr/local/bin/simple_switch_grpc  # from argv (launcher's claim); /proc/exe needs root, see AMENDMENT-1 8.5
+switch_binary_override_agrees=/usr/local/bin/simple_switch_grpc
+switch_binary_sha256=327fa7d1
+build_signature_EventLogger=24  # fast=0 stock>0 (--disable-elogger); both directions asserted
+kernel_negctl_3367d0e9_hits=0  # must be 0
+kernel_posctl_a40e04ce_hits=5  # must be 5
+payload_bytes=1400
+started=2026-08-29 10:40:48 +0800
+ladder_mbit=AUTO
+step_s=8
+clean_pct=0.5
+rep_rule=nonzero-to-2.0pct => 3 reps median; exact 0.0000 => 1 rep (3's AMENDMENT-2 11.1)
+host_pair=h1->h2 (10.0.0.2)
+kernel_sha256_start=a40e04ce
+switch_binary=/usr/local/bin/simple_switch_grpc
+switch_count=10
+switch_pids=3368120 3368121 3368122 3368123 3368124 3368125 3368126 3368127 3368128 3368129
+burners=0
+gate=external residual (AMENDMENT-1 7.2), not total busy
+ladder_mode=auto: registered rungs then x1.5 with NO fixed top; ends only at the saturation rule
+ladder_truncated_at=160
+highest_clean_mbit=45
+top_rung_confirmation=45:0.0000,0.0000,0.0000=>0.0000 
+kernel_sha256_end=a40e04ce
+finished=2026-08-29 10:43:05 +0800
+total_busy=0.1557
+bmv2_share=0.0588
+iperf3_share=0.0592
+external=0.0377
+samples=135
