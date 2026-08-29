@@ -89,7 +89,7 @@ from `harness/`.
 | :--- | :--- |
 | `../../2026-08-28_manual-verification-coverage/GENERATING-TRAFFIC.md` | the "both branches spell pass" finding |
 | `../../2026-08-28_manual-verification-coverage/COVERAGE.md` | updated, incl. the pickup note |
-| `/mnt/win/ndtwin-vm/{guest,test}_sections_1_5.sh` | §1–§5 replay, syntax-checked and dry-tested, never run |
+| `../../2026-08-28_manual-verification-coverage/vm/` | §1–§5 replay, syntax-checked and dry-tested, **never run**. Path was `/mnt/win/ndtwin-vm/…` here and in COVERAGE.md — **wrong**, `/mnt/win` is an empty dir. Committed 08-29 23:0x after nearly being lost; `vm/README.md` has the sha256 and the re-mount command |
 | `~/NDTwin-Website` `f17d2c5` | User Manual fix — **local, do not push** (Adam: publish only when testing is complete) |
 | `../2026-08-28_QM-mirrored-block/plot_deck_903_round2.py` | still modified, uncommitted |
 | `../05_first-live-run.md` | **the write-up of this run** |
