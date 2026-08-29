@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import subprocess
 import time
@@ -57,7 +58,6 @@ class SchemaDrift(Exception):
 def run(argv: list[str], timeout: float = 5.0,
         env: dict[str, str] | None = None) -> tuple[int, str, str]:
     """Run argv with a hard timeout. Never uses a shell, so nothing can be interpolated."""
-    import os
     try:
         p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout,
                            env={**os.environ, **env} if env else None)
@@ -157,6 +157,93 @@ def bmv2_process_count() -> int:
     if rc not in (0, 1):
         raise RuntimeError(f"pgrep failed unexpectedly rc={rc}")
     return int(out.strip() or 0)
+
+
+def bmv2_provenance() -> dict:
+    """Which bmv2 binary is actually running, named so a later reader can check it.
+
+    🔴 Added 2026-08-29 after a sibling session asked "is this fabric on stock or fast?" and
+    **not one artefact from the first live run could answer**. `ndt status` had said fast and
+    the argv had said fast, but the committed JSON recorded neither, and the pre-state capture
+    ran the argv through an `awk` that stripped the path. By the time the question arrived the
+    fabric had been rebuilt and those processes were gone -- so the evidence existed only in a
+    session transcript, which is exactly what `evidence-must-outlive-the-handoff` forbids.
+
+    Provenance is one level below the strongest form, and says so: `/proc/<pid>/exe` is not
+    readable as this uid, so this falls back to argv[0] cross-checked against the override file,
+    with a sha256 of the resolved path. Same compromise ticket ① settled on, for the same
+    reason. argv can be spoofed by whoever spawned the process; the sha256 pins the file that
+    path currently names, which is not the same as pinning what the running process mapped.
+    """
+    out: dict = {"method": "argv[0] + sha256 of that path (NOT /proc/pid/exe -- unreadable "
+                           "as this uid); the sha pins the file the path names now, not the "
+                           "image the live process mapped"}
+    try:
+        rc, txt, _ = run(["pgrep", "-af", "simple_switch_g[r]pc"])
+        if rc not in (0, 1):
+            out["error"] = f"pgrep rc={rc}"
+            return out
+    except Timeout as e:
+        out["error"] = str(e)
+        return out
+
+    paths: dict[str, int] = {}
+    for line in txt.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            paths[parts[1]] = paths.get(parts[1], 0) + 1
+    out["running"] = paths
+    # More than one distinct binary across the fabric is a mixed-build fabric: every number
+    # measured on it belongs to two populations at once. Loud, not a footnote.
+    if len(paths) > 1:
+        out["MIXED_BUILD"] = ("🔴 more than one bmv2 binary is running; any aggregate measured "
+                              "here spans two builds and is not attributable to either")
+
+    out["sha256"] = {}
+    for p in paths:
+        try:
+            rc, h, _ = run(["sha256sum", p], timeout=30)
+            out["sha256"][p] = h.split()[0] if rc == 0 and h.split() else f"rc={rc}"
+        except Timeout:
+            out["sha256"][p] = "timed out"
+
+    # 🔴 Resolved from THIS FILE's location, walking up, not from the cwd. Caught by the
+    # provenance mutation test on the day it was written: run from `harness/` the open() failed,
+    # so `override_file_declares` said "unreadable" and the mismatch comparison below was
+    # skipped entirely -- the check quietly became no check, and only for the people who ran it
+    # the normal way. `harness-cd-hides-working-directory-defects`, same afternoon it was
+    # written into the fix for something else.
+    rel = "p4_proxy/mininet/bmv2_binary_override"
+    here = os.path.dirname(os.path.abspath(__file__))
+    override = None
+    for _ in range(8):
+        cand = os.path.join(here, rel)
+        if os.path.exists(cand):
+            override = cand
+            break
+        parent = os.path.dirname(here)
+        if parent == here:
+            break
+        here = parent
+
+    if override is None:
+        # Not silently absent: an unfound file must not read the same as a matching one.
+        out["OVERRIDE_UNREADABLE"] = (f"could not locate {rel} by walking up from this file; "
+                                      f"the declared-vs-running cross-check DID NOT RUN")
+        return out
+    try:
+        with open(override) as f:
+            declared = [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
+    except OSError as e:
+        out["OVERRIDE_UNREADABLE"] = f"{override}: {e}; the cross-check DID NOT RUN"
+        return out
+
+    out["override_file"] = override
+    out["override_file_declares"] = declared[-1] if declared else None
+    if declared and paths and declared[-1] not in paths:
+        out["OVERRIDE_MISMATCH"] = (f"the override file declares {declared[-1]!r} but the "
+                                    f"running processes are {list(paths)!r}")
+    return out
 
 
 def iface_bytes() -> dict[str, tuple[int, int]]:

@@ -369,6 +369,9 @@ def main() -> int:
     report: dict = {"started": time.strftime("%FT%T%z"), "mode": (
         "gates" if args.gates else "dry-run" if args.dry_run else "null" if args.null
         else "controls" if args.controls else "full")}
+    # In EVERY report, including --dry-run. A benchmark that does not name the binary it
+    # measured cannot be checked later, and "later" arrives as soon as the fabric is rebuilt.
+    report["bmv2_provenance"] = probes.bmv2_provenance()
 
     # --controls applies real faults (it powers a switch down), so it needs the claim just as
     # much as --full does. Gating only --full would have left the destructive mode ungated.

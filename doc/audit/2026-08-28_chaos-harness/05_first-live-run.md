@@ -233,6 +233,68 @@ These came out of the run; none is a chaos finding, and none was injected.
 
 ---
 
+## H-11 🔴 Not one artefact from this run named the binary it measured
+
+Found after the fact, by a sibling session asking a one-line question: *is this fabric on stock
+or fast?*
+
+Nothing in `raw/` could answer it. `ndt status` had said `bmv2-fast` and the argv had said
+`bmv2-fast`, but **the JSON reports recorded neither**, and my own pre-state capture piped the
+argv through an `awk` that stripped the path — leaving `3436314 255`, a pid and a port number.
+By the time the question arrived the fabric had been rebuilt (the current bmv2 processes start
+at 13:55; mine were pid 3436314 and are gone), so the processes could no longer be interrogated
+either. The evidence existed **only in a session transcript**, which is precisely what
+`evidence-must-outlive-the-handoff` rules out.
+
+What can still be said, and at what strength:
+
+| | |
+| :--- | :--- |
+| `ndt status` during the run reported `binary /usr/local/bmv2-fast/bin/simple_switch_grpc` | contemporaneous, quoted in the release note — but it is the kernel's own reporting |
+| `pgrep -af` at 13:18 showed `/usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s1-eth3 …` | contemporaneous and independent, **but only in the transcript, not in `raw/`** |
+| the two builds are genuinely different files | `3ff54b5c…` (fast) vs `327fa7d1…` (stock) |
+| pid 3436314 was the same process from pre-state to post-state | recorded, so nothing swapped mid-run |
+
+⇒ **I am confident the run was on `bmv2-fast`, and I cannot prove it from the committed raw.**
+Stated that way round on purpose.
+
+Fixed forward: `probes.bmv2_provenance()` now goes into **every** report, including `--dry-run` —
+running paths with counts, sha256 of each, the override file's declaration, and loud
+`MIXED_BUILD` / `OVERRIDE_MISMATCH` / `OVERRIDE_UNREADABLE` keys. Provenance is one level below
+the strongest form and says so in the payload: `/proc/<pid>/exe` is unreadable as this uid, so
+it is argv cross-checked against the override file — the same compromise ticket ① settled on.
+
+🔑 **And writing the mutation test for it immediately found a defect in it.** Run from
+`harness/`, the override cross-check `open()`ed a cwd-relative path, failed, and **skipped the
+comparison entirely** — the check quietly became no check, for exactly the people who ran it the
+normal way. It now resolves the file by walking up from `__file__`, and an unlocatable file
+raises a loud key instead of reading like a match. `harness-cd-hides-working-directory-defects`,
+on the same afternoon it was cited in a different fix.
+
+## ⚠️ One run overlapped a background CPU job
+
+`8/29 auditor` flagged afterwards that a `post-commit` `agy` review ran **13:16–13:22**.
+Timeline from the reports' own `started` fields:
+
+```
+13:09:12  null-01      before
+13:13:08  null-02      before
+13:20:00  controls-01  🔴 OVERLAPS
+13:30:24  controls-02  after
+13:32:23  controls-03  after      <- G1-06 FIRED
+13:33:49  null-03      after
+13:35:37  null-04      after
+13:38:59  null-05      after      <- the quoted floor
+13:39:31  controls-04  after      <- the quoted G1 state
+```
+
+Only `controls-01` overlaps. Nothing quoted anywhere in this document rests on it: every floor
+and every G1 verdict comes from a run that started after 13:30, and `controls-01`'s findings
+(wrong HTTP method, mis-paired control, unimplemented control) are structural — confirmed by
+reading the routing table, not by timing. The one timing number it produced, 0.0069 s, is
+corroboration for H-3, whose proof is `HttpSession.cpp:177` and `:653`. The auditor also
+re-measured that `agy` round at **0.7% of one core**, not the 207% the standing warning cites.
+
 ## Where G1 stands now
 
 | invariant | control | state |

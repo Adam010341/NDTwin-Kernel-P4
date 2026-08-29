@@ -108,6 +108,40 @@ def main(path: str) -> int:
           sum(1 for n in probes.switch_flags(m4).values() if n.get("is_up") is True) == 9,
           "so INV-01 still has resolving power; it did not become a constant PASS")
 
+    # ---- 5. provenance: the LOUD branches must actually be reachable ---------------------
+    # A mismatch warning nobody has watched fire is the same as no warning. Both branches are
+    # driven here by faking pgrep's output, because the real fabric cannot be put into a
+    # mixed-build state just to test a print statement.
+    real_run = probes.run
+
+    def fake_run(argv, timeout=5.0, env=None):
+        if argv[0] == "pgrep":
+            return 0, fake_run.pgrep_out, ""
+        if argv[0] == "sha256sum":
+            return 0, f"deadbeef  {argv[1]}", ""
+        return real_run(argv, timeout, env)
+
+    probes.run = fake_run
+    try:
+        fake_run.pgrep_out = "111 /usr/local/bin/simple_switch_grpc -i 1@s1-eth1\n"
+        p = probes.bmv2_provenance()
+        check("override mismatch is reported",
+              "OVERRIDE_MISMATCH" in p, p.get("OVERRIDE_MISMATCH", "NOT REPORTED")[:70])
+
+        fake_run.pgrep_out = ("111 /usr/local/bin/simple_switch_grpc -i 1@s1-eth1\n"
+                              "112 /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s2-eth1\n")
+        p = probes.bmv2_provenance()
+        check("mixed-build fabric is reported",
+              "MIXED_BUILD" in p, f"{len(p.get('running', {}))} distinct binaries seen")
+
+        fake_run.pgrep_out = "111 /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s1-eth1\n"
+        p = probes.bmv2_provenance()
+        check("and it stays QUIET when the fabric is consistent",
+              "MIXED_BUILD" not in p and "OVERRIDE_MISMATCH" not in p,
+              "otherwise the warning is a constant and says nothing")
+    finally:
+        probes.run = real_run
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")

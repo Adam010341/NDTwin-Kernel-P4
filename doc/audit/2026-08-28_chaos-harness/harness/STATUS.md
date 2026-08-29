@@ -3,11 +3,15 @@
 **The null round and the four positive controls have now been run live.** Full write-up, with
 raw JSON for every run: [`../05_first-live-run.md`](../05_first-live-run.md).
 
-Headline: the false-positive floor is **0** quiet and **0** under traffic — *after* nine defects
-were removed from the harness. On the first run it was **1**, and that violation was a
+Headline: the false-positive floor is **0** quiet and **0** under traffic — *after* **eleven**
+defects were removed from the harness. On the first run it was **1**, and that violation was a
 fabricated claim about NDTwin (`switch_flags` could not tell a host from a switch). Of the four
 controls, **one fires**; one is mis-paired, one was never implemented, and one had never
 executed a single line against the system while its own G2 check reported success.
+
+⚠️ The count says eleven, not the nine first reported. H-10 and H-11 arrived after the write-up
+was filed — one of them found by a sibling session asking a one-line question the whole run's
+evidence could not answer, and one found by the mutation test written for the fix to it.
 
 **G1 is still unmet — 1 of 7 invariants has a control demonstrated to fire — so `--full` still
 refuses, by design.** Any PASS from an invariant other than INV-06 remains unbacked.
@@ -41,8 +45,8 @@ done yet**, which is a different thing from excluded, and should not be read as 
 
 ## The defects this build found in itself
 
-Nine, across two rounds. Full account in [`../05_first-live-run.md`](../05_first-live-run.md);
-the short list, because §5 predicted exactly this and the pattern is the useful part:
+Eleven. Full account in [`../05_first-live-run.md`](../05_first-live-run.md); the short list,
+because §5 predicted exactly this and the pattern is the useful part:
 
 | | defect | why it survived |
 | :--- | :--- | :--- |
@@ -55,10 +59,15 @@ the short list, because §5 predicted exactly this and the pattern is the useful
 | H-6b | `_c06_verify` **repaired** the fault it had just confirmed | the invariant then found a healthy system and was reported as blind |
 | H-7 | INV-07's "quiet window" precondition was **enforced nowhere** | it fails on a healthy fabric under traffic — i.e. in **every** injection round, a false positive aligned with the treatment |
 | H-8 | G1-04 was counted as "written" but its live branch always refused | a tally of 4 where 3 could fire |
+| H-9 | G1-07 reproduces B-3 against INV-07, which measures a different subsystem | the control **works**; it is the pairing that is wrong, so nothing ever errored |
+| H-10 | my `_c01_undo` printed `🔴 s1 NOT RECOVERED` on a healthy fabric | its success test could not tell "repaired" from "nothing needed repairing" |
+| H-11 | **no artefact named the binary it measured** | `ndt status` and argv both said `bmv2-fast`, but the JSON recorded neither and my pre-state `awk` stripped the path; by the time a sibling asked, the fabric had been rebuilt and those pids were gone |
 
-🔑 The two oldest lessons both recurred verbatim: **"a claim exists" ≠ "the claim is mine"**
-(H-5, second time in this one gate), and **an instrument must not share its finding's shape**
-(H-1, H-3).
+🔑 The oldest lessons recurred verbatim: **"a claim exists" ≠ "the claim is mine"** (H-5, second
+time in this one gate); **an instrument must not share its finding's shape** (H-1, H-3);
+**name the binary you measured** (H-11); and **a harness's cwd hides a class of defect** — the
+mutation test for H-11's fix immediately caught the fix itself skipping its cross-check when run
+from `harness/`.
 
 ## Next steps, in order
 
