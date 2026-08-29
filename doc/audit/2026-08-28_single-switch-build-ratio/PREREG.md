@@ -98,4 +98,126 @@ is a secondary reason the isolated topology is worth the teardown.
 
 The gate is ③'s AMENDMENT-2 11.2: in-window busy fraction from `/proc/stat` deltas, arm rerun if it
 exceeds the median arm's by more than 0.15 absolute. `load1` recorded as a pre-screen only.
-**No commits inside a measurement window.**
+🔴 **SUPERSEDED by AMENDMENT-1 §8.3.** **No commits inside a measurement window.**
+
+---
+
+## 8. AMENDMENT-1 — four corrections, all before any arm
+
+**Registered 2026-08-29 09:50 +0800 by `8/28 mainDev`, §8.1/§8.2/§8.3 directed by `8/28 auditor`,
+§8.4 found while executing. Appended; nothing above is edited.**
+
+**Approval conditions:** ✅ zero packets this round (`raw/` does not exist; the only traffic sent
+is the 4 s topology probe in §8.1, which is a control, not an arm, and its result is recorded);
+✅ reasons cite only pre-existing data (③'s AMENDMENT-3, ②'s FINDINGS §4, and the two binaries'
+symbol tables); ✅ tightening only (adds two controls, removes one confound, narrows one claim).
+
+### 8.1 🔴 The topology is NOT replaced. One hop comes from the host pair.
+
+§5 says switching builds "destroys the warm 128-host fabric", which was read as *the round needs a
+different, smaller topology*. **§3 does not say that** — it says "two hosts attached to the same
+switch … the specific host pair is read from the topology JSON at run time".
+
+⇒ **Keep the 128-host P4 topology. `ndt down` → swap the bmv2 binary → `ndt up`. Nothing else
+changes.**
+
+🔑 **This is not just cheaper, it is the correct control**: the topology is then *byte-identical*
+between the two build arms. Swapping to a small topology would vary the build and the topology at
+the same time, in a round whose entire purpose is to isolate the build.
+
+**Host pair, established by measurement rather than by the JSON or by host numbering:** the
+topology JSON gives every host `dpid: 0`, so host→switch attachment is not derivable from its
+edges at all. A 4 s / 20 Mbit probe h1→h2 moved **exactly two switch interfaces** —
+`s1-eth3` RX +7157 and `s1-eth4` TX +7157, delivered 20.0 Mbit/s at 0.0000% loss — and **no
+interface on any other switch moved at all**.
+
+⇒ **h1 → h2 (10.0.0.2) traverses one `simple_switch_grpc`.** Recorded in every arm meta. The probe
+is repeated after the binary swap, because the topology is rebuilt by `ndt up` and "it was one hop
+before" is not evidence about the fabric that actually runs the arms.
+
+### 8.2 🔴 The control plane stays live, and this round isolates ONE variable
+
+§1 binds two confounds into one phrase: "three-hop path **with a live control plane on it**".
+Those are two variables, and going to one hop removes only the first.
+
+⇒ **Registered: the control plane runs normally for every arm** — proxy installing routes, kernel
+polling, sFlow clone enabled. Three reasons: (a) changing two things at once makes a shrunken R
+unattributable; (b) the paper's claim is about the build *as deployed*, and a no-control-plane
+ratio describes a configuration nobody runs; (c) **sFlow clone is per-packet work inside bmv2**, so
+it is part of what "this build costs", not an external contaminant.
+
+**Follow-up branch, registered now so H2 cannot become "we don't know what to write":**
+
+> **If R lands in H2 (< 9)**, the next question is *path or control plane*, and that is **another
+> round**. This round may not attribute the shortfall to either. **If R lands in H1 or H3**, the
+> control-plane confound does not matter at this working point and the question closes.
+
+### 8.3 The load gate is ②'s, not ③'s — and its positive control is re-run
+
+③'s gate was shown to have no discriminating power (③ AMENDMENT-3). ② replaced it with the foreign
+residual and **demonstrated it can fire** before trusting its silence. ① uses ②'s version verbatim:
+
+> **external = total busy − Σ(utime+stime of the switch processes) − Σ(utime+stime of iperf3)**,
+> sampled at 1 Hz from `/proc/<pid>/stat` with a **per-PID accumulator** (a snapshot sum over
+> currently-alive iperf3 reads ~0, because each rep's processes exit before the next sample —
+> that bug is on record in ②'s FINDINGS §4). Rerun any arm whose mean `external` exceeds the
+> median arm's by more than 0.15 absolute.
+
+🔴 **The positive control is re-run for this round, not inherited.** Swapping the binary changes
+the subject under measurement; a control that fired against bmv2-fast is not evidence about a
+fabric running stock. It runs once per build.
+
+### 8.4 🔴 The registered negative control cannot test what this round identifies
+
+§3 requires a negative control and names **`3367d0e9`**. That is an **`ndtwin_kernel`** binary, and
+the symbol it answers *no* to is `kFlowPathRecomputeInterval` — a **kernel** symbol from the Q/M
+ticket. **This round identifies a *bmv2 build*.** A kernel binary cannot be a negative control for
+"is this switch fast or stock"; it would return no match for a reason that has nothing to do with
+the question.
+
+**The registered control was still run and is recorded** (it is a valid control for the *kernel*
+identification that every arm meta also carries):
+
+| kernel binary | `kFlowPathRecomputeInterval` hits | |
+|---|---|---|
+| `a40e04ce` (running) | **5** | positive |
+| `ab2d7ed1` | 0 | |
+| **`3367d0e9`** | **0** | ✅ **negative control passes** |
+
+**The bmv2 build signature, with a control in both directions:**
+
+| symbol (dynamic table) | `/usr/local/bmv2-fast/` (`3ff54b5c`) | `/usr/local/bin/` (`327fa7d1`) |
+|---|---|---|
+| **`EventLogger`** | **0** | **24** |
+
+`EventLogger` maps directly onto the named build flag `--disable-elogger`, so the signature is tied
+to the thing that differs rather than to an incidental artifact.
+
+🔑 **Each binary is the other's negative control**, which is stronger than the one-directional
+check §3 asked for: "is fast" = zero hits must *pass* on fast and *fail* on stock, and "is stock" =
+nonzero hits must do the reverse. Both directions are asserted at every arm.
+
+⚠️ **Two differences that must NOT be used as the signature**, recorded so nobody later mistakes
+them for evidence: fast is 92,147,960 B with a full symbol table, stock is 9,576,568 B and
+**stripped** (`nm -C` reports "no symbols"; only `nm -DC` works on it). That is packaging
+provenance — locally built versus distribution binary — **not** optimisation flags, and reading it
+as build evidence would be the mtime error in another costume.
+
+### 8.5 ⚠️ The strongest form of binary provenance is not available to this uid
+
+`/proc/<pid>/exe` is the kernel's own answer to "what is this process running" and cannot be spoofed
+by argv. **It is unreadable here**: the switches run as root, and this uid has passwordless sudo
+only for `mnexec`/`tc`/power/`ovs-vsctl`, not `readlink`.
+
+⇒ **The binary is resolved from the process's `argv`** — what the launcher actually exec'd — and
+cross-checked against `p4_proxy/mininet/bmv2_binary_override` as an independent second source.
+**The two must agree or the arm aborts rather than picking one.** The `sha256` of the file at that
+path is recorded per arm.
+
+**What this is weaker than, stated plainly:** argv is the launcher's claim. If the *file* at that
+path were replaced between launch and the symbol check, the check would read the new file while the
+running process kept the old one. Nothing in this round replaces binaries mid-run, and the `sha256`
+is recorded so a later reader can compare — but this is one notch below kernel-verified provenance
+and must not be written up as if it were not.
+
+**[Co-developed with claude code -- Adam]**
