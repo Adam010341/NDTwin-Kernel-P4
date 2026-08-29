@@ -49,11 +49,20 @@ TOPO=$!
 exec 3> "$FIFO"          # hold stdin open so mininet does not see EOF and quit
 echo "    topology pid $TOPO (recorded at spawn)"
 
-for i in $(seq 1 90); do
+# Liveness via /proc, NOT `kill -0`. The topology runs under sudo, so it is root-owned, and
+# `kill -0` from this unprivileged shell returns EPERM -- indistinguishable from ESRCH by exit
+# status alone. Run 1 of this script took that EPERM as "died early", broke out of the wait
+# after ~2 s, started the proxy before any BMv2 switch was listening, and produced 30
+# connection failures, 0 paths and 0 switches -- all of which looked like system defects and
+# were mine. /proc/<pid> is readable regardless of owner.
+alive() { [ -d "/proc/$1" ]; }
+for i in $(seq 1 120); do
     grep -q "switches verified listening" ~/topo.log && break
-    kill -0 $TOPO 2>/dev/null || { echo "    topology process died early"; break; }
+    alive $TOPO || { echo "    topology process is genuinely gone (no /proc/$TOPO)"; break; }
     sleep 2
 done
+# The manifest is written at verification time; wait for it rather than racing it.
+for i in $(seq 1 30); do [ -s /tmp/ndtwin_p4_switches.json ] && break; sleep 2; done
 grep -E "verified listening|Switch manifest" ~/topo.log | sed 's/^/    /'
 
 echo "--- the manual says confirm with the MANIFEST, not the message above"
@@ -70,9 +79,18 @@ banner "TERMINAL 2 -- P4 proxy agent"
 ( cd p4_proxy && PYTHONPATH="$PWD" venv/bin/python proxy_agent/main.py > ~/proxy.log 2>&1 ) &
 PROXY=$!
 echo "    proxy pid $PROXY (recorded at spawn)"
-sleep 12
-grep -qi "econnrefused" ~/proxy.log && bad "proxy reports ECONNREFUSED -- BMv2 not up" \
-    || ok "proxy started with no ECONNREFUSED against :5005x"
+sleep 15
+# The User Manual says to look for "ECONNREFUSED" in the proxy log. The proxy never writes
+# that string -- it writes "Failed to connect to remote host: Connection refused" (and, from
+# requests, "[Errno 111] Connection refused"). Errno 111 IS ECONNREFUSED, so the manual is
+# semantically right and literally wrong, and a reader who greps for the word it names finds
+# nothing on a completely broken fabric. Run 1 of this script did exactly that and printed
+# PASS while all ten switches were unreachable. Match what the software emits.
+if grep -qE "Connection refused|ECONNREFUSED" ~/proxy.log; then
+    bad "proxy could not reach the BMv2 switches ($(grep -c 'Connection refused' ~/proxy.log) refusals) -- see M-3"
+else
+    ok "proxy reached the switches with no connection refusals"
+fi
 
 # --------------------------------------------------------------------------------------------
 banner "WAITING FOR PATHS -- two agreeing samples, per the manual's own warning"
@@ -101,9 +119,13 @@ echo "    kernel pid $KERN (recorded at spawn)"
 sleep 30
 
 echo "--- does the kernel actually ANSWER? (not: did the process start)"
-code=$(curl -s -o /tmp/topo.json -w '%{http_code}' http://localhost:8000/ndt/get_network_topology)
-echo "    GET /ndt/get_network_topology -> HTTP $code"
-[ "$code" = "200" ] && ok "kernel answered on :8000" || bad "kernel did not answer (HTTP $code)"
+# /ndt/get_graph_data, not /ndt/get_network_topology -- the latter does not exist and run 1 of
+# this script got a 404 from it. A 404 is the kernel ANSWERING, so "kernel did not answer" was
+# the wrong conclusion from the right observation: the process was healthy and the request was
+# mine to get wrong.
+code=$(curl -s -o /tmp/topo.json -w '%{http_code}' http://localhost:8000/ndt/get_graph_data)
+echo "    GET /ndt/get_graph_data -> HTTP $code"
+[ "$code" = "200" ] && ok "kernel answered on :8000" || bad "kernel did not answer 200 (HTTP $code)"
 
 echo "--- does the TWIN see the switches? (Adam's item 2, and the point of a digital twin)"
 python3 - <<'PY'
