@@ -463,20 +463,10 @@ counter sample），但 `addressed=` 只有在收到 **flow sample**（也就是
    所以同一台交換機底下的兩台 host 互打，流量只會出現在 host↔switch 邊上，
    `get_average_link_usage` **永遠是 0.0** —— 這不是壞掉，是設計如此。
 
-   > ⚠️ **「不是壞掉」講的是讀值，不是講這個狀態沒有後果**（2026-08-29 補）。
-   > 上面那個 `if` 的兩個條件（usage ≠ 0、兩端非 HOST）累加**同一個計數器**，
-   > 而計數器為零就 `return 0` ⇒ **「排除 host 邊」與「沒有忙碌的交換機間邊」
-   > 回的是同一個 0.0，端點分不出來。**
-   >
-   > 而 0.0 遠低於 Energy-Saving-App 的關機門檻 **`LOW_WATER_MARK = 0.40`**
-   > （現查：`/home/adam/Energy-Saving-App/include/app/settings.hpp:7`）。
-   > 🔑 **但危險的不是這個端點** —— Energy-App 沒有呼叫它（有 client、零呼叫端），
-   > 它讀自己從 graph 算的 `group_avg_link_utilization`。**會咬人的是「交換機間邊
-   > 沒有流量」這個網路狀態本身**，它同時造成這裡的 0.0 與 app 那邊的低值。
-   > 見 `doc/KNOWN-ISSUES.md` 的 **A-4b**，以及 `doc/2026-07-30_full_test_runbook.md` §1d 的完整版。
-   >
-   > ✅ **本指南不會啟動 Energy-Saving-App**（全文零次提及）⇒ 對這裡的步驟不是實害；
-   > 這條是給**把「0.0 是良性的」帶去 Energy-App 有在跑的環境**的人看的。
+   📎 **交叉引用（2026-08-29）**：上面那個 `if` 的兩個條件累加**同一個計數器**，
+   計數器為零就 `return 0` ⇒ 「排除 host 邊」與「沒有忙碌的交換機間邊」**回同一個 0.0**。
+   後者的情境在 Energy-Saving-App 有在跑的環境裡會踩到 `doc/KNOWN-ISSUES.md` 的
+   **A-4b**（**與 F-17 無關**）。**本指南不啟動 Energy-Saving-App。**
 
    host 掛在哪台交換機（只有 s1–s4 有 host，各 32 台）：
 

@@ -181,7 +181,31 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ⚠️ **不要把這條跟 F-17 混為一談**：F-17 是 kernel 端 `get_average_link_usage`
 只平均忙碌鏈路；這條走的是 app 自己的 `group_avg_link_utilization`，從 graph 資料算，
-兩者是不同的函式。
+兩者是不同的函式。🔑 **2026-08-29 確認這個區分不只是形式上的**：F-17 那個端點
+**在 ESA 裡零呼叫端**，所以它根本碰不到這條決策路徑（見 §C 的 F-17 二次更正）。
+**A-4b 從來不依賴 F-17，而它才是真的關機風險。**
+
+#### 🔴 A-4b 的機制已從實作確認（2026-08-29，讀碼，未實跑）
+
+`group_avg_link_utilization`（`Energy-Saving-App/src/common/types.cpp:396`）：
+
+| 行 | 做什麼 | 為什麼要命 |
+|---|---|---|
+| `:410` | `if (g[*ei].isUp == true && g[*ei].isEnabled == true)` | **分母收「所有 up+enabled 的邊」，完全不篩忙碌** ——**與 kernel 的 `getAvgLinkUsage` 正好相反** |
+| `:412-413` | `utilizationSum += …; edgeCount++;` | 沒流量的邊貢獻 0 到分子、貢獻 1 到分母 |
+| `:423-425` | `if (edgeCount == 0) return std::nullopt;` | **只有「一條 up+enabled 的邊都沒有」才回 `nullopt`** |
+| `:427` | `return utilizationSum / (edgeCount * 100.0);` | 邊活著但沒流量 ⇒ **回 `0.0`，不是 `nullopt`** |
+
+⇒ `0.0 <= LOW_WATER_MARK`（**0.40**，`Energy-Saving-App/include/app/settings.hpp:7`）⇒ **關機**，
+而利用率永遠碰不到 `HIGH_WATER_MARK`（**0.6**，同檔 `:6`）⇒ **不會再開回來**。
+
+📎 **哪些既有程序會製造這個條件**：三份操作手冊都提醒「同一台交換機底下的 host 互打，
+`get_average_link_usage` 永遠是 0.0」——**那個網路狀態（交換機間邊都活著但沒有流量）
+正好就是本條的觸發條件**。⚠️ **但那三份手冊都不啟動 Energy-Saving-App**
+（2026-08-29 實查：兩份零次提及、OVS 那份唯一一次在講別的端點），
+所以**對照著那些手冊操作不會發作**；會發作的是**把同樣的網路狀態帶到 ESA 有在跑的環境**。
+手冊：`doc/2026-07-30_full_test_runbook.md` §1d（完整版）、
+`doc/2026-07-29_p4_status_and_test_guide.md`、`doc/2026-08-10_ovs_manual_test_runbook.md`。
 
 📌 那個 `!has_value()` 分支的註解記著一個**已修**的除零：邊數為 0 時算出 `inf`，
 而 `inf >= HIGH_WATER_MARK` 會把整組**開回來**。同一個地方已經踩過一次。

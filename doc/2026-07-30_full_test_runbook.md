@@ -231,28 +231,9 @@ sudo -n mnexec -a "$H1"  iperf -c 10.0.0.97 -u -p 5001 -b 10M -t 600 &
 `getAvgLinkUsage`（`TopologyAndFlowMonitor.cpp:2755`）**刻意排除所有接到 host 的邊**，所以同一台
 交換機底下互打，`get_average_link_usage` **永遠是 0.0**，那不是壞掉。
 
-> ⚠️ **「不是壞掉」講的是這個讀值，不是講這個狀態沒有後果**（2026-08-29 補）。
->
-> **同一個 `return 0` 有兩條路走得到。** `:2781` 那個 `if` 同時要求「usage ≠ 0」**與**
-> 「兩端都不是 HOST」，兩個條件累加**同一個** `noneZeroEdgeNum`，而 `:2796` 是
-> `if (!noneZeroEdgeNum) return 0;` ⇒ **「host 邊被排除」與「沒有忙碌的交換機間邊」
-> 產生的是同一個 0.0，端點分不出來。**
->
-> **後果在別人身上**：Energy-Saving-App 的關機判準是
-> `avgLinkUtilization <= LOW_WATER_MARK`，而 **`LOW_WATER_MARK = 0.40`**
-> （現查：`/home/adam/Energy-Saving-App/include/app/settings.hpp:7`）⇒ **0.0 遠在門檻之下。**
->
-> 🔑 **但不要把這條接到本端點上**：Energy-App **不呼叫** `/ndt/get_average_link_usage`
-> （它有 client，`src/app/http.cpp:393`，**零呼叫端**）。它用的是自己從 graph 算的
-> `group_avg_link_utilization`（`include/common/types.hpp:215`），決策點在
-> `energy_saving_app.cpp:926`。⇒ **危險的是「交換機間邊沒有流量」這個網路狀態本身**，
-> 它會同時讓本端點回 0.0、也讓 Energy-App 自己的平均落到門檻下。
-> 詳見 `doc/KNOWN-ISSUES.md` 的 **A-4b**（不是 F-17）。
->
-> ✅ **對照這份手冊的實際流程**：本手冊**不會啟動 Energy-Saving-App**（全文零次提及），
-> 而照本手冊操作時它也沒有在跑 ⇒ **對本手冊的步驟而言這不是實害**。
-> 這條警語是給**把這個結論帶去別的情境**的人看的 —— 例如在 Energy-App 有跑的環境裡
-> 看到 0.0 就判定「良性」。
+📎 **交叉引用（2026-08-29）**：這個「邊都活著但沒有流量」的情境，在 Energy-Saving-App
+有在跑的環境裡會踩到 `doc/KNOWN-ISSUES.md` 的 **A-4b**（**與 F-17 無關**）。
+**本手冊不啟動 Energy-Saving-App**，所以那不影響這裡的步驟。
 
 | 交換機 | host IP |
 |---|---|

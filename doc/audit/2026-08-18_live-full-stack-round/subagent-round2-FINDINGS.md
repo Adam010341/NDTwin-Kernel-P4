@@ -709,6 +709,16 @@ priority to 0 and says so. (Rule removed again with `delete_flow_entry`.)
 
 ### F-17 (HIGH, both planes) — `get_average_link_usage` averages over only the *busy* links, so it cannot fall as the fabric empties — and this is the number the Energy-Saving-App uses
 
+> 🔴 **前向更正 2026-08-29 — 標題後半「this is the number the Energy-Saving-App uses」不成立。**
+> **正文以下原樣保留**（這是 2026-08-18 當時的認知；改掉就看不到這個錯誤活了多久、經過幾手）。
+> ESA 宣告了這個端點的 client（`include/app/http.hpp:34`、定義在 `src/app/http.cpp:393`）
+> 但**零呼叫端**；關機決策在 `src/app/energy_saving_app.cpp:926`，讀的是
+> `group_avg_link_utilization`（`src/common/types.cpp:396`），從 graph 算，**碰不到這個端點**。
+> 七個兄弟 repo 全掃過無其他呼叫者。
+> **「只平均忙碌鏈路」這個機制本身仍然成立**，被推翻的只有消費端歸屬。
+> 現行裁決與消費端盤點：`doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md`、
+> `doc/KNOWN-ISSUES.md` §C 的 F-17 二次更正。
+
 **Observed**, twin read in a single pass together with the graph it is computed from (P4, under traffic):
 ```
 reported avg_link_usage = 0.0032157354666666666
@@ -822,7 +832,7 @@ dpids, invalid lock type, `--no-ai` intent translator, `not_a_number` dpid) or t
 |---|-----|-------|----------|
 | **F-4** | HIGH | OVS | A dead switch-to-switch link is permanently re-marked `is_up=true` every poll, because `updateHosts` marks an edge up on an IP match alone and each switch's own management IP is learned by Ryu as a host on the neighbour's port. |
 | **F-11** | HIGH | both | `release_lock` has no owner concept: any caller can release another application's lock with one unauthenticated POST. An empty body releases the default lock. |
-| **F-17** | HIGH | both | `get_average_link_usage` averages over only the busy links, so it cannot fall as the fabric empties — and it is the input to the Energy-Saving-App's shutdown decision. The header documents a different formula. |
+| **F-17** | HIGH | both | `get_average_link_usage` averages over only the busy links, so it cannot fall as the fabric empties — and it is the input to the Energy-Saving-App's shutdown decision. The header documents a different formula. 🔴 **前向更正 2026-08-29（正文原樣保留）**：後兩句都不成立——ESA 的 client 零呼叫端、決策讀自己的 `group_avg_link_utilization`；標頭 `HttpSession.hpp:580-584` 現在描述的就是實作的公式。**「只平均忙碌鏈路」仍成立。** 見 `doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md` |
 | **F-5** | MED | OVS | Switch liveness is "does an OVS bridge exist", not "is it reachable". A switch that lost its OpenFlow channel reads `is_up: true` (P4's equivalent path, C-7, does this correctly). |
 | **F-6** | MED | both | A switch whose flow-table read fails is *deleted* from `get_switch_openflow_table_entries`, while four code comments promise "the previous table stays". |
 | **F-8** | MED | both | `left_link_bandwidth_bps` defaults to a hard-coded 1 Gbit/s until first sampled, so every 10 Gbit/s core link advertises one tenth of its headroom. All 16 on P4 at idle. |

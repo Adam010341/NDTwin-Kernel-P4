@@ -527,13 +527,10 @@ grep -c "JSON parsing failed" .test_run/logs/kernel.log                         
 
 ⚠️ **h1 和 h97 在不同交換機上**（h1 在 s1，h97 在 s4，見 `testbed_topo.py:69-90` 的 host 分配），這很重要。同一台交換機底下的 host 互打，`get_average_link_usage` 永遠是 0.0——因為 `getAvgLinkUsage` 刻意排除所有接到 host 的邊。來源：`doc/2026-07-30_full_test_runbook.md` §1d。
 
-> ⚠️ **2026-08-29 補（完整版在上面那個來源的 §1d，這裡只放結論，兩邊不要各自演化）**：
-> 「0.0 不是壞掉」是對的，**但它不代表這個狀態沒有後果**。「排除 host 邊」與「沒有忙碌的
-> 交換機間邊」撞的是**同一行 `return 0`**，端點分不出兩者。而 0.0 遠低於 Energy-Saving-App
-> 的關機門檻 **`LOW_WATER_MARK = 0.40`**（現查：`Energy-Saving-App/include/app/settings.hpp:7`）。
-> 🔑 **會咬人的不是這個端點**（Energy-App 沒呼叫它），**是「交換機間邊沒有流量」這個狀態本身**
-> ——見 `doc/KNOWN-ISSUES.md` 的 **A-4b**。**本手冊不啟動 Energy-Saving-App**，
-> 所以對這裡的步驟不是實害，是帶去別的情境才會踩到。
+📎 **交叉引用（2026-08-29，完整版在上面那個來源的 §1d，兩邊不要各自演化）**：
+「排除 host 邊」與「沒有忙碌的交換機間邊」撞的是**同一行 `return 0`**。後者的情境在
+Energy-Saving-App 有在跑的環境裡會踩到 `doc/KNOWN-ISSUES.md` 的 **A-4b**（**與 F-17 無關**）。
+**本手冊不啟動 Energy-Saving-App。**
 
 | 交換機 | host IP |
 |---|---|
