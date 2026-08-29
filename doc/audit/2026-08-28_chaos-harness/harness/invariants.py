@@ -261,23 +261,64 @@ def inv05_path_consistency(ctx: Context, src: str, dst: str,
 
 
 # --------------------------------------------------------------------------------------------
-def inv06_lock_mutual_exclusion(ctx: Context, lock: str = "chaos_probe") -> Finding:
+def inv06_lock_mutual_exclusion(ctx: Context, lock: str = probes.PROBE_LOCK,
+                                expect_free: bool = False) -> Finding:
     """Mutual exclusion judged by OUTCOME, never by status code -- the oracle is explicit here
     and it is right: LockManager has no owner field, unlock clears any lock, and renew never
     compares against the expiry, so every one of acquire/renew/release can answer 200 and lie.
 
     The only observable truth is whether a second client can take a lock it should not be able
     to take.
-    """
-    got_a = probes.api_post("/ndt/acquire_lock", {"lockName": lock, "ttl": 3})
-    if got_a is None:
-        return Finding("INV-06", SKIPPED, "lock endpoint unreachable")
 
-    b_during = probes.api_post("/ndt/acquire_lock", {"lockName": lock, "ttl": 3})
-    b_took_it = isinstance(b_during, dict) and str(b_during.get("status", "")).lower() in ("locked", "acquired")
-    ev = {"b_acquired_inside_ttl": b_took_it}
+    🔴 THIS INVARIANT MUTATES LIVE STATE, and until 2026-08-29 nothing said so -- including the
+    null round, which is documented as injecting nothing.
+
+    The default used to be `lock="chaos_probe"`, sent as `{"lockName": ...}`. The handler reads
+    **`type`**, so the name was discarded and every call fell through to the default
+    `routing_lock` (`LockManager.hpp:27`). So this check has been taking and releasing the
+    twin's real ROUTING lock, for roughly seven seconds, on every run of every mode.
+
+    There is no fix that makes it read-only: only three lock types exist and all three are real,
+    so testing mutual exclusion means holding something that matters. What can be fixed is the
+    silence. The type is now sent explicitly, the choice is `power_lock` as harm reduction, and
+    the evidence names the lock so a reader is never left to assume it was a scratch one.
+    """
+    ev: dict = {"lock_type": lock,
+                "side_effect": f"this check ACQUIRES AND RELEASES the real {lock}; there is no "
+                               f"private lock in this API"}
+    got_a = probes.acquire_lock(lock, ttl=3)
+    if got_a is None:
+        return Finding("INV-06", SKIPPED, "lock endpoint unreachable", ev)
+    if not probes.lock_acquired(got_a):
+        # 🔴 The ambiguity here is real and cost a verdict. "Cannot acquire" is BOTH
+        #   (a) a busy neighbour, which is none of our business  -> SKIPPED, and
+        #   (b) a stuck / resurrected lock, which is the B-2 defect -> FAIL
+        # and from inside this function the two are indistinguishable.
+        #
+        # A guard added on 2026-08-29 chose (a) unconditionally, to avoid blaming a neighbour --
+        # and immediately swallowed the G1-06 positive control, whose whole effect is to leave a
+        # lock held that nobody should hold. The invariant went from FIRED to BLIND on a defect
+        # it had detected correctly an hour earlier. `controls-decide-what-you-learn`: a
+        # criterion has to keep a branch for the case it was built to catch.
+        #
+        # The missing information is CONTEXT, so the caller supplies it. G1 passes
+        # expect_free=True because its own baseline reading, seconds earlier, proved this lock
+        # free and working; anything holding it now arrived with the injected fault.
+        if expect_free:
+            return Finding("INV-06", FAIL,
+                           f"{lock} could not be acquired, and the caller established it was "
+                           f"free moments ago -- something is holding a lock it should not "
+                           f"({got_a})", ev)
+        return Finding("INV-06", SKIPPED,
+                       f"could not take {lock} to begin with ({got_a}); with no evidence that "
+                       f"it was free beforehand, a legitimate holder and a stuck lock look "
+                       f"identical from here", ev)
+
+    b_during = probes.acquire_lock(lock, ttl=3)
+    b_took_it = probes.lock_acquired(b_during)
+    ev["b_acquired_inside_ttl"] = b_took_it
     if b_took_it:
-        probes.api_post("/ndt/release_lock", {"lockName": lock})
+        probes.release_lock(lock)
         return Finding("INV-06", FAIL,
                        "a second client acquired the same lock inside the first TTL -- mutual "
                        "exclusion does not hold (B-2 family)", ev)
@@ -285,15 +326,15 @@ def inv06_lock_mutual_exclusion(ctx: Context, lock: str = "chaos_probe") -> Find
     # Now the expiry: after the TTL lapses with no renew, a fresh acquire MUST succeed. If it
     # does not, the lock is stuck -- the other half of the same ownership blindness.
     time.sleep(4.0)
-    b_after = probes.api_post("/ndt/acquire_lock", {"lockName": lock, "ttl": 3})
-    b_after_ok = isinstance(b_after, dict) and str(b_after.get("status", "")).lower() in ("locked", "acquired")
+    b_after = probes.acquire_lock(lock, ttl=3)
+    b_after_ok = probes.lock_acquired(b_after)
     ev["b_acquired_after_expiry"] = b_after_ok
-    probes.api_post("/ndt/release_lock", {"lockName": lock})
+    probes.release_lock(lock)
     if not b_after_ok:
         return Finding("INV-06", FAIL,
                        "the lock was still held ~1 s after its TTL expired with no renew -- "
                        "stuck lock", ev)
-    return Finding("INV-06", PASS, "exclusive inside the TTL, released after it", ev)
+    return Finding("INV-06", PASS, f"exclusive inside the TTL, released after it ({lock})", ev)
 
 
 # --------------------------------------------------------------------------------------------

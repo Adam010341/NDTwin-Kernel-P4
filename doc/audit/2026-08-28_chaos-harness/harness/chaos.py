@@ -109,8 +109,15 @@ def gate_g3_claim(require_ours: str | None) -> tuple[bool, str]:
 # ============================================================================================
 # G1 -- positive controls
 # ============================================================================================
-def probe_one_invariant(inv_id: str, iface: str | None) -> I.Finding:
-    """Run a single named invariant. Exists only so G1 can ask the question G1 is about."""
+def probe_one_invariant(inv_id: str, iface: str | None,
+                        expect_free: bool = False) -> I.Finding:
+    """Run a single named invariant. Exists only so G1 can ask the question G1 is about.
+
+    `expect_free` is context the invariant cannot get for itself: G1 sets it on the AFTER
+    reading, because its BEFORE reading proved the lock free seconds earlier. Without it,
+    INV-06 must treat "cannot acquire" as a possible innocent neighbour and skip -- which
+    silently swallows the very defect G1-06 injects.
+    """
     ctx = build_context()
     if inv_id == "INV-01":
         return I.inv01_power_state_agreement(ctx)
@@ -118,7 +125,7 @@ def probe_one_invariant(inv_id: str, iface: str | None) -> I.Finding:
         return (I.inv04_rate_conservation(ctx, iface) if iface else
                 I.Finding("INV-04", SKIPPED, "no --iface, so there is no wire truth"))
     if inv_id == "INV-06":
-        return I.inv06_lock_mutual_exclusion(ctx)
+        return I.inv06_lock_mutual_exclusion(ctx, expect_free=expect_free)
     if inv_id == "INV-07":
         return I.inv07_telemetry_freshness(ctx, iface=iface)
     return I.Finding(inv_id, SKIPPED, "no single-invariant probe wired up for this id")
@@ -176,7 +183,10 @@ def gate_g1_controls(dry_run: bool, iface: str | None = None,
             continue
 
         reproduced = ctl.verify()
-        after = probe_one_invariant(ctl.targets, iface)
+        # expect_free only holds when the baseline actually came back clean -- otherwise we
+        # would be asserting a precondition we never established.
+        after = probe_one_invariant(ctl.targets, iface,
+                                    expect_free=(before.verdict == PASS))
         if ctl.undo:
             ctl.undo()
 

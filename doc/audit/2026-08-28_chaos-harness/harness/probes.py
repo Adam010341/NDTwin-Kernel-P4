@@ -159,6 +159,63 @@ def bmv2_process_count() -> int:
     return int(out.strip() or 0)
 
 
+# --------------------------------------------------------------------------------------------
+# Locks
+#
+# 🔴 THERE IS NO PRIVATE LOCK. Corrected 2026-08-29 by `8/29 auditor` reading the code, after
+# this harness reported a finding that was a misdiagnosis of its own bug.
+#
+# The harness sent `{"lockName": "chaos_probe"}`. The handler reads **`type`**
+# (`HttpSession.cpp:1925`, and the same in renew at `:1974` and release at `:2011`), so
+# `lockName` was never read at all and every call silently fell back to
+# `DEFAULT_LOCK_TYPE_STR = "routing_lock"` (`LockManager.hpp:27`).
+#
+# What that cost: an experiment acquiring "alpha" then "beta" saw the second refused and I
+# concluded **"lockName does not namespace"**. Wrong. Both requests were `routing_lock`,
+# because neither carried a `type`. Names DO work -- `stringToLockType` (`:38-43`) returns
+# `Unknown` for anything unrecognised and `acquireLock` refuses it. The instrument's own defect
+# was published as a property of the system.
+#
+# The consequence is bigger than the retraction: only three lock types exist
+# (routing/graph/power) and all three are REAL. There is no scratch lock to test against. So
+# INV-06 -- which runs in the **null round**, documented as injecting nothing -- has been
+# taking and releasing the production routing lock on every run, and `_c06_apply` renews it to
+# ttl=30. That is a side effect, it is in the read-only mode, and nothing said so.
+# --------------------------------------------------------------------------------------------
+LOCK_TYPES = ("routing_lock", "graph_lock", "power_lock")
+# power_lock, not routing_lock: all three are real, but of the three this is the one least
+# likely to be held by the twin's own steady-state work while a round is running. Choosing it
+# is harm reduction, NOT isolation -- see acquire_lock's docstring.
+PROBE_LOCK = "power_lock"
+
+
+def acquire_lock(lock_type: str = PROBE_LOCK, ttl: int = 3) -> Any | None:
+    """Take a REAL lock. There is no test lock; pick deliberately and say so in the report.
+
+    Always sends `type`, because `lockName` is not a field this API has. Passing an unknown
+    name now fails loudly at the server (400/423) instead of silently becoming routing_lock.
+    """
+    if lock_type not in LOCK_TYPES:
+        raise ValueError(f"{lock_type!r} is not one of {LOCK_TYPES}; the server would reject it "
+                         f"-- and an earlier version of this harness would have silently sent "
+                         f"routing_lock instead")
+    return api_post("/ndt/acquire_lock", {"type": lock_type, "ttl": ttl})
+
+
+def release_lock(lock_type: str = PROBE_LOCK) -> Any | None:
+    return api_post("/ndt/release_lock", {"type": lock_type})
+
+
+def renew_lock(lock_type: str = PROBE_LOCK, ttl: int = 30) -> Any | None:
+    return api_post("/ndt/renew_lock", {"type": lock_type, "ttl": ttl})
+
+
+def lock_acquired(resp: Any) -> bool:
+    """Judge on content. The body is `{"status":"locked", ...}` on success and
+    `{"error":"Lock acquisition failed", ...}` on refusal; neither is a status code."""
+    return isinstance(resp, dict) and str(resp.get("status", "")).lower() in ("locked", "acquired")
+
+
 def bmv2_provenance() -> dict:
     """Which bmv2 binary is actually running, named so a later reader can check it.
 

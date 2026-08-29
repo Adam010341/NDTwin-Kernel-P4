@@ -222,9 +222,9 @@ def _c06_apply(dry: bool) -> ActionResult:
     expiryTime, so it extends a lock nobody holds."""
     if dry:
         return _dry("would acquire ttl=1, sleep 2, then renew the expired lock")
-    probes.api_post("/ndt/acquire_lock", {"lockName": "g1_control", "ttl": 1})
+    probes.acquire_lock(probes.PROBE_LOCK, ttl=1)
     time.sleep(2.0)
-    r = probes.api_post("/ndt/renew_lock", {"lockName": "g1_control", "ttl": 30})
+    r = probes.renew_lock(probes.PROBE_LOCK, ttl=30)
     return ActionResult(True, f"renew of an expired lock answered: {r}", {"renew": r})
 
 
@@ -241,8 +241,8 @@ def _c06_verify() -> ActionResult:
     invariant has had its turn. Same family as the baseline-ordering bug found an hour earlier:
     both are the check standing in the wrong place in time rather than being wrong.
     """
-    a = probes.api_post("/ndt/acquire_lock", {"lockName": "g1_control", "ttl": 3})
-    blocked = not (isinstance(a, dict) and str(a.get("status", "")).lower() in ("locked", "acquired"))
+    a = probes.acquire_lock(probes.PROBE_LOCK, ttl=3)
+    blocked = not probes.lock_acquired(a)
     return ActionResult(blocked,
                         "a third party is blocked by the resurrected lock -- B-2 reproduced"
                         if blocked else "lock was free; B-2 did not reproduce here",
@@ -252,13 +252,20 @@ def _c06_verify() -> ActionResult:
 def _c06_undo() -> None:
     """Release the resurrected lock.
 
-    ⚠️ Measured 2026-08-29: `lockName` does NOT namespace. `acquire_lock` answers
-    `{"status":"locked","type":"routing_lock"}` for any name, and acquiring "alpha" then blocks
-    "beta" -- there is one global routing lock. So a control that leaves this held is not
-    holding a private toy, it is holding the lock real routing operations take. It must come
-    back off even if the round aborts.
+    ❌ **RETRACTED, and the retraction is the lesson.** This used to read "`lockName` does NOT
+    namespace -- acquiring alpha blocks beta, there is one global routing lock". That was a
+    misdiagnosis of *this harness's own bug*: it sent `lockName`, the handler reads `type`
+    (`HttpSession.cpp:1925`), so both requests carried no type and both defaulted to
+    `routing_lock`. Names work fine -- `stringToLockType` (`LockManager.hpp:38-43`) returns
+    `Unknown` for anything unrecognised and the acquire is refused. Corrected by `8/29 auditor`
+    reading the code.
+
+    ✅ **The consequence I stated survives the retraction, by a different route**: only three
+    lock types exist and all three are real, so there is no private lock to hold. This control
+    does hold something that matters, and it must come back off even if the round aborts.
+    ⇒ `disclosure-is-not-downgrading`: the mechanism was wrong, the conclusion was not.
     """
-    probes.api_post("/ndt/release_lock", {"lockName": "g1_control"})
+    probes.release_lock(probes.PROBE_LOCK)
 
 
 def _c07_apply(dry: bool) -> ActionResult:
@@ -343,9 +350,9 @@ def _h5_apply(dry: bool) -> ActionResult:
 def _h5_verify() -> ActionResult:
     """G2: did the garbage body actually take a lock? Judged by whether a legitimate client is
     now blocked -- not by what the malformed request was told."""
-    a = probes.api_post("/ndt/acquire_lock", {"lockName": "routing_lock", "ttl": 2})
+    a = probes.acquire_lock("routing_lock", ttl=2)
     took = not (isinstance(a, dict) and str(a.get("status", "")).lower() in ("locked", "acquired"))
-    probes.api_post("/ndt/release_lock", {"lockName": "routing_lock"})
+    probes.release_lock("routing_lock")
     return ActionResult(took, "default lock is held after a malformed body" if took
                         else "default lock free; H5 did not land", {"probe": a})
 

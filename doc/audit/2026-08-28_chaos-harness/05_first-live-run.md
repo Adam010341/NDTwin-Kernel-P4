@@ -206,16 +206,39 @@ Same family as everything else here: a check whose failure branch is indistingui
 
 These came out of the run; none is a chaos finding, and none was injected.
 
-- **S-1 🔑 `lockName` does not namespace anything.** Measured directly:
+- **S-1 ❌ RETRACTED — and it was H-12, a harness defect I published as a system property.**
+  I wrote *"`lockName` does not namespace anything; every name maps to one global
+  `routing_lock`"*, from this:
   ```
   acquire alpha(ttl=30) -> {'status': 'locked', 'ttl': 30, 'type': 'routing_lock'}
   acquire beta (ttl=5 ) -> {'error': 'Lock acquisition failed',
                             'detail': 'System busy or invalid lock type: routing_lock'}
   ```
-  Every name maps to a single global `routing_lock`. The parameter is accepted and ignored, so a
-  caller who thinks they took a private lock has taken the one real routing operations use. The
-  error string also conflates two different conditions — *busy* and *invalid lock type* — in one
-  message.
+  🔴 **Wrong.** `8/29 auditor` read the code: the handler reads **`type`**
+  (`HttpSession.cpp:1925`), not `lockName`. Neither of my requests carried a `type`, so both
+  fell through to `DEFAULT_LOCK_TYPE_STR = "routing_lock"` (`LockManager.hpp:27`) — the second
+  was refused because the first held routing_lock, and the names were never in play. Names do
+  work: `stringToLockType` (`:38-43`) returns `Unknown` for anything unrecognised and the
+  acquire is refused. Verified against the source myself before accepting the correction; the
+  same `type`-only reading holds in renew (`:1974`) and release (`:2011`).
+
+  🔑 The evidence I quoted was *the harness's own bug wearing the system's clothes* — and the
+  giveaway was in my own output: I sent `alpha` and the response said `routing_lock`. I read
+  the field I expected instead of the one that was there. `verify-against-known-good-output`,
+  fifth form, again.
+
+  **What survives, by a different route:** only three lock types exist (routing/graph/power)
+  and **all three are real**. There is no scratch lock. So the practical warning stands — a
+  caller who thinks they hold a private lock holds one that matters — but the mechanism is
+  "there are only real locks", not "names are ignored". `disclosure-is-not-downgrading`.
+
+- **S-1b 🔴 …which means the null round is not read-only, and nothing said so.** INV-06 tests
+  mutual exclusion, so it must *hold* a lock — and via the `lockName` bug it was holding the
+  twin's real **routing** lock for ~7 s on every run, including in `--null`, a mode documented
+  as injecting nothing. `_c06_apply` renewed it to ttl=30. Fixed: `type` is now always sent,
+  the choice is `power_lock` as harm reduction, and every INV-06 finding carries a
+  `side_effect` field naming the real lock it took. There is no read-only way to test a lock;
+  the fix is to stop being silent about it.
 - **S-2 INV-04's tolerance at c=2 is ±138.6%.** The 196/√c band is correct and honest, but with
   two flows it will accept almost anything (the observed errors were 3.3% and 5.9%). INV-04 has
   near-zero resolving power until the flow count is much higher — worth stating so a PASS is not
