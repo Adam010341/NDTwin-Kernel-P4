@@ -1,0 +1,7 @@
+  conda        absent (correct)
+  ryu-manager  absent (correct)
+  mn           absent (correct)
+  ovs-vsctl    absent (correct)
+  cmake        absent (correct)
+  ninja        absent (correct)
+  ~/Desktop/NDTwin-Kernel absent (correct)
