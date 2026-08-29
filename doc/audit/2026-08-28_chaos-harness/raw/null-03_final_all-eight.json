@@ -1,0 +1,139 @@
+{
+  "started": "2026-08-29T13:33:49+0800",
+  "mode": "null",
+  "G3_claim": {
+    "ok": false,
+    "detail": "--owner not given, so 'is this claim MINE?' was never asked. The lab is currently held by: \u958b\u6a5f\u624b\u518a -- 155m left (until 16:08:01). Refusing rather than assuming."
+  },
+  "G1_positive_controls": {
+    "all_fired": false,
+    "rows": [
+      {
+        "control": "G1-06",
+        "targets": "INV-06",
+        "verdict": "DRY-RUN",
+        "detail": "DRY RUN, nothing touched: would acquire ttl=1, sleep 2, then renew the expired lock"
+      },
+      {
+        "control": "G1-07",
+        "targets": "INV-07",
+        "verdict": "DRY-RUN",
+        "detail": "DRY RUN, nothing touched: would POST historical_logging enable and then look for written rows"
+      },
+      {
+        "control": "G1-04",
+        "targets": "INV-04",
+        "verdict": "DRY-RUN",
+        "detail": "DRY RUN, nothing touched: would run iperf3 h2->h1 at ~2 Gbit/s to exceed the declared 1 Gbps"
+      },
+      {
+        "control": "G1-01",
+        "targets": "INV-01",
+        "verdict": "DRY-RUN",
+        "detail": "DRY RUN, nothing touched: would POST set_switches_power_state ip=192.168.123.11 off, then on"
+      },
+      {
+        "control": "(none)",
+        "targets": "INV-02",
+        "verdict": "NO-CONTROL",
+        "detail": "no executable positive control yet; this invariant is NOT delivered under G1 and its PASS means nothing"
+      },
+      {
+        "control": "(none)",
+        "targets": "INV-03",
+        "verdict": "NO-CONTROL",
+        "detail": "no executable positive control yet; this invariant is NOT delivered under G1 and its PASS means nothing"
+      },
+      {
+        "control": "(none)",
+        "targets": "INV-05",
+        "verdict": "NO-CONTROL",
+        "detail": "no executable positive control yet; this invariant is NOT delivered under G1 and its PASS means nothing"
+      }
+    ]
+  },
+  "rounds": [
+    {
+      "round": "null",
+      "cpu_baseline": 0.0447,
+      "cpu_peak": 0.0447,
+      "findings": [
+        {
+          "inv": "INV-01",
+          "verdict": "PASS",
+          "detail": "graph 10 up vs 10 live processes",
+          "evidence": {
+            "graph_up": 10,
+            "bmv2_processes": 10,
+            "expected": 10
+          }
+        },
+        {
+          "inv": "INV-02",
+          "verdict": "PASS",
+          "detail": "no A-2 fingerprint (0 switch(es) in the benign powered-off state, which is not a violation)",
+          "evidence": {
+            "a2_fingerprint": [],
+            "powered_off_normal": 0,
+            "total": 10
+          }
+        },
+        {
+          "inv": "INV-08",
+          "verdict": "PASS",
+          "detail": "no underflow spike across 0 flow(s)",
+          "evidence": {
+            "flows": 0,
+            "spikes": 0
+          }
+        },
+        {
+          "inv": "INV-03",
+          "verdict": "PASS",
+          "detail": "0 rule(s), twin and switch agree",
+          "evidence": {
+            "twin_only": 0,
+            "switch_only": 0
+          }
+        },
+        {
+          "inv": "INV-04",
+          "verdict": "SKIPPED",
+          "detail": "wire 0.00 Mbit/s is below the 3 Mbit/s quantisation floor; the sFlow estimate has no resolving power here",
+          "evidence": {
+            "iface": "s1-eth3",
+            "wire_bps": 0,
+            "twin_bps": 0,
+            "flows": 0
+          }
+        },
+        {
+          "inv": "INV-05",
+          "verdict": "SKIPPED",
+          "detail": "no flow 10.0.0.2->10.0.0.1 in the table; with FLOW_IDLE_TIMEOUT at 15 s this means the traffic stopped, not that the path is wrong",
+          "evidence": {}
+        },
+        {
+          "inv": "INV-06",
+          "verdict": "PASS",
+          "detail": "exclusive inside the TTL, released after it",
+          "evidence": {
+            "b_acquired_inside_ttl": false,
+            "b_acquired_after_expiry": true
+          }
+        },
+        {
+          "inv": "INV-07",
+          "verdict": "PASS",
+          "detail": "table empty throughout",
+          "evidence": {
+            "last_nonempty_s": null
+          }
+        }
+      ],
+      "false_positive_floor": 0,
+      "interpretation": "Nothing was injected. Every FAIL above is a defect in the harness, not in NDTwin. The harness's false-positive floor for this configuration is 0. Any later round reporting fewer than this many violations has found nothing."
+    }
+  ],
+  "result": "null round complete"
+}

@@ -1,0 +1,13 @@
+=== post-state 2026-08-29T13:41:53+0800 ===
+bmv2 count (pre: 10):        10
+s1 pid    (pre: 3436314):    3436314
+-- ping h1->10.0.0.2 (pre: 0% loss) --
+3 packets transmitted, 3 received, 0% packet loss, time 2027ms
+rtt min/avg/max/mdev = 0.350/0.477/0.588/0.097 ms
+-- ndt (pre: 10 up / 288 links, 32 down / 3968 paths) --
+  measuring      nothing
+  switches       10 up, 10 enabled, 0 admin-disabled
+  links          288 total, 32 down, 0 admin-disabled
+  3968 destination paths (want 16256 for 128 hosts)
+-- leftover traffic pidfile / listeners --
+  no .traffic.pids (clean)

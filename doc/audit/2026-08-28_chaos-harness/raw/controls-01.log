@@ -1,0 +1,98 @@
+    [undo] readopt attempt 1 did not adopt: {'detail': {'status': 'failed', 'step': 'mastership', 'error': 'arbitration was not granted within the settle window; the old client (or another controller) likely still holds mastership. The switch was not touched.'}}
+    [undo] readopt attempt 2 did not adopt: {'detail': {'status': 'failed', 'step': 'mastership', 'error': 'arbitration was not granted within the settle window; the old client (or another controller) likely still holds mastership. The switch was not touched.'}}
+    [undo] readopt attempt 3 did not adopt: {'detail': {'status': 'failed', 'step': 'mastership', 'error': 'arbitration was not granted within the settle window; the old client (or another controller) likely still holds mastership. The switch was not touched.'}}
+    [undo] readopt attempt 4 did not adopt: {'detail': {'status': 'failed', 'step': 'mastership', 'error': 'arbitration was not granted within the settle window; the old client (or another controller) likely still holds mastership. The switch was not touched.'}}
+    [undo] readopt attempt 5 did not adopt: {'detail': {'status': 'failed', 'step': 'mastership', 'error': 'arbitration was not granted within the settle window; the old client (or another controller) likely still holds mastership. The switch was not touched.'}}
+    [undo] 🔴 s1 NOT RECOVERED after 5 attempts -- do not trust later rounds
+{
+  "started": "2026-08-29T13:20:00+0800",
+  "mode": "controls",
+  "G3_claim": {
+    "ok": true,
+    "detail": "claim=yours -- 169m left (until 16:08:01) | measuring=nothing | exclusive cpu=yes (load1 1.43 on 14 cores -- holding)"
+  },
+  "G1_positive_controls": {
+    "all_fired": false,
+    "rows": [
+      {
+        "control": "G1-06",
+        "targets": "INV-06",
+        "verdict": "INVALID-BASELINE",
+        "note": "the invariant was ALREADY red before the fault",
+        "reproduced_g2": {
+          "ok": false,
+          "detail": "lock was free; B-2 did not reproduce here"
+        },
+        "invariant_before": {
+          "verdict": "FAIL",
+          "detail": "the lock was still held ~1 s after its TTL expired with no renew -- stuck lock"
+        },
+        "invariant_after": {
+          "verdict": "PASS",
+          "detail": "exclusive inside the TTL, released after it"
+        }
+      },
+      {
+        "control": "G1-07",
+        "targets": "INV-07",
+        "verdict": "BLIND",
+        "note": "the defect reproduced and the invariant did NOT notice -- this invariant's PASS is worthless until fixed",
+        "reproduced_g2": {
+          "ok": true,
+          "detail": "0 row(s) after enabling -- none written, B-3 reproduced"
+        },
+        "invariant_before": {
+          "verdict": "PASS",
+          "detail": "table empty throughout"
+        },
+        "invariant_after": {
+          "verdict": "PASS",
+          "detail": "table empty throughout"
+        }
+      },
+      {
+        "control": "G1-04",
+        "targets": "INV-04",
+        "verdict": "NOT-APPLIED",
+        "detail": "NOT IMPLEMENTED: the live path needs an iperf3 inside a mininet netns and no caller supplies one. INV-04 therefore has no positive control that can fire, and its PASS carries no more weight than INV-02/03/05's"
+      },
+      {
+        "control": "G1-01",
+        "targets": "INV-01",
+        "verdict": "BLIND",
+        "note": "the defect reproduced and the invariant did NOT notice -- this invariant's PASS is worthless until fixed",
+        "reproduced_g2": {
+          "ok": true,
+          "detail": "power-on 0.0069s (fast path reached)"
+        },
+        "invariant_before": {
+          "verdict": "PASS",
+          "detail": "graph 10 up vs 10 live processes"
+        },
+        "invariant_after": {
+          "verdict": "PASS",
+          "detail": "graph 10 up vs 10 live processes"
+        }
+      },
+      {
+        "control": "(none)",
+        "targets": "INV-02",
+        "verdict": "NO-CONTROL",
+        "detail": "no executable positive control yet; this invariant is NOT delivered under G1 and its PASS means nothing"
+      },
+      {
+        "control": "(none)",
+        "targets": "INV-03",
+        "verdict": "NO-CONTROL",
+        "detail": "no executable positive control yet; this invariant is NOT delivered under G1 and its PASS means nothing"
+      },
+      {
+        "control": "(none)",
+        "targets": "INV-05",
+        "verdict": "NO-CONTROL",
+        "detail": "no executable positive control yet; this invariant is NOT delivered under G1 and its PASS means nothing"
+      }
+    ]
+  },
+  "result": "G1 positive controls run live. FIRED means the target invariant went red BECAUSE of the injected defect; BLIND means the defect landed and the invariant did not notice, which is strictly worse than a missing control because it looks like coverage. G1 is met only when every row reads FIRED."
+}

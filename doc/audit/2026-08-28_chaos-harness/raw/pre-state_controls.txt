@@ -1,0 +1,22 @@
+=== pre-state 2026-08-29T13:17:51+0800 ===
+-- bmv2 count --
+10
+-- bmv2 pids/args (s1 first) --
+3436314 255
+3436315 255
+3436316 255
+3436317 255
+3436318 255
+3436319 255
+3436320 255
+3436321 255
+3436323 255
+3436325 255
+-- ping h1 -> 10.0.0.2 (through s1) --
+--- 10.0.0.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2056ms
+rtt min/avg/max/mdev = 0.599/0.908/1.348/0.319 ms
+-- ping h1 -> 10.0.0.65 (cross-fabric) --
+--- 10.0.0.65 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2033ms
+
