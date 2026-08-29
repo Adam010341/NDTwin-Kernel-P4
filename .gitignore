@@ -73,3 +73,9 @@ doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
 doc/audit/2026-08-25_sampling-rounds/gil_g.log
 doc/audit/2026-08-25_sampling-rounds/h_probe.log
 doc/audit/2026-08-25_sampling-rounds/*.log
+
+# Submission planning notes for the EuroP4 poster: co-authorship not yet agreed, TPC-chair
+# correspondence, and the cut-order for the abstract. Adam 2026-08-29: keep local -- the branch
+# this lives on is pushed to a PUBLIC repo. The abstract, figures and refs.bib are published; the
+# strategy behind them is not. [Co-developed with claude code -- Adam]
+doc/2026-08-29_europ4-poster-abstract/NOTES.md
