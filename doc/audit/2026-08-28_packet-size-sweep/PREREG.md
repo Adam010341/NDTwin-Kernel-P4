@@ -108,5 +108,105 @@ sides of a ratio, the same reason ①'s H1 interval is wide.
 ## 6. Load and raw
 
 Gate is ③'s AMENDMENT-2 11.2 (in-window busy fraction from `/proc/stat` deltas; rerun if it exceeds
-the median arm's by more than 0.15 absolute). No commits inside a measurement window. Raw to
+the median arm's by more than 0.15 absolute). **🔴 SUPERSEDED by AMENDMENT-1 §7 below — that gate
+was shown to have no discriminating power. See §7.** No commits inside a measurement window. Raw to
 `audit-raw` only.
+
+---
+
+## 7. AMENDMENT-1 — the inherited load gate is replaced, because ③ proved it broken
+
+**Registered 2026-08-29 01:25 +0800 by `8/28 mainDev`, directed by `8/28 auditor`. Appended.**
+
+**Approval conditions, all three met:**
+
+| | status |
+|---|---|
+| zero packets this round | ✅ **no arm of ② has been run; `raw/` does not exist** |
+| reasons cite only pre-existing data | ✅ cites ③'s AMENDMENT-3 result (`../2026-08-28_flow-count-capacity/FINDINGS.md` §5) and nothing from ② |
+| tightening only | ✅ replaces a gate with **no** discriminating power with one that has a positive control; adds a control arm |
+
+### 7.1 Why the inherited gate cannot be used here
+
+③ registered, before its data, the prediction that its §6 busy-fraction gate fires on the cell's
+own forwarding intensity rather than on foreign load. **The prediction was confirmed**: `n8_a`
+(0.7134) *and* `n8_b` (0.7044) both fired while `n1_b` (0.2048) and `n2_b` (0.3552) did not.
+
+🔴 **In ③ that gate aligned with a cell. In ② it would align with the treatment itself:**
+
+> **64 B frames produce the highest pps at any given bps, therefore the highest per-packet CPU,
+> therefore the highest busy fraction.** The gate would demand a rerun of **exactly the arms that
+> carry the headline**, and every rerun would fire again.
+
+That is a treatment effect being classified as contamination — the same disease as the withdrawn
+`load1 > 3.0` clause, one level worse because it is correlated with the independent variable rather
+than with one cell.
+
+### 7.2 The replacement: gate on the **foreign residual**, not on the total
+
+> **external = total busy − Σ(utime+stime deltas of the 10 `simple_switch_grpc` processes)
+> − Σ(utime+stime deltas of the iperf3 processes)**
+>
+> Sampled every second from `/proc/<pid>/stat`. **PIDs are recorded when the processes are spawned,
+> never discovered by pattern** — a pattern search matches the searching process's own command line
+> (observed twice today) and would silently attribute the wrong processes.
+>
+> **The gate is on `external`.** Total busy and the bmv2 self-attributed share are still recorded
+> for every arm, but they do not gate anything.
+
+**Threshold:** an arm whose mean `external` exceeds the median arm's by more than **0.15 absolute**
+is rerun — the same numeric clause as §6, moved onto the quantity it was always meant to measure.
+
+### 7.3 🔴 The new gate does not count as delivered until it has been seen to fire
+
+Replacing a gate that fires wrongly with one that never fires is not an improvement, and nothing in
+③ ever demonstrated that its gate could detect real foreign load.
+
+⇒ **Registered positive control, to run before any measurement arm:**
+
+> A **throwaway arm** is run with a known CPU burner started partway through. It must show
+> `external` rising when the burner starts, and the gate must **reject** that arm.
+> **If the control does not fire, ② does not start** and the gate is reported as unvalidated.
+
+Both the control's raw and its verdict are recorded whether it passes or fails.
+
+### 7.4 Two cross-checks against existing data, registered now so they cannot be chosen later
+
+Both are **secondary observations**. Neither may adjust any interval, threshold or prediction in
+§4, and both are reported whichever way they come out.
+
+1. **③'s n=1 against 08-15's fast-side figure.** ③ measured n=1 clean to **≥240 Mbit/flow** (arm b
+   was clean at the ladder's top rung, so this is a lower bound), at 1442 B frames, 3 hops, 128
+   hosts. 08-15 puts bmv2-fast's UDP zero-loss point at **300 Mbps**, also 3 hops. **Agreement to
+   better than a factor of 1.5 ⇒ the fast side is reproducible.**
+   🔑 **Consequence for ①, recorded here because ① runs after ②:** ①'s premise is that the 08-15
+   ratio may be path-contaminated. Its **numerator has now been independently reproduced**, so if
+   ① lands in H2 (R < 9), the stock-side 25 Mbps is the more likely suspect, not the fast side.
+   **This does not change any of ①'s registered intervals.**
+2. **②'s 1024 B point against ③'s n=1.** ③'s raw already holds delivered datagram counts and
+   durations at 1442 B frames ⇒ **a pps figure can be computed from it for free**, giving a fourth
+   point on ②'s axis from an independent round. **H1 predicts the two are close; H2 predicts they
+   differ substantially.** Registered now, computed after ② closes.
+
+### 7.5 The pps ladder, fixed numerically (§5 left it as "the ×1.5 ladder")
+
+**Fixed 2026-08-29 01:35, still before any bmv2 arm.** §5 registered the *shape* (×1.5, expressed
+in pps) but never wrote the rungs down, so they are pinned here rather than chosen while looking at
+results.
+
+**Ladder (kpps, offered): `1 2 3 5 8 12 20 30 45 70 110 160 240`** — the same numeric sequence ③
+used, reinterpreted on the pps axis. Requested rate is set as `-b <pps × payload × 8>` because
+iperf3's `-b` is an application-layer bitrate; **pps is still read back from delivered datagrams
+and duration, never re-derived from the requested rate.**
+
+⚠️ **Disclosure: the top rung was checked against the sender control, which had already run.** The
+control measured a 64 B generator ceiling of **770.7 kpps**, so 240 kpps is reachable at every size
+and the ladder is not silently truncated by the generator at its top. That is the only way the
+control's result influenced this choice — it fixes the *feasible range*, not where the effect is
+expected to lie. Recorded because "we pinned the ladder before the data" is otherwise unverifiable.
+
+**Clean rung** = highest offered pps where the flow's loss ≤ 0.5%, same threshold and same
+median-of-three rule for any nonzero reading as ③'s AMENDMENT-2 §11.1, including the top-rung
+three-rep re-confirmation with walk-down (§11.1(b)). Single flow per arm.
+
+**[Co-developed with claude code -- Adam]**
