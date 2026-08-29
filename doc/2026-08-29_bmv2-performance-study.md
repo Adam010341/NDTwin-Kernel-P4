@@ -113,7 +113,7 @@ Mytkowicz et al., *Producing Wrong Data Without Doing Anything Obviously Wrong!*
 | 9 | PoliTO 碩論（delay control） | ✅（僅 delay） | ✗ | ✗ | ✗ | RTT 基線 0.98 ms（VM）／2.16 ms（實體） |
 | 10 | Waind & Jin, **SIGSIM-PADS '26** | ✅ | `simple_switch_grpc` ✅ | ✗ | ✗ | 每 sw RTT 迴歸 729.4 µs（↔ #3 同組差 1.7×） |
 | 11 | Fernando et al., **MDPI Network 2025** | ✅ | ✗ | ✗ | ✗ | SDN+P4 > SDN+OvS（reactive 控制面機制）；工作點 6.3 Kbps–96 Mbps，距 datapath 天花板 3–6 個數量級 ⇒ 不入 spread 統計 |
-| 12 | *P4sim*（arXiv 2503.17554, 2025）⚠️ 轉述未逐字驗（PDF 待入 MANIFEST） | ✅ | ✗ | ✗ | ✗ | bmv2 飽和 ~43 Mbps |
+| 12 | Ma & Nguyen, *P4sim*（arXiv 2503.17554, 2025；**已親驗**，MANIFEST `P4SIM25`） | ✅ | ✗ | ✗ | ✗ | bmv2（Mininet baseline）飽和 ~43 Mbps |
 | 13 | Zhang et al., **Computer Networks 188 (2021)** | ❌（7 switch 無 bmv2） | — | — | — | 🔑 對照組：逐 switch 給 commit（FastClick 9d5e9c6、t4p4s b1161b2…）＋附錄逐 switch 參數＋單核釘住定頻 |
 | 14 | Zhang et al., **NetSoft 2019** | ❌ | — | — | — | 64/256/1024 B ＋ Mpps 本位＝②的軸的出處 |
 | 15 | Tsareva et al., TUM seminar SS21（survey） | ➖ 轉述 | — | — | — | 「up to 1 Gbit/s」無 build 出處地流傳；jitter 列 future work |
@@ -355,6 +355,17 @@ loss、**對 frame size 全盲**；三個尺寸在該階的 bit rate 差 16×—
 揭露採用）。兩 pass 相隔 4 小時非設計交錯（`/compact` 殺掉背景 job）⇒ 漂移與 pass 共線
 不與 cell 共線；鏡像序仍保護 pass 內比較、兩 pass 各自單調 ⇒ 主結論不受影響。
 `NO_MEASUREMENT` 非隨機缺失（只在 n=16 高階，iperf3 控制通道死於被量的壅塞本身）。
+
+**圖（08-29 補；每個數字的出處在 `2026-08-29_europ4-poster-abstract/make_figs.py` 的註解，
+重生用 `.plotvenv` 直譯器）**：
+
+![③ 每流最高乾淨速率——兩臂各自單調；橫格線＝梯階（相鄰一階＝解析度）](2026-08-29_europ4-poster-abstract/figs/fig2_perflow_monotone.png)
+
+![② 同一批乾淨階資料的兩種講法——pps 變 1.25×、bit rate 變 16.0×](2026-08-29_europ4-poster-abstract/figs/fig1_unit_ambiguity.png)
+
+![① 兩個工作點——單跳 R=8.0（區間 5.14–12.0）與三跳 pilot 12×](2026-08-29_europ4-poster-abstract/figs/fig3_build_two_working_points.png)
+
+![文獻 spread ~2,500× 對比我們同機 build A/B 的 8×；量類混雜且多未載明——那本身就是 §5-6 的論點](2026-08-29_europ4-poster-abstract/figs/fig4_literature_spread.png)
 
 **改寫規則**：任一工單落在非 H1 結局 ⇒ **§0 的宣稱句子照各 PREREG §4 預寫的方向改**
 （例：① 落 H2 ⇒ C1 改「12× 沿 3-hop 生產路徑」並言明），不得只在內文加但書。

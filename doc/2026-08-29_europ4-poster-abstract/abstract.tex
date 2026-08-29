@@ -52,8 +52,7 @@ limited its measurement.
 Of 18 surveyed papers that measure or relay bmv2 performance, 12 measure it
 directly. Among those twelve: \textbf{0/12} report compiler flags or
 optimisation level, \textbf{0/12} run any build comparison, 3/12 name the
-variant (all from one lab's lineage), 1/12 names a version, and one gives a
-single qualitative sentence about compiling without logging. Their throughput
+variant (all one lab's lineage), 1/12 names a version. Their throughput
 figures span ${\sim}2{,}500\times$, from 0.57\,Mbps at 64\,B
 \cite{hasnaa2023tssa} to 1.4\,Gbps on physical NICs \cite{kumazoe2023icncc}.
 With the information the papers themselves provide, no two of these numbers can
@@ -65,9 +64,9 @@ The consequence is concrete: one line of work measures Open vSwitch two orders
 of magnitude above bmv2 \cite{chen2025tomacs,chen2023pads}, while another
 concludes the P4 pipeline outperforms OvS \cite{fernando2025network} (a
 reactive-control-plane effect, per its own analysis) --- and a reader cannot
-arbitrate, because neither reports its build. Even within one lab's lineage,
-adjacent papers differ $1.7\times$ in per-switch RTT with no build information
-on either side \cite{waind2024pads,waind2026pads}.
+arbitrate, because neither reports its build; even one lab's adjacent papers
+differ $1.7\times$ per switch with no build stated
+\cite{waind2024pads,waind2026pads}.
 
 The missing variable is not obscure. The bmv2 repository's README warns that
 build flags ``can have a massive impact on performance''
@@ -87,28 +86,24 @@ All experiments preregistered outcome intervals \emph{and the meaning of every
 outcome} before data; the replication unit is the interleaved arm (fresh fabric
 per arm); ladders are $\times1.5$ ($\pm$20\% per rung); the running binary is
 identified by symbol signature against a negative control, never by PATH; CPU
-contamination gates use per-process attribution and were trusted only after a
-positive control made them fire. Both endpoint counters and paired
-ingress-RX/egress-TX interface counters are read in every arm --- kernel drop
-counters read zero even in arms where bmv2 lost 79.66\% of packets internally.
-Raw data is archived by content hash.
+gates use per-process attribution, trusted only after a positive control made
+them fire. Every arm reads both endpoint counters and paired
+ingress-RX/egress-TX interface counters --- kernel drop counters read zero
+even where bmv2 lost 79.66\% internally. Raw data is content-hash archived.
 
 \begin{table}[t]
-\caption{The three results (one machine, 128-host emulated topology, ten
-\texttt{simple\_switch\_grpc} instances; UDP; clean $=$ loss ${\le}0.5\%$).}
+\caption{Build-configuration result (frame-size and flow-count results are
+Figs.~\ref{fig:unit}--\ref{fig:flows}). One machine, 128-host emulated
+topology, ten \texttt{simple\_switch\_grpc}; UDP; clean $=$ loss ${\le}0.5\%$.}
 \label{tab:results}
 \small
 \begin{tabular}{@{}lll@{}}
 \toprule
-\textbf{Variable} & \textbf{Result} & \textbf{Status} \\
+\textbf{Working point} & \textbf{Result} & \textbf{Status} \\
 \midrule
-Build (1 hop) & stock 45 vs.\ fast 360 Mbit/s; $R{=}8.0$ & 2 arms/build, \\
-              & interval $(5.14,12.0)$; knee ${\approx}7.8$ & zero spread \\
-Build (3-hop path) & $12\times$ (UDP zero-loss point) & pilot \\
-Frame size    & 16.0 / 20.0 / 16.0 kpps at 64/256/1024\,B & 2 arms/size, \\
-              & $=$ 8.2 / 41.0 / 131.1 Mbit/s & $\pm$1 rung \\
-Flow count $n{=}1..16$ & per-flow clean rate $160{\to}110{\to}30{\to}5{\to}2$ & 2 arms, both \\
- (one path class) & and $240{\to}110{\to}45{\to}8{\to}1$ Mbit/s & monotone \\
+1 hop, isolated & stock 45 vs.\ fast 360 Mbit/s; $R{=}8.0$, & 2 arms/build, \\
+                & interval $(5.14,12.0)$, knee ${\approx}7.8$ & zero spread \\
+3-hop prod.\ path & $12\times$ (UDP zero-loss point) & pilot \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -125,9 +120,18 @@ not the compiler flags.'' We report \emph{both} working points; whether the
 difference is path length or the live control plane is preregistered future
 work, and this abstract attributes it to neither.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=.88\linewidth]{figs/fig1_unit_ambiguity}
+\caption{The same six clean-rate cells, twice: packets per second are flat
+($\times1.25$) while the identical data span $\times16.0$ as bit rate
+(two arms per frame size).}
+\label{fig:unit}
+\end{figure}
+
 \textbf{(2) Unit.} Sweeping the standard NFV frame-size axis
 \cite{zhang2021benchmarking}, clean-rate pps is near-constant while the same
-cells span $16.0\times$ as bit rate (Table~\ref{tab:results}); the registered
+cells span $16.0\times$ as bit rate (Fig.~\ref{fig:unit}); the registered
 ratios $P(256)/P(64){=}1.25$ and $P(1024)/P(64){=}1.00$ fall in the
 pps-ceiling interval and far from the bps-ceiling prediction (0.15--0.40 /
 0.03--0.12). A registered sender-side control passed with $9.6\times$ headroom,
@@ -139,10 +143,20 @@ single pps point \cite{kohler2018p4cep}); none sweeps frame size for bmv2 ---
 one paper's own two sizes imply near-constant pps, unanalysed in its text
 \cite{hasnaa2023tssa}.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=.88\linewidth]{figs/fig2_perflow_monotone}
+\caption{Per-flow highest clean rate vs.\ flow count: two independent arms,
+each monotone. Horizontal gridlines are the ladder's rungs --- adjacent rungs
+are the instrument's resolution.}
+\label{fig:flows}
+\end{figure}
+
 \textbf{(3) Flows.} With all $n$ flows pinned to one path class (so
 flows/switch $=$ flows/link $=n$ by construction), the per-flow highest clean
 rate falls monotonically in each of two independent arms, cells agreeing
-within one ladder rung. The aggregate is an arithmetic consequence; we report
+within one ladder rung (Fig.~\ref{fig:flows}). The aggregate is an arithmetic
+consequence; we report
 no ratio --- an earlier ``collapse factor'' divided a clean threshold by a
 saturation knee, two different quantities, and was withdrawn. OvS at matched
 working points showed no decline (earlier measurement; a same-ladder control
@@ -158,21 +172,16 @@ below the fast build's ability, censoring the numerator --- and was blocked
 once, by the registered sender gate. Both slips were caught by rule-driven
 ladder tops and post-hoc checks, and both corrections moved \emph{away} from
 the more publishable answer. None of the 18 surveyed papers states what
-limited its measurement; we read this as the same disease as Mbps-without-size,
-in a second form. Two further disciplines earned their keep: preregistering
-the meaning of unwelcome outcomes (the build ratio narrowing to $8.0\times$
-is a result, not a failure), and recognising that replication cannot narrow
-quantisation --- ten arms on the same rung say nothing about where inside the
-rung the true value sits.
+limited its measurement; we read this as the same disease as
+Mbps-without-size, in a second form.
 
 \section{Takeaway}
 
 We propose a four-line provenance minimum for any software-switch number:
-\textbf{build} (flags and commit, or exact package), \textbf{unit} (pps with
-frame size, or Mbps with the size stated), \textbf{placement} (flows per
-switch and per link), and \textbf{limit} (what stopped the measurement ---
-the system, or the instrument). Preregistrations, raw data (content-hashed),
-and scripts will be released.
+\textbf{build} (flags/commit), \textbf{unit} (pps with the frame size),
+\textbf{placement} (flows per switch and link), and \textbf{limit} (what
+stopped the measurement --- the system, or the instrument). Preregistrations,
+raw data (content-hashed), and scripts will be released.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}

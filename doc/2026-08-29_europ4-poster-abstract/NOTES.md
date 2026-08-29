@@ -33,6 +33,16 @@
 - OvS 那半句維持「earlier measurement; same-ladder control planned」的誠實狀態。
 - build 差異一律「複合 build 組態」，不是單一 flag。
 
+## 圖
+
+`figs/` 四張（pdf 給 LaTeX、png 給 markdown）：fig1（16× 歧義）與 fig2（每流單調）
+**已入 abstract**；fig3（build 兩工作點）與 fig4（文獻 spread）掛在研究報告 §4、
+留給 full paper。**Overleaf 要連 `figs/` 一起上傳**（至少 fig1/fig2 的 .pdf）。
+重生：`"$HOME/Desktop/NDTwin slide material/NDTwin Slide material 820/.plotvenv/bin/python" make_figs.py`
+（腳本擋非 3.11 的 matplotlib；每個數字的出處在腳本註解）。
+版面：加圖後全文仍**正好 2 頁**（tectonic 驗證 08-29；裁掉的字＝表格 ③② 列、
+§3 尾段兩句、§1 一句——內容都仍在研究報告裡）。
+
 ## refs.bib 待辦
 
 - `fernando2025network`：題名與作者名 TODO（`network-05-00021.pdf` 首頁 pdftotext

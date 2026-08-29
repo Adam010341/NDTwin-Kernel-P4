@@ -20,7 +20,7 @@
 **P4sim: Programming Protocol-independent Packet Processors in ns-3**（arXiv 2503.17554，2025）——
 以 BMv2+Mininet 為 baseline，報 **bmv2 飽和 ~43 Mbps**；**變體、版本、build 全未載明**；無封包大小/流數軸。
 ⇒ 完全 on-pattern：spread 表新增一列（43 Mbps 落在 0.57–1400 Mbps 區間內），三個宣稱維持存活。
-（PDF 待 Adam 下載入 paper 目錄後補 MANIFEST。）
+（**08-29 已親驗、轉述標記解除**：PDF 入庫（MANIFEST `P4SIM25`，sha256 `aba393ab…`）、全文 724 行逐字掃——「saturate at around 43 Mbps」原句屬 **Mininet（bmv2）baseline 臂**且為飽和量；build 關鍵詞 **0 命中**、變體/版本未載明；作者 Ma & Nguyen（TU Dresden）。）
 
 ## 3. 檢索後宣稱狀態（累計 18 篇）
 
