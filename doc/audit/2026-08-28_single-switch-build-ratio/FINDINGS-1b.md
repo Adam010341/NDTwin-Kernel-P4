@@ -1,4 +1,4 @@
-# ①b — R = 8.0, and this time both sides are measurements. **Registered outcome: H2.**
+# ①b — R = 8.0, both sides measured. **H2 — but the crude interval spans the boundary; see §1.2–1.3.**
 
 **Created 2026-08-29 by `8/28 mainDev`.** Design: `PREREG-1b.md`, which inherits ①'s `PREREG.md`
 §1–§7 + AMENDMENT-1 §8 unchanged except for the ladder's top.
@@ -54,13 +54,67 @@ loss, in both arms independently. Contrast ③'s n=1, where the rung above the r
 > from the compiler flags. **The main claim narrows to "12× along a three-hop production path", and
 > the paper must say which.**
 
-⚠️ **8.0 against a boundary of 9 is close.** The ladder's resolution is ×1.5, so the nearest
-alternative values of the numerator are 240 (R = 5.3) and 540 (R = 12.0); the denominator's are 30
-(R = 12.0) and 70 (R = 5.1). **A one-rung error on either side moves the verdict.** What supports
-the call is not the margin but the replication: **six stock arms across ① and ①b all read 45, four
-fast arms all read 360, with zero spread on either side.**
+## 1.2 🔴 Correction: replication does NOT support this verdict, and the crude interval spans the boundary
 
-## 1.2 🔴 What this round may NOT say
+An earlier draft of this section said the call was supported "not by the margin but by the
+replication". **`8/28 auditor` refuted that and is right — it is withdrawn.**
+
+A ladder rung measures *the highest offered rate whose loss is ≤ 0.5%*, so the true zero-loss point
+lies **between that rung and the next**:
+
+| | interval |
+|---|---|
+| stock | **[45, 70)** |
+| fast | **[360, 540)** |
+| ⇒ **R** | **(360/70, 540/45) = (5.14, 12.0)** |
+
+**The H1/H2 boundary of 9 is inside that interval.**
+
+🔑 **Replication cannot narrow it.** Six stock arms reading 45 and four fast arms reading 360 with
+zero spread proves the *rung* is stable — but the uncertainty here is **quantisation, not noise**.
+Ten arms landing on the same rung say nothing about where inside that rung's interval the true
+value sits. PREREG §4 said this in advance — "two rungs of resolution on a quotient is roughly
+±45%" — and 8.0 ± 45% = [4.4, 11.6] spans the boundary too.
+
+⇒ 🔴 **The decision rule was missing a branch.** H1/H2/H3 are exhaustive over point estimates but
+there was no "the interval spans a boundary ⇒ report indistinguishable" case. **That is a design
+defect, recorded in §4.**
+
+## 1.3 The knee shape narrows it, using only data already collected
+
+How far past 0.5% the **next** rung reads says how far the true point is from the rung below: a
+huge overshoot means we sailed well past the crossing, so the crossing sits near the bottom of the
+interval. Read from raw, no new arms:
+
+| build | clean rung | **next rung** | |
+|---|---|---|---|
+| stock_a / stock_b / b_stock_a / b_stock_b | 0.0000 / 0.3174 / 0.0000 / 0.0000 % | **12.12 / 24.49 / 4.44 / 7.64 %** | ≥ an order of magnitude in every arm |
+| b_fast_a / b_fast_b | 0.1540 / 0.3275 % | **25.80 / 26.62 %** | 168× / 81× |
+
+**Both knees are sharp in every arm.** Interpolating linearly for the 0.5% crossing:
+
+| | crossing | position in its interval |
+|---|---|---|
+| stock (4 arms) | 45.2 – 47.8 | bottom **0.8 – 11.3%** |
+| fast (2 arms) | 361.2 – 362.4 | bottom **0.7 – 1.3%** |
+| ⇒ **R** | **≈ 7.8** | |
+
+⚠️ **Linear interpolation on a convex curve gives a LOWER bound on each crossing, not an estimate.**
+The real curve is flat then steep, so it crosses 0.5% *later* than a straight line does. Both sides
+are biased the same way and R is a ratio, so the bias partly cancels — but this is **supporting
+evidence, not a measurement**, and it is not what the round registered.
+
+⇒ **Verdict: H2, as the point estimate and as the interval once knee shape is used. Reported with
+the crude interval (5.14, 12.0) shown, because that is what the registered instrument alone
+delivers.**
+
+📌 Note which way the correction points: R ≈ 7.8 is **further into H2**, i.e. further from the more
+publishable H1. **No finer ladder was run to settle it.** ①'s rerun was legitimate because the
+instrument could not reach the registered question; here it reached it and honestly reported a
+resolution limit. Re-measuring because the answer landed near a boundary would be
+"the answer is inconvenient, measure again" — refused.
+
+## 1.4 🔴 What this round may NOT say
 
 Registered in ① AMENDMENT-1 §8.2 before any arm ran, because H2 was foreseeable:
 
@@ -112,14 +166,21 @@ which says nothing about 1400 B at 810 Mbit/s. Re-measured here for that reason.
 
 ## 4. Threats to validity
 
-1. 🔴 **R = 8.0 sits one ladder rung from the H1 boundary** (§1.1). The verdict rests on replication,
-   not on margin. A finer ladder around 45 and 360 would tighten it; this round did not run one.
-2. 🔴 **The registered mirror pass was not run** — 4 arms, not 8, same as ①, because each arm needs
+1. 🔴 **The decision rule had no branch for "the interval spans a boundary".** H1/H2/H3 partition
+   point estimates, but a rung measurement carries a quantisation interval, and R's — (5.14, 12.0)
+   — contains the H1/H2 boundary of 9. PREREG §4 anticipated the width ("±45% on a quotient") and
+   still registered only point-estimate outcomes. **Any future ratio round must register an
+   indistinguishable branch alongside its intervals.** Resolved here by knee shape (§1.3), which is
+   supporting evidence, not the registered instrument.
+2. 🔴 **Replication does not narrow a quantisation interval.** Ten arms on the same rung prove the
+   rung is stable and say nothing about position within it. An earlier draft claimed otherwise;
+   withdrawn in §1.2.
+3. 🔴 **The registered mirror pass was not run** — 4 arms, not 8, same as ①, because each arm needs
    its own fabric generation. Interleaved with two arms per build and no two same-build arms
    adjacent. **Disclosed, not presented as the registered design.**
-3. **Path and control plane remain bound together** (§1.2). Deliberate, registered, and open.
-4. **Single machine, single host pair, single payload size, single topology.**
-5. **Binary provenance is argv + override cross-check, not `/proc/<pid>/exe`** — one notch below
+4. **Path and control plane remain bound together** (§1.4). Deliberate, registered, and open.
+5. **Single machine, single host pair, single payload size, single topology.**
+6. **Binary provenance is argv + override cross-check, not `/proc/<pid>/exe`** — one notch below
    kernel-verified, because this uid cannot read a root process's exe link. AMENDMENT-1 §8.5.
 
 ---
@@ -128,9 +189,9 @@ which says nothing about 1400 B at 810 Mbit/s. Re-measured here for that reason.
 
 | ✅ supported | 🔴 not supported |
 |---|---|
-| At one hop with the control plane live, **R = 8.0**, both sides measured, four arms | That the shortfall from 12× is due to the path *or* to the control plane — that is another round |
+| At one hop with the control plane live, **R = 8.0** (≈7.8 once knee shape is used), both sides measured | That the shortfall from 12× is due to the path *or* to the control plane — that is another round |
 | **H2**: part of the reported 12× is not the compiler flags | That the paper's 12× is wrong — it is right *for the three-hop production path*, which is what it measured |
-| stock = 45 M and fast = 360 M at one hop, each replicated with zero spread | A precision better than ±1 ladder rung on either side |
+| stock = 45 M and fast = 360 M at one hop, each replicated with zero spread | **R to better than its quantisation interval (5.14, 12.0) from the registered instrument alone** — the narrowing in §1.3 rests on an interpolation assumption |
 | The generator was not the limit (9.8× margin, measured at the actual top rung) | That the mirror pass would have agreed |
 
 **[Co-developed with claude code -- Adam]**
