@@ -9,6 +9,22 @@ Lab held by `開機手冊`, `exclusive_cpu=yes`, 13:08–16:08. Fabric: p4, 128 
 
 ---
 
+## 🔴 Read this before the floor: the null round is not read-only
+
+`--null` is defined as injecting nothing, and its number — the false-positive floor — is the
+yardstick every later round is measured against. **Producing that number has a side effect on
+the live system, and until 2026-08-29 nothing said so.**
+
+INV-06 tests mutual exclusion, so it must *hold* a lock. Via the field-name bug below (H-12) it
+was holding the twin's real **routing** lock for ~7 s on every run, in every mode, and
+`_c06_apply` renewed it to ttl=30. Only three lock types exist and **all three are real** —
+there is no scratch lock, so this cannot be fixed, only disclosed. `type` is now always sent,
+`power_lock` is chosen as harm reduction, and every INV-06 finding carries a `side_effect`
+field naming the real lock it took.
+
+⇒ **The name "null round" promises exactly the thing it cannot deliver.** Anyone reading
+"the floor is 0" needs to know the process that produced the 0 was writing to the live system.
+
 ## The headline
 
 **The null round's false-positive floor is 0** — after nine defects were removed from the
