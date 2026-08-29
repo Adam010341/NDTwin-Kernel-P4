@@ -34,7 +34,17 @@ bash "$DIR/wait_ssh.sh"        || { echo "ABORT: no ssh"; exit 1; }
 # Here the same things must be PRESENT, because section 6 is written for a reader who has
 # finished 1-5. A fresh snapshot would produce a run that fails for the wrong reason.
 say "confirm this is POST-SECTIONS-1-5, not fresh and not a later P4 snapshot"
-$SSH 'for c in conda mn ovs-vsctl cmake ninja; do
+# NOTE: conda is checked on disk, NOT with `command -v`. Non-interactive ssh runs a shell that
+# returns from .bashrc before conda's init block (Ubuntu's stock guard: `case $- in *i*) ;;
+# *) return;; esac`), so `command -v conda` reports absent on a machine where conda is installed
+# and working. That is H-14 in FINDINGS-sections-1-5.md, and the first version of this gate
+# reproduced it and aborted a good run -- four hours after H-14 was written up. Anything living
+# in .bashrc has to be checked by path here.
+$SSH 'printf "  %-14s " "conda"
+      [ -x ~/miniconda3/bin/conda ] && echo "present (correct)" || echo "ABSENT -- not the 1-5 machine"
+      printf "  %-14s " "ryu-env"
+      [ -x ~/miniconda3/envs/ryu-env/bin/python ] && echo "present (correct)" || echo "ABSENT -- 2.1 did not run here"
+      for c in mn ovs-vsctl cmake ninja; do
         printf "  %-14s " "$c"
         command -v "$c" >/dev/null 2>&1 && echo "present (correct)" || echo "ABSENT -- not the 1-5 machine"
       done
