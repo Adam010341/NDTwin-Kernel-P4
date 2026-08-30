@@ -1,0 +1,35 @@
+=== T2-1 investigation, started 2026-08-30T03:03:35+00:00 ===
+override: /usr/local/bin/simple_switch_grpc
+hosts:    4
+
+############ 1. FABRIC ############
+2026-08-30T03:03:40+00:00  manifest switches: 10
+
+############ 2. PROXY  (unbuffered, so its log can be read while it runs) ############
+
+############ 3. WAIT FOR LINK DISCOVERY -- the thing paths depend on ############
+Sampling the proxy's own discovery log AND the API together, so a disagreement between
+them is visible rather than being attributed to whichever one I happened to read.
+    time       disc_log   api_sw api_link api_host api_path
+    +5s              12       10       32        4       12
+    +10s             12       10       32        4       12
+    +15s             12       10       32        4       12
+    +20s             12       10       32        4       12
+    -> discovery stopped moving at 12 links
+
+############ 4. DATAPATH -- pingall, only now that discovery has settled ############
+2026-08-30T03:04:16+00:00  pingall matrix:
+    *** Results: 0% dropped (12/12 received)
+
+############ 5. IS THIS AN LLDP PROBLEM OR A FORWARDING PROBLEM? ############
+If links are discovered and paths exist but ping still fails, the twin is fine and the
+data plane is not -- a different defect from the one the previous write-up alleged.
+    discovered links (log):  12
+    link failures (log):     0
+    api links:               32
+    api paths:               12
+    table entries installed on s1 (does the switch have rules at all?):
+      entries-ish: 10
+
+############ SHUTDOWN ############
+finished 2026-08-30T03:04:31+00:00

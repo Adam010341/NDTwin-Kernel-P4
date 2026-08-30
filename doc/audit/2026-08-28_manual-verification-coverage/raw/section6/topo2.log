@@ -1,0 +1,48 @@
+*** topology model: /home/tester/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+*** Creating network
+*** Adding hosts:
+h1 h2 h3 h4 
+*** Adding switches:
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 
+*** Adding links:
+(h1, s1) (h2, s2) (h3, s3) (h4, s4) (s1, s5) (s1, s6) (s2, s5) (s2, s6) (s3, s7) (s3, s8) (s4, s7) (s4, s8) (s5, s9) (s5, s10) (s6, s9) (s6, s10) (s7, s9) (s7, s10) (s8, s9) (s8, s10) 
+*** Configuring hosts
+h1 h2 h3 h4 
+*** Starting controller
+
+*** Starting 10 switches
+s1 Starting s1 (gRPC: 50051, Thrift: 9091, bin: /usr/local/bin/simple_switch_grpc)
+s2 Starting s2 (gRPC: 50052, Thrift: 9092, bin: /usr/local/bin/simple_switch_grpc)
+s3 Starting s3 (gRPC: 50053, Thrift: 9093, bin: /usr/local/bin/simple_switch_grpc)
+s4 Starting s4 (gRPC: 50054, Thrift: 9094, bin: /usr/local/bin/simple_switch_grpc)
+s5 Starting s5 (gRPC: 50055, Thrift: 9095, bin: /usr/local/bin/simple_switch_grpc)
+s6 Starting s6 (gRPC: 50056, Thrift: 9096, bin: /usr/local/bin/simple_switch_grpc)
+s7 Starting s7 (gRPC: 50057, Thrift: 9097, bin: /usr/local/bin/simple_switch_grpc)
+s8 Starting s8 (gRPC: 50058, Thrift: 9098, bin: /usr/local/bin/simple_switch_grpc)
+s9 Starting s9 (gRPC: 50059, Thrift: 9099, bin: /usr/local/bin/simple_switch_grpc)
+s10 Starting s10 (gRPC: 50060, Thrift: 9100, bin: /usr/local/bin/simple_switch_grpc)
+
+*** Starting CLI:
+bmv2 binary: /usr/local/bin/simple_switch_grpc  (LD_LIBRARY_PATH=/usr/local/lib)
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060
+Switch manifest: /tmp/ndtwin_p4_switches.json
+======================================================================
+
+mininet> *** Ping: testing ping reachability
+h1 -> h2 h3 h4 
+h2 -> h1 h3 h4 
+h3 -> h1 h2 h4 
+h4 -> h1 h2 h3 
+*** Results: 0% dropped (12/12 received)
+mininet> *** Stopping 0 controllers
+
+*** Stopping 20 links
+....................
+*** Stopping 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 
+*** Stopping 4 hosts
+h1 h2 h3 h4 
+*** Done
