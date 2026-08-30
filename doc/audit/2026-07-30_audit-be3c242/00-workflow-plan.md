@@ -5,6 +5,28 @@
 
 請在全新的 AI 會話中，針對每一個階段，直接複製並貼上對應的「**審查 Prompt**」來啟動該階段的審查工作。
 
+> **2026-08-30 讀者須知——下面十段 prompt 是逐字存檔，一個字都沒改。**
+>
+> 每段都要求輸出到 `doc/audit/NN-<名稱>-summary.md`。那是當時下達的路徑，
+> **照著找會找不到檔案**（gone as of 2026-08-30）：十份總結就放在**本檔隔壁**，
+> 也就是 `doc/audit/2026-07-30_audit-be3c242/`。當時 `doc/audit/` 還不存在——本目錄由
+> `1f9e4b4` 在 07-30 建立，`9e3874c` 補上日期前綴，`1abd22e` 才移進 `doc/audit/`。
+>
+> **其中兩段的檔名沒有同名產出**，不要當成漏檔：
+>
+> | prompt 指定 | 隔壁實際有的 | 那份的標題與內容 |
+> |---|---|---|
+> | `03-collection-telemetry-summary.md` | `03-topology-management-summary.md` | 「Phase 3: Topology Management」，審 `TopologyAndFlowMonitor` |
+> | `04-data-intent-summary.md` | `04-flow-statistics-summary.md` | 「Phase 4: Flow Statistics」，審 `FlowLinkUsageCollector` 與 `Classifier` |
+>
+> 這兩個檔名自建立起就是現在這樣（`9e3874c` 只加了日期前綴，沒改主檔名）⇒ 是**當初就沒照 prompt 命名**，
+> 不是後來改名。另外 Phase 4 指定的範圍（`data_management/`、`intent_translator/`）在十份總結裡
+> **一次都沒出現**（grep `data_management|intent_translator|IntentTranslator|HistoricalDataManager|LLMAgent`，
+> 十份全部 0 命中）⇒ 那一階段**等於沒有交付**，`04-` 這個號碼被另一個主題用掉了。
+>
+> ⚠️ 另一份同名的十階段計畫（2026-08-03 寫的 `doc/audit/00-workflow-plan.md`，1641 行）**與本檔無關**，
+> 已於 `da31795` 刪除且從未執行；來由見 `doc/audit/README.md`。
+
 ---
 
 ## Phase 1: Routing Management (C++ 核心路由)
