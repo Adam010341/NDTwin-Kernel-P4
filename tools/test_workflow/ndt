@@ -717,12 +717,43 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
         err "kernel: $total switches, $up up (want $SWITCHES/$SWITCHES)"
         rc=1
     fi
-    # The graph must describe the network we actually built. This is the check that would
-    # have caught a wrong TOPO_P4 -- a 4-host model against a 128-host fabric.
-    if [[ "$hosts" == "$want_hosts" ]]; then
-        ok "model matches fabric: $hosts hosts"
+    # The graph must describe the network we actually built.
+    #
+    # [Co-developed with claude code -- Adam]
+    # FIXED 2026-08-30 (T-8, FINDING-01). Until this commit both sides of this comparison came
+    # from the model: `$hosts` is the kernel's graph and `$want_hosts` is the topology JSON the
+    # kernel was handed. A check named "model matches fabric" that never reads the fabric cannot
+    # fail, and on 08-30 it printed `ok model matches fabric: 4 hosts` over a fabric with 128
+    # host namespaces. The old comment claimed it was "the check that would have caught a wrong
+    # TOPO_P4"; it was the check that could not.
+    #
+    # The fabric-side quantity is fabric_host_count() -- host namespaces counted out of `ps`.
+    # Why that one of the three candidates FINDING-01 offered:
+    #   * it is the quantity that was counted BY HAND to establish the finding (128), so the fix
+    #     is checked against the same reading that exposed the defect;
+    #   * it already decides fabric reuse at up_p4 and gates the OVS build, so this adds no
+    #     third opinion about "how big is the fabric" -- a disagreement between two existing
+    #     readers is a bug we would have to adjudicate, and there is no reason to create one;
+    #   * the manifest (/tmp/ndtwin_p4_switches.json) is keyed by SWITCH and cannot answer a
+    #     question about hosts at all;
+    #   * veth count is a function of the topology's link layout as well as its host count, so
+    #     it needs a per-topology constant to interpret -- another number that can drift.
+    #
+    # Unobtainable is RED, not green. fabric_host_count returns 0 when `ps` gives nothing or
+    # when the "mininet:h<N>" argv convention it matches on changes. A fabric that this script
+    # just brought up always has at least one host, so 0 here means THE READING FAILED, and the
+    # whole point of the fix is lost if a failed reading is allowed to pass. That is the branch
+    # the old code effectively took for every value.
+    local live_hosts; live_hosts="$(fabric_host_count)"
+    if [[ ! "$live_hosts" =~ ^[0-9]+$ ]] || [[ "$live_hosts" -eq 0 ]]; then
+        err "model/fabric UNCHECKED: no fabric-side host count obtainable (fabric_host_count gave '${live_hosts:-<empty>}')."
+        err "  the kernel graph says $hosts hosts and the topology file says $want_hosts, but neither is the fabric."
+        err "  this is reported as a failure on purpose: an unverifiable check must not print ok."
+        rc=1
+    elif [[ "$hosts" == "$want_hosts" && "$hosts" == "$live_hosts" ]]; then
+        ok "model matches fabric: $hosts hosts (kernel graph, topology file and $live_hosts host namespaces all agree)"
     else
-        err "model/fabric mismatch: kernel graph has $hosts hosts, topology file has $want_hosts"
+        err "model/fabric mismatch: kernel graph has $hosts hosts, topology file has $want_hosts, the FABRIC has $live_hosts host namespaces"
         rc=1
     fi
     if [[ "$enabled" != "$SWITCHES" ]]; then
@@ -759,9 +790,22 @@ up_ovs() {
     # then build 128 hosts anyway, and report success: measured 2026-08-21, `ndt up ovs 16` gave
     # "model matches fabric: 16 hosts" over a 128-host fabric with 160 veths.
     #
-    # This is the mirror of the ovs4 defect fixed earlier the same day (4-host fabric, 128-host
-    # Ryu model). Refused here rather than checked afterwards, because the size is decided by
-    # which verb runs and nothing downstream can change it.
+    # CORRECTED 2026-08-30 (T-8, FINDING-01). That measurement was written down here for nine
+    # days as a reason to REFUSE odd sizes, and read as if the check downstream would have
+    # caught it for the sizes we do allow. It would not have. Both sides of that comparison came
+    # from the model, so "model matches fabric: 16 hosts" was not a check that missed a 128-host
+    # fabric -- it was a check that could not see any fabric at all, and the same false pass was
+    # observed again on the P4 arm on 08-30 (`ok model matches fabric: 4 hosts` over 128 host
+    # namespaces). The line recorded here is therefore evidence about the CHECK, not only about
+    # the size argument. verify_p4 now reads fabric_host_count(); verify_ovs's equivalent was
+    # renamed to "kernel graph matches the model file" because for host count it is close to
+    # tautological and the old name claimed a guarantee it does not give.
+    # 🔑 A defect recorded next to the code is not a defect fixed.
+    #
+    # The refusal below still stands on its own: it is the mirror of the ovs4 defect fixed
+    # earlier on 08-21 (4-host fabric, 128-host Ryu model). Refused here rather than checked
+    # afterwards, because the size is decided by which verb runs and nothing downstream can
+    # change it -- which remains the right shape even now that the downstream check works.
     if [[ "$ovs_hosts" != 4 && "$ovs_hosts" != 128 ]]; then
         err "OVS can only build 4 or 128 hosts, not $ovs_hosts."
         err "  128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;"
