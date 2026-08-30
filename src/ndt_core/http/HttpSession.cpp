@@ -1914,36 +1914,60 @@ HttpSession::handleAcquireLock(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Acquire Lock");
     try
     {
-        // Use constants defined in the header for default values
-        int ttl = LockManager::DEFAULT_TTL_SECONDS;
-        std::string lockType = LockManager::DEFAULT_LOCK_TYPE_STR;
+        // [Co-developed with claude code -- Adam]
+        // Decide first, acquire second. This used to parse inline with the defaults already
+        // assigned, and a `catch (...)` that kept them -- so a malformed body, a body with no
+        // "type", and a body naming a lock that does not exist all acquired `routing_lock`,
+        // the lock that serialises writes to real switches. Verified live on 2026-08-29 by
+        // judging on state: `"{this is not json` returned {"status":"locked",
+        // "type":"routing_lock"} and a second client then could not acquire.
+        const auto reqLock = LockManager::parseRequest(m_req.body());
 
-        try
+        if (!reqLock.ok)
         {
-            auto jsonBody = json::parse(m_req.body());
-            // If "type" or "ttl" are missing in JSON, use the defaults
-            lockType = jsonBody.value("type", LockManager::DEFAULT_LOCK_TYPE_STR);
-            ttl = jsonBody.value("ttl", LockManager::DEFAULT_TTL_SECONDS);
-        }
-        catch (...)
-        {
-            // Keep default values if JSON parsing fails
+            // 400, not 423. The old code answered every one of these with "System busy or
+            // invalid lock type: <substituted value>" -- one sentence for two unrelated
+            // conditions, quoting a lock the caller never asked for. "busy" is a retry;
+            // "your request is wrong" is not, and a caller cannot tell them apart from 423.
+            res.result(http::status::bad_request);
+            std::string detail;
+            switch (reqLock.error)
+            {
+                case LockManager::RequestError::MalformedBody:
+                    detail = "request body is not valid JSON; no lock was acquired";
+                    break;
+                case LockManager::RequestError::MissingType:
+                    detail = "missing required field \"type\"; expected one of routing_lock, "
+                             "graph_lock, power_lock. There is no default on purpose -- a lock "
+                             "you did not name is a lock you did not mean to take";
+                    break;
+                case LockManager::RequestError::InvalidType:
+                    detail = "unknown lock type \"" + reqLock.requestedType +
+                             "\"; expected one of routing_lock, graph_lock, power_lock";
+                    break;
+                default:
+                    detail = "invalid request";
+                    break;
+            }
+            res.body() = json{{"error", "Invalid lock request"}, {"detail", detail}}.dump();
+            return;
         }
 
-        // Pass the string to LockManager; it will handle Enum conversion internally
-        bool success = m_lockManager->acquireLock(lockType, ttl);
-
-        if (success)
+        if (m_lockManager->acquireLock(reqLock.type, reqLock.ttl))
         {
             res.result(http::status::ok);
-            res.body() = json{{"status", "locked"}, {"type", lockType}, {"ttl", ttl}}.dump();
+            res.body() =
+                json{{"status", "locked"}, {"type", reqLock.type}, {"ttl", reqLock.ttl}}.dump();
         }
         else
         {
-            // Locked by another app or invalid type
+            // Reaching here now means exactly one thing: the type was valid and the lock is
+            // held by someone else. Retrying is the right response, which 423 says and 400
+            // does not.
             res.result(http::status::locked);
             res.body() = json{{"error", "Lock acquisition failed"},
-                              {"detail", "System busy or invalid lock type: " + lockType}}
+                              {"detail", "lock \"" + reqLock.type +
+                                             "\" is held by another client; retry after its TTL"}}
                              .dump();
         }
     }

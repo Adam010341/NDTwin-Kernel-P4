@@ -263,3 +263,78 @@ TEST(LockManagerTest, ExactlyOneOfManyConcurrentAcquiresWins)
     EXPECT_EQ(winners.load(), 1) << "the lock was handed to " << winners.load()
                                  << " callers at once";
 }
+
+// ============================================================================================
+// Parsing an /ndt/acquire_lock body is a decision, and it used to be made by falling through.
+//
+// [Co-developed with claude code -- Adam]
+// The endpoint answered three different questions with one behaviour. A malformed body, a body
+// with no "type", and a body naming a lock that does not exist all ended up holding
+// `routing_lock` -- the lock that serialises writes to real switches. This was verified live on
+// 2026-08-29 by judging on state rather than on the reply: sending `"{this is not json` returned
+// {"status":"locked","type":"routing_lock"} and a second client then could not acquire, so the
+// malformed request was genuinely holding it.
+//
+// These tests are about which request is refused and why the caller is told, because "refused"
+// and "refused for the right reason" are different properties and only the second one lets an
+// operator fix anything.
+// ============================================================================================
+
+TEST(LockRequestParsing, MalformedBodyIsRefusedRatherThanDefaulted)
+{
+    auto r = LockManager::parseRequest("{this is not json");
+    EXPECT_FALSE(r.ok) << "a body that is not JSON was accepted";
+    EXPECT_EQ(r.error, LockManager::RequestError::MalformedBody);
+    EXPECT_TRUE(r.type.empty())
+        << "a malformed body resolved to lock type '" << r.type
+        << "'; it must name nothing, or garbage acquires the routing lock";
+}
+
+TEST(LockRequestParsing, MissingTypeIsRefusedRatherThanSubstituted)
+{
+    auto r = LockManager::parseRequest(R"({"ttl": 30})");
+    EXPECT_FALSE(r.ok) << "a body with no \"type\" was accepted";
+    EXPECT_EQ(r.error, LockManager::RequestError::MissingType);
+    EXPECT_TRUE(r.type.empty())
+        << "no type was requested but '" << r.type << "' came back; a caller that believes it "
+           "holds a private lock would be holding the one routing actually uses";
+}
+
+TEST(LockRequestParsing, InvalidTypeIsDistinguishedFromMissingType)
+{
+    auto r = LockManager::parseRequest(R"({"type": "alpha"})");
+    EXPECT_FALSE(r.ok);
+    EXPECT_EQ(r.error, LockManager::RequestError::InvalidType)
+        << "an unknown lock name must not be reported the same way as a missing one";
+    EXPECT_EQ(r.requestedType, "alpha")
+        << "the error must carry what the caller sent, not what the server substituted";
+}
+
+// The accept path. Every test above would also pass if parseRequest refused everything.
+TEST(LockRequestParsing, AllThreeRealLocksAreAccepted)
+{
+    for (const auto* name : {"routing_lock", "graph_lock", "power_lock"})
+    {
+        auto r = LockManager::parseRequest(std::string(R"({"type": ")") + name + R"("})");
+        EXPECT_TRUE(r.ok) << name << " was refused";
+        EXPECT_EQ(r.type, name);
+        EXPECT_EQ(r.ttl, LockManager::DEFAULT_TTL_SECONDS) << "ttl may default; the target may not";
+    }
+}
+
+TEST(LockRequestParsing, ExplicitTtlIsHonoured)
+{
+    auto r = LockManager::parseRequest(R"({"type": "power_lock", "ttl": 30})");
+    ASSERT_TRUE(r.ok);
+    EXPECT_EQ(r.ttl, 30);
+    EXPECT_EQ(r.type, "power_lock");
+}
+
+// Both production callers send this exact shape; it must keep working.
+TEST(LockRequestParsing, TheShapeBothSiblingAppsSendStillWorks)
+{
+    auto r = LockManager::parseRequest(R"({"ttl": 300, "type": "routing_lock"})");
+    ASSERT_TRUE(r.ok) << "Energy-Saving-App and Traffic-Engineering-App both send this";
+    EXPECT_EQ(r.type, "routing_lock");
+    EXPECT_EQ(r.ttl, 300);
+}

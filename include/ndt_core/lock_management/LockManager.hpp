@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <nlohmann/json.hpp>
 #include "utils/Logger.hpp"
 
 // Define available lock types using an Enum Class for type safety
@@ -34,8 +35,11 @@ class LockManager
     /**
      * @brief Helper function to convert string input to LockType enum.
      * This enforces the naming convention (routing_lock, graph_lock, power_lock).
+     *
+     * static because it reads no member state, and because parseRequest() below needs it
+     * before any LockManager exists. [Co-developed with claude code -- Adam]
      */
-    LockType stringToLockType(const std::string& str) {
+    static LockType stringToLockType(const std::string& str) {
         if (str == "routing_lock") return LockType::Routing;
         if (str == "graph_lock")   return LockType::Graph;
         if (str == "power_lock")   return LockType::Power;
@@ -46,8 +50,73 @@ class LockManager
     /**
      * @brief Check if the provided lock type string is valid.
      */
-    bool isValidType(const std::string& typeStr) {
+    static bool isValidType(const std::string& typeStr) {
         return stringToLockType(typeStr) != LockType::Unknown;
+    }
+
+    /**
+     * @brief Why a lock request was refused, kept distinct because they need different answers.
+     * [Co-developed with claude code -- Adam]
+     */
+    enum class RequestError {
+        None,
+        MalformedBody,   // the body is not JSON at all
+        MissingType,     // valid JSON, no "type" field
+        InvalidType      // "type" present but not one of the three locks
+    };
+
+    /**
+     * @brief Parse an /ndt/acquire_lock body into a decision, WITHOUT acquiring anything.
+     *
+     * [Co-developed with claude code -- Adam]
+     * This exists because the endpoint used to answer three different questions with one
+     * behaviour: a malformed body, a body with no "type", and a body naming a lock that does
+     * not exist all ended up acquiring `routing_lock` on the caller's behalf -- the real lock
+     * that serialises writes to the network. The handler's `catch (...)` swallowed the parse
+     * error and fell through with the defaults still in place, so "your JSON was rubbish" and
+     * "you asked for routing_lock" were indistinguishable to the code and to the caller.
+     *
+     * Nothing is defaulted here. A caller that wants routing_lock has to say so, which both
+     * in-tree consumers already do (Energy-Saving-App http.cpp:425 and
+     * Traffic-Engineering-App:71 both send an explicit "type"), so refusing the implicit case
+     * breaks no existing caller.
+     *
+     * `ttl` still defaults: it is a duration, not a target, and getting it wrong cannot make a
+     * request act on something other than what it named.
+     */
+    struct LockRequest {
+        bool ok = false;
+        std::string type;
+        int ttl = DEFAULT_TTL_SECONDS;
+        RequestError error = RequestError::None;
+        std::string requestedType;   // what the caller actually sent, for the error message
+    };
+
+    static LockRequest parseRequest(const std::string& body)
+    {
+        LockRequest out;
+        nlohmann::json parsed;
+        try {
+            parsed = nlohmann::json::parse(body);
+        } catch (...) {
+            out.error = RequestError::MalformedBody;
+            return out;
+        }
+        if (!parsed.is_object() || !parsed.contains("type") || !parsed["type"].is_string()) {
+            out.error = RequestError::MissingType;
+            return out;
+        }
+        out.requestedType = parsed["type"].get<std::string>();
+        if (!isValidType(out.requestedType)) {
+            out.error = RequestError::InvalidType;
+            return out;
+        }
+        if (parsed.contains("ttl") && parsed["ttl"].is_number_integer()) {
+            out.ttl = parsed["ttl"].get<int>();
+        }
+        out.type = out.requestedType;
+        out.ok = true;
+        return out;
     }
 
     /**
