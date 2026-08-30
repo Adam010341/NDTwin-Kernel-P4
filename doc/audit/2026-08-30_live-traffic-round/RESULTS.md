@@ -1,12 +1,15 @@
 # Live-traffic round (full-stack #3) — results
 
-**2026-08-30, 20:23 – 21:56 CST.** Three arms, all on kernel `1208d22`:
+**2026-08-30, 20:23 – 23:10 CST.** Six arms, all on kernel `1208d22`:
 
 | arm | fabric | why it ran |
 |---|---|---|
 | **1** | P4 / BMv2, **128 hosts** | the registered working point (PREREG §1) |
 | **2** | OVS / Ryu, **128 hosts** | TR-2 / F-1 is only reachable there |
 | **3** | P4 / BMv2, **4 hosts** | TR-1's timing half is structurally unmeasurable at 128 — see below |
+| **4** | P4 / BMv2, 4 hosts | the programmed-vs-visible check that corrected FINDING-06 |
+| **5** | P4 / BMv2, 4 hosts | TR-5 energy watch (Adam authorised the power-off verb at 22:24) |
+| **6** | OVS / Ryu, 4 hosts | TR-5's second arm |
 
 Unless a section says otherwise, figures below are arm 1.
 Registered by [PREREG.md](PREREG.md) (`5cbd672`) before any data. Executed by
@@ -54,12 +57,13 @@ never-before-used, so each is a genuine new-flow event.
 | **TR-2** | F-1 on OVS | arm 2 **ran**. Punt path **bypassed** (proactive routing), instrument-blindness **refuted**. F-1 stays *unreachable*, **not** *passed*. |
 | **TR-3** | does the exposure window grow under contention? | **NO.** And 🔴 **corrected**: it is a *view-staleness* window (the rule is on the switch in ~20 ms), not an unprogrammed one. [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) |
 | **TR-4** | `contract_test` against the live kernel | **PASS, 39/39** (+ 52-check self-test) |
-| **TR-5** | energy observation base | **not collected** — see below |
+| **TR-5** | energy observation base | **COLLECTED, both arms.** 0 switches off each; mechanism identified — [FINDING-08](FINDING-08_energy-app-locks-itself-out.md) |
 | **TR-6** | the manual's 128-host example | **PASS, works as printed** |
 
-Plus two system findings that were not registered questions:
+Plus three system findings that were not registered questions:
 [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) (the table view is blind for up to 10.7 s) and
-[FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) (priority rewritten to 0).
+[FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) (priority rewritten to 0), and
+[FINDING-08](FINDING-08_energy-app-locks-itself-out.md) (the Energy-App locks itself out).
 
 ---
 
@@ -139,29 +143,25 @@ no `mininet`; and only `p4_proxy/mininet` may go on `sys.path` — adding `p4_pr
 `import mininet.net` resolve to the repo directory and the module cannot load at all. Both traps
 were hit before the test ran. `memory: python-tests-need-the-venv-interpreter`.
 
-### TR-5 — not collected, and not scored
+### TR-5 — collected on both arms, and it did not reproduce FINDING-05
 
-Registered as "this round only *collects*". **Not run: the invocation was refused by this
-session's permission layer**, because `25_apps_energy.sh --yes-power-switches-off` powers real
-switches off. The refusal was not worked around. **This is a gap, not a pass** — T-12 gains
-nothing from this round.
+Adam authorised the power-off verb at 22:24; the watch ran on P4 4-host and OVS 4-host under a
+fresh claim with zero in-window commits and no `agy`. **Both arms powered off 0 switches** at
+0.0 % link utilisation — where the contaminated 15:30 P4 run powered off three.
 
-Worth flagging, because the conditions were finally right and are not always: `25_apps_energy.sh`'s
-own header records that **both** previous runs (P4, 3 switches off; OVS, 0 off) overlapped `agy`
-jobs of ~2 cores each, invisible to `ndt status`, *heavier on the arm that did nothing* — so
-FINDING-05's P4-vs-OVS comparison is uncontrolled, and the header asks for a re-run "with zero
-commits in the window". This round enforced exactly that (agy hook removed at Adam's instruction,
-zero in-window commits, `exclusive_cpu` holding at load1 1.07/14). **The clean re-run this
-finding has been waiting for was one authorisation away.** It needs a Bash permission rule for
-the power-off verb, or an operator to run it by hand:
+The cause is identified from the app's own output rather than left open: `acquire_lock` returns
+**423 once per second**, the loop at `energy_saving_app.cpp:952` retries and never runs a switch
+cycle, and the holder is the app's own first instance — whose two `release_lock()` calls both sit
+behind a simulation round-trip that cannot complete with no Simulation-Platform-Manager running.
+The lock's 300 s TTL outlasts the 241 s watch, and it **survives the process**.
 
-```bash
-. doc/audit/2026-08-30_live-traffic-round/harness/round.env
-bash "$T4H/25_apps_energy.sh" --yes-power-switches-off
-```
+Consequence for this round's own instrument: the watch's "4 full 60 s app cycles" is wall clock,
+not decisions. **Only one cycle ever decided anything, so PREREG §3 TR-5's "≥2 decision cycles
+per arm" was not met on either arm** — and the script reported it as met.
 
-Even then it would have been half a differential — arm 2 did not run, so the P4/OVS comparison
-FINDING-05 turns on would still be open.
+**Do not close FINDING-05 on this.** Two variables changed at once (kernel `89c1754`→`1208d22`,
+and `agy` removed). Full reasoning, the refuted "the old lock always granted" hypothesis, and the
+one cheap arm that would settle it: [FINDING-08](FINDING-08_energy-app-locks-itself-out.md).
 
 ### TR-2 — arm 2 **did** run; F-1 is unreachable **by churn**, and now we know why
 

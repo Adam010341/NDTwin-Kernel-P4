@@ -13,6 +13,7 @@
 | [RESULTS.md](RESULTS.md) | provenance, traffic actually applied, TR-1…TR-6 verdicts, the harness defects found |
 | [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) | 🔴 **corrected 22:10** — the kernel's table view is **blind for up to 10.70 s**; the rule is on the switch in ~20 ms. Answers TR-3. |
 | [FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) | `install_flow_entry` programs **every** rule at **priority 0** |
+| [FINDING-08](FINDING-08_energy-app-locks-itself-out.md) | TR-5: the Energy-App locks itself out on cycle 1 and spins at 1 Hz; the watch reports 4 decision cycles when there was **one** |
 | [TR1-timing-4host.md](TR1-timing-4host.md) | R-2's timing half, answered on the fabric size where it is measurable |
 | [COVARIATES-and-preflight-override.md](COVARIATES-and-preflight-override.md) | the one precondition that was not met, its measured size, and why the round ran anyway |
 
@@ -25,13 +26,15 @@
 | TR-2 — F-1 punt path | **unreachable**: bypassed by proactive routing. Instrument-blindness refuted. Not "passed". |
 | TR-3 — does the window grow under contention? | **No.** 10.70 s clock (sd 0.05, n=4) — **of the view cache**, not of dispatch. |
 | TR-4 — `contract_test` live | **39/39 PASS** (+52-check self-test). Discharges T-7b §0.0. |
-| TR-5 — energy observation base | **NOT COLLECTED** — refused by the permission layer. A gap, not a pass. |
+| TR-5 — energy observation base | **COLLECTED, both arms** (Adam authorised 22:24). 0 switches off on each; mechanism identified. FINDING-05's asymmetry does **not** reproduce. |
 | TR-6 — the manual's 128-host example | **PASS**, and its "refuses to start on mismatch" claim forced red in both directions |
 
 ## What the next round should pick up
 
-1. **TR-5's clean re-run is one authorisation away.** Conditions were finally right (no `agy`, zero
-   in-window commits) and both prior runs were contaminated. See RESULTS.md → TR-5.
+1. ~~TR-5's clean re-run is one authorisation away.~~ **DONE 23:08** — both arms, 0 switches off,
+   FINDING-08. **What it opened:** the 15:30-vs-tonight difference is still confounded (kernel
+   `89c1754`→`1208d22` *and* agy removed). The decisive arm is one watch against the T-4 baseline
+   worktree; cheap, not run.
 2. ~~Name the 10.70 s timer in the source.~~ **DONE 22:10** —
    `DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker:1900`, a fixed 10 s sleep plus
    the poll. The severity flipped with it: see FINDING-06's correction banner. What remains is
