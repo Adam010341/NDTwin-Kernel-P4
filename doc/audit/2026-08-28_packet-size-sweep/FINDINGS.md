@@ -151,4 +151,12 @@ workload.
 | The generator was not the limit (9.6× margin, measured) | Any statement about other builds, flow counts or fabrics |
 | Foreign CPU load did not gate any arm, on a gate proven able to fire | That the arms were free of *all* foreign load — only above the threshold |
 
+## 08-30 更正（metrologist 外審 R-1/R-2；收案後追註，不改上文）
+
+本檔多處以「×1.5 ladder」描述梯子——那是**名目值**。照本檔印出的階值逐一計算，
+**實現步距＝1.4545×（110→160）到 2.0×（1→2）**；本輪兩個格值所在的 12→20 kpps
+一階＝**1.667×**。任何把 ±1 階換算成倍率的敘述（含衍生稿）應以實現步距為準，
+不得寫成 "<1.5×"。連帶：兩臂格值 {20,12}/{20,20}/{12,20} 的格平均 16.0/20.0/16.0
+是**兩臂平均值、沒有任何一臂讀到 16.0**——引用格值時要帶臂值（本檔 §1 原表即有）。
+
 **[Co-developed with claude code -- Adam]**
