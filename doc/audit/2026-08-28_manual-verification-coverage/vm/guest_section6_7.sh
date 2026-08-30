@@ -191,13 +191,16 @@ verdict NOTE-1 "N/A" "not tested: reproducing it requires damaging ~/behavioral-
 say "FINAL STEP -- the manual's last instruction"
 # "Once built, put the absolute path back into p4_proxy/mininet/bmv2_binary_override as the
 # single directive line."
-OVR="$HOME/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override"
-if [[ -f "$OVR" ]]; then
+# Located rather than assumed: the manual's §4.1 clone lands in ~/Desktop/NDTwin-Kernel on this
+# guest, not ~/NDTwin-Kernel. An earlier draft hard-coded the latter, which would have reported
+# FAIL for the wrong reason -- the H-19 shape, a failure that is really a wrong address.
+OVR="$(find "$HOME" -maxdepth 5 -name bmv2_binary_override -type f 2>/dev/null | head -1)"
+if [[ -n "$OVR" && -f "$OVR" ]]; then
     cp "$OVR" "$OUT/bmv2_binary_override.before"
     echo "$FAST_BIN" > "$OVR"
     verdict FINAL PASS "wrote '$FAST_BIN' into $OVR (previous contents saved to $OUT/bmv2_binary_override.before)"
 else
-    verdict FINAL FAIL "$OVR does not exist -- the manual's final instruction has no target on this checkout"
+    verdict FINAL FAIL "no bmv2_binary_override found under \$HOME -- the manual's final instruction has no target on this guest"
 fi
 
 # -------------------------------------------------------------------------------------------------
