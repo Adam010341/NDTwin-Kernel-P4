@@ -1,0 +1,32 @@
+===== programmed vs visible  2026-08-30T14:06:58Z =====
+      rule -> 10.0.0.250 on dpid 1; southbound=http://localhost:8081/stats/flow/1
+  PASS  CONTROL: both readers answer, neither carries 10.0.0.250 yet.
+      POST at 1788098818.946 -> http=200 in 1 ms
+
+  >>> kernel view shows it as a PHANTOM at t+0.01s
+  >>> SOUTHBOUND has the rule at t+0.02s (priority as programmed: 0)
+  >>> kernel view shows it as a REAL entry at t+2.22s (priority 0)
+
+----- result -----
+  southbound (switch, via proxy) : t+0.02 s
+  kernel view, as phantom        : t+0.01 s
+  kernel view, as real entry     : t+2.22 s
+
+  gap (kernel view minus southbound): 2.21 s
+  => (B) VISIBLE LATE. The rule was on the switch 2.21 s before the kernel's
+     table view published it. FINDING-06's window is a VIEW-STALENESS window, not
+     an unprogrammed window, and its severity is 'blind', not 'not installed'.
+
+artefact: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm4-f06-check/tr3_programmed_vs_visible.tsv
+  >>> kernel view shows it as a PHANTOM at t+0.01s
+  >>> SOUTHBOUND has the rule at t+0.02s (priority as programmed: 0)
+  >>> kernel view shows it as a REAL entry at t+1.31s (priority 0)
+  gap (kernel view minus southbound): 1.30 s
+  => (B) VISIBLE LATE. The rule was on the switch 1.30 s before the kernel's
+---
+  >>> kernel view shows it as a PHANTOM at t+0.01s
+  >>> SOUTHBOUND has the rule at t+0.01s (priority as programmed: 0)
+  >>> kernel view shows it as a REAL entry at t+10.04s (priority 0)
+  gap (kernel view minus southbound): 10.02 s
+  => (B) VISIBLE LATE. The rule was on the switch 10.02 s before the kernel's
+---
