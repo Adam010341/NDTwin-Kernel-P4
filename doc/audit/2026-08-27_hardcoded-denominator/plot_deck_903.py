@@ -249,6 +249,18 @@ def _foot(fig, text, x=0.032, width=112):
              fontsize=9.5, color=FAINT, va="top", linespacing=1.4)
 
 
+def _title_clean(fig, main, params=""):
+    # Adam's ruling, 2026-08-30: deck figures carry a centred title plus one terse parameter
+    # line, nothing else -- every explanatory sentence, footer and epistemic stamp moves to
+    # the slide template (903 template, §G), which is the single source of truth for prose.
+    # _title/_foot remain for figures that have not been re-ruled.
+    # [Co-developed with claude code -- Adam]
+    fig.text(0.5, BAND["title"], main, fontsize=19, color=INK, fontweight="bold",
+             va="top", ha="center")
+    if params:
+        fig.text(0.5, BAND["sub"], params, fontsize=12, color=MUTED, va="top", ha="center")
+
+
 def _save(fig, name):
     path = os.path.join(OUT, name)
     fig.savefig(path, dpi=DPI, facecolor="white")
@@ -268,12 +280,11 @@ def fig_assumed_denominator():
     ]
 
     fig = plt.figure(figsize=WIDE)
-    _title(fig,
-           "The denominator was assumed to be 1.000 s. It never was.",
-           "The rate loop divides a per-round byte accumulator by a hard-coded 1 s. Every period we "
-           "have ever measured is longer than that, so every published bit-rate is high — and the gap "
-           "widens with load.",
-           "MEASURED", "measured")
+    # Subtitle prose and both footers moved to the 903 slide template §G (clean-figure
+    # ruling, 2026-08-30).
+    _title_clean(fig,
+                 "The denominator was assumed to be 1.000 s. It never was.",
+                 "16-flow ticket-Q arms + 64-flow work-point survey · one fabric generation")
 
     axL = fig.add_axes([0.055, AXES_Y, 0.375, AXES_H])
     axR = fig.add_axes([0.545, AXES_Y, 0.425, AXES_H])
@@ -322,15 +333,6 @@ def fig_assumed_denominator():
     axR.set_xlim(-0.7, len(flat) - 0.3)
     axR.set_ylim(0, top)
 
-    _foot(fig,
-          "Source: drive_Q.log and survey_T64.log, both committed. Periods are recovered from "
-          "clustered edge-update transitions; the two ticket-Q arms ran back to back in one fabric "
-          "generation.", x=0.055, width=86)
-    _foot(fig,
-          "Read the right panel together with the shaded band: the effect is real and always in the "
-          "same direction, but at these work points it is about the size of the arm-to-arm noise. "
-          "That is why the verdict rests on the in-loop instrument rather than on this ratio.",
-          x=0.545, width=98)
     _save(fig, "page_Q_assumed-denominator.png")
 
 
@@ -341,14 +343,14 @@ def fig_gate_after_fix():
     absent = baseline_instrument_absent()
 
     fig = plt.figure(figsize=WIDE)
-    _title(fig,
-           "After the fix, the divisor is the interval that was actually measured",
-           "Ticket Q divides the accumulator by the elapsed time it accumulated over. The gate "
-           "instrument prints both numbers every round, and they must agree to within 1%.",
-           "MEASURED", "measured")
+    # Subtitle, the three verdict cards and the footer moved to the 903 slide template §G
+    # (clean-figure ruling, 2026-08-30). The gate verdict is printed below for the audit
+    # record, same precedent as the round-2 ratio.
+    _title_clean(fig,
+                 "After the fix, the divisor is the interval that was actually measured",
+                 "one point per round · gate tolerance 1%")
 
-    axL = fig.add_axes([0.055, AXES_Y, 0.30, AXES_H])
-    axR = fig.add_axes([0.435, AXES_Y - 0.02, 0.535, AXES_H + 0.02])
+    axL = fig.add_axes([0.34, AXES_Y, 0.32, AXES_H])
 
     # --- left: the pairs on y = x ------------------------------------------------------------
     _frame(axL, ylab="Divisor actually used  (s)", xlab="Measured interval  (s)")
@@ -368,47 +370,9 @@ def fig_gate_after_fix():
     axL.set_yticks([1.00, 1.02, 1.04, 1.06])
     axL.set_aspect("equal", adjustable="box")
 
-    # --- right: the gate verdict and, deliberately, its limits -------------------------------
-    axR.set_xlim(0, 1)
-    axR.set_ylim(0, 1)
-    axR.axis("off")
-
-    def card(y, h, face, edge, head, head_col, lines):
-        axR.add_patch(Rectangle((0.0, y), 1.0, h, transform=axR.transAxes,
-                                facecolor=face, edgecolor=edge, linewidth=1.2, zorder=1))
-        axR.text(0.028, y + h - 0.055, head, fontsize=13, color=head_col,
-                 fontweight="bold", transform=axR.transAxes, va="top")
-        yy = y + h - 0.155
-        for text, size, col, mono in lines:
-            axR.text(0.028, yy, text, fontsize=size, color=col, transform=axR.transAxes,
-                     va="top", family="monospace" if mono else None, linespacing=1.5)
-            yy -= 0.075 * (text.count("\n") + 1)
-
-    card(0.665, 0.335, "#EFF4F1", OKC, "GATE PASSED", OKC, [
-        (f"{live}/{want} live checks     worst disagreement {worst:.4f}%     threshold 1%",
-         12, INK, True),
-        (f"Intervals seen: {min(a for a, _ in pairs):.3f} – {max(a for a, _ in pairs):.3f} s. "
-         f"Not one of them is 1.000.", 11.5, MUTED, False),
-    ])
-
-    card(0.335, 0.30, PANEL, RULE, "The baseline arm has no point on the left, and that is the point",
-         INK, [
-        ("The instrument does not exist in the old binary, so the baseline records ABSENT —\n"
-         "recorded as absent, never as a pass. An empty reading is not a zero."
-         if absent else "(the driver did not record the baseline instrument state)",
-         11.5, MUTED, False),
-    ])
-
-    card(0.0, 0.30, WARN_BG, WARNC, "What this figure does not claim", WARNC, [
-        ("That the over-report is gone. It proves the divisor is now the measured interval.\n"
-         "Whether the published rate lands back on 1.00 is the ratio test — stage 2, running.",
-         11.5, MUTED, False),
-    ])
-
-    _foot(fig,
-          "Source: raw/Q_Q1.divisor and the driver's own GATE line, both committed. The binary under "
-          "measurement was verified by the sha256 of /proc/<pid>/exe rather than by its path.",
-          x=0.055, width=100)
+    print(f"  [audit] Q gate: {live}/{want} live checks, worst disagreement {worst:.4f}% "
+          f"(threshold 1%); intervals {min(a for a, _ in pairs):.3f}-{max(a for a, _ in pairs):.3f} s; "
+          f"baseline instrument {'ABSENT (recorded as absent, not as a pass)' if absent else 'state unrecorded'}")
     _save(fig, "page_Q_gate-after-fix.png")
 
 

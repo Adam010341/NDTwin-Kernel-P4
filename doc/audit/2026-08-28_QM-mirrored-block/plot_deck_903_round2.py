@@ -102,6 +102,7 @@ sys.path.insert(0, PRIOR)
 from plot_deck_903 import (  # noqa: E402
     BAND, AXES_Y, AXES_H, DPI, WIDE, INK, MUTED, GREY, FAINT, PANEL, RULE,
     ACCENT, ACCENT_BG, WARNC, WARN_BG, OKC, _read, _frame, _title, _foot,
+    _title_clean,
 )
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "."
@@ -220,12 +221,12 @@ def fig_m_cost_and_benefit():
     AY, AH = 0.265, 0.365   # bottom raised with BAND["foot"]; see AXES_Y in the sibling script
 
     fig = plt.figure(figsize=WIDE)
-    _title(fig,
-           "Ticket M, both halves measured: it costs half a second and buys half a core",
-           f"Six mirrored arms, one fabric generation. Cost is the pre-registered primary "
-           f"measure — latency to first path, effect {effect:+.3f} s, inside the registered "
-           f"0.4–0.6 s. Benefit is POST-HOC and was not registered before the data was read.",
-           "COST PRE-REGISTERED · BENEFIT POST-HOC", "mixed", sub_width=165)
+    # Subtitle, the PRE-REGISTERED/POST-HOC stamp and the footer moved to the 903 slide
+    # template §G (clean-figure ruling, 2026-08-30). The registration-status distinction is a
+    # REQUIRED page note there -- it must reach the audience, just not via the image.
+    _title_clean(fig,
+                 "Ticket M, both halves measured: it costs half a second and buys half a core",
+                 "six mirrored arms · one fabric generation · 1 kHz vs 1 Hz sampling")
 
     # ---- left: the cost (latency)
     axL = fig.add_axes([0.055, AY, 0.40, AH])
@@ -284,21 +285,10 @@ def fig_m_cost_and_benefit():
              ha="center", va="center", zorder=6,
              bbox=dict(facecolor="#EFF4F1", edgecolor=OKC, linewidth=1.1,
                        boxstyle="round,pad=0.36"))
-    axR.text(4.5, 0.55, "groups do not overlap\n(1 kHz min 0.623, 1 Hz max 0.335)",
-             fontsize=9, color=MUTED, ha="center", va="top", zorder=6)
+    # "groups do not overlap (1 kHz min 0.623, 1 Hz max 0.335)" -> template §G.
     axR.set_title("BENEFIT — CPU of the kernel process", fontsize=12, color=INK,
                   fontweight="bold", pad=12, loc="left")
 
-    _foot(fig,
-          f"Source: REPORT.md (committed); every number is parsed from it and the parses assert "
-          f"their yield. CPU is /proc/<kernel pid>/stat utime+stime — the kernel process, not the "
-          f"machine, which ran 87% busy. Q2/Q5 carry ticket Q's fix but still recompute at 1 kHz. "
-          f"{saving_pct:.2f}% at full precision. Three figures were briefly in circulation — "
-          f"51.22, 51.25, 51.3 — differing in the third significant digit, while this quantity's "
-          f"within-condition spread is 0.033 cores, about 5%. They are indistinguishable inside "
-          f"the measurement's own noise: what needed correcting was a precision claim, not the "
-          f"effect, which is 'about half' on every version.",
-          width=168)
     _save(fig, "page_M_cost-and-benefit.png")
 
 
@@ -366,13 +356,13 @@ def fig_bandwidth_ceiling():
     # different units of aggregation on the same line -- one link's ECMP share of 32 flows
     # against a single flow -- so fixing the noun would not fix the root. Non-transferability
     # is the actual finding and it does not need a ratio to stand up.
-    _title(fig,
-           "A working point from one plane means nothing on the other",
-           f"Left: OVS — removing the access-layer bw= shaping takes a single core link from "
-           f"{b_max:.3f} to {a_max:.1f} Gbit/s, so the '10 G is unreachable' belief was measuring "
-           f"the shaper. Right: bmv2 — the -O3 no-logging build — saturates at about "
-           f"{high[-1][2]/1000:.2f} Gbit/s delivered no matter what is offered.",
-           "MEASURED", "measured", sub_width=168)
+    # Subtitle, the MEASURED stamp, the ECMP caveat box and the footer moved to the 903
+    # slide template §G (clean-figure ruling, 2026-08-30). Two of them are REQUIRED page
+    # notes there: the ECMP "not a capacity floor" caveat (the ~9000x misread guard) and
+    # "OVS values are measured throughput, not capacity".
+    _title_clean(fig,
+                 "A working point from one plane means nothing on the other",
+                 "left: OVS core links, access-layer bw= removed · right: bmv2 −O3 build, single flow")
 
     # ---- left: OVS, the shaper artefact
     axL = fig.add_axes([0.055, AY, 0.42, AH])
@@ -407,13 +397,9 @@ def fig_bandwidth_ceiling():
     # Placed over the empty band above the short bars, not over the tall ones: the first
     # attempt sat at x≈3.5 and rendered on top of the s5-eth3/s6-eth3 grey bars, which the
     # bottom-margin check cannot see. Only looking at the PNG catches that.
-    axL.annotate(
-        "these four carried almost no traffic this run\n"
-        "(ECMP hashed onto the top four) — not a capacity floor",
-        xy=(len(order) - 2.0, 2.2e-2), xytext=(len(order) - 2.2, 1.1),
-        fontsize=9, color=MUTED, ha="center", va="center",
-        arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.1,
-                        connectionstyle="arc3,rad=0.16"), zorder=6)
+    # The "not a capacity floor" ECMP caveat that pointed at the four short bars moved to
+    # template §G as a REQUIRED page note (clean-figure ruling, 2026-08-30) -- the protection
+    # against the ~9000x misread must survive, just off the image.
     axL.set_title("OVS — the ceiling was the access layer", fontsize=12, color=INK,
                   fontweight="bold", pad=12, loc="left")
 
@@ -462,21 +448,9 @@ def fig_bandwidth_ceiling():
     # the old width took it to seven lines and reproduced 54551bc's clipping exactly (bottom
     # margin 0 px, 0.1993 ink on the last row) -- measured, not predicted. BAND is shared with
     # every other figure in both scripts, so the room cannot be taken from there.
-    _foot(fig,
-          f"Sources, all committed: OVS from doc/audit/2026-08-25_sampling-rounds/n0.out and "
-          f"n1.out (eight core links each); bmv2 from "
-          f"doc/audit/2026-08-28_jitter-working-point/01_capacity.md. OVS values are measured "
-          f"interface-counter rates, not capacities: {n1_flows} TCP flows, {a_max:.1f} is one "
-          f"link's ECMP share, the eight links carried {a_tot:.1f} Gbit/s together, and that run "
-          f"was host-CPU saturated ({n1_busy:.1f}%) — the host's ceiling divided by ECMP, not the "
-          f"link's. The 'before' run was not saturated ({n0_busy:.1f}%); {b_max:.3f} is the "
-          f"shaper. bmv2's number is a single flow; sixteen flows together reach only ~48 Mbit/s, "
-          f"because the bottleneck is the switch's per-packet CPU and not the link — a "
-          f"single-flow ceiling does not extrapolate even within bmv2, which is why the jitter "
-          f"round returned H3 here. Build named because two installs differ 12-18x: "
-          f"bmv2-fast/bin/simple_switch_grpc, sha256 3ff54b5c, fixed by "
-          f"p4_proxy/mininet/bmv2_binary_override.",
-          width=196)
+    print(f"  [audit] BW-ceiling context (template §G carries the prose): after-run "
+          f"{n1_flows} flows, host busy {n1_busy:.1f}%, agg {a_tot:.1f} G; before-run busy "
+          f"{n0_busy:.1f}%, shaper max {b_max:.3f} G")
     _save(fig, "page_bandwidth-ceiling.png")
 
 
