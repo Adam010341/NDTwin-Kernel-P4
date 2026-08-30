@@ -1,5 +1,7 @@
 import asyncio
 import os
+import socket
+import sys
 import threading
 import uvicorn
 from fastapi import FastAPI
@@ -352,7 +354,52 @@ async def shutdown_event():
                   f"({type(e).__name__}: {e}); continuing shutdown")
     sflow.close()
 
+HOST = "0.0.0.0"
+PORT = 8081
+
+
+def claim_listen_socket(host: str = HOST, port: int = PORT):
+    """
+    Take the listening socket before uvicorn is allowed to run the app.
+
+    [Co-developed with claude code -- Adam]
+    uvicorn runs the ASGI lifespan *before* it binds -- `server.py:103-104` awaits
+    `lifespan.startup()` and the bind comes afterwards; the ordering is the same in every
+    uvicorn installed here (0.49.0, 0.51.0, 0.52.1), so it is not a version quirk. This
+    proxy's startup event opens gRPC channels, pushes pipeline config and installs forwarding
+    rules, which means a second instance launched against a taken port writes to the fabric
+    first and discovers it cannot serve second. Measured: ten `Setting Forwarding Pipeline
+    Config...` calls, LLDP discovery started and the link watchdog seeded, all before
+    `[Errno 98] address already in use`.
+
+    So the guard cannot live in uvicorn's bind-failure path -- by the time that runs, the
+    damage is done. It has to be here, ahead of `Server.run`.
+
+    The socket is handed to uvicorn rather than closed and re-bound, because closing it would
+    reopen exactly the race this exists to remove.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind((host, port))
+    except OSError as exc:
+        sock.close()
+        print(
+            f"[Proxy Agent] REFUSING to start: port {port} is already in use ({exc.strerror}).\n"
+            f"[Proxy Agent] Another proxy agent is almost certainly running. This process has\n"
+            f"[Proxy Agent] NOT connected to any switch and has NOT installed any rules --\n"
+            f"[Proxy Agent] two agents writing to the same BMv2 fabric corrupt each other's\n"
+            f"[Proxy Agent] forwarding state, and `curl :{port}` would answer from the other one.\n"
+            f"[Proxy Agent] Stop the running agent first, or free port {port}.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    sock.listen(2048)
+    return sock
+
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    listen_sock = claim_listen_socket()
+    uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT)).run(sockets=[listen_sock])
 
 # Developed in collaboration with Gemini 3.1 Pro.
