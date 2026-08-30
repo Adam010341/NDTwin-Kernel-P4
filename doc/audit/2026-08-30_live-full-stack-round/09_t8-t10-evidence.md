@@ -740,6 +740,55 @@ Prediction P11: **held**.
 
 ---
 
+## §3 — INSTALL NOTE: none of this is live yet, and the two files differ in why
+
+🔴 **Read this before quoting any fix here as being in effect.**
+
+### `ndtwin-lab` — an installed root-owned copy that this branch cannot reach
+
+| | sha256 |
+|---|---|
+| `/usr/local/sbin/ndtwin-lab` (installed, root:root, 2026-08-17) | `3aaa849e…` |
+| `tools/test_workflow/ndtwin-lab` (this branch) | `288b71cb…` |
+
+They were **byte-identical before this branch** (`3aaa849e…` both sides, as FINDING-01 recorded).
+They now differ. Every `ndtwin-lab` fix here — the sim disk log, the non-root guard, the
+`KERNEL_DIR` documentation — is **inert until someone reinstalls it**, and `ndt` reaches the
+installed copy through `LAB=/usr/local/sbin/ndtwin-lab`, not the repo copy.
+
+The installed copy was **not touched**: it is root-owned and out of scope.
+
+```
+sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
+```
+
+⚠️ The non-root guard changes behaviour for anyone invoking `ndtwin-lab` **without** sudo. Nothing
+in `ndt` does — `lab_session` and every `app_start`/`app_stop` path go through `sudo -n "$LAB"` —
+but a human's muscle memory might. That is the intended effect, and it should be expected rather
+than discovered.
+
+### `ndt` — installed nowhere, but the symlink points at the *main tree*
+
+There is **no** `/usr/local/sbin/ndt`. What is on `PATH` is:
+
+```
+/home/adam/.local/bin/ndt -> /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+```
+
+— a symlink into the **main tree**, not into any worktree. So:
+
+* the `ndt` fixes in §2.1–§2.2 take effect **the moment this branch is merged into the main
+  tree**, with no install step; and
+* until then, `ndt` on this machine is still the old one, **including for the harness**, whose
+  `lib.sh` defaults `NDT_BIN` to `$HOME/.local/bin/ndt`.
+
+🔑 This is FINDING-01's own hazard wearing different clothes. That finding's mismatch happened
+because `ndtwin-lab` hardcodes the main tree while `ndt` was pinned to a worktree; the same split
+applies to this branch's verification. **Nothing in §2.1–§2.2 has been exercised against a fabric
+built from this tree**, and it cannot be until the branch lands where the symlink points.
+
+---
+
 ## §4 — the tmux session-visibility disagreement (time-boxed investigation)
 
 **Root cause found, shallow, and fixed.** `ndt status` reported `apps energy` while
@@ -831,3 +880,52 @@ the uid was captured) turned the condition into arithmetic on the string `energy
   honest. FINDING-05's ticket (*"why does the app power switches down on P4 and not on OVS"*)
   still needs `sudo ndtwin-lab energy-out` to be run, and the sim disk log (§2.4) is the
   equivalent for sim.
+
+---
+
+## §5 — Summary: every fix, both directions
+
+| # | fix | file | forced RED | forced GREEN | live? |
+|---|---|---|---|---|---|
+| 1 | model↔fabric reads the fabric | `ndt` | model 4 / fabric 128 → mismatch, rc=1 | 4/4/4 → ok, rc=0 | fixture |
+| 2 | unobtainable fabric count fails loudly | `ndt` | count 0 and non-numeric → `UNCHECKED`, rc=1 | *(no green by design)* | fixture |
+| 3 | stale `:759-760` comment | `ndt` | n/a (prose) | n/a | — |
+| 4 | `app_running` via /proc + cmdline | `ndt` | recycled pid, symlinked pidfile, exited pid, garbage | real app pid; **live root pid, identity matches** | real pids |
+| 5 | `KERNEL_DIR` documented, override refused | `ndtwin-lab` | n/a (prose + rationale) | n/a | — |
+| 6 | sim disk log | `ndtwin-lab` | unwritable dir, path-is-dir → starts anyway | log written, `STDOUT-IS-A-TTY`, appends | fixture |
+| 7 | non-root guard | `ndtwin-lab` | uid 1000 → refused with reason, rc=1 | uid 0 → passes, rc=0 | fixture + fs |
+| 8 | `ndt_down` channel split | `lib.sh` | 2 remaining → bad + recovery steps; polluted channel → harness-fault | **0 remaining → ok, reaches `ndt_up`** | fixture |
+| 9 | `90_restore` does not strand | `90_restore.sh` | failure path prints the 4-step recovery, not a bare exit | success path reaches bring-up | fixture |
+| 10 | `spawn_exec` returns via global | `lib.sh` | child dies → FAIL counted **in the parent**, `SPAWN_PID` cleared | live child → bare pid, `alive` true, PASS counted | real pids |
+| 11 | real epochs, not `T0 + i` | `20_…` | old formula off by 219 s on the same timeline | fixed loop lands on the true epoch | simulated clock |
+| 12 | per-app `t_start` / `own` column | `20_…` | `rel` on an unserved app → "not observed serving" | `+229s since T0, +9s since we started it` | simulated clock |
+| 13 | `port_holder` three states | `lib.sh` | pid-less LISTEN → sentinel (was `""`); no LISTEN → free | pid present → pid | **fixture** |
+| 14 | sim loop treats hidden as bound | `20_…` | genuine absence → bad | hidden → PASS; pid → PASS | fixture |
+| 15 | `assert_port_is` third branch | `lib.sh` | wrong pid → FAIL; nothing → FAIL | matching pid → PASS; hidden → **N/A** | fixture |
+| 16 | preflight not fooled by root listener | `00_…` | hidden → "machine is NOT quiet" (was ":9000 is free") | no LISTEN → free | fixture |
+| 17 | manifest shape read, raises on absence | `40_…` | unrecognised / empty / non-JSON → `?` → bad | real 10-key dict → 10, gate PASS | fixture |
+| 18 | `find_paths` knows the real key | `35_…` | nothing path-like → still 0 (not a sieve) | `all_destination_paths` → found | fixture |
+| 19 | watch window deadline-driven | `25_…` | old loop spanned 250 s / 500 s, reported "240s" | achieved 240 s at both query costs | simulated clock |
+| 20 | N/A explanation conditional | `25_…` | util 0.0 → "NOT TRAFFIC, cause NOT ESTABLISHED" | util 12.5 → "plausibly traffic"; `?` → "not established" | fixture |
+| 21 | degraded banner conditional | `25_…` | 3 off → banner + restore routes | 0 off → "NOT degraded, do NOT run 90_restore" | fixture |
+
+`bash -n` passes on all eight touched shell scripts and `ast.parse` on the one `.py`.
+
+### Bugs found **in the fixes themselves**, by running them
+
+Five, all of which would have shipped green:
+
+1. `rel()`'s single `local` statement — `EUID`-style expansion order made `$a` unset, an abort
+   under `set -Eeuo pipefail` on the first `ok` line (§2.6);
+2. `$LAB_BIN` undefined in the new recovery message — unbound-variable abort on the one path
+   where the message matters (§2.5);
+3. `: >> "$f" 2>/dev/null` printing `Permission denied` from a root script (§2.4);
+4. `SIM_BIND_EPOCH` empty while `SIM_PID` was not → arithmetic on `""` treated as 0 (§2.6);
+5. the empty-manifest case falling into the generic "unrecognised shape" branch (§2.9).
+
+Plus **three bugs in the acceptance harnesses themselves**: a non-unique `sed` anchor that
+extracted the wrong block (§2.1, failed loudly), and two in the root-guard test that printed a
+`FORCE-GREEN` header over red output (§4).
+
+🔑 `memory: new-tools-are-the-first-thing-under-test`, again: the acceptance harnesses found more
+defects in *this round's own work* than in the code they were written to check.
