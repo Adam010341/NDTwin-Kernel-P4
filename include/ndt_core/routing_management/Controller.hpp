@@ -1,4 +1,5 @@
 #pragma once
+#include "ndt_core/routing_management/DispatchOutcomeLog.hpp"
 #include "ndt_core/routing_management/FlowDispatcher.hpp"
 
 class FlowRoutingManager;
@@ -43,9 +44,31 @@ class Controller
         return dispatcher_;
     }
 
+    /**
+     * @brief Outcomes of jobs the dispatcher has already handed to the southbound.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * Read-only for callers outside the sender: the only writer is the sender callback, which is
+     * the sole point where a FlowJob and its OpResult exist together. Exposed so the HTTP layer
+     * can answer "did the writes I was told were queued actually land?" -- a question that had no
+     * answer anywhere in the API before (KNOWN-ISSUES A-7).
+     */
+    const DispatchOutcomeLog& dispatchOutcomes() const
+    {
+        return outcomes_;
+    }
+
   private:
     // Declare m_flowRoutingManager BEFORE dispatcher_ so it's constructed first
     std::shared_ptr<FlowRoutingManager> m_flowRoutingManager;
+
+    // [Co-developed with claude code -- Adam]
+    // Before dispatcher_ for the same reason m_flowRoutingManager is: the sender callback writes
+    // to it from worker threads, and members are destroyed in reverse declaration order, so
+    // dispatcher_ (whose destructor stops and joins those workers) must be destroyed first.
+    // Reversing these two is a use-after-free during shutdown, not a style question.
+    DispatchOutcomeLog outcomes_;
 
     FlowDispatcher dispatcher_; // long-lived, shared by all sessions
 };

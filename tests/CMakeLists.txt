@@ -18,6 +18,7 @@ add_executable(
   test_KeyedFailureLog.cpp
   test_IpToString.cpp
   test_FlowDispatcher.cpp
+  test_DispatchOutcomeLog.cpp
   test_Controller.cpp
   test_ParamParsing.cpp
   test_SimulationRequestValidation.cpp

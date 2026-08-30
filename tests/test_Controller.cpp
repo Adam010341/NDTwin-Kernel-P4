@@ -33,6 +33,7 @@
 #include <spdlog/sinks/base_sink.h>
 
 #include "ndt_core/routing_management/Controller.hpp"
+#include "ndt_core/routing_management/DispatchOutcomeLog.hpp"
 #include "ndt_core/routing_management/FlowRoutingManager.hpp"
 #include "utils/Logger.hpp"
 
@@ -416,4 +417,75 @@ TEST_F(ControllerTest, ASuccessfulDispatchReportsNothing)
 
     EXPECT_FALSE(capture.sawLineContaining({"dispatched", "failed"}))
         << "a successful dispatch was reported as a failure";
+}
+
+// --- A-7: the outcome must also survive somewhere a program can read it.
+//
+// The log line above closed half the gap. It is still only a log line: kernel.log said
+// `dispatched install failed` while every API surface said the system was healthy, and the
+// contract suite stayed green. These tests are the wiring, and they are deliberately here rather
+// than in test_DispatchOutcomeLog.cpp -- that file proves the container works, which is exactly
+// what a perfectly-correct-and-never-called class also does.
+
+TEST_F(ControllerTest, AFailedDispatchReachesTheDispatchOutcomeLog)
+{
+    auto manager = std::make_shared<ScriptedManager>();
+    manager->setResult(OpResult{false, 400, "Ryu rejected the match"});
+    Controller controller(manager);
+
+    controller.dispatcher().enqueue(jobFor(FlowOp::Install, 42, /*priority*/ 99));
+    ASSERT_TRUE(waitFor([&] { return manager->callCount() == 1; }));
+    ASSERT_TRUE(waitFor([&] { return controller.dispatchOutcomes().failed() == 1u; }))
+        << "the sender got a failing OpResult and did not record it; the endpoint would report a "
+           "healthy system while the log says otherwise -- which is A-7 exactly";
+
+    const auto failures = controller.dispatchOutcomes().recentFailures();
+    ASSERT_EQ(failures.size(), 1u);
+    EXPECT_EQ(failures.front().dpid, 42u);
+    EXPECT_EQ(failures.front().requestedPriority, 99);
+    EXPECT_EQ(failures.front().controllerStatus, 400);
+    EXPECT_EQ(failures.front().message, "Ryu rejected the match");
+}
+
+TEST_F(ControllerTest, ASuccessfulDispatchIsCountedEvenThoughNothingIsStored)
+{
+    // The seam. Successes route through record() as well, so "has this entry been confirmed by
+    // the southbound?" can be answered later by adding an index inside record() and touching no
+    // call site. If the sender only called record() on failure, dispatched() would undercount and
+    // that future question would have no data.
+    auto manager = std::make_shared<ScriptedManager>();
+    manager->setResult(OpResult{true, 200, "ok"});
+    Controller controller(manager);
+
+    controller.dispatcher().enqueue(jobFor(FlowOp::Install, 1));
+    ASSERT_TRUE(waitFor([&] { return manager->callCount() == 1; }));
+    ASSERT_TRUE(waitFor([&] { return controller.dispatchOutcomes().dispatched() == 1u; }))
+        << "a successful dispatch was not counted";
+
+    EXPECT_EQ(controller.dispatchOutcomes().succeeded(), 1u);
+    EXPECT_EQ(controller.dispatchOutcomes().failed(), 0u);
+    EXPECT_TRUE(controller.dispatchOutcomes().recentFailures().empty());
+}
+
+TEST_F(ControllerTest, EveryOperationsFailureIsRecordedNotJustInstalls)
+{
+    // The switch statement in the sender has three arms and the record call sits after it. A
+    // future edit that moves it inside one arm would leave modify and delete failures invisible,
+    // and no install-shaped test would notice.
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        auto manager = std::make_shared<ScriptedManager>();
+        manager->setResult(OpResult{false, 500, "boom"});
+        Controller controller(manager);
+
+        controller.dispatcher().enqueue(jobFor(op, 3));
+        ASSERT_TRUE(waitFor([&] { return controller.dispatchOutcomes().failed() == 1u; }))
+            << "a failed " << DispatchOutcomeLog::opName(op) << " was not recorded";
+        // The counter moving does not imply the ring is non-empty -- a mutation that counts a
+        // failure without storing it satisfies the wait above and then front() is UB. Assert the
+        // thing being dereferenced, not a proxy for it.
+        const auto failures = controller.dispatchOutcomes().recentFailures();
+        ASSERT_FALSE(failures.empty()) << "counted but not stored";
+        EXPECT_EQ(failures.front().op, op);
+    }
 }

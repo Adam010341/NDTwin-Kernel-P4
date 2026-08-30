@@ -50,6 +50,14 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
                       break;
                   }
 
+                  // [Co-developed with claude code -- Adam]
+                  // Every outcome, not only the failures. The log line below is for a human
+                  // reading kernel.log after the fact; this is for a program asking the API,
+                  // which is the half A-7 says is missing. Successes come here too because this
+                  // is the only place a job and its OpResult are both in scope -- see the note
+                  // on DispatchOutcomeLog::record.
+                  outcomes_.record(job, result);
+
                   if (!result.ok)
                   {
                       SPDLOG_LOGGER_ERROR(Logger::instance(),
