@@ -258,7 +258,7 @@ Baseline（`28b8b13`）有 11 個已查證的靜默缺陷。包括：
 
 ### 2. 新增「mutation evidence 存在性檢查」作為 CI gate
 
-**做什麼**：寫一個 script（`tools/test_workflow/check_mutation_coverage.sh` 或 `.py`），比對 git diff 中新增的測試名稱與 `doc/audit/mutation-evidence-*.md` 中的記錄。每個新增的測試必須至少有 1 row mutation evidence。在 CI 中強制執行（失敗 = merge 阻擋）。  
+**做什麼**：寫一個 script（`tools/test_workflow/check_mutation_coverage.sh` 或 `.py`），比對 git diff 中新增的測試名稱與 `doc/audit/*_mutation-evidence-*.md` 中的記錄。每個新增的測試必須至少有 1 row mutation evidence。在 CI 中強制執行（失敗 = merge 阻擋）。  
 **抓到什麼**：完全沒有跑過 mutation gate 的新測試——這是最危險的一類，因為我們不知道它是不是假測試。  
 **成本**：~2 小時寫 script。  
 **注意**：這個檢查只驗證「有記錄」，不驗證「記錄是真的」。它可以被欺騙（寫一行假的 mutation row），但欺騙需要刻意為之——這已經比「忘記跑 mutation gate」好一個數量級。

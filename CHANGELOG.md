@@ -448,7 +448,7 @@ yet use it. Phase 3 and 8 are not started.
 
 379 gtest tests across 43 suites and 240 Python tests, run both under `ctest` and as one process,
 because either alone hides failures the other finds. **Every test ships with the mutation that
-breaks it** — applied, observed, reverted — with the evidence in `doc/audit/mutation-evidence-*.md`;
+breaks it** — applied, observed, reverted — with the evidence in `doc/audit/*_mutation-evidence-*.md`;
 this has caught 11 tests that passed while proving nothing. Four false PASSes were fixed in the
 tooling itself, including one where `unittest` counts skipped tests inside `Ran N` so a
 fully-skipped file reported green, and one where a skip check was dead from the day it was written.

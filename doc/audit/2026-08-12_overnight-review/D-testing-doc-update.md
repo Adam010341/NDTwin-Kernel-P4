@@ -100,7 +100,7 @@ Added or rewritten:
 - Rewrote the asset table from "how many" to "**what form, which interpreter, who runs it**", including the fact that `tests/python/` and `tests/shell/` are **not** ctest-registered — so "ctest is green" does not include them.
 - Expanded "what is not covered" from 7 items to 17, grouped as: tiers that do not exist / principled tool limits / known-unstable / manual invariants nobody guards / environment-dependent coverage gaps / out of this doc's scope.
 
-Numbers policy: no test counts anywhere. Counting commands given in the L1 section (including a build-free `grep -rhE '^(TEST|TEST_F|TEST_P)\(' tests --include='*.cpp' | wc -l`), plus `faults.sh list` for the fault catalogue and `ls doc/audit/mutation-evidence-*.md | wc -l` for the evidence docs. The two figures I did keep are **not** counts of a growing thing: 85.2% / 8 uncovered lines (a recorded baseline the gate itself asserts on) and 196·√(1/c) (a formula). The 13% for the L-3 instability is labelled as coming from the brief and not re-measured here.
+Numbers policy: no test counts anywhere. Counting commands given in the L1 section (including a build-free `grep -rhE '^(TEST|TEST_F|TEST_P)\(' tests --include='*.cpp' | wc -l`), plus `faults.sh list` for the fault catalogue and `ls doc/audit/*_mutation-evidence-*.md | wc -l` for the evidence docs. The two figures I did keep are **not** counts of a growing thing: 85.2% / 8 uncovered lines (a recorded baseline the gate itself asserts on) and 196·√(1/c) (a formula). The 13% for the L-3 instability is labelled as coming from the brief and not re-measured here.
 
 ### Step 7 — TESTING-INVENTORY.md
 

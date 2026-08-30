@@ -483,7 +483,7 @@ tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 
 做法是：對生產程式碼做一個具名的修改（mutation），重新編譯、執行，確認**指名的那個測試**真的失敗，然後還原。每個測試都要附上「把哪一行改成什麼，這個測試就會失敗」的紀錄，包含實際觀察到的失敗輸出。如果找不到任何 mutation 能讓某個測試失敗，那個測試就要被刪掉——因為它證明不了任何事。
 
-實測成效：這個做法在這個 repo 上已經抓出 11 個「會通過但證明不了任何事」的測試。證據文件在 `doc/audit/mutation-evidence-*.md`（要當下的份數：`ls doc/audit/mutation-evidence-*.md | wc -l`）。
+實測成效：這個做法在這個 repo 上已經抓出 11 個「會通過但證明不了任何事」的測試。證據文件在 `doc/audit/*_mutation-evidence-*.md`（要當下的份數：`ls doc/audit/*_mutation-evidence-*.md | wc -l`）。
 
 三個已知的陷阱：
 
@@ -514,7 +514,7 @@ tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 | `tests/manual/` | **claim-checker**，不是測試：驗證別處註解所依賴的平台事實 | 手動編譯，刻意不進 CMake build | 手動。存在理由是「那個註解裡唯一承重的宣稱，讀者本來無法重現」 |
 | `tools/test_workflow/faults.txt` | L5 故障目錄（資料） | — | `faults.sh` |
 | `tools/test_workflow/p4_coverage_baseline.txt` | P4 覆蓋基準（資料） | — | `p4_coverage_gate.sh` |
-| `doc/audit/mutation-evidence-*.md` | mutation 驗收證據 | — | 人 |
+| `doc/audit/*_mutation-evidence-*.md` | mutation 驗收證據 | — | 人 |
 
 **「沒有被 ctest 註冊」為什麼要標出來：** `tests/CMakeLists.txt` 只註冊 gtest；`tests/python/` 與 `tests/shell/` 只由 `l1_unit_tests.sh` 驅動。所以「跑了 ctest 全綠」**不包含**這兩個目錄——它們是靠 `run_layers.sh quick` 或 `local_ci.sh python` 才會跑到。
 
