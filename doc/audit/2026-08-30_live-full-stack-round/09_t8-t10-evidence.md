@@ -923,9 +923,31 @@ Five, all of which would have shipped green:
 4. `SIM_BIND_EPOCH` empty while `SIM_PID` was not → arithmetic on `""` treated as 0 (§2.6);
 5. the empty-manifest case falling into the generic "unrecognised shape" branch (§2.9).
 
-Plus **three bugs in the acceptance harnesses themselves**: a non-unique `sed` anchor that
-extracted the wrong block (§2.1, failed loudly), and two in the root-guard test that printed a
-`FORCE-GREEN` header over red output (§4).
+Plus **four bugs in the acceptance harnesses themselves**: a non-unique `sed` anchor that
+extracted the wrong block (§2.1, failed loudly); two in the root-guard test that printed a
+`FORCE-GREEN` header over red output (§4); and one found only by the final sweep below — the
+root-guard harness ended on an `ls` of a path that does not exist, so it exited 1 and the sweep
+reported it as a **failing test while every case inside it was correct**. It now asserts on both
+exit codes and on the presence *and absence* of each branch's text.
+🔑 A test whose pass/fail signal is whatever command happened to run last is not reporting on its
+subject — the same "verify the purpose, not the mechanism" shape the fixes themselves are about.
 
 🔑 `memory: new-tools-are-the-first-thing-under-test`, again: the acceptance harnesses found more
 defects in *this round's own work* than in the code they were written to check.
+
+### Final regression sweep
+
+`lib.sh` was edited across three separate commits, so "it passed when I wrote it" is not "it
+passes now". All thirteen harnesses were re-run against the **final committed state**:
+
+```
+  OK    T-8  model/fabric check          OK    T-10 channels BEFORE
+  OK    T-8  pre-fix control             OK    T-10 channels AFTER
+  OK    T-8  app_running                 OK    T-10 port_holder
+  OK    T-8  app_running EPERM case      OK    T-10 epochs
+  OK    T-8  sim disk log                OK    T-10 energy watch + banner
+  OK    T-8  non-root guard              OK    T-10 manifest shape
+                                         OK    T-10 find_paths
+
+===== 13 harness(es) OK, 0 FAIL =====
+```
