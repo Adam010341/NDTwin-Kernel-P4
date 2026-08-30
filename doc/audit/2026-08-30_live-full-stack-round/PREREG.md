@@ -140,3 +140,35 @@ fixed).
   that endpoint (`energy_saving_app.cpp:952`), so the round will exercise it incidentally
   without testing it.
 - **The poster / bmv2 report work.** Untouched by this round.
+
+---
+
+## AMENDMENT-1 — 2026-08-30, before any round data (by the registering auditor)
+
+Three registered premises were found wrong by the harness author while the round was still
+queued behind a lab claim. Nothing below changes *what* is tested; each corrects a premise the
+original text asserted. The original sections stand as registered; where they conflict with
+this block, this block wins, and the conflict itself is part of the record.
+
+1. **R-1 named the C++ handler, not the route.** The wire route is
+   `POST /ndt/historical_logging` (`HttpSession.cpp:284`); `set_historical_logging_state` is
+   the handler symbol. A probe built from the registered string would 404 **for the wrong
+   reason**. The pre-round caller-sweep determination survives in substance because its
+   word-level sweep (`historical` across the sibling repos) covers both names — that sweep,
+   not the exact-string search, is the load-bearing evidence, and the determination file must
+   say so.
+2. **R-2's "15 s cadence" is false for every app.** Actual: energy 60 s, sim event-driven,
+   nsr 5 s, viz 1 s, te 1 s — three of five poll at ≥1 Hz, faster than the 1 Hz recompute
+   this check watches. The registered expectation "no observable difference" loses its stated
+   premise; the check remains, but a difference found is now interpretable rather than
+   surprising.
+3. **R-3's reference numbers (69 s / 2 s) are stack convergence, not app service.** The 08-18
+   figures were taken before the apps were started. The round records `T_stack` and `T_app`
+   as two separate numbers and does not subtract them; the registered break condition
+   (failure to converge) is unchanged.
+
+Basis: a prereg may be amended **before data** when the instrument cannot reach the registered
+target as written; all three are that case. Discovered by the harness author
+(`harness/` at `d673c8a`), amended by the auditor who registered the original.
+
+[Co-developed with claude code -- Adam]
