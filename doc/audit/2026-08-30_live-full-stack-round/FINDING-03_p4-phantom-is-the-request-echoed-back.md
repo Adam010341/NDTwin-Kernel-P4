@@ -1,7 +1,11 @@
-# Finding 03 — F-5's phantom **does** occur on P4, and it is the request echoed back
+# Finding 03 — F-5's phantom is the request echoed back, on **both** fabrics
 
-**Status: CONFIRMED, 2026-08-30 15:25.** Round: T-4, R-5 / F-5. This is a **system** finding,
-not a harness one. It revises an 08-18 result without contradicting its data.
+**Status: CONFIRMED, 2026-08-30 15:25 (P4) and 15:52 (OVS).** Round: T-4, R-5 / F-5. This is a
+**system** finding, not a harness one. It revises an 08-18 result without contradicting its data.
+
+> **Scope widened after the OVS arm ran — see "Independently reproduced on OVS" below.** The
+> title of the first version of this file said "does occur on P4", because P4 was the only arm
+> that had run. The echo is not P4-specific.
 
 ---
 
@@ -103,6 +107,44 @@ the part that works:
 
 and the log did carry `dispatched <op> failed`, first seen at +2 s. **The API says "queued" and
 means it; the table view is what over-claims.**
+
+## Independently reproduced on OVS — the echo is the kernel's, not P4's
+
+`50_r5_ovs.sh`, 15:52, a different fabric and a different southbound path (Ryu, not the P4
+proxy). Three sources sampled every 2 s:
+
+```
+elapsed_s  switch  ryu  kernel  kernel_actions_shape
+0          -       0    1       object
+3          -       0    0       -
+…          -       0    0       -           (through t=27)
+max seen -- kernel:1 ryu:0 ; kernel at end:0 ; samples with object-shaped actions:1
+```
+
+**The kernel asserted a rule Ryu never had, and its `actions` field was object-shaped** — the
+same discriminator that identified the P4 case. Two fabrics, two southbound implementations,
+one fingerprint.
+
+⇒ The echo lives in **the kernel's table view**, not in either data plane's write path. That is
+a materially wider claim than the first version of this file made, and it is the OVS arm that
+earned it.
+
+⚠️ **Not claimed:** that this is the *same* phenomenon 08-18 measured on OVS. 08-18 recorded a
+phantom persisting **~8 s**; this one is gone by t=3. Whether the 8 s observation was this echo,
+something else, or both, cannot be settled without 08-18's raw bodies — and the `actions` shape,
+which is the discriminator, was not recorded then. **Same fingerprint, unknown relation to the
+older duration.**
+
+### One more thing the OVS arm added, in the kernel's own words
+
+```
+kernel.log error/critical lines: 0 ; 'dispatched ... failed' lines: 0
+```
+
+The 200 body advises: *"per-entry outcomes are reported in the kernel log, not in this
+response"*. On OVS **that log is empty**. So the API's own instruction for finding out what
+happened points at a place where nothing is written — which is F-5b's mechanism seen from the
+caller's side rather than the code's.
 
 ## What was not established
 
