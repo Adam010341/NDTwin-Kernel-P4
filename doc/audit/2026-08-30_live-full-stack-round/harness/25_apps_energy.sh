@@ -226,5 +226,14 @@ fi
 
 info ""
 info "🔴 THE FABRIC IS NOW DEGRADED. Run ./90_restore.sh before any further measurement."
+# 🔴 T-10 not yet landed. Two corrections to the line above, both measured 2026-08-30, added as
+# output rather than as logic so nothing about this phase's behaviour changes:
+#   1. FINDING-04 -- ./90_restore.sh does not restore. Route 2 tears the fabric down and stops.
+#   2. FINDING-05 -- the banner above is printed unconditionally, including on the OVS run where
+#      the Energy-App powered NOTHING off. Following it there would have destroyed a healthy
+#      fabric to fix nothing. Making it conditional is a T-10 change; saying so is not.
+info "   ⚠️ T-10 NOT YET LANDED: ./90_restore.sh does NOT restore (FINDING-04) -- use"
+info "      'ndt down && ndt up <what>' instead. And read 'switches powered off by the app'"
+info "      above first: this banner prints even when that count is 0 (FINDING-05)."
 summary
 exit 0

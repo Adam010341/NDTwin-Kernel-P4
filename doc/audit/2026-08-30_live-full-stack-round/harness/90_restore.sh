@@ -2,7 +2,21 @@
 # =================================================================================================
 # 90_restore.sh -- put the fabric back after 25_apps_energy.sh powered switches down.
 #
-# WRITTEN, NOT RUN. `bash -n` only.
+# 🔴🔴 DO NOT RUN UNTIL T-10 LANDS. NEITHER ROUTE RESTORES. (FINDING-04, measured 2026-08-30)
+#
+#   Route 1 (power-on) reports its own failure correctly, but P4 power-on is a stub, so the
+#   switches do not come back.
+#   Route 2 (--rebuild) is worse: ndt_down() in lib.sh prints its progress to the same stdout
+#   it returns the count on, so REMAIN is never the bare "0" the caller tests for. It always
+#   takes the `bad` branch and exit 1s -- BEFORE ndt_up. It tears the fabric down and stops,
+#   leaving the machine worse than it found it.
+#
+#   Until then: bring a degraded fabric back by hand, with `ndt down` then `ndt up <what>`.
+#
+# RUN STATUS: both routes were executed 2026-08-30 15:38-15:41 and both failed. The line here
+# used to read "WRITTEN, NOT RUN. `bash -n` only." -- that is no longer true and is corrected
+# rather than left, because the next reader would take it as a reason to distrust the finding
+# above instead of the script below.
 #
 # TWO ROUTES, AND THE HONEST STATEMENT OF WHAT EACH ONE RESTORES
 #
@@ -60,6 +74,11 @@ sw=[n for n in d["nodes"] if n.get("vertex_type")==0]
 print(len(sw), sum(1 for n in sw if n.get("is_up")), len(d["edges"]),
       sum(1 for e in d["edges"] if not e.get("is_up")))' "$BEFORE_JSON")"
 info "pre-energy reference: $B_UP/$B_SW switches up, $B_E edges, $B_ED down"
+# Printed, not only commented in the header: the person at risk is the operator who was just
+# told "run ./90_restore.sh" by 25_apps_energy.sh, and a header comment never reaches them.
+# Output only -- no control flow is changed, so a deliberate run after T-10 still works.
+info "🔴 T-10 NOT YET LANDED: neither route below restores (FINDING-04). Route 2 will tear the"
+info "   fabric down and stop. If you did not mean to, ^C now and use: ndt down && ndt up <what>"
 
 now_counts() {
     http_probe "$1" GET "$NDT_URL/ndt/get_graph_data" >/dev/null
