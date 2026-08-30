@@ -79,6 +79,15 @@ is not a finding.
 The fix is to key rule identity on the **destination**, which the caller chooses and which does
 survive. `scan()` now does that, with the reasoning recorded at the definition.
 
+## 🔴 The binary on disk has moved on since this was measured
+
+Measured on `1208d22` / sha256 `66f437a5…`. At **22:32 on the same evening** another session
+rebuilt `build/bin/ndtwin_kernel` to sha256 `4e7afe2d…`, including `91e7743` **"Serve only the
+flow entries that were actually programmed"** (T-11-A) — which touches exactly this path. **The
+recipe below may not reproduce on the current build, and if T-11-A does what its subject says it
+should not: the phantom is gone by design.** A non-reproduction is the fix working, not a
+refutation of what was measured here.
+
 ## Reproduce
 
 ```bash

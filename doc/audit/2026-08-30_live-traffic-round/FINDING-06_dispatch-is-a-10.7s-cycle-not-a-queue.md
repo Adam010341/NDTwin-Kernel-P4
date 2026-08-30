@@ -105,6 +105,15 @@ could go green; it just could not tell the two apart, and it announced a verdict
 verdict now comes from clustering (`tr3_grid_analyse.py`). Ask of any discriminator: **what would
 the data look like under the other hypothesis, and does this statistic differ between them?**
 
+## 🔴 The binary on disk has moved on since this was measured
+
+Measured on `1208d22` / sha256 `66f437a5…`. At **22:32 on the same evening** another session
+rebuilt `build/bin/ndtwin_kernel` to sha256 `4e7afe2d…`, including `91e7743` **"Serve only the
+flow entries that were actually programmed"** (T-11-A) — which touches exactly this path. **The
+recipe below may not reproduce on the current build, and if T-11-A does what its subject says it
+should not: the phantom is gone by design.** A non-reproduction is the fix working, not a
+refutation of what was measured here.
+
 ## Reproduce
 
 ```bash

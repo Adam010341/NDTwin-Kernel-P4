@@ -116,6 +116,33 @@ the OVS watch window opened at 22:35:38. The app released nothing on either arm.
 🔑 Probing the endpoint under test *during* the arm that measures it. Caught only because the
 watch window has its own epochs in `energy_watch.tsv` and the log lines carry clock times.
 
+## Provenance — checked, and it was nine seconds from being wrong
+
+Both TR-5 arms ran the round's binary, **`1208d22` / sha256 `66f437a5…`** (72 312 168 B):
+
+| | kernel process started | binary |
+|---|---|---|
+| arm 5, P4 | 22:25 | `66f437a5` |
+| arm 6, OVS | **22:32:13** | `66f437a5` |
+
+**`build/bin/ndtwin_kernel` was rebuilt at 22:32:22 by another session** — nine seconds after the
+OVS arm's kernel had already `exec`'d, so that arm loaded the old image and the claim holds. It
+was checked rather than assumed, because I had written "both arms, kernel `1208d22`" from the
+fact that I never rebuilt anything myself, which is not the same statement.
+🔑 A concurrent build does not disturb a process that has already started, but it silently
+changes what the *next* one loads. `memory: benchmark-must-name-the-binary-it-measured` — the
+binary is decided at exec, and a measurement window has to own the file, not just the fabric.
+
+### 🔴 The binary on disk is no longer the one this round measured
+
+It is now sha256 `4e7afe2d…` (72 688 888 B), including commit **`91e7743` "Serve only the flow
+entries that were actually programmed"** — T-11-A. That commit touches `HttpSession.cpp` and
+`DeviceConfigurationAndPowerManager.cpp`, i.e. **exactly the path FINDING-06 and FINDING-07
+measure**. Their reproduce recipes are written against `66f437a5` and **may not reproduce on the
+current build** — if T-11-A does what its subject line says, the phantom is gone by design.
+That is the intended outcome, not a contradiction; it is recorded here so nobody reads a
+non-reproduction as a refutation.
+
 ## Reproduce
 
 ```bash
