@@ -158,3 +158,146 @@ wrong TOPO_P4"*. The OVS arm was corrected on 08-21 and the P4 arm was not.
 `ndt:1141`'s historical sentence (*"the kernel's graph, Ryu's topology view and 'model matches
 fabric' were all correct and every host pair was 100% loss"*) was **left alone**: it is a
 statement about what happened on 08-21 under the name the check had then, and it remains true.
+
+---
+
+## §2.2 — T-8 (3): `app_running` stops asking `kill -0` (H-17)
+
+`ndt`: new `app_sig()` / `pid_is_app()`, `app_running` rewired onto them. `kill -0` answers a
+question about **signalling permission** and was being read as a question about **existence**.
+
+**cmdline, not comm, is the identity.** `comm` is `python3` for both nsr and te and `bash` for
+viz, so it cannot tell this project's own apps apart; `comm` is kept only as the fallback when
+`/proc/<pid>/cmdline` is unreadable. An **empty** cmdline (zombies have one) is not treated as a
+mismatch — existence is asserted instead, which is exactly the strength `kill -0` had, without
+its EPERM hole. Inventing a second false negative to fix the first would not be a fix.
+
+### Both directions, NEW (fixed) beside OLD (`09c9b03`), on real pids
+
+```
+=== fixtures: real pids on this machine ===
+  app-like pid=396573   unrelated-but-alive pid=396574   exited pid=396576   root pid=1
+
+=== results (NEW = fixed ndt, OLD = 09c9b03) ===
+GREEN  pidfile names the real app                    app=nsr  pid=396573    NEW=running      OLD=running
+RED    pid recycled onto an unrelated process        app=nsr  pid=396574    NEW=not-running  OLD=running
+RED    pid has exited                                app=nsr  pid=396576    NEW=not-running  OLD=not-running
+RED    pidfile garbage                               app=nsr  pid=not-a-pid  NEW=not-running  OLD=not-running
+RED    pidfile says 1                                app=nsr  pid=1         NEW=not-running  OLD=not-running
+H-17   live ROOT-owned pid, wrong identity           app=nsr  pid=1         NEW=not-running  OLD=not-running
+H-17   live ROOT-owned pid, viz has no py sig        app=viz  pid=1         NEW=not-running  OLD=not-running
+
+=== missing pidfile / symlinked pidfile ===
+RED    no pidfile at all                             NEW=not-running  OLD=not-running
+RED    pidfile is a symlink (refused)                NEW=not-running  OLD=running
+```
+
+Two rows carry the whole change: **recycled pid** (OLD `running`, NEW `not-running`) and
+**symlinked pidfile** (OLD `running`, NEW `not-running` — `app_stop` already refused symlinks and
+`app_running` did not, so the two disagreed about the same file).
+
+### The EPERM direction, which the table above does NOT reach
+
+⚠️ Every root-owned row above used pid 1, which the `pid > 1` guard rejects for its own reasons —
+so **the run above does not demonstrate the case H-17 is actually named for**: a live root-owned
+process whose identity *matches*. Caught by re-reading the table against prediction P3b rather
+than by the harness, which reported a clean sweep. Run separately:
+
+```
+fixture pid   : 392  (/usr/lib/systemd/systemd-journald )
+owner         : root
+/proc exists  : yes
+kill -0        : FAILS (EPERM) -- and the process is alive
+registered sig: systemd-journald
+
+GREEN  live root-owned pid, identity matches   NEW=running   OLD=not-running
+       ^ OLD is wrong here: it reports 'not-running' about a process that is running.
+```
+
+**Fixture-verified, live proof deferred to the traffic round's preflight.** A genuinely
+root-owned *NDTwin* app cannot be started from here (needs sudo and a fabric), so a root system
+daemon stands in and `app_sig` is overridden to its signature. `pid_is_app` — the logic under
+test — is the shipped text; only the lookup table is substituted.
+
+Predictions P3 and P3b: **held**, with the caveat that P3b needed a second harness to reach.
+
+## §2.3 — T-8 (4): `ndtwin-lab`'s hardcoded `KERNEL_DIR`
+
+Documented with a loud comment. **The env override was NOT added, and that is a finding, not an
+omission.**
+
+This file is installed root-owned at `/usr/local/sbin/ndtwin-lab` and invoked through a NOPASSWD
+sudoers rule. `BRIDGE=$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py` is **executed as root**.
+Letting the environment choose `KERNEL_DIR` would let anything running as adam point root at an
+arbitrary adam-writable `.py` — precisely the *"root-for-anyone-who-can-write-a-file"* shape the
+script's own header says the design exists to avoid. And `sudo`'s `env_reset` would drop the
+variable in the normal path anyway, so the override would be **silently ineffective where it is
+safe and a privilege escalation where it worked**. Both halves are bad; "trivially safe" is not
+satisfied.
+
+The comment states the real options (pass the tree as an argument plus an ownership/allowlist
+check on the path, or install one copy per tree), and states the operational consequence in the
+form an executor needs: **a worktree cannot be tested through this script.** The installed copy
+is byte-identical to the repo copy today (`3aaa849e…`, matching FINDING-01), so this edit makes
+them diverge — see §3.
+
+## §2.4 — T-8 (5): sim gets a disk log
+
+`ndtwin-lab sim-start` now runs the app under `script -qfa "$SIM_LOG" -c …`, writing
+`.test_run/logs/app_sim.log`. FINDING-02: sim's output went **only** to its tmux pane, so when
+the pane went its account of its own behaviour went with it, and "why did sim not serve" could
+not be asked at all.
+
+**`script`, not `| tee`.** A pipe makes sim's stdout a non-tty, stdio switches to block
+buffering, and then both the log *and* `sim-out`'s `capture-pane` go silent until 4 KB
+accumulates — trading one unreadable record for two. Verified rather than assumed:
+
+```
+=== the command line, lifted from the shipped file ===
+  163:                "script -qfa '$SIM_LOG' -c ./simulation_platform_manager"
+
+=== GREEN: does that form write a log AND keep a tty? ===
+  log exists : yes
+  log size   : 253 bytes
+  log content:
+    | Script started on 2026-08-30 19:26:51+08:00 [COMMAND="echo SIM-STARTED; tty -s && ..."]
+    | SIM-STARTED
+    | STDOUT-IS-A-TTY
+    | Script done on 2026-08-30 19:26:51+08:00 [COMMAND_EXIT_CODE="0"]
+
+=== GREEN: append, not truncate (a second start must not erase the first) ===
+  SIM-STARTED still present: 2
+  SECOND-RUN present       : 2
+
+=== the two branches of the writability test ===
+  GREEN writable dir      -> script-path (log kept)
+  RED   unwritable dir    -> fallback (start anyway, no log)
+  RED   path is a dir     -> fallback (start anyway, no log)
+```
+
+`STDOUT-IS-A-TTY` is the load-bearing line: it is what `| tee` would have turned into
+`STDOUT-IS-A-PIPE`. **The log is evidence, not a gate** — the two RED rows show sim still starts
+when the log cannot be opened, with the loss stated on stdout. A logging change able to stop the
+app from starting would be a worse defect than the one it fixes.
+
+### A defect the red case exposed in the fix itself
+
+The first version of the writability probe was `: >> "$SIM_LOG" 2>/dev/null`. Redirections are
+applied left to right, so the append is set up — and fails — **before** stderr is silenced:
+
+```
+--- OLD order:  : >> F 2>/dev/null   (stderr below this line is the leak) ---
+/tmp/.../t8_redirorder.sh: line 6: /tmp/tmp.7YhwaTCj25/ro/app_sim.log: Permission denied
+   rc=1
+--- NEW order:  : 2>/dev/null >> F   (nothing should appear between the markers) ---
+   rc=1
+--- end ---
+```
+
+A root script printing `Permission denied` from a probe that is supposed to be silent. Shipped
+order is now `: 2>/dev/null >> "$SIM_LOG"`. 🔑 Found only because the RED branch was exercised
+for real instead of reasoned about — the accept path alone would never have shown it.
+
+**Live proof through `ndtwin-lab sim-start` is deferred**: it needs sudo and would start the
+app. What is proven is that the exact command line the shipped code hands to tmux produces a
+flushed log under a pty, and that neither failure branch aborts the start.

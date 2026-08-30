@@ -22,11 +22,39 @@
 set -euo pipefail
 
 TMUX="tmux -L ndtwinlab"
+
+# 🔴 KERNEL_DIR IS HARDCODED, AND DELIBERATELY NOT OVERRIDABLE. READ THIS BEFORE "FIXING" IT.
+# [Co-developed with claude code -- Adam]
+#
+# What it costs (measured 2026-08-30, FINDING-01): a round pinned the kernel to a separate
+# worktree and exported KERNEL_DIR so `ndt`, `stack.sh` and `components.env` all read it. This
+# script is outside the reach of that variable, so `topo-start` ran the MAIN tree's
+# ntg_bmv2_topo.py and its host_count_override of 128, while `ndt up p4 4` wrote 4 into the
+# worktree's copy and handed the kernel a 4-host model. Fabric 128, model 4, every structural
+# check green. Anyone running this script against a worktree gets the main tree's topology and
+# there is no message saying so.
+#
+# Why an env override is NOT the fix, stated plainly so the next reader does not re-litigate it:
+# this file is installed root-owned at /usr/local/sbin/ndtwin-lab and invoked through a NOPASSWD
+# sudoers rule. BRIDGE below is $KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py and is executed as
+# root. Letting the environment choose KERNEL_DIR would let anything running as adam point root
+# at an arbitrary adam-writable .py -- exactly the "root-for-anyone-who-can-write-a-file" shape
+# the header above says this design exists to avoid. sudo's env_reset would drop the variable in
+# the normal path anyway, so the "override" would be silently ineffective where it is safe and
+# a privilege escalation where it worked. Both halves are bad.
+#
+# So the real fix is one of: (a) pass the tree as a positional ARGUMENT to topo-start and have
+# the script refuse any path that is not root-owned or not on a fixed allowlist; or (b) install a
+# second copy per tree. Neither is a comment change, so neither is done here. Until then:
+# 🔑 A WORKTREE CANNOT BE TESTED THROUGH THIS SCRIPT. The topology it builds is always the one
+#    below, whatever tree you think you are running from.
 KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+
 NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
 BRIDGE=$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py
 ENERGY_DIR=/home/adam/Energy-Saving-App
 SIM_DIR=/home/adam/Simulation-Platform-Manager
+SIM_LOG=$KERNEL_DIR/.test_run/logs/app_sim.log
 
 die() { echo "ndtwin-lab: $*" >&2; exit 1; }
 
@@ -111,8 +139,37 @@ case "${1:-}" in
         ;;
     sim-start)
         session_running sim && die "sim session already running"
-        $TMUX new-session -d -s sim -c "$SIM_DIR" ./simulation_platform_manager
-        echo "simulation_platform_manager started"
+        # [Co-developed with claude code -- Adam]
+        # sim used to write ONLY to its tmux pane. FINDING-02 (2026-08-30): when the pane went,
+        # sim's account of its own behaviour went with it -- there was no app_sim.log under
+        # .test_run/logs/ and the only file in its repo was a stale build log from 08-22. So
+        # "why did sim not serve" could not be asked at all, which is a worse problem than the
+        # answer to it.
+        #
+        # `script` rather than `| tee`, and the difference matters: a pipe makes sim's stdout a
+        # non-tty, stdio switches to block buffering, and then BOTH the log and `sim-out`'s
+        # capture-pane go silent until 4 KB accumulates -- trading one unreadable record for two.
+        # `script -f` keeps a pty, so the pane behaves exactly as before and the file is flushed
+        # per write. Same construct 20_apps_lifecycle.sh already uses to give te a terminal.
+        #
+        # The log is EVIDENCE, NOT A GATE: if it cannot be opened, sim still starts, with the
+        # loss stated on stdout. A logging change that can prevent the app from starting would
+        # be a worse defect than the one it fixes.
+        # NOTE: this runs as root, so the file lands root-owned in an adam-owned directory.
+        # Appended to, never truncated, so an adam-owned file from an earlier run still works.
+        mkdir -p "$(dirname "$SIM_LOG")" 2>/dev/null || true
+        # `2>/dev/null` FIRST. Redirections are applied left to right, so the usual
+        # `: >> "$f" 2>/dev/null` sets up the append before stderr is silenced and bash prints
+        # "Permission denied" anyway -- from a root script, about a probe that is supposed to be
+        # silent. Verified both orders.
+        if : 2>/dev/null >> "$SIM_LOG"; then
+            $TMUX new-session -d -s sim -c "$SIM_DIR" \
+                "script -qfa '$SIM_LOG' -c ./simulation_platform_manager"
+            echo "simulation_platform_manager started (log: $SIM_LOG)"
+        else
+            $TMUX new-session -d -s sim -c "$SIM_DIR" ./simulation_platform_manager
+            echo "simulation_platform_manager started (NO disk log -- $SIM_LOG is not writable; only the tmux pane has its output)"
+        fi
         ;;
     sim-stop)
         session_running sim || { echo "no sim session"; exit 0; }

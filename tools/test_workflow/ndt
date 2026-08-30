@@ -1556,6 +1556,55 @@ app_label() {
     esac
 }
 
+# app_sig <name> -- the string that must appear in the pid's /proc/<pid>/cmdline for it to be
+# this app and not whatever inherited that pid number. Empty for apps with no registered
+# signature, which is treated as "existence is all that can be asserted", never as a mismatch.
+app_sig() {
+    case "$1" in
+        nsr) echo "network_state_recorder.py" ;;
+        te)  echo "Traffic-engineering-App.py" ;;
+        viz) echo "network_traffic_visualizer.sh" ;;
+    esac
+}
+
+# pid_is_app <pid> <name> -- does this pid exist AND is it that app?
+#
+# [Co-developed with claude code -- Adam]
+# H-17. This replaces `kill -0`, which answers a question about SIGNALLING PERMISSION and gets
+# read as a question about existence. It fails in two directions and this project has been
+# bitten by both:
+#   * a live process owned by root returns EPERM, so `kill -0` says "not running" about
+#     something that is running -- the 08-29 T2-1 retraction turned on exactly this;
+#   * a recycled pid number belonging to some unrelated process returns success, so `kill -0`
+#     says "running" about an app that exited and left its pidfile behind.
+# /proc/<pid> existence is readable regardless of owner, so it fixes the first. The cmdline
+# comparison fixes the second.
+#
+# cmdline rather than comm as the identity, deliberately: comm is "python3" for BOTH nsr and te
+# and "bash" for viz, so it cannot tell this project's own apps apart -- a pidfile pointing at
+# the wrong one of them would still pass. comm is kept only as the fallback for the case where
+# cmdline is unreadable.
+#
+# An empty cmdline is NOT read as a mismatch. A zombie has one, and reporting "not running" for
+# a pid that plainly exists would be inventing a second false negative to fix the first. In that
+# case this asserts existence only -- the same strength `kill -0` had, without its EPERM hole.
+pid_is_app() {
+    local pid="$1" name="$2" sig cmdline comm
+    [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || return 1
+    [[ -d "/proc/$pid" ]] || return 1
+    sig="$(app_sig "$name")"
+    [[ -n "$sig" ]] || return 0
+    cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)"
+    if [[ -n "$cmdline" ]]; then
+        [[ "$cmdline" == *"$sig"* ]]
+        return
+    fi
+    comm="$(cat "/proc/$pid/comm" 2>/dev/null)"
+    [[ -z "$comm" ]] || [[ "$sig" == *"$comm"* ]] || [[ "$comm" == python* || "$comm" == bash ]]
+}
+
+# Silent and boolean on purpose: `ndt apps status` calls it inside a command substitution, so
+# anything printed here would land in the status table.
 app_running() {
     case "$1" in
         # Through lab_session, not its own `| grep -q`: two implementations of "is this lab
@@ -1565,7 +1614,9 @@ app_running() {
         energy) lab_session energy ;;
         sim)    lab_session sim ;;
         *)      local p="$REPO/.test_run/pids/app_$1.pid"
-                [[ -f "$p" ]] && kill -0 "$(cat "$p" 2>/dev/null)" 2>/dev/null ;;
+                # A symlinked pidfile is refused here for the same reason app_stop refuses one.
+                [[ -f "$p" && ! -L "$p" ]] || return 1
+                pid_is_app "$(cat "$p" 2>/dev/null)" "$1" ;;
     esac
 }
 
