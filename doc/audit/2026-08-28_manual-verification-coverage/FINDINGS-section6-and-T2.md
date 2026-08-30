@@ -175,23 +175,32 @@ one.
 
 This one is the system's, and it is what made the retraction above expensive.
 
-When a second proxy is launched while one is running, the new instance fails to bind 8081 and
-uvicorn shuts the HTTP server down — and **the process keeps going**. After
-`INFO: Application shutdown complete` at line 646 of a 706-line log there are **29 further
-link-discovery and rule-installation actions**, including `Installing initial routes
-proactively...` and `Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3`, plus
-`ValueError: Cannot invoke RPC on closed channel!` from threads still calling into channels
+When a second proxy is launched while one is running, uvicorn's **lifespan startup runs before
+the port is bound** — verified in the uvicorn the proxy actually uses (`p4_proxy/venv`, 0.51.0):
+`server.py:103-104` awaits `lifespan.startup()`, and the bind comes later. Lifespan startup is
+where this proxy connects to the switches, starts LLDP, and **installs forwarding rules**.
+
+So the second instance does all of that **unconditionally, before it can possibly know the port
+is taken**, and only then fails with
+`ERROR: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8081): address already
+in use`. The log shows the consequence: 29 link-discovery and rule-installation actions after
+`INFO: Application shutdown complete`, including `Installing initial routes proactively...`,
+plus `ValueError: Cannot invoke RPC on closed channel!` from threads still calling into channels
 shutdown had closed.
 
-So the second instance:
+### ✏️ Correction, 2026-08-30
 
-* **serves nothing** — every operator check goes to the first instance,
-* **writes to the switches anyway**, fighting the first instance for P4Runtime state,
-* and **reports its own failure only once**, in a line nobody is watching, before continuing.
+The first version of this said "**the process keeps going**". That is wrong and is withdrawn.
+All five workers are daemon threads — `main.py:275`, `topology_manager.py:1257/1378/1543`,
+`p4_client.py:218` — and `main.py:356` is the last statement in the file, so when
+`uvicorn.run()` returns the interpreter exits and takes them with it. **The 29 lines are a
+shutdown race, not a process that lingers.**
 
-"Is the proxy up?" (`curl :8081`) answers **yes**, from the wrong process. The manual's own
-workflow makes this reachable: three terminals, plus advice like "go back to Terminal 1" that
-invites relaunching a component while another is live.
+The finding survives the correction and is arguably worse than I framed it: the damage does not
+depend on the process persisting at all. It happens during **startup**, before the port check,
+so it is unavoidable by anything the bind-failure path could do. A guard has to sit **before
+`uvicorn.run()`** at `main.py:356`; putting it in the bind error handler cannot help, because
+the rules are already in the switches by then.
 
 Severity is bounded by needing two instances, so it is not a demo blocker — but it is a real
 instance of the house pattern: **a component that fails, says so once, and carries on mutating
