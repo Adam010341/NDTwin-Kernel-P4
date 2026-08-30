@@ -64,8 +64,22 @@ export LC_ALL=C
 # --- where things live ---------------------------------------------------------------------------
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROUND_DIR="$(dirname "$HARNESS_DIR")"
-# The kernel checkout. Derived, not assumed: this harness lives inside doc/audit/<round>/harness/.
-REPO="$(cd "$HARNESS_DIR/../../../.." && pwd)"
+# The kernel checkout **under test**, which is not necessarily the one this file lives in.
+#
+# The derived form below assumes the tree that ships the harness is the tree being measured.
+# That is false for any round pinned to a baseline, and T-4 is exactly that: its ruling builds
+# from 89c1754 in a separate `git worktree`, because dff87f9 (the T-7 acquire_lock and P-1
+# fixes) lands between 89c1754 and HEAD and rewrites five of the files under test. Left
+# underivable, every `$REPO` use below would have read the wrong tree *and said nothing*:
+# 00_preflight would have sha256'd a binary the fabric was not running and written it into
+# binary-provenance.txt, and 40_/50_'s F-1 and F-4 source checks would have been answered from
+# post-fix source. A provenance record that names the wrong binary is worse than none.
+# (memory: benchmark-must-name-the-binary-it-measured)
+#
+# KERNEL_DIR is reused rather than a new name invented: components.env already means exactly
+# this by it and already honours it from the environment, so one export makes ndt, stack.sh and
+# this harness agree. A second name could be set half-way; this one cannot.
+REPO="${KERNEL_DIR:-$(cd "$HARNESS_DIR/../../../.." && pwd)}"
 
 # Every artefact of a run lands under one timestamped directory so a second run cannot be read
 # as the first. RUN_TAG is settable so a re-run can be labelled by hand.
