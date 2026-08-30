@@ -1,0 +1,65 @@
+
+===== 25_apps_energy  (2026-08-30T14:26:36Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm5-tr5-p4
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+
+===== BEFORE -- one snapshot, taken now, not reused from preflight =====
+      switches=10 up=10 enabled=10 admin_disabled=0 hosts=4 edges=40 edges_down=0
+      switches currently down: none
+  PASS  fabric is intact before the energy phase (10/10 switches up, 40 edges, 0 down)
+
+===== START the Energy-Saving-App =====
+        ok  energy started (tmux: energy)
+  PASS  energy reports running (via ndt's own lab_session predicate, not a signal probe -- H-17)
+
+===== WATCH -- the app's cadence is 60 s, so watch for at least three cycles =====
+      epoch	up	enabled	admin_disabled	edges_down	util_max	down_names
+      1788099997	10	10	0	0	0.0	none
+      1788100007	10	10	0	0	0.0	none
+      1788100017	10	10	0	0	0.0	none
+      1788100027	10	10	0	0	0.0	none
+      1788100037	10	10	0	0	0.0	none
+      1788100047	10	10	0	0	0.0	none
+      1788100057	10	10	0	0	0.0	none
+      1788100067	10	10	0	0	0.0	none
+      1788100077	10	10	0	0	0.0	none
+      1788100087	10	10	0	0	0.0	none
+      1788100097	10	10	0	0	0.0	none
+      1788100108	10	10	0	0	0.0	none
+      1788100118	10	10	0	0	0.0	none
+      1788100128	10	10	0	0	0.0	none
+      1788100138	10	10	0	0	0.0	none
+      1788100148	10	10	0	0	0.0	none
+      1788100158	10	10	0	0	0.0	none
+      1788100168	10	10	0	0	0.0	none
+      1788100178	10	10	0	0	0.0	none
+      1788100188	10	10	0	0	0.0	none
+      1788100198	10	10	0	0	0.0	none
+      1788100208	10	10	0	0	0.0	none
+      1788100218	10	10	0	0	0.0	none
+      1788100228	10	10	0	0	0.0	none
+      1788100239	10	10	0	0	0.0	none
+      watch window: requested 240s, ACHIEVED 242s over 25 samples (mean interval 10s)
+      that is 4 full 60 s app cycles, which is the number to quote -- not 240s.
+
+===== AFTER -- and the assertion that the injection actually landed =====
+      switches=10 up=10 enabled=10 admin_disabled=0 edges=40 edges_down=0
+      switches now down: none
+      switches powered off by the app: 0
+  N/A   the Energy-App powered NOTHING off in the 242s actually watched (4 cycles at its 60 s cadence). This is NOT a failure, but F-2 and F-3 are NO LONGER REACHABLE THIS RUN and must be recorded as untestable, not as fixed.
+      why: NOT TRAFFIC, and the cause is NOT ESTABLISHED. Peak link utilisation during the watch was 0.0%, far BELOW the app's LOW_WATER_MARK of 0.40 -- the decision chain predicts a shutdown and it did not happen. Do NOT record 'the network was busy'; there was nothing to stop.
+           candidates NOT distinguished by this run: the app's grouping may reject these switches for a topology reason; the power loop is gated by /ndt/acquire_lock (energy_saving_app.cpp:952) and lock behaviour was not observed; the OVS path may differ elsewhere. One run per fabric is one run per fabric.
+           reaching this needs the app's own output, which needs the ndtwin-lab/ndt session-visibility disagreement resolved first (see 09_t8-t10-evidence.md §4).
+
+===== STOP the Energy-Saving-App =====
+        ok  energy stopped
+  PASS  energy stopped, verified from ndt apps status (a stop that reports success while the process survives is the failure this repo keeps re-finding)
+      
+  PASS  the fabric is NOT degraded: the app powered 0 switches off, and this script changed nothing else.
+         Do NOT run ./90_restore.sh. There is nothing to restore, and its rebuild route would
+         tear down a healthy fabric to fix nothing. Verify for yourself:  ndt status --check
+
+===== 25_apps_energy: 6 check(s), 0 FAIL =====
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm5-tr5-p4

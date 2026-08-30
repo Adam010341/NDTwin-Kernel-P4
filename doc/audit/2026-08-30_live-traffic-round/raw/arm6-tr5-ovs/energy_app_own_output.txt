@@ -1,0 +1,30 @@
+ to /ndt/acquire_lock
+[2026-08-30 22:42:29.300472012] [error] [http.cpp:439 acquire_lock] acquire_lock
+: bad HTTP code 423 or null body: {"detail":"lock \"routing_lock\" is held by an
+other client; retry after its TTL","error":"Lock acquisition failed"}
+[2026-08-30 22:42:30.301019137] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-08-30 22:42:30.302170857] [error] [http.cpp:439 acquire_lock] acquire_lock
+: bad HTTP code 423 or null body: {"detail":"lock \"routing_lock\" is held by an
+other client; retry after its TTL","error":"Lock acquisition failed"}
+[2026-08-30 22:42:31.302734531] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-08-30 22:42:31.303774796] [error] [http.cpp:439 acquire_lock] acquire_lock
+: bad HTTP code 423 or null body: {"detail":"lock \"routing_lock\" is held by an
+other client; retry after its TTL","error":"Lock acquisition failed"}
+[2026-08-30 22:42:32.304350007] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-08-30 22:42:32.305452915] [error] [http.cpp:439 acquire_lock] acquire_lock
+: bad HTTP code 423 or null body: {"detail":"lock \"routing_lock\" is held by an
+other client; retry after its TTL","error":"Lock acquisition failed"}
+[2026-08-30 22:42:33.305961995] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-08-30 22:42:33.307045063] [error] [http.cpp:439 acquire_lock] acquire_lock
+: bad HTTP code 423 or null body: {"detail":"lock \"routing_lock\" is held by an
+other client; retry after its TTL","error":"Lock acquisition failed"}
+[2026-08-30 22:42:34.307471770] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-08-30 22:42:34.308264897] [error] [http.cpp:439 acquire_lock] acquire_lock
+: bad HTTP code 423 or null body: {"detail":"lock \"routing_lock\" is held by an
+other client; retry after its TTL","error":"Lock acquisition failed"}
+

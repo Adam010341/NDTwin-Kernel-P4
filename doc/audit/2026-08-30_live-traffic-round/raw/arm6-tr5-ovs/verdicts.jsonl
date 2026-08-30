@@ -1,0 +1,6 @@
+{"t":"2026-08-30T14:35:37Z","verdict":"pass","script":"25_apps_energy","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T14:35:37Z","verdict":"pass","script":"25_apps_energy","text":"fabric is intact before the energy phase (10/10 switches up, 40 edges, 0 down)"}
+{"t":"2026-08-30T14:35:38Z","verdict":"pass","script":"25_apps_energy","text":"energy reports running (via ndt's own lab_session predicate, not a signal probe -- H-17)"}
+{"t":"2026-08-30T14:39:39Z","verdict":"untestable","script":"25_apps_energy","text":"the Energy-App powered NOTHING off in the 241s actually watched (4 cycles at its 60 s cadence). This is NOT a failure, but F-2 and F-3 are NO LONGER REACHABLE THIS RUN and must be recorded as untestable, not as fixed."}
+{"t":"2026-08-30T14:39:42Z","verdict":"pass","script":"25_apps_energy","text":"energy stopped, verified from ndt apps status (a stop that reports success while the process survives is the failure this repo keeps re-finding)"}
+{"t":"2026-08-30T14:39:42Z","verdict":"pass","script":"25_apps_energy","text":"the fabric is NOT degraded: the app powered 0 switches off, and this script changed nothing else."}
