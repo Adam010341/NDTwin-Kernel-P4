@@ -10,7 +10,7 @@ Raw: `raw/section6/` on `audit-raw`. Harness: `vm/guest_section6_p1.sh`, `vm/gue
 | :--- | ---: | ---: | :--- |
 | §6.0–§6.1 (2 h 14 m) | 10 | **0** | pass |
 | §6.2–§6.6 | 21 | **0** | pass |
-| T-2 run the system | — | 1 | 🔴 **partly fails — see T2-1** |
+| T-2 run the system | — | 1 | ✅ **fabric forwards** — 12/12 pingall, paths=12 |
 
 ---
 
@@ -83,7 +83,51 @@ the variant §6.5 ships and this 4-vCPU VM can run).
 * **Kernel starts and answers.** `GET /ndt/get_graph_data` → **HTTP 200**, reporting **40 edges**
   — exactly the figure the User Manual gives for the 4-host fabric.
 
-## 🔴 T2-1 — no links are ever discovered, so no paths exist, and most of the fabric cannot ping
+## ❌ T2-1 — RETRACTED 2026-08-30 04:05. The fabric works. The instrument did not.
+
+**Everything in the struck-through section below is wrong.** A clean re-run from the
+`post-s6-t2` snapshot, with the instrumentation faults fixed, gives:
+
+| | previously reported | actual |
+| :--- | ---: | ---: |
+| `/v1.0/topology/links` | 0 | **32** |
+| `all_destination_paths` | 0 | **12** — exactly the manual's figure for the 4-host fabric |
+| `pingall` | mostly `X` | **`*** Results: 0% dropped (12/12 received)`** |
+| link failures | — | 0 |
+
+Discovery settles in **under 5 seconds**, as the User Manual says. **A reader who follows the
+Installation Manual gets a fabric that forwards.** On the question Adam asked — is this a
+blocker for the demo — the answer is **no**.
+
+### How I manufactured it, in four steps
+
+1. **H-17.** `kill -0` on the root-owned topology returned EPERM, which run 1 read as "died".
+   It started the proxy ~2 s in, before any switch was listening, so **run 1's proxy genuinely
+   discovered 0 links** — the only true "0" in the whole affair.
+2. **H-22 🔴 `$!` after `( … ) &` is the subshell, not the process inside it.** Run 1's
+   shutdown ran `kill $PROXY` and killed the subshell; **the python process survived** and kept
+   port 8081.
+3. **Run 2's proxy therefore never bound.** Its log says so, and I did not read it:
+   `ERROR: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8081): address
+   already in use`. Every API sample I took was answered by **run 1's orphan**, which correctly
+   reported 0 links, because it had none.
+4. **Two proxies then drove the same switches over P4Runtime**, which is why run 2's `pingall`
+   was broken. The datapath damage was real; I caused it.
+
+🔑 The tell was in my own data the whole time: the log recorded 15 `Discovered link` lines while
+the API reported 0. I wrote that down as "beacons arrive but no link is added" — inventing a
+mechanism to reconcile two numbers instead of asking why one instrument disagreed with the
+other. **A disagreement between two of your own readings is not a finding about the system; it
+is a finding about your instruments, until you have shown otherwise.**
+
+A second error compounded it: I grepped for `link (add|up|discover)` — which requires "link"
+*before* the verb — against a log that says `Discovered link`. Zero hits, read as zero links.
+The pattern was backwards and I treated its output as an observation.
+
+<details>
+<summary><b>Retracted text, kept for the record</b></summary>
+
+### ~~no links are ever discovered, so no paths exist, and most of the fabric cannot ping~~
 
 Converged and stable, sampled over four minutes after the switch count stopped moving:
 
@@ -114,18 +158,44 @@ h4 -> X
 nothing becomes a link. Whether that is the pipeline, the proxy's LLDP handler, or something
 about a 10-switch fabric on 4 vCPU is **not determined by this run**, and I am not guessing.
 
-### 🔑 The part that matters most: the twin looks healthy anyway
+### ~~The part that matters most: the twin looks healthy anyway~~
 
-The kernel reported **40 edges — the documented-correct number** — while the proxy had
-discovered **zero** links. That is not a contradiction: `--topology` hands the kernel a static
-JSON, so the twin's graph is **read from a file, not observed**.
+~~The kernel reported 40 edges while the proxy had discovered zero links.~~ **Also retracted.**
+The observation that `--topology` feeds the kernel a static JSON is true, but the conclusion
+drawn from it rested on the false "zero links", so it is withdrawn rather than kept. Whether the
+twin's edge count can mask a genuinely broken data plane is a real question and **it has not
+been tested** — it would need a fabric broken on purpose, which is a chaos-harness job, not this
+one.
 
-So the edge count cannot distinguish a working fabric from one where nothing can route. Every
-number the User Manual tells you to check at this step (10 switches, 40 edges, HTTP 200) is
-**correct on a fabric where most hosts cannot reach each other.** The one reading that would
-have caught it — `all_destination_paths` — is the one the manual frames as a *timing* check
-("wait until two samples agree") rather than a *correctness* one, and its instructions do not
-say what to do if the number never becomes 12.
+</details>
+
+---
+
+## 🔴 P-1 — the proxy survives a failed port bind and keeps writing to the data plane
+
+This one is the system's, and it is what made the retraction above expensive.
+
+When a second proxy is launched while one is running, the new instance fails to bind 8081 and
+uvicorn shuts the HTTP server down — and **the process keeps going**. After
+`INFO: Application shutdown complete` at line 646 of a 706-line log there are **29 further
+link-discovery and rule-installation actions**, including `Installing initial routes
+proactively...` and `Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3`, plus
+`ValueError: Cannot invoke RPC on closed channel!` from threads still calling into channels
+shutdown had closed.
+
+So the second instance:
+
+* **serves nothing** — every operator check goes to the first instance,
+* **writes to the switches anyway**, fighting the first instance for P4Runtime state,
+* and **reports its own failure only once**, in a line nobody is watching, before continuing.
+
+"Is the proxy up?" (`curl :8081`) answers **yes**, from the wrong process. The manual's own
+workflow makes this reachable: three terminals, plus advice like "go back to Terminal 1" that
+invites relaunching a component while another is live.
+
+Severity is bounded by needing two instances, so it is not a demo blocker — but it is a real
+instance of the house pattern: **a component that fails, says so once, and carries on mutating
+shared state.**
 
 ---
 
@@ -155,6 +225,15 @@ sees 0 switches*. **All four were mine**, and each was individually convincing.
   0 paths and 0 switches. Now uses `/proc/<pid>`, readable regardless of owner.
 * **H-18 — the ECONNREFUSED grep**, above. The check searched for the manual's word rather than
   the emitted text, so it passed on a completely broken fabric.
+* **H-22 🔴 `$!` after `( … ) &` names the subshell, not the process in it.** `kill $PROXY`
+  killed the wrapper and left the proxy holding port 8081, so the next run's proxy could not
+  bind and every API sample I took was answered by an orphan from the previous run. This is the
+  single defect that produced the retracted T2-1.
+* **H-23 — a backwards grep.** `link (add|up|discover)` cannot match `Discovered link`. Zero
+  hits were read as zero links.
+* **H-24 — block-buffered stdout.** The proxy's log was read while incomplete: a 706-line file
+  with no HTTP access lines at all, though the server had served requests. `PYTHONUNBUFFERED=1`
+  now, so the log is a record of what has happened rather than of what happened to be flushed.
 * **H-19 — `/ndt/get_network_topology` does not exist**; the endpoint is `/ndt/get_graph_data`.
   A 404 *is* the kernel answering, so "kernel did not answer" was a wrong conclusion from a
   correct observation.
@@ -177,7 +256,7 @@ mininet prompt was there — none of which the harness's own output would ever h
 | §6.7 (fast BMv2 build) | **not run** — another full behavioral-model build at `-O3`; behavioral-model alone took 22 min at `-O2` |
 | bmv2 binary identification (sha256 + EventLogger 24/0) | **not done** — depends on §6.7 |
 | 128-host fabric | **not run** — 4-vCPU VM; all figures above are the 4-host variant |
-| T2-1's mechanism | **not determined** — observation only |
+| whether a static `--topology` can mask a broken data plane | **not tested** — needs a deliberately broken fabric |
 | User Manual / Developer Manual (T-3) | **not started** |
 | T-4 full-stack round | **not started** — requires this VM to be down first |
 
