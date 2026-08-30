@@ -626,7 +626,7 @@ TEST(FlowDispatcherTest, DeterministicNoLostWakeupWhenEnqueueRacesWithWorkerSlee
 
 ### 5.4 TopologyAndFlowMonitor 的內部圖結構
 
-`doc/2026-01-02_ndt_api.md` 第 124-250 行規定了 `/ndt/get_graph_data` 的回應格式，但**未規定**內部圖的 vertex/edge 數量必須等於 topology file 的數量——它只說「Returns the complete graph topology configured in setting/StaticNetworkTopology.json」。從這句話可合理推導數量應一致，但沒有明確的數字合約。
+`doc/2026-01-02_ndt_api.md` 第 124-250 行規定了 `/ndt/get_graph_data` 的回應格式，但**未規定**內部圖的 vertex/edge 數量必須等於 topology file 的數量——它只說「Returns the complete graph topology configured in setting/StaticNetworkTopology.json」（**gone as of 2026-08-30**：`setting/StaticNetworkTopology.json` 這個檔名在本 repo 從未存在；引文屬實但已被 `da31795` 改寫，現行 `doc/2026-01-02_ndt_api.md:126` 改講「the file passed to `--topology`」並實名列出 P4／OVS 兩個真實檔案。本節的推論不受影響）。從這句話可合理推導數量應一致，但沒有明確的數字合約。
 
 此外，API 回應中的欄位（`is_up`, `is_enabled`）在初始載入後設為 `false`——這是實作行為，API 規格只說它們「suggests」某種狀態，未規定初始值。
 

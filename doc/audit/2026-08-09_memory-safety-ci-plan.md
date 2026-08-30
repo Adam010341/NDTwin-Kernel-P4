@@ -754,6 +754,10 @@ jobs:
 ### 7.1 Harness 骨架（示範，以 sFlow 解析器為例）
 
 > **⚠️ 以下為示範，待步驟 4 的 target 清單被人確認後才實作。**
+>
+> （**gone as of 2026-08-30**：骨架裡的檔名 `tests/fuzz/fuzz_sflow_parser.cpp` 從未建立。
+> 這個 target 後來由 `a3bfa40` 以 `tests/fuzz/fuzz_sflow.cpp` 實作——要找已交付的
+> harness 請用那個檔名，不要用下面示範裡的。）
 
 ```cpp
 // tests/fuzz/fuzz_sflow_parser.cpp
