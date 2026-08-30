@@ -58,8 +58,10 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 
 | 檔案 | 地位 | 一句話 |
 |---|---|---|
+| [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | **現役** | 已知未修缺陷的常設清單（966 行）。排序軸是「示範或正常操作會不會踩到」，不是嚴重度；每條標失效方向（樂觀／悲觀／靜默）。普查基準日 2026-08-19，08-29 增補 §F-bmv2 與 F-17 更正。🔴 **引用任何舊條目前必須重查現況**——它自己載明衰減不均勻 |
 | [2026-08-14_cross-component-integration-matrix.md](2026-08-14_cross-component-integration-matrix.md) | **現役** | 8 元件串接矩陣。跨 repo 的事先讀它 |
 | [2026-08-15_bmv2-performance-report.md](2026-08-15_bmv2-performance-report.md) | **現役** | bmv2 效能：debug build 的代價、A/B 飽和實測（12–18×）。**含一節撤回案（clone cap 從來不存在），引用前先看那節** |
+| [2026-08-28_bmv2-throughput-literature-vs-ours.md](2026-08-28_bmv2-throughput-literature-vs-ours.md) | 參照 | 四篇 bmv2 效能論文與本機實測的對照。⚠️ 它自陳**不是文獻回顧**（兩次關鍵字搜尋、沒做系統性檢索）⇒ 只能說「這四篇沒寫 X」，不能說「文獻裡沒人寫 X」。較完整的對照在 [audit/2026-08-28_bmv2-literature-review/RELATED-WORK.md](audit/2026-08-28_bmv2-literature-review/RELATED-WORK.md) |
 | [2026-08-16_src-ip-endianness-review.md](2026-08-16_src-ip-endianness-review.md) | **現役** | `src_ip` 是三消費端依賴的既成契約；末節是 TE priority/idle_timeout 的更正 |
 | [2026-08-13_p4runtime-mastership-spec-check.md](2026-08-13_p4runtime-mastership-spec-check.md) | 已結案 | 結論是**上游沒有 bug**、肇因在我方 election id 重用。它是更正稿，別引用它的舊版標題 |
 
