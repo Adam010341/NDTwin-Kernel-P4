@@ -373,6 +373,22 @@ main(int argc, char* argv[])
 
     auto controller = std::make_shared<Controller>(flowRoutingManager);
 
+    // [Co-developed with claude code -- Adam]
+    // KNOWN-ISSUES T-11 (option A: the table listing reports only programmed entries). This is
+    // the one line that connects the two halves -- Controller knows which dispatched jobs the
+    // southbound confirmed, the power manager owns the cache that is served as the table view.
+    //
+    // Without it the filter still runs and its default is to withhold every tokened row, so the
+    // symptom of forgetting this wiring is entries missing for up to one poll interval, not
+    // phantoms returning. The conservative direction was chosen precisely so that the failure
+    // mode of a missing wire is visible and safe rather than silent and optimistic.
+    //
+    // Captured by raw pointer, not by shared_ptr: the predicate is stored inside the power
+    // manager and capturing the shared_ptr would make the two objects own each other. Both live
+    // until the process ends, and the manager is destroyed no later than the controller here.
+    deviceConfigurationAndPowerManager->setProgrammedPredicate(
+        [ctrl = controller.get()](uint64_t token) { return ctrl->dispatchOutcomes().isProgrammed(token); });
+
     auto lockManager = std::make_shared<LockManager>();
 
     auto handler =

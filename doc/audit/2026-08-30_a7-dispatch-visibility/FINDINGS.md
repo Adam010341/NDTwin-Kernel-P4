@@ -153,9 +153,14 @@ be the source of a 10.70 s cycle.
 The period is in the **table-view cache**, which is the instrument FINDING-06 used to timestamp
 "programmed at":
 
-- `HttpSession.cpp:1060-1061` — `// TODO: Immediately update the table` then
-  `updateOpenFlowTables(j)`. The requested entry is written into the cache **synchronously on the
-  HTTP thread**, which is what makes the phantom appear instantly and carry the requested priority.
+- `HttpSession.cpp`, at the line `// TODO: Immediately update the table` followed by
+  `updateOpenFlowTables(...)`. The requested entry is written into the cache **synchronously on
+  the HTTP thread**, which is what makes the phantom appear instantly and carry the requested
+  priority.
+  🔴 **Cite this one by its anchor text, not by line.** It was `:1060-1061` at base `1208d22`,
+  `:1119-1120` after the A-7 commits, and `:1147` after the T-11 ones — **it moved twice in one
+  evening, both times because of my own edits above it.** The auditor caught the first drift.
+  `memory: cited-line-numbers-are-not-evidence`.
 - `DeviceConfigurationAndPowerManager.cpp:1885` — `fetchOpenFlowTablesInternal()` polls the
   southbound; `:1890` overwrites `m_cachedOpenFlowTables` wholesale.
 - `DeviceConfigurationAndPowerManager.cpp:1900-1901` —

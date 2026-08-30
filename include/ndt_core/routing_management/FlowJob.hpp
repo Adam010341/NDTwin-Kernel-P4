@@ -9,6 +9,20 @@
 #include <vector>
 
 /**
+ * @brief Name of the provenance stamp carried by an optimistically-cached, not-yet-programmed
+ *        flow entry. See FlowJob::token and KNOWN-ISSUES T-11.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * Leading underscore because it is internal: DeviceConfigurationAndPowerManager::getOpenFlowTables
+ * strips it before serving, so it never reaches a consumer and no consumer can come to depend on
+ * it. Declared here, next to the token it names, so the writer (HttpSession), the stamper and the
+ * filter cannot drift apart on a spelling -- a mismatch would silently disable the filter, which
+ * is the failure this whole ticket is about.
+ */
+inline constexpr const char* kPendingTokenField = "_ndt_pending_token";
+
+/**
  * @brief Operation type for a flow rule update.
  */
 enum class FlowOp : uint8_t
@@ -43,6 +57,34 @@ struct FlowJob {
     nlohmann::json actions;
 
     int idleTimeout = 0;
+
+    /**
+     * @brief Ties this job to the optimistic cache entry the HTTP layer wrote for it.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * KNOWN-ISSUES T-11. `install_flow_entry` writes the requested rule straight into the table
+     * cache on the HTTP thread, before anything has been programmed, so
+     * `get_switch_openflow_table_entries` serves it as though it were a table entry. The view
+     * must only report entries the southbound has confirmed, and deciding which those are needs
+     * an identity that survives the trip.
+     *
+     * **The match does not, and neither does the priority.** Measured 2026-08-30: every entry is
+     * programmed at priority 0 whatever was requested (FINDING-07), and the cached copy carries
+     * the caller's field vocabulary (`ipv4_dst`) while a polled one carries the switch's
+     * (`nw_dst`). Matching a pending entry against a confirmation by comparing its *contents*
+     * would therefore be comparing two different spellings of two different values.
+     *
+     * So the link is an opaque token minted once per entry, carried on the job and stamped on the
+     * cache entry. It is **provenance, not a fingerprint**: it says "this cache row and this
+     * dispatched job are the same request", which is a fact about where the row came from rather
+     * than an inference from what it looks like. Deliberately not derived from any field, so no
+     * future change to the wire format can make two different requests collide.
+     *
+     * 0 means "not minted by this path" -- an entry polled from the switch, or a job built by a
+     * caller that predates tokens. Such entries are never filtered.
+     */
+    uint64_t token = 0;
 };
 
 /**

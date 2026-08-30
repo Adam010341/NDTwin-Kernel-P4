@@ -2,6 +2,7 @@
 
 #include "utils/Utils.hpp"   // for DeploymentMode
 #include <atomic>            // for atomic
+#include <functional>        // for function (the T-11 programmed-entry predicate)
 #include <memory>            // for shared_ptr
 #include <nlohmann/json.hpp> // for json
 #include <shared_mutex>
@@ -169,6 +170,29 @@ class DeviceConfigurationAndPowerManager
      * @return JSON describing OpenFlow tables for switches (schema implementation-defined).
      */
     json getOpenFlowTables();
+
+    /**
+     * @brief Teach the table view which optimistically-cached entries have actually been
+     *        programmed, so it can stop serving the ones that have not.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * KNOWN-ISSUES T-11, ruled option A ("the listing reports only programmed entries").
+     * `updateOpenFlowTables` writes the requested rule into the cache on the HTTP thread, before
+     * the dispatcher has sent anything, and those rows are the phantom. Each carries a token
+     * (see FlowJob::token); this predicate answers whether the southbound confirmed that token.
+     *
+     * Injected rather than depended on directly: the answer lives in Controller's
+     * DispatchOutcomeLog, and this class has no business knowing about the dispatcher. It also
+     * makes the filter testable without a Controller at all.
+     *
+     * **If never set, every tokened entry is treated as unconfirmed and therefore hidden.** That
+     * is the conservative default and the deliberate one -- an unwired filter under-reports for
+     * up to one poll interval, where the alternative silently restores the phantom this exists to
+     * remove. Untokened entries (token 0, i.e. everything polled from a switch) are never hidden
+     * either way.
+     */
+    void setProgrammedPredicate(std::function<bool(uint64_t)> isProgrammed);
 
     /**
      * @brief Get the latest cached CPU utilization report.
@@ -667,6 +691,11 @@ class DeviceConfigurationAndPowerManager
     json m_cachedMemoryReport;
     json m_cachedTemperatureReport;
     json m_cachedOpenFlowTables;
+
+    /// T-11: answers whether a cached entry's token was confirmed by the southbound. Guarded by
+    /// m_openflowTablesMutex, which is also the lock held while filtering, so it is set once at
+    /// wiring time and read under the same lock as the cache it filters.
+    std::function<bool(uint64_t)> m_isProgrammed;
 
     std::string GW_IP;
 

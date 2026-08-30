@@ -916,6 +916,9 @@ makeInstallJob(const nlohmann::json& entry)
     j.match = entry.value("match", nlohmann::json::object());
     j.actions = entry.value("actions", nlohmann::json::array());
     j.idleTimeout = entry.value("idle_timeout", 0);
+    // [Co-developed with claude code -- Adam] T-11: stamped by processFlowBatch, absent for any
+    // other caller, and 0 then means "never withhold the matching row".
+    j.token = entry.value(kPendingTokenField, uint64_t{0});
 
     return j;
 }
@@ -1024,9 +1027,34 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     std::vector<FlowJob> jobs;
     jobs.reserve(ins.size() + mods.size() + dels.size());
 
+    // [Co-developed with claude code -- Adam]
+    // T-11. Below, `updateOpenFlowTables` writes every requested install into the table cache
+    // immediately, on this thread, before the dispatcher has sent anything -- that optimistic row
+    // is the phantom. Mint one token per install and put it on both sides: on the FlowJob, so the
+    // southbound's confirmation can be attributed to it, and on the entry handed to the cache, so
+    // the read path can withhold the row until that confirmation arrives.
+    //
+    // Process-wide and monotonic, so a token is never reused across sessions or switches. It is
+    // deliberately not derived from the entry's contents: a token must identify *this request*,
+    // and two identical requests are two different rows to confirm.
+    //
+    // Only installs are tokened, because only installs add a row. A refused modify or delete
+    // corrupts the cache differently -- it shows a mutation, or a removal, that never reached the
+    // switch -- and that is the mirror of this defect rather than this defect. Registered, not
+    // silently folded in: see the ticket's "not covered" section.
+    static std::atomic<uint64_t> s_nextPendingToken{1};
+    json annotatedInstalls = ins;
+    for (auto& e : annotatedInstalls)
+    {
+        if (e.is_object())
+        {
+            e[kPendingTokenField] = s_nextPendingToken.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
     try
     {
-        for (const auto& e : ins)
+        for (const auto& e : annotatedInstalls)
         {
             jobs.emplace_back(makeInstallJob(e));
         }
@@ -1117,7 +1145,16 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     m_controller->dispatcher().enqueue(std::move(acceptedJobs));
 
     // TODO: Immediately update the table
-    m_deviceConfigurationAndPowerManager->updateOpenFlowTables(j);
+    // [Co-developed with claude code -- Adam]
+    // T-11: hand the cache the tokened installs, not the raw body, so each optimistic row carries
+    // the same token as the job that will (or will not) be confirmed for it. Everything else in
+    // the body is passed through untouched.
+    json annotated = j;
+    if (!annotatedInstalls.empty())
+    {
+        annotated["install_flow_entries"] = annotatedInstalls;
+    }
+    m_deviceConfigurationAndPowerManager->updateOpenFlowTables(annotated);
 
     // [Co-developed with claude code -- Adam]
     // This used to answer {"status":"Flows installed, modified and deleted"} -- a claim it

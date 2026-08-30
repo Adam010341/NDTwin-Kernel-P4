@@ -19,6 +19,7 @@ add_executable(
   test_IpToString.cpp
   test_FlowDispatcher.cpp
   test_DispatchOutcomeLog.cpp
+  test_PendingEntryFilter.cpp
   test_Controller.cpp
   test_ParamParsing.cpp
   test_SimulationRequestValidation.cpp

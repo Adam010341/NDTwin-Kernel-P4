@@ -19,6 +19,9 @@
 #include <boost/range/iterator_range_core.hpp>            // for iterator_r...
 #include <chrono>                                         // for seconds
 #include <cstdint>                                        // for uint32_t
+// [Co-developed with claude code -- Adam] kPendingTokenField and the T-11 provenance filter.
+#include "ndt_core/routing_management/FlowJob.hpp"
+#include "ndt_core/routing_management/PendingEntryFilter.hpp"
 #include "ndt_core/power_management/OVSPowerStrategy.hpp"
 #include "ndt_core/power_management/P4PowerStrategy.hpp"
 #include <cstdlib>                                        // for system
@@ -1937,11 +1940,40 @@ DeviceConfigurationAndPowerManager::getMemoryUtilization()
     return m_cachedMemoryReport;
 }
 
+void
+DeviceConfigurationAndPowerManager::setProgrammedPredicate(std::function<bool(uint64_t)> isProgrammed)
+{
+    std::lock_guard<std::shared_mutex> lock(m_openflowTablesMutex);
+    m_isProgrammed = std::move(isProgrammed);
+}
+
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES T-11, option A: the listing reports only entries that have actually been
+// programmed.
+//
+// The filter lives here rather than in the HTTP handler because this is the common source. Three
+// callers read this cache -- /ndt/get_switch_openflow_table_entries, LLMAgent.cpp:275 and
+// IntentTranslator.cpp:1069 -- and a filter in the endpoint would have left the other two
+// reading the phantom, which is how "we fixed the view" becomes true of one view.
+//
+// What is filtered is decided by provenance, never by shape. A pending row is recognised by the
+// token updateOpenFlowTables stamped on it, not by looking like a request -- four fields, no
+// counters, the caller's field vocabulary. That signature is real and is what FINDING-03 used to
+// *detect* the phantom, but keying the fix on it would make the instrument the same shape as the
+// thing it measures: any future request that happened to arrive with counters, or any polled
+// entry that happened to arrive without them, would be classified by resemblance rather than by
+// origin. The token cannot be wrong about where a row came from.
+//
+// The stamp is stripped on the way out, so no consumer ever sees an internal field and none can
+// start depending on one.
 json
 DeviceConfigurationAndPowerManager::getOpenFlowTables()
 {
     std::shared_lock<std::shared_mutex> lock(m_openflowTablesMutex);
-    return m_cachedOpenFlowTables;
+
+    json out = m_cachedOpenFlowTables;
+    stripUnprogrammedEntries(out, m_isProgrammed);
+    return out;
 }
 
 static uint32_t
@@ -2085,6 +2117,15 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
         // as a real entry lacking table_id for ~1s after each install, until the next poll --
         // and consumers that require the field see a malformed rule.
         newFlow["table_id"] = e.value("table_id", 0);
+        // [Co-developed with claude code -- Adam]
+        // T-11: this row has not been programmed yet -- the dispatcher has not even sent it. Mark
+        // it with the token HttpSession minted for the matching FlowJob so getOpenFlowTables can
+        // withhold it until the southbound confirms that exact job. Absent token means an entry
+        // that did not come through the optimistic path, and those are never withheld.
+        if (e.contains(kPendingTokenField))
+        {
+            newFlow[kPendingTokenField] = e.at(kPendingTokenField);
+        }
 
         flows->push_back(std::move(newFlow));
     };

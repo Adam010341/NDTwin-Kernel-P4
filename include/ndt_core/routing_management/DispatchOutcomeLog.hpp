@@ -11,6 +11,7 @@
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 /**
@@ -102,6 +103,7 @@ class DispatchOutcomeLog
         if (result.ok)
         {
             succeeded_.fetch_add(1, std::memory_order_relaxed);
+            noteProgrammed_(job.token);
             return;
         }
 
@@ -143,6 +145,43 @@ class DispatchOutcomeLog
         return std::vector<Record>(failures_.begin(), failures_.end());
     }
 
+    /**
+     * @brief Has the southbound confirmed the job that wrote this cache entry?
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * KNOWN-ISSUES T-11's filter predicate. This is the index the A-7 note said a future ticket
+     * would add here; adding it needed no change to any call site, which was the point of routing
+     * successes through record().
+     *
+     * `token == 0` answers **true**: an untokened entry was not minted by the optimistic write
+     * path -- it came from a poll of the actual switch, or from a caller predating tokens -- and
+     * the filter must not hide entries it has no provenance claim about.
+     *
+     * Bounded, and the bound has a direction. Tokens age out oldest-first, and an aged-out token
+     * reads as *unconfirmed*, so the failure mode is a real entry briefly hidden, never a phantom
+     * shown. That is the conservative direction and it is chosen deliberately: the whole ticket
+     * exists because the view was optimistic. The window is also self-limiting -- the periodic
+     * poll replaces the entire cache roughly every 10.7 s, taking every pending entry with it, so
+     * a token only has to survive that long to have done its job.
+     */
+    bool isProgrammed(uint64_t token) const
+    {
+        if (token == 0)
+        {
+            return true;
+        }
+        std::lock_guard<std::mutex> lk(mutex_);
+        return programmed_.count(token) != 0;
+    }
+
+    /// How many confirmations aged out. Non-zero means isProgrammed() may be answering false for
+    /// entries that really were programmed -- see the note there on why that direction was chosen.
+    uint64_t confirmationsForgotten() const
+    {
+        return forgotten_.load(std::memory_order_relaxed);
+    }
+
     /// "install" / "modify" / "delete", for the response body and for logs.
     static const char* opName(FlowOp op)
     {
@@ -159,6 +198,30 @@ class DispatchOutcomeLog
     }
 
   private:
+    /// Remember a confirmed token, forgetting the oldest once the budget is spent.
+    void noteProgrammed_(uint64_t token)
+    {
+        if (token == 0)
+        {
+            return;
+        }
+        std::lock_guard<std::mutex> lk(mutex_);
+        if (programmed_.insert(token).second)
+        {
+            programmedOrder_.push_back(token);
+        }
+        while (programmedOrder_.size() > kProgrammedBudget)
+        {
+            programmed_.erase(programmedOrder_.front());
+            programmedOrder_.pop_front();
+            forgotten_.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
+    /// Enough to cover a full dispatcher burst (2000) several times over, which is the largest
+    /// number of entries that can be pending against one cache generation.
+    static constexpr std::size_t kProgrammedBudget = 8192;
+
     static int64_t nowUnixMs()
     {
         using namespace std::chrono;
@@ -169,8 +232,13 @@ class DispatchOutcomeLog
     std::deque<Record> failures_;
     const std::size_t capacity_;
 
+    /// Tokens of jobs the southbound confirmed, with insertion order so the oldest can be dropped.
+    std::unordered_set<uint64_t> programmed_;
+    std::deque<uint64_t> programmedOrder_;
+
     std::atomic<uint64_t> dispatched_{0};
     std::atomic<uint64_t> succeeded_{0};
     std::atomic<uint64_t> failed_{0};
     std::atomic<uint64_t> evicted_{0};
+    std::atomic<uint64_t> forgotten_{0};
 };
