@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One arm of the OvS flow-count CONTROL. Adapted from ③'s run_flowcount_arm.sh — design is
 # PREREG.md in THIS directory; the bmv2 original's design notes still apply. Functional deltas
-# from the original (PREREG §5, all four): (a) host pair parameterised (h1->h33 default);
+# from the original (PREREG §5, all four): (a) host pair parameterised (h1->h65 default, = ③);
 # (b) provenance block swapped to OVS identity (the bmv2 symbol/argv lines are meaningless here);
 # (c) snap() covers ALL switches (ECMP spread accounting, PREREG §4.2); (d) load sampler grows a
 # softirq column (kernel datapath cost is invisible to per-process attribution, PREREG §4.5).
@@ -23,7 +23,7 @@ AMB_HI="${AMB_HI:-2.0}"
 RATES="${RATES:?per-flow Mbit ladder, gate-capped by the driver (PREREG §3)}"
 SAT_STOP_PCT="${SAT_STOP_PCT:-25}"
 
-C="${SRC_HOST:-h1}"; S="${DST_HOST:-h33}"
+C="${SRC_HOST:-h1}"; S="${DST_HOST:-h65}"
 SIP="10.0.0.${S#h}"
 
 # ---------------------------------------------------------------- claim
@@ -51,7 +51,7 @@ CP=$(host_pid "$C"); SP=$(host_pid "$S")
   echo "bridges=$(sudo -n ovs-vsctl list-br 2>/dev/null | tr '\n' ' ')"
   echo "controller=$(ps -eo args | grep -E 'ryu|ryu-manager' | grep -v grep | head -1 || echo none-visible)"
   echo "port8080=$(ss -ltn 2>/dev/null | grep -c ':8080 ')"
-  echo "topology_sha=$(sha256sum "$REPO/setting/StaticNetworkTopologyOVS_10Switches_64Hosts.json" | cut -c1-8)"
+  echo "topology_sha=$(sha256sum "$REPO/setting/StaticNetworkTopologyMininet_10Switches.json" | cut -c1-8)"
   echo "testbed_topo_sha=$(sha256sum "$REPO/testbed_topo.py" | cut -c1-8)"
   echo "kernel_sha256_start=$(sha256sum "$REPO/build/bin/ndtwin_kernel" 2>/dev/null | cut -c1-8)"
 } > "$OUT/arm.meta"

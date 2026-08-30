@@ -33,12 +33,12 @@ trap restore_all EXIT
 boot_ovs() {  # $1 = tag
   setsid bash -c "NDT_OWNER='$NDT_OWNER' ndt down"    > "$RAW/ndt_down_$1.log" 2>&1 || true
   sleep 3
-  setsid bash -c "NDT_OWNER='$NDT_OWNER' ndt up ovs 64" > "$RAW/ndt_up_$1.log"   2>&1 || true
+  setsid bash -c "NDT_OWNER='$NDT_OWNER' ndt up ovs" > "$RAW/ndt_up_$1.log"   2>&1 || true
   local i br h1p h33p
   for i in $(seq 1 36); do
     br=$(sudo -n ovs-vsctl list-br 2>/dev/null | wc -l)
     h1p=$(ps -eo args | awk '$NF=="mininet:h1"'  | wc -l)
-    h33p=$(ps -eo args | awk '$NF=="mininet:h33"' | wc -l)
+    h33p=$(ps -eo args | awk '$NF=="mininet:h65"' | wc -l)
     [[ "$br" -ge 10 && "$h1p" -ge 1 && "$h33p" -ge 1 ]] && { echo "  boot[$1] ok: $br bridges, h1+h33 present (waited $((i*5))s)"; return 0; }
     sleep 5
   done

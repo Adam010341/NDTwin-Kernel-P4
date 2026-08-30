@@ -89,4 +89,18 @@ n∈{1,4,16} 條並行 1400B UDP 流各 3 reps，取合計送達中位。
 5. CPU 歸因構不到 kernel datapath（softirq 記錄代替）。
 6. smoke-grade：每格 2 臂、未做 8 臂鏡像。
 
+---
+
+## AMENDMENT-1（2026-08-30 13:44；零資料——第一次開機就被 ndt 拒絕，無任何封包送出）
+
+**改什麼**：§2 的「host 數 64、host 對 h1→h33」改為 **host 數 128、host 對 h1→h65**。
+**為什麼**：註冊時我從 `setting/` 的 OVS 模型 JSON（最大 64Hosts）推斷 fabric 上限＝64——
+**推錯了**：那些是 kernel 的靜態模型檔，fabric 建造器是 `testbed_topo.py`（HOST_NUM=128），
+`ndt up ovs` 只接受 128（或 ovs4）。ndt 在任何資料產生前拒絕（`raw/ndt_up_unshaped.log`）。
+**方向**：128／h1→h65 ＝ **與 ③ 完全同 host 數、同 host 對**——嚴格更接近本 PREREG
+自己宣稱的「同置放」意圖；已知差異 #1（64 vs 128）**整條刪除**。
+h65 於 OVS 側同掛 s3（`testbed_topo.py:83`：hosts[64..95]→s3）。
+修正案三條件檢查：零資料 ✅／只引既有資訊（ndt 的拒絕訊息＋建造器源碼）✅／
+只收緊（向註冊意圖靠攏）✅。
+
 [Co-developed with claude code -- Adam]
