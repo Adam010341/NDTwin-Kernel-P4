@@ -326,9 +326,9 @@ virtual time」這個順序，這 18 篇裡沒人說過。TOMACS 是引子不是
 | ② 每 frame 乾淨 pps＋註冊比值 | ✅ **H1（天花板是 pps）**：64／256／1024 B 乾淨階均值 **16.0／20.0／16.0 kpps**（兩臂各為 20/12、20/20、12/20）＝同批資料 **8.2／41.0／131.1 Mbit/s**；**P(256)/P(64)＝1.25、P(1024)/P(64)＝1.00**——皆落 H1（0.75–1.30／0.65–1.30）、距 H2（0.15–0.40／0.03–0.12）極遠。**pps 變 1.25×、bit rate 變 16.0×**＝C2 頭條句的出處 | 同上 §1 |
 | **③ 每流最高乾淨階 @ n=1/2/4/8/16（同置放）** | ✅ **已收案（兩臂）**：arm a＝**160／110／30／5／2**、arm b＝**240／110／45／8／1** M/流——**兩臂各自單調遞減**；五格兩臂全部落在**相鄰一階以內**（n=2 完全相同）＝在儀器解析度內一致，**梯子的粗細（±1 階）就是誤差棒**——單臂的問題不是不準，是只能看到 ±1 階；n=1 的 arm b 在梯頂 240 乾淨（median 0.2089%）＝**右截尾下界**（曲線左端只會比帳面更陡）。合計均值 200／220／150／52／24＝n×每流的算術衍生，非第二個發現 | `audit/2026-08-28_flow-count-capacity/FINDINGS.md` §1/§3/§4（commit `387d3ea`；raw＝audit-raw `6085dec`，1465 檔） |
 | ③ 模型判別 | 🔴 **兩個註冊模型都不中——判死即結果**：量得合計對固定開銷 160/138/109/76/48、冪律 160/118/88/65/48 皆不合；四個註冊區間僅一格由區間裁決、兩格反向出界。**放棄判準發火**（n=2 兩臂皆 220.0 對區間 95–150；⚠️ 出處＝`HANDOFF-CONTEXT.md:65-67`、commit `48487ed`，**非 PREREG**）——裁決＝照字面執行 **"Stop"**：**區間不由這十臂重推**（拿十臂推的區間裁判同十臂＝循環）；re-derive 留給下一輪，**未來區間須出自 ①② 的量測**。錨點 160 在資料到齊前已被 arm b 推翻 ⇒ 由它生的區間全部作廢 | FINDINGS §2/§2.1＋08-29 auditor 裁決 A |
-| ③ OVS 對照平面同梯結果 | 🏁 **08-30 已收（`8/29 poster-reviewer` 執行；Adam 裁「加進 poster」）**：同梯（×1.5、13 階同 ③）、同置放（16 流走同一條 5-switch 路徑——switch 計數器 s1/s6/s9/s7/s3 各 7.26 GB＝**零 ECMP 散佈、量測證實**）、shaping 拿掉。valid 每流 clean＝**540/540、240/240、45/45**（n=1/4/16，鏡像兩臂全同階；n=1 格＝收端 socket 限（RcvbufErrors 44–48k）；validity 欄濾掉發送端 backpressure 假象——見 §5-7 第四例）⇒ **OvS＝合計天花板（0.72–0.96 G）均分、aggregate 不塌；bmv2 aggregate 自塌 ~10×；n=16 每流 22–45×**（預註冊 H-B 命中；陽性對照 shaped htb 1G 發火位置逐階命中，惟與無 shaping 的有機 ~0.96 G 帽在本工作點不可分辨——不動結論、照實收）。正本 `audit/2026-08-30_ovs-flowcount-control/FINDINGS.md`（raw＝audit-raw `a868948` 本地）；紅線＝n=1 掛註／只寫 same ladder＋same placement／各自 as-configured 控制平面（Ryu vs proxy）／smoke 級規模（3 格×2 臂）照實／**數字不回填 C1/C2**。 | 同上 |
+| ③ OVS 對照平面同梯結果 | 🏁 **08-30 已收（`8/29 poster-reviewer` 執行；Adam 裁「加進 poster」）**：同梯（×1.5、13 階同 ③）、同置放（16 流走同一條 5-switch 路徑——switch 計數器 s1/s6/s9/s7/s3 各 7.26 GB＝**零 ECMP 散佈、量測證實**）。🔴 08-30 傍晚更正（FINDINGS 更正框；auditor 對 `71e482e` 的簽收已撤回）：原記「shaping 拿掉」為假——patch 落在同名異 repo 檔（fabric 實跑 NTG 的 `testbed_topo.py`）＝no-op，**OvS 七臂全程 as-configured 1G-shaped**；bmv2 ③ 的 fabric（`ntg_bmv2_topo.py` 無 bw=）＝unshaped——**不對稱方向保守**（OvS 戴帽仍 22–45×）。valid 每流 clean＝**540/540、240/240、45/45**（n=1/4/16，鏡像兩臂全同階；n=1 格＝收端 socket 限（RcvbufErrors 44–48k）；validity 欄濾掉發送端 backpressure 假象——見 §5-7 第四例）⇒ **OvS＝配置帽（htb 1G、goodput 上限 ≈971 Mbit）均分（0.72–0.96 G 送達）、aggregate 不塌；bmv2 無帽而 aggregate 自塌 ~10×；n=16 每流 22–45×**（預註冊 H-B 命中；🔴 陽性對照＝空跑不可引用——patch no-op ⇒ 第七支 replicate，原「發火位置逐階命中」作廢；帽的簽名改由主臂自身承擔：n=1/4 高階 sent-throttle 落點 ≈971、n=16 髒階損失率合 1G 帽算術）。正本 `audit/2026-08-30_ovs-flowcount-control/FINDINGS.md`（raw＝audit-raw `a868948` 本地）；紅線＝n=1 掛註／只寫 same ladder＋same placement／各自 as-configured 控制平面（Ryu vs proxy）／smoke 級規模（3 格×2 臂）照實／**數字不回填 C1/C2**／🔴 OvS 臂禁寫 unshaped・shaping removed・有機天花板（合計帽歸給配置、不對稱要見光）／🔴 陽性對照不可引用。 | 同上 |
 | ③ 次要：同置放 n=16 vs 舊散佈 16 流點的差（散佈效應） | ✅ 方向性成立：同置放合計 24.0（兩臂 32.0／16.0）低於舊散佈點 ⇒ **把流散到多個 path class 會抬高合計**，與機制一致（per-switch 共享 CPU）。⚠️ **只引方向、不引差值**（舊點單臂＋粗梯，且本輪 n=16 兩臂自己差一階） | FINDINGS §7 |
-| 我方 bmv2 版本／commit／build 簽名（論文 provenance 欄） | 全收：10× `simple_switch_grpc`、kernel `a40e04ce`（符號簽名指認，非 PATH）；**bmv2 source＝behavioral-model `f0b7d201`，兩顆 build 版本字串同為 `1.15.3-f0b7d201`**（版本字串不能代替 build 報告——白送的論證）；stock＝p4-guide 安裝器 configure 逐字、fast＝官方建議＋三自加旗標（`-march=native` ⇒ 僅功能等價可重建）；⚠️ bmv2 **逐臂符號簽名僅 ①，②③＝argv＋fabric 連續性**（N-2 v2）；機器全格＝`audit/2026-08-29_europ4-poster-review/MACHINE-ENV.md`（Ultra 5 125U、kernel 7.0.0-30、iperf3 3.16、**無定頻無 pinning**、開機 08-24 早於全部量測窗） | FINDINGS 檔頭＋arm meta＋`audit/bmv2-binary-provenance.md` |
+| 我方 bmv2 版本／commit／build 簽名（論文 provenance 欄） | 全收：10× `simple_switch_grpc`、kernel `a40e04ce`（符號簽名指認，非 PATH）；**bmv2 source＝behavioral-model `f0b7d201`，兩顆 build 版本字串同為 `1.15.3-f0b7d201`**（版本字串不能代替 build 報告——白送的論證）；stock＝p4-guide 安裝器 configure 逐字、fast＝官方建議＋三自加旗標（`-march=native` ⇒ 僅功能等價可重建）；⚠️ bmv2 **逐臂符號簽名僅 ①，②③＝argv＋fabric 連續性**（N-2 v2）；機器全格＝內部檔 `MACHINE-ENV.md`（poster 審查線，僅本地；Ultra 5 125U、kernel 7.0.0-30、iperf3 3.16、**無定頻無 pinning**、開機 08-24 早於全部量測窗） | FINDINGS 檔頭＋arm meta＋`audit/bmv2-binary-provenance.md` |
 
 **① 收案附記（兩輪一組，正本 `single-switch-build-ratio/FINDINGS.md`＋`FINDINGS-1b.md`）**：
 (a) **①→①b＝同一個數字、兩種身分**：① 的 fast 兩臂在註冊梯頂 360 仍乾淨、從未觸及
@@ -362,7 +362,7 @@ utime+stime 差分。**smoke 揭露補記（013c629）**：其 fast 臂 external
 stock 臂 0.0911 在 ① 範圍內、階同讀 45 不受影響）⇒ **階翻轉帶有已記錄的環境
 共變量，更不構成對 360 的反證**——引用本 smoke 必帶此條；「報區間不報階」
 的理由再加一分（360 的階答案連 ≈0.07 的 external 差都扛不住）。
-正本＝`audit/2026-08-29_europ4-poster-review/smoke/`。
+正本＝內部檔（poster 審查線 `smoke/`，僅本地）。
 
 **② 收案附記（三條獨立支持＋三條屬於結果的但書，正本 `packet-size-sweep/FINDINGS.md` §2/§4/§5）**：
 支持——(a) **六臂全部在同一階（110 kpps）截斷**，而截斷規則（連續兩階 loss>25%）只看
@@ -394,16 +394,17 @@ loss、**對 frame size 全盲**；三個尺寸在該階的 bit rate 差 16×—
 不與 cell 共線；鏡像序仍保護 pass 內比較、兩 pass 各自單調 ⇒ 主結論不受影響。
 `NO_MEASUREMENT` 非隨機缺失（只在 n=16 高階，iperf3 控制通道死於被量的壅塞本身）。
 
-**圖（08-29 補；每個數字的出處在 `2026-08-29_europ4-poster-abstract/make_figs.py` 的註解，
-重生用 `.plotvenv` 直譯器）**：
+**圖（08-29 補；08-30 圖檔移入 repo 至 `2026-08-29_bmv2-performance-study-figs/`——
+與 poster 驗收版同一批檔案。生成腳本＝內部檔（poster 線，僅本地），每個數字的出處
+在其註解；重生用 `.plotvenv` 直譯器）**：
 
-![③ 每流最高乾淨速率——兩臂各自單調；橫格線＝梯階（相鄰一階＝解析度）](2026-08-29_europ4-poster-abstract/figs/fig2_perflow_monotone.png)
+![③ 每流最高乾淨速率——兩臂各自單調；橫格線＝梯階（相鄰一階＝解析度）](2026-08-29_bmv2-performance-study-figs/fig2_perflow_monotone.png)
 
-![② 同一批乾淨階資料的兩種講法——pps 變 1.25×、bit rate 變 16.0×](2026-08-29_europ4-poster-abstract/figs/fig1_unit_ambiguity.png)
+![② 同一批乾淨階資料的兩種講法——pps 變 1.25×、bit rate 變 16.0×](2026-08-29_bmv2-performance-study-figs/fig1_unit_ambiguity.png)
 
-![① 兩個工作點——單跳 R=8.0（區間 5.14–12.0）與三跳 pilot 12×](2026-08-29_europ4-poster-abstract/figs/fig3_build_two_working_points.png)
+![① 兩個工作點——單跳 R=8.0（區間 5.14–12.0）與三跳 pilot 12×](2026-08-29_bmv2-performance-study-figs/fig3_build_two_working_points.png)
 
-![文獻 spread ~2,500× 對比我們同機 build A/B 的 8×；量類混雜且多未載明——那本身就是 §5-6 的論點](2026-08-29_europ4-poster-abstract/figs/fig4_literature_spread.png)
+![文獻 spread ~2,500× 對比我們同機 build A/B 的 8×；量類混雜且多未載明——那本身就是 §5-6 的論點](2026-08-29_bmv2-performance-study-figs/fig4_literature_spread.png)
 
 **改寫規則**：任一工單落在非 H1 結局 ⇒ **§0 的宣稱句子照各 PREREG §4 預寫的方向改**
 （例：① 落 H2 ⇒ C1 改「12× 沿 3-hop 生產路徑」並言明），不得只在內文加但書。
@@ -502,12 +503,16 @@ TSSA 的 64 B 值帶 27–44% loss、在膝蓋之外〕；(b) 這個錯由**我�
 （上界、頂階、解析度、預設值都算）。與 §5-6 同族：§5-6 是「兩個量被混用」，
 本節是「儀器極限被升格為量」。
 
-🆕 **08-30 第四例（反向形狀；這次判準先寫好、攔截成功）**：OvS 同梯對照的**發送端
-backpressure**——veth 回壓把 iperf3 壓到 ~0.96 G 合計，**高階 offered≠sent 而 loss 讀
-clean**＝施加失敗偽裝成「乾淨通過」（前三例是儀器極限偽裝成系統極限；這例方向相反）。
-n=4 名目 best_clean 810 被 validity 欄（`agg_sent ≥ 0.95×n×offered`，auditor 要求逐臂
-**先寫判準再開跑**）濾成 **240**。⇒ 同族第四員、首次由預先判準攔下；教訓＝sender gate
-用 loopback 註冊看不見 veth 回壓，下一輪要直接量「經 datapath 的可施加率」。正本
+🆕 **08-30 第四例（反向形狀）**：OvS 同梯對照的**發送端 throttle**——配置的 **htb 1 G 帽**
+（goodput 上限 ≈971 Mbit @1442B；🔴 08-30 傍晚更正：原記「veth 回壓」錯歸因——OvS fabric
+全程 as-configured 1G-shaped，丟在哪個 qdisc 未逐一定位）把 iperf3 壓到 ~0.96 G 合計，
+**高階 offered≠sent 而 loss 讀 clean**＝施加失敗偽裝成「乾淨通過」（前三例是儀器極限
+偽裝成系統極限；這例方向相反）。n=4 名目 best_clean 810 被 validity 欄
+（`agg_sent ≥ 0.95×n×offered`）濾成 **240**——🔴 更正：這欄是 **auditor 跑完後審 FINDINGS
+時要求補的（事後判準，非預註冊；FINDINGS §6.4）**，原版「判準先寫好、預先攔截」為誤記
+⇒ 同族第四員，且本族四例**全數靠事後檢查抓回、0/4 出自預先判準**。教訓兩層＝
+①sender gate 用 loopback 註冊，看不見 fabric 路徑上的帽——下一輪 gate 要直接量「經
+datapath 的可施加率」；②「判準預先寫死」要落到 PREREG 檢查項才算數，口號攔不住。正本
 `audit/2026-08-30_ovs-flowcount-control/FINDINGS.md` §1/§6。
 
 ### 5-8. 「閘門要先證明會發火，沉默才算證據」——同晚兩個自家實例（進論文方法學）

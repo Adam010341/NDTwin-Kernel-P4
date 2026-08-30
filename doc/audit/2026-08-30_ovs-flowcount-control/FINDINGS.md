@@ -1,20 +1,40 @@
 # FINDINGS——OvS 同梯對照（C3 對照平面半邊；PREREG＋AMENDMENT-1 本目錄）
 
-**2026-08-30 13:44–14:1x 量測；6 無 shaping 臂＋1 shaped 陽性對照。** 執行 `8/29 poster-reviewer`。
-raw＝`raw/`（**audit-raw `a868948`，本地、push 凍結中**）。driver 在 shaped 臂 160M 階被行程重啟殺掉——
-**決定性讀值（45 clean／70/110 大髒）已在盤面上**，缺的只有無資訊的尾階與收尾摘要。
+**2026-08-30 13:44–14:1x 量測；6＋1 臂（原名「無 shaping／shaped 對照」——🔴 實為同 config，見下方更正框）。**
+執行 `8/29 poster-reviewer`。raw＝`raw/`（**audit-raw `a868948`，本地、push 凍結中**）。
+driver 在第七臂 160M 階被行程重啟殺掉——**決定性讀值（45 clean／70/110 大髒）已在盤面上**，
+缺的只有無資訊的尾階與收尾摘要。
+
+> 🔴 **更正（08-30 15:0x，最終驗收時發現；取代 `71e482e` 版的歸因與對照裁定，H-B 主結論不動）**
+> **七支臂全部跑在 as-configured 的 1 Gbit-shaped fabric 上。**「unshaped」臂不存在：
+> `ndt up ovs` 執行的是 **NTG repo 的** `testbed_topo.py`（`/usr/local/sbin/ndtwin-lab:83` 指名；
+> mtime 2026-07-08、`bw=1000` 全在），我 patch 的是 kernel repo 的**同名副本**＝對 fabric 是 no-op。
+> 證據三重：①實跑檔內容（access＋leaf-mid `bw=1000`、spine `bw=10000` 被 Mininet 靜默忽略）；
+> ②n=1/4 高階發送端被壓到 ~0.95–0.96 G ≈ **htb 1 G 的 goodput 上限**（1000×1400/1442≈971 Mbit）；
+> ③08-28 jitter 輪在同一 fabric 直接讀到 htb（`2026-08-28_jitter-working-point/05_layer_attribution.md`：
+> h1-eth1／s3-eth3、overlimits 數百萬）。driver 的 htb 斷言兩次讀 0＝**假陰性**（機制未定位，
+> 待 T-4 窗外 live 釘死）；結構缺陷＝expect-0 側有 die-gate、expect->0 側只有 echo——
+> **有訊息的那一側沒有 gate**。
+> 連帶更正：§2 天花板歸因（veth/softirq→配置的 htb 帽）、§3 陽性對照（空跑＝第七 replicate）、
+> §5 素材句（「shaping removed」拔除；poster :238 已落稿處同步修）。另查明 bmv2 ③ 的 fabric
+> （`p4_proxy/mininet/ntg_bmv2_topo.py`）**無 bw=／TCLink＝unshaped**：兩平面 shaping 不對稱，
+> 方向對 H-B **保守**（OvS 戴 1 G 帽仍 22–45×）。
 
 ## 0. 一句話
 
-**H-B（預註冊分支）：OvS 每流也降，但只降到「~0.96 Gbit 合計天花板 ÷ n」的均分線上——
+**H-B（預註冊分支）：OvS 每流也降，但只降到「合計天花板 ÷ n」的均分線上——
 aggregate 不塌（720–960 Mbit 全程撐住）；bmv2 的 aggregate 自己塌了 10×。
 n=16 每流：OvS 45 vs bmv2 1–2＝22–45×。**
+（🔴 天花板＝**配置的 htb 1 G 帽**的 goodput 上限 ≈971 Mbit，不是有機極限——見更正框。）
 
 ## 1. 每臂結果（validity 欄＝auditor 要求：這階的 clean 是量出來的、還是發送端沒送滿）
 
 「valid」判準（逐階）：`agg_sent ≥ 0.95 × n × offered`。不滿足＝**發送端 backpressure 假象**
-（veth 回壓把 iperf3 壓到 ~960 Mbit 合計，loss 讀 clean 但該階根本沒被施加）——
+（🔴 更正：壓住發送端的是 h1 access link 的 **htb 1 G 帽**——goodput ≈971 Mbit @1442 B frame——
+不是原版寫的「veth 回壓」；iperf3 被壓到 ~960 Mbit 合計、loss 讀 clean 但該階根本沒被施加）——
 「儀器極限偽裝成乾淨」的**反向新形狀**，本輪首見，raw 的 `agg_sent` 欄全程可稽。
+（n=16 髒階 sent 滿載、n=1/4 高階 sent 被壓——同一頂帽下兩種發送端行為，kernel 層機制未定位；
+判準只比對 sent vs offered、不依賴機制，兩種情形都分對了。）
 
 | 臂 | 名目 best_clean | **valid best_clean** | 無效階（offered≠sent） | 頂階確認 | 髒階證據（sent 滿載） |
 |---|---|---|---|---|---|
@@ -28,6 +48,8 @@ n=16 每流：OvS 45 vs bmv2 1–2＝22–45×。**
 
 **鏡像複製：三格兩臂全部同階（540/540、240/240、45/45）＝rung 級零階差。**
 （照 ③ 紀律：這證明階穩定，不證明真值在階內何處。）
+🔴 更正：表中 `n16_shaped` 與其他六臂**同一個 fabric config**（patch no-op，見更正框）——
+它不是對照臂，是第七支 replicate；各臂的「無 shaping」原名一律讀作 **as-configured（1 G-shaped）**。
 
 ## 2. 歸因（雙讀值兌現）
 
@@ -38,16 +60,26 @@ n=16 每流：OvS 45 vs bmv2 1–2＝22–45×。**
 - **n=1 的天花板是收端 socket**：RcvbufErrors 44,392／48,410（a/b），與髒階損失同量級
   ⇒ **540 這個數字是「單收端行程」的極限，不是 OvS datapath 的**（[[jitter-is-the-receiver-not-the-network]] 的再現）。
 - **n=4/16 的損失在 fabric 內**：RcvbufErrors 僅 199–3,586，對髒階數百萬丟包＝滄海一粟
-  ⇒ ~0.96 Gbit 送達天花板位於 OVS kernel datapath／veth 路徑（softirq），不是 socket。
-- ⇒ **對照最乾淨的格＝n=16**（兩平面同為 fabric 限制、同構造、同梯）：**45 vs 1–2**。
+  ⇒ 損失在 fabric 內、不是 socket。🔴 更正：~0.96 Gbit 天花板＝**as-configured htb 1 G shaping
+  的 goodput 上限（≈971 Mbit）**，不是原版寫的「OVS kernel datapath／veth 路徑（softirq）」；
+  具體丟在哪個 qdisc（h1 access egress vs s1→s6 leaf-mid trunk，兩者同為 1 G）未逐一定位。
+- ⇒ **對照最乾淨的格＝n=16**（兩平面同為 fabric 限制、同構造、同梯；OvS 側的 fabric 限制
+  ＝配置帽）：**45 vs 1–2**。
 
-## 3. 陽性對照裁定
+## 3. 陽性對照裁定 —— 🔴 更正：空跑（void），不是命中
 
-預測（PREREG §2）：shaped（htb 1G）n=16 應 clean ≤45、70 髒。**實測 45 clean（3 reps
-中位 0.0156%）、70 @ 18.97% 髒、110 @ 47.2% 髒＝發火位置逐階命中。**
-⚠️ 誠實揭露：無 shaping 臂自帶 ~0.96 G 有機天花板，與 htb 1 G 帽在本工作點**不可分辨**
-（70 階 agg_recv：shaped 954.77 vs unshaped 955.75）——對照證明了讀出鏈看得見 ~1G 級的帽，
-**但無法分辨帽的來源**；分辨帽源不是本輪注冊問題，不影響 §1/§2 的結論。
+原版裁定「shaped（htb 1G）n=16 發火位置逐階命中」**作廢**：patch 是 no-op（更正框），
+「shaped 臂」與六支主臂**同一個 fabric config**——「還原 shaping」這個操縱從未發生，
+對照量不到它。第七臂實際上是**追加 replicate**：70 階 agg_recv 954.77 vs 主臂 955.75（差 0.1%）、
+45/70/110 的 clean／髒邊界與主臂全同＝**階穩定性的追加證據，不是對照證據**。
+原版已揭露「shaped 與 unshaped 在本工作點不可分辨」——現在知道不可分辨的真因：
+**兩臂本來就同 config**。
+
+「讀出鏈看得見 ~1 G 級的帽」改由主臂資料自身承擔：n=1/4 高階 sent-throttle 恰落在 htb
+goodput 上限（≈971）、n=16 髒階損失率與 1 G 帽算術一致（70 階均分預測 ~15%、實測 16.8–19.0%）。
+PREREG 的放棄條款（「shaped n=16 讀不出帽 ⇒ 整輪 instrument-invalid」）**未觸發**——
+帽的簽名處處讀得出；失效的是**操縱**，不是**讀出**。PREREG 沒註冊「對照空跑」這一支
+＝C1「跨界⇒不可分辨」教訓的同族缺口，照實記。
 
 ## 4. 與 bmv2 ③ 對照（同梯、同置放構造、各自 as-configured 控制平面）
 
@@ -60,20 +92,29 @@ n=16 每流：OvS 45 vs bmv2 1–2＝22–45×。**
 - OvS 每流 540→45＝6 階；**與「合計天花板均分」一致**（45×16=720 ≤ 960 < 70×16=1120）。
 - bmv2 每流 160→2／240→1＝10–12 階；**aggregate 自身塌陷**＝超出任何均分模型的下降。
 - n=16 每流差 **22–45×**；且 bmv2 n=16 實測（1–2）比自己單流的均分預測（160/16=10）還低 5–10×。
+- 🔴 更正補充：**兩平面 shaping 不對稱**——OvS 臂在 1 G-shaped fabric（as-configured），
+  bmv2 ③ 的 fabric builder（`p4_proxy/mininet/ntg_bmv2_topo.py`）**無 bw=／TCLink＝unshaped**。
+  方向保守：OvS 戴帽仍 22–45×；bmv2 無帽而 aggregate 自塌（塌到帽以下 30 倍處，帽解釋不了）。
+  表中數字全部不變。
 
 ## 5. 建議落稿句（Adam 已裁「加」；作者 session 措辭，紅線如下）
 
-素材句（可壓縮）：
-> *An OvS control on the same ladder and placement (all $n$ flows on one path, shaping removed)
-> declines only as aggregate-sharing predicts --- per-flow 540/240/45\,Mbit at $n{=}1/4/16$ with
-> the aggregate holding at 0.72--0.96\,Gbit --- whereas bmv2's aggregate itself collapsed an
-> order of magnitude; at $n{=}16$ the per-flow gap is 22--45$\times$.*
+素材句（🔴 更正版——原版的 "shaping removed" 為假，poster :238 已落稿處**必須拔除**）：
+> *An OvS control on the same ladder and placement (all $n$ flows measured onto one path ---
+> switch counters confirm zero ECMP spread --- on its as-configured 1\,Gbit-shaped fabric,
+> a cap the unshaped bmv2 fabric does not have) declines only as aggregate-sharing predicts:
+> per-flow 540/240/45\,Mbit at $n{=}1/4/16$, the $n{=}1$ cell receiver-socket-limited, with
+> the aggregate holding at its configured cap (0.72--0.96\,Gbit delivered) --- whereas bmv2's
+> uncapped aggregate itself collapsed an order of magnitude.*
 
 **紅線**：(a) n=1 的 540 若入文必掛「receiver-socket-limited」——或乾脆只用 n=4/16；
 (b) 不得寫「matched working points」以外延伸（同梯＝真、同置放＝量測證實，就寫這兩件）；
-(c) 兩平面各自 as-configured 控制平面（Ryu vs proxy）照舊揭露；(d) shaped/unshaped 不可
-分辨那條若空間不夠可省（它不動結論），但 study 版要收；(e) smoke 級規模照實
-（3 格×2 臂、單日）；(f) **本輪任何數字不回填 C1/C2**。
+(c) 兩平面各自 as-configured 控制平面（Ryu vs proxy）照舊揭露；(d) 「不可分辨」句已由
+§3 更正取代——poster 不進、study 版收更正後的版本；(e) smoke 級規模照實
+（3 格×2 臂、單日）；(f) **本輪任何數字不回填 C1/C2**；
+(g) 🔴 **不得寫「unshaped」「shaping removed」「有機天花板」**——OvS 臂全程 1 G-shaped，
+aggregate 天花板入文必須歸給配置的帽，且 bmv2 fabric 無帽這個不對稱要見光（方向保守）；
+(h) 🔴 陽性對照不得引用（空跑）。
 
 ## 6. 偏差與限制（誠實清單）
 
@@ -82,18 +123,39 @@ n=16 每流：OvS 45 vs bmv2 1–2＝22–45×。**
    （7 隻 agent 同窗串流；n16_a busy 0.8658 部分屬之）＋作者 session tectonic（13:38±，
    臂前、零重疊）。方向：外來負載**壓低** OvS 讀值 ⇒ 對「OvS 高於 bmv2」的結論是保守方向。
 3. shaped 臂無最終確認輪（driver 被殺於無資訊尾階）；n16_b 有兩個 NO_MEASUREMENT 階。
-4. 發送端 gate 用 loopback 註冊，**沒預見 veth 回壓**——被 §1 validity 欄事後補上；
-   下一輪的 gate 應直接量「經 datapath 的可施加率」。
+4. 發送端 gate 用 loopback 註冊，**沒預見 fabric 端的發送壓制**（🔴 更正：真身＝access htb 帽，
+   非 veth 回壓）——被 §1 validity 欄**事後**補上（判準是 auditor 在跑完後審 FINDINGS 時要求的，
+   不是預註冊的）；下一輪的 gate 應直接量「經 datapath 的可施加率」。
 5. OvS/Ryu 為 as-configured（reactive 學習已 warm）；bmv2 側為 proxy dst-based——
    對照平面本來就不同平面，C3 框架如此。
+6. 🔴 **patch 打錯 repo 副本**：fabric builder＝NTG repo 的 `testbed_topo.py`（`ndtwin-lab:83`
+   指名執行），我 patch＋sha256 指認的是 kernel repo 的同名副本＝no-op。py_compile／diff／sha
+   斷言全打在「檔案」上，沒有一個打在「fabric」上——「指認量到的 binary」教訓的拓撲檔版本。
+7. 🔴 **htb 斷言假陰性 ×2**：`sudo -n tc -s qdisc show | grep -c htb` 兩次讀 0，而 08-28 jitter
+   輪在同 fabric 直接讀到 htb、且本輪 0.96 G 簽名證明帽在。讀 0 的機制未定位（待 T-4 窗外
+   live 釘死——**只用唯讀指令，量測動作不得再碰 fabric 形狀**，auditor 提醒）；
+   結構缺陷＝expect-0 側有 die-gate、expect->0 側只有 echo——有訊息的那側沒 gate。
+8. 🔴 發現時序：6/7 兩條是 08-30 15:0x 最終驗收時發現，**在 auditor 收案（`71e482e` 審過）之後
+   ——auditor 已撤回該簽收（帳本 §14），本更正版的 commit message 引用「收案與推翻範圍」時
+   一併引撤回**。audit-raw `a868948` 的 commit message（"six unshaped arms, one shaped cell
+   that fired on cue"）措辭錯誤——sha 不動，由後續 commit 註記更正。
+   （commit 時序：T-4 claim 至 16:18:45、可能續 T-6——**commit 前拉式重讀 claim，`claim=none` 才動**。）
 
-## 7. Provenance
+## 7. Provenance —— 🔴 更正版（原版 identifier 指錯對象，整段重寫）
 
+fabric builder＝**`/home/adam/Network-Traffic-Generator/testbed_topo.py`**（`ndtwin-lab:83`
+指名執行）：sha256 前 16＝`ead4d84a862ccd94`（工作樹現行）、mtime 2026-07-08、NTG git
+`057c1e5`＋工作樹 M（M 的 diff 僅 sys.path／CLI 註解／`config_file_path` 參數名——`bw=`
+未被碰）⇒ 量測窗當時即此內容。shaping＝access＋leaf-mid `bw=1000`（htb）、spine
+`bw=10000`（Mininet 靜默忽略）＝**七臂全程如此**。
+原版寫的 `unshaped ca4de8ae／restored e2079a59`＝**kernel repo 副本** `testbed_topo.py` 的
+sha256 前 16（patched／原始兩態，driver stdout 逐字可稽）——該副本**不參與 fabric**，記錄
+僅作為「driver 實際做了什麼」的稽核線索（patch diff＝`raw/topo_patch.diff`；副本還原
+byte-exact 由 git 可證：檔自 `7b7f520` 後無 commit、輪前輪後工作樹均＝HEAD）。
 OVS 3.3.0（`ovs-vsctl --version`，arm.meta 逐臂）；kernel module openvswitch（modinfo 記錄）；
 Linux 7.0.0-30-generic／Core Ultra 5 125U（`MACHINE-ENV`）；iperf3 3.16；1400 B payload；
-topo builder `testbed_topo.py` unshaped sha `ca4de8ae`／restored `e2079a59`（patch diff＝
-`raw/topo_patch.diff`）；gates（loopback n=1/4/16）＝7311/21361/38258 Mbit（`raw/gates.tsv`）；
-fabric `ndt up ovs`×2（unshaped／shaped，各 log 在 raw）；量測窗 claim `8/29 poster-reviewer`
-13:38–14:1x，窗內零 commit。
+gates（h1 loopback，htb 不參與）＝7311/21361/38258 Mbit（`raw/gates.tsv`）；fabric
+`ndt up ovs`×2（🔴 兩次**同 config**，各 log 在 raw）；量測窗 claim `8/29 poster-reviewer`
+13:38–14:1x，窗內零 commit。driver 全程 stdout＝`drive_ovs.log`（本目錄，待窗開後補進 audit-raw）。
 
 [Co-developed with claude code -- Adam]
