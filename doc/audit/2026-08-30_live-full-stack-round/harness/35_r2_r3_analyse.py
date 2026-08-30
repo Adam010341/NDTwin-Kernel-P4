@@ -85,15 +85,37 @@ def find_paths(container):
 
     After the first live run, replace this with the real key.  Until then every result carries
     the key name it was derived from.
+
+    [Co-developed with claude code -- Adam]
+    FIXED 2026-08-30 (T-10).  The candidate list did not contain `all_destination_paths`, which
+    is the REAL name -- it is the key `ndt`'s own verify_p4 reads
+    (`curl .../ryu_server/all_destination_paths | json_len all_destination_paths`) and the one
+    `40_r5_p4.sh` probes.  A body keyed that way walked straight past every branch and this
+    function returned an empty dict, which downstream reads as "no paths changed".
+
+    🔑 Same defect family as R-1's wrong-name search: the search terms were reconstructed from
+    what the key *ought* to be called rather than copied from what the software calls it, and a
+    zero hit then means "nobody uses my word", not "nothing is there".  The tolerant walk was
+    supposed to make the name not matter, and it does not -- a tolerant search over the wrong
+    vocabulary is still the wrong search.
     """
     found = {}
     used = set()
 
+    # Ordered longest-first only for readability; matching is exact against the lowered key.
+    PATH_KEYS = (
+        "all_destination_paths",   # THE REAL ONE (ndt verify_p4; 40_r5_p4.sh)
+        "destination_paths",
+        "flowpath",
+        "flow_path",
+        "path",
+        "paths",
+    )
+
     def walk(node, trail):
         if isinstance(node, dict):
             for k, v in node.items():
-                if isinstance(k, str) and k.lower() in (
-                        "flowpath", "flow_path", "path", "paths"):
+                if isinstance(k, str) and k.lower() in PATH_KEYS:
                     found[".".join(trail) or "<root>"] = digest(v)
                     used.add(k)
                 else:

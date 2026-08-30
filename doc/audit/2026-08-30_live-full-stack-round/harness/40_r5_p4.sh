@@ -78,9 +78,45 @@ gate "bmv2 switches are running" "$( [[ "${BMV2_N:-0}" -gt 0 ]] && echo 0 || ech
 # thing to judge on rather than the reassuring console line above it -- but only if it is ours.
 require_absent_or_fresh "$P4_MANIFEST" "$(sig_of "$P4_MANIFEST")"
 if [[ -f "$P4_MANIFEST" ]]; then
-    MAN_N="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(len(d) if isinstance(d,list) else len(d.get("switches",[])))' "$P4_MANIFEST" 2>/dev/null || echo '?')"
-    info "manifest lists $MAN_N switch(es)"
-    gate "manifest count matches running bmv2 count" "$( [[ "$MAN_N" == "${BMV2_N:-0}" ]] && echo 0 || echo 1 )" "manifest=$MAN_N procs=${BMV2_N:-0}"
+    # [Co-developed with claude code -- Adam]
+    # FIXED 2026-08-30 (T-10). This read `d.get("switches", [])` for the non-list case. The
+    # manifest is NOT shaped that way: p4_testbed_topo.py:458-469 writes a dict keyed by switch
+    # name -- {"s1": {...}, ..., "s10": {...}} -- with no "switches" key anywhere. So `.get`
+    # returned its default, `len([])` gave a confident **0**, and that 0 was fed straight into a
+    # gate. A missing key produced a number rather than an error, and the number was then
+    # compared to the bmv2 process count as if it had been measured.
+    # 🔑 The dangerous half is not the wrong answer, it is that `.get(k, default)` converts
+    #    "this file is not what I think it is" into "the value is zero".
+    # The shape is now read explicitly and anything unrecognised RAISES.
+    MAN_N="$(python3 -c '
+import json,sys
+d = json.load(open(sys.argv[1]))
+if isinstance(d, list):
+    # Legacy shape. Kept because an old manifest on disk must not silently score 0.
+    print(len(d))
+elif isinstance(d, dict) and "switches" in d:
+    print(len(d["switches"]))
+elif isinstance(d, dict) and not d:
+    # An empty manifest is a REAL state, not a broken one: p4_testbed_topo.py writes only the
+    # switches that passed verification, so {} means "none did". It must not be silently
+    # equivalent to the unrecognised-shape case below, and it must not be quietly compared to a
+    # nonzero process count as if it had been read successfully.
+    raise SystemExit("manifest is an empty object: ZERO switches passed verification. "
+                     "This is a fabric result, not a parse failure -- every bmv2 process that "
+                     "is running is one the topology script declined to vouch for.")
+elif isinstance(d, dict) and all(isinstance(v, dict) and "pid" in v for v in d.values()):
+    # The shape p4_testbed_topo.py actually writes: name -> {pid, device_id, grpc_port, ...}
+    print(len(d))
+else:
+    raise SystemExit("unrecognised manifest shape: %s with keys %r -- refusing to guess a count"
+                     % (type(d).__name__, list(d)[:5] if hasattr(d, "__iter__") else d))
+' "$P4_MANIFEST" 2>"$OUT/manifest_shape_error.txt" || echo '?')"
+    if [[ "$MAN_N" == "?" ]]; then
+        bad "the manifest at $P4_MANIFEST could not be counted -- its shape is not one this script recognises. This is NOT 'zero switches'; it is 'the file is not what we think it is'. See $OUT/manifest_shape_error.txt. Do not draw a conclusion about the fabric from it."
+    else
+        info "manifest lists $MAN_N switch(es)"
+        gate "manifest count matches running bmv2 count" "$( [[ "$MAN_N" == "${BMV2_N:-0}" ]] && echo 0 || echo 1 )" "manifest=$MAN_N procs=${BMV2_N:-0}"
+    fi
 fi
 require_absent_or_fresh "$KLOG" "$(sig_of "$KLOG")"
 

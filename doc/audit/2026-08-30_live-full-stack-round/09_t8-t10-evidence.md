@@ -663,3 +663,77 @@ replacement also records the `agy` contamination, so the P4-vs-OVS comparison ca
 from this script as controlled.
 
 Predictions P12 and P13: **both held**.
+
+---
+
+## §2.9 — T-10: two gates that answered confidently from the wrong place
+
+### `40_r5_p4.sh` — a missing key counted as zero switches
+
+The manifest is written by `p4_testbed_topo.py:458-469` as a dict **keyed by switch name** —
+`{"s1": {...}, …, "s10": {...}}` — with no `switches` key anywhere. The gate read
+`d.get("switches", [])`, got its default, and `len([])` produced a confident **0**, which went
+straight into a comparison against the bmv2 process count.
+
+```
+manifest shape                                           NEW            OLD (09c9b03)
+--------------------------------------------------------------------------------------------
+the REAL shape: 10 switches keyed s1..s10                10             0
+legacy list of 10                                        10             10
+wrapped: {"switches":[...3 items...]}                    3              3
+genuinely empty dict {}                                  ?              0
+unrecognised: {"version":2,"nodes":[]}                   ?              0
+not JSON at all                                          ?              ?
+
+=== the gate, both directions, against the real shape (10 bmv2 processes running) ===
+  PASS  manifest count matches running bmv2 count (manifest=10 procs=10)
+  FAIL  the manifest could not be counted -- shape not recognised. NOT 'zero switches'.
+  --- and the OLD behaviour on that same real manifest, for comparison ---
+  FAIL  manifest count matches running bmv2 count (manifest=0 procs=10)  <- a gate failing on a fabric that is FINE
+```
+
+🔑 The dangerous half is not the wrong answer. It is that `.get(k, default)` converts *"this file
+is not what I think it is"* into *"the value is zero"* — a parse failure wearing a measurement's
+clothes. Unrecognised shapes now **raise**, and the caller reports it as *"the file is not what
+we think it is"*, explicitly not as zero switches.
+
+**An empty manifest gets its own branch**, added after the first run of this test showed `{}`
+falling into the generic unrecognised case. `{}` is a real fabric result — the topology script
+writes only switches that passed verification, so `{}` means none did — and conflating it with a
+parse failure would lose exactly the information an operator needs:
+
+```
+--- empty {} error message ---
+manifest is an empty object: ZERO switches passed verification. This is a fabric result, not a
+parse failure -- every bmv2 process that is running is one the topology script declined to vouch for.
+--- unrecognised shape error message ---
+unrecognised manifest shape: dict with keys ['version', 'nodes'] -- refusing to guess a count
+```
+
+Prediction P10: **held**.
+
+### `35_r2_r3_analyse.py` — `find_paths` never tried the real name
+
+```
+body                                                 NEW (found / keys)           OLD (09c9b03)
+------------------------------------------------------------------------------------------------
+the REAL key (ndt verify_p4 / 40_r5_p4.sh)           1 / ['all_destination_paths'] 0 / -
+destination_paths (near-miss variant)                1 / ['destination_paths']    0 / -
+flow_path (previously covered -- must not regress)   1 / ['flow_path']            1 / ['flow_path']
+path (previously covered -- must not regress)        1 / ['path']                 1 / ['path']
+nothing path-like at all (must find nothing)         0 / -                        0 / -
+```
+
+`all_destination_paths` is the key `ndt`'s own `verify_p4` reads and the one `40_r5_p4.sh`
+probes, and it was absent from the candidate list. A body keyed that way walked past every
+branch and the function returned `{}`, which downstream reads as *"no paths changed"*.
+
+🔑 Same family as R-1's wrong-name search: the terms were reconstructed from what the key *ought*
+to be called rather than copied from what the software calls it. **The tolerant walk was supposed
+to make the name not matter, and it does not** — a tolerant search over the wrong vocabulary is
+still the wrong search, and it fails silently rather than erroring.
+
+The last row is the control that matters: adding names must not turn the search into a sieve. A
+body with nothing path-like still finds nothing.
+
+Prediction P11: **held**.
