@@ -152,7 +152,10 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 > ⚠️ **這張表是 `6f32bca` 時期的快照，行號與連結已經漂移**（2026-08-12 B2 首次指出，2026-08-13
 > 機械掃描複驗）。**每一條的判斷仍然成立，錯的只有定位**。已知失效的兩個：
 > `P4RoutingStrategy.cpp#L29-L33`（該檔現在只有 29 行）、`tests/test_P4RoutingStrategy.cpp`
-> （這個測試從未被寫出來）。**要照這張表找程式碼請用符號名 grep，不要用行號。**
+> （**2026-08-30 更正：原本寫「這個測試從未被寫出來」是錯的。**它由 `6f32bca` 新增、59 行，
+> 在 `7856efc` 與 `test_OpenFlowRoutingStrategy.cpp` 一起刪除，兩者合併成
+> `tests/test_RoutingStrategies.cpp`。結論「連結已失效」不變，錯的是理由）。
+> **要照這張表找程式碼請用符號名 grep，不要用行號。**
 
 | # | 問題 | 位置 |
 |---|---|---|
@@ -164,7 +167,7 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 | 6 | ~~**P4 關機功能有兩個錯。** `sudo mnexec -a s1 …` 裡的 `mnexec -a` 要的是 **PID**，不是名字，所以這行指令根本不會執行；而且就算能執行，`pkill -f simple_switch_grpc` 會把**十台 switch 全部殺掉**（Mininet 的 node 共用 PID namespace）。至於 `powerOn`，它是個什麼都沒做就回傳 `true` 的空殼。~~ **✅ 已於 Phase 7 修掉（`624946d`／`1978292`）**：`powerOff` 走 root helper，只對 manifest 記載的那一個 PID 送 SIGTERM（送之前再對 `/proc` 驗一次），`powerOn` 重新啟動同一台並要求 proxy readopt，兩者都回誠實的 `OpResult`。`pkill` 是整條路徑的禁字，理由寫在 `P4PowerStrategy.cpp` 檔頭的匿名 namespace 註解裡。 | `P4PowerStrategy::powerOn` / `powerOff` |
 | 7 | **所有南向的失敗都看不見。** `curl -s` 沒加 `--fail`、回傳值被丟掉、介面回傳型別是 `void`、proxy 無條件回 `True`、`p4_client` 把所有 gRPC `UNKNOWN` 都吞掉。結果 proxy 掛掉和安裝成功，從 kernel 的角度看起來一模一樣。 | [P4RoutingStrategy.cpp:17](../src/ndt_core/routing_management/P4RoutingStrategy.cpp#L17), `topology_manager.py:108`, `p4_client.py:216-217` |
 | 8 | **每下一條規則就完整複製一份整張 BGL 圖，再做一次 O(V) 線性搜尋。** 而且每個 DPID 各有一條 worker thread，全部搶同一把 shared mutex。重構前這個成本是 0；現在一批 2000 筆規則就會複製整張圖 2000 次。 | [FlowRoutingManager.cpp:52-56](../src/ndt_core/routing_management/FlowRoutingManager.cpp#L52-L56) |
-| 9 | **兩個 test fixture 會互相干擾，而且測試內容就是在確認那個 bug。** 兩個 fixture 都在 `SetUpTestSuite` 裡呼叫 `Logger::init`，所以當它們跑在同一個 process 時，第二次會丟出 `logger with name 'netdt' already exists`，該 suite 的測試被 SKIPPED（整個 binary exit 1）。`ctest` 讓每個測試跑在獨立 process 且各帶 `--gtest_filter`，於是這個條件從未成立 —— 那些測試在 ctest 下是真的有跑也真的通過，只是「多 suite 共用 process」這個情境永遠沒被驗到。而測試裡的斷言，是把問題 #2（複製品的行為）當成正確行為寫死。 | [test_P4RoutingStrategy.cpp:27-32](../tests/test_P4RoutingStrategy.cpp#L27-L32), [Logger.cpp:68](../src/utils/Logger.cpp#L68) |
+| 9 | **兩個 test fixture 會互相干擾，而且測試內容就是在確認那個 bug。** 兩個 fixture 都在 `SetUpTestSuite` 裡呼叫 `Logger::init`，所以當它們跑在同一個 process 時，第二次會丟出 `logger with name 'netdt' already exists`，該 suite 的測試被 SKIPPED（整個 binary exit 1）。`ctest` 讓每個測試跑在獨立 process 且各帶 `--gtest_filter`，於是這個條件從未成立 —— 那些測試在 ctest 下是真的有跑也真的通過，只是「多 suite 共用 process」這個情境永遠沒被驗到。而測試裡的斷言，是把問題 #2（複製品的行為）當成正確行為寫死。 | [test_RoutingStrategies.cpp](../tests/test_RoutingStrategies.cpp)（原指 `test_P4RoutingStrategy.cpp:27-32`，`7856efc` 併入此檔，行號未沿用）, [Logger.cpp:68](../src/utils/Logger.cpp#L68) |
 | 10 | 設定錯了不會有任何提示：未知的 DPID 或拼錯的 `brand_name`，都會**安靜地**退回用 Ryu，連一行 log 都沒有。`"BMv2"` 這個字串散在 3 個地方。而判斷是 P4 還是 OVS 的方式，竟然是對*檔名*做大小寫敏感的子字串比對。 | [FlowRoutingManager.cpp:57-64](../src/ndt_core/routing_management/FlowRoutingManager.cpp#L57-L64) |
 | 11 | `P4_PROXY_IP_AND_PORT` 只寫在被 gitignore 的 `setting/AppConfig.hpp`，**沒有**寫進 `AppConfig.hpp.example`。所以別人重新 clone 下來會編譯失敗。 | `setting/AppConfig.hpp.example` |
 | 12 | `NDTWIN_TOPO_FILE` 這個環境變數，4 個該用的地方只有 1 個真的用了。`setVertexDeviceName`／`setVertexNickname` 會去讀 `TOPOLOGY_FILE_MININET`，*然後用 rename 覆寫它*。所以你在 P4 環境下改一個裝置名稱，會**把 OVS 的拓撲 JSON 弄壞**。 | [TopologyAndFlowMonitor.cpp:1284-1291](../src/ndt_core/collection/TopologyAndFlowMonitor.cpp#L1284-L1291), [:1372-1379](../src/ndt_core/collection/TopologyAndFlowMonitor.cpp#L1372-L1379) |

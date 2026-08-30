@@ -1418,7 +1418,7 @@ head 仍是 **`04b8933`**，branch `fix/flow-rate-divide-by-zero`，**本輪 0 �
 `scratch/round5/PLAN-deepseek.md` 與 `PLAN-muse.md` 的**內文**（只讀了實驗標題清單）、
 `scratch/round6/FINDINGS-round6.md`（只讀了 agent 的回報摘要，**沒有打開 977 行本文**）、
 `scratch/phase2/DEFECT-INVENTORY.md`（~870 行，subagent 產出，只讀回報）、
-`doc/2026-08-13_advanced-testing-research/REPORT.md`、`doc/2026-01-02_ndt_api.md`。
+`doc/audit/2026-08-13_advanced-testing-research/REPORT.md`、`doc/2026-01-02_ndt_api.md`。
 
 ---
 
