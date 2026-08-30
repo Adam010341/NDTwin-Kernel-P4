@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.73, port 5408
+[  7] local 10.0.0.9 port 52004 connected to 10.0.0.73 port 5408
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  38847  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  0.000 ms  0/38847 (0%)  sender
+[  7]   0.00-90.01  sec  51.1 MBytes  4.76 Mbits/sec  1.123 ms  1866/38847 (4.8%)  receiver
+
+iperf Done.

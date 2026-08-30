@@ -1,0 +1,6 @@
+{"t":"2026-08-30T13:41:44Z","verdict":"pass","script":"traffic_start","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T13:41:44Z","verdict":"abort","script":"traffic_start","text":"no namespace for h65"}
+{"t":"2026-08-30T13:42:31Z","verdict":"pass","script":"traffic_start","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T13:42:31Z","verdict":"pass","script":"traffic_start","text":"2 base pairs launched (server+client each, all pids recorded)"}
+{"t":"2026-08-30T13:42:31Z","verdict":"pass","script":"traffic_start","text":"churn loop launched (pid 589765), pair list accumulates in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm3-p4-4/traffic_pairs.tsv"}
+{"t":"2026-08-30T13:51:17Z","verdict":"pass","script":"traffic_report","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}

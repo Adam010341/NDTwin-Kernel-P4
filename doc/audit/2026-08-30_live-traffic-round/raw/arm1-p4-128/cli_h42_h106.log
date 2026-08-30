@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.106, port 5411
+[  7] local 10.0.0.42 port 49883 connected to 10.0.0.106 port 5411
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  38846  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  0.000 ms  0/38846 (0%)  sender
+[  7]   0.00-90.02  sec  49.8 MBytes  4.64 Mbits/sec  1.910 ms  2796/38846 (7.2%)  receiver
+
+iperf Done.

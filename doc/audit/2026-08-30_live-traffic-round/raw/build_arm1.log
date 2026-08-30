@@ -1,0 +1,44 @@
+=== build started 2026-08-30T12:25:34Z ===
+HEAD: 1208d2216e7e0e7b2cb53681df9e07b690677e0c
+dirty(tracked): 0 file(s)
+ninja: Entering directory `build'
+[1/6] Building CXX object src/ndt_core/event_handling/CMakeFiles/NdtCore_EventHandlingLib.dir/ControllerAndOtherEventHandler.cpp.o
+[2/6] Linking CXX static library lib/libNdtCore_EventHandlingLib.a
+[3/6] Building CXX object CMakeFiles/ndtwin_kernel.dir/src/main.cpp.o
+[4/6] Building CXX object src/ndt_core/http/CMakeFiles/NdtCore_HttpLib.dir/HttpSession.cpp.o
+[5/6] Linking CXX static library lib/libNdtCore_HttpLib.a
+[6/6] Linking CXX executable bin/ndtwin_kernel
+pre-build sha256:  66f437a56dd09a91311b7acf18b59ae07ff86e0e1e7f3bcfccd7724c69be0e42
+=== foreground build 2026-08-30T12:26:22Z ===
+ninja: Entering directory `build'
+ninja: no work to do.
+ninja rc=0
+post-build sha256: 66f437a56dd09a91311b7acf18b59ae07ff86e0e1e7f3bcfccd7724c69be0e42
+🔴 BUILD DID NOT CHANGE THE BINARY
+
+=== CORRECTION, written 2026-08-30T12:29Z, before any measurement ===
+The "BUILD DID NOT CHANGE THE BINARY" line above is MY ERROR, not a finding.
+Sequence of what actually happened:
+  1. 12:25:34Z a setsid'd `ninja -C build -j10 ndtwin_kernel` was started. It ran SIX steps
+     (see [1/6]..[6/6] above), including relinking bin/ndtwin_kernel, against HEAD 1208d22.
+  2. I read the log ~3 s in, saw only "Entering directory", and wrongly concluded the detached
+     build had died. (Reading a log once and concluding from absence -- H-24, again.)
+  3. I then took PRE=sha256 -- which was already the POST value of step 1 -- and re-ran ninja,
+     which correctly said "no work to do". PRE==POST followed by construction.
+What the evidence actually supports, and it is the stronger statement:
+  * A full rebuild from HEAD 1208d22's source at 12:25Z produced a binary BYTE-IDENTICAL to the
+    one dated 14:01 local. Determinism aside, that means the 14:01 build already contained every
+    source change through 87d272f (T-7b release_lock/renew_lock).
+  * The three source files whose mtime was NEWER than the binary
+    (src/ndt_core/http/HttpSession.cpp, include/.../LockManager.hpp, include/.../HttpSession.hpp)
+    differ from HEAD by nothing -- `git diff HEAD -- <them>` is empty. Their mtimes were bumped by
+    the branch-surgery re-checkout, not by an unbuilt edit.
+  * So: mtime said "3 files are newer than the binary" and the honest reading of that was
+    "possibly stale". Content says "not stale". memory: benchmark-must-name-the-binary-it-measured
+    -- mtime does not even give a lower bound. This round's binary is identified by sha256 and by
+    a from-source rebuild, never by date.
+BINARY UNDER TEST (arm 1): build/bin/ndtwin_kernel
+  sha256 66f437a56dd09a91311b7acf18b59ae07ff86e0e1e7f3bcfccd7724c69be0e42
+  source identifier: git commit 1208d22 (a SOURCE id, not a build id), worktree clean of tracked changes
+  reproduced by rebuild at 2026-08-30T12:25:34Z
+[Co-developed with claude code -- Adam]

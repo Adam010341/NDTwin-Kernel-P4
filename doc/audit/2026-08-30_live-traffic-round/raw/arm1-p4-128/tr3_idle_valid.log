@@ -1,0 +1,29 @@
+===== TR-3 F-5 exposure window (idle-valid)  2026-08-30T12:54:27Z =====
+      kernel: http://localhost:8000
+
+----- control: can this instrument see a rule that exists? -----
+      install valid rule (priority 902): http=200 err=None in 19 ms
+      table view: 1282 entries, read from flattened dpid->flows[table][] over 10 switch wrapper(s); priority-902 real=0 phantom=0
+      entries classified 'real' anywhere in the view: 1282
+  PASS  CONTROL A: 1282 real programmed entries are visible and are distinguished from phantoms structurally, so absence below means absence.
+  N/A   OBSERVATION: 6 s after a 200 the valid rule is absent entirely -- neither phantom nor programmed.
+      subject: valid rule (OUTPUT port 2)
+
+----- rep 0: priority 910 -> 10.0.0.200, POST http=200 in 2 ms -----
+      phantom visible from 46 ms to 6849 ms (159 samples, median gap 52 ms)
+
+----- rep 1: priority 911 -> 10.0.0.201, POST http=200 in 2 ms -----
+      phantom visible from 41 ms to 1987 ms (118 samples, median gap 544 ms)
+
+----- TR-3 summary (idle-valid) -----
+ rep  prio  first_ms   last_ms   gap_ms  note
+   0   910        46      6849       52  measured
+   1   911        41      1987      544  measured
+
+phantom observed in 2/2 rep(s).
+RESOLUTION: the gap column is this instrument's own sampling period. A window reported
+as 0 ms means 'present in the first sample after the POST returned' -- the POST's own
+round trip is already inside it and is NOT subtracted.
+
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/tr3_f5_window_idle-valid.tsv
+           /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/tr3_f5_window_idle-valid.jsonl

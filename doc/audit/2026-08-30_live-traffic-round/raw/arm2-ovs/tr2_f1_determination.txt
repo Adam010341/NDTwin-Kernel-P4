@@ -1,0 +1,15 @@
+TR-2 / F-1 determination -- OVS arm, after 300 s of churning traffic (15 new pairs)
+
+  dpid 1: 130 flows = 128 destination routes + 2 punt rules
+     punt: prio=65535 match={'dl_dst': '01:80:c2:00:00:0e', 'dl_type': 35020} packets=671 bytes=40260 up=594s
+     punt: prio=0 match={} packets=648 bytes=63663 up=594s
+
+across 10 switches: 1300 flows, 1280 destination routes, 20 punt (OUTPUT:CONTROLLER) rules
+
+VERDICT INPUTS -- TR-2 registered a break condition requiring these two to be separated:
+  (a) the punt path is BYPASSED           -> supported: every one of the 128 destinations
+      already has a route on every switch BEFORE any traffic ('paths=installed' at
+      bring-up, 52 s). A never-before-used src->dst pair cannot miss a table it is
+      already in, so churn cannot manufacture a table-miss.
+  (b) the INSTRUMENT cannot see it        -> refuted: the punt rules are visible, and they
+      carry non-zero counters, so this reader can see the punt path when it is used.

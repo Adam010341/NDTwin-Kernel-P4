@@ -1,0 +1,15 @@
+# OVS arm: is a flow DETECTED while traffic runs? (the precondition for F-1's path walk)
+21:34:35  flows=11    edge_not_found=0
+21:34:45  flows=13    edge_not_found=0
+21:34:55  flows=8     edge_not_found=0
+21:35:05  flows=8     edge_not_found=0
+21:35:15  flows=9     edge_not_found=0
+21:35:25  flows=9     edge_not_found=0
+21:35:35  flows=9     edge_not_found=0
+21:35:45  flows=11    edge_not_found=0
+21:35:55  flows=10    edge_not_found=0
+21:36:05  flows=10    edge_not_found=0
+21:36:15  flows=10    edge_not_found=0
+21:36:25  flows=10    edge_not_found=0
+21:36:35  flows=10    edge_not_found=0
+21:36:45  flows=10    edge_not_found=0

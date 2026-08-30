@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.65, port 5299
+[  7] local 10.0.0.1 port 54908 connected to 10.0.0.65 port 5299
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-8.00   sec  95.4 MBytes   100 Mbits/sec  69053  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-8.00   sec  95.4 MBytes   100 Mbits/sec  0.000 ms  0/69053 (0%)  sender
+[  7]   0.00-8.00   sec  95.3 MBytes  99.9 Mbits/sec  0.023 ms  30/69053 (0.043%)  receiver
+
+iperf Done.

@@ -1,0 +1,13 @@
+# TR-1 gate probe: /ndt/get_detected_flow_data under live traffic
+20:36:53  flows=8            h1_tx=127255892
+20:37:01  flows=8            h1_tx=137004962
+20:37:08  flows=9            h1_tx=146238492
+20:37:15  flows=9            h1_tx=155422852
+20:37:22  flows=9            h1_tx=164988652
+20:37:30  flows=9            h1_tx=174478462
+20:37:37  flows=9            h1_tx=183951882
+20:37:45  flows=11           h1_tx=193531092
+20:37:52  flows=11           h1_tx=203083482
+20:38:00  flows=10           h1_tx=212847452
+20:38:07  flows=10           h1_tx=222721682
+20:38:15  flows=12           h1_tx=232536312

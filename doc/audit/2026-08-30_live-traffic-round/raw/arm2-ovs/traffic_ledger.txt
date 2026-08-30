@@ -1,0 +1,19 @@
+ledger window 794s; rates use each pair's own on-air time (base 840s, churn 90s). Counters are namespace netdev, read inside each host.
+pair          kind      asked   offered  delivered   loss%
+h1->h65       base         10      5.51       5.51    -0.0
+h2->h97       base         10      5.51       5.51    -0.0
+h33->h66      base         10      5.51       5.51    -0.0
+h34->h98      base         10      5.51       5.51    -0.0
+h3->h35       base         10      5.51       5.51    -0.0
+h67->h99      base         10      5.51       5.51    -0.0
+h4->h100      base         10      5.51       5.51    -0.0
+h36->h68      base         10      5.51       5.51    -0.0
+h5->h69       churn         5     10.29      10.29    -0.0
+h6->h101      churn         5     10.29      10.29    -0.0
+TOTAL                             64.68      64.69
+
+offered  = tx_bytes delta on the SOURCE host's own eth0, i.e. bytes that entered the fabric.
+delivered= rx_bytes delta on the DESTINATION host's eth0, i.e. bytes the fabric carried out.
+Neither number comes from iperf3. A host's rx also counts churn traffic addressed to it and
+any ARP/LLDP it receives, so per-pair loss% is a bound, not an exact figure; the TOTAL row
+is the one PREREG §2 asks for.

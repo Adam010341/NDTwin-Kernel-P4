@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.100, port 5306
+[  7] local 10.0.0.4 port 59711 connected to 10.0.0.100 port 5306
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-840.00 sec  1001 MBytes  10.0 Mbits/sec  725138  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-840.00 sec  1001 MBytes  10.0 Mbits/sec  0.000 ms  0/725138 (0%)  sender
+[  7]   0.00-840.00 sec   957 MBytes  9.56 Mbits/sec  0.069 ms  32093/725138 (4.4%)  receiver
+
+iperf Done.

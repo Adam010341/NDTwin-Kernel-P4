@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.104, port 5407
+[  7] local 10.0.0.40 port 36570 connected to 10.0.0.104 port 5407
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  38847  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  0.000 ms  0/38847 (0%)  sender
+[  7]   0.00-90.02  sec  50.6 MBytes  4.72 Mbits/sec  2.193 ms  2175/38846 (5.6%)  receiver
+
+iperf Done.

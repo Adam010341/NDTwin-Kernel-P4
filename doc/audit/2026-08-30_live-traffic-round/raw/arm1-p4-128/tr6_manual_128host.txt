@@ -1,0 +1,14 @@
+===== TR-6: the manual's Step 6.5 128-host example =====
+Manual Step 6.5: 'Two separate things have to agree on that number ...
+  It cross-checks these two and **refuses to start** if they disagree.'
+
+claim 1: host_count_override -> '128'
+  PASS  is 128, i.e. what `echo 128 > ...` leaves
+claim 2: the named model declares 128 hosts
+  PASS  the 128Hosts model really declares 128
+  PASS  POSITIVE CONTROL: matched inputs resolve to StaticNetworkTopologyP4_10Switches_128Hosts.json, so a refusal below is a refusal and not a broken function
+  PASS  mismatch REFUSED, as the manual promises
+        message: NDTWIN_P4_TOPO_FILE=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json declares 4 hosts but this run wa
+  PASS  reverse mismatch also refused -- the guard works in BOTH directions, not only the one the fix was written for
+
+===== TR-6 static half: 0 FAIL =====

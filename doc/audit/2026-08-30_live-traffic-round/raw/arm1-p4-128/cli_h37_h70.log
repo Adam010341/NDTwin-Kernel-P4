@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.70, port 5402
+[  7] local 10.0.0.37 port 43951 connected to 10.0.0.70 port 5402
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  38847  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  0.000 ms  0/38847 (0%)  sender
+[  7]   0.00-90.49  sec  50.1 MBytes  4.64 Mbits/sec  2.898 ms  2567/38844 (6.6%)  receiver
+
+iperf Done.

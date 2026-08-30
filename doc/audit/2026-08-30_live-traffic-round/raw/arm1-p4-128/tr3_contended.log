@@ -1,0 +1,9 @@
+===== TR-3 F-5 exposure window (contended)  2026-08-30T12:42:25Z =====
+      kernel: http://localhost:8000
+
+----- control: can this instrument see a rule that exists? -----
+      install valid rule (priority 902): http=200 err=None in 85 ms
+      table view: 1281 entries, read from flattened dpid->flows[table][] over 10 switch wrapper(s); priority-902 real=0 phantom=1
+  FAIL  CONTROL FAILED: 1281 entries visible but none at priority 902 as a real entry. The install may not have landed; a window measured now would be measuring the wrong thing.
+
+===== TR-3 (contended): ABORTED at the control, 1 FAIL =====

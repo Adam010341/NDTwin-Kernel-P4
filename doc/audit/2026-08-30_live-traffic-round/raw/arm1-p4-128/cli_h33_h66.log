@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.66, port 5302
+[  7] local 10.0.0.33 port 51013 connected to 10.0.0.66 port 5302
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-840.00 sec  1001 MBytes  10.0 Mbits/sec  725138  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-840.00 sec  1001 MBytes  10.0 Mbits/sec  0.000 ms  0/725138 (0%)  sender
+[  7]   0.00-840.00 sec   963 MBytes  9.62 Mbits/sec  0.547 ms  27585/725138 (3.8%)  receiver
+
+iperf Done.

@@ -1,0 +1,61 @@
+===== TR-3 F-5 exposure window (period)  2026-08-30T12:59:03Z =====
+      kernel: http://localhost:8000
+
+----- control: can this instrument see a rule that exists? -----
+      install valid rule (priority 902): http=200 err=None in 17 ms
+      table view: 1282 entries, read from flattened dpid->flows[table][] over 10 switch wrapper(s); priority-902 real=0 phantom=0
+      entries classified 'real' anywhere in the view: 1282
+  PASS  CONTROL A: 1282 real programmed entries are visible and are distinguished from phantoms structurally, so absence below means absence.
+  N/A   OBSERVATION: 6 s after a 200 the valid rule is absent entirely -- neither phantom nor programmed.
+      subject: invalid rule (OUTPUT port 999)
+
+----- rep 0: priority 910 -> 10.0.0.200, POST http=200 in 2 ms -----
+      post_epoch=1788094749.102  phantom_gone_epoch=1788094755.388
+      phantom visible from 44 ms to 6285 ms (99 samples, median gap 42 ms)
+
+----- rep 1: priority 911 -> 10.0.0.201, POST http=200 in 2 ms -----
+      post_epoch=1788094769.050  phantom_gone_epoch=1788094776.975
+      phantom visible from 48 ms to 7924 ms (100 samples, median gap 41 ms)
+
+----- rep 2: priority 912 -> 10.0.0.202, POST http=200 in 3 ms -----
+      post_epoch=1788094790.698  phantom_gone_epoch=1788094798.110
+      phantom visible from 43 ms to 7412 ms (98 samples, median gap 43 ms)
+
+----- rep 3: priority 913 -> 10.0.0.203, POST http=200 in 2 ms -----
+      post_epoch=1788094814.143  phantom_gone_epoch=1788094819.907
+      phantom visible from 47 ms to 5763 ms (100 samples, median gap 42 ms)
+
+----- rep 4: priority 914 -> 10.0.0.204, POST http=200 in 2 ms -----
+      post_epoch=1788094839.210  phantom_gone_epoch=1788094841.527
+      phantom visible from 44 ms to 2316 ms (96 samples, median gap 44 ms)
+
+----- rep 5: priority 915 -> 10.0.0.205, POST http=200 in 2 ms -----
+      post_epoch=1788094857.534  phantom_gone_epoch=1788094863.303
+      phantom visible from 43 ms to 5770 ms (94 samples, median gap 45 ms)
+
+----- rep 6: priority 916 -> 10.0.0.206, POST http=200 in 2 ms -----
+      post_epoch=1788094877.567  phantom_gone_epoch=1788094884.966
+      phantom visible from 42 ms to 7398 ms (98 samples, median gap 44 ms)
+
+----- rep 7: priority 917 -> 10.0.0.207, POST http=200 in 2 ms -----
+      post_epoch=1788094899.244  phantom_gone_epoch=1788094906.636
+      phantom visible from 53 ms to 7391 ms (114 samples, median gap 41 ms)
+
+----- TR-3 summary (period) -----
+ rep  prio  first_ms   last_ms   gap_ms  note
+   0   910        44      6285       42  measured
+   1   911        48      7924       41  measured
+   2   912        43      7412       43  measured
+   3   913        47      5763       42  measured
+   4   914        44      2316       44  measured
+   5   915        43      5770       45  measured
+   6   916        42      7398       44  measured
+   7   917        53      7391       41  measured
+
+phantom observed in 8/8 rep(s).
+RESOLUTION: the gap column is this instrument's own sampling period. A window reported
+as 0 ms means 'present in the first sample after the POST returned' -- the POST's own
+round trip is already inside it and is NOT subtracted.
+
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/tr3_f5_window_period.tsv
+           /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/tr3_f5_window_period.jsonl

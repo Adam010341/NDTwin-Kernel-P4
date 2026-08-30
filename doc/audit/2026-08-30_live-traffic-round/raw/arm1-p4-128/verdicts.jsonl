@@ -1,0 +1,29 @@
+{"t":"2026-08-30T12:27:28Z","verdict":"pass","script":"00_preflight","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T12:27:28Z","verdict":"pass","script":"00_preflight","text":"the lab is claimed by this session (PREREG \u00a74.2)"}
+{"t":"2026-08-30T12:27:28Z","verdict":"pass","script":"00_preflight","text":"exclusive_cpu=yes and ndt judges it to be holding"}
+{"t":"2026-08-30T12:27:29Z","verdict":"pass","script":"00_preflight","text":"ndt status reports measuring=nothing (the sanctioned source; do NOT re-derive this with pgrep)"}
+{"t":"2026-08-30T12:27:29Z","verdict":"fail","script":"00_preflight","text":"1 qemu process(es) are running. PREREG \u00a74.1: that VM is invisible to 'measuring' and its load lands on the same cores."}
+{"t":"2026-08-30T12:27:29Z","verdict":"untestable","script":"00_preflight","text":"kernel source is 1208d22, PREREG registered faffdbe -- NOT a failure, but the write-up must say which was measured and must not quote PREREG's commit"}
+{"t":"2026-08-30T12:27:29Z","verdict":"pass","script":"00_preflight","text":"artefact baseline written to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/artifact-baseline.txt"}
+{"t":"2026-08-30T12:27:29Z","verdict":"pass","script":"00_preflight","text":"/tmp/ndtwin_p4_switches.json is absent -- no previous manifest can be mistaken for this run's"}
+{"t":"2026-08-30T12:27:29Z","verdict":"pass","script":"00_preflight","text":"no bmv2 switches are already running  [0]"}
+{"t":"2026-08-30T12:27:29Z","verdict":"pass","script":"00_preflight","text":":8000 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":":8080 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":":8081 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":":9000 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"no consumer app is already running  [none running]"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"energy present at /home/adam/Energy-Saving-App  [/home/adam/Energy-Saving-App]"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"sim present at /home/adam/Simulation-Platform-Manager  [/home/adam/Simulation-Platform-Manager]"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"nsr present at /home/adam/Network-State-Recorder/network_state_recorder.py  [/home/adam/Network-State-Recorder/network_state_recorder.py]"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"viz present at /home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh  [/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh]"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"te present at /home/adam/Traffic-Engineering-App/Traffic-engineering-App.py  [/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py]"}
+{"t":"2026-08-30T12:27:30Z","verdict":"pass","script":"00_preflight","text":"a display is present, so viz can start"}
+{"t":"2026-08-30T12:27:30Z","verdict":"untestable","script":"00_preflight","text":"te calls input() twice in ask_mode() (Traffic-engineering-App.py:595-612) with no EOFError guard; started headless it will raise EOFError and die. 20_apps_lifecycle.sh gives it a pty. Recorded here so the crash is not mistaken for a kernel fault."}
+{"t":"2026-08-30T12:34:14Z","verdict":"pass","script":"traffic_calibrate","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T12:34:25Z","verdict":"pass","script":"traffic_calibrate","text":"the source namespace's own netdev counted the offered traffic  [102890443 B in 8 s]"}
+{"t":"2026-08-30T12:34:25Z","verdict":"pass","script":"traffic_calibrate","text":"the destination namespace's own netdev counted traffic arriving  [102845743 B in 8 s]"}
+{"t":"2026-08-30T12:36:34Z","verdict":"pass","script":"traffic_start","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T12:36:36Z","verdict":"pass","script":"traffic_start","text":"8 base pairs launched (server+client each, all pids recorded)"}
+{"t":"2026-08-30T12:36:36Z","verdict":"pass","script":"traffic_start","text":"churn loop launched (pid 458785), pair list accumulates in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/traffic_pairs.tsv"}
+{"t":"2026-08-30T12:53:47Z","verdict":"pass","script":"traffic_report","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T12:54:14Z","verdict":"pass","script":"traffic_report","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}

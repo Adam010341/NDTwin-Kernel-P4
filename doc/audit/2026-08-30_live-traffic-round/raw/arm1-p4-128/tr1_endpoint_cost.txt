@@ -1,0 +1,9 @@
+per-endpoint cost at the 128-host working point (10 reps each, idle fabric)
+endpoint   p50_ms   max_ms       bytes
+flows           1       28           2
+graph          35       45     118,260
+paths         699      896     930,622
+TOTAL         735
+
+one sample = all three = 735 ms  =>  max achievable rate 1.36 Hz
+The sampler was asked for 0.5 s (2 Hz). It is not possible at this working point.

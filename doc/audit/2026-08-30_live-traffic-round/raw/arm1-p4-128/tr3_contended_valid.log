@@ -1,0 +1,29 @@
+===== TR-3 F-5 exposure window (contended-valid)  2026-08-30T12:43:41Z =====
+      kernel: http://localhost:8000
+
+----- control: can this instrument see a rule that exists? -----
+      install valid rule (priority 902): http=200 err=None in 18 ms
+      table view: 1281 entries, read from flattened dpid->flows[table][] over 10 switch wrapper(s); priority-902 real=0 phantom=1
+      entries classified 'real' anywhere in the view: 1280
+  PASS  CONTROL A: 1280 real programmed entries are visible and are distinguished from phantoms structurally, so absence below means absence.
+  N/A   OBSERVATION, not a control failure: 6 s after a 200, the valid rule is present ONLY as a phantom (the queued request echoed back) and NOT as a programmed entry. This is TR-3's subject, measured on the control rule.
+      subject: valid rule (OUTPUT port 2)
+
+----- rep 0: priority 910 -> 10.0.0.200, POST http=200 in 8 ms -----
+      phantom visible from 89 ms to 4103 ms (138 samples, median gap 534 ms)
+
+----- rep 1: priority 911 -> 10.0.0.201, POST http=200 in 4 ms -----
+      phantom visible from 80 ms to 11281 ms (122 samples, median gap 549 ms)
+
+----- TR-3 summary (contended-valid) -----
+ rep  prio  first_ms   last_ms   gap_ms  note
+   0   910        89      4103      534  measured
+   1   911        80     11281      549  measured
+
+phantom observed in 2/2 rep(s).
+RESOLUTION: the gap column is this instrument's own sampling period. A window reported
+as 0 ms means 'present in the first sample after the POST returned' -- the POST's own
+round trip is already inside it and is NOT subtracted.
+
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/tr3_f5_window_contended-valid.tsv
+           /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128/tr3_f5_window_contended-valid.jsonl

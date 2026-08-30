@@ -1,0 +1,25 @@
+{
+  "started": 1788093321.6881535,
+  "started_iso": "2026-08-30T12:35:21Z",
+  "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-full-stack-round/harness/30_r2_r3_sample.py",
+    "--fabric",
+    "p4",
+    "--seconds",
+    "1020",
+    "--interval",
+    "0.5",
+    "--out",
+    "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm1-p4-128"
+  ],
+  "fabric": "p4",
+  "interval": 0.5,
+  "seconds": 1020,
+  "targets": {
+    "flows": "http://localhost:8000/ndt/get_detected_flow_data",
+    "graph": "http://localhost:8000/ndt/get_graph_data",
+    "paths": "http://localhost:8081/ryu_server/all_destination_paths"
+  },
+  "written_not_run": "this sampler was authored without being executed; first run is its own first test (memory: new-tools-are-the-first-thing-under-test)",
+  "cadence_note": "measured app cadences 2026-08-30: energy 60s, sim event-driven, nsr 5s, viz 1s, te 1s.  PREREG R-2 assumes 15s for all consumers."
+}

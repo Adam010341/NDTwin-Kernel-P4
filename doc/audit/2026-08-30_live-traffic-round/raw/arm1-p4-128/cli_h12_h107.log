@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.107, port 5413
+[  7] local 10.0.0.12 port 44739 connected to 10.0.0.107 port 5413
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  38847  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-90.00  sec  53.6 MBytes  5.00 Mbits/sec  0.000 ms  0/38847 (0%)  sender
+[  7]   0.00-90.01  sec  49.1 MBytes  4.58 Mbits/sec  1.670 ms  3271/38847 (8.4%)  receiver
+
+iperf Done.

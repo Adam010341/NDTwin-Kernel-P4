@@ -1,0 +1,10 @@
+Connecting to host 10.0.0.98, port 5303
+[  7] local 10.0.0.34 port 45476 connected to 10.0.0.98 port 5303
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  7]   0.00-840.00 sec  1001 MBytes  10.0 Mbits/sec  725138  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-840.00 sec  1001 MBytes  10.0 Mbits/sec  0.000 ms  0/725138 (0%)  sender
+[  7]   0.00-840.00 sec   959 MBytes  9.57 Mbits/sec  1.080 ms  30854/725138 (4.3%)  receiver
+
+iperf Done.

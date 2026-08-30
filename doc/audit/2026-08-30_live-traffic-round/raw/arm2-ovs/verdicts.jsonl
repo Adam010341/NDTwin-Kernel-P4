@@ -1,0 +1,7 @@
+{"t":"2026-08-30T13:24:51Z","verdict":"pass","script":"traffic_start","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T13:24:54Z","verdict":"pass","script":"traffic_start","text":"8 base pairs launched (server+client each, all pids recorded)"}
+{"t":"2026-08-30T13:24:54Z","verdict":"pass","script":"traffic_start","text":"churn loop launched (pid 509356), pair list accumulates in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm2-ovs/traffic_pairs.tsv"}
+{"t":"2026-08-30T13:34:32Z","verdict":"pass","script":"traffic_start","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T13:34:34Z","verdict":"pass","script":"traffic_start","text":"8 base pairs launched (server+client each, all pids recorded)"}
+{"t":"2026-08-30T13:34:34Z","verdict":"pass","script":"traffic_start","text":"churn loop launched (pid 552278), pair list accumulates in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm2-ovs/traffic_pairs.tsv"}
+{"t":"2026-08-30T13:38:00Z","verdict":"pass","script":"traffic_report","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}

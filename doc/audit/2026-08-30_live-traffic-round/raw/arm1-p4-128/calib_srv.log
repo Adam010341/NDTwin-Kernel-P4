@@ -1,0 +1,18 @@
+-----------------------------------------------------------
+Server listening on 5299 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.1, port 40910
+[  7] local 10.0.0.65 port 5299 connected to 10.0.0.1 port 54908
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-1.00   sec  11.9 MBytes  99.6 Mbits/sec  0.013 ms  0/8600 (0%)  
+[  7]   1.00-2.00   sec  11.9 MBytes   100 Mbits/sec  0.057 ms  0/8633 (0%)  
+[  7]   2.00-3.00   sec  11.9 MBytes   100 Mbits/sec  0.085 ms  0/8630 (0%)  
+[  7]   3.00-4.00   sec  11.9 MBytes   100 Mbits/sec  0.015 ms  0/8634 (0%)  
+[  7]   4.00-5.00   sec  11.9 MBytes   100 Mbits/sec  0.036 ms  0/8641 (0%)  
+[  7]   5.00-6.00   sec  11.9 MBytes   100 Mbits/sec  0.012 ms  0/8633 (0%)  
+[  7]   6.00-7.00   sec  11.9 MBytes  99.9 Mbits/sec  0.047 ms  0/8624 (0%)  
+[  7]   7.00-8.00   sec  11.9 MBytes  99.7 Mbits/sec  0.017 ms  30/8633 (0.35%)  
+[  7]   8.00-8.00   sec  35.4 KBytes  85.3 Mbits/sec  0.023 ms  0/25 (0%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-8.00   sec  95.3 MBytes  99.9 Mbits/sec  0.023 ms  30/69053 (0.043%)  receiver

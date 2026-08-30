@@ -1,0 +1,41 @@
+============================================================================================
+R-2 analysis of /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/raw/arm3-p4-4/r2_samples.jsonl.gz
+  file mtime : 2026-08-30T13:51:14Z
+  records    : 1200
+============================================================================================
+
+--- 1. SAMPLER HEALTH (read this before any result) ---
+  samples          : 1200
+  overruns         : 0  (0.0%)
+  wall span        : 599.6 s
+  effective rate   : 2.001 Hz
+  flows   http={200: 1200}  transport-errors={}
+  graph   http={200: 1200}  transport-errors={}
+  paths   http={200: 1200}  transport-errors={}
+
+--- 2. HOW OFTEN THE PATH A CONSUMER READS ACTUALLY CHANGES ---
+  JSON key(s) treated as the path field: ['path']
+  flow keys observed : 7
+  flow keys that ever changed : 6
+  inter-change intervals (s): n=56  min=0.50  p50=28.01  p95=60.01  max=60.52
+  intervals in [50,70] s: 3 (5%)  <- if this dominates, you are seeing
+     the refresh thread's ~60 s ceiling (memory: destination-paths-not-
+     monotonic), NOT the recompute rate.  Its downgrade condition is
+     'non-empty', not 'converged', so 99.8%% of the time it looks converged.
+  intervals < 1 s: 3  <- anything here is faster than R-2's 1 Hz and needs
+     explaining before R-2 is called 'no observable difference'.
+
+--- 3. WHAT A CONSUMER AT CADENCE C WOULD HAVE SEEN ---
+  cadence polls     changes    which app
+  1      s 599       56         viz / te      (NetworkTopologyApp.java:424 ; Traffic-engineering-App.py:41)
+  5      s 119       50         nsr           (recorder_setting.yaml:5)
+  15     s 39        48         PREREG §3 R-2 registered cadence -- NOT used by any app
+  60     s 9         25         energy        (Energy-Saving-App/include/app/settings.hpp:8)
+  NOTE: 15 s is the cadence PREREG §3 R-2 assumed.  No app uses it.  Both rows are
+  printed so the write-up can state the registered expectation and the measured
+  premise separately, rather than quietly substituting one for the other.
+
+--- VERDICT SCAFFOLD (fill in by hand; this script does not decide) ---
+  R-2 is: [ no consumer-visible difference / a difference, described / untestable ]
+  Supported by: change intervals in §2 at the cadences in §3, with §1 confirming the
+  sampler resolved them.  NOT supported: any statement about the recompute rate.

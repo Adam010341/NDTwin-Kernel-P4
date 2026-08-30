@@ -1,0 +1,8 @@
+# TR-2 baseline, taken BEFORE any traffic on the OVS arm
+utc=2026-08-30T13:24:35Z
+kernel.log lines: 492
+ryu.log lines:    1440
+F-1 signature (edge not found ... :4294967xxx reserved range) in kernel.log: 0
+any 'edge not found' in kernel.log: 0
+ryu packet-in mentions: 0
+ryu flow-mod/add mentions: 41
