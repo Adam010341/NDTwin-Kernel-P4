@@ -581,3 +581,85 @@ listener used to print `:9000 is free` from the script whose entire job is to es
 machine is quiet. That is the strongest possible false PASS.
 
 Prediction P7: **held**.
+
+---
+
+## §2.8 — T-10 (FINDING-05): a watch window that was not 240 s, and a banner that was always on
+
+`25_apps_energy.sh`. The watch loop and both message blocks are extracted from the shipped script
+and driven against stubs; no app is started and no switch is powered off.
+
+### The window
+
+```
+######## the watch window ########
+  query cost  0s/sample -> requested 240s, ACHIEVED 240s over 25 samples
+                            OLD loop would have spanned 250s and REPORTED "240s"
+  query cost 10s/sample -> requested 240s, ACHIEVED 240s over 25 samples
+                            OLD loop would have spanned 500s and REPORTED "240s"
+```
+
+The old loop counted iterations (`seq 0 $((WATCH_S/10))` with `sleep 10` inside) while each graph
+query costs ~10 s on OVS and ~0 s on P4, so the window was whatever the fabric's response time
+made it — 474 s on the real OVS run, reported as 240 s. It is now deadline-driven and **reports
+the span it achieved**, written to `energy_watch_actual_seconds.txt`.
+
+🔑 It stretched here, which is harmless — more chances for the app to act, and the report
+understates its own patience. **On a faster path the same construct shortens the window
+silently**, and then "nothing happened" is a statement about our patience after all, which is
+exactly what the 240 s was chosen to rule out. This is the **third** instance of an iteration
+count standing in for a time in this harness; it is a house style, not a slip.
+
+### The explanation attached to the N/A
+
+```
+  quiet fabric (the real 08-30 OVS case, util 0.0):
+      why: NOT TRAFFIC, cause NOT ESTABLISHED. peak 0.0% is far BELOW 0.40.
+  busy fabric  (util 12.5):
+      why: PLAUSIBLY TRAFFIC. peak 12.5% > LOW_WATER_MARK 0.40 -- stop traffic and re-run.
+  field absent (util ?):
+      why: NOT ESTABLISHED. utilisation not readable -- do not write a cause.
+```
+
+The first row is the one that was wrong. The old text asserted the traffic hypothesis
+unconditionally — *"on a network carrying traffic, declining to power down is correct … stop all
+traffic generation and re-run this phase"* — on a fabric with 0.0% on all 40 edges and an empty
+`flows` list. There was no traffic to stop.
+
+🔑 **The verdict was right and the explanation attached to it was wrong**, which is the more
+dangerous kind: a reader takes the verdict on trust and inherits the reason with it. The peak
+utilisation is now read from the graph body `graph_counts` **already fetched** — no extra request
+— and the third branch says plainly that the cause is not established and lists the candidates
+this run cannot distinguish.
+
+### The banner
+
+```
+  --- FORCE-GREEN (nothing was powered off: must NOT tell the operator to restore) ---
+  PASS  the fabric is NOT degraded: the app powered 0 switches off, and this script changed nothing else.
+         Do NOT run ./90_restore.sh. There is nothing to restore, and its rebuild route would
+         tear down a healthy fabric to fix nothing.
+
+  --- FORCE-RED (3 switches off: must tell the operator to restore) ---
+      🔴 THE FABRIC IS NOW DEGRADED: the app powered 3 switch(es) off (s9,s7,s5).
+         Restore before any further measurement:
+           ./90_restore.sh --rebuild '…'   (P4: the only route that works)
+           ./90_restore.sh power-on        (OVS: cheaper, but F-7a leaves 4 ports unshaped)
+```
+
+Gated on the count the script had already computed; nothing new is measured to decide it.
+
+🔑 **Harmless in isolation; not harmless in combination.** The restore this banner directed the
+operator to is the one FINDING-04 shows tears the fabric down and stops. Following it on an
+undegraded OVS fabric would have destroyed a healthy fabric to fix nothing. **Two defects that
+are each survivable composed into one that is not** — which is the argument for fixing both in
+the same round rather than ranking them.
+
+### One more stale header, corrected
+
+`25_apps_energy.sh:18` read *"WRITTEN, NOT RUN. `bash -n` only."* It has been run twice (P4 15:30,
+OVS 15:53). `90_restore.sh` had already received exactly this correction; this file had not. The
+replacement also records the `agy` contamination, so the P4-vs-OVS comparison cannot be quoted
+from this script as controlled.
+
+Predictions P12 and P13: **both held**.

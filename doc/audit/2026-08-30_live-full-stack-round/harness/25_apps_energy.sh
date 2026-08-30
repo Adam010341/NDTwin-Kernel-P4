@@ -15,7 +15,15 @@
 #
 # 25_apps_energy.sh -- start the Energy-Saving-App, let it act, record what it did, stop it.
 #
-# WRITTEN, NOT RUN. `bash -n` only.
+# RUN STATUS: this line used to read "WRITTEN, NOT RUN. `bash -n` only." That is no longer true
+# and is corrected rather than left, because the next reader would take it as a reason to
+# distrust FINDING-05 instead of this script. It has been run twice:
+#   P4 arm, 2026-08-30 15:30 -- 3 switches powered off (s9, s7, s5), watch 250 s.
+#   OVS arm, 2026-08-30 15:53 -- 0 switches powered off, watch 474 s despite requesting 240 s.
+# ⚠️ Both watches overlapped `agy` jobs of ~2 cores each, invisible to `ndt status`
+#    (CONTAMINATION-agy-runs-i-started-myself.md). CPU contention is a live alternative
+#    explanation for the P4/OVS difference and it was heavier on the arm that did nothing, so
+#    that comparison is NOT controlled. Its re-run must have zero commits in the window.
 #
 # WHY IT IS ITS OWN PHASE, WITH ITS OWN SWITCH
 #   The Energy-Saving-App reads link utilisation, and on a quiet network it concludes the network
@@ -114,6 +122,28 @@ print(len(sw),
       sum(1 for e in ed if not e.get("is_up")))' "$OUT/http/$slug.body" 2>/dev/null || printf '? ? ? ? ? ? ?'
 }
 
+# util_max <slug> -- the highest link_bandwidth_utilization_percent in the graph body graph_counts
+# already fetched, or "?" if the field is absent. No extra request.
+#
+# [Co-developed with claude code -- Adam]
+# This exists so the N/A verdict below can be justified by the MEASURED condition instead of an
+# asserted one. FINDING-05: the N/A text told the operator "on a network carrying traffic,
+# declining to power down is correct ... stop all traffic generation and re-run this phase" on a
+# fabric where utilisation was 0.0 on all 40 edges and `flows` was empty throughout. There was no
+# traffic to stop; the suggested remedy was a no-op and the offered explanation was the opposite
+# of the measured condition.
+# 🔑 The verdict was RIGHT and the explanation attached to it was wrong, which is the more
+#    dangerous kind: a reader takes the verdict on trust and inherits the reason with it.
+util_max() {
+    local slug="$1"
+    python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+v=[e.get("link_bandwidth_utilization_percent") for e in d.get("edges",[])]
+v=[x for x in v if isinstance(x,(int,float))]
+print(max(v) if v else "?")' "$OUT/http/$slug.body" 2>/dev/null || printf '?'
+}
+
 down_switch_names() {
     python3 -c '
 import json,sys
@@ -154,16 +184,46 @@ say "WATCH -- the app's cadence is 60 s, so watch for at least three cycles"
 # 08-18: three switches off within 60 s. Its loop is 60 s (settings.hpp:8), so 240 s is four
 # cycles: enough that "nothing happened" is a statement about the app rather than about our
 # patience. Sampling every 10 s so a change and its timestamp are both recorded.
+#
+# [Co-developed with claude code -- Adam]
+# FIXED 2026-08-30 (T-10, FINDING-05). This loop counted ITERATIONS, not seconds: `seq 0
+# $((WATCH_S/10))` with a `sleep 10` inside, while each graph_counts query costs ~10 s on OVS and
+# ~0 s on P4. The query time was not counted, so the window was whatever the fabric's response
+# time made it. Measured on the OVS arm: 25 samples spanning 474 s at a mean interval of 19.8 s,
+# reported as "in 240s". The comment stated the intent exactly and the implementation did
+# something else.
+#
+# It happened to stretch here, which is harmless -- more chances for the app to act, and the
+# report understates its own patience. 🔑 On a faster path the same construct SHORTENS the window
+# silently, and then "nothing happened" is a statement about our patience after all, which is
+# precisely what the 240 s was chosen to rule out.
+#
+# Driven from a deadline now, and the achieved span is reported rather than assumed. This is the
+# third instance of an iteration count standing in for a time in this harness (the other two are
+# FINDING-02's Defect A, viz and te). It is a house style, not a slip.
 WATCH_S=240
 : > "$OUT/energy_watch.tsv"
-printf 'epoch\tup\tenabled\tadmin_disabled\tedges_down\tdown_names\n' >> "$OUT/energy_watch.tsv"
-for i in $(seq 0 $(( WATCH_S / 10 ))); do
+printf 'epoch\tup\tenabled\tadmin_disabled\tedges_down\tutil_max\tdown_names\n' >> "$OUT/energy_watch.tsv"
+WATCH_T0="$(date +%s)"
+WATCH_END=$(( WATCH_T0 + WATCH_S ))
+WATCH_N=0
+UTIL_MAX_SEEN=""
+while :; do
     read -r W_SW W_UP W_EN W_AD W_H W_E W_ED <<<"$(graph_counts energy_watch)"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%s)" "$W_UP" "$W_EN" "$W_AD" "$W_ED" "$(down_switch_names energy_watch)" \
+    W_UTIL="$(util_max energy_watch)"
+    [[ "$W_UTIL" != "?" ]] && UTIL_MAX_SEEN="$(printf '%s\n%s\n' "${UTIL_MAX_SEEN:-0}" "$W_UTIL" | sort -g | tail -1)"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%s)" "$W_UP" "$W_EN" "$W_AD" "$W_ED" "$W_UTIL" "$(down_switch_names energy_watch)" \
         >> "$OUT/energy_watch.tsv"
+    WATCH_N=$(( WATCH_N + 1 ))
+    (( $(date +%s) >= WATCH_END )) && break
     sleep 10
 done
+WATCH_ACTUAL=$(( $(date +%s) - WATCH_T0 ))
 sed 's/^/      /' "$OUT/energy_watch.tsv"
+# Reported, not assumed. The number in the write-up must be the span that happened.
+info "watch window: requested ${WATCH_S}s, ACHIEVED ${WATCH_ACTUAL}s over $WATCH_N samples (mean interval $(( WATCH_ACTUAL / (WATCH_N > 1 ? WATCH_N - 1 : 1) ))s)"
+info "that is $(( WATCH_ACTUAL / 60 )) full 60 s app cycles, which is the number to quote -- not ${WATCH_S}s."
+printf '%s\n' "$WATCH_ACTUAL" > "$OUT/energy_watch_actual_seconds.txt"
 
 # -------------------------------------------------------------------------------------------------
 say "AFTER -- and the assertion that the injection actually landed"
@@ -207,8 +267,19 @@ PY
         bad "some down edges are not explained by the powered-off switches; see $OUT/energy_edge_accounting.txt"
     fi
 else
-    # PREREG §3 R-5's three-valued rule applied to the injection itself.
-    skip "the Energy-App powered NOTHING off in ${WATCH_S}s (four cycles at its 60 s cadence). This is NOT a failure -- on a network carrying traffic, declining to power down is correct. But it means F-2 and F-3 are NO LONGER REACHABLE THIS RUN and must be recorded as untestable, not as fixed. If you need them reachable, stop all traffic generation and re-run this phase."
+    # PREREG §3 R-5's three-valued rule applied to the injection itself. The verdict is the same
+    # either way; only the EXPLANATION is conditional, because the wrong explanation attached to a
+    # correct verdict is what a reader inherits on trust. See util_max above.
+    skip "the Energy-App powered NOTHING off in the ${WATCH_ACTUAL}s actually watched ($(( WATCH_ACTUAL / 60 )) cycles at its 60 s cadence). This is NOT a failure, but F-2 and F-3 are NO LONGER REACHABLE THIS RUN and must be recorded as untestable, not as fixed."
+    if [[ "${UTIL_MAX_SEEN:-?}" == "?" || -z "${UTIL_MAX_SEEN:-}" ]]; then
+        info "why: NOT ESTABLISHED. link_bandwidth_utilization_percent was not readable from the graph during the watch, so neither the traffic hypothesis nor any other can be checked from this run. Do not write a cause."
+    elif awk "BEGIN{exit !($UTIL_MAX_SEEN > 0.40)}" 2>/dev/null; then
+        info "why: PLAUSIBLY TRAFFIC. Peak link utilisation during the watch was $UTIL_MAX_SEEN%, above the app's LOW_WATER_MARK of 0.40 (energy_saving_app.cpp:911,926), so declining to power down is the correct decision. To make F-2/F-3 reachable, stop all traffic generation and re-run this phase."
+    else
+        info "why: NOT TRAFFIC, and the cause is NOT ESTABLISHED. Peak link utilisation during the watch was $UTIL_MAX_SEEN%, far BELOW the app's LOW_WATER_MARK of 0.40 -- the decision chain predicts a shutdown and it did not happen. Do NOT record 'the network was busy'; there was nothing to stop."
+        info "     candidates NOT distinguished by this run: the app's grouping may reject these switches for a topology reason; the power loop is gated by /ndt/acquire_lock (energy_saving_app.cpp:952) and lock behaviour was not observed; the OVS path may differ elsewhere. One run per fabric is one run per fabric."
+        info "     reaching this needs the app's own output, which needs the ndtwin-lab/ndt session-visibility disagreement resolved first (see 09_t8-t10-evidence.md §4)."
+    fi
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -225,15 +296,27 @@ else
 fi
 
 info ""
-info "🔴 THE FABRIC IS NOW DEGRADED. Run ./90_restore.sh before any further measurement."
-# 🔴 T-10 not yet landed. Two corrections to the line above, both measured 2026-08-30, added as
-# output rather than as logic so nothing about this phase's behaviour changes:
-#   1. FINDING-04 -- ./90_restore.sh does not restore. Route 2 tears the fabric down and stops.
-#   2. FINDING-05 -- the banner above is printed unconditionally, including on the OVS run where
-#      the Energy-App powered NOTHING off. Following it there would have destroyed a healthy
-#      fabric to fix nothing. Making it conditional is a T-10 change; saying so is not.
-info "   ⚠️ T-10 NOT YET LANDED: ./90_restore.sh does NOT restore (FINDING-04) -- use"
-info "      'ndt down && ndt up <what>' instead. And read 'switches powered off by the app'"
-info "      above first: this banner prints even when that count is 0 (FINDING-05)."
+# [Co-developed with claude code -- Adam]
+# FIXED 2026-08-30 (T-10, FINDING-05 message 3). This banner used to print UNCONDITIONALLY,
+# including immediately after the same script established "switches powered off by the app: 0",
+# and with `ndt status` afterwards reading 10 up / 0 admin-disabled / 40 links / 0 down. Nothing
+# was degraded.
+#
+# 🔑 Harmless in isolation; not harmless in combination. The restore it directed the operator to
+#    was the one FINDING-04 shows tears the fabric down and stops. Following this instruction on
+#    an undegraded OVS fabric would have destroyed a healthy fabric to fix nothing. Two defects
+#    that are each survivable compose into one that is not.
+#
+# Gated on the count this script already computed. Nothing new is measured to decide it.
+if (( POWERED_OFF > 0 )); then
+    info "🔴 THE FABRIC IS NOW DEGRADED: the app powered $POWERED_OFF switch(es) off ($A_NAMES)."
+    info "   Restore before any further measurement:"
+    info "     ./90_restore.sh --rebuild '<the same args you used for ndt up>'   (P4: the only route that works)"
+    info "     ./90_restore.sh power-on                                          (OVS: cheaper, but F-7a leaves 4 ports unshaped)"
+else
+    ok "the fabric is NOT degraded: the app powered 0 switches off, and this script changed nothing else."
+    info "   Do NOT run ./90_restore.sh. There is nothing to restore, and its rebuild route would"
+    info "   tear down a healthy fabric to fix nothing. Verify for yourself:  ndt status --check"
+fi
 summary
 exit 0
