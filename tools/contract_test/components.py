@@ -27,6 +27,10 @@ KERNEL_ENDPOINTS = {
     "get_detected_flow_data": "GET",
     "get_detected_top_k_flow_data": "GET",
     "get_switch_openflow_table_entries": "GET",
+    # [Co-developed with claude code -- Adam] A-7's read side. Deliberately absent from every
+    # Component's endpoint list below: those record which sibling repo actually calls what, and
+    # nothing calls this one yet. Listing it there would assert a consumer that does not exist.
+    "get_flow_dispatch_status": "GET",
     "get_power_report": "GET",
     "get_switches_power_state": "GET",
     "set_switches_power_state": "POST",

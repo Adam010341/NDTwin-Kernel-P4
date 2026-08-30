@@ -12,6 +12,7 @@
 #include "ndt_core/lock_management/LockManager.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "ndt_core/routing_management/Controller.hpp"
+#include "ndt_core/routing_management/DispatchOutcomeLog.hpp"
 #include "ndt_core/routing_management/FlowJob.hpp"
 #include "ndt_core/routing_management/FlowRoutingManager.hpp"
 #include "utils/Logger.hpp"
@@ -165,6 +166,10 @@ HttpSession::buildResponse()
         else if (method == http::verb::get && target == "/ndt/get_switch_openflow_table_entries")
         {
             handleGetSwitchOpenflowEntries(*response);
+        }
+        else if (method == http::verb::get && target == "/ndt/get_flow_dispatch_status")
+        {
+            handleGetFlowDispatchStatus(*response);
         }
         else if (method == http::verb::get && target == "/ndt/get_power_report")
         {
@@ -615,6 +620,60 @@ HttpSession::handleGetSwitchOpenflowEntries(http::response<http::string_body>& r
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Swithc OpenFlow Entries");
     res.body() = m_deviceConfigurationAndPowerManager->getOpenFlowTables().dump();
+}
+
+// [Co-developed with claude code -- Adam]
+// Answers KNOWN-ISSUES A-7. install_flow_entry replies `queued` and says per-entry outcomes go to
+// the kernel log; this is where a program can read what the log was told.
+//
+// Served straight off the dispatcher's own counters, deliberately NOT through
+// DeviceConfigurationAndPowerManager. Every other read endpoint here returns a cache that
+// openflowTablesUpdateWorker refreshes on a 10 s sleep plus one southbound poll
+// (DeviceConfigurationAndPowerManager.cpp:1885-1908), which is why the table view can be up to
+// ~10.7 s behind the write that changed it. A failure counter with that much lag would answer
+// "no failures" for the whole window in which the caller is trying to find out whether its write
+// failed -- exactly when the question is being asked. These numbers are read under the
+// dispatcher's own lock and are current as of the read.
+void
+HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
+{
+    SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Flow Dispatch Status");
+
+    const auto& outcomes = m_controller->dispatchOutcomes();
+
+    json failures = json::array();
+    for (const auto& rec : outcomes.recentFailures())
+    {
+        failures.push_back(json{{"seq", rec.seq},
+                                {"at_unix_ms", rec.atUnixMs},
+                                {"op", DispatchOutcomeLog::opName(rec.op)},
+                                {"dpid", rec.dpid},
+                                // Named "requested" because it is not necessarily what was
+                                // programmed: measured 2026-08-30, the southbound programs every
+                                // entry at priority 0 whatever was asked for. See
+                                // doc/audit/2026-08-30_live-traffic-round/FINDING-07_*.
+                                {"requested_priority", rec.requestedPriority},
+                                {"match", rec.match},
+                                {"controller_status", rec.controllerStatus},
+                                {"message", rec.message}});
+    }
+
+    json body{
+        {"counters",
+         {{"dispatched", outcomes.dispatched()},
+          {"succeeded", outcomes.succeeded()},
+          {"failed", outcomes.failed()},
+          // Enqueued after the dispatcher stopped, so never handed to the southbound at all.
+          // A different failure from the ones above and counted separately: those were attempted
+          // and refused, these were never attempted.
+          {"dropped_after_stop", m_controller->dispatcher().droppedAfterStop()}}},
+        {"recent_failures", std::move(failures)},
+        {"recent_failures_capacity", outcomes.capacity()},
+        // Non-zero means the list above is partial. Published rather than left implicit: a
+        // silently truncated list reads exactly like a system with fewer failures than it has.
+        {"recent_failures_evicted", outcomes.failuresEvicted()}};
+
+    res.body() = body.dump();
 }
 
 void
@@ -1077,10 +1136,18 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     // uses. Reporting per-entry status to the caller needs either a synchronous path or a
     // completion handle -- an architectural decision, not a wording one.
     res.result(http::status::ok);
+    // [Co-developed with claude code -- Adam]
+    // `detail` used to end at "reported in the kernel log, not in this response", which was true
+    // and was the whole of A-7: the only record of a refused write was in a file no program
+    // reads. Now that GET /ndt/get_flow_dispatch_status exists, leaving the sentence unchanged
+    // would keep the answer undiscoverable to exactly the caller who needs it. Safe to reword:
+    // the two in-repo consumers log this body and neither parses it (auditor cross-repo check,
+    // 2026-08-30) -- `status` and `accepted` are unchanged for anything that does.
     json body{{"status", "queued"},
               {"accepted", accepted},
-              {"detail", "entries accepted for programming; per-entry outcomes are "
-                         "reported in the kernel log, not in this response"}};
+              {"detail", "entries accepted for programming; per-entry outcomes are reported in "
+                         "the kernel log and, since they are not in this response, are readable "
+                         "afterwards from GET /ndt/get_flow_dispatch_status"}};
 
     // [Co-developed with claude code -- Adam]
     // Only present when something was actually dropped, so a caller can treat their absence as

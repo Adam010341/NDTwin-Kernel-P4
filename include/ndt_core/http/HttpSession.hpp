@@ -207,6 +207,24 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     void handleGetSwitchOpenflowEntries(http::response<http::string_body>& res);
     /**
+     * @brief Returns whether the writes this kernel answered "queued" for actually landed.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * `install_flow_entry` and its siblings answer `200 {"status":"queued"}` and program the
+     * switch on a worker thread afterwards. When the switch refuses a rule, the outcome was
+     * written to `kernel.log` and nowhere else -- no counter, no endpoint, no field in any
+     * response -- so a caller, a contract test and a dashboard all saw a healthy system
+     * (KNOWN-ISSUES A-7). This endpoint is the read side of that: totals since start, plus the
+     * most recent failures with dpid, match, controller status and reason.
+     *
+     * Unlike the other GET handlers on this class it is **not** served from a periodically
+     * refreshed cache; the numbers are current as of the read. See the note at the definition.
+     *
+     * @param[out] res HTTP response whose body is set to the JSON dispatch status.
+     */
+    void handleGetFlowDispatchStatus(http::response<http::string_body>& res);
+    /**
      * @brief Returns the latest cached device power report as JSON.
      *
      * This HTTP handler serves a snapshot of the current power metrics maintained by
