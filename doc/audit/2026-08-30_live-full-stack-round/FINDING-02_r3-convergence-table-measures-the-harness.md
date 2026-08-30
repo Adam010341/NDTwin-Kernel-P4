@@ -123,6 +123,30 @@ somewhere in (15:07:20, 15:14]". That interval was derived from the 60 s window 
 only the two bullets above survive.
 🔑 *A bound inferred from a blind instrument is not a bound.*
 
+### Sharpened after the round — the start method and the detection method are incompatible in the harness's own code
+
+`8/29 auditor` registered one instrument comparison before sim goes to a ticket: **did the
+harness start sim the way the project documents?** The te precedent — a documented start that
+cannot work headless — makes this the obvious first suspect. Answered from source:
+
+* `20_apps_lifecycle.sh:137` runs `"$NDT_BIN" apps sim` — **the sanctioned path**, not a
+  hand-rolled launch. No deviation. ⇒ **the te analogy does not apply to sim.**
+* That path reaches `ndtwin-lab sim-start`, which is
+  `tmux -L ndtwinlab new-session -d -s sim -c "$SIM_DIR" ./simulation_platform_manager`,
+  run through sudo. **So sim, and the socket it binds, are root-owned.**
+
+⇒ The harness **starts sim as root and then looks for it with `port_holder`, which cannot see a
+root-owned listener.** This was never a window-length problem. Widening the 60 s wait to an hour
+would not have changed the result, because the two halves of the check disagree by construction
+inside the harness's own code.
+
+**Third obstacle, for whoever picks up the ticket:** sim's output goes **only to its tmux pane**
+— there is no `app_sim.log` under `.test_run/logs/`, and the only file in its repo is a stale
+`build_sim_mgr.log` from 2026-08-22. When the pane goes, its reasoning goes with it. Combined
+with the unresolved `ndtwin-lab` / `ndt` session-visibility disagreement, **sim currently has no
+readable account of its own behaviour**, and that has to be fixed before "why did sim not serve"
+can be asked at all.
+
 ## Both errors point the same way
 
 | | direction |

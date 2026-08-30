@@ -83,8 +83,32 @@ as run* than to *passed*.
 A quiet network is the one condition under which this measurement cannot fail, and it is the
 condition it was taken under. `memory: controls-decide-what-you-learn`.
 
-⚠️ Note also that this result cannot be attributed cleanly even if it had moved: the first
-**218 s of the 900 s window (24.2 %)** ran under a maven build the round started itself
-(`raw/20260830-t4-p4/covariate_maven_build.txt`).
+## ⚠️ Intrusions into the 900 s window — four, and three of them are mine
+
+Recorded rather than subtracted.
+
+| what | window | source |
+|---|---|---|
+| maven build (viz startup) | 15:09:20 – 15:12:58 (**218 s, 24.2 %**) | the round's own app-start step |
+| `agy` from commit `79fa6d8` | 15:11:37 – 15:13:58 | **my commit** — the `post-commit` hook |
+| `tectonic` re-compile | 15:16:25 – 15:16:45 (~20 s) | poster author, declared |
+| `agy` from commit `945a411` | 15:19:42 – 15:22:54 | **my commit** |
+
+`agy --effort high` is ~2 cores and is invisible to `ndt status`'s `measuring` field. Full
+alignment across every phase of the round, including two energy watches:
+**`CONTAMINATION-agy-runs-i-started-myself.md`**.
+
+### Ruling: **annotated, usable — not voided**
+
+The verdict this window produced is *"the path set never changed"*, and the sampler's own
+health section — taken **under** the contamination — reports **0 overruns, 899.7 s span,
+2.001 Hz, 1800/1800 HTTP 200**. CPU contention can make a sampler late; it did not, and it
+cannot make a *changing* path set look static.
+
+More decisively: the verdict was already **"confirmed under a condition that makes it nearly
+unfalsifiable"**. Re-taking a measurement that could not have failed buys nothing. What the
+next round needs is **traffic**, and that round must be clean.
+
+⇒ **This result must not be reused as evidence in a round that gives R-2 real power.**
 
 [Co-developed with claude code -- Adam]

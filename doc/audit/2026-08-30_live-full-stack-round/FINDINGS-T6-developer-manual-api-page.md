@@ -51,6 +51,33 @@ The remaining ten cluster into two coherent families — **group entries** (4) a
 entries** (4) — which suggests two features were added without a documentation pass, rather
 than ten scattered omissions.
 
+## Merged in from R-1, at the auditor's direction — and the answer is sharper than expected
+
+R-1's live probe produced an observation worth checking against this page: `POST
+/ndt/historical_logging` answers **`200` with `"status":"success"` on both of its branches**.
+Only `recording` and `message` differ, so **a caller keying on the status code, or on the
+`status` field, cannot tell "recording is on" from "recording is impossible in this
+deployment"** — and the second branch is the one that fires in every run this project does.
+
+The registered question was whether the page documents that distinction. It does not, and not
+because of a wording defect:
+
+> **`/ndt/historical_logging` has no entry on this page at all.** It is one of the twelve
+> undocumented routes listed above.
+
+⇒ There is no wording to correct. The endpoint whose two outcomes are indistinguishable by
+status code is also the one with no documentation, so a caller has **neither** signal — not
+from the wire, not from the manual.
+
+🔑 This closes a loop opened before the round. `PRE-ROUND-R1-determination.md` recorded that
+PREREG §3 named this endpoint by its C++ handler symbol (`set_historical_logging_state`) rather
+than its route. That now reads as a symptom rather than a slip: **an author who went to the
+Developer Manual to find the route would not have found one.** The two failures have one cause,
+and it is this omission.
+
+**When the entry is written it must state the two branches explicitly**, because the status code
+will not.
+
 ## Live probes — documented endpoints, using their documented methods
 
 All read-only endpoints on the page, against the running kernel:

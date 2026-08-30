@@ -106,6 +106,27 @@ undegraded OVS fabric would have destroyed a healthy fabric to fix nothing.**
 * Make the N/A explanation conditional on the measured utilisation instead of asserting the
   traffic hypothesis.
 
+## 🔴 Added after the round — the comparison was not controlled, and I am the reason
+
+Both watches ran under `agy` jobs that my own commits launched (~2 cores each, invisible to
+`ndt status`; full table in `CONTAMINATION-agy-runs-i-started-myself.md`):
+
+| | agy overlap | outcome |
+|---|---|---|
+| P4 watch (250 s) | **two** concurrent runs, ≈174 s of it | 3 switches off |
+| OVS watch (474 s) | **three** across its opening minutes | 0 switches off |
+
+CPU contention is therefore **a live alternative explanation** for the difference, and it was
+heavier on the arm that did nothing.
+
+It does not explain the difference away — the P4 arm powered three switches off *while* two
+`agy` runs were going, so the app is not simply starved by load. But **this is no longer a
+controlled comparison**, and the confound is one I created without knowing it.
+
+⇒ The observation stands as *a thing that happened*; it does **not** stand as *P4 and OVS
+differ*. The ticket below keeps its question and loses its cleanliness. Its re-run must have
+**zero commits in the window** — now the standing rule regardless.
+
 ## Ticket this earns
 
 **"Why does the Energy-App power switches down on P4 and not on OVS, given identical
