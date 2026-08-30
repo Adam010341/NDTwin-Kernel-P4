@@ -1,0 +1,28 @@
+arm=ovs_n4_b
+plane=ovs (as-wired: Ryu + kernel datapath; shaping state = testbed_topo sha below)
+n_flows=4
+started=2026-08-30 14:01:34 +0800
+ladder= 1 2 3 5 8 12 20 30 45 70 110 160 240 360 540 810
+step_s=8
+clean_pct=0.5
+rep_rule=nonzero-to-2.0pct => 3 reps median; exact 0.0000 => 1 rep (③ AMENDMENT-2 11.1, inherited)
+host_pair=h1->h65 (10.0.0.65), distinguished by port
+ovs_version=ovs-vsctl (Open vSwitch) 3.3.4
+ovs_kmod=
+bridges=s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+controller=/home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ryu-manager --observe-links /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest
+port8080=1
+topology_sha=14988a44
+testbed_topo_sha=ca4de8ae
+kernel_sha256_start=2e969618
+highest_clean_per_flow_mbit=810
+aggregate_clean_mbit=3240.0
+ladder_truncated_at=not-truncated
+ladder_top_offered=810  # gate-capped by driver; if == highest_clean, cell is right-censored
+top_rung_confirmation=810:0.1306,0.2687,0.1357=>0.1357 
+kernel_sha256_end=2e969618
+finished=2026-08-30 14:05:23 +0800
+busy_fraction=0.3205
+softirq_ticks=8587  # kernel datapath cost lives here, not in any process
+load1_max=33.10  # pre-screen only
+samples=114

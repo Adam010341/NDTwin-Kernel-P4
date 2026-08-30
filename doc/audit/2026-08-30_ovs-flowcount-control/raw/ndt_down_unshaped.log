@@ -1,0 +1,15 @@
+ndt down
+[1/3] kernel + proxy/Ryu
+[2/3] topology session
+      no topo session
+[3/3] sweep
+      cleanup done
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean

@@ -1,0 +1,17 @@
+arm=ovs_n16_shaped
+plane=ovs (as-wired: Ryu + kernel datapath; shaping state = testbed_topo sha below)
+n_flows=16
+started=2026-08-30 14:11:17 +0800
+ladder=1 2 3 5 8 12 20 30 45 70 110 160
+step_s=8
+clean_pct=0.5
+rep_rule=nonzero-to-2.0pct => 3 reps median; exact 0.0000 => 1 rep (③ AMENDMENT-2 11.1, inherited)
+host_pair=h1->h65 (10.0.0.65), distinguished by port
+ovs_version=ovs-vsctl (Open vSwitch) 3.3.4
+ovs_kmod=
+bridges=s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+controller=/home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ryu-manager --observe-links /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest
+port8080=1
+topology_sha=14988a44
+testbed_topo_sha=e2079a59
+kernel_sha256_start=2e969618

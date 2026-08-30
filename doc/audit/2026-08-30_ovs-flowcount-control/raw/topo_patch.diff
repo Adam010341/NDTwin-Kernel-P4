@@ -1,0 +1,50 @@
+46,61c46,61
+<         self.addLink(s1, s5, bw=1000, port1=1, port2=1)
+<         self.addLink(s1, s6, bw=1000, port1=2, port2=1)
+<         self.addLink(s2, s5, bw=1000, port1=1, port2=2)
+<         self.addLink(s2, s6, bw=1000, port1=2, port2=2)
+<         self.addLink(s3, s7, bw=1000, port1=1, port2=1)
+<         self.addLink(s3, s8, bw=1000, port1=2, port2=1)
+<         self.addLink(s4, s7, bw=1000, port1=1, port2=2)
+<         self.addLink(s4, s8, bw=1000, port1=2, port2=2)
+<         self.addLink(s5, s9, bw=10000, port1=3, port2=1)
+<         self.addLink(s5, s10, bw=10000, port1=4, port2=1)
+<         self.addLink(s6, s9, bw=10000, port1=3, port2=2)
+<         self.addLink(s6, s10, bw=10000, port1=4, port2=2)
+<         self.addLink(s7, s9, bw=10000, port1=3, port2=3)
+<         self.addLink(s7, s10, bw=10000, port1=4, port2=3)
+<         self.addLink(s8, s9, bw=10000, port1=3, port2=4)
+<         self.addLink(s8, s10, bw=10000, port1=4, port2=4)
+---
+>         self.addLink(s1, s5, port1=1, port2=1)
+>         self.addLink(s1, s6, port1=2, port2=1)
+>         self.addLink(s2, s5, port1=1, port2=2)
+>         self.addLink(s2, s6, port1=2, port2=2)
+>         self.addLink(s3, s7, port1=1, port2=1)
+>         self.addLink(s3, s8, port1=2, port2=1)
+>         self.addLink(s4, s7, port1=1, port2=2)
+>         self.addLink(s4, s8, port1=2, port2=2)
+>         self.addLink(s5, s90, port1=3, port2=1)
+>         self.addLink(s5, s100, port1=4, port2=1)
+>         self.addLink(s6, s90, port1=3, port2=2)
+>         self.addLink(s6, s100, port1=4, port2=2)
+>         self.addLink(s7, s90, port1=3, port2=3)
+>         self.addLink(s7, s100, port1=4, port2=3)
+>         self.addLink(s8, s90, port1=3, port2=4)
+>         self.addLink(s8, s100, port1=4, port2=4)
+72c72
+<             self.addLink(hosts[i], s1, bw=1000, port1=1, port2=i + 3)
+---
+>             self.addLink(hosts[i], s1, port1=1, port2=i + 3)
+77c77
+<                 hosts[i], s2, bw=1000, port1=1, port2=i - int(HOST_NUM / 4) + 3
+---
+>                 hosts[i], s2, port1=1, port2=i - int(HOST_NUM / 4) + 3
+83c83
+<                 hosts[i], s3, bw=1000, port1=1, port2=i - int(HOST_NUM / 2) + 3
+---
+>                 hosts[i], s3, port1=1, port2=i - int(HOST_NUM / 2) + 3
+89c89
+<                 hosts[i], s4, bw=1000, port1=1, port2=i - int(3 * HOST_NUM / 4) + 3
+---
+>                 hosts[i], s4, port1=1, port2=i - int(3 * HOST_NUM / 4) + 3
