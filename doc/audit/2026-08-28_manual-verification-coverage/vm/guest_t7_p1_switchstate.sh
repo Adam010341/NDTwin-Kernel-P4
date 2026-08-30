@@ -82,22 +82,27 @@ grep -q "Starting up" ~/t7p2a.log && bad "startup event ran despite the guard" \
 
 banner "ARM B -- POSITIVE CONTROL: second proxy, WITHOUT the fix"
 echo "If the measurement cannot detect a change, Arm A's 'unchanged' is worthless."
-mkdir -p /tmp/prefix/proxy_agent
-cp -r p4_proxy/proxy_agent/* /tmp/prefix/proxy_agent/
-python3 - <<'PY'
-import re
-p='/tmp/prefix/proxy_agent/main.py'
+# Swap the entrypoint IN PLACE and run from p4_proxy itself. The first attempt copied the tree
+# to /tmp/prefix and ran it there; it died on
+#   could not read topology /tmp/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+# because the agent resolves P4Info and pipeline paths relative to its working directory --
+# which the User Manual states in as many words, and which this control then walked straight
+# into. A control that never reaches a switch cannot show that reaching one is detectable, so
+# that run demonstrated nothing about Arm A.
+cp p4_proxy/proxy_agent/main.py /tmp/main_fixed.py
+python3 -c "
+p='p4_proxy/proxy_agent/main.py'
 s=open(p).read()
-i=s.index('HOST = "0.0.0.0"')
-s=s[:i]+'if __name__ == "__main__":\n    uvicorn.run(app, host="0.0.0.0", port=8081)\n'
-open(p,'w').write(s)
-print("      reverted /tmp/prefix to the pre-fix entrypoint")
-PY
-( cd /tmp/prefix && PYTHONUNBUFFERED=1 PYTHONPATH="/tmp/prefix:$HOME/Desktop/NDTwin-Kernel/p4_proxy" \
-  "$HOME/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python" proxy_agent/main.py > ~/t7p2b.log 2>&1 ) &
+i=s.index('HOST = \"0.0.0.0\"')
+open(p,'w').write(s[:i]+'if __name__ == \"__main__\":\n    uvicorn.run(app, host=\"0.0.0.0\", port=8081)\n')
+print('      swapped main.py in place to the pre-fix entrypoint')
+"
+( cd p4_proxy && PYTHONUNBUFFERED=1 PYTHONPATH="$PWD" venv/bin/python proxy_agent/main.py > ~/t7p2b.log 2>&1 ) &
 sleep 45
 echo "    pre-fix second proxy said:"; grep -cE "Setting Forwarding Pipeline Config" ~/t7p2b.log | sed 's/^/      pipeline pushes: /'
 D4=$(dump_state); echo "    D4 (after 2nd proxy, PRE-fix)    $D4"
+cp /tmp/main_fixed.py p4_proxy/proxy_agent/main.py
+echo "      restored the fixed main.py"
 if [ "$D4" != "$D3" ]; then
     ok "the measurement CAN see a pre-fix second instance -- Arm A's result is meaningful"
 else
