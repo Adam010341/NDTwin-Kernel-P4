@@ -128,27 +128,86 @@ first_serve_epoch() {
     [[ -n "$newest" ]] && printf '%.0f' "$newest" || printf '%s' "-1"
 }
 
-declare -A T_APP
+declare -A T_APP        # epoch at which each app was first observed serving
+declare -A T_START      # epoch at which THIS SCRIPT started each app
+
+# [Co-developed with claude code -- Adam]
+# FINDING-02 Defect A. Three of the four rows in the R-3 table were computed as `T0 + i`, where
+# `i` is WHICH ITERATION OF A WAIT LOOP MATCHED and `T0` is when `ndt up` was invoked. The loop
+# does not start at T0 -- it starts when the script reaches that app's section, minutes later --
+# so `T0 + i` adds two quantities with no common origin. viz printed +5 s against a true ≈+229 s
+# (46x) and te printed +1 s against a true ≈+231 s (231x). Only nsr escaped, because it was the
+# one row read from a real file mtime, and it was also the only row that produced a large,
+# plausible number.
+#
+# Two changes, and the second matters as much as the first:
+#   1. every T_APP is now a real `date +%s` reading taken AT THE MATCH;
+#   2. T_START records when this script started each app, so the app's own convergence can be
+#      separated from the harness's sequencing.
+# Without (2), fixing (1) would give correct numbers that still mostly measure the harness: all
+# three real values clustered at ≈+224…231 s because 20_apps_lifecycle.sh does not reach nsr,
+# viz and te until ≈T0+220 s. 🔑 The table was measuring when the harness got round to starting
+# each app, and a correct T0-offset would still be measuring that.
+mark_start() { T_START[$1]="$(date +%s)"; }
+
+# rel <app> -- "+<n>s since ndt up, +<m>s since this script started it", for one app.
+#
+# The two `local` statements are NOT combinable into one. `local a="$1" t="${T_APP[$a]:-}"`
+# expands its whole argument list BEFORE assigning any of it, so `$a` is still unset when
+# `${T_APP[$a]}` is evaluated -- and under this harness's `set -Eeuo pipefail` that is an
+# "a: unbound variable" abort, not a silent empty. Written the compact way first and caught by
+# the acceptance run, not by review. [Co-developed with claude code -- Adam]
+rel() {
+    local a="$1"
+    local t="${T_APP[$a]:-}" s="${T_START[$a]:-}"
+    [[ -n "$t" ]] || { printf 'not observed serving'; return 0; }
+    if [[ -n "$s" ]]; then printf '+%ss since T0, +%ss since we started it' "$(( t - T0 ))" "$(( t - s ))"
+    else printf '+%ss since T0' "$(( t - T0 ))"; fi
+}
 
 # --- sim ------------------------------------------------------------------------------------------
 say "app: sim (Simulation-Platform-Manager)"
 info "started through ndtwin-lab's NOPASSWD verb, in a tmux session (ndt:1565)"
+mark_start sim
+SIM_START_EPOCH="${T_START[sim]}"
 set +e
 "$NDT_BIN" apps sim > "$OUT/app_sim_start.log" 2>&1
 set -e
 sed 's/^/      /' "$OUT/app_sim_start.log" || true
+# [Co-developed with claude code -- Adam]
+# FINDING-02 Defect B. sim is started as ROOT (through ndtwin-lab's NOPASSWD verb, in a root tmux
+# session), and port_holder used to return empty for a root-owned listener -- so this loop could
+# not succeed no matter how promptly sim bound. port_holder is now three-valued and "a listener
+# whose owner we cannot see" counts as BOUND, which is the question this loop is asking.
 SIM_WAIT=0
+SIM_BIND_EPOCH=""
 for i in $(seq 1 60); do
-    [[ -n "$(port_holder 9000)" ]] && { SIM_WAIT=$i; break; }
+    if port_is_bound 9000; then SIM_WAIT=$i; SIM_BIND_EPOCH="$(date +%s)"; break; fi
     sleep 1
 done
 SIM_PID="$(port_holder 9000)"
-if [[ -n "$SIM_PID" ]]; then
-    T_APP[sim]=$(( T0 + SIM_WAIT ))
-    ok "sim is serving :9000 after ~${SIM_WAIT}s (pid $SIM_PID: $(proc_cmdline "$SIM_PID" | cut -c1-70))"
+# The loop is the authority on WHEN, and this second read is the authority on WHO. They can
+# disagree: the port may bind in the gap between the loop giving up and this line. Without the
+# guard below, SIM_BIND_EPOCH would still be empty while SIM_PID was not, and the arithmetic in
+# the branches would silently treat "" as 0 and print a ten-digit negative number -- set -u does
+# not fire for a variable that is set-but-empty. Stamp it here rather than let that happen, and
+# say which reading it came from. [Co-developed with claude code -- Adam]
+if [[ -n "$SIM_PID" && -z "$SIM_BIND_EPOCH" ]]; then
+    SIM_BIND_EPOCH="$(date +%s)"
+    info "note: :9000 was not bound during the ${SIM_WAIT:-60}s wait but IS bound now. The epoch below is this later reading, so it is an UPPER BOUND on when sim bound, not a measurement of it."
+fi
+if [[ "$SIM_PID" == "$PORT_HOLDER_HIDDEN" ]]; then
+    # Serving, and we cannot name the process. Both halves are recorded; neither is inflated.
+    T_APP[sim]="$SIM_BIND_EPOCH"
+    ok "sim is serving :9000 (bound by $(( SIM_BIND_EPOCH - SIM_START_EPOCH ))s into the wait; epoch $SIM_BIND_EPOCH)"
+    info "the listener's owner is not visible to this uid, which is EXPECTED: sim runs in a root tmux session. The port is held; WHICH process holds it is not established here, so this is not a P-1 identity check."
+    info "sim has NO polling loop; 'serving' here means listening. Do not wait for it to appear in the kernel log -- it only POSTs /ndt/simulation_completed when a simulation finishes."
+elif [[ -n "$SIM_PID" ]]; then
+    T_APP[sim]="$SIM_BIND_EPOCH"
+    ok "sim is serving :9000 (bound by $(( SIM_BIND_EPOCH - SIM_START_EPOCH ))s into the wait; epoch $SIM_BIND_EPOCH) (pid $SIM_PID: $(proc_cmdline "$SIM_PID" | cut -c1-70))"
     info "sim has NO polling loop; 'serving' here means listening. Do not wait for it to appear in the kernel log -- it only POSTs /ndt/simulation_completed when a simulation finishes."
 else
-    bad "sim never opened :9000 within 60s (see $OUT/app_sim_start.log)"
+    bad "sim never opened :9000 within 60s (see $OUT/app_sim_start.log). port_holder is now three-valued, so this IS an absence of any LISTEN line, not the old blind spot."
 fi
 
 # --- nsr ------------------------------------------------------------------------------------------
@@ -156,6 +215,7 @@ say "app: nsr (Network-State-Recorder)"
 NSR_LOG="$LOG_DIR/app_nsr.log"
 NSR_BASE="$(sig_of "$NSR_LOG")"
 info "pre-run signature of $NSR_LOG: ${NSR_BASE:-<not in baseline>}"
+mark_start nsr
 set +e
 "$NDT_BIN" apps nsr > "$OUT/app_nsr_start.log" 2>&1
 set -e
@@ -165,7 +225,7 @@ require_absent_or_fresh "$NSR_LOG" "${NSR_BASE:-ABSENT}"
 NSR_T="$(first_serve_epoch "$NSR_DIR/recorded_info" "$T0")"
 if [[ "$NSR_T" != "-1" ]]; then
     T_APP[nsr]="$NSR_T"
-    ok "nsr wrote a new file under $NSR_DIR/recorded_info at +$(( NSR_T - T0 ))s -- a positive artefact, not the absence of an error"
+    ok "nsr wrote a new file under $NSR_DIR/recorded_info at epoch $NSR_T ($(rel nsr)) -- a positive artefact, not the absence of an error"
 else
     # Give it its configured cadence plus margin before calling it a failure. 5 s per
     # recorder_setting.yaml:5, so 60 s is twelve cycles.
@@ -175,7 +235,7 @@ else
         sleep 1
     done
     if [[ "$NSR_T" != "-1" ]]; then
-        T_APP[nsr]="$NSR_T"; ok "nsr wrote its first record at +$(( NSR_T - T0 ))s"
+        T_APP[nsr]="$NSR_T"; ok "nsr wrote its first record at epoch $NSR_T ($(rel nsr))"
     else
         bad "nsr produced no record in $NSR_DIR/recorded_info within 60s (12 cycles at its configured 5 s). Tail of its log:"
         tail -10 "$NSR_LOG" 2>/dev/null | sed 's/^/        /' || true
@@ -189,6 +249,7 @@ if [[ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
 else
     VIZ_LOG="$LOG_DIR/app_viz.log"
     VIZ_BASE="$(sig_of "$VIZ_LOG")"
+    mark_start viz
     set +e
     "$NDT_BIN" apps viz > "$OUT/app_viz_start.log" 2>&1
     set -e
@@ -196,12 +257,13 @@ else
     info "first run builds with maven and is slow (ndt:1575) -- allowing 300 s"
     VIZ_T=-1
     for i in $(seq 1 300); do
-        if [[ -s "$VIZ_LOG" ]] && grep -qiE 'topolog|graph|node|edge' "$VIZ_LOG"; then VIZ_T=$(( T0 + i )); break; fi
+        # `date +%s` at the match, NOT T0 + i. See mark_start above.
+        if [[ -s "$VIZ_LOG" ]] && grep -qiE 'topolog|graph|node|edge' "$VIZ_LOG"; then VIZ_T="$(date +%s)"; break; fi
         sleep 1
     done
     if (( VIZ_T > 0 )); then
         require_absent_or_fresh "$VIZ_LOG" "${VIZ_BASE:-ABSENT}"
-        T_APP[viz]="$VIZ_T"; ok "viz produced topology output at ~+$(( VIZ_T - T0 ))s"
+        T_APP[viz]="$VIZ_T"; ok "viz produced topology output at epoch $VIZ_T ($(rel viz))"
     else
         bad "viz produced nothing recognisable in 300s (see $VIZ_LOG)"
     fi
@@ -236,6 +298,7 @@ TE_PID=""
 if [[ ! -f "$PID_DIR/app_te.pid" ]] || ! alive "$(cat "$PID_DIR/app_te.pid" 2>/dev/null || echo 0)"; then
     info "step 2: restarting te under a pty (the T-3 pty point: a program tested without a terminal is not the program a reader runs)"
     mkdir -p "$LOG_DIR"
+    mark_start te
     # H-22: `script` is exec'd as the single child, so $! is its pid; we then verify the cmdline.
     # NOT `TE_PID="$(spawn_exec …)"`. That captured spawn_exec's PASS line along with the pid,
     # left TE_PID a blob that was non-empty (so this looked like success) but not a live pid (so
@@ -248,13 +311,14 @@ fi
 if [[ -n "$TE_PID" ]]; then
     TE_T=-1
     for i in $(seq 1 90); do
-        if [[ -s "$TE_LOG" ]] && grep -qiE 'Select TE mode|graph|flow' "$TE_LOG"; then TE_T=$(( T0 + i )); break; fi
+        # `date +%s` at the match, NOT T0 + i. See mark_start above.
+        if [[ -s "$TE_LOG" ]] && grep -qiE 'Select TE mode|graph|flow' "$TE_LOG"; then TE_T="$(date +%s)"; break; fi
         alive "$TE_PID" || break
         sleep 1
     done
     if (( TE_T > 0 )); then
         require_absent_or_fresh "$TE_LOG" "${TE_BASE:-ABSENT}"
-        T_APP[te]="$TE_T"; ok "te is running under a pty and producing output at ~+$(( TE_T - T0 ))s (pid $TE_PID)"
+        T_APP[te]="$TE_T"; ok "te is running under a pty and producing output at epoch $TE_T ($(rel te)) (pid $TE_PID)"
         info "te is in MODE 1: it runs run_te() only on Enter. It polls get_graph_data every 1 s (Traffic-engineering-App.py:41) but installs NO flow rules unless triggered. That is deliberate -- mode 2 would mutate the fabric on its own schedule and confound every other measurement in this round."
     else
         bad "te under a pty produced no output in 90s (see $TE_LOG)"
@@ -265,18 +329,33 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 say "R-3 -- convergence table"
+# The `own` column is the one to read. `since_T0` is dominated by this script's own sequencing:
+# 20_apps_lifecycle.sh begins at ≈T0+158 s and spends its first ~60 s in sim's wait loop, so it
+# does not reach nsr, viz and te until ≈T0+220 s. On 08-30 all three true values clustered at
+# ≈+224…231 s for that reason alone. PREREG §3's R-3 -- "convergence time from ndt up to all
+# five apps serving" -- is NOT what the since_T0 column contains, even now that the arithmetic is
+# right. The break condition (failure to converge) is still answerable; the seconds are not
+# attributable to the stack. [Co-developed with claude code -- Adam]
 {
     printf 'T0 (ndt up invoked)\t%s\n' "$T0"
+    printf '#app\tstate\tserved_epoch\tsince_T0\tstarted_epoch\town\n'
     for a in sim nsr viz te; do
         if [[ -n "${T_APP[$a]:-}" ]]; then
-            printf '%s\tfirst served at\t%s\t(+%s s)\n' "$a" "${T_APP[$a]}" "$(( ${T_APP[$a]} - T0 ))"
+            if [[ -n "${T_START[$a]:-}" ]]; then
+                printf '%s\tserving\t%s\t+%ss\t%s\t+%ss\n' \
+                    "$a" "${T_APP[$a]}" "$(( ${T_APP[$a]} - T0 ))" "${T_START[$a]}" "$(( ${T_APP[$a]} - ${T_START[$a]} ))"
+            else
+                printf '%s\tserving\t%s\t+%ss\t-\t-\n' "$a" "${T_APP[$a]}" "$(( ${T_APP[$a]} - T0 ))"
+            fi
         else
-            printf '%s\tDID NOT SERVE\t-\t-\n' "$a"
+            printf '%s\tDID NOT SERVE\t-\t-\t%s\t-\n' "$a" "${T_START[$a]:--}"
         fi
     done
-    printf 'energy\tnot started by this script (destructive; see 25_apps_energy.sh)\t-\t-\n'
+    printf 'energy\tnot started by this script (destructive; see 25_apps_energy.sh)\t-\t-\t-\t-\n'
 } > "$OUT/r3_convergence.tsv"
 sed 's/^/      /' "$OUT/r3_convergence.tsv"
+info "read the 'own' column, not 'since_T0': since_T0 includes however long this script took to"
+info "reach each app, which on 08-30 was ~220 s and dominated every row."
 SERVED=0; for a in sim nsr viz te; do [[ -n "${T_APP[$a]:-}" ]] && SERVED=$((SERVED+1)); done
 info "apps serving: $SERVED of 4 (excluding energy)"
 # PREREG §3 R-3: "Break condition is failure to converge, not a different number."

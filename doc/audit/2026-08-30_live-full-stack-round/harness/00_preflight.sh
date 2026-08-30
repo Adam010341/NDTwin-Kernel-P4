@@ -147,10 +147,20 @@ BMV2_N="$(ps -eo comm= 2>/dev/null | grep -cx 'simple_switch_g' || true)"
 info "bmv2 processes: ${BMV2_N:-0}   (comm is truncated to 15 chars; 'simple_switch_g' is the whole name the kernel reports)"
 gate "no bmv2 switches are already running" "$( [[ "${BMV2_N:-0}" == "0" ]] && echo 0 || echo 1 )" "${BMV2_N:-0}"
 
+# port_holder is three-valued as of 2026-08-30 (FINDING-02 Defect B). The middle branch is new
+# and it is the one that matters here: a root-owned listener used to read as ":$p is free", which
+# is the strongest possible false PASS for a preflight whose entire job is to establish that the
+# machine is quiet. A port we cannot see the owner of is NOT free.
+# [Co-developed with claude code -- Adam]
 for p in 8000 8080 8081 9000; do
     H="$(port_holder "$p")"
-    if [[ -z "$H" ]]; then ok ":$p is free"
-    else bad ":$p is held by pid $H ($(proc_cmdline "$H" | cut -c1-70)) -- P-1: a second instance on a taken port still runs its startup and writes to the data plane before it discovers the port is gone"; fi
+    if [[ -z "$H" ]]; then
+        ok ":$p is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"
+    elif [[ "$H" == "$PORT_HOLDER_HIDDEN" ]]; then
+        bad ":$p HAS a listener whose owner is not visible to this uid (root-owned). The machine is NOT quiet. Before 2026-08-30 this printed ':$p is free'. Identify it with:  sudo ss -lptnH 'sport = :$p'"
+    else
+        bad ":$p is held by pid $H ($(proc_cmdline "$H" | cut -c1-70)) -- P-1: a second instance on a taken port still runs its startup and writes to the data plane before it discovers the port is gone"
+    fi
 done
 
 APPS_LINE="$(grep -E '^  apps ' "$STATUS_TXT" | head -1 | sed 's/^  apps *//' || true)"

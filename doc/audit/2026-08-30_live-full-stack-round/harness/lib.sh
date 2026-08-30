@@ -380,12 +380,54 @@ stop_pid() {
 # a proxy whose bind failed still ran its lifespan startup and wrote to the data plane, and
 # every sample taken over the port was answered by a DIFFERENT process from the one just
 # started. "Something answers on :8081" is not "the thing I started answers on :8081".
+# port_holder <port> -- THREE-VALUED. Callers must handle all three.
+#
+#   ""                       nothing is listening. The port is FREE.
+#   "<pid>"                  that pid holds it.
+#   "$PORT_HOLDER_HIDDEN"    something IS listening and we cannot see whose it is.
+#
+# [Co-developed with claude code -- Adam]
+# FIXED 2026-08-30 (T-10, FINDING-02 Defect B). This used to collapse the third state into the
+# first. Run unprivileged, `ss` prints the LISTEN line for a socket owned by another user but
+# OMITS the users:(("…",pid=N,…)) field. So `out` was non-empty (no early return) and the `pid=`
+# grep found nothing: the function returned empty WHILE SOMETHING WAS LISTENING, and every
+# caller read that as "no listener".
+#
+# Measured live, with the positive control that makes it an observation rather than a guess:
+#     ss -ltnH 'sport = :9000'  -> LISTEN 0 4096 0.0.0.0:9000     (a listener exists)
+#     port_holder 9000          -> []                             (the harness saw none)
+#     port_holder 8000          -> [284117]                       (control: our own uid, works)
+# The control is the load-bearing half -- the function WORKS for a socket this uid owns, so the
+# empty result on :9000 was about ownership, not about a broken function.
+#
+# It cost the round its sim row. `ndt apps sim` starts the Simulation-Platform-Manager through
+# ndtwin-lab's NOPASSWD verb in a ROOT tmux session, and 20_apps_lifecycle.sh then looked for it
+# with this function. The two halves of the check disagreed by construction inside the harness's
+# own code: widening the 60 s wait to an hour would not have changed the result. `sim DID NOT
+# SERVE` was uninformative -- not evidence that sim failed to serve, and not evidence that it did.
+# 🔑 A bound inferred from a blind instrument is not a bound.
+#
+# The sentinel is a non-numeric string on purpose: a caller that forgets to handle it and does
+# arithmetic or a /proc lookup on it fails visibly instead of quietly meaning something else.
+PORT_HOLDER_HIDDEN='LISTENER-OWNER-HIDDEN'
+
 port_holder() {
-    local port="$1" out
+    local port="$1" out pid
     out="$(ss -lptnH "sport = :$port" 2>/dev/null || true)"
+    # No LISTEN line at all. This is the only state that means "free", and it is decided by the
+    # line's PRESENCE, which is visible regardless of owner -- not by the pid field, which is not.
     [[ -n "$out" ]] || { printf ''; return 0; }
-    printf '%s' "$out" | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2 || true
+    pid="$(printf '%s' "$out" | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2 || true)"
+    if [[ -n "$pid" ]]; then
+        printf '%s' "$pid"
+    else
+        printf '%s' "$PORT_HOLDER_HIDDEN"
+    fi
 }
+
+# port_is_bound <port> -- "is anything listening", the question most callers actually have.
+# True for both the pid and the hidden state. Prefer this to `[[ -n "$(port_holder N)" ]]`.
+port_is_bound() { [[ -n "$(port_holder "$1")" ]]; }
 
 # assert_port_is <label> <port> <expected-pid>
 assert_port_is() {
@@ -393,6 +435,12 @@ assert_port_is() {
     got="$(port_holder "$port")"
     if [[ -z "$got" ]]; then
         bad "$label: nothing is listening on :$port"
+    elif [[ "$got" == "$PORT_HOLDER_HIDDEN" ]]; then
+        # UNTESTABLE, not a pass and not a mismatch. We know a listener exists and we cannot
+        # know whose it is, so the P-1 question -- "is the thing answering the thing we
+        # started?" -- is unreachable. PREREG §3 requires this third branch precisely so that
+        # "we could not reach it" is never scored as "it is fine".
+        skip "$label: :$port HAS a listener but its owner is not visible to this uid (root-owned). Whether it is the pid we started (${want:-unknown}) cannot be decided from here -- re-run this assertion with sudo, or read the owner from the process that started it."
     elif [[ -z "$want" ]]; then
         info "$label: :$port held by pid $got ($(proc_cmdline "$got" | cut -c1-80))"
     elif [[ "$got" == "$want" ]]; then

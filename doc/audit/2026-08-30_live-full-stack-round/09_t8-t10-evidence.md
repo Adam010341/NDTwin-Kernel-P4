@@ -439,3 +439,145 @@ crashed on the one path where they matter. `LAB_BIN` is now defined in `lib.sh` 
 * ⚠️ **P4 power-on remains broken and is NOT fixed here.** It is a kernel-side stub, not a
   harness defect, and out of T-10's scope. The allowlist string was not located in `src/` or
   `p4_proxy/`, so it stays recorded as the allowlist's claim corroborated by behaviour.
+
+---
+
+## §2.6 — T-10 (FINDING-02 Defect A): a loop counter used as a clock
+
+`20_apps_lifecycle.sh`. Three of four rows were `T_APP = T0 + i`, where `i` is *which iteration
+of a wait loop matched* and `T0` is when `ndt up` was invoked. The loop does not start at `T0` —
+it starts when the script reaches that app's section, minutes later.
+
+### Method
+
+The **viz wait loop is extracted verbatim from the shipped file** and run twice over the same
+simulated timeline: once with the old `T0 + i` line substituted back in, once as shipped.
+`sleep` advances a fake clock and `date` reads it, so the timeline is exact and the test is
+instant.
+
+```
+=== the timeline being simulated ===
+  T0 (ndt up invoked)          = 1788073422
+  this script reaches viz at   = T0 + 220
+  viz then takes               = 9s of its own
+  so the TRUE first-serve is   = T0 + 229
+
+  OLD  (T0 + i)      VIZ_T=1788073432   reported as +10s   error 22x
+  NEW  (date at match) VIZ_T=1788073651   reported as +229s
+  TRUE                 VIZ_T=1788073651   reported as +229s
+
+  GREEN: the fixed loop reports the true epoch.
+  RED (control): the old loop was off by 219s -- it reported the loop
+        iteration count, which is a property of the harness, not of viz.
+```
+
+🔑 The fixed loop lands on **1788073651**, which is *the value FINDING-02 recovered independently*
+from viz's H-20 artefact signature. Two different routes to the same epoch.
+
+### The second half of the fix, which matters as much as the first
+
+Correct arithmetic alone would still have produced numbers that mostly measure the harness — all
+three true values clustered at ≈+224…231 s because the script does not reach nsr, viz and te
+until ≈`T0+220 s`. So `T_START[app]` is now recorded per app and the table carries an **`own`**
+column:
+
+```
+=== the second half of the fix: the 'own' column ===
+  rel viz -> +229s since T0, +9s since we started it
+
+=== rel() on an app that never served (must not do arithmetic on empty) ===
+  rel te  -> not observed serving
+```
+
+The table header is now `#app state served_epoch since_T0 started_epoch own`, and the script
+prints an instruction to read `own`, not `since_T0`. PREREG §3's R-3 — *"convergence time from
+`ndt up` to all five apps serving"* — is still **not** what `since_T0` contains, even with the
+arithmetic fixed, and the script now says so at the point of output rather than only in a finding.
+
+### 🔴 A bug in the fix, found by the acceptance run and not by review
+
+The first `rel()` was written compactly:
+
+```bash
+local a="$1" t="${T_APP[$a]:-}" s="${T_START[$a]:-}"
+```
+
+`local` expands its **entire argument list before assigning any of it**, so `$a` is still unset
+when `${T_APP[$a]}` is evaluated. Under the harness's `set -Eeuo pipefail` that is an abort, not
+a silent empty. Isolated and confirmed:
+
+```
+--- single local statement ---
+localorder.sh: line 6: a: unbound variable
+```
+
+(The split-into-two version prints `a=viz t=42`.) Split in the shipped code, with the reason in a
+comment. **This would have crashed `20_apps_lifecycle.sh` on its first `ok` line.** It was caught
+only because the fix was exercised rather than reasoned about.
+
+### One more edge case, guarded
+
+The wait loop is the authority on *when*; the `port_holder` read after it is the authority on
+*who*. They can disagree — the port may bind in the gap. Without a guard, `SIM_BIND_EPOCH` would
+be empty while `SIM_PID` was not, and `$(( SIM_BIND_EPOCH - SIM_START_EPOCH ))` would silently
+treat `""` as 0 and print a ten-digit negative number. **`set -u` does not fire for a variable
+that is set-but-empty.** The epoch is now stamped at that later reading and labelled as an
+**upper bound**, not a measurement.
+
+Prediction P6: **held**.
+
+## §2.7 — T-10 (FINDING-02 Defect B): `port_holder`'s missing third state
+
+**Fixture-verified, live proof deferred to the traffic round's preflight.** Producing a genuinely
+root-owned listener needs sudo and a fabric, so `ss` is stubbed with **recorded** output of each
+shape. The pid-less LISTEN line is the real article: it is what `ss -lptnH` prints for another
+user's socket when run unprivileged, which is what FINDING-02 observed live on `:9000`.
+
+```
+=== port_holder, NEW vs OLD (09c9b03) ===
+root-owned listener      (:9000)               NEW=[LISTENER-OWNER-HIDDEN]  OLD=[]
+our own listener         (:8000)               NEW=[284117]                 OLD=[284117]
+nothing listening        (:7777)               NEW=[]                       OLD=[]
+```
+
+🔑 `:9000` is the whole finding: OLD returns `[]`, **identical to the `:7777` "free" answer**,
+while something is listening. Three states collapsed into two, and the collapsed pair is exactly
+the pair a preflight must distinguish.
+
+```
+=== port_is_bound: the question the sim wait loop is actually asking ===
+  port_is_bound 9000   -> true    (OLD equivalent [[ -n ... ]] -> false)
+  port_is_bound 8000   -> true    (OLD equivalent [[ -n ... ]] -> true)
+  port_is_bound 7777   -> false   (OLD equivalent [[ -n ... ]] -> false)
+
+=== the sim wait loop, both code paths, driven against the stub ===
+  PASS  sim is serving :9000 -- owner not visible (expected: sim runs in a root tmux session)
+  PASS  sim is serving :8000 (pid 284117)
+  FAIL  sim never opened :7777 -- a genuine absence of any LISTEN line, not the old blind spot
+
+=== assert_port_is: identity is UNTESTABLE, not passed and not failed ===
+  N/A   sim: :9000 HAS a listener but its owner is not visible to this uid (root-owned). Whether
+        it is the pid we started (284117) cannot be decided from here -- re-run with sudo, or
+        read the owner from the process that started it.
+  PASS  kernel: :8000 held by the pid we started (284117)
+  FAIL  kernel: :8000 is held by pid 284117, NOT the pid we started (999999) -- P-1 orphan
+  FAIL  gone: nothing is listening on :7777
+
+=== 00_preflight's 'the machine is quiet' loop ===
+  FAIL  :8000 is held by pid 284117
+  FAIL  :9000 HAS a listener whose owner is not visible. The machine is NOT quiet.
+        Before 08-30 this printed ':9000 is free'.
+  PASS  :7777 is free (no LISTEN line)
+```
+
+The sentinel is deliberately **non-numeric** so a caller that forgets to handle it fails visibly
+instead of quietly meaning something else. `assert_port_is` returns **N/A (untestable)** for it —
+not a pass and not a mismatch — because the P-1 question *"is the thing answering the thing we
+started?"* is genuinely unreachable there, and PREREG §3 requires that third branch precisely so
+"we could not reach it" is never scored as "it is fine".
+
+`00_preflight.sh` is the caller where this mattered most and was not in the ticket: a root-owned
+listener used to print `:9000 is free` from the script whose entire job is to establish that the
+machine is quiet. That is the strongest possible false PASS.
+
+Prediction P7: **held**.
