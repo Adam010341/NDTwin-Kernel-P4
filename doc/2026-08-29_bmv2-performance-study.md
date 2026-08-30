@@ -69,7 +69,9 @@ OVS 那邊是不是也這樣，同一把梯子的對照還沒跑（③）。貢�
    `10.3390/network5020021`）已人工逐字核對**——「SDN+P4 outperform SDN+OvS
    significantly」在期刊摘要原句、reactive/PACKET_IN 自我歸因段同在、關鍵數字同
    （6300 bps、UDP +43%）、build/variant 仍零揭露 ⇒ **「同儕審查」措辭恢復**，
-   引用一律指期刊版。〕
+   引用一律指期刊版；08-30 審查 session 對 Adam 下載的期刊 PDF 逐頁複核＝第二次
+   核對（MDPI "Article"、Received 28 Apr／Revised 31 May／Accepted 9 Jun、
+   Academic Editor 齊備；作者列逐字符合；排序句與 reactive 自我歸因原句皆在）。〕
 3. **同一實驗室內部都不可比較**：Jin 組相鄰兩篇的每-switch RTT 差 **1.7×**
    （PADS '24 native 1.217 ms vs PADS '26 迴歸 729.4 µs），不同機器、皆無 build 資訊
    〔O＋I；`SEARCH-ROUND-1.md` §2〕。
