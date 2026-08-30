@@ -362,8 +362,11 @@ def fig_gate_after_fix():
         axL.plot([a], [b], "o", ms=12, color=OKC, zorder=5,
                  markeredgecolor="white", markeredgewidth=1.3)
     axL.axvline(1.0, color=WARNC, linewidth=1.3, linestyle="--", alpha=0.8, zorder=3)
-    axL.text(1.0018, lo + 0.003, "old hard-coded 1.000 s", color=WARNC, fontsize=9.5,
-             ha="left", va="bottom", fontweight="bold", rotation=90)
+    # Label sits LEFT of the dashed line, top-anchored: at the old right-side bottom position
+    # it rendered across the lowest data point once the panel was recentred (seen on the PNG,
+    # not predictable from coordinates alone).
+    axL.text(0.9982, hi - 0.004, "old hard-coded 1.000 s", color=WARNC, fontsize=9.5,
+             ha="right", va="top", fontweight="bold", rotation=90)
     axL.set_xlim(lo, hi)
     axL.set_ylim(lo, hi)
     axL.set_xticks([1.00, 1.02, 1.04, 1.06])
