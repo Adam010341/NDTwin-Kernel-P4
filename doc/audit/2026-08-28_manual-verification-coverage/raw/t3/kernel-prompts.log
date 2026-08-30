@@ -1,0 +1,73 @@
+1
+1
+2
+n
+1
+1
+2
+n
+[2026-08-30 03:16:50.645] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2): 
+Select your Mininet Topology:
+  [1] OVS Environment (128 Hosts)
+  [2] P4 / BMv2 Environment (4 Hosts)
+Enter topology choice (1-2): 
+Do you want to enable Intent Translator (requires OpenAI Token)?
+  [1] Yes (Enable AI features)
+  [2] No  (Disable AI features)
+Enter choice (1-2): Running in Mininet environment.
+[2026-08-30 03:16:50.646] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-08-30 03:16:50.650] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-08-30 03:16:50.651] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-08-30 03:16:50.656] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-08-30 03:16:50.656] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-08-30 03:16:50.656] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=24065 tid=24069
+[2026-08-30 03:16:50.656] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=24065 tid=24068
+[2026-08-30 03:16:50.656] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-08-30 03:16:50.657] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=24065 tid=24071
+[2026-08-30 03:16:50.657] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=24065 tid=24070
+[2026-08-30 03:16:50.657] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=24065 tid=24072
+[2026-08-30 03:16:50.657] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-08-30 03:16:50.657] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-08-30 03:16:50.657] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-08-30 03:16:50.659] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-08-30 03:16:50.685] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+[2026-08-30 03:16:50.837] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 0 switches, 0 hosts, 0 edges up
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+[2026-08-30 03:17:20.666] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.3 ms | since start (29 iters) mean 1000.3 ms, min 1000.2, max 1000.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-30 03:17:20.666] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000402 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+
+Session terminated, killing shell... ...killed.

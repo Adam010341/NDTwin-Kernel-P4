@@ -1,0 +1,43 @@
+=== T-3 User Manual OVS flow, started 2026-08-30T03:14:06+00:00 ===
+
+############ PRE-FLIGHT -- the three things the page tells you to ensure ############
+    PASS: source in ~/Desktop
+    PASS: ndtwin_kernel built
+    PASS: testbed_topo.py present
+
+############ TERMINAL 1 -- Ryu controller ############
+The page says start Ryu FIRST and let it come up, because testbed_topo.py asks for a
+remote controller without naming a port: Mininet probes 6653 then 6633 and takes
+whichever answers, and neither side logs the port it chose. So the ordering claim is
+testable: after Ryu is up, 6633 must be held by Ryu.
+    pid holding :6633 = 1317
+    PASS: Ryu is listening on 6633 before the topology starts (the page's ordering claim)
+    cmdline: /home/tester/miniconda3/envs/ryu-env/bin/python /home/tester/miniconda3/envs/ryu-env/bin/r
+    is 6653 open too? (the port the page warns Mininet falls back to)
+      holder of 6653: 
+
+############ TERMINAL 2 -- Mininet topology ############
+    topology pid 1355
+    the page says wait ~60 s for: "all-destination paths installed"
+    2026-08-30T03:15:47+00:00  message seen after ~80s
+    PASS: the page's named message appeared
+    mininet reached CLI? 1 prompt(s)
+
+############ TERMINAL 3 -- NDTwin Kernel, run EXACTLY as the page prints it ############
+The page's command carries no --mode/--topology/--ai. Under a pty the kernel prompts;
+headless it exits with usage. A reader has a pty, so this runs under one.
+    --- first 30 lines the reader would see ---
+      ^@[2026-08-30 03:15:48.068] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+      Select your deployment environment:
+        [1] Local Mininet (simulated testbed)
+        [2] Remote Testbed (physical or virtual deployment)
+      Enter environment choice (1-2):     --- does it prompt? ---
+      prompts/questions detected -- see above
+    pid holding :8000 = <nobody>
+    FAIL: kernel never listened on 8000 -- see the 30 lines above for why
+
+############ SHUTDOWN ############
+
+############ T-3 OVS RESULT ############
+failures: 1
+finished 2026-08-30T03:16:25+00:00

@@ -1,0 +1,5 @@
+^@[2026-08-30 03:15:48.068] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2): 
