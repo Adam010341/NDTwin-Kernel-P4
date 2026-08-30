@@ -98,3 +98,64 @@ precondition failure. **Registered as a harness ticket, not fixed inside a measu
 | in-window `git commit` | **none** — forbidden by the claim note for this round | n/a |
 
 The third and fourth rows are the ones the claim can actually enforce, and both are clean.
+
+---
+
+# Declared late: three worktree agents doing file I/O (KNOWN-ISSUES repair wave)
+
+Declared by `8/29 auditor` **after** this round finished, as "3 agents doing file operations,
+starting ~15 min after the claim", described as "scattered grep/read/write, below the already
+recorded ~29 %-of-a-core idle-session covariate". Recorded here rather than taken on trust,
+because a covariate declaration is a claim about my measurements and I can check it.
+
+**The overlap is real. Its size is smaller than the description, and its timing stops before the
+data the round's main finding rests on.** Measured from file mtimes under
+`.claude/worktrees/agent-*/`, excluding `.git/`:
+
+| worktree | burst | individual writes afterwards |
+|---|---|---|
+| `agent-a2c2a6601f812a7eb` | **1025 files at 20:26** | 9, between 20:32 and 20:43 |
+| `agent-aaf83a756cda5386e` | **1031 files at 20:26** | 8, between 20:43 and 20:58 |
+| `agent-a0170b1609e75e0a1` | **1036 files at 20:26** | 2, at 21:03 and 21:04 |
+
+So the shape is **one burst of ~3100 file creations at 20:26 — three `git worktree add`
+checkouts, not editing** — followed by **19 individual file writes spread over 32 minutes**, and
+then nothing. (A worktree checkout of this repo writes ~6000 files; mine printed exactly that.)
+
+## What it overlaps, and what it does not
+
+| round activity | clock | agent writes in that span |
+|---|---|---|
+| preflight, `ndt up p4 128` | 20:27 – 20:31 | **the 20:26 burst lands here**, before any measurement |
+| calibration, sampler, traffic block | 20:34 – 20:52 | ~11 single-file writes |
+| TR-3 contended + idle runs | 20:40 – 21:00 | ~8 single-file writes |
+| TR-3 period series | 21:05 – 21:08 | 2 (21:03, 21:04), i.e. just before it |
+| **TR-3 simultaneity — FINDING-06's decisive data** | **21:12 – 21:15** | **none** |
+| endpoint-cost measurement (the 735 ms) | 21:26 | **none** |
+| **arm 2 (OVS) and arm 3 (4-host)** | **21:19 – 21:51** | **none** |
+
+## Does it reach any conclusion? No, and here is the per-finding reason
+
+* **FINDING-06 (the 10.70 s cycle).** Its decisive observation — eight rules posted 3 s apart
+  landing in three bursts with 0 ms spread within each — was taken at 21:12–21:15, **after the
+  last agent write**. The period is stable to sd 0.05 s across four gaps drawn from two separate
+  runs. A perturbation shows up as variance; there is none to attribute.
+* **The 128-host sampler's 50 % overruns.** Attributed to endpoint cost, not to load: one sample
+  costs **735 ms** against a 500 ms budget, and the same sample costs **4 ms** at 4 hosts with
+  **0 overruns**. Both of those measurements were taken with no agent writes in the window. The
+  arithmetic does not need a covariate to explain it and would not be rescued by removing one.
+* **TR-3's idle arm.** This is the one place it could in principle bite — my "idle" control was
+  not perfectly idle. It does not change the finding, because the finding does not rest on
+  comparing the arms: it rests on simultaneity, which is a within-run observation. The arm
+  comparison is reported as *overlapping and non-discriminating*, which is what it is.
+
+## 🔴 Two corrections to my own record, found while checking this
+
+1. **The handoff timestamp was wrong.** I wrote `at=2026-08-30 22:08` by hand from a mental
+   clock that was running ~15 minutes fast; `date` says the release was at **~21:53**. Corrected
+   in `.test_run/lab.handoff`. A handoff is read by someone reconstructing a timeline, so a
+   hand-typed time in it is worth exactly nothing and can mislead — **stamp it from `date`.**
+2. **The window is closed.** The declaration says "from now on, within your measurement window".
+   It is not: the claim was released before the message arrived. Anything those agents do from
+   here is outside this round. `memory: rescinded-orders-invalidate-damage-assessment` — the
+   sender's picture of my state is the state at send time, and cross-session messages queue.
