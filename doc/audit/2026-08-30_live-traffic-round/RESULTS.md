@@ -62,7 +62,7 @@ never-before-used, so each is a genuine new-flow event.
 
 Plus three system findings that were not registered questions:
 [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) (the table view is blind for up to 10.7 s) and
-[FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) (priority rewritten to 0), and
+[FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) (🔴 corrected: an API-contract defect, not a forwarding one), and
 [FINDING-08](FINDING-08_energy-app-locks-itself-out.md) (the Energy-App locks itself out).
 
 ---

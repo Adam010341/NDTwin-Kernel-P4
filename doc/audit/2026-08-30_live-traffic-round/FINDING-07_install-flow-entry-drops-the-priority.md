@@ -1,7 +1,20 @@
-# Finding 07 — `install_flow_entry` programs every rule at **priority 0**, whatever you asked for
+# Finding 07 — the API accepts a `priority` the table it routes to has no column for
 
-**Status: CONFIRMED, 2026-08-30 21:05–21:14 CST.** Round: live-traffic (full-stack #3), arm 1,
-P4 128 hosts, kernel `1208d22` (sha256 `66f437a5…`). **System** finding.
+> **🔴 CORRECTED 2026-08-30 23:00 — the severity drops; the observations do not move.**
+> The first version was titled *"programs every rule at priority 0, whatever you asked for"* and
+> read it as a **value being discarded**, with "two rules matching the same packet have no
+> defined order" as the consequence. That consequence is **wrong**. Mechanism traced by
+> `mainDev` (the `.p4`) and the `8/29 auditor` (the proxy's table selection); both anchors
+> re-read here.
+> **Old reading:** priority is dropped ⇒ rule precedence is unavailable ⇒ forwarding order is
+> undefined.
+> **New reading:** destination-only matches compile to an **LPM** table, which *has no priority
+> column at all* — ordering there is prefix length, which is deterministic. **No packet is
+> misforwarded.** What remains is an **API contract defect**: the endpoint accepts `priority`,
+> routes the rule to a table that cannot use it, and answers success without saying so.
+
+**Status: CONFIRMED (corrected), 2026-08-30.** Round: live-traffic (full-stack #3), arm 1,
+P4 128 hosts, kernel `1208d22` (sha256 `66f437a5…`). **API-contract** finding.
 
 [Co-developed with claude code -- Adam]
 
@@ -36,14 +49,34 @@ Rules whose action named **port 999** (a port that does not exist) were correctl
 programmed — destinations `.202`–`.205` never appear. So the write path does discriminate; it is
 specifically the priority field that does not arrive.
 
-## Why this matters more than it looks
+## The mechanism: it is not a dropped value, it is a table without that column
 
-Priority is the entire mechanism by which a specific rule overrides a general one. With every
-entry at 0:
+Two anchors, re-read rather than taken on relay:
 
-* **two rules matching the same packet have no defined order.** Which one wins is whatever the
-  table's internal ordering happens to be — not something the caller can express.
-* **the API's `priority` argument is accepted, echoed back, and discarded.** For up to ~10.7 s
+1. **`p4_proxy/p4_src/ndtwin_switch.p4`** has no exact-match table on the forwarding path.
+   `table flow_5tuple` keys **six fields, all `ternary`** (`:329-336`) and falls through —
+   `default_action = NoAction();   // fall through to ipv4_lpm` (`:345`). `table ipv4_lpm`
+   (`:350-352`) keys exactly one field, `hdr.ipv4.dstAddr: lpm`. A P4 **LPM table has no
+   priority**; its tiebreak is prefix length.
+2. **`p4_proxy/proxy_agent/api_routes.py:204-214`**, the `add_flow_entry` docstring, states it
+   outright: *"`priority` is now READ … It had no meaning while every rule went to ipv4_lpm — an
+   LPM table's tiebreak is the prefix length and nothing else — but a match naming more than a
+   destination now compiles to the ternary flow_5tuple table, where priority is both meaningful
+   and mandatory. **It is still ignored for the destination-only path**."*
+
+**All seventeen of my rules were destination-only**, so all seventeen went to `ipv4_lpm`. The
+`priority: 0` I read back is not a discarded 915 — it is the field's absence, rendered as a
+default.
+
+## Why it still matters, narrowed to what the evidence supports
+
+* **No packet is misforwarded, and rule ordering is not undefined.** Within a destination family
+  the order is prefix length: deterministic, and not something the caller needed to express.
+  ~~two rules matching the same packet have no defined order~~ — **RETRACTED**. That risk exists
+  only if someone sends a *multi-field* match, which compiles to the ternary table, **with equal
+  priorities**; nothing in this round did, and the kernel itself writes destination-only rules.
+* **the API's `priority` argument is accepted, routed to a table that cannot use it, and answered
+  with success.** For up to ~10.7 s
   the kernel's cached table view *reports the requested priority*, because `HttpSession` writes
   the raw request into that cache synchronously (that is the phantom — see
   [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md)); once the cache is refreshed
@@ -110,16 +143,14 @@ Expected: the entry is present, `actions` is `["OUTPUT:2"]`, and `priority` is `
 
 ## Not established
 
-* **Where the priority is dropped is narrowed but not identified.** 🆕 2026-08-30 22:10: the
-  **P4 proxy's own read of the switch** (`/stats/flow/<dpid>`) reports `priority: 0` too, in all
-  three reps of the programmed-vs-visible check — measured ~20 ms after the POST, long before the
-  kernel's cached view publishes anything. **So the kernel's display cache is eliminated**: the
-  priority is already gone one layer closer to the switch than the view I originally read it in.
-  Remaining candidates: the kernel's southbound encoder, the proxy's `/stats/flowentry/add`, or
-  the BMv2 table write. A source read, not another live run.
-* **Whether BMv2 could honour a priority at all** on this pipeline is unknown; a P4 table's match
-  kind may make priority meaningless for these entries, in which case the defect is that the API
-  accepts and echoes a field it cannot implement — a documentation and contract problem rather
-  than a forwarding one. **These two have very different fixes and the evidence here does not
-  choose between them.**
+* ~~Where the priority is dropped is narrowed but not identified.~~ **ANSWERED** — it is not
+  dropped anywhere; `ipv4_lpm` has no such field. The intermediate step still stands as
+  evidence: the proxy's own read of the switch reports `priority: 0` at t+20 ms, which is why
+  the kernel's display cache was eliminated as a candidate before the source settled it.
+* ~~Whether BMv2 could honour a priority at all on this pipeline is unknown.~~ **ANSWERED, and
+  it was the branch I flagged as having a different fix.** It is the contract/documentation
+  branch: the fix belongs at the API and its docs, not in the forwarding path.
+* **Still open: what the endpoint should do instead.** Reject a `priority` it will ignore? Return
+  it in the response with a note? Silently accept, as now? That is a design call, not a
+  measurement, and it is not made here.
 * **OVS is untested.**

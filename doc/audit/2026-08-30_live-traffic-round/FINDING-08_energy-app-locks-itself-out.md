@@ -10,10 +10,22 @@ harness finding.
 
 ## TR-5's registered result
 
-| arm | watch | switches powered off |
-|---|---|---|
-| P4 / BMv2, 4 hosts | 242 s | **0** |
-| OVS / Ryu, 4 hosts | 241 s | **0** |
+| arm | watch | switches powered off | `acquire_lock` calls | sim cases |
+|---|---|---|---|---|
+| 5 — P4 / BMv2, 4 hosts | 242 s | **0** | 183 | 3 |
+| 6 — OVS / Ryu, 4 hosts | 241 s | **0** | 188 | 3 |
+| **7 — P4 re-run, clean** | 242 s | **0** | **183** | **3** |
+
+**Arm 7 exists because arm 5 was contaminated** and the auditor was right to call it: mainDev
+misread the lab state between my two arms and ran a T-11 build, a mutation re-run, 655 tests and
+a commit inside arm 5's window (hard upper bound: commit `91e7743` at 22:33:17). A contaminated
+run is exactly what the 15:30/15:53 pair had to be redone for, so it was redone rather than
+declared: re-claimed at 22:52, load1 **0.99–1.13** throughout, **zero** in-window commits.
+
+**It reproduces the contaminated arm on every count** — same 183 lock calls, same 3 simulation
+cases, same zero. Which is what the mechanism predicts: a held lock is a *state*, not a timing
+effect, so CPU contention cannot move it. The re-run was still worth doing — "the covariate
+could not have mattered" is an argument, and this is a measurement.
 
 Peak link utilisation was **0.0 %** on both — far below the app's `LOW_WATER_MARK` of 0.40, so
 the decision chain predicts a shutdown. **This is not "the network was busy". There was nothing
