@@ -79,3 +79,9 @@ doc/audit/2026-08-25_sampling-rounds/*.log
 # this lives on is pushed to a PUBLIC repo. The abstract, figures and refs.bib are published; the
 # strategy behind them is not. [Co-developed with claude code -- Adam]
 doc/2026-08-29_europ4-poster-abstract/NOTES.md
+
+# 2026-08-30 Adam ruling: the double-blind submission bundle stays local-only.
+# Removed from the public branch tip in cb25da8; untracked here so a future
+# push of this branch cannot resurrect it. Working copies stay on disk.
+doc/2026-08-29_europ4-poster-abstract/
+doc/audit/2026-08-29_europ4-poster-review/
