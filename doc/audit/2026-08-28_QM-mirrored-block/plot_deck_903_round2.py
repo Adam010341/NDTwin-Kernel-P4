@@ -155,6 +155,25 @@ def core_links(path):
     return links, float(mx.group(1)), float(tot.group(1))
 
 
+def run_context(path):
+    """(flows, busy_pct, saturated) for a ticket-N cell -- the conditions the rates were taken under.
+
+    [Co-developed with claude code -- Adam]
+    Parsed rather than written into the caption, for the reason the 2026-08-27 round is named
+    after: a hardcoded number in a figure cannot track a re-measurement, and the two cells
+    differ on every one of these (32 flows both, but 35.1% vs 98.7% busy, NOT SATURATED vs
+    SATURATED). The footer's disclosure is only worth anything if it moves with the data.
+    """
+    txt = _read(path)
+    m = re.search(r"===\s*cell\s+\S+:\s*(\d+)\s*flows\s*x\s*(\d+)s", txt)
+    assert m, f"{path}: no 'N flows x Ns' cell header"
+    b = re.search(r"aggregate busy\s+([\d.]+)%", txt)
+    assert b, f"{path}: no 'aggregate busy' line"
+    s = re.search(r"->\s*(NOT SATURATED|SATURATED)", txt)
+    assert s, f"{path}: no saturation verdict"
+    return int(m.group(1)), float(b.group(1)), s.group(1) == "SATURATED"
+
+
 def bmv2_ladder():
     """(low, high) from the committed capacity round.
 
@@ -300,29 +319,59 @@ def fig_bandwidth_ceiling():
     the 08-28 run, and the topology refuses to start when no binary is named, so there is no
     silent third option. Inferring the build from the throughput instead would be circular --
     that is the reasoning this figure exists to reject.
+
+    On the ratio, for the audit record and deliberately NOT for the slide: 109x is the most
+    CONSERVATIVE framing available in this data, not the most flattering one. It divides one
+    OVS link's ECMP share (53.1) by bmv2's single-flow delivered ceiling (486 Mbit/s). Compared
+    like for like on aggregate -- all eight OVS core links at 121.9 Gbit/s against bmv2's
+    sixteen-flow ~48 Mbit/s -- the gap is about 2540x, over twenty times larger. Whoever chose
+    109x had the bigger number available and did not use it.
+
+    (2026-08-30, added on inheritance: the ~48 Mbit sixteen-flow figure is the
+    scattered-four-path measurement; the same-path sixteen-flow value measured in round 2 is
+    ~32 Mbit, which would push the like-for-like gap to ~3800x. The paragraph above is kept as
+    written because its point is the framing's conservatism, and the correction moves further
+    in the same direction. [Co-developed with claude code -- Adam])
+
+    That is worth writing down because the criticism of this figure is real but narrow: the
+    two sides of the ratio are different units of aggregation (32 flows on one link vs one
+    flow), which is why the word "ceilings" in a headline over it is wrong for the OVS side.
+    The number is not inflated; the frame around it is. Those are separate findings and
+    collapsing them into "the 109x is overstated" would be false.
     """
     before, b_max, b_tot = core_links(f"{NROUND}/n0.out")
     after, a_max, a_tot = core_links(f"{NROUND}/n1.out")
+    n0_flows, n0_busy, n0_sat = run_context(f"{NROUND}/n0.out")
+    n1_flows, n1_busy, n1_sat = run_context(f"{NROUND}/n1.out")
     low, high = bmv2_ladder()
 
     order = [n for n, _ in sorted(after, key=lambda kv: -kv[1])]
     bmap, amap = dict(before), dict(after)
 
-    # The headline ratio must come from the same expression as the badge below it. It used to be
-    # the literal "113x" while the badge computed 109x from the data -- a slide contradicting
-    # itself in two places, and the hardcoded half could never track a re-measurement. Same shape
-    # as the 08-27 hardcoded-denominator round, in our own figure.
+    # Kept computed from the data although nothing on the slide draws it any more (Adam took
+    # the ratio off the figure, 2026-08-28). It is still quoted in this function's docstring
+    # and in the round's notes, and it is printed at render time.
+    #
+    # History worth not losing: the title once carried the literal "113x" while the badge
+    # computed 109x from the same data -- the slide contradicted itself in two places, and the
+    # hardcoded half could never track a re-measurement. Same shape as the 08-27
+    # hardcoded-denominator round, in our own figure. That is why this stays an expression.
     ratio = a_max * 1000 / high[-1][2]
 
     AY, AH = 0.265, 0.365   # bottom raised with BAND["foot"]; see AXES_Y in the sibling script
     fig = plt.figure(figsize=WIDE)
+    # Title is Adam's ruling, 2026-08-28: what was the closing line of the subtitle is now the
+    # headline, and the ratio is off the slide entirely. The reason is more general than the
+    # wording problem I reported ("ceilings" is wrong for the OVS side): ANY ratio puts two
+    # different units of aggregation on the same line -- one link's ECMP share of 32 flows
+    # against a single flow -- so fixing the noun would not fix the root. Non-transferability
+    # is the actual finding and it does not need a ratio to stand up.
     _title(fig,
-           f"The two forwarding planes' ceilings differ by {ratio:.0f}x",
+           "A working point from one plane means nothing on the other",
            f"Left: OVS — removing the access-layer bw= shaping takes a single core link from "
            f"{b_max:.3f} to {a_max:.1f} Gbit/s, so the '10 G is unreachable' belief was measuring "
            f"the shaper. Right: bmv2 — the -O3 no-logging build — saturates at about "
-           f"{high[-1][2]/1000:.2f} Gbit/s delivered no matter what is offered. A working point "
-           f"from one plane means nothing on the other.",
+           f"{high[-1][2]/1000:.2f} Gbit/s delivered no matter what is offered.",
            "MEASURED", "measured", sub_width=168)
 
     # ---- left: OVS, the shaper artefact
@@ -349,6 +398,22 @@ def fig_bandwidth_ceiling():
     for i, name in enumerate(order[:1]):
         axL.text(i + w / 2, amap[name] * 1.3, f"{amap[name]:.1f}", ha="center",
                  fontsize=10.5, color=ACCENT, fontweight="bold")
+    # The four short bars are not a capacity floor and must not be read as one. n1.out says
+    # "ECMP split across the top four", and these are the other four: the hash sent almost no
+    # traffic their way, so their value is "what happened to cross", not "what could". Without
+    # this line the panel reads as a ~9000x spread between links of the same class, which is
+    # false. Kept rather than dropped because "ECMP concentrates onto four" is itself true and
+    # useful -- the fix is to label the bars, not to hide them.
+    # Placed over the empty band above the short bars, not over the tall ones: the first
+    # attempt sat at x≈3.5 and rendered on top of the s5-eth3/s6-eth3 grey bars, which the
+    # bottom-margin check cannot see. Only looking at the PNG catches that.
+    axL.annotate(
+        "these four carried almost no traffic this run\n"
+        "(ECMP hashed onto the top four) — not a capacity floor",
+        xy=(len(order) - 2.0, 2.2e-2), xytext=(len(order) - 2.2, 1.1),
+        fontsize=9, color=MUTED, ha="center", va="center",
+        arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.1,
+                        connectionstyle="arc3,rad=0.16"), zorder=6)
     axL.set_title("OVS — the ceiling was the access layer", fontsize=12, color=INK,
                   fontweight="bold", pad=12, loc="left")
 
@@ -374,23 +439,44 @@ def fig_bandwidth_ceiling():
     axR.set_title("bmv2 — a real ceiling, CPU-bound", fontsize=12, color=INK,
                   fontweight="bold", pad=12, loc="left")
 
-    # Badge goes in the gutter between the panels; it used to sit on top of the right y-axis.
-    fig.text(0.545, 0.44, f"{ratio:.0f}×", fontsize=26, color=OKC,
-             fontweight="bold", ha="center", va="center",
-             bbox=dict(facecolor="#EFF4F1", edgecolor=OKC, linewidth=1.1,
-                       boxstyle="round,pad=0.34"))
+    # The 109x badge that used to sit in the gutter is gone, and so is the ratio from the
+    # title. The auditor's condition for keeping it was that it carry its qualifiers in place
+    # -- single link, 32 flows, ECMP share, host-saturated -- and a badge cannot: it is read
+    # at slide distance in half a second, which is exactly why a bare number there is worse
+    # than none. The qualifiers now live in the footer, where there is room for them, and the
+    # framing analysis lives in this function's docstring, which is the audit record.
+    #
+    # The ratio is still computed and still comes from the data rather than a literal, because
+    # it is quoted in the docstring and in the round's notes. It is printed rather than drawn:
+    # it stays live and re-measurable without going on the slide.
+    print(f"  [audit] OVS single-link max / bmv2 single-flow ceiling = {ratio:.1f}x "
+          f"(NOT for the slide: different units of aggregation -- see docstring)")
 
+    # Both sides now disclose how their number was taken, not just bmv2's. The bmv2 caveat was
+    # here from the start; the OVS one was not, and the two numbers are not the same kind of
+    # measurement -- one is a single flow, the other is one link's ECMP share of 32. Stating
+    # only the bmv2 half made the comparison look tighter than it is.
+    # Width raised from 168 with the text tightened to hold the line count at five. The footer
+    # is anchored at BAND["foot"] with va="top", so it grows DOWNWARD into roughly 207 px of
+    # room; five lines fit with ~27 px to spare and six do not. Adding the OVS disclosure at
+    # the old width took it to seven lines and reproduced 54551bc's clipping exactly (bottom
+    # margin 0 px, 0.1993 ink on the last row) -- measured, not predicted. BAND is shared with
+    # every other figure in both scripts, so the room cannot be taken from there.
     _foot(fig,
-          "Sources, all committed: OVS from doc/audit/2026-08-25_sampling-rounds/n0.out and "
-          "n1.out (parse asserts eight core links each); bmv2 from "
-          "doc/audit/2026-08-28_jitter-working-point/01_capacity.md. bmv2's number is a single "
-          "flow; sixteen flows together reach only ~48 Mbit/s, because the bottleneck is the "
-          "switch's per-packet CPU and not the link — so even within bmv2 a single-flow ceiling "
-          "does not extrapolate. That is why the jitter round could not use either number "
-          "directly, and why it returned H3 on this plane. The build is named because two "
-          "installs here differ 12-18x: bmv2-fast/bin/simple_switch_grpc, sha256 3ff54b5c, "
-          "fixed by p4_proxy/mininet/bmv2_binary_override, which the topology requires.",
-          width=168)
+          f"Sources, all committed: OVS from doc/audit/2026-08-25_sampling-rounds/n0.out and "
+          f"n1.out (eight core links each); bmv2 from "
+          f"doc/audit/2026-08-28_jitter-working-point/01_capacity.md. OVS values are measured "
+          f"interface-counter rates, not capacities: {n1_flows} TCP flows, {a_max:.1f} is one "
+          f"link's ECMP share, the eight links carried {a_tot:.1f} Gbit/s together, and that run "
+          f"was host-CPU saturated ({n1_busy:.1f}%) — the host's ceiling divided by ECMP, not the "
+          f"link's. The 'before' run was not saturated ({n0_busy:.1f}%); {b_max:.3f} is the "
+          f"shaper. bmv2's number is a single flow; sixteen flows together reach only ~48 Mbit/s, "
+          f"because the bottleneck is the switch's per-packet CPU and not the link — a "
+          f"single-flow ceiling does not extrapolate even within bmv2, which is why the jitter "
+          f"round returned H3 here. Build named because two installs differ 12-18x: "
+          f"bmv2-fast/bin/simple_switch_grpc, sha256 3ff54b5c, fixed by "
+          f"p4_proxy/mininet/bmv2_binary_override.",
+          width=196)
     _save(fig, "page_bandwidth-ceiling.png")
 
 
