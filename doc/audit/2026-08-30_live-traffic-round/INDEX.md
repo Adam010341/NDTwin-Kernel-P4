@@ -11,7 +11,7 @@
 |---|---|
 | [PREREG.md](PREREG.md) | the pre-registration (`5cbd672`), written before any data. **Not edited by this round.** |
 | [RESULTS.md](RESULTS.md) | provenance, traffic actually applied, TR-1…TR-6 verdicts, the harness defects found |
-| [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) | the install "exposure window" is a **10.70 s dispatch cycle**, not queue pressure. Answers TR-3. |
+| [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) | 🔴 **corrected 22:10** — the kernel's table view is **blind for up to 10.70 s**; the rule is on the switch in ~20 ms. Answers TR-3. |
 | [FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) | `install_flow_entry` programs **every** rule at **priority 0** |
 | [TR1-timing-4host.md](TR1-timing-4host.md) | R-2's timing half, answered on the fabric size where it is measurable |
 | [COVARIATES-and-preflight-override.md](COVARIATES-and-preflight-override.md) | the one precondition that was not met, its measured size, and why the round ran anyway |
@@ -23,7 +23,7 @@
 | TR-1 gate — is `flows` non-empty under traffic? | **HELD**, both fabrics (P4 8–12, OVS 8–13; `[]` when idle) |
 | TR-1 timing — R-2 observable? | **No consumer-visible difference**, and the registered *reason* is wrong |
 | TR-2 — F-1 punt path | **unreachable**: bypassed by proactive routing. Instrument-blindness refuted. Not "passed". |
-| TR-3 — does the window grow under contention? | **No.** It is a 10.70 s clock (sd 0.05, n=4). |
+| TR-3 — does the window grow under contention? | **No.** 10.70 s clock (sd 0.05, n=4) — **of the view cache**, not of dispatch. |
 | TR-4 — `contract_test` live | **39/39 PASS** (+52-check self-test). Discharges T-7b §0.0. |
 | TR-5 — energy observation base | **NOT COLLECTED** — refused by the permission layer. A gap, not a pass. |
 | TR-6 — the manual's 128-host example | **PASS**, and its "refuses to start on mismatch" claim forced red in both directions |
@@ -32,10 +32,13 @@
 
 1. **TR-5's clean re-run is one authorisation away.** Conditions were finally right (no `agy`, zero
    in-window commits) and both prior runs were contaminated. See RESULTS.md → TR-5.
-2. **Name the 10.70 s timer in the source.** FINDING-06 is measured behaviour; the constant has
-   not been located.
-3. **Find which layer drops the priority** (kernel southbound encoder / proxy `/stats/flowentry/add`
-   / BMv2 table write). A source read, not a live run. FINDING-07.
+2. ~~Name the 10.70 s timer in the source.~~ **DONE 22:10** —
+   `DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker:1900`, a fixed 10 s sleep plus
+   the poll. The severity flipped with it: see FINDING-06's correction banner. What remains is
+   **T-11-A**, whose design depends on "invisible" vs "not installed".
+3. **Find which layer drops the priority** — now narrowed: the proxy's own read of the switch
+   already shows `priority 0` at t+20 ms, so the kernel's display cache is eliminated. Remaining:
+   kernel southbound encoder / proxy `/stats/flowentry/add` / BMv2 table write. FINDING-07.
 4. **Three sub-second change intervals in the 4-host R-2 data are unexplained** and are the only
    part of that distribution inconsistent with its conclusion. TR1-timing-4host.md.
 5. **`00_preflight.sh`'s qemu gate should read `-name` from `/proc/<pid>/cmdline`**, not attribute

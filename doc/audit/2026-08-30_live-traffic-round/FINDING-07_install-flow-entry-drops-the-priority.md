@@ -18,7 +18,8 @@ with the right match and the right output port — and with
 ```
 
 Not one of the requested priorities survived. Read straight off the live table view
-(`GET /ndt/get_switch_openflow_table_entries`), after the dispatch cycle had run:
+(`GET /ndt/get_switch_openflow_table_entries`), once the view cache had refreshed from the
+switch — and independently off the **proxy's own read of the switch** at t+20 ms, which agrees:
 
 ```json
 {"actions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0,
@@ -42,11 +43,13 @@ entry at 0:
 
 * **two rules matching the same packet have no defined order.** Which one wins is whatever the
   table's internal ordering happens to be — not something the caller can express.
-* **the API's `priority` argument is accepted, echoed back, and discarded.** During the dispatch
-  window the kernel's own table view *reports the requested priority* (that is what the phantom
-  is — see [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md)), and after the
-  cycle it reports 0. A caller that reads back within ~10.7 s sees its own value confirmed. A
-  caller that reads back later sees 0. **Both are the same rule.**
+* **the API's `priority` argument is accepted, echoed back, and discarded.** For up to ~10.7 s
+  the kernel's cached table view *reports the requested priority*, because `HttpSession` writes
+  the raw request into that cache synchronously (that is the phantom — see
+  [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md)); once the cache is refreshed
+  from the switch it reports 0. A caller that reads back inside the window sees its own value
+  confirmed; a caller that reads back later sees 0. **Both are the same rule, and the switch had
+  0 the whole time.**
 * it is invisible to any check that trusts the value it just sent.
 
 The 08-18 F-5b probe used priority 902 for its control and 901 for its subject precisely so the
@@ -82,7 +85,7 @@ survive. `scan()` now does that, with the reasoning recorded at the definition.
 curl -s -X POST http://localhost:8000/ndt/install_flow_entry \
   -H 'Content-Type: application/json' \
   -d '{"dpid":1,"priority":915,"match":{"eth_type":2048,"ipv4_dst":"10.0.0.240"},"actions":[{"type":"OUTPUT","port":2}]}'
-sleep 12   # one dispatch cycle -- see FINDING-06
+sleep 12   # long enough for the view cache to refresh -- see FINDING-06
 curl -s http://localhost:8000/ndt/get_switch_openflow_table_entries \
  | python3 -c 'import sys,json
 d=json.load(sys.stdin)
@@ -98,10 +101,13 @@ Expected: the entry is present, `actions` is `["OUTPUT:2"]`, and `priority` is `
 
 ## Not established
 
-* **Where the priority is dropped is not identified.** It could be the kernel's southbound
-  encoder, the P4 proxy's `/stats/flowentry/add`, or the BMv2 table-write itself. Three candidate
-  layers, none of them read. Naming the layer is the next step and it is a source read, not
-  another live run.
+* **Where the priority is dropped is narrowed but not identified.** 🆕 2026-08-30 22:10: the
+  **P4 proxy's own read of the switch** (`/stats/flow/<dpid>`) reports `priority: 0` too, in all
+  three reps of the programmed-vs-visible check — measured ~20 ms after the POST, long before the
+  kernel's cached view publishes anything. **So the kernel's display cache is eliminated**: the
+  priority is already gone one layer closer to the switch than the view I originally read it in.
+  Remaining candidates: the kernel's southbound encoder, the proxy's `/stats/flowentry/add`, or
+  the BMv2 table write. A source read, not another live run.
 * **Whether BMv2 could honour a priority at all** on this pipeline is unknown; a P4 table's match
   kind may make priority meaningless for these entries, in which case the defect is that the API
   accepts and echoes a field it cannot implement — a documentation and contract problem rather

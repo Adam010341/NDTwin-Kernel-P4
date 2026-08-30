@@ -52,13 +52,13 @@ never-before-used, so each is a genuine new-flow event.
 |---|---|---|
 | **TR-1** | R-2 with discriminating power | **gate HELD** (both arms); timing untestable at 128 hosts, **answered at 4** — [TR1-timing-4host.md](TR1-timing-4host.md) |
 | **TR-2** | F-1 on OVS | arm 2 **ran**. Punt path **bypassed** (proactive routing), instrument-blindness **refuted**. F-1 stays *unreachable*, **not** *passed*. |
-| **TR-3** | does the exposure window grow under contention? | **NO — it is a 10.70 s clock.** [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) |
+| **TR-3** | does the exposure window grow under contention? | **NO.** And 🔴 **corrected**: it is a *view-staleness* window (the rule is on the switch in ~20 ms), not an unprogrammed one. [FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) |
 | **TR-4** | `contract_test` against the live kernel | **PASS, 39/39** (+ 52-check self-test) |
 | **TR-5** | energy observation base | **not collected** — see below |
 | **TR-6** | the manual's 128-host example | **PASS, works as printed** |
 
 Plus two system findings that were not registered questions:
-[FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) (the dispatch cycle) and
+[FINDING-06](FINDING-06_dispatch-is-a-10.7s-cycle-not-a-queue.md) (the table view is blind for up to 10.7 s) and
 [FINDING-07](FINDING-07_install-flow-entry-drops-the-priority.md) (priority rewritten to 0).
 
 ---
