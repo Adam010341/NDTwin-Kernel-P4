@@ -176,7 +176,7 @@ c) **`FORBID` vs `known_gap` 的語義不對齊**：`check_logs.py` 的 FORBID �
 
 **`_discover_workspace_root()` 的路徑探索**（`components.py:97-113`）：向上走訪目錄樹尋找含有 `Energy-Saving-App` 的 workspace root。這個邏輯是為了解決「kernel repo 不一定跟其他元件是直接 sibling」的問題（註解說「here it sits in Desktop/ while they are one level up」）。這是一個針對特定開發者機器佈局（Adam 的 Desktop）的解決方案。但提供了 `NDTWIN_WORKSPACE_ROOT` 環境變數作為覆寫，所以不是強制的。**不視為過度工程，但 fragile**。
 
-**測試 seam 的代價**：commit `ba97ab3` 為了測試 `Controller` 的 dispatcher sender，將 `FlowRoutingManager` 的三個 dispatch 方法與解構子標為 `virtual`（`src/ndt_core/routing_management/FlowRoutingManager.hpp`）。這是為了讓 `ScriptedManager` 可以繼承並覆寫。commit message 坦承「That is a test seam and says so: nothing else about FlowRoutingManager is substitutable」。這是一個合理的 trade-off：三個 virtual 關鍵字的代價換來的是對「結果被丟棄」這個 bug 的防禦。**不視為過度工程。**
+**測試 seam 的代價**：commit `ba97ab3` 為了測試 `Controller` 的 dispatcher sender，將 `FlowRoutingManager` 的三個 dispatch 方法與解構子標為 `virtual`（`include/ndt_core/routing_management/FlowRoutingManager.hpp`）。這是為了讓 `ScriptedManager` 可以繼承並覆寫。commit message 坦承「That is a test seam and says so: nothing else about FlowRoutingManager is substitutable」。這是一個合理的 trade-off：三個 virtual 關鍵字的代價換來的是對「結果被丟棄」這個 bug 的防禦。**不視為過度工程。**
 
 **註解長度與程式碼價值**：此範圍內的註解普遍很長（例如 `test_LoggerEnvironment.cpp` 的 28 行 header comment），但這些註解記錄了**為什麼這個測試存在、它防止什麼 regression、以及過去的失敗經驗**（例如「This is the second time this hazard has cost something」）。這些資訊對維護者極有價值，不是「解釋一個不需要存在的複雜度」。**不視為過度工程。**
 

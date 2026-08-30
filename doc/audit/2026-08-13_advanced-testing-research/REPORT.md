@@ -472,7 +472,7 @@ oracle 很清楚。
 **第一步指令**（研究報告只給指令，本任務不執行）：
 
 ```bash
-ls tests/fixtures/*.bin | wc -l && grep -n "handlePacket" src/ndt_core/collection/FlowLinkUsageCollector.hpp
+ls tests/fixtures/*.bin | wc -l && grep -n "handlePacket" include/ndt_core/collection/FlowLinkUsageCollector.hpp
 ```
 
 **預期第一個產出**：一支約 20 行的 `tests/fuzz/fuzz_sflow.cpp`，
