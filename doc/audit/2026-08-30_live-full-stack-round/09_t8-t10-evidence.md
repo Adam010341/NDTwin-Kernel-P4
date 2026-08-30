@@ -737,3 +737,97 @@ The last row is the control that matters: adding names must not turn the search 
 body with nothing path-like still finds nothing.
 
 Prediction P11: **held**.
+
+---
+
+## §4 — the tmux session-visibility disagreement (time-boxed investigation)
+
+**Root cause found, shallow, and fixed.** `ndt status` reported `apps energy` while
+`ndtwin-lab energy-out` reported `no energy session` — the same shape logged earlier for `sim`,
+and the thing FINDING-05 names as blocking any read of the app's own reasoning.
+
+### Hypotheses tested and rejected, in order
+
+| # | hypothesis | test | result |
+|---|---|---|---|
+| 1 | `list-sessions` and `has-session` disagree | scratch socket, real session, both predicates | **agree** in every state |
+| 2 | `-t` prefix matching | targets `energy`, `ener`, `energyX`, `sim` | one asymmetry found, **wrong direction** (see below) |
+| 3 | TERM absent under a pty (`ndt`'s own 08-21 finding) | both predicates × {pipe, pty} × {TERM set, unset} | **did not reproduce** on tmux 3.4 |
+| 4 | the session exited between the two commands | kill the session, re-probe | both agree it is gone — a race would show as *both* wrong, not one |
+
+Hypothesis 2 did turn up a **real latent defect in the opposite direction**: `has-session -t ener`
+returns *yes* for a session named `energy`, because tmux falls back to prefix matching, while
+`ndt`'s `lab_session` (which matches `^name:` in `list-sessions`) returns *not-running*. So the
+two predicates *can* disagree — just not the way that was observed. Not fixed here: no caller
+passes a prefix today, and inventing a fix for an unobserved path is how the next false finding
+gets built. Recorded as a ticket note.
+
+### The mechanism, verified on the filesystem
+
+**tmux's socket namespace is per-uid.** `tmux -L ndtwinlab` resolves to
+`/tmp/tmux-<uid>/ndtwinlab`:
+
+```
+  drwx------ 2 root root 4096 Aug 30 15:51 /tmp/tmux-0
+  drwx------ 2 adam adam 4096 Aug 30 19:49 /tmp/tmux-1000
+  ndtwinlab socket in the CALLING user's namespace:
+    ls: cannot access '/tmp/tmux-1000/ndtwinlab': No such file or directory
+```
+
+Every lab session is created under `sudo`, so they all live in **root's** namespace — mode 700,
+which an unprivileged process cannot even stat. Run **without** sudo, `ndtwin-lab` looks in
+`/tmp/tmux-1000/ndtwinlab`, finds nothing, and because `session_running` sends tmux's stderr to
+`/dev/null`, reports `no energy session` instead of *"I cannot see root's sessions from here"*.
+
+`ndt` is immune because `lab_session` **always** goes through `sudo -n "$LAB" status`. A
+hand-typed `ndtwin-lab energy-out` is not. That asymmetry is the whole disagreement, and it
+matches the observed direction exactly.
+
+### The fix, both directions
+
+A non-root invocation is now refused with the reason, rather than answered wrongly:
+
+```
+=== FORCE-RED: invoked as uid 1000 (no sudo) ===
+  ndtwin-lab: must be run as root, e.g. 'sudo ndtwin-lab energy-out'.
+    tmux's socket namespace is per-uid, so from uid 1000 this command would look in
+    /tmp/tmux-1000/ndtwinlab and find nothing, while the lab's sessions are in root's
+    /tmp/tmux-0/ndtwinlab. It would then report 'no <name> session' about a session that is
+    running -- which is what happened on 2026-08-30 and disagreed with 'ndt status'.
+  rc=1
+
+=== FORCE-GREEN: invoked as uid 0 (under sudo) ===
+  -> guard passed; the verb would now run
+  rc=0
+```
+
+No verb is wrongly blocked: the read-only ones (`status`, `*-out`) read root's socket and the
+rest run `mn`/`tmux`/`kill` as root. **Worse than blocking**: without the guard,
+`ndtwin-lab topo-start` run without sudo would create a topo session in the *calling user's*
+namespace, where nothing else in this project can ever see it.
+
+🔑 The failure mode was not "it did not work" but "it produced a confident wrong answer that
+contradicted the other instrument", and two of our own instruments disagreeing is a finding about
+the instruments until shown otherwise. Refusing is what makes the disagreement legible.
+
+### ⚠️ A harness bug that nearly produced a false GREEN
+
+The first version of the acceptance test faked the uid with `local EUID=…`. **`EUID` is readonly
+in bash**, so the assignment failed and *both* runs took the red branch — while the transcript
+printed a `FORCE-GREEN` header above the red output. Caught by reading the output rather than the
+headers. The guard's uid expression is now textually substituted for `$FAKE_UID`, and that seam
+is declared in the harness. A second bug in the same harness (`set --` overwriting `$1` before
+the uid was captured) turned the condition into arithmetic on the string `energy-out`.
+
+**Two harness bugs in one ten-line test**, both of which would have reported success.
+
+### Ticket note — what is NOT resolved
+
+* The **`sim` half** of the disagreement is only *probably* the same cause. It was observed as
+  `ndt status` vs `port_holder`, not as an `ndtwin-lab` verb, and the port_holder fix (§2.7)
+  addresses that one independently. Not merged into one explanation without evidence.
+* The `has-session` prefix-matching asymmetry above is unfixed and unexercised.
+* This does not make the Energy-App's reasoning readable — it makes the *failure to read it*
+  honest. FINDING-05's ticket (*"why does the app power switches down on P4 and not on OVS"*)
+  still needs `sudo ndtwin-lab energy-out` to be run, and the sim disk log (§2.4) is the
+  equivalent for sim.

@@ -58,6 +58,39 @@ SIM_LOG=$KERNEL_DIR/.test_run/logs/app_sim.log
 
 die() { echo "ndtwin-lab: $*" >&2; exit 1; }
 
+# [Co-developed with claude code -- Adam]
+# Refuse a non-root invocation instead of answering it wrongly.
+#
+# tmux's socket namespace is PER UID: `tmux -L ndtwinlab` resolves to /tmp/tmux-<uid>/ndtwinlab.
+# Every session this script creates is created under sudo, so they all live in root's namespace
+# (/tmp/tmux-0/, mode 700 -- an unprivileged process cannot even stat it). Run without sudo, the
+# same command looks in /tmp/tmux-1000/ndtwinlab, finds nothing, and -- because session_running
+# sends tmux's stderr to /dev/null -- reports "no energy session" rather than "I cannot see root's
+# sessions from here".
+#
+# That is the ndtwin-lab half of the session-visibility disagreement logged on 2026-08-30
+# (FINDING-05, and the same shape earlier for sim): `ndt status` said "apps energy" while
+# `ndtwin-lab energy-out` said "no energy session". ndt is immune because lab_session always goes
+# through `sudo -n "$LAB" status`; a hand-typed `ndtwin-lab energy-out` is not.
+# Verified on this machine: /tmp/tmux-0 exists root:root 700, /tmp/tmux-1000 exists with NO
+# ndtwinlab socket in it.
+#
+# 🔑 The failure mode is not "it did not work", it is "it produced a confident wrong answer that
+#    contradicted the other instrument", and two instruments disagreeing is a finding about the
+#    instruments until shown otherwise. Refusing is what makes the disagreement legible.
+#
+# Every verb here needs root anyway -- the read-only ones (status, *-out) read root's socket, and
+# the rest run mn/tmux/kill as root -- so there is no verb this guard wrongly blocks. WORSE than
+# blocking: without it, `ndtwin-lab topo-start` run without sudo would create a topo session in
+# the CALLING user's namespace, where nothing else in this project can ever see it.
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    die "must be run as root, e.g. 'sudo ndtwin-lab $*'.
+  tmux's socket namespace is per-uid, so from uid ${EUID:-$(id -u)} this command would look in
+  /tmp/tmux-${EUID:-$(id -u)}/ndtwinlab and find nothing, while the lab's sessions are in root's
+  /tmp/tmux-0/ndtwinlab. It would then report 'no <name> session' about a session that is
+  running -- which is what happened on 2026-08-30 and disagreed with 'ndt status'."
+fi
+
 session_running() { $TMUX has-session -t "$1" 2>/dev/null; }
 
 case "${1:-}" in
