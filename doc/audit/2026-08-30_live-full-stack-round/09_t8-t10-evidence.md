@@ -301,3 +301,141 @@ for real instead of reasoned about — the accept path alone would never have sh
 **Live proof through `ndtwin-lab sim-start` is deferred**: it needs sudo and would start the
 app. What is proven is that the exact command line the shipped code hands to tmux produces a
 flushed log under a pty, and that neither failure branch aborts the start.
+
+---
+
+## §2.5 — T-10 (FINDING-04): the restore route that could not succeed
+
+`lib.sh ndt_down`, `90_restore.sh`, and — newly found — `lib.sh spawn_exec`.
+
+### The before-state, reproduced
+
+No fabric was touched: `ndt down` is stubbed to `/bin/true` and the bmv2 count is injected.
+
+```
+--- teardown really left 0 bmv2 process(es) ---
+REMAIN captured as:
+    >      ndt down   (setsid; rc is NOT the verdict)
+    >      bmv2 processes remaining: 0
+    >0
+    GATE: bad branch -> summary; exit 1  (NO ndt_up: the machine is left torn down)
+
+--- teardown really left 2 bmv2 process(es) ---
+REMAIN captured as:
+    >      ndt down   (setsid; rc is NOT the verdict)
+    >      bmv2 processes remaining: 2
+    >2
+    GATE: bad branch -> summary; exit 1  (NO ndt_up: the machine is left torn down)
+```
+
+🔑 **The `ok` branch is unreachable for every value, including the correct one.** This is the
+mirror of a gate that cannot go red, and the README's force-red table had no recipe for it —
+every recipe there tests the refusal direction.
+
+### 🆕 A second instance of the same disease, which no finding had named
+
+FINDING-04's repair note predicted it — *"every helper in this library that both narrates and
+returns has the same hazard"* — and named only `ndt_down`. An audit of every call site that
+captures a lib function in `$( )` found one more: **`spawn_exec`**, captured at
+`20_apps_lifecycle.sh:240`. Measured:
+
+```
+TE_PID captured as:
+    >  PASS  te_pty spawned as pid 398147, cmdline verified
+    >398147
+  [[ -n $TE_PID ]]        -> TRUE (looks like success)
+  alive "$TE_PID"         -> FALSE (the wait loop breaks on iteration 1)
+  PASS lines in transcript -> 0 (the ok() ran inside $( ), so nobody saw it)
+  CHECKS in the parent     -> 0 (the subshell's increment did not survive)
+```
+
+It broke **four** things at once, and the fourth is the worst:
+
+1. `TE_PID` became a blob;
+2. `[[ -n "$TE_PID" ]]` still passed, so it read as success;
+3. `alive "$TE_PID"` was then false, so te's 90-iteration wait loop **broke on iteration 1** —
+   ⇒ **this is where FINDING-02's otherwise unexplained te value of `+1 s` comes from.** The
+   loop could not reach a second iteration, so `T0 + i` could only ever be `T0 + 1`;
+4. `ok()`/`bad()` ran *inside* the substitution, so their lines never reached the transcript and
+   their `CHECKS`/`FAILS` increments died with the subshell — **a `bad` here was silent**, and
+   the `die` on an unverifiable cmdline exited only the subshell, downgrading the H-22 abort the
+   README advertises into a shrug.
+
+Fixed by returning through the global `SPAWN_PID` rather than by moving narration to stderr:
+counters cannot survive a subshell whichever channel they use. 🔑 The question to ask of any
+helper is *"is it called in `$( )` anywhere?"* — if yes, it may not narrate at all.
+
+### The after-state, both directions
+
+```
+--- FORCE-GREEN: teardown really left 0 (the branch that was UNREACHABLE before) ---
+REMAIN captured as: [0]   (bare number? yes)
+      ndt down   (setsid; rc is NOT the verdict)
+      bmv2 processes remaining: 0
+  PASS  teardown: 0 bmv2 processes remain
+    -> reaches ndt_up. THE FABRIC COMES BACK.
+
+--- FORCE-RED: teardown really left 2 ---
+REMAIN captured as: [2]
+  FAIL  teardown left 2 bmv2 process(es) running.
+
+===== THE FABRIC IS DOWN AND THIS SCRIPT IS NOT GOING TO BRING IT BACK =====
+      do this, in order:
+        1. sudo /usr/local/sbin/ndtwin-lab cleanup
+        2. ps -eo comm= | grep -cx simple_switch_g    # must print 0 before continuing
+        3. sudo rm -f /tmp/ndtwin_p4_switches.json
+        4. /bin/true up p4 4
+    -> exits 1, but the operator has been told exactly what state the machine is in.
+
+--- FORCE-RED: the value channel is polluted again (regression sentinel) ---
+  FAIL  ndt_down returned something that is not a count: '      chatter that should not be here
+0'. HARNESS fault.
+  FAIL  teardown left an unknown number of bmv2 process(es) running.
+```
+
+```
+--- FORCE-GREEN: a child that lives ---
+  PASS  te_pty spawned as pid 398844, cmdline verified
+  TE_PID              = [398844]
+  is a bare pid       ? yes
+  alive "$TE_PID"     ? true   (false here would break the wait loop at i=1)
+  CHECKS in the parent= 5   (the PASS line survived the call)
+
+--- FORCE-RED: a child that dies within 1s ---
+  FAIL  te_dead exited within 1s -- see /tmp/.../app_dead.log
+  SPAWN_PID after failure = []  (must be empty, not the stale value)
+  FAIL line reached the transcript? yes
+  FAILS 3 -> 4   CHECKS 5 -> 6   (both counted in the PARENT now)
+```
+
+Prediction **P8-green — the direction with no prior instance in this repo — now goes green.**
+P9 held. The third RED case is a **regression sentinel**: `90_restore.sh` now asserts that what
+it captured is a bare number before branching on it, and reports a polluted value channel as a
+*harness* fault rather than silently taking a branch. That assertion is the check that would
+have caught FINDING-04 on the first run, and it costs one test.
+
+### Not stranding the machine
+
+The failure path no longer does `summary; exit 1` on its own. It prints the exact recovery
+sequence and states plainly that there is no fabric until step 4 completes. **The bring-up is
+still not attempted automatically when processes survive** — starting a fabric over live bmv2 is
+the port-conflict trap, where the next fabric fails to bind with an error that reads like a P4
+problem. Refusing to auto-recover there is deliberate, and saying so is the fix.
+
+### A defect in the fix, caught by `bash -n` discipline
+
+The recovery message quoted `$LAB_BIN`, which **did not exist**. Under the harness's
+`set -Eeuo pipefail` that is an unbound-variable abort — the recovery instructions would have
+crashed on the one path where they matter. `LAB_BIN` is now defined in `lib.sh` beside `NDT_BIN`.
+
+### Interim headers removed, and one deliberately kept
+
+* `90_restore.sh`'s `🔴🔴 DO NOT RUN UNTIL T-10 LANDS` header and the `T-10 NOT YET LANDED`
+  runtime banner are **removed** — Route 2 is fixed, so the sentence they make is false.
+* Route 1's half is **still true** and was *moved to Route 1*, printed conditionally when
+  `:8080` is free (i.e. a P4 run), where the operator meets it.
+* `README.md` step 7 offered `power-on` as *the* P4 route. Swapped: `--rebuild` for P4,
+  `power-on` for OVS with the F-7a shaping caveat.
+* ⚠️ **P4 power-on remains broken and is NOT fixed here.** It is a kernel-side stub, not a
+  harness defect, and out of T-10's scope. The allowlist string was not located in `src/` or
+  `p4_proxy/`, so it stays recorded as the allowlist's claim corroborated by behaviour.

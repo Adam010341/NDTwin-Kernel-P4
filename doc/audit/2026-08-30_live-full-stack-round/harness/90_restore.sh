@@ -2,21 +2,27 @@
 # =================================================================================================
 # 90_restore.sh -- put the fabric back after 25_apps_energy.sh powered switches down.
 #
-# 🔴🔴 DO NOT RUN UNTIL T-10 LANDS. NEITHER ROUTE RESTORES. (FINDING-04, measured 2026-08-30)
+# RUN STATUS, and what changed 2026-08-30 under T-10.
+#
+#   Both routes were executed 2026-08-30 15:38-15:41 and both failed (FINDING-04).
+#
+#   Route 2 (--rebuild) was the dangerous one: ndt_down() in lib.sh printed its progress to the
+#   same stdout it returned the count on, so REMAIN was never the bare "0" the caller tests for.
+#   It always took the `bad` branch and exit 1'd -- BEFORE ndt_up. It tore the fabric down and
+#   stopped, leaving the machine worse than it found it.
+#   ⇒ FIXED. ndt_down now narrates on stderr and returns on stdout, the success branch is
+#     reachable (demonstrated both ways in 09_t8-t10-evidence.md §2.5), and the failure branch no
+#     longer exits silently: it prints the exact recovery sequence and says plainly that there is
+#     no fabric until the operator runs it. The bring-up is still not attempted automatically
+#     when processes survive, because starting a fabric over live bmv2 is the port-conflict trap.
 #
 #   Route 1 (power-on) reports its own failure correctly, but P4 power-on is a stub, so the
-#   switches do not come back.
-#   Route 2 (--rebuild) is worse: ndt_down() in lib.sh prints its progress to the same stdout
-#   it returns the count on, so REMAIN is never the bare "0" the caller tests for. It always
-#   takes the `bad` branch and exit 1s -- BEFORE ndt_up. It tears the fabric down and stops,
-#   leaving the machine worse than it found it.
+#   switches do not come back. ⇒ NOT FIXED HERE. That is a kernel-side stub, not a harness
+#   defect, and it is out of T-10's scope. See the ROUTE 1 banner below, which now says so at
+#   the point of use instead of only in this header.
 #
-#   Until then: bring a degraded fabric back by hand, with `ndt down` then `ndt up <what>`.
-#
-# RUN STATUS: both routes were executed 2026-08-30 15:38-15:41 and both failed. The line here
-# used to read "WRITTEN, NOT RUN. `bash -n` only." -- that is no longer true and is corrected
-# rather than left, because the next reader would take it as a reason to distrust the finding
-# above instead of the script below.
+#   The former "DO NOT RUN UNTIL T-10 LANDS" banner is removed because T-10 has landed and the
+#   sentence it makes is now false. What is still true about Route 1 has moved to Route 1.
 #
 # TWO ROUTES, AND THE HONEST STATEMENT OF WHAT EACH ONE RESTORES
 #
@@ -76,9 +82,9 @@ print(len(sw), sum(1 for n in sw if n.get("is_up")), len(d["edges"]),
 info "pre-energy reference: $B_UP/$B_SW switches up, $B_E edges, $B_ED down"
 # Printed, not only commented in the header: the person at risk is the operator who was just
 # told "run ./90_restore.sh" by 25_apps_energy.sh, and a header comment never reaches them.
-# Output only -- no control flow is changed, so a deliberate run after T-10 still works.
-info "🔴 T-10 NOT YET LANDED: neither route below restores (FINDING-04). Route 2 will tear the"
-info "   fabric down and stop. If you did not mean to, ^C now and use: ndt down && ndt up <what>"
+# The T-10 banner that used to stand here ("neither route restores") is gone because Route 2 is
+# fixed and the sentence became false. What survives is the half that is still true, and it is
+# printed only on the route it applies to -- see the ROUTE 1 branch below.
 
 now_counts() {
     http_probe "$1" GET "$NDT_URL/ndt/get_graph_data" >/dev/null
@@ -95,10 +101,42 @@ case "$MODE" in
     say "ROUTE 2 -- full rebuild"
     [[ -n "$UP_ARGS" ]] || die "--rebuild needs the same arguments the round was brought up with, e.g.  ./90_restore.sh --rebuild 'p4 4'"
     REMAIN="$(ndt_down)"
+    # [Co-developed with claude code -- Adam]
+    # The value must be a bare number. It was not, for the whole life of this script: ndt_down
+    # narrated and returned on the same channel, so REMAIN was a three-line blob ending in the
+    # count and this comparison could never be true. The assertion below is deliberately kept
+    # after the fix -- it is the check that would have caught FINDING-04 on the first run, and
+    # its cost is one test. An instrument that returns something unparseable is an instrument
+    # fault, and must be reported as one rather than silently taking a branch.
+    if [[ ! "$REMAIN" =~ ^[0-9]+$ ]]; then
+        bad "ndt_down returned something that is not a count: '${REMAIN}'. This is a HARNESS fault, not a teardown result -- the value channel has been polluted again (FINDING-04). Do not read the branches below as a statement about the fabric."
+        REMAIN=""
+    fi
     if [[ "$REMAIN" == "0" ]]; then
         ok "teardown: 0 bmv2 processes remain (judged on the machine's state, not on ndt down's rc -- it exits 144 by killing its own caller)"
     else
-        bad "teardown left $REMAIN bmv2 process(es) running. bmv2 survives 'mn -c'; do not bring a new fabric up on top of them."
+        bad "teardown left ${REMAIN:-an unknown number of} bmv2 process(es) running. bmv2 survives 'mn -c'; do not bring a new fabric up on top of them."
+        # NOT `summary; exit 1`. That is what made Route 2 leave the machine strictly worse than
+        # it found it: the teardown had already happened, so exiting here meant "fabric down,
+        # nothing said, operator holding a dead lab". A recovery script that aborts halfway is
+        # worse than one that never ran.
+        #
+        # Bringing a fabric up ON TOP of surviving bmv2 processes is genuinely unsafe -- they
+        # hold :5005x and the next fabric fails to bind with an error that reads like a P4
+        # problem -- so the bring-up is NOT attempted here. What replaces the bare exit is the
+        # thing the operator actually needs: the exact commands, in order, and a plain statement
+        # of what state the machine is in right now.
+        say "THE FABRIC IS DOWN AND THIS SCRIPT IS NOT GOING TO BRING IT BACK"
+        info "why: the teardown left processes behind (or their count could not be read), and"
+        info "     starting a fabric over surviving bmv2 processes is the port-conflict trap."
+        info ""
+        info "do this, in order:"
+        info "  1. sudo $LAB_BIN cleanup          # sweeps orphan bmv2 and clears the manifest"
+        info "  2. ps -eo comm= | grep -cx simple_switch_g    # must print 0 before continuing"
+        info "  3. sudo rm -f $P4_MANIFEST"
+        info "  4. $NDT_BIN up ${UP_ARGS}         # the fabric this round was measured on"
+        info ""
+        info "until step 4 completes there is no fabric on this machine."
         summary; exit 1
     fi
     # H-20 again: the manifest is root-owned and outlives the fabric.
@@ -112,6 +150,20 @@ case "$MODE" in
     ;;
 power-on)
     say "ROUTE 1 -- power the recorded switches back on"
+    # [Co-developed with claude code -- Adam]
+    # Measured 2026-08-30 (FINDING-04): on P4 this route CANNOT work. The kernel's own warning
+    # allowlist carries the reason (warning_allowlist.txt:88, "P4 BMv2 Power ON from Kernel is
+    # currently a stub"), and the run confirmed it -- 7 up of 10, 20 links still down, and the
+    # script correctly reported its own failure rather than trusting the HTTP 200s.
+    # ⚠️ That string was NOT located in src/ or p4_proxy/, so this is the allowlist's claim
+    #    corroborated by observed behaviour, not a line of code anyone has read.
+    # Said here rather than only in the header, because a header never reaches the operator who
+    # was told "run ./90_restore.sh". Route 2 is the working route on P4.
+    if [[ -z "$(port_holder 8080)" ]]; then
+        info "⚠️ this looks like a P4 run (:8080 is free). P4 power-on is a stub -- expect this"
+        info "   route to report failure on the counts. The route that works here is:"
+        info "     ./90_restore.sh --rebuild '<the same args you used for ndt up>'"
+    fi
     OFFLIST="$OUT/energy_powered_off.txt"
     [[ -f "$OFFLIST" ]] || die "no $OFFLIST -- 25_apps_energy.sh records there which switches it saw go down. Without it we would be guessing which to power on."
     NAMES="$(head -1 "$OFFLIST")"

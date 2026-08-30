@@ -77,11 +77,21 @@ Phases 1–5 are non-destructive. Phase 6 powers switches off. Do not reorder.
 | 5 | `./40_r5_p4.sh` | stack up | ~5 min |
 | 6 | `./25_apps_energy.sh --yes-power-switches-off` | **everything above finished** | ~7 min |
 | 6b | `./40_r5_p4.sh --f2f3-only` | **fabric still degraded** | ~2 min |
-| 7 | `./90_restore.sh power-on` (P4) or `./90_restore.sh --rebuild 'p4 4'` | — | ~2 min |
+| 7 | `./90_restore.sh --rebuild 'p4 4'` (P4 — see below) or `./90_restore.sh power-on` (OVS) | — | ~2 min |
 | 8 | OVS arm: `ndt down && ndt up ovs4`, then repeat 1–7 with `50_r5_ovs.sh` in place of `40_…` | — | ~30 min |
 
 `OUT` defaults to `../raw/<UTC timestamp>/`. Set `RUN_TAG` to label a re-run. Every script
 refuses to append to another run's artefacts.
+
+**Step 7's routes were swapped on 2026-08-30 (FINDING-04).** This table used to offer `power-on`
+as *the* P4 route. On P4 it cannot work: BMv2 power-on from the kernel is a stub, so the switches
+do not come back, and the 08-30 run ended at 7 up of 10 with 20 links down. `--rebuild` is the
+only route that restores a P4 fabric. `power-on` remains the cheap route on **OVS**, with F-7a's
+caveat — it re-adds the ports without re-applying shaping, so four 1 Gbps interfaces come back
+unshaped and the twin reports them identically to shaped ones.
+Route 2 itself was **unable to succeed** until 08-30: `ndt_down` returned its count on the same
+channel it narrated on, so the success gate could never be taken and the script tore the fabric
+down and stopped. Fixed; both directions demonstrated in `../09_t8-t10-evidence.md` §2.5.
 
 **Phase 6b is easy to skip and it is where two of the six R-5 findings live.** F-2 and F-3 are
 only reachable while the fabric is degraded. Skipping it does not make them pass; it makes them

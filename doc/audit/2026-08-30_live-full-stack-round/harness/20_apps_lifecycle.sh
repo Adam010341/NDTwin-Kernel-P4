@@ -237,8 +237,13 @@ if [[ ! -f "$PID_DIR/app_te.pid" ]] || ! alive "$(cat "$PID_DIR/app_te.pid" 2>/d
     info "step 2: restarting te under a pty (the T-3 pty point: a program tested without a terminal is not the program a reader runs)"
     mkdir -p "$LOG_DIR"
     # H-22: `script` is exec'd as the single child, so $! is its pid; we then verify the cmdline.
-    TE_PID="$(spawn_exec te_pty "$TE_APP_DIR" "$LOG_DIR/app_te.log" \
-              script -qfc "printf '1\n' | $TE_PY Traffic-engineering-App.py" /dev/null)" || TE_PID=""
+    # NOT `TE_PID="$(spawn_exec …)"`. That captured spawn_exec's PASS line along with the pid,
+    # left TE_PID a blob that was non-empty (so this looked like success) but not a live pid (so
+    # the wait loop below broke on its first iteration), and swallowed spawn_exec's own ok/bad
+    # lines and their CHECKS/FAILS increments into the subshell. See lib.sh spawn_exec.
+    spawn_exec te_pty "$TE_APP_DIR" "$LOG_DIR/app_te.log" \
+        script -qfc "printf '1\n' | $TE_PY Traffic-engineering-App.py" /dev/null || SPAWN_PID=""
+    TE_PID="$SPAWN_PID"
 fi
 if [[ -n "$TE_PID" ]]; then
     TE_T=-1

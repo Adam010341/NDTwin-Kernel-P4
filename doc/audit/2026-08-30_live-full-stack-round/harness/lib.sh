@@ -90,6 +90,10 @@ REPO="${KERNEL_DIR:-$(cd "$HARNESS_DIR/../../../.." && pwd)}"
 : "${RYU_URL:=http://localhost:8080}"
 : "${P4_PROXY_URL:=http://localhost:8081}"
 : "${NDT_BIN:=$HOME/.local/bin/ndt}"
+# The root-side lab wrapper, named here so the recovery instructions in 90_restore.sh can quote
+# a real path instead of prose. It is installed root-owned and reached through sudo; the harness
+# never invokes it directly. [Co-developed with claude code -- Adam]
+: "${LAB_BIN:=/usr/local/sbin/ndtwin-lab}"
 : "${LOG_DIR:=$REPO/.test_run/logs}"
 : "${PID_DIR:=$REPO/.test_run/pids}"
 : "${P4_MANIFEST:=/tmp/ndtwin_p4_switches.json}"
@@ -304,14 +308,35 @@ proc_cmdline() {
 }
 
 # spawn_exec <name> <workdir> <logfile> <cmd> [args...]
+#   -> sets the global SPAWN_PID. Returns 0 on success, 1 if the child died within 1 s.
 #
 # H-22. `( cd D && exec nohup CMD ) &` keeps ONE pid from the subshell through nohup into CMD,
 # because each step execs instead of forking, so `$!` is the program. This is the same idiom
 # ndt's own app_spawn uses (tools/test_workflow/ndt:1538-1554) and for the same recorded reason.
 # We then verify it: the pid must be alive AND its cmdline must contain the program we asked for.
 # Without that verification we would only have swapped one unchecked assumption for another.
+#
+# [Co-developed with claude code -- Adam]
+# FIXED 2026-08-30 (T-10, FINDING-04 family). This used to `printf` the pid to stdout while also
+# narrating there with ok()/bad(), and 20_apps_lifecycle.sh captured it with
+# `TE_PID="$(spawn_exec …)"`. FINDING-04 predicted this ("every helper in this library that both
+# narrates and returns has the same hazard") but named only ndt_down. Measured, it broke FOUR
+# things at once:
+#   1. TE_PID became "  PASS  te_pty spawned as pid N, cmdline verified\nN";
+#   2. `[[ -n "$TE_PID" ]]` still passed, so it looked like success;
+#   3. `alive "$TE_PID"` was then false, so te's 90-iteration wait loop broke on iteration 1 --
+#      which is where FINDING-02's unexplained te value of "+1 s" comes from;
+#   4. ok()/bad() ran INSIDE the substitution, so their lines never reached the transcript and
+#      their CHECKS/FAILS increments died with the subshell. A `bad` here was silent, and the
+#      `die` on an unverifiable cmdline exited only the subshell -- the H-22 guard the README
+#      advertises as an abort was downgraded to a shrug.
+#
+# Returning through a global fixes all four, where moving narration to stderr would only have
+# fixed the first three: counters cannot survive a subshell no matter which channel they use.
+# 🔑 Ask of any helper: is it called in `$( )` anywhere? If yes it may not narrate at all.
 spawn_exec() {
     local name="$1" dir="$2" log="$3"; shift 3
+    SPAWN_PID=""
     mkdir -p "$(dirname "$log")" "$OUT/pids"
     : > "$log"
     ( cd "$dir" && exec nohup "$@" >"$log" 2>&1 ) &
@@ -330,7 +355,7 @@ spawn_exec() {
     fi
     printf '%s\n' "$pid" > "$OUT/pids/$name.pid"
     ok "$name spawned as pid $pid, cmdline verified"
-    printf '%s' "$pid"
+    SPAWN_PID="$pid"
 }
 
 # stop_pid <name> <pid> -- TERM, wait, KILL, then PROVE it is gone.
@@ -496,16 +521,35 @@ ndt_up() {
     ok "ndt up reached 'up. ready' (verified from the log, not from rc)"
 }
 
+# ndt_down -- tears the fabric down and RETURNS the count of bmv2 processes still alive.
+#
+# [Co-developed with claude code -- Adam]
+# FIXED 2026-08-30 (T-10, FINDING-04). This function narrated with info() and returned its value
+# with printf ON THE SAME CHANNEL. `REMAIN="$(ndt_down)"` therefore captured all three lines, so
+# `[[ "$REMAIN" == "0" ]]` could never be true -- for ANY value, including the correct one -- and
+# 90_restore.sh's Route 2 took its `bad` branch and `exit 1`ed BEFORE the bring-up, every time.
+# It tore the fabric down and stopped.
+#
+# 🔑 The judgement was right and the plumbing threw it away. The count was computed correctly
+# (0) and the message complaining about it embedded the evidence refuting itself: "teardown left
+# 0 bmv2 process(es) running". Nothing was wrong with the reasoning; one shared channel discarded
+# it. This is the mirror of the gate that cannot go red -- a gate that cannot go GREEN -- and the
+# README's force-red table had no recipe that would have caught it, because every recipe there
+# tests the refusal direction.
+#
+# The rule this function now obeys: NARRATION GOES TO STDERR, THE VALUE GOES TO STDOUT. A caller
+# in a command substitution gets a bare number and nothing else; a caller running it normally
+# still sees the progress lines, because the terminal shows both channels.
 ndt_down() {
     local log="$OUT/ndt_down.log"
-    info "ndt down   (setsid; rc is NOT the verdict)"
+    info "ndt down   (setsid; rc is NOT the verdict)" >&2
     set +e
     setsid "$NDT_BIN" down > "$log" 2>&1
     set -e
     # Teardown is judged on the state of the machine, not on the word "down".
     local n
     n="$(ps -eo comm= 2>/dev/null | grep -cx 'simple_switch_g' || true)"
-    info "bmv2 processes remaining: ${n:-0}"
+    info "bmv2 processes remaining: ${n:-0}" >&2
     printf '%s' "${n:-0}"
 }
 
