@@ -61,28 +61,35 @@ class LockManager
     enum class RequestError {
         None,
         MalformedBody,   // the body is not JSON at all
-        MissingType,     // valid JSON, no "type" field
-        InvalidType      // "type" present but not one of the three locks
+        MissingType,     // no body, or valid JSON with no "type" field
+        NonStringType,   // "type" present but not a string
+        InvalidType      // "type" is a string, but not one of the three locks
     };
 
     /**
-     * @brief Parse an /ndt/acquire_lock body into a decision, WITHOUT acquiring anything.
+     * @brief Parse a lock-endpoint body into a decision, WITHOUT touching any lock.
      *
      * [Co-developed with claude code -- Adam]
-     * This exists because the endpoint used to answer three different questions with one
+     * This exists because the endpoints used to answer three different questions with one
      * behaviour: a malformed body, a body with no "type", and a body naming a lock that does
-     * not exist all ended up acquiring `routing_lock` on the caller's behalf -- the real lock
-     * that serialises writes to the network. The handler's `catch (...)` swallowed the parse
+     * not exist all ended up acting on `routing_lock` on the caller's behalf -- the real lock
+     * that serialises writes to the network. The handlers' `catch (...)` swallowed the parse
      * error and fell through with the defaults still in place, so "your JSON was rubbish" and
      * "you asked for routing_lock" were indistinguishable to the code and to the caller.
      *
-     * Nothing is defaulted here. A caller that wants routing_lock has to say so, which both
-     * in-tree consumers already do (Energy-Saving-App http.cpp:425 and
-     * Traffic-Engineering-App:71 both send an explicit "type"), so refusing the implicit case
+     * Nothing is defaulted here. A caller that wants routing_lock has to say so. All in-tree
+     * and sibling-repo consumers of all three endpoints already do -- acquire from
+     * Energy-Saving-App http.cpp:425 and Traffic-Engineering-App:71, release from
+     * Energy-Saving-App/src/app/http.cpp:461, Traffic-engineering-App.py:85 and the chaos
+     * harness probes.py:206, renew only from probes.py:210 -- so refusing the implicit case
      * breaks no existing caller.
      *
      * `ttl` still defaults: it is a duration, not a target, and getting it wrong cannot make a
      * request act on something other than what it named.
+     *
+     * Shared by all three of acquire/renew/release (T-7b). The three endpoints disagreeing
+     * about what a request means is precisely the failure being removed, so they are not given
+     * three parsers to disagree with.
      */
     struct LockRequest {
         bool ok = false;
@@ -95,6 +102,16 @@ class LockManager
     static LockRequest parseRequest(const std::string& body)
     {
         LockRequest out;
+
+        // An absent body is "you named no lock", not "your JSON is broken". They are both 400
+        // and neither touches a lock, but only one of them is true, and an error message that
+        // is false about what the caller sent is the bug this seam exists to remove.
+        // [Co-developed with claude code -- Adam]
+        if (body.find_first_not_of(" \t\r\n") == std::string::npos) {
+            out.error = RequestError::MissingType;
+            return out;
+        }
+
         nlohmann::json parsed;
         try {
             parsed = nlohmann::json::parse(body);
@@ -102,8 +119,18 @@ class LockManager
             out.error = RequestError::MalformedBody;
             return out;
         }
-        if (!parsed.is_object() || !parsed.contains("type") || !parsed["type"].is_string()) {
+        if (!parsed.is_object() || !parsed.contains("type")) {
             out.error = RequestError::MissingType;
+            return out;
+        }
+        if (!parsed["type"].is_string()) {
+            // Present but not a string. Reported apart from "missing" because telling a caller
+            // a field is missing when it can see the field in its own request body sends it
+            // looking in the wrong place. handleReleaseLock already drew this distinction
+            // before T-7b; folding it into the shared parser keeps it for all three endpoints
+            // instead of losing it. [Co-developed with claude code -- Adam]
+            out.requestedType = parsed["type"].dump();
+            out.error = RequestError::NonStringType;
             return out;
         }
         out.requestedType = parsed["type"].get<std::string>();
@@ -117,6 +144,43 @@ class LockManager
         out.type = out.requestedType;
         out.ok = true;
         return out;
+    }
+
+    /**
+     * @brief The refusal message for a parseRequest() decision.
+     *
+     * [Co-developed with claude code -- Adam]
+     * One message table, not one per handler. `action` is the past participle the endpoint
+     * would have performed ("acquired", "renewed", "released") so the sentence names what did
+     * NOT happen -- the caller's next question after a 400 is always "did it do it anyway?",
+     * which for these endpoints used to be "yes".
+     *
+     * Every message quotes what the caller sent, never what the server would have substituted.
+     * The old shared sentence -- "System busy or invalid lock type: routing_lock" -- named a
+     * lock the caller had not asked for, which is how the substitution stayed invisible.
+     */
+    static std::string describeError(const LockRequest& req, const char* action)
+    {
+        switch (req.error)
+        {
+            case RequestError::MalformedBody:
+                return std::string("request body is not valid JSON; no lock was ") + action;
+            case RequestError::MissingType:
+                return std::string(
+                           "missing required field \"type\"; expected one of routing_lock, "
+                           "graph_lock, power_lock. There is no default on purpose -- it used "
+                           "to be routing_lock, the lock that serialises writes to real "
+                           "switches, so a request that never named it could still have it ")
+                       + action;
+            case RequestError::NonStringType:
+                return "field \"type\" must be a string naming one of routing_lock, graph_lock, "
+                       "power_lock; received " + req.requestedType;
+            case RequestError::InvalidType:
+                return "unknown lock type \"" + req.requestedType +
+                       "\"; expected one of routing_lock, graph_lock, power_lock";
+            default:
+                return "invalid request";
+        }
     }
 
     /**

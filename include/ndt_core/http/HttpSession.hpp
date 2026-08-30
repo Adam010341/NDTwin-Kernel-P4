@@ -668,17 +668,26 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @brief Attempts to acquire a global application lock to prevent conflicting operations.
      *
      * This endpoint provides mutual exclusion for operations that should not run concurrently
-     * across applications (e.g., topology updates, flow programming, power actions). The caller
-     * may specify a lock "type" and a time-to-live ("ttl") in seconds; if the request body is
-     * missing/invalid JSON, default values are used.
+     * across applications (e.g., topology updates, flow programming, power actions).
      *
-     * Request body (optional JSON):
-     *   - "type": string lock category/name (defaults to LockManager::DEFAULT_LOCK_TYPE_STR)
-     *   - "ttl" : integer TTL seconds (defaults to LockManager::DEFAULT_TTL_SECONDS)
+     * Request body (JSON, required):
+     *   - "type": string, REQUIRED, one of routing_lock / graph_lock / power_lock. There is no
+     *             default: until 2026-08-30 an absent, malformed or unknown "type" acquired
+     *             DEFAULT_LOCK_TYPE_STR on the caller's behalf, so a request could hold the
+     *             lock that serialises writes to real switches without ever naming it.
+     *   - "ttl" : integer TTL seconds, optional (defaults to LockManager::DEFAULT_TTL_SECONDS).
+     *             A duration cannot make a request act on something other than what it named,
+     *             which is why this one may still default and "type" may not.
+     *
+     * Body parsing is LockManager::parseRequest, shared with renew and release so the three
+     * endpoints cannot disagree about what a request means.
      *
      * Responses:
      *   - 200 OK:   {"status":"locked","type":"...","ttl":N} if the lock is acquired
-     *   - 423 Locked: {"error":"Lock acquisition failed", ...} if already held or invalid type
+     *   - 400 Bad Request if the body is absent/malformed or names no valid lock; nothing is
+     *     acquired
+     *   - 423 Locked: {"error":"Lock acquisition failed", ...} if and only if a valid lock is
+     *     held by someone else -- i.e. 423 now means "retry" and nothing else
      *   - 500 Internal Server Error on unexpected failures
      *
      * @param[out] res HTTP response returned to the caller (JSON).
@@ -690,17 +699,22 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @brief Renews (extends) an existing application lock to prevent it from expiring.
      *
      * This endpoint extends the TTL of an already-held lock to maintain exclusive access while
-     * a long-running operation is in progress. The caller may specify "type" and "ttl"; missing
-     * or invalid JSON falls back to LockManager defaults.
+     * a long-running operation is in progress.
      *
-     * Request body (optional JSON):
-     *   - "type": string lock category/name (defaults to LockManager::DEFAULT_LOCK_TYPE_STR)
-     *   - "ttl" : integer TTL seconds (defaults to LockManager::DEFAULT_TTL_SECONDS)
+     * Request body (JSON, required); same rules and same parser as handleAcquireLock:
+     *   - "type": string, REQUIRED, one of routing_lock / graph_lock / power_lock. Until
+     *             2026-08-30 an empty `catch (...)` around the parse meant a malformed body, a
+     *             body with no "type" and an absent body all renewed DEFAULT_LOCK_TYPE_STR --
+     *             so an app holding power_lock that renewed without a body extended another
+     *             app's routing lease, was told 200, and let its own lease run down.
+     *   - "ttl" : integer TTL seconds, optional (defaults to LockManager::DEFAULT_TTL_SECONDS)
      *
      * Responses:
      *   - 200 OK: {"status":"renewed","type":"...","ttl":N} if renewal succeeds
-     *   - 412 Precondition Failed if the lock is expired, not held, or the type is invalid
-     *   - 400 Bad Request for malformed requests (fallback error path)
+     *   - 400 Bad Request if the body is absent/malformed or names no valid lock; nothing is
+     *     renewed. Kept distinct from 412 because 412 means "acquire it and retry" and 400
+     *     means "do not retry this request"
+     *   - 412 Precondition Failed if a valid lock is expired or not held
      *
      * @param[out] res HTTP response returned to the caller (JSON).
      */
@@ -708,16 +722,26 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     /**
      * @brief Releases an application lock, allowing other applications to proceed.
      *
-     * This endpoint unlocks the specified lock type (or the default lock type if not provided).
-     * It is used when the caller finishes a protected operation and wants to relinquish exclusive
-     * access so that other applications can acquire the lock.
+     * This endpoint unlocks the lock type the caller names. It is used when the caller finishes a
+     * protected operation and wants to relinquish exclusive access so that other applications can
+     * acquire the lock.
      *
-     * Request body (optional JSON):
-     *   - "type": string lock category/name (defaults to LockManager::DEFAULT_LOCK_TYPE_STR)
+     * Request body (JSON, required); same rules and same parser as handleAcquireLock:
+     *   - "type": string, REQUIRED, one of routing_lock / graph_lock / power_lock. Until
+     *             2026-08-30 an ABSENT body released DEFAULT_LOCK_TYPE_STR, so an app holding
+     *             power_lock that released without a body released another app's routing_lock,
+     *             was answered 200 naming a lock it had never mentioned, and still held its own.
      *
      * Responses:
      *   - 200 OK: {"status":"released","type":"..."} on success
+     *   - 400 Bad Request if the body is absent/malformed or names no valid lock; nothing is
+     *     released
+     *   - 412 Precondition Failed if a valid lock is simply not held
      *   - 500 Internal Server Error if releasing fails unexpectedly
+     *
+     * @note There is still no owner token. Naming a held lock releases it whoever took it; the
+     *       400/412 split only guarantees a request acts on the lock it named, not that the
+     *       caller was entitled to it. Tracked in doc/2026-07-28_test_coverage_gaps.md §1.1.
      *
      * @param[out] res HTTP response returned to the caller (JSON).
      */

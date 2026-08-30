@@ -1930,26 +1930,9 @@ HttpSession::handleAcquireLock(http::response<http::string_body>& res)
             // conditions, quoting a lock the caller never asked for. "busy" is a retry;
             // "your request is wrong" is not, and a caller cannot tell them apart from 423.
             res.result(http::status::bad_request);
-            std::string detail;
-            switch (reqLock.error)
-            {
-                case LockManager::RequestError::MalformedBody:
-                    detail = "request body is not valid JSON; no lock was acquired";
-                    break;
-                case LockManager::RequestError::MissingType:
-                    detail = "missing required field \"type\"; expected one of routing_lock, "
-                             "graph_lock, power_lock. There is no default on purpose -- a lock "
-                             "you did not name is a lock you did not mean to take";
-                    break;
-                case LockManager::RequestError::InvalidType:
-                    detail = "unknown lock type \"" + reqLock.requestedType +
-                             "\"; expected one of routing_lock, graph_lock, power_lock";
-                    break;
-                default:
-                    detail = "invalid request";
-                    break;
-            }
-            res.body() = json{{"error", "Invalid lock request"}, {"detail", detail}}.dump();
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"detail", LockManager::describeError(reqLock, "acquired")}}
+                             .dump();
             return;
         }
 
@@ -1984,38 +1967,43 @@ HttpSession::handleRenewLock(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Renew Lock");
     try
     {
-        // Use constants defined in the header for default values
-        int ttl = LockManager::DEFAULT_TTL_SECONDS;
-        std::string lockType = LockManager::DEFAULT_LOCK_TYPE_STR;
+        // [Co-developed with claude code -- Adam]
+        // Decide first, act second -- the same seam handleAcquireLock uses, not a second copy
+        // of the rules. This handler used to assign the defaults, parse into them, and swallow
+        // every parse failure in an empty `catch (...)`, so a malformed body, a body with no
+        // "type", and an absent body all renewed `routing_lock` -- the lock that serialises
+        // writes to real switches. The damaging case is not the garbage one: an app holding
+        // power_lock that renewed without a body extended somebody else's routing lease, was
+        // told 200 "renewed", and let its own lease run down untouched.
+        const auto reqLock = LockManager::parseRequest(m_req.body());
 
-        try
+        if (!reqLock.ok)
         {
-            auto jsonBody = json::parse(m_req.body());
-            if (jsonBody.contains("ttl"))
-            {
-                ttl = jsonBody.value("ttl", LockManager::DEFAULT_TTL_SECONDS);
-            }
-            if (jsonBody.contains("type"))
-            {
-                lockType = jsonBody.value("type", LockManager::DEFAULT_LOCK_TYPE_STR);
-            }
-        }
-        catch (...)
-        {
+            // 400, not 412. 412 is a state the caller can fix by acquiring first; a request
+            // that names no valid lock is not a state, and a caller cannot tell the two apart
+            // if they share a status.
+            res.result(http::status::bad_request);
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"detail", LockManager::describeError(reqLock, "renewed")}}
+                             .dump();
+            return;
         }
 
-        if (m_lockManager->renew(lockType, ttl))
+        if (m_lockManager->renew(reqLock.type, reqLock.ttl))
         {
             res.result(http::status::ok);
-            res.body() = json{{"status", "renewed"}, {"type", lockType}, {"ttl", ttl}}.dump();
+            res.body() =
+                json{{"status", "renewed"}, {"type", reqLock.type}, {"ttl", reqLock.ttl}}.dump();
         }
         else
         {
+            // "or invalid type" has gone from this sentence because an invalid type can no
+            // longer reach here -- it is a 400 above. What is left is exactly the retryable
+            // state 412 is for.
             res.result(http::status::precondition_failed); // 412 Precondition Failed
-            res.body() =
-                json{{"error", "Renew failed"},
-                     {"detail", "Lock '" + lockType + "' is expired, not held, or invalid type"}}
-                    .dump();
+            res.body() = json{{"error", "Renew failed"},
+                              {"detail", "Lock '" + reqLock.type + "' is expired or not held"}}
+                             .dump();
         }
     }
     catch (...)
@@ -2031,66 +2019,51 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Release Lock");
     try
     {
-        // Use constants defined in the header for default values
-        std::string lockType = LockManager::DEFAULT_LOCK_TYPE_STR;
-
         // [Co-developed with claude code -- Adam]
-        // An *absent* body still means "release the default lock" -- doc/2026-01-02_ndt_api.md documents the
-        // body as optional and callers rely on it. A body that is present but unparseable is a
-        // different thing, and used to be swallowed by an empty catch that degraded the request
-        // into releasing the DEFAULT type. That silently released a lock the caller never named.
-        if (!m_req.body().empty())
+        // Same seam as acquire and renew. An earlier revision already refused a malformed body
+        // and a non-string "type", but an *absent* body still fell through to
+        // DEFAULT_LOCK_TYPE_STR, and that remaining hole was the worst of the three: an app
+        // holding power_lock that released without a body released `routing_lock` -- held by
+        // somebody else, and the lock that serialises writes to real switches -- was answered
+        // 200 "released", and still held its own power_lock. Two locks wrong, no error anywhere,
+        // and the reply named a lock the caller had never mentioned.
+        //
+        // That revision kept the fallback on the grounds that doc/2026-01-02_ndt_api.md calls the
+        // body optional and that "callers rely on it". Re-checked before removing it: no caller
+        // relies on it. All three release callers send an explicit "type" --
+        // Energy-Saving-App/src/app/http.cpp:461, Traffic-engineering-App.py:85 and the chaos
+        // harness probes.py:206 -- as does every release check in tools/contract_test/spec.py. The
+        // documented default had no user, so the doc section is corrected alongside this change
+        // rather than kept alive by a fallback nothing was asking for.
+        const auto reqLock = LockManager::parseRequest(m_req.body());
+
+        if (!reqLock.ok)
         {
-            json jsonBody;
-            try
-            {
-                jsonBody = json::parse(m_req.body());
-            }
-            catch (const json::exception&)
-            {
-                res.result(http::status::bad_request);
-                res.body() = json{{"error", "Invalid Request"},
-                                  {"detail", "Request body is not valid JSON"}}
-                                 .dump();
-                return;
-            }
-            if (jsonBody.contains("type"))
-            {
-                // is_string() before reading it: value("type", <const char*>) calls
-                // get<std::string>() on the element and throws json::type_error when it is a
-                // number, which would escape to the outer catch(...) and answer 500 -- reporting
-                // a client's bad input as a kernel fault. That is the distinction
-                // tests/test_HttpSessionRouting.cpp exists to protect.
-                if (!jsonBody.at("type").is_string())
-                {
-                    res.result(http::status::bad_request);
-                    res.body() = json{{"error", "Invalid Request"},
-                                      {"detail", "'type' must be a string"}}
-                                     .dump();
-                    return;
-                }
-                lockType = jsonBody.at("type").get<std::string>();
-            }
+            res.result(http::status::bad_request);
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"detail", LockManager::describeError(reqLock, "released")}}
+                             .dump();
+            return;
         }
 
-        // 412, matching the sibling renew handler, which answers 412 for exactly these three
-        // inputs (expired, not held, invalid type). tools/contract_test/spec.py already expected
-        // [412, 400, 404] here and carried a known_gap saying the kernel did not implement it;
-        // doc/2026-07-27_testing_workflow.md documents 412 as well. 423 Locked, which doc/2026-01-02_ndt_api.md
-        // mentions, is the wrong shape: 423 means "the resource is locked so your request cannot
-        // proceed", whereas the failure here is "there was no lock of yours to release".
-        if (!m_lockManager->unlock(lockType))
+        // 412, matching the sibling renew handler, for the one condition that is left here:
+        // a real lock that is simply not held. tools/contract_test/spec.py expects [412, 400,
+        // 404]; doc/2026-07-27_testing_workflow.md documents 412. 423 Locked, which
+        // doc/2026-01-02_ndt_api.md mentions, is the wrong shape: 423 means "the resource is
+        // locked so your request cannot proceed", whereas the failure here is "there was no
+        // lock of yours to release". An invalid type no longer arrives here -- it is a 400
+        // above -- so it has been dropped from the sentence.
+        if (!m_lockManager->unlock(reqLock.type))
         {
             res.result(http::status::precondition_failed);
-            res.body() =
-                json{{"error", "Release failed"},
-                     {"detail", "Lock '" + lockType + "' is not held or is an invalid type"}}
-                    .dump();
+            res.body() = json{{"error", "Release failed"},
+                              {"detail", "Lock '" + reqLock.type + "' is not held"}}
+                             .dump();
             return;
         }
 
         res.result(http::status::ok);
-        res.body() = json{{"status", "released"}, {"type", lockType}}.dump();
+        res.body() = json{{"status", "released"}, {"type", reqLock.type}}.dump();
     }
     catch (...)
     {

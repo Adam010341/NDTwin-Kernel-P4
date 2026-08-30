@@ -65,10 +65,15 @@ TEST(LockManagerTest, TheThreeDocumentedLockNamesAreValidAndNothingElseIs)
 
 TEST(LockManagerTest, TheDefaultLockNameConstantIsOneTheManagerActuallyAccepts)
 {
-    // DEFAULT_LOCK_TYPE_STR is what HttpSession falls back to when a request omits "type", and
-    // it is declared next to the enum as a "single source of truth" -- but nothing makes the two
-    // agree. If the enum mapping is renamed and the constant is not, every default lock request
-    // starts returning false, which reads as "someone else holds the lock" rather than as a bug.
+    // DEFAULT_LOCK_TYPE_STR is declared next to the enum as a "single source of truth", but
+    // nothing makes the two agree: if the enum mapping is renamed and the constant is not, a
+    // request naming the constant starts returning false, which reads as "someone else holds
+    // the lock" rather than as a bug.
+    //
+    // As of T-7b (2026-08-30) no handler falls back to this constant any more -- acquire, renew
+    // and release all require an explicit "type". It survives as the documented name of the
+    // routing lock and is still referenced by callers and tests, so the agreement it asserts is
+    // still worth pinning; it is simply no longer reachable by omitting a field.
     LockManager mgr;
     EXPECT_TRUE(mgr.isValidType(LockManager::DEFAULT_LOCK_TYPE_STR))
         << "the documented default '" << LockManager::DEFAULT_LOCK_TYPE_STR
@@ -337,4 +342,110 @@ TEST(LockRequestParsing, TheShapeBothSiblingAppsSendStillWorks)
     ASSERT_TRUE(r.ok) << "Energy-Saving-App and Traffic-Engineering-App both send this";
     EXPECT_EQ(r.type, "routing_lock");
     EXPECT_EQ(r.ttl, 300);
+}
+
+// ============================================================================================
+// T-7b: the same parser now decides for release_lock and renew_lock too.
+//
+// [Co-developed with claude code -- Adam]
+// Those two handlers kept their own copies of the rules, and the copies had drifted: renew
+// swallowed every parse failure in an empty catch and renewed routing_lock; release refused a
+// malformed body but still fell through to routing_lock when the body was absent. Both are now
+// the seam below, so the three endpoints cannot disagree about what a request means.
+//
+// The cases here are the ones the two extra endpoints introduced. The endpoint-level tests --
+// which judge on lock STATE rather than on the reply, because the reply was never the thing
+// that was wrong -- are in tests/test_HttpSessionStatusCodes.cpp with the LockManager fixture.
+// ============================================================================================
+
+TEST(LockRequestParsing, AnAbsentBodyNamesNoLockAtAll)
+{
+    // This is the request that mattered: `POST /ndt/release_lock` with no body used to mean
+    // "release routing_lock". A power_lock holder sending it released a lock it had never
+    // held, and was told 200.
+    auto r = LockManager::parseRequest("");
+    EXPECT_FALSE(r.ok) << "an empty body was accepted";
+    EXPECT_EQ(r.error, LockManager::RequestError::MissingType)
+        << "an absent body is 'you named no lock', not 'your JSON is broken'";
+    EXPECT_TRUE(r.type.empty())
+        << "an absent body resolved to lock type '" << r.type << "'";
+}
+
+TEST(LockRequestParsing, AWhitespaceOnlyBodyIsTreatedAsAbsentRatherThanAsMalformed)
+{
+    auto r = LockManager::parseRequest("  \n\t ");
+    EXPECT_FALSE(r.ok);
+    EXPECT_EQ(r.error, LockManager::RequestError::MissingType);
+    EXPECT_TRUE(r.type.empty());
+}
+
+TEST(LockRequestParsing, ANonStringTypeIsDistinguishedFromAMissingOne)
+{
+    // handleReleaseLock drew this distinction before T-7b and it must survive being folded
+    // into the shared parser: telling a caller "type" is missing, when the caller can see
+    // "type" in the body it just sent, sends it looking in the wrong place.
+    auto r = LockManager::parseRequest(R"({"type": 123})");
+    EXPECT_FALSE(r.ok);
+    EXPECT_EQ(r.error, LockManager::RequestError::NonStringType)
+        << "a present-but-wrong-typed field was reported as missing";
+    EXPECT_EQ(r.requestedType, "123") << "the error must carry what the caller sent";
+    EXPECT_TRUE(r.type.empty());
+}
+
+// The accept path for the two endpoints T-7b brings in. Every refusal test above would also
+// pass against a parseRequest that refused everything.
+TEST(LockRequestParsing, TheExactBodiesTheReleaseAndRenewCallersSendAreAccepted)
+{
+    // Energy-Saving-App/src/app/http.cpp:461, Traffic-engineering-App.py:85, probes.py:206
+    auto rel = LockManager::parseRequest(R"({"type": "routing_lock"})");
+    ASSERT_TRUE(rel.ok) << "the body all three release callers send was refused";
+    EXPECT_EQ(rel.type, "routing_lock");
+
+    // the chaos harness is the only renew caller: probes.py:210 sends type + ttl
+    auto ren = LockManager::parseRequest(R"({"type": "graph_lock", "ttl": 5})");
+    ASSERT_TRUE(ren.ok) << "the body the only renew caller sends was refused";
+    EXPECT_EQ(ren.type, "graph_lock");
+    EXPECT_EQ(ren.ttl, 5);
+}
+
+// A refusal has to say which thing was wrong, or an operator cannot act on it. This is the
+// property that "everything is 400" would silently lose.
+TEST(LockRequestParsing, EachRefusalReasonProducesADistinctMessageQuotingTheCaller)
+{
+    const auto malformed = LockManager::describeError(
+        LockManager::parseRequest("{not json"), "released");
+    const auto missing = LockManager::describeError(
+        LockManager::parseRequest("{}"), "released");
+    const auto nonString = LockManager::describeError(
+        LockManager::parseRequest(R"({"type": 123})"), "released");
+    const auto invalid = LockManager::describeError(
+        LockManager::parseRequest(R"({"type": "alpha"})"), "released");
+
+    EXPECT_NE(malformed, missing);
+    EXPECT_NE(missing, nonString);
+    EXPECT_NE(nonString, invalid);
+
+    EXPECT_NE(invalid.find("alpha"), std::string::npos)
+        << "the message must quote the lock the caller named: " << invalid;
+    EXPECT_NE(nonString.find("123"), std::string::npos)
+        << "the message must quote what the caller sent: " << nonString;
+
+    // The old sentence was "System busy or invalid lock type: routing_lock" -- it named the
+    // lock the SERVER had substituted, at a caller that had never mentioned it, which is how
+    // the substitution stayed invisible for as long as it did. A body that parsed to nothing
+    // at all must therefore not mention routing_lock anywhere.
+    //
+    // Only `malformed` can carry this assertion. The missing/non-string/invalid messages
+    // legitimately list all three lock names as guidance, so the presence of the string
+    // proves nothing about them -- asserting it there would be a check that cannot fail for
+    // the right reason.
+    EXPECT_EQ(malformed.find("routing_lock"), std::string::npos)
+        << "a request that parsed to nothing was answered with routing_lock, the lock the "
+           "server used to substitute: " << malformed;
+
+    // and the verb is the endpoint's, so the message says what did not happen
+    EXPECT_NE(malformed.find("released"), std::string::npos) << malformed;
+    EXPECT_NE(LockManager::describeError(LockManager::parseRequest("{not json"), "renewed")
+                  .find("renewed"),
+              std::string::npos);
 }
