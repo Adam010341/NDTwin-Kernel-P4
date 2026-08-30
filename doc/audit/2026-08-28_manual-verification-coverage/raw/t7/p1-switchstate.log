@@ -1,0 +1,34 @@
+=== P-1 switch-state acceptance, started 2026-08-30T03:59:32+00:00 ===
+
+############ FABRIC + PROXY #1 ############
+    manifest switches: 10
+    proxy #1 holds :8081 = 1896
+
+############ MEASUREMENT ############
+    D1 (baseline)                    da43afbe686d14565aa8c9a5938268f18a13e17fe931b6f437c3527ac0ca8664
+    D2 (quiet interval, nothing run) da43afbe686d14565aa8c9a5938268f18a13e17fe931b6f437c3527ac0ca8664
+    PASS: fabric is quiescent -- any later change is attributable
+
+############ ARM A -- second proxy, WITH the fix ############
+    second proxy said:
+      [Proxy Agent] REFUSING to start: port 8081 is already in use (Address already in use).
+    D3 (after 2nd proxy, fixed)      da43afbe686d14565aa8c9a5938268f18a13e17fe931b6f437c3527ac0ca8664
+    PASS: switch state UNCHANGED -- the second instance wrote nothing
+    PASS: startup event never ran (nothing could reach a switch)
+
+############ ARM B -- POSITIVE CONTROL: second proxy, WITHOUT the fix ############
+If the measurement cannot detect a change, Arm A's 'unchanged' is worthless.
+      reverted /tmp/prefix to the pre-fix entrypoint
+    pre-fix second proxy said:
+      pipeline pushes: 0
+    D4 (after 2nd proxy, PRE-fix)    da43afbe686d14565aa8c9a5938268f18a13e17fe931b6f437c3527ac0ca8664
+    NOTE: D4 == D3. Either the pre-fix instance also failed to reach the switches
+    here, or table_dump is not sensitive to what it changed. Arm A is therefore
+    NOT fully corroborated by this control -- stated rather than glossed.
+
+############ SHUTDOWN ############
+Terminated
+
+############ RESULT ############
+failures: 0
+finished 2026-08-30T04:02:29+00:00

@@ -1,0 +1,33 @@
+=== P-1 switch-state acceptance, started 2026-08-30T04:03:49+00:00 ===
+
+############ FABRIC + PROXY #1 ############
+    manifest switches: 10
+    proxy #1 holds :8081 = 3307
+
+############ MEASUREMENT ############
+    D1 (baseline)                    daf18fe07939795e68babcc44b5f3c2dec9bff482f94eb54d572abad9a5a77d0
+    D2 (quiet interval, nothing run) daf18fe07939795e68babcc44b5f3c2dec9bff482f94eb54d572abad9a5a77d0
+    PASS: fabric is quiescent -- any later change is attributable
+
+############ ARM A -- second proxy, WITH the fix ############
+    second proxy said:
+      [Proxy Agent] REFUSING to start: port 8081 is already in use (Address already in use).
+    D3 (after 2nd proxy, fixed)      daf18fe07939795e68babcc44b5f3c2dec9bff482f94eb54d572abad9a5a77d0
+    PASS: switch state UNCHANGED -- the second instance wrote nothing
+    PASS: startup event never ran (nothing could reach a switch)
+
+############ ARM B -- POSITIVE CONTROL: second proxy, WITHOUT the fix ############
+If the measurement cannot detect a change, Arm A's 'unchanged' is worthless.
+      swapped main.py in place to the pre-fix entrypoint
+    pre-fix second proxy said:
+      pipeline pushes: 10
+    D4 (after 2nd proxy, PRE-fix)    dc336e419f75b228d94fc391375dc1fa3f114dd2d73e4dea05bbd61a0fcc4dff
+      restored the fixed main.py
+    PASS: the measurement CAN see a pre-fix second instance -- Arm A's result is meaningful
+
+############ SHUTDOWN ############
+Terminated
+
+############ RESULT ############
+failures: 0
+finished 2026-08-30T04:06:45+00:00
