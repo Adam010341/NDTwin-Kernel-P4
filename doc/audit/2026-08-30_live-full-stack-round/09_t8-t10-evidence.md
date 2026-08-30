@@ -951,3 +951,26 @@ passes now". All thirteen harnesses were re-run against the **final committed st
 
 ===== 13 harness(es) OK, 0 FAIL =====
 ```
+
+---
+
+## §6 Auditor acceptance (08-30 late night, by hand)
+
+Re-ran all 13 acceptance harnesses against the final commit state: outputs read, not rc-trusted.
+Then applied an independent mutation with my own hands — removed the `>&2` from `ndt_down`'s
+first narrative line (lib.sh:593), putting chatter back on the value channel — and judged by the
+FORCE-GREEN section's health fingerprint (`bare number? yes`): clean tree **1**, mutated **0**,
+reverted **1**. The channel fix discriminates.
+
+One finding about the acceptance instruments themselves, recorded for the next person who
+re-runs them: **the "13 OK / 0 FAIL" aggregate proves ran-without-crash, not all-healthy.**
+About eight of the thirteen scripts end on `wait`/`printf` and exit 0 unconditionally, and
+their outputs interleave deliberate force-RED demonstrations with health assertions, so neither
+rc nor a naive FAIL-grep can machine-judge them — they are human-read instruments, and the
+verbatim outputs quoted in §2 are the durable record. A machine-checkable regression harness
+(per-script health fingerprints, of which `bare number? yes` is the first) is follow-up work,
+not a defect in the fixes. Same family as this file's §5 harness-bug list and the repo's
+"驗收要寫在狀態上不是 rc 上" rule — one instance of that disease was found and fixed during
+authoring; the family survived in the siblings, which is how that disease works.
+
+Accepted for merge. [Co-developed with claude code -- Adam]
