@@ -1104,3 +1104,73 @@ the id, and the arithmetic that the id ought to imply.
 ⇒ Registered for the next round: **a resumed run should inherit the prior run's invariant baselines
 from `cells.tsv` or a sidecar rather than re-derive them**, so the gap the resume creates is the one
 interval the invariants actually cover.
+
+---
+
+## F-26. 🔴 `SATURATED` cannot fire in the region it exists to detect — the round's own criterion
+## measures the wrong thing, and only a completed ladder shows it
+
+**This is a structural argument, not a curve fit.**
+
+`SATURATED` fires on `ratio < 0.95`, i.e. the twin under-reporting relative to `gt`. But `gt` is
+**the switch interface's own tx counter**. So when the dominant failure at high sampling rates is
+**upstream packet loss**, `gt` collapses *together with* the twin and **`ratio` is pushed toward 1,
+not away from it.**
+
+⇒ **The worse the system gets, the less likely that criterion is to fire.** It discriminates only
+against "samples lost between switch and kernel" — a failure mode that never dominated on this
+machine.
+
+The measured cells say exactly that:
+
+| rung | loss | `ratio` | fabric |
+|---|---|---|---|
+| **1/8** | **0.01–0.33%** | **bl 0.969–0.975** / p 0.9997–1.003 | healthy |
+| 1/4 | 41–45% | 0.9985–1.010 | collapsed |
+| 1/1 | 84.5–85.6% | 0.9999–1.012 | collapsed |
+
+**The only rung where the criterion had anything to say is the one where the fabric was healthy.**
+At 1/1 the network delivers 11% of what it is given and the twin reports perfect fidelity.
+
+### The prior round saw the collapse and drew the same boundary — one rung lower
+
+`plot_ladder_rates.py:60-65`, verbatim, from the 08-20 round:
+
+> *"gt collapses 196 -> 29.5 Mbit/s). Their spread is not a quantisation spread, so drawing them on
+> a quantisation ladder would state something the data does not support. **They carry the ceiling,
+> and the ceiling is a table in §C4, not a staircase.**"*
+> *"**1/16 is kept and is the last healthy cell**: 0.025% loss…"*
+
+and its `CELLS` list ends at `r016`. ⇒ **That round's precision curve also stopped before the
+collapse.**
+
+**§6 reconciliation, within constraint ② (cross-binary ⇒ direction and rung-distance only):**
+* **Direction — same.** `gt` collapses at high sampling rates in both rounds.
+* **Rung-distance — the last healthy rung moved 1/16 → 1/8, one rung higher.**
+* **No per-cell value comparison is made**, as the constraint requires.
+
+### Consequence for the registered primary
+
+`SATURATED` count is **0** across every rung ⇒ **the telemetry-fidelity ceiling is right-censored
+at ≥1/1 for both arms** ⇒ two censored values ⇒ **`INDISTINGUISHABLE`**, and the report stops there
+(pre-committed in `LADDER-RUNNING-NOTES` §5-quater, before the data).
+
+🔴 **And ">=1/1" names a rung that destroys 85% of the traffic.**
+
+### Why this is a headline result rather than a shortfall
+
+**The strongest finding of this round is that its own criterion measured the wrong quantity** — and
+that is visible *only* because the ladder was run to the top. Below 1/8 the criterion behaves
+correctly; it fails at 1/4 and 1/1. A round that stopped at the first hurt rung would have kept a
+criterion that looked sound.
+⇒ **The value of finishing the ladder was not the ceiling. It was this.**
+
+### Required renaming, and the next round's repair
+
+**"Ceiling" must be qualified everywhere it appears: a ceiling on TELEMETRY FIDELITY is not a safe
+operating sampling rate.** For the next round, either `lost_pct` enters the ceiling criterion, or
+the word is replaced by one that says which of the two it means. The D round was right to register
+the two marks separately; what nobody did on inheriting them was ask **which ceiling is being
+reported.**
+
+[Co-developed with claude code -- Adam]
