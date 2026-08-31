@@ -1223,6 +1223,17 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   （`$$`／`$PPID` 擋不住，fork 有新 pid）。改成**逐 argv 元素比對**（等於 sig 或以 `/sig` 結尾）。
   順帶：TE 的崩因是 `get_graph_data_api_call` 在 except 後 `return graph_data`（未賦值）——
   **Traffic-Engineering-App repo 的缺陷**，excerpt 在 `2026-08-31_live-recipes/te-crashloop-excerpt.txt`。
+- 🔴 **`rm` 一個大檔不會還你空間——VM 的 `virtiofsd` 把它按住了**（2026-08-31 實測）：刪掉
+  `app_viz.log` 之後 `du` 少了 17.4 MiB 而 **`df` 一個 byte 都沒回來**。原因＝這個 repo 被
+  virtio-fs 掛進 qemu VM，`virtiofsd` 對 guest 碰過的每個檔案留著 fd，**檔名沒了、blocks 還在**。
+  當下全機 **606.2 MiB 的已刪除檔案仍佔著 `/`，其中 511.9 MiB 是 `virtiofsd` 按住的**
+  （`build/bin/test_routing_strategy` 162.3 MiB、`build/bin/ndtwin_kernel` 68.9 MiB、
+  `build/lib/*.a` 約 230 MiB——**全都是早就 `rm` 過的舊 build 產物**）。
+  🔑 **這是「VM 對 `ndt status` 隱形」的第二面：它對磁碟簿記也隱形**——`du` 與 `df` 會給你
+  兩個相反的答案，而兩個都不是錯的。**空間見底時先查 `/proc/*/fd` 找 deleted 檔，不要再刪東西**
+  （再刪也不會回來）。回收方式＝關掉／重開那個 VM，**不是 `kill virtiofsd`**（那是別人的 VM）。
+  量法（唯讀）：走 `/proc/<pid>/fd`，`readlink` 結尾是 ` (deleted)` 的就是，`stat` 取大小；
+  **要濾掉 `/memfd:`**——不濾的話會算出 40 GB，那是共享記憶體不是磁碟。
 - 🔴 **`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。
   🔄 08-30 收窄（sweep 實讀 `/usr/lib/python3/dist-packages/mininet/clean.py:29/:37/:66`）：
   機制＝`pkill -9 -f`，**argv 對上 pattern 才殺**——`sudo mn -c` 的 shell 不匹配

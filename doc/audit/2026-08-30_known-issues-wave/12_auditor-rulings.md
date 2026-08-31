@@ -27,8 +27,14 @@
   的 15 字元截斷儀器＝恆 0 恆過）；agent 首輪 arm2 誤判自抓自正（3 秒取樣太早，隔離重跑
   3.046s PASS）；「兩個讀數打架」正確歸因（inline 掃描數到自己的 cmdline，腳本檔版不受影響）。
 - **狀態翻牌**：A-4e／A-5／B-2c → 🟢 RESOLVED（修法＋變異閘＋live 全鏈）；A-1 留非 RESOLVED
-  （arm3 綠前不改，依包自訂條款）；§G 新條目＝**pidfile-lost-but-alive**（TE 殭屍 20h32m、
+  （arm3 綠前不改，依包自訂條款）；§G 新條目＝**pidfile-lost-but-alive**（TE 殭屍 20h32m 🔴、
   三個 ndt 介面全盲、`stop` 回 rc0 假成功——修票待開）＋TE-App `UnboundLocalError` 跨 repo 票。
+  > 🔴 **就地更正（08-31 加註，上面那行是裁決當下的原文，不改）**：**`20h32m` 已撤回**。
+  > 08-31 刪除 `app_te.log` 前做了有界證據包，實測**檔案本身跨 20h38m39s、崩潰迴圈跨
+  > 20h07m02s**，兩者都不是 20h32m，且 repo 裡找不到任何 raw 支撐這個數字。
+  > 引用請改用 `doc/audit/2026-08-31_live-recipes/app_te_log_evidence.txt`。
+  > 同一輪另外兩項更正：迴圈**不是從頭就有**（前面 31m37s 全乾淨）；那隻孤兒**沒裝成任何流表
+  > 規則**（123,420 條 ERROR 全是 `:8000 connection refused`）。「殭屍」「100 MB」則已確認。
 - raw 18 檔＋TE excerpt＋drive_ovs.log 落 **audit-raw `d62ff34`**。量測 binary md5 `5f2e701e…`
   （跨 15b213c 不變、strings 驗 bundle-2 字串——每步都指認了 binary）。
 - 待 Adam：①A-2 §5.3 sudoers vs 手跑；②`app_te.log` 100MB 刪否（excerpt 已存證）；
