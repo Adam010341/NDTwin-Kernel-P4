@@ -160,3 +160,111 @@ It is not: **I had taken "I have nothing unpushed" to mean "nobody has anything 
 Ten minutes later another session's `22f2b92` landed *between* my two commits, so a rebase would
 have moved someone else's work. Citability came from the stamp naming a sha, not from the commits
 being adjacent.
+
+## F-3a. 🔴 The GREEN half of a two-way force can be as empty as the red half
+
+Extends F-3, and it is the half nobody checks. Every "forced both ways" claim in this script family
+is really two claims, and the habit is to interrogate only the red one:
+
+* **red half**: would this have gone red anyway, without the injection? (F-3's two cases)
+* **green half**: would this have gone green anyway, **whether or not the fix works**?
+
+`FORCE_CPU_GATE_DISOWN_FABRIC` is the live example. Against an **idle** fabric the allow-list fix
+gives GREEN — and so does the unfixed code, because there is nothing to misclassify. The green
+arm therefore has **zero discriminating power at idle**, and three attempts to raise enough load
+to give it any all failed (idle fabric / ping flood / ping ended early). What actually carries the
+G5b conclusion is the natural experiment (21:24:19 vs 22:02:33, Δ≈1.43 cores = three switches
+changing sides), not the injected green.
+⇒ State the rule for both halves: **"if the thing I am testing had not happened, would I have got
+this same answer?"** — asked of the *green* run as well as the red one.
+
+## F-9. ✅ Foreign load 22:10:10–22:10:58 reconciled against this round's ledger: **no reading hit**
+
+Reported voluntarily by `bmv2 論文審查` (8/29 poster-reviewer): an `iperf3` loopback probe in the
+root netns, nine sequential pairings at `-b 0 -t 5`, i.e. ~45 s of one-to-two cores, inside this
+round's exclusive-CPU claim. They read the claim afterwards, not before.
+🔑 Their own sharpest point: **`measuring nothing` is a point sample taken later, not the state
+during those 48 seconds** — so only this round's ledger can answer whether anything was hit.
+
+**What I checked, and what it says.** Every reading this round has taken:
+
+| reading | when (CST) | in window? |
+|---|---|---|
+| CPU-gate verdicts, `raw/gates.jsonl` (8 records) | 21:11:02 … **22:02:33** | no |
+| continuous 2 Hz CPU trace, `raw/cells/g_gate_load_cpu.jsonl` (181 samples) | 22:01:35.99 – **22:03:05.51** | no |
+| `raw/cpu_baseline.json` | 20:21 | no |
+| last line written to `gates_e.log` | **22:03:26** | no |
+| any file under `$ROUND` with mtime > 22:05 | *(none exist)* | — |
+| ladder cells | **not one has run** | — |
+
+The window opens **6 min 44 s after the last thing this round wrote**. The fabric was already torn
+down (`restore_production` at 22:03:10) and `ndt status` still reports 0 switches, so at 22:10 this
+round had nothing running to perturb. **Nothing is contaminated; nothing needs re-running.**
+🔑 Recorded because "checked and clean" and "did not check" are different states, and a findings
+file that only records hits cannot tell you which one you are in.
+
+**Taken on trust vs. verified.** The window itself is theirs; I have no independent record of their
+iperf3 and am not claiming one. What is verified here is only my side of the reconciliation.
+
+### F-9a. 🔴 And the contamination gate is itself a point sample — it watched 3.1% of the gate phase
+
+Summing `window_s` over the eight CPU-gate records: **200 s observed** across a gate phase running
+20:16:29 → 22:03:26 (**6 417 s**) — **3.1%**. A 48-second foreign load placed anywhere in the other
+96.9% produces exactly the same green verdicts. Tonight's intrusion missed the round by seven
+minutes; an intrusion at 21:40 would have been just as invisible and would have left the same
+transcript.
+⇒ The asymmetry that matters: **ladder cells are not exposed this way.** `measure.sh:52` runs
+`cpu_probe.py "$DUR" 2` for the whole of every cell, so a cell is watched continuously at 2 Hz and
+a ≥0.5-core intruder inside it *would* register. The blind spot is the **gate phase** — which is
+precisely where the "the machine is clean, proceed" decision is taken.
+⇒ Not fixed this round (§0-ter's detection floor is registered as-is and the round has started).
+The cheap fix for the next one: run the CPU probe continuously for the whole gate phase and gate on
+its maximum, rather than sampling at the moments the gates happen to fire.
+
+## F-10. 🔴 G10 and G11 are half-gates: forced red, never forced green
+
+`gates_e.sh` — the `G10 #14` block (`say "--- G10 #14: topology invariant…"`, currently line 608)
+and the `G11 #3` block (line 617). Both force **red** and assert the message appears. Neither ever
+runs the clean direction, so neither has shown it can come out green — the same shape as G4's
+"force-red can never be recorded as a pass" and as G9 before tonight's split (F-11).
+**The verification method is itself unverified.** Deliberately not fixed inside the stamped round:
+widening the change surface mid-window is what §3b(C5) exists to stop.
+⇒ After E: give each a clean-direction call, and note that for G11 the clean direction is nearly
+free (`assert_same_boot` unforced) while for G10 it needs a real edge count, i.e. a live fabric —
+which is *why* it was skipped, and why the tail of `main()` (F-11) is the place to put it.
+
+## F-11. G9 #11 could not go green where it was asked to, and the repair moves it rather than fakes it
+
+**The defect.** G9's clean half ran mid-gates. By that point G8 has left a staged arm's kernel in
+`$KBIN` and the P4 source at that arm's rate, so `assert_restore_landed` is **correctly red**. The
+gate read its own round's state as a broken check and stopped the round at 22:03:09 — a true
+negative reported as a gate failure.
+🔑 Three repairs were possible and two were worse: temporarily restoring `build/bin` mid-run makes
+**the gate mutate the system it is checking**; a synthetic pair tests the comparison logic, and G9
+exists precisely to stop an assertion being vacuously true — proving it non-vacuous with a
+synthetic green is self-defeating.
+
+**The repair (Adam's delegate ruled 乙).** The clean half moves to the tail of `main()`, after
+`restore_production`. **That is a stronger green than the original, not a weaker one: it is not a
+situation arranged so a gate can pass, it is the gate applied to the restore this round actually
+performed.**
+
+**The cost, and how it is paid.** Splitting a gate across two points means an abort can run the red
+half and never reach the green one. That must be **a recorded gap, not a silent pass**, so
+`g9_coverage_note` runs from the `EXIT` trap (reached on abort paths too) and both halves carry the
+same `G9 #11` label, the clean half printing the timestamp of the red half.
+
+**Mutation evidence** (three dry runs, `ROUND`/`OUT` redirected to a scratchpad, mutants removed):
+
+| | mutation | result |
+|---|---|---|
+| M0 | none (control) | red PASS 22:32:56, clean PASS 22:33:09, `halves: … BOTH ran`, rc=0 |
+| M1 | `abort` injected directly after the red half | `🔴 G9 #11 COVERAGE GAP … clean half <NOT RUN>`, rc=9 |
+| M2 | clean half forced red | clean half FAIL + abort, `BOTH ran` (both did), rc=9 |
+
+⇒ M1 is the one that matters: the gap **announces itself**.
+🔴 **Partial coverage, stated rather than glossed**: `raw/G9-COVERAGE.txt` is not written under
+`DRY_RUN=1`, so all three mutants exercised only the transcript channel. The live gates run
+exercises the file's `BOTH` branch; the `HALF-COVERED` branch's *write* is covered only by
+inference from sharing one `printf … >>"$f"` with it. Branch selection is proven, the file write
+on that branch is not.
