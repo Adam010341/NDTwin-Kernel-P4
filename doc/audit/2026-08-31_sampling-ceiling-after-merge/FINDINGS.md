@@ -703,6 +703,27 @@ the anchoring was not a decision.**
   is literally `qemu-system-x86_64`).
 * **Anchor the match** — prefix or exact, never substring.
 
+#### Fifth instance, 05:05 — in a monitor I wrote *after* recording this lesson three times
+
+The leg-2 monitor alerted **"E-P4 ABORT"** and **"ladder complete"**. Neither had happened. It had
+matched:
+
+* line 11 of its input — my own launcher's advisory banner *"🔴 an E-P4 abort here is the CORRECT
+  result…"*, i.e. **a warning ABOUT E-P4**, and
+* line 2 — the start gate's own output *"'ladder complete' present"*, which was **checking leg 1's**
+  banner, not announcing leg 2's.
+
+**The pattern matched a mention rather than an occurrence** — the same defect as `pkill -f`, as the
+transcript grep that counted its own commands, as the `/proc` enumeration that listed its own
+shell, and as `_is_fabric()` absolving anything whose comm starts with a fabric prefix.
+
+🔑 **The repair was already registered above — anchor the match — and I did not apply it when
+writing the monitor.** Anchoring every rule to `^[HH:MM:SS]` (only the runner emits timestamps;
+launcher advisories do not) removes **the whole class**, not the two instances, which is F-15's rule
+applied to F-20's defect.
+⇒ **Recording a lesson does not prevent its recurrence. Applying it at the moment of writing does.**
+Between those two there were four hours and three separate write-ups.
+
 🔴 **"Be careful next time" does not repair this.** `ps | grep` always matches itself is already a
 recorded lesson in this project, and it recurred twice tonight in tools written by people who had
 just read it. Same family as `_is_fabric()`'s `comm.startswith()` including `iperf3` (F-21 hole 3):
