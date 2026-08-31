@@ -106,6 +106,18 @@ gRPC stream 收 → handle_packet_in → sample_from_packet_in() 解析 → samp
 |---|---|
 | 會推翻／更新誰？ | E-P1 成立 ⇒ 更新「取樣天花板 ≈1/16」那頁與 [[telemetry-cost-is-fixed-not-per-sample]] |
 | 可對比誰？ | D 的四格（`t008`/`t004`…）。**同 fabric、同 binary 才可逐格比**，否則只比方向 |
+
+> 🔴 **就地標記（2026-08-31 加註，上表原文一字未改）**：上面的「D 的四格」**沒有寫它們在哪**，
+> 而最自然的猜測——本 brief 所在的 `2026-08-25_sampling-rounds/`——**是錯的**。
+> 實際位置：**`doc/audit/2026-08-20_sampling-rate-and-cpu/raw/`**。
+> 原因是 `measure.sh:25` 把輸出目錄**寫死**在 08-20 輪，所以 08-25 輪的
+> `ladder_ext.sh` 跑出來的 cell 落在 08-20 輪的 `raw/`。
+> （08-25 輪自己的 raw 目錄叫 `raw_n`／`raw_h`／`raw_gil`，**沒有一個叫 `raw`**，
+> 也沒有任何 `t008`／`t004` 檔案。）
+> 物件的 path＋blob＋sha256 見
+> `../2026-08-31_sampling-ceiling-after-merge/PREREG.md` **§0-bis**。
+> **本文其餘部分維持原狀**：歷史文件寫的時候是那樣，改寫等於偽造紀錄；
+> 但留一個查不到東西的指路，下一個引用它的人不會知道。
 | 已知的坑 | `truncate=128` 是現在的生產組態（`f64897b`），**E 的兩臂都要保持一致並斷言它** |
 
 ### 🔴🔴 E-7-bis. 開跑前必讀：現在機器上那顆 kernel 是**嫌疑犯**
