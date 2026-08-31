@@ -251,10 +251,29 @@ has enough cells to compare at all.
 | 1/256 | 6 | 11.970 | 0 | 6 | 11.970 | 4× | 2.000 | 1.987 | **0.994** |
 | 1/64 | 6 | 6.872 | 2 | 4 | 6.770 | 4× | 2.000 | 1.768 | **0.884** |
 | 1/32 | 6 | 5.361 | 0 | 6 | 5.361 | **2×** | **1.414** | 1.263 | **0.893** |
+| 1/16 | 6 | 5.399 | 0 | 6 | 5.399 | **2×** | **1.414** | **0.993** | **0.702** |
 
-🔴 **Read `obs/pred`, not `obs`.** √n holds almost exactly on the first step (0.994), then drops to
-≈0.88–0.89 and **stays there across a 4× step and a 2× step alike** — a *constant fractional*
-shortfall, not a deepening one. Every cell still reads `mark=OK`.
+🔴 **Read `obs/pred`, not `obs`.** √n holds almost exactly at the top of the ladder (0.994), settles
+at ≈0.88–0.89 across a 4× and a 2× step alike — a *constant fractional* shortfall — and then at
+1/16 **breaks down**: `obs = 0.993` means the spread did not fall at all across a 2× rate increase.
+It rose slightly, 5.361 → 5.399.
+
+⚠️ **Two rungs at ~5.4 is the shape of a floor, and it is not yet a floor.** Two points do not
+distinguish a plateau from a slower decline or from noise. 1/8, 1/4 and 1/1 are running now and
+will settle it — and they are also, per the auditor, where the **registered** ceiling is expected
+to be.
+🔴 **口徑 unchanged: this remains an unregistered secondary observation and may not explain or
+reinforce the primary (Q2/E4).** If the ceiling moves, the reason is stated in rung language.
+⚠️ Every cell through 1/16 still reads `mark=OK` — so the departure is happening **while the
+primary's own criterion is still clean**, which is the opposite of what §4 pinned. That is to be
+reported as a miss, loudly, whatever the remaining rungs do.
+
+🔴 **These figures are the corrected ones.** Until 02:52 this table was computed from
+`run_e.leg1.stdout.log`, which does not contain the cells the 02:18 resume produced, so 1/16 read
+as "1 of 6". `overlap_bands.py` now reads `run_e.log` — the union across both runs — and
+**reconciles its parse against `raw/cells.tsv` before printing anything**, so a stale source names
+itself instead of quietly shortening a rung. The PROVISIONAL marker is what caught it; a marker is
+not a substitute for reading the right file.
 
 🔑 **The uncorrected version of this table said "1.987 → 1.768 → 1.417, monotonically departing".**
 That reading compared ratios taken over different step sizes against the same 2, which is the

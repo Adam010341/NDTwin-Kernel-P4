@@ -60,7 +60,15 @@ import datetime as dt
 
 ROUND = ("/home/adam/Desktop/NDTwin-Kernel/doc/audit/"
          "2026-08-31_sampling-ceiling-after-merge")
-LOG = f"{ROUND}/run_e.leg1.stdout.log"
+# 🔴 run_e.log, NOT run_e.leg1.stdout.log.  say() writes to $LOG on EVERY invocation, so this file
+# is the union across leg 1 and the 02:18 resume; each launcher's stdout file holds only its own
+# run.  This script read the leg-1 stdout for its first three hours and, after the resume, reported
+# rung 1/16 as "1 of 6" -- a stale, partial input that would have published a one-cell mean as a
+# rung result.  The PROVISIONAL marker caught it; the SOURCE was still wrong, and a marker is not a
+# substitute for reading the right file.  Verified at 02:52: run_e.log holds 30 VERDICT lines, 30
+# distinct cells, no duplicates, and covers every row of cells.tsv.
+LOG = f"{ROUND}/run_e.log"
+CELLS = f"{ROUND}/raw/cells.tsv"     # the round's authoritative record; the parse is reconciled to it
 SIDECAR = f"{ROUND}/raw/cell_overlap.tsv"
 
 ROUND_OPEN_DAY = dt.date(2026, 8, 31)
@@ -113,6 +121,31 @@ def overlap(a0, a1, b0, b1):
 
 def main():
     rows = cells_from(LOG)
+
+    # 🔴 Reconcile the parsed population against the round's authoritative record before reporting
+    # anything.  "The parser's population is whatever file it was pointed at" is the defect this
+    # round has now hit three times (F-21's first version, F-22 #1 and #3).  A tool that can be
+    # pointed at a stale file should say so itself rather than rely on the reader noticing.
+    try:
+        recorded = {ln.split("\t", 1)[0] for ln in open(CELLS, encoding="utf-8") if ln.strip()}
+    except OSError:
+        recorded = None
+    if recorded is None:
+        print(f"⚠️  {CELLS} unreadable — the parse below is UNRECONCILED.")
+    else:
+        parsed = {c["name"] for c in rows}
+        missing, extra = sorted(recorded - parsed), sorted(parsed - recorded)
+        if missing or extra:
+            print("🔴 INPUT INCOMPLETE — the table below does not describe this round.")
+            if missing:
+                print(f"   {len(missing)} cell(s) recorded in cells.tsv but absent from the log: "
+                      f"{' '.join(missing)}")
+            if extra:
+                print(f"   {len(extra)} cell(s) parsed but absent from cells.tsv: {' '.join(extra)}")
+            print(f"   source = {LOG}\n   🔴 Fix the source before reading anything below.\n")
+        else:
+            print(f"input reconciled: {len(parsed)} cells, matches raw/cells.tsv exactly\n")
+
     for c in rows:
         meas, boot = [], []
         for tag, _, b0, b1 in BANDS:
