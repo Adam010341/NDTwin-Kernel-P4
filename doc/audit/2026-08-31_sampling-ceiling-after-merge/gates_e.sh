@@ -263,7 +263,13 @@ main() {
     # -- G0 §2 (v0.5): the calibration objects are the SOURCE OF THE THRESHOLDS.  If they change,
     #    the thresholds changed and nobody would notice.  raw*/ is git-ignored on working
     #    branches, so the local copy is unprotected -- the authority is the audit-raw orphan
-    #    branch, and both are checked against the values pinned in PREREG §2.
+    #    branch, and both are checked against the values pinned in PREREG §0-bis.
+    #
+    # 🔴 THE CELLS BELONG TO THE 08-20 ROUND, NOT THE 08-25 ONE.  The 08-25 round owns the READER
+    # (cell_verdict.py); it has no t008/t004 files at all, and its raw directories are named
+    # raw_n / raw_h / raw_gil -- there is no `raw/` there.  A reader who infers the directory from
+    # the round name finds nothing and concludes the dependency is broken; that happened on
+    # 2026-08-31.  Copy the paths, never the round name.
     say "--- G0 §2: calibration objects match the values pinned in the registration ---"
     calib_check() {   # $1 = path, $2 = expected sha256
         local ar wt
@@ -285,6 +291,18 @@ main() {
         5bed4f7e3e6097800cc985a1e95eb92464dd3849ff044b59be24ba171390dc79 || cf=1
     calib_check doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_client.json \
         69b8842d21d95e1e48438107a3b853200847a638d228c3dc2cc811bc3304a84d || cf=1
+    calib_check doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_cpu.jsonl \
+        fb4d791a23afa03dffc50dd85bc437a06038c3d47e35b5746230ec0b3d72c73d || cf=1
+    # 🔴 The selftest's NEGATIVE dependency (PREREG §0-bis-a): its known-bad arm asserts that
+    # `r999_poll_does_not_exist` returns NO-DATA.  If somebody ever creates a file by that name,
+    # that arm stops testing anything and the selftest still prints PASS.  Absence is a
+    # precondition, so it is asserted like one.
+    if [[ "$DRY_RUN" != 1 ]]; then
+        local ghosts; ghosts=$(ls "$PRIOR_RAW"/r999_poll_does_not_exist_* 2>/dev/null | wc -l)
+        (( ghosts == 0 )) || { say "    🔴 $ghosts file(s) named r999_poll_does_not_exist_* exist"; cf=1; }
+    else
+        dry_note "would assert NO file named r999_poll_does_not_exist_* exists (selftest's known-bad arm)"
+    fi
     if (( cf )); then
         record "G0 §2 calibration objects match the registration" FAIL
         abort "§2 calibration" "a calibration object is not the one PREREG §2 pins.
@@ -293,7 +311,7 @@ main() {
     fi
     record "G0 §2 calibration objects match the registration" PASS "4 objects, audit-raw and worktree"
 
-    say "--- G7 §2.4 ratio gate force-green: archived 08-25 D-round cell ---"
+    say "--- G7 §2.4 ratio gate force-green: archived 08-20-round cell (PREREG §0-bis) ---"
     local goodcell="${RATIO_GOOD_CELL:-t008_poll}"
     if [[ "$DRY_RUN" == 1 ]]; then
         dry_note "would run: $PY_PLOT $HERE/ratio_gate.py --check $goodcell --expect green"

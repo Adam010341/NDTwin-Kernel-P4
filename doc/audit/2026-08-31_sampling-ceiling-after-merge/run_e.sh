@@ -253,6 +253,11 @@ bltrue() {
     restore_production || say "🔴 production restore FAILED"
 }
 
+# 🔴 `plan` executes for real and needs no fabric, so it is not a dry run -- but it is not a
+# measurement either, and a plan transcript sitting in the measurement log is the same
+# "跑過 vs 讀過未執行 混表" hazard the dry-run suffix exists to prevent.  Its own file.
+[[ "${1:-plan}" == plan ]] && LOG="${LOG%.log}.plan.log"
+
 case "${1:-plan}" in
     plan)   preflight plan >/dev/null || true; plan ;;
     gates)  exec "$HERE/gates_e.sh" ;;

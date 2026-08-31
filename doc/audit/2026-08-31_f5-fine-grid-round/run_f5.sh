@@ -408,6 +408,13 @@ plan() {
     say "🔴 state that it crosses two different fabrics."
 }
 
+# Same reasoning as run_e.sh: `plan`, `selftest` and `restore` execute for real and need no
+# fabric, so they are not dry runs -- but none of them is a measurement, and their transcripts
+# must not share a file with one.
+case "${1:-plan}" in
+    plan|selftest|restore) LOG="${LOG%.log}.$1.log" ;;
+esac
+
 case "${1:-plan}" in
     plan)     plan ;;
     selftest) selftest ;;

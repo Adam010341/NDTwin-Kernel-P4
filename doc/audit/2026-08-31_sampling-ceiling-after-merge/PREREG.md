@@ -27,6 +27,74 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
 （撰稿人 auditor 自陳：反面記載就在 `KNOWN-ISSUES.md:1018`，起草時未查即寫。
 同族＝[[existence-is-not-wiring]]「碼在版控 ≠ 那條路徑在跑」。）
 
+## 0-bis. 前置條件：本輪的閘門依賴一份外部存檔
+
+**G7（§2.4 ratio gate force-green）餵的「已知良品」不是本輪產生的，是既有存檔。**
+依賴鏈＝`gates_e.sh` 的 `RATIO_GOOD_CELL:-t008_poll` → `round.env:23` 的 `PRIOR` → 該輪 raw。
+**這個依賴在本註冊之前只活在腳本裡，沒有被註冊過。** 現補登並寫死物件：
+
+| cell 檔 | 路徑（`audit-raw` 上） | blob | sha256(前 16) |
+|---|---|---|---|
+| `t008_poll_client.json` | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/` | `e4337df` | `18dbe3884cfcdbff` |
+| `t008_poll_cpu.jsonl` | 同上 | `8673d79` | `fb4d791a23afa03d` |
+| `t008_poll_kernel.log` | 同上 | `fc26b5f` | `d4d097264f983fc2` |
+| `t008_poll_server.log` | 同上 | `71b3754` | `c95e796bbd430de8` |
+| `t008_poll_twin.jsonl` | 同上 | `3590bec` | `295ab0d46ea830bc` |
+
+🔴 **輪次歸屬更正**：本 PREREG §6 與 `BRIEF-E-merge.md` 寫「08-25 D 輪四格（`t008`/`t004`…）」，
+**但這些 cell 在 `2026-08-20_sampling-rate-and-cpu/raw/`，不是 `2026-08-25_sampling-rounds/`**
+——後者的 raw 目錄是 **`raw_n`／`raw_h`／`raw_gil` 三個**（不是 `raw/`），
+**沒有任何 `t008`／`t004` 檔名**。08-25 輪擁有的是 `cell_verdict.py`（讀取器），
+**cell 本身屬於 08-20 輪**。**抄路徑照上表，不要照輪次名推目錄。**
+
+✅ **可用性已驗（2026-08-31）**：五個物件都在 `audit-raw` 上（**早於**當天的補檔輪），
+以 `git cat-file blob` 對過 sha256。**本前置條件目前是滿足的**；補登的目的是讓它**可被檢查**，
+不是修復一個已損壞的依賴。
+
+⚠️ **本輪跑之前重驗一次**（讀數是點取樣不是租約）：
+```bash
+for f in client.json cpu.jsonl kernel.log server.log twin.jsonl; do
+  p="doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_$f"
+  printf '%-24s %s\n' "$f" "$(git cat-file blob "audit-raw:$p" | sha256sum | cut -c1-16)"
+done
+```
+
+### 0-bis-a. 補登（腳本作者查核後追加，非 auditor 原文）
+
+上表涵蓋 G7。**本輪對外部存檔還有兩條依賴，都不經 `round.env`**：
+
+1. **`--selftest` 的 known-good ＝ `m256_poll`**（§2.3）。`cell_verdict.py` 的 selftest 斷言它
+   `mark=OK`、`ratio ∈ [0.90,1.15]`、**`lost_pct = 0.5126 ± 0.01`** ⇒ 它是那個門檻的來源。
+
+   | cell 檔 | 路徑 | blob | sha256(前 16) |
+   |---|---|---|---|
+   | `m256_poll_twin.jsonl.gz` | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/` | `26145d8` | `5bed4f7e3e609780` |
+   | `m256_poll_client.json` | 同上 | `46676dc` | `69b8842d21d95e1e` |
+
+2. 🔴 **一條「否定」依賴**：selftest 的 known-bad 是
+   `verdict("r999_poll_does_not_exist")` **必須回 `NO-DATA`** ⇒ 它依賴
+   **`.../raw/r999_poll_does_not_exist_*` 不存在**。
+   有人建了同名檔，selftest 的 known-bad 那一支就靜靜失效，而 selftest 仍會印 PASS。
+   （2026-08-31 查核：不存在。）**這是本輪唯一一條「靠某物不存在」的前提，故明列。**
+
+### 0-bis-b. 🔴 到那個目錄有**四條**互相獨立的路徑，不是一條
+
+auditor 交代要確認「是否另有第二條讀取路徑」。**有，共四條**，今天全部解析到同一個目錄，
+但**各自獨立推導**：
+
+| # | 位置 | 怎麼得到路徑 |
+|---|---|---|
+| 1 | `round.env:23-24` | `PRIOR`／`PRIOR_RAW`（shell 側，`archive_cell` 用） |
+| 2 | `ratio_gate.py:47` | **自己算** `dirname(HERE)/2026-08-20_...`，再 `from plot_figures import RAW` |
+| 3 | `cell_verdict.py:32`（08-25 輪） | **自己算**，同上 |
+| 4 | `measure.sh:25` | **寫死** `$REPO/doc/audit/2026-08-20_sampling-rate-and-cpu/raw` |
+
+🔑 **風險不是「路徑錯」，是「四條會分岔」**：cell 由 #4 寫入、判定由 #2/#3 讀取、
+歸檔由 #1 複製。任一條被改動（例如把 `ratio_gate.py` 搬到別的目錄，#2 的 `dirname(HERE)`
+就變了）⇒ **寫入與判讀會落在不同目錄**，而症狀是「每一格都 NO-DATA」，
+長得跟「天花板到了」很像。**四條之中沒有任何一條會抱怨另外三條。**
+⇒ G0 對物件核 sha 是對這一整族的防線：路徑分岔時，G0 讀不到註冊的物件而中止。
+
 ## 1. 問題（三問，兩個改動要分得開）
 
 - **Q1（合併效應）**：batching 開／關，天花板（最高健康取樣率格）動不動？
@@ -53,7 +121,8 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
      就死在這個鏡像上（`23_` §4：它會要求重跑正好帶著頭條的那些臂＝對自身負載誤報）。
      **(ii) 不綠 ⇒ gate 的門檻是錯的，停輪修 gate，不得調整臂去遷就它。**
    - `ratio` gate：**force-red**＝餵一份人工截去尾巴 20% 樣本的資料，gate 必須紅；
-     **force-green**＝餵已知良品（08-25 D 輪存檔的一格 raw），gate 必須綠。
+     **force-green**＝餵已知良品（**08-20 輪**存檔的一格 raw，物件 sha 見 **§0-bis**；
+     🔴 原文寫「08-25 D 輪」是誤標——該輪沒有這些 cell），gate 必須綠。
    - 四次 force 的逐字輸出全存 raw；**任一次結果不如預期 ⇒ gate 本身有問題，停輪修 gate**。
    （🔴 v0.3 更正：本節上方寫「四次 force」，而 v0.2-stamped 的 E3b 把 CPU force-green
    拆成兩段 ⇒ 實際是**五次**。腳本 `gates_e.sh` 跑五次並逐項標號 G4/G5a/G5b/G6/G7。）
@@ -61,26 +130,11 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
    主要來源是 `claude-desktop`＋跑這輪的 session 自己。⇒ 門檻改判**對已量基線的超出量**，
    基線以 `gates_e.sh baseline` 在 fabric 關著時量進檔案；基線缺席時 gate 回
    **UNRUNNABLE（不回綠）**。關不關桌面＝Adam 裁，兩種鑑別力的差別見 `COST-TABLE.md` §4。）
-- 🔴 **v0.5：閘門校準所依賴的那幾格 raw，逐一釘死 path＋sha（不是寫在腳本裡）。**
-  §2.4 的 `ratio` force-green 要「餵已知良品」、§2.3 的 `cell_verdict --selftest` 要一格
-  known-good——**這兩格是門檻的來源**，它們換了，門檻就換了而沒有人會注意到。
-  🔴 **而且 `doc/audit/*/raw*/*` 在工作分支上是 git-ignore 的**：本機那份**不受版控保護**，
-  權威在 `audit-raw` orphan branch。所以釘的是 `audit-raw` 上的物件：
-
-  | 用途 | path（在 `audit-raw` 上） | git blob | 內容 sha256 |
-  |---|---|---|---|
-  | `ratio` force-green | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_twin.jsonl` | `3590bec1` | `295ab0d46ea830bcf039eb4fab02461b2268527e0a92b8138347d05edcae1d07` |
-  | 同上（loss 通道） | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_client.json` | `e4337dfe` | `18dbe3884cfcdbff853665c511af7e8765833a5a6a287d5153d3bf6d6b0dc342` |
-  | `--selftest` known-good | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_twin.jsonl.gz` | `26145d87` | `5bed4f7e3e6097800cc985a1e95eb92464dd3849ff044b59be24ba171390dc79` |
-  | 同上（`lost_pct` 0.5126 的來源） | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_client.json` | `46676dca` | `69b8842d21d95e1e48438107a3b853200847a638d228c3dc2cc811bc3304a84d` |
-
-  **驗法**（任何人、任何時候）：
-  `git cat-file blob audit-raw:<path> | sha256sum` 應等於上表；
-  本機工作區那份也必須相等，否則**本機的校準物件不是註冊的那一個**，停輪。
-  （2026-08-31 查核：四個物件的 `audit-raw` 與工作區 sha256 **全部相符**。）
-  ⚠️ **目錄名不可推定**：同一批 raw 裡，08-20 輪是 `raw/`，而 08-25 輪是
-  **`raw_gil`／`raw_h`／`raw_n`，沒有一個叫 `raw`**——另一條線做普查時正是踩這個坑。
-  上表逐字寫出完整路徑，不要用萬用字元去找。
+- 🔴 **閘門校準所依賴的外部存檔，物件逐一釘死於 §0-bis**（path＋blob＋sha256）。
+  這幾格**是門檻的來源**：G7 的 green 與 `--selftest` 的 known-good 都從它們算出來，
+  換一個檔就是換一個門檻而沒有人會注意到。
+  🔴 `doc/audit/*/raw*/*` 在工作分支上是 git-ignore 的 ⇒ 本機那份**不受版控保護**，
+  權威在 `audit-raw`。**G0 對 `audit-raw` 與工作區兩側各核一次 sha256**，任一側不符即停輪。
 - 任一項不過 ⇒ **停輪、回報、不調門檻**（BRIEF-E 原條款，保留）。
 
 ## 3. 臂與判定規則（規則先凍、值後算——C1）
@@ -230,7 +284,7 @@ G11 #3  forced red  -> "the machine REBOOTED mid-round"
 | 問題 | 答案 |
 |---|---|
 | 推翻／更新誰 | 天花板若動 ⇒ 更新「取樣天花板 ≈1/16」與 [[telemetry-cost-is-fixed-not-per-sample]]（成本固定不隨取樣率＝**改動前**的性質，本輪重測它是否仍成立） |
-| 可對比誰 | 08-25 D 輪四格（`t008`/`t004`…）——**同 fabric、同 binary 才逐格比**，跨 binary 只比方向與格距 |
+| 可對比誰 | **08-20 輪**四格（`t008`/`t004`…；🔴 v0.6 更正：原文寫「08-25 D 輪」是誤標，cell 在 `2026-08-20_sampling-rate-and-cpu/raw/`；08-25 輪擁有的是讀取器 `cell_verdict.py`——見 **§0-bis**）——**同 fabric、同 binary 才逐格比**，跨 binary 只比方向與格距 |
 | 可對比誰（🔴 v0.3 補，v0.2 漏列） | **`gate_e.out`（1/256，batch 1 vs 8）與 `wall_f.out`（1/16，三對交錯，DUR=120）**——同一個 batching 因子的實測，且皆跑在 kernel `3367d0e9`＝**1 kHz 側** ⇒ 它們就是 `BL` vs `M` 在兩個梯階上的部分格。事實：1/16 的 `ratio` 六格皆 0.9955–1.004（batch 1 與 8 都健康）、proxy CPU 71.0/72.3/73.8 → 62.8/62.9/62.3、datagram 3346→447/s；1/256 的 `ratio` 1.016 → 1.008、datagram 209.8→30.6/s。⇒ **E-P4 已有前測：兩個工作點上 batching 都沒有動 `ratio`**，本輪若看到 `ratio` 掉是與舊結果衝突，按 §3b 當 bug 報 |
 | 已作廢不得引用 | 206 µs/樣本外推的「~4,900 樣本/秒天花板」（`ab-control-deleted-nothing`） |
 
@@ -289,3 +343,17 @@ G11 #3  forced red  -> "the machine REBOOTED mid-round"
   就是下一個人拿不到的那幾條（本輪跨輪稽核量到 E 腳本欄 10 vs 註冊欄 4.5）。
   校準物件換了就是門檻換了，那必須是註冊層級的事實。
   **誰在什麼時候**：auditor 追加、腳本作者撰稿並查核，2026-08-31，未接觸任何量測資料。
+- **v0.6（08-31，資料接觸前；auditor 更正＋腳本作者查核，章未蓋）**——照三條件記錄：
+  **改了什麼**：新增 §0-bis（auditor 原文），逐字釘死 `t008_poll` 五個物件；補登 §0-bis-a
+  （`m256_poll` 兩個物件＋**一條否定依賴**：selftest 的 known-bad 依賴
+  `r999_poll_does_not_exist_*` **不存在**）與 §0-bis-b（到該目錄有**四條互相獨立**的路徑）。
+  **更正 §2.4 與 §6 的輪次誤標**：這些 cell 屬 **08-20 輪**，不是 08-25 輪。
+  （§3 的「健康判準（沿 08-25 D 輪）」**不動**——判準確實出自 08-25 輪的 `cell_verdict.py`，
+  只有 cell 的歸屬錯了，兩者不可一起改。）
+  **為什麼**：這個依賴之前只活在腳本裡，正是本輪跨輪稽核量到的「註冊 4.5/15」那個病。
+  🔑 誤標的代價已經現形：另一條線照 §6 的「08-25 D 輪」字面去找，在
+  `2026-08-25_sampling-rounds` 的三個 raw 目錄（`raw_n`／`raw_h`／`raw_gil`，**沒有 `raw/`**）
+  裡找不到任何 `t008`，據此推論依賴已損壞——**功能上從未損壞，壞的是文件裡的歸屬**，
+  而那是唯一給人讀的一份。**急迫性因此降級為「未宣告」而非「已損壞」。**
+  **誰在什麼時候**：auditor 更正並提供 §0-bis 原文；腳本作者獨立複驗全部 10 個 blob／sha256
+  （全部相符）並追加 0-bis-a／0-bis-b，2026-08-31，未接觸任何量測資料。
