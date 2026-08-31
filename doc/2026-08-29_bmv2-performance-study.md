@@ -216,7 +216,7 @@ virtual time」這個順序，這 18 篇裡沒人說過。TOMACS 是引子不是
 | **負載 gate** | 量測窗內 `/proc/stat` delta 的 busy fraction，超出中位臂 0.15（絕對值）⇒ 整臂重跑；`load1` 降為 pre-screen | `load1` 在 14 核上是落後＋複合指標，且會對臂自己的轉發負載發火——gate 不能對它要保護的訊號發火 |
 | **量測窗內不 commit** | commit 觸發背景 `agy` review（實測 207% CPU、突發） | 記錄實驗的動作本身污染實驗 |
 | **雙讀值** | iperf3 `sum_sent`/`sum_received` ＋ 介面計數器，**每臂都收** | 收端 socket 滿的時候，iperf3 的數字「長得像轉發極限」（§3-3） |
-| **raw 歸檔** | raw 一律進 `audit-raw` 分支（pre-commit hook 強制）；圖表以內容雜湊引用 | 08-15 的教訓：raw 沒保住，宣稱就要重量 |
+| **raw 歸檔** | raw 一律進 `audit-raw` 分支；圖表以內容雜湊引用。**守衛是單向的**——`pre-commit` 只在 commit 當下攔截 raw 出現在工作分支（`tools/githooks/pre-commit:32` 對 `audit-raw` 直接放行、其餘檢查 raw 路徑是否出現），**它不能、也沒有檢查 raw 是否已經進入 `audit-raw`**；一輪若從頭到尾不 commit 它的 raw，repo 中沒有任何機制會出聲。因此本列描述的是**規範**與**擋錯目的地的機制**，不是自動化保證。 | 08-15 的教訓：raw 沒保住，宣稱就要重量。🔴 08-31 更正：原文寫「pre-commit hook 強制」高估了守衛——實測 15 輪、533.2 MiB 的 raw 從未進入任何 object store，而**沒有一輪宣稱過相反的事**（缺口是沉默，不是假話） |
 
 ### 3-1. 工單 ①——單 switch 隔離工作點：12× 是 build 的性質還是路徑的性質？
 
