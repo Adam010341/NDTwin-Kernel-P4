@@ -28,6 +28,21 @@ file is the identifier that `--version` cannot provide.
 Both were built from **behavioral-model `f0b7d201`**, which is still the HEAD of
 `/home/adam/P4_Source_Code/behavioral-model`.
 
+🔴 **That tree is scheduled for deletion** (3.5 GB, disk reclamation; not authorised as of
+2026-08-31). Every `/home/adam/P4_Source_Code/...` path on this page is about to stop resolving.
+The two artifacts this page depends on were copied into version control first and are cited from
+here by their new homes:
+
+| this page cites | now also at |
+|---|---|
+| `config.log:7`, `config.log:2` | `doc/audit/2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt` |
+| `git -C .../behavioral-model rev-parse` → `f0b7d201` | `doc/audit/2026-08-31_p4-source-tree-residue/README.md` §1, with the GitHub reachability check |
+
+`config.log` is `.gitignore`d as an autotools artifact, so no `git status` of that tree ever
+listed it; it was found by enumerating ignored entries, not by the deletion survey that preceded
+it. `doc/audit/2026-08-31_p4-source-tree-residue/README.md` §5.4 is the full list of citations
+that would otherwise have gone dangling while still reading as verified.
+
 ### How each row was established (observation, not inference)
 
 - sha256, BuildID, size, mtime, stripped-ness: `sha256sum`, `file`, `stat` on 2026-08-21.

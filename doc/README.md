@@ -96,6 +96,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 | 資料夾 | 地位 | 內容 |
 |---|---|---|
 | [audit/](audit/) | 歷史紀錄集合 | 審查／複驗／測試證據。**先讀它的 [README.md](audit/README.md)**——它說明了各子資料夾、為什麼產出報告的 prompt 一起收在旁邊、以及哪七類刻意留在 repo 外 |
+| [audit/2026-08-31_p4-source-tree-residue/](audit/2026-08-31_p4-source-tree-residue/) | **現役** | 🔴 **不是原始碼、不能 build。** `/home/adam/P4_Source_Code`（3.5 GB，p4 工具鏈 build tree）待刪，這裡是刪之前撈出來的殘留證據：唯一那份沒 commit 過的 `install-p4dev-v8.sh` 手改（58+/38-）、四份 diff，以及 `git status` 看不到的 `behavioral-model/config.log`——它的第 7 行就是 [audit/bmv2-binary-provenance.md](audit/bmv2-binary-provenance.md) 與 [2026-08-15_bmv2-performance-report.md](2026-08-15_bmv2-performance-report.md) 逐行引用的 `-O0` configure 命令。§3 列出「還有什麼只在那棵樹裡」的母體，§5 列出樹沒了之後會斷的東西。⚠️ **`log.txt` 與 `install-details/` 不是那顆 binary 的 build log**（§2.5）。27 MB 的 raw 在 `audit-raw:p4-source-tree-residue-2026-08-31/` |
 | [2026-08-16_delivery-package/](2026-08-16_delivery-package/) | 待轉交 | 見上 |
 | [debug-log/](debug-log/) | 現役（空目錄） | 給執行期 log 落腳用，靠 `.gitkeep` 保留 |
 | [../tools/remote-lab/](../tools/remote-lab/) | **現役** | 遠端 lab 機器的**佔用協調**（`rlab`＝機器層、`ndtwin-vm.sh`＝VM 層）與 VM 生命週期，含變異閘 **49/49**（其中 G10 是結構測試：直接對 dispatch 斷言「每個改動性動詞都有守衛」——因為前一版 32/32 全綠，而 `stop`／`ssh` 根本沒有守衛）。**規定與佔用帳的正本不在那裡**，在 [audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)——工具說「怎麼做」，規定說「可不可以做、要登記什麼」。🔴 **動手前先讀規定：R1 要求開跑前登記、不准事後補登** |

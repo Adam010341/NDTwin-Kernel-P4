@@ -147,14 +147,41 @@ that still *reads* as verified.
 `config.status` (81,573 B) is the same class and is on `audit-raw` (§6) rather than here — it is a
 generated 80 KB shell script, and every human-readable fact in it is also in `config.log`.
 
-### 2.5 `log.txt` — the install run's own transcript
+### 2.5 🔴 `log.txt` is not the log of the build that produced the toolchain
 
 `install-run__log.txt` (51,972 B), from `/home/adam/P4_Source_Code/log.txt`. Cited by
-`doc/audit/2026-08-15_bmv2-source-analysis.md:42` as `log.txt:1107`, which is where
-`simple_switch_grpc --version` first printed `1.15.3-f0b7d201`.
+`doc/audit/2026-08-15_bmv2-source-analysis.md:42` as `log.txt:1107`, where
+`simple_switch_grpc --version` prints `1.15.3-f0b7d201`. Kept on this branch, not only on
+`audit-raw`, because it is a line-numbered citation target in a current document.
 
-Kept on this branch, not only on `audit-raw`, for the same reason as `config.log`: it is a
-line-numbered citation target in a current document, and it is 52 KB of text.
+**It records a re-run that built nothing.** Six observations, each checkable against the files
+saved here and on `audit-raw`:
+
+| # | observation |
+|---|---|
+| 1 | the `/usr/local` subset of all eight `install-details` snapshots is **byte-identical** — 610 lines, `sha256 05a44ce03d3a…` for every one |
+| 2 | snapshot **1**, named `before-protobuf`, already lists `/usr/local/bin/simple_switch_grpc`, `p4c-bm2-ss`, `simple_switch`, `psa_switch`, `libbmall.so` |
+| 3 | `/usr/local/bin/simple_switch_grpc` mtime = **17:19:59** |
+| 4 | the hand-edited `install-p4dev-v8.sh` mtime = **17:44:27** — 25 min *after* that binary landed |
+| 5 | snapshot 1 written **17:51:24**, `log.txt` closed **17:52:30**: the whole recorded run is ~8 minutes |
+| 6 | its own timing summary: `p4lang/PI install : 1 sec`, `p4lang/p4c install : 7 sec`, `mininet : 0 sec`, `p4lang/ptf : 0 sec` — a p4c build is hours |
+
+Read together: this is the installer being re-run **after** the §2.1 hand edit, with every
+`if [ -d <dir> ]` guard firing, every clone skipped and nothing written to `/usr/local`. The eight
+snapshots differ only under `$PYTHON_VENV` and `~/.local`, where `pip` was still working. **The
+run that actually compiled and installed the toolchain left no log in that tree.**
+
+What this does and does not cost:
+
+- `log.txt:1107` still supports what `2026-08-15_bmv2-source-analysis.md:42` cites it for. Line
+  1107 sits inside the installer's closing `which` / `--version` sweep, which interrogates the
+  **already-installed** binary; `1.15.3-f0b7d201` is a fact about the file on disk no matter which
+  run printed it. The citation holds; the phrase "install log" around it does not.
+- `doc/audit/bmv2-binary-provenance.md` is untouched by this — it identifies the stock binary by
+  sha256 and BuildID, not by install log.
+- It raises `config.log`'s value rather than lowering it. `config.log` (mtime **17:02**) predates
+  the re-run by 49 minutes and is **the only surviving artifact of the run that produced the stock
+  `simple_switch_grpc`**.
 
 ### 2.6 `config.h.in` — untracked, and it contradicts a comment we rely on
 
@@ -293,15 +320,17 @@ git show audit-raw:p4-source-tree-residue-2026-08-31/README.md
 git show audit-raw:p4-source-tree-residue-2026-08-31/install-details/usr-local-9-after-miscellaneous-install.txt | head
 ```
 
-What is over there: the eight `usr-local-N-after-*.txt` snapshots of `/usr/local` taken between
-each install stage (protobuf → grpc → PI → behavioral-model → p4c → mininet → ptf →
-miscellaneous), a second copy of `log.txt`, and the build records not kept here —
-`behavioral-model/config.status`, `PI/config.log`, `PI/config.status`, `PI/proto/config.log`,
-`PI/proto/config.status`, `p4c/build/CMakeCache.txt`.
+What is over there: the eight `usr-local-N-*.txt` snapshots (`find /usr/lib /usr/local ~/.local
+$PYTHON_VENV | sort`, one per install stage — stage 2 was never written), a second copy of
+`log.txt`, and the build records not kept here — `behavioral-model/config.status`,
+`PI/config.log`, `PI/config.status`, `PI/proto/config.log`, `PI/proto/config.status`,
+`p4c/build/CMakeCache.txt` (which is where `p4c-bm2-ss` is recorded as
+`CMAKE_BUILD_TYPE=Release`, `-O3 -DNDEBUG`).
 
-The `/usr/local` snapshots are the only thing that can answer "which install stage put this file
-on the system", which is the question every "is that library from PI or from grpc" argument turns
-into.
+⚠️ **Do not use the snapshots to attribute a `/usr/local` file to an install stage.** Their
+`/usr/local` half is a constant — identical in all eight, "before" included — for the reason set
+out in §2.5. What they *are* good for is the venv: they are a stage-by-stage record of what `pip`
+put in `$PYTHON_VENV` and `~/.local`, and that half does move between snapshots.
 
 ---
 
