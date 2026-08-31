@@ -767,6 +767,62 @@ attractive to write up — (A) is a clean confirmation, (B) is a more striking r
 exactly what makes this the rung that most needs its meanings assigned in advance.** The timestamp
 preceding the data is the only thing that gives this section any value.
 
+---
+
+## 5-undecies. 06:46 — the 1/8 rung came back **(B)**, and (B) is the branch with no registered home
+
+Assigned in advance at **06:10:28** (`1c3712a`), before any leg-2 cell of this rung existed:
+
+| cell | arm | ratio | `gt` | loss | mark |
+|---|---|---|---|---|---|
+| `e_bl_0008_1..3` | 1 kHz, **batch 1** | **0.9692 / 0.9751 / 0.9707** | 206.0 | 0.011–0.331% | OK |
+| `e_m_0008_1..3` | 1 kHz, **batch 8** | **1.0020 / 1.0010 / 0.9998** | 205.9–206.0 | 0.011–0.037% | OK |
+| `e_p_0008_1..3` | 1 Hz, batch 1 | 0.9998 / 1.0030 / 0.9997 | 206.0 | 0.014–0.020% | OK |
+| `e_mp_0008_1..3` | 1 Hz, batch 8 | 1.0010 / 0.9996 / 1.0050 | 206.0 | 0.011–0.018% | OK |
+
+**Δ(m − bl) = +0.0293. Δ(mp − p) = +0.0010.** The three `m` cells are **disjoint** from the three
+`bl` cells with a gap of ≈0.025; on the 1 Hz side batching does essentially nothing.
+
+⇒ **Batching cancels the deficit on the arm that has one, and does nothing on the arm that does
+not.** Under the pre-assignment this is **(B): attribution reversal** — the 3% is not *"1 kHz's
+property"* but *"1 kHz **and unmerged**'s property"*.
+
+### 🔴 Disposition, exactly as fixed before the data
+
+1. **No abort.** E-P4 is not triggered: it requires `*SATURATED*`, and every cell here is ≥0.9692,
+   above the 0.95 line. **The entire effect lives inside the rule's blind band** — (A) could not have
+   fired it either. Aborting would be acting outside the registration.
+2. **This is not reported as a positive result for merge.** The registered wording stands:
+
+> **"E-P4's premise — that merge does not change `ratio` — was violated at 1/8, in a direction the
+> rule does not register. This round does not adjudicate its meaning. Registered for the next
+> round."**
+
+3. 🔴 **And attribution is not discussable at all under the registration.** R-E3 permits talk of
+   attribution *"only when at least one of R-E1 / R-E2 is distinguishable"* — both are stated in
+   **ceiling rungs**, and **no arm has a ceiling** (`SATURATED` = 0 everywhere). The precondition is
+   unmet, so this rung sits **outside the registered attribution framework entirely**, however clean
+   it looks.
+
+⚠️ **Same paragraph, not a later one: one rung, n = 3 against 3, and the only rung in the round with
+discriminating power** — below 1/16 there is no signal to move, and at 1/4 and above the gauge is
+blind (F-26).
+
+### Reconciliation with the prior (§6), which is subtler than "conflict"
+
+§6 records that `gate_e.out` (1/256) and `wall_f.out` (1/16) measured this same batching factor on
+the 1 kHz side and found **batching did not move `ratio`**, and it registers that *a fall* in this
+round would conflict with them.
+
+* **The prior is reproduced at its own working points**: leg 2's 1/32 gives Δ(m−bl) = +0.0031 and
+  1/16 gives +0.0000 — no movement, exactly as before.
+* **The new observation is at a working point the prior never covered.** At 1/8 there is a deficit
+  to cancel, and batching cancels it.
+* **It is a rise, not the registered fall** ⇒ it is not the conflict §6 anticipated either.
+
+⇒ **Not "the prior was wrong". The prior holds where it was measured, and this is one rung beyond
+it.**
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
