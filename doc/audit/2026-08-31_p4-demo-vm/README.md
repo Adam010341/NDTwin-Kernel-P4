@@ -3,10 +3,17 @@
 **2026-08-31.** Adam: *"直接把有P4的VM做出來，然後跟現有的VM共存"* — build the P4 VM, and have it
 coexist with the existing one rather than replace it.
 
-The artefact is **`NDTwin-P4-demo.ova`**, 2 592 010 240 bytes,
-sha256 `4965d003b544f239bc3d4ba20aa627c71235d3eb12b0741ce2a9723a6c251838`.
-It is **not in the repo and has not been uploaded anywhere** — see "before this ships" below.
-It lives at `/media/adam/Windows-SSD/ndtwin-vm/` with the scripts in this directory.
+The artefact is **`NDTwin-P4-demo.ova`**, 2 513 469 440 bytes,
+sha256 `c832c91aaae65e41a25e01828a90dd30f2db2723e2cf468ecb3d298e00b1cce8`,
+md5 `f9e1e99649feee6dea5f7bd41ffe6bb7`.
+It is **not in the repo**. It lives at `/media/adam/Windows-SSD/ndtwin-vm/` with the scripts in
+this directory.
+
+🔴 **The first build of this `.ova` shipped the EuroP4 poster submission package and was
+destroyed.** It is kept only as `NDTwin-P4-demo-CONTAMINATED-DO-NOT-SHIP.ova`, alongside
+`ndtwin-p4-demo-work.qcow2`, which has the same defect. Neither may be distributed. The
+hashes above are the rebuilt image; the superseded ones were 2 592 010 240 bytes /
+sha256 `4965d003…`. See **"The image shipped the submission package"** below.
 
 [Co-developed with claude code -- Adam]
 
@@ -85,12 +92,22 @@ regenerate them, so sshd would fail to start and the shipped VM would have no SS
 
 ## 🔴 Before this ships
 
-1. **The image contains the private repo.** `/home/tester/Desktop/NDTwin-Kernel` is the full
-   source of `ndtwin-lab/NDTwin-Kernel-P4`, restored from `ndtwin-kernel.bundle`
-   (`fix/flow-rate-divide-by-zero` @ `059a92c`, 2026-08-27). **Publishing this VM publishes that
-   source.** The standing ruling is that the repo stays private until after review, so this
-   cannot be uploaded until that ruling changes. It is also a *branch from 27 August*, not
-   current `main` — if the demo should carry current code, the tree needs refreshing first.
+1. **The image contains the private repo.** `/home/tester/Desktop/NDTwin-Kernel` is the working
+   tree of `ndtwin-lab/NDTwin-Kernel-P4` (**PRIVATE** — `gh repo view` says PRIVATE and an
+   unauthenticated `curl` returns 404; both were run, because either alone is a weaker claim).
+   **Publishing this VM publishes that source.** Git metadata has been removed, so the commit is
+   now recorded in `/home/tester/Desktop/NDTwin-Kernel/PROVENANCE.txt` inside the image:
+   **`main` @ `20cd80b6`, 2026-08-28 10:46:57**.
+
+   🔴 **This line previously said `fix/flow-rate-divide-by-zero` @ `059a92c`, 2026-08-27. Both
+   the branch and the commit were wrong, and the mechanism matters more than the values:**
+   `059a92c` is the head of `ndtwin-kernel.bundle` — the *channel* the source travelled through —
+   and I recorded it as the *content of the image*. The image had been updated after that
+   transfer and its checked-out tree was three days newer. The correct value was obtained by
+   booting the image and asking it, which is the only thing that could have produced it.
+   Same family as the "a page is a pointer" error two sections down, and the second instance in
+   one session. **Executable form of the rule: to record what is inside X, read X — never read
+   the thing that points at X.**
 2. **A draft of the page edits exists but is not published** — `NDTwin-Website` `84d0318`,
    local, not pushed. Both download points sit in one table on the Download page; the P4 row
    deliberately has no link, because a placeholder URL would be worse than an honest gap.
@@ -98,6 +115,69 @@ regenerate them, so sshd would fail to start and the shipped VM would have no SS
    manifest and OVF parse, but no VMware product was involved at any point. The one path that
    cannot be tested here is VMware's LSI Logic Parallel — qemu's LSI device is driven by
    `sym53c8xx`, VMware's by `mptspi`, so exercising it here would not exercise what ships.
+
+## The image shipped the submission package
+
+The auditor asked one question before the upload: *was the source in the image cloned, or was a
+working tree packaged?* The answer turned out to be neither — **the working tree's `.git` went in
+whole**, and with it the EuroP4 poster submission bundle that `.git/info/exclude` keeps out of
+sight.
+
+| | |
+|---|---|
+| objects matching the submission package | **77** (60 blobs, 17 trees) |
+| the abstract itself | `doc/2026-08-29_europ4-poster-abstract/` — `abstract.tex`, `refs.bib`, `NOTES.md`, `make_figs.py`, `figs/` |
+| review data | `doc/audit/2026-08-29_europ4-poster-review/` |
+| reachable from | `refs/remotes/origin/fix/flow-rate-divide-by-zero` @ `c745f216` (2026-08-30) |
+| checked out in the tree? | **no** |
+| retrievable? | **yes** — `git cat-file -s` returned 1147 bytes of `MACHINE-ENV.md` |
+
+🔑 **Every ordinary check said clean.** `ls`, `find`, `grep -r` and `git status` all reported
+nothing, because the files were never checked out. Only `git rev-list --objects --all` saw them.
+Proving *retrievability* rather than mere presence is what closed the argument that this was a
+theoretical risk.
+
+`ndtwin-kernel.bundle` is clean — 0 matches, tip `059a92c` dated 2026-08-27, which predates the
+poster work entirely. **So the contamination arrived through a channel that was never recorded**,
+after the transfer this file documented. Checking the intended channel would have returned "clean"
+and been wrong; only the artefact could answer.
+
+### How it was removed, and why each step is not the obvious one
+
+Adam's ruling was to delete `.git` outright rather than rewrite history: the acceptance criterion
+for "no `.git` exists" is checkable, whereas "the filter caught everything" has to be trusted.
+
+* **`rm` was not trusted.** Unlink is not overwrite, and `qemu-img convert` copies allocated
+  blocks — a deleted packfile would have been copied into the `.ova` and stayed recoverable. So
+  before deleting, eleven 64-byte samples were taken at fixed *fractions of the packfile*, from
+  inside the guest.
+* **The first sampling method was wrong and was caught.** Sampling the qcow2 at offsets near a
+  confirmed hit returned a window reading `t-Using: rust-hyper-rustls (= 0.24.2-2)` — apt
+  metadata. A qcow2 offset does not stay inside one file, so "bytes near the packfile" is not
+  "packfile bytes". `scan_packfile_residue.py` samples the file, not the image.
+* **Deletion → `fstrim` (49 GiB) → zero-fill → `fstrim` (14 GiB).** The first pass alone left
+  residue; "mostly overwritten" is not a property worth shipping.
+* **Result: control 12/12 samples findable, product 11/11 gone.** A search that returns zero
+  because it is broken looks exactly like one that returns zero because the data is gone, so the
+  control is what makes the zero mean anything.
+* **Residue, reported rather than rounded off:** the first ~200 bytes of `packed-refs` survive,
+  lodged in the slack of a live file where neither zero-fill nor discard reaches. Its entire
+  content is three branch names (`main`, `audit-raw`, `fix/flow-rate-divide-by-zero`) and their
+  SHAs. No EuroP4 string, no submission content, no poster path. The SHAs are not retrieval keys:
+  all three, plus the commit that introduced the package, return **422** from the public repo's
+  API while a known-public commit returns **200**. And they disclose nothing the image does not
+  state on purpose — `PROVENANCE.txt`, the MOTD and the OVF annotation all name the project.
+
+### Acceptance after the rebuild
+
+Run on the disk unpacked from the finished archive: 0 `.git` directories, 0 keyword matches by
+path and by content (with a non-empty control), `PROVENANCE.txt` present, all three P4 binaries
+resolving, and T-2 giving **0% dropped (12/12)**.
+
+T-2 also reported `failures: 1` — *twin reports 14 switches, expected 10*. **That was not assumed
+to be pre-existing.** The same driver was run against the image with `.git` still present, and the
+full PASS/FAIL list is identical line for line, including the known `M-3` proxy refusal. Deleting
+`.git` changed nothing that T-2 measures.
 
 ## What the published demo VM actually is — and how I got this wrong once
 

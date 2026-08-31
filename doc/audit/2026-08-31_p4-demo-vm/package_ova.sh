@@ -29,7 +29,14 @@ OVA="$DIR/${NAME}.ova"
 # qcow2's actual-size -- and that number would have gone into ovf:capacity, telling VMware the
 # 60 GiB filesystem lives on a 20 GB disk. It was caught only because the value happened to
 # equal a file size I recognised; nothing in the script would have complained.
-CAP=$(qemu-img info -U --output=json "$DIR/ndtwin-p4-demo-work.qcow2" \
+#
+# The source is ndtwin-p4-demo-clean2.qcow2, not ndtwin-p4-demo-work.qcow2. The work image
+# still contains the .git that carried the EuroP4 submission package into the first build of
+# this .ova; reading even a metadata field from it would leave the recipe pointing at the
+# contaminated lineage.
+SRCQ="${PKG_SRC_QCOW:-$DIR/ndtwin-p4-demo-clean2.qcow2}"
+[ -f "$SRCQ" ] || { echo "ABORT: capacity source $SRCQ not found"; exit 1; }
+CAP=$(qemu-img info -U --output=json "$SRCQ" \
       | python3 -c 'import json,sys; print(json.load(sys.stdin)["virtual-size"])')
 [ "$CAP" -gt 60000000000 ] || { echo "ABORT: capacity $CAP is implausible for a 60 GiB image"; exit 1; }
 VMDK_SIZE=$(stat -c%s "$VMDK")
@@ -121,7 +128,7 @@ cat > "$OVF" <<EOF
     </VirtualHardwareSection>
     <AnnotationSection>
       <Info>A human-readable annotation</Info>
-      <Annotation>NDTwin P4/BMv2 demo. Ubuntu 24.04.4 LTS with the NDTwin Kernel, Ryu, Mininet, OVS, p4c 1.2.5.16 and BMv2 1.15.5-fdd3b893 already built and installed. Logins: tester/tester (owns the installation, under ~/Desktop/NDTwin-Kernel) and ndtwin/ndtwin; root password ndtwin. Change all three before putting this VM on a network.</Annotation>
+      <Annotation>NDTwin P4/BMv2 demo. Ubuntu 24.04.4 LTS with the NDTwin Kernel, Ryu, Mininet, OVS, p4c 1.2.5.16 and BMv2 1.15.5-fdd3b893 already built and installed. Logins: tester/tester (owns the installation, under ~/Desktop/NDTwin-Kernel) and ndtwin/ndtwin; root password ndtwin. Change all three before putting this VM on a network. Git metadata has been removed from the source trees; the commit each one corresponds to is recorded in ~/Desktop/NDTwin-Kernel/PROVENANCE.txt.</Annotation>
     </AnnotationSection>
   </VirtualSystem>
 </Envelope>
