@@ -25,6 +25,9 @@
 - AI 參與的碼標 `[Co-developed with claude code -- Adam]`。
 - 永不 `pkill -f`／`pgrep -f` 殺程序；斷鏈路用 `tc netem` 不用 `ifconfig down`；長跑包 `setsid`。
 - 共用 worktree：`git commit -m "..." -- <paths>`；新檔先 `git add -N`。
+  🔴 **目錄不算「明確路徑」。** 目錄 pathspec 的語意是「這個目錄**現在**的全部樣子」，
+  而「現在」是好幾個人共用的——它等同於局部的 `git add -A`，會把別人未提交的修改
+  一起帶走，且帶進一個沒有描述它的 commit message。**列到檔案。**
 - `ndt` 指令都帶 `NDT_OWNER`；動 lab 前 claim；問「有沒有實驗在跑」看 `measuring` 欄。
 - 環境狀態自己查，不佔使用者往返。
 

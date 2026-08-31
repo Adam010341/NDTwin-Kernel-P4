@@ -260,6 +260,39 @@ main() {
     # -- G7 §2.4 ratio force-green, then G6 force-red.  Green first, deliberately: it establishes
     #    that the reader can reach and score an archived cell at all, so a red below is a verdict
     #    about the injected data rather than about a path that reads nothing.
+    # -- G0 §2 (v0.5): the calibration objects are the SOURCE OF THE THRESHOLDS.  If they change,
+    #    the thresholds changed and nobody would notice.  raw*/ is git-ignored on working
+    #    branches, so the local copy is unprotected -- the authority is the audit-raw orphan
+    #    branch, and both are checked against the values pinned in PREREG §2.
+    say "--- G0 §2: calibration objects match the values pinned in the registration ---"
+    calib_check() {   # $1 = path, $2 = expected sha256
+        local ar wt
+        if [[ "$DRY_RUN" == 1 ]]; then
+            dry_note "would verify $1 against $2 in BOTH audit-raw and the worktree"; return 0
+        fi
+        ar=$(git -C "$KERNEL_DIR" cat-file blob "audit-raw:$1" 2>/dev/null | sha256sum | cut -d' ' -f1)
+        wt=$(sha256sum "$KERNEL_DIR/$1" 2>/dev/null | cut -d' ' -f1)
+        [[ "$ar" == "$2" ]] || { say "    🔴 audit-raw copy of $1 is $ar, registered $2"; return 1; }
+        [[ "$wt" == "$2" ]] || { say "    🔴 WORKTREE copy of $1 is ${wt:-ABSENT}, registered $2"; return 1; }
+        say "    ok  ${1##*/raw/}  $2"
+    }
+    local cf=0
+    calib_check doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_twin.jsonl \
+        295ab0d46ea830bcf039eb4fab02461b2268527e0a92b8138347d05edcae1d07 || cf=1
+    calib_check doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_client.json \
+        18dbe3884cfcdbff853665c511af7e8765833a5a6a287d5153d3bf6d6b0dc342 || cf=1
+    calib_check doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_twin.jsonl.gz \
+        5bed4f7e3e6097800cc985a1e95eb92464dd3849ff044b59be24ba171390dc79 || cf=1
+    calib_check doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_client.json \
+        69b8842d21d95e1e48438107a3b853200847a638d228c3dc2cc811bc3304a84d || cf=1
+    if (( cf )); then
+        record "G0 §2 calibration objects match the registration" FAIL
+        abort "§2 calibration" "a calibration object is not the one PREREG §2 pins.
+        These four files ARE the thresholds: the ratio gate's green and the selftest's known-good
+        both come from them.  A different file is a different threshold, silently."
+    fi
+    record "G0 §2 calibration objects match the registration" PASS "4 objects, audit-raw and worktree"
+
     say "--- G7 §2.4 ratio gate force-green: archived 08-25 D-round cell ---"
     local goodcell="${RATIO_GOOD_CELL:-t008_poll}"
     if [[ "$DRY_RUN" == 1 ]]; then

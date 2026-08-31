@@ -1,222 +1,222 @@
-[15:54:50] === preflight (measure), DRY_RUN=1 ===
-[15:54:50]   disk: 6G available on /
-[15:54:50] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
-[15:54:50]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
-[15:54:50] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
-[15:54:50] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
-[15:54:50]   staged binaries: present
-[15:54:50] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
-[15:54:50]   fabric: up
-[15:54:50] DRYRUN-NOTE synthesising: no foreign iperf3
-[15:54:52]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_ladder-open.txt
-[15:54:52] === run_e ladder start; ladder='16' arms='bl m p mp' reps=1 DUR=300s ===
-[15:54:52] 🔴 no rung, rep or arm is added from here on (C5).  If the ladder proves too short, that
-[15:54:52] 🔴 is a finding to register for the NEXT round, not an edit to this one.
-[15:54:52] ===== rung 1/16 =====
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-NOTE would clear :8081 if held
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC sleep 3
-[15:54:52] DRYRUN-EXEC sed -i -E s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = 16;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
-[15:54:52] DRYRUN-EXEC sed -i -E s/^const bit<32> SAMPLE_TRUNC_BYTES = [0-9]+;/const bit<32> SAMPLE_TRUNC_BYTES = 128;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
-[15:54:52] DRYRUN-NOTE would assert the seds landed, then p4c-bm2-ss, then assert truncate in the JSON
-[15:54:52] --- e_bl_0016_1  arm=bl rate=1/16 rep=1 kernel=1khz batch=1 ---
-[15:54:52] === preflight (measure), DRY_RUN=1 ===
-[15:54:52]   disk: 6G available on /
-[15:54:52] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
-[15:54:52]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
-[15:54:52]   staged binaries: present
-[15:54:52] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
-[15:54:52]   fabric: up
-[15:54:52] DRYRUN-NOTE synthesising: no foreign iperf3
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-NOTE would clear :8081 if held
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC sleep 3
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
-[15:54:52] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
-[15:54:52] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance,
-[15:54:52] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
-[15:54:52] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=1 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
-[15:54:52] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
-[15:54:52] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=1
-[15:54:52] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
-[15:54:52]     IDENTITY verdict=MATCH want=b000000000000000000000000000000000000000000000000000000000000000 got=b000000000000000000000000000000000000000000000000000000000000000 read_via=unset
-[15:54:52] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
-[15:54:52]     boot_id=dry-run-synthetic-boot-id uptime=synthetics (baseline)
-[15:54:52]     topology invariant: edges=288 (baseline for this run)
-[15:54:52]     running kernel exe sha256 (open)  b000000000000000000000000000000000000000000000000000000000000000
-[15:54:52] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_bl_0016_1 300 200
-[15:54:52] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
-[15:54:52]     running kernel exe sha256 (close) b000000000000000000000000000000000000000000000000000000000000000
-[15:54:52]     VERDICT cell=e_bl_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
-[15:54:52] DRYRUN-NOTE would copy e_bl_0016_1_{cpu,twin}.jsonl e_bl_0016_1_client.json e_bl_0016_1_kernel.log from
-[15:54:52] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
-[15:54:52] --- e_m_0016_1  arm=m rate=1/16 rep=1 kernel=1khz batch=8 ---
-[15:54:52] === preflight (measure), DRY_RUN=1 ===
-[15:54:52]   disk: 6G available on /
-[15:54:52] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
-[15:54:52]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
-[15:54:52]   staged binaries: present
-[15:54:52] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
-[15:54:52]   fabric: up
-[15:54:52] DRYRUN-NOTE synthesising: no foreign iperf3
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-NOTE would clear :8081 if held
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC sleep 3
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
-[15:54:52] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
-[15:54:52] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance,
-[15:54:52] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
-[15:54:52] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=8 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
-[15:54:52] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
-[15:54:52] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=8
-[15:54:52] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
-[15:54:52]     IDENTITY verdict=MATCH want=b000000000000000000000000000000000000000000000000000000000000000 got=b000000000000000000000000000000000000000000000000000000000000000 read_via=unset
-[15:54:52] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
-[15:54:52]     boot_id unchanged
-[15:54:52]     topology invariant: edges=288 (matches baseline)
-[15:54:52]     running kernel exe sha256 (open)  b000000000000000000000000000000000000000000000000000000000000000
-[15:54:52] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_m_0016_1 300 200
-[15:54:52] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
-[15:54:52]     running kernel exe sha256 (close) b000000000000000000000000000000000000000000000000000000000000000
-[15:54:52]     VERDICT cell=e_m_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
-[15:54:52] DRYRUN-NOTE would copy e_m_0016_1_{cpu,twin}.jsonl e_m_0016_1_client.json e_m_0016_1_kernel.log from
-[15:54:52] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
-[15:54:52] --- e_p_0016_1  arm=p rate=1/16 rep=1 kernel=1hz batch=1 ---
-[15:54:52] === preflight (measure), DRY_RUN=1 ===
-[15:54:52]   disk: 6G available on /
-[15:54:52] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
-[15:54:52]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
-[15:54:52]   staged binaries: present
-[15:54:52] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
-[15:54:52]   fabric: up
-[15:54:52] DRYRUN-NOTE synthesising: no foreign iperf3
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-NOTE would clear :8081 if held
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC sleep 3
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
-[15:54:52] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
-[15:54:52] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance,
-[15:54:52] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
-[15:54:52] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=1 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
-[15:54:52] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
-[15:54:52] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=1
-[15:54:52] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
-[15:54:52]     IDENTITY verdict=MATCH want=a000000000000000000000000000000000000000000000000000000000000000 got=a000000000000000000000000000000000000000000000000000000000000000 read_via=unset
-[15:54:52] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
-[15:54:52]     boot_id unchanged
-[15:54:52]     topology invariant: edges=288 (matches baseline)
-[15:54:52]     running kernel exe sha256 (open)  a000000000000000000000000000000000000000000000000000000000000000
-[15:54:52] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_p_0016_1 300 200
-[15:54:52] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
-[15:54:52]     running kernel exe sha256 (close) a000000000000000000000000000000000000000000000000000000000000000
-[15:54:52]     VERDICT cell=e_p_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
-[15:54:52] DRYRUN-NOTE would copy e_p_0016_1_{cpu,twin}.jsonl e_p_0016_1_client.json e_p_0016_1_kernel.log from
-[15:54:52] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
-[15:54:52] --- e_mp_0016_1  arm=mp rate=1/16 rep=1 kernel=1hz batch=8 ---
-[15:54:52] === preflight (measure), DRY_RUN=1 ===
-[15:54:52]   disk: 6G available on /
-[15:54:52] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
-[15:54:52]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
-[15:54:52] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
-[15:54:52]   staged binaries: present
-[15:54:52] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
-[15:54:52]   fabric: up
-[15:54:52] DRYRUN-NOTE synthesising: no foreign iperf3
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-NOTE would clear :8081 if held
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC sleep 3
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
-[15:54:52] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
-[15:54:52] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
-[15:54:52] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance,
-[15:54:52] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
-[15:54:52] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
-[15:54:52] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=8 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
-[15:54:52] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
-[15:54:52] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=8
-[15:54:52] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
-[15:54:52]     IDENTITY verdict=MATCH want=a000000000000000000000000000000000000000000000000000000000000000 got=a000000000000000000000000000000000000000000000000000000000000000 read_via=unset
-[15:54:52] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
-[15:54:52]     boot_id unchanged
-[15:54:52]     topology invariant: edges=288 (matches baseline)
-[15:54:52]     running kernel exe sha256 (open)  a000000000000000000000000000000000000000000000000000000000000000
-[15:54:52] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_mp_0016_1 300 200
-[15:54:52] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
-[15:54:52]     running kernel exe sha256 (close) a000000000000000000000000000000000000000000000000000000000000000
-[15:54:52]     VERDICT cell=e_mp_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
-[15:54:52] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
-[15:54:52] DRYRUN-NOTE would copy e_mp_0016_1_{cpu,twin}.jsonl e_mp_0016_1_client.json e_mp_0016_1_kernel.log from
-[15:54:52] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
-[15:54:52] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
-[15:54:52] DRYRUN-NOTE would clear :8081 if held
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
-[15:54:52] DRYRUN-EXEC sleep 3
-[15:54:52] DRYRUN-EXEC sed -i -E s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = 256;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
-[15:54:52] DRYRUN-EXEC sed -i -E s/^const bit<32> SAMPLE_TRUNC_BYTES = [0-9]+;/const bit<32> SAMPLE_TRUNC_BYTES = 128;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
-[15:54:52] DRYRUN-NOTE would assert the seds landed, then p4c-bm2-ss, then assert truncate in the JSON
-[15:54:52] DRYRUN-NOTE would assert: SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in source AND in the
-[15:54:52] DRYRUN-NOTE   compiled JSON; kernel sha256 == the production backup's; no RESTORE-FAILED marker
-[15:54:52]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
-[15:54:52] === ladder complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv ===
+[16:00:55] === preflight (measure), DRY_RUN=1 ===
+[16:00:55]   disk: 6G available on /
+[16:00:55] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
+[16:00:55]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[16:00:55] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
+[16:00:55] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
+[16:00:55]   staged binaries: present
+[16:00:55] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
+[16:00:55]   fabric: up
+[16:00:56] DRYRUN-NOTE synthesising: no foreign iperf3
+[16:00:56]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_ladder-open.txt
+[16:00:56] === run_e ladder start; ladder='16' arms='bl m p mp' reps=1 DUR=300s ===
+[16:00:56] 🔴 no rung, rep or arm is added from here on (C5).  If the ladder proves too short, that
+[16:00:56] 🔴 is a finding to register for the NEXT round, not an edit to this one.
+[16:00:56] ===== rung 1/16 =====
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-NOTE would clear :8081 if held
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC sleep 3
+[16:00:56] DRYRUN-EXEC sed -i -E s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = 16;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+[16:00:56] DRYRUN-EXEC sed -i -E s/^const bit<32> SAMPLE_TRUNC_BYTES = [0-9]+;/const bit<32> SAMPLE_TRUNC_BYTES = 128;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+[16:00:56] DRYRUN-NOTE would assert the seds landed, then p4c-bm2-ss, then assert truncate in the JSON
+[16:00:56] --- e_bl_0016_1  arm=bl rate=1/16 rep=1 kernel=1khz batch=1 ---
+[16:00:56] === preflight (measure), DRY_RUN=1 ===
+[16:00:56]   disk: 6G available on /
+[16:00:56] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
+[16:00:56]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[16:00:56] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
+[16:00:56] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
+[16:00:56]   staged binaries: present
+[16:00:56] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
+[16:00:56]   fabric: up
+[16:00:56] DRYRUN-NOTE synthesising: no foreign iperf3
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-NOTE would clear :8081 if held
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC sleep 3
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
+[16:00:56] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:56]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:56] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+[16:00:56] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance,
+[16:00:56] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:56] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
+[16:00:56] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=1 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
+[16:00:56] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
+[16:00:56] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=1
+[16:00:56] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
+[16:00:56]     IDENTITY verdict=MATCH want=b000000000000000000000000000000000000000000000000000000000000000 got=b000000000000000000000000000000000000000000000000000000000000000 read_via=unset
+[16:00:56] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
+[16:00:56]     boot_id=dry-run-synthetic-boot-id uptime=synthetics (baseline)
+[16:00:56]     topology invariant: edges=288 (baseline for this run)
+[16:00:56]     running kernel exe sha256 (open)  b000000000000000000000000000000000000000000000000000000000000000
+[16:00:56] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_bl_0016_1 300 200
+[16:00:56] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
+[16:00:56]     running kernel exe sha256 (close) b000000000000000000000000000000000000000000000000000000000000000
+[16:00:56]     VERDICT cell=e_bl_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
+[16:00:56] DRYRUN-NOTE would copy e_bl_0016_1_{cpu,twin}.jsonl e_bl_0016_1_client.json e_bl_0016_1_kernel.log from
+[16:00:56] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
+[16:00:56] --- e_m_0016_1  arm=m rate=1/16 rep=1 kernel=1khz batch=8 ---
+[16:00:56] === preflight (measure), DRY_RUN=1 ===
+[16:00:56]   disk: 6G available on /
+[16:00:56] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
+[16:00:56]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[16:00:56] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
+[16:00:56] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
+[16:00:56]   staged binaries: present
+[16:00:56] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
+[16:00:56]   fabric: up
+[16:00:56] DRYRUN-NOTE synthesising: no foreign iperf3
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-NOTE would clear :8081 if held
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC sleep 3
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
+[16:00:56] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:56]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:56] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+[16:00:56] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance,
+[16:00:56] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:56] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
+[16:00:56] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=8 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
+[16:00:56] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
+[16:00:56] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=8
+[16:00:56] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
+[16:00:56]     IDENTITY verdict=MATCH want=b000000000000000000000000000000000000000000000000000000000000000 got=b000000000000000000000000000000000000000000000000000000000000000 read_via=unset
+[16:00:56] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
+[16:00:56]     boot_id unchanged
+[16:00:56]     topology invariant: edges=288 (matches baseline)
+[16:00:56]     running kernel exe sha256 (open)  b000000000000000000000000000000000000000000000000000000000000000
+[16:00:56] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_m_0016_1 300 200
+[16:00:56] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
+[16:00:56]     running kernel exe sha256 (close) b000000000000000000000000000000000000000000000000000000000000000
+[16:00:56]     VERDICT cell=e_m_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
+[16:00:56] DRYRUN-NOTE would copy e_m_0016_1_{cpu,twin}.jsonl e_m_0016_1_client.json e_m_0016_1_kernel.log from
+[16:00:56] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
+[16:00:56] --- e_p_0016_1  arm=p rate=1/16 rep=1 kernel=1hz batch=1 ---
+[16:00:56] === preflight (measure), DRY_RUN=1 ===
+[16:00:56]   disk: 6G available on /
+[16:00:56] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
+[16:00:56]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[16:00:56] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
+[16:00:56] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
+[16:00:56]   staged binaries: present
+[16:00:56] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
+[16:00:56]   fabric: up
+[16:00:56] DRYRUN-NOTE synthesising: no foreign iperf3
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:56] DRYRUN-NOTE would clear :8081 if held
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:56] DRYRUN-EXEC sleep 3
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
+[16:00:56] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:56]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:56] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+[16:00:56] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance,
+[16:00:56] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:56] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:56] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
+[16:00:56] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=1 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
+[16:00:56] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
+[16:00:56] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=1
+[16:00:56] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
+[16:00:56]     IDENTITY verdict=MATCH want=a000000000000000000000000000000000000000000000000000000000000000 got=a000000000000000000000000000000000000000000000000000000000000000 read_via=unset
+[16:00:56] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
+[16:00:56]     boot_id unchanged
+[16:00:56]     topology invariant: edges=288 (matches baseline)
+[16:00:56]     running kernel exe sha256 (open)  a000000000000000000000000000000000000000000000000000000000000000
+[16:00:56] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_p_0016_1 300 200
+[16:00:56] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
+[16:00:56]     running kernel exe sha256 (close) a000000000000000000000000000000000000000000000000000000000000000
+[16:00:56]     VERDICT cell=e_p_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+[16:00:56] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
+[16:00:56] DRYRUN-NOTE would copy e_p_0016_1_{cpu,twin}.jsonl e_p_0016_1_client.json e_p_0016_1_kernel.log from
+[16:00:56] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
+[16:00:56] --- e_mp_0016_1  arm=mp rate=1/16 rep=1 kernel=1hz batch=8 ---
+[16:00:56] === preflight (measure), DRY_RUN=1 ===
+[16:00:56]   disk: 6G available on /
+[16:00:57] DRYRUN-NOTE synthesising claim owner=e-round-sampling-ceiling exclusive_cpu=yes (real claim: none)
+[16:00:57]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[16:00:57] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
+[16:00:57] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
+[16:00:57]   staged binaries: present
+[16:00:57] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
+[16:00:57]   fabric: up
+[16:00:57] DRYRUN-NOTE synthesising: no foreign iperf3
+[16:00:57] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:57] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:57] DRYRUN-NOTE would clear :8081 if held
+[16:00:57] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:57] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:57] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:57] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:57] DRYRUN-EXEC sleep 3
+[16:00:57] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
+[16:00:57] DRYRUN-EXEC cp -p /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:57]     production kernel backed up -> /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+[16:00:57] DRYRUN-EXEC cp -f /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+[16:00:57] DRYRUN-NOTE would verify sha256(/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel) == the sha256 recorded in /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance,
+[16:00:57] DRYRUN-NOTE   and that the two staged arms' hashes differ from each other
+[16:00:57] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:57] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[16:00:57] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
+[16:00:57] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=8 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
+[16:00:57] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
+[16:00:57] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=8
+[16:00:57] DRYRUN-NOTE would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON
+[16:00:57]     IDENTITY verdict=MATCH want=a000000000000000000000000000000000000000000000000000000000000000 got=a000000000000000000000000000000000000000000000000000000000000000 read_via=unset
+[16:00:57] DRYRUN-NOTE would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc
+[16:00:57]     boot_id unchanged
+[16:00:57]     topology invariant: edges=288 (matches baseline)
+[16:00:57]     running kernel exe sha256 (open)  a000000000000000000000000000000000000000000000000000000000000000
+[16:00:57] DRYRUN-NOTE would run: POLL=on /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh e_mp_0016_1 300 200
+[16:00:57] DRYRUN-NOTE would then read the verdict from cell_verdict.py and append it to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv
+[16:00:57]     running kernel exe sha256 (close) a000000000000000000000000000000000000000000000000000000000000000
+[16:00:57]     VERDICT cell=e_mp_0016_1  mark=OK  ratio=0.99  lam=1000  distinct=50  (synthetic)
+[16:00:57] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+[16:00:57] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells
+[16:00:57] DRYRUN-NOTE would copy e_mp_0016_1_{cpu,twin}.jsonl e_mp_0016_1_client.json e_mp_0016_1_kernel.log from
+[16:00:57] DRYRUN-NOTE   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells, and record sha256 on both sides in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells/MANIFEST
+[16:00:57] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[16:00:57] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:57] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[16:00:57] DRYRUN-NOTE would clear :8081 if held
+[16:00:57] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:57] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[16:00:57] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:57] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[16:00:57] DRYRUN-EXEC sleep 3
+[16:00:57] DRYRUN-EXEC sed -i -E s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = 256;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+[16:00:57] DRYRUN-EXEC sed -i -E s/^const bit<32> SAMPLE_TRUNC_BYTES = [0-9]+;/const bit<32> SAMPLE_TRUNC_BYTES = 128;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+[16:00:57] DRYRUN-NOTE would assert the seds landed, then p4c-bm2-ss, then assert truncate in the JSON
+[16:00:57] DRYRUN-NOTE would assert: SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in source AND in the
+[16:00:57] DRYRUN-NOTE   compiled JSON; kernel sha256 == the production backup's; no RESTORE-FAILED marker
+[16:00:57]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+[16:00:57] === ladder complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cells.tsv ===

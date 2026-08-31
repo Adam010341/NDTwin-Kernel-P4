@@ -61,6 +61,26 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
    主要來源是 `claude-desktop`＋跑這輪的 session 自己。⇒ 門檻改判**對已量基線的超出量**，
    基線以 `gates_e.sh baseline` 在 fabric 關著時量進檔案；基線缺席時 gate 回
    **UNRUNNABLE（不回綠）**。關不關桌面＝Adam 裁，兩種鑑別力的差別見 `COST-TABLE.md` §4。）
+- 🔴 **v0.5：閘門校準所依賴的那幾格 raw，逐一釘死 path＋sha（不是寫在腳本裡）。**
+  §2.4 的 `ratio` force-green 要「餵已知良品」、§2.3 的 `cell_verdict --selftest` 要一格
+  known-good——**這兩格是門檻的來源**，它們換了，門檻就換了而沒有人會注意到。
+  🔴 **而且 `doc/audit/*/raw*/*` 在工作分支上是 git-ignore 的**：本機那份**不受版控保護**，
+  權威在 `audit-raw` orphan branch。所以釘的是 `audit-raw` 上的物件：
+
+  | 用途 | path（在 `audit-raw` 上） | git blob | 內容 sha256 |
+  |---|---|---|---|
+  | `ratio` force-green | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_twin.jsonl` | `3590bec1` | `295ab0d46ea830bcf039eb4fab02461b2268527e0a92b8138347d05edcae1d07` |
+  | 同上（loss 通道） | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_client.json` | `e4337dfe` | `18dbe3884cfcdbff853665c511af7e8765833a5a6a287d5153d3bf6d6b0dc342` |
+  | `--selftest` known-good | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_twin.jsonl.gz` | `26145d87` | `5bed4f7e3e6097800cc985a1e95eb92464dd3849ff044b59be24ba171390dc79` |
+  | 同上（`lost_pct` 0.5126 的來源） | `doc/audit/2026-08-20_sampling-rate-and-cpu/raw/m256_poll_client.json` | `46676dca` | `69b8842d21d95e1e48438107a3b853200847a638d228c3dc2cc811bc3304a84d` |
+
+  **驗法**（任何人、任何時候）：
+  `git cat-file blob audit-raw:<path> | sha256sum` 應等於上表；
+  本機工作區那份也必須相等，否則**本機的校準物件不是註冊的那一個**，停輪。
+  （2026-08-31 查核：四個物件的 `audit-raw` 與工作區 sha256 **全部相符**。）
+  ⚠️ **目錄名不可推定**：同一批 raw 裡，08-20 輪是 `raw/`，而 08-25 輪是
+  **`raw_gil`／`raw_h`／`raw_n`，沒有一個叫 `raw`**——另一條線做普查時正是踩這個坑。
+  上表逐字寫出完整路徑，不要用萬用字元去找。
 - 任一項不過 ⇒ **停輪、回報、不調門檻**（BRIEF-E 原條款，保留）。
 
 ## 3. 臂與判定規則（規則先凍、值後算——C1）
@@ -261,3 +281,11 @@ G11 #3  forced red  -> "the machine REBOOTED mid-round"
   **為什麼**：D 輪 13 支實際執行的腳本拆出 15 條儀器條款，本張今天之前只註冊 3.5 條
   ⇒ 不是單點遺漏，是**預註冊被重寫而不是被繼承**。三條全是加要求，未放寬任何判定。
   **誰在什麼時候**：auditor 批准、腳本作者撰稿，2026-08-31，未接觸任何量測資料。
+- **v0.5（08-31，資料接觸前；auditor 追加，章未蓋）**——照三條件記錄：
+  **改了什麼**：§2 釘死閘門校準所依賴的四個 raw 物件的 path＋git blob＋內容 sha256，
+  並註明權威在 `audit-raw`（工作分支對 `raw*/` 是 git-ignore 的）與「目錄名不可推定」。
+  **為什麼**：另一條線剛把 D 輪 raw 補進 `audit-raw`（13 輪、4899 檔），
+  E 的 force-green 校準所依賴的那一格**現在才真的存在**；而只活在腳本裡的條款，
+  就是下一個人拿不到的那幾條（本輪跨輪稽核量到 E 腳本欄 10 vs 註冊欄 4.5）。
+  校準物件換了就是門檻換了，那必須是註冊層級的事實。
+  **誰在什麼時候**：auditor 追加、腳本作者撰稿並查核，2026-08-31，未接觸任何量測資料。
