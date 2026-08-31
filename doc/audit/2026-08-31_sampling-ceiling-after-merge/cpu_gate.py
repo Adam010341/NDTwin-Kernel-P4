@@ -252,6 +252,26 @@ def main():
             print("     gate.  Stop the round and fix the gate.  Do NOT move the threshold.")
             return 2
         print(f"GATE {a.label} force-test OK: expected {want}, got {verdict}")
+        # 🔴 The force matched, and for a --expect invocation THAT is the success condition.
+        #
+        # Falling through to the verdict mapping below is what this line used to do, and it made
+        # the force-RED direction impossible to record as a pass: a successful force-red ends
+        # with verdict=RED, the mapping returned 1, and the caller
+        #     if cpu_gate forcered_burner red ...; then record PASS; else record FAIL; abort
+        # recorded a WORKING force-red as a failure and aborted with "a process burning a whole
+        # core did NOT turn the gate red" -- the exact opposite of the two lines printed just
+        # above it (verdict=RED, force-test OK).  Observed live 2026-08-31 21:11:23.
+        #
+        # 🔑 The exit code was serving two callers with incompatible questions: as a GATE it
+        # answers "is the machine clean" (0=GREEN), as a FORCE TEST it answers "did the forced
+        # direction come out" (0=matched, 2=did not).  With --expect the caller is asking the
+        # second, so answer the second and stop overloading the code.
+        #
+        # 🔑 Why it survived until now: the two force-GREEN call sites are unaffected, because
+        # GREEN happens to map to 0.  The defect was only ever reachable by forcing the RED
+        # direction -- so it hid behind the habit of only ever confirming the green one.
+        # [Co-developed with claude code -- Adam]
+        return 0
     return 0 if verdict == "GREEN" else 1
 
 
