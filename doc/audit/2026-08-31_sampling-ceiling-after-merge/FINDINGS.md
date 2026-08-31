@@ -762,6 +762,27 @@ GREEN:
 inside the class hole 1 removes. **That is not the gate judging wrongly; it is the gate structurally
 unable to see.**
 
+#### 🔴 REQUIRED WORDING — three sentences, none optional, wherever this round reports a green gate
+
+1. **Magnitude floor.** The effective detection floor is **≈0.95 cores of excess** (baseline + 0.5),
+   not the nominal 0.5.
+2. **Lifetime blindness.** A process that starts and ends inside the window contributes **zero at
+   any size** (`cpu_gate.py:176`).
+3. 🔴 **Not retrospectively quantifiable.** `excluded_midwindow` **does not exist for any completed
+   cell and cannot be reconstructed** — the per-sample snapshots were not retained. **The report
+   must say the quantity was not recorded.** A blank here reads as zero.
+
+⚠️ The third sentence is the one that changes the meaning of the first two (auditor). On their own
+they describe *what the gate cannot see*, which a reader will size up as a bounded known error.
+**Together with the third they describe a gap whose magnitude is also unknown.**
+
+🔴 **No in-round repair, and the reason is stronger than for F-18 or F-20.** `excluded_midwindow`
+would be a **new measurement**: added now, cells 1–24 lack it and 25–48 carry it, so **the two
+halves of one ladder would be measured with different instruments — and this round's claim is
+precisely the comparison across rungs.** Those two findings are "leave a defect in place"; this one
+would be "make the completed half incomparable". Text-only disclosure in-round; repair registered
+for the next.
+
 ### 🔑 The code is more honest than its use
 
 `:177`'s comment reads `no baseline, cannot attribute`. **`cpu_gate.py` never claimed those
@@ -874,3 +895,42 @@ message. **A wrong finding that never landed has no citation points to repair.**
 required chasing readers: band C alone produced a withdrawal, a code rewrite, a reinstatement and
 four cross-session corrections. 🔑 **Cost is not proportional to how wrong a claim was — it is
 proportional to how far it travelled before being checked.**
+
+⇒ Adopted by the auditor as a process change: **the more destructive a cross-session instruction,
+the higher the evidence bar before sending it** — and "go retract a conclusion you already hold" is
+the most expensive cell in that table. Band C was not expensive because it was wildly wrong (three
+of its four counter-checks were runnable on the spot); it was expensive because **instructions went
+out before the checks came back.**
+
+---
+
+## F-23. 🔴 A quantity that honestly declares its own limit, consumed as if it had none
+
+`cpu_gate.py:177` reads, verbatim: `# started mid-window: no baseline, cannot attribute`. **The gate
+never claimed those processes were counted.** The defect is not on that line and not in that file —
+it is wherever `foreign_cores` is read as *the* foreign total, by a reader who has not read line 177.
+
+> **The annotation stays where it was written. The use happens somewhere else.**
+
+🔑 **This is why code review does not catch it.** Any review scoped to `cpu_gate.py` correctly
+reports that the function is honest, documented and behaving as described — because *in place*, it
+is. The defect exists only in the join between a correctly-annotated producer and a consumer that
+never saw the annotation. **A per-file review cannot see a defect that lives between files.**
+
+### The repair generalises: a value must carry its own scope, because names travel and comments do not
+
+Rename the thing to what it actually is — `foreign_cores_attributable`, not `foreign_cores` — and
+emit the exclusion count beside it. A caller cannot use `foreign_cores_attributable` as a total
+without noticing; a caller can use `foreign_cores` as a total forever.
+
+**Third face of a rule this project has now hit three ways:**
+
+| instance | the artefact | the scope it must carry |
+|---|---|---|
+| `benchmark-must-name-the-binary-it-measured` | a timing number | *which binary produced it* |
+| tonight's witness logs (band C) | a sample series | *which host it was taken on* |
+| **this** | a CPU figure | *which processes it could account for* |
+
+⇒ **An artefact must carry its own scope declaration.** Documentation of scope is not a substitute:
+the artefact gets copied, quoted, tabulated and cross-referenced, and **the scope has to survive
+every one of those moves.** A comment survives none of them.
