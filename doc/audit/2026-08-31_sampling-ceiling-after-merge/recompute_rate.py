@@ -36,11 +36,32 @@ WHY CONTEXT SWITCHES AND NOT CPU%
     Expected: ~1000/s on the 1 kHz arm, ~1/s on the 1 Hz arm, ~0/s if the loop never runs.
 
 WHAT THE COUNT IS AND IS NOT
-    It is a LOWER BOUND on passes: the thread can also deschedule on a mutex, so a pass may cost
-    more than one switch.  It is therefore not used as an absolute pass count.  The registered
-    decision rule uses (a) "is it above zero at all", which separates running from not running,
-    and (b) the RATIO between the two arms, which separates 1 kHz from 1 Hz.  Neither needs the
-    constant of proportionality.
+    🔴 It is an UPPER BOUND on passes, S >= P.  Each pass contributes AT LEAST one voluntary
+    deschedule (the sleep_for), and the thread can deschedule again on a mutex, so switches
+    ACCUMULATE ABOVE the pass count -- they never fall below it.  (An earlier version of this file
+    called it a lower bound.  The direction was wrong; the reviewer line caught it.)
+
+    It is therefore not used as an absolute pass count.  The registered rules are THREE, and the
+    direction above is what makes each of them conservative -- rederived here so the next reader
+    can check the conservatism instead of believing a claim about it:
+
+      (a) NOT-RUNNING, S <= 0.1/s.  S >= P, so a small S implies a smaller P.  If the observable
+          says almost nothing happened, even less actually happened.  VALID.
+      (b) cross-arm ratio >= 10.  Mutex wakeups are ADDITIVE noise present in BOTH arms, and
+          adding the same quantity to numerator and denominator pulls a ratio TOWARDS 1.  So the
+          observed ratio UNDERSTATES the true one, and demanding >= 10 is stricter than the
+          physics requires.  CONSERVATIVE.
+      (c) per-arm band.  This one IS an absolute-rate criterion and does need the scale.  Because
+          S overstates P, a genuinely-1-Hz arm can read above 20/s and be aborted when it did not
+          need to be.  Its failure direction is FALSE ABORT, never false pass.  CONSERVATIVE.
+
+    (a) and (b) need no constant of proportionality; (c) does, and is kept because it catches the
+    one thing the ratio cannot: an arm running the WRONG BINARY, which shifts both arms together
+    and leaves the ratio intact.
+
+    🔑 The general lesson, bigger than the fix: a bound's direction is load-bearing, and the
+    downstream rules stayed conservative here only because that was CHECKED.  A rule that is
+    conservative under one direction can be anti-conservative under the other.
 
     The thread is located by the tid it logs at start -- log_thread_ids("calFlowPathByQueried"),
     FlowLinkUsageCollector.cpp:2738 -- and the pid on that line must match the running kernel, or
@@ -177,9 +198,11 @@ def main():
         rec["verdict"] = "RUNNING"
         print(f"RECOMPUTE {a.label} pid={pid} tid={tid} passes_per_s={rate:.3f} verdict=RUNNING")
 
-    # Per-arm band.  Deliberately wide: the count is a lower bound on passes, so the bands only
-    # have to separate ~1000/s from ~1/s from ~0/s, and a tight band would fail on noise rather
-    # than on the thing being checked.
+    # Per-arm band -- the third rule, and the only ABSOLUTE one (see the module docstring).
+    # Deliberately wide: switches OVERSTATE passes (S >= P), so a tight band would abort a healthy
+    # arm on mutex noise.  Its failure direction is false-abort, never false-pass.  It is kept
+    # because it catches what the ratio cannot: an arm running the wrong binary moves both arms
+    # together and leaves the ratio looking fine.
     if a.arm and rec["verdict"] == "RUNNING":
         lo, hi = (0.2, 20.0) if a.arm == "1hz" else (100.0, 1e9)
         if not (lo <= rate <= hi):
