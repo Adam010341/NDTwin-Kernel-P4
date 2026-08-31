@@ -16,12 +16,14 @@
 #   rlab claim <machine> <owner> <note>    refuse if already claimed
 #   rlab note <machine> <text>             amend a live claim (terms changed, no handoff)
 #   rlab release <machine>                 archive claim to handoff log, then free
+#   rlab suspended <machine>               is it off limits? answers WITHOUT dialling
 #
 # Machines: server1-4 (old testbed, jump gw), server5-8 (new testbed, jump gw2), cc2,
 #           nslab (ssh alias; VPN, NO jump host -- address lives in ~/.ssh/config).
 #
-# 🔴 2026-08-31: EVERY machine in that list is SUSPENDED -- see suspended() below.
-#    `rlab list` still works as an inventory and reports why, without dialling out.
+# 🔴 2026-08-31: the testbed batch (server1-8/cc2/gw/gw2) is SUSPENDED -- see suspended().
+#    nslab was paused the same day and UNPAUSED once its usage rules landed.
+#    `rlab list` reports that without dialling out; `rlab suspended <m>` asks directly.
 #
 # 🔑 This tool's unit is the MACHINE. On a host running several VMs that is too coarse:
 #    two sessions can share a machine safely and still collide inside one VM. The
@@ -63,14 +65,11 @@ suspended() {
     case "$1" in
         server1|server2|server3|server4|server5|server6|server7|server8|cc2|gw|gw2)
             echo "學姐 via Adam, 2026-08-31: 「遠端機器先不要用」（整批 testbed）" ;;
-        nslab)
-            echo "🟡 PAUSED (not suspended) -- Adam 本人, 2026-08-31 ~15:00: 「等等，先不要用遠端機器」
-   why:      the machine's usage rules had not been written yet. The machine is fine
-             and the authorisation stands; what was missing was the rules.
-   unpause:  BOTH -- (1) the rules land, (2) Adam says go. Rules are now written:
-             doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md (935bc80)
-             ⇒ only (2) is outstanding. Read the rules while you wait; they say what
-             you must register BEFORE you act, and late entries are not allowed." ;;
+        # nslab was PAUSED 2026-08-31 ~15:00 -- not because anything was wrong with the
+        # machine, but because its usage rules had not been written. Both unpause
+        # conditions were met the same day: the rules landed (935bc80) and Adam said go.
+        # Lifting it is this edit, which is the whole point of there being no env-var
+        # bypass: the unpause has a diff and a timestamp, the same as the pause did.
         *) return 1 ;;
     esac
 }
@@ -120,6 +119,18 @@ case "${1:-}" in
         echo "🔑 A machine-level claim is not enough on a host that runs several VMs:"
         echo "   the contention unit is the VM. On the host, run:  ndtwin-vm.sh vms"
         ;;
+    suspended)
+        # Ask whether a machine is off limits WITHOUT dialling it. Exists because the
+        # alternative -- find out by trying -- is exactly what a stop order forbids, and
+        # because a table that can only be observed through its own refusals cannot be
+        # tested for the one direction that matters: that it lets the right things past.
+        m="${2:?usage: rlab suspended <machine>}"
+        tgt "$m" >/dev/null || { echo "rlab: unknown machine '$m'" >&2; exit 2; }
+        if why=$(suspended "$m"); then
+            suspension_notice "$m" "$why"; exit 4
+        fi
+        echo "$m: not suspended -- normal rules apply (register BEFORE you act)"
+        ;;
     status)
         m="${2:?usage: rlab status <machine>}"
         rssh "$m" '
@@ -161,7 +172,7 @@ case "${1:-}" in
             echo "released; recent handoffs:"; tail -8 ~/RLAB-HANDOFF.log'
         ;;
     *)
-        sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//'
         exit 1
         ;;
 esac

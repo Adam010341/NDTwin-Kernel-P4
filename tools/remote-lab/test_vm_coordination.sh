@@ -137,19 +137,26 @@ echo "=== G6  vms is readable without owning anything ==="
 expect "GREEN-- no NDT_OWNER needed to look"  0 "OWNER" \
     env -u NDT_OWNER HOME="$T" bash "$VM" vms
 
-echo "=== G7  rlab suspension refuses before dialling ==="
-expect "RED  -- nslab refused"                4 "PAUSED (not suspended)" \
-    env bash "$RLAB" status nslab
-expect "RED  -- and it says who, when and the unpause condition" 4 "the rules land" \
-    env bash "$RLAB" status nslab
-expect "RED  -- server8 refused too"          4 "遠端機器先不要用" \
-    env bash "$RLAB" status server8
-expect "RED  -- no stale redirect offered"    4 "another machine: NONE" \
-    env bash "$RLAB" status server8
-# GREEN direction for the suspension table itself: a machine NOT in it must fall
-# through to the normal unknown-machine path, proving suspended() is not a blanket deny.
+echo "=== G7  the suspension table: refuses the suspended, lets the unpaused past ==="
+# Asked through `rlab suspended`, which answers WITHOUT dialling. Finding out by trying
+# is exactly what a stop order forbids -- and a table observable only through its own
+# refusals cannot be tested in the direction that matters: that it lets the right
+# things past. 2026-08-31 exercised both directions for real: nslab was paused in the
+# afternoon and unpaused the same evening once its usage rules landed.
+expect "RED  -- a suspended machine is refused"  4 "遠端機器先不要用" \
+    env bash "$RLAB" suspended server8
+expect "RED  -- and it names who and when"       4 "學姐 via Adam" \
+    env bash "$RLAB" suspended server8
+expect "GREEN-- an UNPAUSED machine is let past" 0 "not suspended" \
+    env bash "$RLAB" suspended nslab
+expect "GREEN-- and it still points at the rules" 0 "register BEFORE you act" \
+    env bash "$RLAB" suspended nslab
 expect "GREEN-- an unlisted machine is not swallowed" 2 "unknown machine" \
-    env bash "$RLAB" status laptop
+    env bash "$RLAB" suspended laptop
+# The guard that actually matters sits in rssh, so every verb inherits it -- prove it
+# there too, not only in the verb built to report it.
+expect "RED  -- rssh refuses before any packet leaves" 4 "Nothing was sent" \
+    env bash "$RLAB" status server8
 
 printf '\n=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" = 0 ]
