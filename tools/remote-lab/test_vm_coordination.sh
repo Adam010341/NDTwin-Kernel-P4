@@ -2,6 +2,27 @@
 # Mutation gate for the cross-session VM coordination guards.
 # [Co-developed with claude code -- Adam]
 #
+# ===========================================================================
+#  THE DESIGN CRITERION FOR THIS FILE -- read before adding a case.
+#
+#  Enumerate the SURFACE, not the protections that happen to exist.
+#
+#  On 2026-08-31 this gate was 32/32 green while `stop` and `ssh` -- both of
+#  which mutate -- had no guard at all. It could not have caught that: it
+#  listed the guards I had written, so it could only ever re-confirm them.
+#
+#      "every guard fires in both directions"
+#  and "every mutating verb has a guard"
+#  are DIFFERENT QUESTIONS, and I reported the answer to the first as though
+#  it answered the second.
+#
+#  So G10 asserts over the verbs themselves, from two written-down lists. A
+#  new verb fails there until someone decides, in writing, which list it is
+#  in. And G10 carries its own control, because a parser that matches nothing
+#  would let all of its checks pass vacuously -- a structural test with no
+#  control is just the next silent green.
+# ===========================================================================
+#
 # Every guard is exercised in BOTH directions. A guard that has only ever been seen
 # to pass is not a guard -- and the mirror image is just as bad: 2026-08-31 shipped a
 # readiness gate that could never go green. So each case below asserts a specific
