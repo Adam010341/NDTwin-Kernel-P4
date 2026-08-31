@@ -51,14 +51,28 @@ neither the batching aliasing (F-28) nor the leg confound (F-27) touches it:
 
 **Within 1.0 and 2.3 points — different round, different binary, twelve days apart.**
 
+🔴 **CITATION WARNING — the values are valid, the paragraph they live in is a retraction.**
+`REPORT.md:97-99` immediately above reads: *"**The condition labelled 'no clone session at all' did
+not have its clone session removed** … Any claim in this report that rests on comparing against a
+true zero point is **withdrawn**."* The `67.9 / 26.6` pair is quoted there as **the 1/64 cell *with*
+sampling on** — a direct reading, unaffected by that withdrawal (`ab-control-deleted-nothing`).
+⇒ **Cite it as: "from `REPORT.md:101`; that paragraph records a withdrawn zero-point control; only
+the 1/64 sampled cell's reading is used, none of the paragraph's conclusions."** Without that
+sentence the next person greps `67.9`, lands inside a retraction notice, and cannot tell whether the
+number is safe to use.
+
 🔑 **Without this, "the new round says cost grows" and "the new round changed the ruler" are
 indistinguishable.** It is the known-good output this entry is checked against, and it happened to
 be in hand.
 
-⚠️ **The 1/1024 comparison could NOT be made.** The prior round's `m*` per-cell CPU raws are not in
-the working tree (only `t00*`, `cal*`, `f16*`, `qa/qb*` and this round's `e_*`), and no quoted figure
-was located. **A 1/1024 cross-check was suggested to me; I am not citing a number I could not
-verify.**
+⚠️ **The 1/1024 comparison could NOT be made, and the attempt is recorded so nobody assumes it was
+never considered.** A figure of **55.4%** was offered for that rung. `grep -rn '55\.4'` across both
+prior round directories returns **zero hits** — it exists only in a memory file, and the prior
+round's `m*` per-cell CPU raws are absent from the working tree (only `t00*`, `cal*`, `f16*`,
+`qa/qb*` and this round's `e_*` are present, so it cannot be recomputed either; they are most likely
+in the unpushed `audit-raw`). **A number that cannot be verified is not cited.**
+🔑 **A check that could not be done has to leave a trace**, or the next reader concludes nobody
+thought of it.
 
 ### The claim is bounded, not refuted
 
@@ -75,9 +89,11 @@ it was measured. **The over-extension was ours, not its.**
 
 ### 🔴 The proxy ×22 is a NEW result, not a refutation of anything
 
-The prior claim is **entirely about kernel threads** — `calFlowPathByQueried` at 46.31% CPU, single
-thread (`2026-08-25_large-scale-concurrent/PREREG.md:642`), and `run` ×3.48 for ingest. **The proxy
-was never in its scope.**
+The prior **claim** is entirely about kernel threads — `calFlowPathByQueried` at 46.31% CPU, single
+thread (`2026-08-25_large-scale-concurrent/PREREG.md:642`), and `run` ×3.48 for ingest.
+⚠️ **Precisely: the proxy was never in the *claim's* scope — that round did measure it** (26.6% at
+1/64, quoted above). **Measured-but-not-claimed is not the same as not-measured**, and it is the same
+distinction that bounds the claim by its own range rather than by the ladder's.
 
 ⇒ **Proxy CPU rising 0.064 → 1.409 (×22) across 1/1024 → 1/8 is a new finding and is reported on its
 own.** 🔑 **And it was never the "fixed" thing to begin with**: proxy is already at **0.243 by 1/64**,
