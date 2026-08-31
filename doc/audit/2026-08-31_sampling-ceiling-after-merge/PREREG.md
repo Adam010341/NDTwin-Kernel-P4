@@ -32,11 +32,12 @@
 否則只測到「會拒絕」而沒測到「會放行」。
 
 ```
---- G-MATRIX: 14 forces, one row each ---
+--- G-MATRIX: 15 forces, one row each ---
     [ok]   claim -> REFUSE: lab.claim owner=
     [ok]   staged -> REFUSE: staged kernel binary missing
     [ok]   iperf3 -> REFUSE: iperf3 already running
     [ok]   fabric -> REFUSE: no live P4 fabric
+    [ok]   labmarker -> REFUSE: a neighbouring round left the lab un-restored
     [ok]   restore -> PRODUCTION RESTORE FAILED
     [ok]   edgecount (REPS=2) -> ABORT(#14 invariant)
     [ok]   bootid (REPS=2) -> ABORT(#3 boot_id)
@@ -45,8 +46,8 @@
     [ok]   exeunreadablemid -> could not be READ
     [ok]   exeunreadable_absorbed -> ABORT(§4 running-arm)
     [ok]   exedrift_absorbed -> ABORT(§4 running-arm)
-    [ok]   @none@ (PREREG_FILE=/tmp/tmp.RzcR0cctbw) -> EVIDENCE-BASIS: INCOMPLETE
-    [ok]   @none@ (PREREG_FILE=/tmp/tmp.fyuSam7SyJ) -> @COMPLETES@
+    [ok]   @none@ (PREREG_FILE=/tmp/tmp.E0JxD9DwXb) -> EVIDENCE-BASIS: INCOMPLETE
+    [ok]   @none@ (PREREG_FILE=/tmp/tmp.prDjXkpXBI) -> @COMPLETES@
 ```
 
 先前狀態＝🔴 不完整：身分括號（open/close）**無任何 force 走到**——`exedrift` 把兩端強制成

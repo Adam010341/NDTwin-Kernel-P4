@@ -2,7 +2,12 @@
 
 [Co-developed with claude code -- Adam]
 
-**狀態**：**v0.4（2026-08-31，資料接觸前的修訂；章仍未蓋）**。
+**狀態**：🏁 **v1.0-stamped（2026-08-31，auditor）**。
+基礎＝reviewer 線兩輪定點複查（非 force 部分＋marker 接線）＋ auditor 親自 grep 驗證三項落點
+（讀者 `lib_e.sh:181,193`／清除 `run_f5.sh:723`／abort 自還原 `run_f5.sh:48-53`）。
+§4-ter 15 條判定完整（繼承 14／變形履行 1／不繼承 0）。
+**設計者不自蓋；本章由 auditor 蓋。**
+（以下 v0.4 起的沿革保留。）
 v0.2-stamped 的 reviewer 章仍有效（落點逐項親驗；併池數學的反打經其複驗認可）；
 v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄見 §7。
 **三處【TBD】已於 v0.3 全部落定**（①序列 ②sampler ③Q3 節奏）。
@@ -35,7 +40,7 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
 否則只測到「會拒絕」而沒測到「會放行」。
 
 ```
---- force matrix: 13 path-level forces, one row each ---
+--- force matrix: 15 path-level forces, one row each ---
   [ok]   claim -> REFUSE: lab.claim owner=
   [ok]   fabric -> REFUSE: the kernel API
   [ok]   bootid -> ABORT(#3)
@@ -44,6 +49,8 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
   [ok]   config -> ABORT(#7/#8)
   [ok]   exedriftmid -> ABORT(§4 F4)
   [ok]   restore_atexit -> THE PRODUCTION KERNEL IS NOT RESTORED
+  [ok]   config -> [exit] production kernel
+  [ok]   config,restore_atexit -> THE PRODUCTION KERNEL IS NOT RESTORED
   [ok]   exeunreadablemid -> could not be READ
   [ok]   exeunreadable_absorbed -> ABORT(§4 F4)
   [ok]   logrotate -> LOG-EVIDENCE-INCOMPLETE
@@ -330,3 +337,16 @@ kernel.log 帶著 R1 的 dispatcher 側證據。**#6 不適用的理由也是本
   ③缺的守衛其**失效方向偏向乾淨**，正是本輪最該防的方向。
   **誰在什麼時候**：reviewer 定點複查提出（必改一、建議二）；auditor 轉裁三項全落；
   腳本作者實作並 force 過 #12 的守衛，2026-08-31，**一次 install 都還沒跑**。
+- 🏁 **v1.0-stamped（2026-08-31，auditor 蓋章）**——照三條件記錄：
+  **改了什麼**：蓋章；並在**同一顆 commit** 內更新 §2 嵌入的 force 矩陣逐字輸出
+  （13 列 → **15 列**）。
+  🔴 **更新的原因是它已經過期**：`config -> [exit] production kernel`（abort 覆蓋）與
+  `config,restore_atexit`（**複合情況：abort 且未還原**）兩列是後來才加的，
+  而嵌入的謄本沒有跟著動 ⇒ **註冊裡的證據少了兩列，而少的正是最承重的那兩列。**
+  **一次正確的謄本會無聲過期**，且**沒有任何東西在檢查它**（見下方待辦）。
+  **為什麼**：章認證的是當下那份文字，蓋在一份已知過期的證據謄本上，
+  將來被引用的就是那份——與 E 蓋章當日的處置同理，**先更新再蓋，不先蓋後改**。
+  **誰在什麼時候**：reviewer 兩輪定點複查；auditor 親自 grep 三項落點後蓋章；
+  腳本作者更新謄本，2026-08-31，**一次 install 都還沒跑**。
+  🔴 **蓋章後待辦（不在本 commit）**：加一道檢查，斷言**註冊裡嵌入的矩陣謄本與實跑一致**
+  ——目前新增一列 force 不會讓任何東西變紅，謄本就這樣靜靜落後了兩列。
