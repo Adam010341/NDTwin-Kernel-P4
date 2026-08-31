@@ -1,0 +1,8 @@
+# Pristine baselines for mutate.py -- sha256, verified equal to commit 91e7743's blobs
+# Regenerate beside mutate.py before running:
+#   git show 91e7743:include/ndt_core/routing_management/DispatchOutcomeLog.hpp  > pristine_DispatchOutcomeLog.hpp
+#   git show 91e7743:include/ndt_core/routing_management/PendingEntryFilter.hpp  > pristine_PendingEntryFilter.hpp
+#   git show 91e7743:src/ndt_core/routing_management/Controller.cpp              > pristine_Controller.cpp
+03f1cf337e0cbd25308a65100b630980acf163083d003e9cda972cb047c98c90  pristine_DispatchOutcomeLog.hpp
+99d236ef5161905580bbc00686105f74bb3b687c2f48d64b761589fdae49d55c  pristine_PendingEntryFilter.hpp
+4f906ae219f64a9270282be34b0a720cb502ef31af93d87069cc6d8877d19efe  pristine_Controller.cpp
