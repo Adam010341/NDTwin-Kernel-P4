@@ -398,6 +398,57 @@ preflight() {
     # whose content really says INCOMPLETE, so what gets tested is the reader against real
     # content rather than a branch that only exists for the test.  Breaks the circularity too --
     # the master registration is never read during its own force.
+    # 🔴 SECOND DUTY ON THE SAME LEVER: is the force transcript embedded in the registration
+    # still current?  Two rounds' transcripts had silently fallen behind (13 vs 15, 14 vs 15) and
+    # the missing rows were the newest, i.e. the ones that took longest to get right.  Adding a
+    # force turned nothing red.
+    #
+    # 🔑 WHY THIS IS NOT A ROUND-CLOSING CHECKLIST ITEM: staleness is created at REGISTRATION time
+    # and paid for at RUN time, and preflight is where run time starts.  Anywhere else and adding
+    # a row still turns nothing red -- it only trades "nobody checks" for "nobody runs the check".
+    #
+    # 🔴 INDEPENDENCE, which is what decides whether this gate has any discriminating power:
+    # the two sides must reach their answers by DIFFERENT routes, or they fail together and agree.
+    #   side A  static parse of the FORCE_MATRIX array literal in THIS SCRIPT (code)
+    #   side B  static parse of the fenced transcript in the REGISTRATION (documentation)
+    # NEITHER side runs the matrix.  That is the point: if the check executed the matrix to learn
+    # side A, then a runner that skipped a row would produce a transcript missing that row and a
+    # side A missing it too -- agreement, permanently green, and blind to exactly the bug that
+    # motivated it.  Reading the array literal cannot be fooled by a broken runner.
+    #
+    # A zero-row parse on EITHER side is a REFUSAL, not a pass: an unparseable side is unreadable,
+    # and unreadable has never been green in this round.
+    # 🔴 SKIPPED FOR HARNESS SUB-RUNS, and this is not a bypass -- it is the fix for a deadlock the
+    # first version of this check created.  The matrix drives `./run_f5.sh arm` once per row; those
+    # sub-runs are harness self-tests, not measurements.  Gating them meant: add a row -> transcript
+    # stale -> preflight refuses -> the matrix cannot run -> the transcript can never be regenerated.
+    # A gate that blocks the only action that clears it is the "can never go green again" shape this
+    # round has already recorded twice, and people learn to disable those.
+    # The force row below overrides this back to empty, so the check itself is still exercised.
+    if [[ -z "${F5_HARNESS_SUBRUN:-}" ]]; then
+    local a_labels b_labels na nb
+    a_labels=$(sed -n '/local FORCE_MATRIX=(/,/^    )/p' "$0" \
+               | grep -oE '^      "[^|]*' | sed 's/.*"//' | sort)
+    b_labels=$(awk '/force matrix:/{f=1} f&&/```/{exit} f' "$PREREG_FILE" 2>/dev/null \
+               | grep -oE '\[ok\]   [^ ]*' | sed 's/\[ok\]   //' | sort)
+    na=$(printf '%s\n' "$a_labels" | grep -c .); nb=$(printf '%s\n' "$b_labels" | grep -c .)
+    if (( na == 0 )); then
+        printf 'REFUSE: could not parse the FORCE_MATRIX array out of %s.\n' "$0" >&2
+        printf '        An unparseable side is unreadable, and unreadable is not green.\n' >&2
+        return 1
+    fi
+    if (( nb == 0 )) || [[ "$a_labels" != "$b_labels" ]]; then
+        printf 'REFUSE: the force transcript embedded in the registration is out of date.\n' >&2
+        printf '        script defines %s force row(s); the registration records %s.\n' "$na" "$nb" >&2
+        diff <(printf '%s\n' "$b_labels") <(printf '%s\n' "$a_labels") 2>/dev/null \
+            | sed 's/^/          /' >&2
+        printf '        Re-run the matrix and paste its output into %s.\n' "$PREREG_FILE" >&2
+        printf '        (A transcript that was correct when pasted expires silently; adding a\n' >&2
+        printf '         force row turns nothing else red.)\n' >&2
+        return 1
+    fi
+    fi
+
     if [[ "$ebasis" != "COMPLETE" ]]; then
         printf 'REFUSE: the registration reports EVIDENCE-BASIS: %s\n' "${ebasis:-<absent>}" >&2
         printf '        Registered clauses exist but are not all demonstrably exercised.  Fix the\n' >&2
@@ -625,7 +676,10 @@ selftest() {
     # reaching it at all -- and a fix that exists is not a fix that runs.
     say "--- identity bracket: must be reached and fire on its own terms ---"
     local bout hitb absorbed
-    bout=$(cd "$HERE" && DRY_RUN=1 DRY_FAIL=exedriftmid ./run_f5.sh arm 2>&1 || true)
+    # F5_HARNESS_SUBRUN, same as the matrix rows: without it the transcript check added later
+    # refuses first and this force reports hit=0 -- i.e. a NEW check absorbing an OLD one, the
+    # third instance of that shape today and this time self-inflicted.
+    bout=$(cd "$HERE" && F5_HARNESS_SUBRUN=1 DRY_RUN=1 DRY_FAIL=exedriftmid ./run_f5.sh arm 2>&1 || true)
     hitb=0; absorbed=0
     [[ "$bout" == *"changed during arm"* && "$bout" == *"ABORT(§4 F4)"* ]] && hitb=1
     [[ "$bout" == *"wants the"* ]] && absorbed=1     # assert_arm_binary's abort text
@@ -645,8 +699,19 @@ selftest() {
     # correct, not a gap.
     # =============================================================================================
     local EV_BAD EV_GOOD; EV_BAD="$(mktemp)"; EV_GOOD="$(mktemp)"
-    printf 'EVIDENCE-BASIS: INCOMPLETE\n' >"$EV_BAD"
-    printf 'EVIDENCE-BASIS: COMPLETE\n'   >"$EV_GOOD"
+    # Fixtures are COPIES OF THE REAL REGISTRATION, minimally mutated -- so each carries both the
+    # sentinel and the transcript, and each force tests the real reader against real content.
+    local TR_BAD; TR_BAD="$(mktemp)"
+    cp "$PREREG_FILE" "$EV_GOOD"
+    sed 's/^\([[:space:]]*\)EVIDENCE-BASIS: COMPLETE/\1EVIDENCE-BASIS: INCOMPLETE/' "$PREREG_FILE" >"$EV_BAD"
+    # One [ok] row deleted FROM INSIDE THE MATRIX BLOCK -- exactly the failure both rounds had.
+    # 🔴 The first version deleted the first [ok] ANYWHERE in the file, and the registration has an
+    # [ok] in prose (the anchoring explanation) that appears BEFORE the block.  So the fixture
+    # removed a line the checker deliberately never reads, side B still counted every matrix row,
+    # and the force-red came out green.  A fixture must target the checker's WINDOW, not just the
+    # file: both were individually correct and they did not overlap.
+    awk 'BEGIN{f=0;d=0} /force matrix:/{f=1} f && /\[ok\]/ && d==0 {d=1; next} {print}' \
+        "$PREREG_FILE" >"$TR_BAD"
     local FORCE_MATRIX=(
       "claim||REFUSE: lab.claim owner=|"
       "fabric||REFUSE: the kernel API|"
@@ -671,12 +736,16 @@ selftest() {
       "logrotate||LOG-EVIDENCE-INCOMPLETE|ABORT"
       "@none@|PREREG_FILE=$EV_BAD|EVIDENCE-BASIS: INCOMPLETE|"
       "@none@|PREREG_FILE=$EV_GOOD|@COMPLETES@|REFUSE"
+      # the transcript check, both directions -- force-green is the row above (a verbatim copy),
+      # force-red is a copy with one row deleted.  Red-only would be the very defect being fixed.
+      "@none@|PREREG_FILE=$TR_BAD F5_HARNESS_SUBRUN=|transcript embedded in the registration is out of date|"
     )
     say "--- force matrix: ${#FORCE_MATRIX[@]} path-level forces, one row each ---"
     local row lbl envp want deny out ok
     for row in "${FORCE_MATRIX[@]}"; do
         IFS='|' read -r lbl envp want deny <<<"$row"
-        out=$(cd "$HERE" && env $envp DRY_RUN=1 \
+        # F5_HARNESS_SUBRUN goes FIRST so a row's env column can override it back to empty.
+        out=$(cd "$HERE" && env F5_HARNESS_SUBRUN=1 $envp DRY_RUN=1 \
               $( [[ "$lbl" != "@none@" ]] && printf 'DRY_FAIL=%s' "$lbl" ) ./run_f5.sh arm 2>&1 || true)
         ok=1
         if [[ "$want" == "@COMPLETES@" ]]; then [[ "$out" == *"complete ->"* ]] || ok=0
@@ -685,7 +754,7 @@ selftest() {
         if (( ok )); then say "  [ok]   ${lbl}${envp:+ (fixture)} -> ${want}"
         else say "  [FAIL] ${lbl}${envp:+ (fixture)} -> wanted '${want}'${deny:+, not '${deny}'}"; rc=1; fi
     done
-    rm -f "$EV_BAD" "$EV_GOOD"
+    rm -f "$EV_BAD" "$EV_GOOD" "$TR_BAD"
 
     (( rc == 0 )) && say "=== detector + inherited-clause + matrix force tests PASS ===" || say "🔴 force tests FAILED"
     return $rc

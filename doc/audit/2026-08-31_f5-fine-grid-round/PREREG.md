@@ -40,7 +40,7 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
 否則只測到「會拒絕」而沒測到「會放行」。
 
 ```
---- force matrix: 15 path-level forces, one row each ---
+--- force matrix: 16 path-level forces, one row each ---
   [ok]   claim -> REFUSE: lab.claim owner=
   [ok]   fabric -> REFUSE: the kernel API
   [ok]   bootid -> ABORT(#3)
@@ -56,6 +56,7 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
   [ok]   logrotate -> LOG-EVIDENCE-INCOMPLETE
   [ok]   @none@ (fixture) -> EVIDENCE-BASIS: INCOMPLETE
   [ok]   @none@ (fixture) -> @COMPLETES@
+  [ok]   @none@ (fixture) -> transcript embedded in the registration is out of date
 ```
 身分括號先前與 E 同病（`exedrift` 兩端相等＋`assert_arm_binary` 先中止），現由 `selftest` 的
 bracket force 補齊，同樣兩半判準：
@@ -350,3 +351,31 @@ kernel.log 帶著 R1 的 dispatcher 側證據。**#6 不適用的理由也是本
   腳本作者更新謄本，2026-08-31，**一次 install 都還沒跑**。
   🔴 **蓋章後待辦（不在本 commit）**：加一道檢查，斷言**註冊裡嵌入的矩陣謄本與實跑一致**
   ——目前新增一列 force 不會讓任何東西變紅，謄本就這樣靜靜落後了兩列。
+- **v1.1（08-31，資料接觸前；auditor 裁決，v1.0 章不受影響）**——照三條件記錄：
+  **改了什麼**：把「嵌入的 force 謄本是否過期」的檢查**掛進既有的 preflight**
+  （與 `EVIDENCE-BASIS:` **同一條拒跑路徑**，不新增槓桿、不新增工具、不新增執行者）；
+  並補入其 force-red／force-green 兩列。**§4-ter 的 15 條判定、判準、門檻一律未動**。
+  **為什麼（只引已有資料）**：本輪與 E 的嵌入謄本**都曾靜默落後**（13 vs 15、14 vs 15），
+  而缺的正是最新、最承重的那幾列。**新增一列 force 不會讓任何東西變紅。**
+  三條件：**零量測資料**（純 dry-run 與靜態解析）／理由只引那兩份過期謄本本身／**只增不減**。
+  **誰在什麼時候**：auditor 裁「做，掛在既有拒跑槓桿上」；腳本作者實作，2026-08-31，
+  **一次 install 都還沒跑**。
+
+  🔑 **鑑別力的關鍵——兩側必須各自獨立到達答案**（auditor 交給我判的那點）：
+  - **A 側＝靜態解析本腳本裡 `FORCE_MATRIX` 陣列字面值**（碼）；
+  - **B 側＝靜態解析註冊裡那個 fenced block**（文件）；
+  - 🔴 **兩側都不執行矩陣**。若 A 側用「跑一次矩陣」取得，則一個**漏跑某列的 runner**
+    會同時讓謄本與 A 側都少那一列 ⇒ **兩邊一致、閘門恆綠**，且恰好對它要抓的那個 bug 全盲。
+    讀陣列字面值不會被壞掉的 runner 騙。
+  - 任一側解析出 **0 列即拒跑**——解析不出來是「讀不到」，而讀不到在本輪從來不是綠。
+
+  🔴 **實作過程中我自己造了三個缺陷，都在跑起來時才現形，一併記下**：
+  1. **閘門擋住自己的解法**：加一列 ⇒ 謄本過期 ⇒ preflight 拒跑 ⇒ **矩陣跑不了 ⇒ 謄本永遠無法重生**。
+     這是「永遠變不回綠」的形狀。修法＝矩陣的子跑帶 `F5_HARNESS_SUBRUN`
+     （**子跑是 harness 自測不是量測**），而 force 列把它覆寫回空，所以檢查本身仍被驗。
+  2. **新檢查吸收了舊檢查**：bracket force 的子跑沒帶那個旗標 ⇒ 新的謄本檢查**先拒跑**
+     ⇒ `bracket force FAIL hit=0`。**「更早的檢查先中止」第三次，這次是我自己製造的。**
+  3. **fixture 沒有對準檢查器的視窗**：force-red 原本刪「檔案裡第一個 `[ok]`」，
+     但註冊裡有一行**散文**的 `[ok]`（講錨定那段）**排在矩陣 block 之前** ⇒
+     刪掉的是檢查器**刻意不看**的那一行 ⇒ 側 B 仍數到全部 16 列 ⇒ **force-red 出來是綠的**。
+     **兩者各自都正確，只是不重疊。** 已改為只刪 block 內的列。

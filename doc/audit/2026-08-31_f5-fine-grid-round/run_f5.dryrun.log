@@ -1,34 +1,34 @@
-[17:55:58] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
-[17:55:58] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
-[17:55:58]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
-[17:55:58] DRYRUN-NOTE synthesising fabric up and both readers answering
-[17:55:58]   fabric: kernel API and southbound both answering
-[17:55:58] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
-[17:55:58] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
-[17:55:58]     boot_id=dry-run-synthetic-boot-id (baseline)
-[17:55:59]     topology: edges=12 (baseline)
-[17:55:59] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
-[17:55:59] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
-[17:55:59] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
-[17:55:59] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
-[17:55:59] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log and record its inode+size
-[17:55:59]     kernel.log (open) archived; inode=111 size=100
-[17:55:59] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
-[17:55:59] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
-[17:55:59]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
-[17:55:59] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
-[17:55:59] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
-[17:55:59] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
-[17:55:59] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
-[17:55:59] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
-[17:55:59] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
-[17:55:59] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
-[17:55:59] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
-[17:55:59]     boot_id unchanged
-[17:55:59]     topology: edges=12 (matches baseline)
-[17:55:59] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_close.log and record its inode+size
-[17:55:59]     kernel.log (close) archived; inode unchanged, size grew
-[17:55:59] === arm q1-p4-post complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ===
-[17:55:59] DRYRUN-NOTE would assert the running kernel is post-T-11 (production) again
-[17:55:59]     restore verified: the production (post-T-11) kernel is running
-[17:55:59]     [exit] production kernel is back; lab is releasable
+[18:14:19] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[18:14:19] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[18:14:19]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[18:14:19] DRYRUN-NOTE synthesising fabric up and both readers answering
+[18:14:19]   fabric: kernel API and southbound both answering
+[18:14:19] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[18:14:19] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[18:14:19]     boot_id=dry-run-synthetic-boot-id (baseline)
+[18:14:19]     topology: edges=12 (baseline)
+[18:14:19] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[18:14:19] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[18:14:19] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[18:14:19] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[18:14:19] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log and record its inode+size
+[18:14:19]     kernel.log (open) archived; inode=111 size=100
+[18:14:19] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[18:14:19] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[18:14:19]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[18:14:19] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[18:14:19] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[18:14:19] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[18:14:19] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[18:14:19] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[18:14:19] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[18:14:19] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[18:14:19] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[18:14:19]     boot_id unchanged
+[18:14:19]     topology: edges=12 (matches baseline)
+[18:14:19] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_close.log and record its inode+size
+[18:14:19]     kernel.log (close) archived; inode unchanged, size grew
+[18:14:19] === arm q1-p4-post complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ===
+[18:14:19] DRYRUN-NOTE would assert the running kernel is post-T-11 (production) again
+[18:14:19]     restore verified: the production (post-T-11) kernel is running
+[18:14:19]     [exit] production kernel is back; lab is releasable
