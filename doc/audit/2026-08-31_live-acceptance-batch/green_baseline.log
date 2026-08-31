@@ -1,0 +1,8 @@
+=== T-11 FORCE-GREEN (legal rule, existing port 2) : dpid=1 ipv4_dst=10.0.0.231 port=2 priority=911 ===
+pre-POST: target rows=0, table total=40
+POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  t= 0.016  ABSENT   (table total=40)
+  t= 0.272  REQUEST-SHAPE(phantom-signature)   (table total=41)
+       first sighting entry: {"actions": [{"port": 2, "type": "OUTPUT"}], "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.231"}, "priority": 911, "table_id": 0}
+  t= 7.630  POLLED-SHAPE(real)   (table total=41)
+RESULT: first_sighting=t=0.272 s

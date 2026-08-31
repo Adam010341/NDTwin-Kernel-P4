@@ -1,0 +1,5 @@
+=== T-11 no-race half + A-7 P5 (nonexistent port 999) : dpid=1 ipv4_dst=10.0.0.241 port=999 priority=915 ===
+pre-POST: target rows=0, table total=41
+POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  t= 0.005  ABSENT   (table total=41)
+RESULT: first_sighting=never (absent for the whole 25.0s)

@@ -1,0 +1,7 @@
+=== T-11 FORCE-RED (pre-T-11 binary a40e04ce, same port-999 recipe) : dpid=1 ipv4_dst=10.0.0.241 port=999 priority=915 ===
+pre-POST: target rows=0, table total=40
+POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+  t= 0.005  REQUEST-SHAPE(phantom-signature)   (table total=41)
+       first sighting entry: {"actions": [{"port": 999, "type": "OUTPUT"}], "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.241"}, "priority": 915, "table_id": 0}
+  t= 1.274  ABSENT   (table total=40)
+RESULT: first_sighting=t=0.005 s
