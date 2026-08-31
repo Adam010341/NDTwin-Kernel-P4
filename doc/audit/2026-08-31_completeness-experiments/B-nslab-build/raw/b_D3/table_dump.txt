@@ -1,0 +1,20 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+TABLE ENTRIES
+**********
+Dumping entry 0x0
+Match key:
+* ipv4.dstAddr        : LPM       0a000001/32
+Action entry: MyIngress.ipv4_forward - 01, 01
+**********
+Dumping entry 0x1
+Match key:
+* ipv4.dstAddr        : LPM       0a000002/32
+Action entry: MyIngress.ipv4_forward - 02, 02
+==========
+Dumping default entry
+Action entry: MyIngress.send_to_cpu - 
+==========
+RuntimeCmd: 
