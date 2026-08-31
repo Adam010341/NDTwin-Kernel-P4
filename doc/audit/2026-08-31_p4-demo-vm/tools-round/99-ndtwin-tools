@@ -1,0 +1,19 @@
+#!/bin/sh
+# Shown at every login. Kept to the one fact that costs time if you do not have it: two of the
+# six tools exit instantly unless they are started as root with NFS already mounted, and that
+# failure is indistinguishable from a broken binary.
+#
+# Everything else lives in the README rather than here -- a motd that scrolls is a motd nobody
+# reads, and this one has to survive being read once.
+#
+# [Co-developed with claude code -- Adam]
+printf '\n'
+printf '  NDTwin P4/BMv2 demo VM\n'
+printf '  ----------------------\n'
+printf '  energy_saving_app and simulation_platform_manager mount NFS at startup and\n'
+printf '  ABORT if it fails. Running them directly prints "Mount NFS Failed" and exits.\n'
+printf '  Use the units instead:   sudo systemctl start ndtwin-esa ndtwin-spm\n'
+printf '  (installed, not enabled -- this image does not open ports without you saying so)\n'
+printf '\n'
+printf '  Full notes: ~/Desktop/README-NDTwin-tools.md    Versions: ~/Desktop/PROVENANCE.txt\n'
+printf '\n'

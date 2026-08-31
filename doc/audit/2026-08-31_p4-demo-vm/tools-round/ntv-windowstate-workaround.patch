@@ -1,0 +1,64 @@
+diff --git a/src/main/java/org/example/demo2/InfoDialog.java b/src/main/java/org/example/demo2/InfoDialog.java
+index db43dda..0c4840e 100644
+--- a/src/main/java/org/example/demo2/InfoDialog.java
++++ b/src/main/java/org/example/demo2/InfoDialog.java
+@@ -978,7 +978,8 @@ public class InfoDialog {
+             primary = ownerStage;
+             secondary = null;
+         }
+-        WindowStateRestore.runPreservingStageState(primary, secondary, action);
++        // WindowStateRestore.runPreservingStageState(primary, secondary, action);
++        action.run();
+     }
+ 
+     // Open a small dialog to configure Top-K mode via NDT API
+diff --git a/src/main/java/org/example/demo2/SideBar.java b/src/main/java/org/example/demo2/SideBar.java
+index 82ab7ef..7b05396 100644
+--- a/src/main/java/org/example/demo2/SideBar.java
++++ b/src/main/java/org/example/demo2/SideBar.java
+@@ -537,7 +537,8 @@ public class SideBar extends VBox {
+             return null;
+         });
+ 
+-        WindowStateRestore.runPreservingStageState(primaryStage, null, dialog::showAndWait);
++        // WindowStateRestore.runPreservingStageState(primaryStage, null, dialog::showAndWait);
++        dialog.showAndWait();
+     }
+     
+     private javafx.stage.Stage pathFlickerStage = null;
+@@ -864,7 +865,7 @@ public class SideBar extends VBox {
+             return null;
+         });
+         
+-        WindowStateRestore.runPreservingStageState(primaryStage, null, () ->
++        // WindowStateRestore.runPreservingStageState(primaryStage, null, () ->
+                 dialog.showAndWait().ifPresent(k -> {
+             if (k >= flows.size()) {
+                 // Show all flows: disable API Top-K mode and canvas Top-K filter
+@@ -882,7 +883,7 @@ public class SideBar extends VBox {
+                 applyTopKFlows(k);
+                 System.out.println("[SIDEBAR] Applied Top-K flows filter: K=" + k);
+             }
+-        }));
++        });
+     }
+     
+     private void applyTopKFlows(int k) {
+@@ -977,7 +978,7 @@ public class SideBar extends VBox {
+     }
+     
+     private void showAlert(String title, String message) {
+-        WindowStateRestore.runPreservingStageState(primaryStage, null, () -> {
++        // WindowStateRestore.runPreservingStageState(primaryStage, null, () -> {
+             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+             alert.setTitle(title);
+             alert.setHeaderText(null);
+@@ -986,7 +987,7 @@ public class SideBar extends VBox {
+                 alert.initOwner(primaryStage);
+             }
+             alert.showAndWait();
+-        });
++        // });
+     }
+     
+     private void addLegend() {

@@ -1,0 +1,37 @@
+
+--------------------------------------------------------------------------------
+The kernel tree is recorded separately
+--------------------------------------------------------------------------------
+
+~/Desktop/NDTwin-Kernel also had its .git removed, before this round and by someone
+else, and its provenance lives in its own file:
+
+    ~/Desktop/NDTwin-Kernel/PROVENANCE.txt
+
+That file predates the four application trees above and does not mention them. If you
+are checking what this image is built from, you need both files: this one for the
+applications, that one for the kernel.
+
+--------------------------------------------------------------------------------
+What was verified on this image, and what was not
+--------------------------------------------------------------------------------
+
+Verified, on the packaged artefact itself, not on a working copy:
+
+  * each of the four trees builds from source here (the pre-built binaries that came
+    with two of the clones were deleted first, so what you have was compiled here)
+  * each program starts: energy_saving_app serves :8001, simulation_platform_manager
+    serves :9000, request_manager serves :8002, the Visualizer opens its window under
+    a display, Traffic-engineering-App.py reaches its menu, and
+    energy_saving_simulator runs to completion on an input file
+  * a cold boot of this image listens on nothing but sshd and the local DNS stub
+  * the P4/BMv2 fabric still comes up and passes traffic: 10 switches, 12 paths,
+    40 edges, pingall 0% dropped (12/12)
+
+NOT verified, and stated because the difference matters:
+
+  * that these applications talk to THIS kernel's API. The four trees are from
+    2026-04-20; the kernel in this image is from 2026-08-28. "Builds and starts" is
+    not "interoperates", and the second was not tested.
+
+[Co-developed with claude code -- Adam]
