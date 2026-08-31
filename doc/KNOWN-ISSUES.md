@@ -1602,6 +1602,8 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 - 🔴 **它們不知道彼此存在**：本輪已經有 `foreign_iperf3_guard`（`lib_e.sh:278`，三處呼叫）
   在每格開始前擋外來的 iperf3——**專案為其中一個方向做了守衛，另一個方向的洞留在另一個檔裡。**
   ⚠️ 而那個守衛是**開跑前**的一次檢查：**窗中途才出現**的同名行程，會被 `_is_fabric` 歸成自己人。
+  🔑 **這與下一則的「壽命盲」是同一條時間軸上的兩個洞**：守衛只看窗**之前**，
+  CPU 閘門的差分只看**兩端都在**的行程 ⇒ **窗內起訖的東西，兩支都看不到。兩則要互相指。**
 - **怎麼找這一類（比修這一則重要）**：不是讀單支碼，是**對字面常數做全域搜尋，看它被幾種語意用過**。
   同族：`ratio_gate.py:157` 的 `return 0 if verdict=="GREEN" else 1`（**一個值兼「判定」與「執行成敗」**）、
   以及 `comm` 15 字元截斷（同一個名字在 `ps`／`pgrep`／`/proc` 三處有三種長度）。
@@ -1666,8 +1668,11 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
   - `e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94` 全機**兩份**：
     `build/bin/ndtwin_kernel`（活的那顆）與
     `.test_run/binaries/e-round/ndtwin_kernel.production-backup`（本輪建立的備份）。
-  - **兩份都在同一顆碟、都被 `.gitignore` 排除**（`:21` `.test_run/`），
-    `git ls-files .test_run/` ⇒ **0 個檔在版控裡**。
+  - **兩份都在同一個檔案系統**——`stat` 兩者皆 `dev=66309`（`/dev/nvme0n1p5` 掛在 `/`）
+    ⇒ **對磁碟故障零冗餘**。兩份都被 `.gitignore` 排除，而且是**兩條不同的規則各蓋一份**
+    （`:9` `build/`、`:21` `.test_run/`），`git ls-files .test_run/` ⇒ **0 個檔在版控裡**。
+  - 🔴 **而它們住的兩個目錄，正是任何人清磁碟時最先刪的兩個**：`build/`（重編就有）與
+    `.test_run/`（看起來像暫存）。**不是「有兩份所以還好」，是兩份都在慣例上可拋的位置。**
   - 🔴 **它沒有 `.provenance` 檔。** 同一個目錄裡，本輪為了**丟棄用的**兩個實驗臂
     （`recompute-1khz` / `recompute-1hz`）各有一份**建置期**寫下的完整 provenance：
     commit、source 檔 sha、編譯器版本、`CMAKE_BUILD_TYPE`、旗標、gtest 結果、`readelf -d` 的 RUNPATH。
