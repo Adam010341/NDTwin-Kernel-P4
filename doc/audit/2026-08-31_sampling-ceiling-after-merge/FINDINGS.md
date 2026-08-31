@@ -934,3 +934,74 @@ without noticing; a caller can use `foreign_cores` as a total forever.
 ⇒ **An artefact must carry its own scope declaration.** Documentation of scope is not a substitute:
 the artefact gets copied, quoted, tabulated and cross-referenced, and **the scope has to survive
 every one of those moves.** A comment survives none of them.
+
+---
+
+## F-24. 🔴 The abort destroyed the only record of why it aborted — and the branch that would
+## have preserved it is wired to the case that does not need it
+
+Leg 1 aborted at **02:10:58** on cell `e_p_0016_1`, 25 of 48 cells in:
+
+```
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+[02:10:58]     fabric short of 10          ← 200 seconds in between.  No error. No output at all.
+[02:10:58] 🔴 ABORT(bringup): e_p_0016_1: the fabric would not come up
+```
+
+`bringup` (`lib_e.sh:603-604`) polls 40 × 5 s for `bmv2: 10` and returns 1 on timeout. **`fabric
+short of 10` is the symptom the poller can see, not the reason.** `stack up.` never printed, so the
+failure was at the *topology* stage — before the kernel and proxy stage — and `$LAB topo-start`
+returns as soon as it has started a tmux session. **Everything the topology says about its own
+startup goes to that tmux pane. None of it reaches `$LOG`.**
+
+Then `abort()` ran `restore_production` → `teardown` → the tmux session is gone.
+
+> 🔴 **The cleanup that destroyed the evidence is the correct action.** It put the production
+> kernel, the P4 constants and the compiled artefact back, verified them, and left the lab safe to
+> hand over. Nothing here is "the wrong thing happened" — **it is two correct actions in the wrong
+> order.**
+
+Two independent barriers, either of which alone would have been fatal: the session was destroyed,
+**and** `sudo -n tmux` is not passwordless on this machine, so this session could not have read the
+pane even had it survived.
+
+### 🔑 The mechanism to preserve the scene already exists, and is attached to the wrong case
+
+`abort()` (`lib_e.sh:72-77`):
+
+```bash
+if [[ -n "${FORCED_ABORT:-}" ]]; then
+    say "🔴 (FORCED_ABORT set: this abort is an injected test; the production restore is NOT
+    say "🔴  run, and the fabric is left standing for the gates that follow.)"
+else
+    restore_production || say "🔴 and the production restore ALSO failed -- check before release"
+fi
+```
+
+**An *injected* abort leaves the scene standing. A *real* abort tears it down.** That is exactly
+inverted: an injected abort's cause is known by construction — it was chosen — while a real abort's
+cause is the entire reason anyone is looking. The flag was added for a good reason (F-12: forced
+aborts were tearing down live fabrics during gate tests) and it accidentally created the right
+behaviour for the wrong half of the population.
+
+### Why the contamination questions were answerable and this one is not
+
+The CPU gate writes per-cell JSON to `raw/cell_cpu/` **as it goes**, which is the only reason the
+foreign-load questions could be settled hours later from same-machine data. `bringup` writes
+nothing but a one-line verdict. ⇒ **Continuous accounting to disk is not a nicety of the CPU gate;
+it is the difference between a question that can be answered after the fact and one that cannot.**
+
+### Repair, registered for the next round (not in-round — the run has ended, but the rule stands)
+
+1. **Capture the pane before teardown**: `tmux -L ndtwinlab capture-pane -p -S - -t topo` into the
+   round directory, in `abort()` *before* `restore_production`, and on the bringup timeout path.
+2. **Or remove the dependency**: have `topo-start` tee to a file, so the reason exists on disk
+   whether or not anyone thinks to capture it.
+3. **Invert the `FORCED_ABORT` asymmetry** — or rather, split it: a real abort should preserve
+   *diagnostics* while still restoring *production state*. Those are not in conflict; the current
+   code just does not separate them.
+
+⚠️ **In-round consequence, stated plainly: this failure has a symptom and no mechanism.** No
+resource cause was found — disk 9.4 G, `load1` 0.14, zero orphan bmv2/veth/netns, 25 successful
+bringups immediately before. Any decision about resuming has to be taken **without knowing why the
+26th bringup failed**, and that limitation is a consequence of this finding, not an aside to it.
