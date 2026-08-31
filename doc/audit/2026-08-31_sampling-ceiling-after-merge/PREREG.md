@@ -1,9 +1,11 @@
-# PREREG E — 取樣率天花板在 batching 與 1 kHz→1 Hz 之後有沒有抬高（v0.2）
+# PREREG E — 取樣率天花板在 batching 與 1 kHz→1 Hz 之後有沒有抬高（v1.1）
 
 [Co-developed with claude code -- Adam]
 
-**狀態**：🏁 **v1.0-stamped（2026-08-31，auditor）**。
-基礎＝reviewer 線定點複查（四處＋三性質皆讀碼驗證），兩處方向性文字更正
+**狀態**：🏁 **v1.1-stamped（2026-08-31，auditor 蓋章於 `b366a9a`）**；
+v1.0 章（見 **§8**）**仍有效且一字未動**——v1.1 只更正事實與加註限制，未動比較方法、門檻或判準。
+
+v1.0 的基礎（保留）＝reviewer 線定點複查（四處＋三性質皆讀碼驗證），兩處方向性文字更正
 （F-1 判準件數與碼不符、F-2 上下界寫反）已於蓋章的同一顆 commit 落定。
 **設計者不自蓋；本章由 auditor 蓋。**
 
@@ -664,3 +666,22 @@ compare 1.06  vs 1.02   -> verdict=UNINTERPRETABLE ratio=1.04 (<10)
   於 `20:45:56` 在**真正的呼叫點**（`batch_size confirmed at the emitter: 1` 之後，即原 bug 發作處）
   中止，rc=9，並完成 `restore_production`（還原至 `e3bad23c…`）
   ⇒ force **抵達受測的動作**，不只抵達函式。落盤：`gates_e.forcered_udp.log`。
+- 🏁 **v1.1-stamped（2026-08-31，auditor 蓋章）**——照三條件記錄：
+  **改了什麼**：蓋章。認證的狀態＝**`b366a9a`**（v1.1 由 `83ffda7`＋`b366a9a` 兩顆構成，
+  中間隔著他人的 `22f2b92`；**可引用性由章指名 sha 提供，不由 commit 數目提供**——
+  在活著的共用 worktree 上 squash 會搬動別人的 commit，故不 squash）。
+  **為什麼**：三條件成立——①ladder 未跑＝本輪零量測資料 ②理由只引既往輪次的檔名、
+  `cell_verdict.py:51` 的碼、以及那條已不存在的直譯器路徑，皆非本輪產出
+  ③只增不減，且兩處方向皆為收窄（cell 名更正使對帳指向真資料而非 `NO-DATA`；
+  parse 更正使 G1 **變得能夠失敗**）。
+  **誰在什麼時候**：auditor 裁決並親驗十二項（祖先關係／v1.0 章文未動／§6 兩處落點／
+  parse 表達式逐字／斷言／非 command-substitution／兩呼叫點共用／force hook 位置／
+  `EVIDENCE-BASIS` 讀取器／force 謄本 15/15 與腳本字面值 diff 為空）；
+  撰稿＝腳本作者。設計者不自蓋。2026-08-31，**一格 ladder 都還沒跑**。
+  📌 雙向 force 四方向全進 transcript：unit GREEN `3045085` rc=0／unit RED `InDatagrams` rc=9／
+  unit RED-2 空白 rc=9／in-context RED rc=9（`gates_e.forcered_udp.log`）；
+  in-context GREEN 由接下來那一跑的 G1 承擔。
+  ⚠️ **撰稿人對章文的一處更正**：auditor 給的章文兩次寫「§7」（狀態行的「v1.0 章（見 §7）」
+  與「§7 的 v1.1 條目末尾追加」），但**修訂記錄是 §8**，§7 是「措辭紅線」。
+  已改為 §8 落章。**只動指標、未動章文的任何實質內容**——一個指向錯誤章節的交叉引用，
+  正是本輪 §6 那條（`t008` vs `t008_poll`）的同族：**指標錯了會把讀者送到一個讀起來很合理的錯地方。**
