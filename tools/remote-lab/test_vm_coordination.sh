@@ -571,6 +571,49 @@ else
     fail=$((fail+1))
 fi
 
+# 🔴 A qemu whose disk this parser cannot read must be REPORTED, not skipped. The loop
+# used to do `[ -n "$qd" ] || continue`, so an unparseable one vanished -- and then the
+# "(none -- every running qemu is already listed above)" line asserted that nothing was
+# missing. A gap in the parser became a completeness claim, which is the exact shape
+# this whole section exists to prevent, sitting one line downstream of the fix for it.
+# (Those lines came from the reviewer session; this case is the test they did not have.)
+bash -c 'sleep 30; :' qemu-system-x86_64 -m 512 -smp 1 \
+    -cdrom "$T/home/nodisk.iso" -netdev user,id=n0 &
+NODK=$!
+# Wait for the stand-in to be visible in /proc rather than sleeping a guessed interval.
+# A fixed sleep made this section fail once out of six runs, and an intermittently red
+# gate is worse than no gate: it teaches people to re-run until it goes green.
+for _ in $(seq 1 40); do [ -r "/proc/$NODK/cmdline" ] && break; sleep 0.1; done
+VOUT5=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$VOUT5" | grep -q "pid $NODK" && printf '%s' "$VOUT5" | grep -q 'not parseable'; then
+    echo "  ✅ RED-capable -- an unparseable qemu is reported with its argv, not skipped"
+    pass=$((pass+1))
+else
+    echo "  🔴 a qemu the parser cannot read disappears from the survey"; fail=$((fail+1))
+fi
+# Reporting the gap must also SUPPRESS the all-clear line -- otherwise it states the
+# gap and claims completeness in the same breath.
+# 🔑 Asserted structurally, not from output. On this laptop something is essentially
+# always outside the glob (Claude's own VM), so `unlisted` is set regardless and an
+# output-based check here could never go red: decoration, not a check. It was also the
+# one case that raced. Assert on the branch itself instead.
+UNPARSE_BLOCK=$(awk '/if \[ -z "\$qd" \]; then/{f=1} f{print} f&&/^ *fi$/{exit}' "$VM")
+if printf '%s' "$UNPARSE_BLOCK" | grep -q 'unlisted=1'; then
+    echo "  ✅ RED-capable -- the unparseable branch sets unlisted, withholding the all-clear"
+    pass=$((pass+1))
+else
+    echo "  🔴 it can report a gap and still print 'every running qemu is already listed'"
+    fail=$((fail+1))
+fi
+if [ -n "$UNPARSE_BLOCK" ]; then
+    echo "  ✅ CONTROL -- that block parser found the branch (else the check above is vacuous)"
+    pass=$((pass+1))
+else
+    echo "  🔴 CONTROL FAILED -- no unparseable branch found; previous check is vacuous"
+    fail=$((fail+1))
+fi
+kill "$NODK" 2>/dev/null; wait "$NODK" 2>/dev/null
+
 # 🔑 The form this script never emits must be found too -- that is the whole point of
 # the third stand-in. Without this case the parser can go back to matching only its
 # author's own output and every other case here stays green.
