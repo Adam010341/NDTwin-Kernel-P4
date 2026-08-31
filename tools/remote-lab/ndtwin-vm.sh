@@ -167,6 +167,37 @@ qemu_disk() {  # qemu_disk <pid> -> its WRITABLE disk path (skips the read-only 
         }'
 }
 
+addr_is_loopback() {  # addr_is_loopback <addr> -- rc=0 if nothing off-box can reach it
+    # 🔴 The first version compared against the two literals this script writes,
+    # "127.0.0.1" and "::1". Deployed, it immediately flagged systemd-resolved's
+    # 127.0.0.53%lo and 127.0.0.54 as exposed. The whole of 127.0.0.0/8 is loopback.
+    # A marker that fires on ordinary system state is one people learn to scroll past,
+    # which costs exactly the cases it was added for.
+    # ⚠️ And the unit test had ENCODED the bug: to avoid opening a real exposed port the
+    # fixture bound 127.0.0.2 and asserted it was flagged -- a fixture chosen for safety
+    # turned a wrong classification into a requirement. Classification is a pure function
+    # of a string, so it is table-tested below instead of via sockets.
+    case "${1%\%*}" in                       # drop any %iface scope suffix
+        127.*|::1|'[::1]'|localhost) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+listener_level() {  # listener_level <addr:port> <vm-ports…> -> one of three words
+    # Kept a pure function of strings so it can be table-tested without opening a
+    # socket. Testing an exposure detector must not create an exposure, and the only
+    # fixture that reaches the interesting branch is a genuinely exposed port.
+    local ap="$1"; shift
+    local port="${ap##*:}" addr="${ap%:*}"
+    addr_is_loopback "$addr" && { printf 'loopback'; return; }
+    # 🔑 Two levels, not one. A lab VM forwarding off-box is what this tool is about;
+    # the host's own sshd on 0.0.0.0:22 is expected and always there. Marking both the
+    # same way is how a marker stops being read -- and then it is absent exactly when
+    # it matters.
+    case " $* " in *" $port "*) printf 'vm-exposed'; return ;; esac
+    printf 'host-service'
+}
+
 hostfwd_of() {  # hostfwd_of <pid> -> "<bind-addr> <port>", rc=1 if it has no hostfwd
     # 🔴 The first version matched `hostfwd=tcp:127\.0\.0\.1:` -- the literal string THIS
     # script writes. In qemu the host address is OPTIONAL, and omitting it binds ALL
@@ -649,7 +680,7 @@ $(printf '%s\n' "$argv" | sed 's/^/     /')"
         say "     for it. Set it by hand if you know it. The argv line was:"
         printf '%s\n' "$argv" | grep -i 'netdev\|hostfwd' | sed 's/^/       /' \
             || say "       (no -netdev at all)"
-    elif [ "$abind" != "127.0.0.1" ] && [ "$abind" != "::1" ]; then
+    elif ! addr_is_loopback "$abind"; then
         say "  🔴 THIS VM'S SSH FORWARD IS ON $abind:$aport -- NOT loopback."
         say "     qemu binds every interface when hostfwd's host address is omitted"
         say "     (\`hostfwd=tcp::$aport-\`). On a lab network that exposes the guest login."
@@ -754,11 +785,8 @@ vms)
         [ -f "$qdir/CONFIG" ] || printf '    %-20s 🔴 no CONFIG -- work point recorded nowhere but this argv: %s\n' \
             "" "$(tr '\0' '\n' < "/proc/$q/cmdline" 2>/dev/null | awk '/^-smp$/{getline;c=$0} /^-m$/{getline;m=$0} END{print c" vCPU / "m" MiB"}')"
         if fw=$(hostfwd_of "$q"); then
-            fa=${fw% *}
-            case "$fa" in
-                127.0.0.1|::1) ;;
-                *) printf '    %-20s 🔴 ssh forward on %s -- NOT loopback, the guest login is reachable off-box\n' "" "$fw" ;;
-            esac
+            addr_is_loopback "${fw% *}" \
+                || printf '    %-20s 🔴 ssh forward on %s -- NOT loopback, the guest login is reachable off-box\n' "" "$fw"
         fi
         printf '    %-20s ⇒ register it without restarting:  NDT_OWNER=<you> %s adopt %s\n' "" "$0" "$q"
     done
@@ -767,12 +795,11 @@ vms)
     for d in "$HOME"/ndtwin-vm*/; do
         [ -d "$d" ] && p2=$(dir_pid "${d%/}") || continue
         fw=$(hostfwd_of "$p2") || continue
-        case "${fw% *}" in
-            127.0.0.1|::1) ;;
-            *) unlisted=1
-               printf '    pid %-7s %-12s 🔴 ssh forward on %s -- NOT loopback\n' \
-                   "$p2" "$(owner_of "${d%/}")" "$fw" ;;
-        esac
+        if ! addr_is_loopback "${fw% *}"; then
+            unlisted=1
+            printf '    pid %-7s %-12s 🔴 ssh forward on %s -- NOT loopback\n' \
+                "$p2" "$(owner_of "${d%/}")" "$fw"
+        fi
     done
     [ "$unlisted" = 1 ] || say "    (none -- every running qemu is already listed above)"
     say ""
@@ -781,10 +808,15 @@ vms)
     # "ground truth" list entirely. The one binding that needed showing was the one
     # binding this could not show. Print them all; mark the ones that are not loopback.
     say "  ports actually listening (the ground truth, not the registry):"
+    # Two levels on purpose. 🔴 is reserved for a port a lab VM is forwarding, which is
+    # what this tool is about; the host's own sshd on 0.0.0.0:22 is expected and gets a
+    # plain note. Flagging both the same way is how a marker stops being read.
+    vmports=$(for q in $(qemu_pids); do f=$(hostfwd_of "$q") && printf '%s\n' "${f#* }"; done)
     ss -tlnH 2>/dev/null | awk '{print $4}' | sort -u | while read -r a; do
-        case "$a" in
-            127.0.0.1:*|'[::1]:'*) printf '    %s\n' "$a" ;;
-            *)                     printf '    %s   🔴 not loopback\n' "$a" ;;
+        case "$(listener_level "$a" $vmports)" in
+            loopback)     printf '    %s\n' "$a" ;;
+            vm-exposed)   printf '    %s   🔴 a lab VM is forwarding this OFF-BOX\n' "$a" ;;
+            host-service) printf '    %s   (not loopback -- host service, not a lab VM)\n' "$a" ;;
         esac
     done
     ss -tlnH >/dev/null 2>&1 || say "    (ss unavailable)"

@@ -749,14 +749,35 @@ if ! printf '%s' "$NOUT2" | grep -q 'NOT loopback' \
 else
     echo "  🔴 the exposure warning does not discriminate"; fail=$((fail+1))
 fi
-# The listening list itself had the same defect and no test: it used to
-# `grep '^ *127.0.0.1:'`, so a socket bound anywhere else was filtered out of the
-# section labelled "the ground truth". The one binding worth showing was the one it
-# could not show.
-# 🔑 The fixture binds 127.0.0.2 ON PURPOSE. That is not 127.0.0.1, so it exercises the
-# non-loopback arm -- while staying inside the loopback range, so this test never opens
-# a port anything off this machine can reach. Testing an exposure detector must not
-# create an exposure.
+# The listening list had the same defect and no test: it used to grep
+# '^ *127.0.0.1:', so a socket bound anywhere else was filtered out of the section
+# titled "the ground truth". The one binding worth seeing was the one it could not show.
+#
+# 🔴 The FIRST version of this test encoded a bug. To avoid opening a genuinely exposed
+# port it bound 127.0.0.2 and asserted that it was flagged "not loopback" -- so a fixture
+# chosen for safety turned a wrong classification into a requirement. Deployed, the tool
+# then flagged systemd-resolved's 127.0.0.53%lo and 127.0.0.54: all of 127.0.0.0/8 is
+# loopback. A marker that fires on ordinary system state is one people learn to skip.
+# ⇒ Classification is a pure function of a string. Table-test it -- no sockets, no
+#   exposure, and every case the socket approach could not reach.
+CLASSIFY_OK=1
+for a in 127.0.0.1 127.0.0.2 127.0.0.53%lo 127.0.0.54 ::1 '[::1]' '::1%lo' '[::1]%lo' localhost; do
+    (source_fn() { :; }; . /dev/stdin <<< "$(sed -n '/^addr_is_loopback()/,/^}$/p' "$VM")"
+     addr_is_loopback "$a") || { echo "     🔴 $a classified as exposed"; CLASSIFY_OK=0; }
+done
+for a in 0.0.0.0 '[::]' 10.10.10.1 172.25.197.100 192.168.1.5 '' ; do
+    (. /dev/stdin <<< "$(sed -n '/^addr_is_loopback()/,/^}$/p' "$VM")"
+     addr_is_loopback "$a") && { echo "     🔴 $a classified as loopback"; CLASSIFY_OK=0; }
+done
+if [ "$CLASSIFY_OK" = 1 ]; then
+    echo "  ✅ RED-capable -- 127.0.0.0/8 and ::1 are loopback; 0.0.0.0 and LAN are not"
+    pass=$((pass+1))
+else
+    echo "  🔴 the loopback classifier is wrong on at least one address above"; fail=$((fail+1))
+fi
+
+# Integration: a real socket off 127.0.0.1 must still be LISTED (the old grep dropped
+# it) -- and, being inside 127/8, must NOT be flagged.
 python3 -c 'import socket,time
 s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 s.bind(("127.0.0.2",34571)); s.listen(1); time.sleep(20)' &
@@ -769,17 +790,27 @@ if printf '%s' "$LOUT" | grep -q '127.0.0.2:34571'; then
 else
     echo "  🔴 the 'ground truth' list filters out every address but its own"; fail=$((fail+1))
 fi
-if printf '%s' "$LOUT" | grep '127.0.0.2:34571' | grep -q 'not loopback'; then
-    echo "  ✅ RED-capable -- and it is marked, not merely listed"; pass=$((pass+1))
+if ! printf '%s' "$LOUT" | grep '127.0.0.2:34571' | grep -q 'not loopback'; then
+    echo "  ✅ GREEN-- and 127/8 is not mislabelled as exposed"; pass=$((pass+1))
 else
-    echo "  🔴 listed without the marker -- indistinguishable from a loopback bind"
+    echo "  🔴 127.0.0.2 flagged as exposed -- the marker fires on ordinary system state"
     fail=$((fail+1))
 fi
-# GREEN: a real loopback bind must NOT be marked, or the marker carries no information.
-if printf '%s' "$LOUT" | grep -E '^ +127\.0\.0\.1:' | grep -qv 'not loopback'; then
-    echo "  ✅ GREEN-- genuine loopback binds are left unmarked"; pass=$((pass+1))
+# 🔑 The two levels, table-tested for the same reason: the only fixture that reaches
+# the interesting branch is a genuinely exposed port, and this test refuses to open one.
+lvl() { (. /dev/stdin <<< "$(sed -n '/^addr_is_loopback()/,/^}$/p;/^listener_level()/,/^}$/p' "$VM")"
+        listener_level "$1" 2291 2223); }
+LVL_OK=1
+[ "$(lvl 0.0.0.0:2291)"   = vm-exposed   ] || { echo "     🔴 VM forward off-box not vm-exposed"; LVL_OK=0; }
+[ "$(lvl 0.0.0.0:22)"     = host-service ] || { echo "     🔴 host sshd flagged as a VM"; LVL_OK=0; }
+[ "$(lvl 127.0.0.1:2223)" = loopback     ] || { echo "     🔴 loopback VM port not loopback"; LVL_OK=0; }
+[ "$(lvl '[::]:22')"      = host-service ] || { echo "     🔴 IPv6 wildcard misclassified"; LVL_OK=0; }
+[ "$(lvl 127.0.0.53%lo:53)" = loopback   ] || { echo "     🔴 resolved's stub flagged"; LVL_OK=0; }
+if [ "$LVL_OK" = 1 ]; then
+    echo "  ✅ RED-capable -- a VM's off-box forward and the host's own sshd are distinguished"
+    pass=$((pass+1))
 else
-    echo "  🔴 the marker does not discriminate: everything is flagged"; fail=$((fail+1))
+    echo "  🔴 the two levels do not discriminate"; fail=$((fail+1))
 fi
 kill "$ODDB" 2>/dev/null; wait "$ODDB" 2>/dev/null
 kill "$EXPO" "$NOFW" 2>/dev/null; wait "$EXPO" "$NOFW" 2>/dev/null
