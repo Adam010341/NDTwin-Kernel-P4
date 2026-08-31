@@ -46,8 +46,13 @@ Adam 2026-08-29 裁定**延後**，理由是當時三個 session 在同一個 wo
 
 - **狀態**：~~報告前不改碼，用操作繞過（2026-08-19 裁定）~~ ⇒ 2026-08-30 Adam 改裁「修」⇒
   **修法已落（`98e890a`，2026-08-31 併入）並過變異閘**（A-1 五顆全殺、對照顆 13 輪全綠、46/46）。
-  **live 配方未跑**（sleep 3／sleep 20 對照，`11_behavior-evidence.md` §5——依本包自訂條款，
-  live 跑綠前不改 RESOLVED）。落地前 15 秒繞法仍有效於未帶此修的 build。
+  **live 配方 2026-08-31 已跑**（`2026-08-31_live-recipes/`）：arm1 窗內 power-on **PASS**
+  （2.160 s、count 9→10、kernel.log 有真實 `switch s1 -> on` 行——不是 0.01 s 假成功）、
+  arm2 sleep-20 對照 **PASS**（3.046 s；第一輪誤判是取樣太早的儀器假象，隔離重跑正名）；
+  ⚠️ arm3（I1/I5 重複 power-on）**INCONCLUSIVE**——量測當下交換機是關的，而不變式是關於
+  開著的交換機，觀測不具鑑別力；連同 ping 子句排入 F-5 新輪重跑。**arm3 綠前不改 RESOLVED。**
+  （原配方三缺陷已更正入 §5：port 8081→8000、`switch_ip`→`ip`、pgrep 15 字元截斷儀器。）
+  落地前 15 秒繞法仍有效於未帶此修的 build。
   **本條在該檔 §4 的變異測試跑綠之前不得改標 RESOLVED**（A-3 就是修好後被掛 OPEN 八天的反例）
 - **平面**：P4
 - **失效方向**：樂觀 ＋ 靜默
@@ -270,9 +275,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### A-4e 🔴 `modify_flow_entry` 忽略 `priority`，會改到別人的規則而且傷害存活
 
-- **狀態**：round 6 發現 ⇒ **修法已落（`c46c51e`，2026-08-31 併入）並過變異閘**（A-4e 四顆全殺、46/46）。
-  阻斷前提已靜態解除：裝機 ryu-env 的 `ofctl_rest.py` **有** `/stats/flowentry/modify_strict`
-  路由（07-29 指南的路由清單不全）。**live 讀回真表驗證未跑**（`11_behavior-evidence.md` §5）。
+- **狀態**：🟢 **RESOLVED（2026-08-31）**——修法 `c46c51e`＋變異閘（四顆全殺、46/46）＋
+  **live 雙驗**：§3.3 阻斷檢查對活 Ryu 回 **200**（路由存在，07-29 指南清單過時）；§5.2 讀回
+  真表＝prio-100 規則 `OUTPUT:1→3` 而 prio-10 規則**原封**（`duration_sec` 連續 8.0→16.0，
+  被重寫會歸零——正是「同一筆、counters 沒動」那把尺）。
 - **平面**：兩者共用同一份 C++（🔄 08-30 更正：`P4RoutingStrategy` 沒有 override `modifyAnEntry`，
   分岔在 proxy 端只服務 `modify`——修法因此帶 `strictModifyPath()` override 保 P4 不變 404）
   ⚠️ **08-30 讀碼更正：「P4 走不同路徑」只在 proxy 那一端成立。**
@@ -318,9 +324,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### A-5 ~~每次 kernel 重啟都會截斷前一輪的 log~~ —— **已修（2026-08-30 更正）**
 
-- **狀態**：🏁 **主機制已修，本條原文已過期**。深度 2 增強已落（`8e7e3b0`，2026-08-31 併入）
-  並過變異閘（M-6 殺且四條 depth-1 舊檢查全綠、M-7 恰 6 紅）；三世代 live 配方（`10_seatbelt-evidence.md`
-  §6）未跑。
+- **狀態**：🟢 **RESOLVED（2026-08-31，全鏈收齊）**——主機制 `b2e5b04`；深度 2 增強 `8e7e3b0`
+  ＋變異閘（M-6 殺且四條 depth-1 舊檢查全綠、M-7 恰 6 紅）＋**三世代 live PASS**：兩次重啟後
+  `.prev2` 首行與跑到一半即時擷取的 era-1 首行 `cmp` **逐位元組相同**、種入的 era-0 誘餌被
+  逐出＝深度確實封頂 3、無 `.prev3`。
   ⚠️ **本條在 `b2e5b04` 之後仍被留成 OPEN，2026-08-30 才發現**——
   派工單據此指示去修 `src/utils/Logger.cpp`，那裡**本來就是 append**
   （`basic_file_sink_mt("netdt.log", /*truncate=*/false)`），**假設整個是錯的**
@@ -601,10 +608,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-2c P4 proxy 對 CIDR 形式的 `ipv4_dst` 回 500（未處理的 `OSError`）
 
-- **狀態**：**修法已落並過變異閘（2026-08-31：M-1〜M-5 全殺、套件 49/49＋8/8）**；
-  對活 proxy 的 live 400 驗證（含 accept-path 200 對照）**未跑**，配方在
-  `doc/audit/2026-08-30_known-issues-wave/10_seatbelt-evidence.md` §6，待下一個 claimed fabric。
-  round 4 發現；2026-08-30 讀碼重驗成立（`1208d22`）
+- **狀態**：🟢 **RESOLVED（2026-08-31）**——修法＋變異閘（M-1〜M-5 全殺、49/49＋8/8）＋
+  **live 四驗全 PASS**：CIDR ⇒ 400、body 引呼叫端原字串 `"10.0.0.5/32"`（剝去完整出現後
+  **零個裸替換值**）、含「No rule was installed」；accept-path 對照 200；B-2c-b（數值欄位仍
+  500）照註冊仍開、只記錄未修。round 4 發現；2026-08-30 讀碼重驗（`1208d22`）
 - **平面**：P4
 - **失效方向**：吵（500），但錯誤沒有說明原因
 - **機制**：`route_flow` 寫死 `/32`，然後把呼叫者給的值直接丟進 `inet_aton`——
@@ -1178,6 +1185,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ## G. 操作陷阱（會製造假的測試結果）
 
+- 🔴 **任何活過自己 pidfile 的 app，在每一個 `ndt` 介面上同時是隱形且殺不掉的**（2026-08-31
+  live 實證）：前一 session 的 TE-App 崩潰迴圈活了 **20h32m**（`UnboundLocalError` 灌了 100 MB
+  log），而 `ndt status`＝`apps none running`、`ndt apps`＝`te -`、**`ndt apps stop te` 回
+  rc 0「te not running」**——`app_stop` 只看 `.test_run/pids/app_te.pid`，pidfile 沒了就全盲。
+  這種孤兒會裝流表規則，kernel 一起來就污染量測。正解＝`/proc` 驗身分後按 PID 停。
+  修票待開（stop 的三態：running／not-running／**pidfile-lost-but-alive**）。
+  順帶：TE 的崩因是 `get_graph_data_api_call` 在 except 後 `return graph_data`（未賦值）——
+  **Traffic-Engineering-App repo 的缺陷**，excerpt 在 `2026-08-31_live-recipes/te-crashloop-excerpt.txt`。
 - 🔴 **`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。
   🔄 08-30 收窄（sweep 實讀 `/usr/lib/python3/dist-packages/mininet/clean.py:29/:37/:66`）：
   機制＝`pkill -9 -f`，**argv 對上 pattern 才殺**——`sudo mn -c` 的 shell 不匹配

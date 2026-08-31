@@ -407,12 +407,20 @@ per-pass. No unit test can see any of them (§3.4). They are covered only by §5
 The fix's whole claim is about a few-second gap, so the test is the gap.
 
 ```bash
+# 🔴 CORRECTED 2026-08-31 after the live run (raw/drive_a1_power.sh): the original block here
+# had three defects and, followed verbatim, could neither pass nor fail.
+#   R1: it said :8081 -- /ndt/* is the KERNEL's :8000; :8081 is the proxy (verbatim run => 404).
+#   R2: it said switch_ip= -- the kernel takes ip= (spec.py:773); with switch_ip= nothing is
+#       ever powered off and every later assertion is vacuous.
+#   R3: it counted with `pgrep -c simple_switch_grpc` -- 19 chars vs comm's 15-char cap, which
+#       returns 0 on a live fabric always, so 0->0->0 reads as "back to baseline" for ANY
+#       behaviour. Zero discriminating power; the instrument mimicked the pass condition.
 SW=s1; IP=10.0.0.1   # whichever switch/IP the topology gives
-pgrep -c simple_switch_grpc                       # baseline process count
-curl -s -X POST "http://localhost:8081/ndt/set_switches_power_state?action=off&switch_ip=$IP"
+ps -eo comm= | grep -c '^simple_switch'            # baseline process count (comm prefix, not pgrep)
+curl -s -X POST "http://localhost:8000/ndt/set_switches_power_state?action=off&ip=$IP"
 sleep 3                                            # inside the old window
-time curl -s -X POST "http://localhost:8081/ndt/set_switches_power_state?action=on&switch_ip=$IP"
-pgrep -c simple_switch_grpc                       # must be back to baseline
+time curl -s -X POST "http://localhost:8000/ndt/set_switches_power_state?action=on&ip=$IP"
+ps -eo comm= | grep -c '^simple_switch'            # must be back to baseline
 ```
 
 **Pass:** the power-on takes on the order of a second (not 0.01s), the process count returns to
