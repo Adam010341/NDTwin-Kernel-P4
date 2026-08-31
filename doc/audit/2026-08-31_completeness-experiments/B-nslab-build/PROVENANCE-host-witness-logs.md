@@ -40,10 +40,24 @@ Mon Aug 31 20:19:30 2026   19717   qemu-system-x86_64 -name ndtwin-lab-vm -machi
    ⇒ **若這兩份記的是筆電，350 筆全部會是 `405062`，而且永遠不會出現 `52578`。**
 3. 目錄名 `B-nslab-build` 是**線索，不是欄位**——而下一個讀者會拿它當欄位用。這正是下面第三節那件事。
 
-## 二、產生它們的腳本**未進版控、不可重現**
+## 二、~~產生它們的腳本**未進版控、不可重現**~~ → **已由 B 輪線重建並落檔（09-01）**
 
-`git grep -l host_witness` 只命中 `.md` 與 `.py`，**造出這兩個檔的碼一行都不在 repo**。
-⇒ **證據進了版控，儀器沒有**：無法重現、也無從查證它有沒有記過 host。
+> 🔴 **本節寫的當下為真，現已被取代。** B 輪線把當時執行的那條指令從自己 transcript 的
+> `tool_use` 輸入逐字還原，落成
+> [`host_witness_sampler_RECOVERED.sh`](host_witness_sampler_RECOVERED.sh)（`ac426d6`），
+> 並誠實標成**「重建的指令，不是找回的檔案」**——原本就沒有腳本檔，
+> 是 `ssh nslab '... setsid bash -c "..."'` 的一行式，所以 nslab 上與版控裡都不會留下東西。
+>
+> ⇒ **「不可重現」不再成立；「當時未進版控」仍然成立。** 兩句要分開讀。
+
+原因仍值得記：`git grep -l host_witness` 當時只命中 `.md` 與 `.py`。
+⇒ **證據進了版控，儀器沒有**——而救回它的是**執行者自己的 transcript**，不是檔案系統。
+🔑 **一行式的 ssh 指令是「不會留下痕跡的儀器」的典型**：它跑在別台、寫在別台、
+自己不落地。要它可稽核，只有兩條路——**寫成檔案**，或**當場把指令本身抄進紀錄**。
+
+🔁 **替代品**：[`tools/remote-lab/host_witness.sh`](../../../../tools/remote-lab/host_witness.sh)（`beb45fc`）
+——每行與檔頭都帶 `host=`；用 `/proc/<pid>/exe` 判別而非 argv；
+三態 `vm`／`other`／**`unreadable`**（「讀不到」不可壓成「不是 VM」）。
 
 🔁 **替代品**：[`tools/remote-lab/host_witness.sh`](../../../../tools/remote-lab/host_witness.sh)（`beb45fc`）
 ——每行與檔頭都帶 `host=`；用 `/proc/<pid>/exe` 判別而非 argv；
@@ -51,6 +65,29 @@ Mon Aug 31 20:19:30 2026   19717   qemu-system-x86_64 -name ndtwin-lab-vm -machi
 
 🔴 **格式不同，不可與這兩份混用**。這兩份是 `load=/qemu=/pids=`，新的是
 `host=/load=/vms=/pids=/unreadable=`。**不要把兩種格式餵給同一支解析器。**
+
+### 2a. 🔴 更正一句：**那支 sampler 不受「argv 假冒」影響——我把自己的警告套寬了**
+
+`host_witness_sampler_RECOVERED.sh` 的檔頭寫「遠端機器測試線關於 argv 形狀 fixture 的警告
+**適用於**這支 sampler」。**實測不成立**，因為它數的是 `ps -eo comm`：
+
+```
+$ bash -c 'sleep 2; :' qemu-system-x86_64 -smp 7 -m 3333 &
+/proc/<pid>/comm     : bash                    ← 來自執行檔名，行程設不了
+/proc/<pid>/cmdline  : bash -c sleep 2; : qemu-system-x86_64 -smp 7 …
+```
+
+⇒ **`comm` 是執行檔名，`argv[0]` 是行程自己寫的。** 用 `comm` 數的不會被那種 fixture 騙。
+（`prctl(PR_SET_NAME)` 或把二進位檔改名仍可改 `comm`，所以它不是防偽的，只是**比 argv 準得多**。）
+
+🔑 **但那支 sampler 檔頭的第 2 點成立而且更重要**：**非 VM 的外來負載對 `qemu=` 欄完全不可見**，
+唯一的通道是 `load=`（load1，落後複合指標）。
+⇒ **「這段窗連續有帳」對 VM 精確，對外來負載一般而言是誇大。**
+
+⚠️ **而這條照到我自己**：`tools/remote-lab/ndtwin-vm.sh` 的 `qemu_pids()`
+比對的是 **cmdline（argv）**，不是 exe——**我警告別人的那個缺陷，就在我自己的協調工具裡**，
+而我的測試 fixture 之所以會過，正是因為它。已登記待修（要連 fixture 一起改：
+用一份改名成 `qemu-system-*` 的真二進位檔，`exe` 才會解析到對的名字）。
 
 ## 三、09-01 有人（auditor）把它誤讀成本機佔用，據此要求下游撤回**正確**資料
 
