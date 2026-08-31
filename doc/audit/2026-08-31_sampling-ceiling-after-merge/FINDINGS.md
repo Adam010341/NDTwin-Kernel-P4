@@ -32,11 +32,14 @@ the figure must say so rather than omit it silently (§3a(c): it is **not** runn
    therefore not comparable at that rung.
    🔑 **Drawing a censored point as a number converts "we did not measure the ceiling" into
    "the ceiling is here", which is a false conclusion the figure would be asserting on its own.**
-2. **§0-ter's detection floor belongs in the caption**: this round only detects foreign load
-   **above 0.5 cores over baseline**, and per Adam's 2026-08-31 ruling the run **crosses from
-   night into day**, with a per-cell baseline measured for every cell. If the night/day boundary
-   shows a real baseline shift, the figure must make clear which cells sit on which side.
-   That shift is **a finding to report, not noise to average away**.
+2. **The detection floor belongs in the caption, and it is not one number.** Cells are gated at
+   **0.5 cores over a per-cell baseline** taken in the same teardown gap, so for the cells the
+   registered floor holds. The **gate phase** is a different story: its baseline's own range is
+   0.444 cores, so its effective floor is **≈0.95 cores** (F-13a, binding disclosure). A caption
+   that quotes 0.5 for the whole round would overstate what was verified before the first cell.
+   Per Adam's 2026-08-31 ruling the run **crosses from night into day**; if the boundary shows a
+   real baseline shift, the figure must make clear which cells sit on which side. That shift is
+   **a finding to report, not noise to average away**.
 3. **§6's reconciliation is cross-interpreter** (PREREG v1.1). If any comparison against earlier
    rounds appears in the figure, it must not be worded as "same instrument, per-cell".
 
@@ -222,6 +225,9 @@ iperf3 and am not claiming one. What is verified here is only my side of the rec
 
 ### F-9a. 🔴 And the contamination gate is itself a point sample — it watched 3.1% of the gate phase
 
+**First half of a two-part finding; the second half is F-16**, where the same night supplies the
+contrast case — a foreign load that landed inside a continuously-sampled cell and *was* caught.
+
 Summing `window_s` over the eight CPU-gate records: **200 s observed** across a gate phase running
 20:16:29 → 22:03:26 (**6 417 s**) — **3.1%**. A 48-second foreign load placed anywhere in the other
 96.9% produces exactly the same green verdicts. Tonight's intrusion missed the round by seven
@@ -357,12 +363,45 @@ auditor rather than buried here.
 `BASELINE n=3 min=0.293 max=0.737 range=0.444 threshold=0.5` — §0-ter's disclosure clause fired.
 `cpu_gate.py` reads **the first line** of the file, which was 0.737, the *least* sensitive of the
 three; G4 still went red, but at `excess=0.54` against a 0.5 threshold, a margin of 0.04.
-⇒ The gate phase's **effective detection floor is ≈0.95 cores, not 0.5.** Any claim of the form
-"no foreign load during the gates" must carry that number.
-⇒ This bears directly on F-9: the reported iperf3 was "one to two cores", i.e. **at the edge of
-what this instrument could have seen**, not comfortably inside it.
+
+### 🔴 BINDING DISCLOSURE (auditor's condition on approving the re-measurement, 2026-08-31)
+
+> **The gate phase's effective detection floor is ≈0.95 cores, not 0.5. Every statement this round
+> makes about foreign load during the gate phase must carry that number.**
+
+⇒ In particular, **"all §2 gates green" must not be read as "no contamination above 0.5 cores".**
+It means **"no contamination above roughly 0.95 cores"**. Same discipline as §0-ter's own clause,
+except that here the floor came out at nearly twice the registered one.
+⇒ It also re-scopes F-9: the reported iperf3 was "one to two cores", i.e. **straddling** what this
+instrument could have seen, rather than comfortably inside it.
 ⇒ Ladder cells are unaffected — `run_e.sh:103` takes a per-cell baseline in the gap `teardown`
 already creates, so each cell's baseline is contemporaneous with its own measurement.
+
+### F-13b. 🔴 §0-ter's range check has no discriminating power over the quantity it protects
+
+Listed separately from F-13 on purpose: F-13 is a stale input, **this is a registered check that
+cannot see the thing it exists to bound**, which is the more serious of the two.
+
+§0-ter takes **three readings a minute apart** and reports their range, on the stated reasoning
+that "the baseline's source is operator behaviour, so one reading is a point sample of a moving
+quantity: the real detection floor is 0.5 cores PLUS that movement". The reasoning is right and the
+instrument does not implement it:
+
+| | | |
+|---|---|---|
+| range across the three 20:19–20:21 readings | **0.066 cores** | what the check reported |
+| drift 20:19 → 22:53 | **~0.7 cores** | what actually determined the floor |
+
+**Ten times the measured range, and the check reports the small number.** It measures short-term
+jitter and the round then uses it to bound long-term drift. A reassuring `range=0.066` was produced
+by an instrument that had, by construction, no chance of observing the movement that mattered —
+three samples inside a three-minute window cannot say anything about the next two hours.
+🔑 Same shape as F-1/F-14/F-16, but **this one is written into the registration**, which is the
+highest position any of tonight's defects occupies.
+⇒ Fix for the next round: space the baseline readings across the *round's own duration*, or
+re-take the baseline immediately before each phase that consumes it, and report the spread over
+that span rather than over three minutes.
+⇒ Not amended here: the round has started, and §0-ter's numbers are registered.
 
 ## F-14. 🔴 The ladder aborted on the first cell of every rung, because a precondition checked what the cell was about to destroy
 
@@ -405,6 +444,14 @@ Two defects stacked, the second hidden inside the first.
    fix was applied where the failure was *observed* rather than everywhere the *pattern* occurred.
    The other two exact-comm matches in the file (`iperf3` :287, `ndtwin_kernel` :417) are 6 and 13
    characters — checked, not assumed.
+   ⇒ **Rule: fixing one instance obliges you to grep the class immediately** — here, every site
+   that compares a `comm`. The grep costs seconds; it is the only thing that distinguishes "I fixed
+   the bug" from "I fixed the one I tripped over".
+   🔴 **Counted properly, tonight is occurrences three and four.** The project's ledger already
+   held two before today (pgrep's 15-char comm in the power-on round is the one with its own
+   memory entry); tonight adds `cpu_gate.py` at 21:54 and this site. **Every one of the four sat
+   next to a comment that already said the name was truncated. Knowing about the truncation has
+   never once been enough; only counting the characters has.**
 2. **`if (( n > 0 && d != 1 ))` turned an empty read into a pass.** The guard against a mixed
    fabric was itself guarded by "if we found anything", so the state where we found *nothing*
    sailed through. **The clause protecting the check was the clause that made it vacuous.**
@@ -424,7 +471,10 @@ and every ladder cell since records the same.
 
 ---
 
-## F-16. ✅ The second foreign load of the night landed inside a cell, and the instrument caught it
+## F-16. ✅ F-9a's second half: the night's second foreign load landed *inside* a cell, and was caught
+
+**F-9a and F-16 are one finding in two halves and should be read together** — F-9a is the failure
+mode stated, F-16 is the same night providing the contrast case eight minutes later.
 
 The first ladder cell aborted at 23:22:32, 270 s into its window:
 
@@ -454,10 +504,43 @@ loads tonight, both ~1 core, on a machine under an exclusive-CPU claim:
 | iperf3, 48 s (F-9) | 22:10:10 | **between** gate samples, after the run had stopped | no — and it could not have, the gate watched 3.1% of that phase |
 | stuck `rev`, 14 min | 23:08–23:22 | **inside a cell**, continuously sampled at 2 Hz | **yes — red at 270 s, round stopped** |
 
-⇒ The protection that worked is the one that samples *continuously over the thing being claimed*.
-The one that failed samples the same quantity at moments chosen by the gate's own schedule.
+⇒ **The protection that worked is the one that samples continuously over the thing being claimed.
+The one that failed measures the same quantity, at moments chosen by the gate's own schedule.**
 ⇒ Neither incident involved anyone ignoring the claim on purpose: the first party read the claim
-late, the second leaked a hung utility they had no reason to think was still running. **The
-realistic threat to an exclusive-CPU window is a leaked process, not a deliberate one** — which is
-an argument for continuous accounting over politeness, and it is the same shape as this round's own
+late, the second leaked a hung utility they had no reason to think was still running. **The most
+common threat to an exclusive-CPU window is a leaked process** — the same shape as this round's own
 leaked burner (F-3.2).
+🔴 **"Most common", not "real".** The accidental case is the frequent one, but its frequency says
+nothing about the deliberate one, and **an accidental case systematically understates how bad the
+deliberate case is** (`accidental-case-understates-deliberate-case`). The argument for continuous
+accounting holds for both and does not need everyone to be well-intentioned: a schedule-driven
+sampler is evadable *by construction*, whether or not anyone is trying.
+
+## F-17. 🔴 Renewing the lab claim silently drops `exclusive_cpu`
+
+`ndt claim <min> "<note>"` reads `NDT_EXCLUSIVE_CPU` from the environment. Renewing from a shell
+that has not sourced `round.env` therefore **re-writes the claim without the exclusive flag** and
+reports success:
+
+```
+22:47  ndt claim 660 "…"                       →  ok  lab claimed …
+       ndt status → exclusive cpu  no (heavy local jobs may overlap this claim)
+22:48  NDT_EXCLUSIVE_CPU=1 ndt claim 660 "…"   →  exclusive cpu  yes … holding
+```
+
+For about 60 seconds `ndt status` was telling every other session on this machine that heavy local
+jobs were welcome — **an invitation, printed by the very tool whose job is to prevent the thing**,
+in the middle of a 7-hour exclusive window.
+
+🔑 Two properties make this worse than an ordinary flag default:
+* **It fails toward silently weakened protection.** The renewal succeeds, the claim still exists,
+  the owner is still right; only the one field that does the protecting is gone.
+* **The action that triggers it is the safety action.** Renewing early to avoid mid-measurement
+  expiry — exactly what the round was told to do — is what drops the flag.
+
+⇒ This is a **tool defect, not an operator slip**: a renewal should default to preserving the
+existing claim's fields, and downgrading a live claim's protection should require saying so.
+⇒ Candidate for `KNOWN-ISSUES`; the auditor is collecting tonight's gate defects under their task
+#5 and this goes in with them.
+⇒ Workaround until then: renew only from a shell that has sourced `round.env`, and **read
+`ndt status` back afterwards** — the renewal's own output does not show the flag.
