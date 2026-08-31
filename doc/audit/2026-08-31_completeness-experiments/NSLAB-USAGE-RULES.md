@@ -84,7 +84,7 @@ prereg 蓋章＋Adam 的排程裁決（08-30「登記＝授權」被資源主人
 | H-8 | ~15:0x | reviewer | sender-gate 校準（netns+veth、3×10 s iperf3 UDP） | 中 | `GATE-RESULT.md`，G＝8331.3 Mbit/s |
 | H-9 | ~15:0x | reviewer | 四顆並行 bmv2 編譯（16 vCPU 滿載） | 🔴 **重** | 🔴 因暫緩令中途 KILL（session group 2775，驗到 `remaining=0`） |
 | H-10 | ~15:0x–約 15:5x | 開機手冊 | 傳 **2.6 GB `.ova`** 進 `/home/nslab`（~1 MB/s） | 🔴 **持續 I/O ＋ 網路** | Adam 直接授權；⚠️ **起訖時間待該線確認** |
-| H-11 | （時間未知） | **未歸屬**，疑為開機手冊 | `apt install virtualbox` 失敗 | 中 | 🔴 **dpkg 至今是壞狀態**：`iU virtualbox` / `iF virtualbox-dkms` / `iU virtualbox-qt`，會擋住之後的安裝。收乾淨要 purge（見 §5a） |
+| H-11 | （時間未知） | **未歸屬**，疑為開機手冊 | `apt install virtualbox` 失敗，留下 `iU virtualbox` / `iF virtualbox-dkms` / `iU virtualbox-qt` | 中 | ✅ **已由 `H-?` 那一列清掉**（15:47 帶陽性對照查證）。成因是結構性不相容，**重試不會成功**——見 §5a-1 |
 | H-12 | 15:44–15:45 | 遠端機器測試 | **首航**：部署 `tools/remote-lab/` 到 `~/ndtwin-scripts/`＋在那台上跑變異閘 | 輕（短暫開幾個會立刻失敗的 qemu、佔用 127.0.0.1:34567–34570 數秒） | **32/32 通過**。⚠️ **首航沒找到工具自己的缺陷**——不是因為它乾淨，而是今天稍早已經在筆電上抓掉三個（R7／R8／`snap` exit 1）並補了 32 格雙向測試 |
 | H-13 | ~15:47 | 遠端機器測試 | 唯讀查證 dpkg 狀態（帶陽性對照）＋`sudo -n` 能力探測 | 無 | 見 §5a-1。🔴 **同時確認：這條線在那台上不能免密碼 `sudo`**（`sudo: a password is required`，`/etc/sudoers.d/` 只有 OS 自帶 README）⇒ **任何需要 root 的動作都要 Adam 本人**，見 §3 R11 |
 | H-? | 14:52–15:47 之間 | **未歸屬** | purge 掉 VirtualBox 三個半裝套件 | 中 | 我 14:52 讀到壞狀態、15:47 讀到乾淨。**沒有人登記** ⇒ 這一格本身就是 R1／R2 的反例（見下） |
