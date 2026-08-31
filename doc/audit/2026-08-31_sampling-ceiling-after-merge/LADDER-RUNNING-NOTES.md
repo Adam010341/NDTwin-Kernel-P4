@@ -862,6 +862,50 @@ round would conflict with them.
 ⇒ **Not "the prior was wrong". The prior holds where it was measured, and this is one rung beyond
 it.**
 
+---
+
+## 5-duodecies. 🏁 07:25:28 — round complete, 72/72. The 1/4 rung, looked at once
+
+`ladder complete`, `restore verified`, `rc=0`. Lab down and clean; `ndtwin_switch.p4` back to
+production and git-clean; claim held, not renewed; `SATURATED = 0` across all 72 cells.
+
+| arm | `gt_mbit` | `lost_pct` | `ratio` |
+|---|---|---|---|
+| `bl` 1 kHz b1 | 109.6–111.0 | 43.08–45.21% | 0.9985–1.0070 |
+| `p` 1 Hz b1 | 109.4–117.6 | 41.24–42.43% | 1.0020–1.0100 |
+| `m` 1 kHz **b8** | **126.6–130.4** | **35.70–36.98%** | 0.9979–1.0020 |
+| `mp` 1 Hz **b8** | **127.5–139.3** | **32.15–34.65%** | 0.9866–0.9970 |
+
+**batch OFF (n=6): `gt` 112.0, loss 42.95%. batch ON (n=6): `gt` 131.8, loss 34.77%.** Both
+quantities are **disjoint** between the two groups — roughly **+18% throughput and 8 points less
+loss**.
+
+⚠️ **"Less broken", not "fixed"** — both groups still lose over 30%. And this rung is where the
+fidelity gauge is blind (F-26): `ratio` reads ~1.00 on both sides and carries no information.
+
+### 🔴 The registered null wording conflicts with the observations — raised, not resolved
+
+**R-E1-null** fires when the batching effect is below the detection floor, and prescribes:
+*"打開 batching **買不到可量測的東西**"*, explicitly forbidding "no conclusion" / "round failed".
+Its trigger **is** met: the ceiling is indistinguishable.
+
+🔴 **But "bought nothing measurable" is contradicted by the data.** Batching is measurable in two
+places, neither of them the registered outcome: the 1/8 fidelity interaction (Δ +0.0293, disjoint)
+and this rung's data-plane difference (disjoint on two quantities, 6 v 6).
+
+⇒ **The registered sentence assumed "no effect"; what happened is "an effect that is not on the
+registered quantity". Those are different, and the wording cannot express the second.** Referred to
+the auditor. Suggested (not adopted): report the primary as *ceiling did not move, indistinguishable*
+and state separately that **batching had measurable effects on two non-registered quantities, which
+may not reinforce the primary**.
+
+### Mechanism still not claimed
+
+At 1/8 batching removed a fidelity gap; at 1/4 it reduced data-plane loss. Both are compatible with
+"batching reduces per-item work on some shared path" and **the data cannot distinguish mechanisms.**
+Wording stays *"changing either factor changed the quantity; mechanism undetermined"*, in the same
+paragraph as the limits — 1/8 is one rung at n=3 per arm, and at 1/4 the fidelity gauge is blind.
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
