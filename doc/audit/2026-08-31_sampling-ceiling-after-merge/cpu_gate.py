@@ -147,13 +147,15 @@ def _is_fabric(comm):
     stops recognising its own switches -- otherwise a green G5b could be coming from anywhere,
     and we would be reading "the allow list works" off a result that never depended on it.
 
-    🔴 THIS HOOK HAS NOT YET BEEN EXERCISED WITH DISCRIMINATING POWER.  Three attempts on
-    2026-08-31 (idle fabric / ping flood / ping that ended early) all put too little load on the
-    switches: below the threshold the gate answers GREEN whether or not the disown fires, so
-    those runs would have given the same answer either way and none of them is evidence.  What
-    actually supports the allow-list fix is the natural experiment across it (FINDINGS F-3a,
-    21:24:19 vs 22:02:33, delta ~1.43 cores).  Do not read this hook as a passed control until
-    it has been run against switches carrying real load.
+    ✅ EXERCISED 2026-08-31 22:50, both directions, under real switch load (gates_e.controls.log):
+        ctl_disown_off  foreign_cores=0.534  excess=-0.421  threshold=0.5  GREEN
+        ctl_disown_on   foreign_cores=3.313  excess=+2.358  threshold=0.5  RED
+    🔑 It took four attempts to get a control with any discriminating power.  The first three
+    (idle fabric / ping flood / ping that ended early) all put too little load on the switches,
+    and below the threshold the gate answers GREEN whether or not the disown fires -- the same
+    answer either way, so none of them was evidence.  The load recipe that works is G5b's
+    (measure.sh at 200 Mbit), which puts ~1.5 cores on three switches, 3x the threshold.
+    ⇒ When a force comes out as predicted, ask whether the unforced run would have said the same.
     [Co-developed with claude code -- Adam]
     """
     if os.environ.get("FORCE_CPU_GATE_DISOWN_FABRIC"):

@@ -97,7 +97,11 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
 
     # 🔴 The claim is re-read at the moment of acting.  A reading taken at the top of a 10-hour
     # run is a point sample of a lease that may have expired eight hours ago.
-    preflight measure >/dev/null || abort "§4" "preconditions no longer hold at cell $cell"
+    # 🔴 stage=cell, not measure: this call exists for the CLAIM, the disk, the staged binaries
+    # and the neighbouring-round marker -- every one of which can change during a 7-hour run.
+    # It must not demand a live fabric, because the three lines below tear the fabric down and
+    # rebuild it; `measure` here aborted the first cell of every rung.  See lib_e.sh preflight §4.
+    preflight cell >/dev/null || abort "§4" "preconditions no longer hold at cell $cell"
 
     teardown
     cell_baseline "$cell"          # fabric-free, in the gap teardown already creates

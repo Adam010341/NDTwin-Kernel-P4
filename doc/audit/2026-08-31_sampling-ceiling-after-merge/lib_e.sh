@@ -58,7 +58,23 @@ abort() {
     say "🔴 ABORT($1): ${*:2}"
     say "🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past"
     say "🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding."
-    restore_production || say "🔴 and the production restore ALSO failed -- check before release"
+    # 🔴 A FORCED abort is a test OF this path, not a use of it, and the two must not do the same
+    # thing.  G10 and G11 force their aborts inside `$( ( ... ) 2>&1 || true )`, where `exit 9`
+    # kills only the subshell -- but restore_production does not respect that boundary: live it
+    # runs teardown (stack down, topo-stop, `mn -c`), recompiles the P4 source and swaps the
+    # kernel binary.  So a force in the middle of the gates would demolish the fabric that the
+    # remaining gates and the entire ladder need, ~16 s of work with no line in the transcript
+    # saying the fabric had gone.  Invisible in every dry run, because RUN is a no-op there and
+    # the G-MATRIX rows that exercise these two forces all run with DRY_RUN=1.
+    # 🔑 Found 2026-08-31 while repairing G10; it would have fired at G11 tonight regardless of
+    # that repair, because neither force had ever executed in a live run.
+    # [Co-developed with claude code -- Adam]
+    if [[ -n "${FORCED_ABORT:-}" ]]; then
+        say "🔴 (FORCED_ABORT set: this abort is an injected test; the production restore is NOT"
+        say "🔴  run, and the fabric is left standing for the gates that follow.)"
+    else
+        restore_production || say "🔴 and the production restore ALSO failed -- check before release"
+    fi
     exit 9
 }
 
@@ -83,7 +99,7 @@ dry_note() { [[ "$DRY_RUN" == 1 ]] && printf '[%s] DRYRUN-NOTE %s\n' "$(date +%H
 # NDT_OWNER does not cost a fabric probe.
 # -------------------------------------------------------------------------------------------------
 preflight() {
-    local stage="$1" rc=0        # stage: "gates" | "measure" | "plan"
+    local stage="$1" rc=0        # stage: "gates" | "measure" | "cell" | "plan"
     say "=== preflight ($stage), DRY_RUN=$DRY_RUN ==="
 
     # -- 0. disk.  A round that fills / mid-ladder loses every cell after the one that filled it,
@@ -203,15 +219,34 @@ preflight() {
 
     # -- 4. the fabric.  This is the check the ticket cares about: without it the script would
     #       happily write a full ladder of NO-DATA cells and they would look like a result.
-    if ! fabric_is_up; then
+    #
+    # 🔴 stage "cell" SKIPS IT, and the reason is structural rather than a convenience.  The
+    # ladder loop tears the fabric down once per rung to recompile the P4 source, and run_cell's
+    # own next three actions are teardown, cell_baseline (which needs the fabric DOWN) and
+    # bringup.  So at a cell's entry the fabric is down BY DESIGN, and demanding it be up asks
+    # the cell to prove a precondition it is about to destroy.  Live, that aborted THE FIRST CELL
+    # OF EVERY RUNG -- the ladder could not have completed a single rung.
+    # 🔑 Invisible in every dry run: fabric_is_up synthesises TRUE under DRY_RUN=1, so the shape
+    # of this defect is F-1's, for the fifth time tonight.
+    # 🔑 The fabric a cell actually measures on is not unchecked -- it is checked AFTER the cell
+    # builds it, which is the only fabric the cell's numbers can come from: `bringup || abort`,
+    # then assert_batch_took, assert_truncate_128, assert_running_arm, record_bmv2_identity,
+    # assert_recompute_running, assert_same_boot and assert_topology_invariant.  Moving the check
+    # from before the teardown to after the bringup makes it a check of the right object.
+    # The ladder's own opening `preflight measure` still requires a live fabric, so the
+    # G-MATRIX's `fabric` force keeps the call site it names.  [Co-developed with claude code -- Adam]
+    if [[ "$stage" == cell ]]; then
+        say "  (stage=cell: the fabric is checked after this cell's bringup, not before its teardown)"
+    elif ! fabric_is_up; then
         printf 'REFUSE: no live P4 fabric (expected 10 bmv2 switches and :8000 answering).\n' >&2
         printf '        This script measures; it does not bring the lab up.  Start it first:\n' >&2
         printf '          NDT_OWNER=%s ndt up p4 128\n' "$NDT_OWNER" >&2
         printf '        A ladder run without a fabric produces NO-DATA cells that are shaped\n' >&2
         printf '        exactly like a saturated ceiling.\n' >&2
         return 1
+    else
+        say "  fabric: up"
     fi
-    say "  fabric: up"
 
     # -- 5. nothing else measuring.  `ndt` computes `measuring` live from process names; a
     #       foreign iperf3 would both contaminate this round and be destroyed by measure.sh's
@@ -471,18 +506,57 @@ record_bmv2_identity() {
         # 🔴 What the switches ARE running, not what the file says they should.  The 08-22 stock
         # control ladder already established this technique ("each arm verifying from /proc which
         # binary the live switches actually run"); it simply was never carried into this round.
+        # 🔴 PREFIX, not equality.  This read `$2=="simple_switch_"` -- 14 characters -- while the
+        # kernel truncates comm at 15 and the real value is "simple_switch_g".  It matched nothing,
+        # so every identity file this round wrote said "0 running switch(es)" and no reader
+        # noticed, because the count below only complains when the count is NON-zero.
+        # 🔑 SECOND SITE OF THE SAME 14-vs-15 MISTAKE.  cpu_gate.py's allow list was repaired
+        # earlier tonight; this one survived because the repair was applied where the failure was
+        # observed instead of everywhere the pattern occurred.  The other two exact-comm matches
+        # in this file (iperf3 at :287, ndtwin_kernel at :417) are 6 and 13 characters and are
+        # safe -- checked, not assumed.  [Co-developed with claude code -- Adam]
+        # 🔴 `sudo -n readlink` and `sudo -n sha256sum` are NOT in this machine's NOPASSWD list, so
+        # both returned empty and every sha256 field was blank -- while the pid list looked right.
+        # mnexec IS passwordless (it is how this round already reaches host namespaces), so it is
+        # used as the privileged reader.  The switches run as root; an unprivileged readlink on
+        # their /proc/<pid>/exe gets EACCES, which `2>/dev/null` turned into "".
+        # 🔑 This was HIDDEN BEHIND the comm bug above: with the match broken the loop body never
+        # ran, so a second defect sat inside a block that never executed.  Fixing one revealed the
+        # next, and the fix for the first is what made the second observable at all.
         local pid
-        for pid in $(ps -eo pid=,comm= | awk '$2=="simple_switch_"{print $1}'); do
+        for pid in $(ps -eo pid=,comm= | awk '$2 ~ /^simple_switch/{print $1}'); do
             printf 'running pid=%s exe=%s sha256=%s\n' "$pid" \
-                "$(sudo -n readlink -f /proc/$pid/exe 2>/dev/null)" \
-                "$(sudo -n sha256sum /proc/$pid/exe 2>/dev/null | cut -d' ' -f1)"
+                "$(sudo -n mnexec readlink -f /proc/$pid/exe 2>/dev/null)" \
+                "$(sudo -n mnexec sha256sum /proc/$pid/exe 2>/dev/null | cut -d' ' -f1)"
         done
     } >"$f" 2>&1
     # One distinct binary across all ten switches, or the arm is a mixture.
     local n; n=$(grep -c '^running pid=' "$f")
     local d; d=$(grep '^running pid=' "$f" | grep -oE 'sha256=[0-9a-f]{64}' | sort -u | wc -l)
     say "    bmv2: $n running switch(es), $d distinct binary/binaries -> $f"
-    if (( n > 0 && d != 1 )); then
+    # 🔴 `n > 0 &&` turned an empty read into a PASS.  With the broken match above, n was always 0,
+    # so this clause could never fire and the identity file's silence read as agreement -- the
+    # guard was protecting the very case that made it vacuous.  Zero switches is now its own
+    # refusal: this function is called with the fabric up (after G8, and after each cell's
+    # bringup), so zero means the record is empty, and an empty provenance record is the failure
+    # PREREG §4 registered this check to prevent, not a quiet success.
+    if (( n == 0 )); then
+        abort "§4 bmv2" "no running simple_switch process was found while recording the bmv2
+        identity for '$1'.  The identity file would be empty, and an empty identity file is
+        indistinguishable from ten agreeing switches for every later reader."
+    fi
+    # 🔴 "0 distinct" and "2 distinct" are DIFFERENT FAULTS and must not share a message.  d=0
+    # means every sha256 field came back empty -- the reader could not read, which says nothing
+    # about the switches -- and the old text would have reported that as "not all running the same
+    # binary", sending the next reader at the fabric when the fault was in this function's own
+    # privileges.  That is exactly the diagnosis-points-at-the-wrong-component shape this round has
+    # already recorded five times (FINDINGS F-2).
+    if (( d == 0 )); then
+        abort "§4 bmv2" "$n switch(es) were found but NOT ONE sha256 could be read from
+        /proc/<pid>/exe.  This is a failure of THIS READER, not evidence about the switches:
+        the sudo path used to read them is unavailable.  Do not read the empty file as agreement."
+    fi
+    if (( d != 1 )); then
         abort "§4 bmv2" "the ten switches are not all running the same binary ($d distinct).
         A ceiling measured across a mixture is not a ceiling of either binary."
     fi
