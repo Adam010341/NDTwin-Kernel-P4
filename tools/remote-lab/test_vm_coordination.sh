@@ -680,5 +680,109 @@ fi
 kill "$OUTS" "$INS" "$OTHR" 2>/dev/null; wait "$OUTS" "$INS" "$OTHR" 2>/dev/null
 
 
+echo
+echo "=== G16 the host address in hostfwd is a security property, not a format quirk ==="
+# 開機手冊 found this: qemu's `hostfwd=tcp:[hostaddr]:port-` has an OPTIONAL host address,
+# and omitting it binds EVERY interface. They had written `hostfwd=tcp::PORT-` on every
+# VM that evening, so their forwards were on 0.0.0.0, into a guest with a password login,
+# on the lab network. My parser matched the literal `127.0.0.1:` this script writes -- so
+# it did not get that wrong, it could not see it at all.
+# 🔑 A parser that only understands its own output cannot warn about the input it does
+#   not understand, and that is exactly the input worth warning about. Every stand-in
+#   below is therefore in a form this script never emits.
+mkdir -p "$T/home/ndtwin-vm-exposed"
+qemu-img create -q -f qcow2 "$T/home/ndtwin-vm-exposed/disk.qcow2" 8M 2>/dev/null \
+    || : > "$T/home/ndtwin-vm-exposed/disk.qcow2"
+bash -c 'sleep 30; :' qemu-system-x86_64 -smp 2 -m 2048 \
+    -drive "file=$T/home/ndtwin-vm-exposed/disk.qcow2,if=virtio,format=qcow2" \
+    -netdev user,id=n0,hostfwd=tcp::2291-:22 &
+EXPO=$!
+printf '%s\n' "$EXPO" > "$T/home/ndtwin-vm-exposed/qemu.pid"
+# No hostfwd at all -- the case that used to be filled in from the built-in default.
+mkdir -p "$T/w"
+qemu-img create -q -f qcow2 "$T/w/disk.qcow2" 8M 2>/dev/null || : > "$T/w/disk.qcow2"
+bash -c 'sleep 30; :' qemu-system-x86_64 -smp 3 -m 777 -drive "file=$T/w/disk.qcow2,if=virtio" &
+NOFW=$!
+for _ in $(seq 1 40); do [ -r "/proc/$EXPO/cmdline" ] && [ -r "/proc/$NOFW/cmdline" ] && break; sleep 0.1; done
+
+EOUT=$(env NDT_OWNER=tester VM_DIR="$T/nope" SSH_PORT=9999 bash "$VM" adopt "$EXPO" 2>&1)
+if grep -q '^port=2291$' "$T/home/ndtwin-vm-exposed/CONFIG" 2>/dev/null; then
+    echo "  ✅ RED-capable -- a hostfwd with the address omitted is still parsed"; pass=$((pass+1))
+else
+    echo "  🔴 the parser only reads the 127.0.0.1 form this script writes"; fail=$((fail+1))
+fi
+if printf '%s' "$EOUT" | grep -q 'NOT loopback'; then
+    echo "  ✅ RED-capable -- adopt says the forward is exposed, and names the address"
+    pass=$((pass+1))
+else
+    echo "  🔴 an off-box-reachable guest login is registered without comment"; fail=$((fail+1))
+fi
+XOUT=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$XOUT" | grep -q 'NOT loopback'; then
+    echo "  ✅ RED-capable -- vms flags it too, even inside the naming convention"; pass=$((pass+1))
+else
+    echo "  🔴 vms shows an exposed forward as an ordinary VM"; fail=$((fail+1))
+fi
+
+# 🔴 A port that could not be read must stay visibly unread -- in BOTH files. Filling it
+# from the default put an invented 2222 under a banner reading "read out of its argv",
+# where the three true fields vouched for it.
+NOUT2=$(env NDT_OWNER=tester VM_DIR="$T/nope2" SSH_PORT=2222 bash "$VM" adopt "$NOFW" 2>&1)
+if grep -q '^port=unknown$' "$T/w/CONFIG" 2>/dev/null; then
+    echo "  ✅ RED-capable -- CONFIG records the unreadable port as unknown, not 2222"
+    pass=$((pass+1))
+else
+    echo "  🔴 CONFIG invented a port: $(grep '^port=' "$T/w/CONFIG" 2>/dev/null)"; fail=$((fail+1))
+fi
+if grep -q '^port:  unknown$' "$T/w/OWNER" 2>/dev/null; then
+    echo "  ✅ RED-capable -- and OWNER too (fixing one file would just move the lie)"
+    pass=$((pass+1))
+else
+    echo "  🔴 OWNER still carries the default port: $(grep '^port:' "$T/w/OWNER" 2>/dev/null)"
+    fail=$((fail+1))
+fi
+# GREEN: a genuine loopback forward must NOT be flagged, or the warning means nothing.
+if ! printf '%s' "$NOUT2" | grep -q 'NOT loopback' \
+   && printf '%s' "$NOUT2" | grep -q 'EXCEPT port'; then
+    echo "  ✅ GREEN-- no false exposure warning, and the real gap is the one reported"
+    pass=$((pass+1))
+else
+    echo "  🔴 the exposure warning does not discriminate"; fail=$((fail+1))
+fi
+# The listening list itself had the same defect and no test: it used to
+# `grep '^ *127.0.0.1:'`, so a socket bound anywhere else was filtered out of the
+# section labelled "the ground truth". The one binding worth showing was the one it
+# could not show.
+# 🔑 The fixture binds 127.0.0.2 ON PURPOSE. That is not 127.0.0.1, so it exercises the
+# non-loopback arm -- while staying inside the loopback range, so this test never opens
+# a port anything off this machine can reach. Testing an exposure detector must not
+# create an exposure.
+python3 -c 'import socket,time
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+s.bind(("127.0.0.2",34571)); s.listen(1); time.sleep(20)' &
+ODDB=$!
+for _ in $(seq 1 30); do ss -tlnH 'sport = :34571' | grep -q . && break; sleep 0.2; done
+LOUT=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$LOUT" | grep -q '127.0.0.2:34571'; then
+    echo "  ✅ RED-capable -- a socket off 127.0.0.1 still appears in the listening list"
+    pass=$((pass+1))
+else
+    echo "  🔴 the 'ground truth' list filters out every address but its own"; fail=$((fail+1))
+fi
+if printf '%s' "$LOUT" | grep '127.0.0.2:34571' | grep -q 'not loopback'; then
+    echo "  ✅ RED-capable -- and it is marked, not merely listed"; pass=$((pass+1))
+else
+    echo "  🔴 listed without the marker -- indistinguishable from a loopback bind"
+    fail=$((fail+1))
+fi
+# GREEN: a real loopback bind must NOT be marked, or the marker carries no information.
+if printf '%s' "$LOUT" | grep -E '^ +127\.0\.0\.1:' | grep -qv 'not loopback'; then
+    echo "  ✅ GREEN-- genuine loopback binds are left unmarked"; pass=$((pass+1))
+else
+    echo "  🔴 the marker does not discriminate: everything is flagged"; fail=$((fail+1))
+fi
+kill "$ODDB" 2>/dev/null; wait "$ODDB" 2>/dev/null
+kill "$EXPO" "$NOFW" 2>/dev/null; wait "$EXPO" "$NOFW" 2>/dev/null
+
 printf '\n=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" = 0 ]

@@ -167,6 +167,27 @@ qemu_disk() {  # qemu_disk <pid> -> its WRITABLE disk path (skips the read-only 
         }'
 }
 
+hostfwd_of() {  # hostfwd_of <pid> -> "<bind-addr> <port>", rc=1 if it has no hostfwd
+    # 🔴 The first version matched `hostfwd=tcp:127\.0\.0\.1:` -- the literal string THIS
+    # script writes. In qemu the host address is OPTIONAL, and omitting it binds ALL
+    # interfaces. 2026-08-31: a sibling wrote `hostfwd=tcp::2296-:22` on every VM of the
+    # evening, so their forwards were on 0.0.0.0, reaching a guest with a password login,
+    # on the lab network. My parser did not get that wrong -- it could not see it at all.
+    # ⇒ A parser that only understands its own output cannot warn you about the input it
+    #   does not understand, and that is exactly the input most worth warning about.
+    tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | awk '
+        match($0, /hostfwd=tcp:[^,]*/) {
+            s = substr($0, RSTART + 12, RLENGTH - 12)   # strip "hostfwd=tcp:"
+            sub(/-.*$/, "", s)                          # drop the guest side
+            if (match(s, /^\[[^]]*\]:/)) {              # [::1]:2222  -- bracketed IPv6
+                a = substr(s, 2, RLENGTH - 3); p = substr(s, RLENGTH + 1)
+            } else if (match(s, /:/)) {                 # 127.0.0.1:2222  or  :2296
+                a = substr(s, 1, RSTART - 1); p = substr(s, RSTART + 1)
+            } else { a = ""; p = s }                    # no colon at all: port only
+            if (p ~ /^[0-9]+$/) { print (a == "" ? "0.0.0.0" : a), p; exit }
+        }' | sed -n 1p | grep . || return 1
+}
+
 keep_reason() {  # keep_reason <vmdir> -> the one-line reason; rc=1 if not marked keep
     local f="$1/KEEP" r
     [ -f "$f" ] || return 1
@@ -589,12 +610,23 @@ $(for q in $(qemu_pids); do printf '     pid %-7s %s\n' "$q" "$(qemu_disk "$q")"
     # no entry at all, because the next reader has no reason to doubt it.
     acpu=$(printf '%s\n' "$argv" | awk '/^-smp$/{getline; print; exit}')
     amem=$(printf '%s\n' "$argv" | awk '/^-m$/{getline; print; exit}')
-    aport=$(printf '%s\n' "$argv" | sed -n 's/.*hostfwd=tcp:127\.0\.0\.1:\([0-9]\{1,\}\)-.*/\1/p' | sed -n 1p)
+    afwd=$(hostfwd_of "$p") || afwd=""
+    abind=${afwd% *}; aport=${afwd#* }
+    [ -n "$afwd" ] || { abind=""; aport=""; }
     [ -n "$acpu" ] && [ -n "$amem" ] \
         || die "could not read -smp / -m out of pid $p's argv -- refusing to guess.
    What it actually says:
 $(printf '%s\n' "$argv" | sed 's/^/     /')"
-    [ -n "$aport" ] && SSH_PORT="$aport"
+    # 🔴 If argv has no hostfwd, DO NOT fall back to $SSH_PORT. The old code did, and the
+    # default 2222 was then written into CONFIG under a banner reading "Read out of its
+    # argv, not typed in" -- three true fields and one invented one. A sibling caught it.
+    # Three-true-one-false is harder to catch than four-missing, because the true fields
+    # vouch for the false one. A gap must stay visibly a gap.
+    # ⚠️ And SSH_PORT must be neutralised, not left at its default: claim_write stamps
+    # it into OWNER, which is where `vms` reads the port from. Fixing only CONFIG would
+    # have moved the invented 2222 into the other file and left it there, still labelled
+    # as this VM's port. One made-up value, two places to write it.
+    if [ -n "$aport" ]; then SSH_PORT="$aport"; else SSH_PORT="unknown"; fi
     if [ -f "$CFG" ]; then
         old_c=$(cfg_get cpus); old_m=$(cfg_get mem)
         if [ "$old_c" != "$acpu" ] || [ "$old_m" != "$amem" ]; then
@@ -607,9 +639,22 @@ $(printf '%s\n' "$argv" | sed 's/^/     /')"
     claim_write
     adisk=$(qemu-img info -U "$IMG" 2>/dev/null | awk -F': ' '/virtual size/{print $2; exit}')
     printf 'cpus=%s\nmem=%s\ndisk=%s\nport=%s\n' \
-        "$acpu" "$amem" "${adisk:-unknown}" "$SSH_PORT" > "$CFG"
+        "$acpu" "$amem" "${adisk:-unknown}" "${aport:-unknown}" > "$CFG"
     say "adopted pid $p. Read out of its argv, not typed in:"
     sed 's/^/     /' "$CFG"
+    if [ -z "$aport" ]; then
+        say "  🔴 EXCEPT port: this argv has no hostfwd I can read, so it is recorded as"
+        say "     'unknown' rather than filled in from a default. A default written under"
+        say "     an 'out of its argv' banner is worse than a gap -- the true fields vouch"
+        say "     for it. Set it by hand if you know it. The argv line was:"
+        printf '%s\n' "$argv" | grep -i 'netdev\|hostfwd' | sed 's/^/       /' \
+            || say "       (no -netdev at all)"
+    elif [ "$abind" != "127.0.0.1" ] && [ "$abind" != "::1" ]; then
+        say "  🔴 THIS VM'S SSH FORWARD IS ON $abind:$aport -- NOT loopback."
+        say "     qemu binds every interface when hostfwd's host address is omitted"
+        say "     (\`hostfwd=tcp::$aport-\`). On a lab network that exposes the guest login."
+        say "     Fix at the source: \`hostfwd=tcp:127.0.0.1:$aport-:22\`, then restart it."
+    fi
     say ""
     sed 's/^/     /' "$OWNERF"
     say ""
@@ -708,13 +753,41 @@ vms)
         if r=$(keep_reason "$qdir"); then printf '    %-20s 🔒 KEEP -- %s\n' "" "$r"; fi
         [ -f "$qdir/CONFIG" ] || printf '    %-20s 🔴 no CONFIG -- work point recorded nowhere but this argv: %s\n' \
             "" "$(tr '\0' '\n' < "/proc/$q/cmdline" 2>/dev/null | awk '/^-smp$/{getline;c=$0} /^-m$/{getline;m=$0} END{print c" vCPU / "m" MiB"}')"
+        if fw=$(hostfwd_of "$q"); then
+            fa=${fw% *}
+            case "$fa" in
+                127.0.0.1|::1) ;;
+                *) printf '    %-20s 🔴 ssh forward on %s -- NOT loopback, the guest login is reachable off-box\n' "" "$fw" ;;
+            esac
+        fi
         printf '    %-20s ⇒ register it without restarting:  NDT_OWNER=<you> %s adopt %s\n' "" "$0" "$q"
+    done
+    # Same check for the VMs the glob DID cover -- an exposed forward is not less
+    # exposed for living in a directory I recognise.
+    for d in "$HOME"/ndtwin-vm*/; do
+        [ -d "$d" ] && p2=$(dir_pid "${d%/}") || continue
+        fw=$(hostfwd_of "$p2") || continue
+        case "${fw% *}" in
+            127.0.0.1|::1) ;;
+            *) unlisted=1
+               printf '    pid %-7s %-12s 🔴 ssh forward on %s -- NOT loopback\n' \
+                   "$p2" "$(owner_of "${d%/}")" "$fw" ;;
+        esac
     done
     [ "$unlisted" = 1 ] || say "    (none -- every running qemu is already listed above)"
     say ""
-    say "  ports actually listening on 127.0.0.1 (the ground truth, not the registry):"
-    ss -tlnH 2>/dev/null | awk '{print "    " $4}' | grep '^ *127.0.0.1:' | sort -u \
-        || say "    (ss unavailable)"
+    # 🔴 This used to `grep '^ *127.0.0.1:'` -- the address MY OWN start command binds.
+    # So a forward on 0.0.0.0 was not merely unflagged here, it was filtered out of the
+    # "ground truth" list entirely. The one binding that needed showing was the one
+    # binding this could not show. Print them all; mark the ones that are not loopback.
+    say "  ports actually listening (the ground truth, not the registry):"
+    ss -tlnH 2>/dev/null | awk '{print $4}' | sort -u | while read -r a; do
+        case "$a" in
+            127.0.0.1:*|'[::1]:'*) printf '    %s\n' "$a" ;;
+            *)                     printf '    %s   🔴 not loopback\n' "$a" ;;
+        esac
+    done
+    ss -tlnH >/dev/null 2>&1 || say "    (ss unavailable)"
     say ""
     say "  host budget -- RAM is what limits parallel VMs, not cores:"
     printf '    cores %s   mem %s   swap %s   %s free on %s\n' \
