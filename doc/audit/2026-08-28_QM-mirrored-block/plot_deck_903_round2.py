@@ -360,9 +360,19 @@ def fig_bandwidth_ceiling():
     # slide template §G (clean-figure ruling, 2026-08-30). Two of them are REQUIRED page
     # notes there: the ECMP "not a capacity floor" caveat (the ~9000x misread guard) and
     # "OVS values are measured throughput, not capacity".
+    # 2026-08-31: the parameter line disclosed the RIGHT side's unit of aggregation ("single
+    # flow") and not the left's, and the missing half is the one that makes a cross-plane
+    # reading look reasonable -- 53.1 is one link's ECMP share of a 32-flow, host-saturated run,
+    # not a link's capacity. This is the same asymmetry the footer carried until 2026-08-28 and
+    # for the same reason: the bmv2 caveat was there from the start and the OVS one was not.
+    # This restores the missing PARAMETER, not the footer -- the clean-figure ruling (2026-08-30,
+    # template §G) stands and nothing else returns to the image. Wording is template §G2's
+    # REQUIRED footer verbatim; both numbers are parsed rather than written for the reason
+    # run_context's docstring gives. [Co-developed with claude code -- Adam]
     _title_clean(fig,
                  "A working point from one plane means nothing on the other",
-                 "left: OVS core links, access-layer bw= removed · right: bmv2 −O3 build, single flow")
+                 f"left: OVS core links, access-layer bw= removed, {n1_flows} TCP flows, "
+                 f"{a_max:.1f} is one link's ECMP share · right: bmv2 −O3 build, single flow")
 
     # ---- left: OVS, the shaper artefact
     axL = fig.add_axes([0.055, AY, 0.42, AH])
