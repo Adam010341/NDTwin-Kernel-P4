@@ -22,6 +22,12 @@ auditor 的 E 輪、C4 的 fallback），而 nslab 尚未通。**claim 工具是
 - **C4 install 偵察（docker，不碰 fabric）不佔本表的窗**，但它會吃 CPU ⇒ **不得與任何
   量測輪重疊**；輪要開跑前先確認 docker build 已收工。
 - nslab 通了之後：B 輪整個移遠端，本表只剩 0/1/2（C4 fallback 自動撤回）。
+- 🔴 **08-31 本機磁碟事故＋Adam 裁「改在遠端 build」**：C4 的 period-container 兩次編譯把
+  `/` 推到 **0 可用**（連 `df` 都印不出來），`docker builder prune -af` 救回 5.2 G。
+  ⇒ **本機不再跑 C4 的 container build**；C4 container 線**整條移 nslab**（本就是
+  PREREG-C4 §2 的主選項）。**本機 docker 現況＝容器編譯前必先 `df -h /`，低於 3 G 不開工。**
+  🔴 清理只准 `docker builder prune`——`docker system prune`/`rmi` **禁用**
+  （Adam 的 web-gui ×2＋postgres 是跑著的）。
 - 交接寫 handoff、release 要留字條（既有規矩，不重述）。
 - 🔴 **#1 的兩輪（F-5／E）彼此也不共窗**：E 的判準是 CPU 平台（`NDT_EXCLUSIVE_CPU=1`），
   F-5 的判準是毫秒級可見窗，互相都是對方的共變量。先跑哪個由 Adam 排；先跑者 release
