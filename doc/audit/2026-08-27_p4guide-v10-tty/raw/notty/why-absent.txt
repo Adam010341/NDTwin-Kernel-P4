@@ -1,0 +1,26 @@
+arm finished at: 2026-08-28T09:36:19+08:00
+--- NOTE: reconstructed from the saved log on 2026-08-28 10:02. The why-absent step
+--- was added to ab_arm.sh AFTER this arm ran, so unlike the tty arm the host memory
+--- reading was not captured live. Everything below comes from the log itself.
+--- last 12 lines of the build log ---
+Date:   Mon Aug 24 23:35:03 2026 +0530
+
+    fix off-by-one error in LAG index validation (re-opening #1440) (#1444)
+    
+    Signed-off-by: Devansh-567 <devansh.jay.singh@gmail.com>
+++ date +%s
++ TIME_BEHAVIORAL_MODEL_INSTALL_START=1787880659
++ PATCH_DIR=/home/tester/p4-guide/bin/patches
++ patch -p1
+patching file install_deps.sh
+Hunk #1 FAILED at 1.
+1 out of 1 hunk FAILED -- saving rejects to file install_deps.sh.rej
+--- last error-shaped lines ---
+281:find: ‘/home/tester/.local’: No such file or directory
+451:objdump: '/usr/local/lib/libprotobuf.a': No such file
+458:objdump: '/usr/local/lib/libprotobuf.a': No such file
+468:find: ‘/home/tester/.local’: No such file or directory
+1191:./p4-guide/bin/install-p4dev-v10.sh: line 795: /usr/local/bin/protoc: No such file or directory
+2791:find: ‘/home/tester/.local’: No such file or directory
+2840:Hunk #1 FAILED at 1.
+2841:1 out of 1 hunk FAILED -- saving rejects to file install_deps.sh.rej

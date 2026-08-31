@@ -1,0 +1,8 @@
+state: FINISHED
+arm: tty
+controlling_tty: YES
+installer_rc: 0   # informational only
+simple_switch_grpc: PRESENT
+p4c-bm2-ss:         PRESENT
+ARM_RESULT: SUCCESS
+finished: 2026-08-28T12:43:19+08:00

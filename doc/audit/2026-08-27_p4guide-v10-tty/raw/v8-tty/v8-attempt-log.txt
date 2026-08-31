@@ -1,0 +1,11 @@
+=== v8 clean-room, attempt log ===
+attempt 1: launched 09:58, ABORTED 10:07.
+  reason: I paused the VM to free the host for a sibling session's measurement block.
+  Then, while testing a new guard, vm.sh's start path deleted the paused VM's monitor
+  socket. A unix socket binds its name at creation, so recreating the file does not
+  rebind it: the VM kept listening on an unlinked inode and 'cont' could never be
+  delivered. Killed it; no evidence lost, ab-base intact.
+  => attempt 1 is VOID, not a result. It never reached the decisive patch step.
+attempt 2: launching 2026-08-28T10:42:21+08:00, from ab-base, no pause inside it.
+  neighbour state at launch: ndt status = 'measuring nothing', exclusive cpu = no,
+  loadavg 10.26 25.85 26.80 on 14 cores.

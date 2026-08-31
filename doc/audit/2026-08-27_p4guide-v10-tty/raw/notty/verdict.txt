@@ -1,0 +1,7 @@
+simple_switch_grpc: MISSING
+simple_switch: MISSING
+p4c-bm2-ss: MISSING
+--- /usr/local/bin ---
+pi_convert_p4info pi_gen_fe_defines pi_gen_native_json 
+--- disk ---
+51G free

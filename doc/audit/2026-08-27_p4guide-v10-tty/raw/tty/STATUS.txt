@@ -1,0 +1,8 @@
+state: FINISHED
+arm: tty
+controlling_tty: YES
+installer_rc: 1   # informational only
+simple_switch_grpc: MISSING
+p4c-bm2-ss:         MISSING
+ARM_RESULT: FAILURE
+finished: 2026-08-28T09:56:17+08:00

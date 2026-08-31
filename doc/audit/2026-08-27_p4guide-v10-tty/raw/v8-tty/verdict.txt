@@ -1,0 +1,7 @@
+simple_switch_grpc: PRESENT  /usr/local/bin/simple_switch_grpc
+simple_switch: PRESENT  /usr/local/bin/simple_switch
+p4c-bm2-ss: PRESENT  /usr/local/bin/p4c-bm2-ss
+--- /usr/local/bin ---
+bm_CLI bm_nanomsg_events bm_p4dbg p4c p4c-bm2-pna p4c-bm2-psa p4c-bm2-ss p4c-dpdk p4c-ebpf p4c-graphs p4c-pna-p4tc p4c-ubpf p4fmt p4smith p4test p4testgen pi_convert_p4info pi_gen_fe_defines pi_gen_native_json pna_nic pna_nic_CLI psa_switch psa_switch_CLI simple_switch simple_switch_CLI simple_switch_grpc thrift 
+--- disk ---
+46G free

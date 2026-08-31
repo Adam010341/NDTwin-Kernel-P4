@@ -1,0 +1,27 @@
+arm finished at: 2026-08-28T09:56:16+08:00
+--- host memory/swap at finish (asymmetric neighbour load shows up here) ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412       10842        2036         909        3789        4570
+Swap:          20479        8226       12253
+--- last 12 lines of the build log ---
+Date:   Mon Aug 24 23:35:03 2026 +0530
+
+    fix off-by-one error in LAG index validation (re-opening #1440) (#1444)
+    
+    Signed-off-by: Devansh-567 <devansh.jay.singh@gmail.com>
+++ date +%s
++ TIME_BEHAVIORAL_MODEL_INSTALL_START=1787882135
++ PATCH_DIR=/home/tester/p4-guide/bin/patches
++ patch -p1
+patching file install_deps.sh
+Hunk #1 FAILED at 1.
+1 out of 1 hunk FAILED -- saving rejects to file install_deps.sh.rej
+--- last error-shaped lines ---
+268:find: ‘/home/tester/.local’: No such file or directory
+425:objdump: '/usr/local/lib/libprotobuf.a': No such file
+433:objdump: '/usr/local/lib/libprotobuf.a': No such file
+442:find: ‘/home/tester/.local’: No such file or directory
+1147:./p4-guide/bin/install-p4dev-v10.sh: line 795: /usr/local/bin/protoc: No such file or directory
+2747:find: ‘/home/tester/.local’: No such file or directory
+2796:Hunk #1 FAILED at 1.
+2797:1 out of 1 hunk FAILED -- saving rejects to file install_deps.sh.rej

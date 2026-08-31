@@ -1,0 +1,8 @@
+state: FINISHED
+arm: notty
+controlling_tty: NO
+installer_rc: 1   # informational only
+simple_switch_grpc: MISSING
+p4c-bm2-ss:         MISSING
+ARM_RESULT: FAILURE
+finished: 2026-08-28T09:36:19+08:00

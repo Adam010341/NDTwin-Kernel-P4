@@ -1,0 +1,2 @@
+pinned script sha256: 8e3e0615ebde5b66cc6bcbce2a2cf6750b046a193096ac2a2a69ca2fec5c74dc
+p4-guide HEAD:        a2f9f8c5fd64f37d10ea2ce06f8821893a79a841

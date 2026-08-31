@@ -1,0 +1,7 @@
+PAUSE RECORD for this arm (requested by the auditor)
+  pauses inside this arm: NONE
+  This is attempt 2. Attempt 1 (09:58-10:07) was paused and then KILLED, not resumed:
+  vm.sh's start path deleted the paused VM's monitor socket, so 'cont' could never be
+  delivered. Attempt 1 is void and never reached the decisive patch step.
+  Attempt 2 started 10:42:21, after the neighbouring session's block 2 ended at 10:41.
+  => arm-to-arm wall clock IS comparable for this arm; there is no hidden gap in it.

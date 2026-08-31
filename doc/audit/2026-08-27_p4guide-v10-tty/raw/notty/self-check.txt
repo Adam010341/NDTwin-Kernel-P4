@@ -1,0 +1,12 @@
+=== ARM SELF-CHECK (proves which arm this actually is) ===
+date:            2026-08-28T01:23:25+00:00
+pid/ppid:        1370 / 1368
+controlling_tty: NO   <- /dev/tty could not be opened
+stdin_is_tty:    NO
+tty(1):          not a tty
+ps tty column:   '?'
+sid:             1370
+=== END SELF-CHECK ===
+
+Found supported ID ubuntu and VERSION_ID 24.04 in /etc/os-release
+Minimum recommended memory to run this script: 1920 MBytes

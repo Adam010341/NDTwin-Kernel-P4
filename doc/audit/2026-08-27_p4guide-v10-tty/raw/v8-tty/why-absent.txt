@@ -1,0 +1,27 @@
+arm finished at: 2026-08-28T12:43:19+08:00
+--- host memory/swap at finish (asymmetric neighbour load shows up here) ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412       12470         255         808        3841        2942
+Swap:          20479       10073       10406
+--- last 12 lines of the build log ---
+    source $HOME/p4setup.bash
+
+If you use the tcsh or csh shells, use p4setup.csh instead.
+----------------------------------------------------------------------
+CONSIDER READING WHAT IS ABOVE
+----------------------------------------------------------------------
++ clean_up
++ echo 'Killing child process'
+Killing child process
++ kill 1706
++ sudo --reset-timestamp
++ exit
+--- last error-shaped lines ---
+10030:-- Performing Test HAVE_PTHREAD_SETNAME_NP_WITH_TID_AND_ARG - Failed
+10036:-- Performing Test EMSCRIPTEN - Failed
+10398:-- Failed to find git directory.
+12431:[ 75%] Building CXX object backends/tc/CMakeFiles/p4c-pna-p4tc.dir/tcAnnotations.cpp.o
+13197:find: ‘/home/tester/.local’: No such file or directory
+13691:find: ‘/home/tester/.local’: No such file or directory
+13788:find: ‘/home/tester/.local’: No such file or directory
+14043:find: ‘/home/tester/.local’: No such file or directory
