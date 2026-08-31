@@ -593,6 +593,44 @@ Ceiling from `SATURATED` only ⇒ **neither arm has a ceiling yet**; 1/1 is runn
 §5-quater, and the report stops there. All six 1/4 cells stay **out of the precision curve**.
 `spread`/`floor` shapes remain under moratorium until 1/1 is in.
 
+---
+
+## 5-septies. The reconciliation constraints, pinned before the last rung lands
+
+PREREG §6 governs how this round may be compared with earlier ones. Writing them down **now**,
+while the final rung is still running, so the 05:00 write-up cannot loosen them by accident.
+
+**① The prior figure this round exists to update: "取樣天花板 ≈1/16", and it is the *pre-change*
+binary's number.** §6: *"天花板若動 ⇒ 更新「取樣天花板 ≈1/16」與
+`telemetry-cost-is-fixed-not-per-sample`"*.
+
+🔴 **② Cross-binary ⇒ direction and rung-distance ONLY.** §6, verbatim: *"**同 fabric、同 binary
+才逐格比，跨 binary 只比方向與格距**"*. This round's cells against the 08-20 `t008_poll` /
+`t004_poll` cells is a cross-binary comparison. **Per-cell value comparisons are not permitted; the
+comparison is "did it move, and by how many rungs".**
+
+🔴 **③ The reconciliation is cross-interpreter, and the wording is fixed.** §6 v1.1: the prior
+verdicts were produced by a Python in a dead session's scratchpad that no longer exists. Measured:
+`miniconda3` and `.plotvenv` give **byte-identical** verdicts for `t004_poll`/`t008_poll`. ⇒ the
+round may write ***"there is currently no evidence this axis moves the numbers"*** and **may not**
+write *"it has been shown not to move them"*. **"No evidence" is not "proved absent."**
+
+**④ E-P4 already has a prior, and it points the other way.** §6 (v0.3): `gate_e.out` (1/256,
+batch 1 vs 8) and `wall_f.out` (1/16), both on the 1 kHz side, are partial `BL` vs `M` cells.
+**Batching did not move `ratio` at either working point** (1/16: six cells 0.9955–1.004; 1/256:
+1.016 → 1.008). ⇒ **If leg 2 sees `ratio` fall, that contradicts a prior measurement and is
+reported as a bug under §3b — not as a ceiling movement.** This strengthens E-P4 from a rule into a
+rule with a prior.
+
+**⑤ Retracted, must not be cited**: the *"~4,900 samples/sec ceiling"* extrapolated from
+206 µs/sample (`ab-control-deleted-nothing`).
+
+⚠️ **What this round can say about ① at all.** With `SATURATED` count 0 through 1/1, the
+telemetry-fidelity ceiling is **right-censored at ≥1/1** for both arms. Against a prior of ≈1/16
+that is a *direction* (higher) and a *rung-distance* (≥4 rungs) — **which is exactly and only what
+constraint ② allows.** 🔴 And it must carry §5-quinquies' sentence: the ceiling that moved is the
+**telemetry-fidelity** ceiling, on a ladder whose top four rungs cost 43–85% of the data plane.
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
