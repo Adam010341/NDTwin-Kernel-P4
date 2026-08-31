@@ -1348,8 +1348,9 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
         printf '  %-14s %s\n' "tc netem" "none"
     fi
     # [Co-developed with claude code -- Adam]
-    # app_probe, not app_running. This line printed "none running" for 20h32m while a TE-App
-    # crash loop installed flow rules into the fabric below it, because the only witness it
+    # app_probe, not app_running. This line printed "none running" through a TE-App crash loop
+    # that ran 20h07m02s (2026-08-31; measured from the log, not from the process -- see
+    # doc/audit/2026-08-31_live-recipes/app_te_log_evidence.txt), because the only witness it
     # consulted was a pidfile that the crash had taken with it. An app nothing is tracking is
     # strictly more dangerous than a tracked one -- nobody is going to stop it on the way out --
     # so it is named separately rather than folded into the running list.
@@ -1627,6 +1628,14 @@ app_sig() {
 # directory; a hand-started one carries an absolute path) and is not satisfied by a command line
 # that merely quotes the name.
 #
+# TO THE NEXT PERSON WHO WANTS TO SIMPLIFY THIS BACK TO `[[ "$args" == *"$sig"* ]]`:
+# host_pid (search for `host_pid()`) does compare a plain substring and is safe, and that is
+# not a precedent for doing it here. It is safe because it anchors on the LAST FIELD --
+# `"${args##* }" == "$tag"` -- so a process that merely mentions the tag mid-line cannot match.
+# The condition that makes it safe is the anchor, not the fact that it uses ps. These app
+# signatures can sit anywhere in a command line, so there is no last-field anchor available,
+# and argument-wise comparison is what replaces it. Copy the anchoring, not the shape.
+#
 # An empty cmdline is NOT read as a mismatch. A zombie has one, and reporting "not running" for
 # a pid that plainly exists would be inventing a second false negative to fix the first. In that
 # case this asserts existence only -- the same strength `kill -0` had, without its EPERM hole.
@@ -1678,7 +1687,7 @@ app_running() {
 #
 # [Co-developed with claude code -- Adam]
 # The failure this exists to stop, measured live 2026-08-31: the previous session's TE-App sat
-# in a crash loop for 20h32m, and all three interfaces agreed it was not there --
+# in a crash loop for 20h07m02s, and all three interfaces agreed it was not there --
 #
 #     ndt status      ->  apps  none running
 #     ndt apps        ->  te    -
@@ -1687,9 +1696,15 @@ app_running() {
 # All three read one predicate, and that predicate starts at .test_run/pids/app_te.pid. A
 # pidfile is a *claim about* a process, not the process. Lose it -- to a crash before the
 # handler runs, to a `clean` that outlived the app, to another session -- and the app becomes
-# invisible and unkillable in the same instant, while it goes on installing flow rules into the
+# invisible and unkillable in the same instant, while it goes on doing whatever it does to the
 # fabric the next measurement will run over. The pidfile is exactly the wrong witness for the
 # question "did anything survive", because the survivors are the ones it has lost.
+#
+# What it does to the fabric is the hazard, not the record of that day: through all 20h07m the
+# TE-App reached no kernel at all -- every one of its 123,420 error lines is ":8000 connection
+# refused" -- so it installed nothing. The hazard is real (it spent a clean 31m37s talking to a
+# live kernel before the loop started, and would have resumed the moment one came back), but
+# "an orphan was writing to the fabric" is not what was observed on 2026-08-31.
 #
 # So stop distinguishing two states and start distinguishing three:
 #
@@ -1898,7 +1913,7 @@ app_start() {
 #
 # [Co-developed with claude code -- Adam]
 # The old first line was `[[ -f "$p" ]] || { info "$name not running"; return 0; }`. That single
-# line is the 20h32m invisible TE-App: no pidfile was read as no process, on rc 0, with a
+# line is the 20-hour invisible TE-App: no pidfile was read as no process, on rc 0, with a
 # reassuring message. The scan below is what turns "not running" from an assumption into a
 # finding.
 app_stop() {
@@ -1998,7 +2013,7 @@ apps_status() {
     for a in $APP_NAMES; do
         app_probe "$a"
         # The third state gets its own word in the column that used to print "-" for it. "-"
-        # meant "not running" and was printed for a crash-looping app for 20h32m.
+        # meant "not running" and was printed for a crash-looping app for 20h07m02s.
         case "$APP_STATE" in
             running)                shown=running ;;
             pidfile-lost-but-alive) shown="${R}ORPHAN${N}" ;;

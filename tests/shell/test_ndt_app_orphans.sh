@@ -5,11 +5,18 @@
 # [Co-developed with claude code -- Adam]
 #
 # What went wrong, measured live 2026-08-31 (doc/KNOWN-ISSUES.md §G): the previous session's
-# TE-App sat in a crash loop for 20h32m and every interface agreed it was not there --
+# TE-App sat in a crash loop for 20h07m02s and every interface agreed it was not there --
 # `ndt status` said "apps none running", `ndt apps` said "te -", and `ndt apps stop te` returned
 # 0 with the message "te not running". All three read one predicate whose only witness was
 # .test_run/pids/app_te.pid, and the crash had taken the pidfile with it. An app that is
-# invisible is also unkillable, and this one was installing flow rules the whole time.
+# invisible is also unkillable.
+#
+# The duration is the crash loop's, measured from the log's own timestamps before the 100 MB
+# file was deleted (doc/audit/2026-08-31_live-recipes/app_te_log_evidence.txt). The figure this
+# comment first carried, 20h32m, came from neither the log nor anything else in the repo and has
+# been withdrawn. That day's orphan installed no flow rules either -- every error in the file is
+# ":8000 connection refused" -- so what makes it worth a test suite is that it was unstoppable,
+# not what it did.
 #
 # So the property under test is not "does stop kill a pid" but "can stop tell a machine with no
 # app on it from a machine whose app it has lost track of". A test that only ever runs against a
