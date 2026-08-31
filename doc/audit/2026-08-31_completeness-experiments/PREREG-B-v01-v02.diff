@@ -1,0 +1,71 @@
+--- /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/034fd7dd-ec0f-4cdd-aa95-23bb13602de4/scratchpad/PREREG-B-v0.1.md	2026-08-31 13:10:43.731532539 +0800
++++ /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_completeness-experiments/PREREG-B-nslab-build.md	2026-08-31 13:11:24.800485487 +0800
+@@ -1,7 +1,8 @@
+-# PREREG B — nslab 四臂 build 實驗（B2 第二機複製＋B1 flags 消融合一；v0.1 草稿）
++# PREREG B — nslab 四臂 build 實驗（B2 第二機複製＋B1 flags 消融合一；v0.2）
+ 
+-**狀態**：v0.1＝草稿，auditor 五條件（C4 prereg 覆核所立）**預套**；待 auditor 覆核→
+-蓋章→三重【TBD】落定→v1.0 凍結；**凍結前不得接觸任何量測資料**（偵察＝裝環境、
++**狀態**：v0.2＝auditor 覆核（結構 PASS）三騎士條款 R1–R3 已落，待 auditor 驗落點蓋章；
++【TBD】全屬機械核對——**落定即自升 v1.0、修訂記錄記明**（auditor 裁，毋須 C4 式
++primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝裝環境、
+ 驗 kvm、smoke 拓樸可起，不產生任何效能數字）。
+ **裁決鏈**：完整性波 64_ §2-B1/B2 → Adam 08-31 表單「B 級全開、用遠端 VM 不搶實驗室」。
+ 
+@@ -36,7 +37,7 @@
+ 
+ - 拓樸＝單跳、控制面活著（與 study ① 同構）；工作點＝1400 B payload（1442 B frame）UDP。
+ - 梯階＝study 的 ×1.5 rungs：1,2,3,5,8,12,20,30,45,70,110,160,240,360（＋540/810 stop
+-  rule）Mbit/s【TBD-verify：凍結前對 `21_`/`22_` FINDINGS 逐字核對 rungs 與 stop rule】。
++  rule）Mbit/s【TBD-verify：凍結前對 `21_`/`22_` FINDINGS 逐字核對 rungs、stop rule，**並將 Arm A 的 stock configure 行一併逐字核對**（auditor R3，同一批動作）】。
+ - Clean＝loss ≤0.5% on 3-rep medians（同 study）；每臂讀出＝最高 clean rung。
+ - **判定規則（全部先凍）**：
+   - R-B2：兩 D 臂讀值皆嚴格高於兩 A 臂 ⇒「混淆在機器 2 存在」成立；報 rung 級距
+@@ -47,18 +48,29 @@
+   - R-B1b（B vs A、C vs B）：同構規則（兩臂嚴格序＝可分辨，否則不可分辨）。
+   - 🔴 凍結後**不加 rep、不加臂、不加梯階救任何結果**（auditor C5／「不准為救比值加梯階」）；
+     n 與臂數只能凍結前修訂。
+-- 陽性對照：per-process CPU gate 沿 study（**先讓它發火一次才信**）；發送端天花板 control
+-  沿 ② 的 sender gate 設計【TBD：VM 內發送端天花板要先量——此量測屬 gate 校準、
+-  在凍結後、正式臂之前跑，結果只用於 gate、不入 primary】。
++- 陽性對照：per-process CPU gate 沿 study（**先讓它發火一次才信**）。
++- **Sender gate（公式先凍、校準只填常數——auditor R1）**：
++  - 判定式（v1.0 即存在）：令 G＝VM 內 sender→sink **直測天花板**；凡 rung X 滿足
++    **G < 5×X ⇒ 該 rung 及以上的讀值標 sender-limited、不入 clean 判定**（5× 門檻沿
++    study ② 的 sender-gate 要求；精確錨點【TBD-verify：凍結時 pin 到
++    `23_FINDINGS_packet-size.md` 的 gate 節行號】）。
++  - 校準時序與防火牆：凍結後、正式臂之前跑；**校準路徑 sender→sink 直連、不經過任何
++    受測 build 的 binary**（不洩漏臂的性能包絡）；校準產出只有常數 G、只餵判定式、
++    不入 primary。
+ 
+ ## 4. 環境（auditor C4）
+ 
+ - **nslab qemu VM 專屬**（16C/16G、snapshot `fresh` 起；⚠️ `/dev/kvm` ACL 登出即失、
+   群組才算數——開工先驗）；**本實驗不設本機 fallback**（本機的 documented-only 補臂
+   ＝另一張小 prereg，見 §6）。
+-- 完整層疊揭露：bare nslab → qemu/KVM VM → Mininet veth；VM 的 CPU model、vCPU pinning
+-  與否、governor 全記【TBD：VM 環境 manifest——iperf3 版本、kernel、mininet 版本，
+-  bootstrap 時落定】。
++- 完整層疊揭露：bare nslab → qemu/KVM VM → Mininet veth【TBD：VM 環境 manifest——
++  iperf3 版本、kernel、mininet 版本、CPU model，bootstrap 時落定】。
++- **Pinning／governor＝凍結決策、非記錄（auditor R2）**：裁定＝**不 pin vCPU、governor
++  照 VM 預設不動**——與 study ①（機器 1 無 pinning、無定頻）同 protocol，複製忠實度
++  優先；pinning 敏感度屬 B3（本機、另立 prereg）。qemu 參數＝`~/ndtwin-vm.sh` 預設
++  （VM_CPUS=16、VM_MEM=16384），實際值進 manifest。
++- **nslab 獨占條款**：跑臂期間 nslab 上不開任何其他重活——nslab 無 claim 工具，
++  **本句即其 claim**。
+ - P4 程式＝study ① 同一顆＋同 p4c【TBD：凍結時逐字記名＋p4c 版本＋JSON hash——
+   順手補 AEC 抓的論文缺口】。
+ - 每臂 fabric 重啟＝新鮮度；VM 不 snapshot-rollback 中途（8 臂一氣跑完、中斷則整輪作廢
+@@ -89,5 +101,11 @@
+   先凍、C2 跨機器免責、C3 ldd/RUNPATH、C4 環境條款、C5 新鮮度＋凍結後不加）。
+   【TBD】×4：rungs 對 21_/22_ 核對、VM manifest、P4 程式/p4c 逐字記名、sender gate
+   的 VM 校準程序。
++- v0.2（08-31，**資料接觸前**）：auditor 覆核（結構 PASS）三騎士條款落地——
++  R1＝sender gate 公式先凍（G<5×X ⇒ sender-limited；校準 sender→sink 直連繞開受測物、
++  只填常數 G、不入 primary；②錨點行號列入 TBD-verify）；R2＝pinning/governor 凍結裁定
++  ＝不 pin、不動 governor（與 study ① 同 protocol；敏感度歸 B3）；R3＝Arm A stock
++  configure 行併入 TBD-verify 同批。另補 nslab 獨占條款（無 claim 工具、條款即 claim）。
++  流程（auditor 裁）：TBD 全屬機械核對，落定即自升 v1.0。
+ 
+ [Co-developed with claude code -- Adam]
