@@ -160,7 +160,7 @@ main() {
     #    guards: gate_d's first byte counter returned 0 against a live fabric, and 0 is exactly
     #    the reading the gate exists to make.  Two independent counters, both must be non-zero.
     say "--- G1 §2.1: counters readable at batch_size=$BATCH_OFF ---"
-    teardown; bringup "$BATCH_OFF" || abort "§2.1" "fabric would not come up for the batch_size=1 check"
+    teardown; swap_kernel 1hz; bringup "$BATCH_OFF" || abort "§2.1" "fabric would not come up for the batch_size=1 check"
     assert_batch_took "$BATCH_OFF"
     local dg0 dg1 udp0 udp1
     if [[ "$DRY_RUN" == 1 ]]; then
@@ -286,6 +286,47 @@ main() {
         abort "§2.4" "the ratio gate did not go red on data with a fifth of its samples removed.
         It cannot detect the failure it is deployed to detect -- and PREREG §3b names that exact
         shape ('_pending not flushed at the end') as the most likely batching bug."
+    fi
+
+    # -- G8 §4 (v0.3): the running-arm identity check, forced in BOTH directions.
+    #    A clause added to a registration is a clause nobody has seen fail.  The failure mode it
+    #    guards is "eight arms, one binary, every provenance record still correct", so the check
+    #    has to be shown to fire -- and its green has to be shown to come from a COMPARISON rather
+    #    than from the check quietly not running.  That is why the pass condition greps for
+    #    `verdict=MATCH` and not for exit status 0.
+    say "--- G8 §4: running-arm identity, forced both ways ---"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        local fg fr
+        fg=$(DRY_FAIL= check_running_arm "$KBIN_1HZ" || true)
+        fr=$(DRY_FAIL=exedrift check_running_arm "$KBIN_1HZ" || true)
+        local fu; fu=$(DRY_FAIL=exeunreadable check_running_arm "$KBIN_1HZ" || true)
+        say "    force-green: $fg"
+        say "    force-red  : $fr"
+        say "    unreadable : $fu"
+        if [[ "$fg" == *verdict=MATCH* && "$fr" == *verdict=MISMATCH* && "$fu" == *verdict=UNREADABLE* ]]; then
+            record "G8 §4 running-arm identity forced 3 ways" PASS "MATCH/MISMATCH/UNREADABLE all reachable"
+        else
+            record "G8 §4 running-arm identity forced 3 ways" FAIL "$fg | $fr | $fu"
+            abort "§4" "the running-arm check cannot be made to produce all three verdicts."
+        fi
+    else
+        local other_arm this_arm
+        this_arm=$(check_running_arm "$KBIN_1HZ" || true)
+        # force-red: point the check at the OTHER arm's provenance while the 1 Hz arm runs.
+        # This is the live analogue of "the fabric is running a different binary than the record
+        # says", which is the whole failure mode.
+        other_arm=$(check_running_arm "$KBIN_1KHZ" || true)
+        say "    force-green (this arm) : $this_arm"
+        say "    force-red   (other arm): $other_arm"
+        if [[ "$this_arm" == *verdict=MATCH* && "$other_arm" == *verdict=MISMATCH* ]]; then
+            record "G8 §4 running-arm identity forced both ways" PASS
+        else
+            record "G8 §4 running-arm identity forced both ways" FAIL "$this_arm | $other_arm"
+            abort "§4" "the running-arm check did not come out both ways.  If it cannot say
+        MISMATCH when pointed at the other arm, it cannot detect the failure it was added for --
+        and its greens would mean nothing."
+        fi
+        record_bmv2_identity gate
     fi
 
     say ""

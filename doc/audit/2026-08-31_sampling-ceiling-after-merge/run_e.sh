@@ -66,15 +66,19 @@ plan() {
     for rate in $BLTRUE_RUNGS; do for rep in $(seq 1 "$REPS"); do
         nb=$((nb+1)); printf '  B%02d  %s  (control, §3a)\n' "$nb" "$(cell_name blt "$rate" "$rep")"
     done; done
-    # Wall clock.  From wall_f.out, a cell with a full teardown+bringup cost ~45 s of overhead on
-    # this fabric; the estimate is stated so that the schedule is a decision and not a surprise.
-    local total=$(( (n + nb) * (DUR + 45) ))
+    # Wall clock, from MEASURED overhead rather than a guess: wall_f.out's six cells give
+    # arm-start to arm-start of 165/162/161/162/166 s at DUR=120, i.e. a median overhead of 42 s;
+    # its first cell cost 202 s, the extra ~40 s being the per-rung P4 recompile.
+    # ⚠️ Both were measured on a WARM fabric.  Treat the total as a lower bound.
+    local rungs; rungs=$(echo "$LADDER" | wc -w)
+    local total=$(( (n + nb) * (DUR + 42) + rungs * 40 ))
     say ""
     say "cells      $n ladder + $nb control = $((n + nb))"
-    say "estimate   ~$(( total / 3600 ))h $(( (total % 3600) / 60 ))m of EXCLUSIVE fabric,"
-    say "           at DUR=${DUR}s + ~45s bring-up per cell.  🔴 This does not fit beside the"
-    say "           9/03 preparation window; PREREG §4 forbids overlapping it.  Adam schedules."
-    say "           DUR=120 (gate_e/wall_f's value) would make it ~$(( (n+nb)*165/3600 ))h -- see TBD-DRAFT.md D5."
+    say "estimate   ~$(( total / 3600 ))h $(( (total % 3600) / 60 ))m of EXCLUSIVE fabric"
+    say "           = $((n + nb)) x (DUR ${DUR}s + 42s measured overhead) + $rungs x 40s recompile."
+    say "           🔴 Lower bound: the 42s was measured on a warm fabric."
+    say "           🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules."
+    say "           Design options and what each one CANNOT answer: see COST-TABLE.md."
 }
 
 # -------------------------------------------------------------------------------------------------
@@ -103,6 +107,12 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
     # Bracket identity (F-5 §4 F4's discipline, applied here): the running process's exe at the
     # start and at the end.  A claim protects the fabric, not the file on disk -- on 08-30 a
     # rebuild landed 9 seconds before an exec.
+    # 🔴 The RUNNING process must be the arm this cell claims -- not the file on disk, which is
+    # what every other identity field in this round records.  Reviewer line, 08-31 (PREREG-B's
+    # same-family defect): eight arms can run one binary and every provenance record still looks
+    # right, because it describes what was COMPILED.
+    assert_running_arm "$( [[ $kern == 1khz ]] && echo "$KBIN_1KHZ" || echo "$KBIN_1HZ" )"
+    record_bmv2_identity "$cell"
     local sha_open sha_close; sha_open=$(running_kernel_sha)
     say "    running kernel exe sha256 (open)  $sha_open"
 
@@ -116,6 +126,13 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
 
     sha_close=$(running_kernel_sha)
     say "    running kernel exe sha256 (close) $sha_close"
+    # 🔴 A bracket built on sentinels closes vacuously: NO-KERNEL-PROCESS == NO-KERNEL-PROCESS.
+    # The shape test is what makes "could not read" a refusal instead of a pass.
+    if [[ ! "$sha_open" =~ ^[0-9a-f]{64}$ ]] || [[ ! "$sha_close" =~ ^[0-9a-f]{64}$ ]]; then
+        abort "identity" "$cell: the bracket could not be READ (open=$sha_open close=$sha_close).
+        That is not a passing bracket -- two unreadable ends compare equal, which is exactly the
+        shape of a check that never ran."
+    fi
     if [[ "$sha_open" != "$sha_close" ]]; then
         abort "identity" "$cell: the running kernel changed mid-cell ($sha_open -> $sha_close).
         The cell is void.  Per F-5 §4 F4's rule, a bracket that does not close discards the arm."

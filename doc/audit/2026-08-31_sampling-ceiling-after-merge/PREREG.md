@@ -2,17 +2,30 @@
 
 [Co-developed with claude code -- Adam]
 
-**狀態**：**v0.2-stamped＝reviewer 代審章已蓋（2026-08-31，落點逐項親驗）**；
-升 v1.0 閘＝兩處【TBD】落定（①1 kHz 取得方式＋其連帶條款 ③py-spy 申報文字）；
-**凍結（v1.0）前不得接觸任何量測資料**。排程待 Adam 裁（週四前／週四後）。
+**狀態**：**v0.3（2026-08-31，資料接觸前的修訂；仍未達 v1.0，章未蓋）**。
+v0.2-stamped 的 reviewer 章仍有效，v0.3 只更正 v0.2 之後被證否的事實與一處軸標筆誤，
+**不新增判定規則**。升 v1.0 閘＝【TBD-3】（py-spy 申報文字）落定＋**§3 的臂設計待 Adam 排窗裁決**
+（三個方案與各自答不出什麼＝`COST-TABLE.md`）。【TBD-1】已於 v0.3 關閉。
+**凍結（v1.0）前不得接觸任何量測資料。**
 **裁決鏈**：`BRIEF-E-merge.md`（08-26 設計，未跑）→ 兩個改動 08-27 落地 →
 Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝**沒有** → 本註冊。
 
 ## 0. 這輪存在的理由（一句話）
 
-**帳上的「取樣天花板 ≈1/16」是改動前那顆 binary 的數字**，而 batching（`a3bb761`）與
-path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線上跑了一週。
-天花板可能已經抬高、也可能沒有——**兩種答案都要能發表，而現在我們一種都沒有。**
+**帳上的「取樣天花板 ≈1/16」是改動前那顆 binary 的數字**，而 path recompute 1 kHz→1 Hz
+（`2f57ba5`）在 08-27 落地、已在生產線上跑了一週。天花板可能已經抬高、也可能沒有——
+**兩種答案都要能發表，而現在我們一種都沒有。**
+
+🔴 **v0.3 更正（v0.2 的這一句是錯的）**：原文寫「batching（`a3bb761`）與 path recompute 都在
+08-27 落地、已在生產線上跑了一週」。**對 batching 是假的。**
+`p4_proxy/proxy_agent/main.py:82` 的 `NDTWIN_SFLOW_BATCH` 預設 1（＝關閉），
+而全 repo（排除 audit 腳本）**沒有任何地方設定它**——`doc/KNOWN-ISSUES.md:1018` 早已寫著
+「**生產預設 1 ＝ batching 關閉 ⇒ 目前不咬人**」。**碼進了版控，行為從未開啟。**
+⇒ 本輪的**主要問題是 recompute period**（生產行為真的變了的那一個，且它正好動到佔 46 點的
+那條執行緒）；batching 從「已經變了、要量」降為「**要不要打開**、要決策支援」。
+兩者的證據需求不同，臂的設計因此重開，見 `COST-TABLE.md`。
+（撰稿人 auditor 自陳：反面記載就在 `KNOWN-ISSUES.md:1018`，起草時未查即寫。
+同族＝[[existence-is-not-wiring]]「碼在版控 ≠ 那條路徑在跑」。）
 
 ## 1. 問題（三問，兩個改動要分得開）
 
@@ -42,6 +55,12 @@ path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線�
    - `ratio` gate：**force-red**＝餵一份人工截去尾巴 20% 樣本的資料，gate 必須紅；
      **force-green**＝餵已知良品（08-25 D 輪存檔的一格 raw），gate 必須綠。
    - 四次 force 的逐字輸出全存 raw；**任一次結果不如預期 ⇒ gate 本身有問題，停輪修 gate**。
+   （🔴 v0.3 更正：本節上方寫「四次 force」，而 v0.2-stamped 的 E3b 把 CPU force-green
+   拆成兩段 ⇒ 實際是**五次**。腳本 `gates_e.sh` 跑五次並逐項標號 G4/G5a/G5b/G6/G7。）
+   （🔴 v0.3 補：CPU gate 的門檻 v0.2 沒有給。本機**閒置無 fabric** 實測外來負載 **0.84 核**，
+   主要來源是 `claude-desktop`＋跑這輪的 session 自己。⇒ 門檻改判**對已量基線的超出量**，
+   基線以 `gates_e.sh baseline` 在 fabric 關著時量進檔案；基線缺席時 gate 回
+   **UNRUNNABLE（不回綠）**。關不關桌面＝Adam 裁，兩種鑑別力的差別見 `COST-TABLE.md` §4。）
 - 任一項不過 ⇒ **停輪、回報、不調門檻**（BRIEF-E 原條款，保留）。
 
 ## 3. 臂與判定規則（規則先凍、值後算——C1）
@@ -51,10 +70,15 @@ path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線�
 | 格 | batching | path recompute |
 |---|---|---|
 | **BL** | off（`batch_size=1`；**等價性見下方 §3a，不假設**） | 1 kHz（舊值，取得方式見【TBD-1】） |
-| **M** | on（生產值） | 1 kHz |
-| **P** | off | 1 Hz（生產值） |
-| **MP** | on | 1 Hz ＝**現行生產組態** |
+| **M** | on（`NDTWIN_SFLOW_BATCH=8`，v0.3 凍結；見下） | 1 kHz |
+| **P** | off | 1 Hz ＝**現行生產組態**（v0.3 更正：生產的 batching 是關的） |
+| **MP** | on | 1 Hz |
 
+- 🔴 **v0.3 凍結 v0.2 漏凍的三個值**（都會動判定，所以不能留給執行者）：
+  **每格時長 `DUR`**、**batching on 的值**、**raw 落點**。
+  `DUR` 的取值連帶整輪時數，是 Adam 的排窗決定 ⇒ 選項與代價見 `COST-TABLE.md`；
+  batching on ＝ **8**（`gate_e`／`wall_f` 兩輪都用 8，選別的值會讓 §6 的對帳欄變空）；
+  raw ＝ 量在 `2026-08-20_.../raw`（儀器寫死）後**複製**進本輪 `raw/cells/`，兩側各記 sha256。
 - 取樣梯（先凍）：1/1024, 1/256, 1/64, 1/32, 1/16, 1/8, 1/4, 1/1；
   **每格三 rep、交錯序 BL,M,P,MP,BL,M,P,MP**；每格 fabric 重啟。
 - 🔴 **梯頂紀律（auditor-review E1；①b 那個坑的鏡像——梯子只對著慢臂檢查過，
@@ -71,7 +95,21 @@ path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線�
 ### 3a. BL 的等價性：驗法與驗不過的後果（auditor-review E2；控制組位置問題）
 
 `batch_size=1` 若不等同 pre-batching 碼，四格量的就不是「有無 batching」，BL 就從基線
-變成第三個條件。**採 (a) 案，帶明文 fallback**：
+變成第三個條件。🔴 **v0.3：(a) 案已證實不可執行，(c) 就此生效**（2026-08-31，資料接觸前，`git show` 實證）：
+- `a3bb761^:p4_proxy/proxy_agent/main.py:80` 傳 `batch_size=` 給
+  `a3bb761^:p4_proxy/proxy_agent/sflow_emitter.py:257` 的 `__init__`，而該簽章
+  **沒有 `batch_size` 參數** ⇒ proxy 一啟動就 `TypeError`。
+- 成因見 `a3bb761` 自己的 commit message：batching 實作「never committed」到 `a3bb761` 才進版控，
+  而**接線** commit `9487643`（08-26）已是 `a3bb761^` 的祖先
+  （`git merge-base --is-ancestor 9487643 a3bb761^` ⇒ YES）⇒ 那棵樹**內部不一致**。
+- **裁決（auditor，08-31）：走 (c)，不另建替代樹。** 替代樹（`9487643^` 整棵，或合成退版）
+  都會夾帶 08-26 之後的 proxy 改動（含 `/sflow/stats` 當時尚不存在）
+  ⇒ **為了補一個控制格而引入新的混淆，划不來**。
+  等價性的證據改採 `a3bb761` 自附的逐位元組 committed 測試
+  （`tests/python/test_sflow_emitter_batching.py`，釘住「default 1 ＝ 舊行為 byte for byte」）。
+- ⇒ **第五格 `BL-true` 不跑。** 以下 (a) 保留為歷史記錄，不再是本輪程序。
+
+**原 (a) 案（v0.2；已失效）**：
 
 - **(a) 第五格 `BL-true`＝`a3bb761^` 的真 pre-batching binary**，跑**牆邊三格**
   （1/16, 1/8, 1/4——天花板由這裡決定，等價性只在這裡有意義；不跑全梯是刻意的，
@@ -101,8 +139,40 @@ path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線�
   併行負載直接污染）＋窗內全 repo 禁 commit／build／VM；**不疊 9/03 準備窗**；
   與 F-5 輪、B3 本機補臂**分開 claim**（三者都要獨占，不得共窗）。
 - **雙 binary／雙組態身分**：四格各記 kernel 與 proxy 的 sha256＋`ldd`＋`readelf -d`
-  RUNPATH＋identifying strings；1 kHz 臂如何取得（旗標 vs 還原 patch）**凍結前寫死**
-  【TBD-1】，並記其 commit／patch hash。
+  RUNPATH＋identifying strings；1 kHz 臂如何取得
+  ——🔴 **【TBD-1】v0.3 關閉：只能是還原 patch。** `kFlowPathRecomputeInterval` 是
+  `include/ndt_core/collection/FlowLinkUsageCollector.hpp:51` 的 `constexpr`，唯一使用點
+  `src/ndt_core/collection/FlowLinkUsageCollector.cpp:2969`，kernel collection 樹裡唯一的
+  `getenv` 是 `NDTWIN_TOPO_FILE` ⇒ **沒有旗標那一支**。
+  兩臂皆由 `build_1khz_binary.sh` 從同一凍結 commit 現建，只差
+  `seconds(1)` → `microseconds(1000)` 一行，patch 存檔並記 sha256。
+  **不用現成的 `.test_run/binaries/ndtwin_kernel.ab2d7ed1`**：它的 `.provenance` 自記
+  `commit=UNKNOWN`／`dirty_worktree=UNKNOWN`，與 `a40e04ce` 的差異未被確立為那一行。
+  🔴 **臂的判準不得用 `nm -C | grep kFlowPathRecomputeInterval`**：`.provenance` 用它分辨舊
+  binary 是因為 `ab2d7ed1` **早於這個常數存在**；本輪兩臂同樹只差常數的**值**，符號兩邊都在
+  ⇒ 會回 5 vs 5，是**一個沒有鑑別力卻看起來驗過了的 PASS**。
+  改用：①身分＝staged 檔 sha256 逐字核 `.provenance`；②值＝build 時跑 `2f57ba5` 自附的
+  `FlowPathRecomputeInterval.IsOneSecondNotOneMillisecond`，**1 Hz 臂必須綠、1 kHz 臂必須紅**。
+- 🔴 **v0.3 補（reviewer 線在 PREREG-B 掃到的同族缺陷；並排 diff 見
+  `2026-08-31_completeness-experiments/INSTRUMENT-DIFF-E-vs-F5.md`）**：
+  - **臂的指定機制入註冊**（v0.2 只活在腳本裡，換人跑就沒了）：kernel 臂＝以 staged binary
+    覆蓋 `build/bin/ndtwin_kernel`，`stack.sh:766` 以**相對路徑** `./bin/ndtwin_kernel` exec 它
+    ⇒ 不經 PATH，PREREG-B 的裸名變體在此不會發生。
+  - 🔴 **身分取自跑著那顆，不是編出來那顆**：每格 bring-up 之後、量測之前，比對
+    `/proc/<pid>/exe` 的 sha256 與該臂 staged 檔 `.provenance` 的 sha256，不符即中止；
+    **首尾各取一次**，不符即該格作廢。
+    **讀不到 `/proc/<pid>/exe` 算中止，不算通過**——兩個哨兵值彼此相等，用哨兵做首尾對帳會
+    空洞地通過。（v0.2 的「四格各記 sha256」沒說取自何處；八格全跑同一顆也會記出一份看起來
+    完全正確的身分檔。）
+  - 🔴 **bmv2 的身分**（v0.2 只寫「kernel 與 proxy」，而取樣就發生在 bmv2 的 pipeline 裡，
+    且 D 輪的 `ladder_ext.sh:82` 本來就記它——這是跨輪的退步）：每格記
+    `p4_proxy/mininet/bmv2_binary_override` 的 directive 行與該檔 sha256，**並從 `/proc` 取每一台
+    執行中 `simple_switch_grpc` 的 exe sha256；十台必須同一顆，否則該格作廢**。
+    （先例：`2026-08-22_stock-control-ladder` 兩臂即「verifying from /proc which binary the live
+    switches actually run」。）
+  - **這三條自己要先見過紅**：`gates_e.sh` 的 **G8** 對身分檢查三向 force——
+    `MATCH`（正確臂）／`MISMATCH`（指到另一臂）／`UNREADABLE`（`/proc` 讀不到）皆須可達，
+    且**通過的判準是輸出含 `verdict=MATCH`，不是 exit code 0**（否則「檢查沒跑到」會長得像通過）。
 - `truncate=128` 是現行生產組態（`f64897b`）——**四格一致並在每格斷言它**（BRIEF-E 原條款）。
 - 取樣器與 py-spy 自身＝已註冊共變量；py-spy **要透過 `mnexec` 跑**（`ptrace_scope=1`）。
 
@@ -117,6 +187,7 @@ path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線�
 |---|---|
 | 推翻／更新誰 | 天花板若動 ⇒ 更新「取樣天花板 ≈1/16」與 [[telemetry-cost-is-fixed-not-per-sample]]（成本固定不隨取樣率＝**改動前**的性質，本輪重測它是否仍成立） |
 | 可對比誰 | 08-25 D 輪四格（`t008`/`t004`…）——**同 fabric、同 binary 才逐格比**，跨 binary 只比方向與格距 |
+| 可對比誰（🔴 v0.3 補，v0.2 漏列） | **`gate_e.out`（1/256，batch 1 vs 8）與 `wall_f.out`（1/16，三對交錯，DUR=120）**——同一個 batching 因子的實測，且皆跑在 kernel `3367d0e9`＝**1 kHz 側** ⇒ 它們就是 `BL` vs `M` 在兩個梯階上的部分格。事實：1/16 的 `ratio` 六格皆 0.9955–1.004（batch 1 與 8 都健康）、proxy CPU 71.0/72.3/73.8 → 62.8/62.9/62.3、datagram 3346→447/s；1/256 的 `ratio` 1.016 → 1.008、datagram 209.8→30.6/s。⇒ **E-P4 已有前測：兩個工作點上 batching 都沒有動 `ratio`**，本輪若看到 `ratio` 掉是與舊結果衝突，按 §3b 當 bug 報 |
 | 已作廢不得引用 | 206 µs/樣本外推的「~4,900 樣本/秒天花板」（`ab-control-deleted-nothing`） |
 
 ## 7. 措辭紅線
@@ -144,3 +215,18 @@ path recompute 1 kHz→1 Hz（`2f57ba5`）都在 08-27 落地、已在生產線�
 - v0.2-stamped（08-31，reviewer 章）：落點逐項親驗通過。並補 **E3b**——CPU gate 的
   force-green 拆兩段（閒置綠＝能綠；**正常臂自身負載下也綠＝不對自己誤報**），
   理由＝「因為沒東西所以通過」是 08-30 記的第二種壞閘門，且 ③ 輪閘門正死在其鏡像。
+- **v0.3（08-31，資料接觸前；auditor 裁決，撰稿＝腳本作者，章未蓋）**——五條更正，
+  照 [[prereg-amendment-before-data]] 三條件記錄：
+  **改了什麼**：①§0 的「batching 已在生產跑了一週」＝假，生產 batching 是關的，
+  主要因子改為 recompute，batching 降為「要不要打開」的決策問題；
+  ②§3 表格「現行生產組態」由 `MP` 移到 `P`，並凍結 batching on＝8、raw 落點；
+  ③§3a 的 (a) 案證實不可執行（`a3bb761^` 內部不一致），**(c) 生效、第五格不跑**；
+  ④§8 原第 140 行的連帶條款指錯軸，改為 `BL`/`M`（1 kHz）vs `P`/`MP`（1 Hz）；
+  ⑤§4 補三條身分條款（指定機制入註冊／身分取自 `/proc/<pid>/exe` 且讀不到＝中止／bmv2 身分），
+  §2 的「四次 force」更正為五次並補 CPU 門檻的基線機制。
+  **為什麼**：①②③④是**被證否的事實與一處軸標筆誤**，全部可在窗外以 `git show`／`grep` 複驗；
+  ⑤是 reviewer 線在 PREREG-B 掃到的同族缺陷，經 E 與 F-5 儀器節並排 diff 確認 E 有同樣暴露面。
+  **誰在什麼時候**：auditor 裁決、腳本作者撰稿，2026-08-31，**兩輪皆未接觸任何量測資料**
+  （`raw/` 只有 dry-run 與閘門自測產物）。
+  🔴 **未決**：§3 的臂設計（三方案與各自答不出什麼＝`COST-TABLE.md`）待 Adam 排窗裁；
+  【TBD-3】py-spy 申報文字待複驗；**v1.0 的章不是本輪撰稿人蓋的**。

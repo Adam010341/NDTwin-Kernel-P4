@@ -41,7 +41,17 @@ abort() { say "🔴 ABORT($1): ${*:2}"; say "🔴 §3 C5: nothing is added, wide
 # `ndt status`'s code column is an auxiliary signal only; the file on disk is not the evidence.
 # -------------------------------------------------------------------------------------------------
 running_kernel_sha() {
-    [[ "$DRY_RUN" == 1 ]] && { echo "DRYRUN-synthetic-running-sha"; return 0; }
+    # 🔴 The synthetic value PASSES the 64-hex shape test on purpose, so the dry run exercises the
+    # comparison rather than skipping it.  DRY_FAIL=exeunreadable / exedrift force the two failure
+    # shapes.  (A sentinel like "NO-KERNEL-PROCESS" compares EQUAL to itself, so a bracket built on
+    # sentinels closes vacuously -- the hole the reviewer line found in PREREG-B's family.)
+    if [[ "$DRY_RUN" == 1 ]]; then
+        case "$DRY_FAIL" in
+            exeunreadable) echo "UNREADABLE"; return 0 ;;
+            exedrift)      printf 'd%063d\n' 1; return 0 ;;
+        esac
+        printf 'a%063d\n' 0; return 0
+    fi
     local pid; pid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
     [[ -n "${pid:-}" ]] || { echo "NO-KERNEL-PROCESS"; return 0; }
     sudo -n sha256sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1 || echo UNREADABLE
@@ -77,8 +87,9 @@ preflight() {
     (( avail >= 3 )) || { printf 'REFUSE: only %sG free on / (need >=3G).\n' "$avail" >&2; return 1; }
     [[ -n "${NDT_OWNER:-}" ]] || { printf 'REFUSE: NDT_OWNER unset.  Source round.env first.\n' >&2; return 1; }
 
-    if [[ "$DRY_RUN" == 1 && ! -f "$claim" ]]; then
-        dry_note "no lab.claim; synthesising owner=$NDT_OWNER exclusive_cpu=yes"
+    # A dry run must not depend on live lab state (see lib_e.sh preflight for the reasoning).
+    if [[ "$DRY_RUN" == 1 && "$DRY_FAIL" != claim ]]; then
+        dry_note "synthesising claim owner=$NDT_OWNER exclusive_cpu=yes"
         owner="$NDT_OWNER"; excl=yes
     else
         owner=$(sed -n 's/^owner=//p' "$claim" 2>/dev/null || true)
@@ -197,6 +208,11 @@ arm() {
 
     sha_close=$(running_kernel_sha)
     say "=== arm $ARM: bracket CLOSE, running exe sha256=$sha_close ==="
+    if [[ ! "$sha_open" =~ ^[0-9a-f]{64}$ ]] || [[ ! "$sha_close" =~ ^[0-9a-f]{64}$ ]]; then
+        abort "§4 F4" "the bracket could not be READ (open=$sha_open close=$sha_close).
+        Two unreadable ends compare EQUAL, so this must refuse rather than pass -- an unreadable
+        bracket is the shape of a check that never ran, not of one that succeeded."
+    fi
     if [[ "$sha_open" != "$sha_close" ]]; then
         abort "§4 F4" "the running kernel changed during arm $ARM ($sha_open -> $sha_close).
         The arm is VOID and must be re-run.  This is not a warning: the claim protects the
@@ -237,7 +253,18 @@ q3() {
     preflight || exit 2
     assert_arm_binary
     freeze_sequence
-    say "=== Q3 adversarial: $Q3_ROUNDS bursts x $Q3_BURST installs, gap ${Q3_GAP_MS}ms (【TBD-3】) ==="
+    # 🔴 The address budget, as code.  A repeated dst makes the second install a MODIFY, and a
+    # modify produces no cached row at all -- so an over-budget Q3 would read as "fewer phantoms"
+    # for a reason with nothing to do with T-11.  Raising the budget means registering a second
+    # address range, which is an amendment and only available before data.
+    local ops=$(( Q3_ROUNDS * Q3_BURST ))
+    if (( ops > N_INSTALLS )); then
+        abort "§3 / TBD-3" "Q3 would drive $ops operations against a frozen budget of $N_INSTALLS
+        addresses.  The overflow would repeat destinations, turning those installs into modifies,
+        which produce no cached row -- the arm would read as 'fewer phantoms' for a reason that
+        has nothing to do with T-11.  Register a second address range first, before any data."
+    fi
+    say "=== Q3 adversarial: $Q3_ROUNDS bursts x $Q3_BURST installs = $ops ops (budget $N_INSTALLS) ==="
     say "🔴 【TBD-3】 is a DRAFT.  These three numbers are not frozen by PREREG v0.2; running Q3"
     say "🔴 before they are ruled would be choosing the cadence after seeing the fabric."
     if [[ -z "${Q3_CADENCE_RULED:-}" ]]; then

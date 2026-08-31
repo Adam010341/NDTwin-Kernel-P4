@@ -100,8 +100,11 @@ preflight() {
     #       PREREG §4 additionally requires exclusive_cpu=yes -- this round's discriminator is a
     #       CPU plateau, so a concurrent load is not noise, it is a treatment.
     local claim="$KERNEL_DIR/.test_run/lab.claim" owner="" excl=""
-    if [[ "$DRY_RUN" == 1 && ! -f "$claim" ]]; then
-        dry_note "no lab.claim on disk; synthesising owner=$NDT_OWNER exclusive_cpu=yes"
+    # A dry run must not depend on live lab state: otherwise the accept path becomes untestable
+    # exactly when somebody else holds the lab, which is most of the time.  DRY_FAIL=claim is how
+    # the refusal branch is reached instead.
+    if [[ "$DRY_RUN" == 1 && "$DRY_FAIL" != claim ]]; then
+        dry_note "synthesising claim owner=$NDT_OWNER exclusive_cpu=yes (real claim: ${_real_owner:=$(sed -n 's/^owner=//p' "$claim" 2>/dev/null || echo none)})"
         owner="$NDT_OWNER"; excl="yes"
     else
         owner="$(sed -n 's/^owner=//p' "$claim" 2>/dev/null || true)"
@@ -261,11 +264,113 @@ record_identity() {   # $1 = tag (goes in the filename), $2 = commit-or-UNKNOWN
 # RUNNING process's exe hash at the start and end of a cell is the only check that catches a
 # rebuild landing between two arms.
 running_kernel_sha() {
-    if [[ "$DRY_RUN" == 1 ]]; then echo "DRYRUN-synthetic-running-sha"; return 0; fi
+    if [[ "$DRY_RUN" == 1 ]]; then
+        case "$DRY_FAIL" in
+            exeunreadable) echo "UNREADABLE"; return 0 ;;
+            exedrift)      echo "$(printf 'd%063d' 1)"; return 0 ;;
+        esac
+        # A synthetic value that PASSES the 64-hex shape test, so the accept path is really
+        # exercised rather than skipped by a sentinel that would fail the shape test anyway.
+        printf 'a%063d\n' 0; return 0
+    fi
     local pid
     pid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
     [[ -n "${pid:-}" ]] || { echo "NO-KERNEL-PROCESS"; return 0; }
     sudo -n sha256sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1 || echo "UNREADABLE"
+}
+
+# -------------------------------------------------------------------------------------------------
+# 🔴 IS THE PROCESS THAT IS RUNNING THE ARM THIS CELL CLAIMS TO BE?
+#
+# This is the check the reviewer line found missing from PREREG-B, transplanted here because E has
+# the same exposure: BL/M and P/MP differ by BINARY, and every identity field the registration asks
+# for (sha256, ldd, readelf -d, strings) can be recorded off the COMPILED ARTEFACT and still be
+# perfectly correct while the fabric runs something else.  Only /proc/<pid>/exe can refute that.
+#
+# On this machine the kernel is exec'd as `./bin/ndtwin_kernel` (stack.sh:766) -- a RELATIVE path,
+# so the bare-name/PATH variant that bit the bmv2 launcher cannot occur for the kernel.  The
+# remaining ways to run the wrong arm are: the cp did not land; a previous cell's process outlived
+# `stack.sh down`; or something rebuilt build/bin between the swap and the exec.  All three are
+# refuted by comparing the RUNNING exe's hash to the STAGED arm's hash.
+#
+# 🔑 TWO WAYS THIS CHECK COULD PASS WITHOUT CHECKING, BOTH CLOSED HERE:
+#   1. the sentinel: `running_kernel_sha` returns NO-KERNEL-PROCESS / UNREADABLE on failure, and
+#      two sentinels COMPARE EQUAL -- so an open/close bracket built on it passes vacuously.
+#      The shape test (64 lowercase hex) is what turns "could not read" into a refusal.
+#   2. the silent skip: a caller that never reaches the comparison looks exactly like one that
+#      made it.  So the verdict is EMITTED as `IDENTITY verdict=MATCH|MISMATCH|UNREADABLE`, and
+#      the force test greps for MATCH specifically rather than for exit status 0.
+# -------------------------------------------------------------------------------------------------
+check_running_arm() {   # $1 = staged binary path.  Prints a verdict line; 0=MATCH, 1=MISMATCH, 2=UNREADABLE
+    local staged="$1" want got
+    want=$(sed -n 's/^sha256=//p' "$staged.provenance" 2>/dev/null | head -1)
+    # In a dry run the arms have not been built, so the STAGED side is synthesised to match what
+    # running_kernel_sha synthesises -- 1hz agrees, 1khz deliberately does not, which is what makes
+    # the force-red reachable without a fabric.
+    if [[ "$DRY_RUN" == 1 && -z "$want" ]]; then
+        case "$staged" in
+            *1khz) want=$(printf 'b%063d' 0) ;;
+            *)     want=$(printf 'a%063d' 0) ;;
+        esac
+    fi
+    got=$(running_kernel_sha)
+    if [[ ! "$want" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "IDENTITY verdict=UNREADABLE reason=no-staged-sha256 staged=$staged"; return 2
+    fi
+    if [[ ! "$got" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "IDENTITY verdict=UNREADABLE reason=running-exe-unreadable got=$got"; return 2
+    fi
+    if [[ "$want" != "$got" ]]; then
+        echo "IDENTITY verdict=MISMATCH want=$want got=$got"; return 1
+    fi
+    echo "IDENTITY verdict=MATCH want=$want got=$got"; return 0
+}
+
+assert_running_arm() {   # abort-wrapping caller
+    local out rc
+    out=$(check_running_arm "$1"); rc=$?
+    say "    $out"
+    (( rc == 0 )) && return 0
+    abort "§4 running-arm" "the RUNNING kernel is not the arm this cell claims.
+        $out
+        Every identity field this round records can be taken off the compiled artefact and be
+        correct while the fabric runs something else; this is the only check that refutes it.
+        A cell measured on the wrong arm is a clean, reproducible, completely wrong result."
+}
+
+# bmv2's identity, which NEITHER prereg asks for and which decides this round's sampling.
+# The launcher is chosen by p4_proxy/mininet/bmv2_binary_override (one directive line, absolute
+# path).  Since 2026-08-22 a missing directive is a REFUSAL rather than a fallback -- so the
+# bare-name PATH trap is closed on this machine -- but WHICH path the file names is still a free
+# variable that changes the number, and nothing in this round recorded it until now.
+record_bmv2_identity() {
+    local f="$OUT/identity_bmv2_$1.txt" ovr="$KERNEL_DIR/p4_proxy/mininet/bmv2_binary_override"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would record the bmv2 override directive and the sha256 of each RUNNING simple_switch_grpc from /proc"
+        return 0
+    fi
+    {
+        printf 'when=%s\n' "$(date -Is)"
+        printf 'override_directive=%s\n' "$(grep -vE '^[[:space:]]*(#|$)' "$ovr" 2>/dev/null | head -1)"
+        printf 'override_file_sha256=%s\n' "$(sha256sum "$ovr" 2>/dev/null | cut -d' ' -f1)"
+        # 🔴 What the switches ARE running, not what the file says they should.  The 08-22 stock
+        # control ladder already established this technique ("each arm verifying from /proc which
+        # binary the live switches actually run"); it simply was never carried into this round.
+        local pid
+        for pid in $(ps -eo pid=,comm= | awk '$2=="simple_switch_"{print $1}'); do
+            printf 'running pid=%s exe=%s sha256=%s\n' "$pid" \
+                "$(sudo -n readlink -f /proc/$pid/exe 2>/dev/null)" \
+                "$(sudo -n sha256sum /proc/$pid/exe 2>/dev/null | cut -d' ' -f1)"
+        done
+    } >"$f" 2>&1
+    # One distinct binary across all ten switches, or the arm is a mixture.
+    local n; n=$(grep -c '^running pid=' "$f")
+    local d; d=$(grep '^running pid=' "$f" | grep -oE 'sha256=[0-9a-f]{64}' | sort -u | wc -l)
+    say "    bmv2: $n running switch(es), $d distinct binary/binaries -> $f"
+    if (( n > 0 && d != 1 )); then
+        abort "§4 bmv2" "the ten switches are not all running the same binary ($d distinct).
+        A ceiling measured across a mixture is not a ceiling of either binary."
+    fi
 }
 
 # -------------------------------------------------------------------------------------------------

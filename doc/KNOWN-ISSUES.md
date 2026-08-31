@@ -81,12 +81,29 @@ Adam 2026-08-29 裁定**延後**，理由是當時三個 session 在同一個 wo
 
 ### A-2 🔴 topology poll 可以永久阻塞，而且沒有任何東西會發現
 
-- **狀態**：**kernel 側修法已落（`687de6c`）並過變異閘（2026-08-31：A-2 五顆全殺、46/46）**——
+- **狀態**：**kernel 側修法已落（`687de6c`）、過變異閘（2026-08-31：A-2 五顆全殺、46/46），
+  且 §5.3 live 已於 2026-08-31 15:21–15:25 跑過並通過**——
   三個 curl 加 `--connect-timeout 2 --max-time 5`（兩旗標對兩種實測故障：131 秒 IPv6 黑洞
   與 Ryu wedge）、`-s`→`-sS`、每輪一行邊沿觸發 WARN＋恢復 INFO。
-  ⚠️ 本條 §「Ryu 那端」的 `get_link()` 永久阻塞在 `intelligent_router.py`，**沒動**。
-  live 驗證（WARN 真的發、只發一次、恢復行）無 unit seam、**未跑**，配方＝
-  `doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md` §5。
+  - **live 量到的**（binary `build/bin/ndtwin_kernel` sha256 `e3bad23c…f1b94`／md5
+    `5f2e701e…a858`，`strings` 驗出兩條修法字串各 1 次，**無 RUNPATH**⇒走預設載入路徑；
+    fabric＝`ndt up ovs4`）：`iptables -I INPUT -p tcp --dport 8080 -j DROP` 期間
+    **四個 poll pass 只發一行 WARN**，elapsed **6.024s**（有界，不是 733 秒），
+    kernel 執行緒數不變、行程續活；拆掉規則後**恰好一行**
+    `topology poll answered again after 4 silent pass(es), in 0.628s`。
+    「四個 pass」有兩個互相獨立的證人：`/proc` 掃 curl 子行程（t≈4/40/76/112s）
+    與恢復行自己的計數器——**少了前者，「只發一行」與「執行緒死在第一輪」分不開**。
+    `-sS` 也驗到了：`curl: (28) Failed to connect to localhost port 8080 after 2001 ms`
+    進了 log。raw＝`doc/audit/2026-08-31_live-recipes/raw/{drive_a2_wedge.sh,a2_wedge.log,
+    a2_kernel.log}`。
+  - 🔴 **仍未 live 驗到的**：`--max-time 5` 那一支。iptables DROP 丟的是 SYN，
+    永遠走 `--connect-timeout`；要打到 `--max-time` 需要「接了不回」的 controller，
+    這條規則做不出來（sudoers 只授權那兩道逐字命令）。該支目前**只有單元變異閘 M10**。
+  - 🔴 **仍未動的**：本條 §「Ryu 那端」的 `get_link()` 永久阻塞在 `intelligent_router.py`。
+  ⇒ **本條不是 RESOLVED**：kernel 側的「有界＋說出來」已 live 成立，
+  但 Ryu 側成因未修，且 `--max-time` 未 live。配方＝
+  `doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md` §5.3（該節的
+  「elapsed ~15s」判準已於本輪更正為 ~6s——原判準會讓一個正常運作的修法被判 FAIL）。
   〔修前存證（2026-08-30 ledger 讀碼重驗於 `1208d22`）：`include/utils/Utils.hpp:543-568`
   裸 `popen()` 無 timeout、三個 curl（`TopologyAndFlowMonitor.cpp:472/485/498`）無
   `--max-time`；且已收窄＝那三個是 kernel 僅存的無界 curl，其餘南向全有界
@@ -1388,3 +1405,27 @@ E-H3（8 種畸形 dpid 全部正確拒絕、graph diff 空）、`get_openflow_c
 `get_static_topology_json`、批次端點的混合 dpid 誠實度、
 E8（雙平面的鏈路故障/恢復都正常，過度回報窗口是 0–30 秒取決於相位）、
 E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--no-ai` 防護正常）。
+
+### `measure.sh` 內含專案硬規矩禁用的 `pkill -f`，而四輪結果錨在這支儀器上 ⇒ **改它與不改它都有代價**
+
+- **狀態**：**登記的陷阱，不是修票**。2026-08-31 auditor 裁「本輪不改」，理由見下。
+- **位置**：`doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh:45-46`（前置清場）與 `:96`（收尾）：
+  `sudo -n mnexec -a "$H33" pkill -f iperf3`。
+- 🔴 **它真的會打到別人**：該檔自己的註解寫明 mininet host 共用 root PID namespace
+  ——「Hosts share the root PID namespace, **which is why a plain pkill reaches them at all**」
+  ⇒ `pkill -f iperf3` 的作用域是整台機器，不是那個 namespace。
+  另一個 session 的 iperf3 會被它殺掉，而且**被殺的那一方看到的是自己的量測莫名中斷**。
+- 🔴 **CLAUDE.md 的規矩是絕對的**：「永不 `pkill -f`／`pgrep -f` 殺程序」，
+  [[destructive-shell-traps]] 記著已經第七次自傷。**專案禁用的動詞，就寫在一支被多輪依賴的儀器裡。**
+- **兩難本身才是要登記的東西**：
+  - **改它** ⇒ 與 08-20／08-25 D 輪的存檔格**不再是逐位元組同一支儀器**。
+    E 輪 §6 的「同 fabric、同 binary 才逐格比」建立在同儀器上；改了就只能比方向。
+  - **不改它** ⇒ 總有一天它會殺到別人的 iperf3，而且失敗的形狀是**別人的資料無聲少一段**。
+- **目前的緩解（E 輪 08-31 落地，不改 `measure.sh`）**：呼叫端在交棒之前先確認
+  **沒有任何不是本輪起的 iperf3**，有就中止該格；列舉用 `ps -eo pid=,comm=` 精確比對 `comm`，
+  **不用 `pgrep -f`**（`-f` 的樣式比對永遠會匹配到搜尋命令自己）。
+  見 `doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh:foreign_iperf3_guard`。
+  ⚠️ **這只保護「呼叫端有檢查」的那些輪**。任何直接跑 `measure.sh` 的人不受保護。
+- **要修的話的形狀**：把清場改成「讀 `/proc`、按 PID、只殺本輪記錄下來的那些」，
+  並同時給 `measure.sh` 一個版本標記，讓「改版前／改版後」的格永遠分得開
+  ——否則修完之後，新舊格會長得一樣而不可比。
