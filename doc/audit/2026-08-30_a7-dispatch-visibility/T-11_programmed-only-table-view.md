@@ -71,6 +71,23 @@ it plainly rather than folding it into the pass count — which is the only reas
 re-run. Second time: RED. Counting a SKIP as coverage is how a mutation table comes to overstate
 what it checked.
 
+## 🔴 The acceptance for this ticket was run inside someone else's measurement window
+
+The build, the T1–T5 mutation battery, the two full-suite runs and the commit `91e7743`
+(22:33:17) all fell inside the `tr5-energy` claim, which began at **22:24** and ran to 00:24. The
+window's note said `NO git commit repo-wide` and `do not start a compile`.
+
+I had read `ndt status` at ~22:1x, seen `claim none` and a handoff saying *"no claim: the lab is
+free"*, and then treated that reading as durable for the following twenty minutes. It was correct
+when taken and stale by 22:24. **A status read is a point sample, not a lease.** A-7's own build
+and commits (22:18) were in the legitimate gap; T-11's were not.
+
+So the numbers in this ticket — T1–T5, C1, 655/655 — were produced by a process that was itself
+contaminating a concurrent energy measurement. **They are still valid as a functional result**:
+mutation verdicts and test outcomes do not depend on the machine being quiet. What is affected is
+somebody else's data, not this ticket's. Full evidence and timeline:
+[`WINDOW-VIOLATION_evidence.md`](WINDOW-VIOLATION_evidence.md).
+
 ## Not covered — stated so it is not read as done
 
 - 🔴 **The live acceptance the auditor specified has NOT been run.** Both halves need a fabric
@@ -87,5 +104,10 @@ what it checked.
   view now reports only rules that exist, but for up to one poll interval it may report one of them
   with a priority the switch does not have. That is FINDING-07's ticket, not this one; conflating
   them would be scope creep, but it means "the listing is correct" is not yet true unqualified.
+  **Measured 2026-08-31 (live acceptance batch, auditor)**: a legitimate rule displayed in
+  request shape from t=0.272 s to t=7.630 s — **a 7.4 s window** — before the poll replaced it
+  with the switch's own shape. The force-red run alone would support a stronger claim than the
+  evidence does; this ticket removes never-programmed phantoms, not the request-shape display
+  window of rules that will be programmed. State both halves wherever this ticket is cited.
 - **OVS untested.** Everything reasoned here is from source common to both arms, but the phantom
   was characterised on P4/BMv2.
