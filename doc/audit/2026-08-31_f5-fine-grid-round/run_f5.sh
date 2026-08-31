@@ -257,11 +257,47 @@ assert_sampling_config() {
 # actually programmed, which is direct evidence for R1 (a phantom is cached-but-not-programmed).
 # 🔑 Unit adapted: D archived per CELL, this round's unit is an ARM of 60 installs, so it is taken
 # at arm open and close rather than 60 times over one growing file.
+# 🔴 The closing copy is only the whole arm if the file was neither rotated nor truncated in
+# between -- and the failure direction is towards CLEAN: a rotation loses the EARLY segment, i.e.
+# the early phantom evidence, so R1 would read as tidier than it was.
+#
+# No rotation mechanism was found (the logger uses a basic_file_sink with truncate=false and there
+# is no rotating sink in src/utils/Logger.cpp; kernel.log itself is stack.sh's stdout capture).
+# 🔑 That is "not found", not "asserted not to have happened", and the assertion costs one stat.
+# Failure marks the arm's log evidence INCOMPLETE and does NOT abort: §4 grades this as evidence,
+# not as a precondition, and aborting an arm over its evidence channel would discard the
+# measurement to protect its annotation.
+KLOG_OPEN_INODE=""; KLOG_OPEN_SIZE=""
 archive_kernel_log() {   # $1 = arm, $2 = open|close
-    if [[ "$DRY_RUN" == 1 ]]; then dry_note "would copy kernel.log -> $OUT/${1}_kernel_$2.log"; return 0; fi
-    cp -f "$KERNEL_DIR/.test_run/logs/kernel.log" "$OUT/${1}_kernel_$2.log" 2>/dev/null \
-        && say "    kernel.log ($2) archived" \
-        || say "    WARNING: no kernel.log to archive at $2 -- R1 loses its dispatcher-side evidence"
+    local klog="$KERNEL_DIR/.test_run/logs/kernel.log" ino sz
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would copy kernel.log -> $OUT/${1}_kernel_$2.log and record its inode+size"
+        if [[ "$2" == open ]]; then KLOG_OPEN_INODE=111; KLOG_OPEN_SIZE=100
+            say "    kernel.log (open) archived; inode=111 size=100"
+        elif [[ "$DRY_FAIL" == logrotate ]]; then
+            say "    🔴 kernel.log ROTATED or TRUNCATED during the arm (inode 111 -> 222, size 100 -> 5)"
+            say "    🔴 the arm's log evidence is INCOMPLETE: a rotation loses the EARLY segment,"
+            say "    🔴 so R1 would read cleaner than it was.  Marked, not aborted (§4: evidence)."
+            RUN touch "$OUT/${1}_LOG-EVIDENCE-INCOMPLETE"
+        else say "    kernel.log (close) archived; inode unchanged, size grew"; fi
+        return 0
+    fi
+    cp -f "$klog" "$OUT/${1}_kernel_$2.log" 2>/dev/null \
+        || { say "    WARNING: no kernel.log to archive at $2 -- R1 loses its dispatcher-side evidence"
+             touch "$OUT/${1}_LOG-EVIDENCE-INCOMPLETE"; return 0; }
+    ino=$(stat -c%i "$klog" 2>/dev/null); sz=$(stat -c%s "$klog" 2>/dev/null)
+    if [[ "$2" == open ]]; then
+        KLOG_OPEN_INODE="$ino"; KLOG_OPEN_SIZE="$sz"
+        say "    kernel.log (open) archived; inode=$ino size=$sz"
+        return 0
+    fi
+    say "    kernel.log (close) archived; inode=$ino size=$sz (open: $KLOG_OPEN_INODE/$KLOG_OPEN_SIZE)"
+    if [[ "$ino" != "$KLOG_OPEN_INODE" ]] || (( ${sz:-0} < ${KLOG_OPEN_SIZE:-0} )); then
+        say "    🔴 kernel.log ROTATED or TRUNCATED during the arm."
+        say "    🔴 The arm's log evidence is INCOMPLETE -- and what a rotation loses is the EARLY"
+        say "    🔴 segment, so R1 would read CLEANER than it was.  Marked, not aborted (§4)."
+        touch "$OUT/${1}_LOG-EVIDENCE-INCOMPLETE"
+    fi
 }
 
 # -------------------------------------------------------------------------------------------------
