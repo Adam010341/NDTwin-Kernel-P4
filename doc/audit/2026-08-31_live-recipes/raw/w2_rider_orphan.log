@@ -1,0 +1,142 @@
+
+===== 0. IDENTITY  2026-08-31T15:27:22+08:00 =====
+commit               fca3a03f69b5e1a9f012e7b331e199c6bf304e52
+ndt sha256           67412ba47f9d4d337536e886ffaded7fe05f72ad7992067956cbe3c5fbe32c75  tools/test_workflow/ndt
+control sha256       856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34  /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt_before_c10ac7c.sh
+control expected     856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34
+control has orphans  0   (0 == it is genuinely pre-fix)
+live ndt has orphans 3
+
+===== 2. START A REAL TE-App  2026-08-31T15:27:22+08:00 =====
+  ok  te started (pid 1185971) -> .test_run/logs/app_te.log
+rc=0
+-- apps status --
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       running   Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+-- pidfile --
+1185971
+TEPID=1185971
+
+===== 3. IT IS REALLY WORKING (else step 7 stops a corpse)  2026-08-31T15:27:24+08:00 =====
+cmdline   : /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+threads   : 1
+ppid      : 3017
+children  : 
+log lines : 5
+log lines : 53  (after 20s)
+OK: log grew 5 -> 53, the process is doing work
+
+===== 3b. CONTROL WIRING (the check the recipe does not have)  2026-08-31T15:27:44+08:00 =====
+-- the pre-fix script must SEE this app while the pidfile still exists.  --
+-- if it cannot, step 5's 'te not running' proves nothing.               --
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       running   Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+rc=0
+
+===== 4. MAKE THE ORPHAN: take the pidfile, not the process  2026-08-31T15:27:44+08:00 =====
+-- pids/ now --
+total 28
+drwxrwxr-x 2 adam adam 4096 Aug 31 15:27 .
+drwxrwxr-x 6 adam adam 4096 Aug 31 15:20 ..
+-rw-rw-r-- 1 adam adam    7 Aug 30 15:07 app_viz.pid
+-rw-rw-r-- 1 adam adam  200 Aug 31 15:20 kernel.cmd
+-rw-rw-r-- 1 adam adam    8 Aug 31 15:20 kernel.pid
+-rw-rw-r-- 1 adam adam  216 Aug 31 15:20 ryu.cmd
+-rw-rw-r-- 1 adam adam    8 Aug 31 15:20 ryu.pid
+PROCESS STILL ALIVE (1185971)
+cmdline still: /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+
+===== 5. PRE-FIX BEHAVIOUR (the control)  2026-08-31T15:27:44+08:00 =====
+  te not running
+rc=0
+STILL ALIVE AFTER OLD STOP
+
+===== 6. POST-FIX BEHAVIOUR  2026-08-31T15:27:44+08:00 =====
+-- ndt apps orphans --
+  XX  te: pidfile-lost-but-alive -- Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+  XX      pid 1185971  /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+  XX      stop it with:  ndt apps stop te
+  XX  1 app(s) are running without a pidfile that names them
+rc=1
+-- ndt apps status --
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       ORPHAN    Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+                     ^ pid(s) 1185971, no pidfile names it -- 'ndt apps stop te'
+-- ndt status --check --
+lab
+  claim          yours -- 82m left (until 16:49:32)
+  note           A-2 sec5.3 wedge + orphan-stop rider (one window)
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           fca3a03  +9 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 tools/test_workflow/ndt_before_c10ac7c.sh
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   present
+  host/switch    15      manifest       absent
+  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open
+
+network health
+  switches       10 up, 10 enabled, 0 admin-disabled
+  links          40 total, 0 down, 0 admin-disabled
+  model          MISMATCH: graph has 4 hosts / 40 edges, file says 128 288
+  tc netem       none
+  apps           none running
+  untracked      te(1185971) -- running, and no pidfile names them
+                 these survive 'ndt down'; stop them with 'ndt apps stop <name>'
+
+kernel graph
+  10 switches (10 up, 10 enabled), 4 hosts, 40 edges
+
+check: 2 problem(s)
+  - the kernel graph does not match the topology file
+  - untracked app process(es) with no pidfile: te(1185971)
+rc=1
+-- ndt apps stop te --
+  !!  te is RUNNING as pid(s) 1185971 and the pidfile does not name it
+  !!    this is the state that used to answer 'not running' with rc 0
+    pid 1185971: /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+  ok  te stopped (was: pidfile-lost-but-alive)
+rc=0
+
+===== 7. THREE INDEPENDENT WITNESSES THAT IT STOPPED  2026-08-31T15:27:45+08:00 =====
+w1: GONE (/proc/1185971 absent)
+-- w2: orphans immediately --
+  ok  no untracked app processes
+rc=0
+-- w3: orphans again after 30s (does it restart itself?) --
+  ok  no untracked app processes
+rc=0
+w3b: still gone
+-- any TE process at all, by /proc scan, not pgrep -f --
+leftover TE processes: 0
+
+===== 8. EXTRA ROUND: does 'ndt down' reap an orphan?  2026-08-31T15:28:17+08:00 =====
+  ok  te started (pid 1210239) -> .test_run/logs/app_te.log
+rc=0
+TEPID2=1210239
+second TE alive, cmdline: /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+orphaned and STILL ALIVE (1210239)
+-- handing over to ndt down (run separately, setsid) --
+
+===== DONE  2026-08-31T15:28:23+08:00 =====

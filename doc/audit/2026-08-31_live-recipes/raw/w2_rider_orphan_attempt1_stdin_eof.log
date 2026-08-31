@@ -1,0 +1,26 @@
+
+===== 0. IDENTITY  2026-08-31T15:25:18+08:00 =====
+commit               fca3a03f69b5e1a9f012e7b331e199c6bf304e52
+ndt sha256           67412ba47f9d4d337536e886ffaded7fe05f72ad7992067956cbe3c5fbe32c75  tools/test_workflow/ndt
+control sha256       856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34  /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt_before_c10ac7c.sh
+control expected     856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34
+control has orphans  0   (0 == it is genuinely pre-fix)
+live ndt has orphans 3
+
+===== 2. START A REAL TE-App  2026-08-31T15:25:18+08:00 =====
+  XX  te exited immediately -- see .test_run/logs/app_te.log
+          choice = input("Enter 1 or 2 [default 1]: ").strip() or "1"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      EOFError: EOF when reading a line
+rc=1
+-- apps status --
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+-- pidfile --
+cat: /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/app_te.pid: No such file or directory
+TEPID=
+FATAL: no pidfile, nothing to orphan

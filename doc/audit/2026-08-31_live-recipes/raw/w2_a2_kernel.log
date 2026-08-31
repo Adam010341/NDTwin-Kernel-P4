@@ -1,0 +1,97 @@
+[2026-08-31 15:20:12.292] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-08-31 15:20:12.292] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+[2026-08-31 15:20:12.292] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-08-31 15:20:12.292] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-08-31 15:20:12.295] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-08-31 15:20:12.297] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-31 15:20:12.297] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-08-31 15:20:12.297] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-31 15:20:12.297] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-08-31 15:20:12.298] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-08-31 15:20:12.299] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2133[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-08-31 15:20:12.299] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=1087121 tid=1087128
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=1087121 tid=1087129
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=1087121 tid=1087130
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=1087121 tid=1087131
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=1087121 tid=1087132
+[2026-08-31 15:20:12.299] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m121[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-08-31 15:20:12.299] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-08-31 15:20:12.299] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-08-31 15:20:12.302] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1266[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-08-31 15:20:12.795] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 15:20:12.795] [info] [[94mHttpSession.cpp[0m:[95m402[0m [96mcloseSocket[0m] Close Socket
+[2026-08-31 15:20:12.939] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2155[0m [96mrun[0m] topology from the control plane: 10 switches, 4 hosts, 40 edges up
+[2026-08-31 15:20:13.039] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 15:20:13.040] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 15:20:13.040] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 15:20:13.043] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 15:20:13.043] [info] [[94mHttpSession.cpp[0m:[95m402[0m [96mcloseSocket[0m] Close Socket
+[2026-08-31 15:20:17.509] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 12 paths from controller
+[2026-08-31 15:20:17.509] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8080 (12 pairs); path and switch-count queries will answer from now on.
+[2026-08-31 15:20:42.301] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.1 ms | since start (29 iters) mean 1000.1 ms, min 1000.1, max 1000.1 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:20:42.302] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001260 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 15:21:12.305] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.0, max 1001.4 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:21:12.306] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001585 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 15:21:12.306] [warning] [[94mFlowLinkUsageCollector.cpp[0m:[95m2089[0m [96mcalAvgFlowSendingRatesPeriodically[0m] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, which is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+[2026-08-31 15:21:17.725] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 12 paths from controller
+[2026-08-31 15:21:42.309] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (89 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:21:42.309] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000156 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/hosts
+curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/links
+[2026-08-31 15:21:48.454] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m561[0m [96mpollControlPlaneTopology[0m] topology poll got no answer from http://localhost:8080/v1.0/topology/switches, http://localhost:8080/v1.0/topology/hosts, http://localhost:8080/v1.0/topology/links after 6.024s (each request bounded at 2s connect / 5s total). The graph keeps what it last saw, and this retries next poll -- but until it clears, switches and links this twin never saw will read as down and disabled while the fabric may be forwarding normally. Confirm with: curl -s -o /dev/null --max-time 3 -w '%{http_code}\n' http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/1
+[2026-08-31 15:21:55.198] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1077[0m [96mfetchOpenFlowTablesInternal[0m] no flow-table response from localhost:8080 (switch 1 and possibly others); tables are left as they were
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/2
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/3
+[2026-08-31 15:22:12.311] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (119 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:22:12.311] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000143 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/4
+Command failed (exit code 28): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/hosts
+curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/links
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/5
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/6
+[2026-08-31 15:22:42.313] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (149 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:22:42.313] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000137 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/7
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/8
+curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/9
+curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/links
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/10
+[2026-08-31 15:23:12.316] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (179 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:23:12.316] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000133 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+Command failed (exit code 28): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/1
+curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/2
+curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8080/v1.0/topology/hosts
+[2026-08-31 15:23:35.607] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1087[0m [96mfetchOpenFlowTablesInternal[0m] flow tables readable again after 12 empty response(s)
+[2026-08-31 15:23:42.318] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (209 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:23:42.318] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000143 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 15:24:05.372] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m577[0m [96mpollControlPlaneTopology[0m] topology poll answered again after 4 silent pass(es), in 0.628s
+[2026-08-31 15:24:12.321] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (239 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:24:12.321] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000135 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 15:24:21.970] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 12 paths from controller
+[2026-08-31 15:24:42.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (269 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:24:42.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000154 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 15:25:12.326] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (299 iters) mean 1000.1 ms, min 1000.0, max 1001.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 15:25:12.326] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000122 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)

@@ -1,0 +1,149 @@
+Select TE mode:
+  1) Execute run_te() when you press Enter
+  2) Execute run_te() periodically (e.g., every 5 seconds)
+Enter 1 or 2 [default 1]: How many seconds between TE runs? [default 5]: 2026-08-31 15:28:17.332 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:17.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:18.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:19.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:20.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:21.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:22.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:22.346 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:22.347 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:22.347 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:22.348 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:22.348 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:22.348 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:22.349 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:23.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:24.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:25.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:26.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:27.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:27.344 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:27.345 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:27.345 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:27.346 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:27.346 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:27.346 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:27.347 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:28.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:29.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:30.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:31.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:32.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:32.345 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:32.347 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:32.347 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:32.348 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:32.348 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:32.348 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:32.349 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:33.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:34.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:35.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:36.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:37.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:37.344 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:37.345 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:37.345 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:37.346 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:37.346 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:37.346 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:37.347 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:38.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:39.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:40.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:41.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:42.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:42.345 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:42.346 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:42.346 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:42.347 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:42.347 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:42.347 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:42.348 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:43.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:44.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:45.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:46.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:47.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:47.345 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:47.347 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:47.347 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:47.348 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:47.348 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:47.348 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:47.349 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:48.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:49.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:50.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:51.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:52.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:52.346 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:52.348 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:52.348 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:52.349 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:52.349 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:52.349 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:52.350 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:53.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:54.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:55.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:56.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:57.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:57.346 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:28:57.348 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:28:57.348 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:28:57.349 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:28:57.349 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:28:57.349 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:28:57.350 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:28:58.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:28:59.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:00.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:01.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:02.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:02.346 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:29:02.348 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:29:02.348 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:29:02.348 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:29:02.348 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:29:02.348 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:29:02.349 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:29:03.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:04.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:05.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:06.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:07.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:07.346 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:29:07.348 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:29:07.348 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:29:07.349 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:29:07.349 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:29:07.349 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:29:07.350 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:29:08.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:09.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:10.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:11.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:12.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:12.347 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:29:12.348 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:29:12.348 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:29:12.350 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:29:12.350 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:29:12.350 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:29:12.351 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-08-31 15:29:13.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:14.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:15.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:16.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:17.340 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 15:29:17.346 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-08-31 15:29:17.348 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-08-31 15:29:17.348 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-08-31 15:29:17.349 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-08-31 15:29:17.349 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-08-31 15:29:17.349 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-08-31 15:29:17.350 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded

@@ -1,0 +1,68 @@
+
+===== 0. PRE-CONDITIONS  2026-08-31T15:21:39+08:00 =====
+kernel pid        1087121
+kernel started    13962801 (jiffies since boot)
+kernel threads    47
+ryu pid           1086742
+-- the three polled endpoints answer right now (positive control) --
+  switches  http=200
+  hosts     http=200
+  links     http=200
+-- the poll is demonstrably running before the wedge --
+  poll INFO lines so far : 1
+  WARN lines so far      : 0   (must be 0)
+  recovery lines so far  : 0   (must be 0)
+  kernel.log bytes       : 7295
+-- no DROP rule is in effect (functional check; sudoers grants no -L) --
+  switches endpoint answered above; a DROP would give 000
+
+===== 1. WEDGE ON  2026-08-31T15:21:39+08:00 =====
+iptables -I rc=0  at 2026-08-31T15:21:39+08:00
+-- confirm the wedge actually took (this is the injection assertion) --
+  switches now http=000  (000 == wedged)
+  ryu process still alive: yes
+-- sampling curl children every 1s for 115s --
+   elapsed    curls  kalive note
+   4s         2      yes   poll pass started
+   9s         0      yes   requests ended
+   40s        2      yes   poll pass started
+   45s        0      yes   requests ended
+   76s        2      yes   poll pass started
+   82s        0      yes   requests ended
+   112s       2      yes   poll pass started
+
+===== 1b. LOG AFTER 115s OF WEDGE  2026-08-31T15:23:34+08:00 =====
+  WARN lines now         : 1   (want exactly 1 more than 0)
+  recovery lines now     : 0   (want still 0)
+  kernel process alive   : yes
+  kernel threads         : 47
+-- the WARN line verbatim --
+49:[2026-08-31 15:21:48.454] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m561[0m [96mpollControlPlaneTopology[0m] topology poll got no answer from http://localhost:8080/v1.0/topology/switches, http://localhost:8080/v1.0/topology/hosts, http://localhost:8080/v1.0/topology/links after 6.024s (each request bounded at 2s connect / 5s total). The graph keeps what it last saw, and this retries next poll -- but until it clears, switches and links this twin never saw will read as down and disabled while the fabric may be forwarding normally. Confirm with: curl -s -o /dev/null --max-time 3 -w '%{http_code}\n' http://localhost:8080/v1.0/topology/switches
+-- curl's own stderr diagnosis (-sS), if it reached the log --
+70:curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+72:curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+75:curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+82:curl: (28) Failed to connect to localhost port 8080 after 2001 ms: Timeout was reached
+85:curl: (28) Failed to connect to localhost port 8080 after 2000 ms: Timeout was reached
+
+===== 2. WEDGE OFF  2026-08-31T15:23:34+08:00 =====
+iptables -D rc=0  at 2026-08-31T15:23:34+08:00
+  switches now http=200  (200 == unwedged)
+-- waiting 80s for the poll to answer again --
+
+===== 2b. LOG AFTER RECOVERY  2026-08-31T15:24:54+08:00 =====
+  WARN lines final       : 1
+  recovery lines final   : 1   (want exactly 1 more than 0)
+-- the recovery line verbatim --
+90:[2026-08-31 15:24:05.372] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m577[0m [96mpollControlPlaneTopology[0m] topology poll answered again after 4 silent pass(es), in 0.628s
+-- poll INFO lines final : 1
+  kernel process alive   : yes
+
+===== 3. RULE REMOVAL VERIFIED  2026-08-31T15:24:54+08:00 =====
+-- second -D must fail with 'Bad rule'; that is the state check, not the rc --
+iptables: Bad rule (does a matching rule exist in that chain?).
+second -D rc=1  (non-zero + 'Bad rule' == the rule is gone)
+-- and the endpoint answers, which is the functional half --
+  switches http=200
+
+===== DONE  2026-08-31T15:24:55+08:00 =====
