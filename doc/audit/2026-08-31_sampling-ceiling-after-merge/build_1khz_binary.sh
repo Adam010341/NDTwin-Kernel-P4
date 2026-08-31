@@ -134,6 +134,20 @@ build_arm() {   # $1 = tag (1hz|1khz), $2 = expected line, $3 = expect gtest pas
         printf 'gtest_FlowPathRecomputeInterval=%s (required: %s)\n' \
                "$( ((rc==0)) && echo pass || echo "fail(rc=$rc)")" "$expect"
         printf 'built_at=%s\n' "$(date -Is)"
+        # 🔴 B (reviewer, 08-31).  Both arms reuse ONE build dir, so build configuration is
+        # COMMON-MODE here: it cannot bias BL/M against P/MP, and it does not threaten the
+        # within-round comparison.  It is recorded because it DOES decide comparability of
+        # absolute numbers against other rounds -- and because this project's own thesis is that
+        # build configuration is an unreported confounder.  Not recording our own would be a poor
+        # look for exactly that claim.
+        printf 'CMAKE_BUILD_TYPE=%s\n' \
+            "$(sed -n 's/^CMAKE_BUILD_TYPE:[A-Z]*=//p' "$BUILD/CMakeCache.txt" 2>/dev/null | head -1)"
+        printf 'CMAKE_CXX_FLAGS=%s\n' \
+            "$(sed -n 's/^CMAKE_CXX_FLAGS:[A-Z]*=//p' "$BUILD/CMakeCache.txt" 2>/dev/null | head -1)"
+        printf 'CMAKE_CXX_COMPILER=%s\n' \
+            "$(sed -n 's/^CMAKE_CXX_COMPILER:[A-Z]*=//p' "$BUILD/CMakeCache.txt" 2>/dev/null | head -1)"
+        printf 'compiler_version=%s\n' "$(c++ --version 2>/dev/null | head -1)"
+        printf 'build_dir_shared_between_arms=yes (common-mode; see the note above)\n'
         printf '# 🔴 mtime is NOT evidence: this repository has a binary on record as 26 s OLDER\n'
         printf '#    than the commit that describes it.  Use sha256.\n'
         printf -- '--- readelf -d (RUNPATH decides which .so actually loads; the environment does not) ---\n'

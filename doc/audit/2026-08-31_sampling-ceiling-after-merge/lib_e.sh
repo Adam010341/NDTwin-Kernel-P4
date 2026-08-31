@@ -45,6 +45,8 @@ set -u
 # here, once, after every caller has set LOG.
 [[ "$DRY_RUN" == 1 ]] && LOG="${LOG%.log}.dryrun.log"
 
+HERE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 
 # 🔴 The registration's stop clauses land here.  This function EXITS; there is no variant that
@@ -243,8 +245,14 @@ record_identity() {   # $1 = tag (goes in the filename), $2 = commit-or-UNKNOWN
         # presence or absence is a fact about these bytes.  The 1 Hz symbol is what separates this
         # round's two kernel arms and it is asserted per cell, not assumed from the filename.
         printf '\n--- symbol signatures (kernel) ---\n'
-        printf 'contains_2f57ba5_kFlowPathRecomputeInterval=%s\n' \
+        # 🔴 NOT A DISCRIMINATOR FOR THIS ROUND'S TWO ARMS -- recorded only.  The label is on the
+        # OUTPUT LINE, not just in the registration, because the next reader will not scroll back
+        # to §4 to find out that this column cannot decide anything.
+        printf 'contains_2f57ba5_kFlowPathRecomputeInterval=%s  [NON-DISCRIMINATING: both arms are\n' \
                "$(nm -C "$KBIN" 2>/dev/null | grep -c kFlowPathRecomputeInterval)"
+        printf '  built from one tree and differ only in the constant VALUE, so this count is equal\n'
+        printf '  on both.  Arm identity comes from sha256 vs .provenance; the VALUE is proven by\n'
+        printf '  the gtest at build time and by recompute_rate.py at run time.]\n'
         printf 'contains_91e7743_setProgrammedPredicate=%s\n' \
                "$(nm -C "$KBIN" 2>/dev/null | grep -c setProgrammedPredicate)"
         printf '\n--- proxy ---\n'
@@ -691,6 +699,164 @@ assert_same_boot() {   # $1 = cell label
         ($BOOT_BASELINE -> $b).  Cells either side of a reboot share no /proc baseline and no
         thread-id offsets; they are not one run."
     say "    boot_id unchanged"
+}
+
+# -------------------------------------------------------------------------------------------------
+# PER-CELL CPU: a fabric-free baseline in the teardown gap, and a gate reading during the cell.
+#
+# Adam ruled 2026-08-31 that the desktop STAYS UP during the window.  That is a working point, not
+# a defect -- but it means the gate's floor is ~0.5 cores of EXCESS over a ~0.84-core baseline, and
+# the baseline itself swings ~0.19 cores over seconds.  Two things claw some discrimination back
+# at no cost, and both are RECORDED rather than gated:
+#
+#   1. a fabric-free baseline PER CELL, taken in the gap teardown already creates;
+#   2. claude-desktop / claude / gnome-shell CPU as NAMED covariates per cell.  They are our own
+#      processes, so the cost is attributable rather than guessed -- without this, "did that cell
+#      get worse because someone was using the desktop?" has no answer, and it will be asked.
+#
+# 🔴 THE TRAP, NAMED SO NOBODY "FIXES" IT BACK.  The per-cell baseline must NOT become the gate's
+# baseline.  The gate judges excess over the ROUND-OPEN reference, which is what makes a drifting
+# desktop show up as excess.  Re-baselining per cell would make each cell's drift the new normal,
+# excess would stay near zero, and the gate would go green forever -- it would ABSORB exactly the
+# drift it exists to catch.  So: reference = fixed, round-open, fabric-down.  Per-cell = covariate.
+# -------------------------------------------------------------------------------------------------
+# 🔴 C (reviewer, 08-31): the baseline's SOURCE is operator behaviour, so a single reading is a
+# point sample of a moving quantity -- the real detection floor is not 0.5 cores, it is 0.5 plus
+# that variation.  So the round-open reference is taken >=3 times and its RANGE recorded, and if
+# the range approaches the threshold that fact is itself a result to disclose.
+baseline_range_check() {   # $1 = baseline file written by --record-baseline (one JSON per line)
+    "$PY_PROXY" - "$1" "$CPU_GATE_FOREIGN_CORES" <<'PYEOF'
+import json, sys
+vals = []
+for line in open(sys.argv[1]):
+    line = line.strip()
+    if line:
+        try: vals.append(json.loads(line)["baseline_cores"])
+        except Exception: pass
+thr = float(sys.argv[2])
+if len(vals) < 3:
+    print(f"BASELINE verdict=UNRUNNABLE only {len(vals)} reading(s); >=3 required"); raise SystemExit(2)
+rng = max(vals) - min(vals)
+print(f"BASELINE n={len(vals)} min={min(vals)} max={max(vals)} range={rng:.3f} threshold={thr}")
+if rng >= thr:
+    print("  🔴 THE BASELINE'S OWN RANGE MEETS OR EXCEEDS THE THRESHOLD.")
+    print("     The gate cannot separate foreign load from baseline drift at this working point.")
+    print("     PREREG §0-ter: this must be DISCLOSED in the result, not absorbed.")
+    raise SystemExit(1)
+if rng >= thr / 2:
+    print(f"  ⚠️  range is {rng/thr:.0%} of the threshold -- disclose it alongside any 'no interference' claim.")
+PYEOF
+}
+
+cell_baseline() {   # $1 = cell.  Call AFTER teardown, BEFORE bringup: the fabric must be down.
+    local f="$OUT/cell_cpu/${1}_baseline.json"
+    RUN mkdir -p "$OUT/cell_cpu"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would take a ${CELL_BASELINE_WINDOW}s FABRIC-FREE baseline into $f"
+        dry_note "  (covariate only; the gate keeps judging against the round-open reference)"
+        return 0
+    fi
+    "$PY_PROXY" "$HERE_LIB/cpu_gate.py" --label "baseline_$1" --record-baseline \
+        --baseline-file "$f" --window "$CELL_BASELINE_WINDOW" >>"$LOG" 2>&1 || true
+    local b ref
+    b=$("$PY_PROXY" -c "import json;print(json.load(open('$f'))['baseline_cores'])" 2>/dev/null)
+    ref=$("$PY_PROXY" -c "import json;print(json.load(open('$CPU_BASELINE_FILE'))['baseline_cores'])" 2>/dev/null)
+    say "    cell baseline: ${b:-?} cores (round-open reference ${ref:-?}) -- covariate, not the gate's baseline"
+}
+
+# The gate reading DURING the cell.  §4 pins the round to exclusive CPU because the readout is a
+# CPU plateau, but v0.2 registered no PER-CELL check -- only the §2 force tests.  A cell
+# contaminated in the middle of a seven-hour ladder would otherwise be invisible.
+CELL_GATE_PID=""; CELL_GATE_OUT=""
+cell_cpu_gate_start() {   # $1 = cell
+    CELL_GATE_OUT="$OUT/cell_cpu/${1}_gate.jsonl"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would run cpu_gate alongside the cell -> $CELL_GATE_OUT"
+        CELL_GATE_PID=""; return 0
+    fi
+    RUN mkdir -p "$OUT/cell_cpu"
+    "$PY_PROXY" "$HERE_LIB/cpu_gate.py" --label "cell_$1" \
+        --window "$(( DUR > 60 ? DUR - 30 : 30 ))" --threshold "$CPU_GATE_FOREIGN_CORES" \
+        --baseline-file "$CPU_BASELINE_FILE" --out "$CELL_GATE_OUT" >>"$LOG" 2>&1 &
+    CELL_GATE_PID=$!
+}
+cell_cpu_gate_finish() {   # $1 = cell
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would collect the cell's gate verdict; RED or UNREADABLE aborts the round"
+        return 0
+    fi
+    [[ -n "${CELL_GATE_PID:-}" ]] && wait "$CELL_GATE_PID" 2>/dev/null
+    local v cov
+    v=$("$PY_PROXY" -c "
+import json
+try: r=json.loads(open('$CELL_GATE_OUT').read().strip().split(chr(10))[-1])
+except Exception: print('UNREADABLE'); raise SystemExit
+print('%s excess=%s' % (r['verdict'], r['excess_cores']))" 2>/dev/null)
+    cov=$("$PY_PROXY" -c "
+import json
+try:
+    r=json.loads(open('$CELL_GATE_OUT').read().strip().split(chr(10))[-1])
+    print(' '.join('%s=%s'%(k,x) for k,x in r.get('covariates',{}).items()))
+except Exception: print('')" 2>/dev/null)
+    say "    cell CPU gate: ${v:-UNREADABLE}"
+    say "    covariates:    ${cov:-<none>}"
+    case "${v:-UNREADABLE}" in
+        RED*) abort "§4 exclusive-CPU" "$1: foreign load exceeded the registered threshold DURING
+        this cell.  The readout is a CPU plateau, so this cell measured a different machine from
+        the others.  Attribution is in $CELL_GATE_OUT." ;;
+        UNREADABLE*) abort "§4 exclusive-CPU" "$1: the cell's CPU gate produced no readable
+        verdict.  Unreadable is not green." ;;
+    esac
+}
+
+# -------------------------------------------------------------------------------------------------
+# §4-bis -- IS THE RECOMPUTE LOOP ACTUALLY EXECUTING?  (blocking review finding, 2026-08-31)
+#
+# The round could prove the two binaries DIFFER (a gtest on the constant, red on one arm and green
+# on the other).  Nothing proved the loop that READS that constant is ever entered on a live
+# fabric.  A unit test proves a constant's value; it says nothing about whether its loop runs.
+# Third instance of one family: the batching flag, PREREG-B's F1, and this.
+#
+# Counted, never inferred from CPU%: 1 Hz and "not running" both round to zero CPU, so a CPU-based
+# check has no power between exactly the two states this exists to separate.
+# -------------------------------------------------------------------------------------------------
+assert_recompute_running() {   # $1 = cell, $2 = arm (1hz|1khz)
+    local out="$OUT/recompute/${1}.jsonl"
+    RUN mkdir -p "$OUT/recompute"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        if [[ "$DRY_FAIL" == recompute ]]; then
+            say "    RECOMPUTE $1 passes_per_s=0.000 verdict=NOT-RUNNING (forced)"
+            abort "§4-bis" "$1: the path-recompute loop is NOT executing.
+        A null on Q2 from this arm would mean 'the path never ran', not 'the period change bought
+        nothing' -- opposite next actions, so the cell cannot be allowed to stand."
+        fi
+        dry_note "would count voluntary_ctxt_switches of the calFlowPathByQueried thread for"
+        dry_note "  ${RECOMPUTE_WINDOW}s and require arm=$2 to be in band (1hz: 0.2-20/s, 1khz: >=100/s)"
+        return 0
+    fi
+    local o rc
+    o=$("$PY_PROXY" "$HERE_LIB/recompute_rate.py" --arm "$2" --label "$1" \
+        --window "$RECOMPUTE_WINDOW" --klog "$KERNEL_DIR/.test_run/logs/kernel.log" \
+        --out "$out" 2>&1); rc=$?
+    say "    $(head -1 <<<"$o")"
+    (( rc == 0 )) || abort "§4-bis" "$1 (arm $2): the recompute loop is not running as this arm requires.
+$o
+        A null on Q2 built on this cell would be unreadable: 'no effect' and 'never executed' are
+        different findings with opposite next actions."
+}
+
+# The frozen cross-arm rule, applied once the ladder has both arms at a rung.
+compare_recompute_arms() {   # $1 = 1khz jsonl, $2 = 1hz jsonl
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would apply the frozen cross-arm rule: khz/hz >= 10 else Q2 UNINTERPRETABLE"
+        return 0
+    fi
+    local o rc; o=$("$PY_PROXY" "$HERE_LIB/recompute_rate.py" --compare "$1" "$2" 2>&1); rc=$?
+    say "$o"
+    (( rc == 0 )) || abort "§4-bis" "the two arms' recompute rates are not distinguishable.
+        The treatment was not delivered, so Q2 is UNINTERPRETABLE -- NOT null.  Reporting
+        'changing the period had no effect' from here would be reporting a treatment that
+        never happened."
 }
 
 # -------------------------------------------------------------------------------------------------

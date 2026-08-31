@@ -71,11 +71,12 @@ plan() {
     # its first cell cost 202 s, the extra ~40 s being the per-rung P4 recompile.
     # ⚠️ Both were measured on a WARM fabric.  Treat the total as a lower bound.
     local rungs; rungs=$(echo "$LADDER" | wc -w)
-    local total=$(( (n + nb) * (DUR + 42) + rungs * 40 ))
+    local total=$(( (n + nb) * (DUR + 42 + CELL_BASELINE_WINDOW) + rungs * 40 ))
     say ""
     say "cells      $n ladder + $nb control = $((n + nb))"
     say "estimate   ~$(( total / 3600 ))h $(( (total % 3600) / 60 ))m of EXCLUSIVE fabric"
-    say "           = $((n + nb)) x (DUR ${DUR}s + 42s measured overhead) + $rungs x 40s recompile."
+    say "           = $((n + nb)) x (DUR ${DUR}s + 42s overhead + ${CELL_BASELINE_WINDOW}s cell baseline)"
+    say "             + $rungs x 40s recompile."
     say "           🔴 Lower bound: the 42s was measured on a warm fabric."
     say "           🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules."
     say "           Design options and what each one CANNOT answer: see COST-TABLE.md."
@@ -99,6 +100,7 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
     preflight measure >/dev/null || abort "§4" "preconditions no longer hold at cell $cell"
 
     teardown
+    cell_baseline "$cell"          # fabric-free, in the gap teardown already creates
     swap_kernel "$kern"
     bringup "$batch" || abort "bringup" "$cell: the fabric would not come up"
     assert_batch_took "$batch"
@@ -113,17 +115,22 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
     # right, because it describes what was COMPILED.
     assert_running_arm "$( [[ $kern == 1khz ]] && echo "$KBIN_1KHZ" || echo "$KBIN_1HZ" )"
     record_bmv2_identity "$cell"
+    assert_recompute_running "$cell" "$kern"   # §4-bis -- the loop must actually be executing
     assert_same_boot "$cell"              # #3  -- inherited from ladder_ext:83
     assert_topology_invariant "$cell"     # #14 -- inherited from run_e8:67
     local sha_open sha_close; sha_open=$(running_kernel_sha)
     say "    running kernel exe sha256 (open)  $sha_open"
 
     if [[ "$DRY_RUN" == 1 ]]; then
+        cell_cpu_gate_start "$cell"
         dry_note "would run: POLL=on $PRIOR/measure.sh $cell $DUR $RATE_MBIT"
+        cell_cpu_gate_finish "$cell"
         dry_note "would then read the verdict from cell_verdict.py and append it to $RESULTS"
     else
         foreign_iperf3_guard || abort "$cell" "a foreign iperf3 appeared; measure.sh would destroy it"
+        cell_cpu_gate_start "$cell"
         POLL=on "$PRIOR/measure.sh" "$cell" "$DUR" "$RATE_MBIT" >>"$LOG" 2>&1
+        cell_cpu_gate_finish "$cell"
     fi
 
     sha_close=$(running_kernel_sha)

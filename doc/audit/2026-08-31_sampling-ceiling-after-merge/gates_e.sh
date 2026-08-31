@@ -124,8 +124,23 @@ baseline_mode() {
         return 0
     fi
     RUN mkdir -p "$(dirname "$CPU_BASELINE_FILE")"
-    "$PY_PROXY" "$HERE/cpu_gate.py" --record-baseline --baseline-file "$CPU_BASELINE_FILE" \
-        --window "${BASELINE_WINDOW:-60}" 2>&1 | tee -a "$LOG"
+    # 🔴 >=3 readings, appended, and the RANGE checked.  The baseline's source is operator
+    # behaviour, so one reading is a point sample of a moving quantity: the real detection floor
+    # is 0.5 cores PLUS that movement, not 0.5 cores.
+    : >"$CPU_BASELINE_FILE"
+    local i
+    for i in $(seq 1 "${BASELINE_REPEATS:-3}"); do
+        "$PY_PROXY" "$HERE/cpu_gate.py" --record-baseline --baseline-file "$CPU_BASELINE_FILE.one" \
+            --window "${BASELINE_WINDOW:-60}" 2>&1 | tee -a "$LOG"
+        cat "$CPU_BASELINE_FILE.one" >>"$CPU_BASELINE_FILE"
+    done
+    rm -f "$CPU_BASELINE_FILE.one"
+    baseline_range_check "$CPU_BASELINE_FILE" 2>&1 | tee -a "$LOG"
+    case "${PIPESTATUS[0]}" in
+        0) : ;;
+        1) say "🔴 the baseline's own range meets the threshold -- see §0-ter; DISCLOSE this" ;;
+        *) abort "§0-ter" "fewer than ${BASELINE_REPEATS:-3} baseline readings; the range is unknown" ;;
+    esac
 }
 
 # =================================================================================================
