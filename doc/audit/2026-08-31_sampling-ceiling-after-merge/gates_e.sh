@@ -545,6 +545,27 @@ main() {
         shape ('_pending not flushed at the end') as the most likely batching bug."
     fi
 
+    # -- G6b: read the force-red product back through `--check ... --expect red`.
+    #    🔴 Why this call site exists at all.  Until 2026-09-01 nothing in this project used
+    #    `--expect red`, and that path returned 1 on a SUCCESSFUL force-test because the exit code
+    #    doubled as the verdict -- so a force-red could never have been recorded as a pass by a
+    #    caller using shell truthiness.  Fixing an uncalled path leaves it uncalled and unverified,
+    #    so the fix ships with a reader.  G6 proves the gate goes red; this proves the gate can be
+    #    ASKED to be red and answer yes.  [Co-developed with claude code -- Adam]
+    say "--- G6b §2.4 ratio gate answers --expect red on the product G6 just built ---"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would run: $PY_PLOT $HERE/ratio_gate.py --check e_gate_forcered_trunc20 --expect red"
+        record "G6b §2.4 ratio gate --expect red round-trips" PASS "synthetic"
+    elif PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" \
+            --check e_gate_forcered_trunc20 --expect red 2>&1 | tee -a "$LOG"; then
+        record "G6b §2.4 ratio gate --expect red round-trips" PASS
+    else
+        record "G6b §2.4 ratio gate --expect red round-trips" FAIL
+        abort "§2.4" "the ratio gate would not confirm RED on the cell G6 had just proved red.
+        Either the force-red product is not reproducible, or the exit code is again answering a
+        different question from the one asked."
+    fi
+
     # -- G8 §4 (v0.3): the running-arm identity check, forced in BOTH directions.
     #    A clause added to a registration is a clause nobody has seen fail.  The failure mode it
     #    guards is "eight arms, one binary, every provenance record still correct", so the check

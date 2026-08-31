@@ -148,12 +148,25 @@ def check(cell, expect):
         return 2
     verdict = "GREEN" if r >= CV.SATURATED_RATIO else "RED"
     print(f"GATE ratio cell={cell} ratio={r:.4f} threshold={CV.SATURATED_RATIO} verdict={verdict}")
-    if expect and verdict != expect.upper():
-        print(f"GATE ratio FORCE-TEST FAILED: expected {expect.upper()}, got {verdict}.")
-        print("     PREREG §2: fix the gate, do not move the threshold.")
-        return 2
+    # 🔴 The exit code carried TWO meanings and one of them made a passing force-test look like a
+    # failure.  With `--expect red` on a genuinely red cell it printed "force-test OK" and then
+    # returned 1, because the final line answered "what colour was it" -- so any caller using shell
+    # truthiness read a SUCCESSFUL force-red as a failure, and a force-red could never be recorded
+    # as a pass.  Fixed 2026-09-01 by splitting the two questions:
+    #
+    #   --expect given      -> the exit code answers ONLY "did the force-test pass": 0 pass, 2 fail.
+    #   --expect not given  -> the exit code carries the verdict itself: 0 green, 1 red.
+    #
+    # Same family as the `iperf3` string that is killed in one file and absolved in another, and as
+    # `comm` meaning three different lengths in three tools: one value, two semantics, drifting at a
+    # module boundary with nothing to report the drift.  [Co-developed with claude code -- Adam]
     if expect:
+        if verdict != expect.upper():
+            print(f"GATE ratio FORCE-TEST FAILED: expected {expect.upper()}, got {verdict}.")
+            print("     PREREG §2: fix the gate, do not move the threshold.")
+            return 2
         print(f"GATE ratio force-test OK: expected {expect.upper()}, got {verdict}")
+        return 0
     return 0 if verdict == "GREEN" else 1
 
 
