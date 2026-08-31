@@ -1,0 +1,2 @@
+234:    (void)at; // MUTANT_M2
+235:    return it != m_lastPowerOffAt.end(); // MUTANT_M2

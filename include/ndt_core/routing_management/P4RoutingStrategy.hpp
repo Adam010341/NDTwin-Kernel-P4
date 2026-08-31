@@ -38,4 +38,24 @@ class P4RoutingStrategy : public HttpRoutingStrategyBase
     OpResult installAMeterEntry(const nlohmann::json& j) override;
     OpResult deleteAMeterEntry(const nlohmann::json& j) override;
     OpResult modifyAMeterEntry(const nlohmann::json& j) override;
+
+  protected:
+    /**
+     * @brief The proxy has one modify route, and it already compares priority.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The base class posts `modify_strict` because that is the only spelling in which Ryu's
+     * ofctl_rest compares priority (doc/KNOWN-ISSUES.md A-4e). The proxy is not Ryu: it exposes
+     * `/stats/flowentry/{add,delete,delete_strict,modify}` and nothing else, and its `modify`
+     * reads `priority` from the body and uses it to identify the entry on the ternary five-tuple
+     * table -- so the guarantee the strict route buys on OpenFlow is already the behaviour here.
+     * Inheriting the base's path would post a route the proxy does not serve; the 404 would be
+     * invisible to the caller, because the flow path answers 200 "queued" before the southbound
+     * request is made.
+     *
+     * The alias route is the other way to settle this (delete_strict is exactly that alias on the
+     * proxy side). It is not taken here because it would put the fix in a repo this one cannot
+     * test against, to buy a wire spelling neither side needs.
+     */
+    const char* strictModifyPath() const override { return "/stats/flowentry/modify"; }
 };

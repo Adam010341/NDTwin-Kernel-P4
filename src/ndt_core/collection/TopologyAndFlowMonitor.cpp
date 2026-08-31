@@ -465,46 +465,120 @@ TopologyAndFlowMonitor::activeTopologyPath() const
  * and there had never been one. loadStaticTopologyFromFile now refuses a second load outright, so
  * the trap is gone rather than merely avoided here.
  */
+std::string
+TopologyAndFlowMonitor::buildTopologyFetchCommand(const std::string& url)
+{
+    // [Co-developed with claude code -- Adam]
+    // -sS rather than -s: -S restores curl's own one-line diagnosis on stderr while keeping the
+    // progress meter off, so "(28) Operation timed out" reaches the log alongside the warning
+    // below. execCommand captures stdout only, so this costs the caller nothing.
+    return "curl -sS -X GET --connect-timeout " +
+           std::to_string(kTopologyConnectTimeoutSeconds) + " --max-time " +
+           std::to_string(kTopologyRequestTimeoutSeconds) + " " + url;
+}
+
+/** @brief One bounded topology GET. Empty means "did not answer"; the caller decides what to say.
+ *
+ * [Co-developed with claude code -- Adam]
+ * An empty body is the only failure signal available here: utils::execCommand returns the child's
+ * stdout and swallows its exit status, so a timeout, a refused connection and a controller that
+ * genuinely had nothing to say arrive as the same empty string. Reporting is left to the caller so
+ * that a wedged control plane -- which fails all three of these -- produces one line and not three.
+ */
+std::string
+TopologyAndFlowMonitor::fetchTopologyEndpoint(const std::string& url)
+{
+    try
+    {
+        return utils::execCommand(buildTopologyFetchCommand(url));
+    }
+    catch (const exception& ex)
+    {
+        // popen() itself failed: out of file descriptors or memory. Not a control-plane problem,
+        // and not rate-limited, because it is not the failure that repeats every poll.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "could not run the topology request for {} at all: {}",
+                           url,
+                           ex.what());
+        return {};
+    }
+}
+
 void
 TopologyAndFlowMonitor::pollControlPlaneTopology()
 {
-    // GET switches
-    string curlCommand = "curl -s -X GET " + m_ryuUrl[0];
-    string switchesStr;
-    try
-    {
-        switchesStr = utils::execCommand(curlCommand);
-    }
-    catch (const exception& ex)
-    {
-        cerr << "Error executing curl command: " << ex.what() << endl;
-        return;
-    }
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md A-2. These were three bare `curl -s` calls with no deadline, each
+    // wrapped in a try/catch that could only ever fire on popen() failing -- never on the failure
+    // that actually happened, which is a child that does not return. One unresponsive controller
+    // therefore ended this thread for the lifetime of the process, and did it without writing a
+    // single line: the loop in run() logs only when graphLivenessSummary() *changes*, and a poll
+    // that never returns never changes it. The fingerprint operators were left with was
+    // "up=true, enabled=false" on every switch, which is not a message.
+    //
+    // What is new is only that each request now ends, and that not ending is said out loud. The
+    // control flow is deliberately the one that was already here: all three are fetched, then all
+    // three are applied together. updateSwitches, updateHosts and updateLinks each return early on
+    // an empty body, so an unanswered endpoint leaves its part of the graph untouched while the
+    // endpoints that did answer are still applied. That is pre-existing behaviour, and changing it
+    // is a separate decision from bounding the wait.
+    const auto startedAt = std::chrono::steady_clock::now();
 
-    // GET hosts
-    curlCommand = "curl -s -X GET " + m_ryuUrl[1];
-    string hostsStr;
-    try
-    {
-        hostsStr = utils::execCommand(curlCommand);
-    }
-    catch (const exception& ex)
-    {
-        cerr << "Error executing curl command: " << ex.what() << endl;
-        return;
-    }
+    const std::string switchesStr = fetchTopologyEndpoint(m_ryuUrl[0]);
+    const std::string hostsStr = fetchTopologyEndpoint(m_ryuUrl[1]);
+    const std::string linksStr = fetchTopologyEndpoint(m_ryuUrl[2]);
 
-    // GET links
-    curlCommand = "curl -s -X GET " + m_ryuUrl[2];
-    string linksStr;
-    try
+    const double elapsedSeconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
+
+    // Named, not counted: "the control plane is silent" and "hosts specifically is silent" are
+    // different faults, and the second one is invisible if the message only says how many.
+    std::string silent;
+    std::string firstSilent;
+    const auto noteIfSilent = [&silent, &firstSilent](const std::string& url,
+                                                     const std::string& body) {
+        if (body.empty())
+        {
+            silent += silent.empty() ? "" : ", ";
+            silent += url;
+            if (firstSilent.empty())
+            {
+                firstSilent = url;
+            }
+        }
+    };
+    noteIfSilent(m_ryuUrl[0], switchesStr);
+    noteIfSilent(m_ryuUrl[1], hostsStr);
+    noteIfSilent(m_ryuUrl[2], linksStr);
+
+    // Edge-triggered: this poll repeats every 5-30s forever, so an unrecovered control plane would
+    // otherwise write this line until the disk filled. The run is per pass rather than per
+    // endpoint, so a poll where two of three answer cannot report itself recovered.
+    if (!silent.empty())
     {
-        linksStr = utils::execCommand(curlCommand);
+        if (m_topologyFetchFailures++ == 0)
+        {
+            SPDLOG_LOGGER_WARN(
+                Logger::instance(),
+                "topology poll got no answer from {} after {:.3f}s (each request bounded at {}s "
+                "connect / {}s total). The graph keeps what it last saw, and this retries next "
+                "poll -- but until it clears, switches and links this twin never saw will read as "
+                "down and disabled while the fabric may be forwarding normally. Confirm with: "
+                "curl -s -o /dev/null --max-time 3 -w '%{{http_code}}\\n' {}",
+                silent,
+                elapsedSeconds,
+                kTopologyConnectTimeoutSeconds,
+                kTopologyRequestTimeoutSeconds,
+                firstSilent);
+        }
     }
-    catch (const exception& ex)
+    else if (m_topologyFetchFailures != 0)
     {
-        cerr << "Error executing curl command: " << ex.what() << endl;
-        return;
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "topology poll answered again after {} silent pass(es), in {:.3f}s",
+                           m_topologyFetchFailures,
+                           elapsedSeconds);
+        m_topologyFetchFailures = 0;
     }
 
     updateGraph(switchesStr, hostsStr, linksStr);

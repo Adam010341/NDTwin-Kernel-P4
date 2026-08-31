@@ -1,0 +1,108 @@
+Running main() from /home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a2c2a6601f812a7eb/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = P4PowerStrategyTest.*:RoutingStrategyFixture.*:RequestDeadlines.*
+[==========] Running 46 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 18 tests from RoutingStrategyFixture
+[ RUN      ] RoutingStrategyFixture.InstallTargetsTheRyuAddRoute
+[       OK ] RoutingStrategyFixture.InstallTargetsTheRyuAddRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.EveryRequestAsksForTheStatusCodeAndBoundsItsTime
+[       OK ] RoutingStrategyFixture.EveryRequestAsksForTheStatusCodeAndBoundsItsTime (0 ms)
+[ RUN      ] RoutingStrategyFixture.DeleteWithoutPriorityUsesTheNonStrictRoute
+[       OK ] RoutingStrategyFixture.DeleteWithoutPriorityUsesTheNonStrictRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.DeleteWithPriorityUsesTheStrictRoute
+[       OK ] RoutingStrategyFixture.DeleteWithPriorityUsesTheStrictRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyWithPriorityUsesTheStrictRouteSoItCanOnlyHitThatEntry
+[       OK ] RoutingStrategyFixture.ModifyWithPriorityUsesTheStrictRouteSoItCanOnlyHitThatEntry (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyWithoutAPriorityStaysOnTheNonStrictRoute
+[       OK ] RoutingStrategyFixture.ModifyWithoutAPriorityStaysOnTheNonStrictRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyOnTheP4ProxyKeepsTheRouteTheProxyActuallyServes
+[       OK ] RoutingStrategyFixture.ModifyOnTheP4ProxyKeepsTheRouteTheProxyActuallyServes (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyAndDeleteAgreeOnWhatAPriorityMeans
+[       OK ] RoutingStrategyFixture.ModifyAndDeleteAgreeOnWhatAPriorityMeans (0 ms)
+[ RUN      ] RoutingStrategyFixture.IdleTimeoutIsOmittedForBothSentinels
+[       OK ] RoutingStrategyFixture.IdleTimeoutIsOmittedForBothSentinels (0 ms)
+[ RUN      ] RoutingStrategyFixture.P4StrategyTargetsTheProxyNotRyu
+[       OK ] RoutingStrategyFixture.P4StrategyTargetsTheProxyNotRyu (0 ms)
+[ RUN      ] RoutingStrategyFixture.ReportsFailureWhenNothingAnswers
+[       OK ] RoutingStrategyFixture.ReportsFailureWhenNothingAnswers (0 ms)
+[ RUN      ] RoutingStrategyFixture.ReportsFailureOnHttpErrorStatus
+[       OK ] RoutingStrategyFixture.ReportsFailureOnHttpErrorStatus (0 ms)
+[ RUN      ] RoutingStrategyFixture.TreatsAnErrorBodyInA200AsFailure
+[       OK ] RoutingStrategyFixture.TreatsAnErrorBodyInA200AsFailure (0 ms)
+[ RUN      ] RoutingStrategyFixture.AcceptsASuccessBodyAndANonJsonBody
+[       OK ] RoutingStrategyFixture.AcceptsASuccessBodyAndANonJsonBody (0 ms)
+[ RUN      ] RoutingStrategyFixture.HandlesOutputWithNoStatusLine
+[       OK ] RoutingStrategyFixture.HandlesOutputWithNoStatusLine (0 ms)
+[ RUN      ] RoutingStrategyFixture.P4RefusesGroupAndMeterEntriesWithoutSendingAnything
+[       OK ] RoutingStrategyFixture.P4RefusesGroupAndMeterEntriesWithoutSendingAnything (0 ms)
+[ RUN      ] RoutingStrategyFixture.OpenFlowStillSupportsGroupAndMeterEntries
+[       OK ] RoutingStrategyFixture.OpenFlowStillSupportsGroupAndMeterEntries (0 ms)
+[ RUN      ] RoutingStrategyFixture.StrategiesNameThemselvesForLogs
+[       OK ] RoutingStrategyFixture.StrategiesNameThemselvesForLogs (0 ms)
+[----------] 18 tests from RoutingStrategyFixture (0 ms total)
+
+[----------] 16 tests from P4PowerStrategyTest
+[ RUN      ] P4PowerStrategyTest.PowerOffRunsTheHelperOnceAgainstExactlyThatSwitch
+[       OK ] P4PowerStrategyTest.PowerOffRunsTheHelperOnceAgainstExactlyThatSwitch (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOffFailureLeavesTheVertexUp
+[       OK ] P4PowerStrategyTest.PowerOffFailureLeavesTheVertexUp (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOffOnAnAlreadyDownSwitchRunsNothing
+[       OK ] P4PowerStrategyTest.PowerOffOnAnAlreadyDownSwitchRunsNothing (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnRunsHelperThenReadoptInThatOrder
+[       OK ] P4PowerStrategyTest.PowerOnRunsHelperThenReadoptInThatOrder (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheReadoptCurlKeepsTheProxysAccountOfWhatBroke
+[       OK ] P4PowerStrategyTest.TheReadoptCurlKeepsTheProxysAccountOfWhatBroke (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnHelperFailureIsA500AndReadoptNeverRuns
+[       OK ] P4PowerStrategyTest.PowerOnHelperFailureIsA500AndReadoptNeverRuns (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnReadoptFailureIsA502AndDoesNotMarkUp
+[       OK ] P4PowerStrategyTest.PowerOnReadoptFailureIsA502AndDoesNotMarkUp (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnOnAnAlreadyUpSwitchRunsNothing
+[       OK ] P4PowerStrategyTest.PowerOnOnAnAlreadyUpSwitchRunsNothing (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnActsWhenTheGraphSaysUpButThisStrategyJustStoppedTheSwitch
+[       OK ] P4PowerStrategyTest.PowerOnActsWhenTheGraphSaysUpButThisStrategyJustStoppedTheSwitch (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnTrustsTheGraphAgainOnceTheDistrustWindowHasPassed
+[       OK ] P4PowerStrategyTest.PowerOnTrustsTheGraphAgainOnceTheDistrustWindowHasPassed (0 ms)
+[ RUN      ] P4PowerStrategyTest.ASuccessfulPowerOnClosesTheWindowSoAnImmediateRepeatIsStillANoOp
+[       OK ] P4PowerStrategyTest.ASuccessfulPowerOnClosesTheWindowSoAnImmediateRepeatIsStillANoOp (0 ms)
+[ RUN      ] P4PowerStrategyTest.AFailedPowerOffDoesNotOpenTheDistrustWindow
+[       OK ] P4PowerStrategyTest.AFailedPowerOffDoesNotOpenTheDistrustWindow (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheDistrustWindowIsPerSwitchNotFabricWide
+[       OK ] P4PowerStrategyTest.TheDistrustWindowIsPerSwitchNotFabricWide (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheReadoptFailureNamesARecoveryThatCanActuallyRun
+[       OK ] P4PowerStrategyTest.TheReadoptFailureNamesARecoveryThatCanActuallyRun (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus
+[       OK ] P4PowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus (4 ms)
+[ RUN      ] P4PowerStrategyTest.DescribesItselfForLogsAndErrors
+[       OK ] P4PowerStrategyTest.DescribesItselfForLogsAndErrors (0 ms)
+[----------] 16 tests from P4PowerStrategyTest (4 ms total)
+
+[----------] 12 tests from RequestDeadlines
+[ RUN      ] RequestDeadlines.TheFlowTableRequestIsBounded
+[       OK ] RequestDeadlines.TheFlowTableRequestIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheLivenessRequestIsBounded
+[       OK ] RequestDeadlines.TheLivenessRequestIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheRelayRequestIsBounded
+[       OK ] RequestDeadlines.TheRelayRequestIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheFlowTableDeadlineOutlivesTheProxysOwnGrpcDeadline
+[       OK ] RequestDeadlines.TheFlowTableDeadlineOutlivesTheProxysOwnGrpcDeadline (0 ms)
+[ RUN      ] RequestDeadlines.TheLivenessDeadlineFitsInsideItsOwnPollInterval
+[       OK ] RequestDeadlines.TheLivenessDeadlineFitsInsideItsOwnPollInterval (0 ms)
+[ RUN      ] RequestDeadlines.TheFlowTableRequestStillAddressesTheRightSwitch
+[       OK ] RequestDeadlines.TheFlowTableRequestStillAddressesTheRightSwitch (0 ms)
+[ RUN      ] RequestDeadlines.TheLivenessRequestStillAsksForTheStatusLine
+[       OK ] RequestDeadlines.TheLivenessRequestStillAsksForTheStatusLine (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyPollIsBounded
+[       OK ] RequestDeadlines.TheTopologyPollIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyPollBoundsTheConnectAndNotJustTheTransfer
+[       OK ] RequestDeadlines.TheTopologyPollBoundsTheConnectAndNotJustTheTransfer (0 ms)
+[ RUN      ] RequestDeadlines.TheWholeTopologyPassFitsInsideItsOwnPollInterval
+[       OK ] RequestDeadlines.TheWholeTopologyPassFitsInsideItsOwnPollInterval (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyRequestStillFetchesTheUrlItWasGiven
+[       OK ] RequestDeadlines.TheTopologyRequestStillFetchesTheUrlItWasGiven (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyRequestKeepsCurlsOwnDiagnosisOnStderr
+[       OK ] RequestDeadlines.TheTopologyRequestKeepsCurlsOwnDiagnosisOnStderr (0 ms)
+[----------] 12 tests from RequestDeadlines (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 46 tests from 3 test suites ran. (5 ms total)
+[  PASSED  ] 46 tests.

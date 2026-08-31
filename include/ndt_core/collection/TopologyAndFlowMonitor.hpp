@@ -354,6 +354,42 @@ class TopologyAndFlowMonitor
      */
     void loadStaticTopologyFromFile(const std::string& path);
 
+    /**
+     * @brief Builds the curl command for one topology endpoint.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Extracted for the same reason as DeviceConfigurationAndPowerManager::buildFlowStatsCommand:
+     * the method around it needs a live control plane, so nothing inside it can be asserted, but
+     * the wire format can -- and here the wire format *is* the fix. See
+     * kTopologyConnectTimeoutSeconds for why both deadlines are on it.
+     */
+    static std::string buildTopologyFetchCommand(const std::string& url);
+
+    /**
+     * @brief Seconds curl may spend reaching the control plane before giving up on one request.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md A-2. This poll used to be three bare `curl -s` calls through
+     * utils::execCommand, which is a plain popen(): no deadline anywhere, so an unresponsive
+     * controller held the polling thread until the process exited. Measured once at 733 seconds
+     * and still climbing -- the twin showed all 40 links down and 10 switches disabled while the
+     * fabric forwarded at 0% loss, and nothing recovered it short of a restart.
+     *
+     * Two deadlines because they cover different failures, both observed in this repo:
+     * connect-timeout is the one that bit FlowLinkUsageCollector, where a curl to a `localhost`
+     * that resolved to an IPv6 loopback nobody was listening on took **131 seconds** because the
+     * SYNs were dropped rather than refused; max-time bounds a control plane that accepts the
+     * connection and then stalls mid-body, which is the shape of the Ryu wedge itself.
+     *
+     * 2 s and 5 s: the poll runs every 5 s while converging and every 30 s afterwards, and makes
+     * three of these requests in sequence. A fully wedged control plane therefore costs at most
+     * ~15 s per pass instead of the rest of the run. The comparable in-repo numbers are the 1 Hz
+     * liveness poll's `--max-time 3` and this exact wedge's `--connect-timeout 2 --max-time 10`.
+     */
+    static constexpr int kTopologyConnectTimeoutSeconds = 2;
+    /// @see kTopologyConnectTimeoutSeconds
+    static constexpr int kTopologyRequestTimeoutSeconds = 5;
+
   private:
     void initializeMappingsFromGraph();
     void flushEdgeFlowLoop();
@@ -369,6 +405,20 @@ class TopologyAndFlowMonitor
     /// The REST poll alone, without re-reading the static topology file. See the implementation for
     /// why the two must not be repeated together. [Co-developed with claude code -- Adam]
     void pollControlPlaneTopology();
+
+    /// Fetches one topology endpoint, bounded. Empty means it did not answer.
+    /// [Co-developed with claude code -- Adam]
+    std::string fetchTopologyEndpoint(const std::string& url);
+
+    /// How many consecutive polling passes left at least one endpoint silent.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// Edge-triggered on purpose, the same shape as FailureRun in
+    /// DeviceConfigurationAndPowerManager.hpp -- a persistent wedge is one warning, not one every
+    /// poll. Not that class itself only because reusing it would pull that whole header into this
+    /// one; the duplication is two lines and is noted here so it can be hoisted into utils/ later.
+    /// Touched only by the polling thread.
+    unsigned m_topologyFetchFailures = 0;
 
     std::atomic<bool> m_running{false};
 

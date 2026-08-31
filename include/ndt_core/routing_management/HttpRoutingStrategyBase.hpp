@@ -74,6 +74,21 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
      */
     virtual std::string executeCommand(const std::string& cmd);
 
+    /**
+     * @brief The route that modifies exactly the entry named by (match, priority).
+     *
+     * [Co-developed with claude code -- Adam]
+     * Virtual because the two control planes spell the same guarantee differently, and getting
+     * this wrong is a 404 on every modify rather than a visible error. Ryu's ofctl_rest maps the
+     * route name onto an OpenFlow command, so priority is only compared on `modify_strict`. The
+     * P4 proxy has one flow-entry modify route and reads `priority` out of the body itself
+     * (proxy_agent/topology_manager.py modify_flow uses it to identify the entry on the ternary
+     * five-tuple table), so there is no strict spelling for it to serve and none to ask for.
+     * Posting `modify_strict` at the proxy would 404 -- and, because the flow path is
+     * asynchronous, the caller would still be told 200 "queued" while nothing happened.
+     */
+    virtual const char* strictModifyPath() const;
+
     /// Seconds before a request is abandoned. Bounded so a hung controller cannot wedge
     /// a FlowDispatcher worker indefinitely.
     static constexpr int REQUEST_TIMEOUT_SECONDS = 5;

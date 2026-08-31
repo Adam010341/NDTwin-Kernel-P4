@@ -1,0 +1,1 @@
+475:    return "curl -sS -X GET --max-time " + // MUTANT_M11 dropped --connect-timeout

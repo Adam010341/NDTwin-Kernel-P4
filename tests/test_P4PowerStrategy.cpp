@@ -31,6 +31,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <iterator>
@@ -62,11 +63,28 @@ class FakeP4 : public P4PowerStrategy
     /// Commands matching this substring "fail". Empty means everything succeeds.
     std::string failSubstring;
 
+    /// [Co-developed with claude code -- Adam]
+    /// A clock the test drives, so the post-power-off distrust window can be crossed without
+    /// waiting fifteen real seconds. Deliberately starts at the steady_clock epoch rather than
+    /// at the real now(): a test that forgets to advance it then cannot pass by accident on
+    /// however long the suite happened to take.
+    std::chrono::steady_clock::time_point fakeNow{};
+
+    void advance(std::chrono::seconds by)
+    {
+        fakeNow += by;
+    }
+
   protected:
     bool executeSystemCommand(const std::string& cmd) override
     {
         commands.push_back(cmd);
         return failSubstring.empty() || cmd.find(failSubstring) == std::string::npos;
+    }
+
+    std::chrono::steady_clock::time_point now() const override
+    {
+        return fakeNow;
     }
 
   public:
@@ -369,6 +387,142 @@ TEST(P4PowerStrategyTest, PowerOnOnAnAlreadyUpSwitchRunsNothing)
     EXPECT_TRUE(result.ok) << result.message;
     EXPECT_TRUE(p4.commands.empty()) << "ran " << p4.commands.size() << " commands anyway";
     EXPECT_TRUE(fix.isUp());
+}
+
+// --- A-1: the graph is not a witness about a switch this strategy has just killed.
+//
+// [Co-developed with claude code -- Adam]
+// doc/KNOWN-ISSUES.md A-1. Every test below drives the strategy's clock rather than sleeping,
+// and each one flips the vertex back to up by hand -- that hand is standing in for the 1 Hz
+// pingWorker, which does exactly that within a second of a bmv2 dying, because p4LivenessFor
+// reads the proxy's stale `probe_ok: true` and answers Up. Nothing here needs a fabric; the
+// scenario is entirely about which of two disagreeing sources powerOn is allowed to believe.
+
+TEST(P4PowerStrategyTest, PowerOnActsWhenTheGraphSaysUpButThisStrategyJustStoppedTheSwitch)
+{
+    // The headline defect: measured on a live fabric, `action=on` a few seconds after
+    // `action=off` returned 200 "Success" in 0.01s, started no process, sent no readopt, and
+    // left the switch dead behind a twin reporting power=ON / is_up=True / 100% loss.
+    Fixture fix;
+    FakeP4 p4;
+
+    ASSERT_TRUE(p4.powerOff(fix.sw, "s1", fix.monitor.get()).ok);
+    ASSERT_FALSE(fix.isUp()) << "powerOff should have marked it down first";
+
+    // The liveness worker, one tick later, on evidence that predates the kill.
+    (*fix.graph)[fix.sw].isUp = true;
+
+    // A human reaching for the other button.
+    p4.advance(std::chrono::seconds(3));
+    p4.commands.clear();
+
+    const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    ASSERT_EQ(p4.commands.size(), 2u)
+        << "a power-on that runs no command is the whole defect: it answered 200 having done "
+           "nothing";
+    EXPECT_NE(p4.commands[0].find("ndtwin-p4-power on s1"), std::string::npos) << p4.commands[0];
+    EXPECT_NE(p4.commands[1].find("readopt/7"), std::string::npos) << p4.commands[1];
+    EXPECT_TRUE(fix.isUp());
+    expectNoNameMatchingKills(p4);
+}
+
+TEST(P4PowerStrategyTest, PowerOnTrustsTheGraphAgainOnceTheDistrustWindowHasPassed)
+{
+    // The bound matters as much as the distrust. Past the window the graph is the only source
+    // there is, and a switch that reads up then really is up -- the worker has had ten-plus
+    // ticks and a Down verdict available to it. A fix that never re-trusted the graph would
+    // send the helper at a live process and get "refusing to start a second instance".
+    Fixture fix;
+    FakeP4 p4;
+
+    ASSERT_TRUE(p4.powerOff(fix.sw, "s1", fix.monitor.get()).ok);
+    (*fix.graph)[fix.sw].isUp = true;
+
+    p4.advance(std::chrono::seconds(20));
+    p4.commands.clear();
+
+    const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_TRUE(p4.commands.empty())
+        << "still distrusting the graph " << 20 << "s after the power-off; ran "
+        << p4.commands.size() << " commands";
+    EXPECT_TRUE(fix.isUp());
+}
+
+TEST(P4PowerStrategyTest, ASuccessfulPowerOnClosesTheWindowSoAnImmediateRepeatIsStillANoOp)
+{
+    // Energy-Saving-App re-sends the state it wants rather than tracking transitions, so two
+    // power-ons in a row is routine and both arrive well inside fifteen seconds. The second one
+    // must not re-run the helper against the process the first one started.
+    Fixture fix;
+    FakeP4 p4;
+
+    ASSERT_TRUE(p4.powerOff(fix.sw, "s1", fix.monitor.get()).ok);
+    p4.advance(std::chrono::seconds(2));
+    ASSERT_TRUE(p4.powerOn(fix.sw, "s1", 7, fix.monitor.get()).ok);
+    ASSERT_TRUE(fix.isUp());
+
+    p4.advance(std::chrono::seconds(1));
+    p4.commands.clear();
+
+    const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_TRUE(p4.commands.empty())
+        << "the window should have closed when the helper confirmed a process was running; ran: "
+        << (p4.commands.empty() ? std::string{} : p4.commands[0]);
+}
+
+TEST(P4PowerStrategyTest, AFailedPowerOffDoesNotOpenTheDistrustWindow)
+{
+    // Nothing was stopped, so there is nothing to distrust, and the switch really is up. Opening
+    // the window here would send the helper at a live bmv2 on the next power-on and convert a
+    // correct no-op into a 500.
+    Fixture fix;
+    FakeP4 p4;
+    p4.failSubstring = "ndtwin-p4-power off";
+
+    ASSERT_FALSE(p4.powerOff(fix.sw, "s1", fix.monitor.get()).ok);
+    ASSERT_TRUE(fix.isUp()) << "left running is left up";
+
+    p4.failSubstring.clear();
+    p4.advance(std::chrono::seconds(3));
+    p4.commands.clear();
+
+    const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_TRUE(p4.commands.empty())
+        << "a power-off that failed opened the window anyway; ran " << p4.commands.size()
+        << " commands against a switch that never stopped";
+}
+
+TEST(P4PowerStrategyTest, TheDistrustWindowIsPerSwitchNotFabricWide)
+{
+    // A single flag or timestamp for the whole strategy would pass every test above and still
+    // be wrong: one switch's power-off would make every other switch's power-on run the helper,
+    // and the Energy-Saving-App powers switches off in groups.
+    Fixture fix;
+    const Graph::vertex_descriptor other = boost::add_vertex(*fix.graph);
+    (*fix.graph)[other].dpid = 8;
+    (*fix.graph)[other].deviceName = "s2";
+    (*fix.graph)[other].isUp = true;
+
+    FakeP4 p4;
+    ASSERT_TRUE(p4.powerOff(fix.sw, "s1", fix.monitor.get()).ok);
+
+    p4.advance(std::chrono::seconds(3));
+    p4.commands.clear();
+
+    const OpResult result = p4.powerOn(other, "s2", 8, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_TRUE(p4.commands.empty())
+        << "s1's power-off made s2's power-on act; the window is keyed by switch for a reason";
+    EXPECT_TRUE((*fix.graph)[other].isUp);
 }
 
 TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)

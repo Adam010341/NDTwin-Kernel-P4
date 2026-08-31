@@ -194,11 +194,48 @@ HttpRoutingStrategyBase::modifyAnEntry(uint64_t dpid,
 {
     json body;
     body["dpid"] = dpid;
-    body["priority"] = priority;
     body["match"] = match;
     body["actions"] = action;
 
-    return post("/stats/flowentry/modify", body, "modify flow entry");
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md A-4e. This function used to set body["priority"] and then post to the
+    // non-strict route -- the two lines contradicting each other, forty lines below a delete that
+    // gets the same decision right. OFPFC_MODIFY does not compare priority, so the field was
+    // carried all the way to the controller and ignored, and the modify landed on whichever entry
+    // matched first. Measured on a live fabric: a request naming the caller's own priority-100
+    // rule edited the router's priority-10 rule instead (same entry, confirmed by its unchanged
+    // duration/n_packets), moved 32 MB of traffic onto the wrong port, and the damage outlived
+    // deleting the caller's rule -- because the caller's rule had never been the one edited.
+    //
+    // The rule is now the same one deleteAnEntry has always used: a priority names an entry, so a
+    // request that supplies one gets the strict route and can only ever touch that entry.
+    //
+    // The -1 branch is the caller who did not name an entry. Nothing in the kernel produces -1 for
+    // a modify today (HttpSession::makeModifyJob defaults an absent priority to 0, unlike
+    // makeDeleteJob which defaults to -1), so this is the symmetry with delete rather than a live
+    // path -- and it is deliberately not "fixed" by changing that default, because FlowJob.hpp
+    // records that `ad49347` aligned the flow-table cache with the dispatcher on absent-means-0
+    // and de-aligning them again is a second defect, not a fix. An omitted priority therefore
+    // still reaches here as 0 and now goes strict, which is safe in a way the old code was not:
+    // strict compares the caller's own match as well, so priority 0 with a non-empty match hits
+    // the caller's entry or nothing, where non-strict hit anybody's.
+    if (priority == -1)
+    {
+        return post("/stats/flowentry/modify", body, "modify flow entry (non-strict)");
+    }
+
+    body["priority"] = priority;
+    return post(strictModifyPath(), body, "modify flow entry (strict)");
+}
+
+/** @brief The route that modifies exactly the named entry. See the header for why this is virtual.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+const char*
+HttpRoutingStrategyBase::strictModifyPath() const
+{
+    return "/stats/flowentry/modify_strict";
 }
 
 // --- group and meter entries -------------------------------------------------------

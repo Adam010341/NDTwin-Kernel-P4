@@ -1,0 +1,2 @@
+190:    notePowerOff(swName); // MUTANT_M4 moved above the helper-off failure return
+205:    // MUTANT_M4 moved away from here

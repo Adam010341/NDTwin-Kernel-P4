@@ -132,6 +132,78 @@ TEST_F(RoutingStrategyFixture, DeleteWithPriorityUsesTheStrictRoute)
     EXPECT_NE(s.lastCommand().find("\"priority\":42"), std::string::npos);
 }
 
+// --- A-4e: a modify names one entry, and must be able to touch only that one.
+//
+// [Co-developed with claude code -- Adam]
+// doc/KNOWN-ISSUES.md A-4e. modifyAnEntry was the one write verb no test round had ever called,
+// which is how it kept a defect the delete two tests up does not have: it set "priority" in the
+// body and posted the non-strict route, where OpenFlow does not compare priority at all.
+
+TEST_F(RoutingStrategyFixture, ModifyWithPriorityUsesTheStrictRouteSoItCanOnlyHitThatEntry)
+{
+    // The measured harm: a modify naming priority 100 edited the router's priority-10 rule,
+    // moved 32 MB onto the wrong port, and survived deleting the caller's own rule.
+    RecordingOpenFlow s("localhost:8080");
+    ASSERT_TRUE(s.modifyAnEntry(1, 100, sampleMatch(), sampleActions()).ok);
+
+    EXPECT_NE(s.lastCommand().find("/stats/flowentry/modify_strict"), std::string::npos)
+        << "the non-strict route ignores priority, so the entry named here is not the entry "
+           "edited: "
+        << s.lastCommand();
+    EXPECT_NE(s.lastCommand().find("\"priority\":100"), std::string::npos) << s.lastCommand();
+}
+
+TEST_F(RoutingStrategyFixture, ModifyWithoutAPriorityStaysOnTheNonStrictRoute)
+{
+    // Symmetry with deleteAnEntry: -1 is "I am not naming an entry". Nothing in the kernel
+    // produces it for a modify today, so this pins the sentinel rather than a live path -- and
+    // pins that a priority-less modify does not acquire a priority on the way out.
+    RecordingOpenFlow s("localhost:8080");
+    ASSERT_TRUE(s.modifyAnEntry(1, -1, sampleMatch(), sampleActions()).ok);
+
+    EXPECT_NE(s.lastCommand().find("/stats/flowentry/modify"), std::string::npos);
+    EXPECT_EQ(s.lastCommand().find("modify_strict"), std::string::npos)
+        << "a priority-less modify must not use the strict route";
+    EXPECT_EQ(s.lastCommand().find("\"priority\""), std::string::npos)
+        << "-1 is a sentinel, not a priority to send: " << s.lastCommand();
+}
+
+TEST_F(RoutingStrategyFixture, ModifyOnTheP4ProxyKeepsTheRouteTheProxyActuallyServes)
+{
+    // The proxy serves add/delete/delete_strict/modify and nothing else, and its modify reads
+    // priority from the body itself. Posting modify_strict there is a 404 -- and an invisible
+    // one, because the flow path answers 200 "queued" before the southbound request is made.
+    // This test is the whole reason strictModifyPath() is virtual.
+    RecordingP4 s("localhost:9090");
+    ASSERT_TRUE(s.modifyAnEntry(1, 100, sampleMatch(), sampleActions()).ok);
+
+    EXPECT_NE(s.lastCommand().find("/stats/flowentry/modify"), std::string::npos)
+        << s.lastCommand();
+    EXPECT_EQ(s.lastCommand().find("modify_strict"), std::string::npos)
+        << "the P4 proxy has no modify_strict route; this 404s and nothing observes it: "
+        << s.lastCommand();
+    EXPECT_NE(s.lastCommand().find("\"priority\":100"), std::string::npos)
+        << "the proxy identifies the entry by the priority in the body, so it still has to be "
+           "sent: "
+        << s.lastCommand();
+}
+
+TEST_F(RoutingStrategyFixture, ModifyAndDeleteAgreeOnWhatAPriorityMeans)
+{
+    // The defect was an asymmetry between two functions forty lines apart, so the property worth
+    // pinning is the agreement itself rather than either route name. A future edit that "tidies"
+    // one of them back to non-strict has to fail here.
+    RecordingOpenFlow modify("localhost:8080");
+    RecordingOpenFlow del("localhost:8080");
+    ASSERT_TRUE(modify.modifyAnEntry(1, 7, sampleMatch(), sampleActions()).ok);
+    ASSERT_TRUE(del.deleteAnEntry(1, sampleMatch(), 7).ok);
+
+    EXPECT_NE(modify.lastCommand().find("_strict"), std::string::npos)
+        << "delete treats a supplied priority as naming one entry; modify must too: "
+        << modify.lastCommand();
+    EXPECT_NE(del.lastCommand().find("_strict"), std::string::npos) << del.lastCommand();
+}
+
 TEST_F(RoutingStrategyFixture, IdleTimeoutIsOmittedForBothSentinels)
 {
     // 0 is the declared default and -1 the historical "no timeout" sentinel; neither should
