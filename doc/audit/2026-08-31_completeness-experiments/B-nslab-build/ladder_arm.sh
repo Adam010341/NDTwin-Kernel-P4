@@ -26,7 +26,21 @@ OUT="$ROOT/raw/$LABEL"; mkdir -p "$OUT"
 STEP_S="${STEP_S:-8}"
 CLEAN_PCT="${CLEAN_PCT:-0.5}"
 AMB_HI="${AMB_HI:-2.0}"
-RATES="${RATES:-1 2 3 5 8 12 20 30 45 70 110 160 240 360}"
+# 🔴 The ladder has no fixed top and NO PERSON CHOOSES WHERE IT ENDS (PREREG-1b:36-47,
+# inherited verbatim by PREREG-B §3). Registered rungs, then ×1.5 rounded to two
+# significant figures -- 540, 810, 1200, 1800, 2700 -- climbing until the saturation stop
+# fires. Hardcoding a top would let the arm that happens to be fastest be cut off by a
+# number someone typed, which is the same defect as adding a rung to rescue a ratio.
+RATES="${RATES:-}"
+BASE_RATES="1 2 3 5 8 12 20 30 45 70 110 160 240 360"
+next_rung() {  # next_rung <prev> -> prev*1.5 rounded to 2 significant figures
+  awk -v p="$1" 'BEGIN{
+    v = p * 1.5
+    e = int(log(v)/log(10))            # exponent of the leading digit
+    s = 10 ^ (e - 1)                   # scale so two significant digits are integral
+    printf "%d\n", int(v/s + 0.5) * s  # round half up, deterministically
+  }'
+}
 SAT_STOP_PCT="${SAT_STOP_PCT:-25}"
 RUNAWAY_MAX="${RUNAWAY_MAX:-40}"
 LEN=1400                        # PREREG-B §3 working point: 1400 B payload = 1442 B frame
@@ -38,6 +52,7 @@ BIN=$(sed -n 's/^binary=//p' "$ROOT/identity_${ARM}.meta")
 WANT_SHA=$(sha256sum "$BIN" | cut -d' ' -f1)
 
 teardown() {
+  [ -n "${LADDER_STUB:-}" ] && return 0     # stub mode never brought a fabric up
   touch "$ROOT/STOP" 2>/dev/null || true
   local i
   for i in $(seq 1 30); do [ -f "$ROOT/READY" ] || break; sleep 1; done
@@ -45,8 +60,23 @@ teardown() {
   rm -f "$ROOT/STOP"
 }
 
+# ---------------------------------------------------------------- stub mode (self-test)
+# 🔴 LADDER_STUB runs THE REAL LOOP against canned losses, with no fabric. The point is
+# that the thing verified is the code that will produce the round's readings -- a test
+# that re-implements the loop verifies a copy, and the copy is not what runs.
+# Stub mode is loud, writes to a raw dir named stub_*, and refuses to produce arm.meta
+# fields that could be mistaken for a measurement.
+STUB="${LADDER_STUB:-}"
+
 # ---------------------------------------------------------------- bring the fabric up
 echo "### PREREG-B arm $ARM label=$LABEL json=$P4JSON  $(date -Is)"
+if [ -n "$STUB" ]; then
+  echo "🔴🔴 STUB MODE: no fabric, no packets. Canned losses from: $STUB"
+  echo "🔴🔴 Nothing below is a measurement."
+  G="${STUB_G:-100000}"        # sender gate: high by default so it does not mask the climb
+  SWPID=0; H1=0; H2=0
+  assert_running_binary() { :; }
+else
 printf '%s\n' "$BIN" > "$ROOT/bmv2_binary_override"
 rm -f "$ROOT/READY" "$ROOT/STOP"
 sudo -n mn -c >/dev/null 2>&1 || true
@@ -121,6 +151,7 @@ except Exception as e:
 echo "  sender gate G = $G Mbit  (rungs above $(python3 -c "print(f'{max(0,int($G)//5)}')") Mbit are sender-limited)"
 echo "sender_gate_mbit=$G" >> "$OUT/arm.meta"
 [ "$G" != "-1" ] || die "sender gate produced no measurement -- PREREG-B abandon criterion"
+fi
 
 # ---------------------------------------------------------------- the ladder
 run_rep() {  # $1=rate $2=rep -> "<loss> <sent> <recv>"; -1 sentinel for no measurement
@@ -144,15 +175,48 @@ PY
 }
 median3() { printf '%s\n' "$1" "$2" "$3" | sort -g | sed -n 2p; }
 
-printf 'rate_mbit\treps\tloss_scored\tloss_reps\tsent\trecv\tclean\tsender_limited\n' > "$OUT/ladder.tsv"
-best_clean=""; hot=0; n_rungs=0
-for r in $RATES; do
-  n_rungs=$((n_rungs+1))
-  [ "$n_rungs" -le "$RUNAWAY_MAX" ] || { echo "  🔴 RUNAWAY_MAX hit -- this arm's reading is NOT a saturation reading"; echo "runaway=yes" >> "$OUT/arm.meta"; break; }
+# In stub mode, replace ONLY the packet-generating step. Everything downstream -- rung
+# selection, the ×1.5 extension, the 3-rep amendment, the clean rule, the saturation stop,
+# the sender gate -- is the real code.
+if [ -n "$STUB" ]; then
+  run_rep() {   # canned: "<rate> <loss>" lines in $STUB; unlisted rates default to 0.0000
+    local rate="$1" loss
+    loss=$(awk -v r="$rate" '$1==r{print $2; found=1} END{if(!found) print "0.0000"}' "$STUB" | head -1)
+    echo "$loss $rate $rate"
+  }
+fi
 
-  # sender gate, applied BEFORE spending 8 s on the rung
+printf 'rate_mbit\treps\tloss_scored\tloss_reps\tsent\trecv\tclean\tsender_limited\n' > "$OUT/ladder.tsv"
+best_clean=""; hot=0; n_rungs=0; stop_reason="ladder_exhausted"
+r=""
+# One queue, one rule. If RATES is set (smoke tests only) it REPLACES the registered
+# ladder and the climb ends when it runs out -- an override that silently fell back to
+# the full ladder would make a 3-rung smoke test run the whole thing.
+if [ -n "$RATES" ]; then QUEUE="$RATES"; EXTEND=no; else QUEUE="$BASE_RATES"; EXTEND=yes; fi
+while :; do
+  if [ -n "$QUEUE" ]; then
+    set -- $QUEUE; r="$1"; shift; QUEUE="$*"
+  elif [ "$EXTEND" = yes ]; then
+    r=$(next_rung "$r")                      # ×1.5, two significant figures
+  else
+    stop_reason="override_list_exhausted"; break
+  fi
+
+  n_rungs=$((n_rungs+1))
+  [ "$n_rungs" -le "$RUNAWAY_MAX" ] || { echo "  🔴 RUNAWAY_MAX hit -- this arm's reading is NOT a saturation reading"; echo "runaway=yes" >> "$OUT/arm.meta"; stop_reason="runaway_backstop"; break; }
+
+  # sender gate, applied BEFORE spending 8 s on the rung.
+  # G < 5X for this rung implies G < 5X' for every higher rung, so stopping here is
+  # provably identical to marking every remaining rung sender-limited -- it is not a
+  # judgement call about where to stop.
   slim=no
   awk -v g="$G" -v x="$r" 'BEGIN{exit !(g < 5*x)}' && slim=yes
+  if [ "$slim" = yes ]; then
+    printf '  %5s M  [sender-limited: G=%s < 5x%s] -- ladder stops, higher rungs are all sender-limited too\n' "$r" "$G" "$r"
+    printf '%s\t0\tNA\tNA\tNA\tNA\tSENDER_LIMITED\tyes\n' "$r" >> "$OUT/ladder.tsv"
+    stop_reason="sender_limited_at_${r}"
+    break
+  fi
 
   read -r l1 s1 v1 <<<"$(run_rep "$r" 1)"
   scored="$l1"; reps=1; all="$l1"
@@ -170,7 +234,6 @@ for r in $RATES; do
 
   clean=no
   if [ "$scored" = "-1" ]; then clean=NO_MEASUREMENT
-  elif [ "$slim" = "yes" ]; then clean=SENDER_LIMITED
   elif awk -v a="$scored" -v c="$CLEAN_PCT" 'BEGIN{exit !(a <= c)}'; then clean=yes; best_clean="$r"; fi
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$r" "$reps" "$scored" "$all" "$s1" "$v1" "$clean" "$slim" >> "$OUT/ladder.tsv"
@@ -179,7 +242,7 @@ for r in $RATES; do
 
   # saturation stop: two CONSECUTIVE rungs above 25%
   if [ "$scored" != "-1" ] && awk -v a="$scored" -v p="$SAT_STOP_PCT" 'BEGIN{exit !(a > p)}'; then
-    hot=$((hot+1)); [ "$hot" -ge 2 ] && { echo "  saturation stop: two consecutive rungs > ${SAT_STOP_PCT}%"; break; }
+    hot=$((hot+1)); [ "$hot" -ge 2 ] && { echo "  saturation stop: two consecutive rungs > ${SAT_STOP_PCT}%"; stop_reason="saturation"; break; }
   else hot=0; fi
 done
 
@@ -194,6 +257,7 @@ assert_running_binary exit
   echo "binary_sha256=$WANT_SHA"
   echo "highest_clean_rung_mbit=${best_clean:-NONE}"
   echo "ladder_rungs_walked=$n_rungs"
+  echo "ladder_stop_reason=$stop_reason"
   echo "step_s=$STEP_S clean_pct=$CLEAN_PCT payload=$LEN"
   echo "finished=$(date -Is)"
   echo "guest_loadavg_at_end=$(awk '{print $1,$2,$3}' /proc/loadavg)"

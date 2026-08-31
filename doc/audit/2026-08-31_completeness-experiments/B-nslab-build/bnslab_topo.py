@@ -79,8 +79,18 @@ def main():
     info(f"*** sha256: {sha}\n")
     info(f"*** json:   {JSON} (sha {subprocess.run(['sha256sum', JSON], capture_output=True, text=True).stdout.split()[0][:16]})\n")
 
-    from p4_mininet import P4Switch                     # noqa: E402
-    net = Mininet(topo=OneHop(), host=Host, link=TCLink, controller=None,
+    # 🔴 P4Host, not Host. P4Host.config() turns rx/tx/sg offload OFF. With plain Host the
+    # fabric looks healthy and is not: ICMP crosses (ping computes its own checksum in
+    # software) while TCP and UDP do not, because their checksums are deferred to an
+    # offload that never happens once the packet leaves via bmv2's raw socket. The
+    # receiver drops them silently. Measured 2026-08-31: ping 0% loss both ways, TCP
+    # connect timed out both ways, on the same fabric in the same minute.
+    # 🔑 The reason this is worth a comment rather than a one-word fix: the broken fabric
+    # passed every liveness check we had. Switch running, ports UP, rules visible on the
+    # southbound read, ICMP clean. "The control plane is functionally alive" was TRUE and
+    # the data plane still carried nothing that mattered.
+    from p4_mininet import P4Switch, P4Host             # noqa: E402
+    net = Mininet(topo=OneHop(), host=P4Host, link=TCLink, controller=None,
                   switch=lambda name, **kw: P4Switch(
                       name, sw_path=binary, json_path=JSON,
                       thrift_port=9090, pcap_dump=False, **kw))
@@ -92,6 +102,19 @@ def main():
     h1, h2 = net.get("h1"), net.get("h2")
     h1.cmd("arp -s 10.0.0.2 00:00:00:00:00:02")
     h2.cmd("arp -s 10.0.0.1 00:00:00:00:00:01")
+
+    # Assert the offload is actually off. P4Host.config() issues the ethtool calls but
+    # nothing checks them, and a config that silently did not take is the failure shape
+    # this whole file exists to avoid. Read the state back, per host.
+    for h in (h1, h2):
+        off = h.cmd("ethtool -k eth0 2>/dev/null | grep -E "
+                    "'^(tx-checksumming|rx-checksumming|scatter-gather):'")
+        bad = [ln for ln in off.strip().splitlines() if ln.strip().endswith("on")]
+        info(f"*** {h.name} offload: {' | '.join(off.split())}\n")
+        if bad:
+            sys.exit(f"REFUSE: {h.name} still has offload ON ({bad}). TCP and UDP would be "
+                     "dropped for bad checksums while ICMP kept working, and every "
+                     "liveness check we have would still read green.")
 
     # Record what actually launched, kernel-verified -- argv is the launcher's claim.
     #
