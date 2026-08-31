@@ -1,0 +1,11 @@
+  s5-eth4      0.902 Gbit/s
+  s7-eth4      0.002 Gbit/s
+  s6-eth4      0.000 Gbit/s
+  s8-eth4      0.000 Gbit/s
+  s5-eth3      0.000 Gbit/s
+  s8-eth3      0.000 Gbit/s
+  s6-eth3      0.000 Gbit/s
+  s7-eth3      0.000 Gbit/s
+  MAX          0.902 Gbit/s   <- SINGLE CORE LINK MAX (the ticket's question)
+  TOTAL        0.904 Gbit/s   (all eight core links together)
+  ECMP split across the top four: 0.90, 0.00, 0.00, 0.00

@@ -1,0 +1,7 @@
+  loaded edges 176   veth 1138.356 GB   twin 5.525 GB
+  twin/veth = 0.0049   (computed from named fields, not the printed column)
+  analyze.py's own summary rows:
+     host->switch       128     16   137.744     0.888  0.0064         0.002   0.058
+     switch->host       128     16   198.425     0.865  0.0044         0.001   0.095
+     switch->switch      32     23   802.187     3.773  0.0047         0.002   0.039
+  -> twin UNDER-reports by 99.5%

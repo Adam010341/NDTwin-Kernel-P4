@@ -1,0 +1,5 @@
+  s5-eth4     61.377 Gbit/s
+  s6-eth4     37.606 Gbit/s
+  s5-eth3     29.122 Gbit/s
+  s6-eth3     18.901 Gbit/s
+  MAX         61.377 Gbit/s   TOTAL 147.058

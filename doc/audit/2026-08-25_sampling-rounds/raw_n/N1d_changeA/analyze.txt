@@ -1,0 +1,4 @@
+auto window: 3s of moving counters
+veth: no usable span
+twin: 20 usable graph samples, 0 failed polls, 288 distinct edges
+🔴 INCONCLUSIVE: one of the two streams is empty. Absence of a discrepancy in an empty comparison is not evidence.

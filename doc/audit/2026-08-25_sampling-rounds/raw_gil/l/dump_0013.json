@@ -1,0 +1,2667 @@
+[
+  {
+    "pid": 182176,
+    "thread_id": 125198112102080,
+    "thread_name": "AnyIO worker thread",
+    "os_thread_id": 193215,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 359,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 199,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py",
+        "module": null,
+        "short_filename": "anyio/_backends/_asyncio.py",
+        "line": 1022,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125197608801984,
+    "thread_name": "liveness-probe",
+    "os_thread_id": 184944,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 660,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_loop",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py",
+        "module": null,
+        "short_filename": "topology_manager.py",
+        "line": 1253,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125197617194688,
+    "thread_name": "link-watchdog",
+    "os_thread_id": 184911,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 660,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_loop",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py",
+        "module": null,
+        "short_filename": "topology_manager.py",
+        "line": 1538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125197625587392,
+    "thread_name": "lldp-beacon",
+    "os_thread_id": 184899,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 660,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_loop",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/topology_manager.py",
+        "module": null,
+        "short_filename": "topology_manager.py",
+        "line": 1375,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198120494784,
+    "thread_name": "Thread-30 (_stream_receiver)",
+    "os_thread_id": 183255,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198128887488,
+    "thread_name": "Thread-29 (_run)",
+    "os_thread_id": 183254,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198137280192,
+    "thread_name": "Thread-28 (_run)",
+    "os_thread_id": 183253,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198145672896,
+    "thread_name": "Thread-27 (_stream_receiver)",
+    "os_thread_id": 183248,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198154065600,
+    "thread_name": "Thread-26 (_run)",
+    "os_thread_id": 183247,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198162458304,
+    "thread_name": "Thread-25 (_run)",
+    "os_thread_id": 183246,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198648972992,
+    "thread_name": "Thread-24 (_stream_receiver)",
+    "os_thread_id": 183242,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198657365696,
+    "thread_name": "Thread-23 (_run)",
+    "os_thread_id": 183241,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198665758400,
+    "thread_name": "Thread-22 (_run)",
+    "os_thread_id": 183240,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198674151104,
+    "thread_name": "Thread-21 (_stream_receiver)",
+    "os_thread_id": 183236,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198682543808,
+    "thread_name": "Thread-20 (_run)",
+    "os_thread_id": 183235,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198690936512,
+    "thread_name": "Thread-19 (_run)",
+    "os_thread_id": 183234,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125198699329216,
+    "thread_name": "Thread-18 (_stream_receiver)",
+    "os_thread_id": 183230,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199185843904,
+    "thread_name": "Thread-17 (_run)",
+    "os_thread_id": 183229,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199194236608,
+    "thread_name": "Thread-16 (_run)",
+    "os_thread_id": 183227,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199202629312,
+    "thread_name": "Thread-15 (_stream_receiver)",
+    "os_thread_id": 183223,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199211022016,
+    "thread_name": "Thread-14 (_run)",
+    "os_thread_id": 183222,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199219414720,
+    "thread_name": "Thread-13 (_run)",
+    "os_thread_id": 183221,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199227807424,
+    "thread_name": "Thread-12 (_stream_receiver)",
+    "os_thread_id": 183216,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199236200128,
+    "thread_name": "Thread-11 (_run)",
+    "os_thread_id": 183215,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199789823680,
+    "thread_name": "Thread-10 (_run)",
+    "os_thread_id": 183213,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199798216384,
+    "thread_name": "Thread-9 (_stream_receiver)",
+    "os_thread_id": 183207,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_wait_once",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 114,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "wait",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_common.py",
+        "module": null,
+        "short_filename": "grpc/_common.py",
+        "line": 154,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_next",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 947,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "__next__",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 538,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 121,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199806609088,
+    "thread_name": "Thread-8 (_run)",
+    "os_thread_id": 183206,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199815001792,
+    "thread_name": "Thread-7 (_run)",
+    "os_thread_id": 183204,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199823394496,
+    "thread_name": "Thread-6 (_stream_receiver)",
+    "os_thread_id": 183197,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "emit",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/sflow_emitter.py",
+        "module": null,
+        "short_filename": "sflow_emitter.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "handle_sample",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/sflow_emitter.py",
+        "module": null,
+        "short_filename": "sflow_emitter.py",
+        "line": 309,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "handle_packet_in",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 162,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 123,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199831787200,
+    "thread_name": "Thread-5 (_run)",
+    "os_thread_id": 183195,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125199840179904,
+    "thread_name": "Thread-4 (_run)",
+    "os_thread_id": 183194,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125200393803456,
+    "thread_name": "Thread-3 (_stream_receiver)",
+    "os_thread_id": 183191,
+    "active": false,
+    "owns_gil": true,
+    "frames": [
+      {
+        "name": "emit",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/sflow_emitter.py",
+        "module": null,
+        "short_filename": "sflow_emitter.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "handle_sample",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/sflow_emitter.py",
+        "module": null,
+        "short_filename": "sflow_emitter.py",
+        "line": 309,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "handle_packet_in",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 162,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_receiver",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 123,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125200402196160,
+    "thread_name": "Thread-2 (_run)",
+    "os_thread_id": 183190,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "wait",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 363,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "get",
+        "filename": "/home/adam/miniconda3/lib/python3.13/queue.py",
+        "module": null,
+        "short_filename": "queue.py",
+        "line": 210,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_stream_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/p4_client.py",
+        "module": null,
+        "short_filename": "p4_client.py",
+        "line": 111,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "consume_request_iterator",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 276,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125200410588864,
+    "thread_name": "Thread-1 (_run)",
+    "os_thread_id": 183189,
+    "active": true,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "channel_spin",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/grpc/_channel.py",
+        "module": null,
+        "short_filename": "grpc/_channel.py",
+        "line": 1716,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 995,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap_inner",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1044,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_bootstrap",
+        "filename": "/home/adam/miniconda3/lib/python3.13/threading.py",
+        "module": null,
+        "short_filename": "threading.py",
+        "line": 1015,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  },
+  {
+    "pid": 182176,
+    "thread_id": 125201311962944,
+    "thread_name": "MainThread",
+    "os_thread_id": 182176,
+    "active": false,
+    "owns_gil": false,
+    "frames": [
+      {
+        "name": "select",
+        "filename": "/home/adam/miniconda3/lib/python3.13/selectors.py",
+        "module": null,
+        "short_filename": "selectors.py",
+        "line": 452,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "_run_once",
+        "filename": "/home/adam/miniconda3/lib/python3.13/asyncio/base_events.py",
+        "module": null,
+        "short_filename": "asyncio/base_events.py",
+        "line": 2023,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run_forever",
+        "filename": "/home/adam/miniconda3/lib/python3.13/asyncio/base_events.py",
+        "module": null,
+        "short_filename": "asyncio/base_events.py",
+        "line": 683,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run_until_complete",
+        "filename": "/home/adam/miniconda3/lib/python3.13/asyncio/base_events.py",
+        "module": null,
+        "short_filename": "asyncio/base_events.py",
+        "line": 712,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/asyncio/runners.py",
+        "module": null,
+        "short_filename": "asyncio/runners.py",
+        "line": 118,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/miniconda3/lib/python3.13/asyncio/runners.py",
+        "module": null,
+        "short_filename": "asyncio/runners.py",
+        "line": 195,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/uvicorn/server.py",
+        "module": null,
+        "short_filename": "uvicorn/server.py",
+        "line": 74,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "run",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/uvicorn/main.py",
+        "module": null,
+        "short_filename": "uvicorn/main.py",
+        "line": 621,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": false
+      },
+      {
+        "name": "<module>",
+        "filename": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py",
+        "module": null,
+        "short_filename": "main.py",
+        "line": 352,
+        "locals": null,
+        "is_entry": false,
+        "is_shim_entry": true
+      }
+    ],
+    "process_info": null
+  }
+]
