@@ -19,7 +19,7 @@
 | # | 佔用者 | 內容 | 狀態 | 條款 |
 |---|---|---|---|---|
 | **0** | **Adam** | 9/03 報告準備（含 deck 產檔、圖重渲） | 即日–09-03 | **絕對優先**（逐字複製自 `LOCAL-FABRIC-QUEUE.md` 第 0 列；PREREG-C4／B 皆有「不疊週四準備窗」條款） |
-| 1 | reviewer | **B 輪**四 build × 2 臂（PREREG-B **v1.0 已凍結**） | 下一步＝sender-gate 校準 | auditor 08-31 裁 **B 先於 C4**；`p4-bootstrapped-nodocker` 還原後才跑；八臂一氣呵成、中斷整輪作廢 |
+| 1 | reviewer | **B 輪**四 build × 2 臂（PREREG-B **v1.0 已凍結**） | 🟢 **佔用中，自 08-31 15:0x**（Adam 15:0x 核可開跑）：sender-gate 校準→四 build 編譯→八臂 | auditor 08-31 裁 **B 先於 C4**；`p4-bootstrapped-nodocker` 還原後才跑；八臂一氣呵成、中斷整輪作廢 |
 | 2 | reviewer | **C4** Whippersnapper 容器量測 | install 偵察中（未凍結） | 準備階段與 #1 的量測窗**相容**；量測窗必須等 #1 release |
 
 ## 規則
