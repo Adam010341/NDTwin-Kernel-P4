@@ -1005,3 +1005,76 @@ it is the difference between a question that can be answered after the fact and 
 resource cause was found — disk 9.4 G, `load1` 0.14, zero orphan bmv2/veth/netns, 25 successful
 bringups immediately before. Any decision about resuming has to be taken **without knowing why the
 26th bringup failed**, and that limitation is a consequence of this finding, not an aside to it.
+
+### 🔴 The generalisation, which is harder to defend against than "evidence did not survive a handoff"
+
+> **It was not a handoff that destroyed the evidence. It was automatic cleanup — and the cleanup
+> was the correct action.**
+
+The code responsible for protecting machine state is **simultaneously the only code with the
+authority to destroy the failure scene**, and *not* running it is the worse error. So the repair is
+not "clean up less"; it is **move the scene before cleaning up**: dump the topo pane to
+`$ROUND/raw/` inside `abort()`, before `teardown` runs.
+
+🔴 **That edits `lib_e.sh` and is forbidden in-round** (same rule as F-18, F-20, F-21). Registered
+for the next round.
+
+⚠️ **The in-round mitigation and its coverage gap, stated so no reader takes it for a fix.** The
+resume's readiness check lands its bringup output at `$ROUND/ndt_up.resume.log`. **That covers the
+standalone bringup only. It does NOT cover the per-cell bringups inside `run_cell`** — which is
+where this failure happened and where the next one would. **The gap is still open for every cell of
+the resumed run.**
+
+### What could be recovered from the wreckage, and it is worth naming
+
+Two facts survived, both by inference rather than by record: `lib_e.sh:603-604`'s `40 × 5 s` bounds
+the wait at exactly 200 s, and **`stack up.` never printed** — which places the failure at the
+topology stage, before the kernel and proxy stage. **That is the entire location information
+available**, and it came from noticing an *absent* line rather than a present one.
+
+⚠️ **A fifth instance of the comm-truncation family, this one in the diagnosis of this very
+failure**: the auditor's first orphan check used `pgrep -ax simple_switch_grpc` and got 0 — a **false
+negative**, because `simple_switch_grpc` is 18 characters and `comm` holds 15. `pgrep` printed a
+warning saying so. Confirmed truly zero only by re-checking with the truncated name and a `/proc`
+scan. **The tool warned, the answer looked right, and the answer being right was luck.**
+
+---
+
+## F-25. ⚠️ The abort split one rep's two arms across an eleven-minute gap and a lab restart
+
+`run_e.sh:30-33` states the design and its reason verbatim:
+
+> *"Within a rung the arms are interleaved BL,M,P,MP and repeated REPS times, so **drift across the
+> rung is shared by all four arms instead of being confounded with one of them**."*
+
+The abort landed between the two arms of **rung 1/16, rep 1**:
+
+| cell | when | separated by |
+|---|---|---|
+| `e_bl_0016_1` | finished **02:07:04** | — |
+| `e_p_0016_1` | started **02:18:48** | a failed bringup, a full teardown, `restore_production`, a standalone `ndt up`, and ~11.7 minutes |
+
+⇒ **For that one pair, the interleaving no longer does what it is for.** Any drift between 02:07
+and 02:19 — including whatever produced the bringup failure — is carried by `p` and not by `bl`.
+Every other pair in the round is adjacent as designed.
+
+🔴 **Recorded, not repaired.** Deleting `e_bl_0016_1` from `cells.tsv` to let it re-pair would be
+editing this round's primary record — **the same rule that governs the contamination cells**
+(`LADDER-RUNNING-NOTES` §5-ter): a record is not edited to make an analysis tidier.
+⇒ The pair stands, the break is written down, and **a reader decides for themselves whether to
+down-weight rep 1 of 1/16.** That decision needs the fact, not a cleaned-up table.
+
+🔑 This is what "accept and record" costs and why it is still right: the alternative buys a tidier
+dataset by removing the evidence that it was ever untidy.
+
+### Postscript: the readiness check passed, and what that does and does not mean
+
+02:18:11 — `bmv2:10=1  :8000 answering=1`, **the fabric up in ~40 s**, where the failing attempt had
+not managed it in 200 s. The resume guard then skipped all 25 recorded cells in 32 s (`already
+recorded, skipping (resume)` × 25) and reached `e_p_0016_1`, the cell that failed.
+
+⚠️ **This is consistent with an intermittent fault and excludes only a persistent one.** 25
+successes and 1 failure is ≈4%; one further success cannot rule out intermittency — that is what
+intermittency means. **The round now runs under a pre-committed rule: if a bringup aborts again,
+the round stops and the pattern is registered as a finding.** "Retry until it works" would make
+*"did this round measure anything"* a function of how many times we tried.
