@@ -1,4 +1,4 @@
-# PREREG B — nslab 四臂 build 實驗（B2 第二機複製＋B1 flags 消融合一；v0.2）
+# PREREG B — nslab 四臂 build 實驗（B2 第二機複製＋B1 flags 消融合一；**v1.0 凍結**）
 
 **狀態**：v0.2-stamped＝**auditor 章已蓋（2026-08-31：結構 PASS＋R1–R3 落點逐一驗訖）**；
 四處【TBD】皆機械核對類——**落定即自升 v1.0**（修訂記錄記明何時何人落定）；
@@ -72,8 +72,23 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   ——見 §4a 的事故紀錄：磁碟上有**兩個同名 `fresh`**、內容完全不同（ID 1＝bootstrap 前的
   裸雲端映像；ID 2＝bootstrap 後），`restore fresh` 因此是不確定的。**本實驗不設本機 fallback**（本機的 documented-only 補臂
   ＝另一張小 prereg，見 §6）。
-- 完整層疊揭露：bare nslab → qemu/KVM VM → Mininet veth【TBD：VM 環境 manifest——
-  iperf3 版本、kernel、mininet 版本、CPU model，bootstrap 時落定】。
+- 完整層疊揭露：bare nslab → qemu/KVM VM → Mininet veth。
+  ✅ **VM manifest 已落定（08-31 14:5x，reviewer，於 guest 內實測；最後一個 TBD）**：
+
+  | 欄 | 值 |
+  |---|---|
+  | guest OS | Ubuntu 24.04.4 LTS |
+  | kernel | `6.8.0-138-generic` |
+  | CPU model（宿主直通） | Intel Core i7-14700 |
+  | vCPU／RAM | 16 ／ 15 GiB（＝顯式 `VM_CPUS=16 VM_MEM=16384`） |
+  | iperf3 | **3.16（cJSON 1.7.15）** ——🔑 **與機器 1 逐字相同**（`35_MACHINE-ENV`）⇒ 量測工具不是跨機差異的來源 |
+  | Mininet | 2.3.0 |
+  | p4c | `p4c-bm2-ss`（版本字串於編譯 .p4 當下記入 raw） |
+  | guest 既有 behavioral-model | `583e76e`（**bootstrap 遺留、不是本輪受測對象**——四臂各自從 `f0b7d201` 重建） |
+
+  🔴 此為 **bootstrap 參考版**；**權威版仍是跑臂當下由 runner dump 的那份**，兩者逐欄對帳
+  （見上條時效條款）。⚠️ 記錄當下 guest 內已裝 docker（C4 用）——docker 不在 manifest
+  欄位內，但**臂必須自 `p4-bootstrapped-nodocker` 還原後才跑**。
 - **Manifest 的時效條款（auditor 08-31）**：manifest 的權威版本＝**跑臂當下實測**，
   不是 bootstrap 當下的（中間一次重開機或 VPN 斷線重連就可能換掉 CPU model／kernel／
   governor——「一次正確的量測會無聲過期」的同型）。實作：**臂 runner 開頭自動 dump
@@ -157,6 +172,10 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   先凍、C2 跨機器免責、C3 ldd/RUNPATH、C4 環境條款、C5 新鮮度＋凍結後不加）。
   【TBD】×4：rungs 對 21_/22_ 核對、VM manifest、P4 程式/p4c 逐字記名、sender gate
   的 VM 校準程序。
+- **v1.0（08-31，資料接觸前）＝凍結**：最後一個【TBD】（VM 環境 manifest）已於 guest 內
+  實測落定（見 §4 表）。依 auditor 裁定「TBD 全屬機械核對、落定即自升 v1.0」⇒ 本註冊
+  **自此凍結**：判定規則、臂、梯階、n 一律不得再改；後續只能追加「資料接觸前」的收緊
+  修訂，且須逐項標明。**下一步＝sender-gate 校準（凍結後、正式臂前）**。
 - v0.5（08-31，**資料接觸前**；只收緊）：①新增**宿主外來負載閘**——nslab 非獨佔、
   VM 看不到宿主負載 ⇒ 每臂在宿主側取樣 `/proc/stat`，相對門檻 +0.15 標 suspect
   （鑑別力限制照實寫）；②新增與遠端線「自足性」界線的**相符聲明**與**不轉移清單**
