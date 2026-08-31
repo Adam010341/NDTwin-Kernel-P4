@@ -187,8 +187,19 @@ aggregate 天花板入文必須歸給配置的帽，且 bmv2 fabric 無帽這個
    指名執行），我 patch＋sha256 指認的是 kernel repo 的同名副本＝no-op。py_compile／diff／sha
    斷言全打在「檔案」上，沒有一個打在「fabric」上——「指認量到的 binary」教訓的拓撲檔版本。
 7. 🔴 **htb 斷言假陰性 ×2**：`sudo -n tc -s qdisc show | grep -c htb` 兩次讀 0，而 08-28 jitter
-   輪在同 fabric 直接讀到 htb、且本輪 0.96 G 簽名證明帽在。讀 0 的機制未定位（待 T-4 窗外
-   live 釘死——**只用唯讀指令，量測動作不得再碰 fabric 形狀**，auditor 提醒）；
+   輪在同 fabric 直接讀到 htb、且本輪 0.96 G 簽名證明帽在。
+   🏁 **機制已定位（08-31 16:03，`c55a12b`）——本條原寫「未定位（待 T-4 窗外）」，該敘述作廢**：
+   正本＝[`../2026-08-31_completeness-experiments/FINDING-htb-false-negative-mechanism.md`](../2026-08-31_completeness-experiments/FINDING-htb-false-negative-mechanism.md)。
+   一句話：**免密碼 sudoers 白名單只有 `tc qdisc show dev s[0-9]*-eth[0-9]*`**，
+   而斷言呼叫的是 `sudo -n tc -s qdisc show`（無 `dev`、`-s` 在物件前）⇒ **不匹配 ⇒ 要密碼
+   ⇒ 指令從未執行 ⇒ stdout 全空 ⇒ `grep -c htb` 忠實地數出 0**。
+   讀到的 0 **不是「沒有 htb」，是「沒有輸出」**；`2>&1` 還把那行錯誤寫進了「資料」檔，
+   於是 31/31 個 `tcqdisc_*.txt` 存在、非空、看起來像有輸出。
+   ⚠️ **這一行是 08-31 22:5x 補的**：更正在 16:03 就落了檔，但**提出這個懸案的這份文件
+   沒有被指過去**，於是讀者在六個多小時裡仍然讀到「未定位」。
+   同一天另一條線（8/29 poster-reviewer）因此**從頭重推了一次同樣的機制**——
+   那是「撤回／更正要 grep 引用點」這條規矩的成本被實際付出的一次
+   （[[disclosure-is-not-downgrading]]）。
    結構缺陷＝expect-0 側有 die-gate、expect->0 側只有 echo——有訊息的那側沒 gate。
 8. 🔴 發現時序：6/7 兩條是 08-30 15:0x 最終驗收時發現，**在 auditor 收案（`71e482e` 審過）之後
    ——auditor 已撤回該簽收（帳本 §14），本更正版的 commit message 引用「收案與推翻範圍」時
