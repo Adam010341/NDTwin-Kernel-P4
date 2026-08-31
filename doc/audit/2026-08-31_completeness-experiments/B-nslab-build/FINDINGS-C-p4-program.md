@@ -39,6 +39,14 @@
 而 stock build 在兩支程式上差 **1.57×**（70 vs 110）。
 
 ⇒ **在 fast build 上，P4 程式已經不是瓶頸了；在 stock build 上它還是。**
+
+> 🔴 **08-31 §E 之後收緊**（[`FINDINGS-E-fine-ladder.md`](FINDINGS-E-fine-ladder.md)）：
+> 這句話的可主張版本是「**在 20 Mbit 解析度、±1 階重複性下，兩支程式的 fast 臂
+> 分不出來**」，**不是**「fast build 對 P4 程式不敏感」。
+> §E 用 20 Mbit 細梯階重測 D 臂，讀到 ndtwin {360,360}／firewall {400,360}
+> ——**不嚴格分離，所以本節的推論通過了檢定**；但 firewall 自己兩臂就跨一階，
+> ⇒ **任何小於 20 Mbit 的真實差異，那一輪都分不出來**。
+> 「分不出來」大部分是解析度的陳述，不是等價的陳述。
 兩支程式的 pipeline 工作量差異（508 行含每包取樣 vs 284 行）
 **只有 stock build 看得見**。fast build 撞到的是別的東西——
 封包 I/O 路徑（veth、raw socket、bmv2 框架本身），那個對 P4 程式不敏感。
