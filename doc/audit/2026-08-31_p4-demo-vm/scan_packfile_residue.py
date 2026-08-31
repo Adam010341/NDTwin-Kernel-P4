@@ -43,6 +43,25 @@ def scan(path, needles):
 
 
 if __name__ == "__main__":
+    # 🔴 BEFORE YOU REUSE THIS ON A DIFFERENT IMAGE, READ THIS.
+    #
+    # The needles are bytes of ONE SPECIFIC packfile. They are not a test for "does this
+    # image contain a git repository with the poster package" -- they are a test for "does
+    # this image contain THAT packfile". Point it at an image holding a different repository
+    # and every needle misses, the script prints CLEAN, and the output is indistinguishable
+    # from a true negative.
+    #
+    # This nearly happened: the same day this script was written and validated (control
+    # 12/12, product 11/11 gone), it was the obvious tool to check a second image -- which
+    # carried NDTwin-Kernel, not NDTwin-Kernel-P4. Different packfile, guaranteed false
+    # negative. That image was checked with `git rev-list --objects --all` instead.
+    #
+    # 🔑 A method's positive control does not transfer with the method to a new subject.
+    # Recent success is exactly when a tool is hardest to put down.
+    #
+    # Use this script only when the target is known to descend from the same repository the
+    # samples came from -- e.g. snapshots or copies of one lineage. Otherwise enumerate the
+    # objects, and give that search its own control.
     samples_file, control, targets = sys.argv[1], sys.argv[2], sys.argv[3:]
     needles = []
     for line in open(samples_file):

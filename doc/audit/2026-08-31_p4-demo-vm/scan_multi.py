@@ -21,7 +21,22 @@ CHUNK = 64 << 20
 
 
 def harvest(path: str, centre: int, count: int, step: int, size: int) -> list:
-    """Pull `count` windows of `size` bytes, spaced `step` apart, around `centre`."""
+    """Pull `count` windows of `size` bytes, spaced `step` apart, around `centre`.
+
+    🔴 Two ways this function will hand you a confident wrong answer.
+
+    1. A qcow2 offset does not stay inside one file. Windows taken "near" a confirmed hit
+       are not necessarily more of the same file -- one of them, in the run this was
+       written for, read `t-Using: rust-hyper-rustls (= 0.24.2-2)`, i.e. apt metadata. It
+       then "survived" in the cleaned image and looked like residue. Sample the FILE at
+       known offsets (see scan_packfile_residue.py), not the image near an offset.
+
+    2. The samples belong to one specific artefact. They do not generalise to a different
+       image holding a different copy of anything -- every needle misses, and a broken
+       search and a clean image produce the same output. A method's positive control does
+       not transfer with the method to a new subject, and recent success is exactly when
+       a tool is hardest to put down.
+    """
     out = []
     with open(path, "rb") as fh:
         for k in range(count):
