@@ -456,19 +456,42 @@ Wedge the control plane and watch the clock and the log, since these are the two
 changed and neither is observable from a test binary.
 
 ```bash
-# with the fabric up and the kernel running, make the controller accept and never answer:
-sudo iptables -I INPUT -p tcp --dport 8080 -j DROP
-# wait through two poll intervals, then:
-grep -n "topology poll got no answer" kernel.log
-sudo iptables -D INPUT -p tcp --dport 8080 -j DROP
-grep -n "topology poll answered again" kernel.log
+# with the fabric up and the kernel running, wedge the transport to the controller.
+# NOTE the plane: this is the OVS arm. `ndt up ovs4` (or `ovs`), not `ndt up 4` -- on P4 the
+# kernel does not poll Ryu's /v1.0/topology/* at all and there is nothing to wedge.
+sudo -n /usr/sbin/iptables -I INPUT -p tcp --dport 8080 -j DROP
+# wait through two poll intervals (5s each for the first 90s of the monitor's life, 30s after
+# -- TopologyAndFlowMonitor.cpp run(): kWhileConverging/kOnceConverged), then:
+grep -n "topology poll got no answer" .test_run/logs/kernel.log
+sudo -n /usr/sbin/iptables -D INPUT -p tcp --dport 8080 -j DROP
+grep -n "topology poll answered again" .test_run/logs/kernel.log
 ```
 
+🔴 **CORRECTED 2026-08-31 after the live run (`doc/audit/2026-08-31_live-recipes/raw/
+drive_a2_wedge.sh`, `a2_wedge.log`): the elapsed-time pass criterion below was wrong, and wrong
+in a way that would have failed a working fix.** `-I INPUT --dport 8080 -j DROP` drops the
+client's SYN, so every request dies in **`--connect-timeout 2`**, never in `--max-time 5`. One
+wedged pass therefore costs **~6s (3 × 2s), not ~15s** — measured 6.024s, with curl's own
+`-sS` diagnosis in the log reading `(28) Failed to connect to localhost port 8080 after 2001 ms`.
+15s is the `--max-time` figure and needs an **accept-then-stall** controller, which this rule
+cannot produce. That half is covered by unit mutation M10 only; **`--max-time 5` has not been
+exercised live**, and the sudoers grant on this machine is exactly these two verbatim commands,
+so it cannot be with iptables alone.
+
 **Pass:** exactly **one** "no answer" line appears no matter how many polls elapse; it names the
-URL and an elapsed time in the region of 15s (three requests × 5s), not 733s; the poll keeps
+URLs and an elapsed time of **~6s (this injection) — bounded, not 733s**; the poll keeps
 running; and exactly one "answered again" line appears after the rule is removed.
 **Fail:** one line per poll (edge-triggering broken), no line at all (the WARN is unreachable), or
 the thread never returning (the bound is not on the command that runs).
+
+⚠️ **"Exactly one WARN" is vacuous unless you also prove more than one poll ran.** If the thread
+died on the first wedged pass — the very defect A-2 is about — you also get exactly one line.
+Two independent witnesses, neither of which is the WARN itself:
+* a `/proc` scan for live curl children carrying the `--connect-timeout 2 --max-time 5`
+  signature, sampled once a second. Live run saw pass starts at t≈4s, 40s, 76s, 112s, each
+  lasting ~5–6s. **Put the pattern in a script variable, never on a command line** — an inline
+  `bash -c` scan counts itself.
+* the recovery line's own pass counter (`after 4 silent pass(es)`), which agreed with it.
 
 Copy `kernel.log` elsewhere **before** the next stack cycle — A-5: every kernel restart truncates
 the previous round's log, including this evidence.

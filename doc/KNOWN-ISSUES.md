@@ -1284,6 +1284,12 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   08-31 的輸出＝`TOTAL 606.2 MiB in 450 fds`／`virtiofsd 511.9 MiB`。
   🔑 **不要用 `pgrep -f`／`pkill -f` 找或殺這些持有者**，也不要 kill `virtiofsd`——
   **回收的唯一正解是關掉那個 VM，而那台 VM 是別人的。**
+  🔑 **操作推論（比機制本身更常用到）：在這台機器上，「先展開再刪掉」是一個會單向消耗磁碟的
+  動作。** 任何「解壓／checkout／複製出來看一眼再刪」的流程，刪的那一步可能不會還你空間，
+  於是淨效果只有消耗。08-31 因此**沒有**用 `git worktree add /tmp/rawwt audit-raw`
+  （會攤開 514 MiB／6330 個 blob）補檔，改用 plumbing 直接寫 object store——
+  `read-tree` → `add -f` → `write-tree` → `commit-tree` → `update-ref`（帶舊值做 compare-and-swap），
+  **不動工作區、不動 HEAD、不攤任何檔案到磁碟**，共用 worktree 上還有別的 session 在工作。
 - 🔴 **`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。
   🔄 08-30 收窄（sweep 實讀 `/usr/lib/python3/dist-packages/mininet/clean.py:29/:37/:66`）：
   機制＝`pkill -9 -f`，**argv 對上 pattern 才殺**——`sudo mn -c` 的 shell 不匹配
