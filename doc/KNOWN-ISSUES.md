@@ -96,14 +96,24 @@ Adam 2026-08-29 裁定**延後**，理由是當時三個 session 在同一個 wo
     `-sS` 也驗到了：`curl: (28) Failed to connect to localhost port 8080 after 2001 ms`
     進了 log。raw＝`doc/audit/2026-08-31_live-recipes/raw/{drive_a2_wedge.sh,a2_wedge.log,
     a2_kernel.log}`。
-  - 🔴 **仍未 live 驗到的**：`--max-time 5` 那一支。iptables DROP 丟的是 SYN，
-    永遠走 `--connect-timeout`；要打到 `--max-time` 需要「接了不回」的 controller，
-    這條規則做不出來（sudoers 只授權那兩道逐字命令）。該支目前**只有單元變異閘 M10**。
-  - 🔴 **仍未動的**：本條 §「Ryu 那端」的 `get_link()` 永久阻塞在 `intelligent_router.py`。
-  ⇒ **本條不是 RESOLVED**：kernel 側的「有界＋說出來」已 live 成立，
-  但 Ryu 側成因未修，且 `--max-time` 未 live。配方＝
+  - 🔴 **明列未覆蓋範圍（三項，不要讀成「A-2 已修」）**：
+    1. **`--max-time 5` 那一支未經 live**。iptables DROP 丟的是 SYN ⇒ 永遠走
+       `--connect-timeout`；要打到 `--max-time` 需要「accept 之後不回」的 controller，
+       授權的那條規則做不出來。目前**只有單元變異閘 M10**。
+       ⇒ 補法**不需要 sudo**：停掉 Ryu，用十行 python listener 佔住 `:8080`、accept 後不寫。
+       配方＝`doc/audit/2026-08-31_live-recipes/rider_a2-max-time.md`，**掛在下一個 fabric 窗**。
+    2. 🔴 **Ryu 那端完全沒動**：`intelligent_router.py:304` 的 `get_link()` 仍會永久阻塞
+       （兄弟 `get_switch`（`:284-288`）有 20 秒有界重試，它沒有）。
+       **kernel 側的修法只讓症狀有界並發聲，並沒有移除成因**——真實世界那一次
+       是 Ryu wedge 觸發的，修法之後同樣的 wedge 仍會發生，只是 twin 現在會說出來。
+    3. **「部分套用」未處理**：一輪裡 switches 有回答而 links 沒有，仍然會把拿到的那半套上去
+       （`updateSwitches`／`updateHosts`／`updateLinks` 各自對空 body 早退）。
+       這是修法前就有的行為，`687de6c` 刻意沒改；見 §6 開放問題 3。
+  ⇒ **本條不是 RESOLVED，也不是「kernel 側已修」四個字就能結案**：
+  live 成立的只有「三個 curl 會結束」與「結束不了會說出來」這兩件事。配方＝
   `doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md` §5.3（該節的
-  「elapsed ~15s」判準已於本輪更正為 ~6s——原判準會讓一個正常運作的修法被判 FAIL）。
+  「elapsed ~15s」判準已於本輪更正為 ~6s——**原判準會讓一個正常運作的修法被判 FAIL**，
+  屬 **A-8** 那一族；判準要跟著故障注入手法走，換注入就要重推期望值）。
   〔修前存證（2026-08-30 ledger 讀碼重驗於 `1208d22`）：`include/utils/Utils.hpp:543-568`
   裸 `popen()` 無 timeout、三個 curl（`TopologyAndFlowMonitor.cpp:472/485/498`）無
   `--max-time`；且已收窄＝那三個是 kernel 僅存的無界 curl，其餘南向全有界
@@ -1239,9 +1249,31 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   四個入口；新子命令 **`ndt apps orphans`**（找到孤兒 exit 1）＝量測開跑前的檢查。
   測試 `tests/shell/test_ndt_app_orphans.sh`（52 checks），**七個變異全部看過紅**
   （含「掃描根本不執行」那一支，用來擋「因為沒東西所以通過」）。
-  🔴 **還沒做的是 live**：所有測試的孤兒都是 `exec -a` 偽裝 argv 的 `sleep`，
-  **從來沒有停過一隻真的 TE-App**。配方在
-  `doc/audit/2026-08-31_live-recipes/rider_app-orphan-stop.md`，下一個 fabric 窗跑。
+  🟢 **live 已補（2026-08-31 15:25–15:30，`ndt up ovs4`）**：養了一隻真的 TE-App
+  （mode 2，20 秒內 log 長 5→53 行＝確實在工作），拿走 pidfile 後——
+  **修法前的 `c10ac7c` 版本原樣重現壞行為**（`te not running`／rc 0／行程還活著），
+  而現行版四個介面全部正確（`apps orphans` rc 1、`apps status` ＝ `ORPHAN`、
+  `status --check` 列 `untracked te(...)`、`apps stop te` 印三態訊息並真的停掉）；
+  額外一輪 `ndt down` 也把孤兒收掉了（`stopping it by pid`＋`REAPED BY DOWN`）。
+  raw＝audit-raw `243e7e7`（`w2_` 前綴）；配方與實測紀錄
+  ＝`doc/audit/2026-08-31_live-recipes/rider_app-orphan-stop.md`。
+  🔴 **那份配方自己有三個缺陷，已就地更正**，其中一個與 A-1 的 R3 同型：
+  控制組原本放 `/tmp`，而 `ndt` 用 `$HERE/../..` 推 `REPO` ⇒ 在 `/tmp` 解成 `/`，
+  舊碼於是印出預期的 `te not running` **是因為路徑錯、不是因為缺陷在**——
+  **舊碼就算是好的也照樣「通過」**。已改放 `.test_run/ctl/`（gitignore 內、且剛好第二層），
+  並新增「先證明控制組看得見那隻 app」的前置步驟。
+
+- 🔴 **`ndt apps stop` 的優雅停止路徑，對 TE-App 在生產上從來沒有作用過**
+  （2026-08-31，讀碼＋live 兩面確認）。`app_kill_pid` 先送 SIGTERM、給 5 秒窗
+  （10×0.5s，每次用 `pid_is_app` 驗身分）、逾時才 `SIGKILL`。
+  但 **`Traffic-engineering-App.py` 一個 signal handler 都沒裝**——
+  `signal` 只出現在 `:29` 的 import，全檔零使用 ⇒ SIGTERM 走 **Python 預設處置＝立即結束**。
+  **這不是測試缺口，是一個關於生產行為的事實**：那支 app 沒有任何清理機會，
+  它正在裝的流表規則會停在半途，而 `apps stop` 回報的 `ok` 只證明行程沒了。
+  🔑 順帶推翻配方寫的「多執行緒所以可能不會馬上死」：mode 2 根本不起 listener 執行緒
+  （實測 `Threads: 1`），而且**執行緒數與這件事無關**——沒有 handler，幾條執行緒都一樣立刻死。
+  ⇒ 要驗 TERM 窗／KILL 回退那段碼，需要一支**自己 trap 住 TERM 不理**的五行 fixture；
+  **不要為了測試去改 TE-App 的生產碼**。
   🔑 修的過程順手抓到兩個同源缺陷：① 舊 `app_stop` 對 pidfile 裡的 pid **不驗身分就 `kill`**
   ⇒ pid 被回收就打到路人（本機 `.test_run/pids/app_viz.pid` 從 08-30 起就指著死 pid）；
   ② `ndt down` 的 app 迴圈也用 `app_running` 當閘 ⇒ **最需要停的那隻正好被跳過**。
@@ -1250,6 +1282,32 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   （`$$`／`$PPID` 擋不住，fork 有新 pid）。改成**逐 argv 元素比對**（等於 sig 或以 `/sig` 結尾）。
   順帶：TE 的崩因是 `get_graph_data_api_call` 在 except 後 `return graph_data`（未賦值）——
   **Traffic-Engineering-App repo 的缺陷**，excerpt 在 `2026-08-31_live-recipes/te-crashloop-excerpt.txt`。
+- 🔴 **「把掃描寫進 script 檔就不會自我匹配」這句話不完整——真正決定的是「在哪一道命令裡執行」**
+  （2026-08-31 實測，同一輪內連續踩兩次）。`/proc` 掃描器如果把搜尋字串放在**自己的 cmdline**
+  上就會數到自己。已知的解法是「寫進 script 檔」，但那只保護**掃描器自己**：
+  - 用 heredoc **在同一道命令裡**產生並執行那支腳本 ⇒ **父 shell 的 cmdline 仍然帶著整段
+    heredoc 內容**（含 pattern），掃描照樣多數一個。實測讀數 1，真值 0。
+  - 把同一支腳本改成**單獨一道命令**執行（`bash /path/scan.sh`，那一行沒有別的東西）
+    ⇒ 讀數 0。**腳本沒改一個字，只換了誰是父行程。**
+  🔑 判準不是「命令有沒有寫進檔案」，而是**「從我的行程往上，有沒有任何一個祖先的 cmdline
+  含有 pattern」**。⇒ 產生腳本與執行腳本要拆成兩道命令；pattern 一律放腳本內的變數。
+  🔑 這也是為什麼「兩個讀數不一致」要先當**儀器發現**：08-31 早上那一輪也是同一個偏移
+  （inline 讀 1、真值 0），當時歸因成「inline vs 檔案」，**歸因只對了一半**。
+
+- 🔴 **`git commit -- <path>` 保護的是「不同檔案」，兩個寫者改同一個檔時它一點保護都沒有**
+  （2026-08-31 實測；「兩個寫者一個 worktree」的新一式）。共用 worktree 的既定紀律是
+  `git commit -m "..." -- <paths>`，那擋得住「把別人的檔一起 commit 進來」，
+  但 `-- <path>` 是**按路徑切，不是按 hunk 切**：它送出的是那個檔案**當下工作區的全部內容**。
+  於是同一個 `doc/KNOWN-ISSUES.md` 上兩個 session 併行編輯時，實際發生的是——
+  **我的 A-2 改動被對方的 commit `e5eae74` 捲走，對方的 virtiofsd 段被我的 `6fd8a4d` 捲走**。
+  🔑 **沒有掉資料，但歸屬交叉了，而且完全無聲**：兩邊的 `git commit` 都回 rc 0，
+  兩邊的內容事後查都在檔案裡，只有 `git log -S` 問得出來是誰的 commit 帶進來的。
+  ⇒ 三條慣例（不設鎖——鎖會腐爛，而且四個寫者沒人會去讀它）：
+  ① **傷害來自 dirty 窗口的長度，不是並行本身** ⇒ 改完 `KNOWN-ISSUES.md` 立刻 commit，
+  不要讓它跨一個長操作（例如一整個 fabric 窗）留在 dirty；
+  ② commit 之後**驗自己的改動在自己的 commit 裡**：`git show <sha> -- doc/KNOWN-ISSUES.md`；
+  ③ 引用「某條是誰寫的」時用 `git log -S '<字串>' -- <path>`，**不要用 `%an`**（零資訊）。
+
 - 🔴 **raw 歸檔的守衛是單向的：它擋錯的目的地，沒有任何東西檢查對的目的地發生過**
   （2026-08-31 普查）。
   🔑 **缺口是沉默不是假話——這 15 輪沒有一輪宣稱過自己歸檔了，而且沒有任何地方記錄過
@@ -1272,27 +1330,37 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     `audit-raw f9f30c0` 的 commit message 帶著這個誤讀，未推送但不重寫；以本行為準。）
   - ✅ `2026-08-29_europ4-poster-review/smoke/SMOKE-RESULT.md:5`「raw 歸檔＝audit-raw `e19595d`」
     ——commit 存在、是 audit-raw 祖先、該筆加入 **36 檔**，與磁碟相符。
-  - 🔴 **但有 15 輪的 raw 不在任何 object store，合計 501.0 MiB**（讀數時 audit-raw 尖端
-    ＝`243e7e7`；**這是點取樣不是租約**，輪次還在跑，要用就當場重跑上面那段）。
-    其中 **9 輪一個檔都沒有**，扣掉當天還在跑的兩輪（`2026-08-31_f5-fine-grid-round`、
-    `2026-08-31_sampling-ceiling-after-merge`）是 **7 輪歷史缺口**：
-    `2026-08-19_failover-provenance`、`2026-08-25_sampling-rounds`（420 檔）、
-    `2026-08-27_p4guide-v10-tty`、`2026-08-27_telemetry-blindness`、
-    `2026-08-28_baseline-architecture-drift`、`2026-08-28_bmv2-literature-review`、
-    `2026-08-28_wire-consumer-compat`。最大單筆＝`2026-08-25_large-scale-concurrent`
-    少 1187 檔（`Q_T64/`、`P_Qp/`、`P_Q/`… 是**每臂的證據目錄**，不是 scratch）。
+  - 🔴 **但有 15 輪的 raw 不在任何 object store，合計 533.2 MiB**（讀數時 audit-raw 尖端
+    ＝`243e7e7`；**這是點取樣不是租約**，輪次還在跑，要用就當場重跑下面那段）。
+    其中 **8 輪一個檔都沒有**，扣掉當天還在跑的兩輪（`2026-08-31_f5-fine-grid-round`、
+    `2026-08-31_sampling-ceiling-after-merge`）是 **6 輪歷史全缺**：
+    `2026-08-25_sampling-rounds`（**1458 檔**）、`2026-08-27_p4guide-v10-tty`、
+    `2026-08-27_telemetry-blindness`、`2026-08-28_baseline-architecture-drift`、
+    `2026-08-28_bmv2-literature-review`、`2026-08-28_wire-consumer-compat`。
+    檔數最大＝`2026-08-28_QM-mirrored-block` 1942 檔；位元組最大＝
+    `2026-08-25_large-scale-concurrent` 1187 檔／452.5 MiB
+    （`Q_T64/`、`P_Qp/`、`P_Q/`… 是**每臂的證據目錄**，不是 scratch）。
+    💰 **成本不是 533 MiB**：文字壓縮率極高，實測 zlib 後約 **32.8 MiB（6.1%）**，
+    而其中 **26.2 MiB 全在 `large-scale-concurrent` 一輪**——
+    **其餘 14 輪加起來只有約 6.6 MiB**。權衡要用這兩個數字，不要用 533。
     ⚠️ **這 15 輪沒有一輪宣稱過自己歸檔了**，所以這是「紀律沒被執行」不是「宣稱不實」；
     而且**沒有任何地方記錄過某輪是否「決定不歸檔」**——連意圖都查不到，這才是最難補的部分。
   🔬 **重跑這份普查（唯讀，可直接貼）**：
   ```bash
   for r in doc/audit/*/; do
-    rd=$(find "$r" -type d -name 'raw*' 2>/dev/null | head -1); [ -n "$rd" ] || continue
-    # 🔴 必須排除 .gitignore：每個 raw/ 都有一個「工作分支上追蹤、audit-raw 上沒有」的
-    # keeper（.gitignore:61 的 `!doc/audit/*/raw*/.gitignore`）。不排除的話 20 個健康的
-    # 輪次會各報「少 1 檔」——一個由儀器自己製造出來的缺陷。
-    d=$(find "$rd" -type f ! -name '.gitignore' | wc -l)
-    g=$(git ls-tree -r --name-only audit-raw -- "$rd" 2>/dev/null | wc -l)
-    [ "$d" = "$g" ] || printf '%-50s disk=%-6s audit-raw=%-6s\n' "$(basename "$r")" "$d" "$g"
+    d=0; g=0
+    # 🔴 一輪可以有**好幾個** raw* 目錄，必須全部加總。第一版寫成
+    # `find ... -name 'raw*' | head -1`，於是 `2026-08-25_sampling-rounds` 只數到 raw_n、
+    # 漏掉 raw_h 與 raw_gil（420 → 實際 1458），`QM-mirrored-block` 196 → 1942。
+    # `.gitignore:60` 的 pathspec 之所以是 `raw*` 而不是 `raw/`，就是因為有一輪寫進 raw_n/。
+    while read -r rd; do
+      # 🔴 必須排除 .gitignore：每個 raw/ 都有一個「工作分支上追蹤、audit-raw 上沒有」的
+      # keeper（.gitignore:61 的 `!doc/audit/*/raw*/.gitignore`）。不排除的話 20 個健康的
+      # 輪次會各報「少 1 檔」——一個由儀器自己製造出來的缺陷。
+      d=$((d + $(find "$rd" -type f ! -name '.gitignore' | wc -l)))
+      g=$((g + $(git ls-tree -r --name-only audit-raw -- "$rd" 2>/dev/null | wc -l)))
+    done < <(find "$r" -type d -name 'raw*' 2>/dev/null)
+    [ "$d" = "$g" ] || printf '%-46s disk=%-6s audit-raw=%-6s\n' "$(basename "$r")" "$d" "$g"
   done
   ```
 - 🔴 **`rm` 一個大檔不會還你空間——VM 的 `virtiofsd` 把它按住了**（2026-08-31 實測）：刪掉
