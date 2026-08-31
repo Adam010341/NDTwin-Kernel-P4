@@ -30,15 +30,25 @@ hypothesis==6.165.5
 # Not imported by the proxy. bmv2's counter/register CLI needs the thrift binding, and the
 # recipe took two tries to get right (verified live 2026-08-13, HANDOFF section 4):
 #
-#   BM=/home/adam/P4_Source_Code/behavioral-model
-#   PYTHONPATH="$BM/targets/simple_switch:$BM/tools" p4_proxy/venv/bin/python \
-#       "$BM/targets/simple_switch/sswitch_CLI.py" --thrift-port <9090+dpid>
+#   SP=/home/adam/p4dev-python-venv/lib/python3.13/site-packages
+#   PYTHONPATH="$SP" p4_proxy/venv/bin/python "$SP/sswitch_CLI.py" --thrift-port <9090+dpid>
 #   # then e.g.:  counter_read egress_port_counter <index>
 #
+# REPOINTED 2026-08-31. This recipe used to read:
+#   BM=/home/adam/P4_Source_Code/behavioral-model
+#   PYTHONPATH="$BM/targets/simple_switch:$BM/tools" ... "$BM/targets/simple_switch/sswitch_CLI.py"
+# That tree (3.5 GB) is being deleted. Re-verified by execution on 2026-08-31, not by
+# substitution: with PYTHONPATH=$SP and this interpreter, sswitch_CLI, runtime_CLI, bmpy_utils,
+# bm_runtime and sswitch_runtime all import. Evidence and the population searched:
+# doc/audit/2026-08-31_p4-source-tree-residue/README.md section 5.2.
+#
 # Two traps the obvious recipe hits: (1) the installed /usr/local/bin/simple_switch_CLI wrapper
-# appends /home/adam/p4dev-python-venv's site-packages, but sswitch_CLI / runtime_CLI live only
-# in the behavioral-model source tree, so it ModuleNotFounds no matter which interpreter runs
-# it; point PYTHONPATH at the source dirs instead. (2) p4dev-python-venv's own thrift is a
+# ModuleNotFounds no matter which interpreter runs it. NOTE, corrected 2026-08-31: the old
+# reason given here -- "sswitch_CLI / runtime_CLI live only in the behavioral-model source
+# tree" -- was FALSE. Byte-identical copies (cmp clean) are installed in $SP above, put there
+# by `make install --with-python_prefix`. The wrapper's real defect is a version mismatch: it
+# hardcodes p4dev-python-venv's python3.13 site-packages while that venv's own interpreter is
+# 3.12, so the modules and the interpreter never meet. (2) p4dev-python-venv's own thrift is a
 # broken namespace ("cannot import name 'Thrift'"), which is exactly why this line pins a real
 # thrift into the proxy venv -- that venv is the one interpreter with a working thrift AND, via
 # PYTHONPATH, the CLI modules. No root; the CLI talks TCP to the thrift port.

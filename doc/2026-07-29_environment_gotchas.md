@@ -57,11 +57,27 @@ ps -eo pid,args --no-headers | awk '$2=="simple_switch_g"'   # 要看 argv 時
 `simple_switch_CLI` 有裝（`/usr/local/bin/`），但它需要兩個 Python 模組，**兩個 interpreter
 （系統 python3 和 `/home/adam/p4dev-python-venv`）都缺**：
 
+🔴 **2026-08-31 更正**：下表原本寫這兩個模組在
+`/home/adam/P4_Source_Code/behavioral-model/{targets/simple_switch,tools}/`，**那是錯的**，
+而且那棵樹正要被刪。它們**有裝**，`cmp` 乾淨的同一份就在
+`/home/adam/p4dev-python-venv/lib/python3.13/site-packages/`（`make install
+--with-python_prefix` 放的）。wrapper 壞掉的真正原因不是模組不在，是**版本錯配**：
+`/usr/local/bin/simple_switch_CLI` 寫死 python3.13 的 site-packages，而那個 venv 自己的
+直譯器是 3.12，模組與直譯器永遠碰不到面。證據與搜過的母體見
+[audit/2026-08-31_p4-source-tree-residue/README.md](audit/2026-08-31_p4-source-tree-residue/README.md) §5.2。
+
 | 模組 | 在哪 | 狀況 |
 |---|---|---|
-| `sswitch_CLI` | `/home/adam/P4_Source_Code/behavioral-model/targets/simple_switch/` | 要手動加 `PYTHONPATH` |
-| `runtime_CLI` | `/home/adam/P4_Source_Code/behavioral-model/tools/` | 要手動加 `PYTHONPATH` |
-| `thrift`（Python binding） | — | **沒裝，這是硬阻礙** |
+| `sswitch_CLI` | `/home/adam/p4dev-python-venv/lib/python3.13/site-packages/`（原記載為 `…/P4_Source_Code/behavioral-model/targets/simple_switch/`，2026-08-31 改指） | 要手動加 `PYTHONPATH` |
+| `runtime_CLI` | 同上（原記載為 `…/P4_Source_Code/behavioral-model/tools/`，2026-08-31 改指） | 要手動加 `PYTHONPATH` |
+| `thrift`（Python binding） | `p4_proxy/venv`（3.13）有；系統 python3 與 `p4dev-python-venv`（3.12）都沒有 | 2026-08-31 實跑確認 |
+
+**今天可跑的組合**（2026-08-31 以執行驗證，非推論）：
+
+```
+SP=/home/adam/p4dev-python-venv/lib/python3.13/site-packages
+PYTHONPATH="$SP" p4_proxy/venv/bin/python "$SP/sswitch_CLI.py" --thrift-port <9090+dpid>
+```
 
 所以 P4 的 direct counter / per-port counter 目前**無法從外部讀取**驗證。要驗證的話得先
 `pip install thrift`。替代方案是看 veth 的封包計數（`ip -s link show s1-eth3`），但那只反映

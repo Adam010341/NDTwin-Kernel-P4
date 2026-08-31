@@ -206,7 +206,9 @@ destructor 靜默清理)第一次變成**免 root、免 sudo、免 NFS server �
 
 **同日新增交付**:NTG×bmv2 bridge(`p4_proxy/mininet/ntg_bmv2_topo.py`+低速率 template,
 等 Adam sudo 實跑);bmv2 效能報告(`doc/2026-08-15_bmv2-performance-report.md`,
-**兩個翻案**:①現裝 bmv2 是 -O0+全 logging 的 debug build(config.log 實錘),
+**兩個翻案**:①現裝 bmv2 是 -O0+全 logging 的 debug build(config.log 實錘;2026-08-31 改指
+`doc/audit/2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt`,原檔在待刪的
+`/home/adam/P4_Source_Code/behavioral-model/config.log`,行號不變),
 非 bmv2 本身的極限;②「170 Mbps 本機實測」的說法是**出處錯誤**——那是文獻值
 (SIGSIM-PADS '23),本機從未量過飽和點,重建驗證時新舊 build 一併量。
 重建腳本 `build_bmv2_fast.sh` 備妥未執行)。

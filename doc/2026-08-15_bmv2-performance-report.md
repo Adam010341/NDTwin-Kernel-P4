@@ -176,5 +176,10 @@ stock 與 fast「都有 cap」、fast 8 vs stock 16 的 2× 差:全部是 punt �
 - [p4lang/behavioral-model docs/performance.md](https://github.com/p4lang/behavioral-model/blob/main/docs/performance.md)(官方效能文件與建議組態)
 - [p4lang/behavioral-model README](https://github.com/p4lang/behavioral-model/blob/main/README.md)(--disable-logging-macros 說明)
 - [behavioral-model issue #823](https://github.com/p4lang/behavioral-model/issues/823)(效能測試落包討論)
-- 本機證據:`/home/adam/P4_Source_Code/behavioral-model/config.log:7`、
-  `p4-guide/bin/build-behavioral-model.sh:84-92`(引文見 audit 版全文)
+- 本機證據:`config.log:7`、`p4-guide/bin/build-behavioral-model.sh:84-92`(引文見 audit 版全文)
+  - 🔴 **2026-08-31 改指**:原文寫 `/home/adam/P4_Source_Code/behavioral-model/config.log:7`,
+    那棵樹待刪。同一份檔案(sha256 `c53557fd…`)已進版控:
+    [audit/2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt](audit/2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt)
+    ——**行號不變,第 7 行仍是那行 `-O0` invocation**。
+  - `build-behavioral-model.sh` **沒有**存副本:它是 p4-guide `812e597` 的 tracked 檔,
+    未被本機修改,可從上游取回(2026-08-31 確認該 commit 仍在 GitHub 上)。

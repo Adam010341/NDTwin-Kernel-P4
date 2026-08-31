@@ -8,6 +8,21 @@
 Source tree: `/home/adam/P4_Source_Code/behavioral-model/`
 Analysis date: 2026-08-15. Read-only; nothing in the tree or in `/usr/local` was modified.
 
+> 🔴 **2026-08-31 — every `/home/adam/P4_Source_Code/...` path below is being deleted.**
+> The tree (3.5 GB) is scheduled for removal to reclaim disk. Paths are left as written, because
+> this is a dated record of where the reading was done; what follows is where each cited file now
+> lives. Full sweep and the population searched:
+> [2026-08-31_p4-source-tree-residue/README.md](2026-08-31_p4-source-tree-residue/README.md).
+>
+> | cited here | now at | line numbers |
+> |---|---|---|
+> | `…/behavioral-model/config.log:7` (§1.2) | [`2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt`](2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt) | **unchanged** — byte-identical copy, sha256 `c53557fd…` |
+> | `…/behavioral-model/config.status:423` (§1.2) | [`audit-raw:p4-source-tree-residue-2026-08-31/build-records/behavioral-model__config.status`](2026-08-31_p4-source-tree-residue/README.md) | **unchanged** — on the `audit-raw` branch, not this one |
+> | `/home/adam/P4_Source_Code/log.txt:1107` (§ table above) | [`2026-08-31_p4-source-tree-residue/install-run__log.txt`](2026-08-31_p4-source-tree-residue/install-run__log.txt) | **unchanged**. ⚠️ but see §2.5 of the residue README: this file is **not** the log of the build that produced the binary — it records a later re-run that built nothing. What line 1107 is cited for here still holds |
+> | `…/p4-guide/bin/build-behavioral-model.sh:84`, `:89-92` (§1.2, §5) | **not copied** — tracked, unmodified upstream file at p4-guide `812e597adfdd0b8f15259f6342524cab8c44103d`, confirmed present on GitHub 2026-08-31 | n/a |
+> | `SRC=/home/adam/P4_Source_Code/behavioral-model` in the quoted rebuild script (§ below) | superseded — `tools/test_workflow/build_bmv2_fast.sh` now takes `SRC` from the environment and **refuses to run** if it is missing or not at `f0b7d201`. The quote here is historical | n/a |
+> | "Last object built in tree", `config.h` `PACKAGE_VERSION`, `.deps/*.Plo` mtimes | **not copied** — file-system observations, not files. They are quoted verbatim above and cannot be re-taken after deletion | n/a |
+
 ---
 
 ## 0. Headline
@@ -39,7 +54,7 @@ caveat (section 4.4).
 | Installed binary mtime | `Jul 13 17:19` |
 | Last object built in tree (`targets/simple_switch_grpc/.deps/switch_runner.Plo`) | `2026-07-13 17:19:38` |
 | Tree version (`config.h` `PACKAGE_VERSION`) | `1.15.3-f0b7d201` |
-| `simple_switch_grpc --version` as recorded in `/home/adam/P4_Source_Code/log.txt:1107` | `1.15.3-f0b7d201` |
+| `simple_switch_grpc --version` as recorded in `/home/adam/P4_Source_Code/log.txt:1107` <br>🔴 2026-08-31 改指 [`2026-08-31_p4-source-tree-residue/install-run__log.txt`](2026-08-31_p4-source-tree-residue/install-run__log.txt)（行 1107 不變）；⚠️ 那份**不是**這顆 binary 的 build log，見殘留 README §2.5 | `1.15.3-f0b7d201` |
 
 The version string embeds the git short SHA and matches the tree's `HEAD` exactly. All
 bmv2 libraries in `/usr/local/lib` (`libbmall.*`, `libbm_grpc_dataplane.*`, `libbmpi.*`,
@@ -68,7 +83,9 @@ ac_cs_config='--with-pi --with-thrift --with-python_prefix=/home/adam/p4dev-pyth
 ```
 
 The `-O0` originates from p4-guide, not from a local decision —
-`/home/adam/P4_Source_Code/p4-guide/bin/build-behavioral-model.sh:84`:
+`/home/adam/P4_Source_Code/p4-guide/bin/build-behavioral-model.sh:84`
+(🔴 2026-08-31: 那棵樹待刪，**此檔沒有存副本**——它是 p4-guide `812e597` 的 tracked 檔、未被本機
+修改，2026-08-31 確認該 commit 仍在 GitHub 上。引文如下，逐字保留):
 
 ```sh
 # With debug enabled in binaries:
@@ -413,6 +430,13 @@ Two consequences worth planning around:
 Builds out-of-tree into a scratch directory and installs to `/usr/local/bmv2-fast`. The
 existing `/usr/local` installation is never written to.
 
+🔴 **2026-08-31 — the block below is a historical quote and is no longer the script.** It hard-codes
+`SRC=/home/adam/P4_Source_Code/behavioral-model`, a tree that is being deleted. The live version is
+`tools/test_workflow/build_bmv2_fast.sh`, where `SRC` comes from the environment and two gates
+**refuse to run** if it is missing (exit 2) or not at `f0b7d201` (exit 3). Do not copy the block
+below into a shell. Rebuild instructions:
+[`2026-08-31_p4-source-tree-residue/README.md`](2026-08-31_p4-source-tree-residue/README.md) §5.3.
+
 ```sh
 #!/usr/bin/env bash
 set -euo pipefail
@@ -510,6 +534,11 @@ not the sampling-error floor.
 ## 5. Source version
 
 - Repo: `/home/adam/P4_Source_Code/behavioral-model` (git checkout).
+  🔴 **2026-08-31: being deleted.** `f0b7d201` was confirmed still fetchable from
+  `github.com/p4lang/behavioral-model` on 2026-08-31 (observation, not assumption — but no branch
+  or tag points at it). The facts below were read off that checkout and are not re-derivable once
+  it is gone; they are preserved here and in
+  [`2026-08-31_p4-source-tree-residue/README.md`](2026-08-31_p4-source-tree-residue/README.md) §1.
 - `HEAD`: `f0b7d201570d088a056b7fe660802ca1a8bcb912`
 - Date: `2026-07-08 14:42:22 -0400`
 - Subject: `Bump actions/checkout from 6 to 7 (#1420)` (author `dependabot[bot]`)

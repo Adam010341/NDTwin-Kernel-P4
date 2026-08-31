@@ -17,6 +17,25 @@
 The tree it describes was **still on disk, unmodified, when this was written** — deletion had not
 been authorised. If you are reading this after the deletion, §5 is the part that matters.
 
+## 🔴 Read this before trusting "recoverable from upstream"
+
+Three of the four modified files here are reproducible by re-applying a `p4-guide` patch (§2.2).
+That conclusion is weaker than it sounds, and the weakness is measurable:
+
+> **This tree is `upstream + patch + fuzz`, not `upstream + patch`.**
+
+Two of the four patches left a `.orig` beside their target. GNU `patch` writes `.orig` only under
+`--backup-if-mismatch`, i.e. **only when the patch did not apply exactly** — it landed with offset
+or fuzz. `p4runtime-shell` says so twice over: its patch declares `index 07c5c31..8a9dad9` while
+the real before/after blobs are `6a29def..6172f6b`, so the patch was authored against a different
+`setup.cfg` than the one it hit.
+
+**A patch that applied with fuzz is not guaranteed to land in the same place next time**, on a
+different base, a different `patch` version, or a different fuzz factor. So "reproducible from
+upstream" means *a* correct-looking result can be regenerated, **not** that it will be
+byte-identical to what this machine built against. The verbatim copies in this directory are the
+only artifacts that settle it, and `MANIFEST.sha256` is how you check. Details in §2.3.
+
 Companion record on the `audit-raw` branch: `p4-source-tree-residue-2026-08-31/` holds the bulk
 material (the 27 MB install inventory and the other build records). See §6.
 
@@ -266,16 +285,25 @@ plus `bm_runtime/`, `sswitch_runtime/` and `bmpy_utils.py`, are installed and by
 
 The conclusion those documents draw — that `/usr/local/bin/simple_switch_CLI` is broken — is
 still true, but for a different reason. Run today it fails at
-`bmpy_utils.py:16: from thrift import Thrift` → `ModuleNotFoundError: No module named 'thrift'`,
-and neither `/usr/bin/python3` nor `/home/adam/p4dev-python-venv/bin/python` (3.12) can import
-`thrift` either. The wrapper hard-codes the **3.13** site-packages path while the venv's
+`bmpy_utils.py:16: from thrift import Thrift` → `ModuleNotFoundError: No module named 'thrift'`.
+The wrapper hard-codes the **3.13** site-packages path while `p4dev-python-venv`'s own
 interpreter is **3.12**, so the modules it needs and the interpreter that runs it never meet.
 
-Deleting the tree therefore does not remove the modules, but it does invalidate the `$BM/…`
-recipe in those two files. Replace `$BM/targets/simple_switch:$BM/tools` with
-`/home/adam/p4dev-python-venv/lib/python3.13/site-packages` and install `thrift` for whichever
-interpreter is used. **Not done here** — it is a separate change to two current-facing documents
-and wants its own review.
+⚠️ **Correction to the first version of this section, 2026-08-31.** It said "neither
+`/usr/bin/python3` nor `/home/adam/p4dev-python-venv/bin/python` can import `thrift`". True, but
+it was the wrong population: I checked two interpreters and not the one the recipe in
+`p4_proxy/requirements.txt` actually names. **`p4_proxy/venv/bin/python` is 3.13 and has a working
+`thrift`.** So a working combination does exist, and the repoint is a tested substitution rather
+than a deferral:
+
+```
+SP=/home/adam/p4dev-python-venv/lib/python3.13/site-packages
+PYTHONPATH="$SP" p4_proxy/venv/bin/python "$SP/sswitch_CLI.py" --thrift-port <9090+dpid>
+```
+
+Run 2026-08-31: `sswitch_CLI`, `runtime_CLI`, `bmpy_utils`, `bm_runtime` and `sswitch_runtime` all
+import under that combination, resolving out of `$SP` — **executed, not reasoned about.** The
+three documents have been repointed to it (§5.5); each edit records the `$BM/…` path it replaced.
 
 ### 5.3 The one script that hard-codes the path
 
@@ -295,6 +323,67 @@ SRC=/some/path/behavioral-model bash tools/test_workflow/build_bmv2_fast.sh
 ⚠️ The result is **functionally equivalent, not byte-identical** — `-march=native` bakes in this
 machine's ISA and the original build tree `/tmp/bmv2-fast-src` is already gone. That was already
 true before the deletion; see the closing note of `doc/audit/bmv2-binary-provenance.md`.
+
+### 5.5 The sweep: every reference to the tree, and what was done with it
+
+Done 2026-08-31, immediately before recommending deletion. A citation that outlives its target
+does not fail loudly — it keeps reading as verified. This is the audit of that.
+
+**Search forms used** (the reason to list them: a zero-hit result is only as good as the forms
+tried, and a path can be written four ways or split by a line wrap):
+
+| # | form | where | hits |
+|---|---|---|---|
+| 1 | `p4_source_code`, case-insensitive — catches `/home/adam/…`, `~/…`, `$HOME/…`, and bare `P4_Source_Code/behavioral-model` alike | all tracked files, working branch | 40 |
+| 2 | same | `audit-raw` | 3 (all in this rescue's own files, all "`<-` original path" provenance lines) |
+| 3 | line-wrap splits: `P4_$`, `P4_Source$`, `P4_Source_$`, `Source_Code`, `^_Code`, `^Code/`, `^Source_Code` | working branch | **0** |
+| 4 | separator variants: `P4 Source Code`, `P4-Source-Code`, `P4Source`, `p4source`, `P4_SourceCode` | working branch | 1, a false positive — `p4_proxy/p4_src/SPEC.md:1` "P4 Source Code Specification", unrelated |
+| 5 | **citations into the tree that never name the directory**: `config.log`, `log.txt:<n>`, `config.status`, `CMakeCache`, `build-behavioral-model`, `install-details`, `install-p4dev` | working branch | 60+, triaged below |
+| 6 | every other local branch | 18 branches | `main` and 7 agent worktrees: 0. Ten branches: 14 each — the pre-rescue set, which they inherit fixed on merge. Not edited: they belong to other sessions |
+| 7 | untracked / ignored files in the worktree | working tree | 1 — `doc/audit/2026-08-29_europ4-poster-review/role-bmv2-maintainer.md:15-16`, not committed by anyone; **flagged, not edited** |
+
+**Disposition.** Repointed in place, each edit naming the path it replaced:
+
+| file | citation | now points at |
+|---|---|---|
+| `doc/2026-08-15_bmv2-performance-report.md:179` | `…/behavioral-model/config.log:7` | `behavioral-model__config.log.txt`, line 7 unchanged |
+| `doc/audit/2026-08-15_bmv2-source-analysis.md:8` | header note covering all six of its citations | this directory + `audit-raw` |
+| `doc/audit/bmv2-binary-provenance.md:29,55` | `rev-parse` on the tree, `config.log:7`/`:4` | §1 here + the saved copy |
+| `doc/2026-08-14_cross-component-integration-matrix.md:209` | bare "config.log 實錘" | the saved copy |
+| `doc/2026-07-29_environment_gotchas.md:62-63` | `$BM` module locations | the venv, per §5.2 |
+| `doc/2026-07-29_HANDOFF.md:940` | `$BM` recipe | the venv, per §5.2 |
+| `p4_proxy/requirements.txt:33-39` | `$BM` recipe | the venv, per §5.2 |
+
+**Deliberately not repointed**, with the reason:
+
+| left alone | why |
+|---|---|
+| `tools/test_workflow/build_bmv2_fast.sh:37,40,73` | it *must* name the default path — it is the guard that fires when the path is gone (§5.3) |
+| `doc/2026-08-15_bmv2-performance-build-public-manual-draft.md:28,60`, `doc/2026-08-16_delivery-package/bmv2-manual-entry.md:11,43` | these tell a **public reader** to inspect **their own** tree's `config.log`. Different tree |
+| `doc/audit/2026-08-28_manual-verification-coverage/**` (`$HOME/behavioral-model/config.log`) | the clean-room VM's tree, not this one |
+| `doc/audit/2026-08-31_p4-demo-vm/guest_prepare_demo.sh:86` (`$HOME/install-details`) | the demo guest's tree, not this one |
+| `doc/audit/2026-08-09_memory-safety-ci-plan.md`, `2026-08-31_sampling-ceiling-after-merge/build_1khz_binary.sh` (`CMakeCache.txt`) | NDTwin's own `build-asan/`, nothing to do with p4c |
+| `doc/audit/2026-08-27_p4guide-v10-tty/**` | a different installer run in a different VM |
+| `doc/audit/2026-08_session-handoff-log.md:200,675` | dated handoff log. `doc/audit/README.md`: *historical records are not corrected, they are dated* — listed here instead |
+| ten other local branches | other sessions' work; they pick this up on merge |
+
+**One thing the sweep found that is not about the deletion.** Transcribing the citations into a
+table caught an off-by-two: `bmv2-binary-provenance.md` had cited `config.log:2` for
+`created by bm configure 1.15.3-f0b7d201` since 2026-08-21. The string is on **line 4**. The claim
+was right and the pointer was wrong, and nothing would ever have disagreed — the neighbouring
+`config.log:7` in the same bullet is correct, so the two never contradicted each other. Corrected
+in place. Copying a citation out by hand is the cheapest instrument for this; nothing else in the
+repo checks a line number.
+
+**Line numbers re-resolved against the saved copies** (all four verified by reading the line, not
+by assuming byte-identity implies it):
+
+| citation | saved copy line | content |
+|---|---|---|
+| `config.log:7` | 7 | `$ ./configure … 'CXXFLAGS=-O0 -g'` |
+| `config.log:4` | 4 | `It was created by bm configure 1.15.3-f0b7d201, which was` |
+| `log.txt:1107` | 1107 | `1.15.3-f0b7d201` |
+| `config.status:423` (on `audit-raw`) | 423 | `ac_cs_config='--with-pi --with-thrift … '\''CXXFLAGS=-O0 -g'\'''` |
 
 ### 5.4 Citations that go dangling and are answered here instead
 

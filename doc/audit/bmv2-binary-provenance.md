@@ -35,7 +35,7 @@ here by their new homes:
 
 | this page cites | now also at |
 |---|---|
-| `config.log:7`, `config.log:2` | `doc/audit/2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt` |
+| `config.log:7`, `config.log:4` | `doc/audit/2026-08-31_p4-source-tree-residue/behavioral-model__config.log.txt` |
 | `git -C .../behavioral-model rev-parse` → `f0b7d201` | `doc/audit/2026-08-31_p4-source-tree-residue/README.md` §1, with the GitHub reachability check |
 
 `config.log` is `.gitignore`d as an autotools artifact, so no `git status` of that tree ever
@@ -51,9 +51,20 @@ that would otherwise have gone dangling while still reading as verified.
   `./configure --with-pi --with-thrift --with-python_prefix=/home/adam/p4dev-python-venv 'CXXFLAGS=-O0 -g'`.
   It carries neither `--disable-logging-macros` nor `--disable-elogger`, so both are on.
 - Fast's flags: `tools/test_workflow/build_bmv2_fast.sh`, the recipe that produced it.
-- Source SHA: `config.log:2` opens with `created by bm configure 1.15.3-f0b7d201`, and both
+- Source SHA: `config.log:4` opens with `created by bm configure 1.15.3-f0b7d201`, and both
   binaries embed the same string. `git -C /home/adam/P4_Source_Code/behavioral-model rev-parse`
   → `f0b7d201`.
+  🔴 **2026-08-31**: that `rev-parse` stops being runnable when the tree goes. Its answer is
+  recorded in `doc/audit/2026-08-31_p4-source-tree-residue/README.md` §1, together with the
+  observation — not assumption — that `f0b7d201` was still fetchable from
+  `github.com/p4lang/behavioral-model` on 2026-08-31. The `config.log:2` and `config.log:7`
+  citations above keep their line numbers in the saved copy, which is byte-identical.
+  ⚠️ **One of those line numbers was wrong and is corrected above**: this page said
+  `config.log:2` for `created by bm configure 1.15.3-f0b7d201` since 2026-08-21; the string is on
+  **line 4** (line 2 is `running configure, to aid debugging if configure makes a mistake.`).
+  The claim was right, the pointer was off by two. It surfaced only because the citations were
+  transcribed into a table for this rescue — nothing checks line numbers, and `config.log:7` in
+  the same bullet is correct, so the two never disagreed with each other.
 
 ## The source SHA was recoverable after all
 

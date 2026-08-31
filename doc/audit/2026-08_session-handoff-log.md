@@ -200,6 +200,14 @@ thrift `9091-9100`、device 1-10、CPU port 255。三項結果：
   的 `sys.path.append` 指錯（模組只在 `~/P4_Source_Code/behavioral-model/` source 樹），
   ② p4dev-python-venv 的 thrift 是壞 namespace。正解＝**proxy venv 的 thrift ＋ PYTHONPATH 指
   `$BM/targets/simple_switch:$BM/tools`＋直接跑 `sswitch_CLI.py`**（指令在 requirements.txt）。
+  🔴 **RETIRED 2026-08-31（就地標記，不改寫——這是有日期的紀錄）**：上面 ① 的理由**是錯的**。
+  模組不是「只在 source 樹」，`cmp` 乾淨的同一份就裝在
+  `/home/adam/p4dev-python-venv/lib/python3.13/site-packages/`；wrapper 壞掉是**版本錯配**
+  （寫死 3.13 而該 venv 直譯器是 3.12）。而且 `$BM` 那棵樹（`/home/adam/P4_Source_Code`，3.5 GB）
+  正要被刪。現行配方（2026-08-31 實跑驗過）＝
+  `PYTHONPATH=/home/adam/p4dev-python-venv/lib/python3.13/site-packages p4_proxy/venv/bin/python
+  "$PYTHONPATH/sswitch_CLI.py"`。見
+  [2026-08-31_p4-source-tree-residue/README.md](2026-08-31_p4-source-tree-residue/README.md) §5.2。
 - 🔴 **C8 mastership 重現：已做（2026-08-13 晚，`c1332bb`），結果是「上游沒有 bug」——
   推翻我們自己的發現，上游回報取消。** 第三方 raw gRPC client（`p4_proxy/reference/
   p4runtime_mastership_probe.py`）三情境實測：① 真正的非 primary（A `(0,2)` primary、
