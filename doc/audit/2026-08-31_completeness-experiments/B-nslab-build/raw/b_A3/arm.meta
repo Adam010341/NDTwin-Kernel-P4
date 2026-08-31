@@ -1,0 +1,16 @@
+f1f2_entry=135c778a37b707cdcc9e73530ffa15e8a47f2d387557c983efa80f37c802c3f3 exe=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc pid=113502
+f3_entries=2
+f3_ping=3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+sender_gate_mbit=7144
+f1f2_exit=135c778a37b707cdcc9e73530ffa15e8a47f2d387557c983efa80f37c802c3f3 exe=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc pid=113502
+arm=A
+label=b_A3
+p4_json=ndtwin_switch.json
+binary=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc
+binary_sha256=135c778a37b707cdcc9e73530ffa15e8a47f2d387557c983efa80f37c802c3f3
+highest_clean_rung_mbit=70
+ladder_rungs_walked=13
+ladder_stop_reason=saturation
+step_s=8 clean_pct=0.5 payload=1400
+finished=2026-08-31T16:01:10+00:00
+guest_loadavg_at_end=1.84 0.74 0.74

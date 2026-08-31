@@ -1,0 +1,65 @@
+=== PREREG-B eight arms  suite=b  json=ndtwin_switch.json  2026-08-31T15:59:00+00:00 ===
+guest: ndtwin-lab-vm  nproc=16  load=0.16 0.23 0.60
+order (frozen): A:3 A:4
+
+guest MemAvailable: 15.0 GiB
+
+───────────────────────────────────────────────────────────
+### PREREG-B arm A label=b_A3 json=ndtwin_switch.json  2026-08-31T15:59:00+00:00
+  fabric ready: bmv2=113502 (node shell 113423) h1=113419 h2=113421
+  F1/F2 entry: pid=113502 exe=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=135c778a37b707cd (want 135c778a37b707cd)
+  F3: ipv4_lpm entries visible on southbound direct read: 2
+  F3 forwarding check: 3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+  sender gate G = 7144 Mbit  (rungs above 1428 Mbit are sender-limited)
+      1 M  reps 1  loss   0.0000%  sent     1.00  recv     1.00  clean=yes
+      2 M  reps 1  loss   0.0000%  sent     2.00  recv     2.00  clean=yes
+      3 M  reps 1  loss   0.0000%  sent     3.00  recv     3.00  clean=yes
+      5 M  reps 1  loss   0.0000%  sent     5.00  recv     5.00  clean=yes
+      8 M  reps 1  loss   0.0000%  sent     8.00  recv     8.00  clean=yes
+     12 M  reps 1  loss   0.0000%  sent    12.00  recv    12.00  clean=yes
+     20 M  reps 1  loss   0.0000%  sent    20.00  recv    19.99  clean=yes
+     30 M  reps 1  loss   0.0000%  sent    30.00  recv    29.99  clean=yes
+     45 M  reps 1  loss   0.0000%  sent    45.00  recv    44.98  clean=yes
+     70 M  reps 1  loss   0.0000%  sent    69.99  recv    69.97  clean=yes
+    110 M  reps 1  loss  18.5673%  sent   109.98  recv    87.95  clean=no
+    160 M  reps 1  loss  49.4334%  sent   159.98  recv    79.42  clean=no
+    240 M  reps 1  loss  66.3923%  sent   239.97  recv    79.14  clean=no
+  saturation stop: two consecutive rungs > 25%
+  F1/F2 exit: pid=113502 exe=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=135c778a37b707cd (want 135c778a37b707cd)
+  ⇒ arm b_A3 highest clean rung = 70 Mbit
+### arm b_A3 done  2026-08-31T16:01:12+00:00
+───────────────────────────────────────────────────────────
+### PREREG-B arm A label=b_A4 json=ndtwin_switch.json  2026-08-31T16:01:12+00:00
+  fabric ready: bmv2=114044 (node shell 113968) h1=113964 h2=113966
+  F1/F2 entry: pid=114044 exe=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=135c778a37b707cd (want 135c778a37b707cd)
+  F3: ipv4_lpm entries visible on southbound direct read: 2
+  F3 forwarding check: 3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+  sender gate G = 10881 Mbit  (rungs above 2176 Mbit are sender-limited)
+      1 M  reps 1  loss   0.0000%  sent     1.00  recv     1.00  clean=yes
+      2 M  reps 1  loss   0.0000%  sent     2.00  recv     2.00  clean=yes
+      3 M  reps 1  loss   0.0000%  sent     3.00  recv     3.00  clean=yes
+      5 M  reps 1  loss   0.0000%  sent     5.00  recv     5.00  clean=yes
+      8 M  reps 1  loss   0.0000%  sent     8.00  recv     8.00  clean=yes
+     12 M  reps 1  loss   0.0000%  sent    12.00  recv    11.99  clean=yes
+     20 M  reps 1  loss   0.0000%  sent    20.00  recv    19.99  clean=yes
+     30 M  reps 1  loss   0.0000%  sent    30.00  recv    29.99  clean=yes
+     45 M  reps 1  loss   0.0000%  sent    44.99  recv    44.99  clean=yes
+     70 M  reps 1  loss   0.0000%  sent    69.99  recv    69.99  clean=yes
+    110 M  reps 1  loss  22.6073%  sent   109.98  recv    83.56  clean=no
+    160 M  reps 1  loss  48.9678%  sent   159.98  recv    80.14  clean=no
+    240 M  reps 1  loss  65.9981%  sent   239.97  recv    80.10  clean=no
+  saturation stop: two consecutive rungs > 25%
+  F1/F2 exit: pid=114044 exe=/home/ndt/bnslab-B/tree_A/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=135c778a37b707cd (want 135c778a37b707cd)
+  ⇒ arm b_A4 highest clean rung = 70 Mbit
+### arm b_A4 done  2026-08-31T16:03:24+00:00
+
+=== summary  2026-08-31T16:03:24+00:00  (wall clock 4m24s) ===
+  arm      highest_M  stop_reason      binary_sha16             gate_M
+  b_A3     70         saturation       135c778a37b707cd         7144
+  b_A4     70         saturation       135c778a37b707cd         10881
+
+🔑 Eight arms, four binaries: the sha column must show exactly four distinct values,
+   each appearing twice. Identical shas across arms would mean one binary ran
+   throughout and every other identity record would still read correctly.
+         2 135c778a37b707cdcc9e73530ffa15e8a47f2d387557c983efa80f37c802c3f3
+=== done ===
