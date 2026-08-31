@@ -12,6 +12,35 @@
 **章認證的是「註冊條款」；本欄認證的是「那些條款被證明會執行」——兩件事分開記，各自可查。**
 更新本欄**必須附逐字 force 輸出**。
 
+🔴 **force 清單是一張表，閘門逐列跑**（14 列）。**這把「這個 force 有沒有呼叫端」從稽核變成不變式**：
+新增 force ＝ 新增一列 ⇒ 它自動被跑，**沒有「存在但沒被呼叫」這個中間狀態可躲**；
+列數也不需要人數（前一版手寫清單寫「六個」而列了七個名字）。
+「**must NOT contain**」那一欄是重點：它是一個 force 證明自己**抵達了它自己那道檢查**、
+而不是被更早的檢查吸收掉的方式。
+`evidence` 那兩列讀的是 **fixture 副本**（正本一個字都不碰）——正本在自己的 force 裡被讀就是循環；
+且**附陽性對照**（同一支讀取器對 `COMPLETE` 的 fixture 必須放行），
+否則只測到「會拒絕」而沒測到「會放行」。
+
+```
+--- G-MATRIX: 14 forces, one row each ---
+    [ok]   claim -> REFUSE: lab.claim owner=
+    [ok]   staged -> REFUSE: staged kernel binary missing
+    [ok]   iperf3 -> REFUSE: iperf3 already running
+    [ok]   fabric -> REFUSE: no live P4 fabric
+    [ok]   restore -> PRODUCTION RESTORE FAILED
+    [ok]   edgecount (REPS=2) -> ABORT(#14 invariant)
+    [ok]   bootid (REPS=2) -> ABORT(#3 boot_id)
+    [ok]   recompute -> ABORT(§4-bis)
+    [ok]   exedriftmid -> ABORT(identity)
+    [ok]   exeunreadablemid -> could not be READ
+    [ok]   exeunreadable -> ABORT(§4 running-arm)
+    [ok]   exedrift -> ABORT(§4 running-arm)
+    [ok]   @none@ (PREREG_FILE=/tmp/tmp.Gh3SqLd6SK) -> EVIDENCE-BASIS: INCOMPLETE
+    [ok]   @none@ (PREREG_FILE=/tmp/tmp.5TsdAwV85x) -> @COMPLETES@
+  [PASS] G-MATRIX all 14 forces reach their own check  
+  PASS  G-MATRIX all 14 forces reach their own check
+```
+
 先前狀態＝🔴 不完整：身分括號（open/close）**無任何 force 走到**——`exedrift` 把兩端強制成
 相等值，且 `assert_running_arm` 先行中止使括號從未被抵達，而 G8 仍印著
 `MATCH/MISMATCH/UNREADABLE all reachable`（那是 `check_running_arm` 的，不是括號的）。

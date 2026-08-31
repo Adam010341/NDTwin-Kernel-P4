@@ -14,6 +14,31 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
 
 **證據基礎狀態**：🟢 **完整（`EVIDENCE-BASIS: COMPLETE`）**，2026-08-31。
 🔴 **閘門不是註記**：`run_f5.sh` 的 preflight 讀它，`INCOMPLETE` 即**拒絕開跑**；更新須附逐字輸出。
+
+🔴 **force 清單是一張表，閘門逐列跑**（12 列）。**這把「這個 force 有沒有呼叫端」從稽核變成不變式**：
+新增 force ＝ 新增一列 ⇒ 它自動被跑，**沒有「存在但沒被呼叫」這個中間狀態可躲**；
+列數也不需要人數（前一版手寫清單寫「六個」而列了七個名字）。
+「**must NOT contain**」那一欄是重點：它是一個 force 證明自己**抵達了它自己那道檢查**、
+而不是被更早的檢查吸收掉的方式。
+`evidence` 那兩列讀的是 **fixture 副本**（正本一個字都不碰）——正本在自己的 force 裡被讀就是循環；
+且**附陽性對照**（同一支讀取器對 `COMPLETE` 的 fixture 必須放行），
+否則只測到「會拒絕」而沒測到「會放行」。
+
+```
+--- force matrix: 12 path-level forces, one row each ---
+  [ok]   claim -> REFUSE: lab.claim owner=
+  [ok]   fabric -> REFUSE: the kernel API
+  [ok]   bootid -> ABORT(#3)
+  [ok]   edgecount -> ABORT(#14)
+  [ok]   fabricshort -> ABORT(#5)
+  [ok]   config -> ABORT(#7/#8)
+  [ok]   exedriftmid -> ABORT(§4 F4)
+  [ok]   exeunreadablemid -> could not be READ
+  [ok]   exeunreadable -> ABORT(§4 F4)
+  [ok]   logrotate -> LOG-EVIDENCE-INCOMPLETE
+  [ok]   @none@ (fixture) -> EVIDENCE-BASIS: INCOMPLETE
+  [ok]   @none@ (fixture) -> @COMPLETES@
+```
 身分括號先前與 E 同病（`exedrift` 兩端相等＋`assert_arm_binary` 先中止），現由 `selftest` 的
 bracket force 補齊，同樣兩半判準：
 

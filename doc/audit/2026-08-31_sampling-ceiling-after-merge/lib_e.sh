@@ -139,7 +139,10 @@ preflight() {
     # exercised must not start.
     local ebasis
     ebasis=$(grep -m1 -o 'EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
-    [[ "$DRY_FAIL" == evidence ]] && ebasis=INCOMPLETE
+    # No DRY_FAIL special case here on purpose: the matrix points PREREG_FILE at a FIXTURE
+    # whose content really says INCOMPLETE, so what gets tested is the reader against real
+    # content rather than a branch that only exists for the test.  Breaks the circularity too --
+    # the master registration is never read during its own force.
     if [[ "$ebasis" != "COMPLETE" ]]; then
         printf 'REFUSE: the registration reports EVIDENCE-BASIS: %s\n' "${ebasis:-<absent>}" >&2
         printf '        Registered clauses exist but are not all demonstrably exercised.  Fix the\n' >&2
@@ -302,6 +305,13 @@ running_kernel_sha() {
         # never executed.
         case "$DRY_FAIL" in
             exeunreadable) echo "UNREADABLE"; return 0 ;;
+            # Only the CLOSING read is unreadable, so the earlier identity check passes and the
+            # BRACKET's own shape test is what fires.  Found by building the force matrix: with
+            # `exeunreadable` alone, E aborted at ABORT(§4 running-arm) -- absorbed again -- so
+            # E's bracket-unreadable branch had no force reaching it while F-5's did.
+            exeunreadablemid)
+                [[ "${_DRY_PHASE:-}" == close ]] && { echo "UNREADABLE"; return 0; }
+                ;;
             exedrift)      echo "$(printf 'd%063d' 1)"; return 0 ;;
             exedriftmid)
                 # 🔴 Drift ONLY on the closing read, marked explicitly by the caller.

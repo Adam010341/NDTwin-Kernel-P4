@@ -53,6 +53,13 @@ running_kernel_sha() {
         # silently tested nothing for hours.
         case "$DRY_FAIL" in
             exeunreadable) echo "UNREADABLE"; return 0 ;;
+            # Only the CLOSING read is unreadable, so the earlier identity check passes and the
+            # BRACKET's own shape test is what fires.  Found by building the force matrix: with
+            # `exeunreadable` alone, E aborted at ABORT(§4 running-arm) -- absorbed again -- so
+            # E's bracket-unreadable branch had no force reaching it while F-5's did.
+            exeunreadablemid)
+                [[ "${_DRY_PHASE:-}" == close ]] && { echo "UNREADABLE"; return 0; }
+                ;;
             exedrift)      printf 'd%063d\n' 1; return 0 ;;
             exedriftmid)
                 # 🔴 Drift ONLY on the closing read, marked explicitly by the caller.
@@ -334,7 +341,10 @@ preflight() {
     # exercised must not start.
     local ebasis
     ebasis=$(grep -m1 -o 'EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
-    [[ "$DRY_FAIL" == evidence ]] && ebasis=INCOMPLETE
+    # No DRY_FAIL special case here on purpose: the matrix points PREREG_FILE at a FIXTURE
+    # whose content really says INCOMPLETE, so what gets tested is the reader against real
+    # content rather than a branch that only exists for the test.  Breaks the circularity too --
+    # the master registration is never read during its own force.
     if [[ "$ebasis" != "COMPLETE" ]]; then
         printf 'REFUSE: the registration reports EVIDENCE-BASIS: %s\n' "${ebasis:-<absent>}" >&2
         printf '        Registered clauses exist but are not all demonstrably exercised.  Fix the\n' >&2
@@ -571,7 +581,49 @@ selftest() {
     else
         say "  bracket force  FAIL  hit=$hitb absorbed=$absorbed"; rc=1
     fi
-    (( rc == 0 )) && say "=== detector + inherited-clause force tests PASS ===" || say "🔴 force tests FAILED"
+    # =============================================================================================
+    # FORCE MATRIX -- every PATH-level force, from one table.  See gates_e.sh for the reasoning:
+    # a row that exists is a row that runs, so "written but never called" has nowhere to hide, and
+    # the count maintains itself.
+    #
+    # The direct function-level forces ABOVE are kept and are NOT duplicated here: they exercise
+    # functions the `arm` path never calls (the detector's FakeFabric, assert_kernel_restored).
+    # Two levels, on purpose -- and per checklist 5f, a force not firing on a path it is not on is
+    # correct, not a gap.
+    # =============================================================================================
+    local EV_BAD EV_GOOD; EV_BAD="$(mktemp)"; EV_GOOD="$(mktemp)"
+    printf 'EVIDENCE-BASIS: INCOMPLETE\n' >"$EV_BAD"
+    printf 'EVIDENCE-BASIS: COMPLETE\n'   >"$EV_GOOD"
+    local FORCE_MATRIX=(
+      "claim||REFUSE: lab.claim owner=|"
+      "fabric||REFUSE: the kernel API|"
+      "bootid||ABORT(#3)|"
+      "edgecount||ABORT(#14)|"
+      "fabricshort||ABORT(#5)|"
+      "config||ABORT(#7/#8)|"
+      "exedriftmid||ABORT(§4 F4)|wants the"
+      "exeunreadablemid||could not be READ|wants the"
+      "exeunreadable||ABORT(§4 F4)|"
+      "logrotate||LOG-EVIDENCE-INCOMPLETE|ABORT"
+      "@none@|PREREG_FILE=$EV_BAD|EVIDENCE-BASIS: INCOMPLETE|"
+      "@none@|PREREG_FILE=$EV_GOOD|@COMPLETES@|REFUSE"
+    )
+    say "--- force matrix: ${#FORCE_MATRIX[@]} path-level forces, one row each ---"
+    local row lbl envp want deny out ok
+    for row in "${FORCE_MATRIX[@]}"; do
+        IFS='|' read -r lbl envp want deny <<<"$row"
+        out=$(cd "$HERE" && env $envp DRY_RUN=1 \
+              $( [[ "$lbl" != "@none@" ]] && printf 'DRY_FAIL=%s' "$lbl" ) ./run_f5.sh arm 2>&1 || true)
+        ok=1
+        if [[ "$want" == "@COMPLETES@" ]]; then [[ "$out" == *"complete ->"* ]] || ok=0
+        else [[ "$out" == *"$want"* ]] || ok=0; fi
+        [[ -n "$deny" && "$out" == *"$deny"* ]] && ok=0
+        if (( ok )); then say "  [ok]   ${lbl}${envp:+ (fixture)} -> ${want}"
+        else say "  [FAIL] ${lbl}${envp:+ (fixture)} -> wanted '${want}'${deny:+, not '${deny}'}"; rc=1; fi
+    done
+    rm -f "$EV_BAD" "$EV_GOOD"
+
+    (( rc == 0 )) && say "=== detector + inherited-clause + matrix force tests PASS ===" || say "🔴 force tests FAILED"
     return $rc
 }
 

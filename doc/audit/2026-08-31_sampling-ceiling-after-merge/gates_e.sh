@@ -466,6 +466,79 @@ main() {
         the only reason it exists."
     fi
 
+    # =============================================================================================
+    # G-MATRIX -- every force this round defines, run from ONE table.
+    #
+    # 🔑 The point is not brevity, it is turning step 0 of the force audit ("does this force have a
+    # caller?") from an AUDIT into an INVARIANT.  Before: somebody had to periodically grep for
+    # forces with no caller -- and today proved nobody does; `exedriftmid` was written, verified by
+    # hand in a report, and never called by a gate.  After: adding a force means adding a ROW, and
+    # a row runs.  There is no "exists but is never invoked" state left to hide in.
+    #
+    # 🔑 It also makes the count self-maintaining.  The last hand-written list said "six" and named
+    # seven.  A table has as many rows as it has; nobody counts.
+    #
+    # Columns:  label | env prefix | driver args | must contain | must NOT contain
+    # "must NOT contain" is how a force proves it reached ITS OWN check rather than being absorbed
+    # by an earlier one -- the failure mode that wore a green badge twice today.
+    # =============================================================================================
+    local EV_BAD EV_GOOD
+    EV_BAD="$(mktemp)"; EV_GOOD="$(mktemp)"
+    # 🔴 The evidence force reads a FIXTURE, never the master registration.  Reading the master
+    # during its own force is the circularity (the gate reads a field the gate's own result
+    # updates); a fixture removes it while keeping the coverage, because what is under test is the
+    # READER, not the file.  And it gets a positive control: the same reader must PASS on
+    # COMPLETE.  Testing only the refusal would leave the accept path unobserved -- exactly the
+    # thing this round has recorded about guards that can only be watched refusing.
+    printf 'EVIDENCE-BASIS: INCOMPLETE\n' >"$EV_BAD"
+    printf 'EVIDENCE-BASIS: COMPLETE\n'   >"$EV_GOOD"
+
+    local FORCE_MATRIX=(
+      "claim||ladder|REFUSE: lab.claim owner=|"
+      "staged||ladder|REFUSE: staged kernel binary missing|"
+      "iperf3||ladder|REFUSE: iperf3 already running|"
+      "fabric||ladder|REFUSE: no live P4 fabric|"
+      "restore||ladder|PRODUCTION RESTORE FAILED|"
+      "edgecount|REPS=2|ladder|ABORT(#14 invariant)|"
+      "bootid|REPS=2|ladder|ABORT(#3 boot_id)|"
+      "recompute||ladder|ABORT(§4-bis)|"
+      "exedriftmid||ladder|ABORT(identity)|ABORT(§4 running-arm)"
+      "exeunreadablemid||ladder|could not be READ|ABORT(§4 running-arm)"
+      "exeunreadable||ladder|ABORT(§4 running-arm)|"
+      "exedrift||ladder|ABORT(§4 running-arm)|"
+      "@none@|PREREG_FILE=$EV_BAD|ladder|EVIDENCE-BASIS: INCOMPLETE|"
+      "@none@|PREREG_FILE=$EV_GOOD|ladder|@COMPLETES@|REFUSE"
+    )
+
+    say "--- G-MATRIX: ${#FORCE_MATRIX[@]} forces, one row each ---"
+    local row lbl envp args want deny out ok fails=0
+    for row in "${FORCE_MATRIX[@]}"; do
+        IFS='|' read -r lbl envp args want deny <<<"$row"
+        out=$(cd "$HERE" && env $envp DRY_RUN=1 \
+              $( [[ "$lbl" != "@none@" ]] && printf 'DRY_FAIL=%s' "$lbl" ) \
+              LADDER=16 REPS="${REPS:-1}" ./run_e.sh $args 2>&1 || true)
+        ok=1
+        if [[ "$want" == "@COMPLETES@" ]]; then
+            [[ "$out" == *"ladder complete"* ]] || ok=0
+        else
+            [[ "$out" == *"$want"* ]] || ok=0
+        fi
+        [[ -n "$deny" && "$out" == *"$deny"* ]] && ok=0
+        if (( ok )); then
+            say "    [ok]   ${lbl}${envp:+ ($envp)} -> ${want}"
+        else
+            say "    [FAIL] ${lbl}${envp:+ ($envp)} -> wanted '${want}'${deny:+, not '${deny}'}"
+            fails=$((fails+1))
+        fi
+    done
+    rm -f "$EV_BAD" "$EV_GOOD"
+    if (( fails )); then
+        record "G-MATRIX all ${#FORCE_MATRIX[@]} forces reach their own check" FAIL "$fails failing"
+        abort "§2" "$fails force(s) did not reach the check they name.
+        A force that never reaches its own assertion is documentation, not a test."
+    fi
+    record "G-MATRIX all ${#FORCE_MATRIX[@]} forces reach their own check" PASS
+
     say ""
     say "=== gates_e summary (PREREG §2 item -> call, for the grep-against-grep check) ==="
     local g; for g in "${PASSED[@]+"${PASSED[@]}"}"; do say "  PASS  $g"; done
