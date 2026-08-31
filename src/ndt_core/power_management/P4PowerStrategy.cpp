@@ -43,9 +43,37 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
                          uint64_t dpid,
                          TopologyAndFlowMonitor* topoMonitor)
 {
-    if (topoMonitor->getVertexIsUp(node))
+    // [Co-developed with claude code -- Adam]
+    // This used to be `if (topoMonitor->getVertexIsUp(node))` alone, under the comment "Already
+    // up: nothing to do, and reporting success is accurate." Accurate only while the vertex is
+    // telling the truth, and there is one interval in which it reliably is not: the seconds after
+    // this strategy's own powerOff.
+    //
+    // What happens in that interval. powerOff marks the vertex down. Within one tick the 1 Hz
+    // pingWorker asks p4LivenessFor, which reads the proxy's still-cached `probe_ok: true` and
+    // answers Up, so the worker calls setVertexUp -- on a switch it has already been told is
+    // dead, and which is dead. From then until the last LLDP beacon ages past kLldpFreshSeconds
+    // the verdict is Unknown, which the worker deliberately does not write, so the wrong Up
+    // stands unchallenged. A power-on arriving in that interval took the branch below and
+    // returned 200 "Success" in 0.01s having run no command: measured (scratch/phase2/FINDINGS.md
+    // E2) the bmv2 process count did not move, no readopt was sent, the switch stayed dead, and
+    // the twin reported power=ON, is_up=True, 8/8 edges up against 100% packet loss. The same
+    // POST replayed after the graph settled to is_up=false took 1.27s, moved the process count
+    // 9 -> 10 and restored forwarding, which is what proves the first call had simply not acted.
+    //
+    // The file's own comment predicted this would bite a *retry*. It bites the first call: a
+    // person demonstrating "switch it off, now switch it back on" takes a few seconds, and every
+    // few-second gap lands inside the window.
+    //
+    // So the guard asks two questions instead of one -- does the graph say up, and is the graph
+    // entitled to an opinion about this switch yet. Outside the window the answer to the second
+    // is always yes and nothing changes: an already-up switch is still a no-op success that runs
+    // no commands, which is what keeps the Energy-Saving-App's repeated desired-state requests
+    // from turning into helper "already running" failures.
+    if (topoMonitor->getVertexIsUp(node) && !poweredOffWithinDistrustWindow(swName))
     {
-        // Already up: nothing to do, and reporting success is accurate.
+        // Already up, on evidence that is allowed to count: nothing to do, and reporting success
+        // is accurate.
         return OpResult::success();
     }
 
@@ -61,6 +89,17 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
                                      "the helper is not installed -- the design doc has the "
                                      "install steps).");
     }
+
+    // [Co-developed with claude code -- Adam]
+    // The window closes here, not at the end of this function, and the difference is load-bearing.
+    // The window's only question is "is the process I killed still gone", and the helper exiting 0
+    // has just answered it: a bmv2 is serving that gRPC port again, so the graph's `isUp` is once
+    // more backed by something real. Clearing it later -- after readopt -- would leave the window
+    // open across the 502 path, and the next power-on would then re-run the helper against a live
+    // process and get "refusing to start a second instance", turning a switch that needs a readopt
+    // into a 500 that names the wrong problem. The pipeline-less half-state is what step 2's
+    // failure and its named recovery are for; it is not a power-state question.
+    clearPowerOffRecord(swName);
 
     // Step 2, the relationship. A restarted bmv2 comes back with no pipeline, no clone
     // session, no table entries and no P4Runtime mastership, and the liveness probe cannot
@@ -158,6 +197,64 @@ P4PowerStrategy::powerOff(Graph::vertex_descriptor node,
                                      "up. See the kernel log for the helper's reason.");
     }
 
+    // [Co-developed with claude code -- Adam]
+    // Recorded before the graph write, so the window can never begin later than the kill it
+    // describes, and recorded only here -- on the path where the helper confirmed the process is
+    // gone. A powerOff that failed left the switch running, so there is nothing to distrust.
+    notePowerOff(swName);
     topoMonitor->setVertexDown(node);
     return OpResult::success();
+}
+
+/** @brief The default clock. Overridden only by tests. */
+std::chrono::steady_clock::time_point
+P4PowerStrategy::now() const
+{
+    return std::chrono::steady_clock::now();
+}
+
+/** @brief Whether this strategy stopped @p swName recently enough that the graph cannot yet be
+ *         believed about it. See kPostPowerOffDistrustWindow for where the bound comes from.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+bool
+P4PowerStrategy::poweredOffWithinDistrustWindow(const std::string& swName) const
+{
+    // Read the clock before taking the lock: now() is virtual, and nothing that overrides it
+    // should have to know what this function holds.
+    const std::chrono::steady_clock::time_point at = now();
+
+    const std::lock_guard<std::mutex> guard(m_lastPowerOffMutex);
+    const auto it = m_lastPowerOffAt.find(swName);
+    if (it == m_lastPowerOffAt.end())
+    {
+        return false;
+    }
+    return at - it->second < kPostPowerOffDistrustWindow;
+}
+
+/** @brief Opens the distrust window for @p swName.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+void
+P4PowerStrategy::notePowerOff(const std::string& swName)
+{
+    const std::chrono::steady_clock::time_point at = now();
+
+    const std::lock_guard<std::mutex> guard(m_lastPowerOffMutex);
+    m_lastPowerOffAt[swName] = at;
+}
+
+/** @brief Closes it. Erases rather than expires: an absent key is the same answer as an old one,
+ *         and this keeps the map the size of the switches that are currently mid-cycle.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+void
+P4PowerStrategy::clearPowerOffRecord(const std::string& swName)
+{
+    const std::lock_guard<std::mutex> guard(m_lastPowerOffMutex);
+    m_lastPowerOffAt.erase(swName);
 }
