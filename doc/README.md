@@ -98,7 +98,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 | [audit/](audit/) | 歷史紀錄集合 | 審查／複驗／測試證據。**先讀它的 [README.md](audit/README.md)**——它說明了各子資料夾、為什麼產出報告的 prompt 一起收在旁邊、以及哪七類刻意留在 repo 外 |
 | [2026-08-16_delivery-package/](2026-08-16_delivery-package/) | 待轉交 | 見上 |
 | [debug-log/](debug-log/) | 現役（空目錄） | 給執行期 log 落腳用，靠 `.gitkeep` 保留 |
-| [../tools/remote-lab/](../tools/remote-lab/) | **現役** | 遠端 lab 機器的**佔用協調**（`rlab`＝機器層、`ndtwin-vm.sh`＝VM 層）與 VM 生命週期，含變異閘 32/32（筆電與 `nslab` 上各驗過一次）。**規定與佔用帳的正本不在那裡**，在 [audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)——工具說「怎麼做」，規定說「可不可以做、要登記什麼」。🔴 **動手前先讀規定：R1 要求開跑前登記、不准事後補登** |
+| [../tools/remote-lab/](../tools/remote-lab/) | **現役** | 遠端 lab 機器的**佔用協調**（`rlab`＝機器層、`ndtwin-vm.sh`＝VM 層）與 VM 生命週期，含變異閘 **49/49**（其中 G10 是結構測試：直接對 dispatch 斷言「每個改動性動詞都有守衛」——因為前一版 32/32 全綠，而 `stop`／`ssh` 根本沒有守衛）。**規定與佔用帳的正本不在那裡**，在 [audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)——工具說「怎麼做」，規定說「可不可以做、要登記什麼」。🔴 **動手前先讀規定：R1 要求開跑前登記、不准事後補登** |
 
 `audit/` 底下有一個看起來放錯地方的 [2026-07-30_audit-be3c242/](audit/2026-07-30_audit-be3c242/)
 ——它是第一輪十階段子系統審查，2026-08-17 才從 `doc/` 頂層搬進去；**在那之前它在外面不是

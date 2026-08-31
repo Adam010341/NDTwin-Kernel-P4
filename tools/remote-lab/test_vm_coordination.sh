@@ -158,5 +158,77 @@ expect "GREEN-- an unlisted machine is not swallowed" 2 "unknown machine" \
 expect "RED  -- rssh refuses before any packet leaves" 4 "Nothing was sent" \
     env bash "$RLAB" status server8
 
+echo
+echo "=== G9  the two verbs the gate itself missed (stop, ssh) ==="
+# 🔴 Found 2026-08-31 while reading this script for an unrelated reason: `stop` and
+# `ssh` mutate and had NO claim_guard, and this gate was 32/32 green anyway. The gate
+# enumerated the guards that existed, so it could only ever confirm them -- it had no
+# way to notice a verb that had been left out. That is a coverage hole shaped exactly
+# like the finding: a check that cannot fail for the reason you care about.
+mkdir -p "$T/h"
+printf 'owner: bmv2paper\nsince: 2026-08-31T14:00:00+08:00\nport:  2222\nnote:  B round\n' > "$T/h/OWNER"
+
+expect "RED  -- stop refuses another session's VM"     3 "belongs to another session" \
+    env NDT_OWNER=mainDev VM_DIR="$T/h" bash "$VM" stop
+expect "RED  -- stop refuses when NDT_OWNER is unset"  1 "NDT_OWNER is not set" \
+    env -u NDT_OWNER VM_DIR="$T/h" bash "$VM" stop
+expect "GREEN-- stop proceeds on your own VM"          0 "not running" \
+    env NDT_OWNER=bmv2paper VM_DIR="$T/h" bash "$VM" stop
+expect "RED  -- ssh refuses another session's VM"      3 "belongs to another session" \
+    env NDT_OWNER=mainDev VM_DIR="$T/h" bash "$VM" ssh true
+expect "RED  -- ssh refuses when NDT_OWNER is unset"   1 "NDT_OWNER is not set" \
+    env -u NDT_OWNER VM_DIR="$T/h" bash "$VM" ssh true
+
+# 🔑 The green direction that matters most for ssh is NOT "it connects" -- it is that
+# guarding it did not quietly turn it into a claim. §5b of the rules requires that an
+# UNOWNED VM pending retirement can still be inspected without anyone taking it, and
+# the 08-31 .git inventory depended on exactly that. claim_guard refuses; claim_write
+# records; only create/start call the latter. Prove the separation, do not trust it.
+mkdir -p "$T/i"
+env NDT_OWNER=mainDev VM_DIR="$T/i" SSH_PORT=34599 bash "$VM" ssh true >/dev/null 2>&1
+if [ ! -f "$T/i/OWNER" ]; then
+    echo "  ✅ GREEN-- ssh on an UNOWNED VM did not claim it (no OWNER written)"; pass=$((pass+1))
+else
+    echo "  🔴 ssh created an OWNER file -- inspecting a VM now takes it, which §5b forbids"
+    fail=$((fail+1))
+fi
+
+echo
+echo "=== G10 structural: every mutating verb is guarded (the test that would have caught G9) ==="
+# Counting guards can only ever re-confirm the guards you remembered to write. This
+# asserts over the VERBS instead, so the next verb added to the dispatch fails here
+# until someone decides, in writing, which list it belongs to.
+MUTATING="create start stop snap restore destroy ssh"
+READONLY="status snaps vms"
+verb_block() {  # print the case-arm body for verb $1
+    awk -v v="$1" '$0 ~ "^"v"\\)$" {f=1; next} f && /^[[:space:]]*;;/ {exit} f' "$VM"
+}
+for v in $MUTATING; do
+    if verb_block "$v" | grep -q 'claim_guard'; then
+        printf '  ✅ RED-capable -- %s calls claim_guard\n' "$v"; pass=$((pass+1))
+    else
+        printf '  🔴 %s mutates but has NO claim_guard\n' "$v"; fail=$((fail+1))
+    fi
+done
+# The green direction of the structural test: read-only verbs must STAY unguarded.
+# `vms` especially -- asking who holds what must not require already holding something,
+# or the first session willing to yield is the one locked out.
+for v in $READONLY; do
+    if verb_block "$v" | grep -q 'claim_guard'; then
+        printf '  🔴 %s is read-only but demands ownership\n' "$v"; fail=$((fail+1))
+    else
+        printf '  ✅ GREEN-- %s stays readable without owning anything\n' "$v"; pass=$((pass+1))
+    fi
+done
+# And the control for the parser itself: if verb_block returned nothing for every verb,
+# every check above would pass vacuously. Prove it can actually see a known guard.
+if verb_block destroy | grep -q 'claim_guard destroy'; then
+    echo "  ✅ CONTROL -- the block parser really reads the dispatch"; pass=$((pass+1))
+else
+    echo "  🔴 CONTROL FAILED -- verb_block found nothing; every G10 result above is vacuous"
+    fail=$((fail+1))
+fi
+
+
 printf '\n=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" = 0 ]

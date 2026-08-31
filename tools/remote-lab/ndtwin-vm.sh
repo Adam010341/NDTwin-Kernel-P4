@@ -354,6 +354,14 @@ start)
     ;;
 
 stop)
+    # 🔴 This guard was MISSING until 2026-08-31 and nothing noticed, because the
+    # mutation gate enumerated the guards I had written rather than the verbs that
+    # mutate. 32/32 green meant "every guard fires both ways", never "every mutating
+    # verb has a guard" -- and I reported the first as if it answered the second.
+    # Powering off another session's VM mid-run is precisely the R7 downgrade shape:
+    # they `start` it again without their working point and the lab comes back
+    # smaller, silently. See the structural test in test_vm_coordination.sh.
+    claim_guard stop
     if ! vm_running; then say "not running"; rm -f "$PIDF"; exit 0; fi
     p=$(vm_pid)
     say "--- graceful shutdown (pid $p) ---"
@@ -394,6 +402,16 @@ status)
     ;;
 
 ssh)
+    # Also missing. `ssh <cmd>` runs arbitrary commands in the guest, so it is a
+    # mutating verb wearing a read-only name -- two sessions sharing one VM through
+    # it is exactly what R6 forbids.
+    #
+    # 🔑 Note what this guard does NOT do: claim_guard refuses, claim_write records,
+    # and only create/start call the latter. So requiring NDT_OWNER here still lets
+    # you look inside an UNOWNED VM without taking it -- which the 08-31 inventory
+    # of the pending-retirement VM needed, and which §5b of the rules requires stay
+    # possible. Guarding and claiming are separate powers; do not fuse them.
+    claim_guard ssh
     shift
     exec ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
         -p "$SSH_PORT" "$VM_USER@127.0.0.1" "$@"
