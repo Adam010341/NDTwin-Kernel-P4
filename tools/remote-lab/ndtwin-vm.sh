@@ -12,8 +12,11 @@
 #   ndtwin-vm.sh snaps            list snapshots
 #   ndtwin-vm.sh vms              EVERY lab VM on this host: dir / owner / port / pid
 #   ndtwin-vm.sh keep "<why>"     mark this disk as must-not-delete (--clear to lift)
-#   ndtwin-vm.sh adopt            register a RUNNING VM this tool did not start:
-#                                 OWNER + CONFIG, work point read out of its own argv
+#   ndtwin-vm.sh adopt [pid]      register a RUNNING VM this tool did not start: OWNER +
+#                                 CONFIG, work point read out of its own argv. With a
+#                                 pid, the DIRECTORY comes from argv too -- use that for
+#                                 any VM not laid out by this script. `vms` prints the
+#                                 exact command for each one it finds.
 #   ndtwin-vm.sh destroy          delete the disk (asks for the magic word)
 #
 # 🔑 NDT_OWNER is REQUIRED for anything that mutates a VM (same rule as every ndt
@@ -124,6 +127,44 @@ me() { printf '%s' "${NDT_OWNER:-unset}"; }
 owner_of() {  # owner_of <vmdir> -> the claimant, or "unowned"
     local f="$1/OWNER"
     [ -f "$f" ] && awk '/^owner:/{print $2; exit}' "$f" || printf 'unowned'
+}
+
+# 🔴 Both helpers below exist because every other population in this script comes from
+# a glob of MY OWN naming convention ($HOME/ndtwin-vm*/). A VM that lives anywhere else
+# is not merely unlisted -- it is invisible, and "not listed" reads as "not there".
+# 2026-08-31: a sibling ran a VM out of ~/addtools/work.qcow2 and neither `vms` nor
+# `adopt` could see it at all. Derive from what is actually running instead.
+qemu_pids() {  # every qemu-system process visible to this user, one pid per line
+    local pd
+    for pd in /proc/[0-9]*; do
+        [ -r "$pd/cmdline" ] || continue
+        case "$(tr '\0' ' ' < "$pd/cmdline" 2>/dev/null)" in
+            *qemu-system*) printf '%s\n' "${pd#/proc/}" ;;
+        esac
+    done
+}
+
+qemu_disk() {  # qemu_disk <pid> -> its WRITABLE disk path (skips the read-only seed)
+    # 🔴 The first version matched /^file=/ -- i.e. only the argument order THIS script
+    # happens to emit. A sibling's VM used `-drive id=d0,file=...,if=none,...` and was
+    # invisible to both `vms` and `adopt`: same defect as a gate that enumerates its own
+    # author's list, one layer down in the parser. -drive keys are comma-separated and
+    # ORDER-INDEPENDENT, so parse them that way.
+    # ⚠️ A path containing a literal comma is not handled; qemu escapes those by doubling
+    # them, and no lab path here has one. Named so the next reader knows it was considered.
+    tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | awk '
+        /^-hd[a-d]$/ { want=1; next }
+        want         { print; exit }
+        /(^|,)(file|filename)=/ {
+            n=split($0, part, ","); ro=0; f=""
+            for (i=1; i<=n; i++) {
+                if (part[i] ~ /^(readonly|read-only)=(on|true)$/) ro=1
+                if (f=="" && part[i] ~ /^(file|filename)=/) {
+                    f=part[i]; sub(/^(file|filename)=/, "", f)
+                }
+            }
+            if (f != "" && !ro) { print f; exit }
+        }'
 }
 
 keep_reason() {  # keep_reason <vmdir> -> the one-line reason; rc=1 if not marked keep
@@ -508,11 +549,40 @@ adopt)
     # qemu invocation themselves -- correctly -- and their measurement round ran with
     # its working point recorded nowhere but the process's own argv. That is not a
     # discipline failure. It is a missing path, and the registry gap was its shadow.
-    claim_guard adopt
-    vm_running || die "adopt records what a RUNNING VM is actually using.
+    # 🔴 `adopt` with no pid only ever looked at $VM_DIR/disk.qcow2 -- so the VMs most in
+    # need of adopting, the ones this tool did not lay out, were exactly the ones it
+    # could not see. Found by the sibling it was written for, on their own VM, within
+    # the hour. The applicability domain was narrower than the description.
+    # ⇒ `adopt <pid>` derives the DIRECTORY from argv too, not just the work point.
+    if [ -n "${2:-}" ]; then
+        p="$2"
+        [ -r "/proc/$p/cmdline" ] || die "no readable /proc/$p/cmdline -- is $p a running process of yours?"
+        case "$(tr '\0' ' ' < "/proc/$p/cmdline")" in
+            *qemu-system*) ;;
+            *) die "pid $p is not a qemu-system process. Its argv starts:
+     $(tr '\0' ' ' < "/proc/$p/cmdline" | cut -c1-160)" ;;
+        esac
+        d=$(qemu_disk "$p")
+        [ -n "$d" ] || die "found no writable '-drive file=' in pid $p's argv -- refusing to guess a directory"
+        # Re-point EVERY path before the guard runs: guarding the directory the caller
+        # happens to be pointed at, then writing into a different one, is worse than
+        # no guard at all.
+        IMG="$d"; VM_DIR=$(dirname "$d")
+        OWNERF="$VM_DIR/OWNER"; CFG="$VM_DIR/CONFIG"; KEEPF="$VM_DIR/KEEP"
+        claim_guard adopt
+        say "adopting by pid: $p"
+        say "  disk      $IMG      (read out of argv)"
+        say "  directory $VM_DIR   (derived from the disk, not assumed)"
+    else
+        claim_guard adopt
+        vm_running || die "adopt records what a RUNNING VM is actually using.
    Nothing matching $IMG is running (checked /proc, not a pidfile).
-   For a VM that is stopped, write $CFG yourself -- there is no argv to read."
-    p=$(vm_pid)
+   If the VM is not laid out by this tool, name it:   $0 adopt <pid>
+   Running qemu processes right now:
+$(for q in $(qemu_pids); do printf '     pid %-7s %s\n' "$q" "$(qemu_disk "$q")"; done)
+   For a VM that is stopped there is no argv to read -- write $CFG yourself."
+        p=$(vm_pid)
+    fi
     argv=$(tr '\0' '\n' < "/proc/$p/cmdline")
     # 🔑 Everything below is DERIVED FROM argv, never from what the operator types.
     # A registry entry that can disagree with the process it describes is worse than
@@ -611,6 +681,36 @@ vms)
         fi
     done
     [ "$found" = 1 ] || say "  (none)"
+    # 🔴 Everything above came from a glob of ONE naming convention, so it can only ever
+    # rediscover the directories I already expected. That is the same shape as a gate
+    # that enumerates its author's own list (see the G10a note in the test file): the
+    # population has to come from the thing under test, which here means the processes.
+    say ""
+    say "  running qemu the glob above cannot see (population taken from /proc, not from a name):"
+    unlisted=0
+    for q in $(qemu_pids); do
+        qd=$(qemu_disk "$q")
+        # 🔴 An unparseable disk must NOT be a silent skip. The line below used to be
+        # `[ -n "$qd" ] || continue`, which meant any qemu whose -drive form the parser
+        # did not understand vanished -- and then the "(none)" line below asserted that
+        # every running qemu was accounted for. A parser gap became a completeness claim.
+        # Report the pid with its argv instead: unparseable is a finding, not an absence.
+        if [ -z "$qd" ]; then
+            unlisted=1
+            printf '    pid %-7s %-12s 🔴 disk argv not parseable -- argv: %s\n' \
+                "$q" "?" "$(tr '\0' ' ' < "/proc/$q/cmdline" 2>/dev/null | cut -c1-200)"
+            continue
+        fi
+        case "$qd" in "$HOME"/ndtwin-vm*/*) continue ;; esac
+        unlisted=1
+        qdir=$(dirname "$qd")
+        printf '    pid %-7s %-12s %s\n' "$q" "$(owner_of "$qdir")" "$qd"
+        if r=$(keep_reason "$qdir"); then printf '    %-20s 🔒 KEEP -- %s\n' "" "$r"; fi
+        [ -f "$qdir/CONFIG" ] || printf '    %-20s 🔴 no CONFIG -- work point recorded nowhere but this argv: %s\n' \
+            "" "$(tr '\0' '\n' < "/proc/$q/cmdline" 2>/dev/null | awk '/^-smp$/{getline;c=$0} /^-m$/{getline;m=$0} END{print c" vCPU / "m" MiB"}')"
+        printf '    %-20s ⇒ register it without restarting:  NDT_OWNER=<you> %s adopt %s\n' "" "$0" "$q"
+    done
+    [ "$unlisted" = 1 ] || say "    (none -- every running qemu is already listed above)"
     say ""
     say "  ports actually listening on 127.0.0.1 (the ground truth, not the registry):"
     ss -tlnH 2>/dev/null | awk '{print "    " $4}' | grep '^ *127.0.0.1:' | sort -u \

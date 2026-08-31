@@ -493,6 +493,149 @@ else
     echo "  🔴 CONTROL FAILED -- adopt never named the pid; G14 may be vacuous"; fail=$((fail+1))
 fi
 
+echo
+echo "=== G15 the population must come from /proc, not from my own naming convention ==="
+# Found within the hour by the session `adopt` was written for: their VM lived in
+# ~/addtools/work.qcow2, so `vms` (which globs $HOME/ndtwin-vm*/) could not see it and
+# `adopt` (which only knew $VM_DIR/disk.qcow2) refused it. Same shape as G10a one layer
+# out: a survey that enumerates the author's convention only rediscovers the author's
+# convention. So the fixture here deliberately sits OUTSIDE that convention.
+# 🔑 The stand-in must not assume this machine has no other qemu -- it may. Every
+# assertion below therefore names its own fixture rather than counting processes.
+mkdir -p "$T/home/addtools"
+qemu-img create -q -f qcow2 "$T/home/addtools/work.qcow2" 8M 2>/dev/null || : > "$T/home/addtools/work.qcow2"
+# 🔑 The read-only seed is deliberately FIRST. The first version of this fixture had the
+# writable disk first, so a picker that simply grabbed the earliest `file=` passed the
+# control -- the control's own comment said "only by luck of argument order", and then
+# the fixture supplied exactly that luck. Mutating the readonly filter away survived.
+bash -c 'sleep 30; :' qemu-system-x86_64 -smp 7 -m 3333 \
+    -drive "file=$T/home/addtools/seed.iso,if=virtio,format=raw,readonly=on" \
+    -drive "file=$T/home/addtools/work.qcow2,if=virtio,format=qcow2" \
+    -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2295-:22 &
+OUTS=$!
+# 🔑 And a second stand-in INSIDE the naming convention, because the green case below
+# needs a RUNNING process the glob already covers. The first version asserted against a
+# directory fixture with no process at all, so the /proc pass could never have reported
+# it either way: removing the de-duplication filter survived, silently.
+# 🔴 A third stand-in in the form that ACTUALLY broke it in the field: `file=` is not
+# the first key. The parser matched /^file=/ -- the shape this very script emits -- so a
+# sibling's `-drive id=d0,file=...,if=none,...` was invisible to both vms and adopt while
+# every test here stayed green. The fixture must carry forms this script never produces.
+mkdir -p "$T/home/othertool"
+qemu-img create -q -f qcow2 "$T/home/othertool/work.qcow2" 8M 2>/dev/null \
+    || : > "$T/home/othertool/work.qcow2"
+bash -c 'sleep 30; :' qemu-system-x86_64 -m 6144 -smp 4 \
+    -drive "id=d0,file=$T/home/othertool/work.qcow2,if=none,format=qcow2,discard=unmap" \
+    -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2293-:22 &
+OTHR=$!
+mkdir -p "$T/home/ndtwin-vm-inside"
+qemu-img create -q -f qcow2 "$T/home/ndtwin-vm-inside/disk.qcow2" 8M 2>/dev/null \
+    || : > "$T/home/ndtwin-vm-inside/disk.qcow2"
+bash -c 'sleep 30; :' qemu-system-x86_64 -smp 2 -m 1111 \
+    -drive "file=$T/home/ndtwin-vm-inside/disk.qcow2,if=virtio,format=qcow2" \
+    -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2294-:22 &
+INS=$!
+sleep 0.3
+
+VOUT3=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$VOUT3" | grep -q 'addtools/work.qcow2'; then
+    echo "  ✅ RED-capable -- vms surfaces a running VM that is outside the glob"; pass=$((pass+1))
+else
+    echo "  🔴 a VM outside \$HOME/ndtwin-vm*/ is invisible to vms"; fail=$((fail+1))
+fi
+# It is not enough to list it: the reader has to be told it is unregistered, and handed
+# the command. "Listed but indistinguishable from a registered one" is how the whole
+# problem started.
+# 🔑 Scoped to OUR fixture's own lines. This machine really does have another qemu
+# (Claude's own VM bundle), so a bare grep over the whole section can be satisfied --
+# or broken -- by a process that has nothing to do with this test. The comment above
+# said not to assume an empty machine; the first version of these two assertions then
+# assumed exactly that, and the green one failed for a reason that was never the code.
+MINE3=$(printf '%s' "$VOUT3" | grep -A2 'addtools/work.qcow2')
+if printf '%s' "$MINE3" | grep -q 'no CONFIG' && printf '%s' "$MINE3" | grep -q "adopt $OUTS"; then
+    echo "  ✅ RED-capable -- and it says the work point is unrecorded, with the fix command"
+    pass=$((pass+1))
+else
+    echo "  🔴 vms lists it without saying it is unregistered or how to register it"; fail=$((fail+1))
+fi
+# 🔑 GREEN, and it must NOT be "no other qemu exists" -- this machine may well have one.
+# Assert instead that the RUNNING fixture inside the convention stays out of the
+# unlisted section, while the one outside it is in there. Both halves are needed:
+# without the first the filter can be deleted, without the second the whole pass can be.
+UNLISTED=$(printf '%s' "$VOUT3" | sed -n '/cannot see/,/ports actually/p')
+if ! printf '%s' "$UNLISTED" | grep -q 'ndtwin-vm-inside' \
+   && printf '%s' "$UNLISTED" | grep -q 'addtools'; then
+    echo "  ✅ GREEN-- a RUNNING VM inside the convention is not double-reported"; pass=$((pass+1))
+else
+    echo "  🔴 the /proc pass mis-partitions: inside-glob VMs must not appear, outside ones must"
+    fail=$((fail+1))
+fi
+
+# 🔑 The form this script never emits must be found too -- that is the whole point of
+# the third stand-in. Without this case the parser can go back to matching only its
+# author's own output and every other case here stays green.
+if printf '%s' "$VOUT3" | grep -q 'othertool/work.qcow2'; then
+    echo "  ✅ RED-capable -- a -drive with file= NOT first is still parsed"; pass=$((pass+1))
+else
+    echo "  🔴 the disk parser only understands the argument order this script emits"
+    fail=$((fail+1))
+fi
+AO=$(env NDT_OWNER=tester VM_DIR="$T/nowhere" SSH_PORT=1 bash "$VM" adopt "$OTHR" 2>&1)
+if grep -q '^cpus=4$' "$T/home/othertool/CONFIG" 2>/dev/null \
+   && grep -q '^mem=6144$' "$T/home/othertool/CONFIG" 2>/dev/null; then
+    echo "  ✅ RED-capable -- adopt reaches that VM too"; pass=$((pass+1))
+else
+    echo "  🔴 adopt cannot register a VM laid out by another tool: $AO"; fail=$((fail+1))
+fi
+
+# adopt <pid>: the DIRECTORY has to come from argv too, not just the work point.
+AP=$(env NDT_OWNER=tester VM_DIR="$T/nowhere" SSH_PORT=1 bash "$VM" adopt "$OUTS" 2>&1)
+if grep -q '^cpus=7$' "$T/home/addtools/CONFIG" 2>/dev/null \
+   && grep -q '^mem=3333$' "$T/home/addtools/CONFIG" 2>/dev/null; then
+    echo "  ✅ RED-capable -- adopt <pid> wrote into the directory it derived from argv"
+    pass=$((pass+1))
+else
+    echo "  🔴 adopt <pid> did not reach the real directory: $AP"; fail=$((fail+1))
+fi
+# 🔴 The guard must protect the DERIVED directory. Guarding whatever VM_DIR the caller
+# happened to be pointed at, then writing somewhere else, is worse than no guard.
+printf 'owner: someone-else\nsince: x\nport:  2295\nnote:  theirs\n' > "$T/home/addtools/OWNER"
+GP=$(env NDT_OWNER=tester VM_DIR="$T/nowhere" SSH_PORT=1 bash "$VM" adopt "$OUTS" 2>&1); grc=$?
+if [ "$grc" = 3 ] && printf '%s' "$GP" | grep -q 'REFUSED'; then
+    echo "  ✅ RED-capable -- adopt <pid> guards the DERIVED dir, not the caller's VM_DIR"
+    pass=$((pass+1))
+else
+    echo "  🔴 adopt <pid> wrote into another session's directory (rc=$grc)"; fail=$((fail+1))
+fi
+# GREEN: a pid that is not a qemu must be refused by name, not silently adopted.
+NQ=$(env NDT_OWNER=tester bash "$VM" adopt $$ 2>&1)
+if printf '%s' "$NQ" | grep -q 'not a qemu-system process'; then
+    echo "  ✅ GREEN-- a non-qemu pid is refused, and the message shows its argv"; pass=$((pass+1))
+else
+    echo "  🔴 adopt accepted a pid that is not a qemu"; fail=$((fail+1))
+fi
+# GREEN: and once it IS registered, the warning must go away. Without this the whole
+# branch can be made unconditional -- `[ -f X ] || true && printf` still passes every
+# red case above, because none of them ever asks when the warning should be silent.
+VOUT4=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+UNL4=$(printf '%s' "$VOUT4" | sed -n '/cannot see/,/ports actually/p')
+MINE4=$(printf '%s' "$UNL4" | grep -A2 'addtools/work.qcow2')
+if [ -n "$MINE4" ] && ! printf '%s' "$MINE4" | grep -q 'no CONFIG'; then
+    echo "  ✅ GREEN-- once adopted, it is still listed but no longer flagged unregistered"
+    pass=$((pass+1))
+else
+    echo "  🔴 the unregistered warning does not depend on being unregistered"; fail=$((fail+1))
+fi
+# CONTROL: prove the writable-disk picker skipped the read-only seed drive. Without
+# this, a picker that grabbed the FIRST file= would look identical on the cases above
+# only by luck of argument order.
+if printf '%s' "$AP" | grep -q 'work.qcow2' && ! printf '%s' "$AP" | grep -q 'seed.iso'; then
+    echo "  ✅ CONTROL -- it picked the writable drive, not the read-only seed"; pass=$((pass+1))
+else
+    echo "  🔴 CONTROL FAILED -- the disk picker does not distinguish the seed"; fail=$((fail+1))
+fi
+kill "$OUTS" "$INS" "$OTHR" 2>/dev/null; wait "$OUTS" "$INS" "$OTHR" 2>/dev/null
+
 
 printf '\n=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" = 0 ]

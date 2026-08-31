@@ -66,7 +66,7 @@ session 會突然開不了 VM。**ACL 是借來的，群組才是自己的**；�
 bash tools/remote-lab/test_vm_coordination.sh
 ```
 
-**73/73**（2026-08-31）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
+**83/83**（2026-08-31）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
 green 方向（不在表上的機器要正常落到 `unknown machine`，證明它不是無差別拒絕）。
 斷言比對**訊息文字**不只比對 rc——好幾種不同的失敗都是 `rc=1`。
 
