@@ -498,6 +498,9 @@ main() {
       "staged||ladder|REFUSE: staged kernel binary missing|"
       "iperf3||ladder|REFUSE: iperf3 already running|"
       "fabric||ladder|REFUSE: no live P4 fabric|"
+      # The reader for a neighbouring round's not-restored marker.  Before this the
+      # marker had three writers and zero readers repo-wide.
+      "labmarker||ladder|REFUSE: a neighbouring round left the lab un-restored|"
       "restore||ladder|PRODUCTION RESTORE FAILED|"
       "edgecount|REPS=2|ladder|ABORT(#14 invariant)|"
       "bootid|REPS=2|ladder|ABORT(#3 boot_id)|"

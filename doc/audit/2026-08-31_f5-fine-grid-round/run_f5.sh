@@ -34,7 +34,23 @@ PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 RUN() { if [[ "$DRY_RUN" == 1 ]]; then printf '[%s] DRYRUN-EXEC %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; return 0; fi; "$@"; }
 dry_note() { [[ "$DRY_RUN" == 1 ]] && printf '[%s] DRYRUN-NOTE %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; return 0; }
-abort() { say "🔴 ABORT($1): ${*:2}"; say "🔴 §3 C5: nothing is added, widened or re-run to get past this."; exit 9; }
+# DRY_FAIL is a COMMA LIST, not a single value.  The composite case -- abort AND not-restored --
+# is the whole reason this protection exists, and with a single value it was unreachable: the two
+# conditions were driven by mutually exclusive settings, so what had been proven was that the
+# check RUNS on abort, never that it FIRES on abort.
+dry_fail() { [[ ",${DRY_FAIL}," == *",$1,"* ]]; }
+
+# 🔴 abort() runs the restore check ITSELF, exactly as E's lib_e.sh:57-62 does.  The EXIT trap
+# already covers arm/q3, but trap registration is PER MODE while abort() is universal -- so this
+# closes the modes that register no trap, and does not depend on remembering to add one to the
+# next mode.  The template was in the next file over the whole time; see the inheritance
+# checklist's lateral-inheritance step.
+abort() {
+    say "🔴 ABORT($1): ${*:2}"
+    say "🔴 §3 C5: nothing is added, widened or re-run to get past this."
+    f5_exit_restore_check_once
+    exit 9
+}
 
 # -------------------------------------------------------------------------------------------------
 # 🔴 BRACKETED IDENTITY (§4 F4).  A claim protects the fabric; it does NOT protect the binary on
@@ -156,7 +172,7 @@ print(-1)' 2>/dev/null || echo -1)
 assert_kernel_restored() {
     local fail=0 f="$ROUND/raw/RESTORE-FAILED"
     if [[ "$DRY_RUN" == 1 ]]; then
-        [[ "$DRY_FAIL" == restore ]] && { dry_note "forcing restore verification to FAIL"; fail=1; } \
+        dry_fail restore && { dry_note "forcing restore verification to FAIL"; fail=1; } \
             || dry_note "would assert the running kernel is post-T-11 (production) again"
     else
         local pid exe hits
@@ -218,7 +234,7 @@ record_bmv2_identity() {   # $1 = arm
 # run still produces perfectly well-formed readings.
 assert_fabric_complete() {
     if [[ "$DRY_RUN" == 1 ]]; then
-        [[ "$DRY_FAIL" == fabricshort ]] && abort "#5" "fabric short of its full switch count (forced)"
+        dry_fail fabricshort && abort "#5" "fabric short of its full switch count (forced)"
         dry_note "would assert the fabric is complete before trusting 'under load'"
         return 0
     fi
@@ -242,7 +258,7 @@ assert_sampling_config() {
     local src="$KERNEL_DIR/p4_proxy/p4_src/ndtwin_switch.p4"
     local json="$KERNEL_DIR/p4_proxy/p4_src/build/ndtwin_switch.json"
     if [[ "$DRY_RUN" == 1 ]]; then
-        [[ "$DRY_FAIL" == config ]] && abort "#7/#8" "sampling config not at production values (forced)"
+        dry_fail config && abort "#7/#8" "sampling config not at production values (forced)"
         dry_note "would assert SAMPLE_RATE=$EXPECT_SAMPLE_RATE and SAMPLE_TRUNC_BYTES=128 in the"
         dry_note "  source AND the compiled JSON -- also catches a neighbouring round's failed restore"
         return 0
@@ -282,7 +298,7 @@ archive_kernel_log() {   # $1 = arm, $2 = open|close
         dry_note "would copy kernel.log -> $OUT/${1}_kernel_$2.log and record its inode+size"
         if [[ "$2" == open ]]; then KLOG_OPEN_INODE=111; KLOG_OPEN_SIZE=100
             say "    kernel.log (open) archived; inode=111 size=100"
-        elif [[ "$DRY_FAIL" == logrotate ]]; then
+        elif dry_fail logrotate; then
             say "    🔴 kernel.log ROTATED or TRUNCATED during the arm (inode 111 -> 222, size 100 -> 5)"
             say "    🔴 the arm's log evidence is INCOMPLETE: a rotation loses the EARLY segment,"
             say "    🔴 so R1 would read cleaner than it was.  Marked, not aborted (§4: evidence)."
@@ -320,10 +336,14 @@ archive_kernel_log() {   # $1 = arm, $2 = open|close
 # trap always RUNS the check and always makes the state visible; not-restored is loud and drops a
 # marker the release must trip over, but is not fatal mid-round.  What is fatal is releasing the
 # lab with the marker present -- and `run_f5.sh restore` is what clears it.
+_F5_RESTORE_CHECKED=0
+f5_exit_restore_check_once() { (( _F5_RESTORE_CHECKED )) && return 0; f5_exit_restore_check; }
+
 f5_exit_restore_check() {
     local rc=$?
+    _F5_RESTORE_CHECKED=1
     local marker="$ROUND/raw/LAB-NOT-RESTORED"
-    if [[ "$DRY_FAIL" != restore_atexit ]] && assert_kernel_restored >/dev/null 2>&1; then
+    if ! dry_fail restore_atexit && assert_kernel_restored >/dev/null 2>&1; then
         say "    [exit] production kernel is back; lab is releasable"
         [[ "$DRY_RUN" == 1 ]] || rm -f "$marker"
     else
@@ -353,7 +373,7 @@ preflight() {
         owner=$(sed -n 's/^owner=//p' "$claim" 2>/dev/null || true)
         excl=$(sed -n 's/^exclusive_cpu=//p' "$claim" 2>/dev/null || true)
     fi
-    [[ "$DRY_FAIL" == claim ]] && owner=somebody-else
+    dry_fail claim && owner=somebody-else
     if [[ "$owner" != "$NDT_OWNER" ]]; then
         printf 'REFUSE: lab.claim owner=%s but NDT_OWNER=%s.\n' "${owner:-<none>}" "$NDT_OWNER" >&2
         printf '        NDT_EXCLUSIVE_CPU=1 ndt claim 240 %s\n' "'F-5 fine grid'" >&2
@@ -394,7 +414,7 @@ preflight() {
     if [[ "$DRY_RUN" == 1 && "$DRY_FAIL" != fabric ]]; then
         dry_note "synthesising fabric up and both readers answering"
     else
-        if [[ "$DRY_FAIL" == fabric ]] || ! curl -s -o /dev/null -m 3 "$NDT_URL/ndt/get_graph_data"; then
+        if dry_fail fabric || ! curl -s -o /dev/null -m 3 "$NDT_URL/ndt/get_graph_data"; then
             printf 'REFUSE: the kernel API at %s does not answer.\n' "$NDT_URL" >&2
             printf '        This script measures; it does not bring the lab up.  Start it first:\n' >&2
             printf '          NDT_OWNER=%s ndt up %s 4\n' "$NDT_OWNER" "$FABRIC" >&2
@@ -643,6 +663,9 @@ selftest() {
       # wrong (identity broken, config mismatched, fabric short), which is exactly when the
       # fabric is most likely to be sitting in a non-production state -- and E is next on it.
       "config||[exit] production kernel|"
+      # THE COMPOSITE CASE: abort AND not-restored at once -- the situation the whole
+      # protection exists for, and the one a single-valued DRY_FAIL could not express.
+      "config,restore_atexit||THE PRODUCTION KERNEL IS NOT RESTORED|"
       "exeunreadablemid||could not be READ|wants the"
       "exeunreadable_absorbed||ABORT(§4 F4)|"
       "logrotate||LOG-EVIDENCE-INCOMPLETE|ABORT"
@@ -693,7 +716,11 @@ esac
 case "${1:-plan}" in
     plan)     plan ;;
     selftest) selftest ;;
-    restore)  preflight && assert_kernel_restored ;;
+    # 🔴 restore registers the SAME trap.  rm -f "$marker" lived only inside it, and restore had
+    # no trap -- so an operator could fix the kernel, run restore, see green, and leave the marker
+    # on disk forever.  Adding a reader without this would have created a warning that can never
+    # go green again, which is the 08-30 mirrored defect: people learn to ignore those.
+    restore)  trap f5_exit_restore_check EXIT; preflight && assert_kernel_restored ;;
     arm)      trap f5_exit_restore_check EXIT; arm ;;
     q3)       trap f5_exit_restore_check EXIT; q3 ;;
     *) printf 'usage: %s {plan|selftest|arm|q3|restore}\n' "$0" >&2; exit 2 ;;

@@ -176,6 +176,31 @@ preflight() {
     done
     say "  staged binaries: present"
 
+    # -- 3b. 🔴 THE READER for a neighbouring round's not-restored marker.
+    #
+    # F-5 writes doc/audit/*/raw/LAB-NOT-RESTORED when it exits with a non-production kernel.
+    # Until now that file had THREE WRITERS AND ZERO READERS -- /usr/local/sbin/ndtwin-lab does
+    # not mention it, nor does ndt -- so "fatal to hand over the lab carrying it" did not exist
+    # anywhere in code.  existence-is-not-wiring, again; and it was WORSE than what it replaced,
+    # because an unread file looks like added protection.
+    #
+    # 🔑 The check belongs HERE, on the victim, not on the polluter, for two reasons:
+    #   * it needs no change to /usr/local/sbin/ndtwin-lab, which is machine-wide and Adam's call;
+    #   * the polluter is BY DEFINITION the party that already went wrong, so putting the duty on
+    #     it builds the protection on the failure point.  The round about to be contaminated is
+    #     the one with both the motive and the working state to check.
+    local stale
+    stale=$(ls -1 "$KERNEL_DIR"/doc/audit/*/raw/LAB-NOT-RESTORED 2>/dev/null | head -5)
+    [[ "$DRY_FAIL" == labmarker ]] && stale="$KERNEL_DIR/doc/audit/2026-08-31_f5-fine-grid-round/raw/LAB-NOT-RESTORED"
+    if [[ -n "$stale" ]]; then
+        printf 'REFUSE: a neighbouring round left the lab un-restored:\n' >&2
+        printf '%s\n' "$stale" | sed 's/^/          /' >&2
+        printf '        That round exited with a non-production kernel, and THIS round would\n' >&2
+        printf '        measure on it without being able to tell.  Have that round run its\n' >&2
+        printf '        restore (F-5: ./run_f5.sh restore), which clears the marker.\n' >&2
+        return 1
+    fi
+
     # -- 4. the fabric.  This is the check the ticket cares about: without it the script would
     #       happily write a full ladder of NO-DATA cells and they would look like a result.
     if ! fabric_is_up; then
@@ -337,6 +362,16 @@ running_kernel_sha() {
         # constant, which silently made the accept path unreachable for the other arm -- a dry-run
         # fixture that can only ever produce one verdict is the same defect this file is about,
         # one level up.
+        # 🔴 Once the arms are actually STAGED, the synthetic value must be the staged arm's REAL
+        # sha256 -- otherwise the dry accept path fails against a correctly-built binary, which is
+        # what happened the moment mainDev's binaries landed.  A fixture that only works while the
+        # real artefact is missing is a fixture with an expiry date.
+        local _p
+        _p="$( [[ "${_DRY_LIVE_ARM:-1hz}" == 1khz ]] && echo "$KBIN_1KHZ" || echo "$KBIN_1HZ" ).provenance"
+        if [[ -f "$_p" ]]; then
+            sed -n 's/^sha256=//p' "$_p" | head -1
+            return 0
+        fi
         case "${_DRY_LIVE_ARM:-1hz}" in
             1khz) printf 'b%063d\n' 0 ;;
             *)    printf 'a%063d\n' 0 ;;
