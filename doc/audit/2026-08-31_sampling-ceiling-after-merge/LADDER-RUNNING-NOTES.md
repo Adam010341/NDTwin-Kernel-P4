@@ -908,9 +908,16 @@ production and git-clean; claim held, not renewed; `SATURATED = 0` across all 72
 | `m` 1 kHz **b8** | **126.6–130.4** | **35.70–36.98%** | 0.9979–1.0020 |
 | `mp` 1 Hz **b8** | **127.5–139.3** | **32.15–34.65%** | 0.9866–0.9970 |
 
-**batch OFF (n=6): `gt` 112.0, loss 42.95%. batch ON (n=6): `gt` 131.8, loss 34.77%.** Both
-quantities are **disjoint** between the two groups — roughly **+18% throughput and 8 points less
-loss**.
+🔴 **WITHDRAWN — this comparison is not about batching.** `batch OFF` = leg 1 (`bl`,`p`),
+`batch ON` = leg 2 (`m`,`mp`). **Verified: `batch=1` appears only in leg 1 and `batch=8` only in
+leg 2 — the two are perfectly aliased.** The groups do differ (`gt` 112.0 vs 131.8, loss 42.95% vs
+34.77%, disjoint on both, 6 v 6) — **but they differ in two things at once, and the group's name is
+not "batching", it is "leg".**
+
+🔑 **Six against six being disjoint does not repair a systematic confound; it only shows the two
+*groups* differ.** This is `ratio-sides-must-share-a-population` in its sharper form: *can this
+population answer to the name it is being used to represent?* **It cannot.** And the rung is one
+where the fidelity gauge is blind anyway (F-26).
 
 ⚠️ **"Less broken", not "fixed"** — both groups still lose over 30%. And this rung is where the
 fidelity gauge is blind (F-26): `ratio` reads ~1.00 on both sides and carries no information.

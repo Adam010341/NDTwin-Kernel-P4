@@ -1222,3 +1222,61 @@ difference-in-differences, whose assumption is invisible unless someone writes i
 interaction is an inference. This is what a window has to be long enough to buy — and stating it
 this way lets the next round price the trade instead of rediscovering it.
 [Co-developed with claude code -- Adam]
+
+---
+
+## F-28. 🔴 Plan (b) aliased the batching factor with time — its main effect is **not estimable**
+
+Stronger than F-27, and it was not costed when plan (b) was chosen — by anyone.
+
+```
+leg 1 = bl + p   both BATCH_OFF=1     23:26 – 04:47
+leg 2 = m + mp   both BATCH_ON=8      04:50 – 07:25
+```
+
+**Verified from `cells.tsv`: `batch=1` occurs only in leg 1, `batch=8` only in leg 2.** No leg
+contains both. ⇒ **Every on-vs-off comparison crosses batching *and* 3.3 hours simultaneously.**
+
+| axis | estimable? |
+|---|---|
+| recompute (1 kHz vs 1 Hz) | ✅ **interleaved within each rung, inside each leg** — clean, twice |
+| **batching (on vs off)** | 🔴 **perfectly aliased with leg/period — not estimable** |
+| interaction | ⚠️ difference of the two clean contrasts; needs "period does not modulate the recompute contrast" |
+
+🔑 **More reps cannot fix this. It is confounding, not noise.**
+
+### ✅ The primary is immune, and that must be said or the round reads as ruined
+
+All four arms are **right-censored at ≥1/1**, and *indistinguishable* is robust to this confound: a
+time period cannot turn a censored value into an uncensored one. **R-E1 and R-E2's registered
+answers stand.** The aliasing bites only the **unregistered** quantities.
+
+### R-E1-null is written verbatim — and my proposal to reword it is withdrawn
+
+I proposed replacing *"打開 batching 買不到可量測的東西"* because batching was measurable elsewhere.
+**Overturned, on three grounds I accept:**
+
+1. **The sentence carries its own scale.** It ends *"上界為梯解析度一格／0.5 核"* — a bounded claim,
+   not an unbounded one.
+2. **My counterexamples do not contradict it.** The 1/4 comparison is confounded (above); the 1/8
+   result is an *interaction*, not a main effect. **R-E1-null asks about the main effect, and the
+   main effect is not estimable here.** No measurable main effect contradicts the sentence.
+3. 🔴 **Direction.** My rewording made the result more interesting and easier to tell. Every failure
+   this round leaned that way — and this one would have edited **a registered conclusion sentence**.
+   The registration anticipated exactly this: *"不寫死的話，一個空結果會被下一個人讀成這輪失敗了，
+   然後有人會想再跑一次"* — and re-running would not help, because the problem is the design.
+
+**Scope disclosure, added beside it (an addition, not an edit to the registration):**
+
+> This round **cannot** measure batching's main effect: `BATCH` is perfectly aliased with leg and
+> period. The valid scope of *"buys nothing measurable"* is therefore **the two registered scales —
+> one ladder rung and 0.5 cores** — and it may **not** be extrapolated to *"batching has no effect
+> on any quantity"*.
+
+### Registered for the next round
+
+> **To answer batching's main effect, all four arms must be interleaved within each rung.** Splitting
+> a 2×2 along a factor into two legs aliases that factor with time, and **no number of reps recovers
+> it, because it is confounding rather than noise.**
+
+[Co-developed with claude code -- Adam]

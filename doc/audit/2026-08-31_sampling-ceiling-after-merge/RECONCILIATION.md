@@ -71,7 +71,10 @@ loss)**; its `CELLS` list ends at `r016`.
 
 Prior: batching did not move `ratio` at either working point.
 
-* **Reproduced at both:** leg 2 gives Δ(m−bl) = **+0.0031** at 1/32 and **+0.0000** at 1/16.
+* **Consistent at both** — stated without the confounded contrast: at 1/32 and 1/16 **all four
+  arms sit at ~1.00** (max deviation 0.0031), so nothing measurable moved there, by batching, by
+  period, or by their interaction. ⚠️ Δ(m−bl) would itself be a **cross-leg** comparison and is not
+  used.
 * **Extended:** at 1/8 the unmerged 1 kHz arm sits 3% low and the merged one does not — a working
   point the prior never covered.
 * It is a **rise**, not the *fall* §6 registered as a conflict ⇒ **not the anticipated conflict,
