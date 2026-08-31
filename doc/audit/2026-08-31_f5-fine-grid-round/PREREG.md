@@ -35,6 +35,34 @@ reviewer 線代審——利益迴避照舊）。**凍結（v1.0）前不得接�
     ——丟棄會讓分布往「乾淨」偏，正是本輪要防的方向。
   - 兩儀器的呼叫順序每次交替（kernel-first／southbound-first），偏斜的系統性方向因此
     可被檢出而非被吸收。
+- 🔴 **v0.4 補（並排 diff 第 6/7/8/9 列；E 有而本張缺，auditor 08-31 批准補入。四條件皆過：
+  資料接觸前／缺口由外部發現而非結果不好看／**只增不減**，四條全是加要求／三條件記錄在 §7）**：
+  - **(6) 組態常數逐格斷言。** 兩臂跨 P4 與 OVS，而 P4 側的 `SAMPLE_RATE`／`SAMPLE_TRUNC_BYTES`
+    是**編進 bmv2 JSON** 的。**兩臂的取樣組態必須一致，並在每次 install 之前斷言它**
+    （對 source 與**編譯產物**各一次，因為 bmv2 跑的是產物）。
+    不斷言的話，兩顆 binary 的窗分布差異會被整個歸給 T-11，而它可能只是取樣組態不同。
+    （E §4 對 `truncate=128` 就是這樣寫的；本張原本一句都沒有。）
+  - **(7) 偵測器雙向 force 入註冊。** 「零幽靈」與「偵測器壞了」長得一模一樣，
+    所以偵測器**必須先被證明它會叫**，而且證明要在註冊裡、不能只在腳本裡
+    （只在腳本＝換人跑就沒了）。**三個情境全部必須可達**，任一個出不來即停輪修儀器：
+    `phantom`（合成幽靈 ⇒ 必須 HIT）／`clean`（乾淨 ⇒ 必須零命中**且印出上界句**）／
+    `blind`（兩個 reader 都瞎 ⇒ 必須 `CONTROL-FAILED`，**不得記為「沒有幽靈」**）。
+    **本條自己已被執行**（2026-08-31，`f5_sampler.py --dry-scenario`，無 fabric，逐字）：
+    ```
+    scenario=phantom  HIT 2   NO-HIT 0   BLIND 0   CONTROL/INSTALL-FAILED 0   FORCE TEST: PASS
+    scenario=clean    HIT 0   NO-HIT 2   BLIND 0   CONTROL/INSTALL-FAILED 0   FORCE TEST: PASS
+                      -> "2 installs, zero hits; the 95% upper bound is <=150.0%"
+    scenario=blind    HIT 0   NO-HIT 0   BLIND 0   CONTROL/INSTALL-FAILED 2   FORCE TEST: PASS
+    ```
+    （🔑 在規則裡寫規則而不執行規則，本身就是本輪要防的形狀，所以這一條先對自己套一次。）
+  - **(8) 「預註冊寫幾項檢查，腳本就要有幾個對應呼叫」的元條款。** 凍結時逐項對照：
+    本節寫幾項檢查，`run_f5.sh`／`f5_sampler.py` 就要有幾個可 grep 的呼叫。
+    （這條是 D 輪被 grep 抓出來才立的——`gate_d.sh` 只呼叫了三項中的兩項——
+    只寫在 E 等於只保護 E。）
+  - **(9) 儀器的已知非空前置檢查入註冊。** 每次 install 之前，**兩個 reader 都必須答話，
+    且都不得已經帶有該 dst**；任一條不成立 ⇒ 該次 install 記 `CONTROL-FAILED`，
+    **不進零命中的分母**。（TR-3 harness 內已有這個 control，但**未註冊的 control 可以被
+    下一版腳本刪掉而不留痕跡**。）
 - 格點＝t ∈ {0, 0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12} s（對數化細格；0.25 s 起因 T-11 力紅
   實測幻影 t=0.005 s 已現、t=1.274 s 已消）。
 - 取樣器自身＝已註冊共變量（輪詢也是負載）：sampler 行程的 CPU 佔用隨 raw 存檔。
@@ -127,3 +155,11 @@ reviewer 線代審——利益迴避照舊）。**凍結（v1.0）前不得接�
   🔴 **未決**：儀器節並排 diff 的第 6/7/8/9 列（F-5 缺而 E 有的四條：組態常數逐格斷言／
   偵測器雙向 force 入註冊／「寫幾項檢查就要有幾個呼叫」元條款／儀器已知非空前置檢查）
   待 auditor 判哪一邊對後再落——見 `2026-08-31_completeness-experiments/INSTRUMENT-DIFF-E-vs-F5.md`。
+- **v0.4（08-31，資料接觸前；auditor 批准，章未蓋）**——照三條件記錄：
+  **改了什麼**：補入並排 diff 的第 6/7/8/9 列（組態常數逐格斷言／偵測器雙向 force 入註冊／
+  「寫幾項檢查就要有幾個呼叫」元條款／儀器已知非空前置檢查），見 §2。
+  第 (7) 條**已對自己執行**，三向逐字輸出貼在該條之內。
+  **為什麼**：缺口是把本張與 `2026-08-31_sampling-ceiling-after-merge/PREREG.md` 的儀器節
+  **並排**才顯形的——單看任一張都讀起來很完整。缺口由外部（reviewer 線在 PREREG-B 的發現）
+  引出，**不是因為結果不好看**；四條**全是加要求，沒有放寬任何判準**。
+  **誰在什麼時候**：auditor 批准、腳本作者撰稿，2026-08-31，**F-5 一次 install 都還沒跑**。

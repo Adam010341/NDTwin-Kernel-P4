@@ -1251,13 +1251,20 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   順帶：TE 的崩因是 `get_graph_data_api_call` 在 except 後 `return graph_data`（未賦值）——
   **Traffic-Engineering-App repo 的缺陷**，excerpt 在 `2026-08-31_live-recipes/te-crashloop-excerpt.txt`。
 - 🔴 **raw 歸檔的守衛是單向的：它擋錯的目的地，沒有任何東西檢查對的目的地發生過**
-  （2026-08-31 普查）。`tools/githooks/pre-commit` 只做一件事——**工作分支上出現 raw 就擋**
-  （`:32` 是 `[[ "$branch" == "audit-raw" ]] && exit 0`）。**一輪如果從頭到尾就沒 commit 過
-  它的 raw，repo 裡沒有任何機制會出聲。** 所以
-  `doc/2026-08-29_bmv2-performance-study.md:219` 那句「raw 一律進 `audit-raw` 分支
+  （2026-08-31 普查）。
+  🔑 **缺口是沉默不是假話——這 15 輪沒有一輪宣稱過自己歸檔了，而且沒有任何地方記錄過
+  某輪是否「決定不歸檔」，連意圖都查不到。**
+  底下的清單會過期，這個結構不會：**我們的守衛只會對「做錯的事」出聲，不會對「沒做的事」出聲。**
+  `tools/githooks/pre-commit` 只做一件事——工作分支上出現 raw 就擋（`:32` 是
+  `[[ "$branch" == "audit-raw" ]] && exit 0`）。🔑 **它只在你 commit 的那一刻才有機會說話，
+  而「缺席」不觸發任何事件**⇒ 這是「**保護的失效時機與它要防的事件重合**」
+  （見 [[failures-that-report-success]]）的又一個實例：**忘記歸檔的那一輪，正好就是
+  永遠不會讓 hook 執行到的那一輪。** 要補的不是更嚴的 hook，是一個**在輪次收官時
+  主動去問「這輪的 raw 在哪」的檢查**——沒有事件可以掛，就得自己排一個。
+  所以 `doc/2026-08-29_bmv2-performance-study.md:219` 那句「raw 一律進 `audit-raw` 分支
   （**pre-commit hook 強制**）」**高估了守衛**：hook 保證的是「raw 不會出現在工作分支」，
   **不是**「raw 已經進了 audit-raw」。
-  📊 **普查結果（08-31）：兩個明講過的宣稱都是真的，缺口是沉默不是假話。**
+  📊 **普查結果（08-31）：兩個明講過的宣稱都是真的。**
   - ✅ `12_auditor-rulings.md:38`「raw 18 檔＋TE excerpt＋drive_ovs.log 落 audit-raw `d62ff34`」
     ——**逐項對上**：`2026-08-31_live-recipes/raw/` 在 audit-raw 上正好 **18 檔**，
     加 `te-crashloop-excerpt.txt` 共 19，`drive_ovs_a4e_a2.sh` 在列。
@@ -1473,3 +1480,32 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 - **要修的話的形狀**：把清場改成「讀 `/proc`、按 PID、只殺本輪記錄下來的那些」，
   並同時給 `measure.sh` 一個版本標記，讓「改版前／改版後」的格永遠分得開
   ——否則修完之後，新舊格會長得一樣而不可比。
+
+### 哨兵值會製造**空洞的通過**：兩個「讀不到」彼此相等 ⇒ 首尾對帳成功
+
+- **狀態**：**通則，已在 2026-08-31 的兩支新量測腳本上實際發生並修好**。登記在此是因為它
+  不屬於任何一輪——它是一種寫法的性質。
+- **形狀**：一個函式在失敗時回傳哨兵字串（`NO-KERNEL-PROCESS`、`UNREADABLE`、`N/A`、`""`），
+  呼叫端拿它做**相等比較**（首尾括號、前後對帳、A/B 比值）。
+  🔴 **兩個哨兵值彼此相等** ⇒ 一個**從頭到尾都讀不到**的量測，比較會「成功」。
+  失效方向是最壞的那個：**完全沒有資料** 與 **資料完全一致** 產生同一個結論。
+- **實例（08-31，E 與 F-5 的 binary 身分括號）**：
+  ```bash
+  running_kernel_sha() { ... || echo "UNREADABLE"; }
+  sha_open=$(running_kernel_sha);  # ... 量測 ...
+  sha_close=$(running_kernel_sha)
+  [[ "$sha_open" == "$sha_close" ]] || abort   # ← 兩邊都 UNREADABLE 時通過
+  ```
+  🔑 **寫這段的人，在同一份檔案裡寫了「讀不到 ≠ 通過」的警語。** 知道規則不等於套用規則。
+- **修法（兩層，缺一不可）**：
+  1. **形狀檢查**：比較之前先斷言值長得像一個答案（`[[ "$v" =~ ^[0-9a-f]{64}$ ]]`）。
+     形狀不對 ⇒ **中止**，不是通過、也不是警告。
+  2. 🔴 **判準看輸出，不看 exit code**：讓檢查印出
+     `verdict=MATCH|MISMATCH|UNREADABLE`，呼叫端 grep `verdict=MATCH`。
+     **`exit 0` 表示「跑完了」，不表示「答案是對的」**——而「檢查根本沒跑到」也會 exit 0。
+- **怎麼找出既有的實例**：找「回傳哨兵字串的函式」與「拿它的回傳值做 `==` / `!=`」的組合。
+  同族還有：`grep -c` 回 0（沒命中）與真的是 0 個不可分辨；
+  空陣列的平均；以及任何「兩邊都缺席 ⇒ 差為零 ⇒ 判定通過」的比值。
+- **關聯**：[[failures-that-report-success]]（第 N 個機制）、
+  [[injections-must-assert-their-own-success]]、
+  [[verify-the-purpose-not-the-mechanism]]（每個閘門要 force-red **也要** force-green）。
