@@ -1,0 +1,99 @@
+=== §E fine ladder  2026-08-31T15:38:04+00:00 ===
+rungs (frozen): 360 380 400 420 440 460 480 500 520 540
+guest load: 0.00 0.15 0.63   avail: 15.0 GiB
+───────────────────────────────────────────────────────────
+### PREREG-B arm D label=e_Dn1 json=ndtwin_switch.json  2026-08-31T15:38:04+00:00
+  fabric ready: bmv2=110555 (node shell 110477) h1=110473 h2=110475
+  F1/F2 entry: pid=110555 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  F3: ipv4_lpm entries visible on southbound direct read: 2
+  F3 forwarding check: 3 packets transmitted, 3 received, 0% packet loss, time 2061ms
+  sender gate G = 7397 Mbit  (rungs above 1479 Mbit are sender-limited)
+    360 M  reps 3  loss   0.0296%  sent   359.95  recv   359.82  clean=yes
+    380 M  reps 3  loss   0.6842%  sent   379.95  recv   377.62  clean=no
+    400 M  reps 3  loss   2.0187%  sent   399.94  recv   394.05  clean=no
+    420 M  reps 1  loss   3.0673%  sent   419.94  recv   407.04  clean=no
+    440 M  reps 1  loss   6.9709%  sent   439.94  recv   409.25  clean=no
+    460 M  reps 1  loss   8.0375%  sent   459.94  recv   422.94  clean=no
+    480 M  reps 1  loss  13.2201%  sent   479.93  recv   416.45  clean=no
+    500 M  reps 1  loss   9.4527%  sent   499.93  recv   452.66  clean=no
+    520 M  reps 1  loss   9.0070%  sent   519.93  recv   473.07  clean=no
+    540 M  reps 1  loss  10.7205%  sent   539.93  recv   482.03  clean=no
+  F1/F2 exit: pid=110555 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  ⇒ arm e_Dn1 highest clean rung = 360 Mbit
+### arm e_Dn1 done  2026-08-31T15:40:42+00:00
+───────────────────────────────────────────────────────────
+### PREREG-B arm D label=e_Df1 json=firewall.json  2026-08-31T15:40:42+00:00
+  fabric ready: bmv2=111193 (node shell 111114) h1=111110 h2=111112
+  F1/F2 entry: pid=111193 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  F3: ipv4_lpm entries visible on southbound direct read: 2
+  F3 forwarding check: 3 packets transmitted, 3 received, 0% packet loss, time 2053ms
+  sender gate G = 6835 Mbit  (rungs above 1367 Mbit are sender-limited)
+    360 M  reps 3  loss   0.0198%  sent   359.95  recv   359.86  clean=yes
+    380 M  reps 3  loss   0.9562%  sent   379.95  recv   377.12  clean=no
+    400 M  reps 1  loss   0.0000%  sent   399.94  recv   399.92  clean=yes
+    420 M  reps 1  loss   3.1777%  sent   419.94  recv   406.57  clean=no
+    440 M  reps 3  loss   2.8506%  sent   439.94  recv   426.12  clean=no
+    460 M  reps 1  loss   7.2775%  sent   459.94  recv   426.43  clean=no
+    480 M  reps 1  loss   5.5213%  sent   479.93  recv   453.41  clean=no
+    500 M  reps 1  loss  13.4723%  sent   499.93  recv   432.55  clean=no
+    520 M  reps 1  loss   8.8412%  sent   519.93  recv   473.94  clean=no
+    540 M  reps 1  loss   9.2096%  sent   539.93  recv   490.16  clean=no
+  F1/F2 exit: pid=111193 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  ⇒ arm e_Df1 highest clean rung = 400 Mbit
+### arm e_Df1 done  2026-08-31T15:43:21+00:00
+───────────────────────────────────────────────────────────
+### PREREG-B arm D label=e_Dn2 json=ndtwin_switch.json  2026-08-31T15:43:21+00:00
+  fabric ready: bmv2=111724 (node shell 111646) h1=111642 h2=111644
+  F1/F2 entry: pid=111724 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  F3: ipv4_lpm entries visible on southbound direct read: 2
+  F3 forwarding check: 3 packets transmitted, 3 received, 0% packet loss, time 2032ms
+  sender gate G = 6601 Mbit  (rungs above 1320 Mbit are sender-limited)
+    360 M  reps 3  loss   0.0428%  sent   359.95  recv   359.72  clean=yes
+    380 M  reps 3  loss   1.2122%  sent   379.95  recv   375.73  clean=no
+    400 M  reps 3  loss   1.4936%  sent   399.95  recv   394.59  clean=no
+    420 M  reps 1  loss   3.2734%  sent   419.94  recv   406.17  clean=no
+    440 M  reps 3  loss   6.7723%  sent   439.94  recv   415.90  clean=no
+    460 M  reps 1  loss  11.3909%  sent   459.94  recv   407.51  clean=no
+    480 M  reps 3  loss   1.7934%  sent   479.93  recv   472.10  clean=no
+    500 M  reps 1  loss   9.3992%  sent   499.93  recv   452.91  clean=no
+    520 M  reps 1  loss  10.0798%  sent   519.93  recv   467.49  clean=no
+    540 M  reps 1  loss   6.1192%  sent   539.93  recv   506.85  clean=no
+  F1/F2 exit: pid=111724 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  ⇒ arm e_Dn2 highest clean rung = 360 Mbit
+### arm e_Dn2 done  2026-08-31T15:46:36+00:00
+───────────────────────────────────────────────────────────
+### PREREG-B arm D label=e_Df2 json=firewall.json  2026-08-31T15:46:36+00:00
+  fabric ready: bmv2=112319 (node shell 112243) h1=112239 h2=112241
+  F1/F2 entry: pid=112319 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  F3: ipv4_lpm entries visible on southbound direct read: 2
+  F3 forwarding check: 3 packets transmitted, 3 received, 0% packet loss, time 2057ms
+  sender gate G = 6892 Mbit  (rungs above 1378 Mbit are sender-limited)
+    360 M  reps 3  loss   0.0016%  sent   359.95  recv   359.89  clean=yes
+    380 M  reps 3  loss   1.0343%  sent   379.95  recv   377.06  clean=no
+    400 M  reps 1  loss   2.7499%  sent   399.95  recv   388.91  clean=no
+    420 M  reps 3  loss   2.7670%  sent   419.94  recv   409.80  clean=no
+    440 M  reps 1  loss   4.7701%  sent   439.94  recv   418.93  clean=no
+    460 M  reps 1  loss   6.3619%  sent   459.94  recv   430.65  clean=no
+    480 M  reps 1  loss   4.4548%  sent   479.93  recv   458.52  clean=no
+    500 M  reps 1  loss   4.0621%  sent   499.93  recv   479.61  clean=no
+    520 M  reps 1  loss  17.5617%  sent   519.93  recv   428.60  clean=no
+    540 M  reps 1  loss   9.0523%  sent   539.93  recv   491.04  clean=no
+  F1/F2 exit: pid=112319 exe=/home/ndt/bnslab-B/tree_D/targets/simple_switch_grpc/.libs/simple_switch_grpc sha=cffff4b08318ee24 (want cffff4b08318ee24)
+  ⇒ arm e_Df2 highest clean rung = 360 Mbit
+### arm e_Df2 done  2026-08-31T15:49:14+00:00
+
+=== §E summary  2026-08-31T15:49:14+00:00 ===
+  arm      highest_M  program      stop_reason              gate_M
+  e_Dn1    360        ndtwin       override_list_exhausted  7397
+  e_Df1    400        firewall     override_list_exhausted  6835
+  e_Dn2    360        ndtwin       override_list_exhausted  6601
+  e_Df2    360        firewall     override_list_exhausted  6892
+
+--- registered readout: are the two programs STRICTLY separated? ---
+    ndtwin  [360, 360]
+    firewall [400, 360]
+    ⇒ NOT strictly separated: at 20 Mbit resolution the two programs' fast arms
+      coincide. Section C's claim survives AT THIS RESOLUTION.
+      🔑 Still not 'the bottleneck is I/O' -- that needs an experiment that
+         changes the I/O path without changing the program. Nobody has run one.
+=== done ===
