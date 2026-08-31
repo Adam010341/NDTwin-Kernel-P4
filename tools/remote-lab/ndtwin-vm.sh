@@ -482,6 +482,13 @@ vms)
         [ -d "$d" ] || continue
         found=1; d="${d%/}"
         if p=$(dir_pid "$d"); then q="pid $p"; else q="-"; fi
+        # A directory with no disk is not a VM. Say so instead of printing a row
+        # that looks like an occupancy -- post-destroy leftovers used to read as one.
+        if [ ! -f "$d/disk.qcow2" ]; then
+            printf '  %-24s %-12s %-6s %-9s %s\n' \
+                "$(basename "$d")" "-" "-" "$q" "no disk -- leftover files only, not a VM"
+            continue
+        fi
         if [ -f "$d/CONFIG" ]; then
             wp=$(awk -F= '/^cpus=/{c=$2} /^mem=/{m=$2} END{print c" vCPU/"m" MiB"}' "$d/CONFIG")
         else
@@ -511,8 +518,22 @@ destroy)
     printf 'Type DESTROY to confirm: '; read -r ans
     [ "$ans" = DESTROY ] || { say "aborted"; exit 1; }
     vm_running && "$0" stop
-    rm -f "$IMG" "$SEED" "$PIDF" "$MON"
-    say "gone. Base image kept at $BASE (delete by hand if you mean it)."
+    # 🔴 Until 2026-08-31 this removed only IMG/SEED/PIDF/MON, so OWNER and CONFIG
+    # survived a destroy and `vms` kept listing a VM that no longer had a disk --
+    # a ghost claim, complete with a port number, for the next reader to work around.
+    # The registry entry has to die with the thing it describes.
+    rm -f "$IMG" "$SEED" "$PIDF" "$MON" "$OWNERF" "$CFG" \
+          "$VM_DIR/user-data" "$VM_DIR/meta-data"
+    # And the old closing line named ONLY the base image. It was true, which is
+    # exactly why it misled: a report that discloses one leftover reads as the
+    # complete list of leftovers. Enumerate whatever is actually still there.
+    say "gone. What is still in $VM_DIR:"
+    if [ -d "$VM_DIR" ] && [ -n "$(ls -A "$VM_DIR" 2>/dev/null)" ]; then
+        ls -1sh "$VM_DIR" | sed '1d;s/^/     /'
+        say "   (kept so a re-create need not re-download; delete the directory if you mean it)"
+    else
+        say "     (nothing -- the directory is empty)"
+    fi
     ;;
 
 *)

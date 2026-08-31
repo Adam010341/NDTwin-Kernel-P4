@@ -251,5 +251,67 @@ else
 fi
 
 
+echo
+echo "=== G11 destroy must take the registry entry with it (found by mainDev, 08-31) ==="
+# `destroy` used to remove IMG/SEED/PIDF/MON and leave OWNER and CONFIG behind, so
+# `vms` went on listing a VM that no longer had a disk -- owner, port and all. The
+# next reader sees an occupancy and works around a ghost.
+mkdir -p "$T/j"
+printf 'owner: mainDev\nsince: x\nport:  2245\nnote:  E round\n' > "$T/j/OWNER"
+printf 'cpus=12\nmem=8192\ndisk=120G\nport=2245\n' > "$T/j/CONFIG"
+: > "$T/j/noble-base.img"          # the deliberately-kept base image
+qemu-img create -q -f qcow2 "$T/j/disk.qcow2" 8M 2>/dev/null || : > "$T/j/disk.qcow2"
+DOUT=$(printf 'DESTROY\n' | env NDT_OWNER=mainDev VM_DIR="$T/j" SSH_PORT=2245 bash "$VM" destroy 2>&1)
+
+for f in disk.qcow2 OWNER CONFIG; do
+    if [ ! -e "$T/j/$f" ]; then
+        printf '  ✅ RED-capable -- destroy removed %s\n' "$f"; pass=$((pass+1))
+    else
+        printf '  🔴 destroy left %s behind -- vms will still show an occupancy\n' "$f"
+        fail=$((fail+1))
+    fi
+done
+# GREEN: the base image is kept ON PURPOSE, so a re-create need not re-download.
+# Without this case, "delete everything" would pass the three checks above.
+if [ -e "$T/j/noble-base.img" ]; then
+    echo "  ✅ GREEN-- the base image is still kept (re-create must not re-download)"; pass=$((pass+1))
+else
+    echo "  🔴 destroy deleted the base image too"; fail=$((fail+1))
+fi
+# The old message named ONLY the base image. It was true, and that is precisely why
+# it misled: disclosing one leftover reads as the complete list of leftovers.
+if printf '%s' "$DOUT" | grep -q 'What is still in' && printf '%s' "$DOUT" | grep -q 'noble-base.img'; then
+    echo "  ✅ GREEN-- destroy enumerates what actually remains, not one example"; pass=$((pass+1))
+else
+    echo "  🔴 destroy's closing message does not list the real residue"; fail=$((fail+1))
+fi
+
+echo
+echo "=== G12 vms must not report a disk-less directory as an occupancy ==="
+# 🔑 `vms` enumerates $HOME/ndtwin-vm*/ -- NOT $VM_DIR. The first version of this
+# case set VM_DIR and asserted on the output, so its fixture was never scanned at
+# all: it went red for the wrong reason. Point HOME at the sandbox instead.
+mkdir -p "$T/home/ndtwin-vm-ghost"
+printf 'owner: mainDev\nsince: x\nport:  2245\nnote:  destroyed\n' > "$T/home/ndtwin-vm-ghost/OWNER"
+: > "$T/home/ndtwin-vm-ghost/noble-base.img"
+VOUT=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$VOUT" | grep -q 'no disk'; then
+    echo "  ✅ RED-capable -- a leftover directory is labelled, not listed as a VM"; pass=$((pass+1))
+else
+    echo "  🔴 a disk-less directory still reads as a VM in vms"; fail=$((fail+1))
+fi
+# GREEN: a real VM directory must STILL show its owner -- the new branch must not
+# swallow live entries on its way to hiding dead ones.
+mkdir -p "$T/home/ndtwin-vm-live"
+printf 'owner: bmv2paper\nsince: x\nport:  2299\nnote:  B round\n' > "$T/home/ndtwin-vm-live/OWNER"
+: > "$T/home/ndtwin-vm-live/disk.qcow2"
+VOUT2=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$VOUT2" | grep -q 'bmv2paper'; then
+    echo "  ✅ GREEN-- a directory that HAS a disk still shows its owner"; pass=$((pass+1))
+else
+    echo "  🔴 the disk-less branch is swallowing real VMs too"; fail=$((fail+1))
+fi
+
+
 printf '\n=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" = 0 ]
