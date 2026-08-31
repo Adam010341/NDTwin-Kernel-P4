@@ -1,0 +1,1 @@
+  path-latency: 350 flows, 2 never got a path, 21 left-censored; polls 1634 (0 failed), gap median 0.1011s p95 0.2431s max 0.9811s

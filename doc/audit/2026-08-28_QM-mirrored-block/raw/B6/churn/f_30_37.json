@@ -1,0 +1,179 @@
+{
+	"start":	{
+		"connected":	[{
+				"socket":	8,
+				"local_host":	"10.0.0.22",
+				"local_port":	32992,
+				"remote_host":	"10.0.0.54",
+				"remote_port":	5337
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux adam-Yoga-7-2-in-1-16IML9 7.0.0-30-generic #30~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Aug  7 13:27:52 UTC 2 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 28 Aug 2026 02:38:17 GMT",
+			"timesecs":	1787884697
+		},
+		"connecting_to":	{
+			"host":	"10.0.0.54",
+			"port":	5337
+		},
+		"cookie":	"l6h7riz3zvwks4erh5wsob6dxqoh7kljukl3",
+		"tcp_mss_default":	1448,
+		"target_bitrate":	20000000,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	87380,
+		"rcvbuf_actual":	87380,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	20000000,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	8,
+					"start":	0,
+					"end":	1.00006,
+					"seconds":	1.000059962272644,
+					"bytes":	1048576,
+					"bits_per_second":	8388105.0301592145,
+					"retransmits":	56,
+					"snd_cwnd":	14480,
+					"snd_wnd":	72704,
+					"rtt":	14609,
+					"rttvar":	3708,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.00006,
+				"seconds":	1.000059962272644,
+				"bytes":	1048576,
+				"bits_per_second":	8388105.0301592145,
+				"retransmits":	56,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	8,
+					"start":	1.00006,
+					"end":	2.00006,
+					"seconds":	1,
+					"bytes":	1572864,
+					"bits_per_second":	12582912,
+					"retransmits":	46,
+					"snd_cwnd":	11584,
+					"snd_wnd":	263168,
+					"rtt":	9718,
+					"rttvar":	2741,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.00006,
+				"end":	2.00006,
+				"seconds":	1,
+				"bytes":	1572864,
+				"bits_per_second":	12582912,
+				"retransmits":	46,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	8,
+					"start":	2.00006,
+					"end":	3.001091,
+					"seconds":	1.0010310411453247,
+					"bytes":	1048576,
+					"bits_per_second":	8379967.9082900528,
+					"retransmits":	46,
+					"snd_cwnd":	10136,
+					"snd_wnd":	260096,
+					"rtt":	9662,
+					"rttvar":	3721,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.00006,
+				"end":	3.001091,
+				"seconds":	1.0010310411453247,
+				"bytes":	1048576,
+				"bits_per_second":	8379967.9082900528,
+				"retransmits":	46,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	8,
+					"start":	0,
+					"end":	3.001091,
+					"seconds":	3.001091,
+					"bytes":	3670016,
+					"bits_per_second":	9783151.52722793,
+					"retransmits":	148,
+					"max_snd_cwnd":	14480,
+					"max_snd_wnd":	263168,
+					"max_rtt":	14609,
+					"min_rtt":	9662,
+					"mean_rtt":	11329,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	8,
+					"start":	0,
+					"end":	3.025931,
+					"seconds":	3.001091,
+					"bytes":	3538944,
+					"bits_per_second":	9356311.1650596131,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.001091,
+			"seconds":	3.001091,
+			"bytes":	3670016,
+			"bits_per_second":	9783151.52722793,
+			"retransmits":	148,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.025931,
+			"seconds":	3.025931,
+			"bytes":	3538944,
+			"bits_per_second":	9356311.1650596131,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	0.4362377775009858,
+			"host_user":	0.11832856942792476,
+			"host_system":	0.317909208073061,
+			"remote_total":	0.651921892308465,
+			"remote_user":	0.084997369443776158,
+			"remote_system":	0.566924522864689
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
