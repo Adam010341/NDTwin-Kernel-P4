@@ -13,7 +13,10 @@ set -uo pipefail
 # Resolve BOTH tools relative to this script, never by absolute path. A harness that
 # names an absolute path tests whichever copy lives there -- which, once this file is
 # in the repo and also in ~/.local, is not the copy the reader just checked out.
-HERE=$(cd -- "$(dirname -- "$0")" && pwd)
+# readlink -f, not dirname $0: this file is symlinked from ~/.local, and $0's directory
+# would then be the symlink's home -- where the tools are not. Resolve to the real file
+# so the harness always tests the copy it actually lives beside.
+HERE=$(dirname -- "$(readlink -f -- "$0")")
 VM="$HERE/ndtwin-vm.sh"
 RLAB="$HERE/rlab"
 [ -x "$VM" ] && [ -x "$RLAB" ] || { echo "🔴 missing tools next to $0"; exit 2; }
