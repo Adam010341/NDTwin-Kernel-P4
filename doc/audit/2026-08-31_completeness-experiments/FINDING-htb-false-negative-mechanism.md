@@ -60,3 +60,21 @@ n=$(printf '%s' "$out" | grep -c htb)
 🔑 **通則**：**任何「數出 0」的斷言，都要先證明它的輸入存在。**
 
 [Co-developed with claude code -- Adam]
+
+
+---
+
+## 同族：本篇不是孤例（09-01 補，auditor 指示兩篇互相引用）
+
+[`FINDING-two-checks-broken-toward-the-same-answer.md`](FINDING-two-checks-broken-toward-the-same-answer.md)
+（遠端機器測試線，同一天）記的是 `git push … | tail` 讓 `$?` 變成 `tail` 的 rc、
+外加對不存在的 ref 做 `rev-parse` 讓 `wc -l` 得 0 ——**兩條檢查同時往「看起來沒事」壞掉**。
+
+**兩例的失敗都不在判準，在管線**：判準都寫對了，而管線把
+「上游根本沒有執行」與「上游執行了、答案是 0」**壓成同一個位元組**。
+
+⇒ 可操作的推論**不是**「多寫一條檢查」（那一篇有兩條，同時壞），而是
+**讓「上游有沒有執行」變成一個獨立、會說話的觀測**：
+`out=$(cmd)` 接住輸出、`rc=$?` 接住狀態、**先分別斷言這兩個**，最後才去數東西。
+
+詳細對照表在那一篇的末節。

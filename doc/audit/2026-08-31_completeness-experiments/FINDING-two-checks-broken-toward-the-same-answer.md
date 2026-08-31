@@ -89,3 +89,29 @@ push rc=0            ← 檢查一：說成功
 
 - 本輪 finding：[FINDING-a-fix-needs-its-own-mutation.md](FINDING-a-fix-needs-its-own-mutation.md)
 - 規定正本 [`NSLAB-USAGE-RULES.md`](NSLAB-USAGE-RULES.md) — **「驗收寫在狀態上，不寫在 rc 上」**貫穿全篇
+
+---
+
+## 同族實例（09-01 補，由 8/29 poster-reviewer 提出；auditor 指示兩篇互相引用）
+
+**正本**＝[`FINDING-htb-false-negative-mechanism.md`](FINDING-htb-false-negative-mechanism.md)。
+形狀相同、機制不同，而**差異本身是可用的**。
+
+| | 本篇（git push） | htb 那篇（fabric shaping） |
+|---|---|---|
+| 檢查 | `git push … \| tail`；對不存在的 ref 做 `rev-parse` | `sudo -n tc -s qdisc show \| grep -c htb` |
+| 壞法 | `\| tail` 讓 `$?` 變成 tail 的 rc；`wc -l` 對空輸入得 0 | `sudo -n` 不匹配白名單 ⇒ 指令未執行 ⇒ stdout 空 ⇒ `grep -c` 得 0 |
+| 兩邊都指向 | 「推上去了」 | 「fabric 是 unshaped」 |
+| 共同結構 | **管線末端的 0／rc 無法分辨「真的是 0」與「上游根本沒產出」** | 同左 |
+
+🔑 **合起來看得到、分開看不到的那一條**：
+
+> 兩例的失敗都不在**判準**，在**管線**。判準（「rc 要是 0」「htb 數要是 0」）都寫對了，
+> 而管線把「上游沒有執行」與「上游執行了、答案是 0」**壓成同一個位元組**。
+> ⇒ 可操作的推論不是「多寫一條檢查」——**本篇的兩條檢查就是兩條，而且同時壞**——
+> 而是**讓上游的執行與否成為一個獨立的、會說話的觀測**：
+> 先把輸出接住（`out=$(cmd)`；`rc=$?`），再分別斷言 `rc` 與 `out` 非空，最後才數東西。
+
+⚠️ **兩例都是自己人寫的閘門，而且作者都是為了「多一層保護」才寫的。**
+本篇的作者當時在驗推送、那篇的作者當時在驗 fabric 形狀——
+**兩人都在做正確的事，而工具把他們的謹慎轉譯成了一句安心的謊。**
