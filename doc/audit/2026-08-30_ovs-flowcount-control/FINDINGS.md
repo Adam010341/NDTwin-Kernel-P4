@@ -1,7 +1,11 @@
 # FINDINGS——OvS 同梯對照（C3 對照平面半邊；PREREG＋AMENDMENT-1 本目錄）
 
 **2026-08-30 13:44–14:1x 量測；6＋1 臂（原名「無 shaping／shaped 對照」——🔴 實為同 config，見下方更正框）。**
-執行 `8/29 poster-reviewer`。raw＝`raw/`（**audit-raw `a868948`，本地、push 凍結中**）。
+執行 `8/29 poster-reviewer`。raw＝`raw/`（**audit-raw `a868948`**；🔴 **08-31 更正：原寫
+「本地、push 凍結中」已過期**——`a868948` 已是 `p4/audit-raw` 的祖先，**不再是 local-only**；
+`lab/audit-raw` 則**不含**它。非公開靠的是 `Adam010341/NDTwin-Kernel-P4` 為 **PRIVATE**
+（`gh repo view --json visibility` 實查），**不是靠沒推**。公開的 `ndtwin-lab/NDTwin-Kernel`
+上**沒有** `audit-raw` 分支。⇒ 引用 artifact 要指名 commit，分支名不是可引用的東西。）
 driver 在第七臂 160M 階被行程重啟殺掉——**決定性讀值（45 clean／70/110 大髒）已在盤面上**，
 缺的只有無資訊的尾階與收尾摘要。
 
