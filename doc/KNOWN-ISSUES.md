@@ -1608,3 +1608,24 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 - **關聯**：[[failures-that-report-success]]（第 N 個機制）、
   [[injections-must-assert-their-own-success]]、
   [[verify-the-purpose-not-the-mechanism]]（每個閘門要 force-red **也要** force-green）。
+
+### 量測腳本的 log 後綴會**疊加**：`run_f5.dryrun.selftest.dryrun.log`
+
+- **狀態**：**已知、未修**（2026-08-31，穩定優先——兩輪正在複查中，不動碼）。
+  **目前只是難看；疊到第三層就會開始撞名。**
+- **機制**（三件事湊起來，單獨看都合理）：
+  1. `round.env` **`export LOG=`** ⇒ 子行程**繼承**父行程的 `LOG`；
+  2. `run_f5.sh` 在 `DRY_RUN=1` 時做 `LOG="${LOG%.log}.dryrun.log"`；
+  3. 模式派發時再做 `LOG="${LOG%.log}.<mode>.log"`。
+  ⇒ 父行程 `selftest`（dry）得到 `run_f5.dryrun.selftest.log`，
+  它**再 spawn 一個 `arm` 子行程**，子行程繼承那個**已經加過後綴**的值並**再加一次**
+  ⇒ `run_f5.dryrun.selftest.dryrun.log`。**後綴的層數＝行程巢狀的層數。**
+- 🔑 **為什麼會發生**：後綴邏輯假設它拿到的是**原始**檔名，而 `export` 讓它拿到的是
+  **上一層的成品**。**冪等性沒有被檢查過**——`f(f(x)) ≠ f(x)`。
+- **修法的形狀**（不要只是把 `export` 拿掉，那會讓子行程寫回同一個檔）：
+  由 `round.env` 匯出一個**不變的** `LOG_BASE`，各行程一律從 `LOG_BASE` **重新**推導自己的
+  `LOG`，而不是修改繼承來的值。這樣後綴就對巢狀免疫。
+- **影響範圍**：`run_f5.sh`（已觀察到）。`run_e.sh`／`gates_e.sh` 同樣 `export LOG` 且同樣有
+  dryrun 後綴，**但目前沒有 spawn 子行程的模式會再套一次**——`gates_e.sh` 的矩陣**確實**
+  spawn `run_e.sh`，所以**同一個形狀在 E 也具備條件**，只是還沒產生撞名的檔名。
+  ⇒ **修的時候兩輪一起修。**

@@ -636,6 +636,13 @@ selftest() {
       "config||ABORT(#7/#8)|"
       "exedriftmid||ABORT(§4 F4)|wants the"
       "restore_atexit||THE PRODUCTION KERNEL IS NOT RESTORED|"
+      # Same force as the row above, asserting a DIFFERENT thing: that the EXIT trap RAN on
+      # an ABORT path.  abort() is `exit 9`, so in theory EXIT fires -- and "in theory it
+      # fires" is the sentence that has been wrong four times today, so it is asserted.
+      # 🔴 abort is the path that MOST needs it: an abort means something already went
+      # wrong (identity broken, config mismatched, fabric short), which is exactly when the
+      # fabric is most likely to be sitting in a non-production state -- and E is next on it.
+      "config||[exit] production kernel|"
       "exeunreadablemid||could not be READ|wants the"
       "exeunreadable_absorbed||ABORT(§4 F4)|"
       "logrotate||LOG-EVIDENCE-INCOMPLETE|ABORT"
