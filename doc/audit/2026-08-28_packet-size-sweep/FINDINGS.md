@@ -160,3 +160,54 @@ workload.
 是**兩臂平均值、沒有任何一臂讀到 16.0**——引用格值時要帶臂值（本檔 §1 原表即有）。
 
 **[Co-developed with claude code -- Adam]**
+
+---
+
+## 補報（2026-08-31，reviewer 線；原文一字未改）
+
+🔴 **漏報事實**：AMENDMENT-1 §7.4 註冊了**兩項**次要觀察，原文寫死
+「Neither may adjust any interval, threshold or prediction in §4, and **both are reported
+whichever way they come out**」。**第 2 項有報**（本檔 :55-59，ratio 1.12）；
+**第 1 項與其後果條款從未回報**——字串 `fast side is reproducible` 在整個 `doc/` 樹
+只出現在 `PREREG.md:181` 那一次。2026-08-31 的回報義務清償盤點發現，本節同日補報。
+
+### 第 1 項：判準達成
+
+註冊原文：③ 的 n=1 ≥240 Mbit/flow 對 08-15 的 fast 側 300 Mbps，
+**「Agreement to better than a factor of 1.5 ⇒ the fast side is reproducible.」**
+
+| 取哪個值 | 比值 | 對 1.5 門檻 |
+|---|---|---|
+| **註冊指定的 ≥240**（arm b，梯頂右截尾下界） | **300 ÷ 240 ＝ 1.25** | ✅ **達成** |
+| arm a 的 160 | 300 ÷ 160 ＝ 1.875 | ❌ 不達成 |
+| 兩臂均值 200 | 300 ÷ 200 ＝ **1.50** | ⚠️ **恰在門檻上** |
+
+⇒ **依註冊指定的值（≥240）判準達成、「fast 側可重現」成立。**
+🔴 **敏感度照實揭露**：換成 arm a 或兩臂均值就不達成或恰在界上
+——**註冊當時指定了哪個值，就用哪個值**，但讀者必須看得到這個依賴。
+
+### 第 2 項（後果條款）：**觸發了**
+
+註冊原文：「**Consequence for ①** … if ① lands in H2 (R < 9), **the stock-side 25 Mbps is
+the more likely suspect, not the fast side.** This does not change any of ①'s registered intervals.」
+
+**① 確實落在 H2**（`../2026-08-28_single-switch-build-ratio/FINDINGS-1b.md:42-48`，R＝8.0 < 9）
+⇒ **條款觸發**。而資料的方向與它一致：
+
+| build | 三跳（08-15） | 單跳（①） | 隔離後上升 |
+|---|---|---|---|
+| stock | 25 Mbit/s | 45 | **×1.8** |
+| fast | 300 | 360 | **×1.2** |
+
+⇒ **拿掉兩跳之後，stock 側動了 1.8 倍而 fast 側只動 1.2 倍**
+——路徑長度的污染集中在 **stock 側**，與註冊的後果條款方向相符。
+⚠️ **不改 ① 的任何註冊區間**（註冊原文即如此規定）；本條是**歸屬線索**不是新的量測。
+
+### 為什麼這條漏掉了反而該注意
+
+**它會讓論文更強**：母版現在寫「By the preregistered rule (R<9), part of the production-path
+ratio is not the compiler flags」——**而預註冊早就寫下了那個「part」比較可能在哪一端**。
+⇒ **漏掉的是對自己有利的證據。**
+🔑 **這是同日第二例**（另一例＝③ 的收端讀出）⇒ 「忘記報」跟「想不想報」無關；
+防它的是清單不是誠實，已成為收官常設步驟（`doc/2026-08-31_round-closing-checklist.md` §6）。
+
