@@ -1,0 +1,148 @@
+# URL-construction idiom per repo, so that "we enumerated every /ndt/ call" is checkable.
+# Recorded 2026-08-30T07:08:32Z
+
+## Energy-Saving-App
+/home/adam/Energy-Saving-App/src/app/http.cpp:127:        "/ndt/set_switches_power_state?ip=" + utils::ip_to_string(ip) + "&action=" + (on ? "on" : "off");
+/home/adam/Energy-Saving-App/src/app/http.cpp:158:    const std::string target = "/ndt/install_flow_entry";
+/home/adam/Energy-Saving-App/src/app/http.cpp:178:    const std::string target = "/ndt/modify_flow_entry";
+/home/adam/Energy-Saving-App/src/app/http.cpp:201:    const std::string target = "/ndt/delete_flow_entry";
+/home/adam/Energy-Saving-App/src/app/http.cpp:221:    const std::string target = "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries";
+/home/adam/Energy-Saving-App/src/app/http.cpp:269:        const std::string target = "/ndt/disable_switch";
+/home/adam/Energy-Saving-App/src/app/http.cpp:308:    const std::string target = "/ndt/get_switch_openflow_table_entries";
+/home/adam/Energy-Saving-App/src/app/http.cpp:337:    const std::string target = "/ndt/get_graph_data";
+/home/adam/Energy-Saving-App/src/app/http.cpp:366:    const std::string target = "/ndt/get_detected_flow_data";
+/home/adam/Energy-Saving-App/src/app/http.cpp:395:    const std::string target = "/ndt/get_average_link_usage";
+/home/adam/Energy-Saving-App/src/app/http.cpp:423:    const std::string target = "/ndt/acquire_lock";
+/home/adam/Energy-Saving-App/src/app/http.cpp:459:    const std::string target = "/ndt/release_lock";
+/home/adam/Energy-Saving-App/include/app/settings.hpp:18:inline const std::string ndt_target = "/ndt/app_register";
+/home/adam/Energy-Saving-App/include/app/settings.hpp:22:inline const std::string request_manager_target_for_app = "/ndt/received_a_simulation_case";
+/home/adam/Energy-Saving-App/include/app/settings.hpp.example:18:inline const std::string ndt_target = "/ndt/app_register";
+/home/adam/Energy-Saving-App/include/app/settings.hpp.example:22:inline const std::string request_manager_target_for_app = "/ndt/received_a_simulation_case";
+
+## Simulation-Platform-Manager
+/home/adam/Simulation-Platform-Manager/include/settings/sim_server.hpp:10:inline const std::string request_manager_target = "/ndt/simulation_completed";
+/home/adam/Simulation-Platform-Manager/include/settings/sim_server.hpp.example:10:inline const std::string request_manager_target = "/ndt/simulation_completed";
+/home/adam/Simulation-Platform-Manager/include/settings/app.hpp:18:inline const std::string ndt_target = "/ndt/app_register";
+/home/adam/Simulation-Platform-Manager/include/settings/app.hpp:23:inline const std::string request_manager_target_for_app = "/ndt/received_a_simulation_case";
+
+## Network-Traffic-Visualizer
+/home/adam/Network-Traffic-Visualizer/README.md:66:The app reads the API base URL from `NDT_API_URL` (default: `http://localhost:8000`).
+/home/adam/Network-Traffic-Visualizer/README.md:69:export NDT_API_URL="http://your-server:8000"
+/home/adam/Network-Traffic-Visualizer/README.md:74:- `/ndt/get_graph_data`
+/home/adam/Network-Traffic-Visualizer/README.md:75:- `/ndt/get_detected_flow_data`
+/home/adam/Network-Traffic-Visualizer/README.md:76:- `/ndt/get_cpu_utilization`
+/home/adam/Network-Traffic-Visualizer/README.md:77:- `/ndt/get_memory_utilization`
+/home/adam/Network-Traffic-Visualizer/README.md:103:- **API connection errors**: verify `NDT_API_URL` and server availability.
+/home/adam/Network-Traffic-Visualizer/debug_output.log:85:[INFO] Using NDT_API_URL from environment: http://localhost:8000
+/home/adam/Network-Traffic-Visualizer/config.properties:3:ndt.api.url=http://localhost:8000
+/home/adam/Network-Traffic-Visualizer/config.properties:5:# Alternative: You can also set this via environment variable NDT_API_URL
+/home/adam/Network-Traffic-Visualizer/config.properties:6:# Example: export NDT_API_URL=http://your-server:8000 
+/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh:3:# Set API URL environment variable (override by exporting NDT_API_URL before running)
+/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh:4:export NDT_API_URL="${NDT_API_URL:-http://localhost:8000}"
+/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh:7:echo "API URL: $NDT_API_URL"
+/home/adam/Network-Traffic-Visualizer/Network_Traffic_Visualizer.sh:4:export NDT_API_URL="http://localhost:8000"
+/home/adam/Network-Traffic-Visualizer/Network_Traffic_Visualizer.sh:8:echo "API URL: $NDT_API_URL"
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NetworkTopologyApp.java:295:        String apiUrl = System.getenv("NDT_API_URL");
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NetworkTopologyApp.java:297:            apiUrl = "http://localhost:8000"; // Default value
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NetworkTopologyApp.java:298:            System.out.println("[INFO] NDT_API_URL environment variable not set, using default: " + apiUrl);
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NetworkTopologyApp.java:300:            System.out.println("[INFO] Using NDT_API_URL from environment: " + apiUrl);
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NetworkTopologyApp.java:1707:     * /ndt/get_detected_top_k_flow_data?k=K instead of the full flow API.
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:15:    private final String baseUrl;
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:19:    public NDTApiClient(String baseUrl) {
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:20:        this.baseUrl = baseUrl;
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:33:            HttpGet request = new HttpGet(baseUrl + "/ndt/get_graph_data");
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:50:            HttpGet request = new HttpGet(baseUrl + "/ndt/get_detected_flow_data");
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:67:     * Example: GET {baseUrl}/ndt/get_detected_top_k_flow_data?k=50
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:73:            String url = String.format("%s/ndt/get_detected_top_k_flow_data?k=%d", baseUrl, safeK);
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:92:            HttpGet request = new HttpGet(baseUrl + "/ndt/get_cpu_utilization");
+/home/adam/Network-Traffic-Visualizer/src/main/java/org/example/demo2/NDTApiClient.java:110:            HttpGet request = new HttpGet(baseUrl + "/ndt/get_memory_utilization");
+
+## Web-GUI
+/home/adam/Web-GUI/README.md:138:Find the `NDT_API_BASE_URL` line in the `.env` file and update it to your NDT kernel server IP address.
+/home/adam/Web-GUI/README.md:139:For example, if your NDTwin kernel server (mininet or testbed) is running at `http://192.168.10.189:8000`, set it as:
+/home/adam/Web-GUI/README.md:141:NDT_API_BASE_URL=http://192.168.10.189:8000
+/home/adam/Web-GUI/README.md:296:- You modified the `.env` file (especially `NDT_API_BASE_URL`) and need to rebuild the frontend image
+/home/adam/Web-GUI/.env:10:NDT_API_BASE_URL=http://localhost:8000
+/home/adam/Web-GUI/Dockerfile:3:ARG NDT_API_BASE_URL
+/home/adam/Web-GUI/Dockerfile:6:# Map NDT_API_BASE_URL to VITE_NDT_API_BASE_URL for Vite client-side access
+/home/adam/Web-GUI/Dockerfile:7:ENV VITE_NDT_API_BASE_URL=$NDT_API_BASE_URL
+/home/adam/Web-GUI/.env.example:10:NDT_API_BASE_URL=http://192.168.64.8:8000
+/home/adam/Web-GUI/web_gui_deploy.sh:22:    echo " - NDT_API_BASE_URL: your NDT server address"
+/home/adam/Web-GUI/docker-compose.yml:46:        - NDT_API_BASE_URL=${NDT_API_BASE_URL:-http://192.168.64.8:8000}
+/home/adam/Web-GUI/docker-compose.yml:50:      - VITE_NDT_API_BASE_URL=${NDT_API_BASE_URL:-http://192.168.64.8:8000}
+/home/adam/Web-GUI/vite.config.ts:10:  // Map NDT_API_BASE_URL to VITE_NDT_API_BASE_URL for client-side access
+/home/adam/Web-GUI/vite.config.ts:11:  // This allows users to use NDT_API_BASE_URL in .env, which is more intuitive
+/home/adam/Web-GUI/vite.config.ts:12:  const ndtApiBaseUrl = env.NDT_API_BASE_URL || env.VITE_NDT_API_BASE_URL;
+/home/adam/Web-GUI/vite.config.ts:30:      // Map NDT_API_BASE_URL to VITE_NDT_API_BASE_URL for client-side code
+/home/adam/Web-GUI/vite.config.ts:31:      // This allows users to use NDT_API_BASE_URL in .env file
+/home/adam/Web-GUI/vite.config.ts:32:      'import.meta.env.VITE_NDT_API_BASE_URL': JSON.stringify(ndtApiBaseUrl),
+/home/adam/Web-GUI/src/components/llm/LLM.ts:8:const NDT_API_BASE_URL = import.meta.env.VITE_NDT_API_BASE_URL;
+/home/adam/Web-GUI/src/components/llm/LLM.ts:21:      `${NDT_API_BASE_URL}/ndt/intent_translator/text`,
+/home/adam/Web-GUI/src/api/index.ts:1:const NDT_API_BASE_URL = import.meta.env.VITE_NDT_API_BASE_URL;
+/home/adam/Web-GUI/src/api/index.ts:36:    fetchApi(`${NDT_API_BASE_URL}/ndt/get_graph_data`),
+/home/adam/Web-GUI/src/api/index.ts:41:    fetchApi(`${NDT_API_BASE_URL}/ndt/get_cpu_utilization`),
+/home/adam/Web-GUI/src/api/index.ts:46:    fetchApi(`${NDT_API_BASE_URL}/ndt/get_memory_utilization`),
+/home/adam/Web-GUI/src/api/index.ts:51:    fetchApi(`${NDT_API_BASE_URL}/ndt/get_temperature`),
+/home/adam/Web-GUI/src/api/index.ts:69:    const url = `${NDT_API_BASE_URL}/ndt/get_nickname${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+/home/adam/Web-GUI/src/api/index.ts:76:    fetchApi(`${NDT_API_BASE_URL}/ndt/get_detected_flow_data`),
+/home/adam/Web-GUI/src/api/index.ts:84:      `${NDT_API_BASE_URL}/ndt/get_detected_top_k_flow_data?${queryParams.toString()}`
+/home/adam/Web-GUI/src/api/index.ts:107:    return fetchApi(`${NDT_API_BASE_URL}/ndt/modify_device_name`, {
+/home/adam/Web-GUI/src/api/index.ts:116:    return fetchApi(`${NDT_API_BASE_URL}/ndt/modify_nickname`, {
+/home/adam/Web-GUI/src/api/index.ts:155:      `${NDT_API_BASE_URL}/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries`,
+/home/adam/Web-GUI/src/api/index.ts:163:    fetchApi(`${NDT_API_BASE_URL}/ndt/get_switch_openflow_table_entries`),
+
+## Network-State-Recorder
+/home/adam/Network-State-Recorder/README.md:54:    ndtwin_kernel: "http://127.0.0.1:8000"
+/home/adam/Network-State-Recorder/README.md:65:| `ndtwin_kernel` | string | `http://127.0.0.1:8000` | URL of the NDTwin kernel |
+/home/adam/Network-State-Recorder/README.md:199:- Check the `ndtwin_kernel` URL in `setting/recorder_setting.yaml`
+/home/adam/Network-State-Recorder/README.md:201:- Test connectivity: `curl http://<your ip>/ndt/get_detected_flow_data`
+/home/adam/Network-State-Recorder/README.md:258:| `/ndt/get_detected_flow_data` | Network flow detection data |
+/home/adam/Network-State-Recorder/README.md:259:| `/ndt/get_graph_data` | Network topology/graph data |
+/home/adam/Network-State-Recorder/development_guide/README.md:249:NEW_SOURCE_URL = "/ndt/get_new_data"
+/home/adam/Network-State-Recorder/development_guide/README.md:296:NEW_SOURCE_URL = ndtwin_kernel + NEW_SOURCE_URL
+/home/adam/Network-State-Recorder/development_guide/README.md:311:PORTSTAT_URL = "/ndt/get_port_statistics"
+/home/adam/Network-State-Recorder/development_guide/README.md:329:PORTSTAT_URL = ndtwin_kernel + PORTSTAT_URL
+/home/adam/Network-State-Recorder/setting/recorder_setting.yaml:4:    ndtwin_kernel: "http://127.0.0.1:8000"
+/home/adam/Network-State-Recorder/network_state_recorder.py:21:FLOWINFO_URL = "/ndt/get_detected_flow_data"
+/home/adam/Network-State-Recorder/network_state_recorder.py:23:GRAPHINFO_URL = "/ndt/get_graph_data"
+/home/adam/Network-State-Recorder/network_state_recorder.py:282:            ndtwin_kernel = config.inventory.hosts["Recorder"].data.get("ndtwin_kernel","http://127.0.0.1:8000")
+/home/adam/Network-State-Recorder/network_state_recorder.py:283:            FLOWINFO_URL = ndtwin_kernel + FLOWINFO_URL
+/home/adam/Network-State-Recorder/network_state_recorder.py:284:            GRAPHINFO_URL = ndtwin_kernel + GRAPHINFO_URL
+/home/adam/Network-State-Recorder/network_state_recorder.py:291:        logger.info(f"Recorder settings: NDTwin server: {ndtwin_kernel}, Request interval: {REQ_INTERVAL} seconds, Storage interval: {int(STORAGE_INTERVAL/60)} minutes")
+
+## Network-Traffic-Generator
+/home/adam/Network-Traffic-Generator/README.md:101:    ndtwin_kernel: "http://10.10.xx.xx:8000"
+/home/adam/Network-Traffic-Generator/README.md:123:    worker_node_server: "http://10.10.xx.xx:8000"
+/home/adam/Network-Traffic-Generator/README.md:136:- `ndtwin_kernel` is the location of our NDTwin Kernel.
+/home/adam/Network-Traffic-Generator/README.md:160:    ndtwin_kernel: "http://127.0.0.1:8000"
+/home/adam/Network-Traffic-Generator/README.md:457:sudo -E bin/ndtwin_kernel --loglevel info
+/home/adam/Network-Traffic-Generator/README.md:484:sudo -E bin/ndtwin_kernel --loglevel info
+/home/adam/Network-Traffic-Generator/development_guide/README.md:201:def distance_partition(hosts=None, ndtwin_kernel=None):
+/home/adam/Network-Traffic-Generator/setting/Mininet.yaml:5:    ndtwin_kernel: "http://127.0.0.1:8000"
+/home/adam/Network-Traffic-Generator/setting/Hardware.yaml:4:    ndtwin_kernel: "http://10.10.10.2:8000"
+/home/adam/Network-Traffic-Generator/setting/Hardware.yaml:26:    worker_node_server: "http://10.10.10.5:8000"
+/home/adam/Network-Traffic-Generator/setting/Hardware.yaml:73:    worker_node_server: "http://10.10.10.6:8000"
+/home/adam/Network-Traffic-Generator/setting/Hardware.yaml:120:    worker_node_server: "http://10.10.10.7:8000"
+/home/adam/Network-Traffic-Generator/setting/Hardware.yaml:167:    worker_node_server: "http://10.10.10.8:8000"
+/home/adam/Network-Traffic-Generator/Utilis/distance_seperate.py:45:def distance_partition(hosts = None, ndtwin_kernel=None):
+/home/adam/Network-Traffic-Generator/Utilis/distance_seperate.py:51:    if ndtwin_kernel is not None:
+/home/adam/Network-Traffic-Generator/Utilis/distance_seperate.py:52:        GET_PATHS = ndtwin_kernel+"/ndt/get_path_switch_count"
+/home/adam/Network-Traffic-Generator/Utilis/distance_seperate.py:53:        GET_HOSTS = ndtwin_kernel+"/ndt/get_graph_data"
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:298:    ndtwin_kernel = None
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:315:                ndtwin_kernel = mininet_testbed.data.get("ndtwin_kernel",None)
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:333:            ndtwin_kernel = hardware_testbed.data.get("ndtwin_kernel",None)
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:356:        link_relationship_init(ndtwin_kernel=ndtwin_kernel)
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:367:def link_relationship_init(ndtwin_kernel=None):
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:381:        ndtwin_kernel (str, optional): URL or address of the NDTwin server for
+/home/adam/Network-Traffic-Generator/network_traffic_generator.py:398:            CONNECTIONS,HOSTS,error = distance_partition(ndtwin_kernel=ndtwin_kernel)
+
+## Traffic-Engineering-App
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:32:ndt_url = "http://localhost:8000/ndt/"
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:51:        graph_data = requests.get(ndt_url + "get_graph_data").json()
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:61:        flow_data = requests.get(ndt_url + "get_detected_flow_data").json()
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:71:        result = requests.post(ndt_url + "acquire_lock", json={"ttl": ttl, "type": "routing_lock"}).json()
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:85:        result = requests.post(ndt_url + "release_lock", json={"type": "routing_lock"}).json()
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:345:                        ndt_url + "install_flow_entry",
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:567:            #     ndt_url
+/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py:573:                ndt_url
+

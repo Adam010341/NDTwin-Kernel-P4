@@ -1,0 +1,6 @@
+T0 (ndt up invoked)	1788073422
+sim	DID NOT SERVE	-	-
+nsr	first served at	1788073646	(+224 s)
+viz	first served at	1788073427	(+5 s)
+te	first served at	1788073423	(+1 s)
+energy	not started by this script (destructive; see 25_apps_energy.sh)	-	-

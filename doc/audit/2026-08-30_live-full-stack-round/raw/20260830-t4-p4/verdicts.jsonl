@@ -1,0 +1,71 @@
+{"t":"2026-08-30T06:55:10Z","verdict":"pass","script":"00_preflight","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T06:55:11Z","verdict":"pass","script":"00_preflight","text":"the lab is claimed by this session (PREREG \u00a74.2)"}
+{"t":"2026-08-30T06:55:11Z","verdict":"pass","script":"00_preflight","text":"exclusive_cpu=yes and ndt judges it to be holding"}
+{"t":"2026-08-30T06:55:11Z","verdict":"pass","script":"00_preflight","text":"ndt status reports measuring=nothing (the sanctioned source; do NOT re-derive this with pgrep)"}
+{"t":"2026-08-30T06:55:11Z","verdict":"pass","script":"00_preflight","text":"no qemu process is running (the installation-manual VM is down)"}
+{"t":"2026-08-30T06:55:12Z","verdict":"untestable","script":"00_preflight","text":"kernel source is 89c1754, PREREG registered faffdbe -- NOT a failure, but the write-up must say which was measured and must not quote PREREG's commit"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":"artefact baseline written to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-full-stack-round/raw/20260830-t4-p4/artifact-baseline.txt"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":"/tmp/ndtwin_p4_switches.json is absent -- no previous manifest can be mistaken for this run's"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":"no bmv2 switches are already running  [0]"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":":8000 is free"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":":8080 is free"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":":8081 is free"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":":9000 is free"}
+{"t":"2026-08-30T06:55:12Z","verdict":"pass","script":"00_preflight","text":"no consumer app is already running  [none running]"}
+{"t":"2026-08-30T06:55:13Z","verdict":"pass","script":"00_preflight","text":"energy present at /home/adam/Energy-Saving-App  [/home/adam/Energy-Saving-App]"}
+{"t":"2026-08-30T06:55:13Z","verdict":"pass","script":"00_preflight","text":"sim present at /home/adam/Simulation-Platform-Manager  [/home/adam/Simulation-Platform-Manager]"}
+{"t":"2026-08-30T06:55:13Z","verdict":"pass","script":"00_preflight","text":"nsr present at /home/adam/Network-State-Recorder/network_state_recorder.py  [/home/adam/Network-State-Recorder/network_state_recorder.py]"}
+{"t":"2026-08-30T06:55:13Z","verdict":"pass","script":"00_preflight","text":"viz present at /home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh  [/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh]"}
+{"t":"2026-08-30T06:55:13Z","verdict":"pass","script":"00_preflight","text":"te present at /home/adam/Traffic-Engineering-App/Traffic-engineering-App.py  [/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py]"}
+{"t":"2026-08-30T06:55:13Z","verdict":"pass","script":"00_preflight","text":"a display is present, so viz can start"}
+{"t":"2026-08-30T06:55:13Z","verdict":"untestable","script":"00_preflight","text":"te calls input() twice in ask_mode() (Traffic-engineering-App.py:595-612) with no EOFError guard; started headless it will raise EOFError and die. 20_apps_lifecycle.sh gives it a pty. Recorded here so the crash is not mistaken for a kernel fault."}
+{"t":"2026-08-30T07:06:20Z","verdict":"pass","script":"20_apps_lifecycle","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:06:20Z","verdict":"untestable","script":"20_apps_lifecycle","text":"no /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-full-stack-round/raw/20260830-t4-p4/ndt_up.log; T_stack not measurable in this run (the executor brought the stack up outside the harness)"}
+{"t":"2026-08-30T07:07:25Z","verdict":"fail","script":"20_apps_lifecycle","text":"sim never opened :9000 within 60s (see /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-full-stack-round/raw/20260830-t4-p4/app_sim_start.log)"}
+{"t":"2026-08-30T07:07:26Z","verdict":"pass","script":"20_apps_lifecycle","text":"artefact /home/adam/Desktop/NDTwin-Kernel-t4-baseline/.test_run/logs/app_nsr.log was rewritten by this run (was: 1787216948 0 e3b0c44298fc1c14 / now: 1788073645 0 e3b0c44298fc1c14)"}
+{"t":"2026-08-30T07:07:26Z","verdict":"pass","script":"20_apps_lifecycle","text":"nsr wrote a new file under /home/adam/Network-State-Recorder/recorded_info at +224s -- a positive artefact, not the absence of an error"}
+{"t":"2026-08-30T07:07:31Z","verdict":"pass","script":"20_apps_lifecycle","text":"artefact /home/adam/Desktop/NDTwin-Kernel-t4-baseline/.test_run/logs/app_viz.log was rewritten by this run (was: ABSENT / now: 1788073651 1966 0c3e68e7a138bce2)"}
+{"t":"2026-08-30T07:07:31Z","verdict":"pass","script":"20_apps_lifecycle","text":"viz produced topology output at ~+5s"}
+{"t":"2026-08-30T07:07:32Z","verdict":"fail","script":"20_apps_lifecycle","text":"te died on EOFError when started the documented way (ask_mode() -> input() at Traffic-engineering-App.py:599, no guard). The documented start path cannot work without a terminal. This is a finding for R-4, not a harness fault."}
+{"t":"2026-08-30T07:07:33Z","verdict":"pass","script":"20_apps_lifecycle","text":"te_pty spawned as pid 286696, cmdline verified"}
+{"t":"2026-08-30T07:07:33Z","verdict":"pass","script":"20_apps_lifecycle","text":"artefact /home/adam/Desktop/NDTwin-Kernel-t4-baseline/.test_run/logs/app_te.log was rewritten by this run (was: ABSENT / now: 1788073653 509 bc0bc3833ff67c3c)"}
+{"t":"2026-08-30T07:07:33Z","verdict":"pass","script":"20_apps_lifecycle","text":"te is running under a pty and producing output at ~+1s (pid   PASS  te_pty spawned as pid 286696, cmdline verified\n286696)"}
+{"t":"2026-08-30T07:07:34Z","verdict":"fail","script":"20_apps_lifecycle","text":"R-3 BREAK CONDITION MET: 3 of 4 apps converged. Name which, and why, from the logs above."}
+{"t":"2026-08-30T07:08:20Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:08:20Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Energy-Saving-App -> /home/adam/Energy-Saving-App"}
+{"t":"2026-08-30T07:08:20Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Simulation-Platform-Manager -> /home/adam/Simulation-Platform-Manager"}
+{"t":"2026-08-30T07:08:20Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Network-Traffic-Visualizer -> /home/adam/Network-Traffic-Visualizer"}
+{"t":"2026-08-30T07:08:20Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Web-GUI -> /home/adam/Web-GUI"}
+{"t":"2026-08-30T07:08:20Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Network-State-Recorder -> /home/adam/Network-State-Recorder"}
+{"t":"2026-08-30T07:08:21Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Network-Traffic-Generator -> /home/adam/Network-Traffic-Generator"}
+{"t":"2026-08-30T07:08:21Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Traffic-Engineering-App -> /home/adam/Traffic-Engineering-App"}
+{"t":"2026-08-30T07:08:26Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"positive control: the fragment search found 'get_graph_data' in 13 file(s) across the repos, so a zero below means absence rather than a broken search"}
+{"t":"2026-08-30T07:08:33Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"URL idioms captured to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-full-stack-round/raw/20260830-t4-p4/r1_url_idioms.txt (read it; the matrix in the write-up must be derived from this file, not from memory)"}
+{"t":"2026-08-30T07:08:33Z","verdict":"untestable","script":"10_r1_endpoint_callers","text":"R-1 UNTESTABLE by observation of consumers: no repo references the endpoint under either spelling. PREREG \u00a73 registers this branch explicitly -- it is NOT a pass. The response-shape change cannot break a caller that does not exist."}
+{"t":"2026-08-30T07:08:34Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"PREREG's spelling returns 404, confirming it is the handler name and not a route (the kernel ANSWERED; it did not fail)"}
+{"t":"2026-08-30T07:08:34Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"the MININET early-return branch fired: recording=false with the 'does not record' message -- the branch PREREG \u00a73 says fires in every run this project does"}
+{"t":"2026-08-30T07:08:34Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"control: an invalid state returns 400 (HttpSession.cpp:1774-1778), so the 200 above came from the handler, not from a catch-all"}
+{"t":"2026-08-30T07:25:41Z","verdict":"pass","script":"40_r5_p4","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:25:41Z","verdict":"pass","script":"40_r5_p4","text":"bmv2 switches are running  [10]"}
+{"t":"2026-08-30T07:25:41Z","verdict":"pass","script":"40_r5_p4","text":"artefact /tmp/ndtwin_p4_switches.json was rewritten by this run (was: ABSENT / now: 1788073427 4548 023a86954f1621fe)"}
+{"t":"2026-08-30T07:25:41Z","verdict":"fail","script":"40_r5_p4","text":"manifest count matches running bmv2 count  [observed: manifest=0 procs=10]"}
+{"t":"2026-08-30T07:25:41Z","verdict":"pass","script":"40_r5_p4","text":"artefact /home/adam/Desktop/NDTwin-Kernel-t4-baseline/.test_run/logs/kernel.log was rewritten by this run (was: 1788072683 132889 08e633eac6414628 / now: 1788074741 3039975 744e9a91a50184ac)"}
+{"t":"2026-08-30T07:25:41Z","verdict":"pass","script":"40_r5_p4","text":"the control plane reports 12 destination paths"}
+{"t":"2026-08-30T07:25:42Z","verdict":"pass","script":"40_r5_p4","text":"get_temperature returns no strings (the Str() branch is dead in practice)  [string values: 0]"}
+{"t":"2026-08-30T07:25:50Z","verdict":"pass","script":"40_r5_p4","text":"CONTROL HOLDS: the valid rule (priority 902) is visible in the kernel's table view, so the instrument can see a rule that exists"}
+{"t":"2026-08-30T07:25:52Z","verdict":"pass","script":"40_r5_p4","text":"P4 arm of the differential recorded"}
+{"t":"2026-08-30T07:30:54Z","verdict":"pass","script":"25_apps_energy","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:30:55Z","verdict":"pass","script":"25_apps_energy","text":"fabric is intact before the energy phase (10/10 switches up, 40 edges, 0 down)"}
+{"t":"2026-08-30T07:30:56Z","verdict":"pass","script":"25_apps_energy","text":"energy reports running (via ndt's own lab_session predicate, not a signal probe -- H-17)"}
+{"t":"2026-08-30T07:35:15Z","verdict":"pass","script":"25_apps_energy","text":"INJECTION ASSERTED: the Energy-App powered 3 switch(es) off (s5,s7,s9). Downstream F-2/F-3 checks are reachable."}
+{"t":"2026-08-30T07:35:15Z","verdict":"pass","script":"25_apps_energy","text":"corroborated: the kernel log records set_switches_power_state requests"}
+{"t":"2026-08-30T07:35:15Z","verdict":"pass","script":"25_apps_energy","text":"every down edge is incident to a powered-off switch -- the twin's accounting is consistent"}
+{"t":"2026-08-30T07:35:17Z","verdict":"pass","script":"25_apps_energy","text":"energy stopped, verified from ndt apps status (a stop that reports success while the process survives is the failure this repo keeps re-finding)"}
+{"t":"2026-08-30T07:35:41Z","verdict":"pass","script":"40_r5_p4","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:35:42Z","verdict":"pass","script":"40_r5_p4","text":"the fabric is degraded (3 switch(es) down) -- F-2 and F-3 are reachable"}
+{"t":"2026-08-30T07:36:19Z","verdict":"pass","script":"90_restore","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:38:26Z","verdict":"fail","script":"90_restore","text":"counts did not return within 120s. Fall back to the full rebuild:  ./90_restore.sh --rebuild '<the same args you used for ndt up>'"}
+{"t":"2026-08-30T07:38:26Z","verdict":"pass","script":"90_restore","text":"P4 run (no Ryu on :8080): there is no htb on this fabric to lose (08-18 N-4), so power-on restores what there was"}
+{"t":"2026-08-30T07:38:27Z","verdict":"fail","script":"90_restore","text":"ndt status --check reports problems -- see /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-full-stack-round/raw/20260830-t4-p4/ndt_status_restore.txt"}
+{"t":"2026-08-30T07:39:00Z","verdict":"pass","script":"90_restore","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-08-30T07:39:23Z","verdict":"fail","script":"90_restore","text":"teardown left       ndt down   (setsid; rc is NOT the verdict)\n      bmv2 processes remaining: 0\n0 bmv2 process(es) running. bmv2 survives 'mn -c'; do not bring a new fabric up on top of them."}

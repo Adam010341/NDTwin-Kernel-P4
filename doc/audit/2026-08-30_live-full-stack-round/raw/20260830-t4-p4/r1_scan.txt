@@ -1,0 +1,7 @@
+CONTROL Energy-Saving-App              3 file(s) mention get_graph_data
+CONTROL Simulation-Platform-Manager    0 file(s) mention get_graph_data
+CONTROL Network-Traffic-Visualizer     2 file(s) mention get_graph_data
+CONTROL Web-GUI                        4 file(s) mention get_graph_data
+CONTROL Network-State-Recorder         2 file(s) mention get_graph_data
+CONTROL Network-Traffic-Generator      1 file(s) mention get_graph_data
+CONTROL Traffic-Engineering-App        1 file(s) mention get_graph_data

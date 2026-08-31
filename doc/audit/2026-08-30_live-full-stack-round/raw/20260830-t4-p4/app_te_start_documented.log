@@ -1,0 +1,4 @@
+  XX  te exited immediately -- see .test_run/logs/app_te.log
+          choice = input("Enter 1 or 2 [default 1]: ").strip() or "1"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      EOFError: EOF when reading a line

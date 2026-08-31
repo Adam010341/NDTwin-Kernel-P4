@@ -1,0 +1,11 @@
+# Covariate recorded during the round, not discovered afterwards
+# The round's own app startup compiles a Java project. This is not an outside job:
+# 'ndt apps viz' runs mvn, which built for 05:30 (its own BUILD SUCCESS line).
+maven_build_window   = 15:07:31 -> 15:12:58  (327 s, from app_viz.log's own timestamps)
+sampler_window       = 15:09:20 -> 15:24:20  (900 s)
+overlap              = 218 s  = 24.2% of the sample window
+consequence          = the first 218 s of the R-2/R-3 sample ran under a maven build on the
+                       same 14 cores, inside an exclusive_cpu=yes claim. Do not subtract it;
+                       record it (memory: vm-on-this-machine-is-invisible-to-ndt-status).
+note                 = ndt status 'measuring' cannot see this either -- it is a fourth
+                       instance of the invisible-load family, and this one the round created.

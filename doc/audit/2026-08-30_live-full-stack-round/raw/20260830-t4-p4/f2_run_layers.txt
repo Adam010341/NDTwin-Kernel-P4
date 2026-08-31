@@ -1,0 +1,204 @@
+
+=== L2 API contract (p4) ===
+NDTwin L2 contract test
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyP4_10Switches_4Hosts.json: 10 switches (BMv2), 4 hosts, 40 edges
+  traffic  : not expected
+  mutations: skipped
+  checks   : 39
+
+  FAIL [200]  get_graph_data
+           - switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+           - 20 edge(s) down/disabled: 1:1->5:1, 2:1->5:2, 3:1->7:1, 4:1->7:2, 5:1->1:1 (+15 more)
+           note: used by all 7 tools/apps -- if this breaks, everything breaks
+  PASS [200]  get_detected_flow_data
+  PASS [200]  get_detected_top_k_flow_data
+  PASS [200]  get_switch_openflow_table_entries
+  PASS [200]  get_static_topology_json
+  PASS [200]  get_average_link_usage
+  PASS [200]  get_path_switch_count
+  PASS [200]  get_num_of_flows_passing_a_switch
+  PASS [200]  get_total_input_traffic_load_passing_a_switch
+  PASS [200]  get_power_report
+  PASS [200]  get_switches_power_state
+  PASS [200]  get_cpu_utilization
+  PASS [200]  get_memory_utilization
+  PASS [200]  get_temperature
+  PASS [200]  get_openflow_capacity
+  PASS [200]  get_nickname
+  PASS [200]  acquire_lock
+  PASS [423]  acquire_lock_conflict
+  PASS [200]  renew_lock
+  PASS [200]  release_lock
+  PASS [200]  acquire_lock_after_release
+  PASS [200]  release_lock_cleanup
+  PASS [412]  release_lock_not_held
+  PASS [423]  acquire_lock_invalid_type
+  PASS [404]  install_flow_entry__unknown_dpid
+  PASS [400]  install_flow_entry__malformed_json
+  PASS [400]  install_flow_entry__missing_fields
+  PASS [400]  get_path_switch_count__bad_ip
+  PASS [200]  get_num_of_flows__unknown_dpid
+  PASS [404]  get_nickname__unknown_dpid
+  PASS [400]  inform_switch_entered__bad_dpid
+  PASS [404]  unknown_endpoint
+  PASS [404]  batch_flow_entries__all_unknown_dpids
+  PASS [400]  received_a_simulation_case__malformed
+  PASS [400]  received_a_simulation_case__missing_fields
+  PASS [400]  simulation_completed__malformed
+  PASS [400]  app_register__missing_fields
+  PASS [400]  historical_logging__bad_state
+  PASS [503]  intent_translator_text__incomplete_body
+
+======================================================================
+38/39 passed in 0.1s
+
+FAILED checks: get_graph_data
+
+hint: flow/path/rate checks are skipped without --with-traffic; start traffic and re-run to cover the telemetry path
+
+=== L3 component contract (p4) ===
+NDTwin L3 component contract check
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyP4_10Switches_4Hosts.json: 10 switches (BMv2), 4 hosts, 40 edges
+  components: 7
+
+Shared endpoint checks:
+       ok  /ndt/acquire_lock
+  exists  /ndt/app_register (contract skipped: needs --allow-mutations)
+  exists  /ndt/delete_flow_entry (contract skipped: needs --allow-mutations)
+  MISSING /ndt/disable_switch  not in the kernel's dispatch table
+       ok  /ndt/get_average_link_usage
+       ok  /ndt/get_cpu_utilization
+       ok  /ndt/get_detected_flow_data
+       ok  /ndt/get_detected_top_k_flow_data
+   BROKEN  /ndt/get_graph_data
+           - switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+           - 20 edge(s) down/disabled: 1:1->5:1, 2:1->5:2, 3:1->7:1, 4:1->7:2, 5:1->1:1 (+15 more)
+       ok  /ndt/get_memory_utilization
+       ok  /ndt/get_nickname
+       ok  /ndt/get_path_switch_count
+       ok  /ndt/get_switch_openflow_table_entries
+       ok  /ndt/get_temperature
+  exists  /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries (contract skipped: needs --allow-mutations)
+       ok  /ndt/install_flow_entry
+  exists  /ndt/intent_translator/text  exists but declining: 503, the documented answer for a disabled feature
+       ok  /ndt/intent_translator/text
+  exists  /ndt/modify_device_name (contract skipped: needs --allow-mutations)
+  exists  /ndt/modify_flow_entry (contract skipped: needs --allow-mutations)
+  exists  /ndt/modify_nickname (contract skipped: needs --allow-mutations)
+       ok  /ndt/received_a_simulation_case
+       ok  /ndt/release_lock
+  exists  /ndt/set_switches_power_state (contract skipped: needs --allow-mutations)
+       ok  /ndt/simulation_completed
+
+======================================================================
+Per-component verdict
+
+  AFFECTED Energy-Saving-App [writes]
+             - /ndt/get_graph_data contract violated: switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+             - /ndt/disable_switch missing (known gap)
+  AFFECTED Traffic-Engineering-App [writes]
+             - /ndt/get_graph_data contract violated: switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+  AFFECTED Web-GUI [writes]
+             - /ndt/get_graph_data contract violated: switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+  AFFECTED Network-Traffic-Visualizer
+             - /ndt/get_graph_data contract violated: switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+  AFFECTED Network-State-Recorder
+             - /ndt/get_graph_data contract violated: switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+  AFFECTED Network-Traffic-Generator
+             - /ndt/get_graph_data contract violated: switch(es) not up: s5(dpid=5), s7(dpid=7), s9(dpid=9)
+  OK       Simulation-Platform-Manager (3 endpoints)
+
+======================================================================
+6 component(s) affected: Energy-Saving-App, Traffic-Engineering-App, Web-GUI, Network-Traffic-Visualizer, Network-State-Recorder, Network-Traffic-Generator
+
+=== log allowlist check ===
+checking lines 1-28525 (before the L2 error-path checks);
+crashes are still scanned across the whole file
+Log check: /home/adam/Desktop/NDTwin-Kernel-t4-baseline/.test_run/logs/kernel.log
+  parsed   : 27953 log lines (error=1, info=27931, warning=21)
+  window   : lines 1-28525 of 28881 (the rest is deliberately excluded)
+  allowlist: 36 rule(s) (28 warning, 0 error, 8 forbid)
+
+  note: 572 line(s) did not match the expected log format (stdout from a subprocess?), first at line 2
+
+PROBLEMS
+
+  [WARNING] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, which is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 61
+
+  [WARNING] install flow entry failed: P4 proxy agent reported an error in a 200 response: {"status":"error","message":"Failed to add route"}
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 23278
+
+  [ERROR] dispatched install failed for dpid 1 (priority 901): HTTP 200 -- P4 proxy agent reported an error in a 200 response: {"status":"error","message":"Failed to add route"}
+      error level is never allowed by default
+      1 occurrence(s) at line(s): 23279
+
+  [WARNING] Could not open /etc/exports for writing.
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 25435
+
+  [WARNING] Per-app export line for /srv/nfs/sim/1 is not active (writing /etc/exports needs root); clients can still mount it through a parent export of /srv/nfs/sim if one is configured
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 25436
+
+  [WARNING] localhost:8081 reported a read failure for switch 7 ({"error":"reading tables from switch 7 failed: DEADLINE_EXCEEDED"}) -- keeping the previous table rather than treating it as a switch with no rules
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 26512
+
+  [WARNING] localhost:8081 reported a read failure for switch 7 ({"error":"reading tables from switch 7 failed: UNAVAILABLE"}) -- keeping the previous table rather than treating it as a switch with no rules
+      warning is not in the allowlist
+      4 occurrence(s) at line(s): 26631, 26724, 26818, 26905
+
+  [WARNING] localhost:8081 reported a read failure for switch 5 ({"error":"reading tables from switch 5 failed: DEADLINE_EXCEEDED"}) -- keeping the previous table rather than treating it as a switch with no rules
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 27717
+
+  [WARNING] localhost:8081 reported a read failure for switch 5 ({"error":"reading tables from switch 5 failed: UNAVAILABLE"}) -- keeping the previous table rather than treating it as a switch with no rules
+      warning is not in the allowlist
+      4 occurrence(s) at line(s): 27831, 27919, 28009, 28172
+
+UNUSED ALLOWLIST ENTRIES (nothing matched them in this log)
+  Expected for warnings that only appear in the other data plane or
+  only during startup. Prune anything that is permanently unused.
+  warning_allowlist.txt:44  WARNING | ^NFS server reloaded\.$
+  warning_allowlist.txt:45  WARNING | ^ControllerAndOtherEventHandler stopped\.$
+  warning_allowlist.txt:46  WARNING | acceptor_\.close\(\) error
+  warning_allowlist.txt:73  WARNING | ^Host \(.*\) not found in static network topology file$
+  warning_allowlist.txt:74  WARNING | ^Edge \(host .*\) not found in static network topology file$
+  warning_allowlist.txt:75  WARNING | ^Link \(dpid .* port .*\) not found in static network topology file$
+  warning_allowlist.txt:76  WARNING | ^edge not found by dpid/port
+  warning_allowlist.txt:77  WARNING | ^No edge found for host IP
+  warning_allowlist.txt:78  WARNING | ^cannot find graph vertex for switch IP
+  warning_allowlist.txt:88  WARNING | P4 BMv2 Power ON from Kernel is currently a stub
+  warning_allowlist.txt:123  WARNING | ^JSON exception in request handler:
+  warning_allowlist.txt:126  WARNING | ^Bad entry in request:
+  warning_allowlist.txt:127  WARNING | ^Exception in intent_translator:
+  warning_allowlist.txt:128  WARNING | ^Invalid lock type requested:
+  warning_allowlist.txt:129  WARNING | ^refusing flow batch: none of its [0-9]+ entries names a switch
+  warning_allowlist.txt:130  WARNING | ^refusing flow batch: [0-9]+ of [0-9]+ entries cannot form a rule
+  warning_allowlist.txt:131  WARNING | ^get_path_switch_count: bad IP parameter
+  warning_allowlist.txt:132  WARNING | ^inform_switch_entered: dpid .* is not an unsigned integer
+  warning_allowlist.txt:133  WARNING | ^get_nickname: dpid .* is not an unsigned integer
+  warning_allowlist.txt:134  WARNING | ^modify_device_name: mac .* is not a MAC address
+  warning_allowlist.txt:135  WARNING | ^modify_nickname: mac .* is not a MAC address
+  warning_allowlist.txt:137  WARNING | ^Rejecting simulation case: body is not valid JSON
+  warning_allowlist.txt:138  WARNING | ^Rejecting simulation case: missing required field
+  warning_allowlist.txt:139  WARNING | ^Rejecting simulation result: app_id .* is not a valid id
+  warning_allowlist.txt:140  WARNING | ^intent_translator requested but the translator is disabled
+
+======================================================================
+FAIL: 15 problem line(s) across 9 distinct message(s)
+to accept one deliberately, add it to warning_allowlist.txt with a reason
+
+======================================================================
+Summary
+  FAIL   L2 API contract (p4)
+  FAIL   L3 component contract (p4)
+  FAIL   log allowlist check
+
+  logs: /home/adam/Desktop/NDTwin-Kernel-t4-baseline/.test_run/logs
+3 layer(s) failed

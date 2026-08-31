@@ -1,0 +1,2 @@
+T_stack_seconds=16
+method=derived from mtime of ndt_up.log minus t0_ndt_up_epoch; the harness's own T_stack step reported N/A because the stack was brought up outside it

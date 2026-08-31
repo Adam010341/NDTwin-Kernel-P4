@@ -1,0 +1,6 @@
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      running   Simulation-Platform-Manager
+  nsr      running   Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
