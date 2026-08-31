@@ -1,0 +1,5 @@
+drop_onset_mbit=none-in-ladder
+last_clean_mbit=140
+loss_threshold_pct=1.0
+step_s=8
+ladder=100 120 140

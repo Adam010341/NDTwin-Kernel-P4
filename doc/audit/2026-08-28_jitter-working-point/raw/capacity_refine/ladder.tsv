@@ -1,0 +1,4 @@
+rate_mbit offered_mbit delivered_mbit loss_pct jitter_ms
+100	99.98	99.57	0.399	0.011
+120	119.98	119.76	0.175	0.012
+140	139.97	139.91	0.039	0.008
