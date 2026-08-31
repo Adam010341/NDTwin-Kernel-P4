@@ -210,3 +210,53 @@ gates（h1 loopback，htb 不參與）＝7311/21361/38258 Mbit（`raw/gates.tsv`
 13:38–14:1x，窗內零 commit。driver 全程 stdout＝`drive_ovs.log`（本目錄，待窗開後補進 audit-raw）。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+## 補報（2026-08-31，reviewer 線；原文一字未改）
+
+🔴 **漏報事實**：`PREREG.md:55` 註冊「負載：`/proc/stat` 差分（busy fraction＋**softirq 獨立欄**…）」。
+**busy fraction 有報**（`:123`，且僅一臂）；**softirq 那一欄從未回報**——而它**每臂都採了**。
+2026-08-31 的回報義務清償盤點發現，同日補報。
+
+### 回收的值（自 `audit-raw` 的 `raw/<arm>/arm.meta` 逐臂取出）
+
+| 臂 | `softirq_ticks` |
+|---|---|
+| ovs_n1_a ／ ovs_n1_b | **5212 ／ 7447** |
+| ovs_n4_a ／ ovs_n4_b | **10843 ／ 8587** |
+| ovs_n16_a ／ ovs_n16_b | **5758 ／ 7309** |
+| **n16_shaped（第七臂）** | 🔴 **`arm.meta` 完全沒有 load 區塊** |
+
+`arm.meta` 內的自註逐字：`# kernel datapath cost lives here, not in any process`
+——**OvS 的資料面成本不在任何行程裡，所以 per-process 的量測看不到它**，
+這正是該欄被註冊的理由。
+
+### 它支持什麼（獨立於 iperf3 的第二個儀器）
+
+把 softirq 對本輪已報的 aggregate 並排：
+
+| n | aggregate（已報） | softirq 均值 | **每 Mbit 的 ticks** |
+|---|---|---|---|
+| 1 | 540 Mbit | 6330 | **11.7** |
+| 4 | 960 | 9715 | **10.1** |
+| 16 | 720 | 6534 | **9.1** |
+
+⇒ **softirq 隨「送達的量」走，不隨「流數」走**：n=4 是三格中 aggregate 最高的，
+softirq 也最高；n=16 的 aggregate 回落，softirq 跟著回落。
+每單位吞吐的成本在 **9.1–11.7** 之間，**沒有隨 n 上升**。
+
+🔑 **這與 H-B 的機制敘述一致，且來自一個與 iperf3 正交的儀器**（核心 softirq 記帳）：
+OvS 側「aggregate 撐在配置帽上、每流＝帽÷n」的圖像，在核心成本上也看得到——
+**成本跟著位元組走，不跟著流走**。（bmv2 側無對應數字，本輪未採。）
+
+### ⚠️ 三個必須隨數字引用的限制
+
+1. **softirq ticks 是整機的**，不是每介面／每流的 ⇒ **不能歸屬到某一條流或某一個 bridge**。
+2. **本輪沒有經過驗證的外來負載閘**（`raw/drive_ovs.log` 逐字：
+   `no validated foreign-load gate this round -- PREREG §4.5`）
+   ⇒ 其中含多少是外來負載**無法分離**；上表的「每 Mbit ticks」是**上界**不是成本估計。
+3. **第七臂沒有 load 區塊** ⇒ 三格對照只有六臂，**n16_shaped 不入此表**。
+
+⇒ **定位＝與 H-B 一致的旁證，不是獨立證明。** 依本檔紅線，不得用它回填 C1/C2。
+
