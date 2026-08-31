@@ -1,5 +1,21 @@
 # Auditor 窗內裁決與窗後驗收佇列（2026-08-30 21:07 起；08-31 晨續）
 
+## 24. 🔴 push 急停與定性：poster 祖先在本地主線上（08-31 12:2x）
+
+- **事件**：依 CLAUDE.md 新規（diff 暴漲先查）對 push 範圍掃描 ⇒ `20cd80b..HEAD` 含**完整投稿包**
+  （abstract/figs/REVIEW 全套、38 物件）。急停成功——Adam 尚未執行我稍早給的 `lab:main` push。
+- **定性（git 證據、非記憶）**：`9c8c0e6`（poster 首 commit）**是 09c9b03 的祖先** ⇒ 昨晚推上
+  **私有** lab repo 的線本來就帶這段歷史——「轉私有到過審、re-publicize 需重裁（history
+  rewrite vs accept）」的既裁狀態，**不是新洩漏**。lab `main`（`20cd80b`，08-28）＝乾淨系。
+  本地 rescue 線經 `bd3463e`（我的 ledger merge，root 1208d22）連回同一祖先——untrack 清 tip
+  不清歷史，一如帳上那課。
+- **auditor miss #8**：兩個 session 的「NOTHING PUSHED (freeze)」我讀成過期凍結、未查凍結
+  理由就規劃並下發 push 指令；攔下它的是 Adam 一小時前口述的新規則。判準：**看到跨 session
+  一致的保守預設，先找它的理由，不是先找解除它的理由。**
+- **audit-raw 掃描＝0** poster 物件（`1aefade..d62ff34`）⇒ audit-raw push 安全，可逕行。
+- kernel 主線 push ⇒ 單題表單交 Adam：A 推新 ref（私有備份、main 保持乾淨系錨點）／
+  B 直接推 main（repo 已私有、但 main 從此帶 poster 祖先、未來重寫面擴大）／C 先重放乾淨線。
+
 ## 23. live 配方收官＋最終狀態翻牌（08-31 12:0x）
 
 - **live recipes：9 PASS／1 INCONCLUSIVE／1 SKIPPED**。INCONCLUSIVE＝A-1 arm3（量測時交換機
