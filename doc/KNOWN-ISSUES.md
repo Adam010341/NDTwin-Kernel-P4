@@ -1190,7 +1190,22 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   log），而 `ndt status`＝`apps none running`、`ndt apps`＝`te -`、**`ndt apps stop te` 回
   rc 0「te not running」**——`app_stop` 只看 `.test_run/pids/app_te.pid`，pidfile 沒了就全盲。
   這種孤兒會裝流表規則，kernel 一起來就污染量測。正解＝`/proc` 驗身分後按 PID 停。
-  修票待開（stop 的三態：running／not-running／**pidfile-lost-but-alive**）。
+  🔄 **08-31 修法已落，狀態＝過了單元變異閘、live 未驗（不是 RESOLVED）**：
+  `ndt` 加了三態 `app_probe`（`running`／`not-running`／**`pidfile-lost-but-alive`**）、
+  `app_scan_pids`（`ps` 只當候選索引、`/proc` 才是判準）、`app_kill_pid`（前後都用
+  `pid_is_app` 不用 `kill -0`），並接到 `apps stop`／`apps status`／`status`／`down`
+  四個入口；新子命令 **`ndt apps orphans`**（找到孤兒 exit 1）＝量測開跑前的檢查。
+  測試 `tests/shell/test_ndt_app_orphans.sh`（52 checks），**七個變異全部看過紅**
+  （含「掃描根本不執行」那一支，用來擋「因為沒東西所以通過」）。
+  🔴 **還沒做的是 live**：所有測試的孤兒都是 `exec -a` 偽裝 argv 的 `sleep`，
+  **從來沒有停過一隻真的 TE-App**。配方在
+  `doc/audit/2026-08-31_live-recipes/rider_app-orphan-stop.md`，下一個 fabric 窗跑。
+  🔑 修的過程順手抓到兩個同源缺陷：① 舊 `app_stop` 對 pidfile 裡的 pid **不驗身分就 `kill`**
+  ⇒ pid 被回收就打到路人（本機 `.test_run/pids/app_viz.pid` 從 08-30 起就指著死 pid）；
+  ② `ndt down` 的 app 迴圈也用 `app_running` 當閘 ⇒ **最需要停的那隻正好被跳過**。
+  🪞 第一版 `app_scan_pids` 用「flatten 後 substring」比對，**當場自我匹配**：
+  `bash -c '<提到 app 名字的腳本>'` 整段腳本是一個 argv 元素，掃描器自己的每個 fork 都命中
+  （`$$`／`$PPID` 擋不住，fork 有新 pid）。改成**逐 argv 元素比對**（等於 sig 或以 `/sig` 結尾）。
   順帶：TE 的崩因是 `get_graph_data_api_call` 在 except 後 `return graph_data`（未賦值）——
   **Traffic-Engineering-App repo 的缺陷**，excerpt 在 `2026-08-31_live-recipes/te-crashloop-excerpt.txt`。
 - 🔴 **`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。

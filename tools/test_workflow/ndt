@@ -1015,12 +1015,24 @@ cmd_down() {
 
     # Apps first: they poll the kernel API, and left running they spend the teardown logging
     # connection errors against a stack that is going away.
+    #
+    # [Co-developed with claude code -- Adam]
+    # The gate is app_probe, not app_running. `down` used to skip any app whose pidfile had gone
+    # missing -- which is precisely the app that most needs stopping, because nothing else on the
+    # machine will ever stop it either. And the failure is silent twice over: app_stop's output is
+    # discarded here, so a stop that could not finish said nothing at all.
     local a started=0
     for a in $APP_NAMES; do
-        if app_running "$a"; then
-            (( started == 0 )) && say "[0/3] apps"
-            started=1
-            app_stop "$a" >/dev/null 2>&1 && info "stopped $a"
+        app_probe "$a"
+        [[ "$APP_STATE" == not-running ]] && continue
+        (( started == 0 )) && say "[0/3] apps"
+        started=1
+        [[ "$APP_STATE" == pidfile-lost-but-alive ]] &&
+            warn "$a is running untracked (pid ${APP_LIVE_PIDS[*]}) -- stopping it by pid"
+        if app_stop "$a" >/dev/null 2>&1; then
+            info "stopped $a"
+        else
+            err "could NOT stop $a -- rerun 'ndt apps stop $a' to see why"
         fi
     done
 
@@ -1335,10 +1347,27 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
     else
         printf '  %-14s %s\n' "tc netem" "none"
     fi
-    local appson="" a
-    for a in $APP_NAMES; do app_running "$a" && appson="${appson:+$appson, }$a"; done
+    # [Co-developed with claude code -- Adam]
+    # app_probe, not app_running. This line printed "none running" for 20h32m while a TE-App
+    # crash loop installed flow rules into the fabric below it, because the only witness it
+    # consulted was a pidfile that the crash had taken with it. An app nothing is tracking is
+    # strictly more dangerous than a tracked one -- nobody is going to stop it on the way out --
+    # so it is named separately rather than folded into the running list.
+    local appson="" orphans="" a
+    for a in $APP_NAMES; do
+        app_probe "$a"
+        case "$APP_STATE" in
+            running)                appson="${appson:+$appson, }$a" ;;
+            pidfile-lost-but-alive) orphans="${orphans:+$orphans, }$a(${APP_LIVE_PIDS[*]})" ;;
+        esac
+    done
     printf '  %-14s %s\n' "apps" "${appson:-none running}"
     case "$appson" in *energy*|*te*) problems+=("an app that changes the network is running: $appson") ;; esac
+    if [[ -n "$orphans" ]]; then
+        printf '  %-14s %s\n' "untracked" "${R}$orphans -- running, and no pidfile names them${N}"
+        printf '  %-14s %s\n' "" "these survive 'ndt down'; stop them with 'ndt apps stop <name>'"
+        problems+=("untracked app process(es) with no pidfile: $orphans")
+    fi
     echo
 
     # -- the numbers themselves --
@@ -1585,26 +1614,51 @@ app_sig() {
 # the wrong one of them would still pass. comm is kept only as the fallback for the case where
 # cmdline is unreadable.
 #
+# ARGUMENT-WISE, not a substring of the flattened command line. The substring form was written
+# first and was wrong for the reason trap note 2 gives, demonstrated here 2026-08-31 while the
+# scan below was being built: `bash -c '<a script that mentions the app>'` carries the whole
+# script text in one argv element, so every fork of the scanning shell -- including the process
+# substitution the scan itself runs -- matched, on a machine with no TE app at all. `$$`/`$PPID`
+# does not save it, because a fork gets a fresh pid. "argv mentions the thing" and "argv IS the
+# thing" are different questions and only the second one identifies a process.
+#
+# So an element must either equal the signature or end in "/" + the signature -- which is every
+# way this repo starts these apps (app_spawn runs them by bare filename from their own
+# directory; a hand-started one carries an absolute path) and is not satisfied by a command line
+# that merely quotes the name.
+#
 # An empty cmdline is NOT read as a mismatch. A zombie has one, and reporting "not running" for
 # a pid that plainly exists would be inventing a second false negative to fix the first. In that
 # case this asserts existence only -- the same strength `kill -0` had, without its EPERM hole.
 pid_is_app() {
-    local pid="$1" name="$2" sig cmdline comm
+    local pid="$1" name="$2" sig comm el
+    local -a argv=()
     [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || return 1
     [[ -d "/proc/$pid" ]] || return 1
     sig="$(app_sig "$name")"
     [[ -n "$sig" ]] || return 0
-    cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)"
-    if [[ -n "$cmdline" ]]; then
-        [[ "$cmdline" == *"$sig"* ]]
-        return
+    # mapfile, not `tr`: a builtin split on the real NUL separator. Piping through tr both
+    # forks per candidate and destroys the argument boundaries this test depends on.
+    mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+    if (( ${#argv[@]} > 0 )); then
+        for el in "${argv[@]}"; do
+            [[ "$el" == "$sig" || "$el" == */"$sig" ]] && return 0
+        done
+        return 1
     fi
     comm="$(cat "/proc/$pid/comm" 2>/dev/null)"
     [[ -z "$comm" ]] || [[ "$sig" == *"$comm"* ]] || [[ "$comm" == python* || "$comm" == bash ]]
 }
 
+app_pidfile() { echo "$REPO/.test_run/pids/app_$1.pid"; }
+
 # Silent and boolean on purpose: `ndt apps status` calls it inside a command substitution, so
 # anything printed here would land in the status table.
+#
+# Pidfile-only, and therefore only half an answer. It says "the registry names a live instance",
+# which is not the same question as "is this app running" -- see app_probe below for the half it
+# cannot see. Kept because energy/sim have no pidfile at all and because the three-state prober
+# builds on it.
 app_running() {
     case "$1" in
         # Through lab_session, not its own `| grep -q`: two implementations of "is this lab
@@ -1613,11 +1667,166 @@ app_running() {
         # fragile shape, and there is no reason to keep a second copy of it.
         energy) lab_session energy ;;
         sim)    lab_session sim ;;
-        *)      local p="$REPO/.test_run/pids/app_$1.pid"
+        *)      local p; p="$(app_pidfile "$1")"
                 # A symlinked pidfile is refused here for the same reason app_stop refuses one.
                 [[ -f "$p" && ! -L "$p" ]] || return 1
                 pid_is_app "$(cat "$p" 2>/dev/null)" "$1" ;;
     esac
+}
+
+# --- the three states an app can be in ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The failure this exists to stop, measured live 2026-08-31: the previous session's TE-App sat
+# in a crash loop for 20h32m, and all three interfaces agreed it was not there --
+#
+#     ndt status      ->  apps  none running
+#     ndt apps        ->  te    -
+#     ndt apps stop te->  rc 0, "te not running"
+#
+# All three read one predicate, and that predicate starts at .test_run/pids/app_te.pid. A
+# pidfile is a *claim about* a process, not the process. Lose it -- to a crash before the
+# handler runs, to a `clean` that outlived the app, to another session -- and the app becomes
+# invisible and unkillable in the same instant, while it goes on installing flow rules into the
+# fabric the next measurement will run over. The pidfile is exactly the wrong witness for the
+# question "did anything survive", because the survivors are the ones it has lost.
+#
+# So stop distinguishing two states and start distinguishing three:
+#
+#     running                 the pidfile names a live process and /proc agrees it is this app
+#     not-running             the pidfile names nothing AND a scan of the machine finds nothing
+#     pidfile-lost-but-alive  the scan found live instances the pidfile does not account for
+#
+# Only the middle one may be reported as "nothing to do", and it now has to be earned by a
+# scan rather than inferred from a missing file.
+
+# app_ps_snapshot -- "<pid> <argv>" for every process, one per line.
+#
+# A seam: the unit tests replace it so a test can never signal a real app on the machine it
+# runs on. ps is the INDEX here and never the authority -- one child process whose own argv
+# carries no app signature, which is the whole reason this is not `pgrep -f`. `pgrep -f`/
+# `ps | grep <name>` match the search itself (trap note 2, and seven separate incidents in this
+# project), and a scan that finds itself cannot tell "the app is running" from "I am looking
+# for the app". Everything a line here offers is re-checked against /proc before it is believed
+# or signalled.
+app_ps_snapshot() { ps -eo pid=,args= 2>/dev/null; }
+
+# app_scan_pids <name> -- live pids of this app, found WITHOUT consulting any pidfile.
+#
+# Two stages on purpose. The ps line is a candidate; /proc/<pid>/cmdline, via pid_is_app, is the
+# verdict. That ordering also closes the race for free: a process that exited between the
+# snapshot and the check has no /proc entry and drops out, so this never reports -- or signals --
+# a pid that has since been recycled into a stranger.
+#
+# Apps with no registered signature return nothing. That is honest rather than a "no": app_probe
+# never promotes an empty scan to "not running" on its own.
+app_scan_pids() {
+    local name="$1" sig pid args
+    sig="$(app_sig "$name")"
+    [[ -n "$sig" ]] || return 0
+    while read -r pid args; do
+        # Never report the scanner or its parent. This script's own argv is
+        # "bash .../ndt apps stop te" and carries no signature, but a wrapper script named
+        # after the app it launches would, and that is the self-match failure again.
+        [[ "$pid" == "$$" || "$pid" == "$PPID" ]] && continue
+        [[ "$args" == *"$sig"* ]] || continue
+        pid_is_app "$pid" "$name" || continue
+        echo "$pid"
+    done < <(app_ps_snapshot)
+}
+
+# app_pidfile_pid <name> -- the pidfile's pid, printed only when /proc confirms it is this app.
+#
+# The return code says WHY it printed nothing, because the reasons need different reactions and
+# the old code collapsed all of them into "not running":
+#   0  printed a verified pid
+#   1  no pidfile
+#   2  refused: the pidfile is a symlink (one was followed and its target killed, with rc 0)
+#   3  unusable contents -- empty, non-numeric, or < 2 (kill -TERM -1 signals the whole session)
+#   4  readable, but /proc says that pid is not this app: stale, or recycled into a stranger
+#
+# Case 4 is not hypothetical here: .test_run/pids/app_viz.pid on this machine has named a dead
+# pid since 2026-08-30, and the pre-2026-08-31 app_stop would have sent SIGTERM to whatever now
+# holds that number.
+app_pidfile_pid() {
+    local p pid
+    p="$(app_pidfile "$1")"
+    [[ -e "$p" || -L "$p" ]] || return 1
+    [[ -L "$p" ]] && return 2
+    pid="$(cat "$p" 2>/dev/null)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || return 3
+    pid_is_app "$pid" "$1" || return 4
+    echo "$pid"
+}
+
+# app_probe <name> -- sets APP_STATE and APP_LIVE_PIDS. The one place the three states are
+# decided, so that stop, status, start and the pre-run check cannot drift apart the way
+# topo_session and lab_session did.
+#
+# Results in globals rather than on stdout, deliberately: the alternative is a caller doing
+# `app_probe x | head -1`, and `| head -1` under pipefail is exactly the SIGPIPE trap that made
+# lab_session report a live session as absent on 2026-08-20.
+#
+# pidfile-lost-but-alive covers more than "someone deleted the pidfile". A pidfile left over
+# from an earlier pid, a second instance started by hand beside the tracked one, and a pidfile
+# refused for being a symlink all land here -- and in every one of them the old code reported
+# success while a process kept running.
+APP_STATE=""
+APP_LIVE_PIDS=()
+app_probe() {
+    local name="$1" from_file pid
+    APP_STATE=""; APP_LIVE_PIDS=()
+    case "$name" in
+        # tmux sessions, with no pidfile to lose. lab_session is the witness and there is
+        # nothing for a /proc scan to add.
+        energy|sim)
+            if app_running "$name"; then APP_STATE=running; else APP_STATE=not-running; fi
+            return 0 ;;
+    esac
+    from_file="$(app_pidfile_pid "$name")"
+    [[ -n "$from_file" ]] && APP_LIVE_PIDS+=("$from_file")
+    while read -r pid; do
+        [[ -n "$pid" && "$pid" != "$from_file" ]] && APP_LIVE_PIDS+=("$pid")
+    done < <(app_scan_pids "$name")
+    if (( ${#APP_LIVE_PIDS[@]} == 0 )); then
+        APP_STATE=not-running
+    elif [[ -n "$from_file" ]] && (( ${#APP_LIVE_PIDS[@]} == 1 )); then
+        APP_STATE=running
+    else
+        APP_STATE=pidfile-lost-but-alive
+    fi
+    return 0
+}
+
+# app_kill_pid <pid> <name> -- TERM, wait, KILL, then PROVE it is gone.
+#
+# pid_is_app on both sides of the signal, never `kill -0`. `kill -0` answers "may I signal
+# this", which is a different question and wrong in both directions: EPERM for a live
+# root-owned process reads as "gone" (the 2026-08-29 T2-1 retraction), and success for a
+# stranger holding a recycled pid reads as "still there". /proc answers existence regardless of
+# owner; the cmdline comparison keeps a recycled pid from being mistaken for the app.
+app_kill_pid() {
+    local pid="$1" name="$2" i uid
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )) || [[ "$pid" == "$$" || "$pid" == "$PPID" ]]; then
+        err "refusing to signal pid ${pid:-empty}"
+        return 1
+    fi
+    kill -TERM "$pid" 2>/dev/null
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        pid_is_app "$pid" "$name" || return 0
+        sleep 0.5
+    done
+    kill -KILL "$pid" 2>/dev/null; sleep 1
+    pid_is_app "$pid" "$name" || return 0
+    # The one case the tool genuinely cannot finish, and naming it beats retrying: kill(2)
+    # returned EPERM, not ESRCH, so the process is someone else's. Say whose, and hand over the
+    # command -- silently failing here is how an orphan survives a stop that reported success.
+    err "$name (pid $pid) is STILL RUNNING after TERM and KILL"
+    uid="$(awk '/^Uid:/{print $2; exit}' "/proc/$pid/status" 2>/dev/null)"
+    [[ -n "$uid" ]] && err "   it belongs to uid $uid (you are $(id -u))"
+    err "   verify:  tr '\\0' ' ' < /proc/$pid/cmdline; echo"
+    err "   then:    sudo kill -TERM $pid"
+    return 1
 }
 
 # app_spawn <name> <dir> <cmd...> -- start a user-side app and record its REAL pid.
@@ -1650,7 +1859,16 @@ app_spawn() {
 
 app_start() {
     local name="$1"
-    if app_running "$name"; then warn "$name already running"; return 0; fi
+    # Through app_probe, not app_running: starting a second TE beside an untracked first one
+    # gives the fabric two writers and the pidfile still names only one of them, which is how
+    # the invisible instance gets a sibling instead of getting noticed.
+    app_probe "$name"
+    if [[ "$APP_STATE" == running ]]; then warn "$name already running"; return 0; fi
+    if [[ "$APP_STATE" == pidfile-lost-but-alive ]]; then
+        err "$name is already running as pid(s) ${APP_LIVE_PIDS[*]}, but its pidfile does not name it"
+        err "   not starting a second instance. stop the first:  ndt apps stop $name"
+        return 1
+    fi
     # shellcheck source=components.env
     source "$HERE/components.env"
     local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
@@ -1675,53 +1893,120 @@ app_start() {
     esac
 }
 
+# app_stop <name> -- stop every live instance of the app, whether or not the pidfile knows
+# about it, and say which of the three states it was in.
+#
+# [Co-developed with claude code -- Adam]
+# The old first line was `[[ -f "$p" ]] || { info "$name not running"; return 0; }`. That single
+# line is the 20h32m invisible TE-App: no pidfile was read as no process, on rc 0, with a
+# reassuring message. The scan below is what turns "not running" from an assumption into a
+# finding.
 app_stop() {
     local name="$1"
     case "$name" in
         energy) sudo -n "$LAB" energy-stop >/dev/null 2>&1; ok "energy stopped" ;;
         sim)    sudo -n "$LAB" sim-stop    >/dev/null 2>&1; ok "sim stopped" ;;
         nsr|viz|te)
-            local p="$REPO/.test_run/pids/app_$name.pid" pid
-            [[ -f "$p" ]] || { info "$name not running"; return 0; }
+            local p pid rc=0 poisoned=0
+            p="$(app_pidfile "$name")"
             # Refuse a symlink, exactly as stack.sh's stop_one does. This block claimed "same
             # pid hygiene as stop_one" while copying only the pid<2 check, and a pidfile
             # replaced by a link to somewhere else was followed and the target killed, with
-            # "ok $name stopped" and rc 0. [Co-developed with claude code -- Adam]
+            # "ok $name stopped" and rc 0.
+            #
+            # Refusing no longer means giving up, though: the link is not read, the file is not
+            # removed, and the process is then found by the scan instead. Returning early here
+            # is what left a live app running behind a poisoned pidfile.
             if [[ -L "$p" ]]; then
                 err "$name pidfile is a symlink ($p -> $(readlink "$p")); refusing to read it"
-                return 1
+                err "   looking for the process itself instead; the link is left for you to remove"
+                poisoned=1
+            elif [[ -e "$p" ]]; then
+                pid="$(cat "$p" 2>/dev/null)"
+                if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
+                    # Not fatal any more, for the same reason: unusable contents say nothing
+                    # about whether the app is running. Report, discard, then go and look.
+                    err "$name pidfile is unusable (${pid:-empty}); not signalling it"
+                    rm -f "$p"
+                fi
             fi
-            pid="$(cat "$p" 2>/dev/null)"
-            # Same pid hygiene as stack.sh's stop_one: a pidfile of 1 would make kill -TERM -1
-            # signal the whole session.
-            if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
-                err "$name pidfile is unusable (${pid:-empty}); not killing anything"
-                rm -f "$p"; return 1
-            fi
-            kill -TERM "$pid" 2>/dev/null
-            local i
-            for i in 1 2 3 4 5 6 7 8 9 10; do
-                kill -0 "$pid" 2>/dev/null || break
-                sleep 0.5
+            app_probe "$name"
+            case "$APP_STATE" in
+                not-running)
+                    # Earned, not assumed: the pidfile named nothing that is this app AND a
+                    # /proc-verified scan of the machine found no instance either.
+                    info "$name not running (no live instance found by pid or by scan)"
+                    if [[ "$poisoned" == 0 && -e "$p" ]]; then
+                        rm -f "$p"
+                        info "  discarded a pidfile whose pid is not $name"
+                    fi
+                    return "$poisoned" ;;
+                pidfile-lost-but-alive)
+                    warn "$name is RUNNING as pid(s) ${APP_LIVE_PIDS[*]} and the pidfile does not name it"
+                    warn "  this is the state that used to answer 'not running' with rc 0"
+                    for pid in "${APP_LIVE_PIDS[@]}"; do
+                        info "  pid $pid: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"
+                    done ;;
+            esac
+            for pid in "${APP_LIVE_PIDS[@]}"; do
+                app_kill_pid "$pid" "$name" || rc=1
             done
-            kill -0 "$pid" 2>/dev/null && { kill -KILL "$pid" 2>/dev/null; sleep 1; }
-            # Verify. Saying "stopped" without checking is how a leaked recorder went
-            # unnoticed on 2026-08-20.
-            if kill -0 "$pid" 2>/dev/null; then
-                err "$name (pid $pid) is STILL RUNNING after TERM and KILL"
-                return 1
+            if (( rc == 0 )); then
+                [[ "$poisoned" == 0 ]] && rm -f "$p"
+                ok "$name stopped (was: $APP_STATE)"
             fi
-            rm -f "$p"; ok "$name stopped" ;;
+            (( poisoned == 1 )) && rc=1
+            return "$rc" ;;
         *) err "unknown app: $name"; return 1 ;;
     esac
 }
 
+# apps_orphans -- "is anything from this stack still running that nothing is tracking?"
+#
+# [Co-developed with claude code -- Adam]
+# A verb of its own rather than only a side effect of `stop`, because it is asked at a different
+# moment: before a measurement starts, by an operator who does not want to stop anything yet and
+# only needs to know whether the fabric about to be measured already has an untracked writer on
+# it. TE installs flow rules and Energy powers switches down; either one running unseen through
+# a run makes every number in it a number about a different network.
+#
+# Exit 1 when it finds some, so a driver script can gate on it:
+#     ndt apps orphans || { echo "clean up first"; exit 1; }
+apps_orphans() {
+    local a found=0 pid
+    for a in $APP_NAMES; do
+        app_probe "$a"
+        [[ "$APP_STATE" == pidfile-lost-but-alive ]] || continue
+        found=$(( found + 1 ))
+        err "$a: pidfile-lost-but-alive -- $(app_label "$a")"
+        for pid in "${APP_LIVE_PIDS[@]}"; do
+            err "    pid $pid  $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-80)"
+        done
+        err "    stop it with:  ndt apps stop $a"
+    done
+    if (( found == 0 )); then
+        ok "no untracked app processes"
+        return 0
+    fi
+    err "$found app(s) are running without a pidfile that names them"
+    return 1
+}
+
 apps_status() {
     say "apps"
-    local a
+    local a shown
     for a in $APP_NAMES; do
-        printf '  %-8s %-9s %s\n' "$a" \
-            "$(app_running "$a" && echo running || echo -)" "$(app_label "$a")"
+        app_probe "$a"
+        # The third state gets its own word in the column that used to print "-" for it. "-"
+        # meant "not running" and was printed for a crash-looping app for 20h32m.
+        case "$APP_STATE" in
+            running)                shown=running ;;
+            pidfile-lost-but-alive) shown="${R}ORPHAN${N}" ;;
+            *)                      shown="-" ;;
+        esac
+        printf '  %-8s %-9s %s\n' "$a" "$shown" "$(app_label "$a")"
+        [[ "$APP_STATE" == pidfile-lost-but-alive ]] &&
+            printf '  %-8s %-9s %s\n' "" "" "^ pid(s) ${APP_LIVE_PIDS[*]}, no pidfile names it -- 'ndt apps stop $a'"
     done
 }
 
@@ -1757,8 +2042,11 @@ cmd_apps() {
             shift
             local targets="${*:-all}"
             [[ "$targets" == all ]] && targets="$APP_NAMES"
-            local a; for a in $targets; do app_stop "$a"; done
+            local a rc=0; for a in $targets; do app_stop "$a" || rc=1; done
+            return "$rc"
             ;;
+        # The pre-run check. Same scan as `stop`, without stopping anything.
+        orphans) apps_orphans ;;
         *)
             local a; for a in "$@"; do app_start "$a"; done
             ;;
@@ -1791,6 +2079,17 @@ cmd_ntg() {
 }
 
 # --- dispatch ---------------------------------------------------------------------
+
+# [Co-developed with claude code -- Adam]
+# Sourced rather than executed: define the functions and stop, exactly as stack.sh:877 does.
+# Without this, `source ndt` fell through to the usage block and `exit 2`-ed the sourcing shell,
+# so the only way to test any of these predicates was to copy the expression into the test and
+# assert the copy still appeared in this file (test_ndt_lab_session.sh:29-32). That is a test of
+# a string, not of the behaviour, and it cannot exercise app_stop at all. tests/shell/
+# test_ndt_app_orphans.sh drives the real functions through this seam.
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    return 0
+fi
 
 case "${1:-}" in
     up)
@@ -1833,6 +2132,9 @@ usage: ndt <command>
   check         telemetry double-count tripwire
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
+                  ndt apps orphans  -- is an app running that no pidfile names?
+                    exits 1 if so. run it before a measurement: an untracked TE
+                    or Energy writes to the fabric and 'down' used to skip it.
   ntg [cli|prompt]     which prompt the topology hands control to
   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
   release              give it back
