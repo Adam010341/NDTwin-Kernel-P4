@@ -689,6 +689,25 @@ monitors at 01:34.
 hazard is **a string rather than an action** — nothing is being killed on purpose, and the victim
 is chosen by what it happens to mention.
 
+### The same defect in the tools written tonight to investigate it, and the durable repair
+
+Both sessions hit it while checking for it. The `/proc/*/cmdline` enumeration written here to find
+qemu processes **listed its own shell**, because that shell's command line contained the string.
+The auditor's equivalent survived only by accident: it used a *prefix* test (`case "$c" in
+qemu-system*`) and a shell's command line begins `bash -c`. **A substring test would have matched;
+the anchoring was not a decision.**
+
+⇒ The durable repair is two things together, and neither alone is enough:
+* **Discriminate on `/proc/<pid>/exe`, not on `argv`/`comm`** — a process cannot set its own `exe`,
+  and `遠端機器測試`'s fixtures prove `argv[0]` is freely forgeable (six stand-ins whose `argv[0]`
+  is literally `qemu-system-x86_64`).
+* **Anchor the match** — prefix or exact, never substring.
+
+🔴 **"Be careful next time" does not repair this.** `ps | grep` always matches itself is already a
+recorded lesson in this project, and it recurred twice tonight in tools written by people who had
+just read it. Same family as `_is_fabric()`'s `comm.startswith()` including `iperf3` (F-21 hole 3):
+**one string kills whatever mentions it and absolves whatever mentions it.** Registered together.
+
 ---
 
 ## F-21. 🔴 CORRECTED — the gate's blind spot is not an allow-list. It is three narrower holes,

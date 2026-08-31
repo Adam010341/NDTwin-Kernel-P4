@@ -55,6 +55,16 @@ being OK — is the only part of this that carries information.
 * No prediction is offered about the ceiling rung itself. That is the registered question and it is
   not mine to anticipate here.
 
+🔴 **BINDING ON THE REPORT (auditor, 02:00): whether these expectations were met must be stated
+explicitly, hit or miss.** As of 1/32 the ratios are 1.987 → 1.768 → 1.417 — departing from √n
+monotonically while every cell still reads `mark=OK`, which makes the second bullet above
+(*"the departure should be at or below the rung where `mark` first stops being OK"*) a live,
+checkable prediction rather than a hope.
+**The entire value of pinning an expectation is here: a match must be reported, and a miss must be
+reported louder.** A closing write-up that quietly keeps only the predictions that came true has
+spent the cost of pre-registration and bought nothing. ⚠️ Reporting it does not promote it: it
+remains an unregistered secondary observation and may not explain or reinforce the primary (Q2/E4).
+
 ## 5. Two things being watched that DO bear on registered rules
 
 * **E-P4 (frozen):** merge must not change `ratio`. If `ratio` drops on the `m`/`mp` arms in leg 2,
@@ -213,6 +223,13 @@ about another machine. **Retract instances separately from the rules they were r
 support.**
 
 ### 🔴 Which span decides — settled, because the retraction cycle exposed it
+
+🔑 **The general rule, which is larger than this round: the unit of classification must match the
+unit of the quantity being analysed.** The first attempt to settle this used "the wider span finds
+more cells" as its justification — **finding more is not a reason**, it is just a bigger number,
+and it would equally justify widening the span until everything is suspect. The reason has to come
+from the quantity: `spread` is computed from the measurement window, so the measurement window is
+what can contaminate it.
 
 `spread` is computed from the **measurement window**, so that window decides KNOWN-OVERLAP.
 Bringup (teardown, rebuild, P4 recompile) is reported in its own column rather than folded either
