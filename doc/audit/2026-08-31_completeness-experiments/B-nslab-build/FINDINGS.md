@@ -367,6 +367,11 @@ R-B1a (D vs C): 不可分辨
 
 ### 7.7 宿主見證：這次是連續記帳，不是兩張快照
 
+> 🔴 **引用這兩個 log 之前先讀 [`PROVENANCE-host-witness-logs.md`](PROVENANCE-host-witness-logs.md)。**
+> 它們**沒有 hostname 欄**，而 09-01 已經有人把它們讀成「Adam 筆電上的佔用」，
+> 據此要求撤回 E 輪兩欄**正確**資料（已更正、數字已還原）。
+> （這一行由「遠端機器測試」線於 09-01 依 auditor 指示加入，未改動本節任何原有文字。）
+
 `raw/host_witness_a_rerun.log`（**宿主上**，每 5 秒一筆，涵蓋整個重跑窗；
 89 筆已隨重跑 raw 一併落 `audit-raw 429851e`）：
 
