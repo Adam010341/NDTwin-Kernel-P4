@@ -1,0 +1,16 @@
+diff --git a/src/ndt_core/routing_management/CMakeLists.txt b/src/ndt_core/routing_management/CMakeLists.txt
+index 8d43915..d14913f 100644
+--- a/src/ndt_core/routing_management/CMakeLists.txt
++++ b/src/ndt_core/routing_management/CMakeLists.txt
+@@ -3,4 +3,9 @@ add_library(NdtCore_RoutingManagementLib STATIC
+     FlowRoutingManager.cpp
+     Controller.cpp
+     FlowDispatcher.cpp
+-)
+\ No newline at end of file
++    # [Co-developed with claude code -- Adam]
++    # OpenFlowRoutingStrategy.cpp is gone: the class inherits everything from
++    # HttpRoutingStrategyBase and has no out-of-line definitions left.
++    HttpRoutingStrategyBase.cpp
++    P4RoutingStrategy.cpp
++)

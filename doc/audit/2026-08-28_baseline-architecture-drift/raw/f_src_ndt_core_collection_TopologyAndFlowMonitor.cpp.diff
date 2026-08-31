@@ -1,0 +1,1401 @@
+diff --git a/src/ndt_core/collection/TopologyAndFlowMonitor.cpp b/src/ndt_core/collection/TopologyAndFlowMonitor.cpp
+index 5eb8b16..fd95be6 100644
+--- a/src/ndt_core/collection/TopologyAndFlowMonitor.cpp
++++ b/src/ndt_core/collection/TopologyAndFlowMonitor.cpp
+@@ -39,13 +39,54 @@
+ 
+ // --- Local Headers ---
+ #include "utils/Logger.hpp"
++#include "utils/KeyedFailureLog.hpp"
+ #include "utils/Utils.hpp"
+ 
+ using json = nlohmann::json;
+ using namespace std;
+ 
+-// ---Please change to your own RYU base url---
+-static const std::string RYU_BASE_URL = "http://localhost:8080/v1.0/topology";
++namespace
++{
++// [Co-developed with claude code -- Adam]
++// Shared by both findReverseEdgeByAgentIpAndPort twins, so the same missing link is reported once
++// rather than once per copy. A function-local static rather than a member: both finders are
++// const, and a member would have to be mutable for no gain.
++utils::KeyedFailureLog&
++reverseEdgeFailures()
++{
++    static utils::KeyedFailureLog log{std::chrono::seconds(60)};
++    return log;
++}
++} // namespace
++
++/**
++ * @brief The Ryu topology API base, derived from the one configured Ryu address.
++ *
++ * [Co-developed with claude code -- Adam]
++ * This used to be `static const std::string RYU_BASE_URL = "http://localhost:8080/v1.0/topology"`
++ * under a "---Please change to your own RYU base url---" comment, which bypassed
++ * AppConfig::RYU_IP_AND_PORT -- the knob the flow-stats poll (FlowLinkUsageCollector.cpp) and the
++ * OVS routing strategy (FlowRoutingManager.cpp) already read, and the one an operator would
++ * expect to be sufficient.
++ *
++ * The consequence of the split was silent: redeploy Ryu elsewhere and update AppConfig, and
++ * switch/host/link liveness would go on polling a dead localhost:8080. execCommand returns an
++ * empty body on failure and updateSwitches/updateHosts/updateLinks all early-return on empty
++ * without logging, so the graph simply stops tracking the control plane with no error anywhere.
++ *
++ * A function rather than a namespace-scope std::string: the value depends on another
++ * dynamically-initialised object (AppConfig::RYU_IP_AND_PORT), and computing it on demand sidesteps
++ * initialisation-order questions entirely. It is called once, from the constructor.
++ *
++ * Note this is only the *default*. configureTopologyApiUrls() still re-points the poll at the P4
++ * proxy for an all-bmv2 MININET topology, and must keep running after the topology file is
++ * loaded -- see its own comment for why it cannot move into the constructor.
++ */
++static std::string
++ryuTopologyBaseUrl()
++{
++    return "http://" + AppConfig::RYU_IP_AND_PORT + "/v1.0/topology";
++}
+ 
+ TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
+                                                std::shared_ptr<std::shared_mutex> graphMutex,
+@@ -56,9 +97,54 @@ TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
+       m_eventBus(std::move(eventBus)),
+       m_mode(static_cast<utils::DeploymentMode>(mode))
+ {
+-    m_ryuUrl[0] = RYU_BASE_URL + "/switches";
+-    m_ryuUrl[1] = RYU_BASE_URL + "/hosts";
+-    m_ryuUrl[2] = RYU_BASE_URL + "/links";
++    // Defaults to Ryu. Re-pointed at the P4 proxy in configureTopologyApiUrls(), which cannot
++    // run here: the switch kinds come from the topology file, and that is not loaded yet.
++    setTopologyApiUrls(ryuTopologyBaseUrl());
++}
++
++void
++TopologyAndFlowMonitor::setTopologyApiUrls(const std::string& base)
++{
++    m_ryuUrl[0] = base + "/switches";
++    m_ryuUrl[1] = base + "/hosts";
++    m_ryuUrl[2] = base + "/links";
++}
++
++/** @brief Point the topology poll at whichever control plane owns this data plane.
++ *
++ * @details
++ * [Co-developed with claude code -- Adam]
++ * The proxy serves Ryu's `/v1.0/topology` shapes, so the kernel polls it the same way and
++ * updateSwitches/updateHosts/updateLinks need no P4-specific branch.
++ *
++ * Must be called *after* loadStaticTopologyFromFile, because it asks the graph what kinds of
++ * switch it holds. Calling it from the constructor would always observe an empty topology and
++ * silently keep the Ryu default -- exactly the bug that made the identity ifIndex mapping dead
++ * code for several commits, so it is done at the point of use instead.
++ *
++ * Only an all-bmv2 topology is re-pointed. Empty or mixed keeps Ryu, which is the conservative
++ * choice: an OVS deployment must not start polling a proxy that is not there.
++ */
++void
++TopologyAndFlowMonitor::configureTopologyApiUrls()
++{
++    if (m_mode != utils::MININET)
++    {
++        return;
++    }
++
++    const auto groups = getSwitchKindGroups();
++    const bool allBmv2 = groups.size() == 1 && groups.begin()->first == SwitchKind::BMV2;
++    if (!allBmv2)
++    {
++        return;
++    }
++
++    const std::string base = "http://" + AppConfig::P4_PROXY_IP_AND_PORT + "/v1.0/topology";
++    setTopologyApiUrls(base);
++    SPDLOG_LOGGER_INFO(Logger::instance(),
++                       "All-bmv2 topology: polling {} for switch/host/link state instead of Ryu.",
++                       base);
+ }
+ 
+ TopologyAndFlowMonitor::~TopologyAndFlowMonitor()
+@@ -82,11 +168,39 @@ TopologyAndFlowMonitor::stop()
+     {
+         m_thread.join();
+     }
++    // [Co-developed with claude code -- Adam]
++    // Must be joined too: a joinable std::thread destructor calls std::terminate.
++    if (m_flushEdgeFlowLoop.joinable())
++    {
++        m_flushEdgeFlowLoop.join();
++    }
+ }
+ 
+ void
+ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+ {
++    // [Co-developed with claude code -- Adam]
++    // Refused rather than repeated. This function *adds* vertices and edges from the file; it does
++    // not reconcile against what is already there, so a second call duplicates the whole topology.
++    // Measured the first time a poll loop called it twice: switches 10 -> 20 -> 30 -> 40 -> 50,
++    // hosts 128 -> 640, edges 288 -> 1440, one extra copy every five seconds.
++    //
++    // The guard is here rather than only at the call site because the hazard belongs to this
++    // function, and it was invisible for as long as there happened to be exactly one caller.
++    // Reconciling properly would be the better answer; refusing is the honest one until then.
++    {
++        std::shared_lock lock(*m_graphMutex);
++        if (boost::num_vertices(*m_graph) > 0)
++        {
++            SPDLOG_LOGGER_DEBUG(Logger::instance(),
++                                "static topology already loaded ({} vertices); ignoring a second "
++                                "load of {}",
++                                boost::num_vertices(*m_graph),
++                                path);
++            return;
++        }
++    }
++
+     std::ifstream file(path);
+     if (!file.is_open())
+     {
+@@ -99,7 +213,20 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+     json j;
+     file >> j;
+ 
+-    // std::unique_lock lock(*m_graphMutex);
++    // [Co-developed with claude code -- Adam]
++    // This was commented out, and it is not an oversight that can be undone by uncommenting: the
++    // body used to call findVertexByIp(), which takes a shared_lock on this same non-recursive
++    // shared_mutex, so taking the write lock here deadlocked the kernel at startup. That is almost
++    // certainly why it was commented out rather than fixed.
++    //
++    // Without it, add_vertex/add_edge mutate the graph unlocked while start() has already spawned
++    // flushEdgeFlowLoop, and main.cpp starts the collector and power manager around the same time --
++    // any of which may read the graph. A genuine data race, pre-existing since the d6f7c01 refactor.
++    //
++    // The two calls in the body now use findVertexByIpNoLock, which already existed: this class has
++    // a NoLock variant of essentially every lookup precisely for callers that already hold the lock.
++    // m_switchKindMutex below is a different mutex and does not participate.
++    std::unique_lock lock(*m_graphMutex);
+ 
+     std::unordered_map<uint64_t, Graph::vertex_descriptor> dpidToVertex;
+ 
+@@ -118,9 +245,50 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+         vp.deviceName = nodeJson.at("device_name").get<std::string>();
+         vp.nickName = nodeJson.at("nickname").get<std::string>();
+         vp.brandName = nodeJson.at("brand_name").get<std::string>();
++
++        // [Co-developed with claude code -- Adam]
++        // Prefer an explicit "switch_kind"; fall back to mapping brand_name so both
++        // existing topology files keep working unchanged. A malformed switch_kind throws
++        // out of switchKindFromString, which is deliberate: failing at load is far better
++        // than misrouting flow rules at runtime.
++        if (nodeJson.contains("switch_kind"))
++        {
++            vp.switchKind = switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
++        }
++        else
++        {
++            vp.switchKind = switchKindFromBrandName(vp.brandName);
++        }
++
+         vp.deviceLayer = nodeJson.at("device_layer").get<int>();
++
++        // [Co-developed with claude code -- Adam]
++        // value(), not at(): host nodes carry no plug assignment and every switch node in every
++        // shipped topology file does. Read here so /ndt/get_static_topology_json can echo the
++        // real per-switch pair instead of the constant it used to fabricate.
++        vp.smartPlugIp = nodeJson.value("smart_plug_ip", std::string{});
++        vp.smartPlugOutlet = nodeJson.value("smart_plug_outlet", -1);
++
+         vp.ecmpGroups = nodeJson.value("ecmp_groups", std::vector<EcmpGroup>{});
+ 
++        // [Co-developed with claude code -- Adam]
++        // Ten places call `ip.front()` on a switch's address list without checking it, including
++        // findSwitchByIp(), which does so for *every* switch vertex while searching -- so one
++        // switch with `"ip": []` is undefined behaviour that takes out IP lookup for the whole
++        // graph, not just that switch. `at("ip")` throws on a missing key but accepts an empty
++        // array, so only the file has to be wrong.
++        //
++        // Rejected here rather than guarding each call site: this makes the invariant those ten
++        // sites already assume actually true, and failing at load with the offending dpid beats
++        // undefined behaviour later. Same reasoning as the malformed-switch_kind throw above.
++        if (vp.vertexType == VertexType::SWITCH && vp.ip.empty())
++        {
++            throw std::runtime_error(
++                "switch dpid " + std::to_string(vp.dpid) + " (\"" + vp.nickName +
++                "\") has an empty \"ip\" array; every switch needs at least one management "
++                "address, because address lookup reads the first one unconditionally");
++        }
++
+         if (m_mode == utils::DeploymentMode::MININET && vp.vertexType == VertexType::SWITCH)
+         {
+             vp.bridgeNameForMininet = nodeJson.at("bridge_name").get<std::string>();
+@@ -134,6 +302,11 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+         if (vp.vertexType == VertexType::SWITCH)
+         {
+             dpidToVertex[vp.dpid] = v;
++            // [Co-developed with claude code -- Adam]
++            // Index the data plane while we are here, so the flow-install path can look it
++            // up in O(1) instead of copying the whole graph per entry.
++            std::unique_lock kindLock(m_switchKindMutex);
++            m_dpidToSwitchKind[vp.dpid] = vp.switchKind;
+         }
+     }
+     // Add edges
+@@ -173,7 +346,7 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+         }
+         else if (!ep.srcIp.empty())
+         {
+-            srcVertexOpt = findVertexByIp(ep.srcIp[0]);
++            srcVertexOpt = findVertexByIpNoLock(ep.srcIp[0]);
+         }
+ 
+         // Lookup switch by dst DPID, or host by IP if dst_dpid == 0
+@@ -187,7 +360,7 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+         }
+         else if (!ep.dstIp.empty())
+         {
+-            dstVertexOpt = findVertexByIp(ep.dstIp[0]);
++            dstVertexOpt = findVertexByIpNoLock(ep.dstIp[0]);
+         }
+ 
+         // Add edge if both endpoints found
+@@ -205,6 +378,11 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+                                ep.dstIp.empty() ? 0 : ep.dstIp[0]);
+         }
+     }
++
++    // [Co-developed with claude code -- Adam]
++    // Report the data plane, and refuse a mixed topology unless explicitly allowed. Doing
++    // this at load turns a confusing runtime mixture into a clear startup message.
++    validateDataPlaneHomogeneity(AppConfig::ALLOW_MIXED_DATAPLANE);
+ }
+ 
+ std::optional<Graph::vertex_descriptor>
+@@ -239,21 +417,57 @@ TopologyAndFlowMonitor::findVertexByIpNoLock(uint32_t ip) const
+     return std::nullopt;
+ }
+ 
+-void
+-TopologyAndFlowMonitor::fetchAndUpdateTopologyData()
+-{
+-    // Read static network topology
+-    if (m_mode == utils::TESTBED)
+-    {
+-        loadStaticTopologyFromFile(TOPOLOGY_FILE);
++// [Co-developed with claude code -- Adam]
++//
++// The one place that decides which topology file this run uses.
++//
++// NDTWIN_TOPO_FILE was previously honoured in exactly one of five places. The other four
++// -- the read-modify-rename pairs in setVertexDeviceName and setVertexNickname -- used the
++// hardcoded TOPOLOGY_FILE_MININET. Since dpids 1-10 exist in both the OVS and P4 topology
++// files, renaming a device while running the P4 fabric found a matching dpid in the OVS
++// file and wrote the new name *into the OVS topology*, corrupting it, while hosts threw
++// "No matching node in JSON".
++std::string
++TopologyAndFlowMonitor::activeTopologyPath() const
++{
++    // The override is checked before the mode defaults, so --topology (which sets this env
++    // var) works in TESTBED as well as MININET. Checking the mode first meant
++    // `--mode testbed --topology custom.json` silently loaded the default file instead --
++    // the same class of quiet-wrong-topology failure this function exists to prevent.
++    // An empty value counts as unset. getenv returns a valid pointer to "" for
++    // NDTWIN_TOPO_FILE= , which would otherwise make this return "" -- and since the rename
++    // paths append ".tmp" to whatever comes back, the kernel would write a stray ".tmp" into
++    // its working directory and rename it over nothing.
++    const char* custom = std::getenv("NDTWIN_TOPO_FILE");
++    if (custom != nullptr && custom[0] != '\0')
++    {
++        return custom;
+     }
+-    else if (m_mode == utils::MININET)
++    if (m_mode == utils::TESTBED)
+     {
+-        loadStaticTopologyFromFile(TOPOLOGY_FILE_MININET);
+-    }
+-
+-    initializeMappingsFromGraph();
+-
++        return TOPOLOGY_FILE;
++    }
++    return TOPOLOGY_FILE_MININET;
++}
++
++/** @brief The REST poll on its own, without re-reading the static topology file.
++ *
++ * @details
++ * [Co-developed with claude code -- Adam]
++ * Split out because the loop in run() must not repeat the static load.
++ * loadStaticTopologyFromFile *adds* vertices and edges; it does not reconcile. Calling it a second
++ * time duplicates the entire topology, and the first time the poll loop ran this was measured
++ * immediately -- switches 10 -> 20 -> 30 -> 40 -> 50, hosts 128 -> 640, edges 288 -> 1440, growing by
++ * one whole topology every five seconds.
++ *
++ * That was invisible before because the load ran exactly once per process. It is the kind of latent
++ * trap a unit test would not have found either: the duplication only appears on the *second* call,
++ * and there had never been one. loadStaticTopologyFromFile now refuses a second load outright, so
++ * the trap is gone rather than merely avoided here.
++ */
++void
++TopologyAndFlowMonitor::pollControlPlaneTopology()
++{
+     // GET switches
+     string curlCommand = "curl -s -X GET " + m_ryuUrl[0];
+     string switchesStr;
+@@ -300,6 +514,7 @@ void
+ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
+ {
+     // Update Vertex(Switch) from ryu's REST api
++    if (topologyData.empty()) return;
+     try
+     {
+         auto switchesInfoJson = json::parse(topologyData);
+@@ -310,13 +525,35 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
+         for (const auto& switchInfoJson : switchesInfoJson)
+         {
+             // Note that the "dpid" is written in base 16
+-            string switchDpidStr = switchInfoJson.value("dpid", "");
+-            uint64_t switchDpidUint64 = stoull(switchDpidStr, nullptr, 16);
+-
+-            SPDLOG_LOGGER_INFO(Logger::instance(),
+-                               "switchDpidStr {} switchDpidUint64 {}",
+-                               switchDpidStr,
+-                               switchDpidUint64);
++            const string switchDpidStr = switchInfoJson.value("dpid", "");
++            // [Co-developed with claude code -- Adam]
++            // Was `stoull(switchDpidStr, nullptr, 16)`. An entry carrying no "dpid" yields ""
++            // here, and stoull("") throws std::invalid_argument -- which is not a
++            // json::exception, so it walked straight past the catch below, past updateGraph
++            // (pollControlPlaneTopology calls it outside all three of its try blocks), past
++            // run(), and out of the thread entry into std::terminate. The catch's comment
++            // claimed a malformed reply cost us the poll; for this flavour it cost the process.
++            // One bad entry now costs that entry.
++            const auto switchDpidOpt = utils::tryParseHexUint64(switchDpidStr);
++            if (!switchDpidOpt)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring a switches entry whose dpid is not a hex string: "
++                                   "'{}'",
++                                   switchDpidStr);
++                continue;
++            }
++            const uint64_t switchDpidUint64 = *switchDpidOpt;
++
++            // TRACE, not INFO. This printed once per switch per process while updateSwitches was
++            // called exactly once; making run() poll periodically turned it into ten lines every
++            // interval, which is my own regression from that change. The WARN below is the line
++            // that carries information -- a dpid the static topology does not know about.
++            // [Co-developed with claude code -- Adam]
++            SPDLOG_LOGGER_TRACE(Logger::instance(),
++                                "switchDpidStr {} switchDpidUint64 {}",
++                                switchDpidStr,
++                                switchDpidUint64);
+ 
+             // Update switch isUp status
+             // Keep Thread Safe
+@@ -337,9 +574,25 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
+             }
+         }
+     }
+-    catch (const json::parse_error& err)
+-    {
+-        cerr << "JSON parse error: " << err.what() << endl;
++    catch (const std::exception& err)
++    {
++        // [Co-developed with claude code -- Adam]
++        // std::exception, not json::exception, and not json::parse_error. Each widening
++        // happened because the previous one turned out to be a claim the code did not honour:
++        //   parse_error -> json::exception: a field of an unexpected *type* throws
++        //     json::type_error, so `"mac": 1` used to terminate the kernel.
++        //   json::exception -> std::exception: so did a *missing* dpid, because stoull("")
++        //     throws std::invalid_argument, which is not a json::exception at all. That escaped
++        //     here, escaped updateGraph (pollControlPlaneTopology calls it outside its try
++        //     blocks), escaped run(), and left the thread entry as std::terminate.
++        // The individual parses above are guarded now, so this is the backstop rather than the
++        // mechanism -- but it is what makes the sentence "should cost us this poll, not the
++        // process" true for a reply shape nobody has thought of yet. This data comes from
++        // another process over HTTP; it is not a place to trust our own exhaustiveness.
++        SPDLOG_LOGGER_ERROR(Logger::instance(),
++                            "{}: ignoring malformed control-plane response: {}",
++                            __func__,
++                            err.what());
+         return;
+     }
+ }
+@@ -348,6 +601,7 @@ void
+ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
+ {
+     // Update Vertex(Host) and Edge(Host to Switch) from ryu's REST api
++    if (topologyData.empty()) return;
+     try
+     {
+         auto hostsInfoJson = json::parse(topologyData);
+@@ -357,14 +611,36 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
+ 
+         for (const auto& host : hostsInfoJson)
+         {
+-            if (host["ipv4"].empty())
++            // [Co-developed with claude code -- Adam]
++            // contains() before operator[]: see updateLinks. On a const json a missing key is
++            // undefined behaviour under NDEBUG, not a catchable exception.
++            if (!host.contains("ipv4") || host["ipv4"].empty())
+             {
+                 SPDLOG_LOGGER_DEBUG(Logger::instance(), "Skipping host with no IPv4 address");
+                 continue;
+             }
+ 
+             auto vecIpStr = host["ipv4"];
+-            auto vertexOpt = findVertexByMac(utils::macToUint64(host["mac"]));
++            // [Co-developed with claude code -- Adam]
++            // Every parse below this line used to be a throwing one on data from another
++            // process: macToUint64, ipStringToUint32 and hexStringToUint64 all raise
++            // std::invalid_argument, which is not a json::exception, so a well-typed but
++            // unparseable field escaped the catch at the end of this function and terminated
++            // the kernel from the poll thread. The wrong-*type* case was already handled (that
++            // throws json::type_error); the wrong-*value* case was not. Held in a named string
++            // so the WARNs below do not have to touch host["mac"] again -- on a const json a
++            // missing key is undefined behaviour, not an exception, so `host["mac"].dump()` in
++            // an error path was its own crash waiting for an entry with no mac.
++            const std::string macStr = host.value("mac", "");
++            const auto hostMacOpt = utils::tryMacToUint64(macStr);
++            if (!hostMacOpt)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring a hosts entry whose mac is not a MAC address: '{}'",
++                                   macStr);
++                continue;
++            }
++            auto vertexOpt = findVertexByMac(*hostMacOpt);
+             if (vertexOpt)
+             {
+                 unique_lock lock(*m_graphMutex);
+@@ -375,11 +651,34 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
+             {
+                 SPDLOG_LOGGER_WARN(Logger::instance(),
+                                    "Host ({}) not found in static network topology file",
+-                                   host["mac"].dump());
++                                   macStr);
+             }
+ 
++            // [Co-developed with claude code -- Adam]
++            // The type check is here because the *value* check below is not enough. `.get<>()` on
++            // a non-string throws json::type_error, which the function-level catch does see -- but
++            // seeing it means returning, so `"ipv4": [1234]` cost every host listed after it. The
++            // commit that added the value guard claimed the individual parses were all guarded;
++            // this was the one it missed, and an independent review of that claim found it.
++            if (!vecIpStr[0].is_string())
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring host {}: its ipv4[0] is {}, not a string",
++                                   macStr,
++                                   vecIpStr[0].type_name());
++                continue;
++            }
+             std::string ipStr = vecIpStr[0].get<std::string>();
+-            uint32_t ip = utils::ipStringToUint32(ipStr);
++            const auto ipOpt = utils::tryIpStringToUint32(ipStr);
++            if (!ipOpt)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring host {}: its ipv4[0] '{}' is not an address",
++                                   macStr,
++                                   ipStr);
++                continue;
++            }
++            const uint32_t ip = *ipOpt;
+             auto edgeOpt = findEdgeByHostIp(ip);
+ 
+             if (edgeOpt)
+@@ -392,16 +691,36 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
+             {
+                 SPDLOG_LOGGER_WARN(Logger::instance(),
+                                    "Edge (host {} {} {}) not found in static network topology file",
+-                                   host["mac"].dump(),
++                                   macStr,
+                                    ipStr,
+                                    ip);
+             }
+ 
+-            auto vertexOpt2 = findSwitchByDpid(utils::hexStringToUint64(host["port"]["dpid"]));
++            // The attachment port. `host["port"]["dpid"]` was two unchecked lookups on a const
++            // json plus a throwing hex parse; Ryu sends all three, but this function's contract
++            // is that a reply which does not costs the entry, not the process.
++            if (!host.contains("port") || !host["port"].contains("dpid"))
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "host {} has no port.dpid; its switch-side edge is left as it "
++                                   "was",
++                                   macStr);
++                continue;
++            }
++            const auto attachDpidOpt = utils::tryParseHexUint64(host["port"].value("dpid", ""));
++            if (!attachDpidOpt)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "host {} reports attachment dpid '{}', which is not hex; its "
++                                   "switch-side edge is left as it was",
++                                   macStr,
++                                   host["port"].value("dpid", ""));
++                continue;
++            }
++            auto vertexOpt2 = findSwitchByDpid(*attachDpidOpt);
+             if (vertexOpt2.has_value())
+             {
+-                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0],
+-                                                        utils::ipStringToUint32(vecIpStr[0]));
++                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip);
+                 if (edgeRevOpt.has_value())
+                 {
+                     unique_lock lock(*m_graphMutex);
+@@ -413,14 +732,30 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
+                     SPDLOG_LOGGER_WARN(
+                         Logger::instance(),
+                         "Rev Edge (host {}) not found in static network topology file",
+-                        host["mac"].dump());
++                        macStr);
+                 }
+             }
+         }
+     }
+-    catch (const json::parse_error& err)
+-    {
+-        cerr << "JSON parse error: " << err.what() << endl;
++    catch (const std::exception& err)
++    {
++        // [Co-developed with claude code -- Adam]
++        // std::exception, not json::exception, and not json::parse_error. Each widening
++        // happened because the previous one turned out to be a claim the code did not honour:
++        //   parse_error -> json::exception: a field of an unexpected *type* throws
++        //     json::type_error, so `"mac": 1` used to terminate the kernel.
++        //   json::exception -> std::exception: so did a *missing* dpid, because stoull("")
++        //     throws std::invalid_argument, which is not a json::exception at all. That escaped
++        //     here, escaped updateGraph (pollControlPlaneTopology calls it outside its try
++        //     blocks), escaped run(), and left the thread entry as std::terminate.
++        // The individual parses above are guarded now, so this is the backstop rather than the
++        // mechanism -- but it is what makes the sentence "should cost us this poll, not the
++        // process" true for a reply shape nobody has thought of yet. This data comes from
++        // another process over HTTP; it is not a place to trust our own exhaustiveness.
++        SPDLOG_LOGGER_ERROR(Logger::instance(),
++                            "{}: ignoring malformed control-plane response: {}",
++                            __func__,
++                            err.what());
+         return;
+     }
+ }
+@@ -428,7 +763,8 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
+ void
+ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
+ {
+-    // Update Vertex(Host) and Edge(Host to Switch) from ryu's REST api
++    // Update Edge(Switch to Switch) from ryu's REST api
++    if (topologyData.empty()) return;
+     try
+     {
+         auto linksInfoJson = json::parse(topologyData);
+@@ -438,6 +774,16 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
+ 
+         for (const auto& link : linksInfoJson)
+         {
++            // [Co-developed with claude code -- Adam]
++            // contains() before operator[]: on a *const* json, operator[] with a missing key is
++            // undefined behaviour (the bounds check is a JSON_ASSERT, compiled out under NDEBUG),
++            // so a link entry without "src" was not even an exception to catch.
++            if (!link.contains("src") || !link.contains("dst"))
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring a links entry with no src/dst endpoint");
++                continue;
++            }
+             string srcDpidStr = link["src"].value("dpid", "");
+             string srcPortStr = link["src"].value("port_no", "");
+             string dstDpidStr = link["dst"].value("dpid", "");
+@@ -449,9 +795,24 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
+             }
+ 
+             // Check if both switches exist in the graph
+-            uint64_t srcDpid = stoull(srcDpidStr, nullptr, 16);
++            // [Co-developed with claude code -- Adam]
++            // tryParseHexUint64, not stoull: the empty case is guarded just above, but a
++            // non-empty non-hex dpid still threw std::invalid_argument past every catch on the
++            // way to the run() thread. See the same change in updateSwitches.
++            const auto srcDpidOpt = utils::tryParseHexUint64(srcDpidStr);
++            const auto dstDpidOpt = utils::tryParseHexUint64(dstDpidStr);
++            if (!srcDpidOpt || !dstDpidOpt)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring a links entry whose dpids are not hex strings: "
++                                   "'{}' -> '{}'",
++                                   srcDpidStr,
++                                   dstDpidStr);
++                continue;
++            }
++            uint64_t srcDpid = *srcDpidOpt;
+             uint32_t srcPort = utils::portStringToUint(srcPortStr);
+-            uint64_t dstDpid = stoull(dstDpidStr, nullptr, 16);
++            uint64_t dstDpid = *dstDpidOpt;
+             // uint64_t dstPort = utils::portStringToUint(dstPortStr);
+ 
+             auto srcVertexOpt = findSwitchByDpid(srcDpid);
+@@ -459,8 +820,19 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
+ 
+             if (!srcVertexOpt.has_value() or !dstVertexOpt.has_value())
+             {
+-                SPDLOG_LOGGER_WARN(Logger::instance(), "Cannot Find Endpoints Switches");
+-                return;
++                // [Co-developed with claude code -- Adam]
++                // `continue`, not `return`. A link naming a switch the static topology does not
++                // contain is one unusable entry, not a reason to abandon the reply -- and this
++                // one is persistent rather than transient: the control plane sends the same list
++                // every poll, so every link *after* the offender stayed at whatever state it was
++                // last given, indefinitely. That is the failure this whole ingest was hardened
++                // against, still present in the one branch that used a bare return.
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "ignoring a link whose endpoints are not both in the static "
++                                   "topology: {} -> {}",
++                                   srcDpidStr,
++                                   dstDpidStr);
++                continue;
+             }
+ 
+             {
+@@ -501,9 +873,25 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
+             }
+         }
+     }
+-    catch (const json::parse_error& err)
+-    {
+-        cerr << "JSON parse error: " << err.what() << endl;
++    catch (const std::exception& err)
++    {
++        // [Co-developed with claude code -- Adam]
++        // std::exception, not json::exception, and not json::parse_error. Each widening
++        // happened because the previous one turned out to be a claim the code did not honour:
++        //   parse_error -> json::exception: a field of an unexpected *type* throws
++        //     json::type_error, so `"mac": 1` used to terminate the kernel.
++        //   json::exception -> std::exception: so did a *missing* dpid, because stoull("")
++        //     throws std::invalid_argument, which is not a json::exception at all. That escaped
++        //     here, escaped updateGraph (pollControlPlaneTopology calls it outside its try
++        //     blocks), escaped run(), and left the thread entry as std::terminate.
++        // The individual parses above are guarded now, so this is the backstop rather than the
++        // mechanism -- but it is what makes the sentence "should cost us this poll, not the
++        // process" true for a reply shape nobody has thought of yet. This data comes from
++        // another process over HTTP; it is not a place to trust our own exhaustiveness.
++        SPDLOG_LOGGER_ERROR(Logger::instance(),
++                            "{}: ignoring malformed control-plane response: {}",
++                            __func__,
++                            err.what());
+         return;
+     }
+ }
+@@ -516,7 +904,10 @@ TopologyAndFlowMonitor::updateGraph(const string& switchesStr,
+     updateSwitches(switchesStr);
+     updateHosts(hostsStr);
+     updateLinks(linksStr);
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "\033[1;32mTopology Update From REST\033[0m");
++    // DEBUG, not INFO, matching logGraph() below. Unconditional and content-free: it says a poll
++    // ran, not that anything changed. run()'s poll loop already prints one line when the up-counts
++    // actually move, which is the version worth keeping. [Co-developed with claude code -- Adam]
++    SPDLOG_LOGGER_DEBUG(Logger::instance(), "\033[1;32mTopology Update From REST\033[0m");
+     logGraph();
+ }
+ 
+@@ -676,8 +1067,31 @@ TopologyAndFlowMonitor::updateLinkInfo(pair<uint32_t, uint32_t> agentIpAndPort,
+ void
+ TopologyAndFlowMonitor::updateLinkInfoLeftLinkBandwidth(
+     std::pair<uint32_t, uint32_t> agentIpAndPort,
+-    uint64_t estimatedIn)
++    uint64_t accumulatedBytes,
++    double elapsedSeconds)
+ {
++    // [Co-developed with claude code -- Adam]
++    // A non-positive interval cannot produce a rate. Publishing anything here -- 0, the
++    // undivided byte count, a clamped interval -- puts a number on an edge that looks exactly
++    // like a measurement, and the reader has no way to tell it apart from a real one. Refuse,
++    // say so, and leave the edge holding its previous value, which at least IS a measurement.
++    if (!(elapsedSeconds > 0.0))
++    {
++        SPDLOG_LOGGER_ERROR(Logger::instance(),
++                            "rate update skipped: elapsed interval {} s is not positive, so "
++                            "{} bytes cannot be converted to a rate. Edge left unchanged.",
++                            elapsedSeconds,
++                            accumulatedBytes);
++        return;
++    }
++    m_lastRateDivisorSeconds.store(elapsedSeconds);
++
++    // The whole point of ticket Q: this division did not exist. The accumulator was handed on as
++    // `bytes * 8` and consumed as bits-per-second, which is only correct when the interval is
++    // exactly one second -- and the rate loop sleeps a full second and then runs its body.
++    const uint64_t estimatedIn =
++        static_cast<uint64_t>(static_cast<double>(accumulatedBytes) * 8.0 / elapsedSeconds);
++
+     auto edgeOpt = findEdgeByAgentIpAndPort(agentIpAndPort);
+     if (!edgeOpt.has_value())
+     {
+@@ -726,6 +1140,98 @@ TopologyAndFlowMonitor::findSwitchByDpid(uint64_t dpid) const
+     return nullopt;
+ }
+ 
++// [Co-developed with claude code -- Adam]
++std::optional<SwitchKind>
++TopologyAndFlowMonitor::getSwitchKind(uint64_t dpid) const
++{
++    std::shared_lock lock(m_switchKindMutex);
++    auto it = m_dpidToSwitchKind.find(dpid);
++    if (it == m_dpidToSwitchKind.end())
++    {
++        return nullopt;
++    }
++    return it->second;
++}
++
++// [Co-developed with claude code -- Adam]
++std::map<SwitchKind, std::vector<uint64_t>>
++TopologyAndFlowMonitor::getSwitchKindGroups() const
++{
++    std::map<SwitchKind, std::vector<uint64_t>> groups;
++    {
++        std::shared_lock lock(m_switchKindMutex);
++        for (const auto& [dpid, kind] : m_dpidToSwitchKind)
++        {
++            groups[kind].push_back(dpid);
++        }
++    }
++    for (auto& [kind, dpids] : groups)
++    {
++        (void)kind;
++        std::sort(dpids.begin(), dpids.end());
++    }
++    return groups;
++}
++
++// [Co-developed with claude code -- Adam]
++bool
++TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
++{
++    const auto groups = getSwitchKindGroups();
++
++    if (groups.empty())
++    {
++        SPDLOG_LOGGER_ERROR(Logger::instance(),
++                            "Topology contains no switches; nothing can be controlled");
++        return false;
++    }
++
++    if (groups.size() == 1)
++    {
++        const auto& [kind, dpids] = *groups.begin();
++        SPDLOG_LOGGER_INFO(Logger::instance(),
++                           "Data plane: {} ({} switch(es))",
++                           switchKindToString(kind),
++                           dpids.size());
++        return true;
++    }
++
++    std::ostringstream detail;
++    bool first = true;
++    for (const auto& [kind, dpids] : groups)
++    {
++        if (!first)
++        {
++            detail << "; ";
++        }
++        first = false;
++        detail << switchKindToString(kind) << "=[";
++        for (size_t i = 0; i < dpids.size(); ++i)
++        {
++            detail << (i ? "," : "") << dpids[i];
++        }
++        detail << "]";
++    }
++
++    if (allowMixed)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "Topology mixes data planes ({}). Proceeding because mixed "
++                           "operation was explicitly allowed; telemetry and liveness are "
++                           "not validated for this configuration.",
++                           detail.str());
++        return true;
++    }
++
++    SPDLOG_LOGGER_ERROR(Logger::instance(),
++                        "Topology mixes data planes ({}). A single run must be all-OVS or "
++                        "all-BMv2: the flow dispatch is per-DPID and would cope, but the "
++                        "telemetry and liveness paths assume one kind. Fix the topology "
++                        "file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.",
++                        detail.str());
++    return false;
++}
++
+ optional<Graph::vertex_descriptor>
+ TopologyAndFlowMonitor::findSwitchByDpidNoLock(uint64_t dpid) const
+ {
+@@ -840,6 +1346,34 @@ TopologyAndFlowMonitor::findEdgeByAgentIpAndPort(
+     return nullopt;
+ }
+ 
++// [Co-developed with claude code -- Adam]
++optional<Graph::edge_descriptor>
++TopologyAndFlowMonitor::findEdgeToHostByAgentIpAndPort(
++    const pair<uint32_t, uint32_t>& agentIpAndPort) const
++{
++    std::shared_lock lock(*m_graphMutex);
++    for (auto edgeIt = boost::edges(*m_graph).first; edgeIt != boost::edges(*m_graph).second;
++         ++edgeIt)
++    {
++        auto edge = *edgeIt;
++        const auto& props = (*m_graph)[edge];
++        if (props.srcIp.front() == agentIpAndPort.first and
++            props.srcInterface == agentIpAndPort.second)
++        {
++            // dstDpid == 0 is how the topology loader marks a non-switch endpoint: hosts are
++            // the only vertices without a datapath id (see the dstDpid != 0 branch where edges
++            // are loaded). A switch far end means a sampler exists over there and owns the
++            // edge's accounting; a host far end has no sampler at all.
++            if (props.dstDpid == 0)
++            {
++                return edge;
++            }
++            return nullopt;
++        }
++    }
++    return nullopt;
++}
++
+ optional<Graph::edge_descriptor>
+ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
+     const pair<uint32_t, uint32_t>& agentIpAndPort) const
+@@ -854,8 +1388,37 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
+         {
+             auto sourceNode = boost::source(edge, *m_graph);
+             auto targetNode = boost::target(edge, *m_graph);
+-            auto reverseEdge = boost::edge(targetNode, sourceNode, *m_graph).first;
+-            return reverseEdge;
++            // [Co-developed with claude code -- Adam]
++            // `.second` is the found flag, and dropping it turned a miss into a hit: a singular
++            // edge_descriptor wrapped in an *engaged* optional, which every caller then treats
++            // as a real edge. FlowLinkUsageCollector writes through this one on the sFlow
++            // ingest path (touchEdgeFlow), so a graph holding only the forward direction of a
++            // link -- reachable, which is why 7f738e6 exists to report half-processed link
++            // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
++            // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
++            //
++            // Reported through KeyedFailureLog, not at DEBUG. The first version of this used
++            // DEBUG on the reasoning that a per-sample WARN is how this process once reached
++            // 138,000 log lines a day -- true, but the wrong conclusion, and an independent
++            // review caught it: a missing reverse edge is a *persistent structural* condition,
++            // not a per-sample transient. DEBUG does not thin a flood there, it converts a
++            // permanent condition into permanent silence, because LogConfig defaults to info and
++            // the running kernel passes no level flag. The graph would stay asymmetric and the
++            // one place that notices would say nothing -- which is the state this guard exists
++            // to surface. KeyedFailureLog is the instrument this repo already built for exactly
++            // that shape, and FlowLinkUsageCollector -- the caller on this path -- already uses
++            // it: first occurrence per key, recovery, nothing in between.
++            const auto reverse = boost::edge(targetNode, sourceNode, *m_graph);
++            if (!reverse.second)
++            {
++                reverseEdgeFailures().record(
++                    utils::ipToString(agentIpAndPort.first) + ":" +
++                        std::to_string(agentIpAndPort.second),
++                    "no reverse edge for this agent and port; the graph holds only one direction "
++                    "of the link, so per-edge flow bookkeeping for it is skipped");
++                return nullopt;
++            }
++            return reverse.first;
+         }
+     }
+     return nullopt;
+@@ -876,8 +1439,37 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPort(
+         {
+             auto sourceNode = boost::source(edge, *m_graph);
+             auto targetNode = boost::target(edge, *m_graph);
+-            auto reverseEdge = boost::edge(targetNode, sourceNode, *m_graph).first;
+-            return reverseEdge;
++            // [Co-developed with claude code -- Adam]
++            // `.second` is the found flag, and dropping it turned a miss into a hit: a singular
++            // edge_descriptor wrapped in an *engaged* optional, which every caller then treats
++            // as a real edge. FlowLinkUsageCollector writes through this one on the sFlow
++            // ingest path (touchEdgeFlow), so a graph holding only the forward direction of a
++            // link -- reachable, which is why 7f738e6 exists to report half-processed link
++            // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
++            // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
++            //
++            // Reported through KeyedFailureLog, not at DEBUG. The first version of this used
++            // DEBUG on the reasoning that a per-sample WARN is how this process once reached
++            // 138,000 log lines a day -- true, but the wrong conclusion, and an independent
++            // review caught it: a missing reverse edge is a *persistent structural* condition,
++            // not a per-sample transient. DEBUG does not thin a flood there, it converts a
++            // permanent condition into permanent silence, because LogConfig defaults to info and
++            // the running kernel passes no level flag. The graph would stay asymmetric and the
++            // one place that notices would say nothing -- which is the state this guard exists
++            // to surface. KeyedFailureLog is the instrument this repo already built for exactly
++            // that shape, and FlowLinkUsageCollector -- the caller on this path -- already uses
++            // it: first occurrence per key, recovery, nothing in between.
++            const auto reverse = boost::edge(targetNode, sourceNode, *m_graph);
++            if (!reverse.second)
++            {
++                reverseEdgeFailures().record(
++                    utils::ipToString(agentIpAndPort.first) + ":" +
++                        std::to_string(agentIpAndPort.second),
++                    "no reverse edge for this agent and port; the graph holds only one direction "
++                    "of the link, so per-edge flow bookkeeping for it is skipped");
++                return nullopt;
++            }
++            return reverse.first;
+         }
+     }
+     return nullopt;
+@@ -1272,15 +1864,11 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
+         std::lock_guard guard(m_configurationFileMutex);
+         nlohmann::json j;
+         {
++            // [Co-developed with claude code -- Adam]
++            // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
++            // always read the OVS file in Mininet mode, even when running the P4 fabric.
+             std::ifstream ifs;
+-            if (m_mode == utils::DeploymentMode::MININET)
+-            {
+-                ifs.open(TOPOLOGY_FILE_MININET);
+-            }
+-            else
+-            {
+-                ifs.open(TOPOLOGY_FILE);
+-            }
++            ifs.open(activeTopologyPath());
+             if (!ifs.is_open())
+             {
+                 throw std::runtime_error("Cannot open topology file");
+@@ -1327,8 +1915,9 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
+             throw std::runtime_error("No matching node in JSON");
+         }
+ 
+-        const auto tmp = m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
+-                                                                  : TOPOLOGY_FILE_MININET + ".tmp";
++        // [Co-developed with claude code -- Adam]
++        const auto topoPath = activeTopologyPath();
++        const auto tmp = topoPath + ".tmp";
+         {
+             std::ofstream ofs(tmp);
+             if (!ofs.is_open())
+@@ -1338,8 +1927,7 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
+             ofs << std::setw(2) << j << std::endl;
+         }
+         std::filesystem::rename(tmp,
+-                                m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
+-                                                                         : TOPOLOGY_FILE_MININET);
++                                topoPath);
+     }
+ }
+ 
+@@ -1360,15 +1948,11 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
+ 
+         // Read the entire contents of the current topology file.
+         {
++            // [Co-developed with claude code -- Adam]
++            // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
++            // always read the OVS file in Mininet mode, even when running the P4 fabric.
+             std::ifstream ifs;
+-            if (m_mode == utils::DeploymentMode::MININET)
+-            {
+-                ifs.open(TOPOLOGY_FILE_MININET);
+-            }
+-            else
+-            {
+-                ifs.open(TOPOLOGY_FILE);
+-            }
++            ifs.open(activeTopologyPath());
+             if (!ifs.is_open())
+             {
+                 throw std::runtime_error("Cannot open topology file");
+@@ -1416,8 +2000,9 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
+         }
+ 
+         // Safely write the modified JSON data back to the file.
+-        const auto tmp = m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
+-                                                                  : TOPOLOGY_FILE_MININET + ".tmp";
++        // [Co-developed with claude code -- Adam]
++        const auto topoPath = activeTopologyPath();
++        const auto tmp = topoPath + ".tmp";
+         {
+             std::ofstream ofs(tmp);
+             if (!ofs.is_open())
+@@ -1427,21 +2012,131 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
+             ofs << std::setw(2) << j << std::endl;
+         }
+         std::filesystem::rename(tmp,
+-                                m_mode == utils::DeploymentMode::TESTBED ? TOPOLOGY_FILE
+-                                                                         : TOPOLOGY_FILE_MININET);
+-    }
+-}
+-
++                                topoPath);
++    }
++}
++
++/** @brief Keeps the graph in step with the control plane, instead of snapshotting it once.
++ *
++ * @details
++ * [Co-developed with claude code -- Adam]
++ *
++ * This used to call fetchAndUpdateTopologyData() exactly once and return. Measured on a live run:
++ * `run` was entered at 13:55:55.154 and exited at **.242** -- 88 milliseconds -- and the entire
++ * graph, switches and hosts and links, was whatever Ryu happened to know in that instant. Nothing
++ * re-read it for the life of the process.
++ *
++ * That is the actual cause of the "flaky" `get_graph_data` contract failure, and the explanation
++ * previously recorded for it was wrong. The note said static ARP stops Ryu ever learning host IPs;
++ * in fact `testbed_topo.py` sets the static ARP entries and *then pings all 128 hosts in parallel*,
++ * which is what teaches Ryu. So the empty-`ipv4` state is transient, and whether the one snapshot
++ * catches it depends entirely on when the kernel starts:
++ *
++ *   - started 73 s after Mininet (by hand): Ryu already knows all 128 IPs -> 128/128 hosts up
++ *   - started back-to-back (stack.sh up ovs): the snapshot lands mid-burst -> permanently short
++ *
++ * Same commit, same network, different verdict. Hosts are the visible symptom because they have no
++ * push path at all -- switches arrive via /ndt/inform_switch_entered and link failures via
++ * /ndt/link_failure_detected, but nothing ever pushes a host.
++ *
++ * Re-polling is safe for links, which was the thing worth checking before writing this: verified
++ * live that Ryu's `/v1.0/topology/links` really does drop a failed link (32 -> 30 within 2 s) and
++ * restore it on recovery (-> 32 within 8 s), and that `updateLinks` only ever sets `isUp = true`.
++ * So a poll can fill in what was missed but cannot resurrect an edge the push path correctly took
++ * down.
++ *
++ * Fast at first, then slow, and time-boxed rather than gated on a convergence test: a genuinely
++ * absent host would keep a convergence gate in fast mode forever.
++ */
+ void
+ TopologyAndFlowMonitor::run()
+ {
++    using namespace std::chrono_literals;
++    constexpr auto kWhileConverging = 5s;
++    constexpr auto kOnceConverged = 30s;
++    constexpr auto kConvergingFor = 90s; // covers the ping burst and LLDP discovery
++
+     SPDLOG_LOGGER_INFO(Logger::instance(), "TopologyAndFlowMonitor Run");
+ 
+-    fetchAndUpdateTopologyData();
++    // Once: the static topology is static, and loading it twice duplicates it.
++    loadStaticTopologyFromFile(activeTopologyPath());
++    initializeMappingsFromGraph();
++    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
++    configureTopologyApiUrls();
++
++    const auto startedAt = std::chrono::steady_clock::now();
++    auto previous = graphLivenessSummary();
++    bool first = true;
++
++    while (m_running.load())
++    {
++        pollControlPlaneTopology();
++
++        // Reported only when something moved. One line per poll forever is how the two 1 Hz INFO
++        // lines elsewhere in this process reached 138,000 lines a day.
++        const auto now = graphLivenessSummary();
++        if (first || now != previous)
++        {
++            const auto [switchesUp, hostsUp, edgesUp] = now;
++            SPDLOG_LOGGER_INFO(Logger::instance(),
++                               "topology from the control plane: {} switches, {} hosts, {} edges up",
++                               switchesUp,
++                               hostsUp,
++                               edgesUp);
++            previous = now;
++            first = false;
++        }
++
++        const auto interval = (std::chrono::steady_clock::now() - startedAt < kConvergingFor)
++                                  ? kWhileConverging
++                                  : kOnceConverged;
++        // Sliced so stop() does not wait out a whole interval.
++        for (auto slept = 0s; slept < interval && m_running.load(); slept += 1s)
++        {
++            std::this_thread::sleep_for(1s);
++        }
++    }
+ 
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting TopologyAndFlowMonitor's updating");
+ }
+ 
++/** @brief (switches up, hosts up, edges up). Cheap change signal for the poll loop.
++ *
++ * [Co-developed with claude code -- Adam]
++ */
++std::tuple<std::size_t, std::size_t, std::size_t>
++TopologyAndFlowMonitor::graphLivenessSummary() const
++{
++    std::shared_lock lock(*m_graphMutex);
++    std::size_t switchesUp = 0;
++    std::size_t hostsUp = 0;
++    for (auto [vi, viEnd] = boost::vertices(*m_graph); vi != viEnd; ++vi)
++    {
++        if (!(*m_graph)[*vi].isUp)
++        {
++            continue;
++        }
++        if ((*m_graph)[*vi].vertexType == VertexType::SWITCH)
++        {
++            ++switchesUp;
++        }
++        else
++        {
++            ++hostsUp;
++        }
++    }
++
++    std::size_t edgesUp = 0;
++    for (auto [ei, eiEnd] = boost::edges(*m_graph); ei != eiEnd; ++ei)
++    {
++        if ((*m_graph)[*ei].isUp)
++        {
++            ++edgesUp;
++        }
++    }
++    return {switchesUp, hostsUp, edgesUp};
++}
++
+ vector<sflow::Path>
+ TopologyAndFlowMonitor::getAllPathsBetweenTwoHosts(sflow::FlowKey flow_key,
+                                                    uint64_t src_sw_dpid,
+@@ -1501,7 +2196,7 @@ TopologyAndFlowMonitor::getAllPathsBetweenTwoHosts(sflow::FlowKey flow_key,
+ 
+             const auto& ep = (*m_graph)[e];
+             // Only traverse the active and enabled links
+-            if (ep.isUp && ep.isEnabled)
++            if (isUsable(ep))
+             {
+                 current_path.push_back({ep.srcDpid, ep.srcInterface});
+                 dfs(v);
+@@ -1615,19 +2310,32 @@ TopologyAndFlowMonitor::setVertexDisable(Graph::vertex_descriptor v)
+     (*m_graph)[v].isEnabled = false;
+ }
+ 
+-void
++bool
+ TopologyAndFlowMonitor::disableSwitchAndEdges(uint64_t dpid)
+ {
+     std::unique_lock lock(*m_graphMutex);
+     auto vertexOpt = findSwitchByDpidNoLock(dpid);
+     if (!vertexOpt)
+     {
+-        return;
++        // [Co-developed with claude code -- Adam]
++        // Returned rather than only logged: the caller composes the operator's answer, and while
++        // this was void it answered "ok" to a disable that had touched nothing.
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "administrative disable of dpid {} did nothing: no such switch in the "
++                           "graph",
++                           dpid);
++        return false;
+     }
+ 
+     auto vertex = *vertexOpt;
+ 
++    // [Co-developed with claude code -- Adam]
++    // Both flags, and they do different jobs. `isEnabled = false` makes the disable take effect
++    // now; `adminDisabled = true` makes it *survive*, because the next topology poll sets
++    // `isEnabled` back to true unconditionally for everything it reports and has no idea an
++    // operator ever spoke. Writing only the first is what made DisableSwitch a silent no-op.
+     (*m_graph)[vertex].isEnabled = false;
++    (*m_graph)[vertex].adminDisabled = true;
+ 
+     for (auto [ei, ei_end] = boost::edges(*m_graph); ei != ei_end; ++ei)
+     {
+@@ -1637,23 +2345,37 @@ TopologyAndFlowMonitor::disableSwitchAndEdges(uint64_t dpid)
+         if (src_v == vertex || dst_v == vertex)
+         {
+             (*m_graph)[*ei].isEnabled = false;
++            (*m_graph)[*ei].adminDisabled = true;
+         }
+     }
++
++    SPDLOG_LOGGER_INFO(Logger::instance(),
++                       "administrative disable of dpid {} recorded (survives topology polls)",
++                       dpid);
++    return true;
+ }
+ 
+-void
++bool
+ TopologyAndFlowMonitor::enableSwitchAndEdges(uint64_t dpid)
+ {
+     std::unique_lock lock(*m_graphMutex);
+     auto vertexOpt = findSwitchByDpidNoLock(dpid);
+     if (!vertexOpt)
+     {
+-        return;
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "administrative enable of dpid {} did nothing: no such switch in the "
++                           "graph",
++                           dpid);
++        return false;
+     }
+ 
+     auto vertex = *vertexOpt;
+ 
++    // Clears the administrative intent as well as enabling: "enable s3" from an operator has to be
++    // able to undo "disable s3" from the same operator, and only the second line does that.
++    // [Co-developed with claude code -- Adam]
+     (*m_graph)[vertex].isEnabled = true;
++    (*m_graph)[vertex].adminDisabled = false;
+ 
+     for (auto [ei, ei_end] = boost::edges(*m_graph); ei != ei_end; ++ei)
+     {
+@@ -1663,8 +2385,12 @@ TopologyAndFlowMonitor::enableSwitchAndEdges(uint64_t dpid)
+         if (src_v == vertex || dst_v == vertex)
+         {
+             (*m_graph)[*ei].isEnabled = true;
++            (*m_graph)[*ei].adminDisabled = false;
+         }
+     }
++
++    SPDLOG_LOGGER_INFO(Logger::instance(), "administrative enable of dpid {} recorded", dpid);
++    return true;
+ }
+ 
+ void
+@@ -1803,11 +2529,11 @@ TopologyAndFlowMonitor::bfsAllPathsToDst(
+         {
+             Graph::vertex_descriptor neighbor = boost::target(edge, g);
+ 
+-            if (!g[neighbor].isUp || !g[neighbor].isEnabled)
++            if (!isUsable(g[neighbor]))
+             {
+                 continue;
+             }
+-            if (!g[edge].isUp || !g[edge].isEnabled)
++            if (!isUsable(g[edge]))
+             {
+                 continue;
+             }
+@@ -1947,6 +2673,13 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
+             {
+                 if (m_mode == utils::DeploymentMode::TESTBED)
+                 {
++                    // [Co-developed with claude code -- Adam]
++                    // The switch's own plug assignment, read from the topology file, not the
++                    // constant {"172.25.166.135", 3} that used to be emitted for every switch --
++                    // that pair is s2's, and on real hardware a consumer trusting this endpoint
++                    // would have power-cycled one wrong outlet for all ten switches. The
++                    // duplicate {"brand_name", v.brandName} that appeared twice in this
++                    // initialiser is also gone; nlohmann just overwrote it, so it was dead.
+                     result["nodes"].push_back({{"ip", utils::ipToString(v.ip)},
+                                                {"dpid", v.dpid},
+                                                {"mac", v.mac},
+@@ -1954,9 +2687,8 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
+                                                {"device_name", v.deviceName},
+                                                {"brand_name", v.brandName},
+                                                {"device_layer", v.deviceLayer},
+-                                               {"brand_name", v.brandName},
+-                                               {"smart_plug_ip", "172.25.166.135"},
+-                                               {"smart_plug_outlet", 3}});
++                                               {"smart_plug_ip", v.smartPlugIp},
++                                               {"smart_plug_outlet", v.smartPlugOutlet}});
+                 }
+                 else
+                 {
+@@ -1968,9 +2700,8 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
+                                                {"bridge_name", v.bridgeNameForMininet},
+                                                {"brand_name", v.brandName},
+                                                {"device_layer", v.deviceLayer},
+-                                               {"brand_name", v.brandName},
+-                                               {"smart_plug_ip", "172.25.166.135"},
+-                                               {"smart_plug_outlet", 3}});
++                                               {"smart_plug_ip", v.smartPlugIp},
++                                               {"smart_plug_outlet", v.smartPlugOutlet}});
+                 }
+             }
+             else
+@@ -2006,7 +2737,18 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
+     {
+         SPDLOG_LOGGER_ERROR(Logger::instance(), "Exception in get_graph_data: {}", e.what());
+     }
+-    return result.dump(2);
++    // [Co-developed with claude code -- Adam]
++    // `result`, not `result.dump(2)`. The declared return type is json, and dumping here made
++    // this function return a json *string value* whose content happens to be JSON -- the same
++    // shape that was just fixed in getPathBetweenHostsJson, except there it was only the error
++    // paths and here it was every path.
++    //
++    // The wire was never wrong, which is why it survived: the sole caller assigns straight into
++    // res.body(), a std::string, so nlohmann converted the string-valued json back to the text
++    // it came from and the two conversions cancelled. Any caller that treated the result as the
++    // object its signature promises got a string instead -- as a test written against the
++    // signature immediately did. The caller now dumps, so the served bytes are unchanged.
++    return result;
+ }
+ 
+ double
+@@ -2017,12 +2759,25 @@ TopologyAndFlowMonitor::getAvgLinkUsage(const Graph& g) const
+ 
+     for (auto e : boost::make_iterator_range(boost::edges(g)))
+     {
+-        if (!g[e].isUp)
++        // [Co-developed with claude code -- Adam]
++        // Was `if (!g[e].isUp)`: the only one of the six availability checks that did not take
++        // the full intersection, so an administratively disabled link with residual traffic still
++        // counted towards the average. Made consistent when adminDisabled was introduced -- an
++        // operator who takes a link out of service should not see it in the utilisation figure
++        // that Energy-Saving-App reads.
++        if (!isUsable(g[e]))
+         {
+             continue;
+         }
+-        auto targetNode = boost::target(e, *m_graph);
+-        auto sourceNode = boost::source(e, *m_graph);
++        // [Co-developed with claude code -- Adam]
++        // Resolve against `g`, the graph we are iterating, not the member graph. Callers pass a
++        // snapshot -- handleGetAvgLinkUsage passes getGraph(), which is a copy, precisely so it
++        // does not hold the lock -- so mixing the two reads a graph this function was given no
++        // lock for. It happens to work today only because adjacency_list's source()/target()
++        // return the descriptor's stored endpoints and ignore the graph argument entirely; the
++        // moment that stops being true it is an out-of-bounds vertex lookup.
++        auto targetNode = boost::target(e, g);
++        auto sourceNode = boost::source(e, g);
+         if (g[e].linkBandwidthUsage != 0 && g[sourceNode].vertexType != VertexType::HOST &&
+             g[targetNode].vertexType != VertexType::HOST)
+         {
+@@ -2096,14 +2851,30 @@ TopologyAndFlowMonitor::getLinkBandwidthBetweenSwitches(const std::string& ip1_s
+ 
+     // 5. If a link exists, get the edges for both directions.
+     auto edge1_to_2 = edge_pair_1_to_2.first;
+-    auto edge2_to_1 = boost::edge(v2, v1, *m_graph).first; // Get the reverse edge
++    // [Co-developed with claude code -- Adam]
++    // `.second` checked here for the same reason it is checked four lines above, where it was
++    // the only one of the pair that was. A physical link is two directed edges, but nothing
++    // guarantees the graph holds both: the topology file could declare one direction, and
++    // updateLinks only ever adds. When the reverse was absent, `.first` was a singular
++    // descriptor and `(*m_graph)[edge2_to_1]` read whatever it addressed -- so the reverse
++    // direction of this report was built on an invalid edge, with no error anywhere.
++    auto edge_pair_2_to_1 = boost::edge(v2, v1, *m_graph);
++    if (!edge_pair_2_to_1.second)
++    {
++        result["error"] = "Only one direction of this link exists in the topology.";
++        result["from"] = ip1_str;
++        result["to"] = ip2_str;
++        result["missing_direction"] = ip2_str + "_to_" + ip1_str;
++        return result;
++    }
++    auto edge2_to_1 = edge_pair_2_to_1.first;
+ 
+     const auto& props1 = (*m_graph)[edge1_to_2];
+     const auto& props2 = (*m_graph)[edge2_to_1];
+ 
+     // 6. Populate the JSON object with the link's bandwidth information.
+     result["link_found"] = true;
+-    result["status"] = (props1.isUp && props1.isEnabled) ? "up" : "down";
++    result["status"] = isUsable(props1) ? "up" : "down";
+ 
+     // Direction from switch 1 to switch 2
+     result[ip1_str + "_to_" + ip2_str] = {{"total_bandwidth_bps", props1.linkBandwidth},
+@@ -2169,7 +2940,7 @@ TopologyAndFlowMonitor::getTopKCongestedLinksJson(int k)
+             const auto& props_fwd = (*m_graph)[edge];
+             const auto& props_rev = (*m_graph)[edge_rev_pair.first];
+ 
+-            if (props_fwd.isUp && props_fwd.isEnabled && props_rev.isUp && props_rev.isEnabled)
++            if (isUsable(props_fwd) && isUsable(props_rev))
+             {
+                 double max_util = std::max(props_fwd.linkBandwidthUtilization,
+                                            props_rev.linkBandwidthUtilization);

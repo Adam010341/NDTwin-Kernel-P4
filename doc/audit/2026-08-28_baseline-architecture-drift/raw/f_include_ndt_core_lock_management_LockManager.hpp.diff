@@ -1,0 +1,43 @@
+diff --git a/include/ndt_core/lock_management/LockManager.hpp b/include/ndt_core/lock_management/LockManager.hpp
+index ea9aef7..accf5d4 100644
+--- a/include/ndt_core/lock_management/LockManager.hpp
++++ b/include/ndt_core/lock_management/LockManager.hpp
+@@ -87,16 +87,34 @@ class LockManager
+ 
+     /**
+      * @brief Release a lock.
++     *
++     * @return true if a *held* lock of a *valid* type was released; false otherwise.
++     *
++     * [Co-developed with claude code -- Adam]
++     * This used to return void and bare-return on an unknown type, so releasing a lock nobody
++     * held and releasing a lock whose type does not exist were both silent no-ops -- and
++     * /ndt/release_lock, having nothing to test, answered 200 "released" to each. An app that
++     * typoed its release believed the lock was free while the real lock stayed held until TTL
++     * expiry, blocking every other acquire with no error anywhere.
++     *
++     * The sibling renew() already returns bool and distinguishes exactly these three cases, so
++     * this is the shape the class had settled on; only unlock had not been given it.
+      */
+-    void unlock(const std::string& lockNameStr)
++    bool unlock(const std::string& lockNameStr)
+     {
+         LockType type = stringToLockType(lockNameStr);
+-        if (type == LockType::Unknown) return;
++        if (type == LockType::Unknown) {
++            SPDLOG_LOGGER_WARN(Logger::instance(), "Invalid lock type released: {}", lockNameStr);
++            return false;
++        }
+ 
+         std::lock_guard<std::mutex> lock(m_mutex);
+-        if (m_locks.find(type) != m_locks.end()) {
+-            m_locks[type].isLocked = false;
++        const auto it = m_locks.find(type);
++        if (it == m_locks.end() || !it->second.isLocked) {
++            return false;
+         }
++        it->second.isLocked = false;
++        return true;
+     }
+ 
+     /**

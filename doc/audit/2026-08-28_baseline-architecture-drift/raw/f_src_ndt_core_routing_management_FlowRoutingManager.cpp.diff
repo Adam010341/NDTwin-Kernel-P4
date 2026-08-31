@@ -1,0 +1,321 @@
+diff --git a/src/ndt_core/routing_management/FlowRoutingManager.cpp b/src/ndt_core/routing_management/FlowRoutingManager.cpp
+index e5759a3..f278abf 100644
+--- a/src/ndt_core/routing_management/FlowRoutingManager.cpp
++++ b/src/ndt_core/routing_management/FlowRoutingManager.cpp
+@@ -9,12 +9,18 @@
+ #include "utils/Logger.hpp"                               // for Logger
+ #include "utils/Utils.hpp"                                // for ipToSt...
+ #include <any>                                            // for any_cast
+-#include <functional>                                     // for function
++#include <functional>
+ #include <sstream>                                        // for basic_...
+ #include <stddef.h>                                       // for size_t
+ #include <unordered_map>                                  // for unorde...
+ #include <utility>                                        // for pair
+ #include <vector>                                         // for vector
++#include "../setting/AppConfig.hpp"                       // for AppConfig::RYU_IP_AND_PORT
++
++// [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
++#include "ndt_core/routing_management/OpenFlowRoutingStrategy.hpp"
++#include "ndt_core/routing_management/P4RoutingStrategy.hpp"
++#include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
+ 
+ using json = nlohmann::json;
+ 
+@@ -26,142 +32,200 @@ FlowRoutingManager::FlowRoutingManager(
+     m_topologyAndFlowMonitor = std::move(topologyAndFlowMonitor);
+     m_flowLinkUsageCollector = std::move(collector);
+     m_eventBus = std::move(eventBus);
++
++    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
++    // Initialize with both OpenFlow Strategy (pointing to Ryu) and P4 Strategy (pointing to Proxy Agent)
++    m_ovsStrategy = std::make_unique<OpenFlowRoutingStrategy>(AppConfig::RYU_IP_AND_PORT);
++    m_p4Strategy = std::make_unique<P4RoutingStrategy>(AppConfig::P4_PROXY_IP_AND_PORT);
+ }
+ 
+ FlowRoutingManager::~FlowRoutingManager()
+ {
+ }
+ 
+-void
+-FlowRoutingManager::deleteAnEntry(uint64_t dpid, json match, int priority)
++// [Co-developed with claude code -- Adam]
++//
++// Was: findSwitchByDpid() (O(V) scan under the graph lock) followed by getGraph(), which
++// deep-copies the entire BGL graph -- every vertex's strings, ip vector and ecmp groups --
++// and then copied VertexProperties a third time. That ran once per flow entry, from one
++// worker thread per DPID, so a 2000-entry burst meant 2000 full graph copies while
++// starving every graph writer. Now a single O(1) hash lookup returning a 4-byte enum.
++//
++// Also no longer defaults to OVS on an unknown dpid. That silently sent P4 rules to Ryu
++// (where they vanish) for a mistyped dpid, a switch missing from the topology file, or a
++// null monitor -- with no log line at all. Returning nullptr forces the caller to report.
++IRoutingStrategy*
++FlowRoutingManager::getStrategyForDpid(uint64_t dpid)
+ {
+-    json jsonData;
+-    jsonData["dpid"] = dpid;
+-    jsonData["match"] = match;
+-
+-    std::ostringstream cmd;
++    if (!m_topologyAndFlowMonitor)
++    {
++        SPDLOG_LOGGER_ERROR(Logger::instance(),
++                            "No topology monitor available; cannot route dpid {}",
++                            dpid);
++        return nullptr;
++    }
+ 
+-    if (priority == -1)
++    const auto kind = m_topologyAndFlowMonitor->getSwitchKind(dpid);
++    if (!kind.has_value())
+     {
+-        cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/flowentry/delete "
+-            << "-H \"Content-Type: application/json\" " << "-d '" << jsonData.dump() << "'";
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "dpid {} is not a switch in the loaded topology; refusing to "
++                           "guess a data plane. Check the dpid, or that the topology file "
++                           "matches the running network.",
++                           dpid);
++        return nullptr;
+     }
+-    else
++
++    switch (*kind)
+     {
+-        jsonData["priority"] = priority;
+-        cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT
+-            << "/stats/flowentry/delete_strict " << "-H \"Content-Type: application/json\" "
+-            << "-d '" << jsonData.dump() << "'";
++    case SwitchKind::BMV2:
++        return m_p4Strategy.get();
++    case SwitchKind::OVS:
++    case SwitchKind::HARDWARE:
++        // Hardware switches are OpenFlow too, so they share the Ryu-facing strategy.
++        return m_ovsStrategy.get();
+     }
+ 
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++    SPDLOG_LOGGER_ERROR(Logger::instance(),
++                        "dpid {} has an unhandled switch kind; this is a bug",
++                        dpid);
++    return nullptr;
+ }
+ 
+-void
++// [Co-developed with claude code -- Adam]
++// The three flow methods share the same shape: resolve the strategy, refuse if the dpid is
++// not routable, delegate, and hand the outcome back to the caller instead of discarding it.
++OpResult
++FlowRoutingManager::deleteAnEntry(uint64_t dpid, const json& match, int priority)
++{
++    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
++    if (strategy == nullptr)
++    {
++        // getStrategyForDpid already logged why.
++        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
++    }
++    return strategy->deleteAnEntry(dpid, match, priority);
++}
++
++OpResult
+ FlowRoutingManager::installAnEntry(uint64_t dpid,
+                                    int priority,
+-                                   json match,
+-                                   json action,
++                                   const json& match,
++                                   const json& action,
+                                    int idleTimeout)
+ {
+-    json jsonData;
+-    jsonData["dpid"] = dpid;
+-    jsonData["priority"] = priority;
+-    jsonData["match"] = match;
+-    jsonData["actions"] = action;
+-    if (idleTimeout != -1)
++    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
++    if (strategy == nullptr)
+     {
+-        jsonData["idle_timeout"] = idleTimeout;
++        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
+     }
+-
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/flowentry/add "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << jsonData.dump() << "'";
+-
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++    return strategy->installAnEntry(dpid, priority, match, action, idleTimeout);
+ }
+ 
+-void
+-FlowRoutingManager::modifyAnEntry(uint64_t dpid, int priority, json match, json action)
++OpResult
++FlowRoutingManager::modifyAnEntry(uint64_t dpid, int priority, const json& match, const json& action)
+ {
+-    json jsonData;
+-    jsonData["dpid"] = dpid;
+-    jsonData["priority"] = priority;
+-    jsonData["match"] = match;
+-    jsonData["actions"] = action;
+-
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/flowentry/modify "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << jsonData.dump() << "'";
+-
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
++    if (strategy == nullptr)
++    {
++        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
++    }
++    return strategy->modifyAnEntry(dpid, priority, match, action);
+ }
+ 
+-void
+-FlowRoutingManager::installAGroupEntry(json j)
++// --- group and meter entries -------------------------------------------------------
++//
++// [Co-developed with claude code -- Adam]
++// These used to go to m_ovsStrategy unconditionally, with a comment claiming that "global
++// commands that don't specify DPID go to OVS by default". The comment was wrong: Ryu's
++// /stats/groupentry and /stats/meterentry schemas both require a dpid, and HttpSession
++// forwards the REST body verbatim, so the dpid is right there in the payload. The effect was
++// that a group or meter operation aimed at a bmv2 switch went to Ryu -- where, in a mixed
++// fabric, it could even land on a different switch that happened to share the dpid.
++//
++// Now dispatched per-DPID like everything else, which also means the P4 strategy gets to
++// refuse them explicitly rather than having them silently succeed against the wrong target.
++
++OpResult
++FlowRoutingManager::dispatchByPayloadDpid(const json& j,
++                                          const char* operation,
++                                          StrategyCall call)
+ {
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/groupentry/add "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << j.dump() << "'";
++    if (!j.contains("dpid"))
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "{} rejected: payload has no dpid, so the target switch is unknown",
++                           operation);
++        return OpResult::failure(400, std::string(operation) + " requires a dpid");
++    }
+ 
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
+-}
++    uint64_t dpid = 0;
++    try
++    {
++        dpid = j.at("dpid").get<uint64_t>();
++    }
++    catch (const json::exception& e)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(), "{} rejected: bad dpid: {}", operation, e.what());
++        return OpResult::failure(400, std::string(operation) + " has an unreadable dpid");
++    }
+ 
+-void
+-FlowRoutingManager::deleteAGroupEntry(json j)
+-{
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/groupentry/delete "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << j.dump() << "'";
++    IRoutingStrategy* strategy = getStrategyForDpid(dpid);
++    if (strategy == nullptr)
++    {
++        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
++    }
+ 
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++    OpResult result = call(*strategy, j);
++    if (!result.ok)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "{} on dpid {} failed: {}",
++                           operation,
++                           dpid,
++                           result.message);
++    }
++    return result;
+ }
+ 
+-void
+-FlowRoutingManager::modifyAGroupEntry(json j)
++OpResult
++FlowRoutingManager::installAGroupEntry(const json& j)
+ {
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/groupentry/modify "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << j.dump() << "'";
+-
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++    return dispatchByPayloadDpid(j, "install group entry",
++        [](IRoutingStrategy& s, const json& body) { return s.installAGroupEntry(body); });
+ }
+ 
+-void
+-FlowRoutingManager::installAMeterEntry(json j)
++OpResult
++FlowRoutingManager::deleteAGroupEntry(const json& j)
+ {
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/meterentry/add "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << j.dump() << "'";
+-
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++    return dispatchByPayloadDpid(j, "delete group entry",
++        [](IRoutingStrategy& s, const json& body) { return s.deleteAGroupEntry(body); });
+ }
+ 
+-void
+-FlowRoutingManager::deleteAMeterEntry(json j)
++OpResult
++FlowRoutingManager::modifyAGroupEntry(const json& j)
+ {
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/meterentry/delete "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << j.dump() << "'";
++    return dispatchByPayloadDpid(j, "modify group entry",
++        [](IRoutingStrategy& s, const json& body) { return s.modifyAGroupEntry(body); });
++}
+ 
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
++OpResult
++FlowRoutingManager::installAMeterEntry(const json& j)
++{
++    return dispatchByPayloadDpid(j, "install meter entry",
++        [](IRoutingStrategy& s, const json& body) { return s.installAMeterEntry(body); });
+ }
+ 
+-void
+-FlowRoutingManager::modifyAMeterEntry(json j)
++OpResult
++FlowRoutingManager::deleteAMeterEntry(const json& j)
+ {
+-    std::ostringstream cmd;
+-    cmd << "curl -s -X POST http://" << AppConfig::RYU_IP_AND_PORT << "/stats/meterentry/modify "
+-        << "-H \"Content-Type: application/json\" " << "-d '" << j.dump() << "'";
++    return dispatchByPayloadDpid(j, "delete meter entry",
++        [](IRoutingStrategy& s, const json& body) { return s.deleteAMeterEntry(body); });
++}
+ 
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "execCommand: {}", cmd.str());
+-    utils::execCommand(cmd.str());
+-}
+\ No newline at end of file
++OpResult
++FlowRoutingManager::modifyAMeterEntry(const json& j)
++{
++    return dispatchByPayloadDpid(j, "modify meter entry",
++        [](IRoutingStrategy& s, const json& body) { return s.modifyAMeterEntry(body); });
++}

@@ -1,0 +1,1205 @@
+diff --git a/src/ndt_core/http/HttpSession.cpp b/src/ndt_core/http/HttpSession.cpp
+index 9e11d1b..c65e9b3 100644
+--- a/src/ndt_core/http/HttpSession.cpp
++++ b/src/ndt_core/http/HttpSession.cpp
+@@ -18,6 +18,7 @@
+ #include <filesystem>
+ #include <fstream>
+ #include <iostream>
++#include <limits>
+ #include <nlohmann/json.hpp>
+ #include <string>
+ #include <string_view>
+@@ -96,6 +97,24 @@ HttpSession::handleRequest()
+                        m_req.method_string(),
+                        m_req.target());
+ 
++    m_res = buildResponse();
++    writeResponse();
++}
++
++// [Co-developed with claude code -- Adam]
++// Split out of handleRequest so the routing table and the exception-to-status mapping can be
++// exercised without a connected socket -- everything up to writeResponse() is a pure
++// request-to-response function.
++//
++// That mapping is the part that needed a test. `?dpid=abc` and a non-numeric "app_id" were both
++// answering 500 because std::stoull/std::stoi throw std::invalid_argument, which lands in the
++// std::exception catch rather than the json::exception one. Both were fixed by parsing the value
++// explicitly, but nothing could observe the fix: putting std::stoi back left the entire suite
++// green, because a test that calls a validation helper directly never sees which catch clause
++// would have run. Driving the real router is the only way that distinction is visible.
++std::shared_ptr<http::response<http::string_body>>
++HttpSession::buildResponse()
++{
+     auto response =
+         std::make_shared<http::response<http::string_body>>(http::status::ok, m_req.version());
+     response->keep_alive(m_req.keep_alive());
+@@ -119,9 +138,7 @@ HttpSession::handleRequest()
+         if (method == http::verb::options)
+         {
+             response->result(http::status::no_content); // 204 No Content
+-            m_res = response;
+-            writeResponse();
+-            return;
++            return response;
+         }
+ 
+         // --- API ROUTING ---
+@@ -303,7 +320,13 @@ HttpSession::handleRequest()
+     {
+         response->result(http::status::bad_request);
+         response->body() = json{{"error", "JSON parsing error"}, {"details", e.what()}}.dump();
+-        SPDLOG_LOGGER_ERROR(Logger::instance(), "JSON exception in request handler: {}", e.what());
++        // [Co-developed with claude code -- Adam]
++        // WARN, not ERROR: this catch *is* the 400 path. Logging a malformed client request at
++        // ERROR makes exactly the conflation the 500-to-400 work removed from the wire -- "you sent
++        // rubbish" and "I am broken" become the same entry -- and it makes check_logs.py's rule
++        // that an error line is never acceptable unusable, because a contract test that probes the
++        // error paths fills the log with them on purpose.
++        SPDLOG_LOGGER_WARN(Logger::instance(), "JSON exception in request handler: {}", e.what());
+     }
+     catch (const std::exception& e)
+     {
+@@ -320,8 +343,7 @@ HttpSession::handleRequest()
+         SPDLOG_LOGGER_ERROR(Logger::instance(), "Unknown exception in request handler.");
+     }
+ 
+-    m_res = response;
+-    writeResponse();
++    return response;
+ }
+ 
+ void
+@@ -408,12 +430,33 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
+                            .payload = LinkFailureEventData{fwdOpt.value()}});
+ 
+     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+-    if (revOpt)
++    if (!revOpt)
+     {
+-        m_topologyAndFlowMonitor->setEdgeDown(revOpt.value());
+-        m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+-                               .payload = LinkFailureEventData{revOpt.value()}});
++        // [Co-developed with claude code -- Adam]
++        // Answered 200 "link failure processed" here for months. Every loader and discovery
++        // path inserts edges in pairs, so a graph holding s->d without d->s is the kernel's own
++        // state gone inconsistent -- hence 500, not 404: the sibling branch above uses 404 for
++        // "nothing was done", and by this point the reported direction HAS been marked down and
++        // its event emitted. The body says which half happened, because a caller that only reads
++        // the status line otherwise repeats the fault-injection run against a graph the kernel
++        // itself no longer believes.
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "link failure {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
++                           "the topology; forward direction marked down, reverse untouched",
++                           data->srcDpid,
++                           data->srcInterface,
++                           data->dstDpid,
++                           data->dstInterface,
++                           data->dstDpid,
++                           data->srcDpid);
++        res.result(http::status::internal_server_error);
++        res.body() =
++            R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";
++        return;
+     }
++    m_topologyAndFlowMonitor->setEdgeDown(revOpt.value());
++    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
++                           .payload = LinkFailureEventData{revOpt.value()}});
+     res.body() = R"({"status":"link failure processed"})";
+ }
+ 
+@@ -454,10 +497,26 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
+     // TODO: Emit LinkRecoveryDetected event
+ 
+     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
+-    if (revOpt)
++    if (!revOpt)
+     {
+-        m_topologyAndFlowMonitor->setEdgeUp(revOpt.value());
++        // Same shape and same reasoning as handleLinkFailure above: edges exist in pairs, so a
++        // missing reverse is kernel-state inconsistency, and by now the forward direction has
++        // already been set up -- report the half that happened. [Co-developed with claude code -- Adam]
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "link recovery {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
++                           "the topology; forward direction marked up, reverse untouched",
++                           srcDpid,
++                           srcInterface,
++                           dstDpid,
++                           dstInterface,
++                           dstDpid,
++                           srcDpid);
++        res.result(http::status::internal_server_error);
++        res.body() =
++            R"({"error":"reverse edge missing from the topology; the reported direction was marked up, its reverse was not"})";
++        return;
+     }
++    m_topologyAndFlowMonitor->setEdgeUp(revOpt.value());
+     res.body() = R"({"status":"link recovery processed"})";
+ }
+ 
+@@ -503,7 +562,10 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
+              {"dst_dpid", e.dstDpid},
+              {"dst_interface", e.dstInterface},
+              {"flow_set", flowsJson},
+-             {"is_enabled", e.isEnabled}});
++             // Folded the same way as the node above (which goes through to_json in GraphTypes.hpp
++             // via push_back). [Co-developed with claude code -- Adam]
++             {"is_enabled", e.isEnabled && !e.adminDisabled},
++             {"admin_disabled", e.adminDisabled}});
+     }
+     res.body() = result.dump();
+     SPDLOG_LOGGER_INFO(Logger::instance(), "get_graph_data success");
+@@ -521,37 +583,8 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Detected Top-K Flow Data");
+ 
+-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
+-        auto qpos = target.find('?');
+-        if (qpos == std::string_view::npos)
+-        {
+-            return "";
+-        }
+-        target.remove_prefix(qpos + 1);
+-        while (!target.empty())
+-        {
+-            auto key_end = target.find('=');
+-            if (key_end == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            if (target.substr(0, key_end) == key)
+-            {
+-                target.remove_prefix(key_end + 1);
+-                auto val_end = target.find('&');
+-                return std::string(target.substr(0, val_end));
+-            }
+-            auto amp_pos = target.find('&');
+-            if (amp_pos == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            target.remove_prefix(amp_pos + 1);
+-        }
+-        return "";
+-    };
+ 
+-    std::string kStr = get_param(m_req.target(), "k");
++    std::string kStr = utils::queryParam(m_req.target(), "k");
+ 
+     int k = 50;
+ 
+@@ -616,38 +649,9 @@ HttpSession::handleSetSwitchesPowerState(http::response<http::string_body>& res)
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Set Switches Power State");
+     // Helper to parse query params from a target string
+-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
+-        auto qpos = target.find('?');
+-        if (qpos == std::string_view::npos)
+-        {
+-            return "";
+-        }
+-        target.remove_prefix(qpos + 1);
+-        while (!target.empty())
+-        {
+-            auto key_end = target.find('=');
+-            if (key_end == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            if (target.substr(0, key_end) == key)
+-            {
+-                target.remove_prefix(key_end + 1);
+-                auto val_end = target.find('&');
+-                return std::string(target.substr(0, val_end));
+-            }
+-            auto amp_pos = target.find('&');
+-            if (amp_pos == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            target.remove_prefix(amp_pos + 1);
+-        }
+-        return "";
+-    };
+ 
+-    std::string ip = get_param(m_req.target(), "ip");
+-    std::string action = get_param(m_req.target(), "action");
++    std::string ip = utils::queryParam(m_req.target(), "ip");
++    std::string action = utils::queryParam(m_req.target(), "action");
+ 
+     if (ip.empty() || (action != "on" && action != "off"))
+     {
+@@ -713,15 +717,64 @@ HttpSession::handleModifyFlowEntry(http::response<http::string_body>& res)
+     processFlowBatch(j, res);
+ }
+ 
++// [Co-developed with claude code -- Adam]
++// Maps a southbound OpResult onto the HTTP response, so a failure downstream becomes a
++// failure the caller sees rather than a 200 with a cheerful message.
++void
++HttpSession::respondToOpResult(http::response<http::string_body>& res,
++                               const OpResult& result,
++                               const char* successMessage)
++{
++    if (result.ok)
++    {
++        res.result(http::status::ok);
++        res.body() = json{{"status", successMessage}}.dump();
++        return;
++    }
++
++    // 501 means the target data plane cannot express the operation at all (e.g. group
++    // entries on bmv2); 502 that the controller behind us failed or never answered.
++    // Anything else is passed through so the caller sees what the controller said.
++    if (result.httpStatus == 501)
++    {
++        res.result(http::status::not_implemented);
++    }
++    else if (result.noResponse())
++    {
++        res.result(http::status::bad_gateway);
++    }
++    else if (result.httpStatus >= 400 && result.httpStatus < 600)
++    {
++        res.result(static_cast<http::status>(result.httpStatus));
++    }
++    else
++    {
++        res.result(http::status::bad_gateway);
++    }
++
++    res.body() = json{{"status", "error"},
++                      {"error", result.message},
++                      {"controller_status", result.httpStatus}}
++                     .dump();
++
++    SPDLOG_LOGGER_WARN(Logger::instance(),
++                       "Responding {} for a failed southbound operation: {}",
++                       static_cast<int>(res.result_int()),
++                       result.message);
++}
++
+ void
+ HttpSession::handleInstallGroupEntry(http::response<http::string_body>& res)
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Install Group Entry");
+     auto jsonData = json::parse(m_req.body());
+ 
+-    m_flowRoutingManager->installAGroupEntry(jsonData);
+-
+-    res.body() = R"({"status":"Group entry installed"})";
++    // [Co-developed with claude code -- Adam]
++    // The OpResult used to be discarded and this answered 200 unconditionally, so a
++    // rejected entry, an unreachable controller and a success were indistinguishable to
++    // the caller. These handlers are synchronous, so the real outcome can be reported.
++    const OpResult result = m_flowRoutingManager->installAGroupEntry(jsonData);
++    respondToOpResult(res, result, "Group entry installed");
+ }
+ 
+ void
+@@ -730,9 +783,12 @@ HttpSession::handleDeleteGroupEntry(http::response<http::string_body>& res)
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Delete Group Entry");
+     auto jsonData = json::parse(m_req.body());
+ 
+-    m_flowRoutingManager->deleteAGroupEntry(jsonData);
+-
+-    res.body() = R"({"status":"Group entry deleted"})";
++    // [Co-developed with claude code -- Adam]
++    // The OpResult used to be discarded and this answered 200 unconditionally, so a
++    // rejected entry, an unreachable controller and a success were indistinguishable to
++    // the caller. These handlers are synchronous, so the real outcome can be reported.
++    const OpResult result = m_flowRoutingManager->deleteAGroupEntry(jsonData);
++    respondToOpResult(res, result, "Group entry deleted");
+ }
+ 
+ void
+@@ -741,9 +797,12 @@ HttpSession::handleModifyGroupEntry(http::response<http::string_body>& res)
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Modify Group Entry");
+     auto jsonData = json::parse(m_req.body());
+ 
+-    m_flowRoutingManager->modifyAGroupEntry(jsonData);
+-
+-    res.body() = R"({"status":"Group entry modified"})";
++    // [Co-developed with claude code -- Adam]
++    // The OpResult used to be discarded and this answered 200 unconditionally, so a
++    // rejected entry, an unreachable controller and a success were indistinguishable to
++    // the caller. These handlers are synchronous, so the real outcome can be reported.
++    const OpResult result = m_flowRoutingManager->modifyAGroupEntry(jsonData);
++    respondToOpResult(res, result, "Group entry modified");
+ }
+ 
+ void
+@@ -752,9 +811,12 @@ HttpSession::handleInstallMeterEntry(http::response<http::string_body>& res)
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Install Meter Entry");
+     auto jsonData = json::parse(m_req.body());
+ 
+-    m_flowRoutingManager->installAMeterEntry(jsonData);
+-
+-    res.body() = R"({"status":"Meter entry installed"})";
++    // [Co-developed with claude code -- Adam]
++    // The OpResult used to be discarded and this answered 200 unconditionally, so a
++    // rejected entry, an unreachable controller and a success were indistinguishable to
++    // the caller. These handlers are synchronous, so the real outcome can be reported.
++    const OpResult result = m_flowRoutingManager->installAMeterEntry(jsonData);
++    respondToOpResult(res, result, "Meter entry installed");
+ }
+ 
+ void
+@@ -763,9 +825,12 @@ HttpSession::handleDeleteMeterEntry(http::response<http::string_body>& res)
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Delete Meter Entry");
+     auto jsonData = json::parse(m_req.body());
+ 
+-    m_flowRoutingManager->deleteAMeterEntry(jsonData);
+-
+-    res.body() = R"({"status":"Meter entry deleted"})";
++    // [Co-developed with claude code -- Adam]
++    // The OpResult used to be discarded and this answered 200 unconditionally, so a
++    // rejected entry, an unreachable controller and a success were indistinguishable to
++    // the caller. These handlers are synchronous, so the real outcome can be reported.
++    const OpResult result = m_flowRoutingManager->deleteAMeterEntry(jsonData);
++    respondToOpResult(res, result, "Meter entry deleted");
+ }
+ 
+ void
+@@ -774,9 +839,12 @@ HttpSession::handleModifyMeterEntry(http::response<http::string_body>& res)
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Modify Meter Entry");
+     auto jsonData = json::parse(m_req.body());
+ 
+-    m_flowRoutingManager->modifyAMeterEntry(jsonData);
+-
+-    res.body() = R"({"status":"Meter entry modified"})";
++    // [Co-developed with claude code -- Adam]
++    // The OpResult used to be discarded and this answered 200 unconditionally, so a
++    // rejected entry, an unreachable controller and a success were indistinguishable to
++    // the caller. These handlers are synchronous, so the real outcome can be reported.
++    const OpResult result = m_flowRoutingManager->modifyAMeterEntry(jsonData);
++    respondToOpResult(res, result, "Meter entry modified");
+ }
+ 
+ static FlowJob
+@@ -841,6 +909,58 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>&
+         return;
+     }
+ 
++    // [Co-developed with claude code -- Adam]
++    // Shape check, before anything is built or queued. See describeFlowEntryShapeProblem for
++    // what counts as shape and why each optional field is optional.
++    //
++    // This exists because `{"dpid": 1}` used to be answered 200 "queued": every field but dpid is
++    // read with value(..., default), so the entry became a job with an empty match and empty
++    // actions, went out to the proxy, and was refused there -- with the refusal visible only in
++    // the kernel log. The caller was told its request was accepted.
++    //
++    // **All-or-nothing here, unlike the unknown-dpid partition below, and the asymmetry is
++    // deliberate.** That one applies its good entries because an absent dpid is a *data* condition
++    // -- the topology moved, a switch went away -- which happens to a few entries of an otherwise
++    // correct batch, and both flow-writing applications discard the response, so rejecting the
++    // whole batch would silently drop their good entries for a condition they cannot act on. A
++    // malformed entry is the opposite: it is a *caller* defect, so it is not sporadic. Either the
++    // caller composes entries correctly and this never fires, or it does not and every batch it
++    // sends carries the same error. Applying the rest would hide a bug rather than tolerate a race.
++    std::vector<json> shapeProblems;
++    const auto collectShapeProblems = [&](const json& entries, FlowOp op, const char* field) {
++        for (size_t i = 0; i < entries.size(); ++i)
++        {
++            if (const auto why = describeFlowEntryShapeProblem(entries[i], op); !why.empty())
++            {
++                shapeProblems.push_back(json{{"field", field}, {"index", i}, {"problem", why}});
++            }
++        }
++    };
++    collectShapeProblems(ins, FlowOp::Install, "install_flow_entries");
++    collectShapeProblems(mods, FlowOp::Modify, "modify_flow_entries");
++    collectShapeProblems(dels, FlowOp::Delete, "delete_flow_entries");
++
++    if (!shapeProblems.empty())
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "refusing flow batch: {} of {} entries cannot form a rule; first is {} "
++                           "at {}[{}]",
++                           shapeProblems.size(),
++                           ins.size() + mods.size() + dels.size(),
++                           shapeProblems.front()["problem"].get<std::string>(),
++                           shapeProblems.front()["field"].get<std::string>(),
++                           shapeProblems.front()["index"].get<size_t>());
++        res.result(http::status::bad_request);
++        res.body() = json{{"status", "error"},
++                          {"error", "malformed flow entry"},
++                          {"entries", shapeProblems},
++                          {"detail", "nothing was queued; these entries cannot form a rule "
++                                     "whatever the switch answers, so the whole batch is "
++                                     "rejected rather than partly applied"}}
++                         .dump();
++        return;
++    }
++
+     // Build jobs
+     std::vector<FlowJob> jobs;
+     jobs.reserve(ins.size() + mods.size() + dels.size());
+@@ -863,19 +983,119 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>&
+     catch (const std::exception& ex)
+     {
+         SPDLOG_LOGGER_DEBUG(Logger::instance(), "request body {}", j.dump());
+-        SPDLOG_LOGGER_ERROR(Logger::instance(), "Bad entry in request: {}", ex.what());
++        // WARN: answers 400 four lines down, so this is a client error, not a kernel one.
++        // [Co-developed with claude code -- Adam]
++        SPDLOG_LOGGER_WARN(Logger::instance(), "Bad entry in request: {}", ex.what());
+         res.result(http::status::bad_request);
+         res.body() = R"({"error":"Bad entry"})";
+         return;
+     }
+ 
++    // [Co-developed with claude code -- Adam]
++    // Separate out the dpids this kernel does not know about, before enqueueing anything.
++    //
++    // This endpoint answered 200 for a nonexistent dpid, which the L2 contract had been failing on
++    // for as long as it had existed. The instinct is to blame the asynchrony -- the dispatcher
++    // drains on worker threads, so the southbound outcome genuinely is not available yet -- but
++    // "there is no such switch" is not a southbound outcome. It is knowable here, from the
++    // topology the kernel already holds, before a job is queued at all.
++    //
++    // Partial application, not all-or-nothing. This was all-or-nothing first, reasoning that a
++    // caller handed 200 for a half-applied batch cannot find out which half landed. Two things
++    // overturned that:
++    //
++    //   1. Naming the rejected dpids in the body answers the question the objection was about. The
++    //      caller is not told "some of it worked"; it is told exactly which entries were dropped.
++    //   2. The two applications that write flows both **discard the response entirely** --
++    //      Energy-Saving-App at energy_saving_app.cpp:225 and :241 does not bind the returned
++    //      std::optional<uint32_t>, and Traffic-Engineering-App at Traffic-engineering-App.py:572
++    //      does not assign the requests.post result. So all-or-nothing did not make them handle
++    //      the error; it silently converted a batch that used to apply its good entries into one
++    //      that applies nothing. For those two callers it was strictly worse than the 200 it
++    //      replaced, and would only have paid off after someone else changed their code.
++    //
++    // A batch where *nothing* is applicable still answers 404: 200 with accepted == 0 would tell a
++    // caller that only reads the status code that its request was fine when not one entry landed.
++    // See doc/audit/2026-08-08_external-tools-compat-review.md for the client-by-client evidence.
++    auto partition = partitionFlowBatchByKnownDpid(
++        std::move(jobs),
++        [this](uint64_t dpid) { return m_topologyAndFlowMonitor->getSwitchKind(dpid).has_value(); });
++    std::vector<FlowJob> acceptedJobs = std::move(partition.accepted);
++    const std::vector<uint64_t>& unknownDpids = partition.unknownDpids;
++    const size_t rejectedEntries = partition.rejectedEntries;
++
++    if (acceptedJobs.empty() && rejectedEntries > 0)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "refusing flow batch: none of its {} entries names a switch in the "
++                           "loaded topology ({} distinct unknown dpid(s))",
++                           rejectedEntries,
++                           unknownDpids.size());
++        res.result(http::status::not_found);
++        res.body() = json{{"status", "error"},
++                          {"error", "unknown dpid"},
++                          {"unknown_dpids", unknownDpids},
++                          {"detail", "these dpids are not switches in the loaded topology; check "
++                                     "the dpid, or that the topology file matches the running "
++                                     "network"}}
++                         .dump();
++        return;
++    }
++
++    if (rejectedEntries > 0)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "dropping {} of {} flow batch entries: {} dpid(s) are not switches in "
++                           "the loaded topology; the remaining {} were queued",
++                           rejectedEntries,
++                           rejectedEntries + acceptedJobs.size(),
++                           unknownDpids.size(),
++                           acceptedJobs.size());
++    }
++
+     // Enqueue once; dispatcher drains per-DPID on worker threads
+-    m_controller->dispatcher().enqueue(std::move(jobs));
++    const size_t accepted = acceptedJobs.size();
++    m_controller->dispatcher().enqueue(std::move(acceptedJobs));
+ 
+     // TODO: Immediately update the table
+     m_deviceConfigurationAndPowerManager->updateOpenFlowTables(j);
+ 
+-    res.body() = R"({"status":"Flows installed, modified and deleted"})";
++    // [Co-developed with claude code -- Adam]
++    // This used to answer {"status":"Flows installed, modified and deleted"} -- a claim it
++    // cannot make. FlowDispatcher is asynchronous by design (bursts of up to 2000, one
++    // worker per DPID), so the entries are still sitting in a queue at this point and no
++    // request has reached the controller yet. A rejected rule or an unreachable controller
++    // was therefore reported as a completed installation.
++    //
++    // The response now says what is actually true: the entries were accepted for
++    // programming. Their outcome is logged per entry with the dpid and the controller's
++    // reply -- which was claimed here before it was true: Controller's sender discarded every
++    // OpResult it received. It logs them now, so check_logs.py can fail a run on a rejected rule.
++    //
++    // Kept as HTTP 200 rather than 202 Accepted: 202 would be more accurate, but callers
++    // that check for exactly 200 would break, and this is the endpoint every writing app
++    // uses. Reporting per-entry status to the caller needs either a synchronous path or a
++    // completion handle -- an architectural decision, not a wording one.
++    res.result(http::status::ok);
++    json body{{"status", "queued"},
++              {"accepted", accepted},
++              {"detail", "entries accepted for programming; per-entry outcomes are "
++                         "reported in the kernel log, not in this response"}};
++
++    // [Co-developed with claude code -- Adam]
++    // Only present when something was actually dropped, so a caller can treat their absence as
++    // "all of it was taken". Naming the dpids is the whole reason partial application is
++    // acceptable here: without them, 200 would again be a claim the caller cannot check.
++    if (rejectedEntries > 0)
++    {
++        body["rejected"] = rejectedEntries;
++        body["rejected_dpids"] = unknownDpids;
++        body["detail"] = "some entries were dropped because their dpid is not a switch in the "
++                         "loaded topology; the rest were accepted for programming, and per-entry "
++                         "outcomes are reported in the kernel log, not in this response";
++    }
++
++    res.body() = body.dump();
+ }
+ 
+ void
+@@ -921,7 +1141,26 @@ HttpSession::handleInformSwitchEntered(http::response<http::string_body>& res)
+         return;
+     }
+ 
+-    uint64_t dpid = std::stoull(dpidStr);
++    // [Co-developed with claude code -- Adam]
++    // std::stoull threw on `?dpid=abc` and the outermost catch turned it into 500 -- the L2 failure
++    // inform_switch_entered__bad_dpid. tryParseUint64 is also stricter than stoull, which would
++    // read "12abc" as 12 and "-1" as 18446744073709551615: a mistyped dpid must be refused, not
++    // silently redirected to a different switch.
++    const auto dpidOpt = utils::tryParseUint64(dpidStr);
++    if (!dpidOpt)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "inform_switch_entered: dpid '{}' is not an unsigned integer",
++                           dpidStr);
++        res.result(http::status::bad_request);
++        res.body() = json{{"status", "error"},
++                          {"error", "invalid dpid"},
++                          {"dpid", dpidStr},
++                          {"detail", "dpid must be an unsigned integer"}}
++                         .dump();
++        return;
++    }
++    const uint64_t dpid = *dpidOpt;
+     auto switchVertexOpt = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
+     if (!switchVertexOpt)
+     {
+@@ -951,8 +1190,28 @@ HttpSession::handleModifyDeviceName(http::response<http::string_body>& res)
+     }
+     else if (vertexType == 1) // Host
+     {
+-        vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(
+-            utils::macToUint64(body.at("mac").get<std::string>()));
++        // [Co-developed with claude code -- Adam]
++        // tryMacToUint64, because macToUint64 throws and the throw reaches buildResponse's
++        // std::exception catch -- which answers 500 for a malformed client request. Exactly the
++        // defect the dpid and app_id parsing was fixed for; this call site was missed. Found by
++        // agy-review 0115.
++        const std::string macText = body.at("mac").get<std::string>();
++        const auto mac = utils::tryMacToUint64(macText);
++        if (!mac)
++        {
++            SPDLOG_LOGGER_WARN(Logger::instance(),
++                               "modify_device_name: mac '{}' is not a MAC address",
++                               macText);
++            res.result(http::status::bad_request);
++            res.set(http::field::content_type, "application/json");
++            res.body() = json{{"status", "error"},
++                              {"error", "invalid mac"},
++                              {"mac", macText},
++                              {"detail", "expected xx:xx:xx:xx:xx:xx"}}
++                             .dump();
++            return;
++        }
++        vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
+     }
+     else
+     {
+@@ -977,6 +1236,22 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Recieved Simulation Case");
+ 
++    // This endpoint used to answer 202 Accepted to *anything*, including `{not json`: the body went
++    // straight into a curl command and whatever came back -- including nothing at all -- was
++    // wrapped as {"status": "..."}. The five required fields are Simulation-Platform-Manager's own,
++    // so a body that fails here would have thrown inside that process instead, where no status code
++    // can reach the caller. [Co-developed with claude code -- Adam]
++    if (const auto problem = SimulationRequestManager::validateRequestBody(m_req.body()))
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "Rejecting simulation case: {}",
++                           *problem);
++        res.result(http::status::bad_request);
++        res.set(http::field::content_type, "application/json");
++        res.body() = json{{"error", "Invalid simulation case"}, {"details", *problem}}.dump();
++        return;
++    }
++
+     std::string resp = m_simulationRequestManager->requestSimulation(m_req.body());
+ 
+     res.result(http::status::accepted);
+@@ -991,7 +1266,23 @@ HttpSession::handleSimulationCompleted(http::response<http::string_body>& res)
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Simulation Completed");
+     auto j = json::parse(m_req.body());
+ 
+-    int appId = std::stoi(j.at("app_id").get<string>());
++    // Malformed JSON and a missing/non-string app_id already answer 400 via the json::exception
++    // handler, but std::stoi("abc") throws std::invalid_argument, which does not -- the same
++    // mistyped-parameter-reported-as-500 defect that `?dpid=abc` had. [Co-developed with claude
++    // code -- Adam]
++    const std::string appIdText = j.at("app_id").get<string>();
++    const auto parsedAppId = utils::tryParseUint64(appIdText);
++    if (!parsedAppId || *parsedAppId > static_cast<uint64_t>(std::numeric_limits<int>::max()))
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "Rejecting simulation result: app_id '{}' is not a valid id",
++                           appIdText);
++        res.result(http::status::bad_request);
++        res.set(http::field::content_type, "application/json");
++        res.body() = json{{"error", "Invalid app_id"}, {"details", appIdText}}.dump();
++        return;
++    }
++    const int appId = static_cast<int>(*parsedAppId);
+ 
+     m_simulationRequestManager->onSimulationResult(appId, m_req.body());
+ 
+@@ -1004,7 +1295,10 @@ void
+ HttpSession::handleGetStaticTopology(http::response<http::string_body>& res)
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Static Topology");
+-    res.body() = m_topologyAndFlowMonitor->getStaticTopologyJson();
++    // dump(2) here rather than inside getStaticTopologyJson, which now returns the object its
++    // signature always promised. Same two-space indentation, so the bytes on the wire are
++    // byte-for-byte what they were. [Co-developed with claude code -- Adam]
++    res.body() = m_topologyAndFlowMonitor->getStaticTopologyJson().dump(2);
+ }
+ 
+ void
+@@ -1019,29 +1313,37 @@ HttpSession::handleInformAllDestinationPaths(http::response<http::string_body>&
+     for (const auto& pathJson : allPathsJson)
+     {
+         sflow::Path tempPath;
++        // [Co-developed with claude code -- Adam]
++        // The same unchecked indexing as the collector's copy of this loop, but reached from the
++        // network rather than from a poll: `nodeJson[0]` / `nodeJson[1]` on a const json forward
++        // to std::vector::operator[] with no bounds check, so a body carrying a hop array shorter
++        // than two elements read past the end of the heap. ASan calls it a heap-buffer-overflow;
++        // the catch below never saw it, because it is not an exception.
++        //
++        // std::stoi on the port threw std::invalid_argument on "abc", which the outermost handler
++        // turned into a 500 -- the same "you sent rubbish reported as I am broken" that the
++        // comment sixty lines above records fixing for app_id.
++        // The handler refuses rather than skipping, unlike the collector's copy: this body comes
++        // from a sibling app making a claim about the network, and quietly accepting the paths it
++        // got right would leave the caller believing all of them landed.
+         for (const auto& nodeJson : pathJson)
+         {
+-            uint64_t nodeId = 0;
+-            if (nodeJson[0].is_string())
+-            {
+-                nodeId = utils::ipStringToUint32(nodeJson[0].get<std::string>());
+-            }
+-            else if (nodeJson[0].is_number())
+-            {
+-                nodeId = nodeJson[0].get<uint64_t>();
+-            }
+-
+-            uint32_t port = 0;
+-            if (nodeJson[1].is_number())
++            const auto hop = sflow::tryParsePathNode(nodeJson);
++            if (!hop)
+             {
+-                port = nodeJson[1].get<int>();
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "inform_all_destination_paths: a hop is not a well-formed "
++                                   "[node, interface] pair; rejecting the request");
++                res.result(http::status::bad_request);
++                res.body() = json{{"status", "error"},
++                                  {"error", "malformed path node"},
++                                  {"detail", "each hop must be [node, interface]; node is a "
++                                             "dotted IPv4 address or a numeric id, interface is "
++                                             "a number or a numeric string"}}
++                                 .dump();
++                return;
+             }
+-            else if (nodeJson[1].is_string())
+-            {
+-                port = std::stoi(nodeJson[1].get<std::string>());
+-            }
+-
+-            tempPath.emplace_back(nodeId, port);
++            tempPath.emplace_back(hop->first, hop->second);
+         }
+         if (!tempPath.empty())
+         {
+@@ -1098,6 +1400,27 @@ void
+ HttpSession::handleInputTextIntent(http::response<http::string_body>& res)
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Processing intent_translator text request");
++
++    // [Co-developed with claude code -- Adam]
++    // `--no-ai` leaves this pointer null: main.cpp only constructs an IntentTranslator when
++    // config.useToken is set, and its else branch just logs. Without this check one well-formed
++    // POST dereferences null and takes the whole kernel process with it -- every other endpoint,
++    // the topology poll, the sFlow collector -- while it is running a live network. The catch
++    // below cannot help: a null dereference is a signal, not a C++ exception.
++    //
++    // stack.sh starts the kernel with --no-ai, so this is the *normal* configuration here, not a
++    // corner case. doc/2026-01-02_ndt_api.md carried the defect as a written warning not to call the endpoint;
++    // a three-line guard is a better mitigation than asking people to remember.
++    if (this->m_intentTranslator == nullptr)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "intent_translator requested but the translator is disabled (--no-ai)");
++        res.result(http::status::service_unavailable);
++        res.body() =
++            R"({"error":"Intent translator is disabled; the kernel was started with --no-ai."})";
++        return;
++    }
++
+     try
+     {
+         json body = json::parse(m_req.body());
+@@ -1111,7 +1434,8 @@ HttpSession::handleInputTextIntent(http::response<http::string_body>& res)
+     }
+     catch (const std::exception& e)
+     {
+-        SPDLOG_LOGGER_ERROR(Logger::instance(),
++        // WARN: answers 400 below. [Co-developed with claude code -- Adam]
++        SPDLOG_LOGGER_WARN(Logger::instance(),
+                             "Exception in intent_translator: {}, request body: {}",
+                             e.what(),
+                             m_req.body());
+@@ -1126,60 +1450,10 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
+     //  Log the incoming request for debugging purposes.
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Nickname");
+ 
+-    //  helper function to easily parse query parameters (e.g., "?dpid=123") from the request URL.
+-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
+-        // 1. Find the start of the query string (the '?'). If it doesn't exist, there are no
+-        // parameters.
+-        auto qpos = target.find('?');
+-        if (qpos == std::string_view::npos)
+-        {
+-            return "";
+-        }
+-
+-        // 2. Remove the path part of the URL, leaving only the query string (e.g.,
+-        // "dpid=123&action=on").
+-        target.remove_prefix(qpos + 1);
+-
+-        // 3. Loop through the remaining string, which contains key=value pairs separated by '&'.
+-        while (!target.empty())
+-        {
+-            // 4. Find the '=' to separate the key from the value.
+-            auto key_end = target.find('=');
+-            if (key_end == std::string_view::npos)
+-            {
+-                break; // Malformed pair, stop parsing.
+-            }
+-
+-            // 5. Check if the current key is the one we're looking for.
+-            if (target.substr(0, key_end) == key)
+-            {
+-                // It's a match! Remove the key and '='.
+-                target.remove_prefix(key_end + 1);
+-
+-                // Find the end of the value (the next '&').
+-                auto val_end = target.find('&');
+-
+-                // Extract the value and return it as a new std::string.
+-                return std::string(target.substr(0, val_end));
+-            }
+-
+-            // 6. If it wasn't a match, skip to the next key-value pair.
+-            auto amp_pos = target.find('&');
+-            if (amp_pos == std::string_view::npos)
+-            {
+-                break; // No more pairs, stop parsing.
+-            }
+-            target.remove_prefix(amp_pos + 1);
+-        }
+-
+-        // 7. If the loop finishes without finding the key, return an empty string.
+-        return "";
+-    };
+-
+     // Extract all possible identifiers from the URL
+-    std::string dpidStr = get_param(m_req.target(), "dpid");
+-    std::string macStr = get_param(m_req.target(), "mac");
+-    std::string nameStr = get_param(m_req.target(), "name");
++    std::string dpidStr = utils::queryParam(m_req.target(), "dpid");
++    std::string macStr = utils::queryParam(m_req.target(), "mac");
++    std::string nameStr = utils::queryParam(m_req.target(), "name");
+ 
+     // Check that at least one identifier was provided
+     if (dpidStr.empty() && macStr.empty() && nameStr.empty())
+@@ -1195,32 +1469,65 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
+     // Search with a clear priority: DPID > MAC > Name
+     if (!dpidStr.empty())
+     {
+-        try
+         {
+-            uint64_t dpid = std::stoull(dpidStr);
++            // [Co-developed with claude code -- Adam]
++            // Same guard as handleInformSwitchEntered: std::stoull threw on `?dpid=abc` and the
++            // outermost catch turned it into 500. tryParseUint64 is also stricter than stoull,
++            // which would read "12abc" as 12 and "-1" as 18446744073709551615 -- a mistyped dpid
++            // must be refused, not silently redirected to a different switch.
++            //
++            // The message names *this* endpoint. It was copy-pasted from handleInformSwitchEntered
++            // with the text unedited, so a bad `?dpid=` on /ndt/get_nickname logged
++            // "inform_switch_entered: ..." and sent the reader to the wrong handler. Checked the
++            // other forty-odd handlers for the same slip; this was the only one.
++            const auto dpidOpt = utils::tryParseUint64(dpidStr);
++            if (!dpidOpt)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "get_nickname: dpid '{}' is not an unsigned integer",
++                                   dpidStr);
++                res.result(http::status::bad_request);
++                res.body() = json{{"status", "error"},
++                                  {"error", "invalid dpid"},
++                                  {"dpid", dpidStr},
++                                  {"detail", "dpid must be an unsigned integer"}}
++                                 .dump();
++                return;
++            }
++            const uint64_t dpid = *dpidOpt;
+             vertexOpt = m_topologyAndFlowMonitor->findSwitchByDpid(dpid);
+         }
+-        catch (const std::exception& e)
+-        {
+-            res.result(http::status::bad_request);
+-            res.body() = json{{"error", "Invalid DPID format"}, {"details", e.what()}}.dump();
+-            return;
+-        }
++        // The `catch (const std::exception&)` that used to close this block is gone: nothing inside
++        // it throws any more. tryParseUint64 returns nullopt instead of throwing, and
++        // findSwitchByDpid is a graph read. A catch that cannot fire is not harmless -- it reads as
++        // a claim that this code can throw, so the next person keeps it. Review M2.
++        // [Co-developed with claude code -- Adam]
+     }
+     else if (!macStr.empty())
+     {
+-        try
+-        {
+-            uint64_t mac = utils::macToUint64(macStr);
+-            vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(mac);
+-        }
+-        catch (const std::exception& e)
+-        {
++        // [Co-developed with claude code -- Adam]
++        // tryMacToUint64 and an explicit check, matching modify_device_name and modify_nickname.
++        // This was the last MAC call site still using the throwing macToUint64 with a local catch.
++        // The old form answered 400 too, so this is not a behaviour fix -- it is a consistency one,
++        // and the inconsistency was not cosmetic: the two forms produced *different error bodies*
++        // for the same mistake, so a client could not parse "invalid mac" uniformly. Found by the
++        // http-routing review, M1.
++        const auto mac = utils::tryMacToUint64(macStr);
++        if (!mac)
++        {
++            SPDLOG_LOGGER_WARN(Logger::instance(),
++                               "get_nickname: mac '{}' is not a MAC address",
++                               macStr);
+             res.result(http::status::bad_request);
+-            res.body() =
+-                json{{"error", "Invalid MAC address format"}, {"details", e.what()}}.dump();
++            res.set(http::field::content_type, "application/json");
++            res.body() = json{{"status", "error"},
++                              {"error", "invalid mac"},
++                              {"mac", macStr},
++                              {"detail", "expected xx:xx:xx:xx:xx:xx"}}
++                             .dump();
+             return;
+         }
++        vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
+     }
+     else // nameStr is not empty
+     {
+@@ -1274,8 +1581,25 @@ HttpSession::handleModifyNickname(http::response<http::string_body>& res)
+         }
+         else if (type == "mac")
+         {
+-            uint64_t mac = utils::macToUint64(identifier.at("value").get<std::string>());
+-            vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(mac);
++            // Same as above: a malformed MAC is a client error, not a server one.
++            // [Co-developed with claude code -- Adam]
++            const std::string macText = identifier.at("value").get<std::string>();
++            const auto mac = utils::tryMacToUint64(macText);
++            if (!mac)
++            {
++                SPDLOG_LOGGER_WARN(Logger::instance(),
++                                   "modify_nickname: mac '{}' is not a MAC address",
++                                   macText);
++                res.result(http::status::bad_request);
++                res.set(http::field::content_type, "application/json");
++                res.body() = json{{"status", "error"},
++                                  {"error", "invalid mac"},
++                                  {"mac", macText},
++                                  {"detail", "expected xx:xx:xx:xx:xx:xx"}}
++                                 .dump();
++                return;
++            }
++            vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
+         }
+         else if (type == "name")
+         {
+@@ -1329,40 +1653,9 @@ HttpSession::handleGetTemperature(http::response<http::string_body>& res)
+ void
+ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
+ {
+-    // This helper lambda remains the same.
+-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
+-        auto qpos = target.find('?');
+-        if (qpos == std::string_view::npos)
+-        {
+-            return "";
+-        }
+-        target.remove_prefix(qpos + 1);
+-        while (!target.empty())
+-        {
+-            auto key_end = target.find('=');
+-            if (key_end == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            if (target.substr(0, key_end) == key)
+-            {
+-                target.remove_prefix(key_end + 1);
+-                auto val_end = target.find('&');
+-                return std::string(target.substr(0, val_end));
+-            }
+-            auto amp_pos = target.find('&');
+-            if (amp_pos == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            target.remove_prefix(amp_pos + 1);
+-        }
+-        return "";
+-    };
+-
+     std::string target(m_req.target());
+-    std::string srcIpStr = get_param(target, "src_ip");
+-    std::string dstIpStr = get_param(target, "dst_ip");
++    std::string srcIpStr = utils::queryParam(target, "src_ip");
++    std::string dstIpStr = utils::queryParam(target, "dst_ip");
+     json responseJson;
+     res.set(http::field::content_type, "application/json");
+ 
+@@ -1375,8 +1668,30 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
+                            srcIpStr,
+                            dstIpStr);
+ 
+-        uint32_t srcIp = utils::ipStringToUint32(srcIpStr);
+-        uint32_t dstIp = utils::ipStringToUint32(dstIpStr);
++        // [Co-developed with claude code -- Adam]
++        // ipStringToUint32 throws, and the throw escaped to the outermost catch, which answers 500.
++        // A malformed query parameter is the caller's mistake, not the kernel breaking, and telling
++        // them otherwise sends them looking in the wrong place. This is the L2 failure
++        // get_path_switch_count__bad_ip.
++        const auto srcIpOpt = utils::tryIpStringToUint32(srcIpStr);
++        const auto dstIpOpt = utils::tryIpStringToUint32(dstIpStr);
++        if (!srcIpOpt || !dstIpOpt)
++        {
++            SPDLOG_LOGGER_WARN(Logger::instance(),
++                               "get_path_switch_count: bad IP parameter(s) src='{}' dst='{}'",
++                               srcIpStr,
++                               dstIpStr);
++            res.result(http::status::bad_request);
++            res.body() = json{{"status", "error"},
++                              {"error", "invalid IP address"},
++                              {"src_ip", srcIpStr},
++                              {"dst_ip", dstIpStr},
++                              {"detail", "src_ip and dst_ip must be dotted IPv4 addresses"}}
++                             .dump();
++            return;
++        }
++        const uint32_t srcIp = *srcIpOpt;
++        const uint32_t dstIp = *dstIpOpt;
+ 
+         auto switchCountOpt = m_flowLinkUsageCollector->getSwitchCount({srcIp, dstIp});
+ 
+@@ -1431,14 +1746,14 @@ void
+ HttpSession::handleGetOpenflowCapacity(http::response<http::string_body>& res)
+ {
+     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Openflow Capacity");
+-    std::ifstream file("../doc/OpenflowCapacity.json");
++    std::ifstream file("../doc/2026-01-02_OpenflowCapacity.json");
+     if (!file.is_open())
+     {
+-        SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open OpenflowCapacity.json");
++        SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open 2026-01-02_OpenflowCapacity.json");
+         return;
+     }
+ 
+-    SPDLOG_LOGGER_INFO(Logger::instance(), "Load OpenflowCapacity.json");
++    SPDLOG_LOGGER_INFO(Logger::instance(), "Load 2026-01-02_OpenflowCapacity.json");
+ 
+     json j;
+     file >> j;
+@@ -1453,37 +1768,8 @@ HttpSession::handleSetHistoricalLoggingState(http::response<http::string_body>&
+     SPDLOG_LOGGER_INFO(Logger::instance(), "API request to set historical logging state");
+ 
+     // Helper to parse query params from a target string
+-    auto get_param = [](std::string_view target, std::string_view key) -> std::string {
+-        auto qpos = target.find('?');
+-        if (qpos == std::string_view::npos)
+-        {
+-            return "";
+-        }
+-        target.remove_prefix(qpos + 1);
+-        while (!target.empty())
+-        {
+-            auto key_end = target.find('=');
+-            if (key_end == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            if (target.substr(0, key_end) == key)
+-            {
+-                target.remove_prefix(key_end + 1);
+-                auto val_end = target.find('&');
+-                return std::string(target.substr(0, val_end));
+-            }
+-            auto amp_pos = target.find('&');
+-            if (amp_pos == std::string_view::npos)
+-            {
+-                break;
+-            }
+-            target.remove_prefix(amp_pos + 1);
+-        }
+-        return "";
+-    };
+ 
+-    std::string state = get_param(m_req.target(), "state");
++    std::string state = utils::queryParam(m_req.target(), "state");
+ 
+     if (state != "enable" && state != "disable")
+     {
+@@ -1504,8 +1790,28 @@ HttpSession::handleSetHistoricalLoggingState(http::response<http::string_body>&
+     m_historicalDataManager->setLoggingState(is_enabled);
+ 
+     res.result(http::status::ok);
++
++    // [Co-developed with claude code -- Adam]
++    // Say so when the flag has been set but nothing will be written. HistoricalDataManager::start()
++    // returns early in MININET, so the recorder thread does not exist and no row will ever appear
++    // -- yet this handler used to report plain success either way. Both lab stacks are MININET, so
++    // the reply was false on every deployment this project has actually run. The flag really was
++    // set, which is why this stays 200 rather than becoming an error: the request was honoured,
++    // and it is the consequence that needed stating.
++    if (is_enabled && !m_historicalDataManager->canRecord())
++    {
++        res.body() = json{
++            {"status", "success"},
++            {"recording", false},
++            {"message",
++             "Historical data logging is enabled, but this deployment does not record: the "
++             "recorder is only started outside MININET mode, so no rows will be written."}}.dump();
++        return;
++    }
++
+     res.body() = json{
+         {"status", "success"},
++        {"recording", is_enabled},
+         {"message",
+          "Historical data logging has been " +
+              (is_enabled ? std::string("enabled") : std::string("disabled")) +
+@@ -1551,7 +1857,12 @@ HttpSession::handleGetTotalInputTrafficLoadPassingASwitch(http::response<http::s
+     }
+     else
+     {
++        // [Co-developed with claude code -- Adam]
++        // res.result() as well as the body: buildResponse initialises the response to 200, so
++        // setting only an error body left a status-code-only client reading success and holding
++        // an error object it never parses.
+         SPDLOG_LOGGER_WARN(Logger::instance(), "dpid missing");
++        res.result(http::status::bad_request);
+         res.body() = json{{"status", "error"}, {"message", "dpid missing"}}.dump();
+     }
+ }
+@@ -1578,7 +1889,10 @@ HttpSession::handleGetNumOfFlowsPassingASwitch(http::response<http::string_body>
+     }
+     else
+     {
++        // See handleGetTotalInputTrafficLoadPassingASwitch: same missing res.result().
++        // [Co-developed with claude code -- Adam]
+         SPDLOG_LOGGER_WARN(Logger::instance(), "dpid missing");
++        res.result(http::status::bad_request);
+         res.body() = json{{"status", "error"}, {"message", "dpid missing"}}.dump();
+     }
+ }
+@@ -1696,20 +2010,61 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
+         // Use constants defined in the header for default values
+         std::string lockType = LockManager::DEFAULT_LOCK_TYPE_STR;
+ 
+-        try
++        // [Co-developed with claude code -- Adam]
++        // An *absent* body still means "release the default lock" -- doc/2026-01-02_ndt_api.md documents the
++        // body as optional and callers rely on it. A body that is present but unparseable is a
++        // different thing, and used to be swallowed by an empty catch that degraded the request
++        // into releasing the DEFAULT type. That silently released a lock the caller never named.
++        if (!m_req.body().empty())
+         {
+-            auto jsonBody = json::parse(m_req.body());
++            json jsonBody;
++            try
++            {
++                jsonBody = json::parse(m_req.body());
++            }
++            catch (const json::exception&)
++            {
++                res.result(http::status::bad_request);
++                res.body() = json{{"error", "Invalid Request"},
++                                  {"detail", "Request body is not valid JSON"}}
++                                 .dump();
++                return;
++            }
+             if (jsonBody.contains("type"))
+             {
+-                lockType = jsonBody.value("type", LockManager::DEFAULT_LOCK_TYPE_STR);
++                // is_string() before reading it: value("type", <const char*>) calls
++                // get<std::string>() on the element and throws json::type_error when it is a
++                // number, which would escape to the outer catch(...) and answer 500 -- reporting
++                // a client's bad input as a kernel fault. That is the distinction
++                // tests/test_HttpSessionRouting.cpp exists to protect.
++                if (!jsonBody.at("type").is_string())
++                {
++                    res.result(http::status::bad_request);
++                    res.body() = json{{"error", "Invalid Request"},
++                                      {"detail", "'type' must be a string"}}
++                                     .dump();
++                    return;
++                }
++                lockType = jsonBody.at("type").get<std::string>();
+             }
+         }
+-        catch (...)
++
++        // 412, matching the sibling renew handler, which answers 412 for exactly these three
++        // inputs (expired, not held, invalid type). tools/contract_test/spec.py already expected
++        // [412, 400, 404] here and carried a known_gap saying the kernel did not implement it;
++        // doc/2026-07-27_testing_workflow.md documents 412 as well. 423 Locked, which doc/2026-01-02_ndt_api.md
++        // mentions, is the wrong shape: 423 means "the resource is locked so your request cannot
++        // proceed", whereas the failure here is "there was no lock of yours to release".
++        if (!m_lockManager->unlock(lockType))
+         {
++            res.result(http::status::precondition_failed);
++            res.body() =
++                json{{"error", "Release failed"},
++                     {"detail", "Lock '" + lockType + "' is not held or is an invalid type"}}
++                    .dump();
++            return;
+         }
+ 
+-        m_lockManager->unlock(lockType);
+-
+         res.result(http::status::ok);
+         res.body() = json{{"status", "released"}, {"type", lockType}}.dump();
+     }

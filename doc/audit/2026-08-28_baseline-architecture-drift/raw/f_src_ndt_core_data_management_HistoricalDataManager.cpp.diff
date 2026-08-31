@@ -1,0 +1,207 @@
+diff --git a/src/ndt_core/data_management/HistoricalDataManager.cpp b/src/ndt_core/data_management/HistoricalDataManager.cpp
+index 9998aec..9e2db20 100644
+--- a/src/ndt_core/data_management/HistoricalDataManager.cpp
++++ b/src/ndt_core/data_management/HistoricalDataManager.cpp
+@@ -23,8 +23,21 @@
+       m_mode(static_cast<utils::DeploymentMode>(mode)),
+       m_interval(interval)
+ {
+-    // ensure our output directory exists
+-    std::filesystem::create_directories("/home/of-controller-sflow-collector/LinkData");
++    // [Co-developed with claude code -- Adam]
++    // error_code overload, not the throwing one. main.cpp constructs this unconditionally in both
++    // deployment modes, so the throwing overload meant a directory that could not be created --
++    // a permissions problem in a data-logging nicety -- killed the whole kernel at startup before
++    // anything else had a chance to run.
++    std::error_code ec;
++    std::filesystem::create_directories(OUTPUT_DIR, ec);
++    if (ec)
++    {
++        SPDLOG_LOGGER_WARN(Logger::instance(),
++                           "HistoricalDataManager: cannot create {}: {}. Historical link data "
++                           "will not be recorded.",
++                           OUTPUT_DIR,
++                           ec.message());
++    }
+ }
+ 
+ HistoricalDataManager::~HistoricalDataManager()
+@@ -55,77 +68,121 @@ HistoricalDataManager::stop()
+     }
+ }
+ 
+-void
+-HistoricalDataManager::run()
++std::size_t
++HistoricalDataManager::writeSnapshot(const Graph& graph,
++                                     const std::string& outDir,
++                                     std::time_t when)
+ {
+-    const std::string outDir = "/home/of-controller-sflow-collector/LinkData/";
++    // [Co-developed with claude code -- Adam]
++    // The gate the REST endpoint sets. It was previously stored and never read, so
++    // /ndt/set_historical_logging_state changed nothing even where it was reachable.
++    if (!m_loggingEnabled.load())
++    {
++        return 0;
++    }
+ 
+-    while (m_running.load())
++    std::tm local_tm = *std::localtime(&when);
++
++    char dateBuf[9]; // YYYYMMDD
++    std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d", &local_tm);
++
++    char dateTimeBuf[20]; // YYYY-MM-DD HH:MM:SS
++    std::strftime(dateTimeBuf, sizeof(dateTimeBuf), "%Y-%m-%d %H:%M:%S", &local_tm);
++
++    const std::string dir = outDir.empty() || outDir.back() == '/' ? outDir : outDir + "/";
++
++    std::size_t rowsWritten = 0;
++    std::size_t failures = 0;
++    std::string firstFailurePath;
++
++    auto [ei, ei_end] = boost::edges(graph);
++    for (; ei != ei_end; ++ei)
+     {
+-        // 1. Fetch a snapshot clone of the graph
+-        Graph graph = m_topologyAndFlowMonitor->getGraph();
++        auto u = boost::source(*ei, graph);
++        auto v = boost::target(*ei, graph);
++        const auto& eprop = graph[*ei];
++        const auto& up = graph[u];
++        const auto& vp = graph[v];
+ 
+-        // 2. Build timestamp strings
+-        auto now = std::chrono::system_clock::now();
+-        std::time_t t = std::chrono::system_clock::to_time_t(now);
+-        std::tm local_tm = *std::localtime(&t);
++        const char* srcType = (up.vertexType == VertexType::SWITCH ? "switch" : "host");
++        const char* dstType = (vp.vertexType == VertexType::SWITCH ? "switch" : "host");
+ 
+-        char dateBuf[9]; // YYYYMMDD
+-        std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d", &local_tm);
++        auto srcId = (up.vertexType == VertexType::SWITCH ? std::to_string(up.dpid)
++                                                          : utils::macToString(up.mac));
++        auto dstId = (vp.vertexType == VertexType::SWITCH ? std::to_string(vp.dpid)
++                                                          : utils::macToString(vp.mac));
+ 
+-        char dateTimeBuf[20]; // YYYY-MM-DD HH:MM:SS
+-        std::strftime(dateTimeBuf, sizeof(dateTimeBuf), "%Y-%m-%d %H:%M:%S", &local_tm);
++        // base filename: YYYYMMDD_srcDpid_dstDpid.csv
++        std::string fullPath = dir + std::string(dateBuf) + "_" + srcId + "_" + dstId + ".csv";
+ 
+-        // 3. Iterate each edge and append to per-link CSV under outDir
+-        auto [ei, ei_end] = boost::edges(graph);
+-        int edgeCnt = 0;
+-        for (; ei != ei_end; ++ei)
++        std::error_code existsEc;
++        const bool exists = std::filesystem::exists(fullPath, existsEc);
++
++        std::ofstream ofs(fullPath, std::ios::app);
++        if (!exists)
++        {
++            ofs << "date-time,srcType,srcId,dstType,dstId,link_bw,link_bw_usage\n";
++        }
++        ofs << dateTimeBuf << "," << srcType << "," << srcId << "," << dstType << "," << dstId
++            << "," << eprop.linkBandwidth << "," << eprop.linkBandwidthUsage << "\n";
++        ofs.flush();
++
++        // One check, deliberately, and placed *after* the write. It covers both "never opened"
++        // and "opened but the write failed": streaming into an ofstream that failed to open sets
++        // failbit, so good() is already false in that case, and a full or read-only filesystem
++        // only shows up here rather than at open() anyway. An additional is_open() branch was
++        // written first and removed -- no input could reach it that this does not already
++        // reject, so deleting it left every test green, which is the definition of dead code.
++        if (!ofs.good())
+         {
+-            edgeCnt++;
+-            SPDLOG_LOGGER_DEBUG(Logger::instance(), "edge cnt {}", edgeCnt);
+-            auto u = boost::source(*ei, graph);
+-            auto v = boost::target(*ei, graph);
+-            auto& eprop = graph[*ei];
+-            auto& up = graph[u];
+-            auto& vp = graph[v];
+-
+-            SPDLOG_LOGGER_DEBUG(Logger::instance(),
+-                                "{} {} {} {} {} {} {} {}",
+-                                up.deviceName,
+-                                vp.deviceName,
+-                                up.dpid,
+-                                vp.dpid,
+-                                up.mac,
+-                                vp.mac,
+-                                up.vertexType == VertexType::SWITCH,
+-                                vp.vertexType == VertexType::SWITCH);
+-            const char* srcType = (up.vertexType == VertexType::SWITCH ? "switch" : "host");
+-            const char* dstType = (vp.vertexType == VertexType::SWITCH ? "switch" : "host");
+-
+-            auto srcId = (up.vertexType == VertexType::SWITCH ? std::to_string(up.dpid)
+-                                                              : utils::macToString(up.mac));
+-            auto dstId = (vp.vertexType == VertexType::SWITCH ? std::to_string(vp.dpid)
+-                                                              : utils::macToString(vp.mac));
+-
+-            // base filename: YYYYMMDD_srcDpid_dstDpid.csv
+-            std::string baseName = std::string(dateBuf) + "_" + srcId + "_" + dstId + ".csv";
+-
+-            // full path under LinkData
+-            std::string fullPath = outDir + baseName;
+-
+-            bool exists = std::filesystem::exists(fullPath);
+-            std::ofstream ofs(fullPath, std::ios::app);
+-            if (!exists)
++            if (failures++ == 0)
+             {
+-                ofs << "date-time,srcType,srcId,dstType,dstId,link_bw,link_bw_usage\n";
++                firstFailurePath = fullPath;
+             }
++            continue;
++        }
++        ++rowsWritten;
++    }
+ 
+-            ofs << dateTimeBuf << "," << srcType << "," << srcId << "," << dstType << "," << dstId
+-                << "," << eprop.linkBandwidth << "," << eprop.linkBandwidthUsage << "\n";
++    // Reported once per unbroken run of failures, not once per edge per interval: a root-owned
++    // output directory fails for every edge every time, and an every-row ERROR would bury the log
++    // rather than inform it.
++    if (failures > 0)
++    {
++        if (!m_writeFailureActive.exchange(true))
++        {
++            m_writeFailureReports.fetch_add(1);
++            SPDLOG_LOGGER_ERROR(Logger::instance(),
++                                "HistoricalDataManager: {} of {} link rows could not be written "
++                                "(first: {}). Historical data is being lost. This is reported "
++                                "once until a write succeeds.",
++                                failures,
++                                failures + rowsWritten,
++                                firstFailurePath);
+         }
++    }
++    else if (rowsWritten > 0)
++    {
++        m_writeFailureActive.store(false);
++    }
++
++    return rowsWritten;
++}
++
++void
++HistoricalDataManager::run()
++{
++    while (m_running.load())
++    {
++        // 1. Fetch a snapshot clone of the graph
++        Graph graph = m_topologyAndFlowMonitor->getGraph();
++
++        // 2. Append one row per edge
++        writeSnapshot(graph, OUTPUT_DIR, std::chrono::system_clock::to_time_t(
++                                             std::chrono::system_clock::now()));
+ 
+         // TODO[OPTIMIZW]: Change below methods to condition_variable (more efficient)
+-        // 4) Sleep until next interval (or until stop() is called)
++        // 3) Sleep until next interval (or until stop() is called)
+         for (int i = 0; i < m_interval.count() * 60 && m_running.load(); ++i)
+         {
+             std::this_thread::sleep_for(std::chrono::seconds(1));

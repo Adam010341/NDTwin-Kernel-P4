@@ -1,0 +1,287 @@
+diff --git a/include/ndt_core/collection/TopologyAndFlowMonitor.hpp b/include/ndt_core/collection/TopologyAndFlowMonitor.hpp
+index 3a5524d..686c72d 100644
+--- a/include/ndt_core/collection/TopologyAndFlowMonitor.hpp
++++ b/include/ndt_core/collection/TopologyAndFlowMonitor.hpp
+@@ -15,7 +15,8 @@
+ #include <set>                         // for set
+ #include <shared_mutex>                // for shared_mutex
+ #include <string>                      // for string, allocator
+-#include <thread>                      // for thread
++#include <thread>
++#include <tuple>                      // for thread
+ #include <unordered_map>               // for unordered_map
+ #include <utility>                     // for pair
+ #include <vector>                      // for vector
+@@ -59,22 +60,16 @@ class TopologyAndFlowMonitor
+     void stop();
+ 
+     /**
+-     * @brief Loads and constructs the static network topology from a JSON configuration file.
+-     *
+-     * This function parses the specified JSON file to populate the internal graph structure
+-     * (`m_graph`). The process involves two main stages:
+-     * 1. **Nodes Parsing**: Iterates through the "nodes" array to create vertices (Switches or
+-     * Hosts), setting properties like DPID, MAC, IP, and device metadata. Special handling is
+-     * applied if the deployment mode is set to MININET (e.g., reading `bridge_name`).
+-     * 2. **Edges Parsing**: Iterates through the "edges" array to create connections between
+-     * vertices. Endpoints are resolved using DPID for switches or IP addresses for hosts.
+-     *
+-     * @param path The file system path to the JSON topology file.
+-     *
+-     * @note If the file cannot be opened, an error is logged and the function returns without
+-     * modifying the graph.
+-     * @note If an edge's source or destination cannot be resolved in the graph, the edge is skipped
+-     * and a warning is logged.
++     * @brief Prints the current graph -- every vertex and edge -- to the log at DEBUG.
++     *
++     * Debug output only. Takes no arguments, reads nothing but `m_graph`, and modifies nothing.
++     *
++     * [Co-developed with claude code -- Adam]
++     * This declaration used to carry a nineteen-line docblock describing
++     * `loadStaticTopologyFromFile` -- node/edge parsing stages, `@param path`, the file-not-found
++     * behaviour -- none of which has anything to do with a parameterless printer. The header's
++     * public section therefore taught that `logGraph()` builds the graph from a file. The real
++     * loader is declared further down, `protected`, with its own accurate comment.
+      */
+     void logGraph();
+ 
+@@ -83,8 +78,30 @@ class TopologyAndFlowMonitor
+                         uint64_t leftOut,
+                         uint64_t interfaceSpeed);
+ 
++    // [Co-developed with claude code -- Adam]
++    // Takes BYTES and the interval they accumulated over, and does the bits-per-second
++    // conversion itself. It used to take a finished bps figure, and both callers produced that
++    // figure as `accumulator * 8` -- no division by anything. The rate loop's period is a second
++    // of sleep PLUS the body, never exactly 1000 ms, so every published rate was overstated by
++    // (real period / 1 s).
++    //
++    // WHY THE SIGNATURE CHANGED RATHER THAN THE CALL SITES. There are two call sites, and a
++    // partial fix is worse than none: ticket Q's read-out table would show one edge class
++    // corrected and another not, which reads as "further from 1" or "a third mechanism is
++    // acting" -- both wrong verdicts pointing at problems that do not exist. Taking an argument
++    // that did not exist before makes a missed call site a compile error instead.
++    //
++    // elapsedSeconds must be the interval between the PREVIOUS drain of the accumulator and this
++    // one, not the loop's start-to-start period: the bytes accumulated over the former.
+     void updateLinkInfoLeftLinkBandwidth(std::pair<uint32_t, uint32_t> agentIpAndPort,
+-                                         uint64_t estimatedIn);
++                                         uint64_t accumulatedBytes,
++                                         double elapsedSeconds);
++
++    // The divisor the most recent call actually used. Ticket Q's acceptance gate asserts this
++    // equals the independently measured interval for the same iteration, which is a check the
++    // code can fail -- unlike "the loop period should read ~1000 ms", which stays true whether
++    // or not the division was ever added.
++    double lastRateDivisorSeconds() const { return m_lastRateDivisorSeconds.load(); }
+ 
+     std::optional<Graph::vertex_descriptor> findVertexByIp(uint32_t ip) const;
+     std::optional<Graph::vertex_descriptor> findVertexByIpNoLock(uint32_t ip) const;
+@@ -94,6 +111,12 @@ class TopologyAndFlowMonitor
+     std::optional<Graph::edge_descriptor> findEdgeByAgentIpAndPortNoLock(
+         const std::pair<uint32_t, uint32_t>& agentIpAndPort) const;
+ 
++    /// The edge leaving (agentIp, port), but only when its far end is a host (dstDpid == 0 --
++    /// hosts carry no datapath id in this graph). Engaged for the last hop of a flow's path;
++    /// nullopt for switch-to-switch edges and unknown ports.
++    std::optional<Graph::edge_descriptor> findEdgeToHostByAgentIpAndPort(
++        const std::pair<uint32_t, uint32_t>& agentIpAndPort) const;
++
+     std::optional<Graph::edge_descriptor> findReverseEdgeByAgentIpAndPort(
+         const std::pair<uint32_t, uint32_t>& agentIpAndPort) const;
+     std::optional<Graph::edge_descriptor> findReverseEdgeByAgentIpAndPortNoLock(
+@@ -156,6 +179,86 @@ class TopologyAndFlowMonitor
+     std::optional<Graph::vertex_descriptor> findSwitchByDpid(uint64_t dpid) const;
+     std::optional<Graph::vertex_descriptor> findSwitchByDpidNoLock(uint64_t dpid) const;
+ 
++    /**
++     * @brief Returns which data plane a switch runs, in O(1).
++     *
++     * Built once when the topology loads. Callers on the flow-install hot path use this
++     * instead of getGraph() + findSwitchByDpid(): the former deep-copied the entire BGL
++     * graph (every vertex string, ip vector and ecmp group) and the latter did an O(V)
++     * scan, once per flow entry, from one worker thread per DPID.
++     *
++     * @return nullopt when the dpid is not a switch in the loaded topology. Callers must
++     *         treat that as an error rather than defaulting to a data plane.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    std::optional<SwitchKind> getSwitchKind(uint64_t dpid) const;
++
++    /**
++     * @brief The topology file this run actually uses.
++     *
++     * Single source of truth, honouring the NDTWIN_TOPO_FILE override. Every read and
++     * every write of the topology JSON must go through this: the device-rename paths used
++     * to hardcode the OVS file, so renaming a device while running the P4 fabric wrote
++     * into the wrong topology.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    std::string activeTopologyPath() const;
++
++    /**
++     * @brief Groups the loaded switches by data plane, for validation and logging.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    std::map<SwitchKind, std::vector<uint64_t>> getSwitchKindGroups() const;
++
++    /**
++     * @brief Sets the three `/v1.0/topology/` URLs (switches, hosts, links) from a base.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    void setTopologyApiUrls(const std::string& base);
++
++    /**
++     * @brief The three URLs the topology poll will actually fetch: switches, hosts, links.
++     *
++     * [Co-developed with claude code -- Adam]
++     * The read side of setTopologyApiUrls, and the only way to observe which control plane this
++     * monitor is aimed at. It exists because the default used to be a file-local constant
++     * hard-coding localhost:8080 rather than AppConfig::RYU_IP_AND_PORT, and no test could see
++     * the difference -- the symptom of the bug was a poll that quietly fetched nothing, which
++     * looks identical to a control plane with nothing to report.
++     */
++    const std::array<std::string, 3>& topologyApiUrls() const { return m_ryuUrl; }
++
++    /**
++     * @brief Aims the topology poll at Ryu or at the P4 proxy, based on the loaded switch kinds.
++     *
++     * @details
++     * Must run after the topology file is loaded; calling it earlier always sees an empty graph
++     * and silently keeps the Ryu default. Only an all-bmv2 topology is re-pointed.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    void configureTopologyApiUrls();
++
++    /**
++     * @brief Fails loudly when the loaded topology mixes data planes.
++     *
++     * The strategy dispatch is per-DPID and would happily drive a mixed fabric, but
++     * nothing else in the stack is ready for one: a single Mininet run is either OVS or
++     * bmv2, and the telemetry and liveness paths assume one kind. Validating here turns a
++     * confusing runtime mixture into a clear startup error. Enabling mixed topologies
++     * later means relaxing this check, not redesigning the dispatch.
++     *
++     * @param allowMixed when true, logs the mixture as a warning instead of failing.
++     * @return true when the topology is acceptable.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    bool validateDataPlaneHomogeneity(bool allowMixed) const;
++
+     std::optional<Graph::vertex_descriptor> findSwitchByIp(uint32_t ip) const;
+     std::optional<Graph::vertex_descriptor> findSwitchByIpNoLock(uint32_t ip) const;
+ 
+@@ -180,8 +283,10 @@ class TopologyAndFlowMonitor
+                                                         uint64_t swDpid,
+                                                         uint64_t dstSwDpid);
+ 
+-    void disableSwitchAndEdges(uint64_t dpid);
+-    void enableSwitchAndEdges(uint64_t dpid);
++    /// @return false when no switch in the graph carries that dpid, in which case nothing was
++    ///         written. The caller answers an operator and must not report work it did not do.
++    bool disableSwitchAndEdges(uint64_t dpid);
++    bool enableSwitchAndEdges(uint64_t dpid);
+ 
+     std::vector<sflow::Path> bfsAllPathsToDst(
+         const Graph& g,
+@@ -195,7 +300,21 @@ class TopologyAndFlowMonitor
+     json getStaticTopologyJson();
+ 
+     // for llm
+-    json getLinkBandwidthBetweenSwitches(const std::string& dpid1, const std::string& dpid2);
++    /**
++     * @brief Bandwidth and status of the link between two switches, identified by **IP address**.
++     *
++     * [Co-developed with claude code -- Adam]
++     * The parameters were named `dpid1`/`dpid2` here while the definition names them `ip1_str`/
++     * `ip2_str` and parses them with `ipStringToUint32` + `findSwitchByIpNoLock`. Behaviour was
++     * never wrong -- the one caller (IntentTranslator's GET_A_LINK_BANDWIDTH_UTILIZATION branch)
++     * passes the result of `getSwitchIpByName` -- but it stores it in a variable called
++     * `dpid1_opt` under a comment saying "Get the DPIDs", so every name on the path said dpid and
++     * only the body said IP.
++     * Renamed rather than left alone because it has already cost someone a wrong call: a test
++     * written against this declaration passed dpids, landed in the not-found branch, and the reply
++     * on that branch carries `error`/`missing_devices` and **no `status` key** at all.
++     */
++    json getLinkBandwidthBetweenSwitches(const std::string& switchIp1, const std::string& switchIp2);
+     json getTopKCongestedLinksJson(int k);
+     // for llm
+ 
+@@ -205,13 +324,37 @@ class TopologyAndFlowMonitor
+     std::mutex m_configurationFileMutex;
+     void run();
+ 
+-    void fetchAndUpdateTopologyData();
++  protected:
++    /**
++     * @brief Applies one control-plane topology reply to the graph.
++     *
++     * Protected rather than private for the same reason as loadStaticTopologyFromFile below: these
++     * are the discovery writers, and the property worth testing about them is what they must
++     * *not* do -- overwrite an operator's `adminDisabled`. Driving them with a poll-shaped reply
++     * is the only way to assert that without standing up Ryu.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
+     void updateSwitches(const std::string& topologyData);
+     void updateHosts(const std::string& topologyData);
+     void updateLinks(const std::string& topologyData);
++
++  private:
+     void updateGraph(const std::string&, const std::string&, const std::string&);
+ 
++  protected:
++    /**
++     * @brief Loads nodes and edges from a topology JSON.
++     *
++     * Protected rather than private so tests can load a purpose-built topology without
++     * standing up the Ryu REST calls that pollControlPlaneTopology performs. Same seam
++     * pattern as IPowerStrategy::executeSystemCommand.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
+     void loadStaticTopologyFromFile(const std::string& path);
++
++  private:
+     void initializeMappingsFromGraph();
+     void flushEdgeFlowLoop();
+ 
+@@ -219,6 +362,14 @@ class TopologyAndFlowMonitor
+ 
+     std::array<std::string, 3> m_ryuUrl;
+ 
++    /// (switches up, hosts up, edges up). Change signal for the polling loop in run().
++    /// [Co-developed with claude code -- Adam]
++    std::tuple<std::size_t, std::size_t, std::size_t> graphLivenessSummary() const;
++
++    /// The REST poll alone, without re-reading the static topology file. See the implementation for
++    /// why the two must not be repeated together. [Co-developed with claude code -- Adam]
++    void pollControlPlaneTopology();
++
+     std::atomic<bool> m_running{false};
+ 
+     std::thread m_thread;
+@@ -228,5 +379,17 @@ class TopologyAndFlowMonitor
+     std::shared_ptr<std::shared_mutex> m_graphMutex;
+     std::shared_ptr<EventBus> m_eventBus;
+ 
++    // [Co-developed with claude code -- Adam]
++    // Written by updateLinkInfoLeftLinkBandwidth, read by ticket Q's acceptance gate. Starts at
++    // a negative sentinel rather than 0: zero is a legal-looking divisor and would let "nobody
++    // has published a rate yet" pass a gate that is checking the divisor was correct.
++    std::atomic<double> m_lastRateDivisorSeconds{-1.0};
++
+     utils::DeploymentMode m_mode;
++
++    // [Co-developed with claude code -- Adam]
++    // dpid -> data plane, built once in loadStaticTopologyFromFile. Has its own mutex so
++    // the flow-install hot path never contends with graph readers or writers.
++    std::unordered_map<uint64_t, SwitchKind> m_dpidToSwitchKind;
++    mutable std::shared_mutex m_switchKindMutex;
+ };

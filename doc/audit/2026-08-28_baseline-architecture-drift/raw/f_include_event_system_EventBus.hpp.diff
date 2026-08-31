@@ -1,0 +1,51 @@
+diff --git a/include/event_system/EventBus.hpp b/include/event_system/EventBus.hpp
+index 31e1248..1ee8e24 100644
+--- a/include/event_system/EventBus.hpp
++++ b/include/event_system/EventBus.hpp
+@@ -40,17 +40,40 @@ class EventBus
+         m_handlers[type].push_back(std::move(handler));
+     }
+ 
+-    // Emit an event (synchronously calls all registered handlers)
++    /** @brief Emit an event, calling every handler registered for its type synchronously.
++     *
++     * @details
++     * [Co-developed with claude code -- Adam]
++     * Handlers are copied out under the lock and invoked after releasing it. That ordering is
++     * the point, not an optimisation: `std::shared_mutex` is not reentrant, so invoking
++     * handlers while still holding the lock deadlocks as soon as a handler touches the bus.
++     *
++     *  - A handler calling `registerHandler()` is a *guaranteed* self-deadlock: it waits for
++     *    the `unique_lock`, which waits for this `shared_lock`, which waits for the handler.
++     *  - A handler calling `emit()` again takes a nested `shared_lock` on the same thread.
++     *    The standard does not permit that, and in practice most rwlock implementations block
++     *    new readers once a writer is queued, so it deadlocks under contention.
++     *
++     * Both are easy to hit once anything subscribes -- an event triggering another event is
++     * ordinary pub/sub -- so the copy is cheap insurance. Handlers therefore see the handler
++     * set as it was when emit() began; a handler registered during dispatch is not called for
++     * the in-flight event.
++     */
+     void emit(const Event& event) const
+     {
+-        std::shared_lock lock(m_mutex);
+-        auto it = m_handlers.find(event.type);
+-        if (it != m_handlers.end())
++        std::vector<Handler> handlers;
+         {
+-            for (const auto& handler : it->second)
++            std::shared_lock lock(m_mutex);
++            auto it = m_handlers.find(event.type);
++            if (it == m_handlers.end())
+             {
+-                handler(event); // Call all handlers for this event
++                return;
+             }
++            handlers = it->second;
++        }
++        for (const auto& handler : handlers)
++        {
++            handler(event);
+         }
+     }
+ 

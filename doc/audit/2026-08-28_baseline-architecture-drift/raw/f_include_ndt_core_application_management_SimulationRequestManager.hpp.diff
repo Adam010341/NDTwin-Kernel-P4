@@ -1,0 +1,68 @@
+diff --git a/include/ndt_core/application_management/SimulationRequestManager.hpp b/include/ndt_core/application_management/SimulationRequestManager.hpp
+index 3102328..893dc40 100644
+--- a/include/ndt_core/application_management/SimulationRequestManager.hpp
++++ b/include/ndt_core/application_management/SimulationRequestManager.hpp
+@@ -1,9 +1,11 @@
+ #pragma once
+ #include <functional>
+ #include <memory>
++#include <optional>
+ #include <string>
+ #include <string_view>
+ #include <unordered_map>
++#include <vector>
+ 
+ class ApplicationManager;
+ 
+@@ -33,13 +35,46 @@ class SimulationRequestManager
+                              std::string simServerUrl);
+     ~SimulationRequestManager();
+ 
++    /**
++     * @brief The fields POST /ndt/received_a_simulation_case must carry, all of them strings.
++     *
++     * @details Not this kernel's invention: Simulation-Platform-Manager's `from_json(SimulationTask)`
++     * calls `j.at(...).get_to(std::string)` on exactly these five, so a body missing one -- or
++     * carrying it as a number -- throws over there. Checking here moves that failure to the request
++     * boundary, where the caller can still be told about it.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    static const std::vector<std::string>& requiredRequestFields();
++
++    /**
++     * @brief Names what is wrong with a simulation-request body, or nothing if it is usable.
++     *
++     * @details Separate from requestSimulation() and free of side effects so it can be unit-tested
++     * without a simulator server, and so the caller can choose a status code. `/ndt/received_a_
++     * simulation_case` used to answer **202 Accepted** to anything at all, including `{not json` --
++     * the body went straight to curl and whatever the simulator server said (including nothing) was
++     * wrapped as `{"status": "..."}`. An application had no way to learn it had sent rubbish.
++     *
++     * Validation only. It deliberately does **not** sanitise: the body still reaches a shell in
++     * requestSimulation(), and making this look like a sanitiser would be worse than not having one.
++     * See the note on requestSimulation().
++     *
++     * @param body Raw request body.
++     * @return A human-readable reason, or std::nullopt when the body has all of
++     *         requiredRequestFields() as strings.
++     */
++    static std::optional<std::string> validateRequestBody(const std::string& body);
++
+     /**
+      * @brief Asynchronously request the simulator server to run a case
+-     * @param simulatorName  Name of the simulator
+-     * @param version        Version of the simulator
+-     * @param appId          Application ID
+-     * @param caseId         Case ID
+-     * @param inputFilePath  Path to the input file for the simulation
++     *
++     * @warning `body` is interpolated into a shell command line unescaped (see the implementation).
++     *          Callers must not treat validateRequestBody() as making an untrusted body safe -- it
++     *          checks shape, not content. Hardening this is tracked separately and deliberately
++     *          deferred; it covers every southbound curl call in the kernel, not just this one.
++     *
++     * @param body Request body, forwarded verbatim to SIM_SERVER_URL.
+      */
+     std::string requestSimulation(const std::string& body);
+ 

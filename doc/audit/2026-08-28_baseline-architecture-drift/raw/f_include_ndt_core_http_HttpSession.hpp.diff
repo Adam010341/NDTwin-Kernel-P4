@@ -1,0 +1,106 @@
+diff --git a/include/ndt_core/http/HttpSession.hpp b/include/ndt_core/http/HttpSession.hpp
+index 2e4ea46..b879152 100644
+--- a/include/ndt_core/http/HttpSession.hpp
++++ b/include/ndt_core/http/HttpSession.hpp
+@@ -6,6 +6,7 @@
+ #include <boost/beast/http.hpp>
+ #include <memory>
+ #include <nlohmann/json.hpp>
++#include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
+ 
+ using json = nlohmann::json;
+ 
+@@ -69,6 +70,23 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+     void start();
+ 
+   private:
++    // [Co-developed with claude code -- Adam]
++    // Test seam. tests/test_HttpSessionRouting.cpp constructs a session over an unconnected
++    // socket, sets m_req and calls buildResponse(), which does no I/O. Granted to one named peer
++    // rather than opening the routing internals up, and preferred over testing extracted helpers
++    // because the thing worth asserting -- which status code an endpoint answers with -- is
++    // decided by the catch clauses in buildResponse and is not observable anywhere else.
++    friend class HttpSessionTestPeer;
++
++    // [Co-developed with claude code -- Adam]
++    // Second peer, for tests/test_HttpSessionStatusCodes.cpp. Separate from HttpSessionTestPeer
++    // rather than an overload of it because that class lives in another translation unit and one
++    // name can only have one definition; two peers is the ODR-safe way for two test files to
++    // reach the same seam. This one supplies real collaborators (a LockManager, a
++    // HistoricalDataManager) because the endpoints it covers are asserted on their *success*
++    // paths as well as their refusals.
++    friend class HttpSessionStatusTestPeer;
++
+     // --- Asynchronous Operation Handlers ---
+     void readRequest();
+     void onRead(beast::error_code ec, std::size_t bytesTransferred);
+@@ -79,6 +97,16 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+     // --- Request Routing and Handling ---
+     void handleRequest();
+ 
++    /**
++     * @brief Route m_req to its handler and return the response, mapping any escaping exception
++     *        to a status code: json::exception to 400, anything else to 500.
++     *
++     * Performs no socket I/O; handleRequest() is this followed by writeResponse().
++     *
++     * @return The response to send. Never null.
++     */
++    std::shared_ptr<http::response<http::string_body>> buildResponse();
++
+     // Each API endpoint gets its own handler function for clarity.
+     /**
+      * @brief Handles a link-failure notification sent by the Ryu controller.
+@@ -265,6 +293,29 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+      *
+      * @note The request body must be valid JSON in the format expected by Ryu's group-entry API.
+      */
++    /**
++     * @brief Maps a southbound OpResult onto the HTTP response.
++     *
++     * 501 when the data plane cannot express the operation; 502 when the controller failed, never
++     * answered, **or answered 2xx with an error body** -- HttpRoutingStrategyBase turns that last
++     * case into OpResult::failure, so it arrives here indistinguishable from a transport failure and
++     * is reported as one, which is the honest answer: the operation did not happen. Otherwise the
++     * controller's own 4xx/5xx is passed through unchanged, and anything outside 400-599 becomes
++     * 502 rather than being forwarded as a status the caller cannot interpret.
++     *
++     * Replaces handlers that discarded the result and answered 200 regardless.
++     *
++     * The 2xx-with-error-body path was missing from this comment, which the http-routing review
++     * caught as M5. It is the case most worth naming: a proxy reporting failure inside a success
++     * envelope is exactly the conflation this whole mechanism exists to remove, so a reader needs to
++     * know it is handled here rather than looking for it upstream.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    void respondToOpResult(http::response<http::string_body>& res,
++                           const OpResult& result,
++                           const char* successMessage);
++
+     void handleInstallGroupEntry(http::response<http::string_body>& res);
+     /**
+      * @brief Deletes an OpenFlow group entry via the Ryu REST API.
+@@ -527,10 +578,21 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+      *
+      * This HTTP handler computes and returns the mean link utilization across the topology graph.
+      * The average is calculated by TopologyAndFlowMonitor::getAvgLinkUsage() using only:
+-     *   - links that are currently UP (edge.isUp == true),
++     *   - links that are **usable** -- `isUsable(edge)`, i.e. `isUp && isEnabled &&
++     *     !adminDisabled`,
+      *   - links whose endpoints are both switches (HOST vertices are excluded),
+      *   - links with non-zero measured usage (edge.linkBandwidthUsage != 0).
+      *
++     * [Co-developed with claude code -- Adam]
++     * The first bullet used to read "links that are currently UP (edge.isUp == true)". That was
++     * the predicate before adminDisabled existed, and the implementation deliberately abandoned
++     * it: `isUp` alone was the only one of the six availability checks not taking the full
++     * intersection, so a link an operator had taken out of service still counted towards the
++     * average as long as residual traffic was flowing over it. The .cpp comment above the filter
++     * records the same reasoning. This figure is what Energy-Saving-App reads, so a header that
++     * teaches the superseded predicate is a header that misdescribes the input to another
++     * component's decisions.
++     *
+      * For each qualifying directed edge, utilization is computed as:
+      *   linkBandwidthUsage / linkBandwidth
+      * and the handler returns the arithmetic mean across all qualifying edges.

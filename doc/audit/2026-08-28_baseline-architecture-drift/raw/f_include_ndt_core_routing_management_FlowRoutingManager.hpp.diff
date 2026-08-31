@@ -1,0 +1,159 @@
+diff --git a/include/ndt_core/routing_management/FlowRoutingManager.hpp b/include/ndt_core/routing_management/FlowRoutingManager.hpp
+index f4db4a7..6e96c38 100644
+--- a/include/ndt_core/routing_management/FlowRoutingManager.hpp
++++ b/include/ndt_core/routing_management/FlowRoutingManager.hpp
+@@ -9,6 +9,10 @@
+ class EventBus;                       // lines 44-44
+ class TopologyAndFlowMonitor;         // lines 36-36
+ 
++// [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
++#include "ndt_core/routing_management/IRoutingStrategy.hpp"
++#include "ndt_core/routing_management/OpResult.hpp"
++#include <memory>
+ namespace sflow
+ {
+ class FlowLinkUsageCollector;
+@@ -49,7 +53,18 @@ class FlowRoutingManager
+                        std::shared_ptr<EventBus> eventBus);
+ 
+     /// Release resources (does not own the shared components).
+-    ~FlowRoutingManager();
++    ///
++    /// [Co-developed with claude code -- Adam] Virtual so the three *flow-entry* dispatch methods
++    /// below -- installAnEntry, modifyAnEntry, deleteAnEntry -- can be overridden in a test, which
++    /// requires deletion through a base pointer to be well-defined.
++    ///
++    /// Naming them matters because the set is not "all the dispatch methods": the group and meter
++    /// methods are not virtual, so a test double cannot intercept them. That is deliberate for now
++    /// -- nothing overrides them and P4RoutingStrategy answers them with an explicit "unsupported"
++    /// rather than doing work worth intercepting -- but it is an asymmetry, not an oversight, and a
++    /// comment that says "the three dispatch methods" without saying which invites the reader to
++    /// assume otherwise. Review M4.
++    virtual ~FlowRoutingManager();
+ 
+     /**
+      * @brief Delete an OpenFlow flow entry on a given switch.
+@@ -68,7 +83,11 @@ class FlowRoutingManager
+      *
+      * @note This function calls the local controller REST API via curl.
+      */
+-    void deleteAnEntry(uint64_t dpid, json match, int priority = -1);
++    /// [Co-developed with claude code -- Adam] virtual: the test seam for Controller. Controller's
++    /// sender is the only place a dispatched job's OpResult exists, and it discarded every one of
++    /// them until 8c25dbc. Testing that it now acts on them needs a manager whose results the test
++    /// chooses, and nothing else about FlowRoutingManager is substitutable.
++    virtual OpResult deleteAnEntry(uint64_t dpid, const json& match, int priority = -1);
+     /**
+      * @brief Install a flow entry on a switch.
+      *
+@@ -78,7 +97,11 @@ class FlowRoutingManager
+      * @param action JSON action(s) describing forwarding behavior.
+      * @param idleTimeout Idle timeout in seconds (0 means no idle timeout).
+      */
+-    void installAnEntry(uint64_t dpid, int priority, json match, json action, int idleTimeout = 0);
++    virtual OpResult installAnEntry(uint64_t dpid,
++                                    int priority,
++                                    const json& match,
++                                    const json& action,
++                                    int idleTimeout = 0);
+     /**
+      * @brief Modify an existing flow entry on a switch.
+      *
+@@ -87,49 +110,89 @@ class FlowRoutingManager
+      * @param match JSON match fields identifying the entry to modify.
+      * @param action Replacement action(s).
+      */
+-    void modifyAnEntry(uint64_t dpid, int priority, json match, json action);
++    virtual OpResult modifyAnEntry(uint64_t dpid,
++                                   int priority,
++                                   const json& match,
++                                   const json& action);
+ 
+     /**
+      * @brief Install a group entry.
+      *
+      * @param j JSON payload describing the group (schema is controller-dependent).
+      */
+-    void installAGroupEntry(json j);
++    OpResult installAGroupEntry(const json& j);
+     /**
+      * @brief Delete a group entry.
+      *
+      * @param j JSON payload describing which group to delete.
+      */
+-    void deleteAGroupEntry(json j);
++    OpResult deleteAGroupEntry(const json& j);
+     /**
+      * @brief Modify a group entry.
+      *
+      * @param j JSON payload describing the group modification.
+      */
+-    void modifyAGroupEntry(json j);
++    OpResult modifyAGroupEntry(const json& j);
+ 
+     /**
+      * @brief Install a meter entry.
+      *
+      * @param j JSON payload describing the meter (schema is controller-dependent).
+      */
+-    void installAMeterEntry(json j);
++    OpResult installAMeterEntry(const json& j);
+     /**
+      * @brief Delete a meter entry.
+      *
+      * @param j JSON payload describing which meter to delete.
+      */
+-    void deleteAMeterEntry(json j);
++    OpResult deleteAMeterEntry(const json& j);
+     /**
+      * @brief Modify a meter entry.
+      *
+      * @param j JSON payload describing the meter modification.
+      */
+-    void modifyAMeterEntry(json j);
++    OpResult modifyAMeterEntry(const json& j);
++
++  protected:
++    /**
++     * @brief Selects the routing strategy for a switch from its typed SwitchKind.
++     *
++     * @return nullptr when the dpid is not a switch in the loaded topology. Callers must
++     *         report and drop rather than guessing a data plane -- an earlier version
++     *         defaulted to the OVS strategy, silently sending P4 rules to Ryu.
++     *
++     * Protected so tests can assert the dispatch directly; it is the whole point of the
++     * strategy pattern and was previously untestable.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    IRoutingStrategy* getStrategyForDpid(uint64_t dpid);
++
++    /// Signature of a group/meter call on a strategy, for dispatchByPayloadDpid.
++    using StrategyCall = OpResult (*)(IRoutingStrategy&, const json&);
++
++    /**
++     * @brief Routes a group/meter payload to the strategy owning its dpid.
++     *
++     * Group and meter payloads carry their target dpid in the body, so they can and should
++     * be dispatched per-switch like flow entries. They previously all went to the OVS
++     * strategy regardless.
++     *
++     * [Co-developed with claude code -- Adam]
++     */
++    OpResult dispatchByPayloadDpid(const json& j, const char* operation, StrategyCall call);
++
++    /// Accessors so tests can assert *which* strategy was selected.
++    IRoutingStrategy* ovsStrategy() const { return m_ovsStrategy.get(); }
++    IRoutingStrategy* p4Strategy() const { return m_p4Strategy.get(); }
+ 
+   private:
+     std::shared_ptr<EventBus> m_eventBus;
+ 
+     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
+     std::shared_ptr<sflow::FlowLinkUsageCollector> m_flowLinkUsageCollector;
++
++    // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
++    std::unique_ptr<IRoutingStrategy> m_ovsStrategy;
++    std::unique_ptr<IRoutingStrategy> m_p4Strategy;
+ };
+\ No newline at end of file
