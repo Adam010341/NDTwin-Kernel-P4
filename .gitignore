@@ -57,8 +57,22 @@ doc/audit/**/raw/*_server.log
 # simply outside the pattern's literal reach. Widened to `raw*` so a suffix cannot slip past it.
 # The claim of completeness is deleted rather than reworded: this rule covers directories whose
 # names start with raw, and nothing else.
+#
+# 🔴 2026-08-31, third instance of the same shape: `*` in a .gitignore pattern does NOT cross
+# `/`, so `doc/audit/*/raw*/*` reaches exactly one level. A round that groups its work into a
+# sub-directory -- 2026-08-31_completeness-experiments put raw under B-nslab-build/raw/ and
+# A-ovs-framesweep/raw_probe/ -- lands one level deeper and is not matched. Both directories
+# showed as untracked rather than ignored, which reads as ordinary new work.
+# 🔑 The pre-commit gate was NOT blind to this (verified by staging a nested raw file and
+# running it: rc=1, refused) because a git PATHSPEC `*` does cross `/` while a gitignore `*`
+# does not. Two rules that look identical, written from the same intent, with different
+# matching semantics -- so the gate held and the ignore leaked, and only one of them says so.
+# `**` is the gitignore spelling that crosses directories; the one-level lines stay because a
+# pattern that is merely redundant costs nothing and deleting it would need its own argument.
 doc/audit/*/raw*/*
 !doc/audit/*/raw*/.gitignore
+doc/audit/**/raw*/*
+!doc/audit/**/raw*/.gitignore
 #
 # A pattern here is advice, not a gate: `git add -f` walks straight past it, and 44 commits did
 # exactly that. The gate is tools/githooks/pre-commit, which refuses raw on any branch but

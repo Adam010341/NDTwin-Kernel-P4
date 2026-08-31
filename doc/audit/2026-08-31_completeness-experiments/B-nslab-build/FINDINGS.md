@@ -154,7 +154,30 @@ guest 的 `gcc -march=native -Q --help=target` 解析為 **`alderlake`**（avx2�
 
 ## 5. raw
 
-八臂 raw 在 guest 的 `~/bnslab-B/raw/b_*/`（每臂含 `ladder.tsv`、`arm.meta`、
-每階每 rep 的 iperf3 JSON、`ready.txt`、`table_dump.txt`、`gate.json`）。
-**落 audit-raw 的 sha 與檔數在歸檔後補進本節**——依
-`doc/2026-08-31_round-closing-checklist.md` §1，這句話要可驗證，所以在它為真之前不寫數字。
+🏁 **八臂 raw ＝ 196 檔，落 `audit-raw f4509c0`**（同一顆 commit 一併帶了 §C 的 99 檔、
+smoke 12 檔、diag 2 檔、ladder 自測 stub 19 檔；本輪目錄在該分支上合計 **339 檔**，
+含 §A 探針的 10 檔，那批在較早的 commit）。
+路徑＝`doc/audit/2026-08-31_completeness-experiments/B-nslab-build/raw/b_*/`，
+每臂含 `ladder.tsv`、`arm.meta`、每階每 rep 的 iperf3 JSON、`ready.txt`、
+`table_dump.txt`、`gate.json`。
+
+**驗內容不驗 rc**（收官清單 §1 第三項），隨機抽五檔逐位元組對帳，全數相符：
+
+```
+git cat-file blob "audit-raw:<path>" | sha256sum   ==   sha256sum <path>
+  raw/b_D1/arm.meta        fa645c6f41a20063   ✅
+  raw/b_C2/r45M_rep1.json  61ba764a01fc3186   ✅
+  raw/b_D1/ladder.tsv      2f67c4c676fbdc3d   ✅
+  raw/c_A1/table_dump.txt  30f46b63ec94e561   ✅
+  raw/smoke_D/gate.json    ca31d72bae91d7f3   ✅
+```
+
+🔴 **歸檔時發現 `.gitignore` 的 raw 規則漏掉巢狀路徑**（同一個 commit 一併修）：
+`doc/audit/*/raw*/*` 裡的 `*` 在 **gitignore 語意下不跨 `/`**，只吃一層，
+而本輪把 raw 放在 `<round>/B-nslab-build/raw/` ⇒ **深一層、不被匹配**，
+於是它顯示成 untracked 而不是 ignored（`A-ovs-framesweep/raw_probe/` 同樣）。
+🔑 **pre-commit 閘門沒有瞎**——實測 stage 一個巢狀 raw 檔跑它，rc=1、拒絕。
+原因是 **git pathspec 的 `*` 會跨 `/`，而 gitignore 的不會**：
+兩條看起來一樣、出自同一個意圖的規則，語意不同 ⇒ 閘擋住了、ignore 漏了，
+而只有其中一個會出聲。已加 `doc/audit/**/raw*/*`，並用陽性對照確認
+同一層的 `FINDINGS.md` 沒有被誤傷。
