@@ -745,6 +745,37 @@ directory away and answers the question directly.
    failures, neither requiring anyone to be careless. (The pid-in-manifest tightening for
    `FORCE_CPU_GATE_DISOWN_FABRIC` is already a registered deferral; this is its second reason.)
 
+### 🔴 Hole 1 is *lifetime blindness*, and it is orthogonal to the detection floor
+
+The two limits are different axes and the report must state **both** wherever it says a gate was
+GREEN:
+
+| limit | axis | what escapes |
+|---|---|---|
+| effective detection floor ≈0.95 cores (F-13a) | **magnitude** | anything small enough |
+| lifetime blindness (`:176`) | **time** | **anything that starts inside the window — at any size** |
+
+⇒ Stating only the floor invites the reading *"then a big enough load would have been caught"*.
+**It would not.** A 4-core burst that starts and ends inside the window contributes zero to
+`foreign_cores`. And `遠端機器測試` has since described its load precisely: **dozens of short-lived
+`bash`/`awk`/`sed`, repeated `qemu-img`, and two python socket servers, each 20–40 s** — *entirely*
+inside the class hole 1 removes. **That is not the gate judging wrongly; it is the gate structurally
+unable to see.**
+
+### 🔑 The code is more honest than its use
+
+`:177`'s comment reads `no baseline, cannot attribute`. **`cpu_gate.py` never claimed those
+processes were counted.** The defect is not on that line — it is downstream, where `foreign_cores`
+is consumed as if it were a total, by a reader who has not read line 177 (`遠端機器測試`).
+
+> **A quantity that honestly annotates its own limit, used as though it had none. The annotation
+> stays where it was written; the use happens somewhere else.**
+
+⇒ Repair shape, and it generalises past this gate: **carry the bound inside the value.** Return
+`foreign_cores_attributable` rather than `foreign_cores`, and emit `excluded_midwindow=N` beside
+it. Otherwise the limit lives only in the heads of people who have read the source, and every
+consumer re-derives it or does not.
+
 ### What the round's own continuous records do and do not establish
 
 Computed here from `raw/cell_cpu/*_gate.jsonl` — same machine, continuous, 270 s windows:
@@ -794,3 +825,52 @@ leg 2 begins from a fresh launcher. Against it: it adds load to the window whose
 binding risk (F-19), and **a runaway sampler is precisely the failure that already cost this round a
 cell** (F-16). ⇒ Auditor's call, with the leg-1 completion report; if taken it must **declare and
 measure its own CPU cost** rather than assert it is negligible.
+
+---
+
+## F-22. 🔴 Four times in one night, across three sessions: a summary was read to answer a
+## question only the source could answer
+
+Each of these was made by someone who had, the same night, told someone else to go back to the
+source. None was careless in the ordinary sense; each is a summary being used as a field.
+
+| # | who | the summary read | the question it was used to answer | what it actually cost |
+|---|---|---|---|---|
+| 1 | mainDev | the `covariates:` **log line** (4-name rollup) | *what population does the gate measure?* | F-21 v1, wrong, published |
+| 2 | auditor | the **filename** `host_witness_*.log` | *which machine is this about?* | band C: a withdrawal, a rewrite and two onward relays |
+| 3 | mainDev | `ls … \| head -5` | *what is in this directory?* | told the auditor they had cited the wrong path; they had not |
+| 4 | 遠端機器測試 | **mainDev's description** of its own instrument | *how does that instrument scope itself?* | the "sixth layer", built and returned as a finding |
+
+🔑 **The common shape: a summary is lossy, and the way it is lossy is not written in the summary.**
+A rollup does not say which processes it dropped; a filename does not say which host; `head -5`
+does not say that `cal*` sorts before `e_*`; a colleague's description does not say which parts
+they inferred. In every case the source was one command away.
+
+⇒ **Operational form**: *"are these numbers real"* and *"what are they about"* are different
+questions, and **only the first one has an obvious place to look.** The second needs the source.
+
+### The specific trap in #2 and #3: a container's name claims what its contents do not promise
+
+`doc/audit/2026-08-20_sampling-rate-and-cpu/raw/` holds **both** the 08-20 round's calibration files
+**and 101 of this round's live cell files** — `e_p_1024_3_cpu.jsonl`, mtime `Sep 1 00:04`, three
+seconds before that cell's VERDICT. This is by design and documented: `round.env:16-22` records that
+the 08-20 round owns `measure.sh` *and the raw directory it hardcodes*, that neither may be copied
+or edited because PREREG §6's comparability rests on identical bytes, and that **"cells land in
+PRIOR_RAW first and are COPIED here afterwards"**.
+
+⇒ **"Which round does this directory belong to" has two answers: the name says one, the contents
+span two.** Third instance tonight of a container name being used as a field (`host_witness` was
+the first, `raw/` the second).
+⇒ **Criterion: mtime + naming rule + the pids inside the file — all three.** Directory membership
+is not evidence of provenance.
+⚠️ And #3's mechanism is already a recorded lesson in this project — **`| head -N` gives an
+incomplete answer** — committed *while investigating* whether someone else's citation was wrong.
+
+### One that cost nothing, and why
+
+`遠端機器測試` checked before retracting #4 and found it had **reached no durable artefact**
+(`grep -rn` across `doc/`, `tools/` and the memory directory: zero hits) — it existed only in one
+message. **A wrong finding that never landed has no citation points to repair.** The others each
+required chasing readers: band C alone produced a withdrawal, a code rewrite, a reinstatement and
+four cross-session corrections. 🔑 **Cost is not proportional to how wrong a claim was — it is
+proportional to how far it travelled before being checked.**
