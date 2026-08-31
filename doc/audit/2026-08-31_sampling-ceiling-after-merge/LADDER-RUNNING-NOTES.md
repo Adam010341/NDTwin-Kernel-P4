@@ -722,6 +722,51 @@ report says so, and it stops there** — that is a legitimate outcome of the reg
 failure.
 🔴 **And ">=1/1" names a rung that destroys 85% of the traffic** (F-26).
 
+---
+
+## 5-decies. 🔴 Written 06:10, BEFORE any 1/8 cell of leg 2 existed — both outcomes assigned now
+
+Leg 2's rungs 1/32 and 1/16 came back clean: 12 cells, all `mark=OK`, ratios 0.9967–1.004, `gt` 206,
+loss ~0.02%. ⇒ **merge does not change `ratio` there.** But those rungs **had no signal to change** —
+leg 1's four arms all sat at 1.00 on them.
+
+**1/8 is the only rung in leg 2 that can carry information**, because it is the only rung where leg 1
+had both a healthy fabric and a separation: `bl` 0.9692/0.9751/0.9707 against `p`
+0.9998/1.0030/0.9997.
+
+| outcome | meaning, assigned in advance (auditor) |
+|---|---|
+| **(A)** `m` ≈ 0.97, i.e. it falls with `bl` | the 3% is caused by **1 kHz recompute**, and batching does not modulate it. **Recompute-axis attribution confirmed by an independent arm** — stronger than leg 1's bl-vs-p alone. |
+| **(B)** `m` ≈ 1.00, i.e. it does not fall | batching **cancels** the 1 kHz loss ⇒ **attribution reversal**: 0.97 is not "1 kHz's property" but "1 kHz *and unmerged*'s property". |
+
+### 🔴 (B) has no registered home, and neither does (A) — E-P4 is blind to this entire band
+
+E-P4 (`run_e.sh:186`) fires only when `"$v" == *SATURATED*`, and `SATURATED_RATIO = 0.95`.
+
+* **(B) is one-sided out:** a *rise* from 0.97 to 1.00 is merge changing `ratio`, but in the
+  "better" direction. The rule registers only the fall. It will not fire and does not say what to do.
+* 🔑 **And (A) cannot fire it either** — 0.97 is **above** 0.95. **The whole observed effect lives
+  inside E-P4's blind band.** The rule speaks only about saturation-level changes; the phenomenon
+  here is 3%.
+
+⇒ **Disposition, fixed before the data:** whichever way it falls, **do not abort** — the guard is not
+triggered, and aborting would be acting outside the registration. **Do not report (B) as a positive
+result for merge.** The wording is:
+
+> **"E-P4's premise — that merge does not change `ratio` — was violated at 1/8, in a direction the
+> rule does not register. This round does not adjudicate its meaning. Registered for the next
+> round."**
+
+⚠️ **And in the same paragraph as whatever is concluded, never a later one:** *one rung, n = 3
+against 3, and it is the only rung with discriminating power* — below 1/16 there is no signal, at
+1/4 and above the gauge is blind (F-26).
+
+🔑 **Why this is written before the numbers.** Four shape claims were overturned tonight and all four
+shared one thing: **the number was seen first and its meaning decided after.** Both outcomes here are
+attractive to write up — (A) is a clean confirmation, (B) is a more striking reversal — **which is
+exactly what makes this the rung that most needs its meanings assigned in advance.** The timestamp
+preceding the data is the only thing that gives this section any value.
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
