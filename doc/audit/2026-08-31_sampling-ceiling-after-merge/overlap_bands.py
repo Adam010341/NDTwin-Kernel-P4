@@ -66,6 +66,7 @@ SIDECAR = f"{ROUND}/raw/cell_overlap.tsv"
 ROUND_OPEN_DAY = dt.date(2026, 8, 31)
 EFFECTIVE_FLOOR = 0.95     # cores; F-13a.  NOT the nominal 0.5.
 MIN_FOR_RATIO = 3          # cells with an unoverlapped measurement window
+CELLS_PER_RUNG = 6         # ARM_ORDER (2 arms) x REPS (3) — true for both legs
 
 
 def stamp(hhmmss):
@@ -153,14 +154,34 @@ def main():
     # steps and 1.414 for the 2x ones.  Comparing every observed ratio against 2 reads the 2x
     # steps as a deepening departure when they may be no departure at all -- which is exactly
     # the error this column exists to stop.  Report predicted, observed, and the shortfall.
-    print(f"\n{'rung':<8} {'n':>2} {'all-cell':>9} {'KNOWN':>6} {'elig':>5} {'mean elig':>10} "
-          f"{'step':>5} {'pred':>6} {'obs':>6} {'obs/pred':>9}")
+    # 🔴 A RUNG STILL RUNNING MUST SAY SO IN ITS OWN ROW.  An interim mean was relayed onward as
+    # a result tonight (1/32 read 1.417 at n=3/6 and settled at 1.263 at n=6/6), and the row it
+    # came from already carried `n=3` -- the information was present and went unused.  Discipline
+    # ("remember to label it") is what failed, so the label is emitted by the tool instead: any
+    # number copied out of this table now carries its own provisional marker.  Same repair shape
+    # as F-23 -- put the bound in the value, because names travel and conventions do not.
+    #
+    # Mutation evidence, 2026-09-01 02:0x (a guard not seen red is not delivered).  Forced on
+    # scratchpad COPIES so an interrupted run cannot leave a mutant in the round directory:
+    #   M1  CELLS_PER_RUNG 6 -> 7          -> all four complete rungs flip to PROVISIONAL + footer
+    #   M2  drop e_p_1024_3 (an eligible cell) -> 1/1024 PROVISIONAL at 5/6, but the INHERITED
+    #       branch stays unreached: losing that cell drops elig to 2 < MIN_FOR_RATIO, so no ratio
+    #       is produced and prev_provisional is never set.  🔑 The two guards interact and only
+    #       one can fire per rung -- M2 alone would have shipped an untested branch.
+    #   M3  drop e_bl_1024_1 (a KNOWN-OVERLAP cell) -> n=5/6 with elig still 3 -> 1/256 correctly
+    #       reads "ratio derived from a provisional previous rung".
+    # Unmutated, live: 1/16 prints PROVISIONAL n=1/6 while that rung is still running.
+    print(f"\n{'rung':<8} {'n':>5} {'all-cell':>9} {'KNOWN':>6} {'elig':>5} {'mean elig':>10} "
+          f"{'step':>5} {'pred':>6} {'obs':>6} {'obs/pred':>9}  status")
     prev = prev_rate = None
+    prev_provisional = False
+    provisional = []
     for r in sorted(rungs, key=lambda x: -int(x)):
         cs = rungs[r]
         rate = int(r)
         elig = [c for c in cs if c["category"] != "KNOWN-OVERLAP"]
         mean_all = sum(c["spread"] for c in cs) / len(cs)
+        incomplete = len(cs) < CELLS_PER_RUNG
         step = pred = obs = frac = None
         if len(elig) < MIN_FOR_RATIO:
             cur, shown = None, float("nan")
@@ -171,12 +192,24 @@ def main():
                 pred = step ** 0.5               # sqrt(n): spread falls as 1/sqrt(samples)
                 obs = prev / cur
                 frac = obs / pred
+        if incomplete:
+            status = f"🔴 PROVISIONAL n={len(cs)}/{CELLS_PER_RUNG} — DO NOT RELAY"
+            provisional.append(r)
+        elif prev_provisional and obs is not None:
+            status = "⚠️ ratio derived from a provisional previous rung"
+        else:
+            status = "final"
         f = lambda v, w, p=3: (f"{v:>{w}.{p}f}" if v is not None else " " * (w - 1) + "-")
-        print(f"1/{r:<6} {len(cs):>2} {mean_all:>9.3f} "
+        print(f"1/{r:<6} {len(cs):>2}/{CELLS_PER_RUNG} {mean_all:>9.3f} "
               f"{sum(c['category'] == 'KNOWN-OVERLAP' for c in cs):>6} {len(elig):>5} "
-              f"{shown:>10.3f} {f(step,5,1)} {f(pred,6)} {f(obs,6)} {f(frac,9)}")
+              f"{shown:>10.3f} {f(step,5,1)} {f(pred,6)} {f(obs,6)} {f(frac,9)}  {status}")
         if cur:
-            prev, prev_rate = cur, rate
+            prev, prev_rate, prev_provisional = cur, rate, incomplete
+    if provisional:
+        print(f"   🔴 {len(provisional)} rung(s) still running: "
+              f"{', '.join('1/' + p for p in provisional)}. Their means are interim and the next "
+              f"rung's ratio\n      inherits that. Report them as \"in progress, no figure yet\" "
+              f"rather than as a number with a caveat.")
     print("   'elig' = measurement window not overlapped by any evidenced band "
           "(UNKNOWN + BRINGUP-ONLY).\n   It is NOT a clean subset; it is the subset nobody has "
           "evidence against.\n"
