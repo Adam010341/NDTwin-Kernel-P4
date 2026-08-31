@@ -219,7 +219,7 @@ echo "=== G10 structural: every mutating verb is guarded (the test that would ha
 # Counting guards can only ever re-confirm the guards you remembered to write. This
 # asserts over the VERBS instead, so the next verb added to the dispatch fails here
 # until someone decides, in writing, which list it belongs to.
-MUTATING="create start stop snap restore destroy ssh"
+MUTATING="create start stop snap restore destroy ssh keep adopt"
 READONLY="status snaps vms"
 verb_block() {  # print the case-arm body for verb $1
     awk -v v="$1" '$0 ~ "^"v"\\)$" {f=1; next} f && /^[[:space:]]*;;/ {exit} f' "$VM"
@@ -248,6 +248,37 @@ if verb_block destroy | grep -q 'claim_guard destroy'; then
 else
     echo "  🔴 CONTROL FAILED -- verb_block found nothing; every G10 result above is vacuous"
     fail=$((fail+1))
+fi
+# 🔴 G10a -- COMPLETENESS. Added 2026-08-31 because everything above it was still the
+# wrong shape, one level up. G9 was missed because the gate enumerated the guards I had
+# written; G10 replaced that with two lists of verbs -- which I then described in the
+# README as "the next verb added will go red here until someone classifies it". It
+# would not have. Adding `keep` to the dispatch produced eleven greens and no red,
+# because the loops iterate MY LISTS, never the dispatch. The same mistake, promoted:
+# a gate can only ever check the population it derives from, so the population has to
+# come from the thing under test. Here that means the case labels themselves.
+DISPATCH_VERBS=$(awk '/^case "\$\{1:-\}" in/{f=1; next} /^esac/{exit}
+                      f && /^[a-z][a-z-]*\)$/ {sub(/\)$/,""); print}' "$VM")
+unclassified=""
+for v in $DISPATCH_VERBS; do
+    case " $MUTATING $READONLY " in *" $v "*) ;; *) unclassified="$unclassified $v" ;; esac
+done
+if [ -z "$unclassified" ]; then
+    printf '  ✅ COMPLETE -- all %s dispatch verbs are classified (%s)\n' \
+        "$(printf '%s\n' $DISPATCH_VERBS | wc -l)" "$(echo $DISPATCH_VERBS | tr ' ' ',')"
+    pass=$((pass+1))
+else
+    printf '  🔴 UNCLASSIFIED verb(s) in the dispatch:%s\n' "$unclassified"
+    echo  "     Neither list covers them, so G10 said nothing about them at all."
+    echo  "     Decide in writing: does it mutate a shared VM, or only read?"
+    fail=$((fail+1))
+fi
+# Control for THIS check: if the label parser found nothing, the completeness result
+# above is vacuous in exactly the way it was written to prevent.
+if printf '%s\n' $DISPATCH_VERBS | grep -qx destroy && printf '%s\n' $DISPATCH_VERBS | grep -qx vms; then
+    echo "  ✅ CONTROL -- the label parser really enumerates the dispatch"; pass=$((pass+1))
+else
+    echo "  🔴 CONTROL FAILED -- label parser found no verbs; G10a is vacuous"; fail=$((fail+1))
 fi
 
 
@@ -310,6 +341,156 @@ if printf '%s' "$VOUT2" | grep -q 'bmv2paper'; then
     echo "  ✅ GREEN-- a directory that HAS a disk still shows its owner"; pass=$((pass+1))
 else
     echo "  🔴 the disk-less branch is swallowing real VMs too"; fail=$((fail+1))
+fi
+
+echo
+echo "=== G13 a KEEP mark must reach every place someone decides to delete from ==="
+# 🔑 The whole point of the mark is its READERS. A KEEP file that only `keep` itself
+# prints back would be the shape this repo keeps stepping on: one writer, zero
+# readers, and a protection that reads as present because the writer looks tidy.
+# So each case below is a READER, and the mark is written by hand -- not by the verb --
+# so that a broken writer cannot make the reader tests pass.
+mkdir -p "$T/home/ndtwin-vm-keeper"
+: > "$T/home/ndtwin-vm-keeper/disk.qcow2"
+printf 'kept-by: remote-machine-test\nkept-at: x\nreason: ID4 p4-toolchain-v8, 38m41s to build, ruled preserve\n' \
+    > "$T/home/ndtwin-vm-keeper/KEEP"
+
+# READER 1 -- vms, the survey people clean up from.
+KOUT=$(env HOME="$T/home" bash "$VM" vms 2>&1)
+if printf '%s' "$KOUT" | grep -q 'KEEP' && printf '%s' "$KOUT" | grep -q '38m41s'; then
+    echo "  ✅ RED-capable -- vms surfaces the keep mark AND its reason"; pass=$((pass+1))
+else
+    echo "  🔴 vms shows a kept VM exactly like an abandoned one"; fail=$((fail+1))
+fi
+
+# READER 2 -- destroy, the last screen before the loss.
+mkdir -p "$T/k"
+qemu-img create -q -f qcow2 "$T/k/disk.qcow2" 8M 2>/dev/null || : > "$T/k/disk.qcow2"
+cp "$T/home/ndtwin-vm-keeper/KEEP" "$T/k/KEEP"
+KD=$(printf 'DESTROY\n' | env NDT_OWNER=tester VM_DIR="$T/k" SSH_PORT=2299 bash "$VM" destroy 2>&1)
+if printf '%s' "$KD" | grep -q '38m41s'; then
+    echo "  ✅ RED-capable -- destroy prints the reason before asking"; pass=$((pass+1))
+else
+    echo "  🔴 destroy never shows the keep reason"; fail=$((fail+1))
+fi
+# ...and the plain word must NOT get through. This is the case that matters: the
+# reflex you built typing DESTROY is exactly what a mark you did not read must stop.
+if [ -e "$T/k/disk.qcow2" ]; then
+    echo "  ✅ RED-capable -- bare DESTROY did not delete a kept disk"; pass=$((pass+1))
+else
+    echo "  🔴 a kept disk was destroyed by the ordinary confirmation word"; fail=$((fail+1))
+fi
+
+# GREEN 1 -- the longer phrase must actually work, or the mark is a one-way door and
+# people will route around it. A guard nobody can lift on purpose gets lifted by rm.
+KD2=$(printf 'DESTROY k\n' | env NDT_OWNER=tester VM_DIR="$T/k" SSH_PORT=2299 bash "$VM" destroy 2>&1)
+if [ ! -e "$T/k/disk.qcow2" ] && [ ! -e "$T/k/KEEP" ]; then
+    echo "  ✅ GREEN-- the deliberate phrase destroys, and the mark dies with the disk"
+    pass=$((pass+1))
+else
+    echo "  🔴 the documented way past the mark does not work: $KD2"; fail=$((fail+1))
+fi
+
+# GREEN 2 -- an UNMARKED VM must still take the ordinary word. Otherwise this whole
+# section would pass by making destroy refuse everything.
+mkdir -p "$T/nk"
+qemu-img create -q -f qcow2 "$T/nk/disk.qcow2" 8M 2>/dev/null || : > "$T/nk/disk.qcow2"
+printf 'DESTROY\n' | env NDT_OWNER=tester VM_DIR="$T/nk" SSH_PORT=2298 bash "$VM" destroy >/dev/null 2>&1
+if [ ! -e "$T/nk/disk.qcow2" ]; then
+    echo "  ✅ GREEN-- an unmarked VM still destroys with the plain word"; pass=$((pass+1))
+else
+    echo "  🔴 destroy now refuses unmarked VMs too -- the mark is doing nothing"; fail=$((fail+1))
+fi
+
+# GREEN 3 -- destroy names the snapshots that die. "every snapshot in it" is an
+# abstraction, and the 08-31 near-miss happened with exactly that abstraction on screen.
+mkdir -p "$T/sn"
+if qemu-img create -q -f qcow2 "$T/sn/disk.qcow2" 8M 2>/dev/null \
+   && qemu-img snapshot -c p4-toolchain-v8 "$T/sn/disk.qcow2" 2>/dev/null; then
+    SD=$(printf 'no\n' | env NDT_OWNER=tester VM_DIR="$T/sn" SSH_PORT=2297 bash "$VM" destroy 2>&1)
+    if printf '%s' "$SD" | grep -q 'p4-toolchain-v8'; then
+        echo "  ✅ GREEN-- destroy names the snapshots by tag, not as a category"; pass=$((pass+1))
+    else
+        echo "  🔴 destroy still describes the loss abstractly"; fail=$((fail+1))
+    fi
+    if [ -e "$T/sn/disk.qcow2" ]; then
+        echo "  ✅ CONTROL -- and answering anything else aborted, so that was a dry run"
+        pass=$((pass+1))
+    else
+        echo "  🔴 CONTROL FAILED -- 'no' still destroyed the disk"; fail=$((fail+1))
+    fi
+else
+    echo "  ⚠️  SKIPPED (qemu-img cannot make snapshots here) -- 2 checks not run"
+fi
+
+echo
+echo "=== G14 adopt must DERIVE the work point from argv, never accept it as input ==="
+# The point of adopt is that its record cannot disagree with the process it describes.
+# So the fixture is a real process with a real /proc/<pid>/cmdline, and the numbers in
+# it are ones nobody passes to adopt. If adopt ever grew a --cpus flag, these cases
+# would still pass while the guarantee was gone -- so the last case asserts the
+# opposite direction too: values that were NEVER typed still land in CONFIG.
+mkdir -p "$T/a"
+qemu-img create -q -f qcow2 "$T/a/disk.qcow2" 8M 2>/dev/null || : > "$T/a/disk.qcow2"
+# A stand-in with a genuine argv. vm_running greps /proc for $IMG, so the disk path
+# has to be in there -- which is exactly the shape of the thing it stands in for.
+# 🔑 `sleep 30; :` not `sleep 30`: bash execs a lone simple command, and the exec
+# REPLACES argv -- the stand-in would have run as plain `sleep 30` with every flag
+# below gone, and G14 would have failed for a reason that has nothing to do with adopt.
+bash -c 'sleep 30; :' dummy -smp 11 -m 5555 \
+    -drive "file=$T/a/disk.qcow2,if=virtio,format=qcow2" \
+    -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2296-:22 &
+FAKE=$!
+printf '%s\n' "$FAKE" > "$T/a/qemu.pid"
+sleep 0.3
+
+AOUT=$(env NDT_OWNER=tester VM_DIR="$T/a" SSH_PORT=9999 bash "$VM" adopt 2>&1)
+if grep -q '^cpus=11$' "$T/a/CONFIG" 2>/dev/null && grep -q '^mem=5555$' "$T/a/CONFIG" 2>/dev/null; then
+    echo "  ✅ RED-capable -- CONFIG carries the argv values (11/5555), not the defaults"
+    pass=$((pass+1))
+else
+    echo "  🔴 adopt did not derive the work point from argv: $AOUT"; fail=$((fail+1))
+fi
+# 🔑 SSH_PORT=9999 was passed on the command line and 2296 is what the process really
+# forwards. The recorded port must be the process's, or the registry sends the next
+# session to avoid a port nothing is on.
+if grep -q '^port=2296$' "$T/a/CONFIG" 2>/dev/null; then
+    echo "  ✅ RED-capable -- the port came from argv, beating the env var that was passed"
+    pass=$((pass+1))
+else
+    echo "  🔴 adopt recorded a port that the process is not actually using"; fail=$((fail+1))
+fi
+if [ -f "$T/a/OWNER" ] && grep -q 'owner: tester' "$T/a/OWNER"; then
+    echo "  ✅ RED-capable -- adopt also wrote the OWNER entry that was missing"; pass=$((pass+1))
+else
+    echo "  🔴 adopt left the VM unowned"; fail=$((fail+1))
+fi
+# GREEN: a drifted CONFIG is a FINDING, not something to overwrite quietly. This is
+# the case that turns adopt into an instrument instead of a repair.
+printf 'cpus=12\nmem=8192\ndisk=x\nport=2296\n' > "$T/a/CONFIG"
+DOUT2=$(env NDT_OWNER=tester VM_DIR="$T/a" SSH_PORT=2296 bash "$VM" adopt 2>&1)
+if printf '%s' "$DOUT2" | grep -q 'DISAGREES' && printf '%s' "$DOUT2" | grep -q '12 vCPU / 8192'; then
+    echo "  ✅ GREEN-- a stale CONFIG is reported, with both numbers, before being fixed"
+    pass=$((pass+1))
+else
+    echo "  🔴 adopt silently overwrote a CONFIG that disagreed with reality"; fail=$((fail+1))
+fi
+# GREEN: adopt must refuse when nothing is running. There is no argv to read, so the
+# only thing it could do is accept a number from a human -- which is the failure mode.
+kill "$FAKE" 2>/dev/null; wait "$FAKE" 2>/dev/null
+NOUT=$(env NDT_OWNER=tester VM_DIR="$T/a" SSH_PORT=2296 bash "$VM" adopt 2>&1)
+if printf '%s' "$NOUT" | grep -q 'RUNNING'; then
+    echo "  ✅ GREEN-- adopt refuses a stopped VM rather than inventing a work point"
+    pass=$((pass+1))
+else
+    echo "  🔴 adopt produced a record with no process to derive it from"; fail=$((fail+1))
+fi
+# CONTROL: prove the fixture really was readable as a process, or every case above
+# could have passed on some path that never touched /proc at all.
+if printf '%s' "$AOUT" | grep -q "adopted pid $FAKE"; then
+    echo "  ✅ CONTROL -- adopt really read that pid's argv"; pass=$((pass+1))
+else
+    echo "  🔴 CONTROL FAILED -- adopt never named the pid; G14 may be vacuous"; fail=$((fail+1))
 fi
 
 

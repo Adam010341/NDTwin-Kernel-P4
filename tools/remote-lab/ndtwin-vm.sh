@@ -11,6 +11,9 @@
 #   ndtwin-vm.sh restore <name>   roll back to a snapshot
 #   ndtwin-vm.sh snaps            list snapshots
 #   ndtwin-vm.sh vms              EVERY lab VM on this host: dir / owner / port / pid
+#   ndtwin-vm.sh keep "<why>"     mark this disk as must-not-delete (--clear to lift)
+#   ndtwin-vm.sh adopt            register a RUNNING VM this tool did not start:
+#                                 OWNER + CONFIG, work point read out of its own argv
 #   ndtwin-vm.sh destroy          delete the disk (asks for the magic word)
 #
 # 🔑 NDT_OWNER is REQUIRED for anything that mutates a VM (same rule as every ndt
@@ -36,6 +39,15 @@ CLOUD_URL="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-a
 
 OWNERF="$VM_DIR/OWNER"
 CFG="$VM_DIR/CONFIG"
+
+# 🔴 A stopped VM is indistinguishable from an abandoned one. 2026-08-31: a sibling
+# session needed RAM, read `vms` showing "unowned / no qemu / has a disk", and offered
+# to destroy the directory -- which held a ruled-preserve toolchain snapshot that had
+# cost 38m41s to build. Nothing on screen said otherwise, and nothing was wrong with
+# their reasoning; the row simply did not carry the one fact that mattered.
+# KEEP is that fact, and it is written here only because destroy/vms/status read it.
+# A marker with no reader is not a protection -- it is a note to oneself.
+KEEPF="$VM_DIR/KEEP"
 
 # 🔴 The working point must live WITH the VM, not in whichever shell happens to start
 # it. 2026-08-31, first hand: a stop → snap → start cycle that did not re-pass
@@ -112,6 +124,17 @@ me() { printf '%s' "${NDT_OWNER:-unset}"; }
 owner_of() {  # owner_of <vmdir> -> the claimant, or "unowned"
     local f="$1/OWNER"
     [ -f "$f" ] && awk '/^owner:/{print $2; exit}' "$f" || printf 'unowned'
+}
+
+keep_reason() {  # keep_reason <vmdir> -> the one-line reason; rc=1 if not marked keep
+    local f="$1/KEEP" r
+    [ -f "$f" ] || return 1
+    r=$(sed -n 's/^reason:[[:space:]]*//p' "$f" | sed -n '1p')
+    # Fall back to the first non-empty line so a hand-written KEEP still gets read.
+    # The SUMMARY is what appears in a row; `destroy` prints the whole file, because
+    # the place where a truncated reason could cost something is the delete prompt.
+    [ -n "$r" ] || r=$(sed -n '/./{p;q;}' "$f")
+    printf '%s' "$r"
 }
 
 port_of() { local f="$1/OWNER"; [ -f "$f" ] && awk '/^port:/{print $2; exit}' "$f" || printf '?'; }
@@ -382,6 +405,10 @@ status)
     # the recorded working point is what the next `start` will actually use.
     printf '  work point: %s vCPU / %s MiB   (source: %s)\n' "$VM_CPUS" "$VM_MEM" "$WP_SRC"
     [ -f "$CFG" ] || printf '  🔴 no %s -- the next start falls back to built-in defaults\n' "$CFG"
+    if [ -f "$KEEPF" ]; then
+        say "  🔒 marked KEEP:"
+        sed 's/^/       /' "$KEEPF"
+    fi
     if vm_running; then
         p=$(vm_pid)
         printf '  qemu:   RUNNING pid %s, up %s\n' "$p" "$(ps -o etime= -p "$p" | tr -d ' ')"
@@ -472,6 +499,85 @@ snaps)
     snaps_list
     ;;
 
+adopt)
+    # 🔴 Coordination hangs entirely off `create` and `start` -- they are what call
+    # claim_write and what record the working point. So ANY legitimate route that does
+    # not pass through them loses OWNER and CONFIG together, silently.
+    # 2026-08-31, first hand: a session needed a VM built from an exported snapshot.
+    # `create` only knows how to download a clean cloud image, so they assembled the
+    # qemu invocation themselves -- correctly -- and their measurement round ran with
+    # its working point recorded nowhere but the process's own argv. That is not a
+    # discipline failure. It is a missing path, and the registry gap was its shadow.
+    claim_guard adopt
+    vm_running || die "adopt records what a RUNNING VM is actually using.
+   Nothing matching $IMG is running (checked /proc, not a pidfile).
+   For a VM that is stopped, write $CFG yourself -- there is no argv to read."
+    p=$(vm_pid)
+    argv=$(tr '\0' '\n' < "/proc/$p/cmdline")
+    # 🔑 Everything below is DERIVED FROM argv, never from what the operator types.
+    # A registry entry that can disagree with the process it describes is worse than
+    # no entry at all, because the next reader has no reason to doubt it.
+    acpu=$(printf '%s\n' "$argv" | awk '/^-smp$/{getline; print; exit}')
+    amem=$(printf '%s\n' "$argv" | awk '/^-m$/{getline; print; exit}')
+    aport=$(printf '%s\n' "$argv" | sed -n 's/.*hostfwd=tcp:127\.0\.0\.1:\([0-9]\{1,\}\)-.*/\1/p' | sed -n 1p)
+    [ -n "$acpu" ] && [ -n "$amem" ] \
+        || die "could not read -smp / -m out of pid $p's argv -- refusing to guess.
+   What it actually says:
+$(printf '%s\n' "$argv" | sed 's/^/     /')"
+    [ -n "$aport" ] && SSH_PORT="$aport"
+    if [ -f "$CFG" ]; then
+        old_c=$(cfg_get cpus); old_m=$(cfg_get mem)
+        if [ "$old_c" != "$acpu" ] || [ "$old_m" != "$amem" ]; then
+            say "🔴 $CFG DISAGREES with the running process -- argv wins, and the old"
+            say "   values are printed because a record that drifted is itself a finding:"
+            say "     recorded: $old_c vCPU / $old_m MiB"
+            say "     actual:   $acpu vCPU / $amem MiB"
+        fi
+    fi
+    claim_write
+    adisk=$(qemu-img info -U "$IMG" 2>/dev/null | awk -F': ' '/virtual size/{print $2; exit}')
+    printf 'cpus=%s\nmem=%s\ndisk=%s\nport=%s\n' \
+        "$acpu" "$amem" "${adisk:-unknown}" "$SSH_PORT" > "$CFG"
+    say "adopted pid $p. Read out of its argv, not typed in:"
+    sed 's/^/     /' "$CFG"
+    say ""
+    sed 's/^/     /' "$OWNERF"
+    say ""
+    say "  🔑 The next start reuses this working point instead of the built-in defaults."
+    say "  Do not take my word for it -- the same source is two lines away:"
+    say "      tr '\\0' '\\n' < /proc/$p/cmdline | grep -A1 -E '^-smp\$|^-m\$'"
+    ;;
+
+keep)
+    # Writing a marker is a state change on a shared disk, so it takes a guard like
+    # every other mutating verb -- see the MUTATING table in test_vm_coordination.sh,
+    # which will go red for the next verb somebody adds without deciding this.
+    claim_guard keep
+    if [ "${2:-}" = --clear ]; then
+        [ -f "$KEEPF" ] || { say "not marked keep -- nothing to clear"; exit 0; }
+        say "clearing the keep mark. For the record, it said:"
+        sed 's/^/     /' "$KEEPF"
+        rm -f "$KEEPF"
+        say "cleared -- $VM_DIR now deletes with the ordinary confirmation."
+        exit 0
+    fi
+    reason="${2:?usage: $0 keep \"<why this disk must outlive its VM>\"   |   $0 keep --clear}"
+    [ -d "$VM_DIR" ] || die "$VM_DIR does not exist -- nothing to mark"
+    {
+        printf 'kept-by: %s\n' "$(me)"
+        printf 'kept-at: %s\n' "$(date -Is)"
+        printf 'reason: %s\n' "$reason"
+    } > "$KEEPF"
+    say "marked keep:"
+    sed 's/^/     /' "$KEEPF"
+    say ""
+    # Naming the readers is the point of the verb. A mark whose readers you cannot
+    # name is a note to yourself, and it will not be there when it matters.
+    say "   Read by:  $0 vms  (the survey people clean up from)"
+    say "             $0 status"
+    say "             $0 destroy  (prints this, and then wants a longer phrase)"
+    ;;
+
 vms)
     # The cross-session view. Read-only and needs no NDT_OWNER on purpose: finding out
     # what is taken must never be gated on having already claimed something.
@@ -496,6 +602,13 @@ vms)
         fi
         printf '  %-24s %-12s %-6s %-9s %s\n' \
             "$(basename "$d")" "$(owner_of "$d")" "$(port_of "$d")" "$q" "$wp"
+        # 🔴 This row is where the 08-31 near-miss happened: "unowned / no qemu / has a
+        # disk" is exactly how an abandoned leftover looks AND exactly how a preserved
+        # artifact looks. If someone wrote down a reason to keep it, it has to surface
+        # HERE -- this is the survey people read before deciding what to clean up.
+        if r=$(keep_reason "$d"); then
+            printf '  %-24s 🔒 KEEP -- %s\n' "" "$r"
+        fi
     done
     [ "$found" = 1 ] || say "  (none)"
     say ""
@@ -514,15 +627,42 @@ vms)
 
 destroy)
     claim_guard destroy
-    say "This deletes $IMG and every snapshot in it."
-    printf 'Type DESTROY to confirm: '; read -r ans
-    [ "$ans" = DESTROY ] || { say "aborted"; exit 1; }
+    # 🔴 "every snapshot in it" is an abstraction, and abstractions do not stop anyone.
+    # Name them. The 08-31 near-miss had exactly one line on screen -- the word
+    # "snapshots" -- while what was about to die was a 38m41s toolchain build.
+    if [ -f "$IMG" ]; then
+        snaplist=$(qemu-img snapshot -l -U "$IMG" 2>/dev/null | sed '1,2d;/^$/d')
+        say "This deletes $IMG -- permanently."
+        if [ -n "$snaplist" ]; then
+            say "   These snapshots die with it:"
+            printf '%s\n' "$snaplist" | sed 's/^/     /'
+        else
+            say "   (the disk carries no snapshots)"
+        fi
+    else
+        say "This deletes $IMG -- which does not currently exist."
+    fi
+    # The keep mark, and the reason someone wrote down, belong in front of the prompt.
+    word=DESTROY
+    if [ -f "$KEEPF" ]; then
+        say ""
+        say "🔒 THIS VM IS MARKED KEEP. Someone recorded a reason not to delete it:"
+        sed 's/^/     /' "$KEEPF"
+        say ""
+        say "   If that reason is stale, clear it deliberately first:"
+        say "       NDT_OWNER=$(me) VM_DIR=$VM_DIR $0 keep --clear"
+        say "   The confirmation phrase below is longer on purpose, so the reflex you"
+        say "   built typing DESTROY cannot carry you past a mark you have not read."
+        word="DESTROY $(basename "$VM_DIR")"
+    fi
+    printf 'Type %s to confirm: ' "$word"; read -r ans
+    [ "$ans" = "$word" ] || { say "aborted"; exit 1; }
     vm_running && "$0" stop
     # 🔴 Until 2026-08-31 this removed only IMG/SEED/PIDF/MON, so OWNER and CONFIG
     # survived a destroy and `vms` kept listing a VM that no longer had a disk --
     # a ghost claim, complete with a port number, for the next reader to work around.
     # The registry entry has to die with the thing it describes.
-    rm -f "$IMG" "$SEED" "$PIDF" "$MON" "$OWNERF" "$CFG" \
+    rm -f "$IMG" "$SEED" "$PIDF" "$MON" "$OWNERF" "$CFG" "$KEEPF" \
           "$VM_DIR/user-data" "$VM_DIR/meta-data"
     # And the old closing line named ONLY the base image. It was true, which is
     # exactly why it misled: a report that discloses one leftover reads as the
