@@ -1,9 +1,11 @@
-# PREREG — F-5 細格重量輪（幽靈可見性的收官量測；v0.2）
+# PREREG — F-5 細格重量輪（幽靈可見性的收官量測；v1.1）
 
 [Co-developed with claude code -- Adam]
 
-**狀態**：🏁 **v1.0-stamped（2026-08-31，auditor）**。
-基礎＝reviewer 線兩輪定點複查（非 force 部分＋marker 接線）＋ auditor 親自 grep 驗證三項落點
+**狀態**：🏁 **v1.1（2026-08-31，auditor 裁決；資料接觸前）**；
+章＝**v1.0-stamped（2026-08-31，auditor）**，**仍有效**——v1.1 只增檢查、未動任何判定或門檻，
+故不重蓋章。逐條沿革見 §7；**要引用章就引 v1.0 那一條，它一字未改。**
+v1.0 章的基礎＝reviewer 線兩輪定點複查（非 force 部分＋marker 接線）＋ auditor 親自 grep 驗證三項落點
 （讀者 `lib_e.sh:181,193`／清除 `run_f5.sh:723`／abort 自還原 `run_f5.sh:48-53`）。
 §4-ter 15 條判定完整（繼承 14／變形履行 1／不繼承 0）。
 **設計者不自蓋；本章由 auditor 蓋。**
