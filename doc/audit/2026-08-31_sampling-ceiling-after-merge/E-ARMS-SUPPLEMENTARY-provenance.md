@@ -203,12 +203,34 @@ written down rather than assumed** — so:
 **The build VM has been destroyed** (2026-08-31 17:54, R4b: the clearing unit is the disk image,
 not the file — see `NSLAB-USAGE-RULES.md` §3 R4b). Rebuild therefore costs:
 
-| | |
+🔴 **These figures were wrong in the first version of this file and are corrected here.** The
+first version said "three builds ≈ 23 min / total ≈ 30 min". **23 minutes was the length of the
+entire H-20 window** (17:24–17:47, including two failed builds and their diagnosis), not the build
+time. The build log says otherwise, and it was in front of me the whole time:
+
+```
+[09:39:46] === build_1khz_binary: freeze=HEAD DRY_RUN=0 ===
+[09:42:25]     staged …recompute-1hz      ← 1 Hz arm, full tree:  2 min 39 s
+[09:43:19]     staged …recompute-1khz     ← 1 kHz arm, incremental:    54 s
+[09:44:11] === both arms staged ===       ← restore + rebuild:          52 s
+```
+
+| segment | measured |
 |---|---|
-| ship the source subset again | ~2 min |
-| a fresh VM (base image download + apt + boot) | ~8 min |
-| three builds at `-j3` | ~23 min |
-| **total** | **~30 min**, plus one VM's worth of RAM on a shared host |
+| fresh VM (625 MB base image + boot) | ~5 min |
+| apt deps (`libboost-all-dev` dominates) | ~3 min |
+| ship the source subset | <1 min |
+| cmake configure (incl. the googletest fetch) | ~2 min |
+| **three builds at `-j3`** | **4 min 25 s** (measured, above) |
+| pull 47 MB of compressed binaries back | ~2 min |
+| **total** | **~18 min**, plus one VM's worth of RAM on a shared host |
+
+⚠️ **Both of this round's cost estimates were wrong, in opposite directions, for the same reason.**
+Before destroying the VM the rebuild was called "2 minutes" (that was the ship step alone, and it
+assumed the VM still existed — which destroying it removes). Afterwards it was called "30 minutes"
+(that was the whole window, including failures). **Neither number was read off the log that was
+already on disk.** An estimate that is not derived from a measurement is not cheaper than one that
+is — it is just unlabelled.
 
 **The recipe is self-sufficient from three things, all version-controlled:**
 
