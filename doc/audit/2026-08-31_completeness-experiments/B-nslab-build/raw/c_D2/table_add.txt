@@ -1,0 +1,14 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: Adding entry to lpm match table MyIngress.ipv4_lpm
+match key:           LPM-0a:00:00:01/32
+action:              MyIngress.ipv4_forward
+runtime data:        00:00:00:00:00:01	00:01
+Entry has been added with handle 0
+RuntimeCmd: Adding entry to lpm match table MyIngress.ipv4_lpm
+match key:           LPM-0a:00:00:02/32
+action:              MyIngress.ipv4_forward
+runtime data:        00:00:00:00:00:02	00:02
+Entry has been added with handle 1
+RuntimeCmd: 

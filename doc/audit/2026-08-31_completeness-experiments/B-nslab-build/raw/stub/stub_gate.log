@@ -1,0 +1,18 @@
+### PREREG-B arm D label=stub_gate json=ndtwin_switch.json  2026-08-31T14:50:00+00:00
+🔴🔴 STUB MODE: no fabric, no packets. Canned losses from: /home/ndt/bnslab-B/raw/stub/s3.txt
+🔴🔴 Nothing below is a measurement.
+      1 M  reps 1  loss   0.0000%  sent        1  recv        1  clean=yes
+      2 M  reps 1  loss   0.0000%  sent        2  recv        2  clean=yes
+      3 M  reps 1  loss   0.0000%  sent        3  recv        3  clean=yes
+      5 M  reps 1  loss   0.0000%  sent        5  recv        5  clean=yes
+      8 M  reps 1  loss   0.0000%  sent        8  recv        8  clean=yes
+     12 M  reps 1  loss   0.0000%  sent       12  recv       12  clean=yes
+     20 M  reps 1  loss   0.0000%  sent       20  recv       20  clean=yes
+     30 M  reps 1  loss   0.0000%  sent       30  recv       30  clean=yes
+     45 M  reps 1  loss   0.0000%  sent       45  recv       45  clean=yes
+     70 M  reps 1  loss   0.0000%  sent       70  recv       70  clean=yes
+    110 M  reps 1  loss   0.0000%  sent      110  recv      110  clean=yes
+    160 M  reps 1  loss   0.0000%  sent      160  recv      160  clean=yes
+    240 M  [sender-limited: G=1000 < 5x240] -- ladder stops, higher rungs are all sender-limited too
+  ⇒ arm stub_gate highest clean rung = 160 Mbit
+### arm stub_gate done  2026-08-31T14:50:00+00:00

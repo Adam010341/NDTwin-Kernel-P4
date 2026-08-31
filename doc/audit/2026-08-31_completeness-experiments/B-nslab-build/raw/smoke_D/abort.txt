@@ -1,0 +1,1 @@
+🔴 ABORT[smoke_D]: fabric did not become READY in 120 s -- see /home/ndt/bnslab-B/raw/smoke_D/topo.log

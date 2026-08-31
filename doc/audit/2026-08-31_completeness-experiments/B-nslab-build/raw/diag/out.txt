@@ -1,0 +1,35 @@
+fabric up: h1=98499 h2=98501
+
+=== 1. ICMP h1->h2 (known good) ===
+  2 packets transmitted, 2 received, 0% packet loss, time 1035ms
+  rtt min/avg/max/mdev = 0.543/1.213/1.884/0.670 ms
+
+=== 2. a plain TCP listener in h2, and is it listening? ===
+  State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+  LISTEN 0      4            0.0.0.0:5301      0.0.0.0:*          
+
+=== 3. TCP connect h1 -> 10.0.0.2:5301 ===
+  TCP FAILED after 8.01s: timed out
+
+=== 4. TCP the OTHER way, h2 -> 10.0.0.1 (is it directional?) ===
+  TCP FAILED after 8.01s: timed out
+
+=== 5. a bare UDP datagram h1->h2 (no handshake: isolates TCP from forwarding) ===
+  h1 sent one datagram
+  h2 says: (no result file)
+
+=== 6. offload state (TSO/GSO/checksum) on both host interfaces ===
+  h1-eth0: rx-checksumming: on tx-checksumming: on tcp-segmentation-offload: on generic-segmentation-offload: on 
+  h2-eth0: rx-checksumming: on tx-checksumming: on tcp-segmentation-offload: on generic-segmentation-offload: on 
+
+=== 7. did the switch see and forward them? (its own port counters) ===
+  Obtaining JSON from switch...
+  Done
+  Control utility for runtime P4 table manipulation
+  RuntimeCmd:   port #       iface name       status  extra info
+  ==================================================
+      1           s1-eth1           UP    
+      2           s1-eth2           UP    
+  RuntimeCmd: 
+
+=== diag done 2026-08-31T14:45:04+00:00 ===

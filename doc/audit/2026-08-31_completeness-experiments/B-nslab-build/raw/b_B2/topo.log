@@ -1,0 +1,34 @@
+*** switch binary (from bmv2_binary_override): /home/ndt/bnslab-B/tree_B/targets/simple_switch_grpc/.libs/simple_switch_grpc
+*** sha256: ddf9270301343b22e55e3a653b57350ba671f7fffd48764cfdbb212e7321b123
+*** json:   /home/ndt/bnslab-B/p4/ndtwin_switch.json (sha 15f955bc0fce50ca)
+*** Creating network
+*** Adding hosts:
+h1 h2 
+*** Adding switches:
+s1 
+*** Adding links:
+(h1, s1) (h2, s1) 
+*** Configuring hosts
+h1 h2 
+*** Starting controller
+
+*** Starting 1 switches
+s1 Starting P4 switch s1.
+/home/ndt/bnslab-B/tree_B/targets/simple_switch_grpc/.libs/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 --thrift-port 9090 --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 /home/ndt/bnslab-B/p4/ndtwin_switch.json
+P4 switch s1 has been started.
+
+*** h1 offload: rx-checksumming: | off | tx-checksumming: | off | scatter-gather: | off
+*** h2 offload: rx-checksumming: | off | tx-checksumming: | off | scatter-gather: | off
+*** s1 bmv2 pid=104854 /proc/104854/exe -> /home/ndt/bnslab-B/tree_B/targets/simple_switch_grpc/.libs/simple_switch_grpc  (node shell pid=104778)
+*** fabric up. one hop, unshaped, control plane not yet programmed.
+*** READY written; waiting for /home/ndt/bnslab-B/STOP
+*** STOP seen; tearing down.
+*** Stopping 0 controllers
+
+*** Stopping 2 links
+..
+*** Stopping 1 switches
+s1 
+*** Stopping 2 hosts
+h1 h2 
+*** Done

@@ -1,0 +1,24 @@
+### PREREG-B arm D label=stub_nonconsec json=ndtwin_switch.json  2026-08-31T14:50:00+00:00
+🔴🔴 STUB MODE: no fabric, no packets. Canned losses from: /home/ndt/bnslab-B/raw/stub/s2.txt
+🔴🔴 Nothing below is a measurement.
+      1 M  reps 1  loss   0.0000%  sent        1  recv        1  clean=yes
+      2 M  reps 1  loss   0.0000%  sent        2  recv        2  clean=yes
+      3 M  reps 1  loss   0.0000%  sent        3  recv        3  clean=yes
+      5 M  reps 1  loss   0.0000%  sent        5  recv        5  clean=yes
+      8 M  reps 1  loss   0.0000%  sent        8  recv        8  clean=yes
+     12 M  reps 1  loss   0.0000%  sent       12  recv       12  clean=yes
+     20 M  reps 1  loss   0.0000%  sent       20  recv       20  clean=yes
+     30 M  reps 1  loss   0.0000%  sent       30  recv       30  clean=yes
+     45 M  reps 1  loss     40.0%  sent       45  recv       45  clean=no
+     70 M  reps 1  loss   0.0000%  sent       70  recv       70  clean=yes
+    110 M  reps 1  loss     40.0%  sent      110  recv      110  clean=no
+    160 M  reps 1  loss   0.0000%  sent      160  recv      160  clean=yes
+    240 M  reps 1  loss   0.0000%  sent      240  recv      240  clean=yes
+    360 M  reps 1  loss   0.0000%  sent      360  recv      360  clean=yes
+    540 M  reps 1  loss   0.0000%  sent      540  recv      540  clean=yes
+    810 M  reps 1  loss   0.0000%  sent      810  recv      810  clean=yes
+   1200 M  reps 1  loss     40.0%  sent     1200  recv     1200  clean=no
+   1800 M  reps 1  loss     40.0%  sent     1800  recv     1800  clean=no
+  saturation stop: two consecutive rungs > 25%
+  ⇒ arm stub_nonconsec highest clean rung = 810 Mbit
+### arm stub_nonconsec done  2026-08-31T14:50:00+00:00

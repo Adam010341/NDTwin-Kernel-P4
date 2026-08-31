@@ -1,0 +1,4 @@
+rate_mbit	reps	loss_scored	loss_reps	sent	recv	clean	sender_limited
+1	1	0.0000	0.0000	1.00	1.00	yes	no
+20	1	0.0000	0.0000	20.00	19.99	yes	no
+240	1	0.0000	0.0000	239.94	239.93	yes	no
