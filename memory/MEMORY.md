@@ -1,0 +1,158 @@
+## 現在的專案狀態（先讀最上面三條）
+- [bmv2 文獻審核＋報告＋poster](bmv2-literature-review-2026-08-28.md) — 🏁 **定位＝報告規範論文**（08-31 Adam 裁，決定一切口徑）；**9/01 EuroP4 不投**；🔒 投稿包兩目錄永不進版控
+- [審查帳本（最新在檔尾）](review-round-2026-08-21.md) — §13 是新審查員入口：八個結論**各自的強度分級**、**我的八個錯**（#8＝沒查 freeze 的理由就規劃 push）、**六條未收乾淨的前提**；「matplotlib 消失」已推翻
+- [State（當前）](ndtwin-current-state.md) — 🏁 **二十八＝E 窗開了但一格未跑**（方案(b)、gates 10 綠卡 G9、五個閘門缺陷、production kernel 唯一副本已外移）；二十七＝auditor 關線；**Adam 手上六件**
+- [🟢 遠端開發機 `nslab`](nslab-remote-dev-machine.md) — 🔴 先讀正本 `NSLAB-USAGE-RULES.md`（R1＝開跑前登記）；host 無免密碼 sudo、guest 有；🆕 B 輪四臂已 build；`~/ndtwin-vm/` 不可 destroy
+- [🔴 遠端平行實驗操作流程（**停用中**）](remote-parallel-experiment-workflow.md) — 🔴 **整份停用（那批 testbed），不要照著開工；🟢 要遠端機器改用 `nslab`**（上一條，有自己的流程與規定、不走這份）；預約(Google Calendar，id 在檔內)→`rlab` claim→放 key→bootstrap(唯一要密碼)→setsid 落盤→拉式對帳；claim≠measuring；白名單不含 p4-power
+- [🔴 遠端 testbed server1~8／cc2（**停用中**）](remote-testbed-parallel-dev.md) — 🔴 **學姐「先不要用」⇒ 這批全線停用；解封＝她本人再說一次**（「登記＝授權」的內部裁決已被資源主人否決）。🟢 **要遠端機器改用 `nslab`**。凍結：milestone-1＝server8 claim＋部署＋bootstrap 驗過；🔑 隔離層不是換機器；老側跳 gw／新側跳 gw2；🔧 停用已機械化進 `rlab`（`rlab suspended <m>` 不撥號就答）
+- [實體 testbed 操作](physical-testbed-operations.md) — 學姐 HackMD：Brocade 群 `.3-.15` vs HPE 群 `.16-.25`、**硬體 P4 switch `.28` 全所只一台**；🔑 排插＝24 槽 PDU 電源不是主機；🔴 排插 API 不碰（關了可能開不回來）、不改交換機、不碰實體網卡；🔑 server 有雙身分⇒兩層預約
+- [jitter 是收端不是網路](jitter-is-the-receiver-not-the-network.md) — 抖在**收端 socket**（`RcvbufErrors` 406k），路徑上每個 htb 都 `dropped 0`；**決定性的是單一接收行程的速率，不是總流量**
+- [🏁 12× 有一部分不是 build 的功勞（工單①）](bmv2-fast-build-ratio-is-eight-not-twelve.md) — 三跳 **12×**、隔離到單跳只有 **8.0×**（量化區間 5.14–12.0）⇒ 主張收窄，差額歸屬另輪；🔑 第一輪梯子只對著慢臂檢查過；🔑 複製救不了量化（十臂零散布零資訊）；🔑 硬邊界規則必須註冊「跨界⇒不可分辨」那一支
+- [🏁 天花板是 pps 不是 bps（工單②）](bmv2-ceiling-is-pps-not-bps.md) — pps 只變 1.25× 而同批資料 bit rate 變 **16×** ⇒ 用 Mbps 報容量不講封包大小＝16 倍歧義；截斷規則對 frame size 全盲；解析度 ±1 階；🔑 陽性對照抓到的是修法自己的 bug
+- [容量是流數的函數（bmv2 vs OVS）](bmv2-and-ovs-capacity-do-not-compose.md) — 🏁 兩臂各自單調（160/110/30/5/2；240/110/45/8/1）；**不准為救比值加梯階**；OvS＝**aggregate 撐住 vs bmv2 自塌 10×**；n=4 的 810＝**htb 1G 帽**假象
+- [大規模×並發＋工單 P](large-scale-concurrent-never-measured.md) — 🔴 「資料面只掉 5%」與「`T` 是世代×負載的性質」**都已撤回**（T 是「臂」的性質）；ingest 測試已預註冊未跑
+- [API 流表被 idle timeout 灌爆（工單 W）](api-flow-list-inflated-by-idle-timeout.md) — 🔴 列出的流 92% 已結束、前 10 名約 4 真 6 屍；🔑 是「填滿」不是「贏過」；🆕 端點回裸 uint32（`16777226`＝10.0.0.1）、`path[].node` 超載、同一常數兩份文件兩種相反壞法
+- [baseline 架構漂移＋跨 repo wire 稽核](baseline-drift-audit-2026-08-28.md) — 🔑 **657 commit 只有一處真架構改動**＝`run()` 改成持續輪詢；🔴 待修＝Visualizer 顯示 "-1%"
+- [分身的使用量被夾在宣告容量](twin-usage-clamped-to-declared-capacity.md) — 四個寫入點全夾 ⇒ **「資料面跑得到 X」與「分身量得到 X」是兩個宣稱**
+- [OVS 頻寬天花板已實測](ovs-bandwidth-ceiling-measured.md) — 單鏈路 **53.1 G**；🔑 **單一元件的天花板不是路徑的天花板**；🔴 那八個數字是**實測吞吐不是容量**，9000× 差是 ECMP
+- [OVS 測試床的頻寬真相](ovs-testbed-bandwidth-reality.md) — Mininet 靜靜忽略 `bw>1000`；「10 G 構不到」已被推翻；🆕 電源循環→更容易被關掉的**結論保住、機制換人**
+- [遙測成本是固定的、不是每樣本](telemetry-cost-is-fixed-not-per-sample.md) — 46/57 點在最低取樣率就付清，集中在單一執行緒
+- [Host 學習窗＋開機環](punt-window-host-learning.md) — 🟢 環已結案；🔴 註解的「LLDP 50s 填滿」實測差 28×
+- [proxy 的平台不是 GIL](proxy-plateau-is-not-the-gil.md) — 工單 G 推翻 H-GIL
+- [sFlow truncate/merge 真相](sflow-truncate-merge-status.md) — per-byte 否證、成本是 per-sample
+- [北向 API 一次只服務一個請求](northbound-api-serialises.md) — 一個卡 500 ms 的南向呼叫佔住 42 個請求
+- [A/B 的控制組什麼都沒刪](ab-control-deleted-nothing.md) — 兩個失效控制組
+- [Lab 交接約定](lab-claim-handoff-protocol.md) — claim 是唯一真實來源、release 要寫 handoff；🔴 claim＝「lab 歸誰」不是「有沒有實驗在跑」（問 `measuring`）；🆕 遠端＝`rlab`＋Calendar；🔴 **讀數是點取樣不是租約** ⇒ 動手當下重讀；🔴 **claim 保護 fabric 不保護磁碟上的 binary**（重編距我 exec 只差 9 秒）；🆕 同型二例＝**`OWNER` 守衛保護動詞不保護位元組**（`qemu-img -U` 免 root 讀得走別人的快照）⇒ 敏感內容清除單位是磁碟映像
+- [`ndt` 一行開機／收乾淨](ndt-one-command-lab-lifecycle.md) — 🔴 `ndt up` 不重編 .p4；`NDT_OWNER` 每令都帶；**down/up 會殺掉呼叫它的 shell** ⇒ 包 `setsid`、驗 `up. ready` 不驗 rc；worktree 不能用 root-owned 的 `ndtwin-lab` 測；🆕 **活過 pidfile 的 app 三介面全盲、`apps stop` 假成功** ⇒ 讀 `/proc` 按 PID 停
+- [旗標的 setter 已提交、reader 從來沒有](committed-setter-uncommitted-reader.md) — 100% 遺失而三個視圖全顯示正確
+- [逾時](shell-outs-need-timeouts.md) — `popen(curl)` 在 IPv6 黑洞卡 131 秒；「已知會失敗」≠「失敗很便宜」
+- [OVS failover 的帳已平](ryu-startup-costs-measured.md) — 偵測佔 51.75 s 的 87%
+- [destination paths 不是單調的](destination-paths-not-monotonic.md) — 🔴 「永久殘缺」已過期，有 refresh 執行緒 ⇒ 上限約 60 秒；🔑 缺陷換了形狀：降頻條件是「非空」不是「收斂」，99.8% 長得像收斂了
+- [P4 在 128 台上跑得動](p4-128-hosts-four-hardcoded-lists.md) — ⚠️ 部分被取代（改讀 JSON）；`p4_proxy/` 整棵樹在 `28b8b13` 不存在
+- [修復會改變可達性](a-fix-changes-reachability.md) — 291 秒的歸屬已被推翻；繼承版＝從不重繞
+- [Benchmark 要指認量到的 binary](benchmark-must-name-the-binary-it-measured.md) — 指名 commit＋哪種識別碼；RUNPATH 0 條⇒執行端決定；秒數也要指認量了哪一段；🆕 **autotools 的明顯路徑是 libtool wrapper（6.7 kB shell script），而「四臂雜湊相異」對它會亮綠燈**；自訂簽章沒鑑別力、註冊的那個有
+- [Agent 複審有兩個盲點](agent-reviews-have-a-language-blind-spot.md) — ①搜英文而證據是中文；②環境特定的坑讀不到（兩個「必修」都偽陽性）；🔴 最危險是「獨立路徑」那欄
+- [Round 6：中心宣稱已驗證](round6-forwarding-verified-2026-08-19.md) — 裝規則真的會改變轉發
+- [模型假設已飽和](model-hypotheses-saturated.md) — 不要再開「模型寫假設」輪
+- [Phase-2 輪次](phase2-round-2026-08-19.md) — 10 CONFIRMED / 6 REFUTED
+- [電源開機回成功但沒動作](power-on-reports-success-without-acting.md) — 🏁 修法已落（`98e890a`）＋變異閘＋live 兩臂 PASS，🔴 **仍非 RESOLVED**＝arm3 量到的是關著的交換機（零鑑別力）；配方三缺陷已更正（:8000／`ip`／pgrep 15 字元恆 0）；未帶修的 build 繞法仍有效
+- [單一流精度](single-flow-precision-gap.md) — proxy 側已通；TE 仍只送 `ipv4_dst`；🏁 **priority 不是被丟掉，是 `ipv4_lpm` 沒有這一欄**（dst-only 全走它、次序＝prefix length、**沒有封包轉錯**）⇒ API 契約缺陷不是轉發缺陷
+- [兩種併發控制都走不了](ndtwin-cannot-do-either-concurrency-control.md) — 🏁 **TR-5＝Energy-App 把自己鎖死**（`routing_lock` 拿了不放、1 Hz 撞 423、TTL 300 s > 241 s 窗、鎖活過行程）⇒ **三臂都關 0 台、FINDING-05 不對稱重現不出來**（kernel＋agy 同時變，未歸因）
+- [Live 兩輪 08-18](live-round-2026-08-18-two-passes.md) — 兩輪重疊只有 1 條 ⇒ 跑兩輪 ≠ 找完；🏁 **F-17 Adam 重裁＝維持不修、理由整組換掉、不要重開**；🔴 T-4 推翻「P4 no phantom ever」＝t=0 格點假陰性
+- [跨 repo 元件生態＋六個 app 怎麼建怎麼啟](cross-repo-component-ecosystem.md) — `components.env` 是路徑真實來源；🔑 **ESA／SimMgr 要 root 且開機就掛 NFS**（失敗即 abort）；`make` 預設目標不是 `all`；Visualizer 要 **JDK 21＋openjfx**；🔴 **它的 `main` 編不起來**（`WindowStateRestore` 沒 commit），Adam 本機靠**未提交的註解**才跑得動；埠 8001/8002/9000
+- [NTG×bmv2——已交付](ntg-bmv2-support-pending-feature.md) — bridge live 驗證通過
+- [官方網站 repo 與建置](ndtwin-website-repo-and-build.md) — 🏁 站台 render 得出來了（docker `--network none` 或 `~/.local` 工具鏈）；🔴 `docker compose build` 仍壞；🪞 `hugo --quiet` 會吞掉 ERROR，只能看 exit code
+- [官方說明書站點](ndtwin-official-docs-site.md) — 撤回主張要找「誰打算照它行動」
+- [Overnight review 08-12](overnight-review-2026-08-12.md) — 入口＝`doc/audit/2026-08-12_overnight-review/INDEX.md`
+- [Upstream merge state](upstream-merge-state-fork-28b8b13.md) — 合併延到報告之後
+- [官網安裝手冊乾淨室實測](install-manual-clean-room-test.md) — 已收 §1–§6.7；🏁 P4 demo VM 現行＝`af1d3730…`／2,757,157,888 B（`vmx-14`，**只在 nslab**），已在它自己身上重跑 T-2＝0% dropped；🔴 **Drive 上那顆是舊的第 2 版（2.3G、VMware 匯不進去）而且未認證就下得到**——衝突已用未認證 curl 解掉，待 Adam 換檔；🆕 **兩顆 VM 誰都不是誰的超集**（舊六個 app／新三個，已補齊）；🔴 **整份下載會燒掉 Drive 配額、把連結對所有人關掉一天**（用 range 請求問身分）；🔴 ①§4.1 不改字 ②`/mnt/win` 別重掛 ③官方那顆 17.9 G＝40 G 幽靈區塊、已驗無投稿包
+- [🏁 chaos harness 已首次 live 跑（檔名過時）](chaos-harness-written-not-run.md) — 十三個缺陷全在 harness 自己、`--null` 不是唯讀；acquire_lock 三缺陷已落地（`4ee086f`）、T-7b 已併（`87d272f`）；🏁 契約測試對活 kernel＝39/39
+- [🔴 記憶→repo 搬遷（在途）](memory-to-repo-migration-state-2026-08-27.md) — 🏁 **CLAUDE.md 08-31 Adam 口述定稿落地（`15b213c`，五節：溝通/授權/工程/量測/委派）**；「79 處」母體＝wikilink 不是 repo 路徑；6 commits 在 agent worktree 待併
+- [證據要活過交接動作](evidence-must-outlive-the-handoff.md) — 交接不能早於證據保存；便宜的失敗就重現，別哀悼證據；🆕 **`/compact` 會 reset shell ⇒ 背景 job 跟著死**（燒掉 3.2 小時機時），長跑要 `setsid`
+- [隱形負載源（VM＋commit）](vm-on-this-machine-is-invisible-to-ndt-status.md) — 對簿記隱形、污染會對齊到處理效應上；記錄實驗本身就污染實驗（`agy` 207%）；🔴 `load1` 是落後複合指標、不能當門檻；第三源＝claude session 自己；判準「這發現靠不靠時間」比「窗有沒有重疊」有用；🔴 **agy hook 已關、別再追**（結論留、理由換）
+
+## Adam 的偏好與工作方式
+- [Adam 的對外身分](adam-identity-and-affiliations.md) — 英文署名 **Chi-Yen Fan**、成大資工＋普渡帳號（fan511）；投稿署名／對外信件用；「交換」是推論未確認
+- [回報對象是 auditor 不是 Adam](report-to-auditor-not-adam.md) — 日常對接下放，**授權沒有下放**；**做完就推，不要等他來問**
+- [決定還在動的時候不要轉發](do-not-relay-a-decision-still-in-motion.md) — 🔴 08-31 同一條線四封、三封在修前一封；問「這決定定了嗎」不是「這資訊有用嗎」；一線一封、規則指向正本不複述；⚠️ 反面＝讓 worker 空等也是失職
+- [審查員＝唯一窗口](auditer-cannot-extend-authorisation.md) — 「跟 auditor 對接都不用問我」
+- [實驗要對帳舊結果](check-against-prior-experiments.md) — 🔴 每次實驗都要查「推翻／更新／可對比哪個舊結果」
+- [Code attribution mark](code-attribution-mark.md) — AI 產出標 `[Co-developed with claude code -- Adam]`
+- [Delegate test writing to subagents](delegate-test-writing-to-subagents.md) — production seam 那關留自己
+- [Spawn subagents with opus + max effort](spawn-subagents-with-opus-and-max-effort.md) — `model: "opus"` 每次明寫
+- [Subagent 操作界線](subagent-operating-constraints.md) — DeepSeek 沒手，只有 Claude Agent 能操作
+- [Orchestrator must not do grunt work](orchestrator-must-not-do-grunt-work.md) — §4 邊界
+- [Worktree agents branch from origin/main](worktree-agents-branch-from-origin-main.md) — 🔴 08-30 反例：Agent-tool worktree 預設就是它（落後 765 顆、一輪作廢）⇒ 適用域收窄成「對外 PR」，repo 狀態相依的派工要明令 `git checkout --detach <sha>`
+- [對外產出先寫草稿](draft-outward-facing-artifacts-first.md) — GitHub 沒有「只有我看得到」的 issue；🔑 看 tracking ref 永遠看不到公開狀態；下「不要做 X」前先確認 X 還沒發生
+- [本地 git ref 看不出什麼是公開的](local-git-refs-cannot-tell-you-what-is-public.md) — 只有 `gh repo view --json visibility` 或未認證 curl 算數；untrack≠歷史乾淨；**頁面是指標**（連結沒變而 Drive 檔被換掉）；第三種媒介＝**映像檔**，見下一條；🆕 **未認證 curl 打 Drive 下載連結就能查公開狀態＋認出是哪一版**（我曾以為要另一個帳號而讓未知懸著）
+- [🔴 打包檔案系統會帶走看不見的東西](packaging-a-filesystem-ships-the-invisible.md) — `.git` 77 個投稿包物件而四種檢查全說乾淨；40 GB 幽靈區塊＝成品 57%；**別相信 `rm`**；**母片是產線不是事故**
+- [Push commits to GitHub](push-commits-to-github.md) — 「commit 時機你決定」包含 push；🔴 **推 `p4`／`lab` 不要推 `origin`**（唯一公開、也唯一推不上去；08-31 兩條線各自獨立誤診成「push 權限壞了」）；🆕 **兩條驗證線同時往「看起來沒事」壞掉**（`|tail` 讓 rc 變成 tail 的、對不存在的 ref 做 rev-parse 讓 `wc -l` 得 0）
+- [Check env state, don't ask](check-env-state-dont-ask.md) — `pgrep -ax ndtwin_kernel` 就寫著 OVS 還是 P4
+- [To judge a change's size, send the diff](change-magnitude-send-the-diff.md) — 我說「不大」而真 diff 說 high
+- [四個 checkpoint skill 與 session 成本](checkpoint-skills-and-session-cost.md) — **MEMORY.md 硬上限＝200 行／25000 字元**（UTF-16 非 bytes，誰先滿誰生效）；🏁 `MEMORY.md:2` 不砍（Adam 裁）；成本＝往返×context；🔴 **鉤子是檢索鍵不是摘要——沒寫進鉤子的事實等於不存在**（實例：燒掉一小時重推一件記憶裡已有的事）
+- [跨 session 回報格式](cross-session-report-format.md) — 🔑 協定格式不協定字數；四段式＝要我裁的／推翻更正／交付／細節；📌 **對 Adam 一律用中文**（08-28 明講）
+- [多題裁決用可點選表單](adam-prefers-clickable-decision-forms.md) — 每題附建議、最後留 textarea
+- [Grill 用互動選擇題](grill-me-use-interactive-questions.md) — 推薦放第一、description 寫後果
+
+## 我反覆犯的錯（讀完再下判斷）
+- [宣稱的動詞決定要哪一種證據](claim-verb-decides-the-evidence.md) — 🔴 一天六次跨三領域；🔑 「不可複現」要做才知道，「不可比較」看就知道——我只做了看；失敗方向全偏向「比較好講」
+- [儀器不能長得像自己的發現](instrument-must-not-mimic-its-own-finding.md) — 十式；🆕 **第十式＝儀器的簽章數值落在待測假說的註冊區間內**（htb 帽換算 pps 比值 0.10 正好在 H2 的 (0.03,0.12)）⇒ 換平面做對照前，先把兩邊儀器界限換算到同一單位
+- [失敗會回報成功](failures-that-report-success.md) — 14 式；驗收寫狀態不寫 rc；`--verifyOnly` 不 verify；空輸入雜湊 `e3b0c442…` 當哨兵；🆕 **08-31「不可能變綠」四例而乾跑全綠**＋**exit code 兼差判定與力測結果**＋診斷指錯元件五例
+- [控制組的位置決定你學到什麼](controls-decide-what-you-learn.md) — 判準要留「以上皆非」；釘成常數的混淆因子要配量測；🆕 **零鑑別力三跑＝答案如預期而理由是錯的** ⇒ 問「受測的事沒發生的話會不會同一個答案」
+- [結論要拿去用才算驗過](test-conclusions-by-using-them.md) — 第三問＝「照這結論做，下一步的第一步是什麼？」
+- [加速改動通過了錯的測試](speedups-pass-the-wrong-test.md) — 兩個宣稱全壞而驗證全綠
+- [驗目的不要驗機制](verify-the-purpose-not-the-mechanism.md) — 判準＝「這改動若完全沒效，這一步會變紅嗎」；要明列覆蓋／不覆蓋的失效模式；🆕 **閘門數的是「已寫的保護」不是「該被保護的面」**（32/32 全綠而兩個動詞沒守衛）⇒ 對面做結構斷言＋parser 控制組，🔴 **而母體要從受測物導出——我的修法迴圈手寫清單，加新動詞十一綠零紅，且我在兩份文件裡宣稱它會紅**（修法的效果宣稱要自己的變異）；負鑑別力——grep 錯句只在更正還在時命中；🆕 **一個對照只覆蓋它變動的那個維度**（對照翻磁碟位元有效，缺陷卻在硬體宣告 `vmx-99`）
+- [量測指令寫進 script 檔](put-measurement-commands-in-script-files.md) — bracket 只保護 pattern
+- [拿已知正確的輸出對帳](verify-against-known-good-output.md) — 被作廢的檔案跟有效的長得一樣；🆕 通知是管道不是儲存——寫進報告一律回正本重讀；🆕 **禁止湊表＝反向稽核**（明示「偏向來源、標記差異」，代理會把差異報回到派工單的規格上）；抄錄一遍是找 provenance 洞最便宜的方法
+- [注入後必須斷言注入成功](injections-must-assert-their-own-success.md) — 九式；刪除留下一個洞（大聲），改名留下一個假答案（安靜）；🆕 第九式＝**修正案改了量測對象沒改暖機對象**（暖機成功、打錯路徑）⇒ 周邊步驟的參數要從量測對象推導、不要寫常數
+- [第三方重現攔下錯誤的上游回報](third-party-repro-catches-false-upstream-report.md) — 差一步就報給 bmv2
+- [Fresh grep before CONFIRMED quote](fresh-grep-before-confirmed-quote.md) — 我捏造了一行不存在的碼
+- [New tools are the first thing under test](new-tools-are-the-first-thing-under-test.md) — 新工具第一次 live 跑，找到的幾乎都是工具自己的缺陷
+- [Smoke the accept path, not just refusals](smoke-the-accept-path-not-just-refusals.md) — 拒絕路徑可以真跑、放行路徑不行 ⇒ 被守衛保護的動作要有 dry-run
+- [乾淨的版本是要回頭查的那個](the-clean-version-is-the-one-to-recheck.md) — 一晚三次同型；錯誤方向一律偏向「比較好講」
+- [揭露 ≠ 下修](disclosure-is-not-downgrading.md) — 撤回前先 grep 關鍵詞當待辦、不要用 append（引用點六種）；🆕 **過期的「已經做了」比漏寫危險——它關掉補救**；機制被否證 ≠ 結論被否證
+- [收回命令前不准評估損害](rescinded-orders-invalidate-damage-assessment.md) — 跨 session 訊息是排隊的：作廢命令的同一封信宣告「沒損害」，對方早已執行完；判準＝「命令回收了嗎」不是「現在狀態長怎樣」
+- [算得出來不等於機制](arithmetic-that-fits-is-not-the-mechanism.md) — 預註冊「區間」而非「方向」；方向相符＝什麼都還沒得到；🆕 **推出來的估計是「某個真實區間」的長度、只是不是被問的那段**（通得過「像不像話」）＋**轉述數字＝背書**⇒問「量的還是算的、量的哪一段」；衍生量的容差要和它繼承的噪聲一樣寬
+- [Prove the writer by cadence](prove-the-writer-by-cadence.md) — 找候選獨有的簽名
+- [複製單位不是 rep](replication-unit-not-the-rep.md) — 每格至少兩個臂；反面：複製解決不了量化——零散布本身是徵兆；問「誤差是抽樣來的還是刻度來的」
+- [比值的兩邊要同一個母體](ratio-sides-must-share-a-population.md) — 同母體不夠，要問「這個母體叫得起它的名字嗎」
+- [Reproducible ≠ mechanism correct](reproducible-is-not-mechanism.md) — 10/10 吻合的理論仍然是錯的
+- [Cited line numbers are not evidence](cited-line-numbers-are-not-evidence.md) — `git log -1` 不是 provenance 工具；行號錯≠宣稱錯，但行號不當「已複驗」證明；**一次正確的量測會無聲過期**⇒標實測要記被量的 commit；🆕 **機械重跑 175 條解析**：行號漂移 0，但撈到「引用正確卻指著即將被刪的檔」＋**裸 basename（`PREREG.md` 版控內 19 份）第三方跟不了**＋**撤回標記與活條款同一行會汙染引用**；🔑 母體要限定版控內，我的解析器把 worktree 副本算進去先給了假警報
+- [Investigation briefs: observation ≠ inference](investigation-briefs-separate-observation-from-inference.md) — 單向推讀不准標「實測事實」；「其他理由未經檢驗」不要舉例（會被讀成清單樣本）；🆕 上游更正也會夾帶已被推翻的東西，逐句分判——更正動作本身製造新引用點
+- [Two writers, one worktree](two-writers-one-worktree.md) — 歸屬看檔案譜系不是 commit（`%an` 零資訊）；`git add` 保護不了 index ⇒ `git commit -- <paths>`；`hooksPath=空目錄` 連 audit-raw 守衛一起無聲關掉；🆕 第七式＝`MEMORY.md` 全檔重寫會蓋掉並發寫入⇒逐條改；🆕 **第八式＝兩個寫者各自取「下一個號碼」必撞**（沒人編錯，是配置機制不存在）；🆕 **第九式＝別人讀得到你未提交的修改並據以決策**（草稿沒時戳沒作者）；派工要給驗收方式
+- [Process liveness checks lie in two ways](process-liveness-checks-lie-in-two-ways.md) — **二十一式**；`kill -0` 分不出「不存在」與「不是你的」；🔴 `ps \| grep` 永遠自我匹配；🆕 **背景「completed」講的是 wrapper 不是工作**（`$!` 同族）、`wc -l` 數的是輸出行；**二十一式＝「還沒開始」與「剛結束並清乾淨」觀測相同** ⇒ 問「跑過了嗎」不問「在不在跑」；🆕 **二十二式＝殺 `$!` 殺到 wrapper、本尊活著佔埠**，收尾要 `ss "( sport = :N )"` 反查 pid
+- [Existence is not wiring](existence-is-not-wiring.md) — EventBus 零 production subscriber；🔴 08-29 同一件事又查一次——結論只在記憶、`KNOWN-ISSUES:168` 寫著相反話 ⇒ 接指定前提的派工先查別處有無相反記載；🆕 **08-31「一個寫者零個讀者」**：落 marker 的保護要**先 grep 讀者再看寫者**（寫者總是寫得很漂亮）＋文件寫的補救方式碼上做不到⇒永遠變不回綠；修法通則＝**把檢查放在受害者那一側**
+- [No in-repo callers ≠ dead code](no-in-repo-callers-is-not-dead-code.md) — 零呼叫端 ≠ 可安全地改，綠燈測試會把缺陷鎖住
+
+## 測試紀律
+- [P4Testgen 碰不到 clone 取樣路徑](p4testgen-cannot-reach-clone-path.md) — 原因是分支條件讀 `instance_type`
+- [bmv2 規模天花板與 sFlow 取樣數學](bmv2-scale-ceiling-and-sflow-sample-math.md) — 誤差 = 196√(1/c) 是理論地板
+- [難重現的缺陷改驗不變量](assert-invariants-not-repro-rates.md) — A/B 分不出效果時先換工作點、不要先加 n
+- [預註冊可以在資料之前修](prereg-amendment-before-data.md) — 三條件缺一不批；看到門檻擋住自己才改是最糟的改法；🆕 何時重跑是修 bug（儀器構不到註冊的問題 vs 不喜歡答案）＋事後證明多餘的防護不是浪費
+- [Mutation gate](mutation-gate-for-tests.md) — 沒看過它失敗就不算交付
+- [`__main__` guard 底下的測試不會被收集](tests-below-the-main-guard-are-not-collected.md) — 只看 `OK` 不看 `Ran N`
+- [Test independence is the spec](test-independence-is-the-spec-not-the-model.md) — 禁止從 src/ 推導預期行為
+- [Mutation harness must guard its baseline](mutation-harness-must-guard-its-baseline.md) — 中斷的 run 留下 mutant
+- [Harness 的 cd 藏住整類缺陷](harness-cd-hides-working-directory-defects.md) — 🔴 測的那份沒有讀者會拿到；看到漂移先問「哪一邊錯」；🏁 `is_mininet` Adam 裁兩份都不動
+- [Live runs find what tests cannot](live-runs-find-what-tests-cannot.md) — 9 個 bug 有 8 個來自實跑
+- [Python tests need the venv interpreter](python-tests-need-the-venv-interpreter.md) — conda 的 python3 缺 grpc/networkx；🔴 venv 與 base 同一顆 binary、不同 site-packages ⇒ 「我重現不出來」在環境釘回去之前不構成證據
+- [Review prompt shape beats model choice](review-prompt-shape-beats-model-choice.md) — 332 個 nitpick vs 74 個真發現
+
+## 這個 codebase 的 bug 形狀
+- [交換機 CPU% 是假的](fabricated-switch-cpu-in-mininet-mode.md) — MININET 下回 `10 + hash(ip) % 50`；要量只能 `cpu_probe.py`
+- [bmv2 幾乎什麼都回 UNKNOWN](bmv2-unknown-status-vocabulary.md) — 照規格寫的分支＝死碼且 mock 測試全綠
+- ["Should replace, can only add"](replace-vs-add-bug-shape.md) — 7 個實例；每個 ingest 都要問：舊資料什麼時候消失？
+- [被拒絕的請求仍然做了事](rejected-requests-can-still-act.md) — 缺 priority 回 400 卻真的裝上規則；驗幽靈看結構三特徵；🏁 **窗是「看不見」不是「還沒裝」**（~20 ms 就到交換機，10.7 s 是表視圖快取；**T-11-A 吃這差別**）；🔑 規則身分用 destination（priority 那條見 [[single-flow-precision-gap]]，已更正）
+- [🔴 意外的案例會低估故意的案例](accidental-case-understates-deliberate-case.md) — 定級「診斷被誤導」實際是可遠端執行命令；自然發作的機率與故意發作的機率無關
+- [Ryu /stats/flow wedge](ryu-flow-stats-wedge.md) — 失敗比逾時快，延遲判斷抓不到快速失敗
+- [Inherited simulator had silent bugs](inherited-simulator-had-silent-bugs.md) — 11 個缺陷
+- [EventBus deadlock — RESOLVED](eventbus-deadlock-deferred.md) — 已修；保留因為 deferral 類記憶會無聲腐爛
+- [Idle 100% CPU burn — RESOLVED](kernel-idle-cpu-spin.md) — 靠 per-thread 取樣找到
+- [Host edges down — 兩度更正](ndtwin-static-arp-blocks-host-discovery.md) — 第一次更正只對了下游
+
+## 環境與工具
+- [簡報生成器](slide-deck-generator-python-pptx.md) — 📌 9/03 六張圖在 `~/Desktop/NDTwin slide material/…903/figures/`（不在 repo）；🏁 **「可 byte-exact 重建」08-31 起八張全成立**（成因＝fig1–4 的 `make_figs.py` 原本在被 exclude 的投稿目錄，已抽進版控 `3661525`）；`.plotvenv` 是唯一該用的直譯器
+- [MCP ai-tools server](mcp-ai-tools-server.md) — DeepSeek / Muse Spark / agy；🆕 CLI 與 MCP 憑證分離（muse CLI 402、MCP 通）；院內網路/VPN 害 deepseek CLI SSL 逾時
+- [PyPI mcp 2.0.0 ships httpx2](pypi-mcp-httpx2-supply-chain.md) — **pin `mcp==1.29.0`**
+- [gRPC 全域 subchannel pool 會繼承 backoff](grpc-global-subchannel-pool-inherits-backoff.md) — 全新 channel 拿到舊 backoff
+- [deepseek-cli for grunt work](deepseek-cli-for-grunt-work.md) — 機械性子任務用它
+- [deepseek-agent tool loop](deepseek-agent-tool-loop.md) — run_command 需要 Adam 授權
+- [deepseek-cli handles large prompts](deepseek-large-prompt-fix.md) — jq --rawfile + curl --data-binary @file
+- [API keys leak via argv](api-keys-leak-via-argv.md) — 用 `curl --config`
+- [Destructive shell traps](destructive-shell-traps.md) — 🔴 **不要用 `pkill -f`／`pgrep -f` 殺東西，一次都不要**（已第七次）；exit 144 後複驗 fabric；🔴 **官方手冊在教 `sudo kill -15 $(pgrep -f …)`** ⇒ 這也是審別人文件的判準
+- [Sanitizer and CI setup gotchas](sanitizer-and-ci-setup-gotchas.md) — ASan/TSan + CI
+- [Agent 能跑完整輪，含起 fabric](agent-can-do-live-tests-except-start-mininet.md) — `mnexec`/`tc`/電源/`ovs-vsctl` 免密碼
+- [P4 orphan switches 與 manifest 生命週期](p4-orphan-switches-and-manifest-lifetime.md) — bmv2 活過 `mn -c`
+- [ifconfig down 弄壞整台 bmv2](ifconfig-down-breaks-whole-bmv2-switch.md) — 斷單鏈路用 `tc netem`
+- [Grep 給的不完整答案](grep-endpoints-misses-concatenation.md) — **八種漏法**（拼接／bound-method／`| head -N`／diff hunk／零命中／搜過範圍／template literal／**cmake 三個函式名只想到一個**）；🏁 報「不存在」前先問另一邊；🆕 **宣稱「涵蓋全部輸入」時，唯一有鑑別力的檢查是讓它真的被用一次**
+- [AppArmor 護體的 tcpdump 殺不掉](apparmor-shields-tcpdump-from-kill.md) — root SIGKILL 都 EPERM
+- [proxy 重啟×warm fabric＝遙測×N](proxy-restart-warm-fabric-multiplies-telemetry.md) — 只有 veth 對帳抓得到
+- [py-spy 要透過 mnexec 跑](py-spy-via-mnexec-under-ptrace-scope.md) — ptrace_scope=1 擋同 uid attach
+- [p4lang tutorials as a local control](p4lang-tutorials-as-local-control.md) — 不要拿它的拓撲測 twin
+
+## 文件索引
+- [檔名慣例與可信度分級](doc-naming-and-credibility-conventions.md) — 🔑 文件索引的權威＝repo 的 `doc/README.md`，記憶裡不留副本；日期用建立日（改名會斷所有引用）＋「親自讀過／轉述／只知檔名」三級不可混用
+
+## 跨 repo
+- [Energy-Saving-App power bug fix](energy-saving-app-power-bug-fix.md) — 3 個 bug 已修、commit 9facb78、**不要 push**
+- [OVS pre-test state 08-11](ovs-pretest-state-2026-08-11.md) — Adam 三段式前置計劃的進度
