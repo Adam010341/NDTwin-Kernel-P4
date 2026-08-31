@@ -6,6 +6,9 @@
 
 - 對 Adam 回報一律中文；code／commit message 維持英文。
 - 多題裁決用互動表單：建議放第一、寫後果、末留自由輸入。
+- 手上的工作放進 task list（`TaskCreate`／`TaskUpdate`），狀態隨進度更新：開工標 `in_progress`、
+  做完標 `completed`、擋住的寫清楚被什麼擋。**那是 Adam 唯一看得到各 session 在幹嘛的地方**，
+  不是給自己看的備忘 ⇒ 放真的待辦，不放佔位資料。
 - Session 命名規則：
   - 有明確工作項目名稱＝負責該工作項目的 session。
   - **auditor**＝Adam 的代理人。Adam 會列出需要交給 auditor 管理的 session；auditor 負責審查
