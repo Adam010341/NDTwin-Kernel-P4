@@ -25,12 +25,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from proxy_agent.topology_manager import (  # noqa: E402
     MAX_REPORTED_FIELDS,
+    MAX_REPORTED_VALUE_CHARS,
     MalformedMatchError,
+    MalformedMatchValueError,
     parse_eth_type,
 )
 from proxy_agent.topology_manager import (  # noqa: E402
     TopologyManager,
     UnsupportedMatchError,
+    check_match_values,
     unsupported_match_fields,
 )
 
@@ -264,6 +267,132 @@ class ReportedFieldCapTest(unittest.TestCase):
         self.assertNotIn("more)", str(error))
 
 
+class MalformedMatchValueTest(unittest.TestCase):
+    """
+    A CIDR destination must be a 400, not a 500. KNOWN-ISSUES B-2c.
+
+    [Co-developed with claude code -- Adam]
+    `{"nw_dst": "10.0.0.5/32"}` names a field ipv4_lpm keys on, so unsupported_match_fields
+    returned [] and the value went straight to socket.inet_aton() inside insert_ipv4_route,
+    which raises OSError. Nothing caught it, so FastAPI answered 500 -- reproducible against the
+    proxy alone, with the kernel out of the picture (round 4).
+    """
+
+    def test_a_cidr_destination_is_refused_under_both_spellings(self):
+        for field in ("nw_dst", "ipv4_dst"):
+            with self.subTest(field=field):
+                with self.assertRaises(MalformedMatchValueError):
+                    check_match_values({field: "10.0.0.5/32"}, "installed")
+
+    def test_a_cidr_source_is_refused_too(self):
+        # The 5-tuple path reaches the same inet_aton via _encode_5tuple_value, so fixing only
+        # the destination would leave the source as a 500 while looking handled.
+        for field in ("nw_src", "ipv4_src"):
+            with self.subTest(field=field):
+                with self.assertRaises(MalformedMatchValueError):
+                    check_match_values({field: "10.0.0.0/16"}, "installed")
+
+    def test_it_is_an_unsupported_match_error_so_the_existing_catch_answers_400(self):
+        # The whole reason it is a subclass, as for MalformedMatchError. If this stops holding,
+        # api_routes needs a second catch and a CIDR goes straight back to being a 500.
+        try:
+            check_match_values({"nw_dst": "10.0.0.5/32"}, "installed")
+        except UnsupportedMatchError as e:
+            self.assertIsInstance(e, MalformedMatchValueError)
+        else:
+            self.fail("no exception raised")
+
+    # assertRaises rather than try/except throughout: a bare `except` clause spells PASS both
+    # when the guard fires correctly and when it does not fire at all, so the assertion that
+    # matters would be skipped by the very regression it is here to catch.
+    # [Co-developed with claude code -- Adam]
+
+    def test_the_message_quotes_what_the_caller_sent_and_names_what_did_not_happen(self):
+        # LockManager::describeError's two rules: quote the caller's own value, and say which
+        # operation did not occur -- the question after a 400 is always "did it do it anyway?".
+        with self.assertRaises(MalformedMatchValueError) as caught:
+            check_match_values({"nw_dst": "10.0.0.5/32"}, "installed")
+        text = str(caught.exception)
+        self.assertIn("nw_dst", text)
+        self.assertIn("10.0.0.5/32", text)
+        self.assertIn("No rule was installed", text)
+
+    def test_the_message_never_names_the_substituted_value(self):
+        # route_flow forces /32. A message built from the address with the prefix stripped would
+        # name a value the caller never sent, which is exactly how a substitution stays
+        # invisible -- the failure LockManager::describeError's rule exists to stop.
+        with self.assertRaises(MalformedMatchValueError) as caught:
+            check_match_values({"nw_dst": "10.0.0.5/32"}, "installed")
+        self.assertNotIn('"10.0.0.5"', str(caught.exception))
+
+    def test_the_action_verb_follows_the_caller(self):
+        for action in ("installed", "deleted", "modified"):
+            with self.subTest(action=action):
+                with self.assertRaises(MalformedMatchValueError) as caught:
+                    check_match_values({"nw_dst": "bogus/8"}, action)
+                self.assertIn(f"No rule was {action}", str(caught.exception))
+
+    def test_a_huge_value_produces_a_bounded_message(self):
+        # Same amplification as the field list: unauthenticated body, and the text is echoed
+        # into stdout, the proxy's 400 body and the kernel's northbound 400 body.
+        with self.assertRaises(MalformedMatchValueError) as caught:
+            check_match_values({"nw_dst": "9" * 20000}, "installed")
+        text = str(caught.exception)
+        self.assertLess(len(text), 600, "the message grows with the caller's payload")
+        self.assertIn("20000 characters", text, "the true length must still be reported")
+
+    def test_a_non_string_value_is_reported_by_type_not_by_content(self):
+        # inet_aton raises TypeError, not OSError, for these -- a separate escape to a 500.
+        for value in ([1, 2], {"a": 1}, 42, 1.5):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedMatchValueError) as caught:
+                    check_match_values({"nw_dst": value}, "installed")
+                self.assertIn(type(value).__name__, str(caught.exception))
+
+    def test_the_bound_is_the_declared_constant(self):
+        # Pins the message to MAX_REPORTED_VALUE_CHARS rather than to a number retyped here.
+        with self.assertRaises(MalformedMatchValueError) as caught:
+            check_match_values({"nw_dst": "7" * (MAX_REPORTED_VALUE_CHARS + 50)}, "installed")
+        text = str(caught.exception)
+        self.assertIn("7" * MAX_REPORTED_VALUE_CHARS, text)
+        self.assertNotIn("7" * (MAX_REPORTED_VALUE_CHARS + 1), text)
+
+    # --- the accept path, so the guard is not just "refuse everything" ----------------------
+
+    def test_a_bare_address_is_accepted(self):
+        # Smoke the accept path, not just refusals.
+        self.assertIsNone(check_match_values({"nw_dst": "10.0.0.4"}, "installed"))
+        self.assertIsNone(check_match_values(
+            {"ipv4_src": "10.0.0.1", "ipv4_dst": "10.0.0.4"}, "installed"))
+
+    def test_forms_inet_aton_already_accepts_are_not_newly_refused(self):
+        # The reason this validates by CALLING inet_aton rather than by a stricter parser of its
+        # own: these all work today, and refusing them would break a working client to fix a
+        # different bug. Same trade parse_eth_type was written for.
+        for value in ("10.1", "10.0.1", "0x0a000001", "127.1"):
+            with self.subTest(value=value):
+                self.assertIsNone(check_match_values({"nw_dst": value}, "installed"))
+
+    def test_falsy_and_absent_values_are_left_to_the_existing_guards(self):
+        # `match.get("nw_dst") or match.get("ipv4_dst")` falls through an empty string to the
+        # other spelling, and `if not ipv4_dst` returns False downstream. Refusing here would
+        # newly 400 a request that succeeds today.
+        self.assertIsNone(check_match_values({"nw_dst": "", "ipv4_dst": "10.0.0.4"}, "installed"))
+        self.assertIsNone(check_match_values({"nw_dst": None}, "installed"))
+        self.assertIsNone(check_match_values({}, "installed"))
+
+    def test_fields_the_pipeline_does_not_key_on_are_not_value_checked_here(self):
+        # dl_dst is refused by unsupported_match_fields, one gate earlier, and naming it here
+        # too would report the wrong reason for the refusal.
+        self.assertIsNone(check_match_values({"dl_dst": "not-an-ip"}, "installed"))
+
+    def test_a_non_dict_match_is_left_to_the_field_gate(self):
+        # unsupported_match_fields raises MalformedMatchError for these; raising a different
+        # error here would change which message the caller sees for an unchanged defect.
+        self.assertIsNone(check_match_values(["nw_dst"], "installed"))
+        self.assertIsNone(check_match_values(None, "installed"))
+
+
 class RefusalReachesTheEntryPointsTest(unittest.TestCase):
     """The three REST-facing entry points refuse BEFORE touching the switch.
 
@@ -362,6 +491,42 @@ class RefusalReachesTheEntryPointsTest(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(1, len(self.client.calls))
         self.assertEqual("insert", self.client.calls[0][0])
+
+    # --- B-2c: a CIDR value, refused before the switch is touched ---------------------------
+    # [Co-developed with claude code -- Adam]
+    # These belong beside the field-name refusals for the reason this class exists at all: the
+    # helper tests above would all stay green if check_match_values were never called from the
+    # three verbs, which is precisely how the value could reach inet_aton and 500 again. Only
+    # driving route_flow / unroute_flow / modify_flow proves the call site is wired.
+
+    CIDR = {"eth_type": 2048, "nw_dst": "10.0.0.5/32"}
+
+    def test_route_flow_refuses_a_cidr_destination_before_any_write(self):
+        with self.assertRaises(MalformedMatchValueError):
+            self.topo.route_flow(1, dict(self.CIDR), self.OUTPUT)
+        self.assertEqual([], self.client.calls)
+
+    def test_unroute_flow_refuses_a_cidr_destination_before_any_delete(self):
+        # The worse direction of the two: a delete that reached the switch with a value the
+        # encoder could not read would have already been dispatched by the time it failed.
+        with self.assertRaises(MalformedMatchValueError):
+            self.topo.unroute_flow(1, dict(self.CIDR))
+        self.assertEqual([], self.client.calls)
+
+    def test_modify_flow_refuses_a_cidr_destination_before_any_write(self):
+        with self.assertRaises(MalformedMatchValueError):
+            self.topo.modify_flow(1, dict(self.CIDR), self.OUTPUT)
+        self.assertEqual([], self.client.calls)
+
+    def test_a_cidr_source_is_refused_on_the_five_tuple_path_too(self):
+        # This match is expressible by field name and goes to flow_5tuple, so it reaches
+        # inet_aton by a different route than the destination does. Fixing only ipv4_lpm would
+        # leave this one a 500 while the endpoint looked handled.
+        match = dict(self.FIVE_TUPLE)
+        match["ipv4_src"] = "10.0.0.0/16"
+        with self.assertRaises(MalformedMatchValueError):
+            self.topo.route_flow(1, match, self.OUTPUT, 100)
+        self.assertEqual([], self.client.calls)
 
 
 if __name__ == "__main__":

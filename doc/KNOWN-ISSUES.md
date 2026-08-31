@@ -303,28 +303,45 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **與 §F 的 qdisc 遺失是同一族**：`powerOff` 存了 port 清單，但既沒存 qdisc 也沒存 sFlow 紀錄
 - **證據**：實測，`scratch/round6/FINDINGS-round6.md` X1
 
-### A-5 每次 kernel 重啟都會截斷前一輪的 log —— 包括示範自己的證據
+### A-5 ~~每次 kernel 重啟都會截斷前一輪的 log~~ —— **已修（2026-08-30 更正）**
 
-- **狀態**：OPEN
+- **狀態**：🏁 **主機制已修，本條原文已過期**。
+  ⚠️ **本條在 `b2e5b04` 之後仍被留成 OPEN，2026-08-30 才發現**——
+  派工單據此指示去修 `src/utils/Logger.cpp`，那裡**本來就是 append**
+  （`basic_file_sink_mt("netdt.log", /*truncate=*/false)`），**假設整個是錯的**
 - **平面**：兩者
-- **失效方向**：靜默（證據消失，沒有人被通知）
-- **會發生什麼**：出事後想回頭看 log，**上一輪的已經沒了**。示範中途重啟 kernel（A-2 的繞法
-  正好要求這麼做）就會抹掉導致問題的那段紀錄
-- **🔑 繞法**：**每輪結束立刻把 `kernel.log` / `p4_proxy.log` / `ryu.log` 複製到別處**，
-  在下一次 stack 循環之前
-- **證據**：`scratch/phase2/DEFECT-INVENTORY.md`（舊輪次掃描）
+- **真正的機制（原文沒寫對）**：截斷不在 kernel 裡，在 **launcher 的 `>` 重導**——
+  `stack.sh` 的 `start_bg`。`doc/2026-08-14_cross-component-integration-matrix.md:170` 早就寫對了。
+  kernel 的 log 走 stdout，`--logfile`／`netdt.log` **stack.sh 從來沒傳過**，是死路徑
+- **已修**：`b2e5b04` 把 `>` 前面加上 `mv -f "$log" "$log.prev"`，
+  三個 log（`kernel.log`／`p4_proxy.log`／`ryu.log`）都走同一個 `start_bg`，全部涵蓋；
+  測試 `tests/shell/test_start_bg_log_rotation.sh`
+- **🔴 殘留（2026-08-30 補修）**：一代不夠。A-2 的繞法就是「重啟 kernel」，
+  症狀復發你會再重啟一次——**第二次重啟把「有證據的那一代」換成「什麼都沒有的那一代」**，
+  正好是本條講的示範情境。已改成 **深度 2**（`.prev` → `.prev2`），磁碟仍有界
+- **🔑 繞法（仍然適用於超過兩代）**：連續重啟三次以上，還是要把 log 複製到別處
+- **證據**：`scratch/phase2/DEFECT-INVENTORY.md`（舊輪次掃描，機制寫錯）；
+  修法與複驗 `doc/audit/2026-08-30_known-issues-wave/10_seatbelt-evidence.md`
 
-### A-6 P4 proxy 每次啟動都宣告「這輪毀了」，而它是錯的
+### A-6 ~~P4 proxy 每次啟動都宣告「這輪毀了」~~ —— **已修（2026-08-30 更正）**
 
-- **狀態**：OPEN
+- **狀態**：🏁 **已修，本條原文已過期**。
+  ⚠️ 與 A-5 同型：`11789e0` 修掉之後**本條仍被留成 OPEN**，2026-08-30 才發現
 - **平面**：P4
-- **失效方向**：悲觀 ＋ 噪音
-- **會發生什麼**：proxy 在**每次**啟動時印出「the graph will stay partly disabled … for the
-  rest」之類的訊息。實測那是假的——`inform_switch_entered` 會重試而且會成功。
+- **原本會發生什麼**：proxy 在**每次**啟動時印出「the graph will stay partly disabled … for the
+  rest」之類的訊息。那是假的——`inform_switch_entered` 會重試而且會成功。
   台下看到這行會以為系統壞了
-- **相關**：`cleanupAppFolder` 另外會噴 **17 條敘述後果為假的警告**，
-  外加 **9 個裸的 sudo 密碼提示打到 stderr**
-- **證據**：`scratch/phase2/DEFECT-INVENTORY.md`
+- **已修**：`11789e0`（`p4_proxy/proxy_agent/main.py:259-279`）。三件事一起做了：
+  1. 訊息**變成有條件的**——`if not not_entered` 走「全部認可」那支
+  2. 剩下那支改寫成啟動當下**真正知道的事**：
+     「normal when the kernel starts after the proxy … retrying the push in the background」，
+     並指名 kernel 的 topology poll 自己就會 enable（`TopologyAndFlowMonitor.cpp:566`）
+  3. 補上一個**有界的背景重試**，讓訊息講的「會自己好」真的成立
+  原始碼註解自己記著這條的來歷：**2026-08-15 的 overnight audit 相信了那句話，誤診了一個健康的 era**
+- **⚠️ 本條的另一半沒修、也不在本輪範圍**：`cleanupAppFolder` 仍會噴
+  **17 條敘述後果為假的警告** ＋ **9 個裸的 sudo 密碼提示打到 stderr**（未複驗，沿用原記載）
+- **證據**：`scratch/phase2/DEFECT-INVENTORY.md`；
+  複驗 `doc/audit/2026-08-30_known-issues-wave/10_seatbelt-evidence.md`
 
 ### A-7 排隊寫入的失敗對所有 API 都不可見
 
@@ -544,7 +561,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-2c P4 proxy 對 CIDR 形式的 `ipv4_dst` 回 500（未處理的 `OSError`）
 
-- **狀態**：OPEN。**round 4 新發現**。**2026-08-30 讀碼重驗仍然成立**（`1208d22`）
+- **狀態**：**修法已落並過變異閘（2026-08-31：M-1〜M-5 全殺、套件 49/49＋8/8）**；
+  對活 proxy 的 live 400 驗證（含 accept-path 200 對照）**未跑**，配方在
+  `doc/audit/2026-08-30_known-issues-wave/10_seatbelt-evidence.md` §6，待下一個 claimed fabric。
+  round 4 發現；2026-08-30 讀碼重驗成立（`1208d22`）
 - **平面**：P4
 - **失效方向**：吵（500），但錯誤沒有說明原因
 - **機制**：`route_flow` 寫死 `/32`，然後把呼叫者給的值直接丟進 `inet_aton`——
@@ -558,7 +578,30 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `_flowentry_body`（`:186-198`）只捕 `ValueError`，而
   `unsupported_match_fields` 驗的是**欄位名不是值**
 - **把 kernel 排除在外也能重現**（直接打 proxy）
-- **證據**：實測，`scratch/round4/FINDINGS-round4.md` 實驗 2 附帶發現
+- **🔑 2026-08-30 增補：本條的觸發面比原文寫的寬，而且 repo 內就有生產者。**
+  原文讀起來像「要有人手動送一個怪值」。實際上：
+  - `unsupported_match_fields` 驗的是**欄位名**，不是**值** ⇒ `nw_dst` 是合法欄位，直接放行
+  - **三個動詞都中**：`route_flow`／`unroute_flow`／`modify_flow`，
+    分別落在 `p4_client.py:819`／`:899`／`:948` 的同一個 `inet_aton`
+  - **來源側也中**：5-tuple 路徑的 `_encode_5tuple_value`（`p4_client.py:687`）
+    對 `nw_src`／`ipv4_src` 走同一個 `inet_aton` ⇒ 只修目的端會**看起來修好了**
+  - **🔴 repo 內就有生產者**：`IntentTranslator.cpp:359-362` 把驗證代理的 `ipv4_dst`
+    原樣複製成 `nw_dst`，而 `validation_agent_prompt.txt:113` **明文告訴模型 CIDR 是允許的答案**
+    ⇒ 這不是只有手打 curl 才碰得到
+- **修法**：在 `topology_manager.py` 加 `check_match_values()`，三個動詞各呼叫一次，
+  丟 `MalformedMatchValueError(UnsupportedMatchError)` ⇒ 走 `api_routes` **既有**的 catch 變 400。
+  **用 `socket.inet_aton` 自己當判準**（不自己寫更嚴的 parser），所以不會新拒絕今天會動的輸入
+- **⚠️ 未涵蓋（同族，另計）**：flow_5tuple 的**數值欄位**
+  （`in_port`／`ip_proto`／`tp_src`／`tp_dst` 等）走的是 `int(value).to_bytes(width)`，
+  非數字字串仍 `ValueError`、超出範圍仍 `OverflowError`，**兩者都還是 500**。
+  本輪刻意不一起修（改動面會擴到編碼寬度表，量測窗內無法驗），**登記待裁**
+- **⚠️ 跨 repo 契約**：500→400 對北向是**可見的變更**。`HttpSession.cpp:735-758` 把 4xx/5xx
+  原樣穿透，所以 `/ndt/install_flow_entry` 在 P4 模式下的回應會從 500 變 400。
+  in-repo 確認無人期待 500（`tools/contract_test/spec.py` 唯二的 `expect_status=[200,500]`
+  是 `/ndt/historical_logging`，與此無關；南向 `HttpRoutingStrategyBase.cpp:103` 對 400/500 行為完全相同）。
+  **七個 cross-repo caller 未檢查**，清單見證據檔
+- **證據**：實測，`scratch/round4/FINDINGS-round4.md` 實驗 2 附帶發現；
+  修法與預註冊 `doc/audit/2026-08-30_known-issues-wave/10_seatbelt-evidence.md`
 
 ### B-3 historical logging 回 200「已啟用」，但一列都不會寫
 

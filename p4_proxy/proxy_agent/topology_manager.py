@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import threading
 import time
 
@@ -32,6 +33,13 @@ from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 #: joined, printed to stdout and echoed in the 400 body. Small amplification, but free to remove.
 #: [Co-developed with claude code -- Adam]
 MAX_REPORTED_FIELDS = 12
+
+#: How much of a single offending match VALUE is echoed back. Same reasoning as
+#: MAX_REPORTED_FIELDS and the same unauthenticated body: a caller can put megabytes behind one
+#: key, and the value is echoed into stdout, the proxy's 400 body, and -- via HttpSession's
+#: respondToOpResult pass-through -- the kernel's own northbound 400 body.
+#: [Co-developed with claude code -- Adam]
+MAX_REPORTED_VALUE_CHARS = 64
 
 
 class UnsupportedMatchError(ValueError):
@@ -74,6 +82,69 @@ class MalformedMatchError(UnsupportedMatchError):
         # is what the caller needs.
         ValueError.__init__(self, f"match must be a JSON object, got {type(value).__name__}")
         self.fields = []
+
+
+def _describe_match_value(value):
+    """
+    One match value, rendered so it can safely appear in a 400 body.
+
+    [Co-developed with claude code -- Adam]
+    Quotes what the CALLER sent, never what this proxy would have substituted -- the rule
+    LockManager::describeError states, and it bites here specifically: route_flow forces prefix
+    /32 on every destination, so a message built from the address with the prefix stripped would
+    name a value the caller never sent and make that substitution invisible, which is the exact
+    failure that rule exists to stop.
+
+    Bounded for MAX_REPORTED_VALUE_CHARS' reason. A non-string is described by type alone, as
+    MalformedMatchError does: inet_aton rejects it for its type, and printing the object would
+    illustrate nothing while being unbounded in size.
+    """
+    if not isinstance(value, str):
+        return f"a {type(value).__name__}"
+    if len(value) > MAX_REPORTED_VALUE_CHARS:
+        return f'"{value[:MAX_REPORTED_VALUE_CHARS]}..." ({len(value)} characters)'
+    return f'"{value}"'
+
+
+class MalformedMatchValueError(UnsupportedMatchError):
+    """
+    Raised when a field the pipeline DOES key on carries a value it cannot encode.
+
+    [Co-developed with claude code -- Adam]
+    unsupported_match_fields validates field *names*. Nothing validated the values behind them,
+    so `{"nw_dst": "10.0.0.5/32"}` passed every check and reached socket.inet_aton() inside
+    insert_ipv4_route, which raises OSError -- uncaught, so FastAPI answered **500**
+    (KNOWN-ISSUES B-2c, round 4). Same defect class as MalformedMatchError one shape up: a
+    malformed request is the client's error and must be answered as one, not as a proxy crash.
+
+    A subclass for the same reason MalformedMatchError is one: api_routes catches only
+    UnsupportedMatchError, and this has to land in that catch to become a 400 rather than
+    escaping to FastAPI as another 500.
+
+    CIDR is REFUSED, not accepted-and-stripped. route_flow installs every destination as a
+    hard-coded /32 host route, so "10.0.0.0/16" cannot be honoured at all, and accepting only
+    "/32" would advertise a prefix surface this proxy does not have -- a caller who saw /32 work
+    would reasonably send /24 next and get a host route for the network address. Refusing both
+    is the only answer that does not mislead.
+
+    Reachable from in-repo code, not just hand-written curl: IntentTranslator.cpp:359-362 copies
+    the validation agent's `ipv4_dst` into `nw_dst` verbatim, and validation_agent_prompt.txt:113
+    tells the model a CIDR prefix is a permitted answer.
+    """
+
+    def __init__(self, field, value, action):
+        self.fields = [field]
+        # `action` is the past participle of what the caller asked for, so the sentence names
+        # what did NOT happen. LockManager::describeError's shape, for its reason: the question
+        # after a 400 is always "did it do it anyway?", and for this endpoint it used to be a
+        # 500 that answered nothing at all.
+        ValueError.__init__(
+            self,
+            f"match field {field} carries {_describe_match_value(value)}, which is not an IPv4 "
+            f"address in dotted-quad form (e.g. 10.0.0.4). This proxy installs one /32 host "
+            f"route per destination, so a prefix length cannot be honoured and is refused "
+            f"rather than dropped. No rule was " + action
+        )
 
 
 def parse_eth_type(value):
@@ -139,6 +210,60 @@ FIVE_TUPLE_FIELD_MAP = {
 #: routing all of them through a ternary table instead would change the behaviour of the entire
 #: fabric to deliver a feature nobody asked it for.
 FIVE_TUPLE_ONLY_FIELDS = frozenset(FIVE_TUPLE_FIELD_MAP) - HONOURED_MATCH_FIELDS
+
+#: The match fields whose values are encoded with socket.inet_aton, on either path: the
+#: destination reaches it via insert_ipv4_route (ipv4_lpm), and both source and destination via
+#: _encode_5tuple_value (flow_5tuple). Derived from FIVE_TUPLE_FIELD_MAP rather than written out,
+#: so a new spelling added there cannot end up validated on one path and not the other.
+#: [Co-developed with claude code -- Adam]
+IPV4_VALUED_MATCH_FIELDS = frozenset(
+    field for field, p4_key in FIVE_TUPLE_FIELD_MAP.items()
+    if p4_key in ("hdr.ipv4.srcAddr", "hdr.ipv4.dstAddr")
+)
+
+
+def check_match_values(match_dict, action):
+    """
+    Raises MalformedMatchValueError if an address field carries a value the encoders reject.
+
+    Closes KNOWN-ISSUES B-2c: `{"nw_dst": "10.0.0.5/32"}` used to pass field-name validation,
+    reach socket.inet_aton() and raise OSError out of the handler as a 500.
+
+    [Co-developed with claude code -- Adam]
+    Validated by CALLING socket.inet_aton -- the same function the encoders call -- rather than
+    by a stricter parser of our own. A hand-written dotted-quad check would newly refuse forms
+    inet_aton accepts today (it reads "10.1" as 10.0.0.1 and "0x0a000001" as 10.0.0.1), and
+    falsely rejecting a caller that works today is the worse direction: it breaks a working
+    client rather than merely letting something through. That is the same trade parse_eth_type
+    was written for. Using the real encoder as the oracle also means this cannot drift from it.
+
+    Falsy values are skipped rather than refused, because every caller of this function already
+    treats them as "no destination given" -- `match_dict.get("nw_dst") or match_dict.get(
+    "ipv4_dst")` falls through an empty string to the other spelling, and the `if not ipv4_dst`
+    guards below return False. Refusing them here would newly 400 a request that succeeds today.
+
+    ⚠️ Covers the inet_aton sinks ONLY. The numeric flow_5tuple keys (in_port, ip_proto,
+    tp_src/tp_dst and their spellings) reach `int(value).to_bytes(width)` in
+    _encode_5tuple_value, where a non-numeric string still raises ValueError and an out-of-range
+    number still raises OverflowError -- both still uncaught, both still 500s. Same family, not
+    the adjudicated defect, and deliberately not fixed in the same change: see the evidence draft
+    for 2026-08-30, which registers it rather than leaving it to look handled.
+    """
+    if not isinstance(match_dict, dict):
+        return
+    for field in sorted(match_dict):
+        if field not in IPV4_VALUED_MATCH_FIELDS:
+            continue
+        value = match_dict[field]
+        if not value:
+            continue
+        try:
+            socket.inet_aton(value)
+        except (OSError, TypeError):
+            # `from None`: the OSError's own text is "illegal IP address string passed to
+            # inet_aton", which names a C function the caller has never heard of and not the
+            # field they sent.
+            raise MalformedMatchValueError(field, value, action) from None
 
 #: Sent on essentially every IPv4 rule. Validated below, but not a key: ipv4_lpm is IPv4 by
 #: construction, so eth_type 0x0800 is a tautology and anything else is unrepresentable.
@@ -712,6 +837,11 @@ class TopologyManager:
                   f"neither table can honour {bad}")
             raise UnsupportedMatchError(bad)
 
+        # The field names are expressible; the values behind them still have to be encodable.
+        # Before this, a CIDR destination reached inet_aton and left as a 500 (B-2c).
+        # [Co-developed with claude code -- Adam]
+        check_match_values(match_dict, "installed")
+
         # Parse match (OpenFlow JSON)
         # NDTwin sends: {"dl_type": 2048, "nw_dst": "10.0.0.1"}
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
@@ -790,6 +920,10 @@ class TopologyManager:
                   f"neither table can honour {bad}")
             raise UnsupportedMatchError(bad)
 
+        # [Co-developed with claude code -- Adam] As route_flow: delete_ipv4_route reaches the
+        # same inet_aton, so the same value was the same 500 on the way out.
+        check_match_values(match_dict, "deleted")
+
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
 
@@ -830,6 +964,9 @@ class TopologyManager:
             print(f"[TopologyManager] Refusing modify for DPID {dpid}: "
                   f"neither table can honour {bad}")
             raise UnsupportedMatchError(bad)
+
+        # [Co-developed with claude code -- Adam] As route_flow.
+        check_match_values(match_dict, "modified")
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")

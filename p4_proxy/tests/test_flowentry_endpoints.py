@@ -38,6 +38,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from fastapi import HTTPException  # noqa: E402
 
 from proxy_agent import api_routes  # noqa: E402
+from proxy_agent.topology_manager import MalformedMatchValueError  # noqa: E402
 from proxy_agent.topology_manager import TopologyManager  # noqa: E402
 
 
@@ -73,6 +74,26 @@ class RecordingTopology:
     def modify_flow(self, dpid, match, actions, priority=None):
         self.calls.append(("modify", dpid, match, actions, priority))
         return self.verdict
+
+
+class RaisingTopology:
+    """Raises the given exception from every write, to exercise the handlers' except branches.
+
+    [Co-developed with claude code -- Adam] RecordingTopology cannot reach them: it answers
+    every call with a verdict, so the refusal path stays uncovered.
+    """
+
+    def __init__(self, error):
+        self.error = error
+
+    def route_flow(self, dpid, match, actions, priority=None):
+        raise self.error
+
+    def unroute_flow(self, dpid, match, priority=None):
+        raise self.error
+
+    def modify_flow(self, dpid, match, actions, priority=None):
+        raise self.error
 
 
 HANDLERS = {
@@ -119,6 +140,49 @@ class MalformedBodyIsTheClientsErrorTest(unittest.TestCase):
             with self.assertRaises(HTTPException):
                 call(handler, b"[]")
         self.assertEqual(recorder.calls, [])
+
+
+class MalformedMatchValueIsA400Test(unittest.TestCase):
+    """
+    A CIDR `nw_dst` must surface as 400, not 500. KNOWN-ISSUES B-2c.
+
+    [Co-developed with claude code -- Adam]
+    The refusal itself is tested in test_unsupported_match.py, at the layer that raises. What is
+    only testable HERE is the conversion: api_routes has exactly one `except UnsupportedMatchError`
+    per handler, so MalformedMatchValueError becomes a 400 solely by virtue of being a subclass.
+    Break that inheritance and every test in the other file still passes while the endpoint goes
+    back to answering 500 -- so the subclass relationship is pinned from the endpoint side too.
+
+    The topology is stubbed to RAISE rather than driven for real: this asserts what the handler
+    does with the exception, and a stub that raises is the only way to reach that branch without
+    also depending on the manager's internals.
+    """
+
+    def setUp(self):
+        self.raiser = RaisingTopology(
+            MalformedMatchValueError("nw_dst", "10.0.0.5/32", "installed"))
+        api_routes.topology = self.raiser
+
+    def tearDown(self):
+        api_routes.topology = None
+
+    def test_it_answers_400_on_every_write_endpoint(self):
+        body = json.dumps({"dpid": 1, "match": {"nw_dst": "10.0.0.5/32"},
+                           "actions": [{"type": "OUTPUT", "port": 1}]}).encode()
+        for name, handler in HANDLERS.items():
+            with self.subTest(endpoint=name):
+                with self.assertRaises(HTTPException) as caught:
+                    call(handler, body)
+                self.assertEqual(caught.exception.status_code, 400)
+
+    def test_the_400_body_names_the_field_and_the_value_the_caller_sent(self):
+        body = json.dumps({"dpid": 1, "match": {"nw_dst": "10.0.0.5/32"},
+                           "actions": [{"type": "OUTPUT", "port": 1}]}).encode()
+        with self.assertRaises(HTTPException) as caught:
+            call(api_routes.add_flow_entry, body)
+        detail = caught.exception.detail
+        self.assertEqual(detail["fields"], ["nw_dst"])
+        self.assertIn("10.0.0.5/32", detail["message"])
 
 
 class NonStrictDeleteRouteTest(unittest.TestCase):
