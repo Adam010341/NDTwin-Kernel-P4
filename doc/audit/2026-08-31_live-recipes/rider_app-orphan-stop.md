@@ -115,9 +115,20 @@ test -d /proc/$TEPID && echo "PROCESS STILL ALIVE"
 「pidfile 與行程脫鉤」印的**。舊碼就算是好的，這一步也照樣「通過」。
 ⇒ 控制組必須放在 `$HERE/../..` 解得回本 repo 的位置，**並且要先證明它真的接對了**。
 
+**放哪裡**：`.test_run/ctl/`。這個路徑同時滿足兩個**互相拉扯**的條件，
+所以它不是隨便挑的，**請不要「順手整理」到 `/tmp` 或 repo 根目錄**：
+- `$HERE/../..` 必須解得回 repo 根 ⇒ 只能是 repo 底下**剛好第二層**的目錄；
+- 它是未追蹤檔，而這是**四個 session 共用的 worktree** ⇒ 必須落在 gitignore 裡，
+  否則任何人一次 `git add -A` 就把它送進版控。`.test_run/` 已被 `.gitignore:21` 忽略。
+
+（2026-08-31 實測驗過這條路徑：sha256 對得上、`REPO` 解成
+`/home/adam/Desktop/NDTwin-Kernel`、`apps status` 跑得起來——舊版 `apps status`／
+`apps stop` 都不需要 `$HERE/components.env`，所以離開 `tools/test_workflow/` 沒有副作用。）
+
 ```bash
 # c10ac7c ＝修法落地前的最後一顆；sha256 856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34
-BEFORE=tools/test_workflow/ndt_before_c10ac7c.sh   # 必須在 tools/test_workflow/ 底下
+mkdir -p .test_run/ctl
+BEFORE=.test_run/ctl/ndt_before_c10ac7c.sh   # 見上面「放哪裡」：不要改成 /tmp
 git show c10ac7c:tools/test_workflow/ndt > "$BEFORE"
 sha256sum "$BEFORE"                   # 對上上面那串才往下走
 grep -c apps_orphans "$BEFORE"        # 必須是 0，否則抓錯版本
@@ -132,7 +143,6 @@ NDT_OWNER=$NDT_OWNER "$BEFORE" apps stop te; echo "rc=$?"
 test -d /proc/$TEPID && echo "STILL ALIVE AFTER OLD STOP"
 ```
 
-⚠️ **這是共用 worktree，`$BEFORE` 是未追蹤檔，任何人一次 `git add -A` 就會把它送進版控。**
 用完立刻刪，並且**驗狀態不驗 rc**：`test -e "$BEFORE" && echo STILL-PRESENT || echo GONE`。
 （本輪就是這樣處理的：跑完 → `ndt down` 驗清 → 才刪 → `test -e` 驗掉。）
 **預期**（這是 08-31 記錄的壞行為，要在同一台機器上再看一次）：

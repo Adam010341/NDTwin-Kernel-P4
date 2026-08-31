@@ -476,7 +476,17 @@ wedged pass therefore costs **~6s (3 × 2s), not ~15s** — measured 6.024s, wit
 15s is the `--max-time` figure and needs an **accept-then-stall** controller, which this rule
 cannot produce. That half is covered by unit mutation M10 only; **`--max-time 5` has not been
 exercised live**, and the sudoers grant on this machine is exactly these two verbatim commands,
-so it cannot be with iptables alone.
+so it cannot be with iptables alone. A rider that reaches it **without sudo** — stop Ryu, hold
+`:8080` with a ten-line listener that accepts and never writes — is
+`doc/audit/2026-08-31_live-recipes/rider_a2-max-time.md`, for the next fabric window.
+
+🔑 **The general rule this is an instance of: the pass criterion belongs to the injection, not
+to the fix.** Both deadlines are in the code; which one you get to observe is decided entirely
+by *how you break the control plane*. Drop the SYN and you can only ever see `--connect-timeout`;
+accept and stall and you can only ever see `--max-time`. Writing one number into the recipe and
+leaving the injection method free is how a recipe ends up **failing a correct system** — the
+A-8 family in `doc/KNOWN-ISSUES.md`, which is about test tooling that goes red while the twin's
+books are right. **Change the injection ⇒ re-derive the expected value.**
 
 **Pass:** exactly **one** "no answer" line appears no matter how many polls elapse; it names the
 URLs and an elapsed time of **~6s (this injection) — bounded, not 733s**; the poll keeps
