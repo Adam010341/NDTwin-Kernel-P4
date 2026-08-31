@@ -1204,6 +1204,16 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   不是這次的已發生事實。
   「崩潰迴圈」與「100 MB」則被證據包**確認**：61,710 個**同一種** `UnboundLocalError`、
   穩定 3600 次／小時，全程只有三段約 135 秒的停頓。
+  📏 **「這份 log 能不能刪」的判準（08-31 兩次刪除各學到一半，寫成規則）**：
+  分界**不是**「它有沒有支撐宣稱」——同一天刪的兩份**都有**。分界是**證據的保存狀態**：
+  | 問 | `app_te.log` | `app_viz.log` |
+  |---|---|---|
+  | 有沒有支撐已發表宣稱 | 有（§G 三個詞） | 有（FINDING-02＋maven 共變數） |
+  | 關鍵事實抽出來了嗎 | ❌ 只有 184 byte 的**身分**節錄，**節奏從沒被抽過** | ✅ 當輪就刻意抽成 `covariate_maven_build.txt` |
+  | 有沒有等價副本 | ❌ 全世界一份 | ✅ **逐 byte 相同**的副本＋`artifact-baseline.txt` 記著 sha |
+  | ⇒ 刪之前要做什麼 | **現做有界證據包** | 不用（但**副本當時不在任何 object store**⇒補進 `audit-raw f9f30c0`） |
+  🔴 **查「有沒有被引用」時 grep 範圍要涵蓋 `raw/` 的 `.txt`／`.jsonl` 與 `harness/` 的 `.sh`**——
+  只查 `--include="*.md" doc/` 會得到「零引用」的錯誤結論（08-31 我就是這樣答錯 `app_viz.log` 的）。
   這種孤兒會裝流表規則，kernel 一起來就污染量測。正解＝`/proc` 驗身分後按 PID 停。
   🔄 **08-31 修法已落，狀態＝過了單元變異閘、live 未驗（不是 RESOLVED）**：
   `ndt` 加了三態 `app_probe`（`running`／`not-running`／**`pidfile-lost-but-alive`**）、
@@ -1232,8 +1242,31 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   🔑 **這是「VM 對 `ndt status` 隱形」的第二面：它對磁碟簿記也隱形**——`du` 與 `df` 會給你
   兩個相反的答案，而兩個都不是錯的。**空間見底時先查 `/proc/*/fd` 找 deleted 檔，不要再刪東西**
   （再刪也不會回來）。回收方式＝關掉／重開那個 VM，**不是 `kill virtiofsd`**（那是別人的 VM）。
-  量法（唯讀）：走 `/proc/<pid>/fd`，`readlink` 結尾是 ` (deleted)` 的就是，`stat` 取大小；
-  **要濾掉 `/memfd:`**——不濾的話會算出 40 GB，那是共享記憶體不是磁碟。
+  **量法（唯讀、可直接貼，08-31 實跑過；與獨立寫的 python 版逐數字對過帳）**：
+
+  ```bash
+  ROOTDEV=$(stat -c %d /)
+  for d in /proc/[0-9]*; do
+    c=$(cat "$d/comm" 2>/dev/null) || continue
+    for f in "$d"/fd/*; do
+      t=$(readlink "$f" 2>/dev/null) || continue
+      case "$t" in *' (deleted)') ;; *) continue ;; esac
+      # 這一行是關鍵：不濾掉 memfd/socket/pipe 會算出 40 GB，
+      # 而那是共享記憶體不是磁碟——67 倍的假警報。
+      case "$t" in /memfd:*|/dev/*|anon_inode:*|socket:*|pipe:*) continue ;; esac
+      read -r dev sz < <(stat -Lc '%d %s' "$f" 2>/dev/null) || continue
+      [ "$dev" = "$ROOTDEV" ] || continue     # 只算 / 上的，別把別的 fs 算進來
+      printf '%s\t%s\t%s\n' "$sz" "$c" "${t% (deleted)}"
+    done
+  done 2>/dev/null | sort -rn > /tmp/delfd.tsv
+  awk -F'\t' '{t+=$1; p[$2]+=$1} END {printf "TOTAL %.1f MiB in %d fds\n", t/1048576, NR;
+    for (k in p) printf "  %-16s %8.1f MiB\n", k, p[k]/1048576}' /tmp/delfd.tsv | sort -k2 -rn | head -6
+  head -5 /tmp/delfd.tsv | awk -F'\t' '{printf "  %8.1f MiB  %-12s %s\n", $1/1048576, $2, $3}'
+  ```
+
+  08-31 的輸出＝`TOTAL 606.2 MiB in 450 fds`／`virtiofsd 511.9 MiB`。
+  🔑 **不要用 `pgrep -f`／`pkill -f` 找或殺這些持有者**，也不要 kill `virtiofsd`——
+  **回收的唯一正解是關掉那個 VM，而那台 VM 是別人的。**
 - 🔴 **`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。
   🔄 08-30 收窄（sweep 實讀 `/usr/lib/python3/dist-packages/mininet/clean.py:29/:37/:66`）：
   機制＝`pkill -9 -f`，**argv 對上 pattern 才殺**——`sudo mn -c` 的 shell 不匹配
