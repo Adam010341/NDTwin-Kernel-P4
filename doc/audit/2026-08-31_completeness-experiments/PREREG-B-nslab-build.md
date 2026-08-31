@@ -33,10 +33,24 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
 - Binary identity（auditor C3）：每臂 sha256＋bidirectional symbol signature（沿 study，
   含 negative control）＋ `ldd`＋`readelf -d` RUNPATH 快照；`-march=native` 在 VM 內的
   實際展開一併存。
+- 🔴 **v1.1 收緊（F1/F2）——arm 選擇機制與「跑起來那顆」的斷言**：
+  1. **arm 選擇機制必須指名**：VM 上由哪一支拓樸腳本啟動 switch、它從何處取得 binary
+     絕對路徑，**凍結前寫死**。機器 1 的機制＝`p4_proxy/mininet/bmv2_binary_override`
+     （第一行非註解行＝絕對路徑）；**VM 若無等價機制，本輪不得開跑**
+     （🔑 `p4_testbed_topo.py:39` 註解記載此坑已發生過一次：裸名字→PATH→解析到 stock）。
+  2. **每臂開頭與結尾各斷言一次**：以 `arm_binary_assert.sh <該臂編譯產物> <執行中 switch pid>`
+     取 **`/proc/<pid>/exe`** 的 sha256 與編譯產物比對；**任一次不符或無法判定 ⇒ 該臂作廢、
+     整輪停止**（不得以「大概是對的」續跑）。
+  3. 🔑 **理由**：只記編譯產物的 sha256 **無法否證 F1**——八臂全跑同一顆 binary 時，
+     所有身分紀錄仍會看起來正確。
 
 ## 3. 量測與判定規則（規則先凍、值後算——auditor C1）
 
 - 拓樸＝單跳、控制面活著（與 study ① 同構）；工作點＝1400 B payload（1442 B frame）UDP。
+  🔴 **v1.1 收緊（F3）：「控制面活著」改為功能陳述**——換臂後必須斷言
+  **至少一條規則已被實際編程、且由南向直讀可見**（P4＝proxy 讀表；OVS＝Ryu `/stats/flow`）。
+  ⚠️ **限定「南向直讀」不可省**：北向視圖有約 10 秒快取，會把「看得到」誤讀成「裝好了」。
+  僅驗「控制面行程存在」不算數（[[existence-is-not-wiring]]）。
 - 梯階＝① 的**註冊 ladder 逐字**：`1 2 3 5 8 12 20 30 45 70 110 160 240 360` Mbit/s，
   向上爬到 **saturation stop 發火＝連續兩 rung loss >25%**（540/810 等延伸 rung 由規則
   產生，非人選；`RUNAWAY_MAX=40` 純 bug backstop、發火則該臂讀值不作 saturation 解）。
@@ -172,6 +186,26 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   先凍、C2 跨機器免責、C3 ldd/RUNPATH、C4 環境條款、C5 新鮮度＋凍結後不加）。
   【TBD】×4：rungs 對 21_/22_ 核對、VM manifest、P4 程式/p4c 逐字記名、sender gate
   的 VM 校準程序。
+- **v1.1（08-31，凍結後、資料接觸前；只增不減）＝F1/F2/F3 收緊**。auditor 批准為
+  「資料接觸前的收緊更正」、不解凍，四條件逐項：
+  ① **資料接觸前（證明而非斷言）**：本機 repo 的臂資料落點
+     `doc/audit/2026-08-31_completeness-experiments/B-nslab-build/` 於 08-31 15:2x `ls` 實得
+     **只有五個檔：兩支腳本＋CROSSCHECK＋GATE-RESULT＋ROUND-LOG，零臂資料**；
+     遠端 `~/b-round/builds/` 最後一次觀測為「status.txt 空、無臂目錄」，
+     ⚠️ **遠端現處暫緩、無法重新查證**，故此列為「本機證據充分＋遠端末次觀測」，不宣稱已重驗。
+  ② **理由是外部發現的程序缺陷**（註冊的程序構不到它宣稱要量的東西），
+     **不是**看到門檻擋住自己：本輪零讀數，無門檻可被擋。
+  ③ **只增不減**：新增一個要求（arm 選擇機制指名）＋一個中止條款（斷言不符即停）
+     ＋一個功能斷言（F3）；**未放寬任何判準、未改變什麼算陽性**。
+  ④ 改了什麼／為什麼／誰在何時：本行；發現者＝reviewer 的同族掃描（`CROSSCHECK-…md`），
+     觸發者＝auditor 的 E 輪前提被推翻。
+  **🔴 附條件（auditor）：新條款自己要先見過紅。** 已執行第一半——
+  `arm_binary_assert.sh --selftest` 於機器 1 實跑，**五種紅各以不同退出碼中止**
+  （wrong binary rc=10／empty pid rc=11／pid 不存在 rc=11／expected 缺檔 rc=13／
+  exe 讀不到 rc=12），**綠燈另驗「通過的理由是比對成功而非檢查沒跑到」**
+  （輸出必須含完整 64 位 hex）。⬜ **第二半（透過 `bmv2_binary_override` 重現 F1 本身的
+  失效模式）尚未執行——本機 lab 於 15:2x 已被 `live-verify-a2-rider` claim 至 16:49，
+  依隊列不搶**；解封／讓窗後補做，**在補做完成前本輪不得開跑**。
 - v1.0a（08-31，凍結後、**資料接觸前**；純措辭更正、不動任何規則）：iperf3 逐字相同一句
   依 auditor 收窄——它排除的是差異軸來源，非正確性支持（同 C4 的差異／共模軸規矩，
   對自己再套一次）。
