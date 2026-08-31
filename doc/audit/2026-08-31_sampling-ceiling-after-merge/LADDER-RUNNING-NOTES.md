@@ -67,6 +67,65 @@ being OK — is the only part of this that carries information.
   behaviour baseline of §0-ter moving, and per the auditor it is **a finding, to be reported as
   drift — not noise to be averaged away.** Per-cell baselines must not be averaged.
 
+---
+
+## 5-bis. 🔴 Added 01:40 — a declared foreign load covers 5 of the first 19 cells, and it
+## corrects both an attribution I made and a confound I claimed
+
+`遠端機器測試` self-reported (unprompted) running **25+ mutation-gate batches on this laptop**
+inside the exclusive window — `qemu-img create`, two python socket servers, dozens of short-lived
+`bash`/`awk`/`sed`, and `sleep` stand-ins — in two bands derived from file mtimes and commit
+stamps rather than recall: **23:15–23:46** (dense) and **≈01:15 / ≈01:20** (two closing re-runs).
+
+`overlap_bands.py` in this directory computes the intersection per cell. **5 of 19 suspect:**
+
+| cell | window | gate | excess | spread | overlap |
+|---|---|---|---|---|---|
+| `e_bl_1024_1` | 23:27:30–23:32:35 | GREEN | −0.417 | 26.26 | **A: 305/305 s** |
+| `e_p_1024_1` | 23:33:52–23:38:56 | GREEN | −0.465 | 22.71 | **A: 304/304 s** |
+| `e_bl_1024_2` | 23:40:21–23:45:25 | GREEN | −0.473 | 23.27 | **A: 304/304 s** |
+| `e_bl_0064_3` | 01:10:20–01:15:24 | GREEN | −0.020 | 6.053 | B: 144/304 s |
+| `e_p_0064_3` | 01:16:49–01:21:54 | GREEN | +0.138 | 8.100 | **B: 305/305 s** |
+
+**Every one of them passed the gate.** The reported load sat mostly below 0.5 cores, which is the
+threshold — so "not flagged red" carries no information here. That is the round's own detection
+floor doing exactly what F-9a says it does.
+
+### The conclusion does not turn on them
+
+| rung | n | mean spread | n | clean only | ratio (all) | ratio (clean) |
+|---|---|---|---|---|---|---|
+| 1/1024 | 6 | 23.935 | 3 | 23.790 | — | — |
+| 1/256 | 6 | 11.970 | 6 | 11.970 | 2.000 | 1.987 |
+| 1/64 | 6 | 6.872 | 4 | 6.770 | 1.742 | 1.768 |
+| 1/32 | 1 | 4.290 | 1 | 4.290 | 1.602 | 1.578 |
+
+⚠️ **This shows the departure from √n survives the exclusion; it does NOT show the contamination
+had no effect.** n=3 against n=3 at 1/1024 has no power to detect a small shift. The honest
+statement is *"the result does not turn on the suspect cells"*, not *"the cells are fine"*.
+
+### 🔴 Two corrections to what this file and I said earlier
+
+1. **§3's confound is withdrawn.** I wrote at 00:50 that the departure from √n was confounded
+   because rung 1/64's largest `spread` (8.100) coincided with the CPU spike. It does — that cell
+   is 100% inside band B — **but excluding it moves the ratio from 1.742 to 1.768, still far below
+   2.** The confound was real and turned out not to matter. It was right to flag and wrong to
+   weight so heavily.
+2. **My attribution of the 01:09–01:21 margin collapse was incomplete.** I told two sessions it was
+   desktop rendering of my own output. The onset cell (`e_p_0064_2`, closing 01:09:03, excess
+   −0.130) is **outside** band B, so that part stands. The two cells after it are inside it. **Both
+   sources contributed; I named one and reported it as the cause.**
+
+🔑 **Why I could not have seen it from the log.** The per-cell `covariates:` line reports a **fixed
+allow-list of named processes** — `claude-desktop`, `claude`, `gnome-shell`, `chrome`. A load built
+from `qemu-img`, python socket servers and short-lived shell utilities appears in **none** of those
+columns. Reading the itemisation to answer "what was on the machine" asks a question the
+itemisation is structurally unable to answer, and it answers anyway, with plausible numbers.
+⇒ Same shape as this round's F-3a/F-10 and the F-16 attribution: **the parser's population comes
+from its own output, so the inputs it cannot see are the ones most in need of a warning.**
+⇒ Only the declared band boundaries could settle it, and those existed only because the other
+session volunteered them. **Nothing in this round's instrumentation would have surfaced this.**
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
