@@ -133,7 +133,7 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
         cell_cpu_gate_finish "$cell"
     fi
 
-    sha_close=$(running_kernel_sha)
+    _DRY_PHASE=close; sha_close=$(running_kernel_sha); _DRY_PHASE=
     say "    running kernel exe sha256 (close) $sha_close"
     # 🔴 A bracket built on sentinels closes vacuously: NO-KERNEL-PROCESS == NO-KERNEL-PROCESS.
     # The shape test is what makes "could not read" a refusal instead of a pass.

@@ -25,6 +25,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -n "${ROUND:-}" ]] || . "$HERE/round.env"
 : "${DRY_RUN:=0}"
 : "${DRY_FAIL:=}"
+: "${_DRY_EXE_READS:=0}"
 # 🔴 A dry run and a real run never share a transcript (CLAUDE.md: "跑過" and "讀過未執行" are
 # never tabled together), and the dry lines are the ones that look tidiest.
 [[ "$DRY_RUN" == 1 ]] && LOG="${LOG%.log}.dryrun.log"
@@ -46,9 +47,21 @@ running_kernel_sha() {
     # shapes.  (A sentinel like "NO-KERNEL-PROCESS" compares EQUAL to itself, so a bracket built on
     # sentinels closes vacuously -- the hole the reviewer line found in PREREG-B's family.)
     if [[ "$DRY_RUN" == 1 ]]; then
+        # 🔴 exedriftmid -- see lib_e.sh for the reasoning.  Mirrored here deliberately: the
+        # last time a fixture guard was fixed in one file and not the other, the unmirrored copy
+        # silently tested nothing for hours.
         case "$DRY_FAIL" in
             exeunreadable) echo "UNREADABLE"; return 0 ;;
             exedrift)      printf 'd%063d\n' 1; return 0 ;;
+            exedriftmid)
+                # 🔴 Drift ONLY on the closing read, marked explicitly by the caller.
+                # The first attempt counted reads instead, and silently did not fire: E makes
+                # three reads per cell (identity check, open, close) and F-5 makes two, so any
+                # count is coupled to call sites and breaks when one is added.  A phase marker is
+                # what the fixture actually means -- "the binary changed between open and close".
+                [[ "${_DRY_PHASE:-}" == close ]] && { printf 'd%063d
+' 2; return 0; }
+                ;;
         esac
         printf 'a%063d\n' 0; return 0
     fi
@@ -384,7 +397,7 @@ arm() {
     fi
     traffic_stop
 
-    sha_close=$(running_kernel_sha)
+    _DRY_PHASE=close; sha_close=$(running_kernel_sha); _DRY_PHASE=
     say "=== arm $ARM: bracket CLOSE, running exe sha256=$sha_close ==="
     if [[ ! "$sha_open" =~ ^[0-9a-f]{64}$ ]] || [[ ! "$sha_close" =~ ^[0-9a-f]{64}$ ]]; then
         abort "§4 F4" "the bracket could not be READ (open=$sha_open close=$sha_close).

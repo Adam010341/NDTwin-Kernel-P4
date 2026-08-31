@@ -38,6 +38,7 @@ set -u
 : "${DRY_FAIL:=}"
 : "${_DRY_LIVE_ARM:=1hz}"
 : "${_LAST_EXE_READ_VIA:=unset}"
+: "${_DRY_EXE_READS:=0}"
 
 # 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
 # "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,
@@ -275,9 +276,25 @@ record_identity() {   # $1 = tag (goes in the filename), $2 = commit-or-UNKNOWN
 # rebuild landing between two arms.
 running_kernel_sha() {
     if [[ "$DRY_RUN" == 1 ]]; then
+        # 🔴 exedriftmid: the FIRST read is arm-correct (so assert_running_arm passes and the
+        # bracket is actually REACHED), and every read after it drifts (so open != close).
+        # Without it the bracket had ZERO force coverage in two independent ways: exedrift sets
+        # both ends to the SAME wrong value, so the comparison only ever compared equal values;
+        # and assert_running_arm runs first and aborts, so the bracket was never even reached.
+        # Third instance of the fixture trap -- the first two only tested nothing, this one was
+        # never executed.
         case "$DRY_FAIL" in
             exeunreadable) echo "UNREADABLE"; return 0 ;;
             exedrift)      echo "$(printf 'd%063d' 1)"; return 0 ;;
+            exedriftmid)
+                # 🔴 Drift ONLY on the closing read, marked explicitly by the caller.
+                # The first attempt counted reads instead, and silently did not fire: E makes
+                # three reads per cell (identity check, open, close) and F-5 makes two, so any
+                # count is coupled to call sites and breaks when one is added.  A phase marker is
+                # what the fixture actually means -- "the binary changed between open and close".
+                [[ "${_DRY_PHASE:-}" == close ]] && { printf 'd%063d
+' 2; return 0; }
+                ;;
         esac
         # A synthetic value that PASSES the 64-hex shape test, so the accept path is really
         # exercised rather than skipped by a sentinel that would fail the shape test anyway.

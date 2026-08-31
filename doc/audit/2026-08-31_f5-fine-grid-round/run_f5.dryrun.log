@@ -1,29 +1,229 @@
-[16:53:03] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=6G ===
-[16:53:03] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
-[16:53:03]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
-[16:53:03] DRYRUN-NOTE synthesising fabric up and both readers answering
-[16:53:03]   fabric: kernel API and southbound both answering
-[16:53:03] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
-[16:53:03] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
-[16:53:03]     boot_id=dry-run-synthetic-boot-id (baseline)
-[16:53:03]     topology: edges=12 (baseline)
-[16:53:03] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
-[16:53:03] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
-[16:53:03] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
-[16:53:03] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
-[16:53:03] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
-[16:53:03] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
-[16:53:03] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
-[16:53:03]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
-[16:53:03] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
-[16:53:03] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
-[16:53:03] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
-[16:53:03] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
-[16:53:03] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
-[16:53:03] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
-[16:53:03] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
-[16:53:03] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
-[16:53:03]     boot_id unchanged
-[16:53:03]     topology: edges=12 (matches baseline)
-[16:53:03] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_close.log
-[16:53:03] === arm q1-p4-post complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ===
+[17:00:12] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:12] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:12]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:12] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:12]   fabric: kernel API and southbound both answering
+[17:00:12] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:12] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:12]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:12]     topology: edges=12 (baseline)
+[17:00:12] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:12] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:00:12] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:00:12] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:00:12] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:00:12] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:12] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:00:12]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:00:12] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:00:12] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:00:12] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:00:12] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:00:12] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:12] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:00:12] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:00:12] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:12]     boot_id unchanged
+[17:00:12]     topology: edges=12 (matches baseline)
+[17:00:12] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_close.log
+[17:00:12] === arm q1-p4-post complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ===
+[17:00:35] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:35] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:35]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:35] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:35]   fabric: kernel API and southbound both answering
+[17:00:35] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:35] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:35]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:35]     topology: edges=12 (baseline)
+[17:00:35] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:35] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:00:35] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:00:35] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:00:35] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:00:35] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:35] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:00:35]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:00:35] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:00:35] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:00:35] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:00:35] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:00:35] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:35] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:00:35] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:00:35] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:35]     boot_id unchanged
+[17:00:35]     topology: edges=12 (matches baseline)
+[17:00:35] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_close.log
+[17:00:35] === arm q1-p4-post complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ===
+[17:00:57] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:57] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:57] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:57]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:57] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:57] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:57]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:57] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:57]   fabric: kernel API and southbound both answering
+[17:00:57] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:57] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:57]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:57]     topology: edges=12 (baseline)
+[17:00:57] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:57] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:00:57] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:00:57] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:00:57] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:00:57] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:57] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:00:57]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:00:57] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:00:57] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:00:57] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:00:57] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:00:57] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:57] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:00:57] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:00:57] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:57] 🔴 ABORT(#3): the machine REBOOTED mid-arm (dry-run-synthetic-boot-id -> 00000000-dead-dead-dead-000000000000).
+        Installs either side of a reboot share no /proc baseline; they are not one arm.
+[17:00:57] 🔴 §3 C5: nothing is added, widened or re-run to get past this.
+[17:00:57] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:57] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:57]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:57] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:57]   fabric: kernel API and southbound both answering
+[17:00:57] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:57] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:57]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:57]     topology: edges=12 (baseline)
+[17:00:57] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:57] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:00:57] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:00:57] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:00:57] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:00:57] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:57] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:00:58]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:00:58] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:00:58] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:00:58] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:58] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:00:58] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:58]     boot_id unchanged
+[17:00:58] 🔴 ABORT(#14): edge count changed across the swap (12 -> 999).
+        The fabric was not reproduced, so the two arms are not comparable.
+[17:00:58] 🔴 §3 C5: nothing is added, widened or re-run to get past this.
+[17:00:58] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:58] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:58]   fabric: kernel API and southbound both answering
+[17:00:58] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:58] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:58]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:58]     topology: edges=12 (baseline)
+[17:00:58] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:58] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:00:58] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:00:58] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:00:58] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:00:58] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:58] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:00:58]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:00:58] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:00:58] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:00:58] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:58] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:00:58] === arm q1-p4-post: bracket CLOSE, running exe sha256=d000000000000000000000000000000000000000000000000000000000000002 ===
+[17:00:58] 🔴 ABORT(§4 F4): the running kernel changed during arm q1-p4-post (a000000000000000000000000000000000000000000000000000000000000000 -> d000000000000000000000000000000000000000000000000000000000000002).
+        The arm is VOID and must be re-run.  This is not a warning: the claim protects the
+        fabric, not the binary, and a mid-arm swap makes every install in it unattributable.
+[17:00:58] 🔴 §3 C5: nothing is added, widened or re-run to get past this.
+[17:00:58] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:58] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:58]   fabric: kernel API and southbound both answering
+[17:00:58] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:58] === arm q1-p4-post: bracket OPEN, running exe sha256=UNREADABLE ===
+[17:00:58]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:58]     topology: edges=12 (baseline)
+[17:00:58] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:58] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:00:58] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:00:58] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:00:58] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:00:58] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:58] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:00:58]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:00:58] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:00:58] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:00:58] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:00:58] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:00:58] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:00:58] === arm q1-p4-post: bracket CLOSE, running exe sha256=UNREADABLE ===
+[17:00:58] 🔴 ABORT(§4 F4): the bracket could not be READ (open=UNREADABLE close=UNREADABLE).
+        Two unreadable ends compare EQUAL, so this must refuse rather than pass -- an unreadable
+        bracket is the shape of a check that never ran, not of one that succeeded.
+[17:00:58] 🔴 §3 C5: nothing is added, widened or re-run to get past this.
+[17:00:58] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:58] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:58]   fabric: kernel API and southbound both answering
+[17:00:58] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:58] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:58]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:58]     topology: edges=12 (baseline)
+[17:00:58] 🔴 ABORT(#5): fabric short of its full switch count (forced)
+[17:00:58] 🔴 §3 C5: nothing is added, widened or re-run to get past this.
+[17:00:58] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:00:58] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:00:58] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:00:58]   fabric: kernel API and southbound both answering
+[17:00:58] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:00:58] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:00:58]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:00:58]     topology: edges=12 (baseline)
+[17:00:58] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:00:58] 🔴 ABORT(#7/#8): sampling config not at production values (forced)
+[17:00:58] 🔴 §3 C5: nothing is added, widened or re-run to get past this.
+[17:01:04] === preflight arm=q1-p4-post fabric=p4 DRY_RUN=1 disk=8G ===
+[17:01:04] DRYRUN-NOTE synthesising claim owner=f5-fine-grid-round exclusive_cpu=yes
+[17:01:04]   claim: owner=f5-fine-grid-round exclusive_cpu=yes
+[17:01:04] DRYRUN-NOTE synthesising fabric up and both readers answering
+[17:01:04]   fabric: kernel API and southbound both answering
+[17:01:04] DRYRUN-NOTE would read the running kernel's /proc/<pid>/exe and require setProgrammedPredicate to be PRESENT
+[17:01:04] === arm q1-p4-post: bracket OPEN, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:01:04]     boot_id=dry-run-synthetic-boot-id (baseline)
+[17:01:04]     topology: edges=12 (baseline)
+[17:01:04] DRYRUN-NOTE would assert the fabric is complete before trusting 'under load'
+[17:01:04] DRYRUN-NOTE would assert SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in the
+[17:01:04] DRYRUN-NOTE   source AND the compiled JSON -- also catches a neighbouring round's failed restore
+[17:01:04] DRYRUN-NOTE would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256
+[17:01:04] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_open.log
+[17:01:04] DRYRUN-EXEC mkdir -p /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:01:04] DRYRUN-NOTE would write the frozen 60-address sequence to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt and sha256 it
+[17:01:04]   dst sequence -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt  sha256=d1a761f5ab2f95236774ed6181acbdecac5d1e0c79d73d8faa747a472e566a34  n=60
+[17:01:04] DRYRUN-NOTE would write /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/identity_q1-p4-post.txt (sha256 + ldd + readelf -d RUNPATH + symbols)
+[17:01:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh start 1320 ${MESH_MBPS:-20}   (mesh + 30s churn)
+[17:01:04] DRYRUN-NOTE would then run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger pre   (counter snapshot, so offered rate comes from the datapath)
+[17:01:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/f5_sampler.py --arm q1-p4-post --dst-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/dst_sequence.txt
+[17:01:04] DRYRUN-NOTE   --ndt http://localhost:8000 --southbound http://localhost:8081 --dpid 1 --skew-limit-ms 150 --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+[17:01:04] DRYRUN-NOTE   (60 installs x 10 grid points x 2 instruments, alternating call order)
+[17:01:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness/traffic_mesh.sh ledger post; then stop (TERM by recorded pid)
+[17:01:04] === arm q1-p4-post: bracket CLOSE, running exe sha256=a000000000000000000000000000000000000000000000000000000000000000 ===
+[17:01:04]     boot_id unchanged
+[17:01:04]     topology: edges=12 (matches baseline)
+[17:01:04] DRYRUN-NOTE would copy kernel.log -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post/q1-p4-post_kernel_close.log
+[17:01:04] === arm q1-p4-post complete -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ===
