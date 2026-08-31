@@ -1,0 +1,206 @@
+==============================================================================
+SOURCE FILE (deleted after this pack was written)
+------------------------------------------------------------------------------
+path      .test_run/logs/app_te.log
+sha256    9df3e2258f70d332f7707442865c51f25f165d35139e676db9cc500daa174520
+bytes     100896853
+lines     1061269
+birth     2026-08-30 15:07:31.786946081 +0800
+mtime     2026-08-31 11:46:14.625534
+==============================================================================
+WHAT THE LOG ITSELF SAYS ABOUT ITS OWN SPAN
+------------------------------------------------------------------------------
+first timestamp in file   2026-08-30 15:07:33.262
+last  timestamp in file   2026-08-31 11:46:12.265
+span (first -> last)      20h38m39s (74319 s)
+
+first exception at        2026-08-30 15:39:10.274   (line 1918)
+last  exception at        2026-08-31 11:46:12.265
+span (crash loop)         20h07m02s (72422 s)
+
+healthy prefix            0h31m37s (1897 s)
+==============================================================================
+RECONCILIATION WITH doc/KNOWN-ISSUES.md SECTION G
+------------------------------------------------------------------------------
+KNOWN-ISSUES said, before this pack was written:  crash loop lived 20h32m (73920 s)
+
+  measured, whole file  first -> last timestamp   20h38m39s (74319 s)
+  measured, crash loop  first -> last exception   20h07m02s (72422 s)
+
+NEITHER equals 20h32m. The figure appears nowhere else in the repo, so this log is
+not its source; it is consistent with a `ps` elapsed-time reading taken a few minutes
+before the last log line, but nothing recorded that reading and this pack does not
+invent it. What the log does establish is the SHAPE: a healthy prefix, then one
+exception repeated at a fixed cadence until the process stopped.
+==============================================================================
+EXCEPTION KINDS OVER THE WHOLE FILE (is it one traceback throughout?)
+------------------------------------------------------------------------------
+    61710  UnboundLocalError
+==============================================================================
+LOG LEVELS
+------------------------------------------------------------------------------
+   123420  ERROR
+    73903  DEBUG
+==============================================================================
+DISTINCT ERROR MESSAGES (truncated to 110 chars)
+------------------------------------------------------------------------------
+    61710  HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/get_graph_data (Caused by
+    61710  graph refresh failed
+==============================================================================
+CADENCE: lines / ERROR / exceptions per clock hour
+------------------------------------------------------------------------------
+hour                  lines      ERROR        exc
+2026-08-30 15          3100        326        163
+2026-08-30 16          8957       5386       2693
+2026-08-30 17         10800       7200       3600
+2026-08-30 18         10800       7200       3600
+2026-08-30 19         10800       7200       3600
+2026-08-30 20          7204       3604       1802
+2026-08-30 21          4724       1124        562
+2026-08-30 22          7418       3818       1909
+2026-08-30 23         10800       7200       3600
+2026-08-31 00         10800       7200       3600
+2026-08-31 01         10800       7200       3600
+2026-08-31 02         10800       7200       3600
+2026-08-31 03         10800       7200       3600
+2026-08-31 04         10800       7200       3600
+2026-08-31 05         10800       7200       3600
+2026-08-31 06         10800       7200       3600
+2026-08-31 07         10800       7200       3600
+2026-08-31 08         10800       7200       3600
+2026-08-31 09         10800       7200       3600
+2026-08-31 10          6839       3254       1627
+2026-08-31 11          7881       5108       2554
+==============================================================================
+GAPS LONGER THAN 60 s BETWEEN CONSECUTIVE TIMESTAMPS
+------------------------------------------------------------------------------
+2026-08-30 15:53:43 -> 2026-08-30 15:55:59   136 s
+2026-08-30 15:55:59 -> 2026-08-30 15:58:14   135 s
+2026-08-30 15:58:15 -> 2026-08-30 16:00:29   134 s
+(3 gap(s) total)
+==============================================================================
+HEALTHY -> CRASH TRANSITION (the 30 lines ending just past the first exception)
+------------------------------------------------------------------------------
+   1897  2026-08-30 15:39:05.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1898  2026-08-30 15:39:06.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1899  2026-08-30 15:39:07.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1900  2026-08-30 15:39:08.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1901  2026-08-30 15:39:09.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1902  2026-08-30 15:39:10.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1903  2026-08-30 15:39:10.273 | ERROR    | __main__:get_graph_data_api_call:54 - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/get_graph_data (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+   1904  2026-08-30 15:39:10.274 | ERROR    | __main__:main:682 - graph refresh failed
+   1905  Traceback (most recent call last):
+   1906  
+   1907    File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 701, in <module>
+   1908      main()
+   1909      └ <function main at 0x7c9f8e363a60>
+   1910  
+   1911  > File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 675, in main
+   1912      data = get_graph_data_api_call()
+   1913             └ <function get_graph_data_api_call at 0x7c9f8fdfd8a0>
+   1914  
+   1915    File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 56, in get_graph_data_api_call
+   1916      return graph_data
+   1917  
+   1918  UnboundLocalError: cannot access local variable 'graph_data' where it is not associated with a value
+   1919  2026-08-30 15:39:11.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+   1920  2026-08-30 15:39:11.265 | ERROR    | __main__:get_graph_data_api_call:54 - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/get_graph_data (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+   1921  2026-08-30 15:39:11.265 | ERROR    | __main__:main:682 - graph refresh failed
+   1922  Traceback (most recent call last):
+   1923  
+   1924    File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 701, in <module>
+   1925      main()
+   1926      └ <function main at 0x7c9f8e363a60>
+==============================================================================
+HOW THE LOG ENDS
+------------------------------------------------------------------------------
+last line verbatim: 'Session terminated, killing shell... ...killed.'
+(the process stopped writing at the mtime above; nothing in this file records
+ which command did it, and 'ndt apps stop te' could not have signalled it once
+ the pidfile was gone -- that is the defect this pack was written alongside.)
+==============================================================================
+FIRST 40 LINES (ANSI stripped)
+------------------------------------------------------------------------------
+Select TE mode:
+  1) Execute run_te() when you press Enter
+  2) Execute run_te() periodically (e.g., every 5 seconds)
+Enter 1 or 2 [default 1]: Press Enter to run (Ctrl+C to quit)…2026-08-30 15:07:33.247 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:33.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:34.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:35.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:36.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:37.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:38.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:39.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:40.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:41.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:42.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:43.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:44.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:45.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:46.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:47.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:48.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:49.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:50.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:51.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:52.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:53.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:54.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:55.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:56.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:57.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:58.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:07:59.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:00.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:01.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:02.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:03.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:04.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:05.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:06.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:07.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-30 15:08:08.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+==============================================================================
+LAST 40 LINES (ANSI stripped)
+------------------------------------------------------------------------------
+  File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 56, in get_graph_data_api_call
+    return graph_data
+
+UnboundLocalError: cannot access local variable 'graph_data' where it is not associated with a value
+2026-08-31 11:46:11.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 11:46:11.264 | ERROR    | __main__:get_graph_data_api_call:54 - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/get_graph_data (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+2026-08-31 11:46:11.264 | ERROR    | __main__:main:682 - graph refresh failed
+Traceback (most recent call last):
+
+  File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 701, in <module>
+    main()
+    └ <function main at 0x7c9f8e363a60>
+
+> File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 675, in main
+    data = get_graph_data_api_call()
+           └ <function get_graph_data_api_call at 0x7c9f8fdfd8a0>
+
+  File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 56, in get_graph_data_api_call
+    return graph_data
+
+UnboundLocalError: cannot access local variable 'graph_data' where it is not associated with a value
+2026-08-31 11:46:12.262 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-08-31 11:46:12.265 | ERROR    | __main__:get_graph_data_api_call:54 - HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/get_graph_data (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+2026-08-31 11:46:12.265 | ERROR    | __main__:main:682 - graph refresh failed
+Traceback (most recent call last):
+
+  File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 701, in <module>
+    main()
+    └ <function main at 0x7c9f8e363a60>
+
+> File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 675, in main
+    data = get_graph_data_api_call()
+           └ <function get_graph_data_api_call at 0x7c9f8fdfd8a0>
+
+  File "/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py", line 56, in get_graph_data_api_call
+    return graph_data
+
+UnboundLocalError: cannot access local variable 'graph_data' where it is not associated with a value
+
+Session terminated, killing shell... ...killed.
