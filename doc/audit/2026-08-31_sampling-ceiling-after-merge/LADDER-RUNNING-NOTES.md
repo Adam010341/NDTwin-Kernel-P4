@@ -374,6 +374,10 @@ The two arms track each other within **±0.007** across five rungs and then sepa
 `bl` = 0.9692 / 0.9751 / 0.9707, `p` = 0.9998 / 1.0030 / 0.9997, with a gap of ~0.024 between the
 closest pair. **`bl` and `p` differ only in recompute period** (1 kHz vs 1 Hz), which is Q2's factor.
 
+🔴 **SUPERSEDED at 06:50 — see §5-undecies.** With only two arms this reads as a recompute-axis
+effect, and it was relayed onward as one. **Four arms show it is an interaction**: the recompute
+period moves `ratio` only when batching is off. **No main effect of either axis is supported.**
+
 ### 🔴 What this is not
 
 * **It is not a ceiling.** Every cell reads `mark=OK`; 0.9717 is above `cell_verdict`'s frozen 0.95.
@@ -781,11 +785,46 @@ Assigned in advance at **06:10:28** (`1c3712a`), before any leg-2 cell of this r
 | `e_mp_0008_1..3` | 1 Hz, batch 8 | 1.0010 / 0.9996 / 1.0050 | 206.0 | 0.011–0.018% | OK |
 
 **Δ(m − bl) = +0.0293. Δ(mp − p) = +0.0010.** The three `m` cells are **disjoint** from the three
-`bl` cells with a gap of ≈0.025; on the 1 Hz side batching does essentially nothing.
+`bl` cells with a gap of ≈0.025.
 
-⇒ **Batching cancels the deficit on the arm that has one, and does nothing on the arm that does
-not.** Under the pre-assignment this is **(B): attribution reversal** — the 3% is not *"1 kHz's
-property"* but *"1 kHz **and unmerged**'s property"*.
+### 🔴 The framing that matters: `bl` is the outlier, not "merge rescued it"
+
+**Three arms sit at 1.00 and one drops.** Narration order decides what a reader keeps:
+
+* ❌ *"merge lifted 0.97 back to 1.00"* — reads as merge having a positive benefit. **Unregistered,
+  unproven, and the most tellable direction available.**
+* ✅ *"a 3% gap appears only in the 1 kHz-**and**-unmerged cell; the other three arms do not have
+  one."*
+
+**The second is what the data says. The first adds a causal direction the data does not carry** —
+and `mp` against `p` shows merge on its own changes nothing, so merge only "changes" `ratio` in the
+one cell whose partner was already anomalous.
+
+### It is an interaction. Neither axis has a main effect
+
+| comparison | isolates | result |
+|---|---|---|
+| `mp` (1 Hz, on) vs `p` (1 Hz, off) | merge alone | 1.0019 vs 1.0008 — **no change** |
+| `m` (1 kHz, on) vs `mp` (1 Hz, on) | recompute alone, **with** merge | 1.0009 vs 1.0019 — **no change** |
+| `bl` (1 kHz, off) vs `p` (1 Hz, off) | recompute alone, **without** merge | 0.9717 vs 1.0008 — **drops** |
+
+⇒ **The effect of the recompute period depends on batching. That is an interaction, and no main
+effect of either axis is supported.**
+🔴 **This retracts the earlier reading** — recorded in §5-quater and relayed to two readers — that
+the 1/8 separation was *"the recompute axis"*. That was the honest reading of two arms; **four arms
+overturn it.** The correction goes back to the original readers, not only into this file.
+
+### 🔴 No mechanism is established, and this belongs in the same paragraph as the result
+
+**Two different interventions removing the same effect does not identify a mechanism.** The
+observation is compatible with several (contention between 1 kHz recompute and per-item emission,
+queueing, lock hold time…) and **the data cannot distinguish between them.** The permitted sentence
+is: *"at this working point, changing either of the two factors removed the gap; the mechanism is
+undetermined."* — **not** *"X causes Y"*.
+
+⚠️ **And in that same paragraph, never a later one: one rung, n = 3 per arm, and it is the only rung
+in the round with discriminating power** — at 1/16 and below all four arms sit at 1.00 with nothing
+to move, and at 1/4 and above the gauge is blind (F-26).
 
 ### 🔴 Disposition, exactly as fixed before the data
 
