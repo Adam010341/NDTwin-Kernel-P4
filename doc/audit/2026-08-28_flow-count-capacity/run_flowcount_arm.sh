@@ -108,6 +108,11 @@ run_rep() {
     sudo -n mnexec -a "$CP" iperf3 -c "$SIP" -p "$port" -u -b "${rate}M" \
       -t "$STEP_S" -l 1400 --json > "$OUT/r${rate}M_rep${rep}_f${i}.json" 2>&1 &
   done
+  # This bare `wait` is safe despite the never-ending load sampler started above: run_rep is
+  # invoked via command substitution, so it executes in a subshell whose job table does not
+  # contain the sampler -- `wait` here only waits on the iperf3 clients. Verified empirically
+  # 2026-08-28 before the first arm ran (the inline variant DID deadlock for 7 minutes);
+  # the probe is preserved as test_wait.sh in this directory. [Co-developed with claude code -- Adam]
   wait
   python3 - "$N" "$OUT" "$rate" "$rep" <<'PY'
 import json, sys, glob, os
