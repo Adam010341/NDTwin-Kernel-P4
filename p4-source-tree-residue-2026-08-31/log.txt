@@ -1,0 +1,1189 @@
+Found supported ID ubuntu and VERSION_ID 24.04 in /etc/os-release
+Minimum recommended memory to run this script: 1920 MBytes
+Memory on this system from /proc/meminfo:      15415 MBytes -> enough
+Minimum free disk space to run this script:    8192 MBytes
+Free disk space on this system from df output: 37307 MBytes -> enough
+Found directory containing patches: /home/adam/p4-guide/bin/patches
+Found no Python2 installed.  Continuing with installation.
+Passed all sanity checks
++ set +x
+This script builds and installs the P4_16 (and also P4_14)
+compiler, and the behavioral-model software packet forwarding
+program, that can behave as just about any legal P4 program.
+
+It is regularly tested on freshly installed versions of these systems:
+    Ubuntu 20.04
+    Ubuntu 22.04
+    Ubuntu 24.04
+with all Ubuntu software updates as of the date of testing.  See
+this directory for log files recording the last date this script
+was tested on its supported operating systems:
+
+    https://github.com/jafingerhut/p4-guide/tree/master/bin/output
+
+The files installed by this script consume about 8 GB of disk space.
+
+On a 2019 MacBook Pro with a decent speed Internet connection
+and an SSD drive, running Ubuntu Linux in a VirtualBox VM, it
+took about 2 hours.
+
+Versions of software that will be installed by this script:
+
++ gRPC: github.com/google/grpc.git v1.51.1
++ PI: github.com/p4lang/PI latest version
++ behavioral-model: github.com/p4lang/behavioral-model latest version
+  which, as of 2023-Sep-22, also installs these things:
+  + thrift version 0.16.0
+  + nanomsg version 1.0.0
+  + pynng version 0.9.0
++ p4c: github.com/p4lang/p4c latest version
++ ptf: github.com/p4lang/ptf latest version
++ tutorials: github.com/p4lang/tutorials latest version
++ Mininet: github.com/mininet/mininet latest version as of 2024-Sep-18
++ Python packages: protobuf 4.21.12, grpcio - a recent version auto-selected by pip3
++ Python packages: scapy (2.5.0), psutil, crcmod
+
+Note that anything installed as 'the latest version' can change
+its precise contents from one run of this script to another.
+That is an intentional property of this script -- to get the
+latest version of that software.  If you want particular
+versions that are not the latest, you can modify this script by
+adding 'git checkout <tag>' and/or 'git checkout <commit-sha>'
+command at the appropriate places.
+
++ set +x
+------------------------------------------------------------
+Time and disk space used before installation begins:
++ date
+Mon Jul 13 05:51:14 PM CST 2026
++ df -h .
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p5   98G   57G   37G  61% /
++ df -BM .
+Filesystem     1M-blocks   Used Available Use% Mounted on
+/dev/nvme0n1p5   100221M 57779M    37307M  61% /
+++ date +%s
++ TIME_START=1783936274
++ python -V
+./p4-guide/bin/install-p4dev-v8.sh: line 469: python: command not found
++ echo 'No such command in PATH: python'
+No such command in PATH: python
++ python2 -V
+./p4-guide/bin/install-p4dev-v8.sh: line 470: python2: command not found
++ echo 'No such command in PATH: python2'
+No such command in PATH: python2
++ python3 -V
+Python 3.12.3
++ pip -V
+pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)
++ pip2 -V
+./p4-guide/bin/install-p4dev-v8.sh: line 473: pip2: command not found
++ echo 'No such command in PATH: pip2'
+No such command in PATH: pip2
++ pip3 -V
+pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes update
+Hit:1 https://download.docker.com/linux/ubuntu noble InRelease
+Hit:2 https://dl.google.com/linux/chrome-stable/deb stable InRelease
+Hit:3 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+Hit:5 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:6 https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev antigravity-debian InRelease
+Hit:7 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Reading package lists...
++ sudo apt-get --yes install git vim
+Reading package lists...
+Building dependency tree...
+Reading state information...
+git is already the newest version (1:2.43.0-1ubuntu7.3).
+vim is already the newest version (2:9.1.0016-1ubuntu7.17).
+The following packages were automatically installed and are no longer required:
+  bridge-utils ubuntu-fan
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 66 not upgraded.
++ CHILD_PROCESS_PID=475244
++ set +x
++ /home/adam/p4-guide/bin/keep-sudo-credentials-fresh.sh
++ trap clean_up SIGHUP SIGINT SIGTERM
+++ date +%s
++ TIME_AUTOTOOLS_START=1783936278
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes install autoconf automake libtool curl make g++ unzip pkg-config python3-pip python3-venv
+Reading package lists...
+Building dependency tree...
+Reading state information...
+autoconf is already the newest version (2.71-3).
+automake is already the newest version (1:1.16.5-1.3ubuntu1).
+libtool is already the newest version (2.4.7-7build1).
+curl is already the newest version (8.5.0-2ubuntu10.11).
+make is already the newest version (4.3-4.1build2).
+g++ is already the newest version (4:13.2.0-7ubuntu1).
+unzip is already the newest version (6.0-28ubuntu4.1).
+pkg-config is already the newest version (1.8.1-2build1).
+python3-pip is already the newest version (24.0+dfsg-1ubuntu1.3).
+python3-venv is already the newest version (3.12.3-0ubuntu2.1).
+The following packages were automatically installed and are no longer required:
+  bridge-utils ubuntu-fan
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 66 not upgraded.
++ '[' '(' ubuntu = ubuntu -a 24.04 = 20.04 ')' -o '(' ubuntu = fedora -a 24.04 = 35 ')' ']'
+++ date +%s
++ TIME_AUTOTOOLS_END=1783936279
++ echo 'autotools              : 1 sec'
+autotools              : 1 sec
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57779
++ DISK_USED_AFTER_AUTOTOOLS=57779
++ python3 -m venv /home/adam/p4dev-python-venv
++ source /home/adam/p4dev-python-venv/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/home/adam/p4dev-python-venv
+++ VIRTUAL_ENV=/home/adam/p4dev-python-venv
+++ _OLD_VIRTUAL_PATH=/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin
+++ PATH=/home/adam/p4dev-python-venv/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(p4dev-python-venv) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(p4dev-python-venv) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ pip -V
+pip 24.0 from /home/adam/p4dev-python-venv/lib/python3.12/site-packages/pip (python 3.12)
++ pip2 -V
+./p4-guide/bin/install-p4dev-v8.sh: line 596: pip2: command not found
++ echo 'No such command in PATH: pip2'
+No such command in PATH: pip2
++ pip3 -V
+pip 24.0 from /home/adam/p4dev-python-venv/lib/python3.12/site-packages/pip (python 3.12)
++ pip list
+Package Version
+------- -------
+pip     24.0
++ pip3 list
+Package Version
+------- -------
+pip     24.0
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-1-before-protobuf.txt
++ local OUT_FNAME=/home/adam/usr-local-1-before-protobuf.txt
+++ basename /home/adam/usr-local-1-before-protobuf.txt .txt
++ local DIRNAME=/home/adam/usr-local-1-before-protobuf
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing grpc, needed for installing p4lang/PI
+start install grpc:
++ date
+Mon Jul 13 05:51:24 PM CST 2026
++ '[' 1 -eq 1 ']'
+++ date +%s
++ TIME_GRPC_CLONE_START=1783936284
+++ date +%s
++ TIME_GRPC_CLONE_END=1783936284
+++ date +%s
++ TIME_GRPC_INSTALL_START=1783936284
++ sudo apt-get --yes install libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc-dev libgrpc++-dev
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libprotobuf-dev is already the newest version (3.21.12-8.2ubuntu0.3).
+protobuf-compiler is already the newest version (3.21.12-8.2ubuntu0.3).
+protobuf-compiler-grpc is already the newest version (1.51.1-4.1build5).
+libgrpc-dev is already the newest version (1.51.1-4.1build5).
+libgrpc++-dev is already the newest version (1.51.1-4.1build5).
+The following packages were automatically installed and are no longer required:
+  bridge-utils ubuntu-fan
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 66 not upgraded.
++ '[' 4.21.12 '!=' '' ']'
++ pip3 install protobuf==4.21.12
+Collecting protobuf==4.21.12
+  Using cached protobuf-4.21.12-cp37-abi3-manylinux2014_x86_64.whl.metadata (541 bytes)
+Using cached protobuf-4.21.12-cp37-abi3-manylinux2014_x86_64.whl (409 kB)
+Installing collected packages: protobuf
+Successfully installed protobuf-4.21.12
+++ date +%s
++ TIME_GRPC_INSTALL_END=1783936287
++ pip3 list
+Package  Version
+-------- -------
+pip      24.0
+protobuf 4.21.12
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57797
++ DISK_USED_AFTER_GRPC=57797
++ set +x
+end install grpc:
++ date
+Mon Jul 13 05:51:27 PM CST 2026
++ objdump -t /usr/local/lib/libprotobuf.a
++ grep hidden
++ sort
++ uniq -c
++ wc -l
+objdump: '/usr/local/lib/libprotobuf.a': No such file
+0
++ objdump -t /usr/local/lib/libprotobuf.a
++ grep hidden
++ sort
++ uniq -c
++ head -n 20
++ sort -nr
+objdump: '/usr/local/lib/libprotobuf.a': No such file
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-3-after-grpc.txt
++ local OUT_FNAME=/home/adam/usr-local-3-after-grpc.txt
+++ basename /home/adam/usr-local-3-after-grpc.txt .txt
++ local DIRNAME=/home/adam/usr-local-3-after-grpc
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing p4lang/PI, needed for installing p4lang/behavioral-model simple_switch_grpc
+start install PI:
++ date
+Mon Jul 13 05:51:27 PM CST 2026
+++ date +%s
++ TIME_PI_CLONE_START=1783936287
+++ date +%s
++ TIME_PI_CLONE_END=1783936287
+++ date +%s
++ TIME_PI_INSTALL_START=1783936287
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes install libreadline-dev valgrind libtool-bin libboost-dev libboost-system-dev libboost-thread-dev
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libreadline-dev is already the newest version (8.2-4build1).
+valgrind is already the newest version (1:3.22.0-0ubuntu3).
+libtool-bin is already the newest version (2.4.7-7build1).
+libboost-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-system-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-thread-dev is already the newest version (1.83.0.1ubuntu2).
+The following packages were automatically installed and are no longer required:
+  bridge-utils ubuntu-fan
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 66 not upgraded.
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57797
++ DISK_USED_BEFORE_PI_CLEANUP=57797
++ '[' -d PI ']'
++ echo 'Found directory /home/adam/PI.  Assuming desired version of PI is already installed.'
+Found directory /home/adam/PI.  Assuming desired version of PI is already installed.
+++ date +%s
++ TIME_PI_INSTALL_END=1783936288
++ echo 'p4lang/PI clone        : 0 sec'
+p4lang/PI clone        : 0 sec
++ echo 'p4lang/PI install      : 1 sec'
+p4lang/PI install      : 1 sec
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57797
++ DISK_USED_AFTER_PI=57797
++ set +x
+end install PI:
++ date
+Mon Jul 13 05:51:28 PM CST 2026
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-4-after-PI.txt
++ local OUT_FNAME=/home/adam/usr-local-4-after-PI.txt
+++ basename /home/adam/usr-local-4-after-PI.txt .txt
++ local DIRNAME=/home/adam/usr-local-4-after-PI
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing p4lang/behavioral-model
+start install behavioral-model:
++ date
+Mon Jul 13 05:51:29 PM CST 2026
+++ date +%s
++ TIME_BEHAVIORAL_MODEL_CLONE_START=1783936289
+++ date +%s
++ TIME_BEHAVIORAL_MODEL_CLONE_END=1783936289
+++ date +%s
++ TIME_BEHAVIORAL_MODEL_INSTALL_START=1783936289
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57796
++ DISK_USED_BEFORE_BMV2_CLEANUP=57796
++ '[' -d behavioral-model ']'
++ echo 'Found directory /home/adam/behavioral-model.  Assuming desired version of behavioral-model is already installed.'
+Found directory /home/adam/behavioral-model.  Assuming desired version of behavioral-model is already installed.
+++ date +%s
++ TIME_BEHAVIORAL_MODEL_INSTALL_END=1783936289
++ echo 'p4lang/behavioral-model clone  : 0 sec'
+p4lang/behavioral-model clone  : 0 sec
++ echo 'p4lang/behavioral-model install: 0 sec'
+p4lang/behavioral-model install: 0 sec
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57796
++ DISK_USED_AFTER_BMV2=57796
++ set +x
+end install behavioral-model:
++ date
+Mon Jul 13 05:51:29 PM CST 2026
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-5-after-behavioral-model.txt
++ local OUT_FNAME=/home/adam/usr-local-5-after-behavioral-model.txt
+++ basename /home/adam/usr-local-5-after-behavioral-model.txt .txt
++ local DIRNAME=/home/adam/usr-local-5-after-behavioral-model
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing p4lang/p4c
+start install p4c:
++ date
+Mon Jul 13 05:51:29 PM CST 2026
+++ date +%s
++ TIME_P4C_CLONE_START=1783936289
+++ date +%s
++ TIME_P4C_CLONE_END=1783936289
+++ date +%s
++ TIME_P4C_INSTALL_START=1783936289
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes install g++ git automake libtool libgc-dev bison flex libfl-dev libgmp-dev libboost-dev libboost-iostreams-dev libboost-graph-dev llvm pkg-config python3-pip tcpdump libelf-dev clang
+Reading package lists...
+Building dependency tree...
+Reading state information...
+g++ is already the newest version (4:13.2.0-7ubuntu1).
+git is already the newest version (1:2.43.0-1ubuntu7.3).
+automake is already the newest version (1:1.16.5-1.3ubuntu1).
+libtool is already the newest version (2.4.7-7build1).
+libgc-dev is already the newest version (1:8.2.6-1build1).
+bison is already the newest version (2:3.8.2+dfsg-1build2).
+flex is already the newest version (2.6.4-8.2build1).
+libfl-dev is already the newest version (2.6.4-8.2build1).
+libgmp-dev is already the newest version (2:6.3.0+dfsg-2ubuntu6.1).
+libboost-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-iostreams-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-graph-dev is already the newest version (1.83.0.1ubuntu2).
+llvm is already the newest version (1:18.0-59~exp2).
+pkg-config is already the newest version (1.8.1-2build1).
+python3-pip is already the newest version (24.0+dfsg-1ubuntu1.3).
+tcpdump is already the newest version (4.99.4-3ubuntu4.24.04.1).
+libelf-dev is already the newest version (0.190-1.1ubuntu0.1).
+clang is already the newest version (1:18.0-59~exp2).
+The following packages were automatically installed and are no longer required:
+  bridge-utils ubuntu-fan
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 66 not upgraded.
++ pip3 install scapy==2.5.0 ply
+Collecting scapy==2.5.0
+  Using cached scapy-2.5.0.tar.gz (1.3 MB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting ply
+  Using cached ply-3.11-py2.py3-none-any.whl.metadata (844 bytes)
+Using cached ply-3.11-py2.py3-none-any.whl (49 kB)
+Building wheels for collected packages: scapy
+  Building wheel for scapy (pyproject.toml): started
+  Building wheel for scapy (pyproject.toml): finished with status 'done'
+  Created wheel for scapy: filename=scapy-2.5.0-py2.py3-none-any.whl size=1444443 sha256=4aeb92845f96a132a3b05bfef8cb7058535069db4d421871788ab635f3d5ef98
+  Stored in directory: /home/adam/.cache/pip/wheels/8a/5e/7c/6f92df559dadf49d0e31cecdd5b104fc8c38a7c67fde16b029
+Successfully built scapy
+Installing collected packages: ply, scapy
+Successfully installed ply-3.11 scapy-2.5.0
++ pip3 list
+Package  Version
+-------- -------
+pip      24.0
+ply      3.11
+protobuf 4.21.12
+scapy    2.5.0
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57814
++ DISK_USED_BEFORE_P4C_CLEANUP=57814
++ '[' -d p4c ']'
++ echo 'Found directory /home/adam/p4c.  Assuming desired version of p4c is already installed.'
+Found directory /home/adam/p4c.  Assuming desired version of p4c is already installed.
+++ date +%s
++ TIME_P4C_INSTALL_END=1783936296
++ echo 'p4lang/p4c clone       : 0 sec'
+p4lang/p4c clone       : 0 sec
++ echo 'p4lang/p4c install     : 7 sec'
+p4lang/p4c install     : 7 sec
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57814
++ DISK_USED_AFTER_P4C=57814
++ set +x
+end install p4c:
++ date
+Mon Jul 13 05:51:36 PM CST 2026
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-6-after-p4c.txt
++ local OUT_FNAME=/home/adam/usr-local-6-after-p4c.txt
+++ basename /home/adam/usr-local-6-after-p4c.txt .txt
++ local DIRNAME=/home/adam/usr-local-6-after-p4c
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing Mininet - not necessary to run P4 programs, but useful if
+you want to run tutorials from https://github.com/p4lang/tutorials
+repository.
+start install mininet:
++ date
+Mon Jul 13 05:51:37 PM CST 2026
+++ date +%s
++ TIME_MININET_START=1783936297
++ MININET_COMMIT=6eb8973c0bfd13c25c244a3871130c5e36b5fbd7
++ '[' -d mininet ']'
++ echo 'Found directory /home/adam/mininet.  Assuming desired version of mininet is already installed.'
+Found directory /home/adam/mininet.  Assuming desired version of mininet is already installed.
+++ date +%s
++ TIME_MININET_END=1783936297
++ echo 'mininet                : 0 sec'
+mininet                : 0 sec
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57813
++ DISK_USED_AFTER_MININET=57813
++ set +x
+end install mininet:
++ date
+Mon Jul 13 05:51:37 PM CST 2026
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-7-after-mininet-install.txt
++ local OUT_FNAME=/home/adam/usr-local-7-after-mininet-install.txt
+++ basename /home/adam/usr-local-7-after-mininet-install.txt .txt
++ local DIRNAME=/home/adam/usr-local-7-after-mininet-install
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing PTF
+start install ptf:
++ date
+Mon Jul 13 05:51:37 PM CST 2026
+++ date +%s
++ TIME_PTF_START=1783936297
++ '[' -d ptf ']'
++ echo 'Found directory /home/adam/ptf.  Assuming desired version of ptf is already installed.'
+Found directory /home/adam/ptf.  Assuming desired version of ptf is already installed.
+++ date +%s
++ TIME_PTF_END=1783936297
++ echo 'p4lang/ptf             : 0 sec'
+p4lang/ptf             : 0 sec
++ set +x
+end install ptf:
++ date
+Mon Jul 13 05:51:37 PM CST 2026
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-8-after-ptf-install.txt
++ local OUT_FNAME=/home/adam/usr-local-8-after-ptf-install.txt
+++ basename /home/adam/usr-local-8-after-ptf-install.txt .txt
++ local DIRNAME=/home/adam/usr-local-8-after-ptf-install
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing a few miscellaneous packages
+start install miscellaneous packages:
++ date
+Mon Jul 13 05:51:38 PM CST 2026
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes install libgflags-dev net-tools
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libgflags-dev is already the newest version (2.2.2-2build1).
+net-tools is already the newest version (2.10-0.1ubuntu4.4).
+The following packages were automatically installed and are no longer required:
+  bridge-utils ubuntu-fan
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 66 not upgraded.
++ pip3 install psutil crcmod
+Collecting psutil
+  Using cached psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (22 kB)
+Collecting crcmod
+  Using cached crcmod-1.7.tar.gz (89 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Using cached psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+Building wheels for collected packages: crcmod
+  Building wheel for crcmod (pyproject.toml): started
+  Building wheel for crcmod (pyproject.toml): finished with status 'done'
+  Created wheel for crcmod: filename=crcmod-1.7-cp312-cp312-linux_x86_64.whl size=31831 sha256=d3eb66dc3621672441a9bfdd32c4f339f98f073f6f685ce2d10489d38e434f22
+  Stored in directory: /home/adam/.cache/pip/wheels/76/08/0b/caa8b1380122cbfe6a03eaccbec0f63c67e619af4e30ca5e2a
+Successfully built crcmod
+Installing collected packages: crcmod, psutil
+Successfully installed crcmod-1.7 psutil-7.2.2
++ pip3 install wheel
+Collecting wheel
+  Using cached wheel-0.47.0-py3-none-any.whl.metadata (2.3 kB)
+Collecting packaging>=24.0 (from wheel)
+  Using cached packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+Using cached wheel-0.47.0-py3-none-any.whl (32 kB)
+Using cached packaging-26.2-py3-none-any.whl (100 kB)
+Installing collected packages: packaging, wheel
+Successfully installed packaging-26.2 wheel-0.47.0
++ '[' ubuntu == ubuntu -a 24.04 == 24.04 ']'
++ pip3 install grpcio==1.59.3
+Collecting grpcio==1.59.3
+  Downloading grpcio-1.59.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.0 kB)
+Downloading grpcio-1.59.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (5.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.3/5.3 MB 4.0 MB/s eta 0:00:00
+Installing collected packages: grpcio
+Successfully installed grpcio-1.59.3
++ '[' -d p4runtime-shell ']'
++ git clone https://github.com/p4lang/p4runtime-shell
+Cloning into 'p4runtime-shell'...
++ cd p4runtime-shell
++ '[' x '!=' x ']'
++ git log -n 1
+commit 4b69a672b499a50255d04ca8196a8420d63dcaeb
+Author: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
+Date:   Wed Jun 24 20:54:57 2026 -0400
+
+    Bump actions/setup-python from 5 to 6 (#147)
+    
+    Signed-off-by: dependabot[bot] <support@github.com>
+    Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
++ PATCH_DIR=/home/adam/p4-guide/bin/patches
++ patch -p1
+patching file setup.cfg
+Hunk #1 succeeded at 28 (offset 4 lines).
++ pip3 install .
+Processing /home/adam/p4runtime-shell
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting jedi==0.17.2 (from p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading jedi-0.17.2-py2.py3-none-any.whl.metadata (19 kB)
+Collecting ipython==7.31.*,>=7.31.1 (from p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading ipython-7.31.1-py3-none-any.whl.metadata (4.3 kB)
+Collecting protobuf<3.21.0,>=3.15.0 (from p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading protobuf-3.20.3-py2.py3-none-any.whl.metadata (720 bytes)
+Requirement already satisfied: grpcio>=1.35.0 in /home/adam/p4dev-python-venv/lib/python3.12/site-packages (from p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713) (1.59.3)
+Collecting p4runtime==1.4.1 (from p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading p4runtime-1.4.1-py3-none-any.whl.metadata (10 kB)
+Collecting setuptools>=18.5 (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Using cached setuptools-83.0.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting decorator (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading decorator-5.3.1-py3-none-any.whl.metadata (3.9 kB)
+Collecting pickleshare (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading pickleshare-0.7.5-py2.py3-none-any.whl.metadata (1.5 kB)
+Collecting traitlets>=4.2 (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading traitlets-5.15.1-py3-none-any.whl.metadata (10 kB)
+Collecting prompt-toolkit!=3.0.0,!=3.0.1,<3.1.0,>=2.0.0 (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Using cached prompt_toolkit-3.0.52-py3-none-any.whl.metadata (6.4 kB)
+Collecting pygments (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting backcall (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading backcall-0.2.0-py2.py3-none-any.whl.metadata (2.0 kB)
+Collecting matplotlib-inline (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading matplotlib_inline-0.2.2-py3-none-any.whl.metadata (2.4 kB)
+Collecting pexpect>4.3 (from ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Using cached pexpect-4.9.0-py2.py3-none-any.whl.metadata (2.5 kB)
+Collecting parso<0.8.0,>=0.7.0 (from jedi==0.17.2->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading parso-0.7.1-py2.py3-none-any.whl.metadata (7.0 kB)
+Collecting googleapis-common-protos>=1.52 (from p4runtime==1.4.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+INFO: pip is looking at multiple versions of googleapis-common-protos to determine which version is compatible with other requirements. This could take a while.
+  Downloading googleapis_common_protos-1.74.0-py3-none-any.whl.metadata (9.2 kB)
+  Downloading googleapis_common_protos-1.73.1-py3-none-any.whl.metadata (9.2 kB)
+  Downloading googleapis_common_protos-1.73.0-py3-none-any.whl.metadata (9.4 kB)
+Collecting ptyprocess>=0.5 (from pexpect>4.3->ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Using cached ptyprocess-0.7.0-py2.py3-none-any.whl.metadata (1.3 kB)
+Collecting wcwidth (from prompt-toolkit!=3.0.0,!=3.0.1,<3.1.0,>=2.0.0->ipython==7.31.*,>=7.31.1->p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713)
+  Downloading wcwidth-0.8.2-py3-none-any.whl.metadata (43 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 43.3/43.3 kB 608.9 kB/s eta 0:00:00
+Downloading ipython-7.31.1-py3-none-any.whl (792 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 792.3/792.3 kB 1.7 MB/s eta 0:00:00
+Downloading jedi-0.17.2-py2.py3-none-any.whl (1.4 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 6.1 MB/s eta 0:00:00
+Downloading p4runtime-1.4.1-py3-none-any.whl (44 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.0/45.0 kB 1.4 MB/s eta 0:00:00
+Downloading protobuf-3.20.3-py2.py3-none-any.whl (162 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 162.1/162.1 kB 4.1 MB/s eta 0:00:00
+Downloading googleapis_common_protos-1.73.0-py3-none-any.whl (297 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 297.6/297.6 kB 4.2 MB/s eta 0:00:00
+Downloading parso-0.7.1-py2.py3-none-any.whl (109 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 109.5/109.5 kB 3.7 MB/s eta 0:00:00
+Using cached pexpect-4.9.0-py2.py3-none-any.whl (63 kB)
+Using cached prompt_toolkit-3.0.52-py3-none-any.whl (391 kB)
+Using cached setuptools-83.0.0-py3-none-any.whl (1.0 MB)
+Downloading traitlets-5.15.1-py3-none-any.whl (85 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 85.9/85.9 kB 4.1 MB/s eta 0:00:00
+Downloading backcall-0.2.0-py2.py3-none-any.whl (11 kB)
+Downloading decorator-5.3.1-py3-none-any.whl (10 kB)
+Downloading matplotlib_inline-0.2.2-py3-none-any.whl (9.5 kB)
+Downloading pickleshare-0.7.5-py2.py3-none-any.whl (6.9 kB)
+Downloading pygments-2.20.0-py3-none-any.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 5.1 MB/s eta 0:00:00
+Using cached ptyprocess-0.7.0-py2.py3-none-any.whl (13 kB)
+Downloading wcwidth-0.8.2-py3-none-any.whl (323 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 323.2/323.2 kB 5.3 MB/s eta 0:00:00
+Building wheels for collected packages: p4runtime-shell
+  Building wheel for p4runtime-shell (pyproject.toml): started
+  Building wheel for p4runtime-shell (pyproject.toml): finished with status 'done'
+  Created wheel for p4runtime-shell: filename=p4runtime_shell-0.0.6.post26+g4b69a672b.d20260713-py3-none-any.whl size=42704 sha256=91059b4d344771891c1b4183f2863739764d0477d708740fc52e639261d1120a
+  Stored in directory: /home/adam/.cache/pip/wheels/ef/bf/47/c074267b31545c3d44a14f0d6a260fcd0d6b5a894cca3e97bf
+Successfully built p4runtime-shell
+Installing collected packages: ptyprocess, pickleshare, backcall, wcwidth, traitlets, setuptools, pygments, protobuf, pexpect, parso, decorator, prompt-toolkit, matplotlib-inline, jedi, googleapis-common-protos, p4runtime, ipython, p4runtime-shell
+  Attempting uninstall: protobuf
+    Found existing installation: protobuf 4.21.12
+    Uninstalling protobuf-4.21.12:
+      Successfully uninstalled protobuf-4.21.12
+Successfully installed backcall-0.2.0 decorator-5.3.1 googleapis-common-protos-1.73.0 ipython-7.31.1 jedi-0.17.2 matplotlib-inline-0.2.2 p4runtime-1.4.1 p4runtime-shell-0.0.6.post26+g4b69a672b.d20260713 parso-0.7.1 pexpect-4.9.0 pickleshare-0.7.5 prompt-toolkit-3.0.52 protobuf-3.20.3 ptyprocess-0.7.0 pygments-2.20.0 setuptools-83.0.0 traitlets-5.15.1 wcwidth-0.8.2
++ pip3 list
+Package                  Version
+------------------------ ---------------------------------
+backcall                 0.2.0
+crcmod                   1.7
+decorator                5.3.1
+googleapis-common-protos 1.73.0
+grpcio                   1.59.3
+ipython                  7.31.1
+jedi                     0.17.2
+matplotlib-inline        0.2.2
+p4runtime                1.4.1
+p4runtime-shell          0.0.6.post26+g4b69a672b.d20260713
+packaging                26.2
+parso                    0.7.1
+pexpect                  4.9.0
+pickleshare              0.7.5
+pip                      24.0
+ply                      3.11
+prompt_toolkit           3.0.52
+protobuf                 3.20.3
+psutil                   7.2.2
+ptyprocess               0.7.0
+Pygments                 2.20.0
+scapy                    2.5.0
+setuptools               83.0.0
+traitlets                5.15.1
+wcwidth                  0.8.2
+wheel                    0.47.0
++ set +x
+end install miscellaneous packages:
++ date
+Mon Jul 13 05:52:07 PM CST 2026
++ cd /home/adam
++ set +x
+------------------------------------------------------------
+Installing p4lang/tutorials
+start install tutorials:
++ date
+Mon Jul 13 05:52:07 PM CST 2026
++ '[' -d tutorials ']'
++ git clone https://github.com/p4lang/tutorials
+Cloning into 'tutorials'...
++ cd tutorials
++ git log -n 1
+commit c80d83e986291889b3238c52d919c307a0c0a813
+Author: Andy Fingerhut <andy_fingerhut@alum.wustl.edu>
+Date:   Sat Jul 4 14:50:36 2026 -0400
+
+    Updates for 2026-Jul-04 (#748)
+    
+    * Move optional steps for testing VMs out of README.md file
+    This may help avoid new users being confused that they must follow
+    those instructions.
+    
+    Signed-off-by: Andy Fingerhut <andy_fingerhut@alum.wustl.edu>
+    
+    * Add 2025-Jan-30 versions of source code for install.sh
+    
+    Signed-off-by: Andy Fingerhut <andy_fingerhut@alum.wustl.edu>
+    
+    * Update to latest version of source as of 2026-Jul-04
+    
+    Signed-off-by: Andy Fingerhut <andy_fingerhut@alum.wustl.edu>
+    
+    ---------
+    
+    Signed-off-by: Andy Fingerhut <andy_fingerhut@alum.wustl.edu>
++ set +x
+end install tutorials:
++ date
+Mon Jul 13 05:52:22 PM CST 2026
++ cd /home/adam
++ debug_dump_many_install_files /home/adam/usr-local-9-after-miscellaneous-install.txt
++ local OUT_FNAME=/home/adam/usr-local-9-after-miscellaneous-install.txt
+++ basename /home/adam/usr-local-9-after-miscellaneous-install.txt .txt
++ local DIRNAME=/home/adam/usr-local-9-after-miscellaneous-install
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/adam/.local /home/adam/p4dev-python-venv
++ sort
++ '[' 2 -ge 3 ']'
++ pip list
+Package                  Version
+------------------------ ---------------------------------
+backcall                 0.2.0
+crcmod                   1.7
+decorator                5.3.1
+googleapis-common-protos 1.73.0
+grpcio                   1.59.3
+ipython                  7.31.1
+jedi                     0.17.2
+matplotlib-inline        0.2.2
+p4runtime                1.4.1
+p4runtime-shell          0.0.6.post26+g4b69a672b.d20260713
+packaging                26.2
+parso                    0.7.1
+pexpect                  4.9.0
+pickleshare              0.7.5
+pip                      24.0
+ply                      3.11
+prompt_toolkit           3.0.52
+protobuf                 3.20.3
+psutil                   7.2.2
+ptyprocess               0.7.0
+Pygments                 2.20.0
+scapy                    2.5.0
+setuptools               83.0.0
+traitlets                5.15.1
+wcwidth                  0.8.2
+wheel                    0.47.0
++ pip3 list
+Package                  Version
+------------------------ ---------------------------------
+backcall                 0.2.0
+crcmod                   1.7
+decorator                5.3.1
+googleapis-common-protos 1.73.0
+grpcio                   1.59.3
+ipython                  7.31.1
+jedi                     0.17.2
+matplotlib-inline        0.2.2
+p4runtime                1.4.1
+p4runtime-shell          0.0.6.post26+g4b69a672b.d20260713
+packaging                26.2
+parso                    0.7.1
+pexpect                  4.9.0
+pickleshare              0.7.5
+pip                      24.0
+ply                      3.11
+prompt_toolkit           3.0.52
+protobuf                 3.20.3
+psutil                   7.2.2
+ptyprocess               0.7.0
+Pygments                 2.20.0
+scapy                    2.5.0
+setuptools               83.0.0
+traitlets                5.15.1
+wcwidth                  0.8.2
+wheel                    0.47.0
++ set +e
++ set +x
+------------------------------------------------------------
+Time and disk space used when installation was complete:
++ date
+Mon Jul 13 05:52:24 PM CST 2026
++ df -h .
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p5   98G   57G   37G  61% /
++ df -BM .
+Filesystem     1M-blocks   Used Available Use% Mounted on
+/dev/nvme0n1p5   100221M 57961M    37125M  61% /
+++ date +%s
++ TIME_END=1783936344
++ set +x
+
+Elapsed time for various install steps:
+autotools              : 1 sec
+grpc clone             : 0 sec
+grpc install           : 3 sec
+p4lang/PI clone        : 0 sec
+p4lang/PI install      : 1 sec
+p4lang/behavioral-model clone  : 0 sec
+p4lang/behavioral-model install: 0 sec
+p4lang/p4c clone       : 0 sec
+p4lang/p4c install     : 7 sec
+mininet                : 0 sec
+p4lang/ptf             : 0 sec
+Total time             : 70 sec
+++ get_used_disk_space_in_mbytes
++++ df --output=used --block-size=1M .
++++ tail -n 1
+++ echo 57961
++ DISK_USED_END=57961
++ set +x
+All disk space utilizations below are in MBytes:
+
+DISK_USED_START                57779
+DISK_USED_AFTER_AUTOTOOLS      57779
+DISK_USED_BEFORE_GRPC_CLEANUP  
+DISK_USED_AFTER_GRPC           57797
+DISK_USED_BEFORE_PI_CLEANUP    57797
+DISK_USED_AFTER_PI             57797
+DISK_USED_BEFORE_BMV2_CLEANUP  57796
+DISK_USED_AFTER_BMV2           57796
+DISK_USED_BEFORE_P4C_CLEANUP   57814
+DISK_USED_AFTER_P4C            57814
+DISK_USED_AFTER_MININET        57813
+DISK_USED_END                  57961
+DISK_USED_MAX                  57961
+DISK_USED_MAX - DISK_USED_START : 182 MBytes
++ cd /home/adam
++ DETS=install-details
++ mkdir -p install-details
++ mv usr-local-1-before-protobuf.txt usr-local-3-after-grpc.txt usr-local-4-after-PI.txt usr-local-5-after-behavioral-model.txt usr-local-6-after-p4c.txt usr-local-7-after-mininet-install.txt usr-local-8-after-ptf-install.txt usr-local-9-after-miscellaneous-install.txt install-details
++ P4GUIDE_BIN=/home/adam/p4-guide/bin
++ set +x
+----------------------------------------------------------------------
+Output of script p4-environment-info.sh
+----------------------------------------------------------------------
+p4-environment-info version 1
+
+$ uname -a
+Linux adam-Yoga-7-2-in-1-16IML9 6.17.0-35-generic #35~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue May 26 19:30:42 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+
+ID=ubuntu
+VERSION_ID=24.04
+
+$ which gcc
+/usr/bin/gcc
+$ gcc --version
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+
+$ which g++
+/usr/bin/g++
+$ g++ --version
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+
+$ which make
+/usr/bin/make
+$ make --version
+GNU Make 4.3
+Built for x86_64-pc-linux-gnu
+Copyright (C) 1988-2020 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+$ which cmake
+/usr/bin/cmake
+$ cmake --version
+cmake version 3.28.3
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+$ which m4
+/usr/bin/m4
+$ m4 --version
+m4 (GNU M4) 1.4.19
+Copyright (C) 2021 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by René Seindal.
+
+$ which autoconf
+/usr/bin/autoconf
+$ autoconf --version
+autoconf (GNU Autoconf) 2.71
+Copyright (C) 2021 Free Software Foundation, Inc.
+License GPLv3+/Autoconf: GNU GPL version 3 or later
+<https://gnu.org/licenses/gpl.html>, <https://gnu.org/licenses/exceptions.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by David J. MacKenzie and Akim Demaille.
+
+$ which automake
+/usr/bin/automake
+$ automake --version
+automake (GNU automake) 1.16.5
+Copyright (C) 2021 Free Software Foundation, Inc.
+License GPLv2+: GNU GPL version 2 or later <https://gnu.org/licenses/gpl-2.0.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by Tom Tromey <tromey@redhat.com>
+       and Alexandre Duret-Lutz <adl@gnu.org>.
+
+$ which as
+/usr/bin/as
+$ as --version
+GNU assembler (GNU Binutils for Ubuntu) 2.42
+Copyright (C) 2024 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or later.
+This program has absolutely no warranty.
+This assembler was configured for a target of `x86_64-linux-gnu'.
+
+$ which bison
+/usr/bin/bison
+$ bison --version
+bison (GNU Bison) 3.8.2
+Written by Robert Corbett and Richard Stallman.
+
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+$ which flex
+/usr/bin/flex
+$ flex --version
+flex 2.6.4
+
+$ which llvm-config
+/usr/bin/llvm-config
+$ llvm-config --version
+18.1.3
+
+$ which python
+/home/adam/p4dev-python-venv/bin/python
+$ python --version
+Python 3.12.3
+
+$ which pip
+/home/adam/p4dev-python-venv/bin/pip
+$ pip --version
+pip 24.0 from /home/adam/p4dev-python-venv/lib/python3.12/site-packages/pip (python 3.12)
+$ pip list
+Package                  Version
+------------------------ ---------------------------------
+backcall                 0.2.0
+crcmod                   1.7
+decorator                5.3.1
+googleapis-common-protos 1.73.0
+grpcio                   1.59.3
+ipython                  7.31.1
+jedi                     0.17.2
+matplotlib-inline        0.2.2
+p4runtime                1.4.1
+p4runtime-shell          0.0.6.post26+g4b69a672b.d20260713
+packaging                26.2
+parso                    0.7.1
+pexpect                  4.9.0
+pickleshare              0.7.5
+pip                      24.0
+ply                      3.11
+prompt_toolkit           3.0.52
+protobuf                 3.20.3
+psutil                   7.2.2
+ptyprocess               0.7.0
+Pygments                 2.20.0
+scapy                    2.5.0
+setuptools               83.0.0
+traitlets                5.15.1
+wcwidth                  0.8.2
+wheel                    0.47.0
+
+$ which python3
+/home/adam/p4dev-python-venv/bin/python3
+$ python3 --version
+Python 3.12.3
+
+$ which pip3
+/home/adam/p4dev-python-venv/bin/pip3
+$ pip3 --version
+pip 24.0 from /home/adam/p4dev-python-venv/lib/python3.12/site-packages/pip (python 3.12)
+$ pip3 list
+Package                  Version
+------------------------ ---------------------------------
+backcall                 0.2.0
+crcmod                   1.7
+decorator                5.3.1
+googleapis-common-protos 1.73.0
+grpcio                   1.59.3
+ipython                  7.31.1
+jedi                     0.17.2
+matplotlib-inline        0.2.2
+p4runtime                1.4.1
+p4runtime-shell          0.0.6.post26+g4b69a672b.d20260713
+packaging                26.2
+parso                    0.7.1
+pexpect                  4.9.0
+pickleshare              0.7.5
+pip                      24.0
+ply                      3.11
+prompt_toolkit           3.0.52
+protobuf                 3.20.3
+psutil                   7.2.2
+ptyprocess               0.7.0
+Pygments                 2.20.0
+scapy                    2.5.0
+setuptools               83.0.0
+traitlets                5.15.1
+wcwidth                  0.8.2
+wheel                    0.47.0
+
+$ which libtool
+/usr/bin/libtool
+$ libtool --version
+libtool (GNU libtool) 2.4.7
+Written by Gordon Matzigkeit, 1996
+
+Copyright (C) 2014 Free Software Foundation, Inc.
+
+
+$ which pkg-config
+/usr/bin/pkg-config
+$ pkg-config --version
+1.8.1
+
+$ which mn
+/usr/bin/mn
+$ mn --version
+2.3.0
+
+$ which protoc
+/usr/bin/protoc
+$ protoc --version
+libprotoc 3.21.12
+
+$ which thrift
+/usr/local/bin/thrift
+$ thrift --version
+Thrift version 0.16.0
+
+$ which simple_switch
+/usr/local/bin/simple_switch
+$ simple_switch --version
+1.15.3-f0b7d201
+
+$ which simple_switch_grpc
+/usr/local/bin/simple_switch_grpc
+$ simple_switch_grpc --version
+1.15.3-f0b7d201
+
+$ which simple_switch_CLI
+/usr/local/bin/simple_switch_CLI
+
+$ which p4c
+/usr/local/bin/p4c
+$ p4c --version
+p4c 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+
+$ find /usr | grep p4runtime | sort | xargs ls -ld
+-rw-r--r-- 1 root root  71757 Jul 13 17:02 /usr/local/include/p4/v1/p4runtime.grpc.pb.h
+-rw-r--r-- 1 root root 824555 Jul 13 17:02 /usr/local/include/p4/v1/p4runtime.pb.h
+-rw-r--r-- 1 root root  11550 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/p4runtime_pb2_grpc.py
+-rw-r--r-- 1 root root  22521 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py
+-rw-r--r-- 1 root root  15816 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4runtime_pb2.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root  15816 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4runtime_pb2.cpython-313.pyc
+-rw-r--r-- 1 root root  10850 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4runtime_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root  10850 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4runtime_pb2_grpc.cpython-313.pyc
+
+$ find /usr/local/lib | grep grpc | sort | xargs ls -ld
+-rw-r--r-- 1 root root  1707902 Jul 13 17:19 /usr/local/lib/libbm_grpc_dataplane.a
+-rwxr-xr-x 1 root root     1060 Jul 13 17:19 /usr/local/lib/libbm_grpc_dataplane.la
+lrwxrwxrwx 1 root root       29 Jul 13 17:19 /usr/local/lib/libbm_grpc_dataplane.so -> libbm_grpc_dataplane.so.0.0.0
+lrwxrwxrwx 1 root root       29 Jul 13 17:19 /usr/local/lib/libbm_grpc_dataplane.so.0 -> libbm_grpc_dataplane.so.0.0.0
+-rwxr-xr-x 1 root root   742712 Jul 13 17:19 /usr/local/lib/libbm_grpc_dataplane.so.0.0.0
+-rw-r--r-- 1 root root  4898552 Jul 13 17:02 /usr/local/lib/libpigrpcserver.a
+-rwxr-xr-x 1 root root     2364 Jul 13 17:02 /usr/local/lib/libpigrpcserver.la
+lrwxrwxrwx 1 root root       24 Jul 13 17:02 /usr/local/lib/libpigrpcserver.so -> libpigrpcserver.so.0.0.0
+lrwxrwxrwx 1 root root       24 Jul 13 17:02 /usr/local/lib/libpigrpcserver.so.0 -> libpigrpcserver.so.0.0.0
+-rwxr-xr-x 1 root root  2328440 Jul 13 17:02 /usr/local/lib/libpigrpcserver.so.0.0.0
+-rw-r--r-- 1 root root 18848682 Jul 13 17:02 /usr/local/lib/libpiprotogrpc.a
+-rwxr-xr-x 1 root root     2157 Jul 13 17:02 /usr/local/lib/libpiprotogrpc.la
+lrwxrwxrwx 1 root root       23 Jul 13 17:02 /usr/local/lib/libpiprotogrpc.so -> libpiprotogrpc.so.0.0.0
+lrwxrwxrwx 1 root root       23 Jul 13 17:02 /usr/local/lib/libpiprotogrpc.so.0 -> libpiprotogrpc.so.0.0.0
+-rwxr-xr-x 1 root root  7309808 Jul 13 17:02 /usr/local/lib/libpiprotogrpc.so.0.0.0
+-rw-r--r-- 1 root root     7985 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/gnmi/gnmi_pb2_grpc.py
+-rw-r--r-- 1 root root     8289 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/gnmi/__pycache__/gnmi_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root     8289 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/gnmi/__pycache__/gnmi_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root      159 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/google/rpc/code_pb2_grpc.py
+-rw-r--r-- 1 root root      270 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/google/rpc/__pycache__/code_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root      270 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/google/rpc/__pycache__/code_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root      272 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/google/rpc/__pycache__/status_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root      272 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/google/rpc/__pycache__/status_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root      159 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/google/rpc/status_pb2_grpc.py
+-rw-r--r-- 1 root root      159 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/config/v1/p4info_pb2_grpc.py
+-rw-r--r-- 1 root root      159 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/config/v1/p4types_pb2_grpc.py
+-rw-r--r-- 1 root root      274 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/config/v1/__pycache__/p4info_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root      274 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/config/v1/__pycache__/p4info_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root      275 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/config/v1/__pycache__/p4types_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root      275 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/config/v1/__pycache__/p4types_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root     4146 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/server/v1/config_pb2_grpc.py
+-rw-r--r-- 1 root root     4571 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/server/v1/__pycache__/config_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root     4571 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/server/v1/__pycache__/config_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root      159 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/tmp/p4config_pb2_grpc.py
+-rw-r--r-- 1 root root      270 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/tmp/__pycache__/p4config_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root      270 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/tmp/__pycache__/p4config_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root      159 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/p4data_pb2_grpc.py
+-rw-r--r-- 1 root root    11550 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/p4runtime_pb2_grpc.py
+-rw-r--r-- 1 root root      267 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4data_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root      267 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4data_pb2_grpc.cpython-313.pyc
+-rw-r--r-- 1 root root    10850 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4runtime_pb2_grpc.cpython-313.opt-1.pyc
+-rw-r--r-- 1 root root    10850 Jul 13 17:02 /usr/local/lib/python3.13/site-packages/p4/v1/__pycache__/p4runtime_pb2_grpc.cpython-313.pyc
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+CONSIDER READING WHAT IS BELOW
+----------------------------------------------------------------------
+
+If you use a Bash-like command shell, you may wish to add a line like
+the following to your .bashrc or other shell rc file:
+
+    source $HOME/p4setup.bash
+
+If you use the tcsh or csh shells, use p4setup.csh instead.
+----------------------------------------------------------------------
+CONSIDER READING WHAT IS ABOVE
+----------------------------------------------------------------------
++ clean_up
++ echo 'Killing child process'
+Killing child process
++ kill 475244
++ sudo --reset-timestamp
++ exit

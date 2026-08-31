@@ -1,0 +1,22 @@
+# MANIFEST — sha256 against the original in /home/adam/P4_Source_Code, recorded 2026-08-31
+#
+#   git cat-file blob audit-raw:p4-source-tree-residue-2026-08-31/<path> | sha256sum
+#
+# [Co-developed with claude code -- Adam]
+
+546d130841047a9cbf9fa220620c3fa0d11d54b2a0f63658fa3b7f3d87e85cf9  install-details/usr-local-1-before-protobuf.txt
+44c817c728d987d1c92eb024635c71400825ebf2ef1f0fa304da4712f8100c10  install-details/usr-local-3-after-grpc.txt
+44c817c728d987d1c92eb024635c71400825ebf2ef1f0fa304da4712f8100c10  install-details/usr-local-4-after-PI.txt
+44c817c728d987d1c92eb024635c71400825ebf2ef1f0fa304da4712f8100c10  install-details/usr-local-5-after-behavioral-model.txt
+824e3df66a302844e066ba1b6df391459884d7d85a56cc47f1ec0239f5c901e6  install-details/usr-local-6-after-p4c.txt
+824e3df66a302844e066ba1b6df391459884d7d85a56cc47f1ec0239f5c901e6  install-details/usr-local-7-after-mininet-install.txt
+824e3df66a302844e066ba1b6df391459884d7d85a56cc47f1ec0239f5c901e6  install-details/usr-local-8-after-ptf-install.txt
+a446443a147d8439d2d3493e99414c9b1c8199674b6b5538c24c95c523775bbe  install-details/usr-local-9-after-miscellaneous-install.txt
+256ac7f7c7cf6c55c97336649048e026a57602c29c5b64cf526fe86b557ee25c  log.txt
+c53557fd58c030befd6f9a7098d20ef23f73793e3dec5e7ec7e411652a9398d5  build-records/behavioral-model__config.log
+2704442a51a2965d23032cf6a7b77dd1b0c5a6959139695235d151ea0579564d  build-records/behavioral-model__config.status
+9e83387b01380aed0314a78fe357bbebcf0c33168a425939903f779cdc890271  build-records/PI__config.log
+05dc6681939de8c7c403684199beecdde71e237d5987c1cb7c46ba638269df0d  build-records/PI__config.status
+5ea94c5f63473947b57f39a44fd0bcbf29a53329d95848eae47c04881ad562e7  build-records/PI__proto__config.log
+7c4b996faea4389bda8a27973b4223b87afa40ccae23ae45d20ca2de49412d50  build-records/PI__proto__config.status
+7c5c4c83d05e29a855f0cb799b68150977adbb29b6544117224f42375867a50d  build-records/p4c__build__CMakeCache.txt
