@@ -530,6 +530,69 @@ refutation**, not a fresh surprise. This is the round's reconciliation entry for
 ⚠️ `spread`, `floor` and `distinct` all moved sharply in this cell. **No shape is described** — the
 moratorium in §5-ter holds until 1/1 is in.
 
+---
+
+## 5-sexies. 04:08 — rung 1/4 complete, and the trap that appears once three rungs sit side by side
+
+Verified from `raw/cells.tsv`, all six cells of each rung:
+
+| rung | arm | ratio range | `gt_mbit` | `lost_pct` |
+|---|---|---|---|---|
+| 1/16 | bl | 0.9988–1.0030 | 205.8–206.0 | 0.015–0.10 |
+| 1/16 | p | 0.9981–1.0020 | 206.0 | 0.008–0.02 |
+| **1/8** | **bl** | **0.9692–0.9751** | **206.0** | **0.011–0.33** |
+| **1/8** | **p** | **0.9997–1.0030** | **206.0** | **0.014–0.02** |
+| **1/4** | bl | 0.9985–1.0070 | **109.6–111.0** | **43.08–45.21** |
+| **1/4** | p | 1.0020–1.0100 | **109.4–117.6** | **41.24–42.43** |
+
+Rungs 1/1024 through 1/8: `gt` 205.4–206.0, loss 0.008–0.36%. **The fabric was healthy for six
+rungs and collapsed at the seventh.**
+
+### It is a property of the rung, not of the arm
+
+All six cells hurt; the two arms are numerically indistinguishable (bl 45.21/43.47/43.08, p
+41.24/42.26/42.43). ⇒ **The recompute period does not modulate the data-plane damage.** The harm
+comes from the sampling itself, not from the kernel's recompute load. **One cell could not say this;
+the completed rung can** — the same observation only acquired a population when the rung finished.
+
+### 🔴 The trap: `bl`'s ratio goes 1.00 → 0.97 → 1.00, and that reads exactly backwards
+
+A reader's first reaction is *"it got worse, then recovered."* **It is the opposite.**
+
+* At **1/8** the fabric was healthy — `gt` 206.0, loss ≤0.33% — so `bl` falling to 0.97 is a **real
+  signal**.
+* At **1/4** the fabric collapsed — `gt` halved, 43% lost — and **`ratio` returned to 1.00 because
+  the gauge went blind.** Upstream loss drags `gt` down together with the twin
+  (`cell_verdict.py:14-15`), so the ratio recovers while the system degrades.
+
+The arithmetic closes: 43% lost ⇒ 57% delivered ⇒ 57% × 200 Mbit/s = **114**, against a measured
+109.4–117.6. **The twin faithfully tracked a network delivering half of what it was given.**
+
+🔴 **The report must state that `ratio` improves as the system gets worse.** Without that sentence
+the column lies by itself — and it tells the most reassuring lie available. This is tonight's
+recurring shape once more, with a twist: the quantity is not merely undiscriminating here, **it
+moves in the wrong direction.**
+
+### 1/8 is the only rung that can speak about the recompute axis — and it is one rung
+
+| rungs | fabric | arms |
+|---|---|---|
+| 1/1024 – 1/16 | healthy | **do not separate** |
+| **1/8** | **healthy (loss ≤0.33%)** | **cleanly separated** |
+| 1/4 | **collapsed** | do not separate — **and the gauge is blind** |
+
+⇒ **The recompute-axis effect is speakable at 1/8 and nowhere else**: above it there is no signal,
+below it there is no discriminating power. **That is one rung, n = 3 against 3.**
+⚠️ **Written in the same breath as the signal, deliberately.** Split into two paragraphs, a reader
+keeps the signal and drops the limitation.
+
+### Unchanged
+
+Ceiling from `SATURATED` only ⇒ **neither arm has a ceiling yet**; 1/1 is running. If it too has no
+`SATURATED`, both arms are right-censored ⇒ **`INDISTINGUISHABLE`**, written as already committed in
+§5-quater, and the report stops there. All six 1/4 cells stay **out of the precision curve**.
+`spread`/`floor` shapes remain under moratorium until 1/1 is in.
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
