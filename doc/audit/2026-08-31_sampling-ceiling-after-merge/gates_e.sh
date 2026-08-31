@@ -605,17 +605,51 @@ main() {
         A silent restore failure contaminates the NEXT round in the queue, which cannot see it."
     fi
 
+    # 🔴 THE FORCED BASELINE MUST BE DERIVED, NOT WRITTEN DOWN (fixed 2026-08-31 22:42, live).
+    #   This line used to read `EDGE_BASELINE=288`.  288 is the DRY RUN's synthetic edge count,
+    #   and `DRY_FAIL=edgecount` only does anything inside edge_count's DRY_RUN branch -- so in a
+    #   live run the force did nothing at all and the invariant compared the real 288 against the
+    #   constant 288, said "matches baseline", and the gate failed.  G1 §2.1's shape exactly: a
+    #   check that has never been able to come out the way it claims, green in every dry run.
+    #   🔑 And the constant was worse than merely inert: had the real fabric had a different edge
+    #   count, this would have gone RED -- passing the gate -- because a stale constant disagreed
+    #   with reality, not because the injection worked.  Both outcomes are independent of the
+    #   thing under test.  Deriving from the live count makes the two differ by construction, in
+    #   the dry run and the live run alike.  [Co-developed with claude code -- Adam]
     say "--- G10 #14: topology invariant must go red on a changed edge count (forced) ---"
-    local out10; out10=$( ( EDGE_BASELINE=288; DRY_FAIL=edgecount assert_topology_invariant forced ) 2>&1 || true)
+    local real10 base10
+    real10=$(edge_count)
+    [[ "$real10" =~ ^[0-9]+$ && "$real10" != "-1" ]] \
+        || abort "#14" "could not read the live edge count (got '$real10') to derive G10's forced
+        baseline.  Unreadable is not equal: refusing to fall back to a constant, which is the
+        defect this gate was just repaired for."
+    base10=$(( real10 + 1 ))
+    say "    forcing: live edge count=$real10, injected baseline=$base10 (differ by construction)"
+    local out10; out10=$( ( FORCED_ABORT=1 EDGE_BASELINE=$base10; DRY_FAIL=edgecount assert_topology_invariant forced ) 2>&1 || true)
     if [[ "$out10" == *"edge count changed"* ]]; then
-        record "G10 #14 topology invariant forced red" PASS
+        record "G10 #14 topology invariant forced red" PASS "baseline $base10 vs live $real10"
     else
         record "G10 #14 topology invariant forced red" FAIL "$out10"
         abort "#14" "a changed edge count did not trip the invariant."
     fi
+    # 🔴 The clean direction, and it is the mutation control for the repair directly above, not a
+    #    new gate: having just changed how G10 is forced, "it went red" is worth nothing until the
+    #    same call is shown NOT to go red when the two counts agree.  An always-red invariant
+    #    would pass the forced half and abort every cell of the ladder.
+    #    🔑 G11 is deliberately left red-only (FINDINGS F-10): its clean direction is not needed to
+    #    validate any change made tonight, and widening the surface inside a stamped round is what
+    #    §3b(C5) exists to stop.  The asymmetry is a decision, not an oversight.
+    local out10g; out10g=$( ( EDGE_BASELINE=$real10; assert_topology_invariant control ) 2>&1 || true)
+    if [[ "$out10g" == *"matches baseline"* ]]; then
+        record "G10 #14 topology invariant clean direction (control for the force above)" PASS "edges=$real10"
+    else
+        record "G10 #14 topology invariant clean direction" FAIL "$out10g"
+        abort "#14" "the topology invariant did not come out green on an UNCHANGED edge count.
+        Its forced red therefore proves nothing, and every cell in the ladder would abort on it."
+    fi
 
     say "--- G11 #3: boot_id change must go red (forced) ---"
-    local out11; out11=$( ( BOOT_BASELINE=dry-run-synthetic-boot-id; DRY_FAIL=bootid assert_same_boot forced ) 2>&1 || true)
+    local out11; out11=$( ( FORCED_ABORT=1 BOOT_BASELINE=dry-run-synthetic-boot-id; DRY_FAIL=bootid assert_same_boot forced ) 2>&1 || true)
     if [[ "$out11" == *"REBOOTED mid-round"* ]]; then
         record "G11 #3 boot_id change forced red" PASS
     else
