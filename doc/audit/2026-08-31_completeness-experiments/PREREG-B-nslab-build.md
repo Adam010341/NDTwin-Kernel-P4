@@ -23,7 +23,7 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
 
 | 臂 | configure |
 |---|---|
-| A stock | p4-guide installer 逐字（`--with-pi --with-thrift 'CXXFLAGS=-O0 -g'`、logging macros＋elogger 開） |
+| A stock | p4-guide installer 逐字（`./configure --with-pi --with-thrift --with-python_prefix=<VM venv> 'CXXFLAGS=-O0 -g'`、logging macros＋elogger 開；正本＝`doc/audit/bmv2-binary-provenance.md:36`，`--with-python_prefix` 係 host 綁定路徑、於 VM 適配為其 venv 並揭露——效能無關項） |
 | B default | 專案預設 `./configure`（＝`-g -O2`，study 已在乾淨樹驗過） |
 | C documented | `-O3 --disable-logging-macros --disable-elogger`（官方文件建議、無自加 flags） |
 | D full-fast | C ＋ `-DNDEBUG -march=native -fno-semantic-interposition`（study 的 fast） |
@@ -37,8 +37,12 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
 ## 3. 量測與判定規則（規則先凍、值後算——auditor C1）
 
 - 拓樸＝單跳、控制面活著（與 study ① 同構）；工作點＝1400 B payload（1442 B frame）UDP。
-- 梯階＝study 的 ×1.5 rungs：1,2,3,5,8,12,20,30,45,70,110,160,240,360（＋540/810 stop
-  rule）Mbit/s【TBD-verify：凍結前對 `21_`/`22_` FINDINGS 逐字核對 rungs、stop rule，**並將 Arm A 的 stock configure 行一併逐字核對**（auditor R3，同一批動作）】。
+- 梯階＝① 的**註冊 ladder 逐字**：`1 2 3 5 8 12 20 30 45 70 110 160 240 360` Mbit/s，
+  向上爬到 **saturation stop 發火＝連續兩 rung loss >25%**（540/810 等延伸 rung 由規則
+  產生，非人選；`RUNAWAY_MAX=40` 純 bug backstop、發火則該臂讀值不作 saturation 解）。
+  ✅ TBD-verify 已落定（08-31，reviewer）：rungs＋stop rule＝`2026-08-28_single-switch-
+  build-ratio/PREREG-1b.md:39-47` 逐字；Arm A configure 行＝`bmv2-binary-provenance.md:36`
+  逐字（差異一處：`--with-python_prefix` host 路徑，已列適配條款——R3 抓到的真差異）。
 - Clean＝loss ≤0.5% on 3-rep medians（同 study）；每臂讀出＝最高 clean rung。
 - **判定規則（全部先凍）**：
   - R-B2：兩 D 臂讀值皆嚴格高於兩 A 臂 ⇒「混淆在機器 2 存在」成立；報 rung 級距
@@ -52,9 +56,11 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
 - 陽性對照：per-process CPU gate 沿 study（**先讓它發火一次才信**）。
 - **Sender gate（公式先凍、校準只填常數——auditor R1）**：
   - 判定式（v1.0 即存在）：令 G＝VM 內 sender→sink **直測天花板**；凡 rung X 滿足
-    **G < 5×X ⇒ 該 rung 及以上的讀值標 sender-limited、不入 clean 判定**（5× 門檻沿
-    study ② 的 sender-gate 要求；精確錨點【TBD-verify：凍結時 pin 到
-    `23_FINDINGS_packet-size.md` 的 gate 節行號】）。
+    **G < 5×X ⇒ 該 rung 及以上的讀值標 sender-limited、不入 clean 判定**。
+    ✅ 錨點已落定（08-31，reviewer）：5× 要求＋loopback 不經 bmv2＝
+    `23_FINDINGS_packet-size.md:68-77`（②註冊原文＋770.7 kpps 實測樣例）；loopback
+    直測先例＝`2026-08-28_single-switch-build-ratio/PREREG-1b.md:76-82`（①b 於臂後跑；
+    **本實驗改於臂前跑＝刻意更嚴**，防火牆理由見上）。
   - 校準時序與防火牆：凍結後、正式臂之前跑；**校準路徑 sender→sink 直連、不經過任何
     受測 build 的 binary**（不洩漏臂的性能包絡）；校準產出只有常數 G、只餵判定式、
     不入 primary。
@@ -72,8 +78,12 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   （VM_CPUS=16、VM_MEM=16384），實際值進 manifest。
 - **nslab 獨占條款**：跑臂期間 nslab 上不開任何其他重活——nslab 無 claim 工具，
   **本句即其 claim**。
-- P4 程式＝study ① 同一顆＋同 p4c【TBD：凍結時逐字記名＋p4c 版本＋JSON hash——
-  順手補 AEC 抓的論文缺口】。
+- P4 程式 ✅ 已落定（08-31，reviewer）：`p4_proxy/p4_src/ndtwin_switch.p4`、
+  sha256 `5786a63e9b31402ce40bc6401319a6408a1cf71f6dddaca0c023d450f3ae23d5`，
+  自 `f64897b`（08-25 19:30）未再變動＝**早於 ① 的 08-28 量測 ⇒ 與 ① 同顆**（時序驗過，
+  benchmark-must-name 的坑已排）。p4c＝**於 nslab VM bootstrap 時現編現記**（本機 PATH
+  今日印 1.2.5.15/5b948b037a，僅供參考、不假設為任何既有 JSON 的編譯器）；JSON hash
+  於編譯當下記。此格順手補了 AEC 抓的論文缺口（35_ 的 camera-ready 待辦一併解）。
 - 每臂 fabric 重啟＝新鮮度；VM 不 snapshot-rollback 中途（8 臂一氣跑完、中斷則整輪作廢
   重跑並記錄）。
 
@@ -108,5 +118,12 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   ＝不 pin、不動 governor（與 study ① 同 protocol；敏感度歸 B3）；R3＝Arm A stock
   configure 行併入 TBD-verify 同批。另補 nslab 獨占條款（無 claim 工具、條款即 claim）。
   流程（auditor 裁）：TBD 全屬機械核對，落定即自升 v1.0。
+- v0.3（08-31，reviewer 落定、**資料接觸前**）：四 TBD 落定三——①rungs/stop rule＝
+  PREREG-1b:39-47 逐字（saturation stop＝連續兩 rung >25%）；②Arm A configure＝
+  bmv2-binary-provenance.md:36 逐字（R3 抓到 `--with-python_prefix` host 路徑差異
+  →列適配條款）；③sender-gate 錨點＝23_:68-77＋PREREG-1b:76-82（本實驗校準改臂前＝
+  刻意更嚴）；④P4 程式＝ndtwin_switch.p4 sha256 5786a63e…、f64897b（08-25）後未動
+  ＝與 ① 同顆（時序驗訖）。**僅剩 VM 環境 manifest 一格（nslab bootstrap 時落）——
+  落定即自升 v1.0。**
 
 [Co-developed with claude code -- Adam]
