@@ -691,66 +691,87 @@ is chosen by what it happens to mention.
 
 ---
 
-## F-21. 🔴 The contamination gate's covariate line scopes itself from a name list, not from `/proc`
+## F-21. 🔴 CORRECTED — the gate's blind spot is not an allow-list. It is three narrower holes,
+## and one of them swallows exactly the load shape that was hardest to see
 
-The per-cell `covariates:` line reports a **fixed allow-list of named processes** —
-`claude-desktop`, `claude`, `gnome-shell`, `chrome`. A foreign load built from `qemu-img`, python
-socket servers and short-lived `bash`/`awk`/`sed` appears in **none** of those columns (F-9, F-16,
-and the five suspect cells in `LADDER-RUNNING-NOTES.md` §5-bis). Asking that itemisation "what was
-on the machine" asks a question it is structurally unable to answer — **and it answers, with
-plausible numbers.** This round used it to attribute a margin collapse and got an incomplete answer
-stated as a cause.
+**The first version of this finding was wrong and is withdrawn.** It claimed the gate scopes its
+population from a four-name allow-list (`claude-desktop`, `claude`, `gnome-shell`, `chrome`) and is
+therefore blind to anything unnamed. **That is false.** `cpu_gate.py:167-190` walks *every* pid in
+`/proc`, splits it into `mine`/`foreign`, and reports `foreign_cores` as the sum over **all**
+foreign pids. The four names are a **rollup for the log line only**; the per-cell JSON keeps a
+per-pid list. The evidence was in the round's own files the whole time: across 23 cell records the
+recorded foreign comms include `agy`, `Discord`, `pulsesecure`, `kworker/u56:2-i915` and `rev` —
+none of them on that list.
 
-`遠端機器測試` identified the class, having repaired five instances of it in its own tools tonight;
-the sixth is ours:
+🔑 **I made the mistake this finding is about.** I read the *log line*, inferred the *scope*, and
+stated it as a structural property — without opening `raw/cell_cpu/*_gate.jsonl`, which is one
+directory away and answers the question directly.
 
-| layer | population came from | therefore blind to |
-|---|---|---|
-| mutation gate | guards already written | verbs with no guard |
-| structural test | a hand-written verb table | verbs not on the table |
-| `vms` | its own naming convention | VMs in another directory |
-| disk parser | its own output format | `id=d0,file=…` |
-| address check | two literals in the script | `0.0.0.0`, `127.0.0.53%lo` |
-| **this gate's covariates** | **a name list** | **any process not on it** |
+### What is actually wrong — three holes, in order of how much they matter
 
-🔑 **The fatal property is not that it misses. It is that its output when it misses is identical to
-its output when it does not** — a confident, well-formed itemisation, with no field whose job is to
-say "there was something else I did not look at."
+1. 🔴 **`if pid not in a: continue` (`:176`) — a process that starts mid-window is dropped from the
+   aggregate, not merely from the itemisation.** The gate takes a `/proc` snapshot, sleeps, snapshots
+   again, and can only difference pids present in *both*. Its own comment says why: *"started
+   mid-window: no baseline, cannot attribute."* The consequence is that **dozens of short-lived
+   `bash`/`awk`/`sed` and repeated `qemu-img` invocations — precisely band A's described shape —
+   never enter `foreign_cores` at all.** A cell contaminated entirely by short-lived processes reads
+   identically to a quiet one.
+2. 🔴 **`cores <= 0.005` (`:182`)** — many small processes, each under the cut, vanish from both the
+   list and the total. Compounds hole 1 for the same load shape.
+3. ⚠️ **`_is_fabric()` (`:163`) is a `comm.startswith()` test**, and `FABRIC_PREFIXES` includes
+   **`iperf3`**. A *foreign* process whose comm starts with a fabric prefix is counted as **mine** and
+   leaves the foreign accounting entirely.
+   🔑 **Symmetric with F-20, on the same string**: `measure.sh`'s `pkill -f iperf3` *kills* whatever
+   mentions it; the gate's prefix test *absolves* whatever mentions it. One string, two opposite
+   failures, neither requiring anyone to be careless. (The pid-in-manifest tightening for
+   `FORCE_CPU_GATE_DISOWN_FABRIC` is already a registered deferral; this is its second reason.)
+
+### What the round's own continuous records do and do not establish
+
+Computed here from `raw/cell_cpu/*_gate.jsonl` — same machine, continuous, 270 s windows:
+
+* The itemisation is truncated at `foreign[:10]` (jsonl) and `foreign[:15]` (baseline json), but
+  **`foreign_cores` is summed before truncation**, so the difference is a usable residual.
+* That residual — foreign load seen in the aggregate but not itemised — **peaks at 0.132 cores**
+  (`e_p_0064_3`) and sits at or below 0.06 in 20 of 23 records.
+* **No `qemu`, `qemu-img`, `bash`, `awk`, `sed` or foreign `python` comm appears in any cell.**
+
+⇒ **This bounds one part of the question and names the part it cannot bound.** Within each cell
+window, itemised foreign load was ordinary desktop processes and unlisted-but-counted load was
+≤0.132 cores. **It says nothing about processes that started and ended inside the window**, which
+hole 1 removes upstream of the total — and that is the category band A consisted of.
 
 ### Repair shape, registered for the next round
 
-**Derive the population from `/proc`; let the allow-list classify, never scope.**
+Keep the `/proc` population (it is already right) and close the three holes:
+1. **Account for mid-window starts** rather than skipping them — attribute from process start via
+   `/proc/<pid>/stat` field 22, and where that is impossible, **emit an explicit
+   `UNACCOUNTED-SHORT-LIVED` count that can make the cell suspect.** A skipped process must not
+   print the same as no process.
+2. **Report the residual** (`foreign_cores − Σ itemised`) as a field, not as something a reader has
+   to subtract.
+3. **Discriminate `mine` by pid membership in the fabric manifest**, with comm prefix as a
+   cross-check only — never as the sole test.
 
-```bash
-for pd in /proc/[0-9]*; do [ -r "$pd/stat" ] || continue; ...utime/stime delta over the cell window...; done
-# known name        -> attribute to its column
-# unknown AND above threshold -> 🔴 UNATTRIBUTED, print with argv
-```
+Three companions, from `遠端機器測試`, each paid for tonight:
+* 🔴 An "unattributed" signal must be able to **make the cell suspect**, not merely log a line.
+* 🔑 Its control is the same shape: a parser matching *nothing* prints "zero unattributed"
+  identically to one that attributed everything ⇒ one case must assert it can see a process known
+  to exist. (F-3a's rule: the green half needs discriminating power too.)
+* ⚠️ **Fixtures must include a form the program itself would never emit** — their first three
+  stand-ins were written in their own format, so everything passed.
 
-Three companions, each learned the hard way tonight:
+`遠端機器測試` has committed a rewritten `tools/remote-lab/host_witness.sh` (`beb45fc`) that carries
+`host=` on every line, discriminates via `/proc/<pid>/exe` instead of argv, and is three-state
+rather than two. Available to the next round; its `--self-test` is pure and runs inside an
+exclusive window.
 
-1. 🔴 **`UNATTRIBUTED` must be able to make the cell suspect**, not merely log a line — otherwise it
-   prints the same as "nothing unattributed", which is the defect this repairs.
-2. 🔑 **Its control is the same shape**: a parser that matches *nothing* prints "zero unattributed"
-   identically to one that attributed everything ⇒ one case must assert it can see a process known
-   to exist. (This is F-3a's rule again: the green half needs discriminating power too.)
-3. ⚠️ **Fixtures must include a form the program itself would never emit.** `遠端機器測試`'s first
-   three stand-ins were all written in its own format, so everything passed.
+⚠️ **Not repaired in-round** — same reason as F-18 and F-20: it would void the comparability of the
+cells already measured.
 
-### The part neither of us has solved
-
-Their gate used `mktemp -d` cleaned up in a `trap`, so **nothing survived to be attributed
-afterwards**. Tonight's band boundaries came from commit timestamps and scratchpad mtimes — *"luck,
-not design"*, in their words. ⇒ **Continuous accounting inside each cell window beats retrospective
-attribution**, which is the direction this round's `cpu_probe.py "$DUR" 2` already takes; the gap is
-that the *reporting* narrows again at the covariate line.
-
-⚠️ **Not repaired in-round**, same reason as F-18 and F-20: changing the instrument would void the
-comparability of the 20 cells already measured, and the round has twice rejected that trade.
-
-🔴 **Registered decision point — leg 2's start, not now.** An out-of-band `/proc` accountant is a
-separate process: it touches neither the round's instrument nor its decision rules, and leg 2 begins
-from a fresh launcher, which is the clean seam. Against it: it adds load to the window whose margin
-is the binding risk (F-19), and **a runaway sampler is precisely the failure that already cost this
-round a cell tonight** (F-16). ⇒ Auditor's call, to be put with the leg-1 completion report, and if
-taken it must **declare and measure its own CPU cost** rather than assert it is negligible.
+🔴 **Registered decision point — leg 2's start, not now.** An out-of-band `/proc` accountant that
+*does* handle mid-window starts touches neither the round's instrument nor its decision rules, and
+leg 2 begins from a fresh launcher. Against it: it adds load to the window whose margin is the
+binding risk (F-19), and **a runaway sampler is precisely the failure that already cost this round a
+cell** (F-16). ⇒ Auditor's call, with the leg-1 completion report; if taken it must **declare and
+measure its own CPU cost** rather than assert it is negligible.

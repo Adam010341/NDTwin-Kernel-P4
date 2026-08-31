@@ -195,10 +195,22 @@ and B only. The classifier reproduces both numbers exactly.
   bottom of the ladder where saturation was never going to occur, so the primary is protected by
   the ceiling landing at the top rungs hours after every known band, not by that argument.
 
-**Weakened:** the case for keeping rather than re-running the cells goes back to the two original
-reasons (the sensitivity table, and direction). The auditor's stronger form — *"re-running is
-ill-defined because the dirty set is not enumerable"* — loses its demonstration and returns to
-being an argument.
+**Weakened, but not lost — and the surviving version is cleaner.** The auditor's form of the
+argument — *"re-running is ill-defined because the dirty set is not enumerable"* — was demonstrated
+with "one afternoon took the population from 5 to 14". That instance is withdrawn with band C. The
+correct instance is **5 → 7**, and it is a better demonstration precisely because it is smaller:
+
+🔑 **The two extra cells (`e_p_1024_2`, 35 s; `e_bl_0032_1`, 49 s) came from a change of method,
+not from a new source of contamination.** Nothing on the machine changed; the span convention did.
+**A count that moves when the analyst's convention moves is not a list of the contaminated cells —
+it is one reading of them.** That is what makes "re-run the dirty ones" ill-defined, and it needs
+no undiscovered band to make the point.
+
+⚠️ **A correct general rule paired with a wrong instance is harder to retract than no instance at
+all, because the rule vouches for the instance** (`遠端機器測試`). Band C is the example: the rule
+"enumeration gives a lower bound" was and is right, and it lent credibility to an instance that was
+about another machine. **Retract instances separately from the rules they were recruited to
+support.**
 
 ### 🔴 Which span decides — settled, because the retraction cycle exposed it
 
