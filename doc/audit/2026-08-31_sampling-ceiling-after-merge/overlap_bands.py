@@ -1,49 +1,57 @@
 #!/usr/bin/env python3
-"""Classify every leg-1 cell against the declared/discovered foreign-load bands.
+"""Classify every leg-1 cell against the evidenced foreign-load bands on THIS machine.
 
-🔴 THERE IS NO `clean` CATEGORY IN THIS SCRIPT, AND THERE MUST NOT BE ONE.
-No cell on this machine can be shown to be free of foreign load. The bands below are the
-ones somebody happened to be able to evidence; the round's own instrument cannot enumerate
-them (F-21: the covariate line scopes itself from a four-name allow-list). So the only two
-categories that can be justified are:
+🔴 THE WORD `clean` DOES NOT APPEAR AS A CATEGORY, AND MUST NOT.
+Enumerating foreign load gives a LOWER BOUND, never a list. The bands below are the ones
+somebody could evidence; this round's own instrument cannot enumerate them at all (F-21: the
+covariate line scopes itself from a four-name allow-list). So the categories are:
 
-    KNOWN-OVERLAP   this cell provably overlaps an evidenced band
-    UNKNOWN         nobody has evidence either way for this cell
+    KNOWN-OVERLAP   an evidenced band overlaps this cell's MEASUREMENT window
+    BRINGUP-ONLY    an evidenced band overlaps only the cell's bringup, not its measurement
+    UNKNOWN         no evidenced band overlaps this cell at all — which is NOT "clean"
 
-An earlier version of this file printed a `clean` column and a "clean-only" ratio. Both were
-withdrawn on 2026-09-01 after a THIRD band was found that made four of the six cells in the
-supposedly-clean 1/256 rung fully overlapping. The withdrawal is the finding; recomputing the
-same column against a longer band list would repeat the error with a fresher number.
+🔴 WHICH SPAN. `spread` is computed from the measurement window, so that window decides
+KNOWN-OVERLAP. Bringup (fabric teardown, rebuild, P4 recompile) is reported separately rather
+than folded in either direction: silently including it inflates the suspect set, silently
+dropping it hides a real overlap. The ratio population is "no evidenced overlap of the
+MEASUREMENT window" = UNKNOWN + BRINGUP-ONLY.
 
-Band provenance -- none of it from recall:
-  A  23:15-23:46      25+ mutation-gate batches, self-reported by 遠端機器測試; boundaries
-                      from its scratchpad mtimes and commit stamps.
-  B  01:13-01:23      two closing re-runs by the same session, same provenance.
-  C  23:57:39-00:30:54  a qemu VM, pid 52578, found independently by 8/31 auditor in that
-                      session's own committed witness logs:
-                        .../2026-08-31_completeness-experiments/B-nslab-build/raw/
-                          host_witness_a_rerun.log   150 samples 23:57:39 -> 00:10:10
-                          host_witness_bcd.log       200 samples 00:14:12 -> 00:30:54
-                      Verified here: 350/350 samples say qemu=1, all pid=52578.
-                      🔴 C IS A LOWER BOUND. A witness log only records while the witness is
-                      alive; the VM may have started earlier and stopped later. pid 52578 is
-                      gone, so its utime/stime died with it -- "a VM was up" can no longer be
-                      turned into "it drew N cores" by any measurement.
-                      (The 4-minute seam 00:10:10-00:14:12 has no witness coverage; the same
-                      pid appears on both sides, so the VM was continuously alive across it.)
+Band provenance -- none from recall:
+  A  23:15-23:46   25+ mutation-gate batches, self-reported by 遠端機器測試; boundaries from
+                   its scratchpad mtimes and commit stamps.
+                   ⚠️ mtime-derived boundaries are structurally blind to a period where
+                   something was running but not writing files. The session says so itself:
+                   "I had no such period this time, but that is luck, not design."
+  B  01:13-01:23   two closing re-runs by the same session, same provenance.
 
-A cell's span is taken from its `--- <cell> ---` header to its `cell CPU gate` line, i.e. the
-FULL cell including bringup, not just the 300 s measurement window. That is the conservative
-choice and it is what makes `e_bl_1024_3` (36 s) and `e_bl_0256_3` (9 s) count.
+🔴 A THIRD BAND WAS PROPOSED AND WITHDRAWN, and the reason is worth keeping. A qemu VM,
+pid 52578, appears in 350/350 samples of that session's committed witness logs. Those numbers
+are real. They are **not about this machine**: the same file says the log was taken 宿主上 (on
+the host) and that its peak is "the projection of this round's guest's own 16 vCPU onto the
+host". This laptop has 14 cores, and its only qemu is pid 405062. The samples were verified and
+their REFERENT was not -- the answer to "are these numbers real" is not the answer to "which
+machine are they about". Bands A and B stand; there is no band C here.
 
-🔴 Gate colour is reported with the EFFECTIVE detection floor, not the nominal threshold. Every
-one of these cells passed at a nominal 0.5 cores, but the floor that actually applies is
-baseline + 0.5 ≈ 0.95 cores (F-13a). "GREEN" here means "below ~0.95", not "below 0.5", and for
-loads under that floor it carries no information at all.
+STANDING CONSTANT, NOT A TREATMENT: pid 405062 `qemu-system-x86_64 -name claude-cowork-vm` has
+been up since 2026-08-30 19:41:30 -- ~30 h, spanning §0-ter's baseline measurement and every
+cell of this round -- for a total of 6m55s of CPU, i.e. ~0.004 cores averaged. Because it was
+already running when the baseline was measured, it is absorbed INTO the baseline and must not be
+counted again as contamination. Recorded so the next reader does not re-derive it as a finding.
 
-Writes a machine-readable sidecar next to cells.tsv so the marking has a reader (F-19's
-"one writer, zero readers" is a defect this project has already paid for): the 2x2 figure and
-FINDINGS both consume raw/cell_overlap.tsv, not this script's stdout.
+⚠️ COUNTING qemu BY PATTERN IS UNSOUND HERE. 遠端機器測試's test fixtures spawn stand-ins whose
+`argv[0]` is literally `qemu-system-x86_64` (`bash -c 'sleep 30; :' qemu-system-x86_64 …`, six
+sites), so any witness that counts by name counts them as VMs. The same trap bit the enumeration
+written to check this: a shell whose own command line contained the string matched itself. Same
+family as `pkill -f iperf3` (F-20) -- the victim is chosen by what it happens to mention.
+
+🔴 Gate colour is reported with the EFFECTIVE detection floor. Every cell here passed at a
+nominal 0.5 cores, but the floor that applies is baseline + 0.5 ≈ 0.95 cores (F-13a). "GREEN"
+means "below ~0.95", and for loads under that floor it carries no information at all.
+
+Writes a machine-readable sidecar beside cells.tsv so the marking has a reader (a marker living
+only in prose is a writer with no reader, which this project has already paid for): the 2x2
+figure and FINDINGS consume raw/cell_overlap.tsv, not this stdout. `raw/` is gitignored by
+design (.gitignore:74) — like cells.tsv itself, this file belongs to the audit-raw ref.
 
 [Co-developed with claude code -- Adam]
 """
@@ -56,8 +64,8 @@ LOG = f"{ROUND}/run_e.leg1.stdout.log"
 SIDECAR = f"{ROUND}/raw/cell_overlap.tsv"
 
 ROUND_OPEN_DAY = dt.date(2026, 8, 31)
-EFFECTIVE_FLOOR = 0.95   # cores; F-13a.  NOT the nominal 0.5.
-MIN_UNKNOWN_FOR_RATIO = 3
+EFFECTIVE_FLOOR = 0.95     # cores; F-13a.  NOT the nominal 0.5.
+MIN_FOR_RATIO = 3          # cells with an unoverlapped measurement window
 
 
 def stamp(hhmmss):
@@ -67,17 +75,15 @@ def stamp(hhmmss):
 
 
 BANDS = [
-    ("A", "25+ mutation-gate batches (self-reported)",
-     stamp("23:15:00"), stamp("23:46:00"), False),
-    ("B", "two closing gate re-runs (self-reported)",
-     stamp("01:13:00"), stamp("01:23:00"), False),
-    ("C", "qemu VM pid 52578 (witness logs, LOWER BOUND)",
-     stamp("23:57:39"), stamp("00:30:54"), True),
+    ("A", "25+ mutation-gate batches (self-reported, mtime-derived)",
+     stamp("23:15:00"), stamp("23:46:00")),
+    ("B", "two closing gate re-runs (self-reported, mtime-derived)",
+     stamp("01:13:00"), stamp("01:23:00")),
 ]
 
 
 def cells_from(path):
-    """Span = the cell's `--- name ---` header line through its `cell CPU gate` line."""
+    """header line -> `(open)` sha line -> `cell CPU gate` line."""
     out, cur = [], None
     for line in open(path, encoding="utf-8", errors="replace"):
         m = re.match(r"\[(\d\d:\d\d:\d\d)\]", line)
@@ -86,10 +92,12 @@ def cells_from(path):
         ts = stamp(m.group(1))
         h = re.search(r"--- (e_\w+?)\s+arm=", line)
         if h:
-            cur = {"name": h.group(1), "start": ts}
+            cur = {"name": h.group(1), "head": ts}
+        elif cur and "(open)" in line:
+            cur["open"] = ts
         elif cur and "cell CPU gate" in line:
             g = re.search(r"gate: (\w+) excess=(\S+)", line)
-            cur.update(end=ts, gate=g.group(1), excess=float(g.group(2)))
+            cur.update(close=ts, gate=g.group(1), excess=float(g.group(2)))
         elif cur and "VERDICT cell=" in line:
             v = re.search(r"cell=(\S+).*?mark=(\S+).*?spread=(\S+)", line)
             cur.update(mark=v.group(2), spread=float(v.group(3)))
@@ -98,75 +106,75 @@ def cells_from(path):
     return out
 
 
+def overlap(a0, a1, b0, b1):
+    return max(0.0, (min(a1, b1) - max(a0, b0)).total_seconds())
+
+
 def main():
-    cells = cells_from(LOG)
-    rows = []
-    for c in cells:
-        span = (c["end"] - c["start"]).total_seconds()
-        hits, total = [], 0.0
-        for tag, _, b0, b1, _lb in BANDS:
-            ov = (min(c["end"], b1) - max(c["start"], b0)).total_seconds()
-            if ov > 0:
-                hits.append(f"{tag}:{ov:.0f}s")
-                total += ov
-        c["category"] = "KNOWN-OVERLAP" if hits else "UNKNOWN"
-        c["bands"] = ",".join(hits) if hits else "-"
-        c["overlap_s"], c["span_s"] = total, span
-        rows.append(c)
-
-    print(f"{'cell':<15} {'span':<19} {'gate':<6} {'excess':>7} {'spread':>7} "
-          f"{'category':<14} bands / span")
-    print("-" * 100)
+    rows = cells_from(LOG)
     for c in rows:
-        print(f"{c['name']:<15} {c['start']:%H:%M:%S}-{c['end']:%H:%M:%S}   "
-              f"{c['gate']:<6} {c['excess']:>7.3f} {c['spread']:>7.3f} "
-              f"{c['category']:<14} {c['bands']} / {c['span_s']:.0f}s")
+        meas, boot = [], []
+        for tag, _, b0, b1 in BANDS:
+            om = overlap(c["open"], c["close"], b0, b1)
+            ob = overlap(c["head"], c["open"], b0, b1)
+            if om:
+                meas.append(f"{tag}:{om:.0f}s")
+            if ob:
+                boot.append(f"{tag}:{ob:.0f}s")
+        c["meas"], c["boot"] = ",".join(meas) or "-", ",".join(boot) or "-"
+        c["category"] = ("KNOWN-OVERLAP" if meas else
+                         "BRINGUP-ONLY" if boot else "UNKNOWN")
 
-    known = [c for c in rows if c["category"] == "KNOWN-OVERLAP"]
-    print(f"\nKNOWN-OVERLAP {len(known)}/{len(rows)}   UNKNOWN {len(rows)-len(known)}/{len(rows)}")
-    print("🔴 UNKNOWN is NOT clean.  It means no one has evidence either way for that cell.")
+    print(f"{'cell':<15} {'measurement window':<19} {'gate':<6} {'excess':>7} {'spread':>7} "
+          f"{'category':<14} {'meas':<9} bringup")
+    print("-" * 104)
+    for c in rows:
+        print(f"{c['name']:<15} {c['open']:%H:%M:%S}-{c['close']:%H:%M:%S}   {c['gate']:<6} "
+              f"{c['excess']:>7.3f} {c['spread']:>7.3f} {c['category']:<14} "
+              f"{c['meas']:<9} {c['boot']}")
+
+    n_k = sum(c["category"] == "KNOWN-OVERLAP" for c in rows)
+    n_b = sum(c["category"] == "BRINGUP-ONLY" for c in rows)
+    print(f"\nKNOWN-OVERLAP {n_k}/{len(rows)}   BRINGUP-ONLY {n_b}   "
+          f"UNKNOWN {len(rows)-n_k-n_b}")
+    print("🔴 UNKNOWN is NOT clean — it means no one has evidence either way. Enumerating "
+          "foreign\n   load yields a lower bound, never a list.")
     print(f"🔴 All {len(rows)} cells passed the CPU gate, but the effective detection floor is "
-          f"~{EFFECTIVE_FLOOR} cores (baseline+0.5), not the nominal 0.5.  Every band above sat "
-          f"mostly below it, so GREEN carries no information here.")
-    for tag, why, b0, b1, lb in BANDS:
-        print(f"   band {tag}: {b0:%H:%M:%S}-{b1:%H:%M:%S}  {why}"
-              + ("   ← lower bound" if lb else ""))
+          f"~{EFFECTIVE_FLOOR} cores\n   (baseline+0.5), not the nominal 0.5. Both bands sat "
+          f"mostly below it, so GREEN carries no\n   information about them.")
+    for tag, why, b0, b1 in BANDS:
+        print(f"   band {tag}: {b0:%H:%M:%S}-{b1:%H:%M:%S}  {why}")
 
-    # Per-rung availability.  A ratio is NOT printed where too few UNKNOWN cells remain:
-    # the point to report is that the comparison cannot be made, not a fresher number.
     rungs = {}
     for c in rows:
         rungs.setdefault(c["name"].split("_")[2], []).append(c)
-    print(f"\n{'rung':<8} {'n':>2} {'all-cell mean spread':>21} {'KNOWN':>6} {'UNKNOWN':>8}   "
-          f"rung-to-rung ratio over UNKNOWN cells")
+    print(f"\n{'rung':<8} {'n':>2} {'all-cell mean':>14} {'KNOWN':>6} {'elig':>5} "
+          f"{'mean over elig':>15}   ratio vs previous rung")
     prev = None
     for r in sorted(rungs, key=lambda x: -int(x)):
         cs = rungs[r]
-        unk = [c for c in cs if c["category"] == "UNKNOWN"]
+        elig = [c for c in cs if c["category"] != "KNOWN-OVERLAP"]
         mean_all = sum(c["spread"] for c in cs) / len(cs)
-        if len(unk) < MIN_UNKNOWN_FOR_RATIO:
-            verdict = f"n/a — only {len(unk)} UNKNOWN cell(s), need {MIN_UNKNOWN_FOR_RATIO}"
-            cur = None
+        if len(elig) < MIN_FOR_RATIO:
+            cur, verdict, shown = None, f"n/a — {len(elig)} eligible, need {MIN_FOR_RATIO}", float("nan")
         else:
-            cur = sum(c["spread"] for c in unk) / len(unk)
-            verdict = (f"{prev/cur:.3f}" if prev else "-") + "  (UNKNOWN-only, NOT clean)"
-        print(f"1/{r:<6} {len(cs):>2} {mean_all:>21.3f} {len(cs) - len(unk):>6} "
-              f"{len(unk):>8}   {verdict}")
+            cur = shown = sum(c["spread"] for c in elig) / len(elig)
+            verdict = f"{prev/cur:.3f}" if prev else "-"
+        print(f"1/{r:<6} {len(cs):>2} {mean_all:>14.3f} "
+              f"{sum(c['category'] == 'KNOWN-OVERLAP' for c in cs):>6} {len(elig):>5} "
+              f"{shown:>15.3f}   {verdict}")
         prev = cur
-
-    print("\n🔴 The lower rungs no longer hold enough non-overlapping cells to compute a "
-          "comparison at all.\n    That is the result.  It cannot be repaired by recomputing "
-          "against a longer band list —\n    a third band appeared after the first two were "
-          "thought complete, and the population of\n    bands is not enumerable by this round's "
-          "instruments (F-21).")
+    print("   'elig' = measurement window not overlapped by any evidenced band "
+          "(UNKNOWN + BRINGUP-ONLY).\n   It is NOT a clean subset; it is the subset nobody has "
+          "evidence against.")
 
     with open(SIDECAR, "w", encoding="utf-8") as fh:
-        fh.write("cell\tstart\tend\tspan_s\tgate\texcess\tmark\tspread\t"
-                 "category\tbands\toverlap_s\n")
+        fh.write("cell\thead\topen\tclose\tgate\texcess\tmark\tspread\t"
+                 "category\tmeas_overlap\tbringup_overlap\n")
         for c in rows:
-            fh.write(f"{c['name']}\t{c['start']:%H:%M:%S}\t{c['end']:%H:%M:%S}\t"
-                     f"{c['span_s']:.0f}\t{c['gate']}\t{c['excess']:.3f}\t{c['mark']}\t"
-                     f"{c['spread']:.3f}\t{c['category']}\t{c['bands']}\t{c['overlap_s']:.0f}\n")
+            fh.write(f"{c['name']}\t{c['head']:%H:%M:%S}\t{c['open']:%H:%M:%S}\t"
+                     f"{c['close']:%H:%M:%S}\t{c['gate']}\t{c['excess']:.3f}\t{c['mark']}\t"
+                     f"{c['spread']:.3f}\t{c['category']}\t{c['meas']}\t{c['boot']}\n")
     print(f"\nwrote {SIDECAR}  (readers: the 2x2 figure, FINDINGS — not this stdout)")
 
 

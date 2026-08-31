@@ -69,15 +69,12 @@ being OK — is the only part of this that carries information.
 
 ---
 
-## 5-bis. 🔴 WITHDRAWN IN FULL at 01:50 — superseded by §5-ter. The tables below claimed a
-## `clean` subset and a sensitivity ratio computed from it. **A third band was subsequently
-## evidenced that overlaps four of the six cells this section called clean.** Do not cite any
-## number from this section; §5-ter replaces it. Kept only so the withdrawal has an object.
+## 5-bis. Added 01:40 · withdrawn 01:50 · **REINSTATED 01:55** — a declared foreign load covers
+## 5 of the first cells, and it corrects both an attribution I made and a confound I claimed
 
-<details><summary>withdrawn text (01:40) — click only to audit the withdrawal</summary>
-
-## 5-bis (WITHDRAWN). A declared foreign load covers 5 of the first 19 cells, and it
-## corrects both an attribution I made and a confound I claimed
+🔴 **This section was withdrawn in full at 01:50 and reinstated five minutes later.** The
+withdrawal rested on a third band that turned out to be on a different machine. §5-ter is now a
+record of that retraction cycle, not a replacement for this section. **The numbers below stand.**
 
 `遠端機器測試` self-reported (unprompted) running **25+ mutation-gate batches on this laptop**
 inside the exclusive window — `qemu-img create`, two python socket servers, dozens of short-lived
@@ -133,12 +130,95 @@ from its own output, so the inputs it cannot see are the ones most in need of a 
 ⇒ Only the declared band boundaries could settle it, and those existed only because the other
 session volunteered them. **Nothing in this round's instrumentation would have surfaced this.**
 
-</details>
-
 ---
 
-## 5-ter. 🔴 A third band, found independently, takes the count to 14 of 20 — and removes the
-## possibility of a comparison rather than changing its value
+## 5-ter. 🔴 A third band was proposed, acted on, and disproved inside fifteen minutes.
+## What it cost, and the four things that survive it
+
+At 01:50 `8/31 auditor` reported a third band — a qemu VM, `pid 52578`, 23:57:39–00:30:54 — from
+another session's committed witness logs. I verified the logs (**350/350 samples say `qemu=1`,
+all the same pid**), withdrew §5-bis, rewrote the classifier, and reported the withdrawal onward
+to two readers. At 01:55 the auditor retracted it: **the witness was taken on a different host.**
+
+### 🔴 What I actually got wrong
+
+**I verified the file's contents and not its referent.** Three lines below the numbers I checked,
+the same file says the log was taken *宿主上* (on the host) and that its peak is "the projection
+of this round's guest's own **16 vCPU** onto the host". I read far enough to confirm the samples
+were real and stopped before the sentence that said what they were about.
+
+> **"Are these numbers real" and "which machine are they about" are different questions, and
+> only the first one has an obvious place to look.**
+
+Three independent checks settle it, all runnable here in seconds:
+
+| check | result |
+|---|---|
+| the witness file's own text | *宿主上*; peak = a **16 vCPU** guest's projection |
+| `nproc` on this laptop | **14** — a 16-vCPU guest does not project onto it |
+| every `/proc/*/cmdline` containing `qemu` | only `405062 qemu-system-x86_64 -name claude-cowork-vm`; **`/proc/52578` does not exist** |
+
+⚠️ **The third check matched itself.** The enumeration written to find qemu processes listed the
+shell running it, because that shell's own command line contained the string `qemu`. Same family
+as F-20's `pkill -f`: **the victim is chosen by what it happens to mention.** Caught live, while
+checking for exactly this class of defect.
+
+### Standing constant, not a treatment — do not re-derive it as a finding
+
+`pid 405062` `qemu-system-x86_64 -name claude-cowork-vm` has been up since **2026-08-30 19:41:30**
+— about **30 hours**, spanning §0-ter's baseline measurement and every cell of this round — for a
+total of **6m55s of CPU, ≈0.004 cores averaged**. It was already running when the baseline was
+measured, so **it is inside the baseline and must not be counted again as contamination.**
+
+⚠️ **Counting qemu by name is unsound on this machine anyway**: `遠端機器測試` disclosed that its
+fixtures spawn stand-ins whose `argv[0]` is literally `qemu-system-x86_64` (six sites). A witness
+that counts by name counts them as VMs. Registered for the next round with F-20.
+
+### What is restored, and what survives the retraction
+
+**Restored, unchanged:** the ratios **1.987** and **1.768**, and the KNOWN-OVERLAP set. Bands A
+and B only. The classifier reproduces both numbers exactly.
+
+**Survives, because none of it depended on the third band:**
+* 🔴 **No `clean` category** — but the *reason changes*. Not "we know the list is incomplete"
+  (that instance was withdrawn); rather **enumeration of foreign load yields a lower bound, never
+  a list.** Band A and B were derived from `scratchpad/mut/` mtimes and commit stamps, which are
+  structurally blind to a period where something ran without writing files — the reporting session
+  says exactly that of its own method: *"I had no such period this time, but that is luck, not
+  design."* **"Cannot be shown complete" is weaker than "shown incomplete", and the report must use
+  the weaker one.**
+* The categories: **KNOWN-OVERLAP** / **BRINGUP-ONLY** / **UNKNOWN**, where UNKNOWN is not clean.
+* The **≈0.95-core** effective floor travelling with every GREEN statement (F-13a).
+* The machine-readable sidecar with **named readers** (`raw/cell_overlap.tsv`; the 2×2 figure and
+  FINDINGS, not prose).
+* The **downgrade of the direction-is-conservative argument** — every affected cell sits at the
+  bottom of the ladder where saturation was never going to occur, so the primary is protected by
+  the ceiling landing at the top rungs hours after every known band, not by that argument.
+
+**Weakened:** the case for keeping rather than re-running the cells goes back to the two original
+reasons (the sensitivity table, and direction). The auditor's stronger form — *"re-running is
+ill-defined because the dirty set is not enumerable"* — loses its demonstration and returns to
+being an argument.
+
+### 🔴 Which span decides — settled, because the retraction cycle exposed it
+
+`spread` is computed from the **measurement window**, so that window decides KNOWN-OVERLAP.
+Bringup (teardown, rebuild, P4 recompile) is reported in its own column rather than folded either
+way: **silently including it inflates the suspect set, silently dropping it hides a real overlap.**
+Under the full-cell convention `e_p_1024_2` and `e_bl_0032_1` would have been suspect; under the
+measurement window they are BRINGUP-ONLY. The convention was ambiguous for two hours and the
+ambiguity was worth 35 s and 49 s of overlap — the kind of difference that decides whether a rung
+has enough cells to compare at all.
+
+| rung | n | all-cell mean | KNOWN | eligible | mean over eligible | ratio |
+|---|---|---|---|---|---|---|
+| 1/1024 | 6 | 23.935 | 3 | 3 | 23.790 | — |
+| 1/256 | 6 | 11.970 | 0 | 6 | 11.970 | **1.987** |
+| 1/64 | 6 | 6.872 | 2 | 4 | 6.770 | **1.768** |
+| 1/32 | 3 | 4.779 | 0 | 3 | 4.779 | **1.417** |
+
+The departure from √n deepens monotonically — 1.987, 1.768, 1.417 — while every cell still reads
+`mark=OK`. That is the ladder doing what §4 said would be the only informative part of it.
 
 `8/31 auditor` found a band neither of the two self-reports covered, from evidence neither this
 round's instruments nor the reporting session's own accounting could produce: **a qemu VM,
