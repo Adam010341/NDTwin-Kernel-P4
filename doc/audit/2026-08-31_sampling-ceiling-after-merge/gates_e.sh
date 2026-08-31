@@ -99,6 +99,73 @@ udp_indatagrams() {
     UDP_INDATAGRAMS="$v"
 }
 
+# -- G1's load generator ------------------------------------------------------------------------
+#
+# WHY G1 NEEDS ONE AT ALL (found on the first live run, 2026-08-31; PREREG-E v1.2).
+#   `datagrams_sent` increments at exactly two places (sflow_emitter.py:368, :390) and BOTH
+#   require a sample to exist.  There is no periodic counter-sample path.  G1 read the counter
+#   over a 6 s sleep WITHOUT generating any traffic, so at 1/N sampling the expected delta was
+#   zero and NO INPUT COULD HAVE MADE THIS GATE GREEN.  Measured: idle 6 s -> 0 datagrams;
+#   3000 packets at 1/256 -> 25 datagrams, 25 samples, 0 send errors.
+#   🔑 A gate that can only fail has exactly as much discriminating power as one that can only
+#   pass, and this one aborts the round when it fails.  Every recorded G1 pass before today was
+#   marked `synthetic`: 4 synthetic passes, 0 live passes, 2 live failures.
+#   🔑 Its own diagnosis -- "a broken reader, not a quiet fabric" -- ruled out the one
+#   explanation that was true.  After this change that sentence finally has its premise: with
+#   asserted traffic on the wire, a zero really does mean the reader.
+#
+# THE PACKET COUNT IS DERIVED, NEVER WRITTEN DOWN.
+#   A literal 3000 is right at 1/256 and silently becomes "almost never passes" at 1/1024 -- an
+#   INTERMITTENT gate, which is harder to catch than the permanent failure it replaced.  So the
+#   rate is read back out of the P4 source that compile_at asserts it wrote, and the count is
+#   derived from it.  P(false red) ~ e^-G1_EXPECT_SAMPLES.  The arithmetic and the substituted
+#   values are printed, so the transcript shows what was asked for and why.
+#
+# THE INJECTION ASSERTS ITSELF, ON AN OBSERVABLE THAT IS NOT sFlow.
+#   If the send step failed quietly -- wrong namespace, host down, typo -- we would read zero
+#   again and G1 would once more point at the reader.  So the switch-side veth's rx_packets is
+#   read either side of the load, and a load that did not move it is a LOAD failure, reported as
+#   such.  Otherwise this repair becomes the next source of a confident wrong diagnosis.
+#   [Co-developed with claude code -- Adam]
+G1_EXPECT_SAMPLES="${G1_EXPECT_SAMPLES:-12}"     # P(zero samples) ~ e^-12 ~ 6e-6
+
+g1_generate_load() {          # sets G1_PKTS, G1_IFACE_DELTA
+    local rate pkts pid peer iface rx0 rx1
+    rate=$(sed -n -E 's/^const bit<16> SAMPLE_RATE = ([0-9]+);.*/\1/p' "$P4SRC" | head -1)
+    [[ "$rate" =~ ^[0-9]+$ ]] \
+        || abort "§2.1" "could not read SAMPLE_RATE out of $P4SRC (got '$rate').  The packet
+        count must be derived from the live rate; refusing to fall back to a constant."
+    pkts=$(( G1_EXPECT_SAMPLES * rate ))
+    G1_PKTS="$pkts"
+    # 🔴 The load also has to last long enough for the OTHER counter G1 judges.  Replacing the
+    # original `sleep 6` with the load made the Udp InDatagrams window equal to the load's
+    # duration, and at 1/1 that is 12 packets in ~12 ms -- long enough to sample, far too short
+    # for a system-wide UDP counter to move, so G1 would have failed for a reason that has
+    # nothing to do with what it tests.  Caught on the force-red run, which read udp=+0 where
+    # the old code read +84.  The interval is therefore chosen to floor the load at ~3 s while
+    # the COUNT stays derived from the rate; neither number is written down.
+    local iv; iv=$(awk -v p="$pkts" 'BEGIN{ i = 3.0/p; if (i < 0.001) i = 0.001; printf "%.4f", i }')
+    say "    load: SAMPLE_RATE=1/$rate, want $G1_EXPECT_SAMPLES samples => $G1_EXPECT_SAMPLES x $rate = $pkts packets"
+    say "          interval ${iv}s => >=3s on the wire, so the Udp counter has a window too"
+
+    pid=$(ps -eo pid,args | awk '/mininet:h1$/{print $1; exit}')
+    [[ -n "$pid" ]] || abort "§2.1" "no mininet:h1 namespace; cannot generate G1's load"
+    peer=$(sudo -n mnexec -a "$pid" ip -o link show h1-eth1 2>/dev/null | grep -oE '@if[0-9]+' | tr -d '@if')
+    iface=$(ip -o link 2>/dev/null | awk -v i="$peer" -F': ' '$1+0==i{split($2,a,"@"); print a[1]}')
+    [[ -n "$iface" ]] || abort "§2.1" "could not resolve h1's switch-side veth (peer ifindex '$peer')"
+    rx0=$(cat "/sys/class/net/$iface/statistics/rx_packets")
+
+    if [[ -n "${FORCE_G1_NO_TRAFFIC:-}" ]]; then
+        say "    FORCE_G1_NO_TRAFFIC set -- sending nothing (force-red path)"
+    else
+        sudo -n mnexec -a "$pid" ping -c "$pkts" -i "$iv" -W 2 -q 10.0.0.2 >/dev/null 2>&1 || true
+    fi
+
+    rx1=$(cat "/sys/class/net/$iface/statistics/rx_packets")
+    G1_IFACE_DELTA=$(( rx1 - rx0 ))
+    say "    load asserted on $iface (NOT an sFlow observable): rx_packets delta=$G1_IFACE_DELTA"
+}
+
 # -- the burner, for G4 -----------------------------------------------------------------------
 # awk, not python: the gate exempts the proxy by the socket it holds and everything else by
 # `comm`, and a python burner would be indistinguishable from the proxy for anybody reading the
@@ -130,7 +197,64 @@ burner_stop() {
     [[ -d "/proc/$BURNER_PID" ]] && say "    🔴 burner $BURNER_PID would not die -- do NOT measure on this machine"
     BURNER_PID=""
 }
-trap 'burner_stop' EXIT
+# -------------------------------------------------------------------------------------------------
+# G9 #11 IS ONE GATE WHOSE TWO HALVES CANNOT RUN AT THE SAME POINT IN THE ROUND.
+#
+# The forced-red half runs mid-gates (search "G9 #11 (forced-red half)").  The clean half cannot
+# run there, and that is a property of the round, not a bug in the check: by that point G8 has
+# left a staged arm's kernel in $KBIN and the P4 source at that arm's rate, so
+# assert_restore_landed is CORRECTLY red.  The original code asked for a green the round's own
+# state forbade, read the refusal as "the gate is always red", and stopped the round at 22:03.
+#
+# 🔑 So the clean half runs at the tail of main(), after restore_production -- which is a STRONGER
+# green than the original, not a weaker one.  It is not a situation arranged so a gate can pass;
+# it is the gate applied to the restore this round actually just performed.
+#
+# 🔴 The cost of splitting it: on an abort path the tail is never reached, so the red half can run
+# and the clean half not.  That must be a RECORDED gap, not a silent pass -- which is what the two
+# variables below and g9_coverage_note (EXIT trap, so it reaches abort paths too) exist for.
+# A completed round always reaches the tail, so only aborts can be half-covered; those rounds are
+# not claiming anything either, but the state still has to be written down rather than assumed.
+# -------------------------------------------------------------------------------------------------
+G9_RED_HALF=""      # "HH:MM:SS rc=N", set once the forced-red half has run
+G9_GREEN_HALF=""    # "HH:MM:SS rc=N", set once the clean half has run
+
+g9_clean_half() {
+    say "--- G9 #11 (clean half): the same check must come out GREEN on the restore just done ---"
+    say "    the forced-red half of this gate ran at ${G9_RED_HALF:-<not run>}"
+    local out rc
+    out=$(DRY_FAIL= assert_restore_landed 2>&1); rc=$?
+    say "$out"
+    G9_GREEN_HALF="$(date +%H:%M:%S) rc=$rc"
+    if (( rc == 0 )); then
+        record "G9 #11 restore failure is loud (clean half)" PASS \
+               "red at $G9_RED_HALF, clean at $G9_GREEN_HALF"
+        return 0
+    fi
+    record "G9 #11 restore failure is loud (clean half)" FAIL "rc=$rc after a restore that reported success"
+    abort "#11" "assert_restore_landed is red immediately after restore_production returned 0.
+        Either the restore did not land -- do NOT release the lab -- or the check is red on every
+        input, in which case its forced-red half proved nothing.  Both are stop conditions."
+}
+
+g9_coverage_note() {
+    # Nothing claimed if the gate was never reached (baseline mode, usage error, early abort).
+    [[ -n "$G9_RED_HALF" || -n "$G9_GREEN_HALF" ]] || return 0
+    local f="$OUT/G9-COVERAGE.txt"
+    if [[ -n "$G9_RED_HALF" && -n "$G9_GREEN_HALF" ]]; then
+        say "  G9 #11 halves: forced-red $G9_RED_HALF, clean $G9_GREEN_HALF -- BOTH ran."
+        [[ "$DRY_RUN" == 1 ]] || printf 'G9 #11 %s BOTH red=%s clean=%s\n' \
+            "$(date -Is)" "$G9_RED_HALF" "$G9_GREEN_HALF" >>"$f"
+    else
+        say "🔴 G9 #11 COVERAGE GAP: forced-red half ${G9_RED_HALF:-<not run>}, clean half ${G9_GREEN_HALF:-<NOT RUN>}."
+        say "🔴 This run exited before the tail of main(), so G9 is HALF-COVERED here: nothing in"
+        say "🔴 this transcript shows assert_restore_landed can come out green.  Do not cite it."
+        [[ "$DRY_RUN" == 1 ]] || printf 'G9 #11 %s HALF-COVERED red=%s clean=%s\n' \
+            "$(date -Is)" "${G9_RED_HALF:-none}" "${G9_GREEN_HALF:-none}" >>"$f"
+    fi
+}
+
+trap 'burner_stop; g9_coverage_note' EXIT
 
 cpu_gate() {   # $1 = label, $2 = expect (green|red), $3.. = extra args
     local label="$1" expect="$2"; shift 2
@@ -219,12 +343,26 @@ main() {
     assert_batch_took "$BATCH_OFF"
     local dg0 dg1 udp0 udp1
     if [[ "$DRY_RUN" == 1 ]]; then
-        dry_note "would read :8081/sflow/stats datagrams_sent twice 6 s apart, and /proc/net/snmp Udp InDatagrams"
+        dry_note "would read :8081/sflow/stats datagrams_sent and /proc/net/snmp Udp InDatagrams"
+        dry_note "  either side of a load of (G1_EXPECT_SAMPLES x SAMPLE_RATE) packets, derived"
+        dry_note "  from the live rate rather than written down, and would assert that load on"
+        dry_note "  h1's switch-side veth rx_packets -- an observable unrelated to sFlow"
+        dry_note "  🔴 this branch is why the dry run never saw G1's real defect: it reports a"
+        dry_note "  synthetic PASS, so 4 of 4 recorded G1 passes were dry and 0 were live"
         record "G1 §2.1 counters non-zero at batch_size=1" PASS "synthetic"
     else
         dg0=$(curl -sf --max-time 10 http://localhost:8081/sflow/stats | "$PY_PROXY" -c 'import json,sys;print(json.load(sys.stdin)["datagrams_sent"])')
         udp_indatagrams; udp0="$UDP_INDATAGRAMS"
-        sleep 6
+        # Was `sleep 6`, which asked the counter to move while nothing was on the wire.
+        g1_generate_load
+        # 🔴 A load that did not land is a LOAD fault and must be reported as one.  Without this
+        # branch the repair would reproduce the very defect it fixes: a silent send failure would
+        # read as zero datagrams and G1 would again blame the reader.
+        if [[ -z "${FORCE_G1_NO_TRAFFIC:-}" ]] && (( G1_IFACE_DELTA == 0 )); then
+            abort "§2.1 load" "the load step moved 0 packets on h1's switch-side veth, so nothing
+        was offered to sample.  This is a LOAD failure, NOT a counter failure -- do not read the
+        sFlow numbers below it as evidence about the reader."
+        fi
         dg1=$(curl -sf --max-time 10 http://localhost:8081/sflow/stats | "$PY_PROXY" -c 'import json,sys;print(json.load(sys.stdin)["datagrams_sent"])')
         udp_indatagrams; udp1="$UDP_INDATAGRAMS"
         say "    sflow datagrams_sent delta=$(( dg1 - dg0 ))   udp InDatagrams delta=$(( udp1 - udp0 ))"
@@ -233,7 +371,11 @@ main() {
         else
             record "G1 §2.1 counters non-zero at batch_size=1" FAIL "sflow=+$((dg1-dg0)) udp=+$((udp1-udp0))"
             abort "§2.1" "a counter reads zero against a live ten-switch fabric.  That is a broken
-        reader, not a quiet fabric, and every ceiling reading in this round would inherit it."
+        reader, not a quiet fabric, and every ceiling reading in this round would inherit it.
+        This sentence is now entitled to its premise: $G1_PKTS packets were offered and the
+        switch-side veth counted $G1_IFACE_DELTA of them, on an observable that has nothing to do
+        with sFlow.  Before 2026-08-31 no traffic was generated at all, so a zero here meant
+        nothing about the reader and this gate could not go green for any input."
         fi
     fi
 
@@ -267,8 +409,17 @@ main() {
     #    🔴 This is the segment that matters.  (i) alone is the 08-30 second bad-gate shape --
     #    "it passed because there was nothing there".  If a normal arm's own load reads as
     #    contamination, the gate would demand re-running exactly the arms that carry the result,
-    #    which is how the ③ round's gate died.  Not green => the THRESHOLD is wrong; stop and fix
-    #    the gate.  Do not shrink the arm to fit it.
+    #    which is how the ③ round's gate died.  Stop and fix the gate; do not shrink the arm to
+    #    fit it, and do not raise the threshold to make it pass.
+    #    🔴 Not green => look at the ATTRIBUTION first, not the threshold.  This line used to say
+    #    "the THRESHOLD is wrong", and on 2026-08-31 that sent the reader at exactly the wrong
+    #    thing: G5b went red because cpu_gate's allow list did not recognise its own bmv2
+    #    switches (comm "simple_switch_g" vs a 14-character entry), so 1.93 cores of OUR fabric
+    #    were counted as foreign.  cpu_gate.py's own module docstring had it right -- "an allow
+    #    list too narrow reports the experiment's own load as contamination" -- so the file
+    #    contradicted itself, with the wrong sentence at the call site and the right one in the
+    #    header.  Read the `foreign` rows: if our own processes are listed there, it is the list,
+    #    not the threshold.  [Co-developed with claude code -- Adam]
     say "--- G5b §2.4 force-green (ii): a normal arm's own load must ALSO be GREEN ---"
     if [[ "$DRY_RUN" == 1 ]]; then
         dry_note "would start the round's own offered load (measure.sh cell g_gate_load) and run the gate during it"
@@ -438,19 +589,16 @@ main() {
     # -- G9/G10/G11 (v0.4): the three clauses inherited from the D round, each forced RED.
     #    🔴 G9 exists because "restore failure must be loud" is itself a claim that can be
     #    vacuously true.  If nobody has ever seen it shout, it is the second empty pass.
-    say "--- G9 #11: restore-failure must actually SHOUT (forced) ---"
+    say "--- G9 #11 (forced-red half): restore-failure must actually SHOUT ---"
     local out9 rc9
     out9=$(DRY_FAIL=restore assert_restore_landed 2>&1); rc9=$?
     say "$out9"
     if (( rc9 != 0 )) && [[ "$out9" == *"DO NOT RELEASE THE LAB"* ]]; then
-        # and the clean direction must ALSO come out, or the check is simply always red
-        local out9g rc9g; out9g=$(DRY_FAIL= assert_restore_landed 2>&1); rc9g=$?
-        if (( rc9g == 0 )); then
-            record "G9 #11 restore failure is loud (forced red AND green)" PASS "rc=$rc9 then rc=$rc9g"
-        else
-            record "G9 #11 restore failure is loud" FAIL "the clean direction did not come out green"
-            abort "#11" "assert_restore_landed is red even when nothing is wrong."
-        fi
+        G9_RED_HALF="$(date +%H:%M:%S) rc=$rc9"
+        # 🔴 The clean direction is deliberately NOT run here; see g9_clean_half() for why it
+        #    cannot be, and where it runs instead.  A PASS on this line alone is HALF a gate --
+        #    g9_coverage_note (EXIT trap) is what makes the other half's absence visible.
+        record "G9 #11 restore failure is loud (forced-red half; clean half at end of run)" PASS "rc=$rc9"
     else
         record "G9 #11 restore failure is loud" FAIL "rc=$rc9"
         abort "#11" "a forced restore failure did not return non-zero AND shout.
@@ -591,8 +739,12 @@ main() {
         restore_production || true
         exit 1
     fi
-    say "=== all §2 gates green.  run_e.sh may proceed. ==="
     restore_production || say "🔴 production restore FAILED -- check before releasing the lab"
+    # G9 #11's clean half runs HERE, on the restore above -- not mid-gates, where the round's own
+    # staged-arm state makes a green impossible.  It can still stop the round: "all gates green"
+    # is therefore printed AFTER it, not before.
+    g9_clean_half
+    say "=== all §2 gates green.  run_e.sh may proceed. ==="
 }
 
 case "${1:-gates}" in

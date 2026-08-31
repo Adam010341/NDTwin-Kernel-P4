@@ -38,17 +38,39 @@ import os
 import sys
 import time
 
-# The fabric and this round's own instruments, by exact `comm` (the executable name in
-# /proc/<pid>/comm, truncated to 15 bytes by the kernel -- which is why nothing here is longer,
-# and why matching a longer name would silently never fire).
-FABRIC_COMMS = {
+# The fabric and this round's own instruments, matched as PREFIXES of `comm` (the executable
+# name in /proc/<pid>/comm, which the kernel truncates to 15 bytes).
+#
+# 🔴 WHY PREFIXES RATHER THAN EXACT NAMES (changed 2026-08-31, after G5b caught it live).
+#   This was a set tested with `in`, i.e. exact equality, holding "simple_switch_" -- 14
+#   characters.  The real comm is "simple_switch_g" -- 15.  The entry therefore matched nothing,
+#   and the three bmv2 switches (1.93 cores between them) were classified as FOREIGN: the
+#   experiment's own fabric counted as contamination of itself.  G5b exists to catch precisely
+#   that failure mode, and did.
+#   🔑 The comment that used to sit here already warned that "matching a longer name would
+#   silently never fire".  It guarded the too-LONG direction and missed the too-SHORT one.
+#   Knowing that comm is truncated is not the same as having counted the truncation correctly.
+#   This is the project's SECOND time in this pit; the first was pgrep's 15-char comm in the
+#   power-on round, where the pattern likewise "correctly anticipated" truncation and was wrong.
+#
+# 🔴 THE TWO CANDIDATE FIXES FAIL IN OPPOSITE DIRECTIONS, AND THIS ONE IS THE UNSAFE SIDE.
+#       exact, too narrow : ours -> foreign  =>  FALSE ALARM            (safe side)
+#       prefix            : foreign -> ours  =>  CONTAMINATION MISSED   (unsafe side)
+#   This is a contamination gate, so the second is the direction it least wants to fail in.  The
+#   prefix form is used anyway, because reaching the unsafe case requires someone to be
+#   violating the lab claim AND running bmv2 on this machine -- exactly what `ndt claim` plus
+#   NDT_EXCLUSIVE_CPU=1 exist to prevent.  🔑 That makes it an ACCEPTED risk, not an absent one,
+#   and the next reader must not mistake the choice for a free one.  Available tightening, not
+#   done here: require the comm prefix AND the pid to appear in the fabric manifest.
+#   [Co-developed with claude code -- Adam]
+FABRIC_PREFIXES = (
     "ndtwin_kernel",      # the twin itself
-    "simple_switch_",     # simple_switch_grpc, truncated by the kernel at 15 bytes
+    "simple_switch",      # matches simple_switch and simple_switch_grpc (comm "simple_switch_g")
     "ryu-manager",
     "ovs-vswitchd", "ovsdb-server",
     "iperf3",             # the offered load, started by measure.sh
     "mnexec",
-}
+)
 # The proxy is a python process, so it cannot be recognised by comm without also exempting every
 # other python on the machine -- including a burner.  It is identified by the socket it holds.
 PROXY_PORT = 8081
@@ -117,6 +139,28 @@ def _proxy_pids():
     return pids
 
 
+def _is_fabric(comm):
+    """True when `comm` names one of our own processes.
+
+    FORCE_CPU_GATE_DISOWN_FABRIC makes this answer False for everything, which is the force-RED
+    control for the classification ITSELF.  With the fabric up, the gate must go RED once it
+    stops recognising its own switches -- otherwise a green G5b could be coming from anywhere,
+    and we would be reading "the allow list works" off a result that never depended on it.
+
+    🔴 THIS HOOK HAS NOT YET BEEN EXERCISED WITH DISCRIMINATING POWER.  Three attempts on
+    2026-08-31 (idle fabric / ping flood / ping that ended early) all put too little load on the
+    switches: below the threshold the gate answers GREEN whether or not the disown fires, so
+    those runs would have given the same answer either way and none of them is evidence.  What
+    actually supports the allow-list fix is the natural experiment across it (FINDINGS F-3a,
+    21:24:19 vs 22:02:33, delta ~1.43 cores).  Do not read this hook as a passed control until
+    it has been run against switches carrying real load.
+    [Co-developed with claude code -- Adam]
+    """
+    if os.environ.get("FORCE_CPU_GATE_DISOWN_FABRIC"):
+        return False
+    return comm.startswith(FABRIC_PREFIXES)
+
+
 def measure(window, exempt_pids):
     a = _snapshot()
     proxy = _proxy_pids() | set(exempt_pids)
@@ -136,7 +180,7 @@ def measure(window, exempt_pids):
         if cores <= 0.005:
             continue
         rec = dict(pid=pid, comm=comm, cores=round(cores, 3))
-        if comm in FABRIC_COMMS or pid in proxy or pid == os.getpid():
+        if _is_fabric(comm) or pid in proxy or pid == os.getpid():
             mine.append(rec)
         else:
             foreign.append(rec)
