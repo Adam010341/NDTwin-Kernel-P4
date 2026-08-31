@@ -1,0 +1,40 @@
+# MANIFEST — sha256 of every file saved here, against its original on disk
+#
+# Recorded 2026-08-31. Column 1 is sha256 of the ORIGINAL file in /home/adam/P4_Source_Code;
+# for the four *.diff files the original does not exist on disk (they are generated), so the
+# sha256 is of the .diff itself and the regeneration command is given in README.md §4.
+#
+# Verify a saved copy against this branch:
+#   git cat-file blob HEAD:doc/audit/2026-08-31_p4-source-tree-residue/<name> | sha256sum
+#
+# [Co-developed with claude code -- Adam]
+
+## verbatim copies (sha256 = the original file in the tree)
+
+46ef61f8cf092f36bb35325ac83b0dde9d850f3c42058eae6d29f47a1e4c9409  p4-guide__bin__install-p4dev-v8.sh.modified.txt
+    <- /home/adam/P4_Source_Code/p4-guide/bin/install-p4dev-v8.sh
+c185868e3c657ff96142655b47db754629ebe068f2cdd7e7c64e8e442a87724a  behavioral-model__ci__install-thrift.sh.modified.txt
+    <- /home/adam/P4_Source_Code/behavioral-model/ci/install-thrift.sh
+5395a732615f02815b4d334546d8c65c95ded053c704be052f2977c740354120  behavioral-model__ci__install-thrift.sh.orig.txt
+    <- /home/adam/P4_Source_Code/behavioral-model/ci/install-thrift.sh.orig
+bc9742d16bafe34694c3c9ca69c69ab438bea37a422d1eae505a8025bd174337  behavioral-model__install_deps.sh.modified.txt
+    <- /home/adam/P4_Source_Code/behavioral-model/install_deps.sh
+c42859c371b4abe428345a5bed1a14c511b2616315b7f0c0cead21f38a6409fd  behavioral-model__targets__simple_switch_grpc__config.h.in.txt
+    <- /home/adam/P4_Source_Code/behavioral-model/targets/simple_switch_grpc/config.h.in
+c53557fd58c030befd6f9a7098d20ef23f73793e3dec5e7ec7e411652a9398d5  behavioral-model__config.log.txt
+    <- /home/adam/P4_Source_Code/behavioral-model/config.log
+16fff2339441b0674aba9949f0f5aca888ef1751f9a95e453532ee4806363387  mininet__util__install.sh.modified.txt
+    <- /home/adam/P4_Source_Code/mininet/util/install.sh
+bfea4fdbd7e77f6598114cfae929244703d7ad21858cab44052dc027f8c25985  p4runtime-shell__setup.cfg.modified.txt
+    <- /home/adam/P4_Source_Code/p4runtime-shell/setup.cfg
+9481271790bb99dac7a372ff3487d130e116cd26c64eefab42291b1cac5607ea  p4runtime-shell__setup.cfg.orig.txt
+    <- /home/adam/P4_Source_Code/p4runtime-shell/setup.cfg.orig
+256ac7f7c7cf6c55c97336649048e026a57602c29c5b64cf526fe86b557ee25c  install-run__log.txt
+    <- /home/adam/P4_Source_Code/log.txt
+
+## generated diffs (sha256 = the .diff file in this directory)
+
+6954c0c2101adfdfa98ec3158e46d76b8f9ae67845fd2f92fc1fd883531a2a71  p4-guide__bin__install-p4dev-v8.sh.diff
+394a4b695192ca7d66383e8900da9d0fc55c5874ad0c34fa18ec3058a82deb26  behavioral-model__local-edits.diff
+8d7b8bd0183d5c58ba9935d7d8f6a4aad5727cc520c15682c605a8a0272f0a01  mininet__util__install.sh.diff
+77dd49cb63afb6252b22e1b908bf1987cf9d0e769b5f98a311018767ba945164  p4runtime-shell__setup.cfg.diff
