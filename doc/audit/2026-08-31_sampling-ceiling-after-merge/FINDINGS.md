@@ -589,3 +589,102 @@ existing claim's fields, and downgrading a live claim's protection should requir
 #5 and this goes in with them.
 ⇒ Workaround until then: renew only from a shell that has sourced `round.env`, and **read
 `ndt status` back afterwards** — the renewal's own output does not show the flag.
+
+---
+
+## F-18. 🔴 E-P4's own guard makes it fail open — F-15's shape, second instance tonight
+
+The frozen stop rule at `run_e.sh:181-193` compares an `m`/`mp` cell against its batching-off
+partner at the same rung and rep:
+
+```bash
+pv=$(grep -m1 "^$partner	" "$RESULTS" 2>/dev/null || true)
+if [[ -n "$pv" && "$pv" != *SATURATED* && "$v" == *SATURATED* ]]; then
+```
+
+`$RESULTS` is sound: fixed path, single write site (`:172`), append-only, never truncated by
+`ladder()` or `plan()` — leg 1's rows do survive into leg 2, so the lookup is live **when the rows
+exist**.
+
+🔴 **But `-n "$pv"` is the hole.** Leg 2's four rungs (1/32, 1/16, 1/8, 1/4) are leg 1's rungs 4–7.
+If leg 1 stops early, the missing partner rows make the condition false and **a frozen safety rule
+silently stops applying to those rungs.** It prints nothing. The round would continue, and the one
+check that distinguishes "batching implementation bug" from "the ceiling moved" would be absent
+exactly where a bug is most likely — the low rungs, on batching's first live cells of the night.
+
+🔑 **Same shape as F-15's `n > 0 &&`: the clause added to make the check safe is the clause that
+makes it vacuous.** Second instance tonight, in a *frozen* rule this time.
+
+⚠️ **Not repaired in-round.** Changing the instrument mid-round is worse than the hole; registered
+for the next round. The in-round mitigation is a precondition outside the script, ruled by the
+auditor as three branches, none of which lets leg 2 start with a hollow rule:
+
+| leg 1 state | partner rows | action |
+|---|---|---|
+| no `ladder complete` (abort or stop) | any | 🔴 **do not start; report.** `abort()` says "the round stops here" — **no follow-on action is safe until the reason for stopping is understood**, including running only the rungs that do have partners |
+| `ladder complete` printed | **all 24** | start leg 2 |
+| `ladder complete` printed | any missing | 🔴 **do not start; report.** That is a leg 1 defect and must be understood first |
+
+🔑 **Why the row count and not the banner.** `ladder complete` is a *proxy*; the partner rows are
+the object the rule actually reads. The proxy lies in one direction — leg 1 can print the banner
+with a cell missing from the tsv — and it lies toward "go".
+
+---
+
+## F-19. 🔴 The round's own operators are a measurable term in its contamination gate
+
+Cell CPU-gate margins over leg 1's first 19 cells (`excess`, threshold +0.5):
+
+| period | excess | `claude-desktop` | `gnome-shell` | `chrome` |
+|---|---|---|---|---|
+| 23:32–00:04 | −0.417 … −0.533 | 0.007–0.164 | 0–0.068 | 0–0.008 |
+| 00:11–01:02 | **−0.541 … −0.609** | 0–0.024 | 0–0.005 | 0–0.006 |
+| 01:09 | −0.130 | **0.305** | 0.087 | 0.005 |
+| 01:15 | −0.020 | **0.368** | 0.114 | 0 |
+| 01:21 | **+0.138** | 0.243 | 0.104 | **0.300** |
+
+**Quietest and noisiest are twenty minutes apart and differ by 0.75 cores.** This is F-13b's claim
+instantiated: a single reading cannot characterise the same quantity in another period, and
+§0-ter's registered range check is built from short-term jitter.
+🔴 **Not to be averaged.** Averaging a bimodal quantity reports a middle value that never occurred.
+
+🔑 **The mechanism is specific and the magnitude is measured: the desktop is rendering the output
+of the sessions running and auditing this round.** `claude-desktop` + `gnome-shell` reached ≈0.35
+cores — **70% of the 0.5-core threshold**. Both parties have disclosed their share: this session's
+long reports, and the auditor's status queries, long reply and an interactive form during
+01:09–01:21.
+
+⇒ **This is a declared covariate, not environmental noise, and it must not be written as noise.**
+§0-ter declares the working point as "desktop not closed", so it is inside the declared working
+point — but it still reds cells, and a red cell aborts the round, which **directly opens F-18's
+hole** by truncating leg 1 before the partner rows exist. The two findings are one causal chain.
+
+⇒ Both sessions have cut output for the remainder of the round. Recorded because the mitigation is
+behavioural and therefore expires silently.
+
+🔑 First instance with numbers of `vm-on-this-machine-is-invisible-to-ndt-status`'s third source —
+"the claude session itself". The existing entry measured `agy`; the mechanism here is different.
+
+---
+
+## F-20. 🔴 A `pkill -f` inside the reused instrument makes a *string* hazardous for the round
+
+`lib_e.sh:271`'s comment records that `measure.sh` — reused **byte-identical** so that this round's
+cells stay comparable with the D round's (`round.env:16-22`) — clears stale servers with
+`pkill -f iperf3`, and notes that mininet hosts share the root PID namespace "which is why a plain
+pkill reaches them at all".
+
+`pkill -f` matches the **full command line**. The Bash tool's own process carries its script text in
+its command line. Therefore, for as long as this round runs, **any command containing the literal
+string `iperf3` is a target of the instrument's own cleanup** — grepping for it, tailing a file
+named after it, opening an editor on it. The process killed is the one that mentioned the string,
+not a stale server.
+
+⚠️ **Not repaired in-round**: `measure.sh` must stay byte-identical or §6's cross-round
+comparability is void. Registered for the next round.
+⇒ In-round mitigation is a naming discipline, not a code change: **no command line may contain
+`iperf3` until leg 2's `restore_production` completes.** Verified for both parties' running
+monitors at 01:34.
+🔑 This is the seventh time this project has been bitten by `pkill -f`, and the first where the
+hazard is **a string rather than an action** — nothing is being killed on purpose, and the victim
+is chosen by what it happens to mention.
