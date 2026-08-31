@@ -211,4 +211,50 @@ this readout reports "no loss" while three quarters of the traffic disappears.
 | Single-arm results from this design are unreliable at 1.5–2× (§4) | Any single-arm number quoted with precision |
 | §6 cannot detect foreign load in this design (§5) | That the arms were free of foreign load |
 
+
+---
+
+## 補報（2026-08-31，reviewer 線；原文一字未改）
+
+🔴 **漏報事實**：本輪**每臂都採了** `/proc/net/snmp` 的收端計數
+（31 個 raw 檔 `snmp_recv_{before,after}.txt`，在 `audit-raw`），
+**而 §5 的 receiver null check 沒有用它們**——它引的是 08-15 的 loopback 值，
+且原文自陳 **"cited, not re-derived"**。2026-08-31 的回報義務清償盤點發現此事，
+本節於同日補報。
+
+### 這是**替換**，不是補強
+
+| | 原論證 | 補報的論證 |
+|---|---|---|
+| 形態 | **能力式**：「收端有 ~400× 餘裕，所以不是它」 | **觀測式**：「在要緊的那些格，收端一個封包都沒丟」 |
+| 依據 | 08-15 的 loopback 42.4／63.5 Gbps，**跨兩週、跨輪** | **本輪、同 fabric、同臂**的逐臂計數 |
+| 已知問題 | 🔴 該值比三次直接量測高 **5–8 倍**（①b 實測 7902.3、OvS gate 7311、08-31 另一台 VM 8331.3）——見 `2026-08-31_completeness-experiments/FINDING-loopback-ceiling-disagreement.md` | 無跨輪可比性假設 |
+
+⇒ **本輪的收端 null check 自此改以下表為據；那個 loopback 值不再是它的支柱**
+（可保留為佐證，但必須同時揭露它的「未重推」與 5–8 倍歧異）。
+
+### 逐臂 `RcvbufErrors`（自 `audit-raw` 取出）
+
+| 臂 | before → after | Δ |
+|---|---|---|
+| n1_a | 281 → 293 | **12** |
+| n1_b | 308 → 337 | **29** |
+| n2_a | 293 → 308 | **15** |
+| n2_b | 308 → 308 | 0 |
+| n4_a／n4_b | 308 → 308 | **0／0** |
+| n8_a／n8_b | 308 → 308 | **0／0** |
+| **n16_a／n16_b** | 308 → 308 | **0／0** |
+
+全輪合計 **56** 個 datagram，**全部落在 n=1／n=2；n=4 以上全零**——
+**包含 n=16，即 79.66% 封包消失在 s1 內部的那一格。**
+⇒ 「損失在交換機不在收端」由**推論**升為**同輪直接觀測**。
+
+🔑 **第 3 點才是它真正的力量**：本輪其他結論都靠「同輪同臂」才成立，
+**這一處卻曾經破例去引一個兩週前的外部數字**。
+
+### 順帶：一個本來就在資料裡、沒人用的內部一致性檢查
+
+n=1／n=2 的**非零** Δ，與本輪對 n=1 格「收端限」的既有註記**吻合**。
+⇒ 這是「**我們手上的資料比我們用掉的多**」的直接證據。
+
 **[Co-developed with claude code -- Adam]**
