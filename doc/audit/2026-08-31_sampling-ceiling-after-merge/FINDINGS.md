@@ -1078,3 +1078,29 @@ successes and 1 failure is ≈4%; one further success cannot rule out intermitte
 intermittency means. **The round now runs under a pre-committed rule: if a bringup aborts again,
 the round stops and the pattern is registered as a finding.** "Retry until it works" would make
 *"did this round measure anything"* a function of how many times we tried.
+
+### 🔴 Both cross-cell invariants re-baselined at the resume, so neither could see across the gap
+
+The resumed run is a new process, so `assert_same_boot` and `assert_topology_invariant` each took a
+**fresh baseline** rather than inheriting leg 1's:
+
+```
+leg 1   [23:27:30]  boot_id=f6caefcb-… uptime=168866.99s (baseline)   edges=288 (baseline for this run)
+resume  [02:20:00]  boot_id=f6caefcb-… uptime=179216.78s (baseline)   edges=288 (baseline for this run)
+```
+
+⇒ **A reboot or a topology change during the 11.7-minute gap would have been silently adopted as
+the new baseline, not flagged.** Both checks are within-run by construction, and the resume made the
+gap a between-run interval. **The answers are right and the checks had no discriminating power
+across the only interval anyone would doubt** — the same shape as F-3a, F-10 and the F-16
+attribution, now in the invariants themselves.
+
+✅ **Verified by hand instead, cross-referencing the two transcripts:** identical `boot_id`; `edges`
+288 in both; and the uptime delta **10 349.79 s** against a wall-clock delta of **2 h 52 m 30 s** —
+agreeing to **0.21 s**, which is what makes the identical `boot_id` evidence rather than coincidence.
+🔑 Two independent quantities had to agree before "no reboot" was a claim rather than an assumption:
+the id, and the arithmetic that the id ought to imply.
+
+⇒ Registered for the next round: **a resumed run should inherit the prior run's invariant baselines
+from `cells.tsv` or a sidecar rather than re-derive them**, so the gap the resume creates is the one
+interval the invariants actually cover.
