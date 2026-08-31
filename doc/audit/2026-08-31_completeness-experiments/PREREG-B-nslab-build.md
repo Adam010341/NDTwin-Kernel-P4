@@ -72,6 +72,11 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   ＝另一張小 prereg，見 §6）。
 - 完整層疊揭露：bare nslab → qemu/KVM VM → Mininet veth【TBD：VM 環境 manifest——
   iperf3 版本、kernel、mininet 版本、CPU model，bootstrap 時落定】。
+- **Manifest 的時效條款（auditor 08-31）**：manifest 的權威版本＝**跑臂當下實測**，
+  不是 bootstrap 當下的（中間一次重開機或 VPN 斷線重連就可能換掉 CPU model／kernel／
+  governor——「一次正確的量測會無聲過期」的同型）。實作：**臂 runner 開頭自動 dump
+  一份 manifest 進 raw，與 bootstrap 那份逐欄對帳；任一欄不一致 ⇒ 停止並報告，
+  不得默默採用新值**（不一致本身即發現，處置照 abandon 條款的精神：如實報、不硬修）。
 - **Pinning／governor＝凍結決策、非記錄（auditor R2）**：裁定＝**不 pin vCPU、governor
   照 VM 預設不動**——與 study ①（機器 1 無 pinning、無定頻）同 protocol，複製忠實度
   優先；pinning 敏感度屬 B3（本機、另立 prereg）。qemu 參數＝`~/ndtwin-vm.sh` 預設
@@ -125,5 +130,9 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   刻意更嚴）；④P4 程式＝ndtwin_switch.p4 sha256 5786a63e…、f64897b（08-25）後未動
   ＝與 ① 同顆（時序驗訖）。**僅剩 VM 環境 manifest 一格（nslab bootstrap 時落）——
   落定即自升 v1.0。**
+- v0.3a（08-31，auditor 提醒→reviewer 落，資料接觸前）：§4 加 **manifest 時效條款**
+  ——權威版＝跑臂當下實測、runner 開頭自動 dump 進 raw 與 bootstrap 版逐欄對帳、
+  不一致即停機報告不得默默採用。（理由同 [[cited-line-numbers-are-not-evidence]] 的
+  「一次正確的量測會無聲過期」。）
 
 [Co-developed with claude code -- Adam]
