@@ -662,6 +662,66 @@ describing the curve's shape is therefore not waiting for more curve data; there
 it was that four shape claims tonight were overturned, and there is no cost to fifteen more minutes
 against a demonstrated cost to describing early.
 
+---
+
+## 5-novies. 🏁 04:47:45 — leg 1 complete (48/48). The moratorium lifts; this is the one description
+
+`ladder complete` printed, `restore verified`, `rc=0`. Frozen before leg 2 could append:
+`raw/leg1-final-analysis.txt`.
+
+| rung | n | mean (eligible) | step | √n pred | obs | **obs/pred** | status |
+|---|---|---|---|---|---|---|---|
+| 1/1024 | 3 elig / 6 | 23.790 | — | — | — | — | on curve |
+| 1/256 | 6 | 11.970 | 4× | 2.000 | 1.987 | **0.994** | on curve |
+| 1/64 | 4 elig / 6 | 6.770 | 4× | 2.000 | 1.768 | **0.884** | on curve |
+| 1/32 | 6 | **5.361** | 2× | 1.414 | 1.263 | **0.893** | on curve |
+| 1/16 | 6 | 5.399 | 2× | 1.414 | 0.993 | **0.702** | on curve |
+| 1/8 | 6 | 6.113 | 2× | 1.414 | 0.883 | **0.625** | on curve |
+| 1/4 | 6 | 29.613 | — | — | — | — | 🔴 **OFF-CURVE 0/6 OK** |
+| 1/1 | 6 | 57.523 | — | — | — | — | 🔴 **OFF-CURVE 0/6 OK** |
+
+### The description, once
+
+**√n holds essentially exactly at the sparse end and then fails progressively, and the mean spread
+stops improving after 1/32.** `obs/pred` runs 0.994, 0.884, 0.893, 0.702, 0.625. In absolute terms
+the mean falls 23.790 → 11.970 → 6.770 → 5.361 and then does not fall again: 5.399 at 1/16, 6.113
+at 1/8. **The minimum is at 1/32; past it, denser sampling bought no precision and then cost it.**
+
+Caveats, in the same breath and not in a later paragraph:
+* **Six rungs is the entire curve.** 1/4 and 1/1 are excluded by registration (0/6 OK) and **no
+  rung can ever be added** — the tool now refuses to print `obs/pred` for them.
+* **Eligible n is 3 at 1/1024 and 4 at 1/64** (evidenced foreign-load overlap), 6 elsewhere. **Two
+  of the six points rest on fewer cells than the rest.**
+* 🔴 **Unregistered secondary observation** (Q2/E4): reported separately, and it **may not explain
+  or reinforce the primary.**
+* This is a description of a **complete** dataset, not a prediction. That distinction is the whole
+  reason it was withheld — four earlier shape claims were made on incomplete data and all four were
+  overturned.
+
+### 🔴 The pinned expectation was MISSED, and this is the loud version
+
+§4, pinned 00:50 before rungs 3–8 existed: *"if it stops halving at some rung, I expect the
+departure to be **at or below** the rung where `mark` first stops being OK, not above it."*
+
+* `mark` first stops being OK at **1/4**.
+* The departure from √n begins at the **256 → 64 step**, i.e. at **1/64**.
+* **1/64 is five rungs earlier.** The expectation is not marginally wrong; it is wrong by most of
+  the ladder.
+
+🔑 **What it got wrong is the assumption behind it** — that precision degradation and health
+failure share a cause, so one would herald the other. They do not: precision stopped improving at
+1/32 while every cell stayed healthy for three more rungs, and health then failed for an unrelated
+reason (the data plane, not the sampling path). **Reporting the miss is the point of pinning it.**
+
+### The primary
+
+**`SATURATED` count = 0 across all 48 cells.** Neither arm reached the registered ceiling.
+⇒ Both arms are **right-censored at ≥1/1** ⇒ two censored values ⇒ **`INDISTINGUISHABLE`**, exactly
+the branch committed in §5-quater before the data existed. **R-E2 is not answerable from leg 1, the
+report says so, and it stops there** — that is a legitimate outcome of the registered design, not a
+failure.
+🔴 **And ">=1/1" names a rung that destroys 85% of the traffic** (F-26).
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a

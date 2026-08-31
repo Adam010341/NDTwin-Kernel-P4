@@ -215,9 +215,18 @@ def main():
         elig = [c for c in cs if c["category"] != "KNOWN-OVERLAP"]
         mean_all = sum(c["spread"] for c in cs) / len(cs)
         incomplete = len(cs) < CELLS_PER_RUNG
+        # 🔴 The precision curve admits only cells where NEITHER flag fired (08-25 PREREG,
+        # verbatim: "兩者皆未觸發 ⇒ 該格進精度曲線").  `spread` IS a precision quantity
+        # (sd_mean = sqrt(pvariance(counts))/lam*100).  A rung containing a SATURATED or
+        # DATAPLANE-HURT cell is therefore NOT a point on this curve, and printing an obs/pred
+        # for it invites exactly the error this round pinned against in §5-octies: using cells
+        # for the purpose they were excluded from.  Their spread is still shown -- it is data --
+        # but it does not enter the ratio chain and cannot propagate to the next rung.
+        on_curve = all(c.get("mark") == "OK" for c in cs)
         step = pred = obs = frac = None
-        if len(elig) < MIN_FOR_RATIO:
-            cur, shown = None, float("nan")
+        if not on_curve or len(elig) < MIN_FOR_RATIO:
+            cur, shown = None, (sum(c["spread"] for c in elig) / len(elig)
+                                if elig else float("nan"))
         else:
             cur = shown = sum(c["spread"] for c in elig) / len(elig)
             if prev:
@@ -228,6 +237,10 @@ def main():
         if incomplete:
             status = f"🔴 PROVISIONAL n={len(cs)}/{CELLS_PER_RUNG} — DO NOT RELAY"
             provisional.append(r)
+        elif not on_curve:
+            nok = sum(c.get("mark") == "OK" for c in cs)
+            status = (f"🔴 OFF-CURVE {nok}/{len(cs)} OK — excluded from the precision curve; "
+                      f"no obs/pred")
         elif prev_provisional and obs is not None:
             status = "⚠️ ratio derived from a provisional previous rung"
         else:
