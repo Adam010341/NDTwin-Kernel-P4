@@ -56,8 +56,14 @@ being OK — is the only part of this that carries information.
   not mine to anticipate here.
 
 🔴 **BINDING ON THE REPORT (auditor, 02:00): whether these expectations were met must be stated
-explicitly, hit or miss.** As of 1/32 the ratios are 1.987 → 1.768 → 1.417 — departing from √n
-monotonically while every cell still reads `mark=OK`, which makes the second bullet above
+explicitly, hit or miss.** 🔴 **And a correction to how I stated this twice: "departing from √n
+monotonically" was wrong, because the ladder's steps are not uniform.** `1024 256 64 32 16 8 4 1`
+steps by **4×, 4×, 2×, 2×, 2×, 2×, 4×**, so √n predicts **2.000** for the 4× steps and **1.414**
+for the 2× ones. Comparing every observed ratio against 2 reads a 2× step as a deepening departure
+when it may be no departure at all — **the ratio's two sides have to share a step size before they
+can be compared.** Corrected in `overlap_bands.py`, which now prints predicted, observed and
+`obs/pred`. The actual shape is a **step change after the first rung and then flat**, which makes
+the second bullet above
 (*"the departure should be at or below the rung where `mark` first stops being OK"*) a live,
 checkable prediction rather than a hope.
 **The entire value of pinning an expectation is here: a match must be reported, and a miss must be
@@ -239,15 +245,22 @@ measurement window they are BRINGUP-ONLY. The convention was ambiguous for two h
 ambiguity was worth 35 s and 49 s of overlap — the kind of difference that decides whether a rung
 has enough cells to compare at all.
 
-| rung | n | all-cell mean | KNOWN | eligible | mean over eligible | ratio |
-|---|---|---|---|---|---|---|
-| 1/1024 | 6 | 23.935 | 3 | 3 | 23.790 | — |
-| 1/256 | 6 | 11.970 | 0 | 6 | 11.970 | **1.987** |
-| 1/64 | 6 | 6.872 | 2 | 4 | 6.770 | **1.768** |
-| 1/32 | 3 | 4.779 | 0 | 3 | 4.779 | **1.417** |
+| rung | n | all-cell | KNOWN | elig | mean elig | step | √n pred | obs | **obs/pred** |
+|---|---|---|---|---|---|---|---|---|---|
+| 1/1024 | 6 | 23.935 | 3 | 3 | 23.790 | — | — | — | — |
+| 1/256 | 6 | 11.970 | 0 | 6 | 11.970 | 4× | 2.000 | 1.987 | **0.994** |
+| 1/64 | 6 | 6.872 | 2 | 4 | 6.770 | 4× | 2.000 | 1.768 | **0.884** |
+| 1/32 | 6 | 5.361 | 0 | 6 | 5.361 | **2×** | **1.414** | 1.263 | **0.893** |
 
-The departure from √n deepens monotonically — 1.987, 1.768, 1.417 — while every cell still reads
-`mark=OK`. That is the ladder doing what §4 said would be the only informative part of it.
+🔴 **Read `obs/pred`, not `obs`.** √n holds almost exactly on the first step (0.994), then drops to
+≈0.88–0.89 and **stays there across a 4× step and a 2× step alike** — a *constant fractional*
+shortfall, not a deepening one. Every cell still reads `mark=OK`.
+
+🔑 **The uncorrected version of this table said "1.987 → 1.768 → 1.417, monotonically departing".**
+That reading compared ratios taken over different step sizes against the same 2, which is the
+ratio-with-mismatched-sides error in a new costume: **the two sides of a comparison must share a
+step before the comparison means anything.** The last figure also moved (1.417 → 1.263) when the
+rung completed from 3 cells to 6 — an interim mean read as a result.
 
 `8/31 auditor` found a band neither of the two self-reports covered, from evidence neither this
 round's instruments nor the reporting session's own accounting could produce: **a qemu VM,

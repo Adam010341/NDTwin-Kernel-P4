@@ -148,25 +148,41 @@ def main():
     rungs = {}
     for c in rows:
         rungs.setdefault(c["name"].split("_")[2], []).append(c)
-    print(f"\n{'rung':<8} {'n':>2} {'all-cell mean':>14} {'KNOWN':>6} {'elig':>5} "
-          f"{'mean over elig':>15}   ratio vs previous rung")
-    prev = None
+    # 🔴 THE LADDER'S STEPS ARE NOT UNIFORM.  LADDER="1024 256 64 32 16 8 4 1" steps by
+    # 4x, 4x, 2x, 2x, 2x, 2x, 4x.  A sqrt(n) expectation therefore predicts 2.000 for the 4x
+    # steps and 1.414 for the 2x ones.  Comparing every observed ratio against 2 reads the 2x
+    # steps as a deepening departure when they may be no departure at all -- which is exactly
+    # the error this column exists to stop.  Report predicted, observed, and the shortfall.
+    print(f"\n{'rung':<8} {'n':>2} {'all-cell':>9} {'KNOWN':>6} {'elig':>5} {'mean elig':>10} "
+          f"{'step':>5} {'pred':>6} {'obs':>6} {'obs/pred':>9}")
+    prev = prev_rate = None
     for r in sorted(rungs, key=lambda x: -int(x)):
         cs = rungs[r]
+        rate = int(r)
         elig = [c for c in cs if c["category"] != "KNOWN-OVERLAP"]
         mean_all = sum(c["spread"] for c in cs) / len(cs)
+        step = pred = obs = frac = None
         if len(elig) < MIN_FOR_RATIO:
-            cur, verdict, shown = None, f"n/a — {len(elig)} eligible, need {MIN_FOR_RATIO}", float("nan")
+            cur, shown = None, float("nan")
         else:
             cur = shown = sum(c["spread"] for c in elig) / len(elig)
-            verdict = f"{prev/cur:.3f}" if prev else "-"
-        print(f"1/{r:<6} {len(cs):>2} {mean_all:>14.3f} "
+            if prev:
+                step = prev_rate / rate          # sampling-rate multiplier for THIS step
+                pred = step ** 0.5               # sqrt(n): spread falls as 1/sqrt(samples)
+                obs = prev / cur
+                frac = obs / pred
+        f = lambda v, w, p=3: (f"{v:>{w}.{p}f}" if v is not None else " " * (w - 1) + "-")
+        print(f"1/{r:<6} {len(cs):>2} {mean_all:>9.3f} "
               f"{sum(c['category'] == 'KNOWN-OVERLAP' for c in cs):>6} {len(elig):>5} "
-              f"{shown:>15.3f}   {verdict}")
-        prev = cur
+              f"{shown:>10.3f} {f(step,5,1)} {f(pred,6)} {f(obs,6)} {f(frac,9)}")
+        if cur:
+            prev, prev_rate = cur, rate
     print("   'elig' = measurement window not overlapped by any evidenced band "
           "(UNKNOWN + BRINGUP-ONLY).\n   It is NOT a clean subset; it is the subset nobody has "
-          "evidence against.")
+          "evidence against.\n"
+          "   'step' = this rung's sampling-rate multiplier over the previous one — 4x and 2x "
+          "steps both\n           occur, so 'pred' is sqrt(step), NOT a constant 2.  "
+          "'obs/pred' = 1.000 means sqrt(n) held.")
 
     with open(SIDECAR, "w", encoding="utf-8") as fh:
         fh.write("cell\thead\topen\tclose\tgate\texcess\tmark\tspread\t"
