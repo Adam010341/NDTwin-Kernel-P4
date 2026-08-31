@@ -1,0 +1,13 @@
+diff --git a/include/ndt_core/collection/FlowLinkUsageCollector.hpp b/include/ndt_core/collection/FlowLinkUsageCollector.hpp
+index 36104ab..710cbb6 100644
+--- a/include/ndt_core/collection/FlowLinkUsageCollector.hpp
++++ b/include/ndt_core/collection/FlowLinkUsageCollector.hpp
+@@ -48,7 +48,7 @@ namespace sflow
+ //
+ // Named rather than a literal so an arm can report which value it measured instead of citing a
+ // line number that moves. This file's own line numbers moved during ticket Q.
+-constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
++constexpr auto kFlowPathRecomputeInterval = std::chrono::microseconds(1000);
+ 
+ struct Packet; // forward declare
+ template <typename T>
