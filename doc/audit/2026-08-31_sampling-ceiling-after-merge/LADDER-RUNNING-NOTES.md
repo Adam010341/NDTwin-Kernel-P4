@@ -631,6 +631,37 @@ that is a *direction* (higher) and a *rung-distance* (≥4 rungs) — **which is
 constraint ② allows.** 🔴 And it must carry §5-quinquies' sentence: the ceiling that moved is the
 **telemetry-fidelity** ceiling, on a ladder whose top four rungs cost 43–85% of the data plane.
 
+---
+
+## 5-octies. 🔴 The precision curve ends at 1/8, and no later rung can extend it
+
+`spread` is `sd_mean` — `sqrt(pvariance(counts)) / lam * 100` (`plot_ladder_rates.py:84`), a
+relative dispersion of the sample counts. **It is a precision-curve quantity.** The registered
+inclusion rule (08-25 PREREG, verbatim) is:
+
+> `mean(vs)/gt < 0.95` ⇒ **SATURATED**, **不進精度曲線** … 兩者皆未觸發 ⇒ **該格進精度曲線**。
+
+Counted from `cells.tsv`:
+
+| rung | cells entering the precision curve |
+|---|---|
+| 1/1024, 1/256, 1/64, 1/32, 1/16, 1/8 | **6/6 each** |
+| 1/4 | **0/6** |
+| 1/1 | **0/6** (0/3 at the time of writing) |
+
+⇒ **The √n comparison legitimately ends at 1/8. The sequence is already complete:**
+means `23.790, 11.970, 6.770, 5.361, 5.399, 6.113`; `obs/pred` `0.994, 0.884, 0.893, 0.702, 0.625`.
+🔴 **Extending it into 1/4 or 1/1 would use those cells for exactly the purpose the registration
+excluded them from.** Their `spread` figures (28–63) are recorded, and they are not points on this
+curve.
+
+⚠️ **This changes what waiting for 1/1 buys.** It settles the ceiling narrative — the `SATURATED`
+count, hence the primary — but it **cannot add a point to the precision curve**. The moratorium on
+describing the curve's shape is therefore not waiting for more curve data; there is none coming.
+🔑 **It is held anyway until the run ends**, because the reason to wait was never only "more data" —
+it was that four shape claims tonight were overturned, and there is no cost to fifteen more minutes
+against a demonstrated cost to describing early.
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
