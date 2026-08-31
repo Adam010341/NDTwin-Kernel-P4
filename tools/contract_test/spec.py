@@ -787,16 +787,22 @@ ENDPOINTS = [
     dict(name="historical_logging_enable", method="POST", path="/ndt/historical_logging",
          query={"state": "enable"},
          category=MUTATE, expect_status=[200, 500],
-         schema=OneOf(Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
+         schema=OneOf(Obj({"status": Str(nonempty=True), "recording": Bool()},
+                          optional={"message": Str()}),
                       Obj({"error": Str(nonempty=True)}, optional={"details": Str()})),
-         note="state is a QUERY parameter, not a body field -- the body is ignored"),
+         note="state is a QUERY parameter, not a body field -- the body is ignored. "
+              "`recording` is required on the success shape: all three documented success "
+              "shapes carry it and two of them mean 'no row will ever be written', so "
+              "status=='success' cannot tell a caller whether logging is live "
+              "(2026-01-02_ndt_api.md section 39)"),
 
     dict(name="historical_logging_disable", method="POST", path="/ndt/historical_logging",
          query={"state": "disable"},
          category=MUTATE, expect_status=[200, 500],
-         schema=OneOf(Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
+         schema=OneOf(Obj({"status": Str(nonempty=True), "recording": Bool()},
+                          optional={"message": Str()}),
                       Obj({"error": Str(nonempty=True)}, optional={"details": Str()})),
-         note="restores whatever the enable above changed"),
+         note="restores whatever the enable above changed. `recording` required, as above"),
 
     # The simulation endpoints forward to the Simulation-Platform-Manager, which is not
     # part of a normal kernel test run, so a success-path contract would be flaky. Their
