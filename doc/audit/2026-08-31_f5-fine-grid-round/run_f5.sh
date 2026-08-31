@@ -80,6 +80,81 @@ assert_arm_binary() {
 }
 
 # -------------------------------------------------------------------------------------------------
+# #3 / #11 / #14, inherited from the D round (see
+# ../2026-08-31_completeness-experiments/CROSS-ROUND-REGRESSION.md).  None was registered here
+# before 2026-08-31; all three were executed by the D round's own scripts.
+# -------------------------------------------------------------------------------------------------
+BOOT_BASELINE=""
+assert_same_boot() {   # #3 -- ladder_ext:83
+    local b
+    if [[ "$DRY_RUN" == 1 ]]; then
+        [[ "$DRY_FAIL" == bootid ]] && b="00000000-dead-dead-dead-000000000000" || b="dry-run-synthetic-boot-id"
+    else
+        b=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+    fi
+    [[ -n "$b" ]] || abort "#3" "boot_id unreadable; unreadable is not equal"
+    if [[ -z "$BOOT_BASELINE" ]]; then
+        BOOT_BASELINE="$b"; say "    boot_id=$b (baseline)"; return 0
+    fi
+    [[ "$b" == "$BOOT_BASELINE" ]] || abort "#3" "the machine REBOOTED mid-arm ($BOOT_BASELINE -> $b).
+        Installs either side of a reboot share no /proc baseline; they are not one arm."
+    say "    boot_id unchanged"
+}
+
+TOPO_BASELINE=""
+assert_topology_invariant() {   # #14 -- run_e8:67
+    local n
+    if [[ "$DRY_RUN" == 1 ]]; then
+        [[ "$DRY_FAIL" == edgecount ]] && n=999 || n=12
+    else
+        n=$(curl -s -m 10 "$NDT_URL/ndt/get_graph_data" | "$PY_PROXY" -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception: print(-1); raise SystemExit
+for k in ("edges","links"):
+    v=d.get(k) if isinstance(d,dict) else None
+    if isinstance(v,list): print(len(v)); raise SystemExit
+print(-1)' 2>/dev/null || echo -1)
+    fi
+    [[ "$n" != "-1" && -n "$n" ]] || abort "#14" "edge count unreadable.  An invariant that cannot
+        be evaluated must refuse, not pass."
+    if [[ -z "$TOPO_BASELINE" ]]; then TOPO_BASELINE="$n"; say "    topology: edges=$n (baseline)"; return 0; fi
+    [[ "$n" == "$TOPO_BASELINE" ]] || abort "#14" "edge count changed across the swap ($TOPO_BASELINE -> $n).
+        The fabric was not reproduced, so the two arms are not comparable."
+    say "    topology: edges=$n (matches baseline)"
+}
+
+# #11 -- the production kernel must be back before the lab is released.  This round SWAPS kernel
+# binaries between arms; a failed restore leaves the next round in the queue (E) running F-5's
+# pre-T-11 binary, and E cannot tell.  Loud means three channels, not a line in a log.
+assert_kernel_restored() {
+    local fail=0 f="$ROUND/raw/RESTORE-FAILED"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        [[ "$DRY_FAIL" == restore ]] && { dry_note "forcing restore verification to FAIL"; fail=1; } \
+            || dry_note "would assert the running kernel is post-T-11 (production) again"
+    else
+        local pid exe hits
+        pid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
+        if [[ -z "${pid:-}" ]]; then
+            say "🔴 restore: no kernel running -- cannot confirm the production binary is back"; fail=1
+        else
+            exe=$(sudo -n readlink -f "/proc/$pid/exe")
+            hits=$(sudo -n nm -C "$exe" 2>/dev/null | grep -c setProgrammedPredicate || true)
+            (( ${hits:-0} > 0 )) || { say "🔴 restore: the running kernel is still PRE-T-11"; fail=1; }
+        fi
+    fi
+    if (( fail )); then
+        say "🔴🔴🔴 KERNEL RESTORE FAILED -- DO NOT RELEASE THE LAB 🔴🔴🔴"
+        say "🔴 E is next in the queue and would run F-5's binary without being able to tell."
+        printf 'RESTORE-FAILED %s -- do not release the lab\n' "$(date -Is)" >&2
+        [[ "$DRY_RUN" == 1 ]] || { mkdir -p "$ROUND/raw"; printf 'RESTORE-FAILED %s\n' "$(date -Is)" >"$f"; }
+        return 1
+    fi
+    say "    restore verified: the production (post-T-11) kernel is running"
+    [[ "$DRY_RUN" == 1 ]] || rm -f "$f"
+    return 0
+}
+
+# -------------------------------------------------------------------------------------------------
 preflight() {
     local avail owner excl claim="$KERNEL_DIR/.test_run/lab.claim"
     avail=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
@@ -176,6 +251,8 @@ arm() {
     assert_arm_binary
     local sha_open sha_close; sha_open=$(running_kernel_sha)
     say "=== arm $ARM: bracket OPEN, running exe sha256=$sha_open ==="
+    assert_same_boot                 # #3
+    assert_topology_invariant        # #14
     freeze_sequence
 
     # Binary identity for the record (§4): the four fields, because three of them are each
@@ -234,6 +311,8 @@ arm() {
             say "🔴 The round stops on this evidence; do not re-run the arm hoping for zero."
         fi
     fi
+    assert_same_boot                 # #3, closing the bracket
+    assert_topology_invariant        # #14, across the arm
     say "=== arm $ARM complete -> $OUT ==="
 }
 
@@ -297,7 +376,20 @@ selftest() {
             --out "${SELFTEST_OUT:-$ROUND/raw/selftest}" --dst 10.0.0.180 --dst 10.0.0.187 \
             2>&1 | tail -6 | tee -a "$LOG" || rc=1
     done
-    (( rc == 0 )) && say "=== detector force tests PASS ===" || say "🔴 detector force tests FAILED"
+    # The three inherited clauses, each forced RED -- and #11 forced GREEN too, because a check
+    # that is always red is not a check either.  "Restore failure must be loud" is itself a claim
+    # that can be vacuously true: if nobody has seen it shout, it is an empty pass.
+    say "--- inherited clauses #3 / #11 / #14, forced ---"
+    local o
+    o=$( ( DRY_RUN=1 DRY_FAIL=restore assert_kernel_restored ) 2>&1 || true)
+    [[ "$o" == *"DO NOT RELEASE THE LAB"* ]] && say "  #11 force-red  PASS" || { say "  #11 force-red  FAIL"; rc=1; }
+    o=$( ( DRY_RUN=1 DRY_FAIL= assert_kernel_restored ) 2>&1 || true)
+    [[ "$o" == *"restore verified"* ]] && say "  #11 force-green PASS" || { say "  #11 force-green FAIL"; rc=1; }
+    o=$( ( DRY_RUN=1 BOOT_BASELINE=dry-run-synthetic-boot-id DRY_FAIL=bootid assert_same_boot ) 2>&1 || true)
+    [[ "$o" == *"REBOOTED mid-arm"* ]] && say "  #3  force-red  PASS" || { say "  #3  force-red  FAIL"; rc=1; }
+    o=$( ( DRY_RUN=1 TOPO_BASELINE=12 DRY_FAIL=edgecount assert_topology_invariant ) 2>&1 || true)
+    [[ "$o" == *"edge count changed"* ]] && say "  #14 force-red  PASS" || { say "  #14 force-red  FAIL"; rc=1; }
+    (( rc == 0 )) && say "=== detector + inherited-clause force tests PASS ===" || say "🔴 force tests FAILED"
     return $rc
 }
 
@@ -319,7 +411,8 @@ plan() {
 case "${1:-plan}" in
     plan)     plan ;;
     selftest) selftest ;;
+    restore)  preflight && assert_kernel_restored ;;
     arm)      arm ;;
     q3)       q3 ;;
-    *) printf 'usage: %s {plan|selftest|arm|q3}\n' "$0" >&2; exit 2 ;;
+    *) printf 'usage: %s {plan|selftest|arm|q3|restore}\n' "$0" >&2; exit 2 ;;
 esac

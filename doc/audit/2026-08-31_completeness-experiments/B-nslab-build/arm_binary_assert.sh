@@ -23,15 +23,23 @@ assert_arm_binary () {
   [ -e "/proc/$pid" ] || { echo "ABORT[$RC_NOPID]: pid $pid not present"; return $RC_NOPID; }
   [ -r "$expected" ] || { echo "ABORT[$RC_NOEXPECT]: expected binary unreadable: $expected"; return $RC_NOEXPECT; }
 
-  local running
-  running=$(readlink -f "/proc/$pid/exe" 2>/dev/null)
-  if [ -z "$running" ] || [ ! -r "$running" ]; then
-    echo "ABORT[$RC_NOEXE]: cannot read /proc/$pid/exe (permission, or process gone)"
+  # The switch runs as root, so this uid cannot follow /proc/<pid>/exe -- a constraint
+  # already on record (FINDINGS-1b:184, AMENDMENT-1 8.5). Try unprivileged first, fall
+  # back to sudo, and RECORD WHICH PATH WAS USED: a check that silently escalates hides
+  # the difference between "read it" and "was allowed to read it".
+  local running via
+  running=$(readlink -f "/proc/$pid/exe" 2>/dev/null); via=direct
+  if [ -z "$running" ]; then
+    running=$(sudo -n readlink -f "/proc/$pid/exe" 2>/dev/null); via=sudo
+  fi
+  if [ -z "$running" ]; then
+    echo "ABORT[$RC_NOEXE]: cannot read /proc/$pid/exe even with sudo -n (permission, or process gone)"
     return $RC_NOEXE
   fi
 
   local h_run h_exp
-  h_run=$(sha256sum "$running"  2>/dev/null | cut -d' ' -f1)
+  h_run=$(sudo -n sha256sum "$running" 2>/dev/null | cut -d" " -f1)
+  [ -n "$h_run" ] || h_run=$(sha256sum "$running" 2>/dev/null | cut -d" " -f1)
   h_exp=$(sha256sum "$expected" 2>/dev/null | cut -d' ' -f1)
   # an empty hash must never compare equal to another empty hash
   if [ -z "$h_run" ] || [ -z "$h_exp" ]; then
@@ -47,6 +55,7 @@ assert_arm_binary () {
     return $RC_MISMATCH
   fi
   echo "OK: running binary matches this arm's build"
+  echo "  read via: $via"
   echo "  path: $running"
   echo "  sha : $h_run"
   return 0

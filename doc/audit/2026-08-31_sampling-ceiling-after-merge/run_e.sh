@@ -113,6 +113,8 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
     # right, because it describes what was COMPILED.
     assert_running_arm "$( [[ $kern == 1khz ]] && echo "$KBIN_1KHZ" || echo "$KBIN_1HZ" )"
     record_bmv2_identity "$cell"
+    assert_same_boot "$cell"              # #3  -- inherited from ladder_ext:83
+    assert_topology_invariant "$cell"     # #14 -- inherited from run_e8:67
     local sha_open sha_close; sha_open=$(running_kernel_sha)
     say "    running kernel exe sha256 (open)  $sha_open"
 

@@ -329,6 +329,46 @@ main() {
         record_bmv2_identity gate
     fi
 
+    # -- G9/G10/G11 (v0.4): the three clauses inherited from the D round, each forced RED.
+    #    🔴 G9 exists because "restore failure must be loud" is itself a claim that can be
+    #    vacuously true.  If nobody has ever seen it shout, it is the second empty pass.
+    say "--- G9 #11: restore-failure must actually SHOUT (forced) ---"
+    local out9 rc9
+    out9=$(DRY_FAIL=restore assert_restore_landed 2>&1); rc9=$?
+    say "$out9"
+    if (( rc9 != 0 )) && [[ "$out9" == *"DO NOT RELEASE THE LAB"* ]]; then
+        # and the clean direction must ALSO come out, or the check is simply always red
+        local out9g rc9g; out9g=$(DRY_FAIL= assert_restore_landed 2>&1); rc9g=$?
+        if (( rc9g == 0 )); then
+            record "G9 #11 restore failure is loud (forced red AND green)" PASS "rc=$rc9 then rc=$rc9g"
+        else
+            record "G9 #11 restore failure is loud" FAIL "the clean direction did not come out green"
+            abort "#11" "assert_restore_landed is red even when nothing is wrong."
+        fi
+    else
+        record "G9 #11 restore failure is loud" FAIL "rc=$rc9"
+        abort "#11" "a forced restore failure did not return non-zero AND shout.
+        A silent restore failure contaminates the NEXT round in the queue, which cannot see it."
+    fi
+
+    say "--- G10 #14: topology invariant must go red on a changed edge count (forced) ---"
+    local out10; out10=$( ( EDGE_BASELINE=288; DRY_FAIL=edgecount assert_topology_invariant forced ) 2>&1 || true)
+    if [[ "$out10" == *"edge count changed"* ]]; then
+        record "G10 #14 topology invariant forced red" PASS
+    else
+        record "G10 #14 topology invariant forced red" FAIL "$out10"
+        abort "#14" "a changed edge count did not trip the invariant."
+    fi
+
+    say "--- G11 #3: boot_id change must go red (forced) ---"
+    local out11; out11=$( ( BOOT_BASELINE=dry-run-synthetic-boot-id; DRY_FAIL=bootid assert_same_boot forced ) 2>&1 || true)
+    if [[ "$out11" == *"REBOOTED mid-round"* ]]; then
+        record "G11 #3 boot_id change forced red" PASS
+    else
+        record "G11 #3 boot_id change forced red" FAIL "$out11"
+        abort "#3" "a changed boot_id did not trip the check."
+    fi
+
     say ""
     say "=== gates_e summary (PREREG §2 item -> call, for the grep-against-grep check) ==="
     local g; for g in "${PASSED[@]+"${PASSED[@]}"}"; do say "  PASS  $g"; done

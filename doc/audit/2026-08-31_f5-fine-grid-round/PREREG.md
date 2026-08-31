@@ -119,6 +119,30 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
   `sha256 /proc/<pid>/exe`（不是磁碟檔、不是 `ndt status` 的 code 欄）；**兩次不符
   ⇒ 該臂作廢重跑**。理由：claim 保護 fabric，**不保護磁碟上的 binary**——08-30 有過
   重編距 exec 只差 9 秒的實例；`ndt status` 的 code 欄留作輔助訊號。
+- 🔴 **v0.5 補：三條 D 輪執行過而兩張新註冊都沒繼承的條款**（跨輪稽核
+  `../2026-08-31_completeness-experiments/CROSS-ROUND-REGRESSION.md`；auditor 08-31 批准。
+  四條件皆過：資料接觸前／缺口由跨輪稽核發現／**只增不減**／三條件記錄在修訂欄）：
+  - **#11 收工還原生產組態，並斷言還原成功；還原失敗必須大聲，且不得 release。**
+    D 輪六支驅動腳本全有（`gate_d:103`／`ladder_ext:121`／`wall_f:142`／`run_c:68`／
+    `h_probe:142`／`ctl_c:71`），兩張新註冊都掉了。
+    🔴 **這不是預防性條款**：`run_c.sh:46` 的註解記著它**真的發生過**——
+    「earlier arm of `gate_d.sh` set it to 16384 and only its own restore put it back」。
+    🔴 **而且保護的失效時機與它要防的事件重合**：還原跑在最後，正是沒有人在看的時候
+    ⇒ 「大聲」定義為**三個管道**（transcript／stderr／一個下一個人必須絆到的 marker 檔），
+    不是一行 log。**排隊帳上 E 與 F-5 相鄰 ⇒ 還原失敗污染的是另一輪，而那一輪讀不出來。**
+  - **#14 重啟前後的不變量。** `run_e8:67` 比對 edge count，變了就喊
+    「telemetry multiplication trap may have fired」。本輪每格／每次換裝都重啟，
+    而拓樸依構造應該逐格相同 ⇒ edge count 變了代表 fabric 沒有被重現，該格不可比。
+    **讀不到 edge count 算中止，不算相等。**
+  - **#3 `boot_id`（＋uptime）逐格記錄。** `ladder_ext:83` 有。它是唯一能回答
+    「這兩格是不是同一次開機」的東西，而每個 `/proc` 計數器基準與 thread-id 偏移都默默依賴它。
+  - **三條各自要見過紅**（否則就是第二個空洞的通過）。已 force 過，逐字：
+```
+#11 force-red   PASS  -> "🔴🔴🔴 KERNEL RESTORE FAILED -- DO NOT RELEASE THE LAB"
+#11 force-green PASS  -> "restore verified: the production (post-T-11) kernel is running"
+#3  force-red   PASS  -> "the machine REBOOTED mid-arm"
+#14 force-red   PASS  -> "edge count changed across the swap (12 -> 999)"
+```
 - kernel tree 釘凍結時 tip；量測窗內主樹不得有行為相關未 commit 改動（輔助判準）。
 
 ## 5. Riders（同一 claim 窗順跑，各自獨立判定）
@@ -170,3 +194,10 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
   **並排**才顯形的——單看任一張都讀起來很完整。缺口由外部（reviewer 線在 PREREG-B 的發現）
   引出，**不是因為結果不好看**；四條**全是加要求，沒有放寬任何判準**。
   **誰在什麼時候**：auditor 批准、腳本作者撰稿，2026-08-31，**F-5 一次 install 都還沒跑**。
+- **v0.5（08-31，資料接觸前；auditor 批准，章未蓋）**——照三條件記錄：
+  **改了什麼**：與 E v0.4 同文補入 #11／#14／#3，見 §4；force 落成 `run_f5.sh selftest`
+  的四項（#11 紅與綠、#3 紅、#14 紅），並新增 `run_f5.sh restore` 供 release 前查驗。
+  **為什麼**：跨輪稽核顯示本張今天之前只繼承 15 條中的 1 條。
+  #11 對本輪尤其重要——本輪**在兩臂之間換 kernel binary**，還原失敗會讓排在後面的 E
+  跑著 F-5 的 pre-T-11 binary，而 E 分辨不出來。
+  **誰在什麼時候**：auditor 批准、腳本作者撰稿，2026-08-31，一次 install 都還沒跑。

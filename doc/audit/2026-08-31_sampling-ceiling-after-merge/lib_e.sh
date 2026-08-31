@@ -36,6 +36,7 @@ set -u
 
 : "${DRY_RUN:=0}"
 : "${DRY_FAIL:=}"
+: "${_DRY_LIVE_ARM:=1hz}"
 
 # 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
 # "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,
@@ -271,7 +272,15 @@ running_kernel_sha() {
         esac
         # A synthetic value that PASSES the 64-hex shape test, so the accept path is really
         # exercised rather than skipped by a sentinel that would fail the shape test anyway.
-        printf 'a%063d\n' 0; return 0
+        # 🔑 It FOLLOWS whichever arm swap_kernel last installed.  The first version returned a
+        # constant, which silently made the accept path unreachable for the other arm -- a dry-run
+        # fixture that can only ever produce one verdict is the same defect this file is about,
+        # one level up.
+        case "${_DRY_LIVE_ARM:-1hz}" in
+            1khz) printf 'b%063d\n' 0 ;;
+            *)    printf 'a%063d\n' 0 ;;
+        esac
+        return 0
     fi
     local pid
     pid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
@@ -512,6 +521,7 @@ swap_kernel() {   # $1 = 1khz | 1hz
         say "    production kernel backed up -> $KBIN_BACKUP"
     fi
     RUN cp -f "$src" "$KBIN"
+    _DRY_LIVE_ARM="$which"
     if [[ "$DRY_RUN" == 1 ]]; then
         dry_note "would verify sha256($KBIN) == the sha256 recorded in $src.provenance,"
         dry_note "  and that the two staged arms' hashes differ from each other"
@@ -532,6 +542,61 @@ swap_kernel() {   # $1 = 1khz | 1hz
     say "    kernel arm=$which sha256=$got (verified against $src.provenance)"
 }
 
+# -------------------------------------------------------------------------------------------------
+# #11 -- RESTORE THE PRODUCTION CONFIGURATION, AND BE LOUD IF IT DID NOT LAND.
+#
+# All six D-round drivers had this (gate_d:103, ladder_ext:121, wall_f:142, run_c:68, h_probe:142,
+# ctl_c:71) and NEITHER new registration inherited it.  It is not a precaution: run_c.sh:46 records
+# it happening -- "earlier arm of gate_d.sh set it to 16384 and only its own restore put it back"
+# -- which is why run_c added an independent truncate==128 assertion.
+#
+# 🔴 WHY IT MATTERS MORE HERE THAN IT DID IN D.  This round mutates the P4 source AND swaps the
+# kernel binary, F-5 swaps binaries between arms, and the fabric queue has the two rounds adjacent.
+# A failed restore therefore contaminates the SIBLING ROUND, which cannot see it -- it inherits a
+# fabric whose numbers are merely a little odd.
+#
+# 🔴 AND THE PROTECTION FAILS AT THE MOMENT IT IS NEEDED.  Restore runs last, when the operator
+# has stopped watching; "restore failed" printed into a scrolled-past log is not loud.  So this
+# does three things instead of printing: it ASSERTS each element landed, it drops a marker file
+# that a release must trip over, and it returns non-zero.
+# -------------------------------------------------------------------------------------------------
+assert_restore_landed() {
+    local fail=0 f="$OUT/RESTORE-FAILED"
+    # Each element is checked against the artefact that will actually be READ next time, not
+    # against the command that was issued.
+    if [[ "$DRY_RUN" == 1 ]]; then
+        if [[ "$DRY_FAIL" == restore ]]; then
+            dry_note "forcing restore verification to FAIL"
+            fail=1
+        else
+            dry_note "would assert: SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in source AND in the"
+            dry_note "  compiled JSON; kernel sha256 == the production backup's; no RESTORE-FAILED marker"
+        fi
+    else
+        grep -q '^const bit<16> SAMPLE_RATE = 256;' "$P4SRC" || { say "🔴 restore: SAMPLE_RATE is not 256"; fail=1; }
+        grep -q '^const bit<32> SAMPLE_TRUNC_BYTES = 128;' "$P4SRC" || { say "🔴 restore: truncate is not 128"; fail=1; }
+        grep -q '"op" *: *"truncate"' "$P4BUILD/ndtwin_switch.json" 2>/dev/null \
+            || { say "🔴 restore: the compiled JSON has no truncate op"; fail=1; }
+        if [[ -f "$KBIN_BACKUP" ]]; then
+            local a b; a=$(sha256sum "$KBIN_BACKUP" | cut -d' ' -f1); b=$(sha256sum "$KBIN" | cut -d' ' -f1)
+            [[ "$a" == "$b" ]] || { say "🔴 restore: kernel is $b, production backup is $a"; fail=1; }
+        fi
+    fi
+
+    if (( fail )); then
+        # Loud means three channels, because a line in a log is not loud when nobody is watching:
+        #   (1) the transcript, (2) stderr, (3) a marker file the next actor must trip over.
+        say "🔴🔴🔴 PRODUCTION RESTORE FAILED -- DO NOT RELEASE THE LAB 🔴🔴🔴"
+        say "🔴 The next round in the queue would inherit this fabric and could not tell."
+        printf '%s\n' "RESTORE-FAILED $(date -Is) -- do not release the lab; see $LOG" >&2
+        [[ "$DRY_RUN" == 1 ]] || { mkdir -p "$OUT"; printf 'RESTORE-FAILED %s\n' "$(date -Is)" >"$f"; }
+        return 1
+    fi
+    say "    restore verified: P4 constants, compiled artefact and kernel binary all back at production"
+    [[ "$DRY_RUN" == 1 ]] || rm -f "$f"
+    return 0
+}
+
 restore_production() {
     say "--- restoring production config (1/256, truncate 128, batch unset, production kernel) ---"
     if [[ -f "$KBIN_BACKUP" ]]; then
@@ -539,8 +604,82 @@ restore_production() {
         say "    kernel restored: $(RUN sha256sum "$KBIN" 2>/dev/null | cut -d' ' -f1)"
     fi
     teardown
-    compile_at 256 || return 1
+    compile_at 256 || { assert_restore_landed; return 1; }
+    assert_restore_landed || return 1
     return 0
+}
+
+# -------------------------------------------------------------------------------------------------
+# #14 -- AN INVARIANT ACROSS A RESTART.
+# run_e8:67 compared edge count before and after a proxy restart and shouted "telemetry
+# multiplication trap may have fired" (memory: proxy-restart-warm-fabric-multiplies-telemetry).
+# This round rebuilds the fabric EVERY CELL and registered no before/after check at all.
+# The topology is identical by construction across cells, so a changed edge count means the
+# rebuild did not reproduce the fabric -- and every ceiling reading is per-fabric.
+# -------------------------------------------------------------------------------------------------
+edge_count() {
+    if [[ "$DRY_RUN" == 1 ]]; then
+        # 🔑 Only drift once a baseline exists: a forced value on the FIRST read just becomes the
+        # baseline and nothing ever differs -- the force would silently test nothing.  Drift
+        # mid-run is also the real shape of this failure.
+        [[ "$DRY_FAIL" == edgecount && -n "$EDGE_BASELINE" ]] && { echo 999; return 0; }
+        echo 288; return 0
+    fi
+    curl -s -m 10 "http://localhost:8000/ndt/get_graph_data" \
+      | "$PY_PROXY" -c 'import json,sys
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    print(-1); raise SystemExit
+for k in ("edges","links"):
+    v=d.get(k) if isinstance(d,dict) else None
+    if isinstance(v,list): print(len(v)); raise SystemExit
+print(-1)' 2>/dev/null || echo -1
+}
+
+EDGE_BASELINE=""
+assert_topology_invariant() {   # $1 = cell label
+    local n; n=$(edge_count)
+    if [[ "$n" == "-1" || -z "$n" ]]; then
+        abort "#14 invariant" "$1: could not read the edge count.  Unreadable is not equal --
+        an invariant that cannot be evaluated must refuse, not pass."
+    fi
+    if [[ -z "$EDGE_BASELINE" ]]; then
+        EDGE_BASELINE="$n"; say "    topology invariant: edges=$n (baseline for this run)"; return 0
+    fi
+    if [[ "$n" != "$EDGE_BASELINE" ]]; then
+        abort "#14 invariant" "$1: edge count changed across the rebuild ($EDGE_BASELINE -> $n).
+        The fabric was not reproduced, so this cell is not comparable to the earlier ones -- and
+        the telemetry-multiplication trap has this exact signature."
+    fi
+    say "    topology invariant: edges=$n (matches baseline)"
+}
+
+# -------------------------------------------------------------------------------------------------
+# #3 -- boot_id.  One line, recorded by ladder_ext:83 and by neither new registration.  It is the
+# only thing that can answer "were these two cells the same boot", which every /proc counter
+# baseline and every thread-id offset silently depends on.
+# -------------------------------------------------------------------------------------------------
+BOOT_BASELINE=""
+assert_same_boot() {   # $1 = cell label
+    local b
+    if [[ "$DRY_RUN" == 1 ]]; then
+        # Same reasoning as edge_count: drift only after the baseline exists.
+        [[ "$DRY_FAIL" == bootid && -n "$BOOT_BASELINE" ]] \
+            && b="00000000-dead-dead-dead-000000000000" || b="dry-run-synthetic-boot-id"
+    else
+        b=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+    fi
+    [[ -n "$b" ]] || abort "#3 boot_id" "$1: boot_id unreadable; unreadable is not equal"
+    if [[ -z "$BOOT_BASELINE" ]]; then
+        BOOT_BASELINE="$b"
+        say "    boot_id=$b uptime=$( [[ "$DRY_RUN" == 1 ]] && echo synthetic || cut -d' ' -f1 /proc/uptime)s (baseline)"
+        return 0
+    fi
+    [[ "$b" == "$BOOT_BASELINE" ]] || abort "#3 boot_id" "$1: the machine REBOOTED mid-round
+        ($BOOT_BASELINE -> $b).  Cells either side of a reboot share no /proc baseline and no
+        thread-id offsets; they are not one run."
+    say "    boot_id unchanged"
 }
 
 # -------------------------------------------------------------------------------------------------

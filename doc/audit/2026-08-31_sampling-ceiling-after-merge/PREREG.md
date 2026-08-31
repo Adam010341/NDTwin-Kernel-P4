@@ -173,6 +173,30 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
   - **這三條自己要先見過紅**：`gates_e.sh` 的 **G8** 對身分檢查三向 force——
     `MATCH`（正確臂）／`MISMATCH`（指到另一臂）／`UNREADABLE`（`/proc` 讀不到）皆須可達，
     且**通過的判準是輸出含 `verdict=MATCH`，不是 exit code 0**（否則「檢查沒跑到」會長得像通過）。
+- 🔴 **v0.4 補：三條 D 輪執行過而兩張新註冊都沒繼承的條款**（跨輪稽核
+  `../2026-08-31_completeness-experiments/CROSS-ROUND-REGRESSION.md`；auditor 08-31 批准。
+  四條件皆過：資料接觸前／缺口由跨輪稽核發現／**只增不減**／三條件記錄在修訂欄）：
+  - **#11 收工還原生產組態，並斷言還原成功；還原失敗必須大聲，且不得 release。**
+    D 輪六支驅動腳本全有（`gate_d:103`／`ladder_ext:121`／`wall_f:142`／`run_c:68`／
+    `h_probe:142`／`ctl_c:71`），兩張新註冊都掉了。
+    🔴 **這不是預防性條款**：`run_c.sh:46` 的註解記著它**真的發生過**——
+    「earlier arm of `gate_d.sh` set it to 16384 and only its own restore put it back」。
+    🔴 **而且保護的失效時機與它要防的事件重合**：還原跑在最後，正是沒有人在看的時候
+    ⇒ 「大聲」定義為**三個管道**（transcript／stderr／一個下一個人必須絆到的 marker 檔），
+    不是一行 log。**排隊帳上 E 與 F-5 相鄰 ⇒ 還原失敗污染的是另一輪，而那一輪讀不出來。**
+  - **#14 重啟前後的不變量。** `run_e8:67` 比對 edge count，變了就喊
+    「telemetry multiplication trap may have fired」。本輪每格／每次換裝都重啟，
+    而拓樸依構造應該逐格相同 ⇒ edge count 變了代表 fabric 沒有被重現，該格不可比。
+    **讀不到 edge count 算中止，不算相等。**
+  - **#3 `boot_id`（＋uptime）逐格記錄。** `ladder_ext:83` 有。它是唯一能回答
+    「這兩格是不是同一次開機」的東西，而每個 `/proc` 計數器基準與 thread-id 偏移都默默依賴它。
+  - **三條各自要見過紅**（否則就是第二個空洞的通過）。已 force 過，逐字：
+```
+G9  #11 forced red  -> rc=1 + "🔴🔴🔴 PRODUCTION RESTORE FAILED -- DO NOT RELEASE THE LAB"
+G9  #11 forced green-> rc=0 + "restore verified: P4 constants, compiled artefact and kernel binary"
+G10 #14 forced red  -> "edge count changed across the rebuild (288 -> 999)"
+G11 #3  forced red  -> "the machine REBOOTED mid-round"
+```
 - `truncate=128` 是現行生產組態（`f64897b`）——**四格一致並在每格斷言它**（BRIEF-E 原條款）。
 - 取樣器與 py-spy 自身＝已註冊共變量；py-spy **要透過 `mnexec` 跑**（`ptrace_scope=1`）。
 
@@ -230,3 +254,10 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
   （`raw/` 只有 dry-run 與閘門自測產物）。
   🔴 **未決**：§3 的臂設計（三方案與各自答不出什麼＝`COST-TABLE.md`）待 Adam 排窗裁；
   【TBD-3】py-spy 申報文字待複驗；**v1.0 的章不是本輪撰稿人蓋的**。
+- **v0.4（08-31，資料接觸前；auditor 批准，章未蓋）**——照三條件記錄：
+  **改了什麼**：補入跨輪稽核找出的 #11（收工還原＋還原失敗要大聲＋不得 release）、
+  #14（重啟前後不變量）、#3（`boot_id`），見 §4；三條各自的 force-red 落成 `gates_e.sh` 的
+  G9／G10／G11，#11 另加 force-green。
+  **為什麼**：D 輪 13 支實際執行的腳本拆出 15 條儀器條款，本張今天之前只註冊 3.5 條
+  ⇒ 不是單點遺漏，是**預註冊被重寫而不是被繼承**。三條全是加要求，未放寬任何判定。
+  **誰在什麼時候**：auditor 批准、腳本作者撰稿，2026-08-31，未接觸任何量測資料。
