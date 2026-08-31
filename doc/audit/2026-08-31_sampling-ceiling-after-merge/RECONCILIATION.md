@@ -1,0 +1,118 @@
+# §6 reconciliation — E round against prior results
+
+PREREG §6 (Adam's standing rule: every experiment states what it overturns, updates, or can be
+compared with). 🔴 **Constraint ② governs everything below: cross-binary comparisons may use
+direction and rung-distance only, never per-cell values.** 🔴 **Constraint ③: the comparison is
+cross-interpreter; the permitted wording is *"there is currently no evidence this axis moves the
+numbers"*, never *"it has been shown not to"*.**
+
+---
+
+## 1. UPDATED — "取樣天花板 ≈1/16" (the pre-change binary's figure)
+
+**This round: `SATURATED = 0` across all 72 cells ⇒ the telemetry-fidelity ceiling is
+right-censored at ≥1/1 for all four arms.**
+
+* **Direction:** higher.
+* **Rung-distance:** ≥4 rungs above 1/16.
+* **No per-cell values compared** (constraint ②).
+
+🔴 **And the ceiling that moved is the telemetry-fidelity ceiling.** At ≥1/1 the data plane loses
+**85%** of offered traffic (F-26). A reader taking "ceiling ≥1/1" as an operating recommendation
+would be reading a sentence this round did not write.
+
+---
+
+## 2. 🔴 UPDATED — `telemetry-cost-is-fixed-not-per-sample` **no longer holds at this working point**
+
+§6 registered this as a property of the pre-change binary, to be re-tested here. Measured within a
+**single arm and a single leg** (`bl`, batching off, 1 kHz — the only arm spanning all eight rungs),
+from `raw/cell_cpu/*_gate.jsonl`:
+
+| rung | n | kernel cores | **proxy (python) cores** | switches |
+|---|---|---|---|---|
+| 1/1024 | 4 | 0.551 | **0.064** | 1.426 |
+| 1/256 | 3 | 0.568 | **0.095** | 1.374 |
+| 1/64 | 3 | 0.665 | **0.243** | 1.519 |
+| 1/32 | 3 | 0.776 | **0.393** | 1.584 |
+| 1/16 | 3 | 0.995 | **0.694** | 1.691 |
+| 1/8 | 3 | 1.478 | **1.409** | 2.074 |
+| 1/4 | 3 | 1.472 | 1.457 | 1.538 |
+| 1/1 | 3 | 1.494 | 1.403 | 1.037 |
+
+**Across the healthy range 1/1024 → 1/8, proxy CPU rises ×22 while the sampling rate rises ×128.**
+⇒ **Sub-linear in rate, but very far from fixed.** "Paid in full at the lowest sampling rate" does
+not describe this working point.
+
+⚠️ **The 1/4 and 1/1 rows are not a cost plateau.** The data plane had collapsed there, so fewer
+packets existed to sample — the switch figure falls with them (2.074 → 1.538 → 1.037). Reading
+those two rows as "cost stops growing" would be reading a consequence of the collapse.
+
+⚠️ **Limits, stated with the result:** cross-binary and cross-round (direction only); `mine` is
+truncated at top-10 so every figure is a **lower bound** (F-21); n = 3–4 per rung; and **the round
+was not designed to measure this** — the obligation is discharged with data collected for another
+purpose.
+
+---
+
+## 3. Comparable — 08-20 `t008_poll` / `t004_poll`, and that round's own ladder boundary
+
+`plot_ladder_rates.py:60-65` records the 08-20 round seeing `gt` collapse 196 → 29.5, excluding
+those cells from its quantisation ladder, and naming **1/16 as "the last healthy cell" (0.025%
+loss)**; its `CELLS` list ends at `r016`.
+
+* **Direction — same.** `gt` collapses at high sampling rates in both rounds.
+* **Rung-distance — the last healthy rung moved 1/16 → 1/8, one rung higher.**
+* No per-cell comparison (constraint ②).
+
+---
+
+## 4. Reproduced then extended — `gate_e.out` (1/256) and `wall_f.out` (1/16)
+
+Prior: batching did not move `ratio` at either working point.
+
+* **Reproduced at both:** leg 2 gives Δ(m−bl) = **+0.0031** at 1/32 and **+0.0000** at 1/16.
+* **Extended:** at 1/8 the unmerged 1 kHz arm sits 3% low and the merged one does not — a working
+  point the prior never covered.
+* It is a **rise**, not the *fall* §6 registered as a conflict ⇒ **not the anticipated conflict,
+  and not "the prior was wrong."**
+
+---
+
+## 5. 🔴 SELF-CORRECTION — my own leg-1 reading, twice downgraded, and it was relayed
+
+* **First stated** (03:31, to the auditor and to Adam): the 1/8 separation is *"the recompute axis /
+  Q2's factor"* — a **main effect**.
+* **First downgrade** (06:50): four arms show it is an **interaction**; neither axis has a main
+  effect.
+* **Second downgrade** (07:3x, F-27): the 2×2 **does not share a time window** — `bl` vs `p` ran
+  02:57–03:29 and `m` vs `mp` 06:14–06:46. The within-leg contrasts are measurements
+  (**−0.0292** and **−0.0009**); the interaction is their **difference, +0.0282**, valid only if
+  the period does not modulate the contrast. **Untested and untestable from this round.**
+
+**Both corrections were relayed back to the original readers, not left in the file.**
+
+---
+
+## 6. Consistent — D-P1's per-byte hypothesis (already refuted)
+
+08-25 §D-P1 predicted that *if* proxy cost were **per byte**, the wall would move about an order of
+magnitude and **1/8 and 1/4 would become healthy**. That hypothesis was refuted; the cost is
+per-sample. ⇒ **1/4 being data-plane-hurt is consistent with the refutation**, not a fresh surprise.
+⚠️ Note the tension with §2 above: cost is **not fixed** and **not per-byte**; §2 measures how it
+actually scales at this working point, and does not identify a mechanism.
+
+---
+
+## 7. 🔴 RETRACTED — must not be cited
+
+The **"~4,900 samples/sec ceiling"** extrapolated from 206 µs/sample (`ab-control-deleted-nothing`).
+
+---
+
+## 8. Not discharged
+
+**Nothing in §6 is left unanswered**, but two items are answered with data gathered for another
+purpose (§2) or under an untested assumption (§5). Both say so in place.
+
+[Co-developed with claude code -- Adam]
