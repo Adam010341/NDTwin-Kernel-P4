@@ -409,9 +409,30 @@ host load min/max: 0.18 / 3.98（3.98 是本輪 guest 自己的 16 vCPU 工作�
 ps -eo comm | grep -c "^qemu-system"
 ```
 
-⇒ **它按名字數。** 他們的警告**對我這支成立**；nslab 上沒撞到是因為那裡沒有東西冒充這個名字，
-**不是因為它分得出來**。下一輪改用 `tools/remote-lab/host_witness.sh`（`beb45fc`，
-走 `/proc/<pid>/exe`、每行帶 `host=`）。
+⇒ **它按名字數。** 我當下寫「他們的警告對我這支成立」，**而那是錯的，他們自己回頭更正了**：
+`comm` 是 kernel 在 execve 時由**執行檔名**設的，行程碰不到它，argv 騙不了。
+本機 09-01 實測，兩種 spoof 同時活著：
+
+| spoof | `comm` | `cmdline` |
+|---|---|---|
+| `bash -c 'sleep 4; :' qemu-system-x86_64` | `bash` | `… qemu-system-x86_64 -smp 7` |
+| `bash -c 'exec -a qemu-system-x86_64 sleep 4'` | `sleep` | `qemu-system-x86_64 4` |
+
+```
+ps -eo comm | grep -c '^qemu-system'   => 1   （只有真的 VM）
+ps -eo args | grep -c '[q]emu-system'  => 6   （兩個 spoof ＋ 雜訊）
+```
+
+⚠️ **但 `comm` 不是防偽的**：`prctl(PR_SET_NAME)`、寫 `/proc/self/comm`、或把二進位檔改名都改得動它，
+而且它**截在 15 bytes**（[[grep-endpoints-misses-concatenation]] 那條今晚已經第五次）。
+⇒ 下一輪仍改用 `tools/remote-lab/host_witness.sh`（`beb45fc`，走 `/proc/<pid>/exe`、每行帶 `host=`），
+理由是 exe 比 comm 準，**不是**因為 comm 被 argv 騙了。
+
+🔴 **這一段本身是一個實例**：我把外部的指摘照抄進檔頭，**沒有花三秒去試**。
+而幾小時前我才把「外部指摘的數字本身也要驗」這一節併進另一條線的記憶檔
+（[[stating-a-rule-is-not-recognising-its-instance]]）。**規則是我寫的，實例我沒認出來。**
+差別在方向：這次那個錯誤的指摘是**對我不利**的，所以它通過了我的自我檢查——
+**我只在對自己有利的方向上設了關卡。**
 
 🔑 **而順著查出來的那一條比 argv 更要緊：它只數 qemu。**
 非 VM 的外來負載（別人的 build、compile、shell job）**在 qemu 那一欄完全不存在**，

@@ -26,17 +26,27 @@
 # ---------------------------------------------------------------------------
 # It counts VMs BY PROCESS NAME (`ps -eo comm | grep -c '^qemu-system'`).
 #
-# 1. Any process whose `comm` begins with `qemu-system` is counted as a VM,
-#    whatever binary it actually is. The "遠端機器測試" line's warning about
-#    argv-shaped fixtures therefore APPLIES TO THIS SAMPLER -- it was not
-#    hit on nslab because nothing there fakes the name, not because the
-#    sampler discriminates. Their tools/remote-lab/host_witness.sh (beb45fc)
-#    resolves /proc/<pid>/exe instead and should be used from here on.
-# 2. NON-VM foreign load is invisible to the qemu column. A build, a compile,
-#    or another user's shell job would not appear there. The only channel for
-#    it is `load=`, which is load1 -- a lagging composite, not a threshold.
-#    So "the window is continuously accounted for" is exact for VMs and an
-#    overstatement for foreign load in general. Corrected in FINDINGS.md 7.7.
+# 1. NOT the argv problem. `comm` is set by the kernel from the executable's
+#    name at execve; a process cannot reach it through argv. So the
+#    argv-shaped fixtures the "遠端機器測試" line warned about do NOT fool
+#    this sampler. Measured here 2026-09-01, both spoofs live at once:
+#      bash -c 'sleep 4; :' qemu-system-x86_64       -> comm=bash
+#      bash -c 'exec -a qemu-system-x86_64 sleep 4'  -> comm=sleep
+#      ps -eo comm | grep -c '^qemu-system'  => 1   (the real VM, only)
+#      ps -eo args | grep -c '[q]emu-system' => 6   (both fixtures + noise)
+#    An earlier revision of this header said the opposite. That was me
+#    copying their warning in without testing it; the correction is theirs.
+#    `comm` is still not tamper-proof -- prctl(PR_SET_NAME), a write to
+#    /proc/self/comm, or a renamed binary each change it, and it truncates at
+#    15 bytes -- so /proc/<pid>/exe (their tools/remote-lab/host_witness.sh,
+#    beb45fc) is the better field and replaces this from here on.
+# 2. THE LOAD-BEARING ONE. Non-VM foreign load is invisible to the qemu
+#    column: a build, a compile, or another user's shell job never appears
+#    there at all. Its only channel is `load=`, which is load1 -- a lagging
+#    composite, not a threshold. So "the window is continuously accounted
+#    for" is exact for VMs and an overstatement for foreign load in general.
+#    This bears on what a conclusion can carry, not merely on a miscount.
+#    Corrected in FINDINGS.md 7.7a.
 # 3. Direction of the residual: unrecorded non-VM load slows the arm it hits.
 #    It is not one-sided across arms -- it would push a baseline arm and a
 #    fast arm the same way -- so it does not have a known sign on R.
