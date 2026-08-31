@@ -1659,6 +1659,36 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 - **關聯**：[[failures-that-report-success]]、[[evidence-must-outlive-the-handoff]]、
   [[injections-must-assert-their-own-success]]。
 
+### 🔴 生產線在跑的那顆 kernel 是全機**唯一沒有重建配方**的 binary，而它只有兩份、都在同一顆碟上
+
+- **狀態**：**已知、未修**（2026-09-01）。**不是本輪造成的，是本輪剛好把它當成七小時實驗的還原基準才看見。**
+- **事實（逐項查過，不是印象）**：
+  - `e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94` 全機**兩份**：
+    `build/bin/ndtwin_kernel`（活的那顆）與
+    `.test_run/binaries/e-round/ndtwin_kernel.production-backup`（本輪建立的備份）。
+  - **兩份都在同一顆碟、都被 `.gitignore` 排除**（`:21` `.test_run/`），
+    `git ls-files .test_run/` ⇒ **0 個檔在版控裡**。
+  - 🔴 **它沒有 `.provenance` 檔。** 同一個目錄裡，本輪為了**丟棄用的**兩個實驗臂
+    （`recompute-1khz` / `recompute-1hz`）各有一份**建置期**寫下的完整 provenance：
+    commit、source 檔 sha、編譯器版本、`CMAKE_BUILD_TYPE`、旗標、gtest 結果、`readelf -d` 的 RUNPATH。
+  - `.test_run/binaries/` 裡更早的三顆（`3367d0e9`／`ab2d7ed1`／`a40e04ce`）的 provenance
+    依那些檔自己的說明是**事後補寫的，且只能記 `commit=UNKNOWN`**。
+- 🔑 **倒過來的優先序**：**為了丟棄而建的臂有完整配方，生產線上跑的那顆沒有。**
+  「哪一顆在跑」答得出來（sha 對得到），「**怎麼再造一顆一樣的**」答不出來。
+- 🔑 **這條同時解釋了一條一直只有結論沒有理由的規矩**：專案常設「**不要清 `.test_run/`**」。
+  理由就在這裡——**那個目錄裝著 production kernel 的唯一備份與每一個實驗臂的 binary，而且整個不在版控。**
+  ⚠️ **規矩存在、理由沒有被寫下來** ⇒ 任何不知道理由的人都可能因為「那看起來像暫存目錄」而清掉它。
+- **本輪的依賴有多深**：E 輪 72 格每一次 `restore_production`（`lib_e.sh:760`）都是
+  `cp "$KBIN_BACKUP" "$KBIN"`。**七小時的實驗、兩次中止後的還原，全部靠這一份同碟副本。**
+  它沒出事，但**沒出事不是設計**。
+- **修法的形狀**（兩件，缺一不可）：
+  1. **補一份 provenance**——若真的重建不出來，**那份檔案就寫「無法重建」與已知的一切**
+     （sha、size、`readelf -d`、觀察到的行為）。**一個查不到的答案要留下痕跡，否則下一個人會以為沒人找過。**
+  2. **弄一份離開這顆碟的副本**。`audit-raw` 今晚剛好示範了同一件事：
+     **沒推的東西在別的地方不存在**——E 輪有一條 §6 對帳因為舊 raw 只在未推的 `audit-raw` 而做不成。
+- **關聯**：[[benchmark-must-name-the-binary-it-measured]]（指認量到的 binary ≠ 能再造它）、
+  [[packaging-a-filesystem-ships-the-invisible]]、[[evidence-must-outlive-the-handoff]]。
+
 ### 哨兵值會製造**空洞的通過**：兩個「讀不到」彼此相等 ⇒ 首尾對帳成功
 
 - **狀態**：**通則，已在 2026-08-31 的兩支新量測腳本上實際發生並修好**。登記在此是因為它
