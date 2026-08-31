@@ -421,3 +421,43 @@ Two defects stacked, the second hidden inside the first.
 **Evidence, both directions, live**: fabric down → `bmv2: 0 running switch(es)` → `ABORT(§4 bmv2)`
 rc=9 (23:11:26); fabric up → `bmv2: 10 running switch(es), 1 distinct binary/binaries` (23:15:57),
 and every ladder cell since records the same.
+
+---
+
+## F-16. ✅ The second foreign load of the night landed inside a cell, and the instrument caught it
+
+The first ladder cell aborted at 23:22:32, 270 s into its window:
+
+```
+cell CPU gate: RED excess=0.638   (threshold 0.5)
+foreign  pid=2698465  comm=rev  cores=0.999
+mine     ndtwin_kernel 0.577 · simple_switch_g 0.549/0.517/0.453 · python 0.069
+```
+
+Attribution, from `ps -o ppid` up the chain rather than from a name match:
+
+```
+/bin/bash -c … eval 'sed -n '171p' …/NSLAB-USAGE-RULES.md | rev | cut -c1-140 | rev'
+  ← claude pid 1503442, transcript 46992009-… (67 entries mention that file)
+```
+
+A `rev` reading **one line of text** was in state `R` with elapsed 14:15 and CPU time 14:15 — 100%
+spinning, not blocked. Stopped with `kill <PID>` (by pid, never `pkill -f`), one signal. Leg 1
+restarted 23:26:01; the failed transcript is kept as
+`run_e.leg1.attempt1-foreign-load.stdout.log`.
+
+🔑 **This is F-9a's asymmetry paying out within eight minutes of being written down.** Two foreign
+loads tonight, both ~1 core, on a machine under an exclusive-CPU claim:
+
+| | when | where it landed | did the round see it? |
+|---|---|---|---|
+| iperf3, 48 s (F-9) | 22:10:10 | **between** gate samples, after the run had stopped | no — and it could not have, the gate watched 3.1% of that phase |
+| stuck `rev`, 14 min | 23:08–23:22 | **inside a cell**, continuously sampled at 2 Hz | **yes — red at 270 s, round stopped** |
+
+⇒ The protection that worked is the one that samples *continuously over the thing being claimed*.
+The one that failed samples the same quantity at moments chosen by the gate's own schedule.
+⇒ Neither incident involved anyone ignoring the claim on purpose: the first party read the claim
+late, the second leaked a hung utility they had no reason to think was still running. **The
+realistic threat to an exclusive-CPU window is a leaked process, not a deliberate one** — which is
+an argument for continuous accounting over politeness, and it is the same shape as this round's own
+leaked burner (F-3.2).
