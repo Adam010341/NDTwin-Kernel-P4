@@ -88,7 +88,12 @@ BOOT_BASELINE=""
 assert_same_boot() {   # #3 -- ladder_ext:83
     local b
     if [[ "$DRY_RUN" == 1 ]]; then
-        [[ "$DRY_FAIL" == bootid ]] && b="00000000-dead-dead-dead-000000000000" || b="dry-run-synthetic-boot-id"
+        # 🔴 Drift only ONCE A BASELINE EXISTS.  A forced value on the first read just becomes
+        # the baseline and nothing ever differs -- the force would silently test nothing.  This is
+        # the same fixture trap that step 5b of the inheritance checklist documents; it was fixed
+        # in lib_e.sh on 2026-08-31 and NOT mirrored here, which step 5b then caught.
+        [[ "$DRY_FAIL" == bootid && -n "$BOOT_BASELINE" ]] \
+            && b="00000000-dead-dead-dead-000000000000" || b="dry-run-synthetic-boot-id"
     else
         b=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
     fi
@@ -105,7 +110,8 @@ TOPO_BASELINE=""
 assert_topology_invariant() {   # #14 -- run_e8:67
     local n
     if [[ "$DRY_RUN" == 1 ]]; then
-        [[ "$DRY_FAIL" == edgecount ]] && n=999 || n=12
+        # Same reasoning as assert_same_boot: drift only after the baseline exists.
+        [[ "$DRY_FAIL" == edgecount && -n "$TOPO_BASELINE" ]] && n=999 || n=12
     else
         n=$(curl -s -m 10 "$NDT_URL/ndt/get_graph_data" | "$PY_PROXY" -c 'import json,sys
 try: d=json.load(sys.stdin)
@@ -152,6 +158,97 @@ assert_kernel_restored() {
     say "    restore verified: the production (post-T-11) kernel is running"
     [[ "$DRY_RUN" == 1 ]] || rm -f "$f"
     return 0
+}
+
+# -------------------------------------------------------------------------------------------------
+# Clauses inherited from the D round after the per-clause walk (CROSS-ROUND-REGRESSION.md).
+# Every one of these was executed by a D-round script and registered by neither new round until
+# 2026-08-31.  Numbers are that document's.
+# -------------------------------------------------------------------------------------------------
+
+# #2 -- bmv2's identity.  APPLIES to the P4 arm and was missing: this round's southbound reader is
+# "what the switch has", and the switch IS bmv2.  A different bmv2 build has different programming
+# latency, which is the very quantity Q1/Q2 time.
+record_bmv2_identity() {   # $1 = arm
+    [[ "$FABRIC" == p4 ]] || { say "    bmv2 identity: n/a on the OVS arm"; return 0; }
+    local f="$OUT/identity_bmv2_$1.txt" ovr="$KERNEL_DIR/p4_proxy/mininet/bmv2_binary_override"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would record the bmv2 override directive and each RUNNING simple_switch_grpc's sha256"
+        return 0
+    fi
+    { printf 'when=%s\n' "$(date -Is)"
+      printf 'override_directive=%s\n' "$(grep -vE '^[[:space:]]*(#|$)' "$ovr" 2>/dev/null | head -1)"
+      printf 'override_file_sha256=%s\n' "$(sha256sum "$ovr" 2>/dev/null | cut -d' ' -f1)"
+      local pid
+      for pid in $(ps -eo pid=,comm= | awk '$2=="simple_switch_"{print $1}'); do
+          printf 'running pid=%s exe=%s sha256=%s\n' "$pid" \
+              "$(sudo -n readlink -f /proc/$pid/exe 2>/dev/null)" \
+              "$(sudo -n sha256sum /proc/$pid/exe 2>/dev/null | cut -d' ' -f1)"
+      done; } >"$f" 2>&1
+    local n d
+    n=$(grep -c '^running pid=' "$f"); d=$(grep '^running pid=' "$f" | grep -oE 'sha256=[0-9a-f]{64}' | sort -u | wc -l)
+    say "    bmv2: $n switch(es), $d distinct binary/binaries -> $f"
+    (( n == 0 || d == 1 )) || abort "#2" "the switches are not all running one binary ($d distinct).
+        A visibility window measured across a mixture is not a window of either binary."
+}
+
+# #5 -- fabric completeness.  APPLIES: §3's load is a background mesh plus churn, and a fabric
+# short of switches yields a smaller mesh, i.e. Q1's "under load" condition is not met while the
+# run still produces perfectly well-formed readings.
+assert_fabric_complete() {
+    if [[ "$DRY_RUN" == 1 ]]; then
+        [[ "$DRY_FAIL" == fabricshort ]] && abort "#5" "fabric short of its full switch count (forced)"
+        dry_note "would assert the fabric is complete before trusting 'under load'"
+        return 0
+    fi
+    if [[ "$FABRIC" == p4 ]]; then
+        $LAB status 2>&1 | tail -1 | grep -q "bmv2: 10" \
+            || abort "#5" "fabric is short of 10 bmv2 switches; the mesh would be smaller than §3 registers"
+    else
+        local n; n=$(curl -s -m 10 "$SOUTHBOUND_URL/stats/switches" 2>/dev/null | grep -o '[0-9]\+' | wc -l)
+        (( n > 0 )) || abort "#5" "Ryu reports no switches; 'under load' cannot be asserted"
+    fi
+    say "    fabric complete"
+}
+
+# #7 / #15 -- assert the sampling CONSTANTS, against the compiled artefact as well as the source.
+# 🔴 #8 rides here: the constants are the thing a NEIGHBOURING round mutates.  E seds the P4
+# source and swaps binaries, E and F-5 are adjacent in the fabric queue, and run_c.sh:46 records
+# this exact contamination happening once already (gate_d left truncate at 16384).  So this is not
+# only "did I set it", it is "did the previous round put it back".
+assert_sampling_config() {
+    [[ "$FABRIC" == p4 ]] || { say "    sampling config: n/a on the OVS arm (not a P4 pipeline)"; return 0; }
+    local src="$KERNEL_DIR/p4_proxy/p4_src/ndtwin_switch.p4"
+    local json="$KERNEL_DIR/p4_proxy/p4_src/build/ndtwin_switch.json"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        [[ "$DRY_FAIL" == config ]] && abort "#7/#8" "sampling config not at production values (forced)"
+        dry_note "would assert SAMPLE_RATE=$EXPECT_SAMPLE_RATE and SAMPLE_TRUNC_BYTES=128 in the"
+        dry_note "  source AND the compiled JSON -- also catches a neighbouring round's failed restore"
+        return 0
+    fi
+    grep -q "^const bit<16> SAMPLE_RATE = ${EXPECT_SAMPLE_RATE};" "$src" \
+        || abort "#7/#8" "SAMPLE_RATE is not $EXPECT_SAMPLE_RATE in $src.
+        Both arms must share one sampling configuration, or a difference in the visibility window
+        gets attributed to T-11 when it came from sampling.  If E ran before this round, check
+        whether its production restore landed."
+    grep -q '^const bit<32> SAMPLE_TRUNC_BYTES = 128;' "$src" \
+        || abort "#7/#8" "SAMPLE_TRUNC_BYTES is not 128 in $src (see above about the previous round)"
+    grep -q '"op" *: *"truncate"' "$json" 2>/dev/null \
+        || abort "#7/#8" "the truncate op is absent from the compiled JSON -- bmv2 runs the artefact,
+        so asserting only the source would assert the wrong file"
+    say "    sampling config: SAMPLE_RATE=$EXPECT_SAMPLE_RATE truncate=128, source and compiled JSON agree"
+}
+
+# #12 -- archive kernel.log.  APPLIES, and for a STRONGER reason than the D round's: D needed it to
+# resolve thread-ids against a CPU trace; here it carries the dispatcher's own record of what it
+# actually programmed, which is direct evidence for R1 (a phantom is cached-but-not-programmed).
+# 🔑 Unit adapted: D archived per CELL, this round's unit is an ARM of 60 installs, so it is taken
+# at arm open and close rather than 60 times over one growing file.
+archive_kernel_log() {   # $1 = arm, $2 = open|close
+    if [[ "$DRY_RUN" == 1 ]]; then dry_note "would copy kernel.log -> $OUT/${1}_kernel_$2.log"; return 0; fi
+    cp -f "$KERNEL_DIR/.test_run/logs/kernel.log" "$OUT/${1}_kernel_$2.log" 2>/dev/null \
+        && say "    kernel.log ($2) archived" \
+        || say "    WARNING: no kernel.log to archive at $2 -- R1 loses its dispatcher-side evidence"
 }
 
 # -------------------------------------------------------------------------------------------------
@@ -253,6 +350,10 @@ arm() {
     say "=== arm $ARM: bracket OPEN, running exe sha256=$sha_open ==="
     assert_same_boot                 # #3
     assert_topology_invariant        # #14
+    assert_fabric_complete           # #5
+    assert_sampling_config           # #7 / #8 -- also catches a neighbour's failed restore
+    record_bmv2_identity "$ARM"      # #2
+    archive_kernel_log "$ARM" open   # #12
     freeze_sequence
 
     # Binary identity for the record (§4): the four fields, because three of them are each
@@ -313,6 +414,7 @@ arm() {
     fi
     assert_same_boot                 # #3, closing the bracket
     assert_topology_invariant        # #14, across the arm
+    archive_kernel_log "$ARM" close  # #12
     say "=== arm $ARM complete -> $OUT ==="
 }
 
