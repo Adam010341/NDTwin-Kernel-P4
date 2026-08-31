@@ -1,5 +1,10 @@
 # 本機 fabric 排隊帳（08-31 起；跨線共用，誰要用誰先讀）
 
+> 🔴 **這張表管的是本機 fabric。遠端 `nslab` 是另一張：[`NSLAB-USAGE-RULES.md`](NSLAB-USAGE-RULES.md)。**
+> **兩張表的規則不共用，不要互相套用。** 本表下方那句「本表是意圖不是授權」成立，
+> 是因為本機有 `ndtwin-lab` claim 工具當真實來源可以重讀；**nslab 沒有那個東西，
+> 那張表就是唯一紀錄** ⇒ 那邊的規矩是「開跑前寫、release 後改，不准事後補登」。
+
 **為什麼有這張表**：本機 fabric 同時有三線想用（reviewer 的 B3／documented-only 補臂、
 auditor 的 E 輪、C4 的 fallback），而 nslab 尚未通。**claim 工具是真實來源，本表是意圖**
 ——動手當下仍須 `ndtwin-lab status` 重讀（[[lab-claim-handoff-protocol]]：讀數是點取樣
