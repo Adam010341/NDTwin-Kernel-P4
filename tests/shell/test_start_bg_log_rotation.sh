@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Tests for start_bg's one-generation log rotation.
+# Tests for start_bg's two-generation log rotation.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -8,7 +8,11 @@
 # how the entire P4-era kernel.log vanished on 2026-08-15: the OVS restart truncated it, and
 # the era had to be reconstructed from the proxy's log during the overnight audit. The fix
 # rotates a non-empty log to <log>.prev before starting -- each file stays single-era, disk
-# use stays bounded at two generations, and the era you just tore down remains readable.
+# use stays bounded, and the era you just tore down remains readable.
+#
+# Depth went 1 -> 2 on 2026-08-30 (KNOWN-ISSUES A-5): one generation survives a single restart
+# but not the second, and "restart, it recurred, restart again" is the demo sequence A-5 is
+# about -- the second restart overwrote the era holding the evidence with the era holding none.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,6 +81,40 @@ sleep 0.2
 
 check "the older era survives in .prev" "era-one" "$(cat "$LOG4.prev" 2>/dev/null)"
 check "the newer era is in the main log" "era-two" "$(cat "$LOG4" 2>/dev/null)"
+check "two eras produce no third generation yet" "no" \
+    "$([[ -f "$LOG4.prev2" ]] && echo yes || echo no)"
+
+# --- the SECOND restart is the one that used to lose the evidence ---------------------------
+#
+# KNOWN-ISSUES A-2's documented workaround is "restart the kernel". When the symptom comes back
+# you restart again -- and at depth 1 the only surviving generation was the short restart that
+# fixed nothing, while the era that explains the fault had just been overwritten. That is the
+# demo sequence A-5 names, and it is what depth 2 covers.
+
+LOG5="$TMP/three_eras.log"
+start_bg gen1 "$LOG5" echo the-era-with-the-evidence >/dev/null 2>&1
+sleep 0.2
+start_bg gen2 "$LOG5" echo the-restart-that-fixed-nothing >/dev/null 2>&1
+sleep 0.2
+start_bg gen3 "$LOG5" echo the-current-era >/dev/null 2>&1
+sleep 0.2
+
+check "the oldest of three eras survives in .prev2" \
+    "the-era-with-the-evidence" "$(cat "$LOG5.prev2" 2>/dev/null)"
+check "the middle era is in .prev" \
+    "the-restart-that-fixed-nothing" "$(cat "$LOG5.prev" 2>/dev/null)"
+check "the newest era is in the main log" \
+    "the-current-era" "$(cat "$LOG5" 2>/dev/null)"
+
+# --- disk stays bounded: a fourth restart drops the oldest, it does not accumulate -----------
+
+start_bg gen4 "$LOG5" echo the-fourth-era >/dev/null 2>&1
+sleep 0.2
+
+check "a fourth era does not create a .prev3" "no" \
+    "$([[ -f "$LOG5.prev3" ]] && echo yes || echo no)"
+check "the oldest era is now the one that was in .prev" \
+    "the-restart-that-fixed-nothing" "$(cat "$LOG5.prev2" 2>/dev/null)"
 
 echo
 if [[ $FAIL -gt 0 ]]; then

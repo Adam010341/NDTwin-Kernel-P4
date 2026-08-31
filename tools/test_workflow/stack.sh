@@ -346,11 +346,21 @@ start_bg() {
         fi
         stop_one "$name"
     fi
-    # One generation of history: '>' alone erased the previous era's log at every restart,
+    # Two generations of history: '>' alone erased the previous era's log at every restart,
     # which is how the whole P4-era kernel.log vanished during the 2026-08-15 overnight audit
     # (the OVS restart truncated it; the era had to be reconstructed from the proxy's side).
-    # A .prev keeps each file single-era and the disk bounded. [Co-developed with claude code -- Adam]
-    [[ -s "$log" ]] && mv -f "$log" "$log.prev"
+    # Rotating keeps each file single-era and the disk bounded. [Co-developed with claude code -- Adam]
+    #
+    # Depth 2 rather than 1, because the second restart is the one that used to drop the era
+    # that explains the first. KNOWN-ISSUES A-2's documented workaround is "restart the kernel";
+    # when the symptom recurs you restart again, and with a single .prev the only surviving
+    # generation is the short restart that fixed nothing -- the era holding the evidence has
+    # been overwritten by the era holding none. Two covers "restart, it recurred, restart
+    # again", which is the sequence A-5 names.
+    if [[ -s "$log" ]]; then
+        [[ -s "$log.prev" ]] && mv -f "$log.prev" "$log.prev2"
+        mv -f "$log" "$log.prev"
+    fi
     setsid "$@" >"$log" 2>&1 &
     echo $! >"$PID_DIR/$name.pid"
     { printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY"; } \
