@@ -23,6 +23,19 @@ peek. Recording them because a prediction written after the first green run is w
 | P5 | Live: after a POST naming a **nonexistent port**, `failed` increments and the entry appears in `recent_failures`, while `GET /ndt/get_switch_openflow_table_entries` shows nothing was programmed. | §5 recipe | If `failed` stays 0, the southbound is reporting success for a rule it did not program — a **bigger** finding than A-7 and it gets its own ticket |
 | P6 | `dispatched` will exceed the number of POSTed entries on a live fabric, because other subsystems enqueue too. | §5 recipe | If it exactly equals the POST count, find the other writers before believing the counter |
 
+> **P6 outcome (2026-08-31, live batch): REFUTED as registered — and the escape clause fired as
+> designed.** On a warm fabric with 40 programmed, forwarding rules, `dispatched` read **0**, then
+> tracked the POSTed count exactly (1 → 2 → 262 = 1+1+260). The writers were sought per the break
+> condition: there are none on this path. Boot-time programming does not go through
+> `FlowDispatcher::enqueue`, so `dispatched` means "entries submitted through the two dispatch
+> APIs", not "entries this kernel has programmed". The counter is honest; the registered
+> expectation about who feeds it was wrong.
+> **P5 amendment, same run:** the registered "non-zero `controller_status`" assertion has no
+> discriminative power — the proxy answers HTTP 200 with an error body on failure, so the field
+> is a constant. P5's verdict rests on the other five fields (`failed` increment, the
+> `recent_failures` record's dpid/priority/match, the absent table row); the constant is noted so
+> nobody re-litigates it as evidence.
+
 P5 is the one worth being nervous about. It is also the one that decides whether this endpoint
 reports anything at all in practice.
 
