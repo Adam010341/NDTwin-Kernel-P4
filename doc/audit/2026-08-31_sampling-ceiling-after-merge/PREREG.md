@@ -7,7 +7,17 @@
 （F-1 判準件數與碼不符、F-2 上下界寫反）已於蓋章的同一顆 commit 落定。
 **設計者不自蓋；本章由 auditor 蓋。**
 
-**證據基礎狀態**：🟢 **完整（`EVIDENCE-BASIS: COMPLETE`）**，2026-08-31。
+**證據基礎狀態**：🟢 **完整**（機器可讀的那一行在下方，**行首錨定**）
+
+    EVIDENCE-BASIS: COMPLETE
+
+🔴 **為什麼要行首錨定**：讀取器原本用 `grep -m1`，取的是**全檔第一個**命中
+⇒ **這道閘的正確性依賴文件排序**，而本輪的習慣正是把 force 的逐字輸出貼進上半部
+——那些輸出裡就含著 `EVIDENCE-BASIS: INCOMPLETE` 字樣。
+失效方向：需要「一個舊的 `COMPLETE` 出現在真的 `INCOMPLETE` 之前」——窄，
+**但那正好是降級的當下** ⇒ 又一個「保護的失效時機與它要防的事件重合」。
+⇒ 讀取器改用 `^[[:space:]]*EVIDENCE-BASIS:`，而貼進來的輸出行都以 `[ok]`／空白＋`[` 起頭，
+**結構上不可能命中**。，2026-08-31。
 🔴 **本欄是閘門不是註記**：`gates_e.sh` 的 preflight 會讀它，讀到 `INCOMPLETE` 就**拒絕開跑**。
 **章認證的是「註冊條款」；本欄認證的是「那些條款被證明會執行」——兩件事分開記，各自可查。**
 更新本欄**必須附逐字 force 輸出**。
@@ -33,12 +43,10 @@
     [ok]   recompute -> ABORT(§4-bis)
     [ok]   exedriftmid -> ABORT(identity)
     [ok]   exeunreadablemid -> could not be READ
-    [ok]   exeunreadable -> ABORT(§4 running-arm)
-    [ok]   exedrift -> ABORT(§4 running-arm)
-    [ok]   @none@ (PREREG_FILE=/tmp/tmp.Gh3SqLd6SK) -> EVIDENCE-BASIS: INCOMPLETE
-    [ok]   @none@ (PREREG_FILE=/tmp/tmp.5TsdAwV85x) -> @COMPLETES@
-  [PASS] G-MATRIX all 14 forces reach their own check  
-  PASS  G-MATRIX all 14 forces reach their own check
+    [ok]   exeunreadable_absorbed -> ABORT(§4 running-arm)
+    [ok]   exedrift_absorbed -> ABORT(§4 running-arm)
+    [ok]   @none@ (PREREG_FILE=/tmp/tmp.RzcR0cctbw) -> EVIDENCE-BASIS: INCOMPLETE
+    [ok]   @none@ (PREREG_FILE=/tmp/tmp.fyuSam7SyJ) -> @COMPLETES@
 ```
 
 先前狀態＝🔴 不完整：身分括號（open/close）**無任何 force 走到**——`exedrift` 把兩端強制成

@@ -52,7 +52,7 @@ running_kernel_sha() {
         # last time a fixture guard was fixed in one file and not the other, the unmirrored copy
         # silently tested nothing for hours.
         case "$DRY_FAIL" in
-            exeunreadable) echo "UNREADABLE"; return 0 ;;
+            exeunreadable_absorbed) echo "UNREADABLE"; return 0 ;;
             # Only the CLOSING read is unreadable, so the earlier identity check passes and the
             # BRACKET's own shape test is what fires.  Found by building the force matrix: with
             # `exeunreadable` alone, E aborted at ABORT(§4 running-arm) -- absorbed again -- so
@@ -60,7 +60,7 @@ running_kernel_sha() {
             exeunreadablemid)
                 [[ "${_DRY_PHASE:-}" == close ]] && { echo "UNREADABLE"; return 0; }
                 ;;
-            exedrift)      printf 'd%063d\n' 1; return 0 ;;
+            exedrift_absorbed) printf 'd%063d\n' 1; return 0 ;;
             exedriftmid)
                 # 🔴 Drift ONLY on the closing read, marked explicitly by the caller.
                 # The first attempt counted reads instead, and silently did not fire: E makes
@@ -308,6 +308,35 @@ archive_kernel_log() {   # $1 = arm, $2 = open|close
     fi
 }
 
+# 🔴 AUTOMATIC on every exit of arm/q3.  Until now assert_kernel_restored was reachable only by
+# hand-typing `./run_f5.sh restore`, i.e. the protection rested on somebody remembering -- while
+# PREREG §4 (written in this round) says in as many words that the protection's failure moment
+# COINCIDES with the event it guards, because restore runs last, when nobody is watching.
+# Mechanism written down, then implemented as a thing to remember.  One line of trap.
+#
+# ⚠️ DESIGN NOTE, because the obvious implementation is wrong: this round runs pre-T-11 arms ON
+# PURPOSE, so at the end of a Q2 arm the running kernel is SUPPOSED to be the old one.  Making the
+# check abort per-arm would fail every pre-T-11 arm for doing exactly what it was told.  So the
+# trap always RUNS the check and always makes the state visible; not-restored is loud and drops a
+# marker the release must trip over, but is not fatal mid-round.  What is fatal is releasing the
+# lab with the marker present -- and `run_f5.sh restore` is what clears it.
+f5_exit_restore_check() {
+    local rc=$?
+    local marker="$ROUND/raw/LAB-NOT-RESTORED"
+    if [[ "$DRY_FAIL" != restore_atexit ]] && assert_kernel_restored >/dev/null 2>&1; then
+        say "    [exit] production kernel is back; lab is releasable"
+        [[ "$DRY_RUN" == 1 ]] || rm -f "$marker"
+    else
+        say "🔴 [exit] THE PRODUCTION KERNEL IS NOT RESTORED."
+        say "🔴 Expected between arms of this round; NOT acceptable at release."
+        say "🔴 E is next on the same fabric and would run this round's binary without being able"
+        say "🔴 to tell.  Clear it with:  ./run_f5.sh restore"
+        printf 'LAB-NOT-RESTORED %s -- do not release the lab\n' "$(date -Is)" >&2
+        [[ "$DRY_RUN" == 1 ]] || { mkdir -p "$ROUND/raw"; printf 'LAB-NOT-RESTORED %s\n' "$(date -Is)" >"$marker"; }
+    fi
+    return $rc
+}
+
 # -------------------------------------------------------------------------------------------------
 preflight() {
     local avail owner excl claim="$KERNEL_DIR/.test_run/lab.claim"
@@ -340,7 +369,11 @@ preflight() {
     # on the state, not on the rc".  A round whose clauses are registered but not demonstrably
     # exercised must not start.
     local ebasis
-    ebasis=$(grep -m1 -o 'EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
+    # 🔴 LINE-ANCHORED.  An unanchored grep -m1 takes the first hit anywhere in the file, so the
+    # gate's correctness would depend on document ordering -- and this round pastes verbatim force
+    # output (which contains the literal string EVIDENCE-BASIS: INCOMPLETE) into the upper half.
+    # The pasted lines begin with "[ok]" or whitespace+"[", so anchoring excludes them structurally.
+    ebasis=$(grep -m1 -oE '^[[:space:]]*EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
     # No DRY_FAIL special case here on purpose: the matrix points PREREG_FILE at a FIXTURE
     # whose content really says INCOMPLETE, so what gets tested is the reader against real
     # content rather than a branch that only exists for the test.  Breaks the circularity too --
@@ -602,8 +635,9 @@ selftest() {
       "fabricshort||ABORT(#5)|"
       "config||ABORT(#7/#8)|"
       "exedriftmid||ABORT(§4 F4)|wants the"
+      "restore_atexit||THE PRODUCTION KERNEL IS NOT RESTORED|"
       "exeunreadablemid||could not be READ|wants the"
-      "exeunreadable||ABORT(§4 F4)|"
+      "exeunreadable_absorbed||ABORT(§4 F4)|"
       "logrotate||LOG-EVIDENCE-INCOMPLETE|ABORT"
       "@none@|PREREG_FILE=$EV_BAD|EVIDENCE-BASIS: INCOMPLETE|"
       "@none@|PREREG_FILE=$EV_GOOD|@COMPLETES@|REFUSE"
@@ -653,7 +687,7 @@ case "${1:-plan}" in
     plan)     plan ;;
     selftest) selftest ;;
     restore)  preflight && assert_kernel_restored ;;
-    arm)      arm ;;
-    q3)       q3 ;;
+    arm)      trap f5_exit_restore_check EXIT; arm ;;
+    q3)       trap f5_exit_restore_check EXIT; q3 ;;
     *) printf 'usage: %s {plan|selftest|arm|q3|restore}\n' "$0" >&2; exit 2 ;;
 esac

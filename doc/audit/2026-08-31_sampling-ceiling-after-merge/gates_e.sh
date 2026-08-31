@@ -364,8 +364,8 @@ main() {
     if [[ "$DRY_RUN" == 1 ]]; then
         local fg fr
         fg=$(DRY_FAIL= check_running_arm "$KBIN_1HZ" || true)
-        fr=$(DRY_FAIL=exedrift check_running_arm "$KBIN_1HZ" || true)
-        local fu; fu=$(DRY_FAIL=exeunreadable check_running_arm "$KBIN_1HZ" || true)
+        fr=$(DRY_FAIL=exedrift_absorbed check_running_arm "$KBIN_1HZ" || true)
+        local fu; fu=$(DRY_FAIL=exeunreadable_absorbed check_running_arm "$KBIN_1HZ" || true)
         say "    force-green: $fg"
         say "    force-red  : $fr"
         say "    unreadable : $fu"
@@ -504,8 +504,8 @@ main() {
       "recompute||ladder|ABORT(§4-bis)|"
       "exedriftmid||ladder|ABORT(identity)|ABORT(§4 running-arm)"
       "exeunreadablemid||ladder|could not be READ|ABORT(§4 running-arm)"
-      "exeunreadable||ladder|ABORT(§4 running-arm)|"
-      "exedrift||ladder|ABORT(§4 running-arm)|"
+      "exeunreadable_absorbed||ladder|ABORT(§4 running-arm)|"
+      "exedrift_absorbed||ladder|ABORT(§4 running-arm)|"
       "@none@|PREREG_FILE=$EV_BAD|ladder|EVIDENCE-BASIS: INCOMPLETE|"
       "@none@|PREREG_FILE=$EV_GOOD|ladder|@COMPLETES@|REFUSE"
     )

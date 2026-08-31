@@ -138,7 +138,11 @@ preflight() {
     # on the state, not on the rc".  A round whose clauses are registered but not demonstrably
     # exercised must not start.
     local ebasis
-    ebasis=$(grep -m1 -o 'EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
+    # 🔴 LINE-ANCHORED.  An unanchored grep -m1 takes the first hit anywhere in the file, so the
+    # gate's correctness would depend on document ordering -- and this round pastes verbatim force
+    # output (which contains the literal string EVIDENCE-BASIS: INCOMPLETE) into the upper half.
+    # The pasted lines begin with "[ok]" or whitespace+"[", so anchoring excludes them structurally.
+    ebasis=$(grep -m1 -oE '^[[:space:]]*EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
     # No DRY_FAIL special case here on purpose: the matrix points PREREG_FILE at a FIXTURE
     # whose content really says INCOMPLETE, so what gets tested is the reader against real
     # content rather than a branch that only exists for the test.  Breaks the circularity too --
@@ -304,7 +308,11 @@ running_kernel_sha() {
         # Third instance of the fixture trap -- the first two only tested nothing, this one was
         # never executed.
         case "$DRY_FAIL" in
-            exeunreadable) echo "UNREADABLE"; return 0 ;;
+            # Named for WHAT IT TESTS, not for what it injects: both of these are
+            # absorbed by assert_running_arm and never reach the bracket.  A row that
+            # misstates what it covers is another "looks verified" artefact -- the
+            # table is a product people read.
+            exeunreadable_absorbed) echo "UNREADABLE"; return 0 ;;
             # Only the CLOSING read is unreadable, so the earlier identity check passes and the
             # BRACKET's own shape test is what fires.  Found by building the force matrix: with
             # `exeunreadable` alone, E aborted at ABORT(§4 running-arm) -- absorbed again -- so
@@ -312,7 +320,7 @@ running_kernel_sha() {
             exeunreadablemid)
                 [[ "${_DRY_PHASE:-}" == close ]] && { echo "UNREADABLE"; return 0; }
                 ;;
-            exedrift)      echo "$(printf 'd%063d' 1)"; return 0 ;;
+            exedrift_absorbed) echo "$(printf 'd%063d' 1)"; return 0 ;;
             exedriftmid)
                 # 🔴 Drift ONLY on the closing read, marked explicitly by the caller.
                 # The first attempt counted reads instead, and silently did not fire: E makes

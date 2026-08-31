@@ -12,7 +12,17 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
 **v0.3／v0.4 的撰稿人＝腳本作者，同樣不自蓋。**）
 **凍結（v1.0）前不得接觸任何量測資料。**
 
-**證據基礎狀態**：🟢 **完整（`EVIDENCE-BASIS: COMPLETE`）**，2026-08-31。
+**證據基礎狀態**：🟢 **完整**（機器可讀的那一行在下方，**行首錨定**）
+
+    EVIDENCE-BASIS: COMPLETE
+
+🔴 **為什麼要行首錨定**：讀取器原本用 `grep -m1`，取的是**全檔第一個**命中
+⇒ **這道閘的正確性依賴文件排序**，而本輪的習慣正是把 force 的逐字輸出貼進上半部
+——那些輸出裡就含著 `EVIDENCE-BASIS: INCOMPLETE` 字樣。
+失效方向：需要「一個舊的 `COMPLETE` 出現在真的 `INCOMPLETE` 之前」——窄，
+**但那正好是降級的當下** ⇒ 又一個「保護的失效時機與它要防的事件重合」。
+⇒ 讀取器改用 `^[[:space:]]*EVIDENCE-BASIS:`，而貼進來的輸出行都以 `[ok]`／空白＋`[` 起頭，
+**結構上不可能命中**。，2026-08-31。
 🔴 **閘門不是註記**：`run_f5.sh` 的 preflight 讀它，`INCOMPLETE` 即**拒絕開跑**；更新須附逐字輸出。
 
 🔴 **force 清單是一張表，閘門逐列跑**（12 列）。**這把「這個 force 有沒有呼叫端」從稽核變成不變式**：
@@ -25,7 +35,7 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
 否則只測到「會拒絕」而沒測到「會放行」。
 
 ```
---- force matrix: 12 path-level forces, one row each ---
+--- force matrix: 13 path-level forces, one row each ---
   [ok]   claim -> REFUSE: lab.claim owner=
   [ok]   fabric -> REFUSE: the kernel API
   [ok]   bootid -> ABORT(#3)
@@ -33,8 +43,9 @@ v0.3／v0.4 只**增加**要求，未放寬任何判定規則——修訂記錄�
   [ok]   fabricshort -> ABORT(#5)
   [ok]   config -> ABORT(#7/#8)
   [ok]   exedriftmid -> ABORT(§4 F4)
+  [ok]   restore_atexit -> THE PRODUCTION KERNEL IS NOT RESTORED
   [ok]   exeunreadablemid -> could not be READ
-  [ok]   exeunreadable -> ABORT(§4 F4)
+  [ok]   exeunreadable_absorbed -> ABORT(§4 F4)
   [ok]   logrotate -> LOG-EVIDENCE-INCOMPLETE
   [ok]   @none@ (fixture) -> EVIDENCE-BASIS: INCOMPLETE
   [ok]   @none@ (fixture) -> @COMPLETES@
