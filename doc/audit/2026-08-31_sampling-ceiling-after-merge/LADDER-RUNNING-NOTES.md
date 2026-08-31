@@ -709,8 +709,11 @@ departure to be **at or below** the rung where `mark` first stops being OK, not 
 
 * `mark` first stops being OK at **1/4**.
 * The departure from √n begins at the **256 → 64 step**, i.e. at **1/64**.
-* **1/64 is five rungs earlier.** The expectation is not marginally wrong; it is wrong by most of
-  the ladder.
+* **The gap is `1/64 → 1/4`** — the intervening rungs are 64, 32, 16, 8, 4, i.e. **four steps**.
+  🔴 I first wrote *"five rungs earlier"*. **Counted, it is four steps** (five rungs inclusive), and
+  this is the **third** rung-distance miscount in this project. ⇒ **Write the interval and let the
+  reader count, or count it before writing — never from a feeling of how far apart they are.**
+  The expectation is not marginally wrong; it is wrong by half the ladder.
 
 🔑 **What it got wrong is the assumption behind it** — that precision degradation and health
 failure share a cause, so one would herald the other. They do not: precision stopped improving at

@@ -80,7 +80,9 @@ thread (`2026-08-25_large-scale-concurrent/PREREG.md:642`), and `run` ×3.48 for
 was never in its scope.**
 
 ⇒ **Proxy CPU rising 0.064 → 1.409 (×22) across 1/1024 → 1/8 is a new finding and is reported on its
-own.** Filing it under that memory would be **using something the memory never claimed in order to
+own.** 🔑 **And it was never the "fixed" thing to begin with**: proxy is already at **0.243 by 1/64**,
+i.e. **×3.8 inside the prior claim's own range**, where kernel moved only ×1.21. **The two were never
+the same story**, which is a second reason to file it separately rather than as a refutation. Filing it under that memory would be **using something the memory never claimed in order to
 overturn it** — the fourth instance tonight of a population being asked to answer to a name that is
 not its own.
 
