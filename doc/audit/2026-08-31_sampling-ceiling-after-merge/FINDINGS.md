@@ -688,3 +688,69 @@ monitors at 01:34.
 🔑 This is the seventh time this project has been bitten by `pkill -f`, and the first where the
 hazard is **a string rather than an action** — nothing is being killed on purpose, and the victim
 is chosen by what it happens to mention.
+
+---
+
+## F-21. 🔴 The contamination gate's covariate line scopes itself from a name list, not from `/proc`
+
+The per-cell `covariates:` line reports a **fixed allow-list of named processes** —
+`claude-desktop`, `claude`, `gnome-shell`, `chrome`. A foreign load built from `qemu-img`, python
+socket servers and short-lived `bash`/`awk`/`sed` appears in **none** of those columns (F-9, F-16,
+and the five suspect cells in `LADDER-RUNNING-NOTES.md` §5-bis). Asking that itemisation "what was
+on the machine" asks a question it is structurally unable to answer — **and it answers, with
+plausible numbers.** This round used it to attribute a margin collapse and got an incomplete answer
+stated as a cause.
+
+`遠端機器測試` identified the class, having repaired five instances of it in its own tools tonight;
+the sixth is ours:
+
+| layer | population came from | therefore blind to |
+|---|---|---|
+| mutation gate | guards already written | verbs with no guard |
+| structural test | a hand-written verb table | verbs not on the table |
+| `vms` | its own naming convention | VMs in another directory |
+| disk parser | its own output format | `id=d0,file=…` |
+| address check | two literals in the script | `0.0.0.0`, `127.0.0.53%lo` |
+| **this gate's covariates** | **a name list** | **any process not on it** |
+
+🔑 **The fatal property is not that it misses. It is that its output when it misses is identical to
+its output when it does not** — a confident, well-formed itemisation, with no field whose job is to
+say "there was something else I did not look at."
+
+### Repair shape, registered for the next round
+
+**Derive the population from `/proc`; let the allow-list classify, never scope.**
+
+```bash
+for pd in /proc/[0-9]*; do [ -r "$pd/stat" ] || continue; ...utime/stime delta over the cell window...; done
+# known name        -> attribute to its column
+# unknown AND above threshold -> 🔴 UNATTRIBUTED, print with argv
+```
+
+Three companions, each learned the hard way tonight:
+
+1. 🔴 **`UNATTRIBUTED` must be able to make the cell suspect**, not merely log a line — otherwise it
+   prints the same as "nothing unattributed", which is the defect this repairs.
+2. 🔑 **Its control is the same shape**: a parser that matches *nothing* prints "zero unattributed"
+   identically to one that attributed everything ⇒ one case must assert it can see a process known
+   to exist. (This is F-3a's rule again: the green half needs discriminating power too.)
+3. ⚠️ **Fixtures must include a form the program itself would never emit.** `遠端機器測試`'s first
+   three stand-ins were all written in its own format, so everything passed.
+
+### The part neither of us has solved
+
+Their gate used `mktemp -d` cleaned up in a `trap`, so **nothing survived to be attributed
+afterwards**. Tonight's band boundaries came from commit timestamps and scratchpad mtimes — *"luck,
+not design"*, in their words. ⇒ **Continuous accounting inside each cell window beats retrospective
+attribution**, which is the direction this round's `cpu_probe.py "$DUR" 2` already takes; the gap is
+that the *reporting* narrows again at the covariate line.
+
+⚠️ **Not repaired in-round**, same reason as F-18 and F-20: changing the instrument would void the
+comparability of the 20 cells already measured, and the round has twice rejected that trade.
+
+🔴 **Registered decision point — leg 2's start, not now.** An out-of-band `/proc` accountant is a
+separate process: it touches neither the round's instrument nor its decision rules, and leg 2 begins
+from a fresh launcher, which is the clean seam. Against it: it adds load to the window whose margin
+is the binding risk (F-19), and **a runaway sampler is precisely the failure that already cost this
+round a cell tonight** (F-16). ⇒ Auditor's call, to be put with the leg-1 completion report, and if
+taken it must **declare and measure its own CPU cost** rather than assert it is negligible.
