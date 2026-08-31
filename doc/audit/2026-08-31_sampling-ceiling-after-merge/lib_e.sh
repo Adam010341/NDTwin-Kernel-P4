@@ -37,6 +37,7 @@ set -u
 : "${DRY_RUN:=0}"
 : "${DRY_FAIL:=}"
 : "${_DRY_LIVE_ARM:=1hz}"
+: "${_LAST_EXE_READ_VIA:=unset}"
 
 # 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
 # "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,
@@ -282,10 +283,20 @@ running_kernel_sha() {
         esac
         return 0
     fi
-    local pid
+    local pid h
     pid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
     [[ -n "${pid:-}" ]] || { echo "NO-KERNEL-PROCESS"; return 0; }
-    sudo -n sha256sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1 || echo "UNREADABLE"
+    # 🔑 Try unprivileged FIRST, fall back to sudo, and RECORD WHICH PATH WAS USED.
+    # Adopted from the reviewer line's arm_binary_assert.sh: a check that silently escalates
+    # hides the difference between "read it" and "was allowed to read it" -- and if the process
+    # runs as root, the unprivileged read returns empty, which without the fallback would look
+    # like "unreadable" and abort a perfectly good cell.
+    h=$(sha256sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1); _LAST_EXE_READ_VIA=direct
+    if [[ -z "$h" ]]; then
+        h=$(sudo -n sha256sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1); _LAST_EXE_READ_VIA=sudo
+    fi
+    [[ -n "$h" ]] || { _LAST_EXE_READ_VIA=none; echo "UNREADABLE"; return 0; }
+    echo "$h"
 }
 
 # -------------------------------------------------------------------------------------------------
@@ -332,7 +343,7 @@ check_running_arm() {   # $1 = staged binary path.  Prints a verdict line; 0=MAT
     if [[ "$want" != "$got" ]]; then
         echo "IDENTITY verdict=MISMATCH want=$want got=$got"; return 1
     fi
-    echo "IDENTITY verdict=MATCH want=$want got=$got"; return 0
+    echo "IDENTITY verdict=MATCH want=$want got=$got read_via=${_LAST_EXE_READ_VIA}"; return 0
 }
 
 assert_running_arm() {   # abort-wrapping caller
