@@ -3,17 +3,30 @@
 **2026-08-31.** Adam: *"直接把有P4的VM做出來，然後跟現有的VM共存"* — build the P4 VM, and have it
 coexist with the existing one rather than replace it.
 
-The artefact is **`NDTwin-P4-demo.ova`**, 2 513 469 440 bytes,
-sha256 `c832c91aaae65e41a25e01828a90dd30f2db2723e2cf468ecb3d298e00b1cce8`,
-md5 `f9e1e99649feee6dea5f7bd41ffe6bb7`.
-It is **not in the repo**. It lives at `/media/adam/Windows-SSD/ndtwin-vm/` with the scripts in
-this directory.
+**This artefact has been superseded three times in one day. Only this table is current:**
 
-🔴 **The first build of this `.ova` shipped the EuroP4 poster submission package and was
-destroyed.** It is kept only as `NDTwin-P4-demo-CONTAMINATED-DO-NOT-SHIP.ova`, alongside
-`ndtwin-p4-demo-work.qcow2`, which has the same defect. Neither may be distributed. The
-hashes above are the rebuilt image; the superseded ones were 2 592 010 240 bytes /
-sha256 `4965d003…`. See **"The image shipped the submission package"** below.
+| | |
+|---|---|
+| file | `NDTwin-P4-demo.ova` |
+| bytes | **2 757 157 888** |
+| sha256 | `af1d373093b6493c56f40d5e2740d4c7c2d2db642189a9689196ad1d5d853ee4` |
+| md5 | `b56c588275f13651fc343639f13a6ec7` |
+| packed by | **ovftool 5.1.0 (build-25410048)** — not the hand-written descriptor |
+| declares | `<Name>NDTwin-P4-demo`, `vmx-14`, 4 vCPU, 6144 MB, SATA/AHCI, E1000 |
+| lives at | `nslab:/home/nslab/NDTwin-P4-demo.ova` (mode 600). **Not in the repo, and no longer on this machine** — the last build was produced on nslab and never came back over the VPN. |
+
+**The three superseded builds, and why each died:**
+
+1. `4965d003…` / 2 592 010 240 B — **shipped the EuroP4 poster submission package.** Kept only
+   as `NDTwin-P4-demo-CONTAMINATED-DO-NOT-SHIP.ova`, alongside `ndtwin-p4-demo-work.qcow2`,
+   which has the same defect. Neither may be distributed. See *"The image shipped the
+   submission package"*.
+2. `c832c91a…` / 2 513 469 440 B — clean, but **VMware cannot import it**: the hand-written
+   manifest is rejected on the conversion path. Still at
+   `/media/adam/Windows-SSD/ndtwin-vm/NDTwin-P4-demo.ova`, and 🔴 **still the file on Google
+   Drive**. See *"What ovftool caught"*.
+3. `b7f0f7fb…` / 2 757 157 888 B — importable, but declared **`vmx-99`**, a hardware version no
+   VMware product implements, and named the VM **`x`**. Same section.
 
 [Co-developed with claude code -- Adam]
 
@@ -111,10 +124,76 @@ regenerate them, so sshd would fail to start and the shipped VM would have no SS
 2. **A draft of the page edits exists but is not published** — `NDTwin-Website` `84d0318`,
    local, not pushed. Both download points sit in one table on the Download page; the P4 row
    deliberately has no link, because a placeholder URL would be worse than an honest gap.
-3. **Untested on real VMware.** AHCI + E1000 + IDE were all verified under qemu, and the
-   manifest and OVF parse, but no VMware product was involved at any point. The one path that
-   cannot be tested here is VMware's LSI Logic Parallel — qemu's LSI device is driven by
-   `sym53c8xx`, VMware's by `mptspi`, so exercising it here would not exercise what ships.
+3. ~~**Untested on real VMware.**~~ **Closed 2026-08-31 evening** — ovftool 5.1.0 was obtained
+   and run, and it refuted the artefact. See *"What ovftool caught"*. The one path still not
+   exercised is VMware's LSI Logic Parallel, and it never will be here: qemu's LSI device is
+   driven by `sym53c8xx`, VMware's by `mptspi`. The OVF declares AHCI, which is what was tested.
+4. 🔴 **The file on Google Drive is build 2, not this one.** `1x7XhKiU7SQUclg4sOGRbDZ_1iy7mp-em`
+   serves `NDTwin-P4-demo.ova` at **2.3G** to an unauthenticated client — measured, not
+   inferred, by fetching the download page with no credentials. That is the size of build 2,
+   the one whose manifest VMware rejects. **Every download so far has been of an archive that
+   cannot be imported.** Replacing it is Adam's action; the file to upload is on nslab.
+
+## What ovftool caught
+
+Adam obtained **ovftool 5.1.0** on nslab. It is free of charge but gated behind a Broadcom
+account, which is why it could not be fetched here. Three findings, in increasing order of how
+badly they would have shipped.
+
+**🔴 `--verifyOnly` does not verify the disk.** Two negative controls were run against it: an
+archive truncated to 200 MB, and one with a byte flipped in the middle of the disk. **It
+returned 0 on both.** Without those controls this file would now be recording "verified with
+VMware's own tool" for an archive VMware refuses. The name of a check is not its contract, and
+the controls are what caught it — not suspicion, because the tool did not look suspicious.
+
+**🔴 The hand-written manifest is rejected on the path a user actually takes.** `ovftool x.ova
+out.vmx` — the conversion an import performs — fails with `Error: SHA digest of file
+NDTwin-P4-demo-disk1.vmdk does not match manifest`, even though `sha256sum` recomputes the
+manifest's own value exactly. **The mechanism was not chased.** The fix was to stop hand-writing
+the descriptor and let ovftool pack the archive, which removes the whole class rather than the
+instance. *If anyone hand-writes an OVA here again, that hole is still open.*
+
+**🔴 The rebuild that fixed it introduced a defect its own check could not see.** Converting
+through an intermediate `.vmx` with `--lax` prints *"Hardware compatibility check is disabled"*
+and writes `virtualhw.version = "99"`; the `.ova` built from it declared
+`<vssd:VirtualSystemType>vmx-99` — a hardware version that does not exist — and took the
+intermediate's filename as the VM's display name, `<Name>x`. The archive passed
+`The manifest validates` → `Completed successfully`, and passed a working negative control,
+**because that control tested the disk hash and the defect was in the hardware declaration.**
+
+🔑 The general shape: *I verified the mechanism (does ovftool accept this) and reported it as
+the purpose (will a user's VMware import this).* A control only covers the dimension it varies.
+Fixed with `--maxVirtualHardwareVersion=14` plus a correctly-named `.vmx` round trip; the
+product declares `vmx-14`, the conversion now completes **without `--lax`**, and a flipped byte
+still fails on the same path.
+
+### One check that failed by printing an answer
+
+Before running the fabric acceptance again, the cheaper substitute was tried: hash both
+decompressed disks and show they match. `qemu-img convert -f vmdk -O raw disk.vmdk /dev/stdout
+| sha256sum` **cannot resize a pipe**, so it converted nothing — and the pipeline still printed
+`e3b0c442…`, the sha256 of zero bytes. It ran identically on both machines and would have
+"proved" the two images identical no matter what they contained. Abandoned in favour of running
+T-2 on the artefact itself.
+
+### The fabric acceptance now exists on the artefact that ships
+
+Everything in the table at the top of this file is an ovftool repack of the disk T-2 originally
+ran on, and the only check any repacked disk had was a boot confirming three binaries are on
+`$PATH`. *"The binaries are there"* is not *"the fabric forwards"*, and the download page makes
+the second claim. So T-2 was re-run on the final archive, booted on the hardware the OVF
+declares — SATA/AHCI, 4 vCPU, 6144 MB — rather than on convenient virtio:
+
+| | |
+|---|---|
+| booted from | `/dev/sda1` (AHCI), `ens3` up (E1000) |
+| switches | 10 passed verification |
+| paths | 12, two consecutive agreeing samples |
+| data plane | **`Results: 0% dropped (12/12 received)`** |
+| `failures` | 1 — *twin reports 14 switches, expected 10*, plus the known `M-3` proxy refusal |
+
+The PASS/FAIL list is identical to the runs on the earlier disks, including both known
+failures, so the repacking changed nothing T-2 can measure.
 
 ## The image shipped the submission package
 
