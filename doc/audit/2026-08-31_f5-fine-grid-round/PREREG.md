@@ -2,7 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-**狀態**：v0.2＝reviewer 代審四點（F1–F4）全落，待 reviewer 驗落點蓋章（設計者＝auditor，不自蓋；Adam 過目或
+**狀態**：**v0.2-stamped＝reviewer 代審章已蓋（2026-08-31，落點逐項親驗；併池數學的反打
+經其複驗認可）**；升 v1.0 閘＝三處【TBD】落定。（設計者＝auditor，不自蓋；Adam 過目或
 reviewer 線代審——利益迴避照舊）。**凍結（v1.0）前不得接觸任何量測資料。**
 **裁決鏈**：ledger §D F-5「證據基礎鬆動、待重裁」→ TR-3（窗是時鐘）→ T-11-A 落地
 （`91e7743`）→ Adam 08-31 表單裁「再開一輪量測」。
