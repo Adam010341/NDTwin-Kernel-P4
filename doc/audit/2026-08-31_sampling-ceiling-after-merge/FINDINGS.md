@@ -484,17 +484,62 @@ foreign  pid=2698465  comm=rev  cores=0.999
 mine     ndtwin_kernel 0.577 · simple_switch_g 0.549/0.517/0.453 · python 0.069
 ```
 
-Attribution, from `ps -o ppid` up the chain rather than from a name match:
+Attribution, walked up `ps -o ppid` to the owning process, then read that process's own argv:
 
 ```
 /bin/bash -c … eval 'sed -n '171p' …/NSLAB-USAGE-RULES.md | rev | cut -c1-140 | rev'
-  ← claude pid 1503442, transcript 46992009-… (67 entries mention that file)
+  ← claude pid 1503442
+     /proc/1503442/cmdline → --resume=46992009-fcf0-4ceb-955d-f16e090060c5   (re-read 23:56, still live)
+     = session `開機手冊`
 ```
+
+🔴 **The pid and the transcript id above are right. The reason first given for them was not, and
+the session named from that reason was the wrong one.** The original basis was *"that transcript
+mentions `NSLAB-USAGE-RULES.md` 67 times, so it is the remote-machine line"*. `遠端機器測試`
+refuted it with its own count: **382 mentions in their transcript — more than five times as many**
+— because four lines were reading and writing that file tonight.
+⇒ **On a shared object, attribution by content frequency is not merely error-prone; it is the wrong
+kind of evidence, and it fails persuasively.** The right evidence was one `tr` away: a process
+carries its own session id in argv. **Hard identifier over content feature, always.**
+
+✅ **Re-identified twice, from unrelated channels, the second carrying the control the first
+lacked.** Besides the argv above, the session registry's `lastActivityAt` for `開機手冊` and the
+mtime of `46992009-….jsonl` agree to **79 ms**, while every other live session matches its own
+transcript and none cross-matches:
+
+| session | registry lastActivityAt | transcript mtime | Δ |
+|---|---|---|---|
+| **`開機手冊`** | 23:55:41.791 | `46992009-…` 23:55:41.870 | **79 ms** |
+| `bmv2 論文審查` | 23:57:36.682 | `034fd7dd-…` 23:57:36.782 | 100 ms |
+| `遠端機器測試` | 23:52:23.925 | `103a1748-…` 23:52:20.767 | 3.2 s |
+
+Two chains rather than one **because the first attribution was wrong and was one step away from
+being relayed to a third party.**
 
 A `rev` reading **one line of text** was in state `R` with elapsed 14:15 and CPU time 14:15 — 100%
 spinning, not blocked. Stopped with `kill <PID>` (by pid, never `pkill -f`), one signal. Leg 1
 restarted 23:26:01; the failed transcript is kept as
 `run_e.leg1.attempt1-foreign-load.stdout.log`.
+
+⚠️ **The hang was deliberately not reproduced.** Reproducing it means spinning a core for another
+14 minutes inside the exclusive window that runs to 09:37 — **the cost of establishing why is
+exactly the thing the window exists to prevent.** It stays recorded as observed-once /
+not-reproduced, and the replacement idiom (`sed -E 's/.*(.{140})$/\1/'`) is recommended on cost
+asymmetry, not on a proven mechanism. Characterising it belongs after the window closes, or on a
+machine that is not under claim.
+
+⚠️ **Third instance this round of the F-3a / F-10 shape: the answer came out right and the stated
+justification had no discriminating power.** Nothing about "67 mentions" would have read differently
+had any of the other three lines been the culprit. What discriminates is a *candidate-unique*
+signature carrying a control — `遠端機器測試` supplied one: a phrase sent only to `開機手冊` appears
+**2** times in `46992009`, a phrase sent only to the auditor appears **0**. Without the second half,
+the first is just "it occurs".
+
+🔑 **A transcript grep cannot separate an executed command from quoted command text.** Checking
+their own side, `遠端機器測試` got three `rev` hits — **all three were the commands they had just
+run to investigate this**, whose text contains `'| rev'`. The instrument wrote its own actions into
+the population it was measuring; only parsing the `tool_use` records tells the two apart.
+(`instrument-must-not-mimic-its-own-finding`)
 
 🔑 **This is F-9a's asymmetry paying out within eight minutes of being written down.** Two foreign
 loads tonight, both ~1 core, on a machine under an exclusive-CPU claim:
