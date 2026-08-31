@@ -7,6 +7,17 @@
 實測天花板，並退役 §F 舊的無出處數字；
 ② **§D 的 F-17 標記為「前提已被推翻、待重裁」**（更正全文在 §C 表下）。
 
+**2026-08-30 對帳（基準 `1208d22`）**：一次**只修衰減、不重排**的普查對帳。
+每一條的碼都重新 grep 過，狀態行標了日期與 commit。改動集中在四處：
+① **B-2 拆成兩半** —— 隱式代入 `routing_lock` 那一族已修（`4ee086f`＋`87d272f`），
+**過期續約與無 owner 兩條原始問題都沒修**，所以拆而不關；
+② **B-3 的回覆形狀已變**（`aabe605`，08-20 就修了、清單漏標十天），但**寫入零筆照舊**，
+且**兩個分支都回 200 `success`**，看狀態碼的呼叫端仍然分不出來；
+③ **§C／§D 的 `F-4` 加了消歧註** —— 08-18 那個目錄裡有**兩套各自編號的 F-n**，
+本週 R-5 說「F-4 已修」指的**不是**這裡這一條；
+④ **§G 新增 T-4 輪的儀器缺陷區塊**（FINDING-01…05）。
+🔴 **本輪沒有跑任何東西**（量測窗開著），所有判斷都是讀碼；標「實測」的一律是引用他人已跑的結果。
+
 🔴 **引用本文件任何舊條目前務必重查現況** —— 實測衰減**不均勻**（見文末〈完整性邊界〉：
 agy Tier 1 六條全修、Tier 2 十三條還在十一條）。**清單上寫著的不等於今天還在。**
 
@@ -61,7 +72,17 @@ Adam 2026-08-29 裁定**延後**，理由是當時三個 session 在同一個 wo
 
 ### A-2 🔴 topology poll 可以永久阻塞，而且沒有任何東西會發現
 
-- **狀態**：OPEN
+- **狀態**：OPEN。**2026-08-30 讀碼重驗（`1208d22`）：機制與行號都照舊**，
+  `include/utils/Utils.hpp:543-568` 仍是裸 `popen()`、無 timeout，
+  `pollControlPlaneTopology` 的三個 curl（`TopologyAndFlowMonitor.cpp:472/485/498`）
+  仍然沒有 `--max-time`。
+  ⚠️ **但範圍要收窄：這三個現在是 kernel 裡僅存的無界 curl。**
+  其餘南向呼叫都已經加上界限——`HttpRoutingStrategyBase.cpp:82`（`--max-time`）、
+  `FlowLinkUsageCollector.cpp:2496`（`--connect-timeout 2 --max-time 10`）、
+  `DeviceConfigurationAndPowerManager.cpp:820/835/848`（8s/3s/8s）、
+  `P4PowerStrategy.cpp:82`（`--max-time 30`），且
+  `DeviceConfigurationAndPowerManager.cpp:846-847` 的註解自己寫著「這是本檔最後一個裸 `curl -s`」。
+  ⇒ **「shell-out 沒有逾時」已經不是全域性質，是這一條路徑的殘留。**
 - **平面**：OVS（機制在 kernel，P4 走不同路徑）
 - **失效方向**：悲觀 ＋ 靜默（**零 log**）
 - **會發生什麼**：twin 顯示**全部 40 條 link down、10 台交換機 `enabled=false`**，
@@ -230,8 +251,15 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **會發生什麼**：`install_flow_entry` 然後 `delete_flow_entry` 同一條 → **目的地完全不通**。
   實測 tx 計數器：裝上後 100% 流量移到新埠，刪掉後 **0 MB、ping 100% 遺失**
 - **機制**：`ipv4_lpm` **每個 prefix 只有一筆**，所以 install **覆寫**了控制面的路由，
-  delete 又把它撤掉——原本的路由沒有回來。proxy 自己的註解（`api_routes.py:190-204`）
+  delete 又把它撤掉——原本的路由沒有回來。proxy 自己的註解
   講了「每個 prefix 一筆」這個前提，**但漏了這個後果**
+- 📌 **行號更正（2026-08-30，`1208d22`）**：原文引的 `api_routes.py:190-204`
+  **現在指向不相干的碼**（`_flowentry_body` 的 JSON 解碼守衛）。
+  那段前提註解已移到 **`api_routes.py:253-255`**；delete 路徑在
+  `topology_manager.py:813-821`（刪完 `pop` 掉紀錄就結束，**沒有任何還原邏輯**），
+  而 `topology_manager.py:683-685` 的 docstring 現在明寫了
+  「OVS 是 priority 100 疊在 10 上、這裡是取代該目的地唯一的一筆」——**前提寫得更清楚了，後果仍然沒寫**。
+  ⇒ **機制與結論不變，只有引用位置要換。**
 - **🔑 為什麼排在 A 節**：**一個會自己清理的 app 就會觸發它。** TE app 遷移完流量後刪掉
   自己的規則是完全正常的行為
 - **證據**：實測雙平面對照，`scratch/round6/FINDINGS-round6.md`
@@ -307,11 +335,24 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   沒有任何 API 表面暴露那個失敗
 - **與 B-1 的關係**：B-1 是「拒絕沒被記錄」，這條是「失敗被記錄了但沒有 API 讀得到」——
   同一個斷鏈的兩端
+- ⚠️ **2026-08-30 讀碼重驗：多了一個計數器，但斷鏈沒有接上（狀態不變）。**
+  `aabe605` 為 `FlowDispatcher` 在 `stop()` 之後被丟掉的 job 加了計數與一次性警告
+  （`include/ndt_core/routing_management/FlowDispatcher.hpp:116` 的 `droppedAfterStop()`、
+  `:135` 的 `droppedAfterStop_`）。**但 `droppedAfterStop()` 在 `src/ndt_core/http/` 底下零個呼叫端**
+  ——證據存在於行程記憶體裡，**仍然沒有任何 API 表面讀得到它**。
+  ⇒ 本條的宣稱逐字照舊成立；這是 [[existence-is-not-wiring]] 的形狀，
+  **「加了計數器」不等於「暴露了失敗」**。
+  ⚠️ 另註：`aabe605` 補的是 **stop() 之後丟棄**那一種，本條原本引的
+  `dispatched install failed` 是**另一種**失敗，兩者不要混為一談。
 - **證據**：`scratch/phase2/DEFECT-INVENTORY.md`
 
 ### A-8 三個測試工具在系統正確運作時變紅
 
-- **狀態**：OPEN
+- **狀態**：OPEN。**2026-08-30 實跑重驗仍然成立**（T-4 輪 R-5，kernel `89c1754`）：
+  契約套件對著一座 Energy-App **正確**降級過的網路，報了 8 行 `switch(es) not up` ＋ 1 行 `BROKEN`，
+  而那 20 條 down 的邊每一條都連著一台已關機的交換機——**孿生的帳是對的，抱怨的是套件**。
+  正本 `doc/audit/2026-08-30_live-full-stack-round/R5-result-both-arms.md`（該檔的 **F-2** 列）。
+  ⚠️ **那份檔案裡的 `F-2` 就是本條**；不要跟 §C 表的 `F-2`（不存在）或 subagent 那套編號混用，見 §C 表下的消歧註
 - **平面**：兩者
 - **失效方向**：悲觀
 - **會發生什麼**：Energy-Saving-App **正確地**關掉一台交換機時，L2 契約測試、L3 契約測試、
@@ -325,7 +366,23 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-1 被交換機拒絕的規則，twin 當成存在的來服務（幽靈規則）
 
-- **狀態**：OPEN（2026-08-18 裁定報告前不修）
+- **狀態**：OPEN（2026-08-18 裁定報告前不修）。
+  **2026-08-30 實跑重驗：兩個平面都仍然發作，而且機制第一次被指認出來**
+  （T-4 輪 R-5／FINDING-03，文件 commit `2bfb958`，kernel `89c1754`）。
+  **機制**：kernel 的**流表視圖**把一個**已排隊但尚未編程**的請求當成流表列服務出去，
+  剝掉了真實流表列會帶的每一個統計欄位。
+  指紋有鑑別力且兩平面一致：該筆只有 4 個欄位（其餘 41 筆有 13 個）、
+  `actions` 是**物件**（`{"port":999,"type":"OUTPUT"}`）而不是字串（`"OUTPUT:3"`）、
+  match 用的是**請求自己的詞彙**（`eth_type`/`ipv4_dst`）而不是 OpenFlow 的（`dl_type`/`nw_dst`）。
+  ⇒ **回音在 kernel 的表格視圖，不在任一資料面的寫入路徑。**
+  🔑 **API 本身是誠實的**：它回 `{"status":"queued","accepted":1,...}` 並且真的只是排隊了；
+  **過度宣稱的是表格視圖**。
+  ⚠️ **不要用它解釋本條原本記的 7.2–8.2 秒**：FINDING-03 量到的窗口在 t=2（P4）／t=3（OVS）就沒了，
+  該檔**明文不宣稱**這和 08-18 量到的 ~8 秒是同一個現象（「同一個指紋，與舊時長的關係未知」）。
+  ⚠️ **08-18 說「P4 上這個窗口不存在」是錯的**，原因是取樣格的**第一格就在 t=2**、已經在事件之後；
+  **這不是資料錯，是格子沒對準**。
+  📌 修法已開工單 **T-11**（`doc/2026-08-30_manual-verification-report.md:96`，狀態＝已開、修法待裁）；
+  **T-11 這個編號不在 FINDING-03 檔內**，引用時要引工單表那一行
 - **平面**：**兩者**，但誠實程度不同
 - **失效方向**：樂觀 ＋ **OVS 上完全靜默**
 - **四個格子**（實測，2026-08-19）：
@@ -350,7 +407,11 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-2 鎖在兩種平常情況下不提供互斥
 
-- **狀態**：OPEN
+- **狀態**：**OPEN，兩條原始問題一條都沒修**（2026-08-30 讀碼重驗，`1208d22`）。
+  🔴 **本條在 08-30 被拆過一次**：這一週動到鎖端點的兩顆 commit
+  （`4ee086f`＋`87d272f`）修的是**第三族**問題——「請求沒指名鎖，卻被代入 `routing_lock`」，
+  那一族已收在 **B-2d**。**它們沒有碰下面這兩條。**
+  ⚠️ **所以看到「acquire_lock 三個缺陷已修」不要順手把本條關掉**，兩件事只是共用同一個端點。
 - **平面**：兩者（純 kernel）
 - **失效方向**：靜默（兩邊都回 200）
 - **兩個獨立問題**：
@@ -359,13 +420,55 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
      或 `acquireLock()` 會清掉，**過期不會清**。
      實測的有鑑別力變體：一個**什麼都沒持有**的 client 把**別人的**鎖從 3 秒延長到 120 秒，
      並把第三方鎖在門外。
+     ✅ **2026-08-30 逐行重驗仍然成立**：`include/ndt_core/lock_management/LockManager.hpp:256-271`
+     的 `renew()` 判斷式逐字是
+     `if (m_locks.find(type) == m_locks.end() || !m_locks[type].isLocked)`——**沒有任何時間比較**。
+     🔑 **對照組就在同一個檔案裡**：`acquireLock()`（`:210`）寫的是
+     `if (state.isLocked && now < state.expiryTime)`，**它比了**。
+     ⇒ **這不是「整個類別都沒有到期概念」，是 renew 這一支漏掉**，所以修法很窄。
   2. **任何人可以釋放任何人的鎖**。`LockState` **沒有 owner 欄位**，`unlock()` 為呼叫者清鎖。
      真正的持有者只會從下一次失敗的 renew 得知自己被踢出臨界區。
+     ✅ **2026-08-30 逐行重驗仍然成立**：`LockManager.hpp:18-21` 的 `LockState`
+     只有 `isLocked` 與 `expiryTime` **兩個欄位**，仍然沒有 owner／token；
+     `unlock()`（`:236-251`）只認鎖的**名字**，不認**誰**在呼叫。
+     ⚠️ `unlock()` 這一週確實改過（`1145372` 讓它回 bool、釋放沒人持有的鎖改回 412），
+     **但那是「有沒有被持有」，不是「被誰持有」**——**擁有權的洞原封不動**。
 - **實際影響**：Energy-App 與 TE-App 都取同一把 `routing_lock`，各自 6 次/分鐘。
   任何超過 TTL 的持有都開啟「兩個 app 都以為自己擁有網路」的窗口
 - **⚠️ 更大的脈絡**：這條擋住了整個併發控制的路——見 memory
   `ndtwin-cannot-do-either-concurrency-control`
 - **證據**：實測，`scratch/phase2/FINDINGS.md` E3/E4；round-2 的 F-11 是同一族
+
+### B-2d 三個鎖端點會把「沒指名鎖」的請求代入 `routing_lock` —— 從 B-2 拆出
+
+- **狀態**：🟢 **RESOLVED（2026-08-30，`4ee086f`＋`87d272f`）。** 2026-08-30 讀碼確認。
+  **本條是 08-30 對帳時從 B-2 拆出來的**：它與 B-2 共用端點但**是不同的缺陷**，
+  而且**只有它被修了**——把它跟 B-2 綁在同一條裡，會讓 B-2 看起來像是修好了。
+- **平面**：兩者（純 kernel）
+- **失效方向**（當時）：靜默 ＋ **主動誤導**（回覆裡指名一把呼叫端從沒提過的鎖）
+- **曾經發生什麼**：`/ndt/acquire_lock`、`/ndt/renew_lock`、`/ndt/release_lock` 三個端點各自
+  在行內解析、**先把預設值指派好**，再用 `catch (...)` 吞掉解析錯誤往下走。於是
+  **①body 不是 JSON、②JSON 裡沒有 `type`、③`type` 指名一把不存在的鎖**，
+  三種完全不同的情況**全部落到 `routing_lock`**——那正是序列化真實交換機寫入的那把鎖。
+  🔑 **最傷的不是亂碼那一種**：一個持有 `power_lock` 的 app 不帶 body 送 renew，
+  **延長的是別人的 routing 租約**，自己被回 200 `"renewed"`，
+  而它自己的租約**一秒沒有被延到**。release 同理，**兩把鎖同時錯、任何地方都沒有錯誤訊息**。
+- **修法**：抽出**單一**解析接縫 `LockManager::parseRequest`
+  （`include/ndt_core/lock_management/LockManager.hpp:102-147`）＋
+  單一訊息表 `describeError`（`:162-184`），三個端點共用
+  （`src/ndt_core/http/HttpSession.cpp:1924`／`:1978`／`:2038`）。
+  **什麼都不再預設**：`type` 沒指名就是 400、**而且不碰任何鎖**；
+  `ttl` 仍然有預設，理由寫在碼裡——**它是時長不是標的，弄錯不會讓請求作用到別的東西上**。
+  狀態碼也分開了：**request 錯 = 400**（acquire 舊碼回 423、renew/release 回 412），
+  **狀態錯才是 423／412**——「你該重試」與「你的請求是錯的」不再共用一個碼。
+- 🔑 **修法自己做了呼叫端普查才拿掉 fallback**：三個 release 呼叫端
+  （`Energy-Saving-App/src/app/http.cpp:461`、`Traffic-engineering-App.py:85`、
+  chaos harness `probes.py:206`）與契約測試**全都明送 `type`**
+  ⇒ **那個「文件說 body 可選」的預設，沒有任何使用者**。
+- ⚠️ **本條 RESOLVED 不擴及 B-2 的兩條**（過期續約、無 owner）——見 B-2 的狀態行
+- **證據**：讀碼（2026-08-30，基準 `1208d22`），**本輪未實跑**；
+  修法 commit 訊息記載 08-29 曾以狀態判準實跑驗過 acquire 那一支
+  （`"{this is not json` 回 `{"status":"locked","type":"routing_lock"}`、第二個 client 隨即取不到鎖）
 
 ### B-2b 🔴 一個單引號讓 kernel 指控一個健康的元件 —— 而且訊息與真實故障無法區分
 
@@ -409,6 +512,18 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 ⇒ **能連到 port 8000 的人，可以用 kernel 的身分執行命令。** 共 **14 個南向 curl 呼叫點**共用這個構造；
 `SimulationRequestManager.cpp:118-125` 是第二個已確認的入口，其註解同樣自承。
 
+⚠️ **「14」這個數字重數不出來（2026-08-30，`1208d22`）—— 結論不動，但引用前要知道。**
+本輪逐一追執行器重數，得到 **11 個**走 `utils::execCommand` 的 curl 構造點：
+`TopologyAndFlowMonitor.cpp:472/485/498`、`HttpRoutingStrategyBase.cpp:82`、
+`SimulationRequestManager.cpp:124` 與 `:150`、`FlowLinkUsageCollector.cpp:2496`、
+`DeviceConfigurationAndPowerManager.cpp:222/820/835/848`。
+第 12 個（`P4PowerStrategy.cpp:82`）走的是 `executeSystemCommand`（`std::system`）**不是** `execCommand`
+——**同樣經過 `/bin/sh -c`，所以暴露面相同，但不屬於這個計數**。
+**原文那個 14 是用什麼母體數的，本輪查不出來**（一個可能是 `HttpRoutingStrategyBase.cpp:82`
+被展開成它服務的 10 個 `post()` 動詞，那樣會得到 20，也不是 14；**這是推測不是結論**）。
+🔑 **這不影響本條的任何判斷**：漏洞成立與否取決於**構造存在**，不取決於它有幾份；
+**「不要在單一呼叫點加跳脫」的修法規則照舊**，只是那句話涵蓋的是 11（＋1）個地方而不是 14 個。
+
 ⚠️ **`validateRequestBody()` 只檢查形狀，不是修補**——`SimulationRequestManager.cpp:115-121` 的註解
 明文這樣寫，這裡重述是因為「有驗證函式」很容易被讀成「有防護」。
 
@@ -420,7 +535,8 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 ⇒ **凡是分析「這個壞掉的輸入會怎樣」的條目，都要再問一遍「有人故意送這個輸入會怎樣」。**
 
 **修法不變、優先級改變**：仍然是「一次做完、所有呼叫點、改用 argv 執行器」（見上面兩處註解，
-它們都明說不要零星修補）。**不要在單一呼叫點加跳脫**——那會讓其餘 13 個看起來已經被處理過。
+它們都明說不要零星修補）。**不要在單一呼叫點加跳脫**——那會讓其餘的看起來已經被處理過
+（原文寫「13 個」，依上面的重數應為 10 個＋走 `std::system` 的那 1 個）。
 
 📌 **本增補由 DeepSeek 在設計 chaos harness 的行動面時獨立指出**，審查員逐項複驗：
 四個環節全部親自看過原始碼確認。**它找到的不是新缺陷，是一個既有條目沒有寫完的那一半。**
@@ -428,23 +544,49 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-2c P4 proxy 對 CIDR 形式的 `ipv4_dst` 回 500（未處理的 `OSError`）
 
-- **狀態**：OPEN。**round 4 新發現**
+- **狀態**：OPEN。**round 4 新發現**。**2026-08-30 讀碼重驗仍然成立**（`1208d22`）
 - **平面**：P4
 - **失效方向**：吵（500），但錯誤沒有說明原因
 - **機制**：`route_flow` 寫死 `/32`，然後把呼叫者給的值直接丟進 `inet_aton`——
   值本身若已是 CIDR 形式（`10.0.0.5/32`）就丟出未捕捉的 `OSError`
+- 📌 **現行位置（本輪補上，原文沒有給行號）**：寫死 `/32` 在
+  `p4_proxy/proxy_agent/topology_manager.py:767`，值從 `:717` 的
+  `match_dict.get("nw_dst") or match_dict.get("ipv4_dst")` 原樣傳進來；
+  `inet_aton` 在 `p4_proxy/proxy_agent/p4_client.py:819`，**且落在 `try:` 之外**
+  （該 `try` 從 `:836` 才開始、只捕 `grpc.RpcError`）。delete 路徑同形（`p4_client.py:899`）。
+  上游沒有任何一層會轉譯它：`api_routes.py:229-235` 只捕 `UnsupportedMatchError`、
+  `_flowentry_body`（`:186-198`）只捕 `ValueError`，而
+  `unsupported_match_fields` 驗的是**欄位名不是值**
 - **把 kernel 排除在外也能重現**（直接打 proxy）
 - **證據**：實測，`scratch/round4/FINDINGS-round4.md` 實驗 2 附帶發現
 
 ### B-3 historical logging 回 200「已啟用」，但一列都不會寫
 
-- **狀態**：OPEN
+- **狀態**：**OPEN，但回覆已經會講實話了——本條的措辭在 08-20 就過期，清單漏標十天。**
+  🟢 **揭露部分 RESOLVED（2026-08-20，`aabe605`）**，2026-08-30 讀碼確認並更正本條目
+  （T-4 輪 R-1 實跑觀察到現行形狀）。
+  🔴 **沒有 RESOLVED 的是本體**：MININET 下**仍然一列都不會寫**，
+  修的是「回覆不再謊稱有在錄」，不是「開始錄」。
 - **平面**：兩者
-- **失效方向**：靜默
-- **會發生什麼**：`POST /ndt/historical_logging?state=enable` 回
-  200 "Historical data logging has been enabled."，然後**零筆寫入**，
+- **失效方向**：靜默 → **現在是「誠實但仍不可由狀態碼分辨」**（見下）
+- **會發生什麼（現行，`1208d22`）**：`POST /ndt/historical_logging?state=enable` 回
+  **200**，body 是
+  `{"status":"success","recording":false,"message":"Historical data logging is enabled, but this deployment does not record: the recorder is only started outside MININET mode, so no rows will be written."}`
+  （`src/ndt_core/http/HttpSession.cpp:1801-1810`，判準是
+  `include/ndt_core/data_management/HistoricalDataManager.hpp:107` 的
+  `canRecord() { return m_mode != utils::DeploymentMode::MININET; }`）。
+  **零筆寫入這件事沒有變**，變的是它現在會說出來。
+- 🔴 **新的殘留缺陷，比舊的窄但沒有消失**：**兩個分支都回 200 且都是 `"status":"success"`**
+  （`HttpSession.cpp:1804` 與 `:1813`），**只有 `recording` 與 `message` 兩個欄位不同**。
+  ⇒ **看狀態碼的呼叫端、或看 `status` 欄位的呼叫端，仍然分不出
+  「已經在錄」與「這個部署根本錄不了」**——而**後者是本專案每一次實跑都會走到的那一支**。
+  ⚠️ **而且這個端點在 Developer Manual 上沒有任何條目**（41 條 route 裡 12 條無文件之一）
+  ⇒ **呼叫端兩邊都拿不到訊號：wire 上分不出來，手冊裡查不到**。
+  正本 `doc/audit/2026-08-30_live-full-stack-round/FINDINGS-T6-developer-manual-api-page.md`
+  （補文件已開工單 **T-13**）
+- **曾經發生什麼（修法前）**：回 200 "Historical data logging has been enabled."，然後**零筆寫入**，
   kernel log 裡**從來沒有** `HistoricalDataManager started.`
-- **機制**：`HistoricalDataManager::start()` 在 MININET 模式直接 return，
+- **機制（本體，未修）**：`HistoricalDataManager::start()` 在 MININET 模式直接 return，
   而 `writeSnapshot` 只從 `run()` 呼叫——那條執行緒從沒啟動。REST 端點只翻旗標。
   `stack.sh` 永遠用 `--mode mininet` 啟動 kernel。
   ```cpp
@@ -455,12 +597,21 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   ```
   ⚠️ 註解只描述了條件的**前半**。「MININET 模式下這個元件根本不啟動」這件事
   在原始碼裡沒有任何一個字說明，讀的人會以為早退只是因為重複呼叫。
+  📌 **這半句已經不成立了**：`HttpSession.cpp:1794-1800` 現在把整件事寫在 handler 的註解裡，
+  並且說明**為什麼仍然回 200**——「旗標真的設了，需要被講出來的是後果」。
+  **早退本身沒改**，改的是有沒有人把它寫下來。
 - **實測排除了替代解釋**：不是「輸出目錄不可寫」——**根本沒有嘗試寫入**
-- **證據**：實測，`scratch/phase2/FINDINGS.md` E5
+- **證據**：修法前實測，`scratch/phase2/FINDINGS.md` E5；
+  現行形狀＝2026-08-30 讀碼（`1208d22`）＋ T-4 輪 R-1 的實跑觀察。
+  ⚠️ **R-1 這一輪自己判定為 UNTESTABLE**（`PRE-ROUND-R1-determination.md`：
+  七個 repo 掃過，**沒有任何消費端呼叫這個端點**，所以「沒有人壞掉」不能當成「修法安全」的證據）
 
 ### B-4 模擬案例：任一欄位含單引號 → 回 202 但請求從沒送出
 
-- **狀態**：OPEN（程式碼註解已自承）
+- **狀態**：OPEN（程式碼註解已自承）。**2026-08-30 讀碼重驗仍然成立**（`1208d22`）：
+  內插逐字在 `SimulationRequestManager.cpp:124-125`，
+  **同一個檔案裡還有第二處同形的**（`:150-151`），
+  而 `:118-122` 的註解仍然寫著「不要在這裡零星加消毒」
 - **平面**：兩者
 - **失效方向**：靜默
 - **會發生什麼**：`received_a_simulation_case` 的欄位含 `'` → API 回
@@ -507,6 +658,16 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   這條是**母體**——速率全部正確歸零，那 92% 仍然會被列出來。
 - ✅ **修法契約相容**：`Obj` 的 `strict` 預設 False（`tools/contract_test/schema.py:129-138`），
   新增一個存活性欄位不會讓契約測試變紅，不必先改契約。
+- **2026-08-30 讀碼重驗（`1208d22`）：整條照舊，沒有一項被修掉。**
+  `FLOW_IDLE_TIMEOUT 15000` 仍在 `include/ndt_core/collection/FlowLinkUsageCollector.hpp:35`；
+  `getFlowInfoJson` 仍然無條件走訪整張表（迴圈 `:2296-2326`，**沒有任何 predicate**）；
+  `getTopKFlowInfoJson` 仍是 `min(k, size)` 不過濾（`:2347`）；預設 `k = 50` 仍在
+  `HttpSession.cpp:589`。
+  🔴 **最重要的一項也照舊：回傳的紀錄裡仍然沒有任何存活性欄位**
+  （`:2298-2323` 建出來的欄位是 src/dst ip、port、protocol、四個速率、
+  `first_sampled_time`、`latest_sampled_time`、`path`）——
+  `latest_sampled_time` 是**唯一**的間接線索，而它是**格式化過的字串不是旗標**。
+  📌 行號小幅漂移：原文的 `:2291-2327` 現在是 **`:2290-2329`**（函式體）。
 
 ### B-x 的排序後果——**一個被提出的加乘效應，實測不成立**
 
@@ -539,6 +700,33 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 這些是 2026-08-18 那輪 subagent 找到的 18 條中仍然開著的部分。**都需要注入故障或特定條件**，
 所以不會在示範中自己發作，但它們決定了「twin 說的話能不能信」。
 
+> ### 🔴 引用 `F-n` 之前先確認是哪一套編號（2026-08-30 消歧）
+>
+> **`doc/audit/2026-08-18_live-full-stack-round/` 這個目錄裡有兩套各自從 F-1 編起的發現，
+> 而且它們在 F-1…F-6 全面撞號。** 本表用的是**其中一套**：
+>
+> | 檔案 | 誰寫的 | 本文件哪裡用它 |
+> |---|---|---|
+> | `subagent-round2-FINDINGS.md`（18 條） | subagent | **本表（§C）全部**、§D 的 `F-4` |
+> | `live-findings-2026-08-18-ovs.md`（F-1…F-7） | 審查員自己 | **A-8**（該檔的 `F-2`）、**B-1**／§D 的 `F-5`（該檔的 `F-5`） |
+>
+> **撞號實例，看一眼就知道為什麼要寫這一段**：
+>
+> | 編號 | subagent 那套（＝本表） | 審查員那套 |
+> |---|---|---|
+> | `F-1` | cpu/mem 回傳位元組相同 | punt 規則被誤診成缺失的拓撲鏈路 |
+> | `F-2` | 單向鏈路故障誤報反向 | 契約套件與 Energy-App 不能共存（＝**A-8**） |
+> | `F-3` | `ecmp_groups` 是靜態檔案虛構 | 契約 schema 與文件的 `-1` 哨兵牴觸 |
+> | `F-4` | **死鏈路被復活成 `is_up=true`（＝本表這一列）** | **`04b8933` 留下的過期註解** |
+> | `F-5` | 無控制器的交換機仍報 `is_up: true` | **幽靈規則（＝B-1）** |
+>
+> 🔴 **2026-08-30 這一週的 R-5 重驗跑的是「審查員那套」**，它的結論是
+> **`F-3` FIXED、`F-4` FIXED、`F-2` STILL PRESENT、`F-5` STILL PRESENT**。
+> ⇒ **那兩個 FIXED 與本表這一列的 `F-4` 無關**，也不對應本文件的任何條目
+> （兩者都是 `tools/contract_test/spec.py` 的契約測試問題，**從來沒有被收進本清單**）。
+> **本表的 `F-4` 本輪沒有被重驗，維持 OPEN。**
+> ⚠️ **這正是最容易把一條還開著的缺陷誤標成已修的路徑**：兩套編號、同一個目錄、同一週的報告。
+
 | # | 缺陷 | 平面 | 方向 |
 |---|---|---|---|
 | **F-4** | 死掉的交換機間鏈路**每次 poll 都被復活成 `is_up=true`**——`updateHosts` 只憑 IP 相符就把邊標 up，而交換機自己的管理 IP 被 Ryu 當成 host 學到 | OVS | 樂觀 |
@@ -547,10 +735,10 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 | **F-16** | 交換機死掉時**只有交換機間的邊被標 down**，它面向 host 的邊維持 up，所以被孤立的 host 看起來還連著 | 兩者 | 樂觀 |
 | **F-8** | `left_link_bandwidth_bps` 在第一次取樣前**寫死 1 Gbit/s**，所以每條 10 Gbit/s 核心鏈路只宣告十分之一的餘裕。🔑 **與「容量夾制」同根**：`link_bandwidth` 這個**模型宣告值**滲進量測欄位的**第二種方式**——F-8 拿它當**初始值**，夾制拿它當**上限**（見 `doc/audit/2026-08-27_capacity-clamp/FINDING.md`）。**兩條並列不合併**：F-8 是暫態、會被真資料取代；夾制是持久、且只在超載時觸發 | 兩者 | 樂觀 |
 | **F-1** | `get_cpu_utilization` 與 `get_memory_utilization` **回傳位元組完全相同的內容**——同一個 `10 + hash(ip) % 50` 運算式；三個裝置健康指標都是交換機 IP 的常數函數 | 兩者 | 合成 |
-| **F-13** | 對**不存在的** group / meter 做 modify/delete 回 200 "modified"/"deleted" 且什麼都沒改。6 個端點零契約覆蓋 | OVS | 靜默 |
+| **F-13** | 對**不存在的** group / meter 做 modify/delete 回 200 "modified"/"deleted" 且什麼都沒改。6 個端點零契約覆蓋。⚠️ **08-30 更正機制、結論不變**：那個 200 現在是**從 Ryu 轉述**的，不是 kernel 自己捏的——kernel 已改成傳遞真實結果（`HttpSession.cpp:804-805` 的 `respondToOpResult`，`7856efc`），但**整條路徑上沒有任何存在性檢查**，請求原樣轉給 Ryu（`HttpRoutingStrategyBase.cpp:219-220`），而 Ryu 對不存在的 group 回 200 空 body，`post()` 只在非 2xx 或 body 內含 `{"status":"error"}` 時才判失敗（`:104`／`:118-125`）。⇒ **使用者看到的行為一模一樣**；`7856efc` 早於 08-18 的量測，所以當時量到的就是現在這個機制 | OVS | 靜默 |
 | **F-6** | 讀取流表失敗的交換機**被從 `get_switch_openflow_table_entries` 刪除**，而四處程式碼註解承諾「保留前一份表格」 | 兩者 | 靜默 |
 | **F-9** | 鏈路使用量量化到取樣粒度（1/256 × frame length × 8），所以低於約 3 Mbit/s 的鏈路**讀成一個量子的整數倍**（⚠️ 原文寫「讀成 0 或一個量子」，**「讀成 0」那半未被觀察到**，見下） | OVS | 解析度限制 |
-| **F-15** | bmv2 gRPC port 配在 kernel 的 ephemeral range 內，所以交換機**隨機開不起來**，而錯誤訊息指向錯的原因 | P4 | 環境 |
+| **F-15** | bmv2 gRPC port 配在 kernel 的 ephemeral range 內，所以交換機**隨機開不起來**，而錯誤訊息指向錯的原因。⚠️ **08-30 重驗：分兩半，只有一半還在**。配置缺陷照舊（`p4_proxy/mininet/p4_testbed_topo.py:365` 的 `grpc_port=50050+i` ⇒ 50051–50060，落在預設 `32768-60999` 內）；但**「訊息指向錯的原因」已部分緩解**——`failure_reason()`（`:308-338`）現在會讀 bmv2 自己的 log，並在 `:331-332` 回報「gRPC port {} 已被占用，多半是前一輪殘留的 `simple_switch_grpc`」。**log 還在的時候診斷是對的** | P4 | 環境 |
 
 > ### 🔴 F-17 的兩次更正，方向相反 —— 兩次都要讀完再引用
 >
@@ -624,8 +812,8 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 |---|---|---|
 | **A-1 / A-2 / A-3** | 報告前不改碼，改用操作繞過 | 產品碼在報告前凍結（Adam 裁定）。A-1 的修法要碰 `powerOn` 的冪等語意，那個早退是**故意**的；報告前改錯比 bug 本身更糟 |
 | **5-tuple 下發** | 報告後再修 | **不是缺陷，是排序**。P4 pipeline **有** `flow_5tuple` ternary 表且已接進 pipeline 排在 LPM 之前；proxy 的 `route_flow` 沒接；**而 TE app 自己也只送 `ipv4_dst`**（`# TODO: Change to match 5-tuple in HPE`）。三層一致，沒有消費端今天需要它。目前的 400 是**修法**——它取代了「接受 5-tuple 但實際裝成整個目的地的規則、priority 讀回 0」的靜默降級。詳見 memory `single-flow-precision-gap` |
-| **F-5（幽靈規則）** | 2026-08-18 不修 | 30 分鐘真實負載下 **0 次自然發作**（177 取樣、期間 37 次寫入、5 次電源變動、15 輪 TE 遷移）。量測靈敏度約 80%/次，所以是「發作率低」不是「零」 |
-| **F-4** | 2026-08-18 不修 | 機制讀碼確認，但報告裡「permanent and built in」那句被實跑推翻——我那輪 0 次，subagent 那輪 18 次（在它切斷 s10 controller 之後）。**觸發條件比原報告說的窄** |
+| **F-5（幽靈規則）**<br>（＝審查員那套編號，本文件的 **B-1**） | 2026-08-18 不修。🔴 **2026-08-30：裁定的證據基礎鬆動，待重裁** | 原理由：30 分鐘真實負載下 **0 次自然發作**（177 取樣、期間 37 次寫入、5 次電源變動、15 輪 TE 遷移）。量測靈敏度約 80%/次，所以是「發作率低」不是「零」。<br>🔴 **2026-08-30 的問題：那 177 個取樣是 10 秒一格**（`measure_f5_frequency.sh` 的 `INTERVAL="${1:-10}"`，`f5_frequency.log` 檔頭逐字寫著 `interval=10s duration=30min`），**而同一週 FINDING-03 量到的窗口在 t=2（P4）／t=3（OVS）就消失了**。<br>⇒ **「靈敏度約 80%/次」是照 ~8 秒的窗口算的；若窗口其實是 2–3 秒，10 秒格的靈敏度遠低於此，「0 次」就幾乎不構成證據。**<br>⚠️ **但不要把話講死**：FINDING-03 **明文不宣稱**它量到的短窗與 08-18 的 ~8 秒是同一個現象（「同一個指紋，與舊時長的關係未知」），而且它是在**沒有流量**的網路上量的。<br>⇒ **兩種可能都還開著**：①窗口本來就短、08-18 的 8 秒另有原因；②有流量時窗口會變長。**本輪不裁，交 Adam**；要裁之前該補的是**同一格點下、有流量的重量**，不是再多取樣。<br>📌 機制已指認（FINDING-03）＋工單 **T-11** 已開，見 B-1 |
+| **F-4**<br>（＝subagent 那套編號，＝§C 表那一列） | 2026-08-18 不修 | 機制讀碼確認，但報告裡「permanent and built in」那句被實跑推翻——我那輪 0 次，subagent 那輪 18 次（在它切斷 s10 controller 之後）。**觸發條件比原報告說的窄**。<br>⚠️ **2026-08-30：本輪 R-5 報的「F-4 FIXED」不是這一條**（那是審查員那套的 F-4＝過期註解）——見 §C 表上的消歧註。**本條未重驗，裁定不變** |
 | **F-17** | **不修**。原裁定 **2026-08-18**；**2026-08-29 由 Adam 重裁，結論不變、理由整組換掉**（舊理由已死，見下） | **今天生效的三條理由**（全部出自 `doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md` 的實查）：<br>**①「零個活的消費端」** —— 七個兄弟 repo（`tools/test_workflow/components.env` 的 `*_DIR`）逐一掃過，只有 ESA 寫過 client（`src/app/http.cpp:393`）而**沒有人呼叫它**；`Traffic-Engineering-App` 會拼接 base URL，另做了一次逐端點檢查。<br>**② 修分母會讓失效方向翻面，不是消失** —— 膨脹倍率 `f ≈ 可用邊/忙碌邊`，**決策只在真值落 `(0.40/f, 0.40]` 時改變，而在那個區間裡是「現行不關機 → 修法後關機」**。8/32 忙碌 ⇒ 區間 `(0.10, 0.40]`。在 round 4 自己的工作點（0.11 vs 0.027）**兩邊都關機，修了毫無差別**。<br>**③ 修分母構不到最常被引用的那個症狀** —— 閒置時現行走 `return 0`、修法後走 `sum(0)/N`，**輸出相同**。要讓「真的閒置」與「量不到」可區分得改回傳型別 ＝ **`/ndt/` 跨 repo 契約變更**。<br>⚠️ **這不表示 F-17 不重要，兩件事要分開**：**端點讀值的缺陷照舊成立**（有負載高估 **4.0×**、閒置歸零，機制仍是「分子分母都只算非零邊」）——那是 **twin 可信度**問題，只是**它今天不驅動任何決策**。<br>⚠️ **零呼叫端不是可以改回傳的許可**：ESA 的 client 已經寫好，接一行就會用到。<br>🗄️ **舊理由存查**：08-18 原裁定的**唯一**書面理由是「失效方向保守（少關機，不會誤關）」，已被 round 4 推翻（讀值是雙向失效）；而 round 4 由此推出的「0.0 → Energy-App 關機」也不成立（接線不存在，見 §C 表下）。**這條裁定換過理由，結論才留下來。** |
 
 ---
@@ -691,6 +879,18 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
 - **`/stats/flow` wedge**（三道門全部關上）—— 核心教訓：**失敗比逾時快**，
   所以任何基於延遲的守衛對「快速失敗」結構性失明
   → memory `ryu-flow-stats-wedge`
+- 🆕 **「守衛擺在傷害已經造成之後的那條路徑上」**（2026-08-30 新增，缺陷 **P-1**，已修 `a7ab17d`）——
+  第二個 proxy 實例對著一個**已被占用**的 port 啟動時，uvicorn 會**先跑完 ASGI lifespan 再 bind**
+  ⇒ startup 已經開了 gRPC channel、推了 pipeline config、裝了轉發規則，
+  **然後才拿到 `[Errno 98] address already in use`**。
+  實測：**10 次 `Setting Forwarding Pipeline Config...`、LLDP discovery 起來、link watchdog 種好**，
+  全部發生在錯誤之前——**兩個 agent 同時寫同一座 bmv2 fabric**。
+  **修法不是加檢查，是把 bind 提前**：`claim_listen_socket()`
+  （`p4_proxy/proxy_agent/main.py:361-398`）在 `Server.run` 之前搶下 socket，
+  失敗就 `sys.exit(1)`，並且**把 socket 交給 uvicorn 而不是關掉重綁**——關掉重綁會把這個競態再開一次。
+  🔑 **要問的問題**：**這個守衛跑的時候，它要防的事情已經發生了嗎？**
+  「bind 失敗處理器」聽起來是對的地方，但在這個框架裡它**結構性地太晚**。
+  ⚠️ **本條沒有對應的舊條目**——這個缺陷從來沒有進過本清單，08-30 對帳時才補記形狀。
 
 ---
 
@@ -896,7 +1096,13 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - 🔴 **`cleanup` 不會停掉 topo 的 tmux session**。殘留的 session 讓拓撲拒絕啟動，
   而 `topo-out` 還在印**上一輪**的 pane ——驅動腳本會把屍體讀成活的。
   **正確順序：`stack.sh down` → `topo-stop` → `cleanup`。
-  `ndtwin-lab status` 才是誠實的存活檢查。**
+  `sudo ndtwin-lab status` 才是誠實的存活檢查。**
+  ⚠️ **`sudo` 這兩個字是 08-30 補上的，不是可選的**（`0b6db9e`）：
+  `tools/test_workflow/ndtwin-lab:86` 現在對**每一個動詞（含 `status`）**擋非 root 呼叫。
+  🔑 **這一改反而讓上面那句話變成真的**——在它之前，非 root 的 `status` 會走
+  `:218` 的 `$TMUX list-sessions 2>/dev/null || echo "no lab sessions"`，
+  **把 tmux 開不了 socket 的錯誤吞掉、印出一個很有自信的「no lab sessions」**。
+  ⇒ **那正是本節在講的失效形狀，而它就長在本節推薦的那個指令上。**
 - 🔴 **`pkill -f` 會匹配你自己 shell 的命令列**並殺掉它。用 `pkill -x` 或 PID。
 - 🔴 **`until ! pgrep -f 'foo'` 永遠不會結束**——`pgrep -f` 匹配迴圈自己。加 bracket：`'fo[o]'`。
 - 🔴 **裸 `sudo -n kill` 無授權，而且失敗是靜默的** → 無聲 no-op 實驗看起來像結果。
@@ -905,6 +1111,27 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   逾時後 stack.sh 會繼續前進、**在空 fabric 上啟動 proxy**。
 - **`ifconfig down` 在 bmv2 上會關掉整台交換機**，不是一條鏈路。用 `tc netem`。
 - **bmv2 行程會活過 `mn -c`** 變成孤兒佔住 gRPC port。
+
+### G-2. 整機 harness 與 `ndt` 的五個儀器缺陷（T-4 輪，2026-08-30）
+
+**正本 `doc/audit/2026-08-30_live-full-stack-round/`，每條一個 `FINDING-0n_*.md`。**
+🔑 **五條裡有四條是儀器自己的缺陷，只有一條是系統的**——
+**新工具第一次實跑，找到的幾乎都是工具自己的問題**，這一輪逐字重演了那個規律。
+
+| # | 缺陷 | 現況 |
+|---|---|---|
+| **01** | 🔴 **`ndt` 的「model matches fabric」比的是模型和模型，從來不讀 fabric** —— `$hosts` 來自 kernel graph、`$want_hosts` 來自餵給 kernel 的拓撲 JSON，**兩邊同源**。實測它在一座 **128 host** 的 fabric 上印出 `ok model matches fabric: 4 hosts` | 🟢 **已修**（`eae75da`，工單 T-8）。現在第三個量來自 fabric：`fabric_host_count()` 從 `ps` 數 host namespace（`tools/test_workflow/ndt:747-758`）。🔑 **「讀不到」判紅不判綠**——`fabric_host_count` 回 0 代表**讀數失敗**，而舊碼等於對每個值都走那一支 |
+| **02** | R-3 收斂表四個數字有三個量的是 **harness 自己的時間**；`port_holder` 看不到 root 擁有的 listener | 已開工單 **T-9／T-10** |
+| **03** | **唯一一條關於系統的**：kernel 把**排隊未編程**的請求當流表列服務出去，**兩個 fabric 都是**；08-18 之所以沒看到，是因為它的取樣格**第一格就在 t=2** | 見 **B-1**；工單 **T-11**（修法待裁） |
+| **04** | **兩條還原路徑都不還原**；`--rebuild` 把 fabric 拆掉就停住 | 已開工單 **T-10**；危險路徑已加勿執行註解 |
+| **05** | 一個註冊為 240 秒的窗口實際跑了 **474 秒**；一面**永遠亮著**的 banner | 已開工單 **T-10** |
+
+🔴 **引用這一輪任何數字之前先讀兩件事**：
+① **那一輪的網路沒有流量**（R-2 的 1800 個取樣裡 `flows` 全部是 `[]`），
+**這一個條件同時弱化了三個結果**——R-2 不可能失敗、F-1 沒有發作、F-5 的窗口沒有競爭對手。
+**下一輪最該補的是流量，不是更多取樣也不是更細的格子。**
+② **那一輪的量測窗內有十次 `agy` 執行，全部是審查員自己起的**
+（`CONTAMINATION-agy-runs-i-started-myself.md`）。
 
 ---
 
@@ -932,6 +1159,25 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   **是取樣理論的地板，不是缺陷**——`196 × √(1/c)`，已跨 430× 窗長與 10× 負載實測驗證。
   見 `doc/audit/2026-08-18_live-full-stack-round/sflow-accuracy-2026-08-18.md`。
   GUI 上看得到擺盪是真的，但那是**儀器的解析度**，修不掉。
+
+### 2026-08-30 對帳這一輪自己的邊界
+
+- **做了什麼**：§A–§G 逐條把碼重新 grep 一次，對照本週落地的修法。
+  **21 條動過**（8 條改狀態或拆分、13 條加日期註記或更正引用），**0 條刪除**。
+- 🔴 **這一輪一行都沒有跑。** 量測窗開著，所有判斷都是**讀碼**。
+  凡是標「實測」的，一律是引用**別人已經跑完**的結果（T-4 輪 R-5／R-1），不是本輪產生的。
+  ⇒ **需要實跑才能定的問題，本輪一律留在 OPEN 並標 ⚠️**，沒有一條靠推論結案。
+- ⚠️ **沒有覆蓋到的**：§A 的 A-5／A-6（log 截斷、proxy 啟動訊息）**本輪沒有重驗**；
+  §G 除了 `ndtwin-lab` 那兩條之外，其餘都是**外部工具**的行為，讀本 repo 的碼驗不了。
+- 🔴 **一個引用陷阱已在 §C 表上補了消歧註，但它的成因沒有被修掉**：
+  `doc/audit/2026-08-18_live-full-stack-round/` 裡**兩套 F-n 編號同時存在且撞號**。
+  **真正的修法是把其中一套重新編號**，那超出本輪範圍（會動到所有引用點）。
+  在那之前，**每一次引用 `F-n` 都要指名是哪一個檔案**。
+- ⚠️ **commit sha 對不上的情況會再發生**：本週幾顆修法 commit 在本文件寫下的 sha
+  （`4ee086f`／`87d272f`／`a7ab17d`）與交接訊息裡流傳的 sha
+  （`dff87f9`／`db02d45`／`e29424e`）**內容相同但 sha 不同**（rebase 造成，`git patch-id` 逐一對過）。
+  **本文件一律寫「在 `1208d22` 這條歷史上真的存在」的那顆**；
+  引用時若 `git show` 不到，先試 `git log --oneline -S <關鍵字> -- <檔案>` 再說它不存在。
 
 ## ✅ 已驗證為正確的核心行為（2026-08-19 round 6）
 
