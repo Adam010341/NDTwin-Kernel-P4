@@ -23,35 +23,69 @@ would be reading a sentence this round did not write.
 
 ---
 
-## 2. 🔴 UPDATED — `telemetry-cost-is-fixed-not-per-sample` **no longer holds at this working point**
+## 2. BOUNDED AND EXTENDED — `telemetry-cost-is-fixed-not-per-sample`
 
-§6 registered this as a property of the pre-change binary, to be re-tested here. Measured within a
-**single arm and a single leg** (`bl`, batching off, 1 kHz — the only arm spanning all eight rungs),
-from `raw/cell_cpu/*_gate.jsonl`:
+⚠️ **Read this caveat before the numbers: the round was not designed to measure this.** §6 obliges a
+re-test, and the obligation is discharged with data collected for another purpose. Every figure is a
+**lower bound** — `mine` truncates at top-10 (F-21) — with n = 3–4 per rung, cross-binary and
+cross-round, so **direction and magnitude-class only.**
 
-| rung | n | kernel cores | **proxy (python) cores** | switches |
+Measured within a **single arm and a single leg** (`bl` — the only arm spanning all eight rungs), so
+neither the batching aliasing (F-28) nor the leg confound (F-27) touches it:
+
+| rung | n | kernel cores | proxy cores | switches |
 |---|---|---|---|---|
-| 1/1024 | 4 | 0.551 | **0.064** | 1.426 |
-| 1/256 | 3 | 0.568 | **0.095** | 1.374 |
-| 1/64 | 3 | 0.665 | **0.243** | 1.519 |
-| 1/32 | 3 | 0.776 | **0.393** | 1.584 |
-| 1/16 | 3 | 0.995 | **0.694** | 1.691 |
-| 1/8 | 3 | 1.478 | **1.409** | 2.074 |
+| 1/1024 | 4 | 0.551 | 0.064 | 1.426 |
+| 1/256 | 3 | 0.568 | 0.095 | 1.374 |
+| **1/64** | 3 | **0.665** | **0.243** | 1.519 |
+| 1/32 | 3 | 0.776 | 0.393 | 1.584 |
+| 1/16 | 3 | 0.995 | 0.694 | 1.691 |
+| 1/8 | 3 | 1.478 | 1.409 | 2.074 |
 | 1/4 | 3 | 1.472 | 1.457 | 1.538 |
 | 1/1 | 3 | 1.494 | 1.403 | 1.037 |
 
-**Across the healthy range 1/1024 → 1/8, proxy CPU rises ×22 while the sampling rate rises ×128.**
-⇒ **Sub-linear in rate, but very far from fixed.** "Paid in full at the lowest sampling rate" does
-not describe this working point.
+### ✅ Instrument cross-validation at 1/64 — the most load-bearing line in this entry
 
-⚠️ **The 1/4 and 1/1 rows are not a cost plateau.** The data plane had collapsed there, so fewer
-packets existed to sample — the switch figure falls with them (2.074 → 1.538 → 1.037). Reading
-those two rows as "cost stops growing" would be reading a consequence of the collapse.
+`2026-08-20_sampling-rate-and-cpu/REPORT.md:101` records the 1/64 cell **with sampling on** as
+**kernel 67.9% / proxy 26.6%**. This round's `bl` at 1/64: **kernel 66.9% / proxy 24.3%.**
 
-⚠️ **Limits, stated with the result:** cross-binary and cross-round (direction only); `mine` is
-truncated at top-10 so every figure is a **lower bound** (F-21); n = 3–4 per rung; and **the round
-was not designed to measure this** — the obligation is discharged with data collected for another
-purpose.
+**Within 1.0 and 2.3 points — different round, different binary, twelve days apart.**
+
+🔑 **Without this, "the new round says cost grows" and "the new round changed the ruler" are
+indistinguishable.** It is the known-good output this entry is checked against, and it happened to
+be in hand.
+
+⚠️ **The 1/1024 comparison could NOT be made.** The prior round's `m*` per-cell CPU raws are not in
+the working tree (only `t00*`, `cal*`, `f16*`, `qa/qb*` and this round's `e_*`), and no quoted figure
+was located. **A 1/1024 cross-check was suggested to me; I am not citing a number I could not
+verify.**
+
+### The claim is bounded, not refuted
+
+The prior's behavioural fingerprint was computed over **1/1024 → 1/64** (`2026-08-25_sampling-rounds/PREREG.md:95`).
+
+| range | rate | kernel | verdict |
+|---|---|---|---|
+| 1/1024 → 1/64 (**the claim's own range**) | ×16 | 0.551 → 0.665 = **×1.21** | ✅ **confirmed** — nearly paid at the lowest rate |
+| 1/64 → 1/8 (**outside it**) | ×8 | 0.665 → **1.478** = **×2.22** | 🔴 the claim does not extend here |
+
+⇒ **Wording: "independently confirmed within its own range (and cross-validated at 1/64 to ~1–2
+points); above 1/64 kernel cost rises ×2.2."** 🔴 **Not "the claim is false"** — it was right where
+it was measured. **The over-extension was ours, not its.**
+
+### 🔴 The proxy ×22 is a NEW result, not a refutation of anything
+
+The prior claim is **entirely about kernel threads** — `calFlowPathByQueried` at 46.31% CPU, single
+thread (`2026-08-25_large-scale-concurrent/PREREG.md:642`), and `run` ×3.48 for ingest. **The proxy
+was never in its scope.**
+
+⇒ **Proxy CPU rising 0.064 → 1.409 (×22) across 1/1024 → 1/8 is a new finding and is reported on its
+own.** Filing it under that memory would be **using something the memory never claimed in order to
+overturn it** — the fourth instance tonight of a population being asked to answer to a name that is
+not its own.
+
+⚠️ **The 1/4 and 1/1 rows are not a cost plateau.** The data plane had collapsed, so fewer packets
+existed to sample; the switch figure falls with them (2.074 → 1.538 → 1.037).
 
 ---
 
