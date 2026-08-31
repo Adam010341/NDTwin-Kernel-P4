@@ -437,6 +437,61 @@ and `obs/pred` is **0.994, 0.884, 0.893, 0.702, 0.625**. 🔴 **No shape is asse
 moratorium in §5-ter.** Two rungs remain; the description is written once, after 1/1. This is in any
 case the unregistered secondary observation and may not explain or reinforce anything above (Q2/E4).
 
+---
+
+## 5-quinquies. 03:36 — the first non-OK cell, and it is not `SATURATED`
+
+```
+VERDICT cell=e_bl_0004_1  mark=DATAPLANE-HURT  ratio=1.002
+        gt_mbit=109.6  lost_pct=45.21  lam=1.1e+08  spread=30.53  distinct=231
+```
+
+Every earlier cell: `gt_mbit ≈ 206`, `lost_pct` 0.01–0.33, `lam ≈ 2.05e+08`. **200 Mbit/s was
+offered and the data plane delivered 109.6 — 45% lost.** The run did not stop (no stop condition
+removes a rung, by design) and `e_p_0004_1` began immediately. **Not contamination:** that cell's
+CPU gate read `GREEN excess=-0.529, foreign_cores=0.208`.
+
+### 🔑 `ratio = 1.002` is the most dangerous number on this line
+
+It looks perfect. What it means is that **the twin faithfully reported a switch that was dropping
+45% of its traffic.** `cell_verdict.py`'s docstring states why, verbatim:
+
+> *"packets lost in the fabric UPSTREAM → gt falls WITH twin → ratio stays ~1, **invisible**"*
+
+`gt` is that interface's **own tx counter**, so upstream loss moves both sides of the ratio
+together. **"Sampling started hurting the data plane" is structurally invisible to `ratio`**, and
+the receiver-side `end.sum.lost_percent` check exists for exactly that reason.
+⇒ Same shape as F-3a, F-10, F-16 and F-21: **a correct-looking answer produced by a quantity with
+no discriminating power over the thing being asked.** The difference is that here the instrument's
+authors saw it coming and added a third check.
+
+### 🔴 A registration ambiguity, decided by the auditor and not by me
+
+* **This round, PREREG:296** — health = `ratio ≥ 0.95` **and** λ of the control's order **and**
+  `distinct` non-zero. **`lost_pct` is not in that list**, and this cell passes all three
+  (1.002 / 1.1e8 against 2.05e8 / 231).
+* **The same line says "(沿 08-25 D 輪)"**, and **08-25 PREREG:132** registers verbatim:
+  `end.sum.lost_percent > 2.0%` ⇒ mark **DATAPLANE-HURT** — inside **§4, the work order that
+  extended this very ladder to 1/1**, with :215 listing `SATURATED/DATAPLANE-HURT` as per-cell
+  output.
+
+⇒ **Reading submitted:** :296's three items are an abbreviation of an inherited four-condition
+criterion, `DATAPLANE-HURT` is a registered non-healthy mark, and **1/4 is therefore unhealthy for
+`bl`**. ⚠️ **Submitted, not adopted** — it decides the primary, so it is the auditor's call.
+⇒ If it holds: **`BL`'s ceiling rung = 1/8**, `P`'s awaits `e_p_0004_*`, and per the 03:4x ruling
+the *top-rung availability* is still judged on `MP` in leg 2, so these are each **arm** ceilings and
+not "the ceiling".
+
+### Reconciliation against a prior round, as required
+
+**08-25 PREREG:276 (D-P1)** predicted that *if* proxy cost were **per byte**, the wall would move
+about an order of magnitude and **1/8 and 1/4 would become healthy**. That per-byte hypothesis was
+subsequently **refuted** — the cost is per-sample. ⇒ **1/4 being hurt is consistent with that
+refutation**, not a fresh surprise. This is the round's reconciliation entry for this cell.
+
+⚠️ `spread`, `floor` and `distinct` all moved sharply in this cell. **No shape is described** — the
+moratorium in §5-ter holds until 1/1 is in.
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
