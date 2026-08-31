@@ -175,6 +175,18 @@ def main():
                     help="file holding the measured idle foreign-core baseline")
     ap.add_argument("--record-baseline", action="store_true",
                     help="measure now and WRITE the baseline file, then exit")
+    # Named covariates, pulled out of the attribution table into their own field.
+    #
+    # Adam ruled on 2026-08-31 that the desktop stays up during the window.  That makes
+    # claude-desktop and the CLI sessions a DECLARED covariate rather than an invisible one --
+    # memory/vm-on-this-machine-is-invisible-to-ndt-status already names "the claude session
+    # itself" as the third invisible load source, and this is what un-hides it.
+    #
+    # 🔑 They are OUR OWN processes, so their cost is attributable rather than inferred.  Without
+    # this field the question "did that cell get worse because someone was using the desktop?"
+    # has no answer at all -- and it is a question this round will be asked.
+    ap.add_argument("--covariate-comm", default="claude-desktop,claude,gnome-shell,chrome",
+                    help="comma-separated comms to record per run as named covariates")
     a = ap.parse_args()
 
     try:
@@ -186,6 +198,9 @@ def main():
         return 2
 
     total = round(sum(r["cores"] for r in foreign), 3)
+    want = [c for c in a.covariate_comm.split(",") if c]
+    covariates = {c: round(sum(r["cores"] for r in foreign + mine if r["comm"] == c), 3)
+                  for c in want}
 
     if a.record_baseline:
         if not a.baseline_file:
@@ -193,7 +208,8 @@ def main():
             return 2
         with open(a.baseline_file, "w") as fh:
             fh.write(json.dumps(dict(baseline_cores=total, when=time.strftime("%FT%T"),
-                                     window_s=round(elapsed, 2), attribution=foreign[:15])) + "\n")
+                                     window_s=round(elapsed, 2), covariates=covariates,
+                                     attribution=foreign[:15])) + "\n")
         print(f"GATE baseline recorded={total} cores -> {a.baseline_file}")
         for r in foreign[:8]:
             print(f"     {r['comm']:<18} pid={r['pid']:>7} cores={r['cores']}")
@@ -215,9 +231,11 @@ def main():
     verdict = "RED" if excess >= a.threshold else "GREEN"
     rec = dict(label=a.label, when=time.strftime("%FT%T"), window_s=round(elapsed, 2),
                foreign_cores=total, baseline_cores=baseline, excess_cores=excess,
-               threshold=a.threshold, verdict=verdict, foreign=foreign[:10], mine=mine[:10])
+               threshold=a.threshold, verdict=verdict, covariates=covariates,
+               foreign=foreign[:10], mine=mine[:10])
     print(f"GATE {a.label} foreign_cores={total} baseline={baseline} excess={excess} "
           f"threshold={a.threshold} verdict={verdict}")
+    print("     covariates " + " ".join(f"{k}={v}" for k, v in covariates.items()))
     for r in foreign[:5]:
         print(f"     foreign  pid={r['pid']:>7} comm={r['comm']:<16} cores={r['cores']}")
     for r in mine[:8]:
