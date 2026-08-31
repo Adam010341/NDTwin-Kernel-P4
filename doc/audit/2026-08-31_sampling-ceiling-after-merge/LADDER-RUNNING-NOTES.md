@@ -253,15 +253,33 @@ has enough cells to compare at all.
 | 1/32 | 6 | 5.361 | 0 | 6 | 5.361 | **2×** | **1.414** | 1.263 | **0.893** |
 | 1/16 | 6 | 5.399 | 0 | 6 | 5.399 | **2×** | **1.414** | **0.993** | **0.702** |
 
-🔴 **Read `obs/pred`, not `obs`.** √n holds almost exactly at the top of the ladder (0.994), settles
-at ≈0.88–0.89 across a 4× and a 2× step alike — a *constant fractional* shortfall — and then at
-1/16 **breaks down**: `obs = 0.993` means the spread did not fall at all across a 2× rate increase.
-It rose slightly, 5.361 → 5.399.
+🔴 **Read `obs/pred`, not `obs`** — the ladder's steps are 4×, 4×, 2×, 2×, 2×, 2×, 4×, so the
+prediction is not a constant.
 
-⚠️ **Two rungs at ~5.4 is the shape of a floor, and it is not yet a floor.** Two points do not
-distinguish a plateau from a slower decline or from noise. 1/8, 1/4 and 1/1 are running now and
-will settle it — and they are also, per the auditor, where the **registered** ceiling is expected
-to be.
+## 🔴 MORATORIUM: no shape description of `spread` until the ladder finishes (auditor, 03:4x)
+
+**The same observation has been described three times tonight, and all three descriptions were
+relayed onward:**
+
+| version | the shape claimed | rungs of data | how far it travelled |
+|---|---|---|---|
+| 1 | "monotonically departing from 2" | 3 | me → auditor → Adam |
+| 2 | "one step to ≈11% short, then flat" | 3 (step sizes corrected) | me → auditor → Adam |
+| 3 | "minimum at 1/32, a turning point" | 6 | me → auditor |
+
+**All three were honest, each was the best reading of the data in hand, and each was overwritten by
+the next batch.** Version 1's *method* was wrong (comparing against a constant); versions 2 and 3
+had correct method and were overturned by new data. With 1/8 included the sequence of `obs/pred` is
+**0.994, 0.884, 0.893, 0.702, 0.625** — which is neither "flat after one step" nor a simple turn.
+
+⇒ **There will be no version 4.** Two rungs remain and they finish tonight. `overlap_bands.py`
+keeps printing the numbers — those are data — but **no shape adjective travels until 1/1 is in.**
+"Floor", "turning point", "monotonic", "plateau" are all shapes, and **shape is the thing that has
+been overturned four times in one night.**
+
+🔑 The rule generalises past this quantity: **a description of shape is a claim about the data you
+have not collected yet.** The numbers are safe to publish while the run is live; the adjective is
+not.
 🔴 **口徑 unchanged: this remains an unregistered secondary observation and may not explain or
 reinforce the primary (Q2/E4).** If the ceiling moves, the reason is stated in rung language.
 ⚠️ Every cell through 1/16 still reads `mark=OK` — so the departure is happening **while the
@@ -385,6 +403,20 @@ I wrote, and told the auditor, that *"if `bl` crosses 0.95 at 1/4 or 1/1 while `
    `INDISTINGUISHABLE`** — not "equal", and not a result. I had not accounted for this at all: a
    large ratio separation at 1/1 with both marks OK still yields *indistinguishable*.
 
+### 🔴 Both branches committed to NOW, before the data that decides between them
+
+| what 1/4 and 1/1 show | what the report says |
+|---|---|
+| `bl` saturates while `p` does not | `P ≥1/1 > BL` — a right-censored value already above the other's determined value still supports the inequality, so **R-E2 *is* answerable for this pair from leg 1** (auditor confirms this branch) |
+| **both arms still OK at 1/1** | 🔴 **both right-censored ⇒ `INDISTINGUISHABLE` ⇒ R-E2 not answerable from leg 1. The report says "indistinguishable" and stops there.** That is a legitimate outcome of the registered design, **not a failure.** |
+
+⚠️ **Why this is written before the data and not after.** The second branch arrives at ~05:00 with
+seven hours of measurements in hand and a primary that cannot be answered — **the exact moment of
+maximum motivation to reach for the unregistered `ratio` separation in order to "say something".**
+Q2/E4 forbids precisely that action. 🔑 **Committing to the wording now is what makes it a decision;
+leaving it to 05:00 makes it a test of self-restraint, and this round has no evidence that mine is
+adequate to that moment.**
+
 ✅ The code protects itself — **no stop condition removes a rung**, so 1/4 and 1/1 will run whatever
 `bl` does. **The risk was never in the loop; it was in a person reading "bl is falling" as "we found
 the ceiling."** Caught by the auditor before the 1/4 data existed, which is the only time such a
@@ -400,10 +432,10 @@ comparison is an unregistered secondary observation on the recompute axis, the s
 Round-wide `SATURATED` count is **0**: no rung has stopped being healthy, so no ceiling exists yet
 for any arm.
 
-⚠️ Separately, `spread` has turned: 23.790 → 11.970 → 6.770 → 5.361 → 5.399 → **6.113**. The
-minimum sits at 1/32 and it rises after — **not a floor but a turning point**, with more sampling
-making it worse. That remains the unregistered secondary observation and may not be used to explain
-or reinforce anything above (Q2/E4).
+⚠️ Separately, the `spread` means through 1/8 are **23.790, 11.970, 6.770, 5.361, 5.399, 6.113**
+and `obs/pred` is **0.994, 0.884, 0.893, 0.702, 0.625**. 🔴 **No shape is asserted — see the
+moratorium in §5-ter.** Two rungs remain; the description is written once, after 1/1. This is in any
+case the unregistered secondary observation and may not explain or reinforce anything above (Q2/E4).
 
 ## 6. Standing constraint
 
