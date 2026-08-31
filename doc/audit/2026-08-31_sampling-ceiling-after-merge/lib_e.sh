@@ -36,6 +36,7 @@ set -u
 
 : "${DRY_RUN:=0}"
 : "${DRY_FAIL:=}"
+PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 : "${_DRY_LIVE_ARM:=1hz}"
 : "${_LAST_EXE_READ_VIA:=unset}"
 : "${_DRY_EXE_READS:=0}"
@@ -130,6 +131,22 @@ preflight() {
         return 1
     fi
     say "  claim: owner=$owner exclusive_cpu=$excl"
+
+
+    # 🔴 The evidence-basis field in the registration is a GATE, not a note.  Verification belongs
+    # on an executable precondition, not in a revision record -- the same rule as "acceptance goes
+    # on the state, not on the rc".  A round whose clauses are registered but not demonstrably
+    # exercised must not start.
+    local ebasis
+    ebasis=$(grep -m1 -o 'EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
+    [[ "$DRY_FAIL" == evidence ]] && ebasis=INCOMPLETE
+    if [[ "$ebasis" != "COMPLETE" ]]; then
+        printf 'REFUSE: the registration reports EVIDENCE-BASIS: %s\n' "${ebasis:-<absent>}" >&2
+        printf '        Registered clauses exist but are not all demonstrably exercised.  Fix the\n' >&2
+        printf '        coverage, re-run the forces, and update the field WITH its verbatim output.\n' >&2
+        printf '        %s\n' "$PREREG_FILE" >&2
+        return 1
+    fi
 
     [[ "$stage" == plan ]] && { say "  (plan only -- fabric checks skipped)"; return 0; }
 

@@ -25,6 +25,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -n "${ROUND:-}" ]] || . "$HERE/round.env"
 : "${DRY_RUN:=0}"
 : "${DRY_FAIL:=}"
+PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 : "${_DRY_EXE_READS:=0}"
 # 🔴 A dry run and a real run never share a transcript (CLAUDE.md: "跑過" and "讀過未執行" are
 # never tabled together), and the dry lines are the ones that look tidiest.
@@ -326,6 +327,22 @@ preflight() {
         return 1
     fi
     [[ "$excl" == yes ]] || { printf 'REFUSE: claim has exclusive_cpu=%s; §4 requires it.\n' "${excl:-unset}" >&2; return 1; }
+
+    # 🔴 The evidence-basis field in the registration is a GATE, not a note.  Verification belongs
+    # on an executable precondition, not in a revision record -- the same rule as "acceptance goes
+    # on the state, not on the rc".  A round whose clauses are registered but not demonstrably
+    # exercised must not start.
+    local ebasis
+    ebasis=$(grep -m1 -o 'EVIDENCE-BASIS: [A-Z]*' "$PREREG_FILE" 2>/dev/null | awk '{print $2}')
+    [[ "$DRY_FAIL" == evidence ]] && ebasis=INCOMPLETE
+    if [[ "$ebasis" != "COMPLETE" ]]; then
+        printf 'REFUSE: the registration reports EVIDENCE-BASIS: %s\n' "${ebasis:-<absent>}" >&2
+        printf '        Registered clauses exist but are not all demonstrably exercised.  Fix the\n' >&2
+        printf '        coverage, re-run the forces, and update the field WITH its verbatim output.\n' >&2
+        printf '        %s\n' "$PREREG_FILE" >&2
+        return 1
+    fi
+
     say "  claim: owner=$owner exclusive_cpu=$excl"
 
     # The fabric.  🔴 Without this the sampler would run 60 installs against nothing, every
@@ -540,6 +557,20 @@ selftest() {
     [[ "$o" == *"REBOOTED mid-arm"* ]] && say "  #3  force-red  PASS" || { say "  #3  force-red  FAIL"; rc=1; }
     o=$( ( DRY_RUN=1 TOPO_BASELINE=12 DRY_FAIL=edgecount assert_topology_invariant ) 2>&1 || true)
     [[ "$o" == *"edge count changed"* ]] && say "  #14 force-red  PASS" || { say "  #14 force-red  FAIL"; rc=1; }
+    # The identity BRACKET, same two-part condition as E's G8b.  `exedrift` forces both ends to
+    # one value and `assert_arm_binary` aborts earlier, so without this the bracket has no force
+    # reaching it at all -- and a fix that exists is not a fix that runs.
+    say "--- identity bracket: must be reached and fire on its own terms ---"
+    local bout hitb absorbed
+    bout=$(cd "$HERE" && DRY_RUN=1 DRY_FAIL=exedriftmid ./run_f5.sh arm 2>&1 || true)
+    hitb=0; absorbed=0
+    [[ "$bout" == *"changed during arm"* && "$bout" == *"ABORT(§4 F4)"* ]] && hitb=1
+    [[ "$bout" == *"wants the"* ]] && absorbed=1     # assert_arm_binary's abort text
+    if (( hitb == 1 && absorbed == 0 )); then
+        say "  bracket force  PASS  $(grep -m1 'changed during arm' <<<"$bout" | sed 's/^.*ABORT/ABORT/')"
+    else
+        say "  bracket force  FAIL  hit=$hitb absorbed=$absorbed"; rc=1
+    fi
     (( rc == 0 )) && say "=== detector + inherited-clause force tests PASS ===" || say "🔴 force tests FAILED"
     return $rc
 }

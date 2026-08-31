@@ -435,6 +435,37 @@ main() {
         abort "#3" "a changed boot_id did not trip the check."
     fi
 
+    # -- G8b §4: the identity BRACKET itself.  G8 above exercises check_running_arm's three
+    #    verdicts; it does NOT touch the open/close bracket, and `exedrift` cannot -- it forces
+    #    BOTH ends to the same value.  So until now the bracket had zero force coverage while
+    #    G8 printed "all reachable", which reads as if it were covered.
+    #
+    # 🔴 This is §2's own gate-3 rule turning up a second time in the same script family: as many
+    # calls as the registration names checks.  `exedriftmid` existed and had NO CALLER here --
+    # a fix that exists is not a fix that runs.
+    #
+    # Two-part pass condition, and the SECOND half is the point:
+    #   (i)  the output carries the bracket's own mismatch abort;
+    #   (ii) the abort did NOT come from ABORT(§4 running-arm) -- otherwise the earlier check
+    #        absorbed it again, which is the third failure mode, not a pass.
+    say "--- G8b §4: the identity bracket must be REACHED and must fire on its own terms ---"
+    local bout
+    bout=$(cd "$HERE" && DRY_RUN=1 DRY_FAIL=exedriftmid LADDER=16 REPS=1 ./run_e.sh ladder 2>&1 || true)
+    local hit_bracket=0 absorbed=0
+    [[ "$bout" == *"changed mid-cell"* && "$bout" == *"ABORT(identity)"* ]] && hit_bracket=1
+    [[ "$bout" == *"ABORT(§4 running-arm)"* ]] && absorbed=1
+    say "    bracket abort present: $hit_bracket   absorbed by the earlier check: $absorbed"
+    if (( hit_bracket == 1 && absorbed == 0 )); then
+        say "    $(grep -m1 'changed mid-cell' <<<"$bout" | sed 's/^ *//')"
+        record "G8b §4 identity bracket reached and fired" PASS "not absorbed by assert_running_arm"
+    else
+        record "G8b §4 identity bracket reached and fired" FAIL "hit=$hit_bracket absorbed=$absorbed"
+        abort "§4" "the identity bracket is still not covered by any force.
+        hit_bracket=$hit_bracket absorbed=$absorbed
+        A bracket that no force reaches cannot be said to detect a mid-cell binary swap, which is
+        the only reason it exists."
+    fi
+
     say ""
     say "=== gates_e summary (PREREG §2 item -> call, for the grep-against-grep check) ==="
     local g; for g in "${PASSED[@]+"${PASSED[@]}"}"; do say "  PASS  $g"; done

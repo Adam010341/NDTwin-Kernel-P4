@@ -6,6 +6,23 @@
 基礎＝reviewer 線定點複查（四處＋三性質皆讀碼驗證），兩處方向性文字更正
 （F-1 判準件數與碼不符、F-2 上下界寫反）已於蓋章的同一顆 commit 落定。
 **設計者不自蓋；本章由 auditor 蓋。**
+
+**證據基礎狀態**：🟢 **完整（`EVIDENCE-BASIS: COMPLETE`）**，2026-08-31。
+🔴 **本欄是閘門不是註記**：`gates_e.sh` 的 preflight 會讀它，讀到 `INCOMPLETE` 就**拒絕開跑**。
+**章認證的是「註冊條款」；本欄認證的是「那些條款被證明會執行」——兩件事分開記，各自可查。**
+更新本欄**必須附逐字 force 輸出**。
+
+先前狀態＝🔴 不完整：身分括號（open/close）**無任何 force 走到**——`exedrift` 把兩端強制成
+相等值，且 `assert_running_arm` 先行中止使括號從未被抵達，而 G8 仍印著
+`MATCH/MISMATCH/UNREADABLE all reachable`（那是 `check_running_arm` 的，不是括號的）。
+**`exedriftmid` 當時已存在但在 `gates_e.sh` 零呼叫端——修法存在 ≠ 修法被執行。**
+現以 **G8b** 補齊，通過判準兩半（②才是重點：中止**不是**來自更早的 `ABORT(§4 running-arm)`）：
+
+```
+bracket abort present: 1   absorbed by the earlier check: 0
+[17:11:05] 🔴 ABORT(identity): e_bl_0016_1: the running kernel changed mid-cell (b000000000000000000000000000000000000000000000000000000000000000 -> d000000000000000000000000000000000000000000000000000000000000002).
+[PASS] G8b §4 identity bracket reached and fired  not absorbed by assert_running_arm
+```
 （以下 v0.3 起的沿革保留。）
 v0.2-stamped 的 reviewer 章仍有效，v0.3 只更正 v0.2 之後被證否的事實與一處軸標筆誤，
 **不新增判定規則**。升 v1.0 閘＝【TBD-3】（py-spy 申報文字）落定＋**§3 的臂設計待 Adam 排窗裁決**
