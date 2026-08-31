@@ -16,9 +16,19 @@ driver 在第七臂 160M 階被行程重啟殺掉——**決定性讀值（45 cl
 > 證據三重：①實跑檔內容（access＋leaf-mid `bw=1000`、spine `bw=10000` 被 Mininet 靜默忽略）；
 > ②n=1/4 高階發送端被壓到 ~0.95–0.96 G ≈ **htb 1 G 的 goodput 上限**（1000×1400/1442≈971 Mbit）；
 > ③08-28 jitter 輪在同一 fabric 直接讀到 htb（`2026-08-28_jitter-working-point/05_layer_attribution.md`：
-> h1-eth1／s3-eth3、overlimits 數百萬）。driver 的 htb 斷言兩次讀 0＝**假陰性**（機制未定位，
-> 待 T-4 窗外 live 釘死）；結構缺陷＝expect-0 側有 die-gate、expect->0 側只有 echo——
+> h1-eth1／s3-eth3、overlimits 數百萬）。driver 的 htb 斷言兩次讀 0＝**假陰性**
+> （~~機制未定位，待 T-4 窗外 live 釘死~~ 🏁 **機制已定位，見本檔 §7**——
+> `sudo -n tc -s qdisc show` 不匹配免密碼白名單 ⇒ 指令從未執行 ⇒ stdout 空 ⇒ `grep -c` 數出 0。
+> 正本＝`../2026-08-31_completeness-experiments/FINDING-htb-false-negative-mechanism.md`）；
+> 結構缺陷＝expect-0 側有 die-gate、expect->0 側只有 echo——
 > **有訊息的那一側沒有 gate**。
+>
+> ⚠️ **這個指標是 2026-09-01 00:1x 補的，比 §7 的那個又晚了三小時。**
+> 08-31 22:5x 我修了 §7 就宣告「引用點補完了」——**而同一份文件的更正框裡還有這一處，
+> 位置比 §7 更前面，讀者第一眼看到的就是它。**
+> [[disclosure-is-not-downgrading]] 記著「引用點六種」，我只查了一種。
+> 找到它的是 auditor 指派的機械掃描（對每條已結案的義務，用**原始懸案**的關鍵詞
+> grep 全 `doc/`），不是我再讀一次這份文件。
 > 連帶更正：§2 天花板歸因（veth/softirq→配置的 htb 帽）、§3 陽性對照（空跑＝第七 replicate）、
 > §5 素材句（「shaping removed」拔除；poster :238 已落稿處同步修）。另查明 bmv2 ③ 的 fabric
 > （`p4_proxy/mininet/ntg_bmv2_topo.py`）**無 bw=／TCLink＝unshaped**：兩平面 shaping 不對稱，
