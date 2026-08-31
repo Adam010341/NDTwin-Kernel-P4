@@ -44,8 +44,18 @@ build_arm () {
   [ $? -eq 0 ] || { echo "$name CONFIGURE-FAIL" >>"$OUT/status.txt"; return 5; }
   make -j4 >>"$log" 2>&1 || { echo "$name MAKE-FAIL" >>"$OUT/status.txt"; return 6; }
   make install >>"$log" 2>&1
-  local BIN="$tree/targets/simple_switch/simple_switch"
-  [ -x "$BIN" ] || BIN=$(find "$tree/targets" -name simple_switch -type f -perm -u+x | head -1)
+  # 🔴 2026-08-31: the obvious path is a libtool WRAPPER SHELL SCRIPT (~6.7 kB), not the
+  # binary; the ELF lives in .libs/.  Hashing the wrapper still yields four DISTINCT
+  # hashes (it embeds its own tree path), so the distinctness check goes green on
+  # evidence about shell scripts, and `nm` on a script returns nothing, which reads as a
+  # consistent negative.  Two scripts written independently today both hit this.
+  local BIN="$tree/targets/simple_switch_grpc/.libs/simple_switch_grpc"
+  [ -f "$BIN" ] || BIN="$tree/targets/simple_switch/.libs/simple_switch"
+  [ -f "$BIN" ] || { echo "$name NO-ELF" >>"$OUT/status.txt"; return 7; }
+  case "$(file -b "$BIN")" in ELF*) : ;;
+    *) echo "$name NOT-ELF ($(file -b "$BIN"))" >>"$OUT/status.txt"; return 8 ;; esac
+  [ "$(stat -c %s "$BIN")" -ge 1000000 ] \
+    || { echo "$name TOO-SMALL -- looks like a wrapper" >>"$OUT/status.txt"; return 9; }
   {
     echo "arm: $name"; echo "tree_sha: $FULL"
     echo "configure: ${CFG[$name]}"
