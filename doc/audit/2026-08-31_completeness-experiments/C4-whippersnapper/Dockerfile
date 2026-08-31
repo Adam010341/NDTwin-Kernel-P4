@@ -1,4 +1,10 @@
 # PREREG-C4 Whippersnapper period container — INSTALL-ONLY recon (R2)
+#
+# STATUS 2026-08-31: every step below has been made to complete, but NOT yet in
+# one end-to-end image on this host — the local disk (5 GB free of 98 GB) could
+# not hold the full build. Steps 1-16/20 completed in build 2 (bmv2 included,
+# 145.9 s); steps 17-18/20 (pip, pktgen) were validated separately in throwaway
+# containers. Run this file on nslab to produce the image. See RECON-R2-install.md.
 # Mirrors p4benchmark/install_bmv2.sh (commit e1b22c1) section by section, in
 # the script's order. Every departure from the script is tagged DEVIATION-n and
 # documented in RECON-R2-install.md. No measurement is run in this image build.
@@ -112,8 +118,29 @@ RUN cd p4c-bm \
     && sudo pip install -r requirements_v1_1.txt \
     && sudo python setup.py install
 
-# ---- line 61: top-level python requirements (verbatim lines, DEVIATION-3 pip) ----
-RUN sudo pip install -r requirements.txt
+# ---- line 61: top-level python requirements ----
+# DEVIATION-9 (one pin, then their file verbatim): running their unmodified
+# requirements.txt fails today because the unpinned `thrift` line resolves to a
+# modern sdist whose build backend demands setuptools>=61.0, which does not
+# exist for py2.7 (max 44.1.1). Build 2 verbatim:
+#   ERROR: Could not find a version that satisfies the requirement setuptools>=61.0
+#   ERROR: No matching distribution found for setuptools>=61.0
+# `--no-build-isolation` alone does NOT fix it (probed: BackendUnavailable).
+# Minimal fix: pre-install thrift pinned to 0.9.3 — the SAME version their own
+# script builds from source at lines 25-35 — after which their requirements.txt
+# runs verbatim and unmodified (validated: exit 0). Everything else stays
+# unpinned and resolves to: scapy 2.5.0, sphinx 1.8.6, sphinx-autobuild 0.7.1,
+# nose 1.3.7, nose-parameterized 0.6.0.
+RUN sudo pip install --no-cache-dir 'thrift==0.9.3' \
+    && sudo pip install -r requirements.txt
+
+# DEVIATION-10 (undeclared dependency): benchmark/parse_results.py does
+# `import numpy as np` (line 8) and emits avg/min/max/p95/p99/std/cv latency
+# from it, but numpy appears in NO requirements file in the artifact. Verified
+# missing after a faithful install: `ImportError: No module named numpy`.
+# Pinned to the last py2 release. Needed only if the primary metric list draws
+# on parse_results.py; harmless otherwise.
+RUN sudo pip install --no-cache-dir 'numpy==1.16.6'
 
 # DEVIATION-6 (runtime step deferred): line 62 `sudo ./veth_setup.sh` creates
 # veth pairs — impossible in a docker build (no NET_ADMIN) and it is runtime

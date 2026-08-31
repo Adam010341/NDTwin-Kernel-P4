@@ -67,8 +67,10 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
 
 ## 4. 環境（auditor C4）
 
-- **nslab qemu VM 專屬**（16C/16G、snapshot `fresh` 起；⚠️ `/dev/kvm` ACL 登出即失、
-  群組才算數——開工先驗）；**本實驗不設本機 fallback**（本機的 documented-only 補臂
+- **nslab qemu VM 專屬**（⚠️ `/dev/kvm` 靠**群組**成員資格、已驗 `nslab` 在 `kvm` 群組內）；
+  🔴 **起點快照＝`p4-bootstrapped-nodocker`（ID 3，2026-08-31 14:01）**，**不是 `fresh`**
+  ——見 §4a 的事故紀錄：磁碟上有**兩個同名 `fresh`**、內容完全不同（ID 1＝bootstrap 前的
+  裸雲端映像；ID 2＝bootstrap 後），`restore fresh` 因此是不確定的。**本實驗不設本機 fallback**（本機的 documented-only 補臂
   ＝另一張小 prereg，見 §6）。
 - 完整層疊揭露：bare nslab → qemu/KVM VM → Mininet veth【TBD：VM 環境 manifest——
   iperf3 版本、kernel、mininet 版本、CPU model，bootstrap 時落定】。
@@ -79,8 +81,29 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   不得默默採用新值**（不一致本身即發現，處置照 abandon 條款的精神：如實報、不硬修）。
 - **Pinning／governor＝凍結決策、非記錄（auditor R2）**：裁定＝**不 pin vCPU、governor
   照 VM 預設不動**——與 study ①（機器 1 無 pinning、無定頻）同 protocol，複製忠實度
-  優先；pinning 敏感度屬 B3（本機、另立 prereg）。qemu 參數＝`~/ndtwin-vm.sh` 預設
-  （VM_CPUS=16、VM_MEM=16384），實際值進 manifest。
+  優先；pinning 敏感度屬 B3（本機、另立 prereg）。
+- 🔴 **qemu 資源＝顯式凍結值，必須每次明傳**：`VM_CPUS=16 VM_MEM=16384`。
+  **更正 v0.3 的事實錯誤**：這**不是**腳本預設——腳本預設是 `VM_CPUS=12`／`VM_MEM=8192`
+  （`ndtwin-vm.sh:33-34`，其註解「host has 32／15Gi」是為**另一台**機器寫的；nslab 實為
+  28 核／31 GB）。⇒ **不明傳就會拿到 12/8192**，見 §4a。
+
+### 4a. 事故紀錄（08-31，reviewer 造成；manifest 條款的第一個實例）
+
+我為了補一個 `fresh` 快照而 `stop`→`snap`→`start`，結果**兩件事同時出錯**：
+
+1. **VM 資源被無聲換掉**：原本以 16 vCPU／16384 MiB 啟動，重啟時**環境變數沒帶**⇒
+   吃到腳本預設 **12 vCPU／8192 MiB**。guest 實測從 `nproc 16` 變成 `12`。
+   🔑 **這正是 v0.3a 那條 manifest 條款要防的東西，而它在條款寫下數十分鐘後就發生了**
+   ——證明「跑臂當下重量、與 bootstrap 版逐欄對帳、不符即停」是必要的，不是形式。
+   已用顯式參數復原（現況：16 vCPU／15 Gi、106 G 可用）。
+2. **製造了同名快照**：磁碟上原本已有 `fresh`（ID 1，11:47，**bootstrap 前**），我又建了
+   一個 `fresh`（ID 2，13:59，**bootstrap 後**）⇒ **同 tag 兩種狀態**。
+   🔑 **成因＝我把工具的讀取失敗當成了「不存在」**：`ndtwin-vm.sh snaps` 因 qemu 持有
+   磁碟寫鎖而讀不到，回報「(no disk or no snapshots)」，我照字面採信。正確做法＝
+   `qemu-img snapshot -l -U`（force-share）繞過鎖再讀。
+   **處置**：不刪（`qemu-img snapshot -d` 只認 tag，同名情況下可能刪錯那一個），改建
+   **不歧義名稱** `p4-bootstrapped-nodocker`（ID 3）並由本 prereg 指名使用。
+   🔴 **`fresh` 這個名字自此在本輪作廢，任何腳本不得用它 restore。**
 - **nslab 獨占條款**：跑臂期間 nslab 上不開任何其他重活——nslab 無 claim 工具，
   **本句即其 claim**。
 - P4 程式 ✅ 已落定（08-31，reviewer）：`p4_proxy/p4_src/ndtwin_switch.p4`、
@@ -117,6 +140,9 @@ primary 快核閘）；**凍結前不得接觸任何量測資料**（偵察＝�
   先凍、C2 跨機器免責、C3 ldd/RUNPATH、C4 環境條款、C5 新鮮度＋凍結後不加）。
   【TBD】×4：rungs 對 21_/22_ 核對、VM manifest、P4 程式/p4c 逐字記名、sender gate
   的 VM 校準程序。
+- v0.4（08-31，**資料接觸前**）：①起點快照改指名 `p4-bootstrapped-nodocker`（`fresh`
+  同名兩份、作廢）；②qemu 資源改列**顯式凍結值**並更正 v0.3 的「這是腳本預設」事實錯誤
+  （真預設＝12/8192）；③新增 §4a 事故紀錄（manifest 條款的第一個實例，肇因者＝我）。
 - v0.2（08-31，**資料接觸前**）：auditor 覆核（結構 PASS）三騎士條款落地——
   R1＝sender gate 公式先凍（G<5×X ⇒ sender-limited；校準 sender→sink 直連繞開受測物、
   只填常數 G、不入 primary；②錨點行號列入 TBD-verify）；R2＝pinning/governor 凍結裁定
