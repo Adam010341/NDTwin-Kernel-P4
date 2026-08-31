@@ -1186,9 +1186,24 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 ## G. 操作陷阱（會製造假的測試結果）
 
 - 🔴 **任何活過自己 pidfile 的 app，在每一個 `ndt` 介面上同時是隱形且殺不掉的**（2026-08-31
-  live 實證）：前一 session 的 TE-App 崩潰迴圈活了 **20h32m**（`UnboundLocalError` 灌了 100 MB
-  log），而 `ndt status`＝`apps none running`、`ndt apps`＝`te -`、**`ndt apps stop te` 回
+  live 實證）：前一 session 的 TE-App 崩潰迴圈灌了 **100 MB log**（`UnboundLocalError`），
+  而 `ndt status`＝`apps none running`、`ndt apps`＝`te -`、**`ndt apps stop te` 回
   rc 0「te not running」**——`app_stop` 只看 `.test_run/pids/app_te.pid`，pidfile 沒了就全盲。
+  📦 **那份 100 MB log 已依 Adam 裁定刪除**（08-31，釋出 96.2 MiB）；刪除前的有界證據包
+  ＝`doc/audit/2026-08-31_live-recipes/app_te_log_evidence.txt`（14 KB，含原檔 sha256
+  `9df3e225…`、逐時直方圖、方法在同目錄 `analyse_app_te_log.py`）。**引用這條的數字請引證據包，
+  不要再引已刪除的 log。** 證據包同時更正／收窄了三件事：
+  ① 🔴 **「20h32m」不是這份 log 給的**——檔案本身跨 **20h38m39s**、崩潰迴圈跨 **20h07m02s**，
+  兩個都不是 20h32m，而 20h32m 這個數字在 repo 裡沒有任何 raw 支撐（形狀像是發現當下的
+  `ps` etime 讀數，但沒人記下來，證據包**不替它湊**）。
+  ② 🔴 **迴圈不是從頭就有**——前面有 **31m37s 完全乾淨**，第一個例外在 `15:39:10.273`，
+  觸發點是 `:8000` 第一次 connection refused。
+  ③ 🔑 **這次事件裡它其實沒裝成任何流表規則**——全檔 123,420 條 ERROR **全部**是
+  `localhost:8000 connection refused`，整段 20h07m 它一次都沒接到活的 kernel。
+  下一行那句「孤兒會裝流表規則」是**風險**（乾淨的那 31 分鐘它確實在跟 kernel 講話），
+  不是這次的已發生事實。
+  「崩潰迴圈」與「100 MB」則被證據包**確認**：61,710 個**同一種** `UnboundLocalError`、
+  穩定 3600 次／小時，全程只有三段約 135 秒的停頓。
   這種孤兒會裝流表規則，kernel 一起來就污染量測。正解＝`/proc` 驗身分後按 PID 停。
   🔄 **08-31 修法已落，狀態＝過了單元變異閘、live 未驗（不是 RESOLVED）**：
   `ndt` 加了三態 `app_probe`（`running`／`not-running`／**`pidfile-lost-but-alive`**）、
