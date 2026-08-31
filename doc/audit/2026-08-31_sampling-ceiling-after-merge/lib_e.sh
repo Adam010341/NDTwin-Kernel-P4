@@ -1,0 +1,470 @@
+#!/usr/bin/env bash
+# =================================================================================================
+# lib_e.sh -- shared machinery for the E round (PREREG 2026-08-31_sampling-ceiling-after-merge).
+#
+# [Co-developed with claude code -- Adam]
+#
+# WHAT THIS FILE IS FOR.  Everything the E round does to the machine goes through one of the
+# functions below, for three reasons that the round's own registration names:
+#
+#   1. PREREG §4 requires the identity of BOTH binaries per cell -- sha256, ldd, readelf -d
+#      RUNPATH, identifying strings.  memory/benchmark-must-name-the-binary-it-measured says
+#      naming a commit is not enough: which .so actually loads is decided by RUNPATH, not by the
+#      environment.  So identity is captured by one function, called at one place, and it records
+#      the RUNNING process's /proc/<pid>/exe as well as the file on disk.
+#
+#   2. PREREG §2 lists gates, and the D round's lesson (§2.3) is that a gate written in a
+#      registration and not called in the script is not a gate.  Every gate here is a function,
+#      and gates_e.sh calls each one by name so that a grep of the script can be matched against
+#      a grep of the registration.
+#
+#   3. 🔴 THE ABORT CLAUSES ARE CODE, NOT COMMENTS.  `abort` exits.  Nothing in this round
+#      lowers a threshold in response to a reading.
+#
+# DRY RUN -- AND WHY THE ACCEPT PATH IS THE ONE UNDER TEST.
+#   DRY_RUN=1 makes every side-effecting command print instead of running, and makes every probe
+#   return a synthetic HEALTHY reading, so the whole control flow -- ladder, arm switching, cell
+#   archiving, restore -- executes to completion and leaves a transcript.  This is deliberate and
+#   it is the harder direction to test: memory/smoke-the-accept-path-not-just-refusals records
+#   that a guard's refusal branch can always be exercised live while the branch it protects
+#   cannot, so the protected action is what needs the dry run.
+#   DRY_FAIL=<tag> forces exactly one probe unhealthy, so the refusal branch is observable too.
+#   A harness whose gate can only ever go one colour is the 08-30 mirrored defect; this one is
+#   forced in both directions before it is trusted.
+# =================================================================================================
+set -u
+
+: "${DRY_RUN:=0}"
+: "${DRY_FAIL:=}"
+
+# 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
+# "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,
+# with the added hazard that the dry lines are the ones that look tidiest.  The suffix is applied
+# here, once, after every caller has set LOG.
+[[ "$DRY_RUN" == 1 ]] && LOG="${LOG%.log}.dryrun.log"
+
+say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
+
+# 🔴 The registration's stop clauses land here.  This function EXITS; there is no variant that
+# warns and carries on, because "carry on and note it" is how a stopped round becomes a finished
+# one.  PREREG §2 (any gate fails), §3b E-P4 (ratio dropped => batching bug, not a ceiling move).
+abort() {
+    say "🔴 ABORT($1): ${*:2}"
+    say "🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past"
+    say "🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding."
+    restore_production || say "🔴 and the production restore ALSO failed -- check before release"
+    exit 9
+}
+
+# Every command that changes the machine goes through RUN.  In a dry run it is printed with a
+# DRYRUN-EXEC prefix, which is the observable output the ticket asks for: a guarded action that
+# leaves no trace when skipped is a guard nobody can verify.
+RUN() {
+    if [[ "$DRY_RUN" == 1 ]]; then
+        printf '[%s] DRYRUN-EXEC %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"
+        return 0
+    fi
+    "$@"
+}
+
+dry_note() { [[ "$DRY_RUN" == 1 ]] && printf '[%s] DRYRUN-NOTE %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; return 0; }
+
+# -------------------------------------------------------------------------------------------------
+# PRECONDITIONS.  The script refuses to start rather than producing a plausible file.
+#
+# 🔑 Each check prints WHY it failed, because "preconditions not met" sends the next person to
+# read the source instead of fixing the machine.  The order is cheapest-first, so a missing
+# NDT_OWNER does not cost a fabric probe.
+# -------------------------------------------------------------------------------------------------
+preflight() {
+    local stage="$1" rc=0        # stage: "gates" | "measure" | "plan"
+    say "=== preflight ($stage), DRY_RUN=$DRY_RUN ==="
+
+    # -- 0. disk.  A round that fills / mid-ladder loses every cell after the one that filled it,
+    #       and on 08-31 two container builds took this machine to zero bytes free.
+    local avail; avail=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+    say "  disk: ${avail}G available on /"
+    if (( avail < 3 )); then
+        printf 'REFUSE: only %sG free on / (need >=3G).  A ladder that fills the disk\n' "$avail" >&2
+        printf '        loses every cell after the one that filled it.\n' >&2
+        return 1
+    fi
+
+    # -- 1. identity of the caller.  ndt reads NDT_OWNER from the environment, never a flag.
+    if [[ -z "${NDT_OWNER:-}" ]]; then
+        printf 'REFUSE: NDT_OWNER is unset.  Source round.env first.\n' >&2; return 1
+    fi
+
+    # -- 2. the claim.  🔴 memory/lab-claim-handoff-protocol: a claim reading is a point sample,
+    #       not a lease, so it is re-read HERE, at the moment of acting, not trusted from earlier.
+    #       PREREG §4 additionally requires exclusive_cpu=yes -- this round's discriminator is a
+    #       CPU plateau, so a concurrent load is not noise, it is a treatment.
+    local claim="$KERNEL_DIR/.test_run/lab.claim" owner="" excl=""
+    if [[ "$DRY_RUN" == 1 && ! -f "$claim" ]]; then
+        dry_note "no lab.claim on disk; synthesising owner=$NDT_OWNER exclusive_cpu=yes"
+        owner="$NDT_OWNER"; excl="yes"
+    else
+        owner="$(sed -n 's/^owner=//p' "$claim" 2>/dev/null || true)"
+        excl="$(sed -n 's/^exclusive_cpu=//p' "$claim" 2>/dev/null || true)"
+    fi
+    [[ "$DRY_FAIL" == claim ]] && owner="somebody-else"
+    if [[ "$owner" != "$NDT_OWNER" ]]; then
+        printf 'REFUSE: lab.claim owner=%s but NDT_OWNER=%s.\n' "${owner:-<none>}" "$NDT_OWNER" >&2
+        printf '        Claim the lab first:  NDT_EXCLUSIVE_CPU=1 ndt claim 720 %s\n' "'E round'" >&2
+        printf '        (and the claim is the only source of truth -- this reading is a point\n' >&2
+        printf '         sample, so it is taken again by every stage of the run.)\n' >&2
+        return 1
+    fi
+    if [[ "$excl" != yes ]]; then
+        printf 'REFUSE: lab.claim has exclusive_cpu=%s.  PREREG §4 requires exclusive CPU:\n' "${excl:-<unset>}" >&2
+        printf '        this round reads a CPU plateau, so a sibling build is a treatment, not noise.\n' >&2
+        printf '        Re-claim with NDT_EXCLUSIVE_CPU=1 set.\n' >&2
+        return 1
+    fi
+    say "  claim: owner=$owner exclusive_cpu=$excl"
+
+    [[ "$stage" == plan ]] && { say "  (plan only -- fabric checks skipped)"; return 0; }
+
+    # -- 3. the staged binaries.  The recompute axis has no runtime switch; if the pre-window
+    #       build did not happen there is no 1 kHz arm and the 2x2 is a 1x2.  Better to say so now
+    #       than to run 40 cells of a design that cannot answer Q2.
+    local b
+    for b in "$KBIN_1KHZ" "$KBIN_1HZ"; do
+        if [[ "$DRY_RUN" == 1 && "$DRY_FAIL" != staged && ! -s "$b" ]]; then
+            dry_note "staged arm $b absent; synthesising present so the accept path runs"
+            continue
+        fi
+        if [[ "$DRY_FAIL" == staged || ! -s "$b" ]]; then
+            printf 'REFUSE: staged kernel binary missing: %s\n' "$b" >&2
+            printf '        Run build_1khz_binary.sh BEFORE the window opens -- PREREG §4 and the\n' >&2
+            printf '        fabric queue both forbid building inside it, and there is no env var\n' >&2
+            printf '        that switches kFlowPathRecomputeInterval at run time.\n' >&2
+            return 1
+        fi
+    done
+    say "  staged binaries: present"
+
+    # -- 4. the fabric.  This is the check the ticket cares about: without it the script would
+    #       happily write a full ladder of NO-DATA cells and they would look like a result.
+    if ! fabric_is_up; then
+        printf 'REFUSE: no live P4 fabric (expected 10 bmv2 switches and :8000 answering).\n' >&2
+        printf '        This script measures; it does not bring the lab up.  Start it first:\n' >&2
+        printf '          NDT_OWNER=%s ndt up p4 128\n' "$NDT_OWNER" >&2
+        printf '        A ladder run without a fabric produces NO-DATA cells that are shaped\n' >&2
+        printf '        exactly like a saturated ceiling.\n' >&2
+        return 1
+    fi
+    say "  fabric: up"
+
+    # -- 5. nothing else measuring.  `ndt` computes `measuring` live from process names; a
+    #       foreign iperf3 would both contaminate this round and be destroyed by measure.sh's
+    #       own cleanup (see foreign_iperf3_guard).
+    foreign_iperf3_guard || return 1
+    return 0
+}
+
+fabric_is_up() {
+    if [[ "$DRY_RUN" == 1 ]]; then
+        [[ "$DRY_FAIL" == fabric ]] && { dry_note "forcing fabric_is_up FALSE"; return 1; }
+        dry_note "synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)"; return 0
+    fi
+    $LAB status 2>&1 | tail -1 | grep -q "bmv2: 10" || return 1
+    curl -s -o /dev/null -m 3 "http://localhost:8000/ndt/get_graph_data" || return 1
+    return 0
+}
+
+# 🔴 measure.sh -- which this round reuses UNCHANGED so that its cells stay comparable with the
+# D round's -- clears stale servers with `pkill -f iperf3`, and its own comment records that
+# mininet hosts share the root PID namespace, "which is why a plain pkill reaches them at all".
+# That is a project-wide prohibited verb (CLAUDE.md; memory/destructive-shell-traps, seven
+# self-kills to date) and it would reach a sibling session's iperf3.
+#
+# This round does not edit measure.sh -- editing it would fork the instrument the §6 comparison
+# depends on -- so instead it refuses to hand control to measure.sh while any iperf3 exists that
+# this round did not start.  Enumeration is by exact `comm`, never by `pgrep -f`: a -f pattern
+# match always matches the searching command line itself.
+foreign_iperf3_guard() {
+    local pids
+    if [[ "$DRY_RUN" == 1 ]]; then
+        if [[ "$DRY_FAIL" == iperf3 ]]; then
+            printf 'REFUSE: iperf3 already running (pids: 424242) and this round did not start it.\n' >&2
+            return 1
+        fi
+        dry_note "synthesising: no foreign iperf3"; return 0
+    fi
+    pids=$(ps -eo pid=,comm= | awk '$2=="iperf3"{printf "%s ", $1}')
+    if [[ -n "${pids// /}" ]]; then
+        printf 'REFUSE: iperf3 already running (pids: %s) and this round did not start it.\n' "$pids" >&2
+        printf '        measure.sh clears stale servers with `pkill -f iperf3` at the ROOT pid\n' >&2
+        printf '        namespace, so continuing would destroy a sibling session process.  Stop\n' >&2
+        printf '        it by PID yourself, then re-run.  Never `pkill -f`.\n' >&2
+        return 1
+    fi
+    return 0
+}
+
+# -------------------------------------------------------------------------------------------------
+# BINARY IDENTITY (PREREG §4 / §C3).
+#
+# Four things, because three of them are individually insufficient and the round has been bitten
+# by each: sha256 of the file names the bytes; `ldd` names the libraries resolved NOW; `readelf -d`
+# names the RUNPATH that decided that resolution (an environment variable does not); and the
+# running process's /proc/<pid>/exe names what is actually executing, which is the only one of the
+# four that a recompile 9 seconds before exec cannot invalidate.
+#
+# `commit=` is written as UNKNOWN unless the caller supplies one.  🔴 That is a measurement, not a
+# placeholder -- the same discipline as .test_run/binaries/*.provenance.  mtime is deliberately
+# NOT recorded as evidence: on this machine a binary is on record as being 26 s OLDER than the
+# commit that describes it.
+# -------------------------------------------------------------------------------------------------
+record_identity() {   # $1 = tag (goes in the filename), $2 = commit-or-UNKNOWN
+    local tag="$1" commit="${2:-UNKNOWN}" f="$OUT/identity_$1.txt"
+    {
+        printf '# binary identity for %s\n' "$tag"
+        printf 'when=%s\n' "$(date -Is)"
+        printf 'commit=%s\n' "$commit"
+        printf 'dirty_worktree=%s\n' "$(git -C "$KERNEL_DIR" status --porcelain | wc -l) file(s) modified"
+        printf 'boot_id=%s\n' "$(cat /proc/sys/kernel/random/boot_id)"
+        local b
+        for b in "$KBIN" /usr/local/bmv2-fast/bin/simple_switch_grpc; do
+            [[ -e "$b" ]] || { printf '\n[%s] ABSENT\n' "$b"; continue; }
+            printf '\n[%s]\n' "$b"
+            printf 'sha256=%s\n' "$(sha256sum "$b" | cut -d' ' -f1)"
+            printf 'size=%s\n'   "$(stat -c%s "$b")"
+            printf -- '--- ldd ---\n';        ldd "$b" 2>&1
+            printf -- '--- readelf -d ---\n'; readelf -d "$b" 2>&1 | grep -E 'RUNPATH|RPATH|NEEDED|SONAME'
+        done
+        # Identifying strings / symbols.  Signatures, not circumstances: each names a commit whose
+        # presence or absence is a fact about these bytes.  The 1 Hz symbol is what separates this
+        # round's two kernel arms and it is asserted per cell, not assumed from the filename.
+        printf '\n--- symbol signatures (kernel) ---\n'
+        printf 'contains_2f57ba5_kFlowPathRecomputeInterval=%s\n' \
+               "$(nm -C "$KBIN" 2>/dev/null | grep -c kFlowPathRecomputeInterval)"
+        printf 'contains_91e7743_setProgrammedPredicate=%s\n' \
+               "$(nm -C "$KBIN" 2>/dev/null | grep -c setProgrammedPredicate)"
+        printf '\n--- proxy ---\n'
+        printf 'main_py_sha256=%s\n'     "$(sha256sum "$KERNEL_DIR/p4_proxy/proxy_agent/main.py" | cut -d' ' -f1)"
+        printf 'emitter_py_sha256=%s\n'  "$(sha256sum "$KERNEL_DIR/p4_proxy/proxy_agent/sflow_emitter.py" | cut -d' ' -f1)"
+        printf 'python=%s\n'             "$($PY_PROXY -V 2>&1)"
+        # 🔴 PREREG §4: truncate=128 is asserted per cell, not assumed.  Both the source constant
+        # and the compiled artefact, because bmv2 runs the artefact.
+        printf '\n--- p4 constants ---\n'
+        grep -E '^const bit<(16|32)> SAMPLE_(RATE|TRUNC_BYTES)' "$P4SRC" 2>/dev/null
+        printf 'compiled_json_sha256=%s\n' \
+               "$(sha256sum "$P4BUILD/ndtwin_switch.json" 2>/dev/null | cut -d' ' -f1)"
+    } >"$f" 2>&1
+    say "  identity -> $f"
+}
+
+# The bracket (PREREG-F5 §4 F4, applied here too because it is strictly more provenance and costs
+# one read).  A claim protects the fabric; it does not protect the file on disk.  Taking the
+# RUNNING process's exe hash at the start and end of a cell is the only check that catches a
+# rebuild landing between two arms.
+running_kernel_sha() {
+    if [[ "$DRY_RUN" == 1 ]]; then echo "DRYRUN-synthetic-running-sha"; return 0; fi
+    local pid
+    pid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
+    [[ -n "${pid:-}" ]] || { echo "NO-KERNEL-PROCESS"; return 0; }
+    sudo -n sha256sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1 || echo "UNREADABLE"
+}
+
+# -------------------------------------------------------------------------------------------------
+# FABRIC LIFECYCLE.  Structure is gate_e.sh's, deliberately -- same teardown, same bringup, same
+# poll bounds -- so that a cell of this round differs from a cell of the 08-25 round only in the
+# things the registration says differ.
+# -------------------------------------------------------------------------------------------------
+free_8081() {
+    # stack.sh down will not kill a proxy it did not start, which is right and which is what
+    # stalled wall_f's first attempt.  Clearing the port is the caller's job.  By PID from ss,
+    # never `pkill -f`: this file's own command line contains the pattern.
+    local pid
+    [[ "$DRY_RUN" == 1 ]] && { dry_note "would clear :8081 if held"; return 0; }
+    pid=$(ss -ltnp 2>/dev/null | grep ":8081" | grep -oE "pid=[0-9]+" | cut -d= -f2 | head -1)
+    [[ -n "${pid:-}" ]] || return 0
+    say "    clearing :8081 held by pid $pid"
+    kill "$pid" 2>/dev/null || true
+    local i
+    for i in $(seq 1 20); do ss -ltnp 2>/dev/null | grep -q ":8081" || return 0; sleep 1; done
+    kill -9 "$pid" 2>/dev/null || true; sleep 2
+    ss -ltnp 2>/dev/null | grep -q ":8081" && { say "    FATAL: :8081 still held"; return 1; }
+    return 0
+}
+
+teardown() {
+    RUN "$KERNEL_DIR/tools/test_workflow/stack.sh" down >>"$LOG" 2>&1 || true
+    free_8081 || abort "teardown" ":8081 could not be freed; the next bringup would measure a stale proxy"
+    RUN $LAB topo-stop >>"$LOG" 2>&1 || true
+    # setsid: `ndtwin-lab cleanup` runs `mn -c`, which kills broadly enough to take out the shell
+    # that called it.  It has killed a driver mid-run before.
+    RUN setsid $LAB cleanup </dev/null >>"$LOG" 2>&1 || true
+    RUN sleep 3
+}
+
+bringup() {   # $1 = NDTWIN_SFLOW_BATCH value for this cell
+    local batch="$1" i
+    RUN $LAB topo-start >>"$LOG" 2>&1
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)"
+    else
+        for i in $(seq 1 40); do sleep 5; $LAB status 2>&1 | tail -1 | grep -q "bmv2: 10" && break; done
+        $LAB status 2>&1 | tail -1 | grep -q "bmv2: 10" || { say "    fabric short of 10"; return 1; }
+    fi
+    if [[ "$DRY_RUN" == 1 ]]; then
+        # Not backgrounded in a dry run: a backgrounded print races the transcript it belongs to,
+        # and an unordered transcript is not a verifiable one.
+        RUN env NDTWIN_SFLOW_BATCH="$batch" TOPO_P4="$TOPO" \
+            nohup "$KERNEL_DIR/tools/test_workflow/stack.sh" up p4
+        dry_note "would poll :8000/ndt/get_graph_data for readiness (<=200 s)"
+        return 0
+    fi
+    env NDTWIN_SFLOW_BATCH="$batch" TOPO_P4="$TOPO" \
+        nohup "$KERNEL_DIR/tools/test_workflow/stack.sh" up p4 >>"$LOG" 2>&1 </dev/null &
+    for i in $(seq 1 40); do
+        sleep 5
+        curl -s -o /dev/null -m 3 "http://localhost:8000/ndt/get_graph_data" && return 0
+    done
+    say "    kernel API never came up"; return 1
+}
+
+# 🔴 The batching value has to be shown to have REACHED the emitter, not merely to have been
+# exported.  memory: an env var whose reader does not exist is this repo's most-repeated bug
+# shape, and NDTWIN_CLONE_DISABLE shipped a committed setter, committed docs and zero readers.
+# GET /sflow/stats answers with the value the emitter is actually holding, and 503s (never zeros)
+# if the emitter was not injected.
+assert_batch_took() {   # $1 = expected batch size
+    local want="$1" got
+    if [[ "$DRY_RUN" == 1 ]]; then dry_note "would GET :8081/sflow/stats and assert batch_size=$want"; return 0; fi
+    got=$(curl -sf --max-time 10 http://localhost:8081/sflow/stats \
+          | "$PY_PROXY" -c 'import json,sys; print(json.load(sys.stdin).get("batch_size"))' 2>/dev/null)
+    if [[ "$got" != "$want" ]]; then
+        abort "§2 batch-wiring" "GET /sflow/stats reports batch_size=${got:-<no answer>}, expected $want.
+        The value did not reach the emitter, so an arm labelled 'batching on' would be
+        measuring 'batching off' under a different name."
+    fi
+    say "    batch_size confirmed at the emitter: $got"
+}
+
+# PREREG §4: truncate=128 is the production setting and must hold in ALL cells.  Asserted against
+# the COMPILED artefact, because that is what bmv2 loads -- and bmv2 loads it at exec and never
+# reloads, which is why every rate change is followed by a full fabric restart.
+assert_truncate_128() {
+    if [[ "$DRY_RUN" == 1 ]]; then dry_note "would assert SAMPLE_TRUNC_BYTES=128 in source and compiled JSON"; return 0; fi
+    grep -q '^const bit<32> SAMPLE_TRUNC_BYTES = 128;' "$P4SRC" \
+        || abort "§4 truncate" "SAMPLE_TRUNC_BYTES is not 128 in $P4SRC"
+    grep -q '"op" *: *"truncate"' "$P4BUILD/ndtwin_switch.json" \
+        || abort "§4 truncate" "the truncate op is absent from the compiled JSON that bmv2 will load"
+}
+
+compile_at() {   # $1 = SAMPLE_RATE.  truncate is pinned at 128 for every cell (PREREG §4).
+    local rate="$1"
+    RUN sed -i -E "s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = $rate;/" "$P4SRC"
+    RUN sed -i -E "s/^const bit<32> SAMPLE_TRUNC_BYTES = [0-9]+;/const bit<32> SAMPLE_TRUNC_BYTES = 128;/" "$P4SRC"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would assert the seds landed, then p4c-bm2-ss, then assert truncate in the JSON"
+        return 0
+    fi
+    # Assert the injection landed -- in the SOURCE first, because a sed that silently matched
+    # nothing is reported by sed as success.
+    grep -q "SAMPLE_RATE = $rate;" "$P4SRC" || abort "compile" "the SAMPLE_RATE sed matched nothing"
+    p4c-bm2-ss --arch v1model -o "$P4BUILD/ndtwin_switch.json" \
+        --p4runtime-files "$P4BUILD/ndtwin_switch.p4info.txt" "$P4SRC" >>"$LOG" 2>&1 \
+        || abort "compile" "p4c-bm2-ss failed at rate 1/$rate"
+    assert_truncate_128
+}
+
+# -------------------------------------------------------------------------------------------------
+# KERNEL ARM SWITCHING.
+#
+# 🔴 There is no flag.  kFlowPathRecomputeInterval is `constexpr` in
+# include/ndt_core/collection/FlowLinkUsageCollector.hpp:51, its single use site is
+# src/ndt_core/collection/FlowLinkUsageCollector.cpp:2969, and the only getenv anywhere in the
+# kernel's collection tree is NDTWIN_TOPO_FILE.  Switching this axis means switching the file
+# stack.sh execs, because stack.sh:766 hardcodes $KERNEL_DIR/build/bin/ndtwin_kernel.
+#
+# The production binary is backed up on first use and restored by restore_production.
+#
+# 🔴 THE SWAP IS VERIFIED BY sha256 AGAINST THE STAGED FILE'S RECORDED HASH, NOT BY SYMBOL.
+# The .test_run/binaries provenance files separate M's binary from Q's with
+# `nm -C | grep -c kFlowPathRecomputeInterval` (5 hits vs 0), and that worked there because
+# ab2d7ed1 predates the CONSTANT'S EXISTENCE.  It does NOT work for this round's two arms: both
+# are built from the same tree and differ only in the constant's VALUE, so the symbol is present
+# in both and the count would read 5 == 5 -- a discriminator with no discriminating power, which
+# is worse than none because it looks like a check.
+# What proves the value is the build step, where a gtest that asserts `== seconds(1)` is run
+# against each binary and required to come out opposite ways; see build_1khz_binary.sh.  Here the
+# binary is bound to that build by its hash.
+# -------------------------------------------------------------------------------------------------
+swap_kernel() {   # $1 = 1khz | 1hz
+    local which="$1" src
+    case "$which" in
+        1khz) src="$KBIN_1KHZ" ;;   # microseconds(1000): 2f57ba5 reverted at the value
+        1hz)  src="$KBIN_1HZ"  ;;   # seconds(1): the frozen tip
+        *) abort "swap_kernel" "unknown arm '$which'" ;;
+    esac
+    if [[ ! -f "$KBIN_BACKUP" ]]; then
+        RUN mkdir -p "$(dirname "$KBIN_BACKUP")"
+        RUN cp -p "$KBIN" "$KBIN_BACKUP"
+        say "    production kernel backed up -> $KBIN_BACKUP"
+    fi
+    RUN cp -f "$src" "$KBIN"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would verify sha256($KBIN) == the sha256 recorded in $src.provenance,"
+        dry_note "  and that the two staged arms' hashes differ from each other"
+        return 0
+    fi
+    local want got other
+    want=$(sed -n 's/^sha256=//p' "$src.provenance" 2>/dev/null | head -1)
+    got=$(sha256sum "$KBIN" | cut -d' ' -f1)
+    [[ -n "$want" ]] || abort "swap_kernel" "$src has no .provenance recording its sha256.
+        An unidentified binary cannot be an arm -- benchmark-must-name-the-binary-it-measured."
+    [[ "$want" == "$got" ]] || abort "swap_kernel" "arm '$which': staged sha256 $want != in-place $got"
+    # Negative control on the identification itself: if the two arms hash the same, the build did
+    # not pick up the one-line change and both 'arms' are one arm under two names.
+    other=$([[ "$which" == 1khz ]] && sha256sum "$KBIN_1HZ" | cut -d' ' -f1 \
+                                   || sha256sum "$KBIN_1KHZ" | cut -d' ' -f1)
+    [[ "$got" != "$other" ]] || abort "swap_kernel" "the two staged arms are byte-identical.
+        The recompute axis is not being varied at all; every Q2 reading would be a duplicate."
+    say "    kernel arm=$which sha256=$got (verified against $src.provenance)"
+}
+
+restore_production() {
+    say "--- restoring production config (1/256, truncate 128, batch unset, production kernel) ---"
+    if [[ -f "$KBIN_BACKUP" ]]; then
+        RUN cp -f "$KBIN_BACKUP" "$KBIN"
+        say "    kernel restored: $(RUN sha256sum "$KBIN" 2>/dev/null | cut -d' ' -f1)"
+    fi
+    teardown
+    compile_at 256 || return 1
+    return 0
+}
+
+# -------------------------------------------------------------------------------------------------
+# CELL ARCHIVING.
+#
+# measure.sh hardcodes its output directory (the 08-20 round's raw/) and cell_verdict.py reads
+# that same directory through `from plot_figures import RAW`.  Neither is edited -- see round.env.
+# So a cell is measured there and COPIED here, with a sha256 on both sides, because a copy whose
+# fidelity is not checked is a second artefact that merely resembles the first.
+# 🔴 raw/ is git-ignored on working branches and belongs on the audit-raw orphan branch; the
+# pre-commit hook enforces it, and an uninstalled hook enforces nothing.
+# -------------------------------------------------------------------------------------------------
+archive_cell() {   # $1 = cell label
+    local cell="$1" s suffix
+    RUN mkdir -p "$OUT/cells"
+    if [[ "$DRY_RUN" == 1 ]]; then
+        dry_note "would copy ${cell}_{cpu,twin}.jsonl ${cell}_client.json ${cell}_kernel.log from"
+        dry_note "  $PRIOR_RAW -> $OUT/cells, and record sha256 on both sides in $OUT/cells/MANIFEST"
+        return 0
+    fi
+    for suffix in cpu.jsonl twin.jsonl client.json server.log; do
+        s="$PRIOR_RAW/${cell}_${suffix}"
+        [[ -f "$s" ]] || continue
+        cp -p "$s" "$OUT/cells/" && \
+          printf '%s  %s  (src %s)\n' "$(sha256sum "$s" | cut -d' ' -f1)" \
+                 "${cell}_${suffix}" "$s" >>"$OUT/cells/MANIFEST"
+    done
+    # The thread-id table and the CPU trace must come from the same boot or the identification is
+    # a guess; the 08-20 round archived no kernel.log and can never resolve its tid offsets.
+    cp -f "$KERNEL_DIR/.test_run/logs/kernel.log" "$OUT/cells/${cell}_kernel.log" 2>/dev/null \
+        || say "    WARNING: no kernel.log to keep for $cell"
+}

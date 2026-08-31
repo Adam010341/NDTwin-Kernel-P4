@@ -1,0 +1,77 @@
+[15:12:03] === gates_e start (PREREG-E §2), DRY_RUN=1 ===
+[15:12:03] === preflight (gates), DRY_RUN=1 ===
+[15:12:03]   disk: 6G available on /
+[15:12:03] DRYRUN-NOTE no lab.claim on disk; synthesising owner=e-round-sampling-ceiling exclusive_cpu=yes
+[15:12:03]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[15:12:03] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz absent; synthesising present so the accept path runs
+[15:12:03] DRYRUN-NOTE staged arm /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz absent; synthesising present so the accept path runs
+[15:12:03]   staged binaries: present
+[15:12:03] DRYRUN-NOTE synthesising fabric_is_up TRUE (bmv2: 10, :8000 answering)
+[15:12:03]   fabric: up
+[15:12:03] DRYRUN-NOTE synthesising: no foreign iperf3
+[15:12:03] DRYRUN-NOTE would verify PY_PLOT can import plot_figures/plot_ladder_rates
+[15:12:04]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_gates.txt
+[15:12:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/.plotvenv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds/cell_verdict.py --selftest
+[15:12:04]   [PASS] G3 §2.3 cell_verdict --selftest  SELFTEST PASS (synthetic)
+[15:12:04] --- G1 §2.1: counters readable at batch_size=1 ---
+[15:12:04] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[15:12:04] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[15:12:04] DRYRUN-NOTE would clear :8081 if held
+[15:12:04] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[15:12:04] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[15:12:04] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[15:12:04] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[15:12:04] DRYRUN-EXEC sleep 3
+[15:12:04] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[15:12:04] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-start
+[15:12:04] DRYRUN-NOTE would poll ndtwin-lab status for 'bmv2: 10' (<=200 s)
+[15:12:04] DRYRUN-EXEC env NDTWIN_SFLOW_BATCH=1 TOPO_P4=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json nohup /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh up p4
+[15:12:04] DRYRUN-NOTE would poll :8000/ndt/get_graph_data for readiness (<=200 s)
+[15:12:04] DRYRUN-NOTE would GET :8081/sflow/stats and assert batch_size=1
+[15:12:04] DRYRUN-NOTE would read :8081/sflow/stats datagrams_sent twice 6 s apart, and /proc/net/snmp Udp InDatagrams
+[15:12:04]   [PASS] G1 §2.1 counters non-zero at batch_size=1  synthetic
+[15:12:04] --- G5a §2.4 force-green (i): idle fabric must be GREEN ---
+[15:12:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py --label forcegreen_idle --expect green --threshold 0.50 --baseline-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/gates.jsonl --window 20
+[15:12:04]   [PASS] G5a §2.4 CPU gate force-green (idle)  
+[15:12:04] --- G4 §2.4 force-red: burner must turn the CPU gate RED ---
+[15:12:04] DRYRUN-NOTE would start: awk 'BEGIN{while(1){}}' and record its PID
+[15:12:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py --label forcered_burner --expect red --threshold 0.50 --baseline-file /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/gates.jsonl --window 20
+[15:12:04]   [PASS] G4 §2.4 CPU gate force-red (burner)  
+[15:12:04] DRYRUN-NOTE would stop the burner by recorded PID
+[15:12:04] --- G5b §2.4 force-green (ii): a normal arm's own load must ALSO be GREEN ---
+[15:12:04] DRYRUN-NOTE would start the round's own offered load (measure.sh cell g_gate_load) and run the gate during it
+[15:12:04]   [PASS] G5b §2.4 CPU gate force-green (own load)  synthetic
+[15:12:04] --- G2 §2.2: no silent wipeout ---
+[15:12:04] DRYRUN-NOTE would run cell_verdict on g_gate_load and assert ratio>=0.95, lam>0, distinct>0, mark has no NO-DATA
+[15:12:04]   [PASS] G2 §2.2 no silent wipeout  synthetic
+[15:12:04] --- G7 §2.4 ratio gate force-green: archived 08-25 D-round cell ---
+[15:12:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/.plotvenv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/ratio_gate.py --check t008_poll --expect green
+[15:12:04]   [PASS] G7 §2.4 ratio gate force-green (t008_poll)  synthetic
+[15:12:04] --- G6 §2.4 ratio gate force-red: tail 20% of samples zeroed ---
+[15:12:04] DRYRUN-NOTE would run: /home/adam/Desktop/NDTwin-Kernel/.plotvenv/bin/python /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/ratio_gate.py --make-forcered t008_poll e_gate_forcered_trunc20
+[15:12:04] DRYRUN-NOTE   (which itself asserts the source is green BEFORE and the product is red AFTER)
+[15:12:04]   [PASS] G6 §2.4 ratio gate force-red (tail 20% zeroed)  synthetic
+[15:12:04] 
+[15:12:04] === gates_e summary (PREREG §2 item -> call, for the grep-against-grep check) ===
+[15:12:04]   PASS  G3 §2.3 cell_verdict --selftest
+[15:12:04]   PASS  G1 §2.1 counters non-zero at batch_size=1
+[15:12:04]   PASS  G5a §2.4 CPU gate force-green (idle)
+[15:12:04]   PASS  G4 §2.4 CPU gate force-red (burner)
+[15:12:04]   PASS  G5b §2.4 CPU gate force-green (own load)
+[15:12:04]   PASS  G2 §2.2 no silent wipeout
+[15:12:04]   PASS  G7 §2.4 ratio gate force-green (t008_poll)
+[15:12:04]   PASS  G6 §2.4 ratio gate force-red (tail 20% zeroed)
+[15:12:04] === all §2 gates green.  run_e.sh may proceed. ===
+[15:12:04] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[15:12:04] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[15:12:04] DRYRUN-EXEC /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh down
+[15:12:04] DRYRUN-NOTE would clear :8081 if held
+[15:12:04] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[15:12:04] DRYRUN-EXEC sudo -n /usr/local/sbin/ndtwin-lab topo-stop
+[15:12:04] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[15:12:04] DRYRUN-EXEC setsid sudo -n /usr/local/sbin/ndtwin-lab cleanup
+[15:12:04] DRYRUN-EXEC sleep 3
+[15:12:04] DRYRUN-EXEC sed -i -E s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = 256;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+[15:12:04] DRYRUN-EXEC sed -i -E s/^const bit<32> SAMPLE_TRUNC_BYTES = [0-9]+;/const bit<32> SAMPLE_TRUNC_BYTES = 128;/ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+[15:12:04] DRYRUN-NOTE would assert the seds landed, then p4c-bm2-ss, then assert truncate in the JSON
+[15:12:04] DRYRUN-NOTE would stop the burner by recorded PID
