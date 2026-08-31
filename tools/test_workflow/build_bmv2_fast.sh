@@ -33,10 +33,99 @@
 
 set -euo pipefail
 
-SRC=/home/adam/P4_Source_Code/behavioral-model
+# $SRC used to be a bare constant. It is now overridable, because the tree it named
+# (/home/adam/P4_Source_Code, 3.5 GB) is scheduled for deletion and the documented way to
+# rebuild after that is to clone f0b7d201 somewhere else and point SRC at it. The default is
+# unchanged, so nothing about an existing invocation moves.
+SRC="${SRC:-/home/adam/P4_Source_Code/behavioral-model}"
 PREFIX=/usr/local/bmv2-fast
 BUILD=/tmp/bmv2-fast-src
 VENV=/home/adam/p4dev-python-venv
+
+# The commit both installed simple_switch_grpc binaries were built from; see
+# doc/audit/bmv2-binary-provenance.md. Overridable, but only on purpose and by name.
+EXPECT_COMMIT="${BMV2_EXPECT_COMMIT:-f0b7d201570d088a056b7fe660802ca1a8bcb912}"
+RESIDUE_DOC="doc/audit/2026-08-31_p4-source-tree-residue/README.md"
+
+# ---------------------------------------------------------------------------------------
+# Two gates, before anything is built, cloned or installed.
+#
+# Gate 1 exists because this script's whole job is to produce a binary whose identity is
+# known, and $SRC is where that identity comes from. If the tree is gone, the honest outcome
+# is a stop, not a recovery: cloning a replacement here would silently take upstream's
+# current HEAD, and the build would succeed, install over $PREFIX, and write a manifest --
+# every step green -- while producing a binary from different source than every number this
+# project has published. "Thought it was rebuilding the same binary, wasn't" is the exact
+# shape being refused. The fix is one `git clone` + one `git checkout` by a human who reads
+# what commit they are pinning; that human is told below where to find it.
+#
+# Gate 2 is the one that actually catches it. Gate 1 alone passes happily for a fresh clone
+# at the wrong commit, which is the likelier accident once the original tree is gone.
+# ---------------------------------------------------------------------------------------
+if [ ! -d "$SRC/.git" ]; then
+    cat >&2 <<EOF
+
+======================================================================================
+REFUSING TO BUILD: the behavioral-model source tree is not there.
+
+  SRC = $SRC   <-- no .git in it (missing, or not a git checkout)
+
+This tree was /home/adam/P4_Source_Code/behavioral-model and it has been deleted, or you
+pointed SRC somewhere that is not a checkout.
+
+NOT cloning a replacement, deliberately. A fresh clone lands on upstream HEAD, not on
+$EXPECT_COMMIT, and this script would then build, install to $PREFIX and
+write a BUILD-MANIFEST -- all of it succeeding -- from source that is not what every
+published number was measured against.
+
+How to rebuild, verbatim:
+
+  git clone https://github.com/p4lang/behavioral-model /some/path/behavioral-model
+  git -C /some/path/behavioral-model checkout $EXPECT_COMMIT
+  SRC=/some/path/behavioral-model bash tools/test_workflow/build_bmv2_fast.sh
+
+What was saved out of the deleted tree, and what it was evidence for:
+  $RESIDUE_DOC          (section 5.3)
+  doc/audit/bmv2-binary-provenance.md                     (which binary produced which number)
+
+The result is functionally equivalent, NOT byte-identical: -march=native bakes in this
+machine's ISA. Treat the already-installed binary as the artifact of record.
+======================================================================================
+
+EOF
+    exit 2
+fi
+
+SRC_COMMIT="$(git -C "$SRC" rev-parse HEAD)"
+if [ "$SRC_COMMIT" != "$EXPECT_COMMIT" ]; then
+    cat >&2 <<EOF
+
+======================================================================================
+REFUSING TO BUILD: \$SRC is a checkout, but not of the commit this project measured.
+
+  SRC      = $SRC
+  HEAD     = $SRC_COMMIT
+  expected = $EXPECT_COMMIT
+
+Building anyway would install a binary to $PREFIX whose BUILD-MANIFEST
+names a commit nobody's published number belongs to. Both installed simple_switch_grpc
+builds came from the expected commit -- see doc/audit/bmv2-binary-provenance.md.
+
+  git -C $SRC checkout $EXPECT_COMMIT
+
+If you genuinely mean to build a different commit, say so out loud:
+
+  BMV2_EXPECT_COMMIT=$SRC_COMMIT SRC=$SRC bash tools/test_workflow/build_bmv2_fast.sh
+
+...and then label every number that comes out of it with that commit, not with
+$EXPECT_COMMIT.
+======================================================================================
+
+EOF
+    exit 3
+fi
+
+echo "source tree OK: $SRC @ $SRC_COMMIT"
 
 # Build inside a local git clone, not out-of-tree against $SRC: autoconf refuses an
 # out-of-tree configure while the source dir holds an in-tree configuration ("source
@@ -45,6 +134,14 @@ VENV=/home/adam/p4dev-python-venv
 # performance report quotes. A clone reproduces HEAD exactly (the version string embeds the
 # commit) and leaves the original tree byte-for-byte untouched. Verified live 2026-08-15:
 # the out-of-tree form failed with exactly that error; the clone form built clean.
+#
+# CORRECTION 2026-08-31, to the sentence above: "byte-for-byte untouched" is false for the
+# ignored half of $SRC. 100 files there carry mtime 2026-08-15 14:58 -- configure, aclocal.m4,
+# every Makefile.in, ltmain.sh, the autom4te.cache/s, and an untracked
+# targets/simple_switch_grpc/config.h.in -- i.e. an ./autogen.sh was run in the original tree
+# minutes before the fast build. The *clone* was still unaffected (git clone --local copies
+# committed state, and every file touched is .gitignore'd), so the source claim stands and the
+# fast binary's identity is not in question. What is wrong is the scope of the word "untouched".
 rm -rf "$BUILD"
 git clone --local "$SRC" "$BUILD"
 cd "$BUILD" && ./autogen.sh
