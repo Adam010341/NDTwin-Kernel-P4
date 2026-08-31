@@ -30,3 +30,41 @@ prefix and silently overwrote four boots in the working tree; only the fact that
 already committed saved them. `p{1,2,3}` = Phase 4, `ar{1,2}` = Phase 5.
 
 [Co-developed with claude code -- Adam]
+
+## What this branch costs to move
+
+The disk figure and the transfer figure are far apart, and the disk figure is the one that
+scares people out of pushing. Measured 2026-08-31, when 13 rounds' raw was added:
+
+| | on disk | as git objects |
+|---|---|---|
+| the 13 rounds added that day | 533.2 MiB | **~32.8 MiB (6.1%)** |
+| largest single round (`2026-08-25_large-scale-concurrent`) | 452.5 MiB | **~26.2 MiB** |
+| the other twelve together | ~80 MiB | **~6.6 MiB** |
+
+Nearly everything here is text -- logs, jsonl, tsv -- so zlib takes about 94% of it off, and
+packing takes more. **A round that looks like half a gigabyte is a few tens of megabytes on the
+wire.** Do not let the `du` number decide whether this branch gets pushed.
+
+## Adding to it without checking it out
+
+`git worktree add /tmp/rawwt audit-raw` expands 500+ MiB onto disk. On the machine this
+project runs on that is worse than it sounds: a VM shares the repo over virtio-fs and its
+`virtiofsd` holds deleted files open, so `rm` does not return the space -- "expand it, then
+delete it" only consumes. Use plumbing instead, which touches neither the working tree nor
+HEAD (other sessions are working in them):
+
+    TIP=$(git rev-parse refs/heads/audit-raw); IDX=/tmp/ar.index; rm -f "$IDX"
+    GIT_INDEX_FILE="$IDX" git read-tree "$TIP"
+    GIT_INDEX_FILE="$IDX" git add -f --pathspec-from-file=<list>
+    TREE=$(GIT_INDEX_FILE="$IDX" git write-tree)
+    NEW=$(git commit-tree "$TREE" -p "$TIP" -F <message>)
+    git update-ref refs/heads/audit-raw "$NEW" "$TIP"    # old value = compare-and-swap
+    rm -f "$IDX"
+
+One commit per round, so a later reader can follow a single round. Verify by content, not by
+exit code: `git cat-file blob audit-raw:<path> | sha256sum` against the file on disk.
+`git cat-file -e` only proves an object exists, not that it is the one you meant.
+
+The round-closing checklist that should have caught the 2026-08-31 gap is
+`doc/2026-08-31_round-closing-checklist.md` on the working branch.
