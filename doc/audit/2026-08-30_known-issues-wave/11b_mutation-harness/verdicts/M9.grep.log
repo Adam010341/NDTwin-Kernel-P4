@@ -1,0 +1,2 @@
+199:    body["priority"] = priority; // MUTANT_M9 hoisted above the -1 branch
+228:    return post(strictModifyPath(), body, "modify flow entry (strict)"); // MUTANT_M9

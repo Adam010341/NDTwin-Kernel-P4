@@ -33,7 +33,11 @@ Adam 2026-08-29 裁定**延後**，理由是當時三個 session 在同一個 wo
 
 ### A-1 🔴 關機後馬上開機 = 回報成功但什麼都沒做
 
-- **狀態**：OPEN。**報告前不改碼，用操作繞過**（2026-08-19 裁定）
+- **狀態**：OPEN。~~報告前不改碼，用操作繞過（2026-08-19 裁定）~~ ⇒ **2026-08-30 Adam 改裁「修」**
+  （選了 bundle 2，**取代**08-19 那條裁定）。修法在分支 `fix-demo-behavior`，
+  🔴 **量測窗內只寫碼未編譯未跑**，證據與驗收指令＝
+  `doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md`。
+  **本條在該檔 §4 的變異測試跑綠之前不得改標 RESOLVED**（A-3 就是修好後被掛 OPEN 八天的反例）
 - **平面**：P4
 - **失效方向**：樂觀 ＋ 靜默
 - **會發生什麼**：`POST /ndt/set_switches_power_state?action=on` 回 **200 `{"Success"}`、0.01 秒**，
@@ -61,7 +65,11 @@ Adam 2026-08-29 裁定**延後**，理由是當時三個 session 在同一個 wo
 
 ### A-2 🔴 topology poll 可以永久阻塞，而且沒有任何東西會發現
 
-- **狀態**：OPEN
+- **狀態**：OPEN。**2026-08-30 修法在分支 `fix-demo-behavior`**（Adam 選 bundle 2），
+  🔴 **量測窗內只寫碼未編譯未跑**，證據與驗收指令＝
+  `doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md`。
+  ⚠️ 修的是**有界逾時＋一行 log**，不是本條 §「Ryu 那端」講的 `get_link()` 永久阻塞——
+  那半邊在 `intelligent_router.py`，**沒動**
 - **平面**：OVS（機制在 kernel，P4 走不同路徑）
 - **失效方向**：悲觀 ＋ 靜默（**零 log**）
 - **會發生什麼**：twin 顯示**全部 40 條 link down、10 台交換機 `enabled=false`**，
@@ -238,8 +246,16 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### A-4e 🔴 `modify_flow_entry` 忽略 `priority`，會改到別人的規則而且傷害存活
 
-- **狀態**：OPEN。**round 6 新發現**
+- **狀態**：OPEN。**round 6 新發現**。**2026-08-30 修法在分支 `fix-demo-behavior`**
+  （Adam 選 bundle 2），🔴 **量測窗內只寫碼未編譯未跑**，證據與驗收指令＝
+  `doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md`
 - **平面**：OVS（P4 的 modify 走不同路徑）
+  ⚠️ **08-30 讀碼更正：「P4 走不同路徑」只在 proxy 那一端成立。**
+  `P4RoutingStrategy` **沒有** override `modifyAnEntry`，所以 **C++ 這一段兩個平面共用同一份碼**；
+  分岔點在 proxy——它自己會從 body 讀 `priority`（`topology_manager.py` `modify_flow`），
+  而且**只服務 `/stats/flowentry/modify`、沒有 `modify_strict` 路由**。
+  ⇒ 無條件改送 strict 會讓**每一次 P4 modify 變成 404**，而因為 flow 路徑是非同步的，
+  呼叫端仍會拿到 200 `queued`，**看不見**
 - **失效方向**：靜默 ＋ **不可逆**
 - **會發生什麼**：改自己的 priority-100 規則，結果**改到 router 的 priority-10 規則**
   （確認是同一條——`duration`/`n_packets` 沒變），搬走 32 MB 流量，
