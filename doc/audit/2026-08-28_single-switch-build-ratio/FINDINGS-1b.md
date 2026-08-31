@@ -195,3 +195,44 @@ which says nothing about 1400 B at 810 Mbit/s. Re-measured here for that reason.
 | The generator was not the limit (9.8× margin, measured at the actual top rung) | That the mirror pass would have agreed |
 
 **[Co-developed with claude code -- Adam]**
+
+---
+
+## 補報（2026-08-31，reviewer 線；原文一字未改）
+
+🔴 **漏報事實**：PREREG §「Both, every arm … **interface counters read as ingress-port RX
+against egress-port TX on the same switch**」——**每臂都採了**
+（`raw/<arm>/netdev_{before,after}.txt` 在 `audit-raw`），**但從未回報**。
+2026-08-31 的回報義務清償盤點發現，本節同日補報。
+
+### 回收的值（我方自 `audit-raw` 逐臂重算，非轉述）
+
+s1-eth3 的 RX 封包對 s1-eth4 的 TX 封包，取 after − before：
+
+| 臂 | ingress-RX | egress-TX | **交換機內部損失** | netdev 各 drop 欄合計 |
+|---|---|---|---|---|
+| b_stock_a | 429,504 | 332,488 | **22.59%** | **0** |
+| b_stock_b | 429,503 | 331,062 | **22.92%** | **0** |
+| b_fast_a | 3,740,019 | 3,368,908 | **9.92%** | **0** |
+| b_fast_b | 3,582,865 | 3,216,786 | **10.22%** | **0** |
+
+### 它證明什麼
+
+🔑 **一個不經 iperf3 的獨立佐證**：封包在 **s1 內部**消失（進得去、出不來），
+而 **Linux 的每一個 netdev drop 欄位都是 0**。
+⇒ 本研究「核心的丟包計數器對 bmv2 內部的損失完全無感」這個宣稱，
+在 ① 這一輪有**自己的、與 iperf3 正交的證據**，不必只靠 ③ 的 79.66% 那一格。
+
+### ⚠️ 口徑限制（必須隨數字一起引用）
+
+**這是「整臂累計」不是「某一階的損失」**：`netdev_before/after` 跨越該臂**整條梯子**，
+因此包含**乾淨階之上的髒階**。⇒
+- **不得**把 22.59% 讀成「stock 在其乾淨階損失 22.6%」；
+- **不得**跨輪直接比（① 的 fast 臂 0.10–0.19% vs ①b 的 9.9–10.2% 是**同一顆 build**——
+  差別在於**①b 的梯子爬得更高**，於是更多時間待在膝蓋之上，不是 build 變差了）。
+- 可用的比較是**同輪同梯內**：stock 22.6–22.9% vs fast 9.9–10.2%，
+  兩臂走**同一條梯子**⇒ 這個對比有意義。
+
+⇒ **登記的用途（「收端不是限制、損失在交換機」）成立；
+跨輪的絕對值比較不成立，且本節明文禁止之。**
+
