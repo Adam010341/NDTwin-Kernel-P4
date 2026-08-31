@@ -1,0 +1,67 @@
+##### 0. bring up the OVS arm #####
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+
+not clean
+ndt up ovs
+  hosts        128
+  topology     setting/StaticNetworkTopologyMininet_10Switches.json
+[1/4] control plane (Ryu)
+  ok  Ryu up, prompt reached
+[2/4] data plane (OVS fabric)
+  ok  139 host/switch processes after 3s
+[3/4] proxy-less convergence + kernel
+  Ryu settles for 40s before installing paths (NDTWIN_RYU_SETTLE_S)
+        started ryu (pid 846532) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
+        waiting for Ryu REST on :8080 . up
+          switches=0 links=0 paths=pending              switches=10 links=32 paths=pending              switches=10 links=32 paths=installed                                                        converged after 21s
+        started kernel (pid 867290) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[4/4] verify
+  ok  kernel: 10 switches up+enabled
+  ok  kernel graph matches the model file: 128 hosts, 288 edges
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+--- ready marker check (verdict is this, not rc) ---
+running
+  bmv2 switches  0       topo session   present
+  host/switch    139     manifest       absent
+  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open
+
+network health
+
+##### 1. A-4e BLOCKING PRE-MERGE CHECK (section 3.3): does ofctl_rest serve modify_strict? #####
+  POST http://localhost:8080/stats/flowentry/modify_strict -> HTTP 200
+  200/any-non-404 => route exists, A-4e fix stands. 404 => DO NOT MERGE A-4e.
+
+##### 2. A-4e section 5.2: two priorities, modify the high one, READ THE REAL TABLE BACK #####
+  kernel.log mark: 41
+  --- install priority 100 -> OUTPUT port 1 ---
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  --- install priority 10 -> OUTPUT port 2 (same destination, different priority) ---
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  (flow writes are async: 200 queued says nothing. sleeping 8s for the dispatcher)
+  --- table BEFORE modify ---
+    prio=100   actions=['OUTPUT:1']                 pkts=0      dur=8.0s match={'dl_type': 2048, 'nw_dst': '10.0.0.254'}
+    prio=10    actions=['OUTPUT:2']                 pkts=0      dur=8.0s match={'dl_type': 2048, 'nw_dst': '10.0.0.254'}
+  --- modify priority 100 -> OUTPUT port 3 (must hit ONLY the prio-100 entry) ---
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  --- table AFTER modify ---
+    prio=10    actions=['OUTPUT:2']                 pkts=0      dur=16.0s match={'dl_type': 2048, 'nw_dst': '10.0.0.254'}
+    prio=100   actions=['OUTPUT:3']                 pkts=0      dur=16.0s match={'dl_type': 2048, 'nw_dst': '10.0.0.254'}
+  PASS = prio-100 actions now port 3, prio-10 STILL port 2 (untouched).
+  --- kernel.log since mark 41: any modify failure? (a 404 surfaces nowhere else) ---
+[2026-08-31 11:58:29.457] [info] [[94mHttpSession.cpp[0m:[95m737[0m [96mhandleInstallFlowEntry[0m] Handle Install Flow Entry
+  "modify_flow_entries": []
+[2026-08-31 11:58:29.464] [info] [[94mHttpSession.cpp[0m:[95m737[0m [96mhandleInstallFlowEntry[0m] Handle Install Flow Entry
+  "modify_flow_entries": []
+[2026-08-31 11:58:37.534] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/modify_flow_entry
+[2026-08-31 11:58:37.534] [info] [[94mHttpSession.cpp[0m:[95m767[0m [96mhandleModifyFlowEntry[0m] Handle Modify Flow Entry
+  "modify_flow_entries": [
+  (no modify-failure line = the strict route was served)
+
+##### 3. A-2 section 5.3: wedge the control plane, watch the clock and the log #####
+  SKIPPED-NO-IPTABLES-SUDO: cannot add the DROP rule without a password.
+##### DONE #####

@@ -1,0 +1,63 @@
+##### A-1 PRE-FLIGHT (corrected harness) #####
+switch under test: s1 (192.168.123.11)
+instrument cross-check -- recipe's counter vs a working one:
+  pgrep -c simple_switch_grpc : 0  <-- recipe's, blind
+  /proc scan                  : 10  <-- used below
+kernel.log mark: 114
+
+##### A-1 ARM 1: sleep 3 -- INSIDE the 15s distrust window (the defect's window) #####
+  count before power-off: 10
+  power-off answer: {"192.168.123.11":"Success"}
+  count after power-off: 9  (expect 9)
+  sleeping 3s -- inside the window
+  power-on answer: {"192.168.123.11":"Success"}
+  power-on elapsed: 2.160s  (PASS: ~>=1s, helper ran; FAIL: ~0.01s, early return)
+  count after power-on: 10  (must be back to 10)
+  ARM1: baseline=10 after_off=9 after_on=10 elapsed=2.160s
+
+##### A-1 ARM 2 (control): sleep 20 -- OUTSIDE the window, must still work #####
+  count before power-off: 10
+  power-off answer: {"192.168.123.11":"Success"}
+  count after power-off: 9  (expect 9)
+  sleeping 20s -- past the window, graph is trusted again
+  power-on answer: {"192.168.123.11":"Success"}
+  power-on elapsed: 0.211s
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_power_v2.sh: line 31: /proc/823943/cmdline: No such file or directory
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_power_v2.sh: line 31: /proc/823972/cmdline: No such file or directory
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_power_v2.sh: line 31: /proc/823973/cmdline: No such file or directory
+  count after power-on: 9  (must be back to 10)
+  ARM2: baseline=10 after_off=9 after_on=9 elapsed=0.211s
+
+##### A-1 ARM 3 (I1 + I5): repeat power-on on an ALREADY-UP switch #####
+  I1 = an already-up power-on runs zero commands; I5 = repeat inside window is a no-op
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_power_v2.sh: line 31: /proc/825193/cmdline: No such file or directory
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_power_v2.sh: line 31: /proc/825195/cmdline: No such file or directory
+  count: 9 ; kernel.log mark: 157
+  repeat power-on #1: HTTP 200 in 0.210s
+  repeat power-on #2: HTTP 200 in 0.210s
+  count after two repeats: 9  (must still be 9 -- no second instance started)
+
+##### kernel.log power/helper lines since mark 114 #####
+[2026-08-31 11:53:43.054] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=off&ip=192.168.123.11
+[2026-08-31 11:53:43.054] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:53:43.941] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1501[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> off
+[2026-08-31 11:53:48.840] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&ip=192.168.123.11
+[2026-08-31 11:53:48.840] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+{"status":"success","dpid":1,"clone_session":true,"routes_installed":128,"routes_attempted":128}[2026-08-31 11:53:50.790] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1501[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> on
+[2026-08-31 11:53:55.363] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=off&ip=192.168.123.11
+[2026-08-31 11:53:55.363] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:53:56.011] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1501[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> off
+[2026-08-31 11:54:07.886] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1133[0m [96mfetchOpenFlowTablesInternal[0m] localhost:8081 reported a read failure for switch 1 ({"error":"reading tables from switch 1 failed: DEADLINE_EXCEEDED"}) -- keeping the previous table rather than treating it as a switch with no rules
+[2026-08-31 11:54:08.110] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1162[0m [96mfetchOpenFlowTablesInternal[0m] flow tables are being answered again after 1 timed-out reply(ies)
+[2026-08-31 11:54:17.905] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&ip=192.168.123.11
+[2026-08-31 11:54:17.905] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:54:17.906] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1501[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> on
+[2026-08-31 11:54:20.197] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1133[0m [96mfetchOpenFlowTablesInternal[0m] localhost:8081 reported a read failure for switch 1 ({"error":"reading tables from switch 1 failed: UNAVAILABLE"}) -- keeping the previous table rather than treating it as a switch with no rules
+[2026-08-31 11:54:20.424] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1162[0m [96mfetchOpenFlowTablesInternal[0m] flow tables are being answered again after 1 timed-out reply(ies)
+[2026-08-31 11:54:22.594] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&ip=192.168.123.11
+[2026-08-31 11:54:22.594] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:54:22.595] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1501[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> on
+[2026-08-31 11:54:22.820] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&ip=192.168.123.11
+[2026-08-31 11:54:22.820] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:54:22.821] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1501[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> on
+##### DONE #####

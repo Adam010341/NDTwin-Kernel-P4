@@ -1,0 +1,74 @@
+##### A-1 PRE-FLIGHT #####
+switch under test: s1 (192.168.123.11)
+baseline simple_switch_grpc count: 0
+0
+kernel.log line mark before: 80
+
+##### A-1 STEP 0: the recipe's VERBATIM port (:8081) -- recorded, expected to be wrong #####
+  verbatim :8081 answer: 404
+  (:8081 is the proxy; a 404/000 here is a defect in the RECIPE, not in the fix)
+
+##### A-1 ARM 1: sleep 3 -- INSIDE the 15s distrust window #####
+  count before power-off: 0
+0
+  power-off answer: {"error":"Missing or invalid ip/action"}
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_power.sh: line 43: 0
+0: syntax error in expression (error token is "0")
+  sleeping 3s (inside the old ~10s window)
+  --- power-on, timed ---
+  power-on answer: {"error":"Missing or invalid ip/action"}
+  power-on elapsed: 0.209s   (PASS ~>=1s = helper really ran; FAIL ~0.01s = early return)
+  count after power-on: 0
+0  (must be back to baseline 0
+0)
+
+  ARM 1 VERDICT INPUTS: baseline=0
+0 after_off=0
+0 after_on=0
+0 elapsed=0.209s
+
+##### A-1 ARM 2 (the control): sleep 20 -- OUTSIDE the window, must still work #####
+  count before power-off: 0
+0
+  power-off answer: {"error":"Missing or invalid ip/action"}
+  count after power-off: 0
+0
+  sleeping 20s (past the 15s window -- graph is trusted again)
+  power-on answer: {"error":"Missing or invalid ip/action"}
+  power-on elapsed: 0.212s
+  count after power-on: 0
+0  (must be back to 0
+0)
+  ARM 2 VERDICT INPUTS: baseline=0
+0 after_off=0
+0 after_on=0
+0 elapsed=0.212s
+
+##### A-1 ARM 3 (I1+I5): two power-ons inside 15s -- both 200, helper runs ONCE #####
+  count: 0
+0 ; kernel.log mark: 98
+  repeat power-on #1: 400 
+  repeat power-on #2: 400 
+  count after two repeats: 0
+0  (must still be 0
+0 -- no second instance)
+  --- kernel.log lines since mark 98 mentioning power/helper ---
+[2026-08-31 11:52:22.846] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&switch_ip=192.168.123.11
+[2026-08-31 11:52:22.846] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:52:23.055] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&switch_ip=192.168.123.11
+[2026-08-31 11:52:23.055] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+
+##### A-1 kernel.log since pre-flight mark 80 (power lines) #####
+[2026-08-31 11:51:52.803] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=off&switch_ip=192.168.123.11
+[2026-08-31 11:51:52.804] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:51:57.040] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&switch_ip=192.168.123.11
+[2026-08-31 11:51:57.040] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:51:59.321] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=off&switch_ip=192.168.123.11
+[2026-08-31 11:51:59.321] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:52:20.565] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&switch_ip=192.168.123.11
+[2026-08-31 11:52:20.565] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:52:22.846] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&switch_ip=192.168.123.11
+[2026-08-31 11:52:22.846] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-08-31 11:52:23.055] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?action=on&switch_ip=192.168.123.11
+[2026-08-31 11:52:23.055] [info] [[94mHttpSession.cpp[0m:[95m709[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+##### DONE #####

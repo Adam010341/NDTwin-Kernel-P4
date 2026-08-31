@@ -1,0 +1,149 @@
+
+===== ERA 1: ndt up p4 =====
+ndt up p4
+  hosts        128        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+[1/3] bmv2 fabric
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 18s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 767710) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        waiting for link discovery: want 16256 destination paths
+          paths=11712              paths=15680              paths=16256                                                        converged after 13s
+        started kernel (pid 768132) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 16256/16256 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 288 edges, 128 hosts
+  ok  model matches fabric: 128 hosts (kernel graph, topology file and 128 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+
+===== ERA 1 state =====
+-rw-rw-r-- 1 adam adam   5713 Aug 31 11:48 .test_run/logs/kernel.log
+-rw-rw-r-- 1 adam adam 376133 Aug 31 11:07 .test_run/logs/kernel.log.prev
+era1 first line: [2026-08-31 11:48:39.622] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+
+===== ERA 2: ndt down && ndt up p4 =====
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped p4_proxy
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+ndt up p4
+  hosts        128        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+[1/3] bmv2 fabric
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 18s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 787247) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        waiting for link discovery: want 16256 destination paths
+          paths=7616              paths=13952              paths=16224              paths=16256                                                        converged after 15s
+        started kernel (pid 787565) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 16256/16256 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 288 edges, 128 hosts
+  ok  model matches fabric: 128 hosts (kernel graph, topology file and 128 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+
+===== ERA 2 state =====
+-rw-rw-r-- 1 adam adam   8690 Aug 31 11:49 .test_run/logs/kernel.log
+-rw-rw-r-- 1 adam adam   5713 Aug 31 11:48 .test_run/logs/kernel.log.prev
+-rw-rw-r-- 1 adam adam 376133 Aug 31 11:07 .test_run/logs/kernel.log.prev2
+era2 first line: [2026-08-31 11:49:32.332] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+
+===== ERA 3: ndt down && ndt up p4 =====
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped p4_proxy
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+ndt up p4
+  hosts        128        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+[1/3] bmv2 fabric
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 18s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 806582) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        waiting for link discovery: want 16256 destination paths
+          paths=7392              paths=13696              paths=16256                                                        converged after 12s
+        started kernel (pid 806963) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 16256/16256 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 288 edges, 128 hosts
+  ok  model matches fabric: 128 hosts (kernel graph, topology file and 128 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+
+===== ERA 3 state =====
+-rw-rw-r-- 1 adam adam 5713 Aug 31 11:50 .test_run/logs/kernel.log
+-rw-rw-r-- 1 adam adam 8690 Aug 31 11:49 .test_run/logs/kernel.log.prev
+-rw-rw-r-- 1 adam adam 5713 Aug 31 11:48 .test_run/logs/kernel.log.prev2
+era3 first line: [2026-08-31 11:50:22.760] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+
+===== A-5 ASSERTIONS =====
+--- three generations readable? ---
+READABLE .test_run/logs/kernel.log (5713 bytes)
+READABLE .test_run/logs/kernel.log.prev (8690 bytes)
+READABLE .test_run/logs/kernel.log.prev2 (5713 bytes)
+--- .prev3 must NOT exist (bounded disk) ---
+OK: no .test_run/logs/kernel.log.prev3
+--- head -1 of each generation ---
+kernel.log        : [2026-08-31 11:50:22.760] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+kernel.log.prev   : [2026-08-31 11:49:32.332] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+kernel.log.prev2  : [2026-08-31 11:48:39.622] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+
+===== DONE =====

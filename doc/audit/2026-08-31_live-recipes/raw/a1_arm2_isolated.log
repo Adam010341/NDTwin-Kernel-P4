@@ -1,0 +1,19 @@
+baseline: 9
+power-off: {"192.168.123.11":"Success"}
+  t+2s after off: 9
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_arm2_isolated.sh: line 10: /proc/835059/cmdline: No such file or directory
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_arm2_isolated.sh: line 10: /proc/835060/cmdline: No such file or directory
+  t+4s after off: 9
+  t+6s after off: 9
+sleeping 20s (past the 15s distrust window)
+power-on answer: {"192.168.123.11":"Success"}  elapsed=3.046s
+--- settle, sampling every 5s up to 25s ---
+  t+5s after on: 10  (target 9)
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_arm2_isolated.sh: line 10: /proc/839214/cmdline: No such file or directory
+doc/audit/2026-08-31_live-recipes/raw/drive_a1_arm2_isolated.sh: line 10: /proc/839215/cmdline: No such file or directory
+  t+10s after on: 10  (target 9)
+  t+15s after on: 10  (target 9)
+  t+20s after on: 10  (target 9)
+  t+25s after on: 10  (target 9)
+FINAL: 10 vs baseline 9
+##### DONE #####

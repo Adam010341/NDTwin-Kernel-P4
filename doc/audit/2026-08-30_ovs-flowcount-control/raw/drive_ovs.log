@@ -1,0 +1,149 @@
+=== PHASE 1: unshaped fabric  2026-08-30 13:44:24 ===
+  patch: 40 diff lines; sha ca4de8ae76149af7 (orig e2079a5966eff991)
+  boot[unshaped] ok: 10 bridges, h1+h33 present (waited 5s)
+3 packets transmitted, 3 received, 0% packet loss, time 2002ms
+  htb qdisc count on fabric: 0 (expect 0 on unshaped)
+=== PHASE 2: sender gates ===
+  gate n=1 : loopback agg 7311 Mbit  => per-flow cap 1462 Mbit
+  gate n=4 : loopback agg 21361 Mbit  => per-flow cap 1068 Mbit
+  gate n=16 : loopback agg 38258 Mbit  => per-flow cap 478 Mbit
+=== PHASE 3: arms ===
+### OVS arm ovs_n1_a  n=1  h1->h65  step 8s  clean<=0.5%  13:46:27
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     1.00  agg_recv     1.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     2.00  agg_recv     2.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent     3.00  agg_recv     3.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent     5.00  agg_recv     5.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent     8.00  agg_recv     8.00  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    12.00  agg_recv    12.00  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent    20.00  agg_recv    20.00  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent    30.00  agg_recv    30.00  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent    44.99  agg_recv    44.99  clean=yes
+     70 M/flow  reps 1  loss   0.0000%  agg_sent    69.99  agg_recv    69.99  clean=yes
+    110 M/flow  reps 1  loss   0.0000%  agg_sent   109.98  agg_recv   109.98  clean=yes
+    160 M/flow  reps 1  loss   0.0000%  agg_sent   159.97  agg_recv   159.97  clean=yes
+    240 M/flow  reps 1  loss   0.0000%  agg_sent   239.96  agg_recv   239.95  clean=yes
+    360 M/flow  reps 3  loss   0.0821%  agg_sent   359.95  agg_recv   359.70  clean=yes
+    540 M/flow  reps 3  loss   0.2933%  agg_sent   539.93  agg_recv   537.98  clean=yes
+    810 M/flow  reps 3  loss   0.6473%  agg_sent   809.88  agg_recv   803.80  clean=no
+   1215 M/flow  reps 3  loss   1.1228%  agg_sent   951.84  agg_recv   941.36  clean=no
+  ✅ confirmed 540M  reps 0.3391,0.3386,0.4314  median 0.3391% <= 0.5%
+### ovs_n1_a done  highest clean 540 M/flow  =>  aggregate 540.0 Mbit
+### busy_fraction 0.2079  softirq recorded  (no validated foreign-load gate this round -- PREREG §4.5)
+### OVS arm ovs_n4_a  n=4  h1->h65  step 8s  clean<=0.5%  13:50:42
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     4.00  agg_recv     4.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     8.00  agg_recv     8.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    12.00  agg_recv    12.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    20.00  agg_recv    20.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent    32.00  agg_recv    32.00  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    47.99  agg_recv    47.99  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent    79.99  agg_recv    79.99  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent   119.98  agg_recv   119.98  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent   179.97  agg_recv   179.97  clean=yes
+     70 M/flow  reps 1  loss   0.0000%  agg_sent   279.96  agg_recv   279.95  clean=yes
+    110 M/flow  reps 3  loss   0.0000%  agg_sent   439.93  agg_recv   439.92  clean=yes
+    160 M/flow  reps 3  loss   0.0263%  agg_sent   639.90  agg_recv   639.82  clean=yes
+    240 M/flow  reps 3  loss   0.0893%  agg_sent   959.84  agg_recv   959.32  clean=yes
+    360 M/flow  reps 3  loss   0.0272%  agg_sent   962.44  agg_recv   961.91  clean=yes
+    540 M/flow  reps 3  loss   0.0356%  agg_sent   963.47  agg_recv   962.90  clean=yes
+    810 M/flow  reps 3  loss   0.0440%  agg_sent   962.48  agg_recv   961.82  clean=yes
+  ✅ confirmed 810M  reps 0.0006,0.1283,0.0000  median 0.0006% <= 0.5%
+### ovs_n4_a done  highest clean 810 M/flow  =>  aggregate 3240.0 Mbit
+### busy_fraction 0.3332  softirq recorded  (no validated foreign-load gate this round -- PREREG §4.5)
+### OVS arm ovs_n16_a  n=16  h1->h65  step 8s  clean<=0.5%  13:55:26
+      1 M/flow  reps 1  loss   0.0000%  agg_sent    16.01  agg_recv    16.01  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent    32.01  agg_recv    32.01  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    48.00  agg_recv    48.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    80.00  agg_recv    80.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent   127.97  agg_recv   127.96  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent   191.97  agg_recv   191.95  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent   319.91  agg_recv   319.87  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent   479.91  agg_recv   479.87  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent   719.71  agg_recv   719.62  clean=yes
+     70 M/flow  reps 1  loss  16.7770%  agg_sent  1119.43  agg_recv   955.75  clean=no
+    110 M/flow  reps 1  loss  50.3010%  agg_sent  1758.92  agg_recv   953.63  clean=no
+    160 M/flow  reps 1  loss  64.6486%  agg_sent  2558.66  agg_recv   956.73  clean=no
+  ⚠️  two consecutive rungs above 25% loss -- stopping the climb at 160M.
+     Rungs above 160M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45M  reps 0.0187,0.0840,0.0062  median 0.0187% <= 0.5%
+### ovs_n16_a done  highest clean 45 M/flow  =>  aggregate 720.0 Mbit
+### busy_fraction 0.8658  softirq recorded  (no validated foreign-load gate this round -- PREREG §4.5)
+### OVS arm ovs_n16_b  n=16  h1->h65  step 8s  clean<=0.5%  13:57:48
+      1 M/flow  reps 1  loss   0.0000%  agg_sent    16.01  agg_recv    16.01  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent    32.01  agg_recv    32.01  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    48.00  agg_recv    48.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    80.01  agg_recv    80.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent   127.97  agg_recv   127.96  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent   191.93  agg_recv   191.90  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent   319.94  agg_recv   319.92  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent   479.92  agg_recv   479.90  clean=yes
+     45 M/flow  reps 3  loss   0.0342%  agg_sent   719.82  agg_recv   719.71  clean=yes
+     70 M/flow  reps 1  loss  17.7874%  agg_sent  1119.57  agg_recv   942.98  clean=no
+    110 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+    160 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+    240 M/flow  reps 1  loss  75.4260%  agg_sent  3819.99  agg_recv   966.07  clean=no
+    360 M/flow  reps 1  loss  83.3716%  agg_sent  5726.75  agg_recv   972.67  clean=no
+  ⚠️  two consecutive rungs above 25% loss -- stopping the climb at 360M.
+     Rungs above 360M were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 45M  reps 0.3236,0.0156,0.1245  median 0.1245% <= 0.5%
+### ovs_n16_b done  highest clean 45 M/flow  =>  aggregate 720.0 Mbit
+### busy_fraction 0.7265  softirq recorded  (no validated foreign-load gate this round -- PREREG §4.5)
+### OVS arm ovs_n4_b  n=4  h1->h65  step 8s  clean<=0.5%  14:01:34
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     4.00  agg_recv     4.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     8.00  agg_recv     8.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    12.00  agg_recv    12.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    20.00  agg_recv    20.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent    32.00  agg_recv    32.00  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    48.00  agg_recv    47.99  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent    79.99  agg_recv    79.99  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent   119.99  agg_recv   119.98  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent   179.98  agg_recv   179.97  clean=yes
+     70 M/flow  reps 1  loss   0.0000%  agg_sent   279.95  agg_recv   279.95  clean=yes
+    110 M/flow  reps 1  loss   0.0000%  agg_sent   439.93  agg_recv   439.93  clean=yes
+    160 M/flow  reps 1  loss   0.0000%  agg_sent   639.90  agg_recv   639.89  clean=yes
+    240 M/flow  reps 1  loss   0.0000%  agg_sent   959.88  agg_recv   959.77  clean=yes
+    360 M/flow  reps 3  loss   0.0795%  agg_sent   961.76  agg_recv   961.03  clean=yes
+    540 M/flow  reps 3  loss   0.0238%  agg_sent   962.35  agg_recv   961.72  clean=yes
+    810 M/flow  reps 3  loss   0.0274%  agg_sent   962.82  agg_recv   962.22  clean=yes
+  ✅ confirmed 810M  reps 0.1306,0.2687,0.1357  median 0.1357% <= 0.5%
+### ovs_n4_b done  highest clean 810 M/flow  =>  aggregate 3240.0 Mbit
+### busy_fraction 0.3205  softirq recorded  (no validated foreign-load gate this round -- PREREG §4.5)
+### OVS arm ovs_n1_b  n=1  h1->h65  step 8s  clean<=0.5%  14:05:23
+      1 M/flow  reps 1  loss   0.0000%  agg_sent     1.00  agg_recv     1.00  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent     2.00  agg_recv     2.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent     3.00  agg_recv     3.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent     5.00  agg_recv     5.00  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent     8.00  agg_recv     8.00  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent    12.00  agg_recv    12.00  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent    20.00  agg_recv    20.00  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent    30.00  agg_recv    30.00  clean=yes
+     45 M/flow  reps 1  loss   0.0000%  agg_sent    44.99  agg_recv    44.99  clean=yes
+     70 M/flow  reps 1  loss   0.0000%  agg_sent    69.99  agg_recv    69.99  clean=yes
+    110 M/flow  reps 1  loss   0.0000%  agg_sent   109.98  agg_recv   109.98  clean=yes
+    160 M/flow  reps 1  loss   0.0000%  agg_sent   159.97  agg_recv   159.97  clean=yes
+    240 M/flow  reps 1  loss   0.0000%  agg_sent   239.96  agg_recv   239.96  clean=yes
+    360 M/flow  reps 3  loss   0.1501%  agg_sent   359.95  agg_recv   359.42  clean=yes
+    540 M/flow  reps 3  loss   0.3599%  agg_sent   539.93  agg_recv   537.86  clean=yes
+    810 M/flow  reps 3  loss   0.8110%  agg_sent   809.90  agg_recv   803.64  clean=no
+   1215 M/flow  reps 3  loss   0.4986%  agg_sent   955.10  agg_recv   949.70  clean=yes
+  ⚠️  1215M FAILED confirmation (median 0.6193% > 0.5%) -- walking down
+  ✅ confirmed 540M  reps 0.5367,0.1997,0.2681  median 0.2681% <= 0.5%
+### ovs_n1_b done  highest clean 540 M/flow  =>  aggregate 540.0 Mbit
+### busy_fraction 0.2042  softirq recorded  (no validated foreign-load gate this round -- PREREG §4.5)
+=== PHASE 4: shaped positive control ===
+  boot[shaped] ok: 10 bridges, h1+h33 present (waited 5s)
+3 packets transmitted, 3 received, 0% packet loss, time 2027ms
+  htb qdisc count on fabric: 0 (expect >0 on shaped)
+### OVS arm ovs_n16_shaped  n=16  h1->h65  step 8s  clean<=0.5%  14:11:17
+      1 M/flow  reps 1  loss   0.0000%  agg_sent    16.02  agg_recv    16.01  clean=yes
+      2 M/flow  reps 1  loss   0.0000%  agg_sent    32.00  agg_recv    32.00  clean=yes
+      3 M/flow  reps 1  loss   0.0000%  agg_sent    48.00  agg_recv    48.00  clean=yes
+      5 M/flow  reps 1  loss   0.0000%  agg_sent    80.00  agg_recv    79.99  clean=yes
+      8 M/flow  reps 1  loss   0.0000%  agg_sent   127.99  agg_recv   127.98  clean=yes
+     12 M/flow  reps 1  loss   0.0000%  agg_sent   191.98  agg_recv   191.97  clean=yes
+     20 M/flow  reps 1  loss   0.0000%  agg_sent   319.77  agg_recv   319.74  clean=yes
+     30 M/flow  reps 1  loss   0.0000%  agg_sent   479.90  agg_recv   479.83  clean=yes
+     45 M/flow  reps 3  loss   0.0156%  agg_sent   719.79  agg_recv   719.72  clean=yes
+     70 M/flow  reps 1  loss  18.9703%  agg_sent  1119.25  agg_recv   954.77  clean=no
+    110 M/flow  reps 1  loss  47.2054%  agg_sent  1758.73  agg_recv   951.81  clean=no
+    160 M/flow  reps 1  loss       -1%  agg_sent       -1  agg_recv       -1  clean=NO_MEASUREMENT
+Terminated

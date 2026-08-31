@@ -1,0 +1,32 @@
+##### A-6: the startup banner must not claim a ruined round #####
+--- recipe command, verbatim ---
+grep -n "did not acknowledge\|acknowledged all\|stay partly disabled" .test_run/logs/p4_proxy.log
+79:[Proxy Agent] Kernel did not acknowledge 10/10 switches yet ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying the push in the background for up to 5 minutes.
+(grep rc=0)
+
+--- counted per alternative (expect: one of the first two present, third ZERO) ---
+acknowledged all         0
+0 hit(s)
+did not acknowledge      1 hit(s)
+stay partly disabled     0
+0 hit(s)
+
+##### B-2c: CIDR ipv4_dst must be 400, not 500 #####
+--- status code ---
+400
+--- body (must contain nw_dst and 10.0.0.5/32; must NOT contain a bare 10.0.0.5) ---
+{"detail":{"error":"unsupported match","fields":["nw_dst"],"message":"match field nw_dst carries \"10.0.0.5/32\", which is not an IPv4 address in dotted-quad form (e.g. 10.0.0.4). This proxy installs one /32 host route per destination, so a prefix length cannot be honoured and is refused rather than dropped. No rule was installed"}}
+
+  contains 'nw_dst'      : 1
+  contains '10.0.0.5/32' : 1
+  bare '10.0.0.5' left after removing all '10.0.0.5/32' occurrences (must be 0):
+    0
+
+##### B-2c ACCEPT PATH -- a guard that refuses everything passes every refusal test #####
+200
+(must still be 200)
+
+##### B-2c-b: the REGISTERED NON-FIX -- must STILL be 500 until ruled on #####
+500
+(recording only -- not to be fixed in this pass)
+##### DONE #####

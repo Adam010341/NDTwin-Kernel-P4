@@ -1,0 +1,3 @@
+1916-    [35m[1mreturn[0m [1mgraph_data[0m
+1917-
+1918:[31m[1mUnboundLocalError[0m:[1m cannot access local variable 'graph_data' where it is not associated with a value[0m
