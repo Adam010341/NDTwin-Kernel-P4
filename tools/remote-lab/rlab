@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+#
+# rlab -- remote lab machine claim/status, the cross-session coordination tool.
+# [Co-developed with claude code -- Adam]
+#
+# Convention (mirror of the local lab-claim protocol):
+#   * ~/RLAB-CLAIM on the machine itself is the single source of truth for "who owns it".
+#   * claim says who OWNS the machine, NOT whether an experiment is running --
+#     always read `rlab status <m>` (load/procs) before touching a "free" machine:
+#     server1-4 taught us a box with nobody logged in can be 15 days into an iperf3 run.
+#   * release appends to ~/RLAB-HANDOFF.log so the history survives.
+#
+# Usage:
+#   rlab list                              all machines: claim + load, one line each
+#   rlab status <machine>                  claim + occupancy detail
+#   rlab claim <machine> <owner> <note>    refuse if already claimed
+#   rlab note <machine> <text>             amend a live claim (terms changed, no handoff)
+#   rlab release <machine>                 archive claim to handoff log, then free
+#
+# Machines: server1-4 (old testbed, jump gw), server5-8 (new testbed, jump gw2), cc2,
+#           nslab (ssh alias; VPN, NO jump host -- address lives in ~/.ssh/config).
+#
+# 🔴 2026-08-31: EVERY machine in that list is SUSPENDED -- see suspended() below.
+#    `rlab list` still works as an inventory and reports why, without dialling out.
+#
+# 🔑 This tool's unit is the MACHINE. On a host running several VMs that is too coarse:
+#    two sessions can share a machine safely and still collide inside one VM. The
+#    VM-level registry is `ndtwin-vm.sh vms`, run on the host itself.
+set -euo pipefail
+
+CT=6
+
+tgt() {
+    case "$1" in
+        server1) echo "server1@10.10.10.5";;
+        server2) echo "server2@10.10.10.6";;
+        server3) echo "server3@10.10.10.7";;
+        server4) echo "server4@10.10.10.8";;
+        server5) echo "server5@10.10.10.251";;
+        server6) echo "server6@10.10.10.252";;
+        server7) echo "server7@10.10.10.253";;
+        server8) echo "server8@10.10.10.254";;
+        # Alias only, like cc2/gw/gw2 below: the address lives in ~/.ssh/config, which is
+        # not in version control. That is not decoration -- this repo has a PUBLIC
+        # upstream, its address is DHCP-assigned and will move, and a hostname that only
+        # resolves through the VPN is useless to anyone reading it here anyway.
+        nslab) echo "$1";;
+        cc2|gw|gw2) echo "$1";;
+        *) return 1;;
+    esac
+}
+
+# ---------------------------------------------------------------------- suspension
+# 🔴 A stop order that lives only in a memory file is enforced by whoever happens to
+# read that file. This table enforces it at the point of use: a suspended machine is
+# refused BEFORE any packet leaves, and the refusal carries the three things a stop
+# order needs -- who said it, when, and what unsuspends it.
+#
+# There is deliberately NO environment-variable override. To lift a suspension you
+# edit this table, which leaves a diff and a timestamp. A bypass nobody can see later
+# is not a stop order, it is a suggestion.
+suspended() {
+    case "$1" in
+        server1|server2|server3|server4|server5|server6|server7|server8|cc2|gw|gw2)
+            echo "學姐 via Adam, 2026-08-31: 「遠端機器先不要用」（整批 testbed）" ;;
+        nslab)
+            echo "🟡 PAUSED (not suspended) -- Adam 本人, 2026-08-31 ~15:00: 「等等，先不要用遠端機器」
+   why:      the machine's usage rules had not been written yet. The machine is fine
+             and the authorisation stands; what was missing was the rules.
+   unpause:  BOTH -- (1) the rules land, (2) Adam says go. Rules are now written:
+             doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md (935bc80)
+             ⇒ only (2) is outstanding. Read the rules while you wait; they say what
+             you must register BEFORE you act, and late entries are not allowed." ;;
+        *) return 1 ;;
+    esac
+}
+
+suspension_notice() {
+    local m="$1" why="$2"
+    cat >&2 <<EOF
+🔴 REFUSED -- '$m' is not available. Nothing was sent.
+   who/when: $why
+   then:     edit suspended() in $0 -- there is no env-var bypass, so lifting this
+             leaves a diff and a timestamp.
+   another machine: NONE. The testbed batch (server1-8/cc2) is separately suspended
+             by 學姐 with a different unlock condition. Ask Adam.
+EOF
+}
+
+jumpflag() {
+    case "$1" in
+        server1|server2|server3|server4) echo "-o ProxyJump=gw";;
+        server5|server6|server7|server8) echo "-o ProxyJump=gw2";;
+        *) echo "";;
+    esac
+}
+
+rssh() {
+    local m="$1"; shift
+    local t; t=$(tgt "$m") || { echo "rlab: unknown machine '$m'" >&2; return 2; }
+    local why
+    # Checked here, not in each verb: every path to the network goes through rssh, so
+    # this is the one place a new verb cannot forget to consult.
+    if why=$(suspended "$m"); then suspension_notice "$m" "$why"; return 4; fi
+    # shellcheck disable=SC2046
+    ssh -o BatchMode=yes -o ConnectTimeout=$CT $(jumpflag "$m") "$t" "$@"
+}
+
+case "${1:-}" in
+    list)
+        for m in server1 server2 server3 server4 server5 server6 server7 server8 cc2 nslab; do
+            printf '%-8s ' "$m"
+            # Suspension is reported WITHOUT dialling, so `rlab list` stays usable as an
+            # inventory while every machine in it is off limits.
+            if why=$(suspended "$m"); then echo "🔴 SUSPENDED -- $why"; continue; fi
+            rssh "$m" 'c=$(head -1 ~/RLAB-CLAIM 2>/dev/null); l=$(cut -d" " -f1-3 /proc/loadavg); echo "${c:-free} | load $l"' 2>/dev/null \
+                || echo "unreachable"
+        done
+        echo
+        echo "🔑 A machine-level claim is not enough on a host that runs several VMs:"
+        echo "   the contention unit is the VM. On the host, run:  ndtwin-vm.sh vms"
+        ;;
+    status)
+        m="${2:?usage: rlab status <machine>}"
+        rssh "$m" '
+            echo "== claim =="; cat ~/RLAB-CLAIM 2>/dev/null || echo "(free -- no claim file)"
+            echo "== load =="; uptime
+            echo "== logged in =="; w -h
+            echo "== top procs =="; ps -eo user,etime,pcpu,comm --sort=-pcpu | head -6'
+        ;;
+    claim)
+        m="${2:?usage: rlab claim <machine> <owner> <note>}"
+        owner="${3:?owner required (which session will issue commands)}"
+        note="${4:?note required (what for, and the human contact)}"
+        printf 'owner: %s\nsince: %s\nnote: %s\n' "$owner" "$(date -Is)" "$note" | rssh "$m" '
+            if [ -e ~/RLAB-CLAIM ]; then
+                echo "REFUSED -- already claimed by:"; cat ~/RLAB-CLAIM; exit 1
+            fi
+            cat > ~/RLAB-CLAIM
+            echo "claimed:"; cat ~/RLAB-CLAIM'
+        ;;
+    note)
+        # A claim's TERMS can change without ownership changing -- e.g. "gated on
+        # sign-off" becoming "authorised". Without this, the only way to correct a
+        # stale note was release+claim, which fakes a handoff in the log.
+        m="${2:?usage: rlab note <machine> <text>}"
+        text="${3:?text required}"
+        printf 'note+ %s: %s\n' "$(date -Is)" "$text" | rssh "$m" '
+            if [ ! -e ~/RLAB-CLAIM ]; then
+                echo "REFUSED -- no claim to amend; use: rlab claim" >&2; exit 1
+            fi
+            cat >> ~/RLAB-CLAIM
+            echo "amended:"; cat ~/RLAB-CLAIM'
+        ;;
+    release)
+        m="${2:?usage: rlab release <machine>}"
+        rssh "$m" '
+            if [ ! -e ~/RLAB-CLAIM ]; then echo "already free"; exit 0; fi
+            { echo "== released $(date -Is) =="; cat ~/RLAB-CLAIM; } >> ~/RLAB-HANDOFF.log
+            rm ~/RLAB-CLAIM
+            echo "released; recent handoffs:"; tail -8 ~/RLAB-HANDOFF.log'
+        ;;
+    *)
+        sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'
+        exit 1
+        ;;
+esac

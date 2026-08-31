@@ -75,7 +75,9 @@ prereg 蓋章＋Adam 的排程裁決（08-30「登記＝授權」被資源主人
 | H-4 | ~13:59 | reviewer | `stop`→`snap`→`start` | 短 | 同上 |
 | | | | 🔴 **副作用：資源無聲降為 12 vCPU/8192 MiB**，已顯式復原 16/16384；並建出**同名快照 `fresh`(ID2)** | | 見 §3 R7、R8 |
 | H-5 | ~14:2x | reviewer | guest 內 `apt install docker.io`＋啟用 | 中 | 同上 |
-| H-6 | ~14:41 | **未歸屬** | qemu 行程重啟（pidfile mtime 14:41:41） | — | 本線 14:52 觀測；🔴 **與 H-4 的 ~13:59 對不起來，尚未釐清是誰**（見 §6） |
+| H-6 | 14:41:35 | 遠端機器測試 | `ndtwin-vm.sh snap p4-toolchain-v8` ⇒ **`snap` 自動重啟 VM**（pid 25269、pidfile 14:41:41） | 短 | 本線指令輸出：`--- restarting --- / booting: 16 vCPU, 16384MiB / qemu pid: 25269 / cpus: 16 mem: 15Gi` |
+| | | | 🔑 **這條一度被記成「未歸屬」，是錯的。** 我看到 pidfile 14:41:41 就判「我最後一次 `start` 更早，所以不是我」——**對自己寫的工具做推論而不是去讀它**。⇒ **作者身分不是證據** | | |
+| | | | ✅ **副產物**：那次開機帶了顯式 `16/16384` 且 **guest 自報 `cpus: 16 mem: 15Gi`** ⇒ H-8 的校準跑在 16 vCPU 上，reviewer 的 G 歸屬成立 | | |
 | H-7 | ~14:5x | reviewer | guest 內 clone p4benchmark、behavioral-model `f0b7d201` | 中 | 同上 |
 | H-8 | ~15:0x | reviewer | sender-gate 校準（netns+veth、3×10 s iperf3 UDP） | 中 | `GATE-RESULT.md`，G＝8331.3 Mbit/s |
 | H-9 | ~15:0x | reviewer | 四顆並行 bmv2 編譯（16 vCPU 滿載） | 🔴 **重** | 🔴 因暫緩令中途 KILL（session group 2775，驗到 `remaining=0`） |
@@ -162,12 +164,50 @@ H-4 的實例：`stop`→`snap`→`start` 沒有重帶 `VM_CPUS`/`VM_MEM`，
 
 ### R8 快照命名：**用途＋日期**，禁用通用字
 
-`qemu-img` **允許重複 tag 而且完全不報錯**——這就是 08-31 那次碰撞能隱形的原因。
-現在磁碟上有**兩個都叫 `fresh` 且內容不同**的快照，reviewer 另建了
-`p4-bootstrapped-nodocker` 當不歧義入口。
+`qemu-img` **允許重複 tag 而且完全不報錯**。現在磁碟上有**兩個都叫 `fresh` 且內容不同**的
+快照，reviewer 另建了 `p4-bootstrapped-nodocker` 當不歧義入口。
 
-`ndtwin-vm.sh` 已強制：`snap fresh|base|clean|test|tmp|snap|backup` 直接拒絕；
-`restore` 遇到重複 tag 也拒絕（`-a` 會挑一個但不說是哪一個）。
+🔴 **但通用名只是症狀，病因在更上游**：`ndtwin-vm.sh` 舊版的 `snaps` 是
+
+```bash
+qemu-img snapshot -l "$IMG" 2>/dev/null | sed 's/^/  /' || say "  (no disk or no snapshots)"
+```
+
+而 **`qemu-img snapshot -l` 在 qemu 持有 image 鎖時會讀失敗**。`2>/dev/null` 吃掉錯誤、
+`||` 把失敗翻譯成「沒有快照」——**這不是報錯，是一個有自信的錯誤答案**。
+讀到它的人相信磁碟是空的，於是建了第二個 `fresh`。**照著它做是完全合理的。**
+
+⇒ 已修五處，而第二條比第一條重要：
+1. `-U`（force-share）真的讀得到；
+2. **「讀不到」與「沒有」印成兩種不同的字**——把兩者收斂成同一句話，正是鎖變成事實的那一步；
+3. `snap` **先讀再寫**，讀不到就拒絕盲建，tag 已存在也拒絕；
+4. `restore` 的重複檢查原本把讀失敗吞成 `n=0` 然後放行（**同一形狀的第二個實例**）⇒ fail-closed；
+5. 讀到重複 tag 當場印 `🔴 DUPLICATE TAG`。
+
+⚠️ 順帶修掉一個相反方向的：`snap` 在 VM 沒開時，末尾 `[ "$was_running" = 1 ] && {…}` 是
+分支最後一句 ⇒ **快照成功卻 exit 1**，`snap && <下一步>` 會永遠不執行下一步。
+
+### R8a 🔴 兩個 session 落在同一顆 qcow2——機制逐字紀錄
+
+**不是「有人忘了溝通」，是預設值的算術。**
+
+```
+VM_DIR="${VM_DIR:-$HOME/ndtwin-vm}"      # 預設 A
+SSH_PORT="${SSH_PORT:-2222}"             # 預設 B，與 A 互相獨立
+```
+
+第二個 session 只要**不設環境變數**（或只改其中一個），就會落在第一個上面。
+而在那之前，**沒有任何一層會報錯**：qemu 開得起來、ssh 連得上、快照存得進去。
+唯一的徵兆是**快照列表裡出現沒人建過的快照**——而當時 `snaps` 正好讀不到列表（見 R8）。
+
+三個後果都不是理論：
+1. **任何人 `restore`，所有人的狀態一起被換掉**，沒有提示。
+2. **重複 tag 合法且不報錯** ⇒ `restore fresh` 指哪一個不明確。
+3. **VM 執行中時 `qemu-img snapshot -l` 會失敗**——這是正常的，但被回報成「沒有快照」。
+
+⇒ 這就是 R6（一 session 一顆 VM）與 `OWNER`／port 守衛存在的理由。
+🔑 **假想的風險說服不了人，這件事說得了**：那套機制若早兩小時部署，H-6 那格
+「誰重啟了 VM」根本不會成為一個問題。
 
 ### R9 這台量出來的效能數字，哪些算數
 
@@ -193,16 +233,25 @@ H-4 的實例：`stop`→`snap`→`start` 沒有重帶 `VM_CPUS`/`VM_MEM`，
 
 ## §4 工具
 
-住在 `~/.local/share/ndtwin-remote/`（**不在 repo 裡**）與 `~/.local/bin/rlab`。
+🏁 **已進版控：[`tools/remote-lab/`](../../../tools/remote-lab/)**（含自己的 README，說明每個守衛的起因）。
 
 | 工具 | 用途 |
 |---|---|
 | `rlab list/status/claim/note/release` | 機器層。含 `suspended()` 表 |
 | `ndtwin-vm.sh` | VM 層生命週期＋本規定的 R6/R7/R8 守衛＋`vms` 跨 session 視圖 |
-| `test_vm_coordination.sh` | 上述全部守衛的變異閘，**每個閘門 force-red 與 force-green 各一次**。08-31：**23/23** |
+| `test_vm_coordination.sh` | 上述全部守衛的變異閘，**每個閘門 force-red 與 force-green 各一次**。08-31：**31/31** |
 
-🔴 **這些改動目前只在 Adam 筆電上，沒有部署到 nslab。** 解封後兩件事：
-`scp` 過去，然後**在那台上重跑一次變異閘**——在筆電上綠不代表在那台上綠。
+進版控前做過內容掃描，**定性後才行動**：
+- `10.10.10.x`／`172.25.x` 這個類別**早就在 repo 也早就在公開上游**（`origin/main` 各 9／6 檔）⇒ 不是新的。
+- 🔴 **唯一真正新的是 nslab 那台的位址** ⇒ 已移除：`rlab` 現在只認 **ssh 別名**（與 `cc2`/`gw`/`gw2` 一致），位址留在 `~/.ssh/config`。理由三個都成立：這個 repo 有公開上游、那個位址是 DHCP 給的會變、而且它只在 VPN 內解析得到，寫進去對讀者沒有用。
+- `password`/`passwd` 的命中全是註解、`getent passwd`、以及 `lock_passwd: true`（**關閉**密碼登入的 cloud-init 指令）。**沒有憑證。**
+- `ndtwin-bootstrap.sh` / `ndtwin-lab.server8` **不進 repo**——server8 專用而那台已凍結，留在 `~/.local/share/ndtwin-remote/` 等處置。
+
+🔑 **測試的路徑一律相對於腳本自己**。寫絕對路徑的 harness 測的是那個路徑上的副本——一旦
+repo 與 `~/.local/` 各有一份，測到的就不是讀者剛 checkout 的那一份。
+
+🔴 **仍未部署到 nslab。** 解封後兩件事：`scp` 過去，然後**在那台上重跑一次變異閘**——
+在筆電上綠不代表在那台上綠。
 
 ---
 
@@ -222,16 +271,25 @@ H-4 的實例：`stop`→`snap`→`start` 沒有重帶 `VM_CPUS`/`VM_MEM`，
 
 ---
 
+## §5a 🔴 解封後待辦（現在不做，但那時候沒人會記得原因）
+
+| # | 待辦 | 為什麼現在不做 / 為什麼那時要做 |
+|---|---|---|
+| 1 | **dpkg 壞狀態要 purge**：`iU virtualbox` / `iF virtualbox-dkms` / `iU virtualbox-qt`（另一個 session 裝 VirtualBox 失敗留下的，見 H-11）<br>`sudo apt-get remove --purge -y virtualbox virtualbox-qt virtualbox-dkms && sudo apt-get autoremove -y` | **它會擋住解封後的第一次安裝**，而那時候沒人會知道原因。<br>成因是結構性的：VirtualBox 7.0.16 早於 kernel 7.0.0-28，`modpost` 說 `vboxdrv` 用了 `kvm_enable_virtualization` 等符號卻沒 import ⇒ **不是缺件，是版本不相容**，裝 `linux-headers` 沒有用 |
+| 2 | 部署 `tools/remote-lab/` 到那台，並**在那台上重跑變異閘** | 在筆電上綠不代表在那台上綠 |
+| 3 | 補齊 §2.2 的 H-10 起訖與 H-11 歸屬 | 見 §6 |
+
 ## §6 未決／待補
 
 | # | 事項 | 要問誰 |
 |---|---|---|
-| 1 | **H-6 的 14:41 重啟不知道是誰做的**，與 reviewer 記的 ~13:59 對不起來 | reviewer／其他線 |
-| 2 | H-10 的**精確起訖時間**（本表只有 ~15:0x–約 15:5x） | 開機手冊 |
-| 3 | H-11 的 VirtualBox 半裝**歸屬未確認**；dpkg 壞狀態何時 purge | 開機手冊／Adam |
-| 4 | 那顆 `.ova` 的 R4 四件事（權限／刪除期限／誰確認） | 開機手冊 |
-| 5 | 既存 `~/ndtwin-vm/` 歸誰 | Adam／auditor |
-| 6 | 這批工具要不要進 repo | Adam |
+| ~~1~~ | ~~H-6 的 14:41 重啟不知道是誰做的~~ | 🏁 **已結**＝遠端機器測試線自己（`snap` 自動重啟），有指令輸出為憑 |
+| 2 | H-10 的**精確起訖時間**（本表只有 ~15:0x–約 15:5x） | 開機手冊（已去信） |
+| 3 | H-11 的 VirtualBox 半裝**歸屬未確認** | 開機手冊（已去信） |
+| 4 | 那顆 `.ova` 的 R4 四件事（權限／刪除期限／誰確認） | 開機手冊（已去信） |
+| 5 | **既存 `~/ndtwin-vm/` 歸誰**——auditor 已裁「不准先搶先贏、`restore` 前要先有分割清單」；reviewer 已表態**不 claim 但要保** `~/b-round/`（含唯一一份校準 raw）與 `~/c4/` | Adam／auditor |
+| ~~6~~ | ~~這批工具要不要進 repo~~ | 🏁 **已結**＝auditor 裁「要，歸這條線」⇒ `tools/remote-lab/` |
 | 7 | nslab 在實體拓撲裡是否也有角色（三張網卡、兩張沒接線） | 學姐 |
+| 8 | reviewer 的 prereg 洞：**時效條款涵蓋了「臂」，沒涵蓋「餵給臂的常數」**（校準不是臂所以沒 dump manifest，但 G 餵的是臂的判定式）。工具層 R7 補掉一半，另一半在他的 prereg | reviewer（他自己提出的） |
 
 [Co-developed with claude code -- Adam]
