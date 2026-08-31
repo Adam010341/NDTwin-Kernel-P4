@@ -365,12 +365,40 @@ closest pair. **`bl` and `p` differ only in recompute period** (1 kHz vs 1 Hz), 
 * **It cannot address Q1 or Q3 at all** — batching is the `m`/`mp` arms, which are leg 2.
 * **n = 3 per arm.** The separation is clean for n=3 (disjoint, wide margin) and it is still one rung.
 
-### What would make it the registered result
+### 🔴 WITHDRAWN: "R-E2 is answerable from leg 1 alone"
 
-If `bl` crosses 0.95 at **1/4 or 1/1** while `p` does not, then `P`'s ceiling rung is strictly
-higher than `BL`'s and **R-E2 is answerable from leg 1 alone**. Both of those rungs are in the run
-that is currently executing. ⇒ **This is a leading indicator on the primary, reported as such, and
-the rung language is what decides.**
+I wrote, and told the auditor, that *"if `bl` crosses 0.95 at 1/4 or 1/1 while `p` does not, then
+`P`'s ceiling rung is strictly higher than `BL`'s and R-E2 is answerable from leg 1 alone."*
+**That is wrong on two counts, both of them written verbatim in `run_e.sh:21-26`:**
+
+> *"The top rung's availability is judged on **MP** — the production-side cell, expected highest —
+> **never on BL**. Dropping the top rung because BL died there would cut exactly where the effect
+> is. So there is NO stop condition in this loop that removes a rung."*
+>
+> *"A cell that reads healthy at the top rung is recorded as **RIGHT-CENSORED** (`">=1/1"`), never
+> as 'the ceiling is 1/1'. **Two censored cells compared to each other are INDISTINGUISHABLE.**"*
+
+1. **Availability at the top is judged on `MP`, which is leg 2.** `BL` saturating first would be
+   **`BL`'s ceiling, not the ceiling** — and treating it as the latter cuts exactly where the effect
+   is expected to live.
+2. **If both arms stay healthy through 1/1 they are both right-censored, and two censored values are
+   `INDISTINGUISHABLE`** — not "equal", and not a result. I had not accounted for this at all: a
+   large ratio separation at 1/1 with both marks OK still yields *indistinguishable*.
+
+✅ The code protects itself — **no stop condition removes a rung**, so 1/4 and 1/1 will run whatever
+`bl` does. **The risk was never in the loop; it was in a person reading "bl is falling" as "we found
+the ceiling."** Caught by the auditor before the 1/4 data existed, which is the only time such a
+correction is free.
+
+### 口徑, stated precisely
+
+`ratio` **is** registered — as one of three health conditions (`ratio ≥ 0.95`, λ of the same order
+as the control arm, `distinct` non-zero: PREREG §236, §296), which is what sets `mark`. What is
+**not** registered is **comparing the arms by ratio magnitude while both are healthy.** That
+comparison is an unregistered secondary observation on the recompute axis, the same tier as
+`spread`, and by Q2/E4 it is reported separately and **may not explain or reinforce the primary**.
+Round-wide `SATURATED` count is **0**: no rung has stopped being healthy, so no ceiling exists yet
+for any arm.
 
 ⚠️ Separately, `spread` has turned: 23.790 → 11.970 → 6.770 → 5.361 → 5.399 → **6.113**. The
 minimum sits at 1/32 and it rises after — **not a floor but a turning point**, with more sampling
