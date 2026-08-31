@@ -1195,3 +1195,30 @@ the two marks separately; what nobody did on inheriting them was ask **which cei
 reported.**
 
 [Co-developed with claude code -- Adam]
+
+---
+
+## F-27. ⚠️ Splitting the round into two legs made the 2×2 an inference rather than a measurement
+
+Plan (b) ran 72 cells as **48 (bl, p) + 24 (m, mp)** so the round would fit the exclusive window.
+That was the right trade at the time and Adam ruled it. **The cost is now specific.**
+
+`run_e.sh:32-33` states the design: *"Within a rung the arms are interleaved … so drift across the
+rung is shared by all four arms instead of being confounded with one of them."* **That protection
+exists only inside one leg.** At 1/8 the four cells ran as two blocks **2 h 45 m apart**
+(02:57–03:29 and 06:14–06:46), each block internally interleaved and clean.
+
+⇒ Within-leg contrasts are measurements: **(bl − p) = −0.0292**, **(m − mp) = −0.0009**.
+⇒ The interaction is their **difference, +0.0282**, valid **only if the period does not modulate the
+contrast** — not merely the level, which cancels. **Untested, and untestable from this round**,
+since each leg occupied exactly one period. And the round measured the baseline moving **0.75 cores
+in twenty minutes** (F-19), so period effects here are real rather than hypothetical.
+
+🔑 **The general form: interleaving buys unconfounded comparison only among arms that are actually
+interleaved. Splitting a factorial design across time turns the cross-block cells into a
+difference-in-differences, whose assumption is invisible unless someone writes it down.**
+
+⇒ **Next round: run all four arms interleaved within each rung**, or accept in advance that the
+interaction is an inference. This is what a window has to be long enough to buy — and stating it
+this way lets the next round price the trade instead of rediscovering it.
+[Co-developed with claude code -- Adam]

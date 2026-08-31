@@ -814,6 +814,38 @@ effect of either axis is supported.**
 the 1/8 separation was *"the recompute axis"*. That was the honest reading of two arms; **four arms
 overturn it.** The correction goes back to the original readers, not only into this file.
 
+### 🔴 DOWNGRADED — the 2×2 does not share a time window, so the interaction is inferred, not measured
+
+The four arms at 1/8 were **not** run together. Verified from `run_e.log`:
+
+| contrast | when | interleaved within the rung? |
+|---|---|---|
+| `bl` vs `p` | **02:57:19 – 03:29:37** (leg 1) | ✅ bl,p,bl,p,bl,p — clean |
+| `m` vs `mp` | **06:14:35 – 06:46:43** (leg 2) | ✅ m,mp,m,mp,m,mp — clean |
+| **`bl` vs `m`** | **2 h 45 m apart** | 🔴 **confounded with time of night** |
+
+`run_e.sh:32-33`'s protection — *"drift across the rung is shared by all four arms instead of being
+confounded with one of them"* — **holds only within a single leg.** Plan (b) split 72 cells into
+48 + 24 to fit the window, and this is the cost.
+
+**What is measured, each clean inside its own leg:**
+* leg 1, 1/8: **(bl − p) = −0.0292** — 1 kHz unmerged sits 3% below 1 Hz unmerged.
+* leg 2, 1/8: **(m − mp) = −0.0009** — with merge on, the recompute period makes no difference.
+
+**What is inferred:** the interaction is the **difference-in-differences, +0.0282**, and it holds
+**only if the time of night does not modulate the `1 kHz vs 1 Hz` contrast itself.** Not "does not
+affect the level" — level drift cancels inside a contrast — but **does not affect the contrast**.
+🔴 **That assumption is untested, and this round has no data capable of testing it**: each leg ran
+in exactly one period.
+
+⇒ **Report the two within-leg contrasts as the results, and the interaction as an inference under a
+stated, untested assumption.** The phrase *"a clean 2×2"* is withdrawn — it was mine and the
+auditor's both.
+
+⚠️ **The same confound covers the 1/4 comparison** (`m`/`mp` `gt` 127–139 against `bl`/`p` 109–118).
+Cross-leg, **and** on a rung where the fidelity gauge is blind. **Not to be interpreted, and to be
+labelled uninterpretable wherever it is mentioned** rather than quietly omitted.
+
 ### 🔴 No mechanism is established, and this belongs in the same paragraph as the result
 
 **Two different interventions removing the same effect does not identify a mechanism.** The
