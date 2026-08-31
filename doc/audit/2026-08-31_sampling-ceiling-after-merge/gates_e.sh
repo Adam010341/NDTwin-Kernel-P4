@@ -59,6 +59,46 @@ import sys; sys.path.insert(0, '$PRIOR'); import plot_figures, plot_ladder_rates
     return 1
 }
 
+# -- the UDP counter reader, for G1 -------------------------------------------------------------
+#
+# 🔴 Sets UDP_INDATAGRAMS.  It is deliberately NOT a command substitution: `abort` ends in
+# `exit 9`, and inside $( ) that exits the SUBSHELL only -- the caller would carry on with an
+# empty value and the gate would compare two blanks.  That is the exact failure shape the rest
+# of this file exists to prevent, so the value comes back through a global instead.
+#
+# THE BUG THIS REPLACES (found live, 2026-08-31, not by the dry run):
+#     grep -A1 '^Udp:' /proc/net/snmp | tail -1 | awk '{print $2}'
+# /proc/net/snmp has TWO lines starting `Udp:` (header, values) and the line after the values is
+# `UdpLite:`.  `UdpLite:` does not match `^Udp:` -- it is dragged in as the -A1 CONTEXT of the
+# values line -- so `tail -1` selects it and $2 is the literal string "InDatagrams".
+#
+# 🔑 `set -u` made that a crash, which was the lucky direction.  Without it both reads coerce to
+# 0, the gate FAILs, and G1 prints its own line: "a counter reads zero against a live ten-switch
+# fabric.  That is a broken reader, not a quiet fabric."  The CATEGORY is right and the TARGET is
+# wrong -- both counters were fine; the pipeline reading them was not.  A gate that fails while
+# pointing at the wrong component costs more than one that stays silent.
+#
+# The numeric assertion is not an extra guard bolted on: reading a non-number IS the failure
+# mode, and without the assertion there is no way to demonstrate that this parse was repaired.
+# Forced in both directions -- see FORCE_UDP_NONNUMERIC and the G-UDP rows in the summary.
+#
+# One expression, one quantity: the old code read the same counter two different ways at the two
+# call sites, and only one of them carried the (dead, output-less) `awk '/^Udp:/{u=$0} END{}'`
+# fragment.  Two spellings of one reading is how the two ends of a bracket stop being comparable.
+# [Co-developed with claude code -- Adam]
+udp_indatagrams() {
+    local v
+    if [[ -n "${FORCE_UDP_NONNUMERIC:-}" ]]; then
+        v="$FORCE_UDP_NONNUMERIC"
+    else
+        v=$(awk '/^Udp:/{getline; print $2; exit}' /proc/net/snmp)
+    fi
+    [[ "$v" =~ ^[0-9]+$ ]] || abort "§2.1" "Udp InDatagrams parsed as '$v', which is not a number.
+        /proc/net/snmp was readable, so this is a PARSER fault, not a fabric fault.  Do not go
+        looking at the switches or the counters: look at the expression that read them."
+    UDP_INDATAGRAMS="$v"
+}
+
 # -- the burner, for G4 -----------------------------------------------------------------------
 # awk, not python: the gate exempts the proxy by the socket it holds and everything else by
 # `comm`, and a python burner would be indistinguishable from the proxy for anybody reading the
@@ -183,10 +223,10 @@ main() {
         record "G1 §2.1 counters non-zero at batch_size=1" PASS "synthetic"
     else
         dg0=$(curl -sf --max-time 10 http://localhost:8081/sflow/stats | "$PY_PROXY" -c 'import json,sys;print(json.load(sys.stdin)["datagrams_sent"])')
-        udp0=$(awk '/^Udp:/{u=$0} END{}' /proc/net/snmp; grep -A1 '^Udp:' /proc/net/snmp | tail -1 | awk '{print $2}')
+        udp_indatagrams; udp0="$UDP_INDATAGRAMS"
         sleep 6
         dg1=$(curl -sf --max-time 10 http://localhost:8081/sflow/stats | "$PY_PROXY" -c 'import json,sys;print(json.load(sys.stdin)["datagrams_sent"])')
-        udp1=$(grep -A1 '^Udp:' /proc/net/snmp | tail -1 | awk '{print $2}')
+        udp_indatagrams; udp1="$UDP_INDATAGRAMS"
         say "    sflow datagrams_sent delta=$(( dg1 - dg0 ))   udp InDatagrams delta=$(( udp1 - udp0 ))"
         if (( dg1 - dg0 > 0 && udp1 - udp0 > 0 )); then
             record "G1 §2.1 counters non-zero at batch_size=1" PASS "sflow=+$((dg1-dg0)) udp=+$((udp1-udp0))"

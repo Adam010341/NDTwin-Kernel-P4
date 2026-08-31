@@ -639,3 +639,28 @@ compare 1.06  vs 1.02   -> verdict=UNINTERPRETABLE ratio=1.04 (<10)
   `measure.sh:60` 的 `${LABEL}_twin.jsonl` 對 `run_e.sh:154` 傳入的 `$cell`——**E 輪自己兩邊一致**；
   八個腳本的 `PY=` 逐一 grep；兩顆候選直譯器的 verdict 逐字元比對）。
   2026-08-31，**ladder 尚未開跑 ⇒ 零量測資料**（`raw/` 只有 dry-run、閘門自測與 CPU 基線）。
+  📌 **本則由兩顆 commit 落成**：`83ffda7`（上列①②，§6）＋**攜帶本段的這一顆**（下列③，`gates_e.sh`）。
+  不 squash：這棵樹今晚是多寫者的共用 worktree，改寫歷史會把別人未推的東西帶進一個不描述它的位置
+  （`two-writers-one-worktree` 既有裁決）。**可引用性由章指名 sha 提供，不由 commit 數目提供。**
+  ③ **`gates_e.sh` 的 UDP counter parse（auditor 批准，動的是腳本不是條款）**：
+  **改了什麼**：`:186`／`:189` 兩個呼叫點改用單一 `udp_indatagrams()`，內含
+  `awk '/^Udp:/{getline; print $2; exit}'` 與「值必須是數字」的斷言。
+  **為什麼**：原式 `grep -A1 '^Udp:' | tail -1 | awk '{print $2}'` 會把 **`UdpLite:` 的標頭**
+  當成值那一行的 `-A1` 後文拉進來（`UdpLite:` 並未命中 `^Udp:`），取回字串 `InDatagrams`
+  ⇒ **§2.1 註冊要問「counter 在 batch_size=1 讀不讀得到」，而該碼從未問過那個問題**。
+  這是「儀器構不到註冊的問題」，不是「不喜歡答案改門檻」：門檻、判準、§2.1 語意全未動，
+  **修正使閘門變得能夠失敗，方向是收窄**。
+  🔑 **失效方向值得記**：`set -u` 把它變成當機，那是運氣好的方向。沒有 `set -u`，兩邊皆
+  coerce 成 0 ⇒ G1 判 FAIL ⇒ 印出它自己那句「a counter reads zero against a live ten-switch
+  fabric … a broken reader, not a quiet fabric」——**分類正確、指向錯誤**（兩個 counter 都好好的，
+  壞的是讀它們的管線）。**一個會失敗、但把人帶去錯誤元件的閘門，比沉默的閘門更貴。**
+  🔑 斷言不是額外保護：**讀到非數字就是這個失效模式本身**，且沒有它就無從證明 parse 修對了。
+  ⚠️ 實作註記：值以全域 `UDP_INDATAGRAMS` 回傳而非 `$( )`——`abort` 結尾是 `exit 9`，
+  在命令替換裡只會結束 subshell，呼叫端會帶著空值續行並比較兩個空白，
+  **那正是本輪要防的形狀，斷言本身會變成它的新實例**。
+  **雙向 force（auditor 批准本項的條件，全部對實際會執行的位元組跑）**：
+  unit 層 GREEN `UDP_INDATAGRAMS=3045085` rc=0；RED（強制成舊 bug 實際取到的 `InDatagrams`）
+  rc=9；RED-2（空白）rc=9。**in-context**：`FORCE_UDP_NONNUMERIC=InDatagrams ./gates_e.sh gates`
+  於 `20:45:56` 在**真正的呼叫點**（`batch_size confirmed at the emitter: 1` 之後，即原 bug 發作處）
+  中止，rc=9，並完成 `restore_production`（還原至 `e3bad23c…`）
+  ⇒ force **抵達受測的動作**，不只抵達函式。落盤：`gates_e.forcered_udp.log`。
