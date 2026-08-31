@@ -1,0 +1,5 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.0.15, port 45338
+iperf3: error - idle timeout for receiving data

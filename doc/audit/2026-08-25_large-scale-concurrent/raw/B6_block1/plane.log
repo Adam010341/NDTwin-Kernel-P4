@@ -1,0 +1,31 @@
+=== B6: flows 240s, window 200s, pollers 280s,  limit=16 scale=1 ===
+  pre: edges=288 down=0 hosts=128 ipv4=128
+  pre: converged (edges_down=0, hosts_ipv4=128)
+  label=B6
+  flow_s=240 warm_s=20 win_s=200
+  flow_limit=16 rate_scale=1
+  bmv2: 680122 /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s1-eth3 -i 4@s1-eth4 -i 5@s1-eth5 -i 6@s1-eth6 -i 7@s1-eth7 -i 8@s1-eth8 -i 9@s1-eth9 -i 10@s1-eth10 -i 11@s1-eth11 -i 12@s1-eth12 -i 13@s1-eth13 -i 14@s1-eth14 -i 15@s1-eth15 -i 16@s1-eth16 -i 17@s1-eth17 -i 18@s1-eth18 -i 19@s1-eth19 -i 20@s1-eth20 -i 21@s1-eth21 -i 22@s1-eth22 -i 23@s1-eth23 -i 24@s1-eth24 -i 25@s1-eth25 -i 26@s1-eth26 -i 27@s1-eth27 -i 28@s1-eth28 -i 29@s1-eth29 -i 30@s1-eth30 -i 31@s1-eth31 -i 32@s1-eth32 -i 33@s1-eth33 -i 34@s1-eth34 -i 1@s1-eth1 -i 2@s1-eth2 --thrift-port 9091 --device-id 1 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50051 --cpu-port 255
+  kernel: 1767892 ./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json --no-ai
+  kernel_instances: 1
+  kernel_sha256_ondisk: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  kernel_sha256_running: 3367d0e9ed22db84ba8a66ef61d74b3f56571e2d60ef94ccd40742a969ebdb27
+  proxy: 678412 tmux -L ndtwinlab new-session -d -s topo -c /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/ntg_bmv2_topo.py
+flows: 16   duration: 240s
+  all 32 host namespaces resolved
+  servers listening: 16 / 16
+  rate ladder:       2 1      12 5       2 20 
+  16 clients launched at 1787882286.923316412; waiting 240s + drain
+  all clients returned at 1787882527.096578839
+  ⚠️  cli_h13_to_h77_5M.json: 5.00 Mbit/s, 6.3% lost
+  ⚠️  cli_h17_to_h49_20M.json: 20.00 Mbit/s, 6.4% lost
+  ⚠️  cli_h1_to_h65_20M.json: 20.00 Mbit/s, 8.2% lost
+  ⚠️  cli_h5_to_h69_5M.json: 5.00 Mbit/s, 6.2% lost
+  ⚠️  cli_h9_to_h73_5M.json: 5.00 Mbit/s, 6.3% lost
+
+  flows with a result: 16, without: 0
+  offered total: 102.0 Mbit/s
+
+  window: 1787882299.6840196 .. 1787882499.6840196  (200s)
+  veth: veth: 64 samples, 10240 rows, 160 interfaces
+  twin: twin: 118 attempts, graph ok=118, flows ok=118
+=== B6 done; raw in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_large-scale-concurrent/raw/B6 ===

@@ -1,0 +1,11 @@
+flows: 16   duration: 40s
+  all 32 host namespaces resolved
+  servers listening: 16 / 16
+  rate ladder:       2 1      12 5       2 20 
+  16 clients launched at 1787840702.823349102; waiting 40s + drain
+  all clients returned at 1787840742.905948672
+  ⚠️  cli_h17_to_h49_20M.json: 20.00 Mbit/s, 5.8% lost
+  ⚠️  cli_h1_to_h65_20M.json: 20.00 Mbit/s, 7.6% lost
+
+  flows with a result: 16, without: 0
+  offered total: 102.0 Mbit/s
