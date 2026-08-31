@@ -465,22 +465,60 @@ the receiver-side `end.sum.lost_percent` check exists for exactly that reason.
 no discriminating power over the thing being asked.** The difference is that here the instrument's
 authors saw it coming and added a third check.
 
-### 🔴 A registration ambiguity, decided by the auditor and not by me
+### 🔴 MY READING WITHDRAWN — `DATAPLANE-HURT` does not set the ceiling (auditor, 03:5x)
 
-* **This round, PREREG:296** — health = `ratio ≥ 0.95` **and** λ of the control's order **and**
-  `distinct` non-zero. **`lost_pct` is not in that list**, and this cell passes all three
-  (1.002 / 1.1e8 against 2.05e8 / 231).
-* **The same line says "(沿 08-25 D 輪)"**, and **08-25 PREREG:132** registers verbatim:
-  `end.sum.lost_percent > 2.0%` ⇒ mark **DATAPLANE-HURT** — inside **§4, the work order that
-  extended this very ladder to 1/1**, with :215 listing `SATURATED/DATAPLANE-HURT` as per-cell
-  output.
+I submitted that :296's three conditions abbreviate an inherited four-condition criterion, so
+`e_bl_0004_1` would be unhealthy and **`BL`'s ceiling would be 1/8**. **Overturned.** The registered
+text separates the two on purpose — **08-25 PREREG:131-134, verified here verbatim:**
 
-⇒ **Reading submitted:** :296's three items are an abbreviation of an inherited four-condition
-criterion, `DATAPLANE-HURT` is a registered non-healthy mark, and **1/4 is therefore unhealthy for
-`bl`**. ⚠️ **Submitted, not adopted** — it decides the primary, so it is the auditor's call.
-⇒ If it holds: **`BL`'s ceiling rung = 1/8**, `P`'s awaits `e_p_0004_*`, and per the 03:4x ruling
-the *top-rung availability* is still judged on `MP` in leg 2, so these are each **arm** ceilings and
-not "the ceiling".
+> - `mean(vs)/gt < 0.95` ⇒ 該格標 **SATURATED**，**不進精度曲線**，**只進天花板敘事**。
+> - `end.sum.lost_percent > 2.0%` ⇒ 該格標 **DATAPLANE-HURT**，**與 SATURATED 分開記**。
+> - 兩者皆未觸發 ⇒ 該格進精度曲線。
+
+**"Only enters the ceiling narrative" is attached to `SATURATED` alone, and `DATAPLANE-HURT` is
+explicitly required to be recorded separately.** That is not an omission being abbreviated; it is
+two phenomena deliberately registered apart — *sampling broke the measurement* versus *sampling
+broke the network*. `cell_verdict.py:83-93` agrees: `marks` is a list, `OK` means no flag fired, and
+`mark != OK` spans `SATURATED`, `DATAPLANE-HURT` and `LOSS-UNKNOWN` — while the registered ceiling
+language is locked to `SATURATED`.
+
+⇒ **`e_bl_0004_1` does not establish `BL`'s ceiling. No arm's ceiling has been read yet; 1/1
+remains.**
+⇒ Per the same registered line, **`e_bl_0004_1` does not enter the precision curve.**
+
+### 🔑 The finding this actually produced — and it is bigger than the ceiling number
+
+**The registered "ceiling" is a ceiling on telemetry fidelity, not on how densely you can safely
+sample.** At 1/4 the fidelity was intact — `ratio = 1.002` — while the data plane lost **45%**
+(`gt` 109.6 against 206).
+
+🔴 **The report must say this in as many words**, because a reader will take "ceiling ≥ 1/1" as an
+operational recommendation. **A ceiling that says "1/4 is fine" sits precisely on the rung where the
+data plane loses 45% of its traffic.**
+
+### What the report must do — four things, all of them
+
+1. **Compute the primary as registered**: the ceiling comes from `SATURATED` only; `DATAPLANE-HURT`
+   is recorded separately.
+2. **Print both readings' answers**, labelled *registered* and *alternative (mainDev's)*. The data
+   supports both computations; listing both costs nothing, and **a reader is entitled to see where
+   the registration did not disambiguate.**
+3. 🔴 **State that the disambiguation happened after the data was seen.** Even read literally, the
+   *timing* is post hoc — **omitting this would package a post-hoc ruling as pre-registration.**
+4. Keep `e_bl_0004_1` out of the precision curve (08-25, explicit, no ambiguity).
+
+⚠️ **And record the direction of the ruling.** My reading produced a *definite* answer (ceiling =
+1/8); the auditor's leaves the primary open. Tonight every failure leaned toward "easier to tell",
+so the auditor checked their own ruling for over-correction against that bias and concluded the text
+is explicit and the code agrees. **That self-check belongs in the report so the reader can judge it
+rather than take it on trust.**
+
+### Registered for the next round: a defect in the criterion, not an error in this round
+
+**A rung that costs 45% of the data plane is "healthy" under the registered three conditions.**
+Either `lost_pct` belongs in the ceiling criterion, or "ceiling" needs a name that says which
+ceiling it measures. The D round was right to separate the two; what nobody did on inheriting it
+was ask **"which of these two ceilings am I reporting?"**
 
 ### Reconciliation against a prior round, as required
 
