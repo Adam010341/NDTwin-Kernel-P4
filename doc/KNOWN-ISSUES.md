@@ -1250,6 +1250,44 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   （`$$`／`$PPID` 擋不住，fork 有新 pid）。改成**逐 argv 元素比對**（等於 sig 或以 `/sig` 結尾）。
   順帶：TE 的崩因是 `get_graph_data_api_call` 在 except 後 `return graph_data`（未賦值）——
   **Traffic-Engineering-App repo 的缺陷**，excerpt 在 `2026-08-31_live-recipes/te-crashloop-excerpt.txt`。
+- 🔴 **raw 歸檔的守衛是單向的：它擋錯的目的地，沒有任何東西檢查對的目的地發生過**
+  （2026-08-31 普查）。`tools/githooks/pre-commit` 只做一件事——**工作分支上出現 raw 就擋**
+  （`:32` 是 `[[ "$branch" == "audit-raw" ]] && exit 0`）。**一輪如果從頭到尾就沒 commit 過
+  它的 raw，repo 裡沒有任何機制會出聲。** 所以
+  `doc/2026-08-29_bmv2-performance-study.md:219` 那句「raw 一律進 `audit-raw` 分支
+  （**pre-commit hook 強制**）」**高估了守衛**：hook 保證的是「raw 不會出現在工作分支」，
+  **不是**「raw 已經進了 audit-raw」。
+  📊 **普查結果（08-31）：兩個明講過的宣稱都是真的，缺口是沉默不是假話。**
+  - ✅ `12_auditor-rulings.md:38`「raw 18 檔＋TE excerpt＋drive_ovs.log 落 audit-raw `d62ff34`」
+    ——**逐項對上**：`2026-08-31_live-recipes/raw/` 在 audit-raw 上正好 **18 檔**，
+    加 `te-crashloop-excerpt.txt` 共 19，`drive_ovs_a4e_a2.sh` 在列。
+    （🪞 我一度把這句讀成在講 08-30 那輪而報成「對不上」——**是我讀錯章節，那句話沒有錯**。
+    `audit-raw f9f30c0` 的 commit message 帶著這個誤讀，未推送但不重寫；以本行為準。）
+  - ✅ `2026-08-29_europ4-poster-review/smoke/SMOKE-RESULT.md:5`「raw 歸檔＝audit-raw `e19595d`」
+    ——commit 存在、是 audit-raw 祖先、該筆加入 **36 檔**，與磁碟相符。
+  - 🔴 **但有 15 輪的 raw 不在任何 object store，合計 501.0 MiB**（讀數時 audit-raw 尖端
+    ＝`243e7e7`；**這是點取樣不是租約**，輪次還在跑，要用就當場重跑上面那段）。
+    其中 **9 輪一個檔都沒有**，扣掉當天還在跑的兩輪（`2026-08-31_f5-fine-grid-round`、
+    `2026-08-31_sampling-ceiling-after-merge`）是 **7 輪歷史缺口**：
+    `2026-08-19_failover-provenance`、`2026-08-25_sampling-rounds`（420 檔）、
+    `2026-08-27_p4guide-v10-tty`、`2026-08-27_telemetry-blindness`、
+    `2026-08-28_baseline-architecture-drift`、`2026-08-28_bmv2-literature-review`、
+    `2026-08-28_wire-consumer-compat`。最大單筆＝`2026-08-25_large-scale-concurrent`
+    少 1187 檔（`Q_T64/`、`P_Qp/`、`P_Q/`… 是**每臂的證據目錄**，不是 scratch）。
+    ⚠️ **這 15 輪沒有一輪宣稱過自己歸檔了**，所以這是「紀律沒被執行」不是「宣稱不實」；
+    而且**沒有任何地方記錄過某輪是否「決定不歸檔」**——連意圖都查不到，這才是最難補的部分。
+  🔬 **重跑這份普查（唯讀，可直接貼）**：
+  ```bash
+  for r in doc/audit/*/; do
+    rd=$(find "$r" -type d -name 'raw*' 2>/dev/null | head -1); [ -n "$rd" ] || continue
+    # 🔴 必須排除 .gitignore：每個 raw/ 都有一個「工作分支上追蹤、audit-raw 上沒有」的
+    # keeper（.gitignore:61 的 `!doc/audit/*/raw*/.gitignore`）。不排除的話 20 個健康的
+    # 輪次會各報「少 1 檔」——一個由儀器自己製造出來的缺陷。
+    d=$(find "$rd" -type f ! -name '.gitignore' | wc -l)
+    g=$(git ls-tree -r --name-only audit-raw -- "$rd" 2>/dev/null | wc -l)
+    [ "$d" = "$g" ] || printf '%-50s disk=%-6s audit-raw=%-6s\n' "$(basename "$r")" "$d" "$g"
+  done
+  ```
 - 🔴 **`rm` 一個大檔不會還你空間——VM 的 `virtiofsd` 把它按住了**（2026-08-31 實測）：刪掉
   `app_viz.log` 之後 `du` 少了 17.4 MiB 而 **`df` 一個 byte 都沒回來**。原因＝這個 repo 被
   virtio-fs 掛進 qemu VM，`virtiofsd` 對 guest 碰過的每個檔案留著 fd，**檔名沒了、blocks 還在**。
