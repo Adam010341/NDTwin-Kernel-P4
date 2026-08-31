@@ -203,7 +203,10 @@ fabric builder＝**`/home/adam/Network-Traffic-Generator/testbed_topo.py`**（`n
 sha256 前 16（patched／原始兩態，driver stdout 逐字可稽）——該副本**不參與 fabric**，記錄
 僅作為「driver 實際做了什麼」的稽核線索（patch diff＝`raw/topo_patch.diff`；副本還原
 byte-exact 由 git 可證：檔自 `7b7f520` 後無 commit、輪前輪後工作樹均＝HEAD）。
-OVS 3.3.0（`ovs-vsctl --version`，arm.meta 逐臂）；kernel module openvswitch（modinfo 記錄）；
+OVS **3.3.4**（`ovs-vsctl --version`，arm.meta 逐臂；🔴 **08-31 更正：原文寫 3.3.0，七臂
+`arm.meta` 全部寫著 `3.3.4`，`dpkg` 亦為 `3.3.4-0ubuntu0.24.04.2`**）；kernel module
+openvswitch（🔴 **08-31 更正：原文寫「modinfo 記錄」，實際七臂 `ovs_kmod=` 全空**——
+`|| echo unknown` 的 fallback 對「成功但空輸出」不會觸發，所以缺值長得像有值）；
 Linux 7.0.0-30-generic／Core Ultra 5 125U（`MACHINE-ENV`）；iperf3 3.16；1400 B payload；
 gates（h1 loopback，htb 不參與）＝7311/21361/38258 Mbit（`raw/gates.tsv`）；fabric
 `ndt up ovs`×2（🔴 兩次**同 config**，各 log 在 raw）；量測窗 claim `8/29 poster-reviewer`
@@ -259,4 +262,53 @@ OvS 側「aggregate 撐在配置帽上、每流＝帽÷n」的圖像，在核心
 3. **第七臂沒有 load 區塊** ⇒ 三格對照只有六臂，**n16_shaped 不入此表**。
 
 ⇒ **定位＝與 H-B 一致的旁證，不是獨立證明。** 依本檔紅線，不得用它回填 C1/C2。
+
+---
+
+## 補報二（2026-08-31）：儀器盤點撞出的兩個裝置事實
+
+44 個 apparatus 缺口的填補作業帶出兩件與本輪已報內容牴觸的事，**我方自 `audit-raw`
+與工作樹逐項複驗**（非轉述）。上面 §裝置那段的版本號與 modinfo 兩處已就地更正。
+
+### ㈠ 🔴 反應式控制平面的暖機**沒有暖到被量測的路徑**
+
+`drive_ovs.sh:50-52` 的 `warm_path()` 逐字：
+
+    warm_path() {  # reactive control plane: warm h1<->h33 before any measurement
+      sudo -n mnexec -a "$cp" ping -c 3 -W 2 10.0.0.33 …
+
+而七臂 `arm.meta` 逐字寫著被量測的是 **`host_pair=h1->h65 (10.0.0.65)`**。
+
+拓樸（`raw/testbed_topo.py.orig:65-90`，`HOST_NUM=128`，四分之一掛一台 leaf）：
+
+| 主機 | leaf |
+|---|---|
+| h1 | **s1** |
+| h33 | **s2** ← 暖機的終點 |
+| h65 | **s3** ← 實際量測的終點 |
+
+⇒ 暖機走 `h1→s1→(s5\|s6)→s2`；量測走 `h1→s1→(s5\|s6)→(s9\|s10)→(s7\|s8)→s3`。
+**只有 h1 的接取鏈路與第一跳是共用的，路徑其餘部分從未被暖機。**
+
+**成因**：`h33` 是 AMENDMENT-1 之前 `h1→h33` 設計的化石；同一支 driver 的開機輪詢
+（`:45` `die "boot[…] h1=$h1p h33=$h33p"`）也還在等 h33。**改了量測對象，沒有改暖機對象。**
+
+**後果與方向**：每臂的第一條流要自己付反應式控制器的裝規則延遲，而那正是 `warm_path`
+存在的目的。偏誤方向＝**低估**起步階段的吞吐；穩態不受影響。本輪報的是各臂穩態
+aggregate ⇒ **已報結論不變**，但 ramp 相關的任何敘述都不得引用本輪。
+
+🔑 這是 [[injections-must-assert-their-own-success]] 的鏡像：**暖機動作成功了，
+只是暖錯地方**——`ping` 回 0、`warm_*.txt` 有內容，每一個可讀的訊號都說它做完了。
+
+### ㈡ 本輪跑的 `ndtwin_kernel` 與 bmv2 四輪**不是同一顆**
+
+| 輪 | `kernel_sha256_start` |
+|---|---|
+| bmv2 ①②③＋single-switch | `a40e04ce`（逐臂） |
+| **本輪（OvS）** | **`2e969618`**（七臂全部） |
+
+⇒ 任何「`a40e04ce` 每臂皆已斷言」的敘述**涵蓋四輪，不涵蓋本輪**。本輪的 binary 身分
+自己是完整的（七臂一致），**所以不影響本輪內部效度**；影響的是**跨輪並排**時能不能說
+「同一顆 kernel」——不能。依 [[benchmark-must-name-the-binary-it-measured]]，
+兩個平面並排時必須各自報自己的 sha。
 
