@@ -69,7 +69,14 @@ being OK — is the only part of this that carries information.
 
 ---
 
-## 5-bis. 🔴 Added 01:40 — a declared foreign load covers 5 of the first 19 cells, and it
+## 5-bis. 🔴 WITHDRAWN IN FULL at 01:50 — superseded by §5-ter. The tables below claimed a
+## `clean` subset and a sensitivity ratio computed from it. **A third band was subsequently
+## evidenced that overlaps four of the six cells this section called clean.** Do not cite any
+## number from this section; §5-ter replaces it. Kept only so the withdrawal has an object.
+
+<details><summary>withdrawn text (01:40) — click only to audit the withdrawal</summary>
+
+## 5-bis (WITHDRAWN). A declared foreign load covers 5 of the first 19 cells, and it
 ## corrects both an attribution I made and a confound I claimed
 
 `遠端機器測試` self-reported (unprompted) running **25+ mutation-gate batches on this laptop**
@@ -125,6 +132,70 @@ itemisation is structurally unable to answer, and it answers anyway, with plausi
 from its own output, so the inputs it cannot see are the ones most in need of a warning.**
 ⇒ Only the declared band boundaries could settle it, and those existed only because the other
 session volunteered them. **Nothing in this round's instrumentation would have surfaced this.**
+
+</details>
+
+---
+
+## 5-ter. 🔴 A third band, found independently, takes the count to 14 of 20 — and removes the
+## possibility of a comparison rather than changing its value
+
+`8/31 auditor` found a band neither of the two self-reports covered, from evidence neither this
+round's instruments nor the reporting session's own accounting could produce: **a qemu VM,
+`pid 52578`, in that session's committed witness logs** —
+`…/2026-08-31_completeness-experiments/B-nslab-build/raw/host_witness_a_rerun.log` (150 samples,
+23:57:39→00:10:10) and `host_witness_bcd.log` (200 samples, 00:14:12→00:30:54). Verified here:
+**350/350 samples say `qemu=1`, all `pid=52578`.**
+
+🔴 **Band C is a lower bound.** A witness log records only while the witness process lives; the VM
+may have started earlier and stopped later. **`pid 52578` is gone, so its `utime`/`stime` died with
+it** — "a VM was up" can no longer be converted into "it drew N cores" by any measurement that
+still exists.
+
+`overlap_bands.py` now classifies each cell over its **full span** (header → gate line, including
+bringup), which is the conservative choice and is what makes the 35 s, 36 s, 9 s and 49 s edges
+count. Result: **KNOWN-OVERLAP 14/20, UNKNOWN 6/20.**
+
+| rung | n | all-cell mean spread | KNOWN | UNKNOWN | ratio over UNKNOWN cells |
+|---|---|---|---|---|---|
+| 1/1024 | 6 | 23.935 | **6** | **0** | n/a |
+| 1/256 | 6 | 11.970 | 5 | 1 | n/a |
+| 1/64 | 6 | 6.872 | 2 | 4 | — |
+| 1/32 | 3 | 4.779 | 1 | 2 | n/a |
+
+### 🔴 What is withdrawn, and what replaces the reasoning
+
+* **The word `clean` is withdrawn from this file, from `overlap_bands.py`'s output and from its
+  table headers.** No cell on this machine can be shown to be free of foreign load. There are two
+  defensible categories and neither is "clean": **KNOWN-OVERLAP** and **UNKNOWN** (nobody has
+  evidence either way).
+* **The sensitivity ratios 1.987 and 1.768 are withdrawn.** Both were computed over cells now known
+  to overlap. 1/1024 has **zero** non-overlapping cells left and 1/256 has one. **The comparison
+  cannot be computed at all — that is the result, and recomputing it against a longer band list
+  would repeat the error with a fresher number.** A third band appeared after the first two were
+  believed complete; the population of bands is not enumerable by anything this round runs (F-21).
+* **The reason for keeping the cells changes.** Re-running "the contaminated ones" presupposes that
+  set is enumerable. It is not: one afternoon's reading took it from 5 to 14, and the VM's true
+  extent is unrecoverable. **For a population you cannot enumerate there is no such action as
+  "re-run the dirty ones"** — it converts five unknowns into fourteen and relocates them into
+  another unaccounted period. The option is *ill-defined*, not merely expensive.
+  🔴 **Keeping the cells is justified because the alternatives cannot be defined — NOT because the
+  contamination was shown harmless. Those two sentences may not be interchanged in the report.**
+* **The "direction is conservative" argument survives but carries less weight than it looks.**
+  Stealing CPU can only make a cell look saturated earlier, so it can produce a falsely *low*
+  ceiling and never a falsely high one; all affected cells read `mark=OK`. Verified. **But every
+  affected cell sits at 1/1024–1/32, the bottom of the ladder, where saturation was never going to
+  occur.** The primary is protected because the ceiling will be found at the top rungs, hours after
+  every known band — not by this argument, which is nearly empty where it applies.
+* 🔴 **Every statement that a gate was GREEN must carry the effective floor ≈0.95 cores (F-13a),
+  not the nominal 0.5.** All 20 cells passed; all three bands sat mostly below that floor; so GREEN
+  carries no information about them. The number travels with the claim, not only with the argument.
+
+### The marking has a named reader
+
+`raw/cell_overlap.tsv` is written machine-readable next to `cells.tsv`. **Its readers are the 2×2
+figure and FINDINGS — not this file's prose.** A suspect marker that lives only in markdown is a
+writer with no reader, which is a defect this project has already paid for.
 
 ## 6. Standing constraint
 
