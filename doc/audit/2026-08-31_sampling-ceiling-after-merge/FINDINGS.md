@@ -1,7 +1,9 @@
 # E round — findings and deliverables
 
 Opened 2026-08-31 during the measurement window, by `8/31 mainDev`.
-Findings below are from the **gate-bringup phase**; not one ladder cell has run yet.
+F-1 … F-15 are from the **gate-bringup phase**, which ran 20:16–23:16 and produced fifteen
+findings before a single cell was measured. Plan (b) leg 1 started **23:15:57**; anything found
+during the ladder itself is appended after F-15.
 [Co-developed with claude code -- Adam]
 
 ---
@@ -172,11 +174,23 @@ is really two claims, and the habit is to interrogate only the red one:
 `FORCE_CPU_GATE_DISOWN_FABRIC` is the live example. Against an **idle** fabric the allow-list fix
 gives GREEN — and so does the unfixed code, because there is nothing to misclassify. The green
 arm therefore has **zero discriminating power at idle**, and three attempts to raise enough load
-to give it any all failed (idle fabric / ping flood / ping ended early). What actually carries the
-G5b conclusion is the natural experiment (21:24:19 vs 22:02:33, Δ≈1.43 cores = three switches
-changing sides), not the injected green.
+to give it any all failed (idle fabric / ping flood / ping ended early). What carried the G5b
+conclusion until 22:50 was the natural experiment (21:24:19 vs 22:02:33, Δ≈1.43 cores = three
+switches changing sides), not the injected green.
 ⇒ State the rule for both halves: **"if the thing I am testing had not happened, would I have got
 this same answer?"** — asked of the *green* run as well as the red one.
+
+✅ **Closed at 22:50** on the fourth attempt, once the load recipe was taken from G5b itself
+(`measure.sh` at 200 Mbit ⇒ ~1.5 cores across three switches, 3× the threshold):
+
+| | | |
+|---|---|---|
+| `ctl_disown_off` | `foreign_cores=0.534  excess=-0.421` | GREEN |
+| `ctl_disown_on` | `foreign_cores=3.313  excess=+2.358` | RED |
+
+🔑 The separation is 2.78 cores, so the run answers differently depending on the thing under test —
+which is the whole property the first three attempts lacked. **Three of the four attempts produced
+the right answer; only the fourth produced evidence.**
 
 ## F-9. ✅ Foreign load 22:10:10–22:10:58 reconciled against this round's ledger: **no reading hit**
 
@@ -233,6 +247,20 @@ widening the change surface mid-window is what §3b(C5) exists to stop.
 free (`assert_same_boot` unforced) while for G10 it needs a real edge count, i.e. a live fabric —
 which is *why* it was skipped, and why the tail of `main()` (F-11) is the place to put it.
 
+🔴 **Amended the same night — and G10 turned out to be worse than half-covered.** Live, `G10`'s
+forced red did nothing at all: `DRY_FAIL=edgecount` only acts inside `edge_count`'s `DRY_RUN`
+branch, and the injected `EDGE_BASELINE=288` is the **dry run's synthetic count**, which happens
+to equal the real one. So the invariant compared 288 with 288, said "matches baseline", and the
+gate **failed** at 22:42:09. 🔑 And the constant was worse than merely inert: on a fabric with a
+different edge count it would have gone red — *passing* the gate — because a stale constant
+disagreed with reality rather than because the injection worked. **Both outcomes are independent
+of the thing under test.**
+⇒ The baseline is now derived from the live count (`real+1`), so the two differ by construction in
+dry and live runs alike. That repair **required** a clean direction as its own mutation control —
+"it went red" is worth nothing until the same call is shown not to go red when the counts agree —
+so G10 now has one. **G11 remains red-only**, deliberately: nothing changed tonight depends on it.
+The asymmetry is a decision, not an oversight.
+
 ## F-11. G9 #11 could not go green where it was asked to, and the repair moves it rather than fakes it
 
 **The defect.** G9's clean half ran mid-gates. By that point G8 has left a staged arm's kernel in
@@ -263,8 +291,133 @@ same `G9 #11` label, the clean half printing the timestamp of the red half.
 | M2 | clean half forced red | clean half FAIL + abort, `BOTH ran` (both did), rc=9 |
 
 ⇒ M1 is the one that matters: the gap **announces itself**.
-🔴 **Partial coverage, stated rather than glossed**: `raw/G9-COVERAGE.txt` is not written under
-`DRY_RUN=1`, so all three mutants exercised only the transcript channel. The live gates run
-exercises the file's `BOTH` branch; the `HALF-COVERED` branch's *write* is covered only by
-inference from sharing one `printf … >>"$f"` with it. Branch selection is proven, the file write
-on that branch is not.
+✅ **The partial coverage closed itself the same night.** `raw/G9-COVERAGE.txt` is not written
+under `DRY_RUN=1`, so the three mutants exercised only the transcript channel — but the live run
+that aborted at G10 wrote the `HALF-COVERED` line at 22:42:25, and the passing run wrote the
+`BOTH` line at 23:03:29. Both branches of the file write are now exercised live:
+
+```
+G9 #11 2026-08-31T22:42:25+08:00 HALF-COVERED red=22:42:09 rc=1 clean=none
+G9 #11 2026-08-31T23:03:29+08:00 BOTH        red=23:03:00 rc=1 clean=23:03:29 rc=0
+```
+
+## F-12. 🔴 A forced abort ran the production restore, and live that tears the fabric down
+
+`abort()` ends with `restore_production`. G10 and G11 force their aborts inside
+`$( ( … ) 2>&1 || true )`, where `exit 9` kills only the subshell — but `restore_production` does
+not respect that boundary: live it runs `teardown` (stack down, `topo-stop`, `mn -c`), recompiles
+the P4 source and swaps the kernel binary. **A force in the middle of the gates demolishes the
+fabric every later gate and the whole ladder need**, in ~16 s, with nothing in the transcript
+saying the fabric had gone.
+
+Invisible in every dry run twice over: `RUN` is a no-op there, **and** the G-MATRIX rows that
+exercise `edgecount` and `bootid` all run with `DRY_RUN=1`. Neither force had ever executed live,
+so this had never had the chance to fire. It would have fired tonight at G11 regardless of the
+G10 repair.
+
+**Evidence, both directions, live** (`gates_e.controls.log`):
+
+| | | result |
+|---|---|---|
+| C1 | the force **without** the guard | `--- restoring production config ---` ran; **fabric DOWN** afterwards |
+| C2 | the same force **with** `FORCED_ABORT=1` | `(FORCED_ABORT set … the production restore is NOT run)`; **fabric still UP** |
+
+⇒ Fixed by making a forced abort say so and skip the restore. 🔑 The general shape: **a test *of*
+a failure path and a real trip *of* it must not do the same thing** — the injected one has to be
+inert in the world.
+🔴 I then repeated the same mistake in my own harness: the first `record_bmv2_identity` control
+(F-15) ran **without** `FORCED_ABORT`, aborted for real, and tore down the fabric I had just spent
+90 s bringing up. A control that can abort must be run with the abort guard.
+
+## F-13. 🔴 The gate-phase CPU baseline went stale by 0.7 cores, and G4 is what caught it
+
+At 22:53 the burner force failed: `foreign_cores=1.277 baseline=0.955 excess=0.293` → GREEN.
+A process burning **a whole core** did not turn the contamination gate red.
+
+The baseline was recorded at 20:19 with the desktop busy (`claude-desktop 0.45 cores`); by 22:53
+that had fallen to 0.013. A baseline that is too **high** understates excess, i.e. it fails in the
+**unsafe** direction — the gate goes blind to real contamination rather than inventing it.
+
+🔑 **§0-ter's range check cannot see this.** It takes three readings one minute apart and reports
+their range; the three at 20:19/20:20/20:21 gave 0.955 / 0.889 / 0.925, **range 0.066** — a
+reassuring number. The drift that actually mattered was **0.7 cores over 2.5 hours, ten times the
+measured range.** Short-term jitter was being used to bound long-term drift.
+
+**What was done, and what it is not.** The baseline was **re-measured** (3 × 60 s, fabric down),
+which changes an *input*, not the threshold — §2.4's 0.5 cores is untouched. The test that this is
+a repair and not a way past the gate: with the new baseline **both** directions come out right —
+G5a idle GREEN (`excess=-0.467`) **and** G4 burner RED (`excess=+0.54`). Moving a threshold to pass
+a force breaks the other direction; correcting a stale input does not.
+🔴 The superseded file is kept at `raw/cpu_baseline.2019-superseded.json`. **This is the most
+"moving the goalposts"-shaped action of the round and is reversible** — it is flagged for the
+auditor rather than buried here.
+
+### F-13a. 🔴 The new baseline's own range is 89% of the threshold — disclose it with any "no interference" claim
+
+`BASELINE n=3 min=0.293 max=0.737 range=0.444 threshold=0.5` — §0-ter's disclosure clause fired.
+`cpu_gate.py` reads **the first line** of the file, which was 0.737, the *least* sensitive of the
+three; G4 still went red, but at `excess=0.54` against a 0.5 threshold, a margin of 0.04.
+⇒ The gate phase's **effective detection floor is ≈0.95 cores, not 0.5.** Any claim of the form
+"no foreign load during the gates" must carry that number.
+⇒ This bears directly on F-9: the reported iperf3 was "one to two cores", i.e. **at the edge of
+what this instrument could have seen**, not comfortably inside it.
+⇒ Ladder cells are unaffected — `run_e.sh:103` takes a per-cell baseline in the gap `teardown`
+already creates, so each cell's baseline is contemporaneous with its own measurement.
+
+## F-14. 🔴 The ladder aborted on the first cell of every rung, because a precondition checked what the cell was about to destroy
+
+`run_cell` opened with `preflight measure`, which **requires a live P4 fabric**. But the rung loop
+(`run_e.sh:199-206`) is:
+
+```
+say "===== rung 1/$rate ====="
+teardown          # ← fabric DOWN
+compile_at "$rate"
+  → run_cell → preflight measure   # ← demands a live fabric
+```
+
+and `run_cell`'s own next three actions are `teardown`, `cell_baseline` (which *needs* the fabric
+down) and `bringup`. **At a cell's entry the fabric is down by design**, so the check asked the
+cell to prove a precondition it was about to destroy. Live at 23:06:44: `ABORT(§4): preconditions
+no longer hold at cell e_bl_1024_1` — the first cell of the first rung, and by construction the
+first cell of *every* rung. **The ladder could not have completed a single rung.**
+
+Invisible in the dry run for the fifth time tonight (F-1): `fabric_is_up` synthesises TRUE under
+`DRY_RUN=1`.
+
+⇒ Repair: a `cell` stage that keeps the claim, disk, staged-binary and neighbouring-round-marker
+checks — every one of which really can change during a 7-hour run — and drops only the fabric
+check. `plan` was not usable for this: it returns early and would have dropped the other three too.
+🔑 The fabric a cell measures on **is** checked, after the cell builds it: `bringup || abort`,
+`assert_batch_took`, `assert_truncate_128`, `assert_running_arm`, `record_bmv2_identity`,
+`assert_recompute_running`, `assert_same_boot`, `assert_topology_invariant`. The repair moves the
+check from *before the teardown* to *after the bringup* — from the wrong object to the right one.
+
+## F-15. 🔴 The bmv2 identity record was empty all round, and its own guard made that a pass
+
+Two defects stacked, the second hidden inside the first.
+
+1. **The same 14-vs-15 comm mistake, in a second file.** `lib_e.sh:510` matched
+   `$2=="simple_switch_"` — exact equality on 14 characters, against a comm the kernel truncates
+   to 15 (`simple_switch_g`). It matched nothing, so every `identity_bmv2_*.txt` this round wrote
+   contained no `running pid=` lines at all and the transcript said `bmv2: 0 running switch(es)`.
+   🔑 **I repaired `cpu_gate.py`'s copy of this bug at 21:54 and did not grep for others.** The
+   fix was applied where the failure was *observed* rather than everywhere the *pattern* occurred.
+   The other two exact-comm matches in the file (`iperf3` :287, `ndtwin_kernel` :417) are 6 and 13
+   characters — checked, not assumed.
+2. **`if (( n > 0 && d != 1 ))` turned an empty read into a pass.** The guard against a mixed
+   fabric was itself guarded by "if we found anything", so the state where we found *nothing*
+   sailed through. **The clause protecting the check was the clause that made it vacuous.**
+3. **A third defect was sitting inside the block that never ran**: `sudo -n readlink` and
+   `sudo -n sha256sum` are not in this machine's NOPASSWD list, so both returned empty and every
+   `sha256=` field was blank. `mnexec` *is* passwordless and is now the privileged reader.
+   🔑 Fixing (1) is what made (3) observable at all — a defect inside dead code is invisible until
+   the code stops being dead.
+4. **"0 distinct" and "2 distinct" now have different messages.** The old text reported a reader
+   that could read nothing as "the ten switches are not all running the same binary", pointing the
+   next reader at the fabric when the fault was in this function's own privileges — F-2's shape, a
+   sixth time.
+
+**Evidence, both directions, live**: fabric down → `bmv2: 0 running switch(es)` → `ABORT(§4 bmv2)`
+rc=9 (23:11:26); fabric up → `bmv2: 10 running switch(es), 1 distinct binary/binaries` (23:15:57),
+and every ladder cell since records the same.
