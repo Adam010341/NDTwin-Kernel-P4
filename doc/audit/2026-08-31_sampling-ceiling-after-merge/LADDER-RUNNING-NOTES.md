@@ -338,6 +338,45 @@ count. Result: **KNOWN-OVERLAP 14/20, UNKNOWN 6/20.**
 figure and FINDINGS — not this file's prose.** A suspect marker that lives only in markdown is a
 writer with no reader, which is a defect this project has already paid for.
 
+---
+
+## 5-quater. 03:30 — the arms separate for the first time, on Q2's factor, at 1/8
+
+| rung | `bl` ratio (1 kHz) | `p` ratio (1 Hz) | Δ(p−bl) | `bl` spread | `p` spread | marks |
+|---|---|---|---|---|---|---|
+| 1/1024 | 0.9996 | 1.0016 | +0.0020 | 24.353 | 23.517 | OK |
+| 1/256 | 1.0008 | 1.0063 | +0.0056 | 11.917 | 12.023 | OK |
+| 1/64 | 1.0027 | 0.9961 | −0.0066 | 6.629 | 7.115 | OK |
+| 1/32 | 0.9996 | 0.9996 | −0.0000 | 5.323 | 5.399 | OK |
+| 1/16 | 1.0006 | 0.9995 | −0.0011 | 4.994 | 5.805 | OK |
+| **1/8** | **0.9717** | **1.0008** | **+0.0292** | 6.351 | 5.874 | OK |
+
+The two arms track each other within **±0.007** across five rungs and then separate by **0.0292** at
+1/8 — four to fifteen times any earlier rung's difference. The individual cells do not overlap:
+`bl` = 0.9692 / 0.9751 / 0.9707, `p` = 0.9998 / 1.0030 / 0.9997, with a gap of ~0.024 between the
+closest pair. **`bl` and `p` differ only in recompute period** (1 kHz vs 1 Hz), which is Q2's factor.
+
+### 🔴 What this is not
+
+* **It is not a ceiling.** Every cell reads `mark=OK`; 0.9717 is above `cell_verdict`'s frozen 0.95.
+  **The registered primary is the ceiling rung, and no rung has stopped being healthy.**
+* **It is not R-E2.** R-E2 compares `P`/`MP`'s ceiling rung against `BL`/`M`'s. That comparison
+  needs a rung where the marks differ. It does not exist yet.
+* **It cannot address Q1 or Q3 at all** — batching is the `m`/`mp` arms, which are leg 2.
+* **n = 3 per arm.** The separation is clean for n=3 (disjoint, wide margin) and it is still one rung.
+
+### What would make it the registered result
+
+If `bl` crosses 0.95 at **1/4 or 1/1** while `p` does not, then `P`'s ceiling rung is strictly
+higher than `BL`'s and **R-E2 is answerable from leg 1 alone**. Both of those rungs are in the run
+that is currently executing. ⇒ **This is a leading indicator on the primary, reported as such, and
+the rung language is what decides.**
+
+⚠️ Separately, `spread` has turned: 23.790 → 11.970 → 6.770 → 5.361 → 5.399 → **6.113**. The
+minimum sits at 1/32 and it rises after — **not a floor but a turning point**, with more sampling
+making it worse. That remains the unregistered secondary observation and may not be used to explain
+or reinforce anything above (Q2/E4).
+
 ## 6. Standing constraint
 
 🔴 **C5: no rung, rep or arm is added from here on.** If the ladder proves too short, that is a
