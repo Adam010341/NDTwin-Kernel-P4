@@ -54,6 +54,12 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 | [2026-07-30_full_test_runbook.md](2026-07-30_full_test_runbook.md) | 歷史（早於 wrapper／`local_ci.sh`／`run_layers.sh`，不要照抄指令） |
 | [2026-07-29_p4_status_and_test_guide.md](2026-07-29_p4_status_and_test_guide.md) | 歷史（「目前進度」是 2026-07-30 的） |
 
+**量測輪的起草程序**（不在上面七份之列，是給預註冊用的）：
+
+| 檔案 | 地位 | 一句話 |
+|---|---|---|
+| [2026-08-31_prereg-inheritance-checklist.md](2026-08-31_prereg-inheritance-checklist.md) | **現役** | 起草新一輪預註冊前的必經步驟。**不繼承可以，靜默地不繼承不行**——母體是上一輪**實際執行過的腳本**（不是它的註冊），且「腳本裡有」與「註冊裡有」要分兩欄記 |
+
 ## 調查與報告
 
 | 檔案 | 地位 | 一句話 |
@@ -91,7 +97,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 | [audit/](audit/) | 歷史紀錄集合 | 審查／複驗／測試證據。**先讀它的 [README.md](audit/README.md)**——它說明了各子資料夾、為什麼產出報告的 prompt 一起收在旁邊、以及哪七類刻意留在 repo 外 |
 | [2026-08-16_delivery-package/](2026-08-16_delivery-package/) | 待轉交 | 見上 |
 | [debug-log/](debug-log/) | 現役（空目錄） | 給執行期 log 落腳用，靠 `.gitkeep` 保留 |
-| [../tools/remote-lab/](../tools/remote-lab/) | 現役（🟡 機器暫停使用） | 遠端 lab 機器的**佔用協調**（`rlab`＝機器層、`ndtwin-vm.sh`＝VM 層）與 VM 生命週期，含變異閘 31/31。**規定與佔用帳的正本不在那裡**，在 [audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)——工具說「怎麼做」，規定說「可不可以做、要登記什麼」 |
+| [../tools/remote-lab/](../tools/remote-lab/) | **現役** | 遠端 lab 機器的**佔用協調**（`rlab`＝機器層、`ndtwin-vm.sh`＝VM 層）與 VM 生命週期，含變異閘 32/32（筆電與 `nslab` 上各驗過一次）。**規定與佔用帳的正本不在那裡**，在 [audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)——工具說「怎麼做」，規定說「可不可以做、要登記什麼」。🔴 **動手前先讀規定：R1 要求開跑前登記、不准事後補登** |
 
 `audit/` 底下有一個看起來放錯地方的 [2026-07-30_audit-be3c242/](audit/2026-07-30_audit-be3c242/)
 ——它是第一輪十階段子系統審查，2026-08-17 才從 `doc/` 頂層搬進去；**在那之前它在外面不是

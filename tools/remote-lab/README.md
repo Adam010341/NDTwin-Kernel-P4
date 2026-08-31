@@ -1,9 +1,11 @@
 # `tools/remote-lab/` — 遠端 lab 機器的佔用協調與 VM 生命週期
 
-> 🟡 **2026-08-31：所有遠端機器目前不可用。** 這些工具現在**跑不動也不該跑**——
-> `rlab` 內建的 suspension 表會在送出任何封包前就拒絕。
+> 🟢 **`nslab` 可以用**（2026-08-31 晚間解封）。🔴 **testbed 那批（server1~8／cc2／gw／gw2）仍然停用。**
+> 先問，不要用試的：`rlab suspended <machine>`（**不撥號**）。
+>
 > **使用規定與佔用帳的正本＝[`doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md`](../../doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)。**
 > 這份 README 只講工具；**要不要用、什麼時候登記、登記什麼，看那份規定。**
+> 🔴 **R1：開跑前登記，不准事後補登**——那台沒有 claim 工具，佔用表是唯一紀錄。
 
 ## 為什麼有兩層
 
@@ -56,7 +58,7 @@ session 會突然開不了 VM。**ACL 是借來的，群組才是自己的**；�
 bash tools/remote-lab/test_vm_coordination.sh
 ```
 
-**31/31**（2026-08-31）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
+**32/32**（2026-08-31，筆電與 `nslab` 上各驗過一次）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
 green 方向（不在表上的機器要正常落到 `unknown machine`，證明它不是無差別拒絕）。
 斷言比對**訊息文字**不只比對 rc——好幾種不同的失敗都是 `rc=1`。
 
