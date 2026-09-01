@@ -39,8 +39,9 @@ def ratios(suffix):
 
 r1, r2 = ratios(""), ratios("_r2")
 
-print("run 1 = two witnesses live across every cell (~3,400 forks / ~8 s)")
-print("run 2 = exactly one witness            (~1,700 forks / ~8 s)")
+print("run 1 = two OLD witnesses  ~415 fork/s background")
+print("run 2 = one NEW witness    ~1.2 fork/s background   (~346x less, NOT the 2x intended)")
+print("  the witness binary changed under a shared worktree between the runs -- see FINDINGS 8.1")
 for mode, name in (("loop", "loopback control"), ("fab", "fabric")):
     print(f"\n--- {name} ---")
     for tag, r in (("run 1", r1), ("run 2", r2)):
