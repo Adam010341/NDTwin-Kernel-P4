@@ -222,6 +222,8 @@ prereg 蓋章＋Adam 的排程裁決（08-30「登記＝授權」被資源主人
 | # | 開跑 | 佔用者 | 動作 | 對宿主的負載 | release |
 |---|---|---|---|---|---|
 | **A-1** | **08-31 19:46** | **reviewer** | **PREREG-B v1.1 四臂 build ＋八臂量測**。步驟：①`qemu-img convert -U` 由 `p4-bootstrapped-nodocker`(ID 3) 產出自有 base ②於自有 `VM_DIR` 開帶 `OWNER` 的新 VM（`VM_CPUS=16 VM_MEM=16384`，顯式明傳）③guest 內四顆 build ④八臂梯子 | ①磁碟重、約數分鐘 ②③④ guest 內 16 vCPU，**宿主可見為一顆 qemu** | *（未 release）* |
+| **A-2** | **09-01 13:2x**（先落這一行再碰機器） | 開機手冊 | **測安裝手冊 §4.1 那句「跳過 §6 也不影響 §1–§5」**（Adam 09-01 裁：排它）。①**唯讀**盤點宿主現況（`vms`／`uptime`／走 `/proc/*/exe` 認 qemu）②若沒撞到量測窗：開一顆乾淨 VM，照手冊只做 §1–§5、**明確不做 §6**（不裝 p4c／BMv2／P4 proxy），建 kernel、對 Mininet+OVS fabric 跑起來，驗 pingall 與 twin | ①無 ②中：一顆 4 vCPU 的 VM 約 40 分鐘，guest 內 apt＋一次 cmake build＋短暫 mininet | *（未 release）* |
+| | | | 🔴 **這一行的 R3 三問與 R12 預期刻意留白，因為①還沒跑**——填不出「對方在吃什麼」就寫，寫出來的是猜的。**②開跑前補齊，補在這一列**（H-26 的教訓：風險評估寫在便宜的那一段，是最沒有用的一種合規） | | |
 
 > 🔑 **開跑前我複驗過遠端線的宣稱，而不是採信轉述**：`ps` 零 qemu、`ss` 2222 未 listening、
 > `free` available 26.3 GiB、`qemu-img snapshot -l -U` 四顆快照俱在。
