@@ -1,0 +1,21 @@
+DRIVER-ENTER: calling shipped setSwitchesPowerState(case1)
+[2026-09-01 20:01:32.503522718] [info] [[94menergy_saving_app.cpp[0m:[95m183[0m [96msetSwitchesPowerState[0m] Power On/Off Task Start
+[2026-09-01 20:01:32.503598197] [info] [[94menergy_saving_app.cpp[0m:[95m189[0m [96msetSwitchesPowerState[0m] Switches DPID to Down: 2 1 
+[2026-09-01 20:01:32.503606303] [info] [[94menergy_saving_app.cpp[0m:[95m195[0m [96msetSwitchesPowerState[0m] Switches DPID to Up: 
+GET from /ndt/get_graph_data
+[2026-09-01 20:01:32.507916559] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+[2026-09-01 20:01:32.509450427] [info] [[94menergy_saving_app.cpp[0m:[95m163[0m [96mwait_until_powered_on_switches_are_up[0m] All 0 powered-on switches are up
+[2026-09-01 20:01:32.509688959] [info] [[94mhttp.cpp[0m:[95m239[0m [96minstall_modify_delete_flow_entries[0m] install_flow_entries len 0 modify_flow_entries len 0 delete_flow_entries len 0
+[2026-09-01 20:01:32.509908088] [info] [[94mhttp.cpp[0m:[95m97[0m [96msend_post_json_request[0m] POST to /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-01 20:01:32.510799454] [info] [[94mhttp.cpp[0m:[95m258[0m [96minstall_modify_delete_flow_entries[0m] Code: 404, Body: {"error":"Not Found"}
+[2026-09-01 20:01:32.510831497] [info] [[94mhttp.cpp[0m:[95m239[0m [96minstall_modify_delete_flow_entries[0m] install_flow_entries len 0 modify_flow_entries len 0 delete_flow_entries len 0
+[2026-09-01 20:01:32.510986897] [info] [[94mhttp.cpp[0m:[95m97[0m [96msend_post_json_request[0m] POST to /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-01 20:01:32.511527208] [info] [[94mhttp.cpp[0m:[95m258[0m [96minstall_modify_delete_flow_entries[0m] Code: 404, Body: {"error":"Not Found"}
+[2026-09-01 20:01:32.511559659] [info] [[94menergy_saving_app.cpp[0m:[95m246[0m [96msetSwitchesPowerState[0m] Power Off: 2.0.0.10
+[2026-09-01 20:01:32.511679339] [info] [[94mhttp.cpp[0m:[95m97[0m [96msend_post_json_request[0m] POST to /ndt/set_switches_power_state?ip=2.0.0.10&action=off
+[2026-09-01 20:01:32.512183830] [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 200, Body: {"result":"ok"}
+[2026-09-01 20:01:32.512204031] [info] [[94menergy_saving_app.cpp[0m:[95m246[0m [96msetSwitchesPowerState[0m] Power Off: 1.0.0.10
+[2026-09-01 20:01:32.512308282] [info] [[94mhttp.cpp[0m:[95m97[0m [96msend_post_json_request[0m] POST to /ndt/set_switches_power_state?ip=1.0.0.10&action=off
+[2026-09-01 20:01:32.512791497] [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 200, Body: {"result":"ok"}
+[2026-09-01 20:01:32.512811732] [info] [[94menergy_saving_app.cpp[0m:[95m250[0m [96msetSwitchesPowerState[0m] Power On/Off Task Complete
+DRIVER-RETURN: shipped setSwitchesPowerState returned normally

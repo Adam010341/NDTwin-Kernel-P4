@@ -1,0 +1,43 @@
+================ Phase 0: is what we run what ships? ================
+shipped binary : 0c746a61938bedc4eee2e30dc53e3e6c20e9c158cfe10d3e25c2c713a6ec996d
+               : built 2026-08-22 13:08:20
+driver binary  : 1779eab73a64f82e2623c0a1d4f626480c105f034b641187693aa1c7d8035f8a
+  ✓ setSwitchesPowerState: 954 instructions, identical in driver and shipped binary
+  ✓ http::set_switches_power_state: 267 instructions, identical in driver and shipped binary
+
+================ Arm control (set_switches_power_state -> 200) ================
+  driver exit: 0
+
+================ Arm inject404 (set_switches_power_state -> 404) ================
+  driver exit: 0
+
+================ Arm inject500 (set_switches_power_state -> 500) ================
+  driver exit: 0
+
+================ Arm guard (set_switches_power_state -> 200) ================
+  driver exit: 0
+
+================ Phase 2: did the injection actually fire? ================
+  ✓ control: 2 POSTs to set_switches_power_state, all answered 200
+  ✓ inject404: 2 POSTs to set_switches_power_state, all answered 404
+  ✓ inject500: 2 POSTs to set_switches_power_state, all answered 500
+  ✗ FAIL guard: expected 0 POSTs answered None, got [200]
+
+================ Phase 3: what did the app say? ================
+  control      completion-line=1  driver-returned=1  error/warn-lines=0
+  inject404    completion-line=1  driver-returned=1  error/warn-lines=0
+  inject500    completion-line=1  driver-returned=1  error/warn-lines=0
+  guard        completion-line=0  driver-returned=1  error/warn-lines=1
+
+---- diff: control vs inject404 (app output) ----
+16c16
+<  [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 404, Body: {"error":"Not Found"}
+19c19
+<  [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 404, Body: {"error":"Not Found"}
+
+================ Result ================
+harness had failures

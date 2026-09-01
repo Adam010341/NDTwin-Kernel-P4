@@ -1,0 +1,728 @@
+DRIVER-MODE: power-on guard control, waiting on dpid 99
+DRIVER-ENTER: calling shipped setSwitchesPowerState(case1)
+[2026-09-01 19:54:01.789758544] [info] [[94menergy_saving_app.cpp[0m:[95m183[0m [96msetSwitchesPowerState[0m] Power On/Off Task Start
+[2026-09-01 19:54:01.789823966] [info] [[94menergy_saving_app.cpp[0m:[95m189[0m [96msetSwitchesPowerState[0m] Switches DPID to Down: 2 1 
+[2026-09-01 19:54:01.789831442] [info] [[94menergy_saving_app.cpp[0m:[95m195[0m [96msetSwitchesPowerState[0m] Switches DPID to Up: 99 
+[2026-09-01 19:54:01.789839515] [info] [[94menergy_saving_app.cpp[0m:[95m200[0m [96msetSwitchesPowerState[0m] Power On: 255.0.0.10
+[2026-09-01 19:54:01.790166398] [info] [[94mhttp.cpp[0m:[95m97[0m [96msend_post_json_request[0m] POST to /ndt/set_switches_power_state?ip=255.0.0.10&action=on
+[2026-09-01 19:54:01.791051222] [info] [[94mhttp.cpp[0m:[95m138[0m [96mset_switches_power_state[0m] Code: 200, Body: {"result":"ok"}
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:01.794376491] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:02.799423550] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:03.803627031] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:04.811583548] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:05.816919055] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:06.821228088] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:07.826070567] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:08.830500129] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:09.834945985] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:10.840181783] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:11.845965238] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:12.851021902] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:13.856649643] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:14.860966926] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:15.865398378] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:16.869681068] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:17.873149868] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:18.878048566] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:19.883620194] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:20.888581217] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:21.894045236] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:22.901290646] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:23.904972349] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:24.909954285] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:25.915495198] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:26.920885041] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:27.925993304] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:28.930056734] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:29.934528817] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:30.940300700] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:31.945604092] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:32.949981793] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:33.954657767] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:34.958793337] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:35.963142024] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:36.967939613] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:37.973187707] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:38.978488696] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:39.984328467] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:40.988898881] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:41.993762057] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:42.998477486] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:44.003004718] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:45.008516469] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:46.014106521] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:47.020001488] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:48.024846726] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:49.030033871] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:50.033642518] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:51.038491753] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:52.044615952] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:53.052555001] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:54.057721321] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:55.062808422] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:56.067770307] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:57.072970691] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:58.080797447] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:54:59.085705945] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:00.090734527] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:01.095974493] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:02.101266760] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:03.108985020] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:04.113894529] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:05.118667483] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:06.123047996] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:07.127453253] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:08.132265870] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:09.136693707] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:10.142242320] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:11.147967535] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:12.152582066] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:13.156350174] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:14.160886598] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:15.166286663] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:16.171605164] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:17.177153064] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:18.182593608] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:19.186852506] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:20.191279336] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:21.196451853] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:22.201847558] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:23.206566712] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:24.211182704] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:25.216217082] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:26.220846469] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:27.225889306] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:28.231615468] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:29.237053887] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:30.242938739] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:31.248640593] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:32.257068002] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:33.262551187] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:34.267571806] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:35.271854468] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:36.276017766] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:37.281001401] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:38.286318397] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:39.291253767] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:40.295885290] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:41.300912681] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:42.306094783] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:43.310835930] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:44.316031158] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:45.320872052] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:46.325713284] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:47.330210692] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:48.335365401] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:49.340144068] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:50.345915098] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:51.350795817] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:52.355509012] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:53.360542561] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:54.365035783] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:55.369392600] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:56.374209186] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:57.379082081] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:58.384003055] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:55:59.389486052] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:00.394660389] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:01.400380985] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:02.405417264] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:03.410407693] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:04.415577292] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:05.420347640] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:06.424404243] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:07.429593568] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:08.434775280] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:09.440175672] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:10.445146649] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:11.450049067] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:12.455324643] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:13.460308533] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:14.465090738] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:15.469486468] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:16.473821975] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:17.478213050] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:18.483287689] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:19.488840189] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:20.494107990] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:21.498499948] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:22.503517180] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:23.509055027] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:24.517452560] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:25.521806264] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:26.525680110] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:27.529116224] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:28.533561998] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:29.538465649] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:30.542867858] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:31.547687821] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:32.552268945] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:33.555870490] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:34.563613617] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:35.569437136] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:36.574697322] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:37.579762608] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:38.584840057] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:39.592709492] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:40.597696804] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:41.603595808] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:42.608685453] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:43.613605896] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:44.618852487] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:45.623868751] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:46.628890719] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:47.633674688] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:48.638730416] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:49.644641114] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:50.649970278] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:51.655587839] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:52.659711779] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:53.667619166] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:54.672953416] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:55.678165986] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:56.684233050] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:57.689544907] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:58.694159381] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:56:59.698016179] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:00.703327811] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:01.708698032] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:02.712964769] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:03.717855424] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:04.723112934] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:05.728085234] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:06.732870827] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:07.737894653] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:08.743135709] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:09.748292529] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:10.751973997] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:11.755889292] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:12.760634387] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:13.765802671] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:14.770937470] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:15.776311285] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:16.781026465] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:17.786280444] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:18.792015412] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:19.796814557] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:20.801217011] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:21.806465258] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:22.812609884] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:23.816828250] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:24.820641225] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:25.825433823] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:26.829048635] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:27.834164401] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:28.839267622] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:29.844265498] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:30.849610937] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:31.854594361] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:32.859306548] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:33.863979949] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:34.869118841] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:35.874344041] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:36.879306602] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:37.884393155] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:38.889454033] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:39.894214972] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:40.899517035] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:41.904655695] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:42.909000476] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:43.916908397] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:44.922147296] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:45.927611432] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:46.933234402] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:47.938419350] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:48.943751777] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:49.948830143] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:50.956888948] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:51.961955016] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:52.967469782] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:53.972461678] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:54.977627258] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:55.985452284] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:56.989879373] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:57.995317735] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:57:58.999041001] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:00.003936802] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:01.012305894] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:02.017321444] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:03.022757571] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:04.028201243] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:05.032361885] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:06.040447363] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:07.045758941] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:08.050043992] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:09.055080787] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:10.060221362] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:11.064244801] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:12.069154058] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:13.074113194] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:14.079024802] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:15.084510220] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:16.089561460] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:17.094345520] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:18.098706328] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:19.103905303] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:20.109526374] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:21.114857064] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:22.120455959] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:23.125324494] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:24.130280809] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:25.135701008] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:26.140740179] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:27.146412814] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:28.151753557] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:29.157850066] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:30.164070972] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:31.169272456] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:32.174563945] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:33.179929262] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:34.185410187] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:35.189863947] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:36.194619532] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:37.202919628] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:38.208265087] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:39.213780493] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:40.219147458] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:41.224476019] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:42.232685128] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:43.238112078] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:44.243420952] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:45.248921372] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:46.254742315] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:47.260836603] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:48.266481054] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:49.271755621] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:50.277187402] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:51.282388289] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:52.287835787] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:53.292224130] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:54.297252484] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:55.302771352] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:56.308743614] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:57.313975561] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:58.322174734] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:58:59.327590893] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:00.332681224] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:01.337804130] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:02.343483632] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:03.348788439] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:04.354006498] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:05.359303415] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:06.366812426] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:07.370711807] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:08.375275705] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:09.380566473] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:10.386009862] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:11.394157333] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:12.399436797] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:13.404856575] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:14.409403132] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:15.414378004] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:16.485072748] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:17.490318101] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:18.494001992] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:19.498096786] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:20.503001910] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:21.511254759] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:22.516391151] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:23.521923162] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:24.526617494] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:25.532385370] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:26.540725826] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:27.546074116] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:28.551591549] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:29.557090845] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:30.562321129] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:31.568117706] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:32.571857328] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:33.576510263] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:34.581121692] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:35.586399697] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:36.594737083] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:37.599530589] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:38.604919469] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:39.608851216] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:40.613159101] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:41.621234232] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:42.626592386] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:43.631886698] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:44.637235573] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:45.642929500] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:46.651124423] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:47.656385380] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:48.662154537] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:49.667135364] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:50.672460520] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:51.678009981] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:52.686151177] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:53.691221747] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:54.695730780] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:55.700994567] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:56.706316807] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:57.712133284] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:58.717111894] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 19:59:59.722753624] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 20:00:00.730902721] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+GET from /ndt/get_graph_data
+[2026-09-01 20:00:01.736448439] [info] [[94mhttp.cpp[0m:[95m349[0m [96mget_graph_data[0m] Code: 200
+[2026-09-01 20:00:02.738024909] [warning] [[94menergy_saving_app.cpp[0m:[95m177[0m [96mwait_until_powered_on_switches_are_up[0m] Timeout waiting for powered-on switches to become up
+DRIVER-RETURN: shipped setSwitchesPowerState returned normally

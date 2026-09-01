@@ -1,0 +1,57 @@
+================ Phase 0: is what we run what ships? ================
+shipped binary : 0c746a61938bedc4eee2e30dc53e3e6c20e9c158cfe10d3e25c2c713a6ec996d
+               : built 2026-08-22 13:08:20
+driver binary  : 1779eab73a64f82e2623c0a1d4f626480c105f034b641187693aa1c7d8035f8a
+  ✓ setSwitchesPowerState: 954 instructions, identical in driver and shipped binary
+  ✓ http::set_switches_power_state: 267 instructions, identical in driver and shipped binary
+  ✓ http::install_modify_delete_flow_entries: 778 instructions, identical in driver and shipped binary
+
+================ Arm injectrules (/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries -> 404) ================
+  driver exit: 0
+
+================ Phase 2: did the injection actually fire? ================
+  ✓ control: 2 power-OFF POSTs, all answered 200
+  ✓ inject404: 2 power-OFF POSTs, all answered 404
+  ✓ inject500: 2 power-OFF POSTs, all answered 500
+  ✓ injectrules: 2 flow-entry POSTs all answered 404, and 2 power-OFF POSTs still went out
+  ✓ guard: 1 power-ON POST, 0 power-OFF POSTs (360 requests total, so the stub was alive throughout)
+
+================ Phase 3: what did the app say? ================
+  control      lines=21   completion-line=1  driver-returned=1  error/warn/critical=0
+  inject404    lines=21   completion-line=1  driver-returned=1  error/warn/critical=0
+  inject500    lines=21   completion-line=1  driver-returned=1  error/warn/critical=0
+  injectrules  lines=21   completion-line=1  driver-returned=1  error/warn/critical=0
+  guard        lines=728  completion-line=0  driver-returned=1  error/warn/critical=1
+
+---- diff: control vs inject404 (timestamps and colour stripped) ----
+16c16
+<  [info] [http.cpp:138 set_switches_power_state] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [http.cpp:138 set_switches_power_state] Code: 404, Body: {"error":"Not Found"}
+19c19
+<  [info] [http.cpp:138 set_switches_power_state] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [http.cpp:138 set_switches_power_state] Code: 404, Body: {"error":"Not Found"}
+
+---- diff: control vs inject500 (timestamps and colour stripped) ----
+16c16
+<  [info] [http.cpp:138 set_switches_power_state] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [http.cpp:138 set_switches_power_state] Code: 500, Body: {"details":"injected by stub_kernel.py","error":"Internal server error"}
+19c19
+<  [info] [http.cpp:138 set_switches_power_state] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [http.cpp:138 set_switches_power_state] Code: 500, Body: {"details":"injected by stub_kernel.py","error":"Internal server error"}
+
+---- diff: control vs injectrules (timestamps and colour stripped) ----
+10c10
+<  [info] [http.cpp:258 install_modify_delete_flow_entries] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [http.cpp:258 install_modify_delete_flow_entries] Code: 404, Body: {"error":"Not Found"}
+13c13
+<  [info] [http.cpp:258 install_modify_delete_flow_entries] Code: 200, Body: {"result":"ok"}
+---
+>  [info] [http.cpp:258 install_modify_delete_flow_entries] Code: 404, Body: {"error":"Not Found"}
+
+================ Result ================
+harness OK (see Phase 3 for the finding)

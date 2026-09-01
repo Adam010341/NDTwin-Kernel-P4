@@ -1,0 +1,5 @@
+{"seq": 1, "method": "GET", "target": "/ndt/get_graph_data", "status": 200}
+{"seq": 2, "method": "POST", "target": "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries", "status": 200}
+{"seq": 3, "method": "POST", "target": "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries", "status": 200}
+{"seq": 4, "method": "POST", "target": "/ndt/set_switches_power_state?ip=2.0.0.10&action=off", "status": 200}
+{"seq": 5, "method": "POST", "target": "/ndt/set_switches_power_state?ip=1.0.0.10&action=off", "status": 200}

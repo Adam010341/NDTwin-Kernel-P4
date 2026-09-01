@@ -1,0 +1,1 @@
+stub_kernel listening on 127.0.0.1:8000; injecting 500 on /ndt/set_switches_power_state; log=arm_inject500.stub.jsonl
