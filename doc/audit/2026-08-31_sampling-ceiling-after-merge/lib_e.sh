@@ -91,6 +91,27 @@ RUN() {
 
 dry_note() { [[ "$DRY_RUN" == 1 ]] && printf '[%s] DRYRUN-NOTE %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; return 0; }
 
+# 🔴 Run a gate, log its output, and return THE GATE'S exit code -- not the tee's.
+#
+# `cmd 2>&1 | tee -a "$LOG"` written straight into an `if`/`elif` condition reports the exit status
+# of the LAST command in the pipeline, which is tee, and tee succeeds whenever the write succeeds.
+# Nothing in this project sets `pipefail`.  So a gate wired that way records PASS regardless of
+# what the gate decided: it cannot go red, which makes it not a gate.
+#
+# This file already knew.  cpu_gate() ends with `return "${PIPESTATUS[0]}"` and the baseline range
+# check reads `case "${PIPESTATUS[0]}"`.  The three ratio-gate call sites in gates_e.sh did not,
+# and had been recording PASS on that basis since 22:03 on 2026-08-31.  The sharpest instance is
+# G6b, which was added on 09-01 for the sole purpose of making a just-fixed code path stop being
+# unread -- and was itself unable to fail.  A caller added to prove a fix works, which would have
+# said "works" either way.
+#
+# Same family as the defect G6b exists to guard against: one value carrying two meanings across a
+# module boundary, with nothing to report the drift.  [Co-developed with claude code -- Adam]
+run_gate() {
+    "$@" 2>&1 | tee -a "$LOG"
+    return "${PIPESTATUS[0]}"
+}
+
 # -------------------------------------------------------------------------------------------------
 # PRECONDITIONS.  The script refuses to start rather than producing a plausible file.
 #

@@ -522,7 +522,8 @@ main() {
     if [[ "$DRY_RUN" == 1 ]]; then
         dry_note "would run: $PY_PLOT $HERE/ratio_gate.py --check $goodcell --expect green"
         record "G7 §2.4 ratio gate force-green ($goodcell)" PASS "synthetic"
-    elif PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" --check "$goodcell" --expect green 2>&1 | tee -a "$LOG"; then
+    elif run_gate env PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" \
+            --check "$goodcell" --expect green; then
         record "G7 §2.4 ratio gate force-green ($goodcell)" PASS
     else
         record "G7 §2.4 ratio gate force-green ($goodcell)" FAIL
@@ -535,8 +536,8 @@ main() {
         dry_note "would run: $PY_PLOT $HERE/ratio_gate.py --make-forcered $goodcell e_gate_forcered_trunc20"
         dry_note "  (which itself asserts the source is green BEFORE and the product is red AFTER)"
         record "G6 §2.4 ratio gate force-red (tail 20% zeroed)" PASS "synthetic"
-    elif PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" \
-            --make-forcered "$goodcell" e_gate_forcered_trunc20 --tail-frac 0.20 2>&1 | tee -a "$LOG"; then
+    elif run_gate env PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" \
+            --make-forcered "$goodcell" e_gate_forcered_trunc20 --tail-frac 0.20; then
         record "G6 §2.4 ratio gate force-red (tail 20% zeroed)" PASS
     else
         record "G6 §2.4 ratio gate force-red (tail 20% zeroed)" FAIL
@@ -556,8 +557,8 @@ main() {
     if [[ "$DRY_RUN" == 1 ]]; then
         dry_note "would run: $PY_PLOT $HERE/ratio_gate.py --check e_gate_forcered_trunc20 --expect red"
         record "G6b §2.4 ratio gate --expect red round-trips" PASS "synthetic"
-    elif PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" \
-            --check e_gate_forcered_trunc20 --expect red 2>&1 | tee -a "$LOG"; then
+    elif run_gate env PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$HERE/ratio_gate.py" \
+            --check e_gate_forcered_trunc20 --expect red; then
         record "G6b §2.4 ratio gate --expect red round-trips" PASS
     else
         record "G6b §2.4 ratio gate --expect red round-trips" FAIL
