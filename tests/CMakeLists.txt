@@ -38,6 +38,7 @@ add_executable(
   test_ClassifierActionForms.cpp
   test_FlowStatsTimeout.cpp
   test_FlowTableConcurrency.cpp
+  test_TopKFlowInfoLocking.cpp
   test_FlowBatchPartition.cpp
   test_TopologyAndFlowMonitor.cpp
   test_TopologyAndFlowMonitor_mininet.cpp

@@ -251,7 +251,42 @@ class LockManager
     }
 
     /**
-     * @brief Renew the TTL of a lock.
+     * @brief Renew the TTL of a lock that is still in force.
+     *
+     * @return true if a held, unexpired lock of a valid type was extended; false otherwise.
+     *
+     * [Co-developed with claude code -- Adam]
+     * 🔴 THIS USED TO RENEW AN EXPIRED LEASE, AND THAT IS HOW A NON-HOLDER LOCKED EVERYONE OUT.
+     * The guard was `entry exists && isLocked`, with no time comparison anywhere. `isLocked` is
+     * cleared only by unlock() and acquireLock(); expiry does not clear it. So an entry whose
+     * lease had run out sat there `isLocked == true` forever, and renew() would put it back in
+     * force for whoever asked -- with no requirement that the asker had ever held it:
+     *
+     *     A acquires routing_lock ttl=3 and dies.        the lease runs out; acquireLock would
+     *                                                    now hand the lock to anybody
+     *     C, holding nothing, renews it with ttl=120.    200 "renewed"
+     *     D acquires.                                    refused, "held by another client",
+     *                                                    for 120s, on behalf of nobody
+     *
+     * The contract has always said this is 412 (doc/2026-07-27_testing_workflow.md:221,
+     * "renew_lock 用沒持有／過期的 lock -> 412"); the implementation just never asked the
+     * question. KNOWN-ISSUES B-2①.
+     *
+     * 🔑 THE CONTROL GROUP WAS FORTY LINES UP THE SAME FILE. acquireLock() writes
+     * `if (state.isLocked && now < state.expiryTime)` -- it compares. Two functions in one class
+     * disagreeing about whether a lock is held is not a subtle bug; it is the same question
+     * answered twice, and only one of them was ever asked.
+     *
+     * 🔴 WHAT THIS DOES **NOT** FIX, so nobody reads it as more than it is: renewing somebody
+     * else's *live* lock still succeeds, because LockState has no owner field and unlock() takes
+     * a lock name rather than a holder. That is B-2②, it is a separate change with a cross-repo
+     * protocol cost, and it is not done here. This one closes only the case where the lease is
+     * already dead -- i.e. it stops a lock nobody holds from being kept alive forever.
+     *
+     * An expired entry is deliberately left `isLocked == true` on the refusal path. Clearing it
+     * would be a state change made by a call that returns false, and it would silently alter what
+     * unlock() answers for the same lock (unlock currently reports true for an expired-but-flagged
+     * entry). That is its own decision and it is not smuggled in here.
      */
     bool renew(const std::string& lockNameStr, int ttlSeconds)
     {
@@ -259,14 +294,19 @@ class LockManager
         if (type == LockType::Unknown) return false;
 
         std::lock_guard<std::mutex> lock(m_mutex);
-        
-        // Cannot renew if the lock entry doesn't exist or is not currently locked
-        if (m_locks.find(type) == m_locks.end() || !m_locks[type].isLocked) {
+
+        const auto it = m_locks.find(type);
+        const auto now = std::chrono::steady_clock::now();
+
+        // Cannot renew a lock that does not exist, is not held, or whose lease has already run
+        // out. The third clause is the one that was missing; the same `now < expiryTime` test
+        // acquireLock uses, so the two agree about what "held" means.
+        if (it == m_locks.end() || !it->second.isLocked || now >= it->second.expiryTime) {
             return false;
         }
 
         // Extend the expiry time
-        m_locks[type].expiryTime = std::chrono::steady_clock::now() + std::chrono::seconds(ttlSeconds);
+        it->second.expiryTime = now + std::chrono::seconds(ttlSeconds);
         return true;
     }
 };

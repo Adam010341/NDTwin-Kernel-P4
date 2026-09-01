@@ -287,45 +287,61 @@ TEST_F(LockEndpointTest, ABodylessReleaseDoesNotReleaseSomebodyElsesRoutingLock)
 // plus an empty `catch (...)` around the body parse that release_lock had already lost: a
 // malformed body, a body with no "type" and an absent body all renewed routing_lock.
 //
-// The state assertions below do not sleep. `acquireLock(name, 0)` sets expiryTime = now, so the
-// lock is already expired to the next caller while still being isLocked -- which is exactly the
-// state renew() acts on (see LockManagerTest.RenewingAnExpiredLockPutsItBackInForce). So "the
-// lease was NOT extended" is observable as "the lock is still acquirable", with no wall clock
-// involved. A renew that leaked through would put the lease back in force and that acquire
-// would fail.
+// 🔴 THE SETUP BELOW WAS AN ALREADY-EXPIRED LOCK, AND THE B-2① FIX TOOK ITS POWER AWAY.
+// [Co-developed with claude code -- Adam]
+// These tests used to acquire with `ttl = 0` -- expiryTime = now, so expired to the next caller
+// while still isLocked -- and read "the lease was NOT extended" off a subsequent acquire
+// succeeding. That worked only because renew() would revive an expired lease: a request that
+// leaked through to routing_lock put it back in force and the acquire failed.
+//
+// Since 2026-09-01 renew() refuses an expired lease (KNOWN-ISSUES B-2①). On that setup a leaked
+// renew is now refused too, so the acquire succeeds whether or not the parser substituted
+// routing_lock -- the same answer either way, which is no evidence at all.
+//
+// So the setup is a LIVE lock now, and the discriminator is the reply: a leaked renew answers
+// 200 {"status":"renewed","type":"routing_lock"}, a correctly refused one answers 400 and names
+// what the caller sent. That is the loudest available difference and it needs no wall clock.
+// ⇒ When a fix lands, re-ask what the tests around it were subtracting; a test can keep passing
+// because the thing it was measuring stopped existing.
+//
+// ⚠️ The probe is the exact key `"status":"renewed"`, not the word "renewed". describeError()
+// puts the endpoint's past participle INTO the refusal sentence on purpose -- "...no lock was
+// renewed" -- so a substring search for the bare word matches the correct 400 as readily as the
+// leaked 200. Written down because the loose version was tried first and all three tests went
+// red against a working handler.
 
 TEST_F(LockEndpointTest, ARenewWithAMalformedBodyDoesNotExtendTheDefaultLock)
 {
-    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0)) << "held, and already expired";
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600)) << "held by somebody, and in force";
 
     const auto& res = m_peer->send(http::verb::post, "/ndt/renew_lock", "{not json");
 
     EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
-    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30))
-        << "the malformed renew put routing_lock's lease back in force";
+    EXPECT_EQ(res.body().find(R"("status":"renewed")"), std::string::npos)
+        << "the malformed renew extended routing_lock's lease: " << res.body();
 }
 
 TEST_F(LockEndpointTest, ARenewWithNoTypeFieldDoesNotExtendTheDefaultLock)
 {
-    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0));
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600));
 
     const auto& res = m_peer->send(http::verb::post, "/ndt/renew_lock", R"({"ttl":30})");
 
     EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
-    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30))
+    EXPECT_EQ(res.body().find(R"("status":"renewed")"), std::string::npos)
         << "a ttl with no type extended routing_lock -- the caller named a duration, not a lock";
 }
 
 /// The renew twin of ABodylessReleaseDoesNotReleaseSomebodyElsesRoutingLock.
 TEST_F(LockEndpointTest, ABodylessRenewDoesNotExtendSomebodyElsesRoutingLock)
 {
-    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0)) << "another app's, running out";
-    ASSERT_TRUE(m_locks->acquireLock("power_lock", 0)) << "the caller's own, running out";
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600)) << "another app's, in force";
+    ASSERT_TRUE(m_locks->acquireLock("power_lock", 0)) << "the caller's own, already run out";
 
     const auto& res = m_peer->send(http::verb::post, "/ndt/renew_lock", "");
 
     EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
-    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30))
+    EXPECT_EQ(res.body().find(R"("status":"renewed")"), std::string::npos)
         << "a bodyless renew extended a routing lease its caller never named";
     // and the caller's own lock is no better off for having asked wrongly -- which is the
     // honest outcome, and the one it can detect from a 400
@@ -334,15 +350,37 @@ TEST_F(LockEndpointTest, ABodylessRenewDoesNotExtendSomebodyElsesRoutingLock)
 
 TEST_F(LockEndpointTest, ARenewNamingAnUnknownLockTypeIsARequestErrorNotAStateError)
 {
-    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0));
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600));
 
     const auto& res = m_peer->send(http::verb::post,
                                    "/ndt/renew_lock",
                                    R"({"type":"no_such_lock_type_exists","ttl":30})");
 
     EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
-    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30))
+    EXPECT_EQ(res.body().find(R"("status":"renewed")"), std::string::npos)
         << "an unknown lock name extended routing_lock's lease";
+}
+
+/**
+ * The endpoint-level twin of LockManagerTest.RenewingAnExpiredLeaseIsRefusedRatherThanResurrecting
+ * It. KNOWN-ISSUES B-2①: this request used to answer 200 "renewed", and the caller sending it
+ * need never have held the lock -- renew takes a name, not a holder. The lock then stayed
+ * unavailable to everyone else for the whole new TTL on behalf of a client that had gone away.
+ *
+ * 412 rather than 400 on purpose: an expired lease is a STATE the caller can fix by acquiring,
+ * which is exactly the distinction the four tests above are protecting from the other side.
+ */
+TEST_F(LockEndpointTest, RenewingAnExpiredLeaseIs412AndLeavesTheLockAcquirable)
+{
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0)) << "held, and already run out";
+
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/renew_lock",
+                                   R"({"type":"routing_lock","ttl":120})");
+
+    EXPECT_EQ(res.result_int(), 412u) << "body: " << res.body();
+    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30))
+        << "the expired lease was put back in force, locking out a legitimate acquire";
 }
 
 /**
@@ -354,7 +392,9 @@ TEST_F(LockEndpointTest, ARenewNamingAnUnknownLockTypeIsARequestErrorNotAStateEr
  */
 TEST_F(LockEndpointTest, ARenewNamingItsOwnLockSucceedsAndKeepsItsReplyShape)
 {
-    ASSERT_TRUE(m_locks->acquireLock("power_lock", 0)) << "held, and already expired";
+    // Live, not `ttl = 0`: since B-2① an expired lease is a 412, so the old setup would have
+    // turned this accept-path test into a second refusal test without changing a line of it.
+    ASSERT_TRUE(m_locks->acquireLock("power_lock", 3600)) << "held, and in force";
 
     const auto& res = m_peer->send(http::verb::post,
                                    "/ndt/renew_lock",
@@ -367,8 +407,20 @@ TEST_F(LockEndpointTest, ARenewNamingItsOwnLockSucceedsAndKeepsItsReplyShape)
     EXPECT_EQ(body.value("ttl", -1), 30);
     EXPECT_EQ(body.size(), 3u) << "the success reply gained or lost a field: " << res.body();
 
-    EXPECT_FALSE(m_locks->acquireLock("power_lock", 30))
-        << "the handler answered 'renewed' but the lease was not actually extended";
+    // That the handler actually reached renew() and renew() actually wrote, with no wall clock:
+    // a second renew to ttl 0 sets expiryTime = now, so the lease ends immediately and the lock
+    // becomes acquirable. A handler that answered "renewed" without calling through would leave
+    // the original hour-long lease in place and this would fail.
+    //
+    // The old assertion here was `EXPECT_FALSE(acquireLock("power_lock", 30))` against a ttl-0
+    // setup. It cannot be kept: the setup has to be a live lock now, and a live lock refuses
+    // that acquire whether or not the handler did anything.
+    const auto& shrink = m_peer->send(http::verb::post,
+                                      "/ndt/renew_lock",
+                                      R"({"type":"power_lock","ttl":0})");
+    EXPECT_EQ(shrink.result_int(), 200u) << "body: " << shrink.body();
+    EXPECT_TRUE(m_locks->acquireLock("power_lock", 30))
+        << "the handler answered 'renewed' but never wrote the new deadline";
 }
 
 /**

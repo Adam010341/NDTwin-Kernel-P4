@@ -24,8 +24,24 @@
  * `{"ttl": 0}` is accepted by the lock endpoint -- and it doubles as a deterministic way to test
  * the expired branch, which is otherwise a one-second wait.
  *
- * `isLocked` and `expiryTime` are independent, and the tests below rely on that distinction:
- * an expired lock is still `isLocked == true`, which is what makes `renew` on it succeed.
+ * `isLocked` and `expiryTime` are independent, and the tests below rely on that distinction: an
+ * expired lock is still `isLocked == true`. That is a fact about the representation, not a
+ * licence -- see the renew section, where this file used to draw the wrong conclusion from it.
+ *
+ * 🔴 2026-09-01: THIS FILE USED TO PIN KNOWN-ISSUES B-2① AS INTENDED BEHAVIOUR.
+ * `RenewingAnExpiredLockPutsItBackInForce` asserted that renewing a lease that had already run
+ * out must succeed, and justified it with "the renew path exists for a long operation that
+ * outlives its own TTL". That reasoning covers the holder renewing late. It does not cover the
+ * case the endpoint actually admits, because renew takes a lock NAME and no holder: a caller
+ * that has never held anything can revive a dead lease and keep every other client out of a lock
+ * nobody owns. The contract said 412 for an expired lock the whole time
+ * (doc/2026-07-27_testing_workflow.md:221).
+ *
+ * 🔑 The test was not wrong about the code -- it described it exactly. It was wrong about which
+ * of the two it was doing, and a passing test that pins a defect is worse than no test, because
+ * the next reader takes the assertion for a decision. When retargeting a test like this, the old
+ * rationale gets written down (above) rather than deleted: it was the stated reason, and reasons
+ * outlive conclusions.
  */
 
 #include <atomic>
@@ -193,17 +209,80 @@ TEST(LockManagerTest, APositiveTtlStillHoldsTheLockWhileItHasTimeLeft)
     EXPECT_FALSE(mgr.acquireLock("routing_lock", 3600));
 }
 
-TEST(LockManagerTest, RenewingAnExpiredLockPutsItBackInForce)
+TEST(LockManagerTest, RenewingALockThatIsStillInForceRewritesItsDeadline)
 {
-    // The renew path exists for a long operation that outlives its own TTL. It works on an
-    // expired lock because `isLocked` stays true after expiry -- only `expiryTime` has passed --
-    // and this is the test that pins that distinction, without waiting a second for a real TTL.
+    // The accept path, and the one every refusal test below has to be read against: a change
+    // that made renew answer false unconditionally would satisfy all of them and break the only
+    // thing renew is for.
     LockManager mgr;
-    ASSERT_TRUE(mgr.acquireLock("routing_lock", 0));
-    ASSERT_TRUE(mgr.renew("routing_lock", 3600))
-        << "renew refused a lock that is still flagged as held";
-    EXPECT_FALSE(mgr.acquireLock("routing_lock", 60))
-        << "renew reported success without extending the deadline";
+    ASSERT_TRUE(mgr.acquireLock("routing_lock", 3600));
+    ASSERT_TRUE(mgr.renew("routing_lock", 7200)) << "renew refused a lease that is still running";
+    EXPECT_FALSE(mgr.acquireLock("routing_lock", 60)) << "renew released the lock";
+
+    // ...and that the deadline was actually WRITTEN, with no wall clock involved. Renewing to
+    // ttl 0 sets expiryTime = now, so the lease ends immediately and the lock becomes
+    // acquirable. A renew that answered true without touching expiryTime would leave 7200
+    // seconds on the lock and this acquire would fail.
+    //
+    // 🔑 Needed because the obvious assertion -- "it is still held afterwards" -- is true of a
+    // renew that does nothing at all, and every other test in the renew group is a refusal.
+    ASSERT_TRUE(mgr.renew("routing_lock", 0)) << "the lock was in force when this was called";
+    EXPECT_TRUE(mgr.acquireLock("routing_lock", 60))
+        << "renew answered true without writing the new deadline";
+}
+
+TEST(LockManagerTest, RenewingAnExpiredLeaseIsRefusedRatherThanResurrectingIt)
+{
+    // KNOWN-ISSUES B-2①. `acquireLock(name, 0)` sets expiryTime = now and the held test is the
+    // strict `now < expiryTime`, so the lock is expired to the next caller while still being
+    // flagged isLocked -- exactly the state renew() used to accept.
+    //
+    // Once the lease has run out the lock is, by the class's own rule in acquireLock, free. The
+    // way back in is to acquire it, which can be lost to another client. Renew must not be a
+    // second door into a lock that is standing open.
+    LockManager mgr;
+    ASSERT_TRUE(mgr.acquireLock("routing_lock", 0)) << "held, and already expired";
+
+    EXPECT_FALSE(mgr.renew("routing_lock", 3600))
+        << "an expired lease was renewed; a caller holding nothing can now hold the lock that "
+           "serialises writes to real switches";
+
+    // And the refusal must not have taken the lock as a side effect, or renew becomes acquire
+    // with the held check skipped.
+    EXPECT_TRUE(mgr.acquireLock("routing_lock", 60))
+        << "the refused renew left the lock unavailable to a legitimate acquire";
+}
+
+TEST(LockManagerTest, ANonHolderCannotKeepADeadLeaseAliveAndLockEverybodyOut)
+{
+    // The shape the defect actually took, written out as the sequence rather than as a property.
+    // A holds a lock and goes away; the lease runs out, so the lock is free. C has never held
+    // anything and renews. Before the fix C got 200 and D was refused for another two minutes,
+    // on behalf of a client that no longer existed.
+    LockManager mgr;
+    ASSERT_TRUE(mgr.acquireLock("routing_lock", 0)) << "A's lease, already run out";
+
+    EXPECT_FALSE(mgr.renew("routing_lock", 120)) << "C revived a lease it never held";
+    EXPECT_TRUE(mgr.acquireLock("routing_lock", 120))
+        << "D was locked out of a lock that nobody was holding";
+
+    // Repeating the call must not accumulate anything either: the entry is live now (D holds
+    // it), so a renew succeeds -- that is D's lock and this is what renew is for.
+    EXPECT_TRUE(mgr.renew("routing_lock", 120));
+}
+
+TEST(LockManagerTest, RenewIsRefusedOnAnExpiredLockForEachOfTheThreeLocks)
+{
+    // Not a generalisation for its own sake: routing_lock is the one the endpoint used to
+    // substitute, so a fix applied only where the reported symptom was would leave the other two
+    // able to be revived by a stranger.
+    for (const auto& name : kValidNames)
+    {
+        LockManager mgr;
+        ASSERT_TRUE(mgr.acquireLock(name, 0)) << name;
+        EXPECT_FALSE(mgr.renew(name, 3600)) << name << ": expired lease renewed";
+        EXPECT_TRUE(mgr.acquireLock(name, 60)) << name;
+    }
 }
 
 TEST(LockManagerTest, RenewingALockNobodyHoldsIsRefused)
@@ -225,12 +304,19 @@ TEST(LockManagerTest, RenewingALockNobodyHoldsIsRefused)
 
 TEST(LockManagerTest, RenewingOneLockDoesNotExtendAnother)
 {
+    // The probe is the second renew, not an acquire. graph_lock is left expired, so a renew of
+    // it must be refused; if renewing routing_lock had leaked into graph_lock's entry, that
+    // entry would be back in force and the second renew would succeed. An acquire cannot tell
+    // the two apart any more -- after the B-2① fix a leaked renew of an expired lock is refused
+    // as well, so `acquireLock("graph_lock", 0)` returns true either way and proves nothing.
     LockManager mgr;
-    ASSERT_TRUE(mgr.acquireLock("routing_lock", 0));
-    ASSERT_TRUE(mgr.acquireLock("graph_lock", 0));
-    ASSERT_TRUE(mgr.renew("routing_lock", 3600));
-    EXPECT_TRUE(mgr.acquireLock("graph_lock", 0))
-        << "renewing routing_lock also extended graph_lock";
+    ASSERT_TRUE(mgr.acquireLock("routing_lock", 3600)) << "live: the one being renewed";
+    ASSERT_TRUE(mgr.acquireLock("graph_lock", 0)) << "expired: the one that must stay expired";
+
+    ASSERT_TRUE(mgr.renew("routing_lock", 7200));
+
+    EXPECT_FALSE(mgr.renew("graph_lock", 3600))
+        << "renewing routing_lock put graph_lock's lease back in force";
 }
 
 TEST(LockManagerTest, ExactlyOneOfManyConcurrentAcquiresWins)

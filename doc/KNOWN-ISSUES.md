@@ -504,7 +504,12 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-2 鎖在兩種平常情況下不提供互斥
 
-- **狀態**：**OPEN，兩條原始問題一條都沒修**（2026-08-30 讀碼重驗，`1208d22`）。
+- **狀態**：**OPEN——①已修（2026-09-01），②原封不動**。🔴 **兩條要分開讀，本條不得整條關掉。**
+  ①「續約已過期的鎖」已修並過變異閘（六顆全殺、678/678 綠），詳見下方 ① 的 🏁 段；
+  ②「任何人可以釋放／續約任何人的鎖」**沒有動**——它需要 `LockState` 長出 owner 欄位，
+  是跨 repo 的協定改動。**①只擋住「租約已經死了」那一格**：租約還活著的時候，
+  一個沒持有它的 client 仍然續得動別人的鎖。
+  ⚠️ **所以「B-2 修了」這句話在本輪之後仍然是錯的**，它只對一半成立。
   🔴 **本條在 08-30 被拆過一次**：這一週動到鎖端點的兩顆 commit
   （`4ee086f`＋`87d272f`）修的是**第三族**問題——「請求沒指名鎖，卻被代入 `routing_lock`」，
   那一族已收在 **B-2d**。**它們沒有碰下面這兩條。**
@@ -523,6 +528,24 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
      🔑 **對照組就在同一個檔案裡**：`acquireLock()`（`:210`）寫的是
      `if (state.isLocked && now < state.expiryTime)`，**它比了**。
      ⇒ **這不是「整個類別都沒有到期概念」，是 renew 這一支漏掉**，所以修法很窄。
+     🏁 **已修（2026-09-01，Adam 線裁「先做 1+2」）。** `renew()` 的判斷式補上第三個子句
+     `|| now >= it->second.expiryTime`，與 `acquireLock` 用同一個比較。變異閘
+     `tests/shell/mutate_lock_renew_expiry.sh`：**六顆全殺**（拿掉比較／比較反向／回 true 不寫入／
+     不看 `isLocked`／renew 憑空建鎖／handler 把 412 回成 200），`survivors=0`，
+     全套 gtest 678/678。
+     🔴 **修這條的過程中發現：本 repo 的測試套件把這個缺陷釘成了「預期行為」。**
+     `tests/test_LockManager.cpp` 有一顆綠的 `RenewingAnExpiredLockPutsItBackInForce`，
+     理由寫著「renew 存在就是為了讓超過自己 TTL 的長操作續命」——那句話涵蓋的是**持有者自己晚了**，
+     不涵蓋 renew 只收鎖名不收持有者這件事。**「測試全綠」在修法前後都成立**，
+     所以判斷套件釘的是修法還是缺陷，只有變異跑得出來。已連同原始理由一起寫進該檔檔頭，
+     不刪除（理由比結論活得久）。
+     ⚠️ **五顆端點測試的鑑別力被這個修法拿掉了，已重做**：它們用 `acquireLock(name, 0)`
+     （已過期）當 setup，靠「之後還 acquire 得到」判斷「租約沒有被延長」——修法之後
+     洩漏進來的 renew 也會被拒，兩種情形同一個答案。改成用**活著的**鎖，判準換成回覆
+     （洩漏＝200 `"status":"renewed"`，正確＝400）。
+     ⚠️ **`tools/contract_test/spec.py` 現在有一個真的時間相依**：`LOCK_TTL = 5`，
+     acquire→renew 之間若超過 5 秒，`renew_lock` 會拿到 412。修法前那一格會靜靜地通過。
+     本輪沒有改 `spec.py`（相鄰兩個 HTTP 呼叫隔 5 秒不合理），**但這是新的 flake 面**。
   2. **任何人可以釋放任何人的鎖**。`LockState` **沒有 owner 欄位**，`unlock()` 為呼叫者清鎖。
      真正的持有者只會從下一次失敗的 renew 得知自己被踢出臨界區。
      ✅ **2026-08-30 逐行重驗仍然成立**：`LockManager.hpp:18-21` 的 `LockState`
@@ -1022,10 +1045,28 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
 
 ## E-2. 潛伏：一個旗標之遙的靜默故障
 
-### 🔴 `getTopKFlowInfoJson` 對同一個 `std::shared_mutex` 遞迴取 shared lock
+### 🏁 ~~`getTopKFlowInfoJson` 對同一個 `std::shared_mutex` 遞迴取 shared lock~~ —— **已修（2026-09-01）**
 
-- **狀態**：**潛伏**。依 C++ 標準是**未定義行為**，但在目前的執行環境下**不會卡死**，
-  所以**不宣稱它是活的缺陷**。列在這裡是因為變成缺陷的條件是具名且可驗的。
+- **狀態**：🏁 **已修（2026-09-01，Adam 線裁「先做 1+2」）。以下問題描述保留原文不動。**
+  修法是**刪掉外層那一行**——外面本來就沒有東西要保護：`getFlowInfoJson()` 回的是新造的
+  json 陣列，底下每一行都只碰那份區域副本。順帶把 📌 那段的 `std::sort` 移出臨界區。
+  變異閘 `tests/shell/mutate_topk_recursive_lock.sh`：**五顆全殺**、`survivors=0`，全套 678/678。
+  🔴 **這種修法（刪除）最難設閘**：什麼新東西都沒有跑起來，修法前綠、修法後也綠。
+  而且**死結在這台機器上構不出來**（glibc 預設 reader-preferring，就是它一直沒咬人的原因）
+  ⇒ 任何「會不會卡死」的執行期測試對修法前後同一個答案，**零鑑別力**。
+  所以拆成兩半：結構性質由 `tests/shell/test_topk_no_recursive_shared_lock.sh` 讀原始碼守
+  （把那行加回去就會紅），行為性質（k 的邊界、欄位名兩邊一致）由
+  `tests/test_TopKFlowInfoLocking.cpp` 守——**這個函式在此之前一顆測試都沒有**。
+  ⚠️ **順手量到一件本條沒寫的事**：排序的比較子拿的是 `const nlohmann::json&`，
+  所以 `a["…"]` 走的是 **const `operator[]`**——它**不插入也不丟例外**，是
+  `JSON_ASSERT(找得到)`，即 **`abort()`**；而 Release 帶 `-DNDEBUG`（`CMakeLists.txt:76`）
+  時那個 assert 被編掉，變成解參考一個 past-the-end 迭代器。
+  ⇒ **發射端與比較子的欄位名一旦不一致，不是某個端點回 500，是整個行程倒掉或 UB。**
+  這是變異跑出來的：第一版把斷言寫在呼叫**之後**，行程在更早的 case 就 abort 了，
+  於是那顆變異被報成 SURVIVED——**abort 掉的 binary 和全綠的 binary，對一個
+  grep `[  FAILED  ]` 來說長得一模一樣。**
+- 〔原狀態：**潛伏**。依 C++ 標準是**未定義行為**，但在目前的執行環境下**不會卡死**，
+  所以**不宣稱它是活的缺陷**。列在這裡是因為變成缺陷的條件是具名且可驗的。〕
 - **碼**：`FlowLinkUsageCollector.cpp:2335` 取 `shared_lock(m_flowInfoTableMutex)`，
   下一行 `:2336` 呼叫的 `getFlowInfoJson()` **對同一個 mutex 再取一次**（`:2293`）。
   `m_flowInfoTableMutex` 是 `std::shared_mutex`（`FlowLinkUsageCollector.hpp:387`），
@@ -1040,6 +1081,10 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
   （見 memory `northbound-api-serialises`），所以一條卡住的處理執行緒會佔住整個伺服器。
 - **修法**：把 `getFlowInfoJson` 的鎖抽出來（拆成一個不取鎖的內部版本，
   由兩個呼叫端各自取一次），不要靠底層 rwlock 的偏好設定。
+  🔄 **09-01 更正：實際落地的修法比這個窄，而且不需要拆函式。** 外層那一行**直接刪掉**即可——
+  `getTopKFlowInfoJson` 從頭到尾沒有讀任何成員，它拿到的是 `getFlowInfoJson()` 回的區域副本。
+  **不要照上面那句去拆一個 `…Locked()` 內部版本**：那會多一個函式、多一條要維護的鎖規約，
+  換到的東西是零。
 - 📌 **順帶**：`getTopKFlowInfoJson` 在持有 shared lock 的情況下對整個 JSON 陣列做
   `std::sort`（`:2339-2352`），臨界區長度與流表大小成 O(n log n)。這與死鎖無關，
   但它讓上面那個窗口變寬。
@@ -1638,7 +1683,17 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 
 ### 🔴 兩個守衛**在最需要它們的時候**失效：E-P4 的 fail-open，與中止時銷毀自己的現場
 
-- **狀態**：**已知、未修**（2026-09-01）。兩者都在 E 輪實際發生或差一步發生。
+- **狀態**：🏁 **兩者皆已修（2026-09-01 下午，`6c75bc3c`）。** 以下的問題描述保留原文不動，
+  因為它是**為什麼要這樣修**的唯一記載；只有這一行狀態換過。
+  - (a) `run_e.sh:203` 改成 `case "$(ep4_verdict "$pv" "$v")"`，夥伴列缺失走 `MISSING-PARTNER`
+    分支**中止**而不是靜靜略過；判定本身抽成 `lib_e.sh:ep4_verdict` 才測得到。
+  - (b) `lib_e.sh:185` 的 `abort()` 在 `restore_production` **之前**呼叫
+    `preserve_abort_evidence`（`:125`）落盤 pane。⚠️ **修法用 `ndtwin-lab topo-out` 而不是
+    本條原本開的藥方 `tmux capture-pane`**——後者要 root，`sudo tmux` 會要密碼，
+    在它唯一存在的那個情境（半夜無人的中止路徑）會無聲失敗。
+  - 變異閘：六顆變異、六顆被**以它命名的那一格**殺掉、零存活。
+  - ⚠️ 本條在 09-01 下午一度停在「已知、未修」而修法早已推上去——**一個過期的「未修」
+    會讓人重做已經做完的事**，與過期的「已修」同樣危險，方向相反。
 - **(a) E-P4 停跑規則的 `-n "$pv"` 會 fail-open**
   （`doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.sh:186`）：
   `[[ -n "$pv" && "$pv" != *SATURATED* && "$v" == *SATURATED* ]]`。

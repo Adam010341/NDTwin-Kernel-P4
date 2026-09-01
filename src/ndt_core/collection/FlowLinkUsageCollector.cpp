@@ -2332,7 +2332,35 @@ nlohmann::json
 FlowLinkUsageCollector::getTopKFlowInfoJson(int k)
 {
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "getTopKFlowInfoJson k={}", k);
-    shared_lock lock(m_flowInfoTableMutex);
+
+    // 🔴 NO LOCK HERE. getFlowInfoJson() TAKES m_flowInfoTableMutex ITSELF, AND THIS USED TO
+    // TAKE IT AGAIN. [Co-developed with claude code -- Adam]
+    //
+    // The line that stood here was `shared_lock lock(m_flowInfoTableMutex);`, one line above a
+    // call to getFlowInfoJson(), which opens with the same acquisition. Recursively acquiring a
+    // std::shared_mutex is undefined behaviour -- [thread.sharedmutex.requirements] says a
+    // thread must not own the mutex when it calls lock_shared -- and five writers take
+    // unique_lock on this same mutex (:1486 :1822 :2109 :2272 :2924).
+    //
+    // It never bit, and the reason it never bit is an implementation detail of this machine's C++
+    // library rather than anything the code arranged: glibc's pthread_rwlock defaults to
+    // PTHREAD_RWLOCK_PREFER_READER_NP, so a reader does not yield to a waiting writer and the
+    // second rdlock on the same thread succeeds. Two named, checkable conditions turn it into a
+    // self-deadlock -- the kind switched to PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP, or a
+    // libstdc++ built without _GLIBCXX_USE_PTHREAD_RWLOCK_T so shared_mutex is the condvar
+    // implementation. Either would wedge the thread between the two acquisitions, with a writer
+    // in the middle. KNOWN-ISSUES §E-2.
+    //
+    // 🔑 And a wedge here is not one endpoint: the northbound API serialises, so the stuck
+    // handler thread holds the whole server.
+    //
+    // Deleting the outer lock is the whole fix and it costs nothing, because there was never
+    // anything to protect out here: getFlowInfoJson() returns a freshly built json array, and
+    // every line below operates on that local copy. Nothing in this function reads a member.
+    //
+    // 📌 It also closes the note KNOWN-ISSUES filed beside the deadlock: the std::sort was
+    // running INSIDE the shared lock, so the critical section grew as O(n log n) in the size of
+    // the flow table. It is now outside, and the lock is held only for the copy.
     nlohmann::json flowInfo = getFlowInfoJson();
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "Total flows: {}", flowInfo.size());
 
