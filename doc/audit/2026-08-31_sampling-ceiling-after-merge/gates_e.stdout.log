@@ -1,0 +1,146 @@
+[22:59:49] === gates_e start (PREREG-E §2), DRY_RUN=0 ===
+[22:59:49] === preflight (gates), DRY_RUN=0 ===
+[22:59:49]   disk: 10G available on /
+[22:59:49]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[22:59:49]   staged binaries: present
+[22:59:50]   fabric: up
+[22:59:51]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_gates.txt
+[22:59:51]   [PASS] G3 §2.3 cell_verdict --selftest  SELFTEST PASS
+[22:59:51] --- G1 §2.1: counters readable at batch_size=1 ---
+[23:00:08]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[23:00:39]     batch_size confirmed at the emitter: 1
+[23:00:39]     load: SAMPLE_RATE=1/256, want 12 samples => 12 x 256 = 3072 packets
+[23:00:39]           interval 0.0010s => >=3s on the wire, so the Udp counter has a window too
+[23:00:43]     load asserted on s1-eth3 (NOT an sFlow observable): rx_packets delta=3072
+[23:00:43]     sflow datagrams_sent delta=25   udp InDatagrams delta=29
+[23:00:43]   [PASS] G1 §2.1 counters non-zero at batch_size=1  sflow=+25 udp=+29
+[23:00:43] --- G5a §2.4 force-green (i): idle fabric must be GREEN ---
+GATE forcegreen_idle foreign_cores=0.27 baseline=0.737 excess=-0.467 threshold=0.5 verdict=GREEN
+     covariates claude-desktop=0.013 claude=0.217 gnome-shell=0 chrome=0.006
+     foreign  pid= 715379 comm=claude           cores=0.061
+     foreign  pid=1503442 comm=claude           cores=0.051
+     foreign  pid=1442522 comm=claude           cores=0.044
+     foreign  pid= 975304 comm=claude           cores=0.019
+     foreign  pid=  11181 comm=claude           cores=0.015
+     ours     pid=2657822 comm=python           cores=0.04
+     ours     pid=2668023 comm=ndtwin_kernel    cores=0.021
+GATE forcegreen_idle force-test OK: expected GREEN, got GREEN
+[23:01:03]   [PASS] G5a §2.4 CPU gate force-green (idle)  
+[23:01:03] --- G4 §2.4 force-red: burner must turn the CPU gate RED ---
+[23:01:04]     burner pid=2668384 comm=awk
+GATE forcered_burner foreign_cores=1.277 baseline=0.737 excess=0.54 threshold=0.5 verdict=RED
+     covariates claude-desktop=0.015 claude=0.227 gnome-shell=0 chrome=0.006
+     foreign  pid=2668384 comm=awk              cores=1.001
+     foreign  pid=1503442 comm=claude           cores=0.068
+     foreign  pid=1442522 comm=claude           cores=0.048
+     foreign  pid= 715379 comm=claude           cores=0.045
+     foreign  pid= 975304 comm=claude           cores=0.019
+     ours     pid=2657822 comm=python           cores=0.042
+     ours     pid=2668023 comm=ndtwin_kernel    cores=0.018
+GATE forcered_burner force-test OK: expected RED, got RED
+[23:01:24]   [PASS] G4 §2.4 CPU gate force-red (burner)  
+[23:01:24]     burner stopped
+[23:01:24] --- G5b §2.4 force-green (ii): a normal arm's own load must ALSO be GREEN ---
+GATE forcegreen_ownload foreign_cores=0.376 baseline=0.737 excess=-0.361 threshold=0.5 verdict=GREEN
+     covariates claude-desktop=0.014 claude=0.2 gnome-shell=0.104 chrome=0
+     foreign  pid=   3281 comm=gnome-shell      cores=0.104
+     foreign  pid=1503442 comm=claude           cores=0.062
+     foreign  pid= 715379 comm=claude           cores=0.045
+     foreign  pid=1442522 comm=claude           cores=0.038
+     foreign  pid=2668585 comm=python3          cores=0.022
+     ours     pid=2668600 comm=iperf3           cores=1.006
+     ours     pid=2650948 comm=simple_switch_g  cores=0.513
+     ours     pid=2650947 comm=simple_switch_g  cores=0.461
+     ours     pid=2650951 comm=simple_switch_g  cores=0.421
+     ours     pid=2668579 comm=iperf3           cores=0.132
+     ours     pid=2668023 comm=ndtwin_kernel    cores=0.12
+     ours     pid=2657822 comm=python           cores=0.089
+GATE forcegreen_ownload force-test OK: expected GREEN, got GREEN
+[23:02:24]   [PASS] G5b §2.4 CPU gate force-green (own load)  
+[23:02:58] --- G2 §2.2: no silent wipeout ---
+[23:02:58]     cell=g_gate_load  mark=OK  ratio=1.013  gt_mbit=206  lost_pct=0.01276  lam=2.087e+08  quantum=1  spread=11.15  floor=0.006922  distinct=85
+[23:02:58]   [PASS] G2 §2.2 no silent wipeout  lam=2.087e+08 distinct=85
+[23:02:58] --- G0 §2: calibration objects match the values pinned in the registration ---
+[23:02:59]     ok  t008_poll_twin.jsonl  295ab0d46ea830bcf039eb4fab02461b2268527e0a92b8138347d05edcae1d07
+[23:02:59]     ok  t008_poll_client.json  18dbe3884cfcdbff853665c511af7e8765833a5a6a287d5153d3bf6d6b0dc342
+[23:02:59]     ok  m256_poll_twin.jsonl.gz  5bed4f7e3e6097800cc985a1e95eb92464dd3849ff044b59be24ba171390dc79
+[23:02:59]     ok  m256_poll_client.json  69b8842d21d95e1e48438107a3b853200847a638d228c3dc2cc811bc3304a84d
+[23:02:59]     ok  t008_poll_cpu.jsonl  fb4d791a23afa03dffc50dd85bc437a06038c3d47e35b5746230ec0b3d72c73d
+[23:02:59]   [PASS] G0 §2 calibration objects match the registration  4 objects, audit-raw and worktree
+[23:02:59] --- G7 §2.4 ratio gate force-green: archived 08-20-round cell (PREREG §0-bis) ---
+  cell=t008_poll  mark=DATAPLANE-HURT  ratio=0.9656  gt_mbit=191.4  lost_pct=8.11  lam=2003  quantum=92288  spread=14.58  floor=2.234  distinct=201
+GATE ratio cell=t008_poll ratio=0.9656 threshold=0.95 verdict=GREEN
+GATE ratio force-test OK: expected GREEN, got GREEN
+[23:02:59]   [PASS] G7 §2.4 ratio gate force-green (t008_poll)  
+[23:02:59] --- G6 §2.4 ratio gate force-red: tail 20% of samples zeroed ---
+  source     cell=t008_poll  mark=DATAPLANE-HURT  ratio=0.9656  gt_mbit=191.4  lost_pct=8.11  lam=2003  quantum=92288  spread=14.58  floor=2.234  distinct=201
+  window     239.8s of rows; zeroing s5-eth2 after t+191.9s (20% tail)
+  injected   408 row(s) zeroed on s5-eth2 -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/e_gate_forcered_trunc20_twin.jsonl
+  produced   cell=e_gate_forcered_trunc20  mark=SATURATED+DATAPLANE-HURT  ratio=0.7749  gt_mbit=191.4  lost_pct=8.11  lam=1607  quantum=92288  spread=52.72  floor=2.495  distinct=168
+  FORCE-RED  OK: 0.9656 -> 0.7749, crossing 0.95
+[23:02:59]   [PASS] G6 §2.4 ratio gate force-red (tail 20% zeroed)  
+[23:02:59] --- G8 §4: running-arm identity, forced both ways ---
+[23:03:00]     force-green (this arm) : IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[23:03:00]     force-red   (other arm): IDENTITY verdict=MISMATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[23:03:00]   [PASS] G8 §4 running-arm identity forced both ways  
+[23:03:00]     bmv2: 0 running switch(es), 0 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_gate.txt
+[23:03:00] --- G9 #11 (forced-red half): restore-failure must actually SHOUT ---
+[23:03:00] [23:03:00] 🔴 restore: kernel is fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956, production backup is e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[23:03:00] 🔴🔴🔴 PRODUCTION RESTORE FAILED -- DO NOT RELEASE THE LAB 🔴🔴🔴
+[23:03:00] 🔴 The next round in the queue would inherit this fabric and could not tell.
+RESTORE-FAILED 2026-08-31T23:03:00+08:00 -- do not release the lab; see /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.log
+[23:03:00]   [PASS] G9 #11 restore failure is loud (forced-red half; clean half at end of run)  rc=1
+[23:03:00] --- G10 #14: topology invariant must go red on a changed edge count (forced) ---
+[23:03:00]     forcing: live edge count=288, injected baseline=289 (differ by construction)
+[23:03:00]   [PASS] G10 #14 topology invariant forced red  baseline 289 vs live 288
+[23:03:00]   [PASS] G10 #14 topology invariant clean direction (control for the force above)  edges=288
+[23:03:00] --- G11 #3: boot_id change must go red (forced) ---
+[23:03:00]   [PASS] G11 #3 boot_id change forced red  
+[23:03:00] --- G8b §4: the identity bracket must be REACHED and must fire on its own terms ---
+[23:03:01]     bracket abort present: 1   absorbed by the earlier check: 0
+[23:03:01]     [23:03:01] 🔴 ABORT(identity): e_bl_0016_1: the running kernel changed mid-cell (4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 -> d000000000000000000000000000000000000000000000000000000000000002).
+[23:03:01]   [PASS] G8b §4 identity bracket reached and fired  not absorbed by assert_running_arm
+[23:03:01] --- G-MATRIX: 15 forces, one row each ---
+[23:03:01]     [ok]   claim -> REFUSE: lab.claim owner=
+[23:03:01]     [ok]   staged -> REFUSE: staged kernel binary missing
+[23:03:01]     [ok]   iperf3 -> REFUSE: iperf3 already running
+[23:03:01]     [ok]   fabric -> REFUSE: no live P4 fabric
+[23:03:02]     [ok]   labmarker -> REFUSE: a neighbouring round left the lab un-restored
+[23:03:03]     [ok]   restore -> PRODUCTION RESTORE FAILED
+[23:03:04]     [ok]   edgecount (REPS=2) -> ABORT(#14 invariant)
+[23:03:05]     [ok]   bootid (REPS=2) -> ABORT(#3 boot_id)
+[23:03:06]     [ok]   recompute -> ABORT(§4-bis)
+[23:03:07]     [ok]   exedriftmid -> ABORT(identity)
+[23:03:08]     [ok]   exeunreadablemid -> could not be READ
+[23:03:09]     [ok]   exeunreadable_absorbed -> ABORT(§4 running-arm)
+[23:03:10]     [ok]   exedrift_absorbed -> ABORT(§4 running-arm)
+[23:03:10]     [ok]   @none@ (PREREG_FILE=/tmp/tmp.IhoS727ssL) -> EVIDENCE-BASIS: INCOMPLETE
+[23:03:12]     [ok]   @none@ (PREREG_FILE=/tmp/tmp.kFVWlI2MsI) -> @COMPLETES@
+[23:03:12]   [PASS] G-MATRIX all 15 forces reach their own check  
+[23:03:12] 
+[23:03:12] === gates_e summary (PREREG §2 item -> call, for the grep-against-grep check) ===
+[23:03:12]   PASS  G3 §2.3 cell_verdict --selftest
+[23:03:12]   PASS  G1 §2.1 counters non-zero at batch_size=1
+[23:03:12]   PASS  G5a §2.4 CPU gate force-green (idle)
+[23:03:12]   PASS  G4 §2.4 CPU gate force-red (burner)
+[23:03:12]   PASS  G5b §2.4 CPU gate force-green (own load)
+[23:03:12]   PASS  G2 §2.2 no silent wipeout
+[23:03:12]   PASS  G0 §2 calibration objects match the registration
+[23:03:12]   PASS  G7 §2.4 ratio gate force-green (t008_poll)
+[23:03:12]   PASS  G6 §2.4 ratio gate force-red (tail 20% zeroed)
+[23:03:12]   PASS  G8 §4 running-arm identity forced both ways
+[23:03:12]   PASS  G9 #11 restore failure is loud (forced-red half; clean half at end of run)
+[23:03:12]   PASS  G10 #14 topology invariant forced red
+[23:03:12]   PASS  G10 #14 topology invariant clean direction (control for the force above)
+[23:03:12]   PASS  G11 #3 boot_id change forced red
+[23:03:12]   PASS  G8b §4 identity bracket reached and fired
+[23:03:12]   PASS  G-MATRIX all 15 forces reach their own check
+[23:03:12] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[23:03:12]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[23:03:28]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+[23:03:28] --- G9 #11 (clean half): the same check must come out GREEN on the restore just done ---
+[23:03:28]     the forced-red half of this gate ran at 23:03:00 rc=1
+[23:03:29] [23:03:29]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+[23:03:29]   [PASS] G9 #11 restore failure is loud (clean half)  red at 23:03:00 rc=1, clean at 23:03:29 rc=0
+[23:03:29] === all §2 gates green.  run_e.sh may proceed. ===
+[23:03:29]   G9 #11 halves: forced-red 23:03:00 rc=1, clean 23:03:29 rc=0 -- BOTH ran.

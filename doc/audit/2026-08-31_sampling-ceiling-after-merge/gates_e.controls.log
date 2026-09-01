@@ -1,0 +1,88 @@
+[22:47:49] bringing the fabric up
+[22:48:29] fabric up
+[22:48:29] === C1: forced abort WITHOUT the guard (expect: restore runs, fabric goes DOWN) ===
+    live edge count = 288
+[22:48:29] 🔴 ABORT(#14 invariant): control-probe: edge count changed across the rebuild (289 -> 288).
+        The fabric was not reproduced, so this cell is not comparable to the earlier ones -- and
+        the telemetry-multiplication trap has this exact signature.
+[22:48:29] 🔴 ABORT(#14 invariant): control-probe: edge count changed across the rebuild (289 -> 288).
+        The fabric was not reproduced, so this cell is not comparable to the earlier ones -- and
+        the telemetry-multiplication trap has this exact signature.
+[22:48:29] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[22:48:29] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[22:48:29] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[22:48:29] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[22:48:29] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[22:48:29] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[22:48:29]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[22:48:29]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[22:48:46]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+[22:48:46]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+[22:48:51] C1 as expected: fabric is DOWN after an unguarded forced abort
+[22:48:56] bringing the fabric up
+[22:49:36] fabric up
+[22:49:36] === C2: the same force WITH the guard (expect: no restore, fabric still UP) ===
+    live edge count = 288
+[22:49:37] 🔴 ABORT(#14 invariant): control-probe: edge count changed across the rebuild (289 -> 288).
+        The fabric was not reproduced, so this cell is not comparable to the earlier ones -- and
+        the telemetry-multiplication trap has this exact signature.
+[22:49:37] 🔴 ABORT(#14 invariant): control-probe: edge count changed across the rebuild (289 -> 288).
+        The fabric was not reproduced, so this cell is not comparable to the earlier ones -- and
+        the telemetry-multiplication trap has this exact signature.
+[22:49:37] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[22:49:37] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[22:49:37] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[22:49:37] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[22:49:37] 🔴 (FORCED_ABORT set: this abort is an injected test; the production restore is NOT
+[22:49:37] 🔴 (FORCED_ABORT set: this abort is an injected test; the production restore is NOT
+[22:49:37] 🔴  run, and the fabric is left standing for the gates that follow.)
+[22:49:37] 🔴  run, and the fabric is left standing for the gates that follow.)
+[22:49:37] C2 as expected: fabric still UP after a guarded forced abort
+[22:49:37] === C3: FORCE_CPU_GATE_DISOWN_FABRIC under real switch load ===
+[22:49:37]     load started (measure.sh g_disown_ctl 150 200Mbit), pid=2607480; settling 25s
+[g_disown_ctl] h1=2588640 h33=2588705  200Mbit/s for 150s
+[22:50:02] --- C3a: normal classification (expect GREEN) ---
+GATE ctl_disown_off foreign_cores=0.534 baseline=0.955 excess=-0.421 threshold=0.5 verdict=GREEN
+     covariates claude-desktop=0.229 claude=0.201 gnome-shell=0.028 chrome=0.013
+     foreign  pid=   4028 comm=claude-desktop   cores=0.129
+     foreign  pid=   4217 comm=claude-desktop   cores=0.075
+     foreign  pid= 715379 comm=claude           cores=0.061
+     foreign  pid=1503442 comm=claude           cores=0.054
+     foreign  pid=1442522 comm=claude           cores=0.038
+     ours     pid=2607542 comm=iperf3           cores=1.01
+     ours     pid=2590232 comm=simple_switch_g  cores=0.553
+     ours     pid=2590231 comm=simple_switch_g  cores=0.52
+     ours     pid=2590235 comm=simple_switch_g  cores=0.465
+     ours     pid=2607502 comm=iperf3           cores=0.134
+     ours     pid=2607303 comm=ndtwin_kernel    cores=0.13
+     ours     pid=2606998 comm=python           cores=0.104
+GATE ctl_disown_off force-test OK: expected GREEN, got GREEN
+[22:50:27]     C3a rc=0
+[22:50:27] --- C3b: same load, fabric disowned (expect RED) ---
+GATE ctl_disown_on foreign_cores=3.313 baseline=0.955 excess=2.358 threshold=0.5 verdict=RED
+     covariates claude-desktop=0.231 claude=0.184 gnome-shell=0.028 chrome=0.006
+     foreign  pid=2607542 comm=iperf3           cores=1.01
+     foreign  pid=2590232 comm=simple_switch_g  cores=0.551
+     foreign  pid=2590231 comm=simple_switch_g  cores=0.514
+     foreign  pid=2590235 comm=simple_switch_g  cores=0.457
+     foreign  pid=2607303 comm=ndtwin_kernel    cores=0.142
+     ours     pid=2606998 comm=python           cores=0.116
+GATE ctl_disown_on force-test OK: expected RED, got RED
+[22:50:52]     C3b rc=0
+done: 300 samples over 150s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/g_disown_ctl_cpu.jsonl
+done: 600 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/g_disown_ctl_twin.jsonl
+[g_disown_ctl] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/g_disown_ctl_{cpu,twin}.jsonl, g_disown_ctl_client.json
+[22:52:11]     load finished
+[22:52:11] === gates ===
+[22:54:02] gates rc=9

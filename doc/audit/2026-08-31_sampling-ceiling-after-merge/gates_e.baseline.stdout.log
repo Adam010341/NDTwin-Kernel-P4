@@ -1,0 +1,34 @@
+[22:56:09] === gates_e baseline (fabric must be DOWN) ===
+[22:56:09] === preflight (plan), DRY_RUN=0 ===
+[22:56:09]   disk: 10G available on /
+[22:56:09]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[22:56:09]   (plan only -- fabric checks skipped)
+GATE baseline recorded=0.737 cores -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json.one
+     claude-desktop     pid=   4217 cores=0.155
+     gnome-shell        pid=   3281 cores=0.079
+     claude-desktop     pid=   3553 cores=0.063
+     claude             pid= 715379 cores=0.056
+     claude             pid=1503442 cores=0.055
+     chrome             pid=   4828 cores=0.045
+     claude-desktop     pid=   4028 cores=0.041
+     claude             pid=1442522 cores=0.04
+GATE baseline recorded=0.318 cores -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json.one
+     claude             pid=1503442 cores=0.073
+     claude             pid= 715379 cores=0.051
+     claude             pid=1442522 cores=0.041
+     claude             pid=1689437 cores=0.04
+     claude             pid= 975304 cores=0.019
+     claude             pid= 739710 cores=0.017
+     claude             pid=  11181 cores=0.012
+     pulsesecure        pid= 970477 cores=0.012
+GATE baseline recorded=0.293 cores -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json.one
+     claude             pid=1503442 cores=0.06
+     claude             pid= 715379 cores=0.049
+     claude             pid=1442522 cores=0.044
+     claude             pid=1689437 cores=0.032
+     claude             pid= 975304 cores=0.02
+     claude             pid=  11181 cores=0.013
+     claude             pid= 739710 cores=0.013
+     agy                pid= 379617 cores=0.012
+BASELINE n=3 min=0.293 max=0.737 range=0.444 threshold=0.5
+  ⚠️  range is 89% of the threshold -- disclose it alongside any 'no interference' claim.

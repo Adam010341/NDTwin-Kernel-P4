@@ -1,0 +1,381 @@
+== bringing the fabric up (run_e.sh measures, it does not start the lab) ==
+fabric up 2026-08-31T23:25:59+08:00
+== control: record_bmv2_identity must now see the switches (force-green half; the red half
+   ran at 23:11:26 with the fabric down and aborted rc=9) ==
+[23:26:00]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/7160fb65-3a33-49c9-a956-b5a28832af06/scratchpad/bmv2ctl/identity_bmv2_ctl_green.txt
+leg1 start 2026-08-31T23:26:00+08:00 pid=2876208
+[23:26:00] === preflight (measure), DRY_RUN=0 ===
+[23:26:00]   disk: 10G available on /
+[23:26:00]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[23:26:00]   staged binaries: present
+[23:26:01]   fabric: up
+[23:26:01]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_ladder-open.txt
+[23:26:01] === run_e ladder start; ladder='1024 256 64 32 16 8 4 1' arms='bl p' reps=3 DUR=300s ===
+[23:26:01] 🔴 no rung, rep or arm is added from here on (C5).  If the ladder proves too short, that
+[23:26:01] 🔴 is a finding to register for the NEXT round, not an edit to this one.
+[23:26:01] ===== rung 1/1024 =====
+[23:26:18] --- e_bl_1024_1  arm=bl rate=1/1024 rep=1 kernel=1khz batch=1 ---
+[23:26:37]     cell baseline: 0.317 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:26:38]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[23:27:09]     batch_size confirmed at the emitter: 1
+[23:27:09]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[23:27:10]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_1024_1.txt
+[23:27:30]     RECOMPUTE e_bl_1024_1 pid=2954059 tid=2954070 passes_per_s=943.486 verdict=RUNNING
+[23:27:30]     boot_id=f6caefcb-f8fa-461f-91d5-68ea8cdcd0fe uptime=168866.99s (baseline)
+[23:27:30]     topology invariant: edges=288 (baseline for this run)
+[23:27:30]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:32:35]     cell CPU gate: GREEN excess=-0.417
+[23:32:35]     covariates:    claude-desktop=0.047 claude=0.236 gnome-shell=0 chrome=0.008
+[23:32:35]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:32:35]     VERDICT cell=e_bl_1024_1  mark=OK  ratio=0.9918  gt_mbit=205.9  lost_pct=0.06326  lam=2.043e+08  quantum=1  spread=26.26  floor=0.006997  distinct=240
+[23:32:35] --- e_p_1024_1  arm=p rate=1/1024 rep=1 kernel=1hz batch=1 ---
+[23:33:06]     cell baseline: 0.435 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:33:07]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[23:33:30]     batch_size confirmed at the emitter: 1
+[23:33:30]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[23:33:31]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_1024_1.txt
+[23:33:51]     RECOMPUTE e_p_1024_1 pid=3080438 tid=3080449 passes_per_s=1.000 verdict=RUNNING
+[23:33:51]     boot_id unchanged
+[23:33:52]     topology invariant: edges=288 (matches baseline)
+[23:33:52]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[23:38:56]     cell CPU gate: GREEN excess=-0.465
+[23:38:56]     covariates:    claude-desktop=0.036 claude=0.212 gnome-shell=0 chrome=0
+[23:38:56]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[23:38:56]     VERDICT cell=e_p_1024_1  mark=OK  ratio=1.007  gt_mbit=206  lost_pct=0.02781  lam=2.076e+08  quantum=1  spread=22.71  floor=0.006941  distinct=241
+[23:38:56] --- e_bl_1024_2  arm=bl rate=1/1024 rep=2 kernel=1khz batch=1 ---
+[23:39:28]     cell baseline: 0.297 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:39:28]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[23:39:59]     batch_size confirmed at the emitter: 1
+[23:40:00]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[23:40:00]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_1024_2.txt
+[23:40:20]     RECOMPUTE e_bl_1024_2 pid=3265029 tid=3265040 passes_per_s=942.685 verdict=RUNNING
+[23:40:20]     boot_id unchanged
+[23:40:21]     topology invariant: edges=288 (matches baseline)
+[23:40:21]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:45:25]     cell CPU gate: GREEN excess=-0.473
+[23:45:25]     covariates:    claude-desktop=0.032 claude=0.207 gnome-shell=0 chrome=0.005
+[23:45:25]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:45:25]     VERDICT cell=e_bl_1024_2  mark=OK  ratio=1.005  gt_mbit=206  lost_pct=0.04053  lam=2.069e+08  quantum=1  spread=23.27  floor=0.006953  distinct=240
+[23:45:25] --- e_p_1024_2  arm=p rate=1/1024 rep=2 kernel=1hz batch=1 ---
+[23:45:57]     cell baseline: 0.317 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:45:57]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[23:46:29]     batch_size confirmed at the emitter: 1
+[23:46:29]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[23:46:29]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_1024_2.txt
+[23:46:49]     RECOMPUTE e_p_1024_2 pid=3427418 tid=3427429 passes_per_s=1.000 verdict=RUNNING
+[23:46:49]     boot_id unchanged
+[23:46:50]     topology invariant: edges=288 (matches baseline)
+[23:46:50]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[23:51:54]     cell CPU gate: GREEN excess=-0.267
+[23:51:54]     covariates:    claude-desktop=0.164 claude=0.2 gnome-shell=0.068 chrome=0.005
+[23:51:54]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[23:51:54]     VERDICT cell=e_p_1024_2  mark=OK  ratio=0.9948  gt_mbit=205.8  lost_pct=0.1162  lam=2.047e+08  quantum=1  spread=23.79  floor=0.006989  distinct=240
+[23:51:54] --- e_bl_1024_3  arm=bl rate=1/1024 rep=3 kernel=1khz batch=1 ---
+[23:52:26]     cell baseline: 0.329 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:52:26]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[23:52:49]     batch_size confirmed at the emitter: 1
+[23:52:50]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[23:52:50]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_1024_3.txt
+[23:53:10]     RECOMPUTE e_bl_1024_3 pid=3489939 tid=3489950 passes_per_s=943.186 verdict=RUNNING
+[23:53:10]     boot_id unchanged
+[23:53:11]     topology invariant: edges=288 (matches baseline)
+[23:53:11]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:58:15]     cell CPU gate: GREEN excess=-0.533
+[23:58:15]     covariates:    claude-desktop=0.007 claude=0.178 gnome-shell=0 chrome=0
+[23:58:15]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:58:15]     VERDICT cell=e_bl_1024_3  mark=OK  ratio=1.002  gt_mbit=205.9  lost_pct=0.06867  lam=2.064e+08  quantum=1  spread=23.53  floor=0.00696  distinct=241
+[23:58:15] --- e_p_1024_3  arm=p rate=1/1024 rep=3 kernel=1hz batch=1 ---
+[23:58:47]     cell baseline: 0.25 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:58:47]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[23:59:18]     batch_size confirmed at the emitter: 1
+[23:59:19]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[23:59:19]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_1024_3.txt
+[23:59:39]     RECOMPUTE e_p_1024_3 pid=3511636 tid=3511646 passes_per_s=1.000 verdict=RUNNING
+[23:59:39]     boot_id unchanged
+[23:59:40]     topology invariant: edges=288 (matches baseline)
+[23:59:40]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:04:44]     cell CPU gate: GREEN excess=-0.485
+[00:04:44]     covariates:    claude-desktop=0.017 claude=0.213 gnome-shell=0 chrome=0
+[00:04:44]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:04:44]     VERDICT cell=e_p_1024_3  mark=OK  ratio=1.003  gt_mbit=206  lost_pct=0.02968  lam=2.066e+08  quantum=1  spread=24.05  floor=0.006957  distinct=241
+[00:04:44] ===== rung 1/256 =====
+[00:05:01] --- e_bl_0256_1  arm=bl rate=1/256 rep=1 kernel=1khz batch=1 ---
+[00:05:20]     cell baseline: 0.262 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:05:20]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[00:05:52]     batch_size confirmed at the emitter: 1
+[00:05:52]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[00:05:53]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0256_1.txt
+[00:06:13]     RECOMPUTE e_bl_0256_1 pid=3567555 tid=3567566 passes_per_s=943.485 verdict=RUNNING
+[00:06:13]     boot_id unchanged
+[00:06:13]     topology invariant: edges=288 (matches baseline)
+[00:06:13]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:11:18]     cell CPU gate: GREEN excess=-0.553
+[00:11:18]     covariates:    claude-desktop=0.02 claude=0.139 gnome-shell=0 chrome=0.006
+[00:11:18]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:11:18]     VERDICT cell=e_bl_0256_1  mark=OK  ratio=0.9955  gt_mbit=206  lost_pct=0.0204  lam=2.05e+08  quantum=1  spread=11.58  floor=0.006985  distinct=241
+[00:11:18] --- e_p_0256_1  arm=p rate=1/256 rep=1 kernel=1hz batch=1 ---
+[00:11:49]     cell baseline: 0.224 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:11:49]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[00:12:21]     batch_size confirmed at the emitter: 1
+[00:12:21]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[00:12:22]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0256_1.txt
+[00:12:42]     RECOMPUTE e_p_0256_1 pid=3589227 tid=3589237 passes_per_s=1.000 verdict=RUNNING
+[00:12:42]     boot_id unchanged
+[00:12:42]     topology invariant: edges=288 (matches baseline)
+[00:12:42]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:17:47]     cell CPU gate: GREEN excess=-0.559
+[00:17:47]     covariates:    claude-desktop=0.006 claude=0.147 gnome-shell=0 chrome=0.006
+[00:17:47]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:17:47]     VERDICT cell=e_p_0256_1  mark=OK  ratio=1.007  gt_mbit=206  lost_pct=0.01956  lam=2.075e+08  quantum=1  spread=11.87  floor=0.006943  distinct=240
+[00:17:47] --- e_bl_0256_2  arm=bl rate=1/256 rep=2 kernel=1khz batch=1 ---
+[00:18:18]     cell baseline: 0.248 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:18:18]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[00:18:50]     batch_size confirmed at the emitter: 1
+[00:18:50]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[00:18:51]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0256_2.txt
+[00:19:11]     RECOMPUTE e_bl_0256_2 pid=3610565 tid=3610576 passes_per_s=943.338 verdict=RUNNING
+[00:19:11]     boot_id unchanged
+[00:19:11]     topology invariant: edges=288 (matches baseline)
+[00:19:11]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:24:16]     cell CPU gate: GREEN excess=-0.577
+[00:24:16]     covariates:    claude-desktop=0 claude=0.136 gnome-shell=0 chrome=0.005
+[00:24:16]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:24:16]     VERDICT cell=e_bl_0256_2  mark=OK  ratio=1.009  gt_mbit=206  lost_pct=0.01113  lam=2.079e+08  quantum=1  spread=12.26  floor=0.006935  distinct=241
+[00:24:16] --- e_p_0256_2  arm=p rate=1/256 rep=2 kernel=1hz batch=1 ---
+[00:24:47]     cell baseline: 0.214 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:24:47]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[00:25:19]     batch_size confirmed at the emitter: 1
+[00:25:19]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[00:25:20]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0256_2.txt
+[00:25:40]     RECOMPUTE e_p_0256_2 pid=3631854 tid=3631864 passes_per_s=1.000 verdict=RUNNING
+[00:25:40]     boot_id unchanged
+[00:25:40]     topology invariant: edges=288 (matches baseline)
+[00:25:40]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:30:45]     cell CPU gate: GREEN excess=-0.578
+[00:30:45]     covariates:    claude-desktop=0.006 claude=0.136 gnome-shell=0 chrome=0
+[00:30:45]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:30:45]     VERDICT cell=e_p_0256_2  mark=OK  ratio=1.011  gt_mbit=206  lost_pct=0.01101  lam=2.083e+08  quantum=1  spread=11.61  floor=0.006929  distinct=240
+[00:30:45] --- e_bl_0256_3  arm=bl rate=1/256 rep=3 kernel=1khz batch=1 ---
+[00:31:16]     cell baseline: 0.22 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:31:16]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[00:31:40]     batch_size confirmed at the emitter: 1
+[00:31:40]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[00:31:41]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0256_3.txt
+[00:32:01]     RECOMPUTE e_bl_0256_3 pid=3653171 tid=3653183 passes_per_s=943.383 verdict=RUNNING
+[00:32:01]     boot_id unchanged
+[00:32:01]     topology invariant: edges=288 (matches baseline)
+[00:32:01]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:37:06]     cell CPU gate: GREEN excess=-0.541
+[00:37:06]     covariates:    claude-desktop=0.015 claude=0.156 gnome-shell=0 chrome=0.006
+[00:37:06]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:37:06]     VERDICT cell=e_bl_0256_3  mark=OK  ratio=0.9978  gt_mbit=206  lost_pct=0.02742  lam=2.055e+08  quantum=1  spread=11.91  floor=0.006975  distinct=241
+[00:37:06] --- e_p_0256_3  arm=p rate=1/256 rep=3 kernel=1hz batch=1 ---
+[00:37:37]     cell baseline: 0.253 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:37:37]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[00:38:01]     batch_size confirmed at the emitter: 1
+[00:38:01]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[00:38:02]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0256_3.txt
+[00:38:22]     RECOMPUTE e_p_0256_3 pid=3674715 tid=3674726 passes_per_s=1.000 verdict=RUNNING
+[00:38:22]     boot_id unchanged
+[00:38:22]     topology invariant: edges=288 (matches baseline)
+[00:38:22]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:43:27]     cell CPU gate: GREEN excess=-0.542
+[00:43:27]     covariates:    claude-desktop=0.024 claude=0.152 gnome-shell=0 chrome=0
+[00:43:27]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:43:27]     VERDICT cell=e_p_0256_3  mark=OK  ratio=1.001  gt_mbit=206  lost_pct=0.01288  lam=2.061e+08  quantum=1  spread=12.59  floor=0.006966  distinct=241
+[00:43:27] ===== rung 1/64 =====
+[00:43:43] --- e_bl_0064_1  arm=bl rate=1/64 rep=1 kernel=1khz batch=1 ---
+[00:44:03]     cell baseline: 0.179 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:44:03]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[00:44:27]     batch_size confirmed at the emitter: 1
+[00:44:27]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[00:44:28]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0064_1.txt
+[00:44:48]     RECOMPUTE e_bl_0064_1 pid=3696235 tid=3696246 passes_per_s=943.487 verdict=RUNNING
+[00:44:48]     boot_id unchanged
+[00:44:48]     topology invariant: edges=288 (matches baseline)
+[00:44:48]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:49:52]     cell CPU gate: GREEN excess=-0.579
+[00:49:52]     covariates:    claude-desktop=0.006 claude=0.126 gnome-shell=0 chrome=0.006
+[00:49:52]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[00:49:53]     VERDICT cell=e_bl_0064_1  mark=OK  ratio=1.001  gt_mbit=205.9  lost_pct=0.0443  lam=2.06e+08  quantum=1  spread=6.688  floor=0.006967  distinct=241
+[00:49:53] --- e_p_0064_1  arm=p rate=1/64 rep=1 kernel=1hz batch=1 ---
+[00:50:24]     cell baseline: 0.21 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:50:24]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[00:50:56]     batch_size confirmed at the emitter: 1
+[00:50:56]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[00:50:57]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0064_1.txt
+[00:51:17]     RECOMPUTE e_p_0064_1 pid=3717643 tid=3717654 passes_per_s=1.000 verdict=RUNNING
+[00:51:17]     boot_id unchanged
+[00:51:17]     topology invariant: edges=288 (matches baseline)
+[00:51:17]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:56:21]     cell CPU gate: GREEN excess=-0.602
+[00:56:21]     covariates:    claude-desktop=0 claude=0.109 gnome-shell=0.005 chrome=0
+[00:56:22]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[00:56:22]     VERDICT cell=e_p_0064_1  mark=OK  ratio=0.991  gt_mbit=206  lost_pct=0.009688  lam=2.041e+08  quantum=1  spread=6.746  floor=0.006999  distinct=241
+[00:56:22] --- e_bl_0064_2  arm=bl rate=1/64 rep=2 kernel=1khz batch=1 ---
+[00:56:53]     cell baseline: 0.176 cores (round-open reference ?) -- covariate, not the gate's baseline
+[00:56:53]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[00:57:17]     batch_size confirmed at the emitter: 1
+[00:57:17]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[00:57:18]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0064_2.txt
+[00:57:38]     RECOMPUTE e_bl_0064_2 pid=3738893 tid=3738904 passes_per_s=943.488 verdict=RUNNING
+[00:57:38]     boot_id unchanged
+[00:57:38]     topology invariant: edges=288 (matches baseline)
+[00:57:38]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:02:42]     cell CPU gate: GREEN excess=-0.609
+[01:02:42]     covariates:    claude-desktop=0 claude=0.107 gnome-shell=0 chrome=0
+[01:02:42]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:02:43]     VERDICT cell=e_bl_0064_2  mark=OK  ratio=0.9992  gt_mbit=206  lost_pct=0.01053  lam=2.058e+08  quantum=1  spread=7.147  floor=0.00697  distinct=241
+[01:02:43] --- e_p_0064_2  arm=p rate=1/64 rep=2 kernel=1hz batch=1 ---
+[01:03:14]     cell baseline: 0.161 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:03:14]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[01:03:38]     batch_size confirmed at the emitter: 1
+[01:03:38]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[01:03:39]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0064_2.txt
+[01:03:59]     RECOMPUTE e_p_0064_2 pid=3760086 tid=3760097 passes_per_s=1.000 verdict=RUNNING
+[01:03:59]     boot_id unchanged
+[01:03:59]     topology invariant: edges=288 (matches baseline)
+[01:03:59]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:09:03]     cell CPU gate: GREEN excess=-0.13
+[01:09:03]     covariates:    claude-desktop=0.305 claude=0.156 gnome-shell=0.087 chrome=0.005
+[01:09:03]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:09:04]     VERDICT cell=e_p_0064_2  mark=OK  ratio=1  gt_mbit=205.7  lost_pct=0.1861  lam=2.057e+08  quantum=1  spread=6.499  floor=0.006973  distinct=241
+[01:09:04] --- e_bl_0064_3  arm=bl rate=1/64 rep=3 kernel=1khz batch=1 ---
+[01:09:35]     cell baseline: 0.666 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:09:35]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[01:09:59]     batch_size confirmed at the emitter: 1
+[01:09:59]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[01:10:00]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0064_3.txt
+[01:10:20]     RECOMPUTE e_bl_0064_3 pid=3782372 tid=3782383 passes_per_s=942.589 verdict=RUNNING
+[01:10:20]     boot_id unchanged
+[01:10:20]     topology invariant: edges=288 (matches baseline)
+[01:10:20]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:15:24]     cell CPU gate: GREEN excess=-0.02
+[01:15:24]     covariates:    claude-desktop=0.368 claude=0.195 gnome-shell=0.114 chrome=0
+[01:15:25]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:15:25]     VERDICT cell=e_bl_0064_3  mark=OK  ratio=1.008  gt_mbit=205.8  lost_pct=0.154  lam=2.074e+08  quantum=1  spread=6.053  floor=0.006943  distinct=241
+[01:15:25] --- e_p_0064_3  arm=p rate=1/64 rep=3 kernel=1hz batch=1 ---
+[01:15:56]     cell baseline: 0.581 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:15:56]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[01:16:28]     batch_size confirmed at the emitter: 1
+[01:16:28]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[01:16:29]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0064_3.txt
+[01:16:49]     RECOMPUTE e_p_0064_3 pid=3820192 tid=3820204 passes_per_s=1.000 verdict=RUNNING
+[01:16:49]     boot_id unchanged
+[01:16:49]     topology invariant: edges=288 (matches baseline)
+[01:16:49]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:21:54]     cell CPU gate: GREEN excess=0.138
+[01:21:54]     covariates:    claude-desktop=0.243 claude=0.197 gnome-shell=0.104 chrome=0.3
+[01:21:54]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:21:54]     VERDICT cell=e_p_0064_3  mark=OK  ratio=0.9974  gt_mbit=205.4  lost_pct=0.3644  lam=2.049e+08  quantum=1  spread=8.1  floor=0.006986  distinct=241
+[01:21:54] ===== rung 1/32 =====
+[01:22:11] --- e_bl_0032_1  arm=bl rate=1/32 rep=1 kernel=1khz batch=1 ---
+[01:22:30]     cell baseline: 0.638 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:22:30]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[01:23:02]     batch_size confirmed at the emitter: 1
+[01:23:02]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[01:23:03]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0032_1.txt
+[01:23:23]     RECOMPUTE e_bl_0032_1 pid=3868386 tid=3868397 passes_per_s=942.490 verdict=RUNNING
+[01:23:23]     boot_id unchanged
+[01:23:23]     topology invariant: edges=288 (matches baseline)
+[01:23:23]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:28:28]     cell CPU gate: GREEN excess=-0.177
+[01:28:28]     covariates:    claude-desktop=0.158 claude=0.26 gnome-shell=0.056 chrome=0.042
+[01:28:28]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:28:28]     VERDICT cell=e_bl_0032_1  mark=OK  ratio=1.001  gt_mbit=205.8  lost_pct=0.1532  lam=2.061e+08  quantum=1  spread=4.29  floor=0.006965  distinct=240
+[01:28:28] --- e_p_0032_1  arm=p rate=1/32 rep=1 kernel=1hz batch=1 ---
+[01:28:59]     cell baseline: 0.273 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:29:00]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[01:29:31]     batch_size confirmed at the emitter: 1
+[01:29:31]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[01:29:32]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0032_1.txt
+[01:29:52]     RECOMPUTE e_p_0032_1 pid=3893330 tid=3893341 passes_per_s=1.000 verdict=RUNNING
+[01:29:52]     boot_id unchanged
+[01:29:53]     topology invariant: edges=288 (matches baseline)
+[01:29:53]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:34:57]     cell CPU gate: GREEN excess=-0.481
+[01:34:57]     covariates:    claude-desktop=0.031 claude=0.199 gnome-shell=0 chrome=0.005
+[01:34:57]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:34:57]     VERDICT cell=e_p_0032_1  mark=OK  ratio=0.9996  gt_mbit=205.9  lost_pct=0.03401  lam=2.059e+08  quantum=1  spread=5.35  floor=0.00697  distinct=241
+[01:34:57] --- e_bl_0032_2  arm=bl rate=1/32 rep=2 kernel=1khz batch=1 ---
+[01:35:29]     cell baseline: 0.309 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:35:29]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[01:35:52]     batch_size confirmed at the emitter: 1
+[01:35:52]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[01:35:53]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0032_2.txt
+[01:36:13]     RECOMPUTE e_bl_0032_2 pid=3916352 tid=3916363 passes_per_s=943.338 verdict=RUNNING
+[01:36:13]     boot_id unchanged
+[01:36:14]     topology invariant: edges=288 (matches baseline)
+[01:36:14]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:41:18]     cell CPU gate: GREEN excess=-0.506
+[01:41:18]     covariates:    claude-desktop=0.016 claude=0.182 gnome-shell=0 chrome=0.012
+[01:41:18]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:41:18]     VERDICT cell=e_bl_0032_2  mark=OK  ratio=1.003  gt_mbit=205.9  lost_pct=0.04187  lam=2.065e+08  quantum=1  spread=4.698  floor=0.006959  distinct=241
+[01:41:18] --- e_p_0032_2  arm=p rate=1/32 rep=2 kernel=1hz batch=1 ---
+[01:41:50]     cell baseline: 0.284 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:41:50]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[01:42:21]     batch_size confirmed at the emitter: 1
+[01:42:22]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[01:42:22]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0032_2.txt
+[01:42:42]     RECOMPUTE e_p_0032_2 pid=3940168 tid=3940179 passes_per_s=1.000 verdict=RUNNING
+[01:42:42]     boot_id unchanged
+[01:42:43]     topology invariant: edges=288 (matches baseline)
+[01:42:43]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:47:47]     cell CPU gate: GREEN excess=-0.496
+[01:47:47]     covariates:    claude-desktop=0.017 claude=0.192 gnome-shell=0 chrome=0.006
+[01:47:47]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[01:47:47]     VERDICT cell=e_p_0032_2  mark=OK  ratio=0.9971  gt_mbit=206  lost_pct=0.03377  lam=2.054e+08  quantum=1  spread=5.241  floor=0.006978  distinct=240
+[01:47:48] --- e_bl_0032_3  arm=bl rate=1/32 rep=3 kernel=1khz batch=1 ---
+[01:48:19]     cell baseline: 0.271 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:48:19]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[01:48:43]     batch_size confirmed at the emitter: 1
+[01:48:43]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[01:48:43]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0032_3.txt
+[01:49:04]     RECOMPUTE e_bl_0032_3 pid=3967776 tid=3967787 passes_per_s=943.288 verdict=RUNNING
+[01:49:04]     boot_id unchanged
+[01:49:04]     topology invariant: edges=288 (matches baseline)
+[01:49:04]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:54:08]     cell CPU gate: GREEN excess=-0.487
+[01:54:08]     covariates:    claude-desktop=0.018 claude=0.2 gnome-shell=0 chrome=0.005
+[01:54:08]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[01:54:09]     VERDICT cell=e_bl_0032_3  mark=OK  ratio=0.9948  gt_mbit=205.9  lost_pct=0.05327  lam=2.049e+08  quantum=1  spread=6.981  floor=0.006987  distinct=241
+[01:54:09] --- e_p_0032_3  arm=p rate=1/32 rep=3 kernel=1hz batch=1 ---
+[01:54:40]     cell baseline: 0.273 cores (round-open reference ?) -- covariate, not the gate's baseline
+[01:54:40]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[01:55:04]     batch_size confirmed at the emitter: 1
+[01:55:04]     IDENTITY verdict=MATCH want=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 got=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 read_via=unset
+[01:55:05]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_p_0032_3.txt
+[01:55:25]     RECOMPUTE e_p_0032_3 pid=3990891 tid=3990902 passes_per_s=1.000 verdict=RUNNING
+[01:55:25]     boot_id unchanged
+[01:55:25]     topology invariant: edges=288 (matches baseline)
+[01:55:25]     running kernel exe sha256 (open)  fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[02:00:29]     cell CPU gate: GREEN excess=-0.446
+[02:00:29]     covariates:    claude-desktop=0.038 claude=0.22 gnome-shell=0 chrome=0.006
+[02:00:29]     running kernel exe sha256 (close) fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[02:00:30]     VERDICT cell=e_p_0032_3  mark=OK  ratio=1.002  gt_mbit=205.9  lost_pct=0.08191  lam=2.062e+08  quantum=1  spread=5.605  floor=0.006963  distinct=241
+[02:00:30] ===== rung 1/16 =====
+[02:00:46] --- e_bl_0016_1  arm=bl rate=1/16 rep=1 kernel=1khz batch=1 ---
+[02:01:06]     cell baseline: 0.407 cores (round-open reference ?) -- covariate, not the gate's baseline
+[02:01:06]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[02:01:38]     batch_size confirmed at the emitter: 1
+[02:01:38]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[02:01:38]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_0016_1.txt
+[02:01:59]     RECOMPUTE e_bl_0016_1 pid=4016514 tid=4016525 passes_per_s=943.037 verdict=RUNNING
+[02:01:59]     boot_id unchanged
+[02:01:59]     topology invariant: edges=288 (matches baseline)
+[02:01:59]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[02:07:03]     cell CPU gate: GREEN excess=-0.427
+[02:07:03]     covariates:    claude-desktop=0.041 claude=0.234 gnome-shell=0 chrome=0.005
+[02:07:03]     running kernel exe sha256 (close) 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[02:07:04]     VERDICT cell=e_bl_0016_1  mark=OK  ratio=0.9988  gt_mbit=205.8  lost_pct=0.1039  lam=2.056e+08  quantum=1  spread=4.81  floor=0.006974  distinct=241
+[02:07:04] --- e_p_0016_1  arm=p rate=1/16 rep=1 kernel=1hz batch=1 ---
+[02:07:35]     cell baseline: 0.316 cores (round-open reference ?) -- covariate, not the gate's baseline
+[02:07:35]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[02:10:58]     fabric short of 10
+[02:10:58] 🔴 ABORT(bringup): e_p_0016_1: the fabric would not come up
+[02:10:58] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[02:10:58] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[02:10:58] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[02:10:58]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[02:11:13]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+leg1 rc=9 end 2026-09-01T02:11:13+08:00

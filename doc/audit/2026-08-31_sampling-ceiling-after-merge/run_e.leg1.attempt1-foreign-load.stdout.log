@@ -1,0 +1,37 @@
+== bringing the fabric up (run_e.sh measures, it does not start the lab) ==
+fabric up 2026-08-31T23:15:56+08:00
+== control: record_bmv2_identity must now see the switches (force-green half; the red half
+   ran at 23:11:26 with the fabric down and aborted rc=9) ==
+[23:15:57]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/7160fb65-3a33-49c9-a956-b5a28832af06/scratchpad/bmv2ctl/identity_bmv2_ctl_green.txt
+leg1 start 2026-08-31T23:15:57+08:00 pid=2718130
+[23:15:57] === preflight (measure), DRY_RUN=0 ===
+[23:15:57]   disk: 10G available on /
+[23:15:57]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[23:15:57]   staged binaries: present
+[23:15:58]   fabric: up
+[23:15:58]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_ladder-open.txt
+[23:15:58] === run_e ladder start; ladder='1024 256 64 32 16 8 4 1' arms='bl p' reps=3 DUR=300s ===
+[23:15:58] 🔴 no rung, rep or arm is added from here on (C5).  If the ladder proves too short, that
+[23:15:58] 🔴 is a finding to register for the NEXT round, not an edit to this one.
+[23:15:58] ===== rung 1/1024 =====
+[23:16:15] --- e_bl_1024_1  arm=bl rate=1/1024 rep=1 kernel=1khz batch=1 ---
+[23:16:34]     cell baseline: 1.311 cores (round-open reference ?) -- covariate, not the gate's baseline
+[23:16:35]     kernel arm=1khz sha256=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz.provenance)
+[23:17:07]     batch_size confirmed at the emitter: 1
+[23:17:07]     IDENTITY verdict=MATCH want=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 got=4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6 read_via=unset
+[23:17:07]     bmv2: 10 running switch(es), 1 distinct binary/binaries -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_bmv2_e_bl_1024_1.txt
+[23:17:28]     RECOMPUTE e_bl_1024_1 pid=2756518 tid=2756529 passes_per_s=943.436 verdict=RUNNING
+[23:17:28]     boot_id=f6caefcb-f8fa-461f-91d5-68ea8cdcd0fe uptime=168264.37s (baseline)
+[23:17:28]     topology invariant: edges=288 (baseline for this run)
+[23:17:28]     running kernel exe sha256 (open)  4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[23:22:32]     cell CPU gate: RED excess=0.638
+[23:22:32]     covariates:    claude-desktop=0.05 claude=0.293 gnome-shell=0 chrome=0.006
+[23:22:32] 🔴 ABORT(§4 exclusive-CPU): e_bl_1024_1: foreign load exceeded the registered threshold DURING
+        this cell.  The readout is a CPU plateau, so this cell measured a different machine from
+        the others.  Attribution is in /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cell_cpu/e_bl_1024_1_gate.jsonl.
+[23:22:32] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[23:22:32] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[23:22:32] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[23:22:32]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[23:22:49]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
+leg1 rc=9 end 2026-08-31T23:22:49+08:00

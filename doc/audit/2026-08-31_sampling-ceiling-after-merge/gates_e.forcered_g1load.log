@@ -1,0 +1,27 @@
+[21:03:25] === gates_e start (PREREG-E §2), DRY_RUN=0 ===
+[21:03:25] === preflight (gates), DRY_RUN=0 ===
+[21:03:25]   disk: 11G available on /
+[21:03:25]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[21:03:25]   staged binaries: present
+[21:03:26]   fabric: up
+[21:03:28]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_gates.txt
+[21:03:29]   [PASS] G3 §2.3 cell_verdict --selftest  SELFTEST PASS
+[21:03:29] --- G1 §2.1: counters readable at batch_size=1 ---
+[21:03:46]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[21:04:50]     batch_size confirmed at the emitter: 1
+[21:04:51]     load: SAMPLE_RATE=1/256, want 12 samples => 12 x 256 = 3072 packets
+[21:04:51]     FORCE_G1_NO_TRAFFIC set -- sending nothing (force-red path)
+[21:04:51]     load asserted on s1-eth3 (NOT an sFlow observable): rx_packets delta=0
+[21:04:51]     sflow datagrams_sent delta=0   udp InDatagrams delta=0
+[21:04:51]   [FAIL] G1 §2.1 counters non-zero at batch_size=1  sflow=+0 udp=+0
+[21:04:51] 🔴 ABORT(§2.1): a counter reads zero against a live ten-switch fabric.  That is a broken
+        reader, not a quiet fabric, and every ceiling reading in this round would inherit it.
+        This sentence is now entitled to its premise: 3072 packets were offered and the
+        switch-side veth counted 0 of them, on an observable that has nothing to do
+        with sFlow.  Before 2026-08-31 no traffic was generated at all, so a zero here meant
+        nothing about the reader and this gate could not go green for any input.
+[21:04:51] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[21:04:51] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[21:04:51] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[21:04:51]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[21:05:09]     restore verified: P4 constants, compiled artefact and kernel binary all back at production

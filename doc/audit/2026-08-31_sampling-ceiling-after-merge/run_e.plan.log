@@ -1,0 +1,212 @@
+[16:01:34] === preflight (plan), DRY_RUN=0 ===
+[16:01:34]   disk: 6G available on /
+[16:01:34] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[16:01:34] ladder     1/{1024,256,64,32,16,8,4,1}
+[16:01:34] arms       bl m p mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[16:01:34] reps       3, interleaved within each rung
+[16:01:34] duration   300s per cell at 200 Mbit/s offered
+[16:01:34] batch      off=1  on=8
+[16:01:34] 
+[16:01:34] 
+[16:01:34] cells      96 ladder + 0 control = 96
+[16:01:34] estimate   ~9h 12m of EXCLUSIVE fabric
+[16:01:34]            = 96 x (DUR 300s + 42s measured overhead) + 8 x 40s recompile.
+[16:01:34]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[16:01:34]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[16:01:34]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[16:18:42] === preflight (plan), DRY_RUN=0 ===
+[16:18:42]   disk: 5G available on /
+[16:18:42] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[16:18:42] ladder     1/{1024,256,64,32,16,8,4,1}
+[16:18:42] arms       bl p   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[16:18:42] reps       3, interleaved within each rung
+[16:18:42] duration   300s per cell at 200 Mbit/s offered
+[16:18:42] batch      off=1  on=8
+[16:18:42] 
+[16:18:42] 
+[16:18:42] cells      48 ladder + 0 control = 48
+[16:18:42] estimate   ~4h 38m of EXCLUSIVE fabric
+[16:18:42]            = 48 x (DUR 300s + 42s measured overhead) + 8 x 40s recompile.
+[16:18:42]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[16:18:42]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[16:18:42]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[16:21:49] === preflight (plan), DRY_RUN=0 ===
+[16:21:49]   disk: 5G available on /
+[16:21:49] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[16:21:49] ladder     1/{1024,256,64,32,16,8,4,1}
+[16:21:49] arms       bl p   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[16:21:49] reps       3, interleaved within each rung
+[16:21:49] duration   300s per cell at 200 Mbit/s offered
+[16:21:49] batch      off=1  on=8
+[16:21:49] 
+[16:21:49] 
+[16:21:49] cells      48 ladder + 0 control = 48
+[16:21:49] estimate   ~4h 50m of EXCLUSIVE fabric
+[16:21:49]            = 48 x (DUR 300s + 42s overhead + 15s cell baseline)
+[16:21:49]              + 8 x 40s recompile.
+[16:21:49]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[16:21:49]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[16:21:49]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[16:21:49] === preflight (plan), DRY_RUN=0 ===
+[16:21:49]   disk: 5G available on /
+[16:21:49] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[16:21:49] ladder     1/{32,16,8,4}
+[16:21:49] arms       m mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[16:21:49] reps       3, interleaved within each rung
+[16:21:49] duration   300s per cell at 200 Mbit/s offered
+[16:21:49] batch      off=1  on=8
+[16:21:49] 
+[16:21:49] 
+[16:21:49] cells      24 ladder + 0 control = 24
+[16:21:49] estimate   ~2h 25m of EXCLUSIVE fabric
+[16:21:49]            = 24 x (DUR 300s + 42s overhead + 15s cell baseline)
+[16:21:49]              + 4 x 40s recompile.
+[16:21:49]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[16:21:49]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[16:21:49]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[20:13:17] === preflight (plan), DRY_RUN=0 ===
+[20:13:17]   disk: 11G available on /
+[20:13:17] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[20:13:17] ladder     1/{1024,256,64,32,16,8,4,1}
+[20:13:17] arms       bl m p mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[20:13:17] reps       3, interleaved within each rung
+[20:13:17] duration   300s per cell at 200 Mbit/s offered
+[20:13:17] batch      off=1  on=8
+[20:13:17] 
+[20:13:17] 
+[20:13:17] cells      96 ladder + 0 control = 96
+[20:13:17] estimate   ~9h 36m of EXCLUSIVE fabric
+[20:13:17]            = 96 x (DUR 300s + 42s overhead + 15s cell baseline)
+[20:13:17]              + 8 x 40s recompile.
+[20:13:17]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[20:13:17]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[20:13:17]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[20:14:00] === preflight (plan), DRY_RUN=0 ===
+[20:14:00]   disk: 11G available on /
+[20:14:00] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[20:14:00] ladder     1/{1024,256,64,32,16,8,4,1}
+[20:14:00] arms       bl p   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[20:14:00] reps       3, interleaved within each rung
+[20:14:00] duration   300s per cell at 200 Mbit/s offered
+[20:14:00] batch      off=1  on=8
+[20:14:00] 
+[20:14:00] 
+[20:14:00] cells      48 ladder + 0 control = 48
+[20:14:00] estimate   ~4h 50m of EXCLUSIVE fabric
+[20:14:00]            = 48 x (DUR 300s + 42s overhead + 15s cell baseline)
+[20:14:00]              + 8 x 40s recompile.
+[20:14:00]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[20:14:00]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[20:14:00]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[20:14:00] === preflight (plan), DRY_RUN=0 ===
+[20:14:00]   disk: 11G available on /
+[20:14:00] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[20:14:00] ladder     1/{32,16,8,4}
+[20:14:00] arms       m mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[20:14:00] reps       3, interleaved within each rung
+[20:14:00] duration   300s per cell at 200 Mbit/s offered
+[20:14:00] batch      off=1  on=8
+[20:14:00] 
+[20:14:01] 
+[20:14:01] cells      24 ladder + 0 control = 24
+[20:14:01] estimate   ~2h 25m of EXCLUSIVE fabric
+[20:14:01]            = 24 x (DUR 300s + 42s overhead + 15s cell baseline)
+[20:14:01]              + 4 x 40s recompile.
+[20:14:01]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[20:14:01]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[20:14:01]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[23:04:34] === preflight (plan), DRY_RUN=0 ===
+[23:04:34]   disk: 10G available on /
+[23:04:34]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[23:04:34]   (plan only -- fabric checks skipped)
+[23:04:34] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[23:04:34] ladder     1/{1024,256,64,32,16,8,4,1}
+[23:04:34] arms       bl p   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[23:04:34] reps       3, interleaved within each rung
+[23:04:34] duration   300s per cell at 200 Mbit/s offered
+[23:04:34] batch      off=1  on=8
+[23:04:34] 
+[23:04:34] 
+[23:04:34] cells      48 ladder + 0 control = 48
+[23:04:34] estimate   ~4h 50m of EXCLUSIVE fabric
+[23:04:34]            = 48 x (DUR 300s + 42s overhead + 15s cell baseline)
+[23:04:34]              + 8 x 40s recompile.
+[23:04:34]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[23:04:34]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[23:04:34]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[23:04:42] === preflight (plan), DRY_RUN=0 ===
+[23:04:42]   disk: 10G available on /
+[23:04:42]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[23:04:42]   (plan only -- fabric checks skipped)
+[23:04:42] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[23:04:42] ladder     1/{1024,256,64,32,16,8,4,1}
+[23:04:42] arms       bl p   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[23:04:42] reps       3, interleaved within each rung
+[23:04:42] duration   300s per cell at 200 Mbit/s offered
+[23:04:42] batch      off=1  on=8
+[23:04:42] 
+[23:04:42] 
+[23:04:42] cells      48 ladder + 0 control = 48
+[23:04:42] estimate   ~4h 50m of EXCLUSIVE fabric
+[23:04:42]            = 48 x (DUR 300s + 42s overhead + 15s cell baseline)
+[23:04:42]              + 8 x 40s recompile.
+[23:04:42]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[23:04:42]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[23:04:42]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[23:04:42] === preflight (plan), DRY_RUN=0 ===
+[23:04:42]   disk: 10G available on /
+[23:04:42]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[23:04:42]   (plan only -- fabric checks skipped)
+[23:04:42] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[23:04:42] ladder     1/{32,16,8,4}
+[23:04:42] arms       m mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[23:04:42] reps       3, interleaved within each rung
+[23:04:42] duration   300s per cell at 200 Mbit/s offered
+[23:04:42] batch      off=1  on=8
+[23:04:42] 
+[23:04:42] 
+[23:04:42] cells      24 ladder + 0 control = 24
+[23:04:42] estimate   ~2h 25m of EXCLUSIVE fabric
+[23:04:42]            = 24 x (DUR 300s + 42s overhead + 15s cell baseline)
+[23:04:42]              + 4 x 40s recompile.
+[23:04:42]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[23:04:42]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[23:04:42]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[04:50:41] === preflight (plan), DRY_RUN=0 ===
+[04:50:41]   disk: 9G available on /
+[04:50:41]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[04:50:41]   (plan only -- fabric checks skipped)
+[04:50:41] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[04:50:41] ladder     1/{1024,256,64,32,16,8,4,1}
+[04:50:41] arms       bl m p mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[04:50:41] reps       3, interleaved within each rung
+[04:50:41] duration   300s per cell at 200 Mbit/s offered
+[04:50:41] batch      off=1  on=8
+[04:50:41] 
+[04:50:41] 
+[04:50:41] cells      96 ladder + 0 control = 96
+[04:50:41] estimate   ~9h 36m of EXCLUSIVE fabric
+[04:50:41]            = 96 x (DUR 300s + 42s overhead + 15s cell baseline)
+[04:50:41]              + 8 x 40s recompile.
+[04:50:41]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[04:50:41]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[04:50:41]            Design options and what each one CANNOT answer: see COST-TABLE.md.
+[04:50:41] === preflight (plan), DRY_RUN=0 ===
+[04:50:41]   disk: 9G available on /
+[04:50:41]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[04:50:41]   (plan only -- fabric checks skipped)
+[04:50:41] === E round plan (frozen at v0.2; nothing below is chosen at run time) ===
+[04:50:41] ladder     1/{32,16,8,4}
+[04:50:41] arms       m mp   (bl=off/1kHz  m=on/1kHz  p=off/1Hz  mp=on/1Hz)
+[04:50:41] reps       3, interleaved within each rung
+[04:50:41] duration   300s per cell at 200 Mbit/s offered
+[04:50:41] batch      off=1  on=8
+[04:50:41] 
+[04:50:41] 
+[04:50:41] cells      24 ladder + 0 control = 24
+[04:50:41] estimate   ~2h 25m of EXCLUSIVE fabric
+[04:50:41]            = 24 x (DUR 300s + 42s overhead + 15s cell baseline)
+[04:50:41]              + 4 x 40s recompile.
+[04:50:41]            🔴 Lower bound: the 42s was measured on a warm fabric.
+[04:50:41]            🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules.
+[04:50:41]            Design options and what each one CANNOT answer: see COST-TABLE.md.

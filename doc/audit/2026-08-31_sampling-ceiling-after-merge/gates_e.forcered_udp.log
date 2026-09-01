@@ -1,0 +1,19 @@
+[20:44:30] === gates_e start (PREREG-E §2), DRY_RUN=0 ===
+[20:44:30] === preflight (gates), DRY_RUN=0 ===
+[20:44:30]   disk: 11G available on /
+[20:44:30]   claim: owner=e-round-sampling-ceiling exclusive_cpu=yes
+[20:44:30]   staged binaries: present
+[20:44:30]   fabric: up
+[20:44:33]   identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/identity_gates.txt
+[20:44:34]   [PASS] G3 §2.3 cell_verdict --selftest  SELFTEST PASS
+[20:44:34] --- G1 §2.1: counters readable at batch_size=1 ---
+[20:44:51]     kernel arm=1hz sha256=fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 (verified against /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz.provenance)
+[20:45:55]     batch_size confirmed at the emitter: 1
+[20:45:56] 🔴 ABORT(§2.1): Udp InDatagrams parsed as 'InDatagrams', which is not a number.
+        /proc/net/snmp was readable, so this is a PARSER fault, not a fabric fault.  Do not go
+        looking at the switches or the counters: look at the expression that read them.
+[20:45:56] 🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past
+[20:45:56] 🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding.
+[20:45:56] --- restoring production config (1/256, truncate 128, batch unset, production kernel) ---
+[20:45:56]     kernel restored: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[20:46:14]     restore verified: P4 constants, compiled artefact and kernel binary all back at production
