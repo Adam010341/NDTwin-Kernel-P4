@@ -17,30 +17,35 @@ REPO="$(git -C "$HERE" rev-parse --show-toplevel)"
 RAW="$HERE/raw"; mkdir -p "$RAW"
 : "${NDT_OWNER:?NDT_OWNER must be set}"
 
+# SUF appends to every label so a re-run cannot overwrite the first run's arms.
+# It changes the NAME of the output directory and nothing that is measured.
+SUF="${SUF:-}"
+
+
 echo "=== §B TCP control -- $(date -Is) ==="
 
 # --------------------------------------------------------------- witness, as a direct child
 # Direct child, so $! is the witness itself and not a wrapper. Stopped by that recorded pid
 # at the end -- never by pattern.
-bash "$REPO/tools/remote-lab/host_witness.sh" 5 400 > "$RAW/host_witness.log" 2>&1 &
+bash "$REPO/tools/remote-lab/host_witness.sh" 5 400 > "$RAW/host_witness$SUF.log" 2>&1 &
 WPID=$!
 sleep 6
-[ "$(wc -l < "$RAW/host_witness.log")" -ge 2 ] || { echo "🔴 witness produced nothing"; exit 1; }
-echo "witness pid=$WPID, $(wc -l < "$RAW/host_witness.log") lines so far"
+[ "$(wc -l < "$RAW/host_witness$SUF.log")" -ge 2 ] || { echo "🔴 witness produced nothing"; exit 1; }
+echo "witness pid=$WPID, $(wc -l < "$RAW/host_witness$SUF.log") lines so far"
 
 cleanup() {
   if kill -0 "$WPID" 2>/dev/null; then kill "$WPID" 2>/dev/null; sleep 2; fi
-  echo "witness stopped; $(wc -l < "$RAW/host_witness.log") samples total"
+  echo "witness stopped; $(wc -l < "$RAW/host_witness$SUF.log") samples total"
 }
 trap cleanup EXIT
 
 cell() {  # cell <mode> <n> <label>
-  echo; echo "--- $3 ($1, n=$2) $(date +%T) ---"
-  NDT_OWNER="$NDT_OWNER" bash "$HERE/run_tcp_cell.sh" "$1" "$2" "$3" 2>&1 | sed 's/^/    /'
+  echo; echo "--- $3$SUF ($1, n=$2) $(date +%T) ---"
+  NDT_OWNER="$NDT_OWNER" bash "$HERE/run_tcp_cell.sh" "$1" "$2" "$3$SUF" 2>&1 | sed 's/^/    /'
   sleep 3
 }
 
-med() { sed -n 's/^aggregate_goodput_mbit_median=//p' "$RAW/$1/cell.meta" 2>/dev/null; }
+med() { sed -n 's/^aggregate_goodput_mbit_median=//p' "$RAW/$1$SUF/cell.meta" 2>/dev/null; }
 
 # --------------------------------------------------------------- 1. the registered control
 echo; echo "############ CONTROL (loopback, no switch in path) -- runs first ############"
