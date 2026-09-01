@@ -1,0 +1,77 @@
+================================================================================================
+GUARD -- same traffic in both rounds?  Rejected above 5%: if the fabric offered a
+different load, the two rounds are not comparable and nothing below matters.
+================================================================================================
+  Measured on iperf3's own packet count and on aggregate tx from /proc/net/dev.
+  NOT on recovered samples/s -- see the note under this table for why.
+
+   rate   1 kHz packets   1 Hz packets |  1 kHz tx Mbit/s  1 Hz tx Mbit/s   ratio  verdict
+   1024       5,357,127      5,357,127 |            615.7           617.3   1.003  ok
+    512       5,357,127      5,357,127 |            615.7           617.9   1.004  ok
+    256       5,357,127      5,357,127 |            615.6           617.6   1.003  ok
+    128       5,357,127      5,357,127 |            616.0           618.0   1.003  ok
+     64       5,357,127      5,357,127 |            616.2           618.0   1.003  ok
+
+  ⚠️  samples/s could NOT be recovered for the 1 Hz round. The quantum is found as
+      gcd(twin readings), which needs the readings to be multiples of one sample:
+      1 kHz  (2026-08-20):   24 distinct non-zero readings, gcd = 11,812,864  <- quantised, recovery valid
+      1 Hz   (2026-09-01):  559 distinct non-zero readings, gcd = 1  <- NOT quantised, recovery INVALID
+      Traffic equality is therefore established above on packets and tx bytes,
+      which need no quantum. The kernel CPU figures below are unaffected either
+      way -- they come from /proc/<pid>/stat and never touch the twin.
+
+================================================================================================
+KERNEL CPU, % of ONE core
+================================================================================================
+            --- poll off (ingest only) ---            --- poll on ---
+   rate      1 kHz       1 Hz     delta      1 kHz       1 Hz     delta
+------------------------------------------------------------------------------------------------
+   1024      49.1%       2.9%     -46.2      55.5%      10.3%     -45.2
+    512      50.4%       3.9%     -46.5      57.7%      11.2%     -46.5
+    256      51.1%       5.3%     -45.9      59.2%      13.0%     -46.2
+    128      53.9%       7.7%     -46.3      61.4%      15.0%     -46.4
+     64      60.1%      13.5%     -46.6      67.9%      20.6%     -47.3
+
+================================================================================================
+CONTROLS -- what did NOT move
+================================================================================================
+   rate |  iperf 1kHz     1Hz |   bmv2 1kHz     1Hz |   proxy 1kHz     1Hz |   instrument 1kHz     1Hz
+------------------------------------------------------------------------------------------------
+   1024 |      114.8%  113.4% |      155.9%  149.8% |         6.7%    6.2% |              6.3     7.4
+    512 |      114.6%  113.1% |      151.6%  142.3% |         8.7%    8.2% |              7.4     7.3
+    256 |      113.9%  114.3% |      151.6%  155.0% |        11.6%   11.2% |              8.0     7.7
+    128 |      114.1%  113.1% |      151.8%  147.9% |        15.7%   13.7% |              7.5     7.4
+     64 |      114.1%  114.2% |      158.6%  158.3% |        25.0%   24.7% |              7.9     7.1
+
+================================================================================================
+THE COLD-FABRIC ZERO -- where a change to a fixed per-iteration cost should show
+cleanest, because at idle there is no ingest work for it to hide behind
+================================================================================================
+  1 kHz  (2026-08-20):  2.89%  (n=3, sd 0.03)   [2.84, 2.92, 2.92]
+  1 Hz   (2026-09-01):  REJECTED mzero_nopoll -- its paired poll cell carries 2,378 non-zero twin readings, so it is not a zero
+  1 Hz   (2026-09-01):  REJECTED mzero_nopoll_r2 -- its paired poll cell carries 2,380 non-zero twin readings, so it is not a zero
+  1 Hz   (2026-09-01):  REJECTED mzero_nopoll_r3 -- its paired poll cell carries 2,378 non-zero twin readings, so it is not a zero
+  1 Hz   (2026-09-01):  NOT OBTAINED
+
+  No 1 Hz zero, so the 1 Hz column cannot be split into baseline + ingest.
+  The per-rate comparison below needs no zero: it subtracts one round's cell
+  from the other's at the same rate, and the baseline cancels if it is the same
+  in both -- which is itself unverified, and is why the split is not drawn.
+
+================================================================================================
+IS THE DIFFERENCE A CONSTANT OFFSET?
+================================================================================================
+  The recompute thread does not touch the ingest path, so IF the difference were
+  that change, it should sit at the same size on every sampling rate. A delta that
+  grows with the sample rate is something else -- or something else as well.
+
+  poll-off deltas: -46.2, -46.5, -45.9, -46.3, -46.6
+  mean -46.28   spread (max-min) 0.68
+
+================================================================================================
+🔴 WHAT THIS IS NOT
+================================================================================================
+  The 08-20 round ran on a kernel twelve days older: ticket Q's in-loop divisor
+  instrument and the B-2(1)/E-2 fixes all landed in between, and no one-constant-
+  apart binary was built. Every delta above is the difference between two ROUNDS.
+  It is not the effect of 1 kHz -> 1 Hz, and must not be reported as one.

@@ -1,0 +1,8 @@
+[21:28:59] === binary identification ===
+[21:28:59]   kernel   : /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+[21:28:59]   sha256   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[21:28:59]   recompute: sleep_forIlSt5ratioILl1ELl1EE 
+[21:28:59]   => 1 Hz confirmed
+[21:28:59]   p4 SAMPLE_RATE at start: SAMPLE_RATE = 256
+[21:28:59] === matrix start, DUR=300s per cell ===
+[21:28:59] --- SAMPLE_RATE = 1/1024 ---

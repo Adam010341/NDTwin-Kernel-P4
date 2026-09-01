@@ -1,0 +1,37 @@
+[21:35:08] === binary identification ===
+[21:35:09]   kernel   : /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+[21:35:09]   sha256   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[21:35:09]   recompute: sleep_forIlSt5ratioILl1ELl1EE 
+[21:35:09]   => 1 Hz confirmed
+[21:35:09]   p4 SAMPLE_RATE at start: SAMPLE_RATE = 1024
+[21:35:09] === matrix start, DUR=300s per cell ===
+[21:35:09] --- SAMPLE_RATE = 1/1024 ---
+[21:40:44]     m1024_poll done
+[21:45:48]     m1024_nopoll done
+[21:45:48] --- SAMPLE_RATE = 1/512 ---
+[21:51:35]     m512_poll done
+[21:56:39]     m512_nopoll done
+[21:56:39] --- SAMPLE_RATE = 1/256 ---
+[22:02:26]     m256_poll done
+[22:07:30]     m256_nopoll done
+[22:07:30] --- SAMPLE_RATE = 1/128 ---
+[22:13:17]     m128_poll done
+[22:18:21]     m128_nopoll done
+[22:18:21] --- SAMPLE_RATE = 1/64 ---
+[22:24:00]     m64_poll done
+[22:29:04]     m64_nopoll done
+[22:29:04] --- no clone session, warm fabric (mnone) ---
+[22:34:24]     mnone_poll done
+[22:39:28]     mnone_nopoll done
+[22:39:28] --- cold-fabric zero, replicate 1 of 3 ---
+[22:45:15]     mzero_poll done
+[22:50:19]     mzero_nopoll done
+[22:50:19] --- cold-fabric zero, replicate 2 of 3 ---
+[22:56:06]     mzero_poll_r2 done
+[23:01:10]     mzero_nopoll_r2 done
+[23:01:10] --- cold-fabric zero, replicate 3 of 3 ---
+[23:06:56]     mzero_poll_r3 done
+[23:12:00]     mzero_nopoll_r3 done
+[23:12:00] --- restoring production config (1/256, clone on) ---
+[23:12:43]   p4 SAMPLE_RATE at end: SAMPLE_RATE = 256
+[23:12:43] === matrix complete, production config restored ===

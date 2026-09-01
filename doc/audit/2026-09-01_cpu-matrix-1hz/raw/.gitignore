@@ -1,0 +1,20 @@
+# Raw artifacts are not tracked on a working branch. They live on the `audit-raw` orphan branch.
+#
+#   git ls-tree -r --name-only audit-raw -- <this directory>/    # what is preserved
+#   git show audit-raw:<this directory>/<file>                   # read one
+#
+# That first command is here instead of a sentence stating where this round's raw is, because
+# such a sentence goes stale the moment someone adds a round and forgets to move its raw.
+# Ask git.
+#
+# If the ls-tree comes back empty, this round's raw exists in this directory and nowhere else.
+# Either way it is evidence, it is not regenerable, and it must not be "cleaned".
+#
+# 🔴 Three of the 18 cells in this round are NOT what their names say. mzero_{poll,nopoll}
+# and their _r2/_r3 replicates were meant to be the zero-sampling intercept and are not:
+# NDTWIN_CLONE_DISABLE=1 has no reader anywhere in the repo, so they sampled at 1/64 like any
+# other cell and are replicates of it. They are kept because they are evidence of that, and
+# because deleting a cell that disproves its own label is how the label survives. REPORT.md
+# names them; compare_rounds.py rejects them by measurement rather than by name.
+*
+!.gitignore
