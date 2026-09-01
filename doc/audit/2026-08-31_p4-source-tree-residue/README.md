@@ -340,7 +340,7 @@ tried, and a path can be written four ways or split by a line wrap):
 | 4 | separator variants: `P4 Source Code`, `P4-Source-Code`, `P4Source`, `p4source`, `P4_SourceCode` | working branch | 1, a false positive — `p4_proxy/p4_src/SPEC.md:1` "P4 Source Code Specification", unrelated |
 | 5 | **citations into the tree that never name the directory**: `config.log`, `log.txt:<n>`, `config.status`, `CMakeCache`, `build-behavioral-model`, `install-details`, `install-p4dev` | working branch | 60+, triaged below |
 | 6 | every other local branch | 18 branches | `main` and 7 agent worktrees: 0. Ten branches: 14 each — the pre-rescue set, which they inherit fixed on merge. Not edited: they belong to other sessions |
-| 7 | untracked / ignored files in the worktree | working tree | 1 — `doc/audit/2026-08-29_europ4-poster-review/role-bmv2-maintainer.md:15-16`, not committed by anyone; **flagged, not edited** |
+| 7 | untracked / ignored files in the worktree | working tree | 1 — `doc/audit/2026-08-29_europ4-poster-review/role-bmv2-maintainer.md:15-16`, not committed by anyone; **flagged, not edited** ⟨09-01: that directory has since been moved out of the repo to `~/Desktop/NDTwin slide material/paper/review/`; the path above is left as recorded because it is what was observed at the time⟩ |
 
 **Disposition.** Repointed in place, each edit naming the path it replaced:
 

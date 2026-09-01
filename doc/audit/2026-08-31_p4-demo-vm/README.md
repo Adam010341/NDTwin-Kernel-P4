@@ -210,8 +210,8 @@ sight.
 | | |
 |---|---|
 | objects matching the submission package | **77** (60 blobs, 17 trees) |
-| the abstract itself | `doc/2026-08-29_europ4-poster-abstract/` — `abstract.tex`, `refs.bib`, `NOTES.md`, `make_figs.py`, `figs/` |
-| review data | `doc/audit/2026-08-29_europ4-poster-review/` |
+| the abstract itself | `~/Desktop/NDTwin slide material/paper/abstract/` — `abstract.tex`, `refs.bib`, `NOTES.md`, `make_figs.py`, `figs/` |
+| review data | `~/Desktop/NDTwin slide material/paper/review/` |
 | reachable from | `refs/remotes/origin/fix/flow-rate-divide-by-zero` @ `c745f216` (2026-08-30) |
 | checked out in the tree? | **no** |
 | retrievable? | **yes** — `git cat-file -s` returned 1147 bytes of `MACHINE-ENV.md` |

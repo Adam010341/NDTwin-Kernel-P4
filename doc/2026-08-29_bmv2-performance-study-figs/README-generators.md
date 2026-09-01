@@ -7,8 +7,8 @@
 
 ## 為什麼 `make_figs.py` 現在才進來
 
-它原本只存在於 `doc/2026-08-29_europ4-poster-abstract/`，而該目錄在
-**`.git/info/exclude:25`**（投稿包，刻意不進版控）。⇒ **一次全新 clone 拿不到它**，
+它原本只存在於 `~/Desktop/NDTwin slide material/paper/abstract/`，而該目錄在
+**`.git/info/exclude`**（09-01 起改為：整個投稿包已移出 repo，規則連同對象一起撤掉）。⇒ **一次全新 clone 拿不到它**，
 而論文照樣印著 fig1–4。本檔的副本與原檔**逐位元相同**（`cmp` 驗過）。
 
 🔑 **通則（與 `DERIVATIONS.md` 同一條）**：「不進版控」的鎖是**對投稿內容**下的
