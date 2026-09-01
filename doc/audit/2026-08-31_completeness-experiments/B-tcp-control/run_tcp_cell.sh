@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # §B (P-2) — the TCP control for ③, on ③'s own bmv2 plane.
-# Design: PREREG-hardening-three-small-rounds.md §B, PLUS the amendment recorded in
-# AMENDMENT-loopback-control.md in this directory.  Read both before reading this file.
+# Design: PREREG-hardening-three-small-rounds.md §B -- BOTH the §B body AND the amendment,
+# which lives in the blockquote at the head of that same §B section, not in a separate file.
+# 🔴 An earlier version of this line pointed at "AMENDMENT-loopback-control.md in this
+# directory". No such file was ever written. Corrected 2026-09-01 before the first cell ran;
+# the amendment's content was in the prereg all along, so nothing about the design changed --
+# but a pointer to a document that does not exist reads exactly like one that does.
 # [Co-developed with claude code -- Adam]
 #
 # 🔴 WHAT THE AMENDMENT ADDS, AND WHY IT IS NOT OPTIONAL.
