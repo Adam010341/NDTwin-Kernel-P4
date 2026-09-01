@@ -1,0 +1,96 @@
+# provenance for ndtwin_kernel.production-backup -- the kernel the lab actually runs
+#
+# 🔴 RECONSTRUCTED 2026-09-01, not written at build time.  The two E-round arms next to this file
+# have build-time provenance; production did not, which is the inversion KNOWN-ISSUES records:
+# the binaries built in order to be thrown away had a recipe, and the one in service did not.
+#
+# 🔑 READ THE SECTION HEADINGS.  Three different grades of evidence are mixed below and they are
+# NOT interchangeable.  MEASURED comes out of this file itself and survives anything.  RECOVERED
+# comes out of build/, a mutable directory that merely appears to be from the same build.
+# INFERRED comes from clock timestamps and is the weakest thing here.
+# [Co-developed with claude code -- Adam]
+
+# =================================================================================================
+# MEASURED -- from the artefact.  These hold even if every other file on this disk is wrong.
+# =================================================================================================
+sha256=e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+size=72878120
+build_id_sha1=4cdf71cd5a7fa51b8b502c21ca5ed46708d3e3f7
+file_type=ELF 64-bit LSB pie executable, x86-64, dynamically linked, with debug_info, not stripped
+runpath=NONE
+# ^ no RUNPATH and no RPATH: the executing machine decides which .so loads, so an ldd taken
+#   anywhere other than where this will run does not describe this binary's dependencies.
+needed=libcrypto.so.3 libssl.so.3 libboost_url.so.1.83.0 libstdc++.so.6 libgcc_s.so.1 libc.so.6
+
+# --- DWARF DW_AT_producer, identical across all 6 compilation units sampled ----------------------
+# 🔑 This is the compiler's own record of how it was invoked, carried inside the binary.  Nobody
+# had looked here: KNOWN-ISSUES said the build configuration was unknown, and most of it was in
+# the file the whole time.  The entry is being narrowed, not closed -- see NOT KNOWN below.
+dwarf_producer=GNU C++23 13.3.0 -mtune=generic -march=x86-64 -g -O0 -std=c++23 -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+dwarf_comp_dir=/home/adam/Desktop/NDTwin-Kernel/build
+dwarf_first_cu=/home/adam/Desktop/NDTwin-Kernel/src/main.cpp
+# -g -O0 is CMAKE_BUILD_TYPE=Debug, which agrees with the two E arms independently.
+# The DWARF 5 line table carries NO source MD5s (File Name Table has 2 columns, Dir and Name), so
+# the source state CANNOT be derived from this binary.  That was checked, and it is the reason the
+# commit below is inferred rather than proven.
+
+# =================================================================================================
+# RECOVERED -- from build/, whose mtimes place it at the same build.  A mutable directory.
+# =================================================================================================
+cmake_build_type=Debug
+cmake_cxx_compiler=/usr/bin/c++
+cmake_cxx_flags=            # empty; the flags below come from the target, not the cache
+cmake_generator=ninja       # build.ninja present, no Makefiles
+compile_flags=-g -O0 -DDEBUG_BUILD -std=c++23 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Wunused-function -Wunused-variable -Wunused-local-typedefs -Werror -pthread
+defines=-DBOOST_SYSTEM_DYN_LINK -DBOOST_SYSTEM_NO_LIB -DBOOST_URL_DYN_LINK -DBOOST_URL_NO_LIB -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE
+includes=-I/home/adam/Desktop/NDTwin-Kernel/include -I/home/adam/Desktop/NDTwin-Kernel/libs
+link_libraries=lib/libUtilsLib.a lib/libEventSystemLib.a lib/libNdtCore_CollectionLib.a lib/libNdtCore_RoutingManagementLib.a lib/libNdtCore_DataManagementLib.a lib/libNdtCore_EventHandlingLib.a lib/libNdtCore_PowerManagementLib.a lib/libNdtCore_ApplicationLib.a lib/libNdtCore_HttpLib.a lib/libNdtCore_IntentTranslatorLib.a /usr/lib/x86_64-linux-gnu/libssh.so.4.9.6 /usr/lib/x86_64-linux-gnu/libcrypto.so /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/x86_64-linux-gnu/libboost_system.so.1.83.0 /usr/lib/x86_64-linux-gnu/libboost_url.so.1.83.0
+boost=1.83.0 (system cmake package)
+googletest=FetchContent into build/_deps/googletest-src -- version not pinned in the cache
+# 🔴 build/ is not in version control and gets regenerated.  If build.ninja or CMakeCache.txt has
+# been rewritten since 2026-08-31 11:33, this whole section describes a different build than the
+# MEASURED section above.  Cross-check: the DWARF producer's `-g -O0 -std=c++23` must still agree
+# with compile_flags.  If they ever disagree, believe the DWARF.
+
+# =================================================================================================
+# INFERRED -- clock arithmetic.  The weakest evidence here.  Do not cite it as the commit.
+# =================================================================================================
+build_window=2026-08-31 11:33:05 (link) .. 11:33:48 (build.ninja mtime), from build/.ninja_log
+head_at_build_time=9df0a1c    # reflog: 9df0a1c committed 11:31:13, next commit 632aa83 at 11:34:50
+head_inference_is_not_the_source_state=yes
+# 🔴 Why this is not provenance:
+#   1. HEAD is not the worktree.  This repository is a SHARED worktree with several sessions
+#      writing to it, so uncommitted modifications to src/ at 11:33 are likely rather than
+#      unlikely, and none of them are recoverable now.
+#   2. The reflog timestamp is a local clock reading, and this project already has a binary on
+#      record as 26 s OLDER than the commit describing it.
+#   3. 632aa83, the next commit, touched only doc/KNOWN-ISSUES.md, so the bound is loose in a way
+#      that happens not to matter -- which is luck, not method.
+#   ⇒ Building 9df0a1c will produce A kernel.  Whether it produces THIS kernel is untested, and
+#     testing it is not free: the obvious way to test it overwrites build/bin/ndtwin_kernel, which
+#     is the live production binary.  Build into a separate directory or not at all.
+
+# =================================================================================================
+# STILL NOT KNOWN
+# =================================================================================================
+# - The exact source state.  See above.  This is the one gap that matters and it is not closed.
+# - Whether the build was reproducible at all: -g -O0 with absolute paths baked into DW_AT_comp_dir
+#   means a rebuild elsewhere differs by construction, and no byte-for-byte rebuild has been tried.
+# - The googletest revision FetchContent resolved to.
+# - `strings` finds one 40-hex value, 961c151d2e87f2686a955a9be24d316f1362bf21.  It is NOT a commit
+#   in this repository (`git cat-file -t` -> bad object) and it is NOT the build-id either.  It is
+#   recorded here only so the next person does not re-derive that it is a dead end.
+
+# =================================================================================================
+# COPIES, AND WHAT TO DO WITH THEM
+# =================================================================================================
+# As of 2026-09-01 there are THREE identical copies, and KNOWN-ISSUES' count of two is stale:
+#   build/bin/ndtwin_kernel                                            (live; also the running pid)
+#   .test_run/binaries/e-round/ndtwin_kernel.production-backup         (this file's subject)
+#   ~/ndtwin-artifacts/production-kernel/ndtwin_kernel.production-2026-08-31   (+ its own README)
+# 🔴 All three are on dev=66309 (/dev/nvme0n1p5, mounted at /), and this machine has no second
+# physical disk -- /media/adam/Windows-SSD is another partition of the same NVMe.  Three copies is
+# still ONE disk failure, and that disk was 92% full on 2026-09-01.
+#
+# restore:  cp this file over build/bin/ndtwin_kernel   (that is all restore_production does)
+# rebuild:  see INFERRED above -- possible to attempt, not verified, and never into build/
