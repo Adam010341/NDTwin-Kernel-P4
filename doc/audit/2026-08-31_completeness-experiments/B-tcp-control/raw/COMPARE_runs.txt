@@ -1,0 +1,16 @@
+run 1 = two witnesses live across every cell (~3,400 forks / ~8 s)
+run 2 = exactly one witness            (~1,700 forks / ~8 s)
+
+--- loopback control ---
+  run 1: n=1   51753.5 /   53531.4   n=16  211562.6 /  193818.1   T(16)/T(1) 4.088 / 3.621  mean 3.854
+  run 2: n=1   60560.2 /   44260.2   n=16  195487.5 /  197323.4   T(16)/T(1) 3.228 / 4.458  mean 3.843
+  mean moved 3.854 -> 3.843  (-0.3%)
+
+--- fabric ---
+  run 1: n=1     220.3 /     237.9   n=16     269.2 /     263.5   T(16)/T(1) 1.222 / 1.108  mean 1.165
+  run 2: n=1     288.9 /     227.7   n=16     306.2 /     267.5   T(16)/T(1) 1.060 / 1.175  mean 1.117
+  mean moved 1.165 -> 1.117  (-4.1%)
+    run 1: UDP-SPECIFIC (>=0.9)   margin above the 0.9 threshold: +0.265
+    run 2: UDP-SPECIFIC (>=0.9)   margin above the 0.9 threshold: +0.217
+  🔑 If the two runs land on different sides of 0.9, the verdict was an
+     artefact of the instrument's own load and must be reported as such.

@@ -1,0 +1,14 @@
+label=tcp_fab_n16_b_r2
+mode=fabric
+n_flows=16
+duration_s=10
+reps=3
+host_pair=h1->h65 (10.0.0.65)
+started=2026-09-01T11:37:18+08:00
+loadavg_at_start=11.42 9.46 6.70
+switch_pid=994702 exe=UNREADABLE
+switch_sha256=
+bmv2_binary_override=/usr/local/bmv2-fast/bin/simple_switch_grpc
+aggregate_goodput_mbit_median=267.5
+reps_raw=257.5 267.5 325.6
+finished=2026-09-01T11:37:54+08:00

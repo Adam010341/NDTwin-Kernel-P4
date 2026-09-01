@@ -1,0 +1,70 @@
+=== §B TCP control -- 2026-09-01T11:32:53+08:00 ===
+witness pid=1299366, 3 lines so far
+
+############ CONTROL (loopback, no switch in path) -- runs first ############
+
+--- tcp_loop_n1_a_r2 (loopback, n=1) 11:32:59 ---
+      tcp_loop_n1_a_r2 rep1: 60560.2 Mbit
+      tcp_loop_n1_a_r2 rep2: 69700.2 Mbit
+      tcp_loop_n1_a_r2 rep3: 41156.3 Mbit
+      ⇒ tcp_loop_n1_a_r2 median = 60560.2 Mbit  (reps: 60560.2 69700.2 41156.3)
+
+--- tcp_loop_n16_a_r2 (loopback, n=16) 11:33:35 ---
+      tcp_loop_n16_a_r2 rep1: 195487.5 Mbit
+      tcp_loop_n16_a_r2 rep2: 194299.6 Mbit
+      tcp_loop_n16_a_r2 rep3: 197659.2 Mbit
+      ⇒ tcp_loop_n16_a_r2 median = 195487.5 Mbit  (reps: 195487.5 194299.6 197659.2)
+
+--- tcp_loop_n1_b_r2 (loopback, n=1) 11:34:13 ---
+      tcp_loop_n1_b_r2 rep1: 41620.3 Mbit
+      tcp_loop_n1_b_r2 rep2: 44260.2 Mbit
+      tcp_loop_n1_b_r2 rep3: 46868.7 Mbit
+      ⇒ tcp_loop_n1_b_r2 median = 44260.2 Mbit  (reps: 41620.3 44260.2 46868.7)
+
+--- tcp_loop_n16_b_r2 (loopback, n=16) 11:34:49 ---
+      tcp_loop_n16_b_r2 rep1: 196747.0 Mbit
+      tcp_loop_n16_b_r2 rep2: 197323.4 Mbit
+      tcp_loop_n16_b_r2 rep3: 197959.9 Mbit
+      ⇒ tcp_loop_n16_b_r2 median = 197323.4 Mbit  (reps: 196747.0 197323.4 197959.9)
+
+############ CONTROL VERDICT (registered before data) ############
+  loopback  n=1  : 60560.2 / 44260.2 Mbit
+  loopback  n=16 : 195487.5 / 197323.4 Mbit
+  T(16)/T(1) per arm: 3.228 / 4.458   mean 3.843
+  ✅ >= 0.9 -- the host does not collapse on its own; a fabric collapse is ATTRIBUTABLE.
+
+############ FABRIC (h1 -> h65, five switches, exp-3's plane) ############
+
+--- tcp_fab_n1_a_r2 (fabric, n=1) 11:35:27 ---
+      tcp_fab_n1_a_r2 rep1: 294.5 Mbit
+      tcp_fab_n1_a_r2 rep2: 288.9 Mbit
+      tcp_fab_n1_a_r2 rep3: 273.5 Mbit
+      ⇒ tcp_fab_n1_a_r2 median = 288.9 Mbit  (reps: 294.5 288.9 273.5)
+
+--- tcp_fab_n16_a_r2 (fabric, n=16) 11:36:04 ---
+      tcp_fab_n16_a_r2 rep1: 311.4 Mbit
+      tcp_fab_n16_a_r2 rep2: 306.2 Mbit
+      tcp_fab_n16_a_r2 rep3: 283.2 Mbit
+      ⇒ tcp_fab_n16_a_r2 median = 306.2 Mbit  (reps: 311.4 306.2 283.2)
+
+--- tcp_fab_n1_b_r2 (fabric, n=1) 11:36:42 ---
+      tcp_fab_n1_b_r2 rep1: 241.8 Mbit
+      tcp_fab_n1_b_r2 rep2: 221.4 Mbit
+      tcp_fab_n1_b_r2 rep3: 227.7 Mbit
+      ⇒ tcp_fab_n1_b_r2 median = 227.7 Mbit  (reps: 241.8 221.4 227.7)
+
+--- tcp_fab_n16_b_r2 (fabric, n=16) 11:37:18 ---
+      tcp_fab_n16_b_r2 rep1: 257.5 Mbit
+      tcp_fab_n16_b_r2 rep2: 267.5 Mbit
+      tcp_fab_n16_b_r2 rep3: 325.6 Mbit
+      ⇒ tcp_fab_n16_b_r2 median = 267.5 Mbit  (reps: 257.5 267.5 325.6)
+
+############ FABRIC READOUT ############
+  fabric    n=1  : 288.9 / 227.7 Mbit
+  fabric    n=16 : 306.2 / 267.5 Mbit
+  T(16)/T(1) per arm: 1.060 / 1.175   mean 1.117
+  => 🔴 UDP-SPECIFIC: no TCP collapse. Exp-3's claim must carry the word 'UDP',
+     and Chen et al. may NOT be cited as corroboration. Unfavourable to us -- report it.
+
+=== done 2026-09-01T11:37:57+08:00 ===
+witness stopped; 60 samples total
