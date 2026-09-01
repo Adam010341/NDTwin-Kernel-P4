@@ -1,0 +1,3 @@
+when=2026-08-31T23:03:00+08:00
+override_directive=/usr/local/bmv2-fast/bin/simple_switch_grpc
+override_file_sha256=af9eff29e34b48569239eb025673e27e109cf610ec0ff7a2c017eeb23a317b9a

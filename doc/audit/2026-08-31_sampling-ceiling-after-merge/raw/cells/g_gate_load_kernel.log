@@ -1,0 +1,1514 @@
+[2026-08-31 23:00:33.769] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-08-31 23:00:33.769] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+[2026-08-31 23:00:33.770] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-08-31 23:00:33.771] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-08-31 23:00:33.773] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-08-31 23:00:33.775] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-31 23:00:33.775] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-08-31 23:00:33.775] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-31 23:00:33.775] [warning] [[94mApplicationManager.cpp[0m:[95m426[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-08-31 23:00:33.775] [warning] [[94mApplicationManager.cpp[0m:[95m361[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-08-31 23:00:33.775] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2133[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-08-31 23:00:33.775] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-08-31 23:00:33.775] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-08-31 23:00:33.776] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=2668023 tid=2668032
+[2026-08-31 23:00:33.776] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=2668023 tid=2668030
+[2026-08-31 23:00:33.776] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=2668023 tid=2668031
+[2026-08-31 23:00:33.776] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=2668023 tid=2668033
+[2026-08-31 23:00:33.776] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=2668023 tid=2668034
+[2026-08-31 23:00:33.776] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-08-31 23:00:33.776] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m121[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-08-31 23:00:33.776] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-08-31 23:00:33.777] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-08-31 23:00:33.793] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1266[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: bmv2 (10 switch(es))
+[2026-08-31 23:00:33.794] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m145[0m [96mconfigureTopologyApiUrls[0m] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+[2026-08-31 23:00:34.262] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:00:34.268] [info] [[94mHttpSession.cpp[0m:[95m402[0m [96mcloseSocket[0m] Close Socket
+[2026-08-31 23:00:34.454] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2155[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-08-31 23:00:39.462] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:00:39.462] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:00:39.462] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:00:39.485] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:00:39.487] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-08-31 23:00:39.488] [info] [[94mHttpSession.cpp[0m:[95m402[0m [96mcloseSocket[0m] Close Socket
+[2026-08-31 23:00:39.531] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8081 (16256 pairs); path and switch-count queries will answer from now on.
+[2026-08-31 23:00:39.813] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:00:39.813] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=1
+[2026-08-31 23:00:39.813] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.815] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=2
+[2026-08-31 23:00:39.815] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.816] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=3
+[2026-08-31 23:00:39.816] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.816] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=4
+[2026-08-31 23:00:39.816] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.817] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=5
+[2026-08-31 23:00:39.817] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.818] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=6
+[2026-08-31 23:00:39.818] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.818] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=7
+[2026-08-31 23:00:39.818] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.819] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=8
+[2026-08-31 23:00:39.819] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.820] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=9
+[2026-08-31 23:00:39.820] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.820] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=10
+[2026-08-31 23:00:39.820] [info] [[94mHttpSession.cpp[0m:[95m1230[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-08-31 23:00:39.997] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m238[0m [96mconfigurePortMapping[0m] All-bmv2 topology: using identity ifIndex->port mapping and skipping ovs-vsctl, which does not know about bmv2 interfaces.
+[2026-08-31 23:00:40.778] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2072[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=4, app_drop=0, addressed=4, sock_ovfl_total=0
+[2026-08-31 23:00:58.779] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.2 -> 10.0.0.1 idles
+[2026-08-31 23:00:58.779] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.1 -> 10.0.0.2 idles
+[2026-08-31 23:01:03.798] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.8 ms | since start (29 iters) mean 1000.8 ms, min 1000.1, max 1002.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 23:01:03.798] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000758 divisor_used_s=1.000758 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 23:01:26.602] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:26.602] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:26.602] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:26.613] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:26.616] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:26.616] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:26.616] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:26.626] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:26.867] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:26.867] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:26.867] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:26.880] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:27.117] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:27.118] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:27.118] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:27.130] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:27.367] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:27.368] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:27.368] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:27.381] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:27.617] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:27.617] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:27.617] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:27.629] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:27.868] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:27.868] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:27.868] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:27.880] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:28.117] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:28.118] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:28.118] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:28.129] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:28.368] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:28.368] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:28.368] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:28.381] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:28.617] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:28.617] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:28.617] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:28.634] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:28.868] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:28.868] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:28.868] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:28.883] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:29.118] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:29.118] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:29.118] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:29.135] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:29.368] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:29.368] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:29.368] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:29.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:29.617] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:29.618] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:29.618] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:29.633] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:29.868] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:29.868] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:29.868] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:29.885] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:30.118] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:30.118] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:30.118] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:30.135] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:30.368] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:30.368] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:30.368] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:30.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:30.618] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:30.618] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:30.618] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:30.636] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:30.868] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:30.869] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:30.869] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:30.887] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:31.118] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:31.118] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:31.118] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:31.135] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:31.369] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:31.369] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:31.369] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:31.384] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:31.618] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:31.618] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:31.618] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:31.637] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:31.868] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:31.868] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:31.868] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:31.886] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:32.118] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:32.119] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:32.119] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:32.137] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:32.369] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:32.369] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:32.369] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:32.388] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:32.618] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:32.619] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:32.619] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:32.636] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:32.869] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:32.869] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:32.869] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:32.886] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:33.119] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:33.119] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:33.119] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:33.138] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:33.369] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:33.369] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:33.370] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:33.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:33.619] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:33.619] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:33.619] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:33.638] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:33.817] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.6 ms | since start (59 iters) mean 1000.7 ms, min 1000.1, max 1002.2 (flows=1, counters=4) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 23:01:33.818] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000817 divisor_used_s=1.000817 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 23:01:33.869] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:33.869] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:33.869] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:33.880] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:34.119] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:34.120] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:34.120] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:34.138] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:34.369] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:34.369] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:34.369] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:34.381] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:34.619] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:34.619] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:34.619] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:34.636] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:34.869] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:34.869] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:34.869] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:34.885] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:35.119] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:35.119] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:35.119] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:35.134] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:35.369] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:35.369] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:35.369] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:35.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:35.619] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:35.620] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:35.620] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:35.632] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:35.869] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:35.869] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:35.869] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:35.886] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:36.120] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:36.120] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:36.120] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:36.138] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:36.369] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:36.370] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:36.370] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:36.388] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:36.620] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:36.620] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:36.620] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:36.636] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:36.870] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:36.870] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:36.870] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:36.887] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:37.120] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:37.120] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:37.120] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:37.133] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:37.370] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:37.370] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:37.370] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:37.381] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:37.620] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:37.620] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:37.620] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:37.636] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:37.871] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:37.871] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:37.871] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:37.889] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:38.120] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:38.120] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:38.120] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:38.133] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:38.370] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:38.370] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:38.370] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:38.383] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:38.620] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:38.620] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:38.620] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:38.638] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:38.870] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:38.870] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:38.870] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:38.888] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:39.121] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:39.121] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:39.121] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:39.137] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:39.371] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:39.371] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:39.371] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:39.388] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:39.621] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:39.621] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:39.621] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:39.639] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:39.871] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:39.871] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:39.871] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:39.889] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:40.121] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:40.121] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:40.121] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:40.139] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:40.370] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:40.371] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:40.371] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:40.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:40.443] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-08-31 23:01:40.621] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:40.621] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:40.621] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:40.639] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:40.871] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:40.871] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:40.871] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:40.887] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:41.122] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:41.122] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:41.122] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:41.140] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:41.372] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:41.372] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:41.372] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:41.390] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:41.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:41.622] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:41.622] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:41.641] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:41.872] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:41.872] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:41.872] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:41.891] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:42.122] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:42.122] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:42.122] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:42.141] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:42.372] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:42.372] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:42.372] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:42.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:42.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:42.622] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:42.622] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:42.641] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:42.872] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:42.872] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:42.872] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:42.891] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:43.122] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:43.123] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:43.123] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:43.141] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:43.372] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:43.373] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:43.373] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:43.390] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:43.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:43.622] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:43.622] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:43.640] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:43.872] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:43.872] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:43.872] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:43.890] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:44.122] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:44.122] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:44.122] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:44.134] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:44.372] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:44.372] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:44.372] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:44.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:44.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:44.622] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:44.622] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:44.639] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:44.872] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:44.872] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:44.872] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:44.888] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:45.123] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:45.123] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:45.123] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:45.137] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:45.373] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:45.373] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:45.373] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:45.386] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:45.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:45.622] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:45.626] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:45.637] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:45.873] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:45.873] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:45.873] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:45.890] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:46.123] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:46.123] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:46.123] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:46.140] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:46.373] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:46.374] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:46.374] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:46.390] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:46.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:46.624] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:46.624] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:46.642] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:46.873] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:46.874] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:46.874] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:46.892] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:47.123] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:47.123] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:47.123] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:47.140] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:47.374] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:47.374] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:47.374] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:47.390] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:47.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:47.623] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:47.623] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:47.639] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:47.873] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:47.874] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:47.874] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:47.891] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:48.124] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:48.124] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:48.124] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:48.143] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:48.374] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:48.374] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:48.374] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:48.393] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:48.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:48.624] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:48.624] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:48.643] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:48.873] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:48.873] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:48.873] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:48.892] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:49.123] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:49.124] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:49.124] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:49.135] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:49.373] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:49.373] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:49.373] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:49.388] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:49.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:49.624] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:49.624] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:49.635] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:49.874] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:49.874] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:49.874] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:49.893] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:50.125] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:50.125] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:50.125] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:50.143] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:50.375] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:50.375] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:50.375] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:50.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:50.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:50.625] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:50.625] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:50.643] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:50.875] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:50.875] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:50.875] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:50.892] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:51.125] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:51.125] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:51.125] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:51.141] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:51.375] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:51.375] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:51.375] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:51.394] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:51.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:51.625] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:51.625] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:51.644] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:51.875] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:51.875] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:51.875] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:51.893] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:52.125] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:52.125] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:52.125] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:52.143] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:52.375] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:52.375] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:52.375] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:52.393] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:52.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:52.625] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:52.625] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:52.641] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:52.875] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:52.875] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:52.875] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:52.887] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:53.125] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:53.125] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:53.125] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:53.138] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:53.375] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:53.375] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:53.375] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:53.387] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:53.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:53.625] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:53.625] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:53.643] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:53.876] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:53.876] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:53.876] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:53.894] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:54.126] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:54.126] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:54.126] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:54.144] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:54.375] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:54.375] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:54.375] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:54.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:54.626] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:54.626] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:54.626] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:54.641] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:54.875] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:54.875] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:54.875] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:54.893] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:55.125] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:55.125] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:55.126] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:55.138] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:55.376] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:55.376] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:55.376] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:55.395] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:55.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:55.625] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:55.625] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:55.637] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:55.876] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:55.876] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:55.876] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:55.888] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:56.126] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:56.126] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:56.126] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:56.143] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:56.376] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:56.377] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:56.377] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:56.393] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:56.626] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:56.626] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:56.626] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:56.644] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:56.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:56.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:56.877] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:56.895] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:57.127] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:57.127] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:57.127] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:57.145] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:57.376] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:57.376] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:57.376] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:57.390] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:57.627] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:57.627] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:57.627] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:57.646] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:57.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:57.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:57.877] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:57.896] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:58.127] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:58.127] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:58.127] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:58.141] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:58.376] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:58.377] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:58.377] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:58.389] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:58.627] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:58.627] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:58.627] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:58.645] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:58.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:58.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:58.877] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:58.889] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:59.127] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:59.127] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:59.127] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:59.142] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:59.377] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:59.377] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:59.377] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:59.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:59.627] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:59.627] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:59.627] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:59.645] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:01:59.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:01:59.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:01:59.877] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:01:59.889] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:00.127] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:00.127] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:00.127] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:00.143] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:00.378] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:00.378] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:00.378] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:00.393] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:00.627] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:00.627] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:00.627] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:00.645] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:00.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:00.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:00.877] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:00.891] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:01.128] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:01.128] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:01.128] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:01.144] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:01.378] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:01.378] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:01.378] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:01.396] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:01.628] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:01.628] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:01.628] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:01.641] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:01.878] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:01.878] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:01.878] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:01.897] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:02.128] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:02.128] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:02.128] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:02.146] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:02.378] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:02.378] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:02.378] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:02.397] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:02.629] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:02.629] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:02.629] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:02.643] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:02.878] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:02.878] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:02.878] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:02.896] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:03.129] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:03.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:03.129] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:03.146] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:03.378] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:03.379] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:03.379] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:03.392] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:03.628] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:03.628] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:03.628] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:03.640] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:03.841] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.8 ms | since start (89 iters) mean 1000.7 ms, min 1000.1, max 1002.2 (flows=1, counters=4) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 23:02:03.842] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000960 divisor_used_s=1.000960 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 23:02:03.879] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:03.879] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:03.879] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:03.897] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:04.128] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:04.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:04.129] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:04.141] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:04.379] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:04.379] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:04.379] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:04.398] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:04.629] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:04.629] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:04.629] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:04.648] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:04.879] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:04.879] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:04.879] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:04.894] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:05.129] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:05.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:05.130] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:05.148] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:05.379] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:05.379] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:05.380] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:05.393] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:05.629] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:05.630] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:05.630] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:05.648] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:05.879] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:05.880] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:05.880] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:05.898] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:06.129] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:06.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:06.129] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:06.141] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:06.379] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:06.379] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:06.379] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:06.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:06.629] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:06.629] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:06.629] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:06.641] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:06.879] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:06.879] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:06.879] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:06.897] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:07.129] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:07.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:07.129] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:07.148] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:07.380] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:07.380] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:07.380] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:07.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:07.630] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:07.630] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:07.630] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:07.643] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:07.880] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:07.880] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:07.880] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:07.892] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:08.130] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:08.130] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:08.130] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:08.142] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:08.379] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:08.379] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:08.379] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:08.395] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:08.630] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:08.631] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:08.631] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:08.648] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:08.880] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:08.880] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:08.880] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:08.898] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:09.130] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:09.130] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:09.130] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:09.142] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:09.380] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:09.380] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:09.380] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:09.392] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:09.630] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:09.630] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:09.630] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:09.642] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:09.880] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:09.880] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:09.880] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:09.892] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:10.130] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:10.130] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:10.130] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:10.142] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:10.380] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:10.380] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:10.380] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:10.391] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:10.630] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:10.630] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:10.630] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:10.649] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:10.880] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:10.880] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:10.880] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:10.893] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:11.131] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:11.131] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:11.131] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:11.147] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:11.381] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:11.381] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:11.381] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:11.392] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:11.630] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:11.630] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:11.630] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:11.642] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:11.881] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:11.881] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:11.881] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:11.899] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:12.131] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:12.131] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:12.131] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:12.143] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:12.381] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:12.381] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:12.381] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:12.400] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:12.631] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:12.631] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:12.632] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:12.650] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:12.882] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:12.882] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:12.882] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:12.900] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:13.131] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:13.132] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:13.132] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:13.150] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:13.382] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:13.382] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:13.382] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:13.395] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:13.632] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:13.632] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:13.632] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:13.650] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:13.881] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:13.882] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:13.882] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:13.900] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:14.132] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:14.132] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:14.132] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:14.146] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:14.382] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:14.382] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:14.382] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:14.399] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:14.632] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:14.632] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:14.632] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:14.647] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:14.882] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:14.882] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:14.882] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:14.901] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:15.132] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:15.133] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:15.133] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:15.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:15.382] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:15.383] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:15.383] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:15.395] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:15.632] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:15.632] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:15.632] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:15.643] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:15.882] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:15.882] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:15.882] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:15.894] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:16.132] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:16.133] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:16.133] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:16.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:16.382] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:16.382] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:16.382] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:16.400] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:16.632] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:16.632] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:16.632] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:16.651] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:16.883] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:16.883] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:16.883] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:16.901] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:17.132] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:17.133] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:17.133] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:17.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:17.383] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:17.383] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:17.383] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:17.404] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:17.633] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:17.633] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:17.633] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:17.649] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:17.883] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:17.883] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:17.883] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:17.901] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:18.133] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:18.134] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:18.134] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:18.152] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:18.383] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:18.384] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:18.384] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:18.402] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:18.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:18.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:18.634] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:18.652] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:18.884] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:18.884] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:18.884] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:18.901] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:19.133] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:19.133] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:19.133] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:19.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:19.384] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:19.384] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:19.384] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:19.401] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:19.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:19.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:19.634] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:19.650] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:19.883] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:19.883] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:19.883] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:19.896] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:20.133] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:20.134] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:20.134] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:20.150] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:20.384] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:20.384] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:20.384] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:20.396] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:20.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:20.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:20.634] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:20.648] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:20.884] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:20.884] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:20.884] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:20.898] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:21.134] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:21.135] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:21.135] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:21.150] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:21.385] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:21.385] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:21.385] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:21.398] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:21.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:21.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:21.634] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:21.653] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:21.884] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:21.884] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:21.884] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:21.903] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:22.135] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:22.135] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:22.135] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:22.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:22.385] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:22.385] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:22.385] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:22.397] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:22.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:22.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:22.634] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:22.647] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:22.885] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:22.885] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:22.885] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:22.901] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:23.134] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:23.134] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:23.134] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:23.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:23.385] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:23.385] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:23.385] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:23.401] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:23.635] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:23.635] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:23.636] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:23.654] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:23.885] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:23.885] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:23.885] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:23.898] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:24.135] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:24.135] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:24.135] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:24.150] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:24.385] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:24.385] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:24.385] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:24.397] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:24.635] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:24.635] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:24.635] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:24.647] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:24.886] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:24.886] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:24.886] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:24.901] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:25.136] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:25.136] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:25.136] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:25.154] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:25.386] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:25.386] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:25.386] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:25.403] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:25.635] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:25.635] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:25.635] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:25.652] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:25.886] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:25.886] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:25.886] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:25.903] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:26.136] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:26.136] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:26.136] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:26.155] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:26.386] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:26.386] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:26.386] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:26.397] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:26.636] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:26.636] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:26.636] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:26.647] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:26.886] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:26.886] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:26.886] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:26.899] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:27.136] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:27.136] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:27.136] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:27.154] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:27.387] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:27.387] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:27.387] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:27.405] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:27.636] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:27.636] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:27.636] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:27.647] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:27.886] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:27.886] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:27.886] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:27.903] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:28.137] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:28.137] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:28.137] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:28.155] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:28.387] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:28.387] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:28.387] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:28.400] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:28.636] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:28.637] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:28.637] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:28.655] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:28.887] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:28.887] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:28.887] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:28.906] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:29.137] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:29.137] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:29.137] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:29.154] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:29.387] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:29.387] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:29.387] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:29.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:29.636] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:29.636] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:29.636] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:29.648] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:29.887] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:29.887] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:29.887] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:29.898] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:30.137] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:30.137] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:30.137] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:30.149] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:30.387] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:30.387] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:30.387] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:30.399] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:30.637] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:30.637] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:30.637] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:30.649] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:30.887] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:30.887] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:30.887] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:30.900] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:31.138] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:31.138] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:31.138] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:31.153] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:31.388] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:31.388] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:31.388] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:31.400] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:31.637] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:31.637] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:31.637] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:31.649] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:31.888] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:31.888] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:31.888] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:31.907] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:32.138] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:32.138] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:32.138] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:32.156] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:32.387] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:32.387] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:32.387] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:32.399] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:32.638] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:32.638] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:32.638] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:32.649] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:32.888] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:32.888] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:32.888] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:32.907] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:33.138] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:33.138] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:33.138] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:33.149] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:33.388] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:33.388] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:33.388] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:33.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:33.638] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:33.638] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:33.638] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:33.656] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:33.865] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.8 ms | since start (119 iters) mean 1000.7 ms, min 1000.1, max 1002.2 (flows=1, counters=4) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-08-31 23:02:33.865] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000833 divisor_used_s=1.000833 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-08-31 23:02:33.888] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:33.889] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:33.889] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:33.907] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:34.138] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:34.138] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:34.138] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:34.156] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:34.388] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:34.388] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:34.388] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:34.403] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:34.639] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:34.639] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:34.639] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:34.655] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:34.889] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:34.889] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:34.889] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:34.907] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:35.139] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:35.139] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:35.139] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:35.151] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:35.388] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:35.389] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:35.389] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:35.400] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:35.639] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:35.639] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:35.639] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:35.653] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:35.889] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:35.889] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:35.889] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:35.908] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:36.139] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:36.139] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:36.139] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:36.156] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:36.389] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:36.389] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:36.389] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:36.407] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:36.640] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:36.640] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:36.640] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:36.658] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:36.890] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:36.890] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:36.890] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:36.903] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:37.140] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:37.140] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:37.140] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:37.158] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:37.389] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:37.390] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:37.390] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:37.401] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:37.640] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:37.640] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:37.640] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:37.658] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:37.890] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:37.890] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:37.890] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:37.907] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:38.140] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:38.140] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:38.140] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:38.157] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:38.390] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:38.390] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:38.390] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:38.408] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:38.640] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:38.640] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:38.640] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:38.658] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:38.889] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:38.890] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:38.890] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:38.908] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:39.140] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:39.140] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:39.140] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:39.152] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:39.390] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:39.391] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:39.391] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:39.408] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:39.640] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:39.640] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:39.640] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:39.651] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:39.890] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:39.891] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:39.891] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:39.908] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:40.141] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:40.141] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:40.141] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:40.159] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:40.390] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:40.390] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:40.390] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:40.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:40.640] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:40.640] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:40.640] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:40.659] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:40.890] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:40.890] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:40.890] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:40.909] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:41.140] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:41.141] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:41.141] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:41.159] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:41.388] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-08-31 23:02:41.391] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:41.391] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:41.391] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:41.408] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:41.641] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:41.641] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:41.641] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:41.657] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:41.890] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:41.890] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:41.890] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:41.904] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:42.141] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:42.141] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:42.141] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:42.153] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:42.391] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:42.392] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:42.392] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:42.409] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:42.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:42.642] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:42.642] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:42.660] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:42.892] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:42.892] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:42.892] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:42.909] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:43.142] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:43.142] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:43.142] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:43.160] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:43.391] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:43.391] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:43.391] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:43.407] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:43.641] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:43.641] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:43.641] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:43.659] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:43.891] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:43.892] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:43.892] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:43.910] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:44.142] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:44.142] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:44.142] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:44.156] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:44.392] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:44.392] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:44.392] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:44.408] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:44.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:44.642] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:44.642] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:44.660] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:44.892] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:44.892] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:44.892] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:44.911] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:45.142] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:45.142] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:45.142] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:45.160] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:45.392] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:45.392] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:45.392] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:45.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:45.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:45.642] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:45.642] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:45.660] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:45.892] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:45.892] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:45.892] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:45.910] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:46.143] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:46.143] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:46.143] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:46.160] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:46.392] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:46.393] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:46.393] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:46.407] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:46.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:46.642] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:46.642] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:46.659] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:46.892] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:46.893] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:46.893] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:46.908] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:47.143] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:47.143] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:47.143] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:47.160] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:47.392] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:47.392] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:47.392] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:47.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:47.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:47.642] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:47.642] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:47.657] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:47.893] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:47.893] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:47.893] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:47.906] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:48.143] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:48.143] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:48.143] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:48.156] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:48.393] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:48.394] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:48.394] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:48.412] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:48.643] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:48.643] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:48.643] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:48.662] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:48.893] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:48.893] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:48.893] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:48.911] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:49.144] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:49.144] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:49.144] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:49.163] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:49.394] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:49.394] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:49.394] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:49.412] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:49.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:49.644] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:49.644] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:49.655] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:49.893] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:49.894] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:49.894] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:49.906] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:50.144] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:50.144] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:50.144] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:50.159] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:50.394] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:50.394] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:50.394] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:50.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:50.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:50.644] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:50.644] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:50.660] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:50.894] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:50.894] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:50.894] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:50.905] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:51.144] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:51.144] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:51.144] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:51.163] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:51.394] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:51.395] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:51.395] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:51.409] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:51.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:51.644] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:51.644] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:51.662] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:51.894] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:51.894] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:51.894] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:51.912] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:52.144] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:52.144] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:52.144] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:52.161] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:52.394] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:52.394] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:52.394] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:52.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:52.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:52.644] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:52.644] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:52.656] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:52.894] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:52.894] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:52.894] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:52.909] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:53.144] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:53.144] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:53.144] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:53.156] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:53.394] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:53.394] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:53.394] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:53.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:53.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:53.645] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:53.645] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:53.660] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:53.894] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:53.895] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:53.895] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:53.913] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:54.145] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:54.145] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:54.145] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:54.163] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:54.395] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:54.395] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:54.395] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:54.406] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:54.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:54.645] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:54.645] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:54.656] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:54.895] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:54.896] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:54.896] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:54.912] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:55.145] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:55.146] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:55.146] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:55.161] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:55.395] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:55.395] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:55.395] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:55.413] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:55.645] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:55.645] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:55.645] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:55.664] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:55.896] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:55.896] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:55.896] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:55.914] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:56.145] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:56.145] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:56.145] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:56.164] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-08-31 23:02:56.396] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-08-31 23:02:56.396] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-08-31 23:02:56.396] [info] [[94mHttpSession.cpp[0m:[95m531[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-08-31 23:02:56.414] [info] [[94mHttpSession.cpp[0m:[95m576[0m [96mhandleGetGraphData[0m] get_graph_data success

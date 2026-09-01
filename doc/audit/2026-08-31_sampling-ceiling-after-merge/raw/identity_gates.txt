@@ -1,0 +1,161 @@
+# binary identity for gates
+when=2026-08-31T22:59:50+08:00
+commit=a17e4ea5153c0aa64f9fe4930e18b7b784541341
+dirty_worktree=19 file(s) modified
+boot_id=f6caefcb-f8fa-461f-91d5-68ea8cdcd0fe
+
+[/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel]
+sha256=e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+size=72878120
+--- ldd ---
+	linux-vdso.so.1 (0x000078a184873000)
+	libcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x000078a183c00000)
+	libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x000078a1847aa000)
+	libboost_url.so.1.83.0 => /lib/x86_64-linux-gnu/libboost_url.so.1.83.0 (0x000078a184759000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x000078a183800000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000078a1841d2000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000078a183400000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000078a183b17000)
+	/lib64/ld-linux-x86-64.so.2 (0x000078a184875000)
+--- readelf -d ---
+ 0x0000000000000001 (NEEDED)             Shared library: [libcrypto.so.3]
+ 0x0000000000000001 (NEEDED)             Shared library: [libssl.so.3]
+ 0x0000000000000001 (NEEDED)             Shared library: [libboost_url.so.1.83.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+
+[/usr/local/bmv2-fast/bin/simple_switch_grpc]
+sha256=3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a
+size=92147960
+--- ldd ---
+	linux-vdso.so.1 (0x00007c0a03ffe000)
+	libgrpc++_reflection.so.1.51 => /lib/x86_64-linux-gnu/libgrpc++_reflection.so.1.51 (0x00007c0a03f9f000)
+	libjsoncpp.so.25 => /lib/x86_64-linux-gnu/libjsoncpp.so.25 (0x00007c0a03f68000)
+	libthrift-0.16.0.so => /usr/local/lib/libthrift-0.16.0.so (0x00007c0a03b39000)
+	libboost_program_options.so.1.83.0 => /lib/x86_64-linux-gnu/libboost_program_options.so.1.83.0 (0x00007c0a03f26000)
+	libbmpi.so.0 => /usr/local/bmv2-fast/lib/libbmpi.so.0 (0x00007c0a03aec000)
+	libbm_grpc_dataplane.so.0 => /usr/local/bmv2-fast/lib/libbm_grpc_dataplane.so.0 (0x00007c0a03a9f000)
+	libruntimestubs.so.0 => /usr/local/bmv2-fast/lib/libruntimestubs.so.0 (0x00007c0a03800000)
+	libsimpleswitch_thrift.so.0 => /usr/local/bmv2-fast/lib/libsimpleswitch_thrift.so.0 (0x00007c0a03a4b000)
+	libxxhash.so.0 => /lib/x86_64-linux-gnu/libxxhash.so.0 (0x00007c0a03f11000)
+	libpcap.so.0.8 => /lib/x86_64-linux-gnu/libpcap.so.0.8 (0x00007c0a037b3000)
+	libgmp.so.10 => /lib/x86_64-linux-gnu/libgmp.so.10 (0x00007c0a0372f000)
+	libnanomsg.so.5.0.0 => /lib/x86_64-linux-gnu/libnanomsg.so.5.0.0 (0x00007c0a036d4000)
+	libpifeproto.so.0 => /usr/local/lib/libpifeproto.so.0 (0x00007c0a0363b000)
+	libpigrpcserver.so.0 => /usr/local/lib/libpigrpcserver.so.0 (0x00007c0a03ef6000)
+	libpi.so.0 => /usr/local/lib/libpi.so.0 (0x00007c0a03ee5000)
+	libpip4info.so.0 => /usr/local/lib/libpip4info.so.0 (0x00007c0a03a31000)
+	libgrpc++.so.1.51 => /lib/x86_64-linux-gnu/libgrpc++.so.1.51 (0x00007c0a03581000)
+	libgpr.so.29 => /lib/x86_64-linux-gnu/libgpr.so.29 (0x00007c0a03a21000)
+	libprotobuf.so.32 => /lib/x86_64-linux-gnu/libprotobuf.so.32 (0x00007c0a03200000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007c0a02e00000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007c0a03553000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007c0a02a00000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007c0a04000000)
+	libabsl_synchronization.so.20220623 => /lib/x86_64-linux-gnu/libabsl_synchronization.so.20220623 (0x00007c0a03542000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007c0a03117000)
+	libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007c0a02d56000)
+	libcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x00007c0a02400000)
+	libibverbs.so.1 => /lib/x86_64-linux-gnu/libibverbs.so.1 (0x00007c0a0351f000)
+	libdbus-1.so.3 => /lib/x86_64-linux-gnu/libdbus-1.so.3 (0x00007c0a030c8000)
+	libpifecpp.so.0 => /usr/local/lib/libpifecpp.so.0 (0x00007c0a03511000)
+	libpiconvertproto.so.0 => /usr/local/lib/libpiconvertproto.so.0 (0x00007c0a03504000)
+	libpiprotobuf.so.0 => /usr/local/lib/libpiprotobuf.so.0 (0x00007c0a02000000)
+	libpiprotogrpc.so.0 => /usr/local/lib/libpiprotogrpc.so.0 (0x00007c0a02cd5000)
+	libgrpc.so.29 => /lib/x86_64-linux-gnu/libgrpc.so.29 (0x00007c0a01a00000)
+	libupb.so.29 => /lib/x86_64-linux-gnu/libupb.so.29 (0x00007c0a0309b000)
+	libabsl_raw_hash_set.so.20220623 => /lib/x86_64-linux-gnu/libabsl_raw_hash_set.so.20220623 (0x00007c0a034ff000)
+	libabsl_hash.so.20220623 => /lib/x86_64-linux-gnu/libabsl_hash.so.20220623 (0x00007c0a034fa000)
+	libabsl_statusor.so.20220623 => /lib/x86_64-linux-gnu/libabsl_statusor.so.20220623 (0x00007c0a034f4000)
+	libabsl_status.so.20220623 => /lib/x86_64-linux-gnu/libabsl_status.so.20220623 (0x00007c0a03090000)
+	libabsl_strings.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strings.so.20220623 (0x00007c0a02cb6000)
+	libabsl_throw_delegate.so.20220623 => /lib/x86_64-linux-gnu/libabsl_throw_delegate.so.20220623 (0x00007c0a034ed000)
+	libabsl_time.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time.so.20220623 (0x00007c0a0307e000)
+	libabsl_str_format_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_str_format_internal.so.20220623 (0x00007c0a02c9c000)
+	libabsl_spinlock_wait.so.20220623 => /lib/x86_64-linux-gnu/libabsl_spinlock_wait.so.20220623 (0x00007c0a02c97000)
+	libabsl_raw_logging_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_raw_logging_internal.so.20220623 (0x00007c0a02c92000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007c0a02c76000)
+	libabsl_graphcycles_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_graphcycles_internal.so.20220623 (0x00007c0a02c6e000)
+	libabsl_stacktrace.so.20220623 => /lib/x86_64-linux-gnu/libabsl_stacktrace.so.20220623 (0x00007c0a02c69000)
+	libabsl_symbolize.so.20220623 => /lib/x86_64-linux-gnu/libabsl_symbolize.so.20220623 (0x00007c0a02c61000)
+	libabsl_malloc_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_malloc_internal.so.20220623 (0x00007c0a02c59000)
+	libabsl_base.so.20220623 => /lib/x86_64-linux-gnu/libabsl_base.so.20220623 (0x00007c0a02c53000)
+	libnl-route-3.so.200 => /lib/x86_64-linux-gnu/libnl-route-3.so.200 (0x00007c0a02971000)
+	libnl-3.so.200 => /lib/x86_64-linux-gnu/libnl-3.so.200 (0x00007c0a02c31000)
+	libsystemd.so.0 => /lib/x86_64-linux-gnu/libsystemd.so.0 (0x00007c0a02320000)
+	libcares.so.2 => /lib/x86_64-linux-gnu/libcares.so.2 (0x00007c0a02949000)
+	libaddress_sorting.so.29 => /lib/x86_64-linux-gnu/libaddress_sorting.so.29 (0x00007c0a02c2a000)
+	libre2.so.10 => /lib/x86_64-linux-gnu/libre2.so.10 (0x00007c0a022be000)
+	libabsl_bad_variant_access.so.20220623 => /lib/x86_64-linux-gnu/libabsl_bad_variant_access.so.20220623 (0x00007c0a02c25000)
+	libabsl_random_internal_pool_urbg.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_pool_urbg.so.20220623 (0x00007c0a02c1f000)
+	libabsl_random_internal_randen.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_randen.so.20220623 (0x00007c0a02c18000)
+	libabsl_random_internal_randen_hwaes_impl.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_randen_hwaes_impl.so.20220623 (0x00007c0a02c13000)
+	libabsl_random_internal_randen_slow.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_randen_slow.so.20220623 (0x00007c0a02943000)
+	libabsl_cord.so.20220623 => /lib/x86_64-linux-gnu/libabsl_cord.so.20220623 (0x00007c0a0292a000)
+	libabsl_bad_optional_access.so.20220623 => /lib/x86_64-linux-gnu/libabsl_bad_optional_access.so.20220623 (0x00007c0a02925000)
+	libabsl_cordz_info.so.20220623 => /lib/x86_64-linux-gnu/libabsl_cordz_info.so.20220623 (0x00007c0a0291b000)
+	libabsl_time_zone.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time_zone.so.20220623 (0x00007c0a022a4000)
+	libabsl_city.so.20220623 => /lib/x86_64-linux-gnu/libabsl_city.so.20220623 (0x00007c0a02916000)
+	libabsl_low_level_hash.so.20220623 => /lib/x86_64-linux-gnu/libabsl_low_level_hash.so.20220623 (0x00007c0a0229f000)
+	libabsl_strerror.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strerror.so.20220623 (0x00007c0a0229a000)
+	libabsl_strings_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strings_internal.so.20220623 (0x00007c0a02294000)
+	libabsl_int128.so.20220623 => /lib/x86_64-linux-gnu/libabsl_int128.so.20220623 (0x00007c0a0228d000)
+	libabsl_debugging_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_debugging_internal.so.20220623 (0x00007c0a02286000)
+	libabsl_demangle_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_demangle_internal.so.20220623 (0x00007c0a0227c000)
+	libcap.so.2 => /lib/x86_64-linux-gnu/libcap.so.2 (0x00007c0a0226d000)
+	libgcrypt.so.20 => /lib/x86_64-linux-gnu/libgcrypt.so.20 (0x00007c0a018b8000)
+	liblz4.so.1 => /lib/x86_64-linux-gnu/liblz4.so.1 (0x00007c0a0224b000)
+	liblzma.so.5 => /lib/x86_64-linux-gnu/liblzma.so.5 (0x00007c0a01fce000)
+	libzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x00007c0a017fe000)
+	libabsl_random_internal_seed_material.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_seed_material.so.20220623 (0x00007c0a02244000)
+	libabsl_random_seed_gen_exception.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_seed_gen_exception.so.20220623 (0x00007c0a0223f000)
+	libabsl_random_internal_randen_hwaes.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_randen_hwaes.so.20220623 (0x00007c0a0223a000)
+	libabsl_random_internal_platform.so.20220623 => /lib/x86_64-linux-gnu/libabsl_random_internal_platform.so.20220623 (0x00007c0a02234000)
+	libabsl_cord_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_cord_internal.so.20220623 (0x00007c0a01fb2000)
+	libabsl_cordz_functions.so.20220623 => /lib/x86_64-linux-gnu/libabsl_cordz_functions.so.20220623 (0x00007c0a0222d000)
+	libabsl_cordz_handle.so.20220623 => /lib/x86_64-linux-gnu/libabsl_cordz_handle.so.20220623 (0x00007c0a02227000)
+	libgpg-error.so.0 => /lib/x86_64-linux-gnu/libgpg-error.so.0 (0x00007c0a01f8d000)
+	libabsl_exponential_biased.so.20220623 => /lib/x86_64-linux-gnu/libabsl_exponential_biased.so.20220623 (0x00007c0a02222000)
+--- readelf -d ---
+ 0x0000000000000001 (NEEDED)             Shared library: [libgrpc++_reflection.so.1.51]
+ 0x0000000000000001 (NEEDED)             Shared library: [libjsoncpp.so.25]
+ 0x0000000000000001 (NEEDED)             Shared library: [libthrift-0.16.0.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libboost_program_options.so.1.83.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libbmpi.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libbm_grpc_dataplane.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libruntimestubs.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libsimpleswitch_thrift.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libxxhash.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpcap.so.0.8]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgmp.so.10]
+ 0x0000000000000001 (NEEDED)             Shared library: [libnanomsg.so.5.0.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpifeproto.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpigrpcserver.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpi.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpip4info.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgrpc++.so.1.51]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgpr.so.29]
+ 0x0000000000000001 (NEEDED)             Shared library: [libprotobuf.so.32]
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+ 0x000000000000001d (RUNPATH)            Library runpath: [/usr/local/bmv2-fast/lib]
+
+--- symbol signatures (kernel) ---
+contains_2f57ba5_kFlowPathRecomputeInterval=5  [NON-DISCRIMINATING: both arms are
+  built from one tree and differ only in the constant VALUE, so this count is equal
+  on both.  Arm identity comes from sha256 vs .provenance; the VALUE is proven by
+  the gtest at build time and by recompute_rate.py at run time.]
+contains_91e7743_setProgrammedPredicate=1
+
+--- proxy ---
+main_py_sha256=db86706ed10c45a6738cf5fdbb62e16f69ef555dde4b80523b83a2d55e5b5a7d
+emitter_py_sha256=5bdf97ebe32e0a57a2ced00f926447f2986ff9252f2832b2b9ae99bcf0ef582e
+python=Python 3.13.13
+
+--- p4 constants ---
+const bit<16> SAMPLE_RATE = 256;
+const bit<32> SAMPLE_TRUNC_BYTES = 128;
+compiled_json_sha256=0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743
