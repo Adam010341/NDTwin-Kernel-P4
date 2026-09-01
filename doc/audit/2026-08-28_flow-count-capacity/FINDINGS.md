@@ -9,6 +9,21 @@ Ten arms, mirrored `1 2 4 8 16 | 16 8 4 2 1`, 2026-08-28 20:15–20:35 (pass A) 
 `/usr/local/bmv2-fast/`, kernel `a40e04ce`, 128-host P4 topology, h1→h65 (s1→s3), flows separated
 by port. Pass A and pass B are **not** contiguous — see §6.
 
+> 🔴 **`a40e04ce` 是那顆 kernel binary 自己的 sha256 前 8 碼，不是 git commit。**
+> 一行可驗：`sha256sum .test_run/binaries/ndtwin_kernel.a40e04ce`
+> ⇒ `a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7`。
+> 拿 git 去解析它會得到 `Not a valid object name`，**那是預期的，不是缺陷**。
+>
+> **真正的缺口在別處且早已在案**：`doc/KNOWN-ISSUES.md:1679`——這顆的 provenance 是
+> **事後補寫的，只記得下 `commit=UNKNOWN`** ⇒ 「**哪一顆在跑**」答得出來（sha 對得到），
+> 「**怎麼再造一顆一樣的**」答不出來。
+>
+> 🔑 這一條補的是 CLAUDE.md「benchmark 必指認 binary（**sha ＋哪種識別碼**）」的後半：
+> sha 一直都在，**「哪種」從來沒寫**。八位十六進位擺在 `kernel` 後面已經被獨立誤讀三次
+> （Muse 草稿讀成 Linux 版本；`REVIEW.md:589` 在**更正前一次誤讀的那一句裡**讀成 commit；
+> 09-01 `8/29 poster-reviewer` 讀成 commit 並發了一個假告警）。
+> （09-01 由 `9/1 auditor` 裁定、`8/29 poster-reviewer` 落。原文未改。）
+
 ---
 
 ## 1. The headline: per-flow highest clean rate falls monotonically, in each arm separately
