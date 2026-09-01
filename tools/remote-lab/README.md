@@ -30,7 +30,24 @@
 | `ndtwin-virt-root.sh` | 遠端 host（**唯一要 root 的一步**） | 裝 `qemu-system-x86`／`qemu-utils`／`cloud-image-utils`＋帳號加進 `kvm` 群組。**不碰 sudoers、不加任何 NOPASSWD** |
 | `vm-install-stack.sh` | **guest VM 內** | 安裝手冊 §3.1＋§3.2 apt ＋ `install-p4dev-v8.sh`。**驗收釘產物不釘 rc** |
 | `p4_patch_preflight.sh` | 任何有網路的機器 | 2 分鐘 dry-run：p4-guide 的 patch 還套不套得上（**v10 當控制組**） |
+| `host_witness.sh` | **要被見證的那台**（host 或 guest 都可） | 量測窗內的**連續佔用記帳**：每行帶 `host=`、用 `/proc/<pid>/exe` 判別 VM、三態 `vm`／`other`／`unreadable`。`--self-test` **純的**（假 procfs、零行程）⇒ 別人的 exclusive-CPU 窗內也跑得了 |
 | `test_vm_coordination.sh` | **本機，不碰任何 lab 機器** | 下述全部守衛的變異閘 |
+
+🔴 **`host_witness.sh` 為什麼存在**：09-01 有人讀一份**沒有 hostname 欄**的見證 log，
+判成「Adam 筆電上有 VM」，據此要求下游撤回兩欄**正確**資料、四格判髒——
+而那顆 VM 在 lab 機器上。**那份 log 沒寫錯，它只是從來沒說自己在講哪一台。**
+> **一份「機器上有什麼」的紀錄，必須自己說出它講的是哪一台。**
+判準：**「把這個檔剪下來貼進別人的信裡，它還說得出自己是什麼嗎？」**
+
+🔴 **已知缺陷（待修，等 exclusive 窗結束）**：`ndtwin-vm.sh` 的 `qemu_pids()` 比對的是
+**cmdline（argv）**，不是 `exe` ⇒ **一個 argv[0] 假裝成 `qemu-system-*` 的行程會被 `vms` 算成 VM**。
+`host_witness.sh` 用 `exe`，**不受影響**。
+⚠️ **修它必須連 fixture 一起改**——現在六處 stand-in 只偽裝 argv，改用 exe 判別後**它們會全部消失**；
+要用一份改名成 `qemu-system-x86_64` 的**真二進位檔**。
+📌 **argv 側的陽性對照用 `bash -c 'exec -a qemu-system-x86_64 sleep 4'`**（B 輪線提供）——
+它是真的改 `argv[0]`，比 `bash -c '…' name` 硬一級（後者連 `cmdline[0]` 都還是 `bash`）。
+🔑 **而 `comm` 不會被這兩種騙**（實測 `comm=bash`／`comm=sleep`），
+所以「改用 `exe`」的理由是 **exe 由核心維護、行程改不了**，**不是**「comm 壞了」。
 
 🔑 **`/dev/kvm` 是 `root:kvm`**，所以「要不要 root 才能開 VM」的開關就是**群組成員資格**。
 桌面登入時 logind 會給一條 `user:<帳號>:rw-` 的 **ACL**，但**人一登出就收回**，SSH 進來的
@@ -66,7 +83,7 @@ session 會突然開不了 VM。**ACL 是借來的，群組才是自己的**；�
 bash tools/remote-lab/test_vm_coordination.sh
 ```
 
-**83/83**（2026-08-31）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
+**96/96**（2026-09-01）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
 green 方向（不在表上的機器要正常落到 `unknown machine`，證明它不是無差別拒絕）。
 斷言比對**訊息文字**不只比對 rc——好幾種不同的失敗都是 `rc=1`。
 
@@ -146,6 +163,37 @@ G15 一開始三個 stand-in 全用我的格式寫，所以全綠——現在有
 
 ✅ **部署後對真實對象複驗**（不是 fixture）：`vms` 在那台上列出該線的 VM、標 `no CONFIG`、
 推導出 `4 vCPU / 6144 MiB`，**與它登記的工作點相符**。
+
+### 🔴 83 → 96（G16）：**hostfwd 的位址是安全屬性，而我的測試把錯誤分類寫成了規格**
+
+`adopt` 在「Read out of its argv, not typed in」這句底下印了 `port=2222`——**四欄三真一假**。
+成因同上：regex 寫死 `hostfwd=tcp:127\.0\.0\.1:`，而對方的 argv 是 `hostfwd=tcp::2296-:22`。
+> **三真一假比四個都沒有更難查，因為那三個真的替假的背書。**
+
+🔑 **第一版只修了 `CONFIG`**——`claim_write` 把 `$SSH_PORT` 蓋進 `OWNER`，
+**而 `vms` 的 port 欄正是從 `OWNER` 讀的** ⇒ **一個假值有兩個落點，只修看得見的那個等於沒修。**
+
+而順著查出來的不是格式問題是**安全屬性**：qemu 的 `hostfwd=tcp:[hostaddr]:port-`
+**省略 hostaddr ＝綁所有介面**。對方當晚每顆 VM 都是 `tcp::<port>`，實際在聽 `0.0.0.0`。
+同一個假設還有第二處：`vms` 的 listening 段本來 `grep '^ *127.0.0.1:'`
+⇒ 綁 `0.0.0.0` 的 port **不是沒被標記，是被過濾掉了**，而那一段叫「the ground truth」。
+
+#### 🔴 而測試把錯誤分類寫成了規格
+
+修法上線後**第一次真的跑**就把 systemd-resolved 的 `127.0.0.53%lo` 標成暴露——**127/8 全是 loopback**。
+測試沒抓到，**因為它就是那個錯誤的來源**：為了「測暴露偵測器不該製造暴露」，
+fixture 挑了 `127.0.0.2`，然後斷言它**會**被標記。
+
+> **一個為了安全而挑的 fixture，把一個錯誤的分類固定成了規格。**
+
+⇒ **解法是別用 socket**：分類是字串的純函數 ⇒ 抽成 `addr_is_loopback`／`listener_level`，
+**用表格測**（127/8、`::1`、帶 scope 的 `::1%lo` 對上 `0.0.0.0`／`[::]`／LAN）。
+不開任何 port，而且涵蓋到 socket fixture **構不到**的形式。
+🔑 **標記分兩級**：🔴 只留給「lab VM 對外轉發」，本機 sshd 這種給中性註記——
+**一個會對正常系統狀態發警報的標記，人會學會跳過它，而跳過的時機正好是它該有用的時候。**
+
+📌 **一個等價變異照實記**：`%iface` 剝除在全 IPv4 案例下是多餘的（`127.*` 這個 glob 本來就吃得下後綴）
+⇒ 加 `::1%lo` 進表格才讓它可殺。**把等價變異當成覆蓋率的洞處理，不要記成「殺不掉，算了」。**
 
 **三個變異都親自看過紅**：拿掉 `stop` 的守衛（＝08-31 之前的真實狀態）→ 3 紅、
 給唯讀的 `vms` 加守衛 → 2 紅、弄壞解析器 → 8 紅且控制組明說「以上全部空過」。
