@@ -1,0 +1,136 @@
+NDTwin P4/BMv2 demo VM -- provenance of the tools under ~/Desktop
+written 2026-08-31T14:39:40+00:00 on the image itself
+revised 2026-09-01 (Network-Traffic-Visualizer pinned; API interoperability measured)
+
+Each tree below was cloned from GitHub into this image. The .git directories are
+REMOVED before packaging -- a repository carries every blob it ever held, and an image
+is a filesystem, so shipping them ships history nobody inspected. That deletion is also
+why this file exists: after it, this is the only record of which commit you have.
+
+TREE                               COMMIT     DATE         ORIGIN
+Energy-Saving-App                  e5b3ec1    2026-04-20   https://github.com/ndtwin-lab/Energy-Saving-App.git
+Simulation-Platform-Manager        b7efd93    2026-04-20   https://github.com/ndtwin-lab/Simulation-Platform-Manager.git
+Traffic-Engineering-App            f108c7c    2026-04-20   https://github.com/ndtwin-lab/Traffic-Engineering-App.git
+Network-Traffic-Visualizer         b5e039c    2026-03-30   https://github.com/ndtwin-lab/Network-Traffic-Visualizer.git
+
+--------------------------------------------------------------------------------
+Network-Traffic-Visualizer is pinned to b5e039c, and that is deliberate
+--------------------------------------------------------------------------------
+
+All four trees are now clean checkouts. Until 2026-09-01 this one was not: it was
+upstream main (9b56b30) with four uncommitted edits laid on top, and this file used
+to describe that arrangement. It has been replaced by a plain checkout of b5e039c,
+which is the commit the installation manual tells you to use.
+
+Why main cannot be used. main does not compile. WindowStateRestore is called from
+four places (SideBar.java x3, InfoDialog.java x1) and is declared nowhere in the
+repository -- it never existed in its history. The regression arrived with 9ef655f
+(2026-03-31) and main is 9b56b30 (2026-04-20), so the public tip has not compiled
+since March.
+
+b5e039c is the commit those two later commits sit on, so pinning to it removes the
+problem instead of patching around it. What you give up by not being on main:
+nothing measurable. The two commits after b5e039c add no feature -- they wrap
+already-existing dialogs in window-state preservation, add
+NetworkTopologyApp.getPrimaryStage(), and add a licence header.
+
+  Verified here on 2026-09-01, after the change: all 49 files tracked at b5e039c
+  match the checkout byte for byte, no reference to WindowStateRestore remains in
+  the source, `mvn clean package` succeeds, and the application starts under a
+  display via its own launcher (network_traffic_visualizer.sh -> mvnw javafx:run).
+  The same launcher with no display available fails with "Unable to open DISPLAY",
+  so the start test was answering about the application and not about the harness.
+
+  🔴 If you build it yourself: maven-shade leaves TWO jars in target/. The one you
+  want is NDTanimation-1.0-SNAPSHOT.jar (~61 MB, Main-Class:
+  org.example.demo2.NetworkTopologyApp). The other, original-NDTanimation-1.0-
+  SNAPSHOT.jar (~239 KB), is the pre-shade jar: it has no Main-Class, and running
+  it produces "no main manifest attribute" -- which looks exactly like a broken
+  build and is not one. Read the manifest; do not take the first jar you find.
+
+NDTwin-local-changes.patch is still in that directory, unchanged, but its status has
+changed. It is NO LONGER APPLIED and is not needed. It is kept as evidence of WHY
+main is unusable: it is a byte-for-byte copy of the uncommitted edits the NDTwin
+author runs locally, dated 2026-06-09, and what it does is comment out the four
+WindowStateRestore calls and restore the work each of them was wrapping. Read it if
+you want to see the shape of the breakage; you do not need to apply it to anything.
+
+--------------------------------------------------------------------------------
+Running the two that need root
+--------------------------------------------------------------------------------
+
+energy_saving_app and simulation_platform_manager mount NFS at startup and abort if
+that fails. systemd units are installed for both (ndtwin-esa, ndtwin-spm) and are
+DISABLED -- see README-NDTwin-tools.md before enabling them.
+
+--------------------------------------------------------------------------------
+The kernel tree is recorded separately
+--------------------------------------------------------------------------------
+
+~/Desktop/NDTwin-Kernel also had its .git removed, and its provenance lives in its
+own file:
+
+    ~/Desktop/NDTwin-Kernel/PROVENANCE.txt
+
+That file also records that the kernel tree's doc/ directory was removed from this
+image, and how this tree differs from the public snapshot you can fetch. If you are
+checking what this image is built from, you need both files: this one for the
+applications, that one for the kernel.
+
+--------------------------------------------------------------------------------
+What was verified on this image, and what was not
+--------------------------------------------------------------------------------
+
+Verified, on the packaged artefact itself, not on a working copy:
+
+  * each of the four trees builds from source here (the pre-built binaries that came
+    with two of the clones were deleted first, so what you have was compiled here)
+  * each program starts: energy_saving_app serves :8001, simulation_platform_manager
+    serves :9000, request_manager serves :8002, the Visualizer opens its window under
+    a display, Traffic-engineering-App.py reaches its menu, and
+    energy_saving_simulator runs to completion on an input file
+  * a cold boot of this image listens on nothing but sshd and the local DNS stub
+  * the P4/BMv2 fabric still comes up and passes traffic: 10 switches, 12 paths,
+    40 edges, pingall 0% dropped (12/12)
+
+--------------------------------------------------------------------------------
+Do these applications talk to THIS kernel's API? -- measured 2026-09-01
+--------------------------------------------------------------------------------
+
+Until 2026-09-01 this section said the question had NOT been tested, and warned that
+"builds and starts" is not "interoperates". It has now been tested, against the
+kernel binary in this image (build/bin/ndtwin_kernel, sha256 df157f85db93...), with
+the BMv2 fabric up and the kernel answering on :8000.
+
+Method, because the answer depends on it. Every endpoint each application calls was
+requested directly, with both GET and POST. This kernel answers 404 -- not 405 --
+when a path exists but the method is wrong, so an endpoint counts as ABSENT only if
+BOTH methods return 404. Two controls ran alongside: an invented name
+(/ndt/definitely_not_a_real_endpoint) and an endpoint that exists only in the
+kernel's later development (/ndt/get_flow_dispatch_status). Both came back ABSENT,
+which is what makes a finding of "absent" mean anything.
+
+  Traffic-Engineering-App        5/5 endpoints present.  Also run live: it drove
+                                 get_graph_data / acquire_lock / release_lock
+                                 against the kernel and completed TE cycles.
+  Network-Traffic-Visualizer     5/5 endpoints present.
+  Simulation-Platform-Manager    3/3 endpoints present.  Also run live: it
+                                 registered ("Registered app 'power' with App ID: 1")
+                                 and its result callback got HTTP 200.
+  Energy-Saving-App              13 of 14 present, and ONE ABSENT:
+
+      🔴 /ndt/disable_switch
+
+      Energy-Saving-App POSTs to it from disable_switch() in src/app/http.cpp. This
+      kernel does not implement it: the name appears nowhere in the kernel's source
+      and nowhere in the compiled binary, and both GET and POST return 404. Every
+      other call that application makes -- including the power path,
+      set_switches_power_state -- is present and answered.
+
+      The four application trees are from 2026-04-20 and the kernel here is from
+      2026-08-28, so an endpoint the applications remember and the kernel no longer
+      serves is the expected shape of the gap. It is reported rather than papered
+      over: if you exercise the Energy-Saving-App code path that disables a switch,
+      it will get a 404 from this kernel.
+
+[Co-developed with claude code -- Adam]

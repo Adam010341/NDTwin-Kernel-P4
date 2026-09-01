@@ -1,0 +1,102 @@
+NDTwin P4/BMv2 demo VM -- source provenance
+Git metadata was removed from this image before distribution. The commit ids below
+identify what the working tree contains.
+
+repo: /home/tester/Desktop/NDTwin-Kernel
+  remote: https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+  branch: main
+  commit: 20cd80b62948e316646dd24f302f5278fee544ee
+  date:   2026-08-28 10:46:57 +0800
+
+repo: /home/tester/Network-Traffic-Generator
+  remote: https://github.com/ndtwin-lab/Network-Traffic-Generator.git
+  branch: main
+  commit: 6e3f38817229bd784517e3296a2faca2280e166c
+  date:   2026-04-30 10:31:29 +0800
+
+repo: /home/tester/Network-State-Recorder
+  remote: https://github.com/ndtwin-lab/Network-State-Recorder.git
+  branch: main
+  commit: 850f61da1cea83b583b27fd4f1d5d30a61588731
+  date:   2026-04-20 10:38:03 +0800
+
+
+--------------------------------------------------------------------------------
+doc/ is not in this image
+--------------------------------------------------------------------------------
+
+The kernel tree here is 20cd80b MINUS its doc/ directory, removed 2026-09-01 before
+packaging: 594 files, 20.9 MB.
+
+563 of those 594 were doc/audit/ -- an internal engineering audit trail: measurement
+rounds, raw logs, pre-registrations and design notes recording how the software was
+built and what was tried and rejected along the way. It documents the development,
+not the product. The other 31 were developer-facing notes and runbooks.
+
+Nothing the software READS at run time lived under doc/. Checked, not assumed: no
+source file, script, config or systemd unit in this image opens a path under doc/.
+
+But something else is true and you should know it before you go looking. About forty
+source comments CITE documents that used to be under doc/, like
+
+    // Design: doc/2026-08-11_phase7_power_mechanism_design.md
+    // See doc/audit/2026-08-08_commit-review/power.md H2.
+
+and those citations now point at files this image does not contain. Where they lead:
+
+  * a citation to doc/<something>.md, doc/debug-log/ or doc/2026-08-16_delivery-
+    package/ -- these are among the 31 files the public snapshot below still has,
+    so you can read them there.
+  * a citation to doc/audit/... -- the audit trail is in neither this image nor the
+    public snapshot.
+
+The fabric acceptance was re-run on the packaged artefact after this removal. Its
+result is recorded in the audit trail for this round rather than asserted here, so
+that this file states only what was true when it was written.
+
+
+--------------------------------------------------------------------------------
+Comparing this tree against something you can actually fetch
+--------------------------------------------------------------------------------
+
+A public snapshot of the same kernel tree is published at
+
+    https://github.com/ndtwin-lab/NDTwin-Kernel-P4-public
+    commit 936f8c6 -- "Snapshot of the P4/BMv2 kernel tree at 20cd80b, published
+    for the manual"
+
+It is CLOSE TO, BUT NOT IDENTICAL TO, the tree in this image. The differences are
+listed here rather than left for you to trip over. Measured file by file on
+2026-09-01 against that snapshot's 436 tracked files:
+
+  * 399 of its 405 non-doc files are byte-for-byte identical to the copies here.
+
+  * 31 doc/ files exist in the snapshot and not here. The snapshot removed only
+    doc/audit/; this image removes all of doc/.
+
+  * 6 non-doc files differ:
+
+      p4_proxy/mininet/host_count_override
+          snapshot: 128    this image: 4
+          This image ships the 4-host fabric -- the variant it has the memory to
+          run, and the one the installation manual's P4 section uses.
+
+      p4_proxy/proxy_agent/main.py
+          This image's copy is the LONGER one: it additionally carries
+          claim_listen_socket(), which takes :8081 before uvicorn is allowed to
+          start. Without it a second proxy can appear to start while the first
+          still holds the port.
+
+      p4_proxy/mininet/bmv2_binary_override
+          Same effective setting; the snapshot's copy carries a long comment
+          header explaining the two BMv2 builds, which this copy does not.
+
+      README.md, intelligent_router.py, testbed_topo.py
+          Differ substantially; the snapshot's copies are the longer ones.
+
+If you diff this tree against that snapshot, the above is what you will find. The
+private repository named at the top of this file is where the commit id comes from
+and is not reachable without credentials; the public snapshot is the one you can
+fetch.
+
+[Co-developed with claude code -- Adam]
