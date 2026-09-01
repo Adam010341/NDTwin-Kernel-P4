@@ -30,6 +30,20 @@
 #  wrongly, and the cost lands on whoever trusts it most.
 # ===========================================================================
 #
+# 🔴 THIS FILE LIVES IN A SHARED WORKTREE. Changing it silently changes the
+#  instrument that another session's comparison is already running against.
+#
+#  2026-09-01: the fix below landed at 11:38 as an uncommitted edit in this
+#  shared tree. A round that started at 11:32 picked it up mid-comparison and
+#  attributed a 346x change in background load to "one witness instead of two",
+#  because `git log` showed nothing and there was no reason to suspect the tool
+#  had moved. They caught it by reading the SAMPLING CADENCE out of their own
+#  logs -- 8.2 s vs 5.0 s -- not by remembering.
+#
+#  ⇒ If you change sampling cost or cadence here, say so to whoever is running.
+#  ⇒ And a log's own cadence is the field that dates it. That is the version
+#     stamp this file does not otherwise have.
+#
 # 🔴 AND: a VM is identified by /proc/<pid>/exe, never by argv.
 #
 #  The mutation gate in this directory launches stand-ins whose argv[0] is
