@@ -1,0 +1,14 @@
+label=tcp_loop_n1_b
+mode=loopback
+n_flows=1
+duration_s=10
+reps=3
+host_pair=h1->h65 (127.0.0.1)
+started=2026-09-01T11:20:19+08:00
+loadavg_at_start=17.02 6.35 3.58
+switch_pid=994702 exe=UNREADABLE
+switch_sha256=
+bmv2_binary_override=/usr/local/bmv2-fast/bin/simple_switch_grpc
+aggregate_goodput_mbit_median=53531.4
+reps_raw=53531.4 53093.2 57194.9
+finished=2026-09-01T11:20:52+08:00
