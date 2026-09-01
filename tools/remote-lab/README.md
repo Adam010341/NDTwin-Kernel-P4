@@ -30,7 +30,7 @@
 | `ndtwin-virt-root.sh` | 遠端 host（**唯一要 root 的一步**） | 裝 `qemu-system-x86`／`qemu-utils`／`cloud-image-utils`＋帳號加進 `kvm` 群組。**不碰 sudoers、不加任何 NOPASSWD** |
 | `vm-install-stack.sh` | **guest VM 內** | 安裝手冊 §3.1＋§3.2 apt ＋ `install-p4dev-v8.sh`。**驗收釘產物不釘 rc** |
 | `p4_patch_preflight.sh` | 任何有網路的機器 | 2 分鐘 dry-run：p4-guide 的 patch 還套不套得上（**v10 當控制組**） |
-| `host_witness.sh` | **要被見證的那台**（host 或 guest 都可） | 量測窗內的**連續佔用記帳**：每行帶 `host=`、用 `/proc/<pid>/exe` 判別 VM、三態 `vm`／`other`／`unreadable`。`--self-test` **純的**（假 procfs、零行程）⇒ 別人的 exclusive-CPU 窗內也跑得了 |
+| `host_witness.sh` | **要被見證的那台**（host 或 guest 都可） | 量測窗內的**連續佔用記帳**：每行帶 `host=`、用 `/proc/<pid>/exe` 判別 VM、三態 `vm`／`other`／`unreadable`。`--self-test` **19 條、純的**（假 procfs、零行程）⇒ 別人的 exclusive-CPU 窗內也跑得了 |
 | `test_vm_coordination.sh` | **本機，不碰任何 lab 機器** | 下述全部守衛的變異閘 |
 
 🔴 **`host_witness.sh` 為什麼存在**：09-01 有人讀一份**沒有 hostname 欄**的見證 log，
@@ -38,6 +38,28 @@
 而那顆 VM 在 lab 機器上。**那份 log 沒寫錯，它只是從來沒說自己在講哪一台。**
 > **一份「機器上有什麼」的紀錄，必須自己說出它講的是哪一台。**
 判準：**「把這個檔剪下來貼進別人的信裡，它還說得出自己是什麼嗎？」**
+
+### 09-01 第一次對外實跑抓到三個缺陷（`6ba089a`，全部由使用它的那條線發現）
+
+1. **未辨識的旗標會變成取樣間隔。** `--help` 不是分支 ⇒ 落進 `INTERVAL` ⇒ `sleep --help`
+   立刻回 ⇒ **忙迴圈取樣器**。🔑 **失效方向是重點**：取樣密度正是讀者用來論證「連續有帳」
+   的量，所以壞掉的見證**產出一份看起來覆蓋率極佳的紀錄**，而「有沒有 >8 s 空隙」那種判準
+   查的是反方向、結構上抓不到。header 有印 `interval=--helps`——
+   **自陳不是閘門，拒絕才是。**
+2. 🔴 **`tty_nr==0` 被當成「這是核心執行緒」。** 在它正在見證的那台機器上交叉列表：
+   **248 個真核心執行緒 ＋ 72 個使用者行程**（`/sbin/init`、`systemd-resolved`、`blkmapd`…
+   每個沒有控制終端的 daemon）全被報成 `other`＝**不是 VM**，而真相是「我讀不到」。
+   **root 或 `setsid` 起的 qemu 正是這一類** ⇒ **舊版會在有 VM 的機器上報 `vms=0`**。
+   ⚠️ **舊 log 的 `vms=` 要讀成「我讀得到的 VM 數」**，尤其 nslab 上跑在別的使用者名下的。
+   判準已換成 **cmdline 是否為空**（核心執行緒依定義沒有 argv）。
+3. **它自己是不小的負載源。** 每 pid 一個 `$(readlink)` ⇒ 671 pid 上 **~2,000 fork／3.19 s
+   每筆取樣**，跑在別人 CPU 獨佔量測中的機器上；而且實際節奏是 `interval + 取樣成本`，
+   要 1 秒會拿到 5 秒。改成一次 `find` + bash `read` ⇒ **0.156 s／~6 fork**（對照 9/12/9、
+   治療 16/16/18）。**記帳負載的儀器不可以是明顯的負載來源。**
+
+📌 **`# end` 行**：正常結束、訊號、`sleep` 失敗、節奏塌陷都會寫一行 `# end … reason=…`。
+⇒ **沒有 `# end` 結尾的 log 就是被截斷的**（被 SIGKILL 打死的那種寫不出來，而那正好是缺的那份）。
+在這行之前，判斷見證有沒有中途死掉要「隔幾秒讀兩次行數」。
 
 🔴 **已知缺陷（待修，等 exclusive 窗結束）**：`ndtwin-vm.sh` 的 `qemu_pids()` 比對的是
 **cmdline（argv）**，不是 `exe` ⇒ **一個 argv[0] 假裝成 `qemu-system-*` 的行程會被 `vms` 算成 VM**。
