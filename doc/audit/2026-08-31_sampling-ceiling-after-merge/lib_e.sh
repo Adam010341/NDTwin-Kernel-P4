@@ -43,9 +43,51 @@ PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 
 # 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
 # "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,
-# with the added hazard that the dry lines are the ones that look tidiest.  The suffix is applied
-# here, once, after every caller has set LOG.
-[[ "$DRY_RUN" == 1 ]] && LOG="${LOG%.log}.dryrun.log"
+# with the added hazard that the dry lines are the ones that look tidiest.
+#
+# 🔴 But this used to read `LOG="${LOG%.log}.dryrun.log"`, appending to whatever LOG it was handed.
+# round.env does `export LOG=`, so a child process inherits the PARENT'S ALREADY-SUFFIXED value and
+# suffixes it again: the number of layers equals the process nesting depth, which is how F5 produced
+# `run_f5.dryrun.selftest.dryrun.log`.  The suffix logic assumed it was given the original name, and
+# `export` handed it the previous level's product.  The missing property has a name: f(f(x)) != f(x).
+#
+# So the suffix is now DERIVED from an immutable base rather than appended to an inherited value,
+# and `derive_log` is a pure function -- base in, name out, no globals -- so nesting cannot reach it.
+# [Co-developed with claude code -- Adam]
+derive_log() {   # $1 = the IMMUTABLE base path, $2.. = suffix words, applied in order
+    local out="$1"; shift
+    local w
+    for w in "$@"; do out="${out%.log}.$w.log"; done
+    printf '%s\n' "$out"
+}
+
+# Every script sets its OWN base before sourcing this file -- gates_e.sh and run_e.sh write
+# different files, so the base cannot live in round.env alone.  `:?` rather than a default: a
+# script that forgets should stop, not inherit whatever the parent happened to be writing.
+: "${LOG_BASE:?each script must set LOG_BASE (its own unsuffixed log path) before sourcing lib_e.sh}"
+LOG_SUFFIX_DRY=""
+[[ "$DRY_RUN" == 1 ]] && LOG_SUFFIX_DRY=dryrun
+# shellcheck disable=SC2086  # empty $LOG_SUFFIX_DRY must vanish, not become an empty argument
+LOG="$(derive_log "$LOG_BASE" $LOG_SUFFIX_DRY)"
+
+# 🔑 And an assertion, because the fix above is a CONVENTION every caller has to remember, and a
+# convention nobody checks is how the original defect survived.  Forgetting to derive now fails
+# loudly here instead of quietly sharing a transcript with a real run.
+assert_log_is_derived() {
+    if [[ "$DRY_RUN" == 1 && "$LOG" != *.dryrun.* ]]; then
+        printf '🔴 %s: DRY_RUN=1 but LOG=%s carries no .dryrun. segment.\n' "${BASH_SOURCE[1]##*/}" "$LOG" >&2
+        printf '   Derive it: LOG="$(derive_log "$MY_BASE" dryrun ...)".  A dry run must never\n' >&2
+        printf '   share a transcript with a real one, and appending to the inherited LOG is what\n' >&2
+        printf '   produced run_f5.dryrun.selftest.dryrun.log.\n' >&2
+        exit 2
+    fi
+    if [[ "$DRY_RUN" != 1 && "$LOG" == *.dryrun.* ]]; then
+        printf '🔴 %s: this is a REAL run but LOG=%s is a dry-run transcript.\n' "${BASH_SOURCE[1]##*/}" "$LOG" >&2
+        printf '   Almost certainly an inherited LOG from a dry parent.  Derive from the base.\n' >&2
+        exit 2
+    fi
+    return 0
+}
 
 HERE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

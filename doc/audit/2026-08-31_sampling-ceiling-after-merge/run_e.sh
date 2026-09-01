@@ -35,7 +35,8 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -n "${ROUND:-}" ]] || . "$HERE/round.env"
-LOG="$ROUND/run_e.log"
+LOG_BASE="$ROUND/run_e.log"      # this script's immutable base; lib_e.sh derives LOG from it
+LOG="$LOG_BASE"
 # shellcheck source=lib_e.sh
 . "$HERE/lib_e.sh"
 
@@ -293,7 +294,10 @@ bltrue() {
 # 🔴 `plan` executes for real and needs no fabric, so it is not a dry run -- but it is not a
 # measurement either, and a plan transcript sitting in the measurement log is the same
 # "跑過 vs 讀過未執行 混表" hazard the dry-run suffix exists to prevent.  Its own file.
-[[ "${1:-plan}" == plan ]] && LOG="${LOG%.log}.plan.log"
+# Derived from the base, not appended to the current LOG: appending here would stack a second
+# `.plan` onto an inherited one.  shellcheck disable=SC2086 -- an empty $LOG_SUFFIX_DRY must vanish.
+# shellcheck disable=SC2086
+[[ "${1:-plan}" == plan ]] && LOG="$(derive_log "$LOG_BASE" $LOG_SUFFIX_DRY plan)"
 
 case "${1:-plan}" in
     plan)   preflight plan >/dev/null || true; plan ;;

@@ -35,7 +35,8 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -n "${ROUND:-}" ]] || . "$HERE/round.env"
-LOG="$ROUND/gates_e.log"
+LOG_BASE="$ROUND/gates_e.log"    # this script writes its own file, not the round default
+LOG="$LOG_BASE"
 # shellcheck source=lib_e.sh
 . "$HERE/lib_e.sh"
 

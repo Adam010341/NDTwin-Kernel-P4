@@ -29,7 +29,28 @@ PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 : "${_DRY_EXE_READS:=0}"
 # 🔴 A dry run and a real run never share a transcript (CLAUDE.md: "跑過" and "讀過未執行" are
 # never tabled together), and the dry lines are the ones that look tidiest.
-[[ "$DRY_RUN" == 1 ]] && LOG="${LOG%.log}.dryrun.log"
+#
+# 🔴 This used to read `LOG="${LOG%.log}.dryrun.log"`, appending to whatever LOG it was handed.
+# round.env does `export LOG=`, so an `arm` child inherited the parent's FINISHED name and suffixed
+# it again: `run_f5.dryrun.selftest.dryrun.log`, one layer per process nesting level.  The suffix
+# logic assumed it was given the original name; `export` gave it the previous level's product.
+# The missing property has a name: f(f(x)) != f(x).
+#
+# Now every name is DERIVED from the immutable LOG_BASE.  derive_log is pure -- base in, name out,
+# no globals -- so nesting cannot reach it.  Kept in sync with lib_e.sh's copy by
+# tests/shell/test_log_suffix_idempotent.sh, which runs both.
+# [Co-developed with claude code -- Adam]
+derive_log() {   # $1 = the IMMUTABLE base path, $2.. = suffix words, applied in order
+    local out="$1"; shift
+    local w
+    for w in "$@"; do out="${out%.log}.$w.log"; done
+    printf '%s\n' "$out"
+}
+: "${LOG_BASE:?round.env must export LOG_BASE (the unsuffixed log path)}"
+LOG_SUFFIX_DRY=""
+[[ "$DRY_RUN" == 1 ]] && LOG_SUFFIX_DRY=dryrun
+# shellcheck disable=SC2086  # an empty $LOG_SUFFIX_DRY must vanish, not become an empty argument
+LOG="$(derive_log "$LOG_BASE" $LOG_SUFFIX_DRY)"
 
 say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 RUN() { if [[ "$DRY_RUN" == 1 ]]; then printf '[%s] DRYRUN-EXEC %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; return 0; fi; "$@"; }
@@ -778,8 +799,11 @@ plan() {
 # Same reasoning as run_e.sh: `plan`, `selftest` and `restore` execute for real and need no
 # fabric, so they are not dry runs -- but none of them is a measurement, and their transcripts
 # must not share a file with one.
+# Derived from the immutable base, not appended to the current LOG -- appending here is the second
+# half of the doubling: a child in `arm` mode inherited a name that already carried `.selftest`.
+# shellcheck disable=SC2086  # an empty $LOG_SUFFIX_DRY must vanish, not become an empty argument
 case "${1:-plan}" in
-    plan|selftest|restore) LOG="${LOG%.log}.$1.log" ;;
+    plan|selftest|restore) LOG="$(derive_log "$LOG_BASE" $LOG_SUFFIX_DRY "$1")" ;;
 esac
 
 case "${1:-plan}" in
