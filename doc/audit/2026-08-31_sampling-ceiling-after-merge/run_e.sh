@@ -183,12 +183,38 @@ run_cell() {   # $1 = arm, $2 = rate, $3 = rep
         local partner pv
         partner=$(cell_name "$( [[ $arm == m ]] && echo bl || echo p )" "$rate" "$rep")
         pv=$(grep -m1 "^$partner	" "$RESULTS" 2>/dev/null || true)
-        if [[ -n "$pv" && "$pv" != *SATURATED* && "$v" == *SATURATED* ]]; then
+        # 🔴 The missing-partner case is its own abort, and used not to be.
+        #
+        # This read `[[ -n "$pv" && ... ]]`, so when the partner row was ABSENT the guard did
+        # nothing and said nothing -- silent in precisely the state where its input is gone.  The
+        # clause added to make the comparison safe to evaluate is the clause that made it hollow;
+        # same shape as the `n > 0 &&` that emptied a different check in this project, and it is
+        # invisible because a guard that never fires looks exactly like a guard with nothing to
+        # report.
+        #
+        # A missing partner is not a benign state.  ARM_ORDER writes bl and p before m and mp, and
+        # RESULTS ($OUT/cells.tsv) persists across legs, so in a well-formed run the row is always
+        # there.  Its absence means the run is not the run the registration describes, and E-P4
+        # cannot be evaluated at all -- which is a stop, not a skip.
+        #
+        # The decision itself is `ep4_verdict` in lib_e.sh so that it can be tested without running
+        # a cell; the abort stays here so that a test can reach the decision without exiting.
+        case "$(ep4_verdict "$pv" "$v")" in
+        MISSING-PARTNER)
+            abort "§3b E-P4" "$cell: the batching-off partner row $partner is MISSING from $RESULTS,
+        so the registered E-P4 comparison cannot be made for this cell.  This is not 'no problem
+        found'; it is 'the check could not run'.  Do NOT resume past it: every m/mp cell after
+        this one would be unchecked in the same way and the transcript would not say so.
+        Likely causes: an ARM_ORDER that puts m/mp before their partners, a RESULTS file that was
+        truncated or re-baselined between legs, or a partner cell that aborted without recording."
+            ;;
+        RATIO-MOVED)
             abort "§3b E-P4" "$cell is ratio-saturated while its batching-off partner $partner is not.
         Merge changed \`ratio\`.  PREREG §3b: this is a batching implementation bug (most likely
         \`_pending\` not flushed at the end), NOT evidence that the ceiling moved, and it must not
         be reported as one."
-        fi
+            ;;
+        esac
     fi
 }
 

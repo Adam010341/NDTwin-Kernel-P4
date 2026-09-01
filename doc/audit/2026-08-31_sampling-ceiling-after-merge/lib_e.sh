@@ -54,8 +54,93 @@ say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 # 🔴 The registration's stop clauses land here.  This function EXITS; there is no variant that
 # warns and carries on, because "carry on and note it" is how a stopped round becomes a finished
 # one.  PREREG §2 (any gate fails), §3b E-P4 (ratio dropped => batching bug, not a ceiling move).
+
+# -------------------------------------------------------------------------------------------------
+# 🔴 F-24: the abort destroyed the only record of why it aborted.
+#
+# Leg 1 died at 02:10:58 on `fabric short of 10` -- the symptom the poller can see, not the reason.
+# `$LAB topo-start` returns as soon as it has started a tmux session, so everything the topology
+# says about its own startup goes to that pane and none of it reaches $LOG.  abort() then ran
+# restore_production -> teardown -> the session was gone.  BOTH ACTIONS WERE CORRECT; the ORDER
+# was wrong, and the reason that cell failed is now permanently unrecoverable.
+#
+# 🔴 The obvious fix does not work.  `sudo tmux -L ndtwinlab capture-pane` needs a PASSWORD on this
+# machine -- tmux is not in the NOPASSWD list (checked 2026-09-01) -- so it would fail silently in
+# exactly the situation it exists for, which is this project's most-repeated defect shape.
+# `ndtwin-lab topo-out` reaches the same pane and IS NOPASSWD, so that is what this uses.
+#
+# 🔑 The size assertion measures the CAPTURE, not the file.  Writing a header and then checking
+# that the file is non-empty is a check the header alone passes -- the instrument would be
+# certifying its own preamble.  So topo-out lands in a variable, the variable is measured, and an
+# empty capture is reported as NOT CAPTURED rather than as nothing-to-report.
+#
+# 🔑 Called from BOTH abort branches on purpose.  F-24's headline is that the branch which
+# preserves evidence was wired to the case that does not need it: a FORCED abort leaves the fabric
+# standing, so its evidence was never at risk, while the real abort tore it down.  Capturing in
+# both means the forced-abort gates exercise this path -- otherwise it is one more guard whose
+# only execution is the one that cannot fail.
+# [Co-developed with claude code -- Adam]
+preserve_abort_evidence() {   # $1 = the abort's section tag
+    local tag stamp dest pane status_out n
+    tag="${1//[^A-Za-z0-9]/_}"
+    stamp="$(date +%Y%m%dT%H%M%S)"
+    dest="${OUT:-/tmp}/abort-evidence_${tag}_${stamp}.log"
+
+    # Read-only probes, so they run in a dry run too: a capture path that only ever executes
+    # during a real abort is a path that has never been executed.
+    pane="$($LAB topo-out 400 2>&1 || true)"
+    status_out="$($LAB status 2>&1 || true)"
+    n="${#pane}"
+
+    {
+        printf '=== abort evidence, captured BEFORE restore_production (F-24) ===\n'
+        printf 'tag=%s when=%s DRY_RUN=%s FORCED_ABORT=%s pane_bytes=%s\n\n' \
+            "$1" "$stamp" "${DRY_RUN:-?}" "${FORCED_ABORT:-}" "$n"
+        printf -- '--- ndtwin-lab topo-out 400 (the pane F-24 lost) ---\n%s\n\n' "$pane"
+        printf -- '--- ndtwin-lab status ---\n%s\n' "$status_out"
+    } >"$dest" 2>/dev/null
+
+    if [[ "$n" -lt 64 && "${DRY_RUN:-0}" == 1 ]]; then
+        # Expected: a dry run has no fabric, so there is no pane.  Still recorded, because the
+        # thing being tested here is that the capture RAN, not what it found.
+        say "    abort evidence: capture path ran, ${n} bytes (no fabric in a dry run) -- $dest"
+    elif [[ "$n" -lt 64 ]]; then
+        say "🔴 abort evidence: topo-out returned ${n} bytes -- the pane was NOT captured."
+        say "🔴 that is 'not captured', NOT 'nothing to report'.  Wrote $dest anyway."
+    else
+        say "    abort evidence preserved BEFORE restore: $dest (pane ${n} bytes)"
+    fi
+    return 0        # must never change the abort's own outcome
+}
+
+# -------------------------------------------------------------------------------------------------
+# §3b E-P4, as a named function rather than an inline condition.
+#
+# It was three `&&`-ed comparisons inside an `if` in run_e.sh, which made it untestable except by
+# running a whole cell, and untestable is how the fail-open below survived.  This file's own
+# preamble says every gate is a function so that a grep of the script can be matched against a grep
+# of the registration -- E-P4 was the one that was not.
+#
+# Returns a verdict on stdout; the CALLER aborts.  Keeping abort at the call site is what lets a
+# test exercise the decision without the decision exiting the test.
+#
+#   MISSING-PARTNER  the batching-off partner row is absent => the comparison CANNOT BE MADE
+#   RATIO-MOVED      partner healthy, this cell saturated   => batching bug, not a ceiling move
+#   OK               everything else
+# [Co-developed with claude code -- Adam]
+ep4_verdict() {   # $1 = the partner's cells.tsv row (possibly empty), $2 = this cell's verdict text
+    if [[ -z "$1" ]]; then
+        printf 'MISSING-PARTNER\n'
+    elif [[ "$1" != *SATURATED* && "$2" == *SATURATED* ]]; then
+        printf 'RATIO-MOVED\n'
+    else
+        printf 'OK\n'
+    fi
+}
+
 abort() {
     say "🔴 ABORT($1): ${*:2}"
+    preserve_abort_evidence "$1"
     say "🔴 the round stops here.  Do NOT adjust a threshold, an arm or the ladder to get past"
     say "🔴 this: PREREG §2 and §3b(C5) both forbid it.  Fix the gate, or report the finding."
     # 🔴 A FORCED abort is a test OF this path, not a use of it, and the two must not do the same
