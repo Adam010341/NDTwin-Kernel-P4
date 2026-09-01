@@ -1661,16 +1661,29 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 - **關聯**：[[failures-that-report-success]]、[[evidence-must-outlive-the-handoff]]、
   [[injections-must-assert-their-own-success]]。
 
-### 🔴 生產線在跑的那顆 kernel 是全機**唯一沒有重建配方**的 binary，而它只有兩份、都在同一顆碟上
+### 🟡 生產線在跑的那顆 kernel 的重建配方，現在補回了大半——缺的那半是**原始碼狀態**
 
-- **狀態**：**已知、未修**（2026-09-01）。**不是本輪造成的，是本輪剛好把它當成七小時實驗的還原基準才看見。**
-- **事實（逐項查過，不是印象）**：
-  - `e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94` 全機**兩份**：
-    `build/bin/ndtwin_kernel`（活的那顆）與
-    `.test_run/binaries/e-round/ndtwin_kernel.production-backup`（本輪建立的備份）。
-  - **兩份都在同一個檔案系統**——`stat` 兩者皆 `dev=66309`（`/dev/nvme0n1p5` 掛在 `/`）
-    ⇒ **對磁碟故障零冗餘**。兩份都被 `.gitignore` 排除，而且是**兩條不同的規則各蓋一份**
-    （`:9` `build/`、`:21` `.test_run/`），`git ls-files .test_run/` ⇒ **0 個檔在版控裡**。
+> 🏁 **2026-09-01 中午更新，標題與狀態都換過。** 原標題是「全機**唯一沒有重建配方**的 binary，
+> 而它只有兩份、都在同一顆碟上」，兩個宣稱**都已不準**：份數是三不是二（第三份 08-31 20:40
+> 就存在了，本則寫的時候沒查到），而建置設定**一直在那顆 binary 裡面**，沒人打開看。
+> 下面的原文逐條保留並標註，因為推翻它的理由比結論有用。
+
+- **狀態**：**兩件修法都已落地**（provenance 已寫、離碟副本已推），**但不是 RESOLVED**——
+  「怎麼再造一顆一樣的」仍然答不出來，只是問題從「什麼都不知道」縮成「不知道是哪個 source 狀態」。
+- 🔑 **本則自己示範了一次「沒去找就當作找不到」**：原文寫「沒有重建配方」，而那顆 binary
+  **not stripped、帶 debug_info**，`DW_AT_producer` 存著編譯器對自己那次呼叫的紀錄：
+  `GNU C++23 13.3.0 -mtune=generic -march=x86-64 -g -O0 -std=c++23 …`，`DW_AT_comp_dir`
+  指著 build 目錄。**「查不到」與「沒查」在紀錄上長得一模一樣**，而這則當時寫的是前者。
+- **事實（2026-09-01 中午重查）**：
+  - `e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94` 磁碟上**三份**（原文寫兩份）：
+    `build/bin/ndtwin_kernel`（活的那顆，且 `sudo -n mnexec sha256sum /proc/<pid>/exe` 確認
+    **正在跑的行程也是它**）、`.test_run/binaries/e-round/ndtwin_kernel.production-backup`、
+    以及 `~/ndtwin-artifacts/production-kernel/ndtwin_kernel.production-2026-08-31`（附自己的 README）。
+  - 🔴 **三份仍然全在 `dev=66309`**（`/dev/nvme0n1p5` 掛在 `/`），而**這台機器沒有第二顆實體碟**
+    ——`/media/adam/Windows-SSD` 是同一顆 NVMe 的另一個分割區。**三份仍然等於一次磁碟故障**，
+    且該碟 09-01 是 **92% 滿**。⇒ 原文「零冗餘」的結論**成立，份數錯了不影響它**。
+  - 三份都被 `.gitignore` 排除，**兩條不同的規則各蓋一份**（`:9` `build/`、`:21` `.test_run/`），
+    `git ls-files .test_run/` ⇒ **0 個檔在版控裡**。
   - 🔴 **而它們住的兩個目錄，正是任何人清磁碟時最先刪的兩個**：`build/`（重編就有）與
     `.test_run/`（看起來像暫存）。**不是「有兩份所以還好」，是兩份都在慣例上可拋的位置。**
   - 🔴 **它沒有 `.provenance` 檔。** 同一個目錄裡，本輪為了**丟棄用的**兩個實驗臂
@@ -1681,7 +1694,9 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 - 🔑 **倒過來的優先序**：**為了丟棄而建的臂有完整配方，生產線上跑的那顆沒有。**
   「哪一顆在跑」答得出來（sha 對得到），「**怎麼再造一顆一樣的**」答不出來。
 - 🔑 **這條同時解釋了一條一直只有結論沒有理由的規矩**：專案常設「**不要清 `.test_run/`**」。
-  理由就在這裡——**那個目錄裝著 production kernel 的唯一備份與每一個實驗臂的 binary，而且整個不在版控。**
+  理由就在這裡——**那個目錄裝著每一個實驗臂的 binary，而且整個不在版控**（原文寫「production kernel
+  的**唯一**備份」，09-01 中午起不再是唯一：`~/ndtwin-artifacts/` 有一份、`audit-raw` 有一份離碟的。
+  ⚠️ **規矩不因此放寬**——實驗臂的 binary 仍然只有這一個地方有）。
   ⚠️ **規矩存在、理由沒有被寫下來** ⇒ 任何不知道理由的人都可能因為「那看起來像暫存目錄」而清掉它。
 - **本輪的依賴有多深**：E 輪 72 格每一次 `restore_production`（`lib_e.sh:760`）都是
   `cp "$KBIN_BACKUP" "$KBIN"`。**七小時的實驗、兩次中止後的還原，全部靠這一份同碟副本。**
@@ -1691,6 +1706,24 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
      （sha、size、`readelf -d`、觀察到的行為）。**一個查不到的答案要留下痕跡，否則下一個人會以為沒人找過。**
   2. **弄一份離開這顆碟的副本**。`audit-raw` 今晚剛好示範了同一件事：
      **沒推的東西在別的地方不存在**——E 輪有一條 §6 對帳因為舊 raw 只在未推的 `audit-raw` 而做不成。
+- 🏁 **兩件都做完了（2026-09-01 中午）**：
+  1. `.test_run/binaries/e-round/ndtwin_kernel.production-backup.provenance`
+     ——**三種證據強度分節寫**，因為它們不可互換：
+     **MEASURED**（從 binary 自己讀出來的：sha、build-id、`DW_AT_producer` 的完整旗標、
+     `comp_dir`、無 RUNPATH）／**RECOVERED**（從 `build/` 讀的：`CMakeCache.txt` 的
+     `CMAKE_BUILD_TYPE=Debug`、`build.ninja` 的 target 旗標／defines／includes／連結線
+     ——但 `build/` 是可變目錄，若它被重生過這一節就在描述另一次建置）／
+     **INFERRED**（時鐘算術：建置視窗 11:33:05–11:33:48、當時 HEAD＝`9df0a1c`）。
+  2. `audit-raw` `3687892`：`ndtwin_kernel.production-backup.gz`（`gzip -9n`，22.3 MB）
+     ＋ provenance ＋ 分支 README 的適用範圍修訂。**驗收條件是把分支上的 blob 解壓回來
+     sha256 對磁碟原檔**，不是「push 成功」。
+- 🔴 **還沒關上的那一半，寫清楚免得被讀成已解決**：
+  - **原始碼狀態不可考。** DWARF 5 的 line table **沒有帶 source MD5**（File Name Table 只有
+    Dir／Name 兩欄，已查），所以**無法從 binary 反推 source**。
+  - `head_at_build_time=9df0a1c` **是推論不是 provenance**：**HEAD 不等於工作樹**，而這是
+    **共用 worktree**，11:33 當下 `src/` 有未提交修改是「可能」而不是「不太可能」，且現在追不回來。
+  - **從沒試過 byte-for-byte 重建**，而且**不該用顯而易見的方法試**——那會覆蓋
+    `build/bin/ndtwin_kernel`，也就是活的生產 binary。要試就 build 到別的目錄。
 - **關聯**：[[benchmark-must-name-the-binary-it-measured]]（指認量到的 binary ≠ 能再造它）、
   [[packaging-a-filesystem-ships-the-invisible]]、[[evidence-must-outlive-the-handoff]]。
 
