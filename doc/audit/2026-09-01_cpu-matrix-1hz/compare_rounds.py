@@ -74,8 +74,15 @@ def read_round(base):
     # round retracted its own first zero for this, and the 09-01 round then walked into the
     # same hole -- its three mzero replicates carry ~2,378 non-zero twin readings each and are
     # replicates of the 1/64 cell. Checked here, per cell, rather than trusted from the name.
+    #
+    # Two prefixes are tried. mzero is what both rounds called their zero; mzs is the 09-01
+    # re-do, measured by disabling the pipeline's clone predicate instead of by a flag with no
+    # reader, with the control verified before each cell. Every candidate still has to pass the
+    # telemetry check below, so listing mzero here cannot resurrect the void cells -- it just
+    # means the check, rather than the file name, is what decides.
     zs = []
-    for lab in ("mzero_nopoll", "mzero_nopoll_r2", "mzero_nopoll_r3"):
+    cands = [f"{p}_nopoll{s}" for p in ("mzero", "mzs") for s in ("", "_r2", "_r3")]
+    for lab in cands:
         if not am._exists(f"{base}/{lab}_cpu.jsonl"):
             continue
         # The poll arm carries the twin trace; the poll-off arm records none by design, so the
@@ -97,7 +104,7 @@ def read_round(base):
         out["zero_reps"] = zs
 
     zp = []
-    for lab in ("mzero_poll", "mzero_poll_r2", "mzero_poll_r3"):
+    for lab in [f"{p}_poll{s}" for p in ("mzero", "mzs") for s in ("", "_r2", "_r3")]:
         if am._exists(f"{base}/{lab}_cpu.jsonl"):
             c = am.cpu_cell(lab)
             if c:
@@ -207,8 +214,8 @@ def main():
 
     print()
     print("=" * 96)
-    print("THE COLD-FABRIC ZERO -- where a change to a fixed per-iteration cost should show")
-    print("cleanest, because at idle there is no ingest work for it to hide behind")
+    print("THE ZERO-SAMPLING POINT -- the cell that decides whether the gap above is a")
+    print("constant present at all times, or a step that switches on when sampling does")
     print("=" * 96)
     for name, d in data:
         for lab, nz in d.get("zero_rejected", []):

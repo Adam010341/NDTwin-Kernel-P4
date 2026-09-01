@@ -1,0 +1,181 @@
+[23:48:28] === zero-sampling cell, DUR=300s, REPS=3 ===
+[23:48:28]   sampling predicate: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[23:48:29]   kernel sha256: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[23:48:29]   recompute    : sleep_forIlSt5ratioILl1ELl1EE
+[23:48:29] --- replicate 1 of 3 ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 267853) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 .. up
+  waiting for link discovery: want 16256 destination paths
+    paths=7584              paths=12864              paths=16192              paths=16256                                                        converged after 15s
+[3/3] kernel
+  started kernel (pid 283905) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[23:49:11]     verifying: traffic on, telemetry must be zero on every edge
+  twin polls: 24   worst edge reading: 0 bps
+  bytes moved on switch interfaces: 1,891,255,114
+VERIFY OK: traffic moved and every edge read zero
+[23:49:42]     ✓ control holds
+[mzs_poll] h1=265330 h33=265394  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_twin.jsonl
+[mzs_poll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_{cpu,twin}.jsonl, mzs_poll_client.json
+[23:54:47]     mzs_poll done
+[mzs_nopoll] h1=265330 h33=265394  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_twin.jsonl
+[mzs_nopoll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_{cpu,twin}.jsonl, mzs_nopoll_client.json
+[23:59:51]     mzs_nopoll done
+[23:59:51] --- replicate 2 of 3 ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 290870) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=31              paths=4768              paths=8064              paths=12800              paths=16256                                                        converged after 14s
+[3/3] kernel
+  started kernel (pid 306926) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[00:00:33]     verifying: traffic on, telemetry must be zero on every edge
+  twin polls: 24   worst edge reading: 0 bps
+  bytes moved on switch interfaces: 1,893,041,752
+VERIFY OK: traffic moved and every edge read zero
+[00:01:04]     ✓ control holds
+[mzs_poll_r2] h1=288223 h33=288287  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_r2_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_r2_twin.jsonl
+[mzs_poll_r2] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_r2_{cpu,twin}.jsonl, mzs_poll_r2_client.json
+[00:06:08]     mzs_poll_r2 done
+[mzs_nopoll_r2] h1=288223 h33=288287  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_r2_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_r2_twin.jsonl
+[mzs_nopoll_r2] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_r2_{cpu,twin}.jsonl, mzs_nopoll_r2_client.json
+[00:11:12]     mzs_nopoll_r2 done
+[00:11:12] --- replicate 3 of 3 ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 313395) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=5664              paths=12736              paths=16256                                                        converged after 13s
+[3/3] kernel
+  started kernel (pid 329572) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[00:11:55]     verifying: traffic on, telemetry must be zero on every edge
+  twin polls: 24   worst edge reading: 0 bps
+  bytes moved on switch interfaces: 1,892,033,794
+VERIFY OK: traffic moved and every edge read zero
+[00:12:26]     ✓ control holds
+[mzs_poll_r3] h1=310947 h33=311011  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_r3_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_r3_twin.jsonl
+[mzs_poll_r3] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_poll_r3_{cpu,twin}.jsonl, mzs_poll_r3_client.json
+[00:17:30]     mzs_poll_r3 done
+[mzs_nopoll_r3] h1=310947 h33=311011  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_r3_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_r3_twin.jsonl
+[mzs_nopoll_r3] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-01_cpu-matrix-1hz/raw/mzs_nopoll_r3_{cpu,twin}.jsonl, mzs_nopoll_r3_client.json
+[00:22:34]     mzs_nopoll_r3 done
+[00:22:34] --- restoring production pipeline ---
+[00:22:34]   p4 sampling predicate restored
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 336017) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=7296              paths=11808              paths=16064              paths=16256                                                        converged after 15s
+[3/3] kernel
+  started kernel (pid 352189) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[00:23:17]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[00:23:17]   SAMPLE_RATE  : SAMPLE_RATE = 256;
+[00:23:17] === done ===

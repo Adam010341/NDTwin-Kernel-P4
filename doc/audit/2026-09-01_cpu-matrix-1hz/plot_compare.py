@@ -10,14 +10,19 @@ the 08-20 analyser's own loaders -- same discipline as that round's plot_figures
 same reason: a figure on a slide has to trace to the run that produced it, and the report is one
 of the things being checked.
 
-TWO THINGS ARE DELIBERATELY ABSENT FROM THE IMAGE
-1. The stacked baseline/ingest/instrument decomposition the 08-20 figure carried. It needs a
-   verified zero for both rounds and this round does not have one (its mzero cells sample as
-   hard as the 1/64 cell -- NDTWIN_CLONE_DISABLE has no reader). Drawing a split that rests on
-   assuming the two baselines are equal would put an unmeasured assumption inside the picture.
-2. The attribution caveat. The title says what was measured and names neither cause nor effect,
-   so the figure makes no causal claim that a caption would have to walk back. What the delta
-   is and is not belongs in REPORT.md, where a reader can act on it.
+THE `none` COLUMN IS THE POINT OF THE FIGURE, NOT A DECORATION
+Both rounds are within 1.0 point of each other at zero sampling, and ~46 points apart at every
+rate where sampling is on. That is what makes the gap a step rather than a constant: without
+the zero column the same five sampled cells read as "a fixed cost was removed", which is what
+this round reported before the column existed. It is drawn from cells whose telemetry was
+verified zero WHILE TRAFFIC FLOWED, per zero_cell.sh; the main round's mzero cells carried a
+zero's label for 300 s each while sampling at 1/64, and zero_cell() rejects them by
+measurement rather than by name.
+
+DELIBERATELY ABSENT FROM THE IMAGE
+The attribution caveat. The title says what was measured and names neither cause nor effect,
+so the figure makes no causal claim that a caption would have to walk back. What the gap is
+and is not belongs in REPORT.md, where a reader can act on it.
 
 X is the nominal sampling rate, not samples/s: the quantum recovery that turns twin readings
 into samples/s does not work on the 1 Hz round's data (gcd collapses to 1), so samples/s is not
@@ -67,30 +72,81 @@ def series(base, arm):
     return out
 
 
+def zero_cell(base, prefix, arm):
+    """The zero-sampling point, averaged over its replicates -- and only over the ones whose
+    telemetry really is zero.
+
+    The verification is repeated here rather than trusted from the round that produced it,
+    because this is the one number on the figure that is defined by an absence. The main
+    round's mzero cells are the reason: they carried a zero's label for 300 s a piece and
+    sampled at 1/64 the whole time. A cell counts only if its paired poll arm -- the one that
+    carries a twin trace at all -- reports no telemetry on any edge.
+    """
+    am.BASE = base
+    vals = []
+    for suf in ("", "_r2", "_r3"):
+        lab = f"{prefix}_{arm}{suf}"
+        if not am._exists(f"{base}/{lab}_cpu.jsonl"):
+            continue
+        pair = f"{prefix}_poll{suf}"
+        if am._exists(f"{base}/{pair}_twin.jsonl"):
+            rows = [r for r in am.load(f"{base}/{pair}_twin.jsonl") if "twin" in r]
+            if any(v > 0 for r in rows for v in r["twin"].values()):
+                continue                       # not a zero, whatever it is called
+        c = am.cpu_cell(lab)
+        if c:
+            vals.append(c[1].get("kernel", 0.0))
+    return (st.mean(vals), len(vals)) if vals else (None, 0)
+
+
 old_off = series(os.path.join(OLD_DIR, "raw"), "nopoll")
 new_off = series(os.path.join(HERE, "raw"), "nopoll")
 old_on = series(os.path.join(OLD_DIR, "raw"), "poll")
 new_on = series(os.path.join(HERE, "raw"), "poll")
+
+# Sampling rate zero. The 08-20 round has it under mzero (verified zeros); this round's mzero
+# is void and its replacement is mzs, measured with the pipeline's clone predicate disabled and
+# the control checked before each cell rather than after.
+old_z, old_zn = zero_cell(os.path.join(OLD_DIR, "raw"), "mzero", "nopoll")
+new_z, new_zn = zero_cell(os.path.join(HERE, "raw"), "mzs", "nopoll")
+old_z_on, _ = zero_cell(os.path.join(OLD_DIR, "raw"), "mzero", "poll")
+new_z_on, _ = zero_cell(os.path.join(HERE, "raw"), "mzs", "poll")
+
+RATES = [0] + RATES
+old_off = [old_z] + old_off
+new_off = [new_z] + new_off
+old_on = [old_z_on] + old_on
+new_on = [new_z_on] + new_on
 
 delta = [(n - o) if (n is not None and o is not None) else None
          for o, n in zip(old_off, new_off)]
 present = [d for d in delta if d is not None]
 
 x = list(range(len(RATES)))
-labels = [f"1/{r}" for r in RATES]
+labels = ["none" if r == 0 else f"1/{r}" for r in RATES]
 
 fig, (axL, axR) = plt.subplots(1, 2, figsize=(13.5, 5.2),
                                gridspec_kw={"width_ratios": [1.35, 1]})
 
 # ---- left: the two rounds, ingest only -------------------------------------------------
-for ys, col, name, mk in ((old_off, OLDC, "1 kHz recompute  ·  2026-08-20", "o"),
-                          (new_off, NEWC, "1 Hz recompute  ·  2026-09-01", "s")):
+for ys, col, name, mk, up in ((old_off, OLDC, "1 kHz recompute  ·  2026-08-20", "o", True),
+                              (new_off, NEWC, "1 Hz recompute  ·  2026-09-01", "s", False)):
     axL.plot(x, ys, marker=mk, color=col, lw=2.4, ms=8, label=name, zorder=3)
-    for xi, v in zip(x, ys):
+    for xi, v, other in zip(x, ys, (new_off if up else old_off)):
         if v is None:
             continue
-        axL.annotate(f"{v:.1f}", (xi, v), textcoords="offset points", xytext=(0, 11),
-                     ha="center", fontsize=10, color=col, fontweight="bold")
+        # At `none` the two rounds nearly coincide, so a single label offset puts one on top of
+        # the other. Split them only where they actually collide; everywhere else both sit
+        # above their marker, which reads better.
+        # Pushing the lower label DOWN put it on top of the x-axis tick, because at `none` both
+        # series sit near the floor. Sideways is the only free direction there.
+        close = other is not None and abs(v - other) < 6
+        if up or not close:
+            off, ha = (0, 11), "center"
+        else:
+            off, ha = (20, 6), "left"
+        axL.annotate(f"{v:.1f}", (xi, v), textcoords="offset points", xytext=off,
+                     ha=ha, fontsize=10, color=col, fontweight="bold")
 
 axL.set_title("Kernel CPU while ingesting sFlow")
 axL.set_xlabel("sampling rate")
@@ -103,11 +159,16 @@ axL.grid(axis="y", color=RULE, lw=0.6, alpha=0.7)
 axL.set_axisbelow(True)
 
 # ---- right: the gap, rate by rate ------------------------------------------------------
-axR.bar(x, present, color=WARNC, width=0.55, zorder=3)
-for xi, v in zip(x, present):
+dx = [xi for xi, d in zip(x, delta) if d is not None]
+axR.bar(dx, present, color=WARNC, width=0.55, zorder=3)
+for xi, v in zip(dx, present):
     # The bars run downward from zero, so "inside the bar, near its tip" is a POSITIVE offset.
-    axR.annotate(f"{v:.1f}", (xi, v), textcoords="offset points", xytext=(0, 10),
-                 ha="center", fontsize=10.5, color="white", fontweight="bold", zorder=5)
+    # A bar only a point tall has no inside: that label goes below its tip, in ink, or it
+    # lands above the axis and is clipped away -- which is what happened to the `none` bar.
+    inside = abs(v) > 6
+    axR.annotate(f"{v:.1f}", (xi, v), textcoords="offset points",
+                 xytext=(0, 10 if inside else -15), ha="center", fontsize=10.5,
+                 color="white" if inside else INK, fontweight="bold", zorder=5)
 m = st.mean(present)
 # No mean line and no mean label: five value labels within 0.7 of each other already say
 # "flat", and a dashed rule plus its caption collided with the first bar's label. Cheapest
@@ -129,11 +190,19 @@ fig.tight_layout(rect=[0, 0, 1, 0.93])
 path = os.path.join(OUT, "page_two-rounds-kernel-cpu.png")
 fig.savefig(path, dpi=170)
 fig.savefig(path.replace(".png", ".pdf"))
+def fmt(vals, spec="%.1f"):
+    return [("--" if v is None else spec % v) for v in vals]
+
+
 print(f"wrote {path}")
-print(f"  1 kHz poll-off: {['%.1f' % v for v in old_off]}")
-print(f"  1 Hz  poll-off: {['%.1f' % v for v in new_off]}")
-print(f"  gap           : {['%+.1f' % v for v in present]}  mean {m:+.2f}  "
-      f"spread {max(present)-min(present):.2f}")
-print(f"  instrument cost (poll-on minus poll-off), unchanged control:")
-print(f"    1 kHz: {['%.1f' % (a-b) for a, b in zip(old_on, old_off)]}")
-print(f"    1 Hz : {['%.1f' % (a-b) for a, b in zip(new_on, new_off)]}")
+print(f"  rates         : {labels}")
+print(f"  1 kHz poll-off: {fmt(old_off)}   (zero from n={old_zn} verified replicates)")
+print(f"  1 Hz  poll-off: {fmt(new_off)}   (zero from n={new_zn} verified replicates)")
+print(f"  gap           : {fmt(delta, '%+.1f')}")
+sampled = [d for d, r in zip(delta, RATES) if d is not None and r != 0]
+if sampled:
+    print(f"    over the sampled rates only: mean {st.mean(sampled):+.2f}  "
+          f"spread {max(sampled)-min(sampled):.2f}")
+print("  instrument cost (poll-on minus poll-off), unchanged control:")
+print(f"    1 kHz: {fmt([a - b if None not in (a, b) else None for a, b in zip(old_on, old_off)])}")
+print(f"    1 Hz : {fmt([a - b if None not in (a, b) else None for a, b in zip(new_on, new_off)])}")

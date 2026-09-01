@@ -1,0 +1,24 @@
+[23:48:28] === zero-sampling cell, DUR=300s, REPS=3 ===
+[23:48:28]   sampling predicate: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);
+[23:48:29]   kernel sha256: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[23:48:29]   recompute    : sleep_forIlSt5ratioILl1ELl1EE
+[23:48:29] --- replicate 1 of 3 ---
+[23:49:11]     verifying: traffic on, telemetry must be zero on every edge
+[23:49:42]     ✓ control holds
+[23:54:47]     mzs_poll done
+[23:59:51]     mzs_nopoll done
+[23:59:51] --- replicate 2 of 3 ---
+[00:00:33]     verifying: traffic on, telemetry must be zero on every edge
+[00:01:04]     ✓ control holds
+[00:06:08]     mzs_poll_r2 done
+[00:11:12]     mzs_nopoll_r2 done
+[00:11:12] --- replicate 3 of 3 ---
+[00:11:55]     verifying: traffic on, telemetry must be zero on every edge
+[00:12:26]     ✓ control holds
+[00:17:30]     mzs_poll_r3 done
+[00:22:34]     mzs_nopoll_r3 done
+[00:22:34] --- restoring production pipeline ---
+[00:22:34]   p4 sampling predicate restored
+[00:23:17]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[00:23:17]   SAMPLE_RATE  : SAMPLE_RATE = 256;
+[00:23:17] === done ===

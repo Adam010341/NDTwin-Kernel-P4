@@ -44,19 +44,16 @@ CONTROLS -- what did NOT move
      64 |      114.1%  114.2% |      158.6%  158.3% |        25.0%   24.7% |              7.9     7.1
 
 ================================================================================================
-THE COLD-FABRIC ZERO -- where a change to a fixed per-iteration cost should show
-cleanest, because at idle there is no ingest work for it to hide behind
+THE ZERO-SAMPLING POINT -- the cell that decides whether the gap above is a
+constant present at all times, or a step that switches on when sampling does
 ================================================================================================
   1 kHz  (2026-08-20):  2.89%  (n=3, sd 0.03)   [2.84, 2.92, 2.92]
   1 Hz   (2026-09-01):  REJECTED mzero_nopoll -- its paired poll cell carries 2,378 non-zero twin readings, so it is not a zero
   1 Hz   (2026-09-01):  REJECTED mzero_nopoll_r2 -- its paired poll cell carries 2,380 non-zero twin readings, so it is not a zero
   1 Hz   (2026-09-01):  REJECTED mzero_nopoll_r3 -- its paired poll cell carries 2,378 non-zero twin readings, so it is not a zero
-  1 Hz   (2026-09-01):  NOT OBTAINED
+  1 Hz   (2026-09-01):  1.89%  (n=3, sd 0.05)   [1.82, 1.92, 1.92]
 
-  No 1 Hz zero, so the 1 Hz column cannot be split into baseline + ingest.
-  The per-rate comparison below needs no zero: it subtracts one round's cell
-  from the other's at the same rate, and the baseline cancels if it is the same
-  in both -- which is itself unverified, and is why the split is not drawn.
+  delta -1.00 points
 
 ================================================================================================
 IS THE DIFFERENCE A CONSTANT OFFSET?
