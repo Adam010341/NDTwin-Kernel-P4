@@ -232,7 +232,11 @@ def fig7():
     ax.set_xscale("log", base=2)
     ax.set_yscale("log")
     ax.set_xticks(n, [str(v) for v in n])
-    ax.set_xlabel("concurrent flows $n$ (same ladder, mirrored arms)")
+    # "UDP" is load-bearing, not decoration: the §B control (2026-09-01) measured the same
+    # switch and the same five-hop path with TCP and got T(16)/T(1) = 1.222/1.108 -- no
+    # collapse. The collapse this figure draws is UDP's. Both planes ran iperf3 -u, and the
+    # rung criterion is a loss reading, so the qualifier belongs on the ladder itself.
+    ax.set_xlabel("concurrent flows $n$ (same UDP ladder, mirrored arms)")
     ax.set_ylabel("aggregate delivered (Mbit/s)")
     ax.set_xlim(0.9, 19)
     ax.set_ylim(13, 1500)
