@@ -46,6 +46,18 @@ echo "         $RLAB"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 pass=0; fail=0
 
+# 🔴 A stand-in for qemu has to be a REAL BINARY NAMED qemu-system-x86_64, not a
+# shell carrying that string in its argv. ndtwin-vm.sh identifies a VM by
+# /proc/<pid>/exe, which the kernel maintains and a process cannot set, so an
+# argv-only impostor is now correctly INVISIBLE to it -- and six argv-only
+# stand-ins are exactly what this gate used to launch. Changing the tool without
+# changing these would have turned every fixture below into a silent no-op, with
+# the assertions still green because they assert on the tool's OUTPUT.
+# G17 keeps one argv-only impostor on purpose, as the negative control.
+mkdir -p "$T/bin"
+QEMU_BIN="$T/bin/qemu-system-x86_64"
+cp "$(command -v bash)" "$QEMU_BIN" || { echo "🔴 cannot build a qemu stand-in"; exit 2; }
+
 # expect <label> <want-rc> <want-substring> -- then the command on stdin
 expect() {
     local label="$1" want_rc="$2" want="$3"; shift 3
@@ -508,7 +520,7 @@ qemu-img create -q -f qcow2 "$T/home/addtools/work.qcow2" 8M 2>/dev/null || : > 
 # writable disk first, so a picker that simply grabbed the earliest `file=` passed the
 # control -- the control's own comment said "only by luck of argument order", and then
 # the fixture supplied exactly that luck. Mutating the readonly filter away survived.
-bash -c 'sleep 30; :' qemu-system-x86_64 -smp 7 -m 3333 \
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -smp 7 -m 3333 \
     -drive "file=$T/home/addtools/seed.iso,if=virtio,format=raw,readonly=on" \
     -drive "file=$T/home/addtools/work.qcow2,if=virtio,format=qcow2" \
     -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2295-:22 &
@@ -524,14 +536,14 @@ OUTS=$!
 mkdir -p "$T/home/othertool"
 qemu-img create -q -f qcow2 "$T/home/othertool/work.qcow2" 8M 2>/dev/null \
     || : > "$T/home/othertool/work.qcow2"
-bash -c 'sleep 30; :' qemu-system-x86_64 -m 6144 -smp 4 \
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -m 6144 -smp 4 \
     -drive "id=d0,file=$T/home/othertool/work.qcow2,if=none,format=qcow2,discard=unmap" \
     -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2293-:22 &
 OTHR=$!
 mkdir -p "$T/home/ndtwin-vm-inside"
 qemu-img create -q -f qcow2 "$T/home/ndtwin-vm-inside/disk.qcow2" 8M 2>/dev/null \
     || : > "$T/home/ndtwin-vm-inside/disk.qcow2"
-bash -c 'sleep 30; :' qemu-system-x86_64 -smp 2 -m 1111 \
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -smp 2 -m 1111 \
     -drive "file=$T/home/ndtwin-vm-inside/disk.qcow2,if=virtio,format=qcow2" \
     -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2294-:22 &
 INS=$!
@@ -577,7 +589,7 @@ fi
 # missing. A gap in the parser became a completeness claim, which is the exact shape
 # this whole section exists to prevent, sitting one line downstream of the fix for it.
 # (Those lines came from the reviewer session; this case is the test they did not have.)
-bash -c 'sleep 30; :' qemu-system-x86_64 -m 512 -smp 1 \
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -m 512 -smp 1 \
     -cdrom "$T/home/nodisk.iso" -netdev user,id=n0 &
 NODK=$!
 # Wait for the stand-in to be visible in /proc rather than sleeping a guessed interval.
@@ -693,7 +705,7 @@ echo "=== G16 the host address in hostfwd is a security property, not a format q
 mkdir -p "$T/home/ndtwin-vm-exposed"
 qemu-img create -q -f qcow2 "$T/home/ndtwin-vm-exposed/disk.qcow2" 8M 2>/dev/null \
     || : > "$T/home/ndtwin-vm-exposed/disk.qcow2"
-bash -c 'sleep 30; :' qemu-system-x86_64 -smp 2 -m 2048 \
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -smp 2 -m 2048 \
     -drive "file=$T/home/ndtwin-vm-exposed/disk.qcow2,if=virtio,format=qcow2" \
     -netdev user,id=n0,hostfwd=tcp::2291-:22 &
 EXPO=$!
@@ -701,7 +713,7 @@ printf '%s\n' "$EXPO" > "$T/home/ndtwin-vm-exposed/qemu.pid"
 # No hostfwd at all -- the case that used to be filled in from the built-in default.
 mkdir -p "$T/w"
 qemu-img create -q -f qcow2 "$T/w/disk.qcow2" 8M 2>/dev/null || : > "$T/w/disk.qcow2"
-bash -c 'sleep 30; :' qemu-system-x86_64 -smp 3 -m 777 -drive "file=$T/w/disk.qcow2,if=virtio" &
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -smp 3 -m 777 -drive "file=$T/w/disk.qcow2,if=virtio" &
 NOFW=$!
 for _ in $(seq 1 40); do [ -r "/proc/$EXPO/cmdline" ] && [ -r "/proc/$NOFW/cmdline" ] && break; sleep 0.1; done
 
@@ -814,6 +826,69 @@ else
 fi
 kill "$ODDB" 2>/dev/null; wait "$ODDB" 2>/dev/null
 kill "$EXPO" "$NOFW" 2>/dev/null; wait "$EXPO" "$NOFW" 2>/dev/null
+
+echo "=== G17 a VM is identified by exe, and an identity I could not check says so ==="
+# 🔑 Table-tested, because the only fixture that reaches the "unverified" branch is
+# a process owned by ANOTHER USER, and this gate refuses to create one. Extracting
+# the classifier as a pure function is what makes the unreachable branch reachable;
+# the alternative was to leave it untested and call it covered.
+qk() { (. /dev/stdin <<< "$(sed -n '/^qemu_kind()/,/^}$/p' "$VM")"
+        qemu_kind "$1" "$2"; printf '%s' "$QKIND"); }
+QK_OK=1
+[ "$(qk /usr/bin/qemu-system-x86_64 anything)" = verified   ] || { echo "     🔴 real qemu not verified"; QK_OK=0; }
+[ "$(qk /usr/bin/qemu-kvm '')"                 = verified   ] || { echo "     🔴 qemu-kvm not verified"; QK_OK=0; }
+[ "$(qk '/usr/bin/qemu-kvm (deleted)' '')"     = verified   ] || { echo "     🔴 replaced binary not verified"; QK_OK=0; }
+[ "$(qk /usr/bin/bash qemu-system-x86_64)"     = no         ] || { echo "     🔴 argv impostor counted as a VM"; QK_OK=0; }
+[ "$(qk /usr/bin/grep qemu-system-x86_64)"     = no         ] || { echo "     🔴 a grep counted as a VM"; QK_OK=0; }
+[ "$(qk '' /usr/bin/qemu-system-x86_64)"       = unverified ] || { echo "     🔴 unreadable exe + qemu argv not flagged"; QK_OK=0; }
+[ "$(qk '' /usr/bin/python3)"                  = no         ] || { echo "     🔴 unreadable exe + other argv counted"; QK_OK=0; }
+if [ "$QK_OK" = 1 ]; then
+    echo "  ✅ RED-capable -- exe decides; argv only ever produces 'unverified', never 'verified'"
+    pass=$((pass+1))
+else
+    echo "  🔴 the three outcomes do not discriminate"; fail=$((fail+1))
+fi
+
+# The live half. Both directions, because a `vms` that lists nothing would pass
+# the impostor check on its own.
+mkdir -p "$T/g17"; : > "$T/g17/disk.qcow2"
+"$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -smp 1 -m 64 -drive "file=$T/g17/disk.qcow2,if=virtio" &
+G17REAL=$!
+bash -c 'sleep 30; :' qemu-system-x86_64 -smp 9 -m 9999 -drive "file=$T/g17/impostor.qcow2,if=virtio" &
+G17FAKE=$!
+for _ in $(seq 1 20); do [ -e "/proc/$G17REAL/exe" ] && [ -e "/proc/$G17FAKE/exe" ] && break; sleep 0.1; done
+G17OUT=$(env NDT_OWNER=mainDev VM_DIR="$T/g17" bash "$VM" vms 2>&1)
+# ⚠️ Scoped to these two pids. This laptop really does run an unrelated qemu, and a
+# bare grep over the section gets answered by it -- that happened here on 08-31.
+if printf '%s' "$G17OUT" | grep -q "pid $G17REAL"; then
+    echo "  ✅ GREEN-- a real binary named qemu-system-x86_64 IS listed"; pass=$((pass+1))
+else
+    echo "  🔴 the accept path is broken: a genuine qemu stand-in is invisible"; fail=$((fail+1))
+fi
+if printf '%s' "$G17OUT" | grep -q "pid $G17FAKE"; then
+    echo "  🔴 an argv-only impostor is still counted as a VM"; fail=$((fail+1))
+else
+    echo "  ✅ RED-capable -- an argv-only impostor is NOT counted"; pass=$((pass+1))
+fi
+kill "$G17REAL" "$G17FAKE" 2>/dev/null; wait "$G17REAL" "$G17FAKE" 2>/dev/null
+
+echo "=== G18 host_witness carries its own suite, and it must be green here ==="
+# It is not enough that host_witness.sh has a self-test: nothing ran it. A suite
+# that only its author invokes is a suite that goes red in silence.
+WIT="$HERE/host_witness.sh"
+if [ -x "$WIT" ]; then
+    WOUT=$(bash "$WIT" --self-test 2>&1); WRC=$?
+    WN=$(printf '%s\n' "$WOUT" | grep -c '✅')
+    if [ "$WRC" = 0 ] && [ "$WN" -ge 19 ]; then
+        echo "  ✅ host_witness --self-test: $WN assertions, all green"; pass=$((pass+1))
+    else
+        echo "  🔴 host_witness --self-test rc=$WRC with $WN green (want rc=0, >=19)"
+        printf '%s\n' "$WOUT" | grep '🔴' | sed 's/^/       /'
+        fail=$((fail+1))
+    fi
+else
+    echo "  🔴 host_witness.sh missing or not executable next to $0"; fail=$((fail+1))
+fi
 
 printf '\n=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" = 0 ]

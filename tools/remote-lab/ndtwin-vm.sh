@@ -134,15 +134,69 @@ owner_of() {  # owner_of <vmdir> -> the claimant, or "unowned"
 # is not merely unlisted -- it is invisible, and "not listed" reads as "not there".
 # 2026-08-31: a sibling ran a VM out of ~/addtools/work.qcow2 and neither `vms` nor
 # `adopt` could see it at all. Derive from what is actually running instead.
-qemu_pids() {  # every qemu-system process visible to this user, one pid per line
-    local pd
-    for pd in /proc/[0-9]*; do
-        [ -r "$pd/cmdline" ] || continue
-        case "$(tr '\0' ' ' < "$pd/cmdline" 2>/dev/null)" in
-            *qemu-system*) printf '%s\n' "${pd#/proc/}" ;;
+# qemu_kind <exe-target> <argv0> -> QKIND = "verified" | "unverified" | "no"
+#
+# 🔴 Identity comes from /proc/<pid>/exe, which the kernel maintains and which a
+# process cannot set. This used to substring-match the whole cmdline, so it
+# counted (a) the six argv-only stand-ins the gate in this directory launches
+# and (b) anything that merely MENTIONS qemu-system -- a grep, an editor, the
+# shell of whoever is debugging this function. Same family as `pkill -f`.
+#
+# ⚠️ It is NOT a straight field swap, and that is the whole design here. exe is
+# unreadable for another user's process, and seeing OTHER people's VMs is the
+# entire point of `vms` on a shared box -- so switching fields naively would
+# trade over-counting impostors for LOSING every VM that is not mine. A pid
+# whose exe cannot be read but whose argv[0] says qemu is therefore reported as
+# UNVERIFIED: never silently dropped, never silently promoted.
+#
+# Pure on purpose: both inputs are arguments, so all three outcomes are
+# table-testable without starting a process or needing another user's uid.
+QKIND=
+qemu_kind() {
+    local exe="${1% (deleted)}" argv0="${2##*/}"
+    if [ -n "$exe" ]; then
+        case "${exe##*/}" in
+            qemu-system-*|qemu-kvm) QKIND=verified ;;
+            *)                      QKIND=no ;;
+        esac
+        return
+    fi
+    # Fallback for an exe we may not read. Deliberately argv[0] ONLY, not a
+    # substring of the line: `grep qemu-system` has grep as its argv[0].
+    case "$argv0" in
+        qemu-system-*|qemu-kvm) QKIND=unverified ;;
+        *)                      QKIND=no ;;
+    esac
+}
+
+# One find for every exe link, rather than a readlink per pid. Same reason as
+# host_witness.sh in this directory: on a 671-process host the per-pid form cost
+# ~2,000 forks and 3.19 s per pass, measured.
+qemu_exe_map() {
+    local ph tgt
+    EXEQ=()
+    while read -r ph tgt; do EXEQ["${ph##*/}"]="$tgt"; done \
+        < <(find /proc -maxdepth 2 -name exe -printf '%h %l\n' 2>/dev/null)
+}
+
+_qemu_scan() {  # <want-kind> -> matching pids, one per line
+    local want="$1" d pid a0
+    declare -A EXEQ
+    qemu_exe_map
+    for d in /proc/[0-9]*; do
+        pid=${d#/proc/}
+        a0=""; IFS= read -r -d '' a0 < "$d/cmdline" 2>/dev/null || true
+        qemu_kind "${EXEQ[$pid]-}" "$a0"
+        case "$want" in
+            any) [ "$QKIND" != no ] && printf '%s\n' "$pid" ;;
+            *)   [ "$QKIND" = "$want" ] && printf '%s\n' "$pid" ;;
         esac
     done
+    return 0
 }
+
+qemu_pids()            { _qemu_scan any ; }         # verified + unverified
+qemu_pids_unverified() { _qemu_scan unverified ; }  # argv says qemu, exe unreadable
 
 qemu_disk() {  # qemu_disk <pid> -> its WRITABLE disk path (skips the read-only seed)
     # 🔴 The first version matched /^file=/ -- i.e. only the argument order THIS script
@@ -764,6 +818,7 @@ vms)
     say ""
     say "  running qemu the glob above cannot see (population taken from /proc, not from a name):"
     unlisted=0
+    UNVERIFIED=$(qemu_pids_unverified | tr '\n' ' ')
     for q in $(qemu_pids); do
         qd=$(qemu_disk "$q")
         # 🔴 An unparseable disk must NOT be a silent skip. The line below used to be
@@ -781,6 +836,12 @@ vms)
         unlisted=1
         qdir=$(dirname "$qd")
         printf '    pid %-7s %-12s %s\n' "$q" "$(owner_of "$qdir")" "$qd"
+        # 🔑 An identity I could not check must say so where it is USED, not only
+        # where it was decided. exe is unreadable for another user's process, so
+        # this line is argv-derived and a process can set argv.
+        case " $UNVERIFIED " in *" $q "*)
+            printf '    %-20s ⚠️  UNVERIFIED -- /proc/%s/exe unreadable (another user?); identity is argv, which a process can set\n' "" "$q" ;;
+        esac
         if r=$(keep_reason "$qdir"); then printf '    %-20s 🔒 KEEP -- %s\n' "" "$r"; fi
         [ -f "$qdir/CONFIG" ] || printf '    %-20s 🔴 no CONFIG -- work point recorded nowhere but this argv: %s\n' \
             "" "$(tr '\0' '\n' < "/proc/$q/cmdline" 2>/dev/null | awk '/^-smp$/{getline;c=$0} /^-m$/{getline;m=$0} END{print c" vCPU / "m" MiB"}')"

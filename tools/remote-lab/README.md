@@ -61,13 +61,31 @@
 ⇒ **沒有 `# end` 結尾的 log 就是被截斷的**（被 SIGKILL 打死的那種寫不出來，而那正好是缺的那份）。
 在這行之前，判斷見證有沒有中途死掉要「隔幾秒讀兩次行數」。
 
-🔴 **已知缺陷（待修，等 exclusive 窗結束）**：`ndtwin-vm.sh` 的 `qemu_pids()` 比對的是
-**cmdline（argv）**，不是 `exe` ⇒ **一個 argv[0] 假裝成 `qemu-system-*` 的行程會被 `vms` 算成 VM**。
-`host_witness.sh` 用 `exe`，**不受影響**。
-⚠️ **修它必須連 fixture 一起改**——現在六處 stand-in 只偽裝 argv，改用 exe 判別後**它們會全部消失**；
-要用一份改名成 `qemu-system-x86_64` 的**真二進位檔**。
-📌 **argv 側的陽性對照用 `bash -c 'exec -a qemu-system-x86_64 sleep 4'`**（B 輪線提供）——
-它是真的改 `argv[0]`，比 `bash -c '…' name` 硬一級（後者連 `cmdline[0]` 都還是 `bash`）。
+### 🏁 `qemu_pids()` 已改用 `exe`（G17，09-01）——**而它不是換個欄位就好**
+
+舊版比對 **cmdline（argv）的子字串** ⇒ 算進 (a) 這個閘門自己起的六個 argv 假身、
+(b) **任何只是「提到」`qemu-system` 的行程**——一個 grep、一個開著檔的編輯器、
+正在 debug 這個函式的那個 shell。**與 `pkill -f` 同一族。**
+
+⚠️ **但直接換成 `exe` 會製造一個更糟的缺陷**：`exe` 對**別人的**行程讀不到，
+而 `vms` 存在的意義正是「看見別的 session 的 VM」⇒ 天真地換欄位＝
+**拿「多算假身」換「漏掉每一顆不是我的 VM」**。
+
+⇒ 三態，跟 `host_witness.sh` 同一套：
+
+| exe | argv[0] | 判定 |
+|---|---|---|
+| 讀得到且是 `qemu-system-*`／`qemu-kvm` | — | **verified** |
+| 讀得到但不是 | — | **no**（假身在這裡死） |
+| **讀不到** | 像 qemu | **unverified** ⇒ 照列，但 `vms` 那一行明寫 ⚠️ |
+| 讀不到 | 不像 | no |
+
+🔑 **`unverified` 的標記印在「被使用的那一行」**，不是只印在判定的地方——
+一個我沒能查證的身分，要在讀者用到它的地方說出自己沒被查證。
+
+📌 **fixture 也得跟著改**：六個 stand-in 原本只偽裝 argv，改用 exe 之後**它們會全部消失**，
+而**斷言仍然是綠的**（斷言看的是工具的輸出）⇒ 現在用一份 **`cp $(command -v bash)` 改名成
+`qemu-system-x86_64` 的真二進位檔**；G17 另外**留一個 argv 假身當陰性對照**，斷言它**不**被算進去。
 🔑 **而 `comm` 不會被這兩種騙**（實測 `comm=bash`／`comm=sleep`），
 所以「改用 `exe`」的理由是 **exe 由核心維護、行程改不了**，**不是**「comm 壞了」。
 
@@ -105,7 +123,7 @@ session 會突然開不了 VM。**ACL 是借來的，群組才是自己的**；�
 bash tools/remote-lab/test_vm_coordination.sh
 ```
 
-**96/96**（2026-09-01）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
+**100/100**（2026-09-01）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
 green 方向（不在表上的機器要正常落到 `unknown machine`，證明它不是無差別拒絕）。
 斷言比對**訊息文字**不只比對 rc——好幾種不同的失敗都是 `rc=1`。
 
