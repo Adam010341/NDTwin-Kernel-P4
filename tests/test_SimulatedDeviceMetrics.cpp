@@ -212,6 +212,56 @@ TEST_F(SimulatedDeviceMetricsTest, ADownSwitchStillReportsTheSameSentinel)
     }
 }
 
+TEST_F(SimulatedDeviceMetricsTest, AVertexWithNoIpIsSkippedRatherThanDereferenced)
+{
+    // 🔴 HONEST LABEL: this is a REGRESSION GUARD FOR THE SHAPE, NOT A RED-SEEN TEST.
+    //
+    // fetchTemperatureReportInternal used to take `vp.ip.front()` as the first statement of the
+    // loop body, before the vertexType filter, while the CPU and memory loops filtered first.
+    // VertexProperties::ip is a std::vector that starts empty, so a vertex carrying no IP made
+    // that a read through a null pointer: undefined behaviour, not a diagnosable failure.
+    //
+    // Whether the pre-fix code makes this test go RED depends on the build, and this project's
+    // default build cannot promise it:
+    //
+    //   * _GLIBCXX_ASSERTIONS  -- not defined anywhere (CMakeLists.txt, tests/CMakeLists.txt,
+    //                             cmake/). With it, front() on an empty vector aborts with a
+    //                             named message.
+    //   * _GLIBCXX_DEBUG       -- likewise not defined anywhere.
+    //   * sanitizers           -- opt-in only: cmake/sanitizer-flags.cmake returns immediately
+    //                             unless -DSANITIZER=asan|tsan is passed, and its own comment
+    //                             says never to build those into build/. The only -fsanitize in
+    //                             tests/CMakeLists.txt is on fuzz_sflow, behind FUZZING=ON.
+    //
+    // So in the ordinary build the pre-fix code is most likely to SEGFAULT, which kills the whole
+    // gtest process: no "[  FAILED  ]" line for this test, and every later test in the binary
+    // never runs. That is observable as "the run died", not as this test going red -- and it is
+    // not even guaranteed, because undefined behaviour is under no obligation to crash.
+    //
+    // Under `cmake -S . -B build-asan -DSANITIZER=asan` it IS a clean named failure: UBSan's
+    // null-dereference check with -fno-sanitize-recover=all. That is the build to use if anyone
+    // wants to actually watch this one fail.
+    //
+    // Kept as a plain test rather than an EXPECT_EXIT death test on purpose: a death test would
+    // contain the crash and make it a named red line, but it is unverified C++ in a window where
+    // nothing can be compiled, and this suite links into test_routing_strategy alongside every
+    // other suite in the repo. A compile error here would break every branch's gate at once.
+    const auto v = boost::add_vertex(*m_graph);
+    (*m_graph)[v].vertexType = VertexType::HOST;
+    // Deliberately NO ip.push_back(): that is the whole condition under test. A host with no
+    // address is not exotic -- the loader leaves `ip` empty whenever the topology file omits it,
+    // and discovery may never fill it in.
+
+    const nlohmann::json temperature = m_manager->fetchTemperatureReportInternal();
+    EXPECT_EQ(temperature.size(), 3u) << temperature.dump();
+
+    // The other two already filtered before reading. Asserted here so that if someone ever
+    // "resolves" the inconsistency by moving THEIR read up instead of this one down, the failure
+    // names which function moved.
+    EXPECT_EQ(m_manager->fetchCpuReportInternal().size(), 3u);
+    EXPECT_EQ(m_manager->fetchMemoryReportInternal().size(), 3u);
+}
+
 TEST_F(SimulatedDeviceMetricsTest, HostsAreStillOmittedFromEveryReport)
 {
     // A host has no health figure to report and never had a key here. Worth pinning because the

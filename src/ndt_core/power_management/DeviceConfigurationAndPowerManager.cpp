@@ -1599,12 +1599,28 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
     {
         const auto& vp = graph[v];
 
-        std::string ip_str = utils::ipToString(vp.ip.front());
+        // [Co-developed with claude code -- Adam] F-1b: read the IP AFTER the type filter, the
+        // shape fetchCpuReportInternal and fetchMemoryReportInternal already have. It used to be
+        // the first statement in the loop body, so vp.ip.front() was taken from a vertex of ANY
+        // type -- and VertexProperties::ip is a std::vector that starts empty.
+        //
+        // The hazard was already written down for the power path: the note on
+        // syntheticPowerMilliwattsFor in the header says a vertex ip vector can be empty and the
+        // MININET path must not call ip.front(), which is why that report is keyed by dpid. This
+        // loop never got the same treatment, and it was the only one of the three that read
+        // before it filtered.
+        //
+        // A switch carrying no IP would still fault one branch later, in all three functions.
+        // That is a separate question -- what a switch with no management IP should report -- and
+        // is deliberately not answered here.
         if (vp.vertexType != VertexType::SWITCH)
         {
             continue;
         }
-        else if (!vp.isUp)
+
+        std::string ip_str = utils::ipToString(vp.ip.front());
+
+        if (!vp.isUp)
         {
             // [Co-developed with claude code -- Adam]
             // -1, matching CPU and memory. This used to answer the string "The switch is down.",

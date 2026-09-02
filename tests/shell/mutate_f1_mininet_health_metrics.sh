@@ -20,6 +20,12 @@
 # red for any edit at all -- a stale binary, a build that silently failed, a filter that matches
 # nothing -- would look like a perfect mutation score.
 #
+# M8 is declared an EXPECTED SURVIVOR and is reported separately from the score. Its defect is
+# undefined behaviour (a null dereference), and this build has no _GLIBCXX_ASSERTIONS, no
+# _GLIBCXX_DEBUG and no sanitizer, so whether the suite notices is a property of the compiler
+# rather than of the test. Counting it would make the gate lie about the test either way. Its
+# comment block says how to make it observable.
+#
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # and the run asserts byte-identity at the end. Baseline is the WORKING TREE, not HEAD, so this
 # runs against an uncommitted fix. These files are in a worktree other sessions write to.
@@ -59,6 +65,7 @@ trap 'restore; rm -rf "$BK"' EXIT
 
 MUTATIONS=0
 SURVIVORS=0
+EXPECTED_SURVIVORS=0
 INVALID=0
 
 # --- mechanics ---------------------------------------------------------------------------------
@@ -197,6 +204,55 @@ mutate_must_live() {
     restore
 }
 
+# A mutation whose effect is UNDEFINED BEHAVIOUR rather than a wrong value. Reported, never
+# counted as a survivor: this build has no _GLIBCXX_ASSERTIONS, no _GLIBCXX_DEBUG and no
+# sanitizer (see M8's comment), so whether the suite notices is a property of the compiler, not
+# of the test. Failing the gate on it would make the gate lie about the test.
+#
+# $1 name, $2 test that would go red if observable, $3 file, $4 anchor, $5 repl, $6 uniq line
+mutate_may_survive() {
+    local name="$1" would_fail="$2" file="$3" anchor="$4" repl="$5" uniq="${6:-$4}"
+    local rc last
+
+    MUTATIONS=$((MUTATIONS + 1))
+
+    if ! assert_unique "$file" "$uniq"; then
+        INVALID=$((INVALID + 1)); restore; return
+    fi
+    apply "$file" "$anchor" "$repl"
+    if cmp -s "$(snap "$file")" "$file"; then
+        printf '  INVALID  %-46s (anchor did not apply; file unchanged)\n' "$name"
+        INVALID=$((INVALID + 1)); restore; return
+    fi
+    build; rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        printf '  INVALID  %-46s (mutant does not compile, rc=%s)\n' "$name" "$rc"
+        tail -12 "$BK/build.log" | sed 's/^/             /'
+        INVALID=$((INVALID + 1)); restore; return
+    fi
+
+    run_suite; rc=$?
+    if [[ "$rc" -ne 0 ]] && grep -qF "[  FAILED  ] $would_fail" "$BK/run.log"; then
+        printf '  caught   %-46s (%s went red)\n' "$name" "$would_fail"
+    elif [[ "$rc" -ne 0 ]] && ! grep -qF '[  FAILED  ]' "$BK/run.log"; then
+        # No verdict line at all: the process died mid-test. That is what a null dereference looks
+        # like without library assertions -- a real catch, but a crash rather than an assertion,
+        # and it takes the rest of the binary down with it.
+        last=$(grep -F '[ RUN      ]' "$BK/run.log" | tail -1)
+        printf '  caught   %-46s (process DIED during%s -- crash, not an assertion;\n' \
+            "$name" "${last#*\]}"
+        printf '           %-46s  later tests in the binary never ran)\n' ""
+    elif [[ "$rc" -ne 0 ]]; then
+        printf '  caught   %-46s (red, but not in %s):\n' "$name" "$would_fail"
+        grep -F '[  FAILED  ]' "$BK/run.log" | sed 's/^/             /'
+    else
+        printf '  EXPECTED-SURVIVOR %-35s (stayed green; see the note in M8 -- this build\n' "$name"
+        printf '           %-46s  cannot observe the UB, so this is not a test defect)\n' ""
+        EXPECTED_SURVIVORS=$((EXPECTED_SURVIVORS + 1))
+    fi
+    restore
+}
+
 echo "mutations:"
 
 # --- M1: the CPU map endpoint invents a figure again -------------------------------------------
@@ -275,6 +331,59 @@ mutate_must_die \
     '            result_json[ip_str] = -1;' \
     '            // mutated: key dropped, restoring the 2026-08-18 defect'
 
+# --- M8: the IP read moves back above the type filter ------------------------------------------
+# F-1b. fetchTemperatureReportInternal used to take vp.ip.front() as the loop's first statement,
+# before the vertexType filter, while the CPU and memory loops filtered first. A vertex with an
+# empty `ip` -- a host the topology file gave no address -- made that a null dereference.
+#
+# 🔴 DECLARED EXPECTED-SURVIVOR, because this build cannot reliably observe it. Checked, not
+# assumed:
+#   _GLIBCXX_ASSERTIONS   not defined -- zero hits in CMakeLists.txt, tests/CMakeLists.txt, cmake/
+#   _GLIBCXX_DEBUG        not defined -- likewise zero hits
+#   sanitizers            opt-in only: cmake/sanitizer-flags.cmake:22-24 returns unless
+#                         -DSANITIZER= is passed, and tests/CMakeLists.txt:113 puts -fsanitize
+#                         only on fuzz_sflow, behind FUZZING=ON (clang-only, OFF by default)
+#   the only global define is SPDLOG_ACTIVE_LEVEL (CMakeLists.txt:66)
+#
+# So the likely outcome here is a SEGFAULT that kills the binary before any verdict is printed --
+# which mutate_may_survive reports as a catch-by-crash -- or, if the compiler is feeling
+# creative, nothing at all. Neither counts against the gate.
+#
+# To watch it fail properly:
+#   cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=asan
+#   BUILD_DIR=build-asan bash tests/shell/mutate_f1_mininet_health_metrics.sh
+# UBSan's null-dereference check with -fno-sanitize-recover=all makes it a named red line.
+mutate_may_survive \
+    "M8 ip-read-moves-above-the-filter" \
+    "SimulatedDeviceMetricsTest.AVertexWithNoIpIsSkippedRatherThanDereferenced" \
+    "$SRC" \
+    '        // [Co-developed with claude code -- Adam] F-1b: read the IP AFTER the type filter, the
+        // shape fetchCpuReportInternal and fetchMemoryReportInternal already have. It used to be
+        // the first statement in the loop body, so vp.ip.front() was taken from a vertex of ANY
+        // type -- and VertexProperties::ip is a std::vector that starts empty.
+        //
+        // The hazard was already written down for the power path: the note on
+        // syntheticPowerMilliwattsFor in the header says a vertex ip vector can be empty and the
+        // MININET path must not call ip.front(), which is why that report is keyed by dpid. This
+        // loop never got the same treatment, and it was the only one of the three that read
+        // before it filtered.
+        //
+        // A switch carrying no IP would still fault one branch later, in all three functions.
+        // That is a separate question -- what a switch with no management IP should report -- and
+        // is deliberately not answered here.
+        if (vp.vertexType != VertexType::SWITCH)
+        {
+            continue;
+        }
+
+        std::string ip_str = utils::ipToString(vp.ip.front());' \
+    '        std::string ip_str = utils::ipToString(vp.ip.front());
+        if (vp.vertexType != VertexType::SWITCH)
+        {
+            continue;
+        }' \
+    '        // shape fetchCpuReportInternal and fetchMemoryReportInternal already have. It used to be'
+
 # --- C1: the control ---------------------------------------------------------------------------
 # Comment text only. If this goes red, the harness is measuring "did anything change" rather than
 # "did behaviour change", and every "caught" line above is meaningless.
@@ -319,6 +428,12 @@ fi
 
 echo
 printf '%d mutations, %d survived\n' "$MUTATIONS" "$SURVIVORS"
+if [[ "$EXPECTED_SURVIVORS" -gt 0 ]]; then
+    printf '%d expected survivor(s) not counted above: undefined-behaviour mutations this build\n' \
+        "$EXPECTED_SURVIVORS"
+    printf '  cannot observe (no _GLIBCXX_ASSERTIONS, no _GLIBCXX_DEBUG, no sanitizer).\n'
+    printf '  Re-run with BUILD_DIR pointing at a -DSANITIZER=asan build to score them.\n'
+fi
 if [[ "$INVALID" -gt 0 ]]; then
     printf '%d could not be applied or built -- neither caught nor survived; a human must look\n' \
         "$INVALID"
