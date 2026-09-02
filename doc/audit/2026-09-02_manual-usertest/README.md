@@ -19,7 +19,8 @@ This file is written **before the first run** so the method cannot drift toward 
 | Sandbox | The tester's world is that VM plus the internet. It reaches the guest via `ssh -J nslab -p <port> ndt@127.0.0.1` and touches nothing on the nslab host, no other VM, no ledger, no audit files, and never this repo's source to "figure out" a fix |
 | Rules of engagement | Follow the manual literally. Ambiguity → do what a typical reader would, **and write down that it was ambiguous**. Failure → try what a normal user would (re-read, the obvious), ≤ ~15 min per obstacle, then record a blocker and (a) find a workaround reachable from the manual/links, (b) skip if later sections do not depend on it, or (c) stop |
 | Record | `~/JOURNAL.md` in the guest, appended as it goes: per section start/end, what was done, verbatim command + result for anything surprising, friction **0** smooth / **1** confusing but worked / **2** needed a workaround / **3** blocked |
-| Scope | Installation Manual to the end, then the User Manual: start the kernel, run the emulated network, do what the guide tells a first-time user to do |
+| Scope | Installation Manual to the end, then the User Manual — **read every page, build a checklist of every documented feature/command/API/tool, try each one plus the obvious variations (twice; different order; stop and restart; the manual's values, then one of your own), and judge by the effect the manual promises, never by the exit code or a success message**. Adam 13:2x: hand-testing for bugs is too slow; the agents do it |
+| Bug record | `~/BUGS.md` in the guest, written as it happens: feature · page/section · verbatim steps · expected (quoting the manual) · observed (verbatim) · reproduced on a second try? · severity guess. Plus `~/CHECKLIST.md` with every line's outcome (`WORKS` / `WORKS-BUT` / `BROKEN` / `NOT-TRIED`), so "no bug reported" is distinguishable from "never tried" |
 | End state | VM **stopped, kept** (evidence; Adam can enter it). Never destroyed by the tester |
 
 ## What the orchestrator does around each run
@@ -30,6 +31,8 @@ This file is written **before the first run** so the method cannot drift toward 
 4. On completion: **re-verifies the tester's claims independently** in the guest (what exists, what answers `--version`, what the logs say) before anything is written here. A tester's "installed fine" is a claim, not a result.
 5. Writes `run-NN-<model>/` with: the tester's report verbatim, the journal, the verification, and a **reconciliation** against earlier runs (same friction again / new / gone).
 6. Stops the VM, releases the sub-row.
+
+Per run: 3–6 h (install 2–4, use-and-break ≥ 90 min).
 
 Gate: **one tester VM at a time, and none while A-6 (12 GB) is running** — the host has ~7 GB
 available beside Adam's own VM, and a tester wants 6.
@@ -42,8 +45,10 @@ available beside Adam's own VM, and a tester wants 6.
 
 ## Reconciliation obligations
 
-Each run's write-up must say, for every friction point, whether an earlier run (or the 09-01
-clean-room passes A-2/A-4) hit the same thing. A problem that every model hits is the manual's;
+Each run's write-up must say, for every friction point **and every bug**, whether an earlier run (or the 09-01
+clean-room passes A-2/A-4) hit the same thing. The coverage tables are compared across models: a feature every
+model marked `BROKEN` is the product's; one only a single model marked `BROKEN` gets re-verified by the
+orchestrator before it is called a bug; a feature no model tried is a hole in the campaign, not evidence of health. A problem that every model hits is the manual's;
 a problem only one model hits is worth a second look before it is called the manual's.
 
 [Co-developed with claude code -- Adam]
