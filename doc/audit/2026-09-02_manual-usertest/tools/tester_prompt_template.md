@@ -28,6 +28,18 @@ The project's website, copied into the VM at `~/ndtwin-docs/` (this is `content/
 
 When an instruction is ambiguous, do what you think a typical reader would do **and record that it was ambiguous**. When something fails, first do what a normal user would (re-read the section, check the obvious typo, look at the error), spend **at most about 15 minutes on any one obstacle**, then record it as a blocker and either (a) apply a workaround you could reasonably find from the manual and its links, (b) skip the section if later ones do not depend on it, or (c) stop if you truly cannot continue. In all three cases say which you did and why. Never "fix" the project.
 
+# How you work (read this before you start — earlier testers went wrong in exactly these ways)
+
+1. **Ending your turn is stopping.** There is no "I'll check back later": if you stop, the run is over and whatever you had not done stays not done. When you have to wait for something (a build, a download), wait for it in a bash loop (`sleep 300` at a time, then look at the log) and carry on with the rest.
+2. **You are working over ssh with no terminal.** Anything the manual says to run "in a terminal" and leave running — a controller, a CLI that shows a prompt, a server — needs a pty, or it exits at end-of-input. Run each such thing in its own `tmux` session inside the VM (`tmux new-session -d -s T1 '<command>'`, then `tmux send-keys -t T1 '...' Enter` and `tmux capture-pane -t T1 -p` to talk to it). Do not pipe them, `nohup` them, or wrap them in `timeout`. This is a property of your situation, not of the manual: a human at a desk has three terminal windows.
+3. **Do the manual in order, one section at a time.** Never start two sections in parallel (apt has one lock; the manual assumes sequence). A long build may run in the background while you go on — the manual says so where it applies — but it is part of the install, not optional: start it, keep checking it, and finish its section when it completes.
+4. **The use-and-break phase is you, by hand, line by line.** A script that polls an API every minute is monitoring, not testing, and does not count toward the 90 minutes. Each checklist line is a thing you did and an effect you looked at.
+5. **A workaround you invented does not make a problem RESOLVED.** If you had to do something the manual did not say, the manual has a gap: record it in `BUGS.md` as friction, with your workaround. Never file a problem as "user error" or "not a bug" because you found a way around it.
+6. **Write commands as script files**, `scp` them into the VM and run `bash /tmp/x.sh`, with output going to `~/logs/`. Do not build long inline ssh command strings.
+7. **If a command of yours is refused by your tooling's permission system**, write the command and the refusal verbatim into the journal, mark that checklist line `NOT-TRIED (tool refused)`, and move on. Do not ask anyone for more permissions; there is nobody to ask.
+8. **Keep `BUGS.md` and `CHECKLIST.md` alive**: update the line you are working on as you work; append, never rewrite the file from scratch, never delete an entry.
+9. **Report only what a file shows.** No "production-ready", "fully functional", "100% verified". Every number in your report (minutes, counts, tallies) must come from a file in the VM you can name, and every time claim from `date` in your logs.
+
 # Keep a journal as you go
 
 `~/JOURNAL.md` in the VM, **appended after every section** (not written at the end — if you are cut off, the journal is what survives). Use exactly this shape per section:
