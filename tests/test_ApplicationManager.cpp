@@ -13,6 +13,9 @@
 // kernel start (cleanupStaleEntries runs from the constructor).
 
 #include "ndt_core/application_management/ApplicationManager.hpp"
+// [Co-developed with claude code -- Adam] utils::execArgv / describeArgv / CommandOutcome, used by
+// purgeSurvivors below. ApplicationManager.hpp does not pull Utils.hpp in, so this is not spare.
+#include "utils/Utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -128,9 +131,18 @@ std::vector<std::string> purgeSurvivors(const std::string& folder,
         }
     }
 
-    const std::string cmd = Seams::buildExportsPurgeCommand(folder, file.string());
-    EXPECT_EQ(cmd.rfind("sudo ", 0), 0u) << cmd;
-    EXPECT_EQ(std::system(cmd.substr(5).c_str()), 0) << cmd;
+    // [Co-developed with claude code -- Adam]
+    // The builder returns an argv now, so dropping the privilege escalation is dropping argv[0]
+    // rather than slicing five characters off a string -- which is the same improvement the
+    // production path got: there is no command line to mis-parse. Running it through execArgv
+    // rather than std::system also means this test no longer needs a shell to check sed's
+    // behaviour, so a temp path containing a space or a quote could not break the test itself.
+    std::vector<std::string> argv = Seams::buildExportsPurgeCommand(folder, file.string());
+    EXPECT_EQ(argv.front(), "sudo") << utils::describeArgv(argv);
+    argv.erase(argv.begin());
+
+    const utils::CommandOutcome outcome = utils::execArgv(argv);
+    EXPECT_TRUE(outcome.succeeded()) << utils::describeArgv(argv);
 
     std::vector<std::string> survivors;
     std::ifstream in(file);
