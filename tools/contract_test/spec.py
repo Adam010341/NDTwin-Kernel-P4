@@ -125,6 +125,52 @@ OF_TABLES = List(Obj({
 
 STATUS_OK = Obj({"status": Str(nonempty=True)})
 
+# [Co-developed with claude code -- Adam]
+# GET /ndt/get_flow_dispatch_status -- KNOWN-ISSUES A-7's answer surface, and until now one of
+# the registered endpoints with no contract at all. It is the endpoint whose whole purpose is to
+# stop a silent write failure, so leaving it uncovered means the suite would stay green if the
+# thing that reports failures stopped reporting them.
+#
+# recent_failures[].requested_priority is named for FINDING-07: on the destination-only path the
+# switch programs the rule into a P4 LPM table that has no priority column, so this field is what
+# the caller ASKED for and never what the table holds. The schema keeps the name as-is on purpose;
+# renaming it to `priority` would restore exactly the confusion the name was chosen to prevent.
+DISPATCH_FAILURE = Obj({
+    "seq": Int(min=0),
+    "at_unix_ms": Int(min=0),
+    "op": Str(allowed=("install", "modify", "delete")),
+    "dpid": Int(min=0),
+    "requested_priority": Int(),
+    "match": Obj({}, strict=False),
+    # 0 is a real value here: it means nothing answered at all (no HTTP status was ever
+    # received), which is different from an error status and must not be schema-rejected.
+    "controller_status": Int(min=0),
+    "message": Str(),
+})
+
+DISPATCH_STATUS = Obj({
+    "counters": Obj({
+        "dispatched": Int(min=0),
+        "succeeded": Int(min=0),
+        "failed": Int(min=0),
+    }, optional={
+        # Added after the endpoint shipped. Optional so the contract still describes a kernel
+        # built from an earlier commit rather than reporting a false regression against one.
+        "dropped_after_stop": Int(min=0),
+    }),
+    "recent_failures": List(DISPATCH_FAILURE),
+    "recent_failures_capacity": Int(min=1),
+    "recent_failures_evicted": Int(min=0),
+}, optional={
+    # Both added by the A-7 follow-up; optional for the same reason as dropped_after_stop.
+    "dispatcher_running": Bool(),
+    "counters_cover": Obj({
+        "dispatch_routes": List(Str(nonempty=True), min_len=1),
+        "includes_boot_time_programming": Bool(),
+        "includes_intent_translator": Bool(),
+    }),
+})
+
 
 # --- invariants -------------------------------------------------------------------
 # Each takes (data, ctx) and returns a list of human-readable failures.
@@ -364,6 +410,71 @@ def inv_flow_write_is_honest_about_being_queued(data, ctx):
     return []
 
 
+def inv_dispatch_counters_close(data, ctx):
+    """
+    dispatched == succeeded + failed, and the failure list is consistent with the count.
+
+    [Co-developed with claude code -- Adam]
+    The three counters are written at one call site (DispatchOutcomeLog::record), so arithmetic
+    closure is the cheapest proof that no path increments one without the others -- a `record()`
+    that returned early on some op would leave `dispatched` ahead of the sum, and every number
+    would still look plausible on its own.
+
+    dropped_after_stop is deliberately NOT in the sum: those jobs were refused before any
+    southbound attempt, so they are disjoint from all three. Adding it here would make a healthy
+    shutdown look like a counting bug.
+    """
+    c = data.get("counters") or {}
+    dispatched, succeeded, failed = c.get("dispatched"), c.get("succeeded"), c.get("failed")
+    if None in (dispatched, succeeded, failed):
+        return ["counters is missing one of dispatched/succeeded/failed"]
+
+    out = []
+    if dispatched != succeeded + failed:
+        out.append(f"dispatched ({dispatched}) != succeeded ({succeeded}) + failed ({failed}) "
+                   f"= {succeeded + failed}; some outcome is counted in one place and not the "
+                   f"other")
+
+    # A failure list longer than the failures counted, or non-empty with failed == 0, means the
+    # ring and the counter disagree about what happened.
+    listed = len(data.get("recent_failures") or [])
+    capacity = data.get("recent_failures_capacity") or 0
+    evicted = data.get("recent_failures_evicted") or 0
+    if listed > failed:
+        out.append(f"recent_failures lists {listed} entries but only {failed} failure(s) were "
+                   f"counted")
+    if capacity and listed > capacity:
+        out.append(f"recent_failures lists {listed} entries, above its stated capacity "
+                   f"{capacity}")
+    if evicted and listed < capacity:
+        out.append(f"recent_failures_evicted is {evicted} while the list holds {listed} of "
+                   f"{capacity} -- nothing should have aged out of a list that is not full")
+    return out
+
+
+def inv_dispatcher_is_running(data, ctx):
+    """
+    The dispatcher must be accepting work.
+
+    [Co-developed with claude code -- Adam]
+    Checked only when the field is present, so this describes an older kernel correctly instead
+    of failing it for lacking a field it never had.
+
+    Why it is worth a check at all: a stopped dispatcher refuses every job it is handed and
+    counts it under dropped_after_stop, while POST /ndt/install_flow_entry goes on answering
+    200 {"status":"queued"}. Every other contract check in this file would stay green through
+    that, which is A-7's shape exactly -- the write fails and no API surface says so.
+    """
+    if "dispatcher_running" not in data:
+        return []
+    if data["dispatcher_running"] is not True:
+        dropped = (data.get("counters") or {}).get("dropped_after_stop", "unknown")
+        return [f"the flow dispatcher is not running, so every queued write is being refused "
+                f"(dropped_after_stop={dropped}) while install_flow_entry still answers "
+                f"'queued'"]
+    return []
+
+
 def inv_power_state_values(data, ctx):
     bad = {k: v for k, v in data.items() if v not in ("ON", "OFF")}
     if bad:
@@ -399,6 +510,23 @@ ENDPOINTS = [
          category=READ, schema=OF_TABLES,
          invariants=[inv_tables_non_empty],
          note="feeds the Classifier, which produces every flow's path"),
+
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES A-7's answer surface. Registered since 636f9ab and uncovered until now, which
+    # is the wrong endpoint to leave uncovered: it exists so that a queued write that failed can
+    # be found, so if it stopped reporting, this suite going green would be the symptom AND the
+    # reason nobody noticed.
+    #
+    # READ, not MUTATE: it reads counters off the dispatcher under its own lock and programs
+    # nothing. Safe on a live fabric and safe to run without --allow-mutations, which matters
+    # because it is most useful precisely when a mutation check has just failed.
+    dict(name="get_flow_dispatch_status", method="GET",
+         path="/ndt/get_flow_dispatch_status",
+         category=READ, schema=DISPATCH_STATUS,
+         invariants=[inv_dispatch_counters_close, inv_dispatcher_is_running],
+         note="A-7: the only API surface on which a failed queued write is visible. "
+              "counters cover the four dispatch routes only -- boot-time programming runs in "
+              "a different process and is not counted here"),
 
     dict(name="get_static_topology_json", method="GET", path="/ndt/get_static_topology_json",
          category=READ, schema=Obj({}, strict=False)),

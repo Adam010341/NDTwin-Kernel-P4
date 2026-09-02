@@ -70,6 +70,47 @@ POWER_REPORT_SAMPLE = [
     {"dpid": 106225808380928, "power_consumed": 851152638},
 ]
 
+# --- GET /ndt/get_flow_dispatch_status (KNOWN-ISSUES A-7) -------------------------------------
+# The counters are kept small and self-consistent rather than reproducing the live 262/1/261
+# from the A-7 round: at capacity 256 that run had evicted 5 and was holding a full ring, so an
+# honest transcription would need 256 records in this file. The shape is what the schema checks.
+DISPATCH_STATUS_SAMPLE = {
+    "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 0},
+    "dispatcher_running": True,
+    "recent_failures": [
+        {"seq": 2, "at_unix_ms": 1756600000000, "op": "install", "dpid": 1,
+         "requested_priority": 915,
+         "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.240"},
+         "controller_status": 200, "message": "Failed to add route"},
+        {"seq": 3, "at_unix_ms": 1756600000500, "op": "delete", "dpid": 2,
+         "requested_priority": -1,
+         "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.241"},
+         "controller_status": 0, "message": "controller did not answer"},
+    ],
+    "recent_failures_capacity": 256,
+    "recent_failures_evicted": 0,
+    "counters_cover": {
+        "dispatch_routes": [
+            "/ndt/install_flow_entry",
+            "/ndt/modify_flow_entry",
+            "/ndt/delete_flow_entry",
+            "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+        ],
+        "includes_boot_time_programming": False,
+        "includes_intent_translator": False,
+    },
+}
+
+# The same body from a kernel built before the A-7 follow-up: no dispatcher_running, no
+# counters_cover, no dropped_after_stop. The schema must still accept it, or the contract
+# reports a regression against a kernel that never had the field.
+DISPATCH_STATUS_OLDER_KERNEL = {
+    "counters": {"dispatched": 0, "succeeded": 0, "failed": 0},
+    "recent_failures": [],
+    "recent_failures_capacity": 256,
+    "recent_failures_evicted": 0,
+}
+
 FIXTURES = {
     "get_graph_data": (spec.GRAPH_DATA, GRAPH_DATA_SAMPLE),
     "get_detected_flow_data": (spec.List(spec.FLOW_RECORD), FLOW_DATA_SAMPLE),
@@ -117,6 +158,19 @@ FIXTURES = {
         spec.Obj({"status": Str()}, optional={"message": Str()}),
         {"status": "success", "message": "Nickname updated successfully."}),
     "get_openflow_capacity": (Any_(), {"anything": True}),
+    # [Co-developed with claude code -- Adam]
+    # Not from doc/2026-01-02_ndt_api.md -- that document predates the endpoint. This is the
+    # body HttpSession::handleGetFlowDispatchStatus builds, transcribed field by field from
+    # src/ndt_core/http/HttpSession.cpp, with a failure record taken from the shape recorded
+    # live in doc/audit/2026-08-30_a7-dispatch-visibility (a rule naming a nonexistent port).
+    #
+    # controller_status is 200 on purpose and it is not a typo: the P4 proxy answers HTTP 200
+    # with an error body when a write fails, so this field has no discriminative power in P4
+    # mode. Encoding the real value here stops anyone "fixing" the fixture to a 4xx and then
+    # writing a check that the live system can never satisfy.
+    "get_flow_dispatch_status": (spec.DISPATCH_STATUS, DISPATCH_STATUS_SAMPLE),
+    "get_flow_dispatch_status (kernel without the A-7 follow-up fields)": (
+        spec.DISPATCH_STATUS, DISPATCH_STATUS_OLDER_KERNEL),
 }
 
 
@@ -190,6 +244,35 @@ _FLOWS_ALL_LINK_LOCAL = [_flow_to("169.254.13.7", [])]
 #: One routable flow among the noise is enough to make the invariant meaningful again.
 _FLOWS_MULTICAST_PLUS_GOOD = [_flow_to("224.0.0.251", []), _flow_to("10.0.0.4", [[1, 2], [2, 3]])]
 _FLOWS_MULTICAST_PLUS_BAD = [_flow_to("224.0.0.251", []), _flow_to("10.0.0.4", [])]
+
+# --- A-7 dispatch status: the bad shapes ------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+
+#: record() counted a dispatch and then returned before classifying it, so the sum is short.
+_DISPATCH_COUNTERS_OPEN = {**DISPATCH_STATUS_SAMPLE,
+                           "counters": {"dispatched": 9, "succeeded": 1, "failed": 2}}
+
+#: The ring holds failures the counter never counted -- the two disagree about what happened.
+_DISPATCH_LISTS_MORE_THAN_COUNTED = {**DISPATCH_STATUS_SAMPLE,
+                                     "counters": {"dispatched": 2, "succeeded": 1, "failed": 1}}
+
+#: Eviction reported while the ring is nowhere near full: the bounded buffer is dropping records
+#: for some reason other than being full, which is the silent-truncation shape one level down.
+_DISPATCH_EVICTED_WHILE_NOT_FULL = {**DISPATCH_STATUS_SAMPLE, "recent_failures_evicted": 4}
+
+#: A clean shutdown that refused four jobs. Arithmetic still closes, because those jobs were
+#: never attempted and so are not among succeeded/failed.
+_DISPATCH_CLEAN_SHUTDOWN_DROP = {
+    **DISPATCH_STATUS_SAMPLE,
+    "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 4},
+}
+
+#: The state A-7 is about: the queue is dead, install_flow_entry still answers 200 "queued".
+_DISPATCH_STOPPED = {
+    **DISPATCH_STATUS_SAMPLE,
+    "dispatcher_running": False,
+    "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 12},
+}
 
 # (name, invariant, data, ctx, expect_failures)
 # Every invariant is checked both ways: silent on good data, loud on bad data.
@@ -282,4 +365,28 @@ INVARIANT_CASES = [
      FakeCtx(switches=2), False),
     ("util_map_covers_switches: catches partial coverage",
      spec.inv_util_map_covers_switches, {"10.0.0.1": 5}, FakeCtx(switches=2), True),
+
+    # --- A-7 dispatch status ------------------------------------------------------------------
+    # [Co-developed with claude code -- Adam]
+    ("dispatch_counters_close: accepts closed arithmetic",
+     spec.inv_dispatch_counters_close, DISPATCH_STATUS_SAMPLE, _GOOD_CTX, False),
+    ("dispatch_counters_close: catches dispatched ahead of the sum",
+     spec.inv_dispatch_counters_close, _DISPATCH_COUNTERS_OPEN, _GOOD_CTX, True),
+    ("dispatch_counters_close: catches more failures listed than counted",
+     spec.inv_dispatch_counters_close, _DISPATCH_LISTS_MORE_THAN_COUNTED, _GOOD_CTX, True),
+    ("dispatch_counters_close: catches eviction from a list that is not full",
+     spec.inv_dispatch_counters_close, _DISPATCH_EVICTED_WHILE_NOT_FULL, _GOOD_CTX, True),
+    # dropped_after_stop is disjoint from the sum. If it were folded in, this case -- a clean
+    # shutdown that refused four jobs -- would be reported as a counting bug.
+    ("dispatch_counters_close: a shutdown drop is not a counting error",
+     spec.inv_dispatch_counters_close, _DISPATCH_CLEAN_SHUTDOWN_DROP, _GOOD_CTX, False),
+    ("dispatch_counters_close: still checks a kernel without the newer fields",
+     spec.inv_dispatch_counters_close, DISPATCH_STATUS_OLDER_KERNEL, _GOOD_CTX, False),
+
+    ("dispatcher_is_running: accepts a live dispatcher",
+     spec.inv_dispatcher_is_running, DISPATCH_STATUS_SAMPLE, _GOOD_CTX, False),
+    ("dispatcher_is_running: catches a stopped dispatcher still answering 'queued'",
+     spec.inv_dispatcher_is_running, _DISPATCH_STOPPED, _GOOD_CTX, True),
+    ("dispatcher_is_running: says nothing about a kernel that lacks the field",
+     spec.inv_dispatcher_is_running, DISPATCH_STATUS_OLDER_KERNEL, _GOOD_CTX, False),
 ]

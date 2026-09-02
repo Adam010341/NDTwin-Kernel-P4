@@ -350,10 +350,13 @@ list 的索引會收斂成 `[]`，所以 4 host 和 128 host 產生相同的簽�
 
 ## 已知限制
 
-涵蓋率：**41 個註冊端點中的 30 個**有 contract（用下面的指令可隨時重算）。剩下 11 個裡，10 個沒有任何 consumer，唯一有 consumer 的是刻意排除的 `intent_translator/text`。
+涵蓋率：**42 個註冊端點中的 33 個**有 contract（用下面的指令可隨時重算）。剩下 9 個是 group／meter 六個、`inform_all_destination_paths`、`link_failure_detected`、`link_recovery_detected`，全部沒有 consumer。
+
+> 這行原本寫「41 個中的 30 個」，是**手寫的數字追不上程式碼**——端點與 contract 都各自增加過而這行沒動。用上面那段指令算出來的才算數；下次改這行請貼實際輸出，不要沿用舊值。
+> 另外 `intent_translator/text` 已**不在**未涵蓋清單上：它有一筆 ERRORPATH contract（`intent_translator_text__incomplete_body`），涵蓋率的指令因此把它算成 covered。**成功路徑仍然刻意沒有 contract**（下一節），兩件事不要混用。
 
 - **`--with-traffic` 的不變量假設流量正在跑。** 用在流量剛停的系統上會誤報。
-- **`intent_translator/text` 刻意沒有 contract** — 需要 OpenAI token、每次呼叫要花錢、回應由模型決定，contract 會既不穩定又昂貴。Web-GUI 對它的依賴只靠 L3 的存在性檢查。這是決定，不是疏漏。
+- **`intent_translator/text` 的成功路徑刻意沒有 contract** — 需要 OpenAI token、每次呼叫要花錢、回應由模型決定，contract 會既不穩定又昂貴。錯誤路徑有（不需要 token），Web-GUI 對成功路徑的依賴只靠 L3 的存在性檢查。這是決定，不是疏漏。
 - **模擬相關端點只驗錯誤路徑。** `received_a_simulation_case` / `simulation_completed` 的成功路徑需要 Simulation-Platform-Manager 在跑，會讓檢查不穩定；但它們的輸入驗證（畸形 JSON 不能回 500）是可以驗的，也已經在驗。
 - **group / meter 端點沒有 contract**（六個，無 consumer）。值得注意的是它們在 P4 模式下會**無條件走 OVS strategy** — `FlowRoutingManager` 的 group/meter 方法直接用 `m_ovsStrategy`，完全不看 dpid，所以對 bmv2 下的 group/meter 規則會被送到 Ryu。這是 kernel 的缺陷（P4 計畫 Phase 3 會修），現在沒有任何測試會抓到。
 - **不變量的嚴格度有上限。** `inv_graph_matches_topology` 只比對 node/edge **數量**與 dpid 集合，不驗 edge 的接線是否正確（數量對但接錯不會被抓）。`inv_flow_paths_non_empty` 只驗 path 非空，不驗它是否連通、是否與 edge 一致。`inv_topk_bounded` 只驗數量 ≤ k，不驗真的是前 k 大。
