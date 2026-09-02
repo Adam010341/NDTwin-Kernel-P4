@@ -552,9 +552,34 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
             flowsJson.push_back(key);
         }
 
+        // [Co-developed with claude code -- Adam]
+        // A-4f. The sampler for an edge is the switch it ARRIVES at: samples are keyed by the
+        // ingress port of the agent that took them (FlowLinkUsageCollector.cpp:1444) and
+        // resolved to an edge through its `dstIp`/`dstInterface`
+        // (TopologyAndFlowMonitor::getAgentKeyFromTheOtherSide). So the agent to ask about this
+        // edge is dstIp, not srcIp -- and getting that backwards would produce a status field
+        // that is confidently wrong for every link, which is worse than not having one.
+        //
+        // Guarded on dstIp being non-empty: `srcIp`/`dstIp` are vectors and .front() on an empty
+        // one is undefined behaviour, not an exception.
+        sflow::FlowLinkUsageCollector::LinkTelemetryStatus telemetry;
+        telemetry.status = "unknown";
+        if (m_flowLinkUsageCollector && !e.dstIp.empty())
+        {
+            telemetry = m_flowLinkUsageCollector->telemetryStatusFor(e.dstIp.front(),
+                                                                     e.dstInterface);
+        }
+
         result["edges"].push_back(
             {{"is_up", e.isUp},
              {"link_bandwidth_bps", e.linkBandwidth},
+             // Label AND the two raw ages it was derived from. The same reasoning as the rate
+             // divisor gate (FlowLinkUsageCollector.cpp:2010-2019): a lone boolean verdict is
+             // the code grading its own homework, and a reader cannot tell a check that passed
+             // from a check that never ran. -1 means "never", not "a long time ago".
+             {"telemetry_status", telemetry.status},
+             {"last_sample_age_seconds", telemetry.lastSampleAgeSeconds},
+             {"agent_last_sample_age_seconds", telemetry.agentLastSampleAgeSeconds},
              {"left_link_bandwidth_bps",
               m_mode == utils::DeploymentMode::MININET ? e.leftBandwidthFromFlowSample
                                                        : e.leftBandwidth},

@@ -174,6 +174,76 @@ class FlowLinkUsageCollector
 
     json getPathBetweenHostsJson(const std::string& srcHostName, const std::string& dstHostName);
 
+    /**
+     * @brief Is this link's reading a measurement, or an absence of one?
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES A-4f, the half nobody could see. A switch that loses its sFlow record keeps
+     * forwarding and keeps its links marked up, but stops producing samples -- so the edges
+     * arriving at it publish exactly 0 bps for ever, which is bit-identical to an idle link and
+     * to a kernel that started a moment ago. Three different worlds, one number.
+     *
+     * 🔑 There is a hard limit on what can be answered here and it is worth stating rather than
+     * papering over. `polling=0` (testbed_topo.py:118-120, and correct: MININET discards counter
+     * samples anyway) means an idle interface emits *nothing at all*. On the wire, one idle link
+     * and one unsampled link are the same silence. The only signal above that noise floor is a
+     * level up: whether the SAME AGENT is reporting on any of its other ports. So:
+     *
+     *   live    -- this (agent, ifIndex) reported inside `windowSeconds`
+     *   idle    -- it did not, but the agent reported on some other port, so the agent is alive
+     *              and this link's 0 IS a measurement
+     *   silent  -- the agent reported on no port at all, so the 0 is an absence
+     *   unknown -- that agent has never reported since this process started
+     *
+     * ⚠️ Known and deliberate false positive: a switch that is genuinely idle on every port
+     * reads `silent`. That is the pessimistic direction -- healthy reported as broken -- which
+     * KNOWN-ISSUES' own failure-direction axis ranks well below the silent one it replaces, and
+     * the raw ages returned alongside let a reader overturn it on the spot.
+     *
+     * @param agentIp   The sampling agent, i.e. the edge's `dstIp` -- samples are keyed by the
+     *                  ingress port of the switch the edge arrives at.
+     * @param ifIndex   That switch's ingress port for this edge, i.e. the edge's `dstInterface`.
+     * @param windowSeconds How stale a sample may be and still count as current.
+     */
+    struct LinkTelemetryStatus
+    {
+        /// One of "live", "idle", "silent", "unknown". A string because it crosses /ndt/.
+        std::string status;
+        /// Seconds since a sample was attributed to this (agent, ifIndex); -1 for never.
+        double lastSampleAgeSeconds = -1.0;
+        /// Seconds since a sample arrived from this agent on any port; -1 for never.
+        double agentLastSampleAgeSeconds = -1.0;
+    };
+    LinkTelemetryStatus telemetryStatusFor(uint32_t agentIp,
+                                           uint32_t ifIndex,
+                                           double windowSeconds = 5.0) const;
+
+    /**
+     * @brief The four-way decision on its own, with no clock, no maps and no locks.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Split out from telemetryStatusFor because the two halves are different kinds of thing and
+     * only one of them has a judgement in it. The gathering half is two map lookups under a
+     * shared lock; the deciding half is the whole claim this feature makes about when a 0 bps
+     * reading may be trusted. Left inside, that claim would have been reachable from a test only
+     * by standing up a collector, its monitor, its device manager and its classifier, and by
+     * making real time pass -- so in practice it would not have been tested at all, and a
+     * mutation that pinned every link to "live" would have survived the suite.
+     *
+     * Pure and static: every input is an argument, so a test states the exact instant it means.
+     *
+     * @param nowMillis                 Steady-clock reading to judge against.
+     * @param portLastSampleMillis      Last sample on this (agent, ifIndex); 0 for never.
+     * @param agentLastSampleMillis     Last sample from this agent on any port; 0 for never.
+     * @param windowSeconds             How stale a sample may be and still count as current.
+     */
+    static LinkTelemetryStatus classifyTelemetry(int64_t nowMillis,
+                                                 int64_t portLastSampleMillis,
+                                                 int64_t agentLastSampleMillis,
+                                                 double windowSeconds);
+
   private:
     inline std::string ourIpToString(uint32_t ipFront, uint32_t ipBack);
     inline uint32_t ipFromFrontBack(uint32_t ipFront, uint32_t ipBack);
@@ -367,6 +437,16 @@ class FlowLinkUsageCollector
     // ordering question. Only entries whose far end is a host are ever written to the
     // graph -- see creditHostBoundEgressEdges.
     std::map<std::pair<uint32_t, uint32_t>, CounterInfo> m_egressCounterReports;
+
+    // [Co-developed with claude code -- Adam]
+    // A-4f. When each agent last sent us anything, on any port, in steady-clock milliseconds.
+    // Per *agent*, not per port, because that is the only level at which "no samples" can be
+    // told apart from "no traffic": with polling=0 an idle port is silent on the wire, so the
+    // question can only be answered by asking whether the switch is sampling at all.
+    //
+    // Shares m_counterReportsMutex with the two maps above -- written on the same ingest line,
+    // under the lock that line already takes, so it costs no second acquisition.
+    std::map<uint32_t, int64_t> m_lastSampleFromAgentMillis;
 
     std::atomic<int> m_sockfd{-1};
     std::atomic<bool> m_running{false};
