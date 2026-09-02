@@ -50,6 +50,33 @@ namespace sflow
 // line number that moves. This file's own line numbers moved during ticket Q.
 constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES B-x. How stale a flow's most recent sample may be before the API stops calling it
+// `active`. It sits beside FLOW_IDLE_TIMEOUT for the same reason kFlowPathRecomputeInterval does:
+// the pair is what matters. FLOW_IDLE_TIMEOUT decides when a flow leaves the table; this decides
+// when the API stops claiming it is sending. Everything between the two is `idle` -- retained, and
+// labelled as retained.
+//
+// Why 3000 and not 1000. The value has to clear one full rate-loop period plus slack, because a
+// live flow's freshness is bounded by how often samples arrive, and the loop that consumes them
+// does not run at exactly 1 Hz. The loop prints its own period, and at 64 flows on 2026-08-25 the
+// windowed mean was 1248.7 ms (the cumulative mean printed 1106.3 ms, which is the figure that
+// used to be grepped and was systematically low -- see the note at FlowLinkUsageCollector.cpp
+// :1901). A 1000 ms window would therefore flap on a continuously sending flow at ordinary table
+// sizes, and a demo that alternates `active`/`idle` on a flow that never stopped is worse than
+// one that over-reports. 3000 ms is ~2.4 measured periods of headroom while still recovering 12
+// of the 15 seconds of tail.
+//
+// ⚠️ This bound is a claim about OBSERVATION, not about the world: `active` means "a sample
+// reached us within 3 s", which is the only thing the twin can know. Under a low sampling rate a
+// genuinely sending flow can miss that window. The failure direction is pessimistic (a live flow
+// reported idle) rather than optimistic, which is the direction to prefer for a twin whose reason
+// to exist is catching faults -- but it is a real cost, and it is the reason `?liveness=retained`
+// exists for a caller that would rather over-report.
+//
+// Named rather than a literal so an arm can report which value it measured.
+constexpr int64_t kFlowActiveWindowMs = 3000;
+
 struct Packet; // forward declare
 template <typename T>
 class SPSCQueue; // forward declare template
@@ -130,8 +157,35 @@ class FlowLinkUsageCollector
      */
     std::unordered_map<FlowKey, FlowInfo, FlowKeyHash> getFlowInfoTable();
 
-    nlohmann::json getFlowInfoJson();
-    nlohmann::json getTopKFlowInfoJson(int k);
+    /**
+     * @brief Serialise the flow table, optionally dropping rows by liveness.
+     *
+     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     *
+     * 🔴 The default is `All`, which is today's behaviour, and that is deliberate. The endpoint's
+     * default lives in HttpSession, not here, so no in-repo caller of this function changes what
+     * it receives without someone editing that call site. The two consumer classes want opposite
+     * things and must not be served by one hidden default: a UI listing "active flows" is
+     * embarrassed by every corpse, while the rate and routing paths read per-flow rates that are
+     * already 0 for a dead flow and are unharmed by its presence. Breaking the second to please
+     * the first is the failure mode this signature is shaped to prevent.
+     *
+     * Every row carries `liveness`, `last_seen_ms` and `ended_at_ms` in all three modes, so a
+     * consumer that wants the whole population can still tell the classes apart. Adding fields is
+     * contract-compatible: tools/contract_test's `Obj` is non-strict by default
+     * (tools/contract_test/schema.py:129-138).
+     */
+    nlohmann::json getFlowInfoJson(sflow::FlowLivenessFilter filter = sflow::FlowLivenessFilter::All);
+    nlohmann::json getTopKFlowInfoJson(int k,
+                                       sflow::FlowLivenessFilter filter = sflow::FlowLivenessFilter::All);
+
+    /**
+     * @brief How many tracked flows are active, idle and ended, counted in one locked pass.
+     *
+     * Exists so a caller that only needs counts does not serialise the whole table to get them,
+     * and so `active_flow_count` can mean active. [Co-developed with claude code -- Adam]
+     */
+    sflow::FlowLivenessCounts countFlowsByLiveness();
 
     /**
      * @brief Replace the entire (src,dst)->Path map using a vector of paths.
@@ -335,6 +389,24 @@ class FlowLinkUsageCollector
      * [Co-developed with claude code -- Adam]
      */
     uint64_t sampledByteCreditFor(uint32_t agentIp, uint32_t port) const;
+
+    /**
+     * @brief The active window this collector applies, in ms. Production always leaves it alone.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * A seam, and it is here because the alternative was worse. The one assertion that matters
+     * for KNOWN-ISSUES B-x -- that a flow which stopped is actually dropped from the default view
+     * -- needs a row whose last sample is older than the window, and the only ways to get one are
+     * to sleep past kFlowActiveWindowMs (3 s of wall clock in a suite that today contains no
+     * multi-second sleep at all, and a timing-dependent test to maintain forever) or to write
+     * FlowInfo::endTime from a test, which would mean exposing the table for mutation.
+     *
+     * Nothing in this class ever writes it, so its production value is the constant and a
+     * mutation that changed the constant would still be caught. A test subclass narrows it to
+     * make every retained row idle deterministically.
+     */
+    int64_t m_flowActiveWindowMs = kFlowActiveWindowMs;
 
   private:
     /**

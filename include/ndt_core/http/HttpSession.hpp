@@ -7,6 +7,10 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
+// For sflow::FlowLivenessFilter, which readLivenessFilter takes by reference and so needs
+// complete. The FlowLinkUsageCollector forward declaration below stays: this is the types header,
+// not the collector. [Co-developed with claude code -- Adam]
+#include "common_types/SFlowType.hpp"
 
 using json = nlohmann::json;
 
@@ -173,6 +177,18 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @note Intended for clients such as a dashboard/GUI to query live flow visibility.
      */
     void handleGetDetectedFlowData(http::response<http::string_body>& res);
+
+    /**
+     * @brief Reads the `liveness` query parameter shared by both flow-listing endpoints.
+     *
+     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     *
+     * @param[out] res    On a rejected value, filled with 400 and a diagnostic body.
+     * @param[out] filter The API default when the parameter is absent, otherwise the parsed value.
+     * @return false when the caller must return immediately because `res` is already an error.
+     */
+    bool readLivenessFilter(http::response<http::string_body>& res,
+                            sflow::FlowLivenessFilter& filter);
 
     /**
      * @brief Returns the top-K detected flows (ranked by estimated rate) as JSON.

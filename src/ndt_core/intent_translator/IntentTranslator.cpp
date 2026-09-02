@@ -552,11 +552,24 @@ IntentTranslator::performTask(llmResponse::Task* task)
         }
         case llmResponse::TaskType::GET_ACTIVE_FLOW_COUNT:
         {
-            // Get the current flow table from the collector
-            auto flowTable = this->m_flowLinkUsageCollector->getFlowInfoTable();
-            size_t flowCount = flowTable.size();
+            // [Co-developed with claude code -- Adam]
+            // KNOWN-ISSUES B-x. This was `getFlowInfoTable().size()` -- the size of the whole
+            // table, reported under the key `active_flow_count`. The table retains a flow for
+            // FLOW_IDLE_TIMEOUT (15 s) after its last sample, so at the measured churn working
+            // point this answered 63 when 4.7 flows were sending: the field's name was a claim
+            // the value contradicted, and an LLM asked "how many flows are in the network?" was
+            // being handed a 13x over-count with nothing marking it.
+            //
+            // Both numbers are reported now rather than swapping one for the other, because the
+            // retained count is the answer to a different and still-legitimate question ("how
+            // many flows does the twin currently know about") and losing it would trade one
+            // silent wrong answer for another. Counted rather than serialised: the count needs no
+            // JSON and this path only ever wanted a number.
+            const sflow::FlowLivenessCounts counts =
+                this->m_flowLinkUsageCollector->countFlowsByLiveness();
             json result;
-            result["active_flow_count"] = flowCount;
+            result["active_flow_count"] = counts.active;
+            result["retained_flow_count"] = counts.retained();
             // Return the JSON object as a string
             return result.dump();
         }

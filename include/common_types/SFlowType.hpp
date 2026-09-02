@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <charconv>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <map>
@@ -10,6 +11,7 @@
 #include <queue>
 #include <stdexcept>
 #include <string>
+#include <string_view> // parseLivenessFilter [Co-developed with claude code -- Adam]
 #include <vector>
 
 using json = nlohmann::json;
@@ -450,6 +452,193 @@ computeEstimatedRates(uint64_t accumulatedFlowRate,
 
     const uint64_t hops = static_cast<uint64_t>(hopsCounter);
     return {accumulatedFlowRate / hops, accumulatedPacketRate / hops, true};
+}
+
+// ================================ flow liveness ================================================
+// [Co-developed with claude code -- Adam]
+//
+// KNOWN-ISSUES B-x. The flow table keeps a flow for FLOW_IDLE_TIMEOUT (15 s) after its last
+// sample, and getFlowInfoJson walks the whole table with no predicate, so the API lists flows that
+// have already ended. Measured on 2026-08-27 at one churn working point (1.6 new flows/s):
+// mean 4.7 flows actually sending against mean 63.0 listed, 13.3x, and the ratio never dropped
+// below 1 in any sample. That is ~92% ended -- at that working point. The transferable form is
+// the model, not the number:
+//
+//     inflation ~= 1 + FLOW_IDLE_TIMEOUT_seconds * new_flow_rate / mean_concurrency
+//
+// so it approaches 1 for long flows and diverges under churn. Anyone can falsify it at another
+// working point, which a single 13.3x cannot be.
+//
+// 🔑 The retention is not the defect. Keeping a flow for a while is a defensible choice -- a flow
+// that starts and ends between two polls would otherwise never be visible at all. The defect is
+// that the record has no field that says so: the twelve fields getFlowInfoJson emits are the
+// 5-tuple, four rates, two formatted timestamps and the path, and the only one that even hints at
+// staleness is `latest_sampled_time`, a preformatted string that a consumer can only use if it
+// already knows FLOW_IDLE_TIMEOUT -- which the API document does not state. The document instead
+// says the endpoint returns "all active flows" (doc/2026-01-02_ndt_api.md:358), so this is a
+// specification making a claim the implementation contradicts, not a specification staying silent.
+//
+// 🔴 What this deliberately does NOT re-assert: the proposed compounding effect where a dead flow
+// keeps a stale non-zero rate and therefore outranks live flows in top-k. It was measured on
+// 2026-08-28 across 3040 observations on two arms and dead-AND-nonzero came back 0 on both --
+// the periodic rates are cleared when no hop reported traffic (FlowLinkUsageCollector.cpp:1911).
+// The measured harm is the population, not the ordering: dead flows do not beat live ones, they
+// FILL the slots underneath them, because fewer than ten flows are alive at once. Median 4 of the
+// top 10 rows were ended flows on the base arm and 2 of 10 on this branch. Zeroing every rate
+// field does not touch that; only a predicate does.
+
+/**
+ * @brief Where a tracked flow sits between "sending now" and "swept from the table".
+ *
+ * Three states rather than a boolean, because the middle one is real and is the whole population
+ * this ticket is about: a flow with no recent sample that the purge thread has not yet removed.
+ * Collapsing it into either neighbour is what produced the defect -- the table calls it alive
+ * because it is still present, the world calls it dead because it stopped.
+ */
+enum class FlowLiveness
+{
+    Active, ///< a sample arrived within the active window
+    Idle,   ///< no recent sample, but not yet past FLOW_IDLE_TIMEOUT: still retained
+    Ended,  ///< past FLOW_IDLE_TIMEOUT; the purge thread has simply not swept it yet
+};
+
+/// Which liveness classes a caller wants back. Named per class rather than as a boolean so a
+/// caller cannot ask for "not ended" and silently receive idle rows it thought it had excluded.
+enum class FlowLivenessFilter
+{
+    ActiveOnly,    ///< Active
+    ActiveAndIdle, ///< Active + Idle -- everything the table retains and has not timed out
+    All,           ///< every row, whatever its state
+};
+
+/**
+ * @brief How many tracked flows are in each state, counted in a single pass.
+ *
+ * One struct rather than a count-per-call, so a caller reporting two of them cannot publish a
+ * pair taken from two different instants: `active` and `retained` from separate passes can
+ * disagree with each other while each is individually true. [Co-developed with claude code -- Adam]
+ */
+struct FlowLivenessCounts
+{
+    std::size_t active = 0;
+    std::size_t idle = 0;
+    std::size_t ended = 0;
+
+    /// Everything the table holds, whatever its state.
+    std::size_t retained() const { return active + idle + ended; }
+};
+
+inline const char*
+toString(FlowLiveness liveness)
+{
+    switch (liveness)
+    {
+        case FlowLiveness::Active:
+            return "active";
+        case FlowLiveness::Idle:
+            return "idle";
+        case FlowLiveness::Ended:
+            return "ended";
+    }
+    return "unknown";
+}
+
+/**
+ * @brief Classify a flow from the age of its most recent sample.
+ *
+ * @param nowMs          Wall clock now, same base as lastSeenMs.
+ * @param lastSeenMs     FlowInfo::endTime -- the wall clock at the last sample of this flow.
+ * @param activeWindowMs Age below which the flow counts as Active.
+ * @param idleTimeoutMs  Age at or above which the flow counts as Ended (FLOW_IDLE_TIMEOUT).
+ *
+ * Both bounds are parameters rather than constants read from here, so this stays free of
+ * FlowLinkUsageCollector.hpp's `#define` and a test can drive the boundaries directly.
+ *
+ * 🔴 A negative age -- lastSeenMs in the future -- is reported Active, on purpose and not because
+ * it is right. `endTime` comes from the system clock, not a steady one, so an NTP step, a VM
+ * resume or a hand-set clock can put it ahead of now. purgeIdleFlows already skips exactly this
+ * case (`if (now <= info.endTime) continue;`, FlowLinkUsageCollector.cpp:2242), which is the
+ * mechanism behind the 291 s zombie record observed in the 2026-08-13 OVS overnight round -- 19x
+ * past the 15 s ceiling this code can produce, which is how that observation was shown to be a
+ * DIFFERENT defect and not this one. Agreeing with the purge keeps a zombie visible in the
+ * default view instead of hiding it behind a filter; a separate ticket owns the clock itself. If
+ * this returned Ended instead, the new filter would make that defect silent, and silencing a bug
+ * is a worse outcome than displaying it.
+ */
+inline FlowLiveness
+classifyFlowLiveness(int64_t nowMs, int64_t lastSeenMs, int64_t activeWindowMs, int64_t idleTimeoutMs)
+{
+    const int64_t ageMs = nowMs - lastSeenMs;
+    if (ageMs < activeWindowMs)
+    {
+        return FlowLiveness::Active;
+    }
+    if (ageMs >= idleTimeoutMs)
+    {
+        return FlowLiveness::Ended;
+    }
+    return FlowLiveness::Idle;
+}
+
+/**
+ * @brief The wall clock at which a flow last seen at lastSeenMs becomes Ended.
+ *
+ * Derived, never stored. A stored `endedAt` would be a second source of truth for a fact the
+ * `endTime` field already determines, and the two would disagree the moment either bound moved.
+ */
+inline int64_t
+flowEndedAtMs(int64_t lastSeenMs, int64_t idleTimeoutMs)
+{
+    return lastSeenMs + idleTimeoutMs;
+}
+
+inline bool
+passesLivenessFilter(FlowLiveness liveness, FlowLivenessFilter filter)
+{
+    switch (filter)
+    {
+        case FlowLivenessFilter::ActiveOnly:
+            return liveness == FlowLiveness::Active;
+        case FlowLivenessFilter::ActiveAndIdle:
+            return liveness != FlowLiveness::Ended;
+        case FlowLivenessFilter::All:
+            return true;
+    }
+    return true;
+}
+
+/**
+ * @brief Parse the `liveness` query parameter.
+ *
+ * @return false, leaving `out` untouched, for anything not on the list. Rejecting rather than
+ * falling back matters here: a caller that types `?liveness=alive` and is quietly handed the
+ * default gets a filtered list it believes is unfiltered, which is the same class of silent wrong
+ * answer this whole ticket is about. An empty value means "not supplied" and is accepted, because
+ * utils::queryParam cannot tell `?liveness=` from an absent key.
+ */
+inline bool
+parseLivenessFilter(std::string_view value, FlowLivenessFilter& out)
+{
+    if (value.empty())
+    {
+        return true; // absent: caller keeps whatever default it chose
+    }
+    if (value == "active")
+    {
+        out = FlowLivenessFilter::ActiveOnly;
+        return true;
+    }
+    if (value == "retained")
+    {
+        out = FlowLivenessFilter::ActiveAndIdle;
+        return true;
+    }
+    if (value == "all")
+    {
+        out = FlowLivenessFilter::All;
+        return true;
+    }
+    return false;
 }
 
 /**

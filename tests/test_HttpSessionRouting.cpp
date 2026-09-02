@@ -456,3 +456,70 @@ TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsNotRepor
     EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
     EXPECT_TRUE(edgeIsUp(1, 5)) << "the reported direction must still be marked up";
 }
+
+// --- the liveness parameter on the two flow-listing endpoints ---------------------------------
+// [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+//
+// These belong in this file rather than test_FlowLiveness.cpp for the reason its header states:
+// the status code is decided by HttpSession, so only HttpSession can be asked about it. They also
+// respect this file's constraint -- every case asserts a 4xx reached before any collaborator is
+// touched, because readLivenessFilter runs before the null m_flowLinkUsageCollector is
+// dereferenced. A valid `liveness` value cannot be tested here at all; it would reach the handler
+// and fault on the null collector.
+//
+// 🔴 What each of these does against the pre-patch code, stated because "red" means two different
+// things here:
+//   * the get_detected_flow_data case answers 404, cleanly. The route was an exact compare
+//     (`target == "/ndt/get_detected_flow_data"`), so any query string fell through to not-found.
+//   * the top-k case SEGFAULTS. Its route was already `starts_with`, so the request reaches the
+//     handler, which dereferences the null collector. That kills the gtest process, taking the
+//     rest of the binary's reporting with it -- a failing run, but an ugly one, and the same
+//     hazard this file's header describes. Expect it when running the gate.
+
+TEST(HttpSessionRoutingTest, AQueryStringOnGetDetectedFlowDataStillReachesItsRoute)
+{
+    // The narrowest statement of the routing half: an unparseable value must be rejected by the
+    // handler as 400, not by the router as 404. A 404 here means the endpoint cannot take a
+    // parameter at all.
+    HttpSessionTestPeer peer;
+    const auto& res =
+        peer.send(http::verb::get, "/ndt/get_detected_flow_data?liveness=not_a_value");
+
+    EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
+    EXPECT_NE(res.body().find("liveness"), std::string::npos)
+        << "a 400 that does not name the parameter it rejected: " << res.body();
+}
+
+TEST(HttpSessionRoutingTest, AnUnrecognisedLivenessValueIsRefusedRatherThanQuietlyDefaulted)
+{
+    HttpSessionTestPeer peer;
+    for (const char* bad : {"alive", "ACTIVE", "true", "1"})
+    {
+        const auto& res =
+            peer.send(http::verb::get, std::string("/ndt/get_detected_flow_data?liveness=") + bad);
+        EXPECT_EQ(res.result_int(), 400u) << bad << " -> " << res.body();
+    }
+}
+
+TEST(HttpSessionRoutingTest, TopKRefusesAnUnrecognisedLivenessValueBeforeTouchingTheCollector)
+{
+    HttpSessionTestPeer peer;
+    const auto& res =
+        peer.send(http::verb::get, "/ndt/get_detected_top_k_flow_data?k=5&liveness=bogus");
+
+    EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
+}
+
+TEST(HttpSessionRoutingTest, AMistypedFlowDataEndpointIsNotFoundRatherThanServed)
+{
+    // The tightening half. `starts_with` on the top-k route accepted any suffix, so a typo was
+    // answered as if it were the endpoint; utils::pathIs requires end-of-target or '?'.
+    HttpSessionTestPeer peer;
+    for (const char* target : {"/ndt/get_detected_flow_dataZZZ",
+                               "/ndt/get_detected_top_k_flow_dataZZZ",
+                               "/ndt/get_detected_flow_data/extra"})
+    {
+        const auto& res = peer.send(http::verb::get, target);
+        EXPECT_EQ(res.result_int(), 404u) << target << " -> " << res.body();
+    }
+}
