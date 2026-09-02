@@ -3,6 +3,8 @@
 
 #include "ndt_core/power_management/IPowerStrategy.hpp"
 #include <optional>
+#include <string>
+#include <vector>
 
 class OVSPowerStrategy : public IPowerStrategy
 {
@@ -35,6 +37,31 @@ protected:
      * Found by a review of that change; see doc/audit/2026-08-08_commit-review/power.md H1.
      */
     virtual bool executeSystemCommand(const std::string& cmd);
+
+    /**
+     * @brief Runs a command as an explicit argument vector. **No shell.** Returns false on failure.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-2b/B-4. executeSystemCommand hands its string to /bin/sh, so every
+     * value interpolated into it is shell *code*. The two sFlow restore commands A-4f added
+     * interpolate five values read back out of the switch's own OVS database -- targets, header,
+     * sampling, polling and the agent interface name -- and tests/python/
+     * test_shell_command_construction.py refuses to let an unclassified site like that stand,
+     * on the principle that an unclassified site is presumed request-controlled.
+     *
+     * This is the seam that removes the question instead of answering it: each element goes to
+     * execvp() as one argument, so a quote, a semicolon, a newline or `$(...)` inside an OVSDB
+     * value is just bytes. Note it is not "escaping done right" -- there is no character table
+     * here to get wrong, which is the property that makes it a fix.
+     *
+     * 🔴 Virtual for the reason executeListPorts and executeReadSflowState are: this file's
+     * header records that add-br once bypassed the fake and really ran `sudo ovs-vsctl` against
+     * a developer's machine. A test double that replaces executeSystemCommand alone does NOT
+     * intercept this one, so a double must override both -- FakeOvs and RendezvousOvs in
+     * tests/test_OvsPowerStrategy.cpp do, by delegating here to their string seam.
+     */
+    virtual bool executeArgvCommand(const std::vector<std::string>& argv);
 
     /**
      * @brief Lists a bridge's ports, or reports that it could not find out.

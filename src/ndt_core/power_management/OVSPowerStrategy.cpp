@@ -27,6 +27,25 @@ bool OVSPowerStrategy::executeSystemCommand(const std::string& cmd)
     return true;
 }
 
+bool OVSPowerStrategy::executeArgvCommand(const std::vector<std::string>& argv)
+{
+    // [Co-developed with claude code -- Adam]
+    // The argv twin of executeSystemCommand. See the header for why the sFlow restore uses it:
+    // its values come out of the switch's own OVSDB rows, and B-2b's rule is that a value never
+    // becomes shell code in the first place rather than being escaped into safety.
+    const std::string rendered = utils::describeArgv(argv);
+    const utils::CommandOutcome outcome = utils::execArgv(argv);
+    if (!outcome.succeeded())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "command failed ({}): {}",
+                           utils::describeCommandStatus(outcome.status, rendered),
+                           rendered);
+        return false;
+    }
+    return true;
+}
+
 std::optional<std::vector<std::string>> OVSPowerStrategy::executeListPorts(const std::string& br)
 {
     std::vector<std::string> ports;
@@ -77,21 +96,25 @@ namespace
  * an assertion that never executed looks exactly like one that executed and answered negative.
  */
 std::optional<std::string>
-captureCommand(const std::string& cmd)
+captureArgv(const std::vector<std::string>& argv)
 {
-    FILE* fp = popen(cmd.c_str(), "r");
-    if (!fp)
+    // [Co-developed with claude code -- Adam]
+    // Was popen(cmd) -- a second shell-execution site, which tests/python/
+    // test_shell_command_construction.py counted and refused to leave unclassified. execArgv
+    // captures the same stdout without ever building a command line. Its one visible difference:
+    // the `ip` read used to end in 2>/dev/null, and execArgv leaves the child's stderr attached
+    // to ours, so a failing read now says why in the log instead of vanishing. The exit status
+    // is still what decides, and it is still checked before the output is looked at.
+    const std::string rendered = utils::describeArgv(argv);
+    const utils::CommandOutcome outcome = utils::execArgv(argv);
+    if (!outcome.ran)
     {
-        SPDLOG_LOGGER_WARN(Logger::instance(), "could not run: {}", cmd);
+        SPDLOG_LOGGER_WARN(Logger::instance(), "could not run: {}", rendered);
         return std::nullopt;
     }
-    std::string out;
-    char buf[256];
-    while (fgets(buf, sizeof(buf), fp))
-    {
-        out += buf;
-    }
-    const int rc = pclose(fp);
+    const std::string out = outcome.output;
+    const int rc = outcome.status;
+    const std::string cmd = rendered;
     if (rc != 0)
     {
         SPDLOG_LOGGER_WARN(Logger::instance(),
@@ -150,7 +173,8 @@ OVSPowerStrategy::executeReadSflowState(const std::string& br)
 
     // --if-exists so that a bridge which is already gone answers empty rather than failing; a
     // *missing* bridge genuinely has no sFlow, which is different from not being able to ask.
-    const auto rowRaw = captureCommand("sudo ovs-vsctl --if-exists get bridge " + br + " sflow");
+    const auto rowRaw =
+        captureArgv({"sudo", "ovs-vsctl", "--if-exists", "get", "bridge", br, "sflow"});
     if (!rowRaw)
     {
         return std::nullopt;
@@ -164,8 +188,8 @@ OVSPowerStrategy::executeReadSflowState(const std::string& br)
 
     // One `get` with five columns rather than five calls: one exit status to check, and the
     // columns cannot come from two different reads of a row that changed in between.
-    const auto fieldsRaw = captureCommand("sudo ovs-vsctl get sflow " + row +
-                                          " agent targets header sampling polling");
+    const auto fieldsRaw = captureArgv({"sudo", "ovs-vsctl", "get", "sflow", row, "agent",
+                                        "targets", "header", "sampling", "polling"});
     if (!fieldsRaw)
     {
         return std::nullopt;
@@ -200,8 +224,8 @@ OVSPowerStrategy::executeReadSflowState(const std::string& br)
     // so this half cannot be refused by a sudoers pattern.
     if (!state.agentIface.empty())
     {
-        const auto addr = captureCommand("ip -4 -o addr show dev " + state.agentIface +
-                                         " 2>/dev/null");
+        const auto addr =
+            captureArgv({"ip", "-4", "-o", "addr", "show", "dev", state.agentIface});
         if (addr)
         {
             state.agentIpCidr = firstInetCidr(*addr);
@@ -219,19 +243,22 @@ OVSPowerStrategy::restoreSflow(const std::string& swName, const SflowBridgeState
     // rather than `ip` to stay inside the argv shapes this file already uses.
     if (!saved.agentIpCidr.empty() && !saved.agentIface.empty())
     {
-        executeSystemCommand("sudo ifconfig " + saved.agentIface + " " + saved.agentIpCidr +
-                             " up");
+        executeArgvCommand({"sudo", "ifconfig", saved.agentIface, saved.agentIpCidr, "up"});
     }
 
     // Byte-for-byte the shape testbed_topo.py:118-137 uses, including the escaped quotes around
     // the target, so a bridge rebuilt here is configured identically to one built at bring-up.
-    executeSystemCommand("sudo ovs-vsctl -- --id=@sflow create sflow"
-                         " agent=" + saved.agentIface +
-                         " target=\\\"" + saved.targets + "\\\""
-                         " header=" + saved.header +
-                         " sampling=" + saved.sampling +
-                         " polling=" + saved.polling +
-                         " -- set bridge " + swName + " sflow=@sflow");
+    // The double quotes around the target are OVSDB's own string syntax and are meant to reach
+    // ovs-vsctl -- they used to be written \\" so that /bin/sh would strip the backslash and pass
+    // the quote through. With no shell in the path they are simply part of the argument.
+    // [Co-developed with claude code -- Adam]
+    executeArgvCommand({"sudo", "ovs-vsctl", "--", "--id=@sflow", "create", "sflow",
+                        "agent=" + saved.agentIface,
+                        "target=\"" + saved.targets + "\"",
+                        "header=" + saved.header,
+                        "sampling=" + saved.sampling,
+                        "polling=" + saved.polling,
+                        "--", "set", "bridge", swName, "sflow=@sflow"});
 
     // 🔑 The return value is the read-back, not the commands' exit statuses. An ovs-vsctl that
     // exits 0 says the transaction was accepted, not that this bridge now samples: the record

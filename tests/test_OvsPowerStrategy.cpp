@@ -65,6 +65,19 @@ class FakeOvs : public OVSPowerStrategy
         return failSubstring.empty() || cmd.find(failSubstring) == std::string::npos;
     }
 
+    /// A-4f's sFlow restore goes through the argv seam (doc/KNOWN-ISSUES.md B-2b), which
+    /// executeSystemCommand does NOT intercept -- a double that overrode only the string seam
+    /// would shell out to a real `sudo ovs-vsctl` from inside a unit test, which is exactly the
+    /// hole this file's header records having been bitten by once. Delegating keeps one recording
+    /// path, so `commands` still holds every command in order and failSubstring still selects on
+    /// them. Note what the recorded string now is: utils::describeArgv's rendering of the vector,
+    /// for humans -- not a command line, and nothing here is ever handed to a shell.
+    /// [Co-developed with claude code -- Adam]
+    bool executeArgvCommand(const std::vector<std::string>& argv) override
+    {
+        return executeSystemCommand(utils::describeArgv(argv));
+    }
+
     std::optional<std::vector<std::string>> executeListPorts(const std::string& br) override
     {
         ++listPortsCalls;
@@ -869,6 +882,14 @@ class RendezvousOvs : public OVSPowerStrategy
         }
         // Everything naming s2 fails; everything naming s1 succeeds.
         return cmd.find("s2") == std::string::npos;
+    }
+
+    /// A-4f/B-2b: the argv seam, overridden for the same reason as the three around it. Routed
+    /// through the same string logic so one shared object still answers per switch name.
+    /// [Co-developed with claude code -- Adam]
+    bool executeArgvCommand(const std::vector<std::string>& argv) override
+    {
+        return executeSystemCommand(utils::describeArgv(argv));
     }
 
     std::optional<std::vector<std::string>> executeListPorts(const std::string&) override
