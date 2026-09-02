@@ -51,6 +51,8 @@ add_executable(
   test_StaleTableCarryForward.cpp
   test_FlowTableConcurrency.cpp
   test_TopKFlowInfoLocking.cpp
+  # KNOWN-ISSUES B-x, flow liveness. [Co-developed with claude code -- Adam]
+  test_FlowLiveness.cpp
   test_FlowBatchPartition.cpp
   test_TopologyAndFlowMonitor.cpp
   test_TopologyAndFlowMonitor_mininet.cpp

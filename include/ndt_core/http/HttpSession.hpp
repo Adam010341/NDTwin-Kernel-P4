@@ -7,6 +7,10 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
+// For sflow::FlowLivenessFilter, which readLivenessFilter takes by reference and so needs
+// complete. The FlowLinkUsageCollector forward declaration below stays: this is the types header,
+// not the collector. [Co-developed with claude code -- Adam]
+#include "common_types/SFlowType.hpp"
 
 using json = nlohmann::json;
 
@@ -44,6 +48,21 @@ using tcp = net::ip::tcp;
 class HttpSession : public std::enable_shared_from_this<HttpSession>
 {
   public:
+    /**
+     * @brief What the two flow-listing endpoints return when no `liveness` parameter is supplied.
+     *
+     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     *
+     * Public, and in the header, so that flipping it back is one visible line AND so a test can
+     * pin it. Pinning a constant is a weak test in the sense that it restates a decision -- the
+     * same trade FlowPathRecomputeInterval.IsOneSecondNotOneMillisecond makes, and for the same
+     * reason: the decision IS the change, and without the pin a silent revert leaves the suite
+     * green. What it is not is proof that the handler honours it; only a request served by a real
+     * collector shows that, and no test in this repository builds one yet.
+     */
+    static constexpr sflow::FlowLivenessFilter kFlowDataApiDefault =
+        sflow::FlowLivenessFilter::ActiveOnly;
+
     /**
      * @brief Construct a new Http Session object.
      * @param socket The connected TCP socket to handle.
@@ -193,6 +212,18 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @note Intended for clients such as a dashboard/GUI to query live flow visibility.
      */
     void handleGetDetectedFlowData(http::response<http::string_body>& res);
+
+    /**
+     * @brief Reads the `liveness` query parameter shared by both flow-listing endpoints.
+     *
+     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     *
+     * @param[out] res    On a rejected value, filled with 400 and a diagnostic body.
+     * @param[out] filter The API default when the parameter is absent, otherwise the parsed value.
+     * @return false when the caller must return immediately because `res` is already an error.
+     */
+    bool readLivenessFilter(http::response<http::string_body>& res,
+                            sflow::FlowLivenessFilter& filter);
 
     /**
      * @brief Returns the top-K detected flows (ranked by estimated rate) as JSON.

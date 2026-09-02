@@ -489,6 +489,35 @@ queryParam(std::string_view target, std::string_view key)
     return "";
 }
 
+/**
+ * @brief True when a request target names exactly `path`, with or without a query string.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * The routing table had two shapes and both were wrong in opposite directions:
+ *
+ *  - `target == "/ndt/get_detected_flow_data"` -- an exact compare, so the endpoint could not
+ *    accept a query parameter at all. Adding `?liveness=all` to it produced a 404, because the
+ *    string no longer matched any branch and fell through to the not-found tail. That is the
+ *    reason this helper exists: KNOWN-ISSUES B-x needs a parameter on that endpoint.
+ *  - `target.starts_with("/ndt/get_detected_top_k_flow_data")` -- a prefix compare, which also
+ *    accepts `/ndt/get_detected_top_k_flow_dataZZZ` and any other suffix. A caller who typos the
+ *    endpoint name gets the endpoint rather than a 404, which is the wrong answer to a wrong
+ *    request.
+ *
+ * Matching the path and then requiring end-of-string or '?' is what both branches meant. A
+ * fragment ('#') is not considered: fragments are not sent to servers.
+ */
+inline bool
+pathIs(std::string_view target, std::string_view path)
+{
+    if (!target.starts_with(path))
+    {
+        return false;
+    }
+    return target.size() == path.size() || target[path.size()] == '?';
+}
+
 inline std::string
 describeCommandStatus(int status, std::string_view command = {}, int savedErrno = -1)
 {

@@ -155,11 +155,18 @@ HttpSession::buildResponse()
         {
             handleGetGraphData(*response);
         }
-        else if (method == http::verb::get && target == "/ndt/get_detected_flow_data")
+        // [Co-developed with claude code -- Adam]
+        // Was `target == "/ndt/get_detected_flow_data"`, an exact match, so the endpoint could
+        // never carry a query string: `?liveness=all` fell through every branch and answered 404.
+        // utils::pathIs matches the path and an optional query, which is also TIGHTER than the
+        // `starts_with` used below -- that one accepts /ndt/get_detected_top_k_flow_dataXYZ.
+        // The two routes cannot collide: the top-k path does not begin with this one.
+        else if (method == http::verb::get && utils::pathIs(target, "/ndt/get_detected_flow_data"))
         {
             handleGetDetectedFlowData(*response);
         }
-        else if (method == http::verb::get && target.starts_with("/ndt/get_detected_top_k_flow_data"))
+        else if (method == http::verb::get &&
+                 utils::pathIs(target, "/ndt/get_detected_top_k_flow_data"))
         {
             handleGetDetectedTopKFlowData(*response);
         }
@@ -619,11 +626,53 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
     SPDLOG_LOGGER_INFO(Logger::instance(), "get_graph_data success");
 }
 
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES B-x. The API's own default lives here rather than in the collector, so that
+// changing what the endpoint returns is one line in one place and no in-repo caller of
+// getFlowInfoJson() is dragged along with it.
+//
+// 🔴 This CHANGES what an existing caller receives, including the out-of-repo one:
+// ~/Energy-Saving-App/src/app/energy_saving_app.cpp:741 feeds the whole array into
+// json2sim["flowDataList"] and consumes it per flow. Rows dropped by this default all carry rate 0
+// -- that much was measured -- so any per-flow bandwidth arithmetic over them contributes nothing.
+// What is NOT known is whether anything there uses the LENGTH of the list as a load figure; if it
+// does, that consumer has been reading a 13x over-count and this default is the fix rather than
+// the regression. Either way `?liveness=all` restores byte-for-byte the old population, which is
+// why the parameter exists and why it is spelled out in the API document.
+// The value itself now lives in HttpSession.hpp as a public constant, so that a test can pin it
+// and a revert is one visible line. [Co-developed with claude code -- Adam]
+
+bool
+HttpSession::readLivenessFilter(http::response<http::string_body>& res,
+                                sflow::FlowLivenessFilter& filter)
+{
+    filter = HttpSession::kFlowDataApiDefault;
+    const std::string raw = utils::queryParam(m_req.target(), "liveness");
+    if (!sflow::parseLivenessFilter(raw, filter))
+    {
+        // A rejected value, not a silent fallback. A caller who typed `?liveness=alive` and was
+        // handed the default would believe the list is unfiltered when it is not -- the same
+        // silent-wrong-answer shape as the defect being fixed.
+        res.result(http::status::bad_request);
+        res.body() =
+            json::object({{"error", "liveness must be one of: active, retained, all"}}).dump();
+        SPDLOG_LOGGER_WARN(Logger::instance(), "Invalid liveness value: {}", raw);
+        return false;
+    }
+    return true;
+}
+
 void
 HttpSession::handleGetDetectedFlowData(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Detected Flow Data");
-    res.body() = m_flowLinkUsageCollector->getFlowInfoJson().dump();
+
+    sflow::FlowLivenessFilter filter = HttpSession::kFlowDataApiDefault;
+    if (!readLivenessFilter(res, filter))
+    {
+        return;
+    }
+    res.body() = m_flowLinkUsageCollector->getFlowInfoJson(filter).dump();
 }
 
 void
@@ -653,7 +702,19 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
         k = 0;
     }
 
-    auto j = m_flowLinkUsageCollector->getTopKFlowInfoJson(k);
+    // [Co-developed with claude code -- Adam]
+    // KNOWN-ISSUES B-x, second half. The same default as the flow-data endpoint, because the
+    // measured harm here is worse: at the churn working point the default k = 50 was returning
+    // ~45 rows of rate-0 corpses, and median 4 of the top 10 rows were ended flows. The document
+    // calls this endpoint "Top-K active flows" (doc/2026-01-02_ndt_api.md:2395); with this
+    // default it is.
+    sflow::FlowLivenessFilter filter = HttpSession::kFlowDataApiDefault;
+    if (!readLivenessFilter(res, filter))
+    {
+        return;
+    }
+
+    auto j = m_flowLinkUsageCollector->getTopKFlowInfoJson(k, filter);
 
     res.body() = j.dump();
 }

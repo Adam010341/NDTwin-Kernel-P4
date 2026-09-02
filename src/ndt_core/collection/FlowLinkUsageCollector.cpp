@@ -2378,15 +2378,72 @@ FlowLinkUsageCollector::getFlowInfoTable()
     return m_flowInfoTable;
 }
 
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES B-x. The predicate that was missing. Every row is classified from the age of its
+// most recent sample against the same `endTime` field purgeIdleFlows uses, so the two cannot
+// disagree about what has ended: one field, one clock, two readers.
+sflow::FlowLivenessCounts
+FlowLinkUsageCollector::countFlowsByLiveness()
+{
+    shared_lock lock(m_flowInfoTableMutex);
+    const int64_t now = utils::getCurrentTimeMillisSystemClock();
+    sflow::FlowLivenessCounts counts;
+    for (const auto& entry : m_flowInfoTable)
+    {
+        switch (sflow::classifyFlowLiveness(
+            now, entry.second.endTime, m_flowActiveWindowMs, FLOW_IDLE_TIMEOUT))
+        {
+            case sflow::FlowLiveness::Active:
+                ++counts.active;
+                break;
+            case sflow::FlowLiveness::Idle:
+                ++counts.idle;
+                break;
+            case sflow::FlowLiveness::Ended:
+                ++counts.ended;
+                break;
+        }
+    }
+    return counts;
+}
+
 nlohmann::json
-FlowLinkUsageCollector::getFlowInfoJson()
+FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
 {
     shared_lock lock(m_flowInfoTableMutex);
     nlohmann::json result = nlohmann::json::array();
 
+    // One `now` for the whole pass, not one per row. Two rows sampled in the same millisecond must
+    // not be able to land in different classes because the clock moved between them; a caller
+    // comparing counts across the array would then see a total that does not add up.
+    // [Co-developed with claude code -- Adam]
+    const int64_t now = utils::getCurrentTimeMillisSystemClock();
+
     for (const auto& [flowKey, flowInfo] : m_flowInfoTable)
     {
+        const auto liveness = sflow::classifyFlowLiveness(
+            now, flowInfo.endTime, m_flowActiveWindowMs, FLOW_IDLE_TIMEOUT);
+        if (!sflow::passesLivenessFilter(liveness, filter))
+        {
+            continue;
+        }
+
         nlohmann::json j;
+
+        // [Co-developed with claude code -- Adam]
+        // The three fields the record never had. Before this, a consumer holding a row could not
+        // tell a flow that stopped fourteen seconds ago from one sending right now: the only
+        // hint was `latest_sampled_time`, a preformatted "%Y-%m-%d %H:%M:%S" string that is
+        // unusable for arithmetic and useless without FLOW_IDLE_TIMEOUT, which the API document
+        // does not publish. These are raw epoch milliseconds precisely so no consumer has to
+        // re-parse a display string to do subtraction.
+        //
+        // `ended_at_ms` is when this row WILL be eligible for the purge, derived from the same
+        // last-seen stamp rather than stored, so it cannot drift out of agreement with `liveness`.
+        // For an already-ended row it is in the past.
+        j["liveness"] = sflow::toString(liveness);
+        j["last_seen_ms"] = flowInfo.endTime;
+        j["ended_at_ms"] = sflow::flowEndedAtMs(flowInfo.endTime, FLOW_IDLE_TIMEOUT);
 
         j["src_ip"] = flowKey.srcIP;
         j["dst_ip"] = flowKey.dstIP;
@@ -2420,7 +2477,7 @@ FlowLinkUsageCollector::getFlowInfoJson()
 }
 
 nlohmann::json
-FlowLinkUsageCollector::getTopKFlowInfoJson(int k)
+FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter filter)
 {
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "getTopKFlowInfoJson k={}", k);
 
@@ -2452,7 +2509,19 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k)
     // 📌 It also closes the note KNOWN-ISSUES filed beside the deadlock: the std::sort was
     // running INSIDE the shared lock, so the critical section grew as O(n log n) in the size of
     // the flow table. It is now outside, and the lock is held only for the copy.
-    nlohmann::json flowInfo = getFlowInfoJson();
+    // [Co-developed with claude code -- Adam]
+    // KNOWN-ISSUES B-x. The filter is applied HERE, before the sort and before `min(k, size)`,
+    // not to the k rows that come out. Filtering afterwards would return fewer than k rows while
+    // live ones sat just below the cut -- the caller asked for the busiest k flows, not for
+    // whatever survives a predicate applied to an arbitrary prefix.
+    //
+    // 🔴 Not because dead flows outrank live ones. They do not: their sort key
+    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1911 whenever no
+    // hop reported traffic, and 3040 measured observations on two arms found zero dead-and-nonzero
+    // rows. The measured harm is that they FILL the list from the bottom -- median 4 of the top 10
+    // rows were ended flows -- because at the churn working point fewer than ten flows are alive.
+    // A predicate is the only thing that removes them; zeroing rate fields never could.
+    nlohmann::json flowInfo = getFlowInfoJson(filter);
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "Total flows: {}", flowInfo.size());
 
     std::sort(flowInfo.begin(),

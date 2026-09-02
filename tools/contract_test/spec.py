@@ -132,6 +132,17 @@ FLOW_RECORD = Obj({
     "first_sampled_time": Str(nonempty=True),
     "latest_sampled_time": Str(nonempty=True),
     "path": List(PATH_HOP),
+}, optional={
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-x. The liveness triple, added 2026-09-02. OPTIONAL rather than required, and
+    # deliberately: this file is run against a live kernel, and a kernel built before the patch
+    # emits twelve fields. Making them required would turn the contract test into a version check
+    # and report "contract broken" for an old binary that is behaving exactly as it was built to.
+    # Listing them at all is what stops a later refactor from dropping them silently -- Obj is
+    # non-strict by default (schema.py:129-138), so an unlisted field is simply invisible here.
+    "liveness": Str(nonempty=True),
+    "last_seen_ms": Int(min=0),
+    "ended_at_ms": Int(min=0),
 })
 
 # Ryu /stats/flow shape. actions are STRINGS ("OUTPUT:1") -- Classifier.cpp parses only
