@@ -1,0 +1,120 @@
+=== A-8 START prep5 2026-09-02T19:11:26Z / 2026-09-03T03:11:26+0800 ===
+owner: adam
+since: 2026-09-02
+port:  2301
+note:  Sections 1-5 complete, Section 6 NOT started. Copy of the A-2 clean-room disk
+note:  (same repo NDTwin-Kernel-P4-public, same commit 936f8c6 as ndtwin-vm-adam).
+note:  This is NOT a fork of ndtwin-vm-adam -- that disk has no snapshots, so its
+note:  own pre-P4 state no longer exists. Different VM instance, same starting point.
+--- CONFIG (informational only; ndtwin-vm.sh does not read it) ---
+cpus=4
+mem=6144
+disk=120G
+port=2301
+
+--- pre-start image ---
+6141444096	/home/nslab/ndtwin-vm-prep5/disk.qcow2
+image: /home/nslab/ndtwin-vm-prep5/disk.qcow2
+file format: qcow2
+virtual size: 120 GiB (128849018880 bytes)
+disk size: 5.72 GiB
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    compression type: zlib
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+    extended l2: false
+
+--- start ---
+--- booting: 4 vCPU, 6144MiB, ssh on 127.0.0.1:2301 ---
+--- waiting for the guest to answer ssh (state, not exit code) ---
+  guest reachable after 20s
+=== ACCEPTANCE ===
+  qemu pid: 404441
+Warning: Permanently added '[127.0.0.1]:2301' (ED25519) to the list of known hosts.
+  guest: Ubuntu 24.04.4 LTS kernel 6.8.0-138-generic
+  cpus:  4   mem: 5Gi
+  disk:  110G free
+  cloud-init marker: present
+START_EXIT=0
+
+--- pidfile ---
+QEMU_PID=404441
+PROC_EXISTS=yes
+/usr/bin/qemu-system-x86_64
+qemu-system-x86_64 -name ndtwin-lab-vm -machine q35,accel=kvm -cpu host -smp 4 -m 6144 -drive file=/home/nslab/ndtwin-vm-prep5/disk.qcow2,if=virtio,format=qcow2 -drive file=/home/nslab/ndtwin-vm-prep5/seed.iso,if=virtio,format=raw,readonly=on -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2301-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:/home/nslab/ndtwin-vm-prep5/qemu.log -monitor unix:/home/nslab/ndtwin-vm-prep5/monitor.sock,server,nowait -pidfile /home/nslab/ndtwin-vm-prep5/qemu.pid -daemonize 
+--- affinity: pin to 16-19 ---
+pid 404441's current affinity list: 0-27
+pid 404441's new affinity list: 16-19
+pid 404442's current affinity list: 0-27
+pid 404442's new affinity list: 16-19
+pid 404443's current affinity list: 0-27
+pid 404443's new affinity list: 16-19
+pid 404445's current affinity list: 0-27
+pid 404445's new affinity list: 16-19
+pid 404446's current affinity list: 0-27
+pid 404446's new affinity list: 16-19
+pid 404447's current affinity list: 0-27
+pid 404447's new affinity list: 16-19
+pid 404448's current affinity list: 0-27
+pid 404448's new affinity list: 16-19
+pid 404450's current affinity list: 0-27
+pid 404450's new affinity list: 16-19
+pid 404457's current affinity list: 0-27
+pid 404457's new affinity list: 16-19
+pid 404458's current affinity list: 0-27
+pid 404458's new affinity list: 16-19
+pid 404459's current affinity list: 0-27
+pid 404459's new affinity list: 16-19
+pid 404460's current affinity list: 0-27
+pid 404460's new affinity list: 16-19
+pid 404461's current affinity list: 0-27
+pid 404461's new affinity list: 16-19
+pid 404462's current affinity list: 0-27
+pid 404462's new affinity list: 16-19
+pid 404463's current affinity list: 0-27
+pid 404463's new affinity list: 16-19
+pid 404464's current affinity list: 0-27
+pid 404464's new affinity list: 16-19
+pid 404465's current affinity list: 0-27
+pid 404465's new affinity list: 16-19
+pid 404466's current affinity list: 0-27
+pid 404466's new affinity list: 16-19
+pid 404467's current affinity list: 0-27
+pid 404467's new affinity list: 16-19
+pid 404468's current affinity list: 0-27
+pid 404468's new affinity list: 16-19
+pid 404469's current affinity list: 0-27
+pid 404469's new affinity list: 16-19
+pid 404470's current affinity list: 0-27
+pid 404470's new affinity list: 16-19
+pid 404471's current affinity list: 0-27
+pid 404471's new affinity list: 16-19
+pid 404472's current affinity list: 0-27
+pid 404472's new affinity list: 16-19
+pid 404473's current affinity list: 0-27
+pid 404473's new affinity list: 16-19
+pid 404474's current affinity list: 0-27
+pid 404474's new affinity list: 16-19
+pid 404475's current affinity list: 0-27
+pid 404475's new affinity list: 16-19
+TASKSET_EXIT=0
+pid 404441's current affinity list: 16-19
+pid 404442's current affinity list: 16-19
+pid 404443's current affinity list: 16-19
+pid 404445's current affinity list: 16-19
+pid 404446's current affinity list: 16-19
+pid 404447's current affinity list: 16-19
+pid 404448's current affinity list: 16-19
+pid 404450's current affinity list: 16-19
+
+--- listener on 2301 ---
+LISTEN 0      1      127.0.0.1:2301 0.0.0.0:* users:(("qemu-system-x86",pid=404441,fd=14))
+
+--- free after start ---
+               total        used        free      shared  buff/cache   available
+Mem:           31824        8903       16388         984        7964       22921
+Swap:           8191        2494        5697
+START_SCRIPT_EXIT=0

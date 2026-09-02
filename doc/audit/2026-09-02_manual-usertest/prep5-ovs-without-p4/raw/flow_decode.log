@@ -1,0 +1,19 @@
+record count: 2
+--- record 0 ---
+  src_ip: 16777226  ->  10.0.0.1
+  dst_ip: 33554442  ->  10.0.0.2
+  src_port: 5201
+  dst_port: 38622
+  path: [{'interface': 3, 'node': 16777226}, {'interface': 4, 'node': 1}, {'interface': 0, 'node': 33554442}]
+--- record 1 ---
+  src_ip: 33554442  ->  10.0.0.2
+  dst_ip: 16777226  ->  10.0.0.1
+  src_port: 38622
+  dst_port: 5201
+  path: [{'interface': 4, 'node': 33554442}, {'interface': 3, 'node': 1}, {'interface': 0, 'node': 16777226}]
+
+DISTINCT DECODED ADDRESSES: ['10.0.0.1', '10.0.0.2']
+NAMES_h1_10.0.0.1: YES
+NAMES_h2_10.0.0.2: YES
+PORTS SEEN: [5201, 38622]
+IPERF3_PORT_5201_PRESENT: YES

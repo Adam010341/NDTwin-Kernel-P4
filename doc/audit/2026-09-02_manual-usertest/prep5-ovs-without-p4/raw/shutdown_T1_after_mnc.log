@@ -1,0 +1,62 @@
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=6, port_no=3, LIVE> to Port<dpid=9, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=2, LIVE> to Port<dpid=6, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=2, LIVE> to Port<dpid=2, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=2, LIVE> to Port<dpid=4, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=2, LIVE> to Port<dpid=4, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=1, LIVE> to Port<dpid=3, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=1, LIVE> to Port<dpid=3, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=3, LIVE> to Port<dpid=9, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=3, LIVE> to Port<dpid=7, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=3, LIVE> to Port<dpid=9, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=3, LIVE> to Port<dpid=9, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=4, LIVE> to Port<dpid=10, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+Notified NDT, status code: 200
+Switch 0000000000000001 disconnected (EventOFPStateChange)
+Switch 0000000000000006 disconnected (EventOFPStateChange)
+Switch 000000000000000a disconnected (EventOFPStateChange)
+Switch 0000000000000003 disconnected (EventOFPStateChange)
+Switch 0000000000000002 disconnected (EventOFPStateChange)
+Switch 0000000000000008 disconnected (EventOFPStateChange)
+Switch 0000000000000009 disconnected (EventOFPStateChange)
+Switch 0000000000000007 disconnected (EventOFPStateChange)
+Switch 0000000000000004 disconnected (EventOFPStateChange)
+Switch 0000000000000005 disconnected (EventOFPStateChange)
+(2241) accepted ('127.0.0.1', 59362)
+all_destination_paths in
+127.0.0.1 - - [02/Sep/2026 19:24:19] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.032237
+(2241) accepted ('127.0.0.1', 33622)
+127.0.0.1 - - [02/Sep/2026 19:24:45] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000286
+(2241) accepted ('127.0.0.1', 33632)
+127.0.0.1 - - [02/Sep/2026 19:24:45] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.002297
+(2241) accepted ('127.0.0.1', 33644)
+127.0.0.1 - - [02/Sep/2026 19:24:45] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000538
+Terminated
+(ryu-env) ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$

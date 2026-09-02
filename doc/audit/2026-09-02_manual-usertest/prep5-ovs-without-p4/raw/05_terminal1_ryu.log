@@ -1,0 +1,81 @@
+=== A-8 TERMINAL 1 (Ryu)  2026-09-02T19:18:06Z ===
+--- provenance of the two files the OVS path actually executes ---
+e8ca8236a9aeb397722c638aa8c79015c99a3dcff7609840d7f503cac8109306  /home/ndt/Desktop/NDTwin-Kernel/intelligent_router.py
+d842cfd2cceaf5a96b072519f70a896c067163ab4e1acd88a4db19dfdcbb1b9a  /home/ndt/Desktop/NDTwin-Kernel/testbed_topo.py
+  724 /home/ndt/Desktop/NDTwin-Kernel/intelligent_router.py
+  240 /home/ndt/Desktop/NDTwin-Kernel/testbed_topo.py
+  964 total
+guest HEAD: 936f8c6c9d050f32c0ee22be58e48a7e98905ee0
+NOTE: both files are modified relative to HEAD -- see 03_state_of_1to5.log for the full diff.
+
+--- kill any stale session named T1 (there should be none) ---
+no stale T1
+
+--- create tmux session T1 and start capturing the pane ---
+SENDING: cd ~/Desktop/NDTwin-Kernel && source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --observe-link
+T1_START_UTC=2026-09-02T19:18:07Z
+
+--- wait for Ryu to be listening on 6633 (poll up to 90 s) ---
+RYU_LISTENING_AFTER=3s
+--- ss :6633 ---
+LISTEN 0      50     0.0.0.0:6633 0.0.0.0:* users:(("ryu-manager",pid=2241,fd=5))
+--- ss :8080 (ryu REST) ---
+LISTEN 0      50     0.0.0.0:8080 0.0.0.0:* users:(("ryu-manager",pid=2241,fd=4))
+
+--- tmux session list ---
+T1: 1 windows (created Wed Sep  2 19:18:06 2026)
+--- pane snapshot (capture-pane -p) ---
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel && source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --
+ofp-tcp-listen-port 6633 --observe-link
+loading app intelligent_router.py
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(2241) wsgi starting up on http://0.0.0.0:8080
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--- ryu process, found WITHOUT pgrep -f (project rule) ---
+PID=2241 COMM=ryu-manager CMD=/home/ndt/miniconda3/envs/ryu-env/bin/python /home/ndt/miniconda3/envs/ryu-env/bin/ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --observe-link 
+T1_SCRIPT_EXIT=0

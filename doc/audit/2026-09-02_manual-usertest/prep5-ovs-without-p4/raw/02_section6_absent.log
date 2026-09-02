@@ -1,0 +1,137 @@
+=== A-8 / SECTION 6 ABSENCE EVIDENCE  2026-09-02T19:12:48Z ===
+host=ndtwin-lab-vm user=ndt kernel=6.8.0-138-generic
+os=Ubuntu 24.04.4 LTS
+
+########## 1. P4 / BMv2 BINARIES ON PATH ##########
+ABSENT   simple_switch
+ABSENT   simple_switch_grpc
+ABSENT   simple_switch_CLI
+ABSENT   p4c
+ABSENT   p4c-bm2-ss
+ABSENT   bm_CLI
+ABSENT   protoc
+ABSENT   grpc_cpp_plugin
+PRESENT  mn -> /usr/bin/mn
+PRESENT  ovs-vsctl -> /usr/bin/ovs-vsctl
+PRESENT  ovs-ofctl -> /usr/bin/ovs-ofctl
+ABSENT   ryu-manager
+PRESENT  iperf3 -> /usr/bin/iperf3
+
+--- explicit which(1) for the four the ledger names ---
+WHICH_EXIT=1
+
+--- any simple_switch* / p4c* anywhere in the usual prefixes ---
+ls: cannot access '/usr/local/bin/simple_switch*': No such file or directory
+ls: cannot access '/usr/local/bin/p4c*': No such file or directory
+ls: cannot access '/usr/bin/simple_switch*': No such file or directory
+ls: cannot access '/usr/bin/p4c*': No such file or directory
+
+--- ldconfig: bmv2 / PI / p4runtime shared libs ---
+	libpixman-1.so.0 (libc6,x86-64) => /lib/x86_64-linux-gnu/libpixman-1.so.0
+	libpipeline.so.1 (libc6,x86-64) => /lib/x86_64-linux-gnu/libpipeline.so.1
+
+--- dpkg: any p4 / bmv2 / protobuf / grpc packages ---
+libprotobuf-c1:amd64
+
+########## 2. SECTION 6 SOURCE TREES ##########
+ABSENT   /home/ndt/p4-guide
+ABSENT   /home/ndt/behavioral-model
+ABSENT   /home/ndt/p4c
+ABSENT   /home/ndt/PI
+ABSENT   /home/ndt/grpc
+ABSENT   /home/ndt/protobuf
+ABSENT   /home/ndt/p4runtime
+ABSENT   /home/ndt/p4setup.bash
+
+--- full listing of $HOME (top level) ---
+total 64
+drwxr-x--- 10 ndt  ndt  4096 Sep  2 19:12 .
+drwxr-xr-x  4 root root 4096 Sep  1 06:28 ..
+drwxrwxr-x  2 ndt  ndt  4096 Sep  1 05:49 .anaconda
+-rw-r--r--  1 ndt  ndt   220 Mar 31  2024 .bash_logout
+-rw-r--r--  1 ndt  ndt  3771 Mar 31  2024 .bashrc
+drwx------  5 ndt  ndt  4096 Sep  1 05:51 .cache
+drwxrwxr-x  3 ndt  ndt  4096 Sep  1 05:49 .conda
+-rw-r--r--  1 ndt  ndt   807 Mar 31  2024 .profile
+drwx------  2 ndt  ndt  4096 Sep  1 05:44 .ssh
+-rw-r--r--  1 root root   20 Sep  1 05:44 CLOUD_INIT_DONE
+drwxr-xr-x  3 ndt  ndt  4096 Sep  1 05:53 Desktop
+drwxrwxr-x  2 ndt  ndt  4096 Sep  2 19:12 a8-logs
+drwxrwxr-x  2 ndt  ndt  4096 Sep  1 06:28 logs
+drwxrwxr-x 18 ndt  ndt  4096 Sep  1 05:49 miniconda3
+-rw-rw-r--  1 ndt  ndt   196 Sep  1 05:52 ryu_test.log
+-rw-rw-r--  1 ndt  ndt     5 Sep  1 05:52 ryu_test.pid
+
+--- any p4dev-python-venv anywhere under $HOME ---
+(end find)
+
+########## 3. p4_proxy venv + COMPILED PIPELINE ##########
+ABSENT   /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/venv
+ABSENT   /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+ABSENT   /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.json
+ABSENT   /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build
+
+--- p4_proxy tree as it actually is ---
+total 32
+drwxrwxr-x  7 ndt ndt 4096 Sep  1 05:53 .
+drwxrwxr-x 17 ndt ndt 4096 Sep  1 06:08 ..
+drwxrwxr-x  2 ndt ndt 4096 Sep  1 05:53 mininet
+drwxrwxr-x  2 ndt ndt 4096 Sep  1 05:53 p4_src
+drwxrwxr-x  2 ndt ndt 4096 Sep  1 05:53 proxy_agent
+drwxrwxr-x  2 ndt ndt 4096 Sep  1 05:53 reference
+-rw-rw-r--  1 ndt ndt 2353 Sep  1 05:53 requirements.txt
+drwxrwxr-x  2 ndt ndt 4096 Sep  1 05:53 tests
+
+--- p4_src tree ---
+/home/ndt/Desktop/NDTwin-Kernel/p4_proxy/p4_src
+/home/ndt/Desktop/NDTwin-Kernel/p4_proxy/p4_src/SPEC.md
+/home/ndt/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+
+########## 4. KERNEL COMMIT THE GUEST ACTUALLY HAS ##########
+936f8c6c9d050f32c0ee22be58e48a7e98905ee0
+936f8c6c9d050f32c0ee22be58e48a7e98905ee0
+936f8c6
+2026-09-01 01:11:34 +0800
+Snapshot of the P4/BMv2 kernel tree at 20cd80b, published for the manual
+--- remotes ---
+origin	https://github.com/ndtwin-lab/NDTwin-Kernel-P4-public.git (fetch)
+origin	https://github.com/ndtwin-lab/NDTwin-Kernel-P4-public.git (push)
+--- status (porcelain, first 20) ---
+ M intelligent_router.py
+ M testbed_topo.py
+--- built kernel binary present? ---
+ls: cannot access '/home/ndt/Desktop/NDTwin-Kernel/build/ndtwin_kernel': No such file or directory
+--- CMake dependency lines (what the kernel actually requires) ---
+43:find_package(libssh REQUIRED)
+45:find_package(OpenSSL REQUIRED)
+47:find_package(Boost 1.83 REQUIRED COMPONENTS url system)
+--- any protobuf/grpc/PI mention in the kernel CMakeLists ---
+(zero protobuf/grpc/PI/p4runtime/bmv2 mentions in CMakeLists.txt)
+
+########## 5. DOCS SNAPSHOT IN ~/ndtwin-docs ##########
+ABSENT ~/ndtwin-docs
+--- looking for any docs copy elsewhere ---
+
+########## 6. WHAT §1-§5 DID LEAVE ##########
+--- ovs ---
+ovs-vsctl (Open vSwitch) 3.3.9
+DB Schema 8.5.1
+a1c9549e-7a91-4f66-85e8-9c02ef8cabaf
+    ovs_version: "3.3.9"
+--- mininet ---
++++-==============-============-============-=================================
+ii  mininet        2.3.0-1.1    amd64        process-based network emulator
+mininet import OK /usr/lib/python3/dist-packages/mininet/__init__.py
+--- ryu ---
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'ryu'
+--- conda / ntg-env (prediction 2) ---
+drwxrwxr-x 18 ndt ndt 4096 Sep  1 05:49 /home/ndt/miniconda3
+ls: cannot access '/home/ndt/miniconda3/envs/ntg-env': No such file or directory
+ls: cannot access '/home/ndt/miniconda3/envs/ntg-env/bin/python': No such file or directory
+--- ndt CLI ---
+ls: cannot access '/usr/local/sbin/ndtwin-lab': No such file or directory
+ls: cannot access '/usr/local/bin/ndt': No such file or directory
+
+SECTION6_EVIDENCE_EXIT=0

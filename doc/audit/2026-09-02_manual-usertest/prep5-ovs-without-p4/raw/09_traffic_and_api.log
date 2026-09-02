@@ -1,0 +1,276 @@
+=== A-8 TRAFFIC + API  2026-09-02T19:22:08Z ===
+########## 1. A REAL PING BETWEEN TWO HOSTS (h1 -> h2) ##########
+--- pane, last 20 lines ---
+
+--- 10.0.0.54 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h121 to 10.0.0.57:
+PING 10.0.0.57 (10.0.0.57) 56(84) bytes of data.
+
+--- 10.0.0.57 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h123 to 10.0.0.59:
+PING 10.0.0.59 (10.0.0.59) 56(84) bytes of data.
+
+--- 10.0.0.59 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h124 to 10.0.0.60:
+PING 10.0.0.60 (10.0.0.60) 56(84) bytes of data.
+
+--- 10.0.0.60 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet>
+
+########## 1b. A SECOND PING ACROSS THE FABRIC (h1 -> h100, different switch) ##########
+
+
+Result from h123 to 10.0.0.59:
+PING 10.0.0.59 (10.0.0.59) 56(84) bytes of data.
+
+--- 10.0.0.59 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h124 to 10.0.0.60:
+PING 10.0.0.60 (10.0.0.60) 56(84) bytes of data.
+
+--- 10.0.0.60 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet> h1 ping -c 4 h100
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+64 bytes from 10.0.0.100: icmp_seq=1 ttl=64 time=1.26 ms
+64 bytes from 10.0.0.100: icmp_seq=2 ttl=64 time=0.068 ms
+64 bytes from 10.0.0.100: icmp_seq=3 ttl=64 time=0.182 ms
+64 bytes from 10.0.0.100: icmp_seq=4 ttl=64 time=0.040 ms
+
+--- 10.0.0.100 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3042ms
+rtt min/avg/max/mdev = 0.040/0.387/1.261/0.506 ms
+mininet>
+
+########## 2. iperf3, exactly as the manual writes it ##########
+IPERF_START_UTC=2026-09-02T19:22:32Z
+--- waiting 25 s for the transfer to establish and the kernel to see it ---
+--- pane after starting iperf3 ---
+
+--- 10.0.0.57 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h123 to 10.0.0.59:
+PING 10.0.0.59 (10.0.0.59) 56(84) bytes of data.
+
+--- 10.0.0.59 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h124 to 10.0.0.60:
+PING 10.0.0.60 (10.0.0.60) 56(84) bytes of data.
+
+--- 10.0.0.60 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet> h1 ping -c 4 h100
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+64 bytes from 10.0.0.100: icmp_seq=1 ttl=64 time=1.26 ms
+64 bytes from 10.0.0.100: icmp_seq=2 ttl=64 time=0.068 ms
+64 bytes from 10.0.0.100: icmp_seq=3 ttl=64 time=0.182 ms
+64 bytes from 10.0.0.100: icmp_seq=4 ttl=64 time=0.040 ms
+
+--- 10.0.0.100 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3042ms
+rtt min/avg/max/mdev = 0.040/0.387/1.261/0.506 ms
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet>
+
+########## 3. curl :8000/ndt/get_detected_flow_data (WHILE the transfer runs) ##########
+----- sample 1 at 2026-09-02T19:23:01Z -----
+[{"dst_ip":33554442,"dst_port":38622,"estimated_flow_sending_rate_bps_in_the_last_sec":1146880,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1146880,"estimated_packet_rate_in_the_last_sec":2048,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":2048,"first_sampled_time":"2026-09-02 19:22:36","latest_sampled_time":"2026-09-02 19:23:01","path":[{"interface":3,"node":16777226},{"interface":4,"node":1},{"interface":0,"node":33554442}],"protocol_id":6,"src_ip":16777226,"src_port":5201},{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":413478912,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":562704384,"estimated_packet_rate_in_the_last_sec":34048,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":46336,"first_sampled_time":"2026-09-02 19:22:36","latest_sampled_time":"2026-09-02 19:23:01","path":[{"interface":4,"node":33554442},{"interface":3,"node":1},{"interface":0,"node":16777226}],"protocol_id":6,"src_ip":33554442,"src_port":38622}]
+  bytes: 1027
+----- sample 2 at 2026-09-02T19:23:13Z -----
+[{"dst_ip":33554442,"dst_port":38622,"estimated_flow_sending_rate_bps_in_the_last_sec":716800,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":716800,"estimated_packet_rate_in_the_last_sec":1280,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":1280,"first_sampled_time":"2026-09-02 19:22:36","latest_sampled_time":"2026-09-02 19:23:13","path":[{"interface":3,"node":16777226},{"interface":4,"node":1},{"interface":0,"node":33554442}],"protocol_id":6,"src_ip":16777226,"src_port":5201},{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":1392771072,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":690167808,"estimated_packet_rate_in_the_last_sec":114688,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":56832,"first_sampled_time":"2026-09-02 19:22:36","latest_sampled_time":"2026-09-02 19:23:13","path":[{"interface":4,"node":33554442},{"interface":3,"node":1},{"interface":0,"node":16777226}],"protocol_id":6,"src_ip":33554442,"src_port":38622}]
+  bytes: 1027
+----- sample 3 at 2026-09-02T19:23:25Z -----
+[{"dst_ip":33554442,"dst_port":38622,"estimated_flow_sending_rate_bps_in_the_last_sec":1433600,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1433600,"estimated_packet_rate_in_the_last_sec":2560,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":2560,"first_sampled_time":"2026-09-02 19:22:36","latest_sampled_time":"2026-09-02 19:23:25","path":[{"interface":3,"node":16777226},{"interface":4,"node":1},{"interface":0,"node":33554442}],"protocol_id":6,"src_ip":16777226,"src_port":5201},{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":1125408768,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1125408768,"estimated_packet_rate_in_the_last_sec":92672,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":92672,"first_sampled_time":"2026-09-02 19:22:36","latest_sampled_time":"2026-09-02 19:23:25","path":[{"interface":4,"node":33554442},{"interface":3,"node":1},{"interface":0,"node":16777226}],"protocol_id":6,"src_ip":33554442,"src_port":38622}]
+  bytes: 1029
+
+--- decode the addresses in the newest sample, and check they name h1/h2 ---
+record count: 2
+--- record 0 ---
+  src_ip: 16777226  ->  10.0.0.1
+  dst_ip: 33554442  ->  10.0.0.2
+  src_port: 5201
+  dst_port: 38622
+  path: [{'interface': 3, 'node': 16777226}, {'interface': 4, 'node': 1}, {'interface': 0, 'node': 33554442}]
+--- record 1 ---
+  src_ip: 33554442  ->  10.0.0.2
+  dst_ip: 16777226  ->  10.0.0.1
+  src_port: 38622
+  dst_port: 5201
+  path: [{'interface': 4, 'node': 33554442}, {'interface': 3, 'node': 1}, {'interface': 0, 'node': 16777226}]
+
+DISTINCT DECODED ADDRESSES: ['10.0.0.1', '10.0.0.2']
+NAMES_h1_10.0.0.1: YES
+NAMES_h2_10.0.0.2: YES
+PORTS SEEN: [5201, 38622]
+IPERF3_PORT_5201_PRESENT: YES
+
+########## 4. curl :8000/ndt/get_graph_data ##########
+bytes: 118652
+{"edges":[{"admin_disabled":false,"dst_dpid":5,"dst_interface":1,"dst_ip":[259762368],"flow_set":[],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":1000000000,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":0,"link_bandwidth_utilization_percent":0.0,"src_dpid":1,"src_interface":1,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":6,"dst_interface":1,"dst_ip":[276539584],"flow_set":[],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":1000000000,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":0,"link_bandwidth_utilization_percent":0.0,"src_dpid":1,"src_interface":2,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":0,"dst_interface":1,"dst_ip":[16777226],"flow_set":[{"dst_ip":16777226,"dst_port":5201,"protocol_number":6,"src_ip":33554442,"src_port":38622}],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":0,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":1000000000,"link_bandwidth_utilization_percent":100.0,"src_dpid":1,"src_interface":3,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":0,"dst_interface":1,"dst_ip":[33554442],"flow_set":[{"dst_ip":33554442,"dst_port":38622,"protocol_number":6,"src_ip":16777226,"src_port":5201}],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":998568535,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":1431465,"link_bandwidth_utilization_percent":0.14314650000000206,"src_dpid":1,"src_interface":4,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":0,
+top-level type: dict keys: ['edges', 'nodes']
+nodes: 138
+edges: 288
+node kinds: {'other': 138}
+first 3 nodes: [{'admin_disabled': False, 'brand_name': 'OVS', 'device_layer': 2, 'device_name': 's1', 'dpid': 1, 'ecmp_groups': [{'members': [{'port_id': 1, 'type': 'port'}, {'port_id': 2, 'type': 'port'}]}], 'ip': [192653504], 'is_enabled': True, 'is_up': True, 'mac': 0, 'nickname': 's1', 'vertex_type': 0}, {'admin_disabled': False, 'brand_name': 'OVS', 'device_layer': 2, 'device_name': 's2', 'dpid': 2, 'ecmp_groups': [{'members': [{'port_id': 1, 'type': 'port'}, {'port_id': 2, 'type': 'port'}]}], 'ip': [209430720], 'is_enabled': True, 'is_up': True, 'mac': 0, 'nickname': 's2', 'vertex_type': 0}, {'admin_disabled': False, 'brand_name': 'OVS', 'device_layer': 2, 'device_name': 's3', 'dpid': 3, 'ecmp_groups': [{'members': [{'port_id': 1, 'type': 'port'}, {'port_id': 2, 'type': 'port'}]}], 'ip': [226207936], 'is_enabled': True, 'is_up': True, 'mac': 0, 'nickname': 's3', 'vertex_type': 0}]
+
+########## 5. iperf3 still running? (no pgrep -f) ##########
+PID=24600 iperf3 -s 
+PID=24629 iperf3 -c 10.0.0.1 -t 300 
+
+--- sFlow datagrams actually reaching the kernel? (kernel log) ---
+kernel log lines mentioning sflow: 2
+--- kernel errors so far ---
+error+critical: 0
+TRAFFIC_SCRIPT_EXIT=0

@@ -1,0 +1,1672 @@
+[?2004h[01;32mndt@ndtwin-lab-vm[00m:[01;34m~[00m$ cd ~/Desktop/NDTwin-Kernel && sudo python3 testbed_topo.py
+[?2004l*** Creating network
+*** Adding controller
+Unable to contact the remote controller at 127.0.0.1:6653
+Connecting to remote controller at 127.0.0.1:6633
+*** Adding hosts:
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h102 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h118 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128 
+*** Adding switches:
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 
+*** Adding links:
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h1, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h2, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h3, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h4, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h5, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h6, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h7, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h8, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h9, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h10, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h11, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h12, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h13, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h14, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h15, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h16, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h17, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h18, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h19, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h20, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h21, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h22, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h23, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h24, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h25, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h26, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h27, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h28, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h29, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h30, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h31, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h32, s1) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h33, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h34, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h35, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h36, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h37, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h38, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h39, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h40, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h41, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h42, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h43, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h44, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h45, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h46, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h47, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h48, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h49, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h50, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h51, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h52, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h53, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h54, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h55, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h56, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h57, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h58, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h59, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h60, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h61, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h62, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h63, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h64, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h65, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h66, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h67, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h68, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h69, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h70, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h71, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h72, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h73, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h74, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h75, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h76, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h77, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h78, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h79, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h80, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h81, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h82, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h83, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h84, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h85, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h86, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h87, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h88, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h89, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h90, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h91, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h92, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h93, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h94, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h95, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h96, s3) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h97, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h98, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h99, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h100, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h101, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h102, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h103, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h104, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h105, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h106, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h107, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h108, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h109, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h110, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h111, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h112, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h113, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h114, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h115, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h116, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h117, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h118, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h119, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h120, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h121, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h122, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h123, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h124, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h125, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h126, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h127, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(h128, s4) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s1, s5) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s1, s6) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s2, s5) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s2, s6) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s3, s7) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s3, s8) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s4, s7) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(s4, s8) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s5, s9) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s5, s10) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s6, s9) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s6, s10) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s7, s9) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s7, s10) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s8, s9) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (s8, s10) 
+*** Configuring hosts
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h102 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h118 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128 
+Adding IP alias 192.168.123.1/24 to 'lo' interface...
+*** Starting controller
+c0 
+*** Starting 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 ...(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
+Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+(10000.00Mbit) 
+Configuring sFlow for s1:
+  - Agent IP (source): 192.168.123.11
+  - Target Collector: 192.168.123.1:6343
+07b29313-c224-47bc-8ef2-aa0e28ffb43e
+Configuring sFlow for s2:
+  - Agent IP (source): 192.168.123.12
+  - Target Collector: 192.168.123.1:6343
+c17e677e-a394-4c4f-9a9e-b31a037d7a55
+Configuring sFlow for s3:
+  - Agent IP (source): 192.168.123.13
+  - Target Collector: 192.168.123.1:6343
+0d5c6f14-4ff9-41d5-8627-fba0d0f1240b
+Configuring sFlow for s4:
+  - Agent IP (source): 192.168.123.14
+  - Target Collector: 192.168.123.1:6343
+2950b8a0-a138-4ca5-a57e-0d4d15f99848
+Configuring sFlow for s5:
+  - Agent IP (source): 192.168.123.15
+  - Target Collector: 192.168.123.1:6343
+a9f35436-52b7-47b6-9c65-f17339dd577a
+Configuring sFlow for s6:
+  - Agent IP (source): 192.168.123.16
+  - Target Collector: 192.168.123.1:6343
+1ac62442-44a9-47cf-9cb2-022b6849e052
+Configuring sFlow for s7:
+  - Agent IP (source): 192.168.123.17
+  - Target Collector: 192.168.123.1:6343
+02f52a1b-ae60-461c-b072-2d55f6e5c9bc
+Configuring sFlow for s8:
+  - Agent IP (source): 192.168.123.18
+  - Target Collector: 192.168.123.1:6343
+454672a5-24bb-47a9-b93d-cb86bbcb8638
+Configuring sFlow for s9:
+  - Agent IP (source): 192.168.123.19
+  - Target Collector: 192.168.123.1:6343
+e207ac48-ff62-445f-8edf-55b3c4a8e1b3
+Configuring sFlow for s10:
+  - Agent IP (source): 192.168.123.20
+  - Target Collector: 192.168.123.1:6343
+597f9345-487f-477b-bd0e-bcdb52e557e4
+_uuid               : 2950b8a0-a138-4ca5-a57e-0d4d15f99848
+agent               : s4-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : e207ac48-ff62-445f-8edf-55b3c4a8e1b3
+agent               : s9-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : 1ac62442-44a9-47cf-9cb2-022b6849e052
+agent               : s6-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : 02f52a1b-ae60-461c-b072-2d55f6e5c9bc
+agent               : s7-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : 07b29313-c224-47bc-8ef2-aa0e28ffb43e
+agent               : s1-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : 0d5c6f14-4ff9-41d5-8627-fba0d0f1240b
+agent               : s3-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : 454672a5-24bb-47a9-b93d-cb86bbcb8638
+agent               : s8-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : 597f9345-487f-477b-bd0e-bcdb52e557e4
+agent               : s10-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : c17e677e-a394-4c4f-9a9e-b31a037d7a55
+agent               : s2-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+
+_uuid               : a9f35436-52b7-47b6-9c65-f17339dd577a
+agent               : s5-eth1
+external_ids        : {}
+header              : 128
+polling             : 0
+sampling            : 256
+targets             : ["192.168.123.1:6343"]
+Pinging from h1 to 10.0.0.65...
+Pinging from h2 to 10.0.0.66...
+Pinging from h3 to 10.0.0.67...
+Pinging from h4 to 10.0.0.68...
+Pinging from h5 to 10.0.0.69...
+Pinging from h6 to 10.0.0.70...
+Pinging from h7 to 10.0.0.71...
+Pinging from h8 to 10.0.0.72...
+Pinging from h10 to 10.0.0.74...
+Pinging from h9 to 10.0.0.73...
+Pinging from h11 to 10.0.0.75...
+Pinging from h12 to 10.0.0.76...
+Pinging from h13 to 10.0.0.77...
+Pinging from h14 to 10.0.0.78...
+Pinging from h15 to 10.0.0.79...
+Pinging from h16 to 10.0.0.80...
+Pinging from h17 to 10.0.0.81...
+Pinging from h18 to 10.0.0.82...
+Pinging from h19 to 10.0.0.83...
+Pinging from h20 to 10.0.0.84...
+Pinging from h21 to 10.0.0.85...
+Pinging from h22 to 10.0.0.86...
+Pinging from h23 to 10.0.0.87...
+Pinging from h24 to 10.0.0.88...
+Pinging from h25 to 10.0.0.89...
+Pinging from h26 to 10.0.0.90...
+Pinging from h27 to 10.0.0.91...
+Pinging from h28 to 10.0.0.92...
+Pinging from h29 to 10.0.0.93...
+Pinging from h30 to 10.0.0.94...
+Pinging from h31 to 10.0.0.95...
+Pinging from h32 to 10.0.0.96...
+Pinging from h33 to 10.0.0.97...
+Pinging from h34 to 10.0.0.98...
+Pinging from h35 to 10.0.0.99...
+Pinging from h36 to 10.0.0.100...
+Pinging from h37 to 10.0.0.101...
+Pinging from h38 to 10.0.0.102...
+Pinging from h39 to 10.0.0.103...
+Pinging from h40 to 10.0.0.104...
+Pinging from h41 to 10.0.0.105...
+Pinging from h42 to 10.0.0.106...
+Pinging from h43 to 10.0.0.107...
+Pinging from h44 to 10.0.0.108...
+Pinging from h45 to 10.0.0.109...
+Pinging from h46 to 10.0.0.110...
+Pinging from h47 to 10.0.0.111...
+Pinging from h49 to 10.0.0.113...
+Pinging from h48 to 10.0.0.112...
+Pinging from h50 to 10.0.0.114...
+Pinging from h51 to 10.0.0.115...
+Pinging from h52 to 10.0.0.116...
+Pinging from h53 to 10.0.0.117...
+Pinging from h54 to 10.0.0.118...
+Pinging from h55 to 10.0.0.119...
+Pinging from h56 to 10.0.0.120...
+Pinging from h57 to 10.0.0.121...
+Pinging from h58 to 10.0.0.122...
+Pinging from h60 to 10.0.0.124...
+Pinging from h61 to 10.0.0.125...
+Pinging from h59 to 10.0.0.123...
+Pinging from h62 to 10.0.0.126...
+Pinging from h63 to 10.0.0.127...
+Pinging from h64 to 10.0.0.128...
+Pinging from h65 to 10.0.0.1...
+Pinging from h66 to 10.0.0.2...
+Pinging from h67 to 10.0.0.3...
+Pinging from h68 to 10.0.0.4...
+Pinging from h69 to 10.0.0.5...
+Pinging from h70 to 10.0.0.6...
+Pinging from h71 to 10.0.0.7...
+Pinging from h72 to 10.0.0.8...
+Pinging from h73 to 10.0.0.9...
+Pinging from h74 to 10.0.0.10...
+Pinging from h75 to 10.0.0.11...
+Pinging from h76 to 10.0.0.12...
+Pinging from h77 to 10.0.0.13...
+Pinging from h78 to 10.0.0.14...
+Pinging from h79 to 10.0.0.15...
+Pinging from h80 to 10.0.0.16...
+Pinging from h81 to 10.0.0.17...
+Pinging from h82 to 10.0.0.18...
+Pinging from h83 to 10.0.0.19...
+Pinging from h84 to 10.0.0.20...
+Pinging from h85 to 10.0.0.21...
+Pinging from h86 to 10.0.0.22...
+Pinging from h87 to 10.0.0.23...
+Pinging from h88 to 10.0.0.24...
+Pinging from h89 to 10.0.0.25...
+Pinging from h90 to 10.0.0.26...
+Pinging from h91 to 10.0.0.27...
+Pinging from h92 to 10.0.0.28...
+Pinging from h93 to 10.0.0.29...
+Pinging from h94 to 10.0.0.30...
+Pinging from h95 to 10.0.0.31...
+Pinging from h96 to 10.0.0.32...
+Pinging from h97 to 10.0.0.33...
+Pinging from h98 to 10.0.0.34...
+Pinging from h99 to 10.0.0.35...
+Pinging from h100 to 10.0.0.36...
+Pinging from h101 to 10.0.0.37...
+Pinging from h102 to 10.0.0.38...
+Pinging from h103 to 10.0.0.39...
+Pinging from h104 to 10.0.0.40...
+Pinging from h105 to 10.0.0.41...
+Pinging from h106 to 10.0.0.42...
+Pinging from h107 to 10.0.0.43...
+Pinging from h108 to 10.0.0.44...
+Pinging from h109 to 10.0.0.45...
+Pinging from h110 to 10.0.0.46...
+Pinging from h111 to 10.0.0.47...
+Pinging from h112 to 10.0.0.48...
+Pinging from h113 to 10.0.0.49...
+Pinging from h114 to 10.0.0.50...
+Pinging from h115 to 10.0.0.51...
+Pinging from h116 to 10.0.0.52...
+Pinging from h117 to 10.0.0.53...
+Pinging from h118 to 10.0.0.54...
+Pinging from h119 to 10.0.0.55...
+Pinging from h120 to 10.0.0.56...
+Pinging from h121 to 10.0.0.57...
+Pinging from h122 to 10.0.0.58...
+Pinging from h123 to 10.0.0.59...
+Pinging from h124 to 10.0.0.60...
+Pinging from h125 to 10.0.0.61...
+Pinging from h127 to 10.0.0.63...
+Pinging from h128 to 10.0.0.64...
+Pinging from h126 to 10.0.0.62...
+Result from h4 to 10.0.0.68:
+PING 10.0.0.68 (10.0.0.68) 56(84) bytes of data.
+
+--- 10.0.0.68 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h10 to 10.0.0.74:
+PING 10.0.0.74 (10.0.0.74) 56(84) bytes of data.
+
+--- 10.0.0.74 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h1 to 10.0.0.65:
+PING 10.0.0.65 (10.0.0.65) 56(84) bytes of data.
+
+--- 10.0.0.65 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h3 to 10.0.0.67:
+PING 10.0.0.67 (10.0.0.67) 56(84) bytes of data.
+
+--- 10.0.0.67 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h11 to 10.0.0.75:
+PING 10.0.0.75 (10.0.0.75) 56(84) bytes of data.
+
+--- 10.0.0.75 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h7 to 10.0.0.71:
+PING 10.0.0.71 (10.0.0.71) 56(84) bytes of data.
+
+--- 10.0.0.71 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h5 to 10.0.0.69:
+PING 10.0.0.69 (10.0.0.69) 56(84) bytes of data.
+
+--- 10.0.0.69 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h6 to 10.0.0.70:
+PING 10.0.0.70 (10.0.0.70) 56(84) bytes of data.
+
+--- 10.0.0.70 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h13 to 10.0.0.77:
+PING 10.0.0.77 (10.0.0.77) 56(84) bytes of data.
+
+--- 10.0.0.77 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h20 to 10.0.0.84:
+PING 10.0.0.84 (10.0.0.84) 56(84) bytes of data.
+
+--- 10.0.0.84 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h26 to 10.0.0.90:
+PING 10.0.0.90 (10.0.0.90) 56(84) bytes of data.
+
+--- 10.0.0.90 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h2 to 10.0.0.66:
+PING 10.0.0.66 (10.0.0.66) 56(84) bytes of data.
+
+--- 10.0.0.66 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+Result from h16 to 10.0.0.80:
+PING 10.0.0.80 (10.0.0.80) 56(84) bytes of data.
+
+--- 10.0.0.80 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h12 to 10.0.0.76:
+PING 10.0.0.76 (10.0.0.76) 56(84) bytes of data.
+
+--- 10.0.0.76 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h14 to 10.0.0.78:
+PING 10.0.0.78 (10.0.0.78) 56(84) bytes of data.
+
+--- 10.0.0.78 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h9 to 10.0.0.73:
+PING 10.0.0.73 (10.0.0.73) 56(84) bytes of data.
+
+--- 10.0.0.73 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h21 to 10.0.0.85:
+PING 10.0.0.85 (10.0.0.85) 56(84) bytes of data.
+
+--- 10.0.0.85 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h15 to 10.0.0.79:
+PING 10.0.0.79 (10.0.0.79) 56(84) bytes of data.
+
+--- 10.0.0.79 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h19 to 10.0.0.83:
+PING 10.0.0.83 (10.0.0.83) 56(84) bytes of data.
+
+--- 10.0.0.83 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h27 to 10.0.0.91:
+PING 10.0.0.91 (10.0.0.91) 56(84) bytes of data.
+
+--- 10.0.0.91 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+Result from h22 to 10.0.0.86:
+PING 10.0.0.86 (10.0.0.86) 56(84) bytes of data.
+
+--- 10.0.0.86 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h25 to 10.0.0.89:
+PING 10.0.0.89 (10.0.0.89) 56(84) bytes of data.
+
+--- 10.0.0.89 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+
+
+Result from h17 to 10.0.0.81:
+PING 10.0.0.81 (10.0.0.81) 56(84) bytes of data.
+
+--- 10.0.0.81 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h8 to 10.0.0.72:
+PING 10.0.0.72 (10.0.0.72) 56(84) bytes of data.
+
+--- 10.0.0.72 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+
+Result from h18 to 10.0.0.82:
+PING 10.0.0.82 (10.0.0.82) 56(84) bytes of data.
+
+--- 10.0.0.82 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h28 to 10.0.0.92:
+PING 10.0.0.92 (10.0.0.92) 56(84) bytes of data.
+
+--- 10.0.0.92 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h23 to 10.0.0.87:
+PING 10.0.0.87 (10.0.0.87) 56(84) bytes of data.
+
+--- 10.0.0.87 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h24 to 10.0.0.88:
+PING 10.0.0.88 (10.0.0.88) 56(84) bytes of data.
+
+--- 10.0.0.88 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h31 to 10.0.0.95:
+PING 10.0.0.95 (10.0.0.95) 56(84) bytes of data.
+
+--- 10.0.0.95 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h32 to 10.0.0.96:
+PING 10.0.0.96 (10.0.0.96) 56(84) bytes of data.
+
+--- 10.0.0.96 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h30 to 10.0.0.94:
+PING 10.0.0.94 (10.0.0.94) 56(84) bytes of data.
+
+--- 10.0.0.94 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h34 to 10.0.0.98:
+PING 10.0.0.98 (10.0.0.98) 56(84) bytes of data.
+
+--- 10.0.0.98 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h35 to 10.0.0.99:
+PING 10.0.0.99 (10.0.0.99) 56(84) bytes of data.
+
+--- 10.0.0.99 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h29 to 10.0.0.93:
+PING 10.0.0.93 (10.0.0.93) 56(84) bytes of data.
+
+--- 10.0.0.93 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h33 to 10.0.0.97:
+PING 10.0.0.97 (10.0.0.97) 56(84) bytes of data.
+
+--- 10.0.0.97 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h41 to 10.0.0.105:
+PING 10.0.0.105 (10.0.0.105) 56(84) bytes of data.
+
+--- 10.0.0.105 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h42 to 10.0.0.106:
+PING 10.0.0.106 (10.0.0.106) 56(84) bytes of data.
+
+--- 10.0.0.106 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h39 to 10.0.0.103:
+PING 10.0.0.103 (10.0.0.103) 56(84) bytes of data.
+
+--- 10.0.0.103 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h36 to 10.0.0.100:
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+
+--- 10.0.0.100 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h37 to 10.0.0.101:
+PING 10.0.0.101 (10.0.0.101) 56(84) bytes of data.
+
+--- 10.0.0.101 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h38 to 10.0.0.102:
+PING 10.0.0.102 (10.0.0.102) 56(84) bytes of data.
+
+--- 10.0.0.102 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h40 to 10.0.0.104:
+PING 10.0.0.104 (10.0.0.104) 56(84) bytes of data.
+
+--- 10.0.0.104 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h44 to 10.0.0.108:
+PING 10.0.0.108 (10.0.0.108) 56(84) bytes of data.
+
+--- 10.0.0.108 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h43 to 10.0.0.107:
+PING 10.0.0.107 (10.0.0.107) 56(84) bytes of data.
+
+--- 10.0.0.107 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h46 to 10.0.0.110:
+PING 10.0.0.110 (10.0.0.110) 56(84) bytes of data.
+
+--- 10.0.0.110 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h45 to 10.0.0.109:
+PING 10.0.0.109 (10.0.0.109) 56(84) bytes of data.
+
+--- 10.0.0.109 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h48 to 10.0.0.112:
+PING 10.0.0.112 (10.0.0.112) 56(84) bytes of data.
+
+--- 10.0.0.112 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h49 to 10.0.0.113:
+PING 10.0.0.113 (10.0.0.113) 56(84) bytes of data.
+
+--- 10.0.0.113 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h50 to 10.0.0.114:
+PING 10.0.0.114 (10.0.0.114) 56(84) bytes of data.
+
+--- 10.0.0.114 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h47 to 10.0.0.111:
+PING 10.0.0.111 (10.0.0.111) 56(84) bytes of data.
+
+--- 10.0.0.111 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h55 to 10.0.0.119:
+PING 10.0.0.119 (10.0.0.119) 56(84) bytes of data.
+
+--- 10.0.0.119 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h54 to 10.0.0.118:
+PING 10.0.0.118 (10.0.0.118) 56(84) bytes of data.
+
+--- 10.0.0.118 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h52 to 10.0.0.116:
+PING 10.0.0.116 (10.0.0.116) 56(84) bytes of data.
+
+--- 10.0.0.116 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h51 to 10.0.0.115:
+PING 10.0.0.115 (10.0.0.115) 56(84) bytes of data.
+
+--- 10.0.0.115 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h57 to 10.0.0.121:
+PING 10.0.0.121 (10.0.0.121) 56(84) bytes of data.
+
+--- 10.0.0.121 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h56 to 10.0.0.120:
+PING 10.0.0.120 (10.0.0.120) 56(84) bytes of data.
+
+--- 10.0.0.120 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h63 to 10.0.0.127:
+PING 10.0.0.127 (10.0.0.127) 56(84) bytes of data.
+
+--- 10.0.0.127 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h59 to 10.0.0.123:
+PING 10.0.0.123 (10.0.0.123) 56(84) bytes of data.
+
+--- 10.0.0.123 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h62 to 10.0.0.126:
+PING 10.0.0.126 (10.0.0.126) 56(84) bytes of data.
+
+--- 10.0.0.126 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h53 to 10.0.0.117:
+PING 10.0.0.117 (10.0.0.117) 56(84) bytes of data.
+
+--- 10.0.0.117 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h64 to 10.0.0.128:
+PING 10.0.0.128 (10.0.0.128) 56(84) bytes of data.
+
+--- 10.0.0.128 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h58 to 10.0.0.122:
+PING 10.0.0.122 (10.0.0.122) 56(84) bytes of data.
+
+--- 10.0.0.122 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h61 to 10.0.0.125:
+PING 10.0.0.125 (10.0.0.125) 56(84) bytes of data.
+
+--- 10.0.0.125 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h60 to 10.0.0.124:
+PING 10.0.0.124 (10.0.0.124) 56(84) bytes of data.
+
+--- 10.0.0.124 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h65 to 10.0.0.1:
+PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
+
+--- 10.0.0.1 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h68 to 10.0.0.4:
+PING 10.0.0.4 (10.0.0.4) 56(84) bytes of data.
+
+--- 10.0.0.4 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h67 to 10.0.0.3:
+PING 10.0.0.3 (10.0.0.3) 56(84) bytes of data.
+
+--- 10.0.0.3 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h66 to 10.0.0.2:
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+
+--- 10.0.0.2 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h70 to 10.0.0.6:
+PING 10.0.0.6 (10.0.0.6) 56(84) bytes of data.
+
+--- 10.0.0.6 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h72 to 10.0.0.8:
+PING 10.0.0.8 (10.0.0.8) 56(84) bytes of data.
+
+--- 10.0.0.8 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h78 to 10.0.0.14:
+PING 10.0.0.14 (10.0.0.14) 56(84) bytes of data.
+
+--- 10.0.0.14 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h79 to 10.0.0.15:
+PING 10.0.0.15 (10.0.0.15) 56(84) bytes of data.
+
+--- 10.0.0.15 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h71 to 10.0.0.7:
+PING 10.0.0.7 (10.0.0.7) 56(84) bytes of data.
+
+--- 10.0.0.7 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h69 to 10.0.0.5:
+PING 10.0.0.5 (10.0.0.5) 56(84) bytes of data.
+
+--- 10.0.0.5 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h74 to 10.0.0.10:
+PING 10.0.0.10 (10.0.0.10) 56(84) bytes of data.
+
+--- 10.0.0.10 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h77 to 10.0.0.13:
+PING 10.0.0.13 (10.0.0.13) 56(84) bytes of data.
+
+--- 10.0.0.13 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h80 to 10.0.0.16:
+PING 10.0.0.16 (10.0.0.16) 56(84) bytes of data.
+
+--- 10.0.0.16 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h73 to 10.0.0.9:
+PING 10.0.0.9 (10.0.0.9) 56(84) bytes of data.
+
+--- 10.0.0.9 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h75 to 10.0.0.11:
+PING 10.0.0.11 (10.0.0.11) 56(84) bytes of data.
+
+--- 10.0.0.11 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h76 to 10.0.0.12:
+PING 10.0.0.12 (10.0.0.12) 56(84) bytes of data.
+
+--- 10.0.0.12 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h83 to 10.0.0.19:
+PING 10.0.0.19 (10.0.0.19) 56(84) bytes of data.
+
+--- 10.0.0.19 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h82 to 10.0.0.18:
+PING 10.0.0.18 (10.0.0.18) 56(84) bytes of data.
+
+--- 10.0.0.18 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h81 to 10.0.0.17:
+PING 10.0.0.17 (10.0.0.17) 56(84) bytes of data.
+
+--- 10.0.0.17 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h85 to 10.0.0.21:
+PING 10.0.0.21 (10.0.0.21) 56(84) bytes of data.
+
+--- 10.0.0.21 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h87 to 10.0.0.23:
+PING 10.0.0.23 (10.0.0.23) 56(84) bytes of data.
+
+--- 10.0.0.23 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h84 to 10.0.0.20:
+PING 10.0.0.20 (10.0.0.20) 56(84) bytes of data.
+
+--- 10.0.0.20 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h86 to 10.0.0.22:
+PING 10.0.0.22 (10.0.0.22) 56(84) bytes of data.
+
+--- 10.0.0.22 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h89 to 10.0.0.25:
+PING 10.0.0.25 (10.0.0.25) 56(84) bytes of data.
+
+--- 10.0.0.25 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h88 to 10.0.0.24:
+PING 10.0.0.24 (10.0.0.24) 56(84) bytes of data.
+
+--- 10.0.0.24 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h90 to 10.0.0.26:
+PING 10.0.0.26 (10.0.0.26) 56(84) bytes of data.
+
+--- 10.0.0.26 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h91 to 10.0.0.27:
+PING 10.0.0.27 (10.0.0.27) 56(84) bytes of data.
+
+--- 10.0.0.27 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h92 to 10.0.0.28:
+PING 10.0.0.28 (10.0.0.28) 56(84) bytes of data.
+
+--- 10.0.0.28 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h93 to 10.0.0.29:
+PING 10.0.0.29 (10.0.0.29) 56(84) bytes of data.
+
+--- 10.0.0.29 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h94 to 10.0.0.30:
+PING 10.0.0.30 (10.0.0.30) 56(84) bytes of data.
+
+--- 10.0.0.30 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h97 to 10.0.0.33:
+PING 10.0.0.33 (10.0.0.33) 56(84) bytes of data.
+
+--- 10.0.0.33 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h96 to 10.0.0.32:
+PING 10.0.0.32 (10.0.0.32) 56(84) bytes of data.
+
+--- 10.0.0.32 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h95 to 10.0.0.31:
+PING 10.0.0.31 (10.0.0.31) 56(84) bytes of data.
+
+--- 10.0.0.31 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h99 to 10.0.0.35:
+PING 10.0.0.35 (10.0.0.35) 56(84) bytes of data.
+
+--- 10.0.0.35 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h98 to 10.0.0.34:
+PING 10.0.0.34 (10.0.0.34) 56(84) bytes of data.
+
+--- 10.0.0.34 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h100 to 10.0.0.36:
+PING 10.0.0.36 (10.0.0.36) 56(84) bytes of data.
+
+--- 10.0.0.36 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h105 to 10.0.0.41:
+PING 10.0.0.41 (10.0.0.41) 56(84) bytes of data.
+
+--- 10.0.0.41 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h101 to 10.0.0.37:
+PING 10.0.0.37 (10.0.0.37) 56(84) bytes of data.
+
+--- 10.0.0.37 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h104 to 10.0.0.40:
+PING 10.0.0.40 (10.0.0.40) 56(84) bytes of data.
+
+--- 10.0.0.40 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h103 to 10.0.0.39:
+PING 10.0.0.39 (10.0.0.39) 56(84) bytes of data.
+
+--- 10.0.0.39 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+Result from h102 to 10.0.0.38:
+PING 10.0.0.38 (10.0.0.38) 56(84) bytes of data.
+
+--- 10.0.0.38 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+Result from h106 to 10.0.0.42:
+PING 10.0.0.42 (10.0.0.42) 56(84) bytes of data.
+
+--- 10.0.0.42 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h108 to 10.0.0.44:
+PING 10.0.0.44 (10.0.0.44) 56(84) bytes of data.
+
+--- 10.0.0.44 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h107 to 10.0.0.43:
+PING 10.0.0.43 (10.0.0.43) 56(84) bytes of data.
+
+--- 10.0.0.43 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h110 to 10.0.0.46:
+PING 10.0.0.46 (10.0.0.46) 56(84) bytes of data.
+
+--- 10.0.0.46 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h112 to 10.0.0.48:
+PING 10.0.0.48 (10.0.0.48) 56(84) bytes of data.
+
+--- 10.0.0.48 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h109 to 10.0.0.45:
+PING 10.0.0.45 (10.0.0.45) 56(84) bytes of data.
+
+--- 10.0.0.45 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h111 to 10.0.0.47:
+PING 10.0.0.47 (10.0.0.47) 56(84) bytes of data.
+
+--- 10.0.0.47 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h115 to 10.0.0.51:
+PING 10.0.0.51 (10.0.0.51) 56(84) bytes of data.
+
+--- 10.0.0.51 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h114 to 10.0.0.50:
+PING 10.0.0.50 (10.0.0.50) 56(84) bytes of data.
+
+--- 10.0.0.50 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h116 to 10.0.0.52:
+PING 10.0.0.52 (10.0.0.52) 56(84) bytes of data.
+
+--- 10.0.0.52 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h113 to 10.0.0.49:
+PING 10.0.0.49 (10.0.0.49) 56(84) bytes of data.
+
+--- 10.0.0.49 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h117 to 10.0.0.53:
+PING 10.0.0.53 (10.0.0.53) 56(84) bytes of data.
+
+--- 10.0.0.53 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h119 to 10.0.0.55:
+PING 10.0.0.55 (10.0.0.55) 56(84) bytes of data.
+
+--- 10.0.0.55 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h120 to 10.0.0.56:
+PING 10.0.0.56 (10.0.0.56) 56(84) bytes of data.
+
+--- 10.0.0.56 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h122 to 10.0.0.58:
+PING 10.0.0.58 (10.0.0.58) 56(84) bytes of data.
+
+--- 10.0.0.58 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h118 to 10.0.0.54:
+PING 10.0.0.54 (10.0.0.54) 56(84) bytes of data.
+
+--- 10.0.0.54 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h121 to 10.0.0.57:
+PING 10.0.0.57 (10.0.0.57) 56(84) bytes of data.
+
+--- 10.0.0.57 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h123 to 10.0.0.59:
+PING 10.0.0.59 (10.0.0.59) 56(84) bytes of data.
+
+--- 10.0.0.59 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h124 to 10.0.0.60:
+PING 10.0.0.60 (10.0.0.60) 56(84) bytes of data.
+
+--- 10.0.0.60 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet> h1 ping -c 4 h100
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+64 bytes from 10.0.0.100: icmp_seq=1 ttl=64 time=1.26 ms
+64 bytes from 10.0.0.100: icmp_seq=2 ttl=64 time=0.068 ms
+64 bytes from 10.0.0.100: icmp_seq=3 ttl=64 time=0.182 ms
+64 bytes from 10.0.0.100: icmp_seq=4 ttl=64 time=0.040 ms
+
+--- 10.0.0.100 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3042ms
+rtt min/avg/max/mdev = 0.040/0.387/1.261/0.506 ms
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet> exit
+
+Cleaning up: Removing IP alias 192.168.123.1 from 'lo' interface...
+*** Stopping 1 controllers
+c0 
+*** Stopping 144 links
+................................................................................................................................................
+*** Stopping 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 
+*** Stopping 128 hosts
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h102 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h118 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128 
+*** Done
+[?2004h[01;32mndt@ndtwin-lab-vm[00m:[01;34m~/Desktop/NDTwin-Kernel[00m$ sudo mn -c
+[?2004l*** Removing excess controllers/ofprotocols/ofdatapaths/pings/noxes
+killall controller ofprotocol ofdatapath ping nox_corelt-nox_core ovs-openflowd ovs-controllerovs-testcontroller udpbwtest mnexec ivs ryu-manager 2> /dev/null
+killall -9 controller ofprotocol ofdatapath ping nox_corelt-nox_core ovs-openflowd ovs-controllerovs-testcontroller udpbwtest mnexec ivs ryu-manager 2> /dev/null
+pkill -9 -f "sudo mnexec"
+*** Removing junk from /tmp
+rm -f /tmp/vconn* /tmp/vlogs* /tmp/*.out /tmp/*.log
+*** Removing old X11 tunnels
+*** Removing excess kernel datapaths
+ps ax | egrep -o 'dp[0-9]+' | sed 's/dp/nl:/'
+***  Removing OVS datapaths
+ovs-vsctl --timeout=1 list-br
+ovs-vsctl --timeout=1 list-br
+*** Removing all links of the pattern foo-ethX
+ip link show | egrep -o '([-_.[:alnum:]]+-eth[[:digit:]]+)'
+ip link show
+*** Killing stale mininet node processes
+pkill -9 -f mininet:
+*** Shutting down stale tunnels
+pkill -9 -f Tunnel=Ethernet
+pkill -9 -f .ssh/mn
+rm -f ~/.ssh/mn/*
+*** Cleanup complete.
+[?2004h[01;32mndt@ndtwin-lab-vm[00m:[01;34m~/Desktop/NDTwin-Kernel[00m$ 

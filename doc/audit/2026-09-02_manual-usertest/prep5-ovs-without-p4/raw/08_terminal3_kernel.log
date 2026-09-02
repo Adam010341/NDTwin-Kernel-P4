@@ -1,0 +1,79 @@
+=== A-8 TERMINAL 3 (NDTwin Kernel)  2026-09-02T19:21:12Z ===
+no stale T3
+SENDING: cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+T3_START_UTC=2026-09-02T19:21:13Z
+
+--- poll for the kernel's own convergence line (up to 300 s) ---
+KERNEL_CONVERGENCE_AFTER=5s
+
+########## THE LINE ITSELF (this is the claim under test) ##########
+[2026-09-02 19:21:13.636] [[32minfo[m] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+########## end ##########
+
+--- kernel listening on :8000 ? ---
+LISTEN 0      4096   0.0.0.0:8000 0.0.0.0:*
+
+--- any error/warn lines mentioning p4 / bmv2 / grpc / proxy / 8081 / 50051 ---
+(end grep)
+
+--- error / critical lines in the kernel log so far ---
+error+critical line count: 0
+(end)
+
+--- pane snapshot, last 45 lines ---
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+[2026-09-02 19:21:13.552] [info] [main.cpp:299 main] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 19:21:13.552] [info] [main.cpp:311 main] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 19:21:13.552] [info] [main.cpp:358 main] IntentTranslator is disabled by user.
+[2026-09-02 19:21:13.552] [info] [ApplicationManager.cpp:410 cleanupStaleEntries] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 19:21:13.552] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyAndFlowMonitor Run
+[2026-09-02 19:21:13.552] [info] [FlowLinkUsageCollector.cpp:472 start] Collector Starts Up
+[2026-09-02 19:21:13.553] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calAvgFlowSendingRatesPeriodically] pid=23902 tid=23906
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [run] pid=23902 tid=23905
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 20 workers
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [purgeIdleFlows] pid=23902 tid=23908
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calFlowPathByQueried] pid=23902 tid=23909
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [testCalAvgFlowSendingRatesRandomly] pid=23902 tid=23907
+[2026-09-02 19:21:13.553] [info] [DeviceConfigurationAndPowerManager.cpp:118 start] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 19:21:13.553] [info] [ControllerAndOtherEventHandler.cpp:196 runServer] Server Listening on port 8000
+[2026-09-02 19:21:13.553] [info] [FlowLinkUsageCollector.cpp:749 run] Listening for sFlow on UDP port 6343
+[2026-09-02 19:21:13.566] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPlaneHomogeneity] Data plane: ovs (10 switch(es))
+[2026-09-02 19:21:13.636] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--- all three tmux sessions still alive? ---
+T1: 1 windows (created Wed Sep  2 19:18:06 2026)
+T2: 1 windows (created Wed Sep  2 19:18:38 2026)
+T3: 1 windows (created Wed Sep  2 19:21:12 2026)
+T3_SCRIPT_EXIT=0

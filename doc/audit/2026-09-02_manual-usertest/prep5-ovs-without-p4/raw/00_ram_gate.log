@@ -1,0 +1,49 @@
+=== A-8 RAM GATE 2026-09-02T19:10:39Z / 2026-09-03T03:10:39+0800 ===
+--- host: nslab-System-Product-Name ---
+
+### qemu processes (readlink /proc/*/exe, match qemu-system) ###
+PID=182232 EXE=/usr/bin/qemu-system-x86_64
+  RSS=4846152 kB
+  DISK=
+  CMDLINE=qemu-system-x86_64 -name ndtwin-lab-vm -machine q35,accel=kvm -cpu host -smp 4 -m 6144 -drive file=/home/nslab/ndtwin-vm-adam/disk.qcow2,if=virtio,format=qcow2 -drive file=/home/nslab/ndtwin-vm-adam/seed.iso,if=virtio,format=raw,readonly=on -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2300-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:/home/nslab/ndtwin-vm-adam/qemu.log -monitor unix:/home/nslab/ndtwin-vm-adam/monitor.sock,server,nowait -pidfile /home/nslab/ndtwin-vm-adam/qemu.pid -daemonize 
+
+QEMU_COUNT=1
+
+### free -m ###
+               total        used        free      shared  buff/cache   available
+Mem:           31824        7971       17560         984        7724       23853
+Swap:           8191        2494        5697
+
+### listening ports of interest (ss -tlnpH) ###
+(none of 2301/2311/2312/2313/2314 listening)
+
+### /home free ###
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  915G  257G  612G  30% /
+
+### VM dirs present ###
+/home/nslab/ndtwin-vm
+/home/nslab/ndtwin-vm-a2
+/home/nslab/ndtwin-vm-a3
+/home/nslab/ndtwin-vm-adam
+/home/nslab/ndtwin-vm-prep5
+/home/nslab/ndtwin-vm-prep61
+/home/nslab/ndtwin-vm-reviewer-B
+/home/nslab/ndtwin-vm.sh
+/home/nslab/ndtwin-vm-usertest-01-sonnet
+/home/nslab/ndtwin-vm-usertest-02-haiku
+/home/nslab/ndtwin-vm-usertest-03-opus
+/home/nslab/ndtwin-vm-usertest-04-sonnet
+
+### prep5 image ###
+total 6608160
+-rw-rw-r-- 1 nslab nslab         36 Sep  2 11:34 CONFIG
+-rw-rw-r-- 1 nslab nslab 6141444096 Sep  2 11:39 disk.qcow2
+-rw-rw-r-- 1 nslab nslab         57 Sep  1 13:43 meta-data
+-rw-rw-r-- 1 nslab nslab  624829952 Sep  1 13:43 noble-base.img
+-rw------- 1 nslab nslab        378 Sep  2 11:34 OWNER
+-rw-r----- 1 nslab nslab      77629 Sep  2 11:39 qemu.log
+-rw-rw-r-- 1 nslab nslab     374784 Sep  1 13:43 seed.iso
+-rw-rw-r-- 1 nslab nslab        864 Sep  1 13:43 user-data
+624829952	/home/nslab/ndtwin-vm-prep5/noble-base.img
+GATE_SCRIPT_EXIT=0

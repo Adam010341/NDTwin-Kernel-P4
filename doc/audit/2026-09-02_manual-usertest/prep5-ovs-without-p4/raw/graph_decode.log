@@ -1,0 +1,5 @@
+top-level type: dict keys: ['edges', 'nodes']
+nodes: 138
+edges: 288
+node kinds: {'other': 138}
+first 3 nodes: [{'admin_disabled': False, 'brand_name': 'OVS', 'device_layer': 2, 'device_name': 's1', 'dpid': 1, 'ecmp_groups': [{'members': [{'port_id': 1, 'type': 'port'}, {'port_id': 2, 'type': 'port'}]}], 'ip': [192653504], 'is_enabled': True, 'is_up': True, 'mac': 0, 'nickname': 's1', 'vertex_type': 0}, {'admin_disabled': False, 'brand_name': 'OVS', 'device_layer': 2, 'device_name': 's2', 'dpid': 2, 'ecmp_groups': [{'members': [{'port_id': 1, 'type': 'port'}, {'port_id': 2, 'type': 'port'}]}], 'ip': [209430720], 'is_enabled': True, 'is_up': True, 'mac': 0, 'nickname': 's2', 'vertex_type': 0}, {'admin_disabled': False, 'brand_name': 'OVS', 'device_layer': 2, 'device_name': 's3', 'dpid': 3, 'ecmp_groups': [{'members': [{'port_id': 1, 'type': 'port'}, {'port_id': 2, 'type': 'port'}]}], 'ip': [226207936], 'is_enabled': True, 'is_up': True, 'mac': 0, 'nickname': 's3', 'vertex_type': 0}]

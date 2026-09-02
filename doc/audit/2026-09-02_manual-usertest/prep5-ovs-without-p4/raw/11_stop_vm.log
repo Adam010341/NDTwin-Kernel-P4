@@ -1,0 +1,39 @@
+=== A-8 STOP prep5  2026-09-02T19:28:01Z / 2026-09-03T03:28:01+0800 ===
+QPID_BEFORE=404441
+--- free before stop ---
+               total        used        free      shared  buff/cache   available
+Mem:           31824        9479       15558         984        8218       22345
+
+--- graceful shutdown (pid 404441) ---
+  stopped after 2s
+STOP_EXIT=0
+STOP_DURATION=1s
+
+--- is the qemu pid gone? ---
+QEMU_PID_GONE=yes  ([ -d /proc/404441 ] is false)
+
+--- port 2301 ---
+PORT_2301=no listener
+
+--- remaining qemu processes on the host (readlink /proc/*/exe, no pgrep -f) ---
+PID=182232 file=/home/nslab/ndtwin-vm-adam/disk.qcow2
+QEMU_COUNT_AFTER=1  (expected 1 = Adam's ndtwin-vm-adam)
+
+--- free after stop ---
+               total        used        free      shared  buff/cache   available
+Mem:           31824        7983       17046         984        8224       23840
+--- /home ---
+/dev/nvme0n1p2  915G  257G  612G  30% /
+
+--- image size kept ---
+6155993088	/home/nslab/ndtwin-vm-prep5/disk.qcow2
+image: /home/nslab/ndtwin-vm-prep5/disk.qcow2
+file format: qcow2
+virtual size: 120 GiB (128849018880 bytes)
+disk size: 5.73 GiB
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    compression type: zlib
+--- snapshots? ---
+STOP_SCRIPT_EXIT=0

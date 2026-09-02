@@ -1,0 +1,75 @@
+
+--- 10.0.0.57 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h123 to 10.0.0.59:
+PING 10.0.0.59 (10.0.0.59) 56(84) bytes of data.
+
+--- 10.0.0.59 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h124 to 10.0.0.60:
+PING 10.0.0.60 (10.0.0.60) 56(84) bytes of data.
+
+--- 10.0.0.60 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet> h1 ping -c 4 h100
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+64 bytes from 10.0.0.100: icmp_seq=1 ttl=64 time=1.26 ms
+64 bytes from 10.0.0.100: icmp_seq=2 ttl=64 time=0.068 ms
+64 bytes from 10.0.0.100: icmp_seq=3 ttl=64 time=0.182 ms
+64 bytes from 10.0.0.100: icmp_seq=4 ttl=64 time=0.040 ms
+
+--- 10.0.0.100 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3042ms
+rtt min/avg/max/mdev = 0.040/0.387/1.261/0.506 ms
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet>

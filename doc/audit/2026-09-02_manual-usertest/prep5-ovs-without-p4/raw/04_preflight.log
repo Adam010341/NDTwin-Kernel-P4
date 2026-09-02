@@ -1,0 +1,67 @@
+=== A-8 PRE-FLIGHT  2026-09-02T19:17:28Z ===
+
+### Manual Pre-flight Check 1: NDTwin-Kernel in ~/Desktop ###
+/home/ndt/Desktop/NDTwin-Kernel
+PF1=PASS
+
+### Manual Pre-flight Check 2: ndtwin_kernel exists in build/bin/ ###
+-rwxrwxr-x 1 ndt ndt 11839016 Sep  1 06:04 /home/ndt/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+PF2=PASS
+2a54a767822babbe9dd84d760802248b985cdc1d214394664e0ee2c51e856c5b  /home/ndt/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+/home/ndt/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel: ELF 64-bit LSB pie executable, x86-64, version 1 (GNU/Linux), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=31021225a20237847e2657f6ef030dd55dbeeeb1, for GNU/Linux 3.2.0, not stripped
+--- does the built binary link anything P4/gRPC/protobuf? (the whole question, in one command) ---
+  	linux-vdso.so.1 (0x00007fffda4fc000)
+  	libcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x0000738d6be00000)
+  	libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x0000738d6c9fd000)
+  	libboost_url.so.1.83.0 => /lib/x86_64-linux-gnu/libboost_url.so.1.83.0 (0x0000738d6c9ac000)
+  	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x0000738d6ba00000)
+  	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x0000738d6c97e000)
+  	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0000738d6b600000)
+  	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x0000738d6c317000)
+  	/lib64/ld-linux-x86-64.so.2 (0x0000738d6cab6000)
+--- grep that ldd output for p4/bmv2/grpc/protobuf ---
+NONE: the kernel binary links no gRPC/protobuf/P4/BMv2 library
+
+### Manual Pre-flight Check 3: testbed_topo.py exists ###
+-rwxrwxr-x 1 ndt ndt 9362 Sep  1 05:57 /home/ndt/Desktop/NDTwin-Kernel/testbed_topo.py
+PF3=PASS
+
+### topology model file the manual passes ###
+-rw-rw-r-- 1 ndt ndt 104698 Sep  1 05:53 /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+
+### tmux ###
+/usr/bin/tmux
+tmux 3.4
+error connecting to /tmp/tmux-1000/default (No such file or directory)
+
+### the manual's literal Terminal 1 line: does 'conda activate ryu-env' work? ###
+--- is conda on PATH in a NON-interactive shell? ---
+conda NOT on PATH (non-interactive)
+--- is conda initialised in ~/.bashrc? ---
+NO conda-init block in ~/.bashrc or ~/.profile
+bashrc bytes: 3771  (stock Ubuntu 24.04 = 3771)
+--- try it exactly as the manual writes it, in an interactive login shell ---
+bash: cannot set terminal process group (1989): Inappropriate ioctl for device
+bash: no job control in this shell
+conda: command not found
+MANUAL_CONDA_LINE_EXIT=0
+--- fallback that does work, for the record ---
+FALLBACK=OK env=ryu-env
+ryu-manager 4.34
+Python 3.8.20
+
+### ports that must be free before we start ###
+port 6633: free
+port 6653: free
+port 8000: free
+port 8080: free
+port 6343: free
+--- udp 6343 ---
+(end)
+
+### any leftover mininet/ovs state ###
+a1c9549e-7a91-4f66-85e8-9c02ef8cabaf
+    ovs_version: "3.3.9"
+ovs-vswitchd
+
+PREFLIGHT_EXIT=0

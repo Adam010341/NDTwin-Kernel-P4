@@ -1,0 +1,374 @@
+=== A-8 SAFE SHUTDOWN  2026-09-02T19:24:16Z ===
+--- state before shutdown ---
+  :8000 LISTEN 0      4096   0.0.0.0:8000 0.0.0.0:*
+  :8080 LISTEN 0      50     0.0.0.0:8080 0.0.0.0:*
+  :6633 LISTEN 0      50     0.0.0.0:6633 0.0.0.0:*
+  bridges: 10
+T1: 1 windows (created Wed Sep  2 19:18:06 2026)
+T2: 1 windows (created Wed Sep  2 19:18:38 2026)
+T3: 1 windows (created Wed Sep  2 19:21:12 2026)
+
+########## STEP 1: Terminal 2 -- 'exit' ##########
+STEP1_UTC=2026-09-02T19:24:16Z
+--- Terminal 2 pane after exit (step 2: the IP alias removal should appear here) ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h124 to 10.0.0.60:
+PING 10.0.0.60 (10.0.0.60) 56(84) bytes of data.
+
+--- 10.0.0.60 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet> h1 ping -c 4 h100
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+64 bytes from 10.0.0.100: icmp_seq=1 ttl=64 time=1.26 ms
+64 bytes from 10.0.0.100: icmp_seq=2 ttl=64 time=0.068 ms
+64 bytes from 10.0.0.100: icmp_seq=3 ttl=64 time=0.182 ms
+64 bytes from 10.0.0.100: icmp_seq=4 ttl=64 time=0.040 ms
+
+--- 10.0.0.100 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3042ms
+rtt min/avg/max/mdev = 0.040/0.387/1.261/0.506 ms
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet> exit
+
+Cleaning up: Removing IP alias 192.168.123.1 from 'lo' interface...
+*** Stopping 1 controllers
+c0
+*** Stopping 144 links
+................................................................................................................................................
+*** Stopping 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
+*** Stopping 128 hosts
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h
+53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h10
+2 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h118 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128
+*** Done
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+
+--- step 2 check: was the IP alias actually removed? ---
+Cleaning up: Removing IP alias 192.168.123.1 from 'lo' interface...
+  lo: 1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+  lo: 1: lo    inet6 ::1/128 scope host noprefixroute \       valid_lft forever preferred_lft forever
+ALIAS_REMOVED=yes
+
+########## STEP 3: Terminal 2 -- 'sudo mn -c' ##########
+STEP3_UTC=2026-09-02T19:24:46Z
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h125 to 10.0.0.61:
+PING 10.0.0.61 (10.0.0.61) 56(84) bytes of data.
+
+--- 10.0.0.61 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c 4 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.199 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.141 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.144 ms
+64 bytes from 10.0.0.2: icmp_seq=4 ttl=64 time=0.139 ms
+
+--- 10.0.0.2 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3094ms
+rtt min/avg/max/mdev = 0.139/0.155/0.199/0.025 ms
+mininet> h1 ping -c 4 h100
+PING 10.0.0.100 (10.0.0.100) 56(84) bytes of data.
+64 bytes from 10.0.0.100: icmp_seq=1 ttl=64 time=1.26 ms
+64 bytes from 10.0.0.100: icmp_seq=2 ttl=64 time=0.068 ms
+64 bytes from 10.0.0.100: icmp_seq=3 ttl=64 time=0.182 ms
+64 bytes from 10.0.0.100: icmp_seq=4 ttl=64 time=0.040 ms
+
+--- 10.0.0.100 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3042ms
+rtt min/avg/max/mdev = 0.040/0.387/1.261/0.506 ms
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet> exit
+
+Cleaning up: Removing IP alias 192.168.123.1 from 'lo' interface...
+*** Stopping 1 controllers
+c0
+*** Stopping 144 links
+................................................................................................................................................
+*** Stopping 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
+*** Stopping 128 hosts
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h
+53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h10
+2 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h118 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128
+*** Done
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$ sudo mn -c
+*** Removing excess controllers/ofprotocols/ofdatapaths/pings/noxes
+killall controller ofprotocol ofdatapath ping nox_corelt-nox_core ovs-openflowd ovs-controllerovs-testcontroller udpbwtest mnexec ivs ryu-manager 2> /dev/null
+killall -9 controller ofprotocol ofdatapath ping nox_corelt-nox_core ovs-openflowd ovs-controllerovs-testcontroller udpbwtest mnexec ivs ryu-manager 2> /dev/null
+pkill -9 -f "sudo mnexec"
+*** Removing junk from /tmp
+rm -f /tmp/vconn* /tmp/vlogs* /tmp/*.out /tmp/*.log
+*** Removing old X11 tunnels
+*** Removing excess kernel datapaths
+ps ax | egrep -o 'dp[0-9]+' | sed 's/dp/nl:/'
+***  Removing OVS datapaths
+ovs-vsctl --timeout=1 list-br
+ovs-vsctl --timeout=1 list-br
+*** Removing all links of the pattern foo-ethX
+ip link show | egrep -o '([-_.[:alnum:]]+-eth[[:digit:]]+)'
+ip link show
+*** Killing stale mininet node processes
+pkill -9 -f mininet:
+*** Shutting down stale tunnels
+pkill -9 -f Tunnel=Ethernet
+pkill -9 -f .ssh/mn
+rm -f ~/.ssh/mn/*
+*** Cleanup complete.
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+
+--- the manual says step 3 already killed Ryu. Did it? ---
+RYU_6633_GONE=yes
+RYU_8080_GONE=yes
+--- T1 pane, last 12 lines ---
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=6, port_no=3, LIVE> to Port<dpid=9, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=2, LIVE> to Port<dpid=6, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=2, LIVE> to Port<dpid=2, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=2, LIVE> to Port<dpid=4, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=2, LIVE> to Port<dpid=4, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=1, LIVE> to Port<dpid=3, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=1, LIVE> to Port<dpid=3, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=3, LIVE> to Port<dpid=9, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=3, LIVE> to Port<dpid=7, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=3, LIVE> to Port<dpid=9, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=3, LIVE> to Port<dpid=9, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=4, LIVE> to Port<dpid=10, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+Notified NDT, status code: 200
+Switch 0000000000000001 disconnected (EventOFPStateChange)
+Switch 0000000000000006 disconnected (EventOFPStateChange)
+Switch 000000000000000a disconnected (EventOFPStateChange)
+Switch 0000000000000003 disconnected (EventOFPStateChange)
+Switch 0000000000000002 disconnected (EventOFPStateChange)
+Switch 0000000000000008 disconnected (EventOFPStateChange)
+Switch 0000000000000009 disconnected (EventOFPStateChange)
+Switch 0000000000000007 disconnected (EventOFPStateChange)
+Switch 0000000000000004 disconnected (EventOFPStateChange)
+Switch 0000000000000005 disconnected (EventOFPStateChange)
+(2241) accepted ('127.0.0.1', 59362)
+all_destination_paths in
+127.0.0.1 - - [02/Sep/2026 19:24:19] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.032237
+(2241) accepted ('127.0.0.1', 33622)
+127.0.0.1 - - [02/Sep/2026 19:24:45] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000286
+(2241) accepted ('127.0.0.1', 33632)
+127.0.0.1 - - [02/Sep/2026 19:24:45] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.002297
+(2241) accepted ('127.0.0.1', 33644)
+127.0.0.1 - - [02/Sep/2026 19:24:45] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000538
+Terminated
+(ryu-env) ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+
+########## STEP 4: the remaining terminal -- Ctrl-C the kernel in T3 ##########
+STEP4_UTC=2026-09-02T19:25:21Z
+--- T3 pane, last 30 lines (expect 'All subsystems stopped. Exiting.') ---
+[2026-09-02 19:24:18.130] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.130] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 7:3 -> 9:3
+[2026-09-02 19:24:18.130] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.131] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.131] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.131] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.131] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 9:3 -> 7:3
+[2026-09-02 19:24:18.132] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.132] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.132] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.133] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.133] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 5:3 -> 9:1
+[2026-09-02 19:24:18.133] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.134] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.134] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.134] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.134] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 9:1 -> 5:3
+[2026-09-02 19:24:18.134] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.135] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.135] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.135] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.135] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 9:4 -> 8:3
+[2026-09-02 19:24:18.136] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.136] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.137] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.137] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.137] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 8:3 -> 9:4
+[2026-09-02 19:24:18.137] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.138] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.138] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.138] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.138] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 8:4 -> 10:4
+[2026-09-02 19:24:18.138] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:18.139] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-02 19:24:18.139] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/link_failure_detected
+[2026-09-02 19:24:18.139] [info] [HttpSession.cpp:405 handleLinkFailure] Handle Link Failure
+[2026-09-02 19:24:18.139] [info] [HttpSession.cpp:414 handleLinkFailure] link failed on 10:4 -> 8:4
+[2026-09-02 19:24:18.140] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-02 19:24:20.032] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-02 19:24:31.590] [info] [FlowLinkUsageCollector.cpp:2255 purgeIdleFlows] Flow Key: 10.0.0.1 -> 10.0.0.2 idles
+[2026-09-02 19:24:31.590] [info] [FlowLinkUsageCollector.cpp:2255 purgeIdleFlows] Flow Key: 10.0.0.2 -> 10.0.0.1 idles
+[2026-09-02 19:24:43.708] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1001.7 ms | since start (209 iters) mean 1000.7 ms, min 1000.1, max 1002.3 (flows
+=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 19:24:43.709] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.002087 divisor_used_s=1.002087 (ticket Q gate: these must agree to 1%; a neg
+ative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 19:24:45.195] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 0 switches, 128 hosts, 256 edges up
+[2026-09-02 19:25:13.763] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1001.8 ms | since start (239 iters) mean 1000.9 ms, min 1000.1, max 1002.3 (flows
+=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 19:25:13.764] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.002024 divisor_used_s=1.002024 (ticket Q gate: these must agree to 1%; a neg
+ative divisor means no rate has been published yet, which is not a pass)
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology/links
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+^C[2026-09-02 19:25:21.624] [info] [main.cpp:422 main] Shutdown requested. Cleaning up…
+[2026-09-02 19:25:22.237] [info] [TopologyAndFlowMonitor.cpp:2100 run] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 19:25:22.237] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+[2026-09-02 19:25:22.258] [info] [FlowLinkUsageCollector.cpp:878 run] Run loop exiting
+[2026-09-02 19:25:22.258] [info] [FlowLinkUsageCollector.cpp:888 run] Run loop existing
+[2026-09-02 19:25:22.610] [info] [FlowLinkUsageCollector.cpp:2280 purgeIdleFlows] Exiting Loop of purgeIdleFlows
+[2026-09-02 19:25:22.782] [info] [FlowLinkUsageCollector.cpp:2103 calAvgFlowSendingRatesPeriodically] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-02 19:25:22.821] [info] [FlowLinkUsageCollector.cpp:2201 testCalAvgFlowSendingRatesRandomly] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:98 stop] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:108 stop] io_context stopped
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:115 stop] acceptor_ close
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:138 stop] Attempting to poke the server socket to unblock accept.
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:157 stop] Poke connection refused (port likely already fully closed).
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:214 runServer] Exiting Loop of run event server
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:180 stop] Waiting for server thread to join...
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:182 stop] m_serverThread joined.
+[2026-09-02 19:25:23.135] [info] [ControllerAndOtherEventHandler.cpp:189 stop] ControllerAndOtherEventHandler stopped.
+[2026-09-02 19:25:23.135] [info] [DeviceConfigurationAndPowerManager.cpp:140 stop] Collector Stops
+[2026-09-02 19:25:23.812] [info] [main.cpp:430 main] All subsystems stopped. Exiting.
+[2026-09-02 19:25:23.812] [info] [ControllerAndOtherEventHandler.cpp:98 stop] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 19:25:23.812] [info] [ControllerAndOtherEventHandler.cpp:102 stop] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 19:25:23.812] [info] [ApplicationManager.cpp:266 cleanupNFS] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 19:25:23.812] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+terminate called without an active exception
+Aborted
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$
+
+--- the manual's documented last line ---
+  occurrences of the documented abort line: 1
+  occurrences of "All subsystems stopped": 1
+
+########## ASSERT THE MACHINE IS CLEAN ##########
+--- ports ---
+PORT_8000=released
+PORT_8080=released
+PORT_6633=released
+PORT_6653=released
+PORT_8081=released
+UDP_6343: released
+
+--- ovs bridges (expect 0) ---
+BRIDGES_REMAINING=0
+
+--- surviving processes, by comm (project rule: no pgrep -f) ---
+ndtwin_kernel survivors: 0
+ryu-manager survivors: 0
+iperf3 survivors: 0
+mn survivors: 0
+ovs-testcontroller survivors: 0
+--- anything with 'ndtwin' or 'mininet' in comm ---
+  (none)
+
+--- tmux sessions remaining ---
+T1: 1 windows (created Wed Sep  2 19:18:06 2026)
+T2: 1 windows (created Wed Sep  2 19:18:38 2026)
+T3: 1 windows (created Wed Sep  2 19:21:12 2026)
+
+--- section 6 is still absent after the whole run (nothing was installed) ---
+  ABSENT simple_switch
+  ABSENT simple_switch_grpc
+  ABSENT p4c
+  ABSENT p4c-bm2-ss
+  ls: cannot access '/home/ndt/p4-guide': No such file or directory
+  ls: cannot access '/home/ndt/behavioral-model': No such file or directory
+  ls: cannot access '/home/ndt/p4c': No such file or directory
+
+SHUTDOWN_SCRIPT_EXIT=0

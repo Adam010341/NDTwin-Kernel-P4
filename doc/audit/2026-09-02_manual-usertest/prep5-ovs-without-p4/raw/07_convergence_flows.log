@@ -1,0 +1,92 @@
+=== A-8 CONVERGENCE / FLOW COUNTS  2026-09-02T19:20:14Z ===
+--- did the manual's convergence message appear? ---
+Static topology initialized, all-destination paths installed.
+--- ryu's own rules= line ---
+
+########## SAMPLE 1  2026-09-02T19:20:14Z ##########
+s1   130
+s2   130
+s3   130
+s4   130
+s5   130
+s6   130
+s7   130
+s8   130
+s9   130
+s10  130
+########## SAMPLE 2  2026-09-02T19:20:26Z ##########
+s1   130
+s2   130
+s3   130
+s4   130
+s5   130
+s6   130
+s7   130
+s8   130
+s9   130
+s10  130
+########## SAMPLE 3  2026-09-02T19:20:37Z ##########
+s1   130
+s2   130
+s3   130
+s4   130
+s5   130
+s6   130
+s7   130
+s8   130
+s9   130
+s10  130
+
+--- total across all ten ---
+TOTAL_FLOWS_ALL_TEN=1300
+
+--- proof these are real forwarding rules, not noise: a sample from s1 ---
+NXST_FLOW reply (xid=0x4):
+ cookie=0x0, duration=116.123s, table=0, n_packets=30, n_bytes=1800, idle_age=5, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
+ cookie=0x0, duration=55.761s, table=0, n_packets=0, n_bytes=0, idle_age=55, priority=10,ip,nw_dst=10.0.0.1 actions=output:3
+ cookie=0x0, duration=55.761s, table=0, n_packets=0, n_bytes=0, idle_age=55, priority=10,ip,nw_dst=10.0.0.2 actions=output:4
+ cookie=0x0, duration=55.761s, table=0, n_packets=0, n_bytes=0, idle_age=55, priority=10,ip,nw_dst=10.0.0.3 actions=output:5
+...
+s1 nw_dst=10.0.0.x rules: 128
+
+--- switch-to-controller connections (all ten should be connected to :6633) ---
+name                : s8
+controller          : [3c8e14e8-aec0-40bb-8519-6855146f1eff]
+
+name                : s1
+controller          : [e419cb5b-526e-4bce-9279-d32628df943f]
+
+name                : s9
+controller          : [705fcf25-251f-4054-afa1-4d82021fa24c]
+
+name                : s6
+controller          : [02f5b526-52e7-484f-a42c-899236d9989e]
+
+name                : s2
+controller          : [df09a4b9-d3ad-48e0-aef9-aaa60de89299]
+
+name                : s7
+controller          : [2ee67396-3163-4381-abe8-bdd4ea9a7f13]
+
+name                : s5
+controller          : [5e852362-2ee7-4506-b985-003e40facf57]
+
+name                : s3
+controller          : [77e0a28f-febd-4a15-a808-2d533b8f1925]
+
+name                : s10
+controller          : [be3de2f0-c396-429c-9503-9286bc5e88eb]
+
+name                : s4
+controller          : [96bb9782-759c-49a8-9438-de29e88ae21d]
+s1   tcp:127.0.0.1:6633 OF_OK
+s2   tcp:127.0.0.1:6633 OF_OK
+s3   tcp:127.0.0.1:6633 OF_OK
+s4   tcp:127.0.0.1:6633 OF_OK
+s5   tcp:127.0.0.1:6633 OF_OK
+s6   tcp:127.0.0.1:6633 OF_OK
+s7   tcp:127.0.0.1:6633 OF_OK
+s8   tcp:127.0.0.1:6633 OF_OK
+s9   tcp:127.0.0.1:6633 OF_OK
+s10  tcp:127.0.0.1:6633 OF_OK
+CONVERGENCE_SCRIPT_EXIT=0
