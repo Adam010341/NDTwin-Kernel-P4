@@ -42,6 +42,7 @@ trap 'rm -rf "$T"' EXIT
 export ROUND="$ROUND_DIR" DRY_RUN=0
 LOG="$T/test.log"; OUT="$T/out"; mkdir -p "$OUT"
 # shellcheck source=/dev/null
+LOG_BASE="$T/test.log"                   # lib_e.sh:67 refuses to load without it (22ed1f76, after this test was written)
 . "$ROUND_DIR/lib_e.sh"
 LOG="$T/test.log"; OUT="$T/out"          # lib_e.sh may rewrite LOG; ours is the one under test
 
