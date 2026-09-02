@@ -131,7 +131,7 @@ check_anchor "$TAFM"    '        ep.leftBandwidthSource = BandwidthSource::Decla
 check_anchor "$TAFM"    '        edgeProps.leftBandwidthSource = BandwidthSource::Measured;'
 check_anchor "$HS"      '             {"left_link_bandwidth_source", toString(e.leftBandwidthSource)},'
 check_anchor "$TAFM"    '        // F-8. The declared capacity was already being read on the line above and handed to'
-check_anchor "$SPEC"    '             "left_link_bandwidth_source": Str(allowed=("declared", "measured", "unknown"))})'
+check_anchor "$SPEC"    '    "left_link_bandwidth_source": Str(allowed=("declared", "measured", "unknown")),'
 check_anchor "$FIXTURE" '"left_link_bandwidth_source": "measured"'
 if [[ "$anchor_ok" != 1 ]]; then
     echo "  REFUSE: an anchor is missing or ambiguous. A mutation that cannot be applied is not a pass." >&2
