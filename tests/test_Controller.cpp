@@ -321,7 +321,7 @@ TEST_F(ControllerTest, AFailedResultDoesNotStopTheRestOfTheBatch)
     // just as bad: letting one rejected rule abandon the jobs behind it, so a burst of 2000 stops
     // at the first switch that says no.
     auto manager = std::make_shared<ScriptedManager>();
-    manager->setResult(OpResult{false, 400, "controller rejected the rule"});
+    manager->setResult(OpResult{false, 400, "controller rejected the rule", ""});
     Controller controller(manager);
 
     std::vector<FlowJob> batch;
@@ -340,7 +340,7 @@ TEST_F(ControllerTest, ASuccessfulResultIsAlsoFineAndNothingIsRetried)
     // A retry loop hiding in the sender would double-install every rule; one job must mean exactly
     // one call.
     auto manager = std::make_shared<ScriptedManager>();
-    manager->setResult(OpResult{true, 200, "ok"});
+    manager->setResult(OpResult{true, 200, "ok", ""});
     Controller controller(manager);
 
     controller.dispatcher().enqueue(jobFor(FlowOp::Install, 1));
@@ -361,7 +361,7 @@ TEST_F(ControllerTest, AFailedDispatchIsReportedWithTheDpidAndTheControllersRepl
     LogCapture capture;
 
     auto manager = std::make_shared<ScriptedManager>();
-    manager->setResult(OpResult{false, 400, "Ryu rejected the match"});
+    manager->setResult(OpResult{false, 400, "Ryu rejected the match", ""});
     Controller controller(manager);
 
     controller.dispatcher().enqueue(jobFor(FlowOp::Install, 42, /*priority*/ 99));
@@ -389,7 +389,7 @@ TEST_F(ControllerTest, EachOperationNamesItselfWhenItFails)
     {
         LogCapture capture;
         auto manager = std::make_shared<ScriptedManager>();
-        manager->setResult(OpResult{false, 500, "boom"});
+        manager->setResult(OpResult{false, 500, "boom", ""});
         Controller controller(manager);
 
         controller.dispatcher().enqueue(jobFor(op, 3));
@@ -408,7 +408,7 @@ TEST_F(ControllerTest, ASuccessfulDispatchReportsNothing)
     LogCapture capture;
 
     auto manager = std::make_shared<ScriptedManager>();
-    manager->setResult(OpResult{true, 200, "ok"});
+    manager->setResult(OpResult{true, 200, "ok", ""});
     Controller controller(manager);
 
     controller.dispatcher().enqueue(jobFor(FlowOp::Install, 1));
@@ -430,7 +430,7 @@ TEST_F(ControllerTest, ASuccessfulDispatchReportsNothing)
 TEST_F(ControllerTest, AFailedDispatchReachesTheDispatchOutcomeLog)
 {
     auto manager = std::make_shared<ScriptedManager>();
-    manager->setResult(OpResult{false, 400, "Ryu rejected the match"});
+    manager->setResult(OpResult{false, 400, "Ryu rejected the match", ""});
     Controller controller(manager);
 
     controller.dispatcher().enqueue(jobFor(FlowOp::Install, 42, /*priority*/ 99));
@@ -454,7 +454,7 @@ TEST_F(ControllerTest, ASuccessfulDispatchIsCountedEvenThoughNothingIsStored)
     // call site. If the sender only called record() on failure, dispatched() would undercount and
     // that future question would have no data.
     auto manager = std::make_shared<ScriptedManager>();
-    manager->setResult(OpResult{true, 200, "ok"});
+    manager->setResult(OpResult{true, 200, "ok", ""});
     Controller controller(manager);
 
     controller.dispatcher().enqueue(jobFor(FlowOp::Install, 1));
@@ -475,7 +475,7 @@ TEST_F(ControllerTest, EveryOperationsFailureIsRecordedNotJustInstalls)
     for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
     {
         auto manager = std::make_shared<ScriptedManager>();
-        manager->setResult(OpResult{false, 500, "boom"});
+        manager->setResult(OpResult{false, 500, "boom", ""});
         Controller controller(manager);
 
         controller.dispatcher().enqueue(jobFor(op, 3));
