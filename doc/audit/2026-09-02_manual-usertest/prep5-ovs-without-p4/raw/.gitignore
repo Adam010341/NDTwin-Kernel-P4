@@ -1,0 +1,13 @@
+# Raw artifacts are not tracked on a working branch. They live on the `audit-raw` orphan branch.
+#
+#   git ls-tree -r --name-only audit-raw -- doc/audit/2026-09-02_manual-usertest/prep5-ovs-without-p4/raw/
+#   git show audit-raw:doc/audit/2026-09-02_manual-usertest/prep5-ovs-without-p4/raw/<file>
+#
+# 30 files: the A-8 run on ndtwin-vm-prep5 (OVS path with Installation Manual Section 6 never
+# done), 2026-09-02T19:10Z-19:28Z. Includes the three raw tmux pane captures (T1 Ryu, T2 Mininet,
+# T3 kernel), the three get_detected_flow_data samples, get_graph_data, and the archived copy of
+# the User Manual page that was followed (website 2612b0a).
+#
+# It is evidence, it is not regenerable, and it must not be "cleaned".
+*
+!.gitignore
