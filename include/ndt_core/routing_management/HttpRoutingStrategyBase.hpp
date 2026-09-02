@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <stdint.h>
 #include <string>
+#include <utility>
 
 /**
  * @brief Shared implementation for control planes reached over Ryu-shaped HTTP.
@@ -64,6 +65,63 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
     OpResult post(const std::string& path,
                   const nlohmann::json& body,
                   const char* operation);
+
+    /**
+     * @brief GETs a path on this strategy's endpoint, returning the outcome and the body.
+     *
+     * [Co-developed with claude code -- Adam] F-13.
+     * The read half of `post`. Unlike `post` it interpolates nothing from a caller-supplied
+     * JSON body -- every path it is given is built from integers here in this file -- so the
+     * shell-quoting hazard `post` still carries does not apply to it, and must not be
+     * introduced by a future caller that passes a string through.
+     */
+    std::pair<OpResult, std::string> get(const std::string& path, const char* operation);
+
+    /// Which table an operation is about. Group and meter differ only in route and field name.
+    enum class EntryKind
+    {
+        Group,
+        Meter
+    };
+
+    /// Which OpenFlow *_MOD command an operation maps to.
+    enum class EntryOp
+    {
+        Add,
+        Modify,
+        Delete
+    };
+
+    /**
+     * @brief Whether the switch has the named entry -- or whether that is unknowable right now.
+     *
+     * Three states, not two, and the third one is the point. "I asked and it is not there" and
+     * "I could not ask" must never collapse into the same answer, because only the first may
+     * become a 404: a controller that has gone away would otherwise make the kernel report
+     * every group in the fabric as nonexistent, which is the instrument reporting its own
+     * failure as a finding.
+     */
+    enum class Existence
+    {
+        Present,
+        Absent,
+        Unknown
+    };
+
+    /// @see Existence. Virtual so a test can pin the guard's decisions without a controller.
+    virtual Existence entryExists(EntryKind kind, uint64_t dpid, long long id);
+
+    /**
+     * @brief Checks the precondition an OpenFlow *_MOD carries, then forwards the request.
+     *
+     * [Co-developed with claude code -- Adam] F-13. The whole fix lives here; see the
+     * implementation for what Ryu and the switch do and do not report.
+     */
+    OpResult guardedMod(const nlohmann::json& j,
+                        EntryKind kind,
+                        EntryOp op,
+                        const std::string& path,
+                        const char* operation);
 
     /**
      * @brief Runs a shell command and returns its stdout.

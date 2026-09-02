@@ -156,7 +156,11 @@ FlowRoutingManager::dispatchByPayloadDpid(const json& j,
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "{} rejected: payload has no dpid, so the target switch is unknown",
                            operation);
-        return OpResult::failure(400, std::string(operation) + " requires a dpid");
+        // [Co-developed with claude code -- Adam] F-13: the outcome names which refusal this is.
+        // 400 and 404 are each shared by more than one reason on these six endpoints, so the
+        // status line alone cannot tell a caller what to fix.
+        return OpResult::failure(400, std::string(operation) + " requires a dpid")
+            .withOutcome("no_dpid");
     }
 
     uint64_t dpid = 0;
@@ -167,13 +171,17 @@ FlowRoutingManager::dispatchByPayloadDpid(const json& j,
     catch (const json::exception& e)
     {
         SPDLOG_LOGGER_WARN(Logger::instance(), "{} rejected: bad dpid: {}", operation, e.what());
-        return OpResult::failure(400, std::string(operation) + " has an unreadable dpid");
+        return OpResult::failure(400, std::string(operation) + " has an unreadable dpid")
+            .withOutcome("bad_dpid");
     }
 
     IRoutingStrategy* strategy = getStrategyForDpid(dpid);
     if (strategy == nullptr)
     {
-        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid));
+        // Not the same 404 as "no such group on this switch" -- this one says the switch itself
+        // is not in the topology. Same status, different outcome.
+        return OpResult::failure(404, "no routing strategy for dpid " + std::to_string(dpid))
+            .withOutcome("no_such_switch");
     }
 
     OpResult result = call(*strategy, j);

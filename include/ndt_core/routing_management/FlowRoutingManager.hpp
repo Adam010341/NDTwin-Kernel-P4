@@ -58,12 +58,15 @@ class FlowRoutingManager
     /// below -- installAnEntry, modifyAnEntry, deleteAnEntry -- can be overridden in a test, which
     /// requires deletion through a base pointer to be well-defined.
     ///
-    /// Naming them matters because the set is not "all the dispatch methods": the group and meter
-    /// methods are not virtual, so a test double cannot intercept them. That is deliberate for now
-    /// -- nothing overrides them and P4RoutingStrategy answers them with an explicit "unsupported"
-    /// rather than doing work worth intercepting -- but it is an asymmetry, not an oversight, and a
-    /// comment that says "the three dispatch methods" without saying which invites the reader to
-    /// assume otherwise. Review M4.
+    /// Naming them matters because the set used to be smaller than "all the dispatch methods":
+    /// the group and meter methods were not virtual, so a test double could not intercept them,
+    /// and the note here recorded that as a deliberate asymmetry to be reviewed (M4).
+    ///
+    /// [Co-developed with claude code -- Adam] F-13 closed it. The six group/meter methods are
+    /// virtual now, because the thing that needed asserting -- which status code and which body
+    /// each of the six /ndt/ endpoints answers with for an entry that does not exist -- is
+    /// decided in HttpSession and is not reachable from a test without a manager whose results
+    /// the test chooses. The asymmetry, not the reason for it, was what made F-13 untestable.
     virtual ~FlowRoutingManager();
 
     /**
@@ -120,38 +123,38 @@ class FlowRoutingManager
      *
      * @param j JSON payload describing the group (schema is controller-dependent).
      */
-    OpResult installAGroupEntry(const json& j);
+    virtual OpResult installAGroupEntry(const json& j);
     /**
      * @brief Delete a group entry.
      *
      * @param j JSON payload describing which group to delete.
      */
-    OpResult deleteAGroupEntry(const json& j);
+    virtual OpResult deleteAGroupEntry(const json& j);
     /**
      * @brief Modify a group entry.
      *
      * @param j JSON payload describing the group modification.
      */
-    OpResult modifyAGroupEntry(const json& j);
+    virtual OpResult modifyAGroupEntry(const json& j);
 
     /**
      * @brief Install a meter entry.
      *
      * @param j JSON payload describing the meter (schema is controller-dependent).
      */
-    OpResult installAMeterEntry(const json& j);
+    virtual OpResult installAMeterEntry(const json& j);
     /**
      * @brief Delete a meter entry.
      *
      * @param j JSON payload describing which meter to delete.
      */
-    OpResult deleteAMeterEntry(const json& j);
+    virtual OpResult deleteAMeterEntry(const json& j);
     /**
      * @brief Modify a meter entry.
      *
      * @param j JSON payload describing the meter modification.
      */
-    OpResult modifyAMeterEntry(const json& j);
+    virtual OpResult modifyAMeterEntry(const json& j);
 
   protected:
     /**

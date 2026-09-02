@@ -47,6 +47,8 @@ add_executable(
   test_ApiKeyNotLogged.cpp
   test_IntentTaskOutcomes.cpp
   test_HttpSessionStatusCodes.cpp
+  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md F-13.
+  test_GroupMeterExistence.cpp
   test_HistoricalLogging.cpp
   test_CommandFailure.cpp
   test_TopologyUrlAndPathJson.cpp
