@@ -168,3 +168,43 @@ VERDICT: every mutation was caught by the check named for it; the control surviv
 
 兩個獨立 commit（sweep／faults.sh），各自 `git revert` 即可。
 沒有資料格式改變。**已安裝的 `/usr/local/sbin/ndtwin-lab` 完全沒被動過，所以回退不需要重裝。**
+
+---
+
+## 附錄：`faults.sh` 的 `pgrep -f`（本分支第二個 commit，可單獨回退）
+
+auditor 2026-09-02 裁決批准，理由是**紅線的重點不是 repo 裡有幾個字串，是這個做法會被傳出去**——
+一行印在錯誤訊息裡的 `pgrep -f` 比程式碼裡的更會擴散。
+
+原本兩處都在教使用者這樣組 `FAULTS_TC`（`:60` 註解、`:278` `err` 印出來的建議）：
+
+```
+FAULTS_TC="sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py'|head -1) tc"
+```
+
+`[t]` 括號技巧只擋掉「搜尋者比中自己」，擋不掉**執行它的那個 shell**（它的 argv 通常同時
+帶著沒括號的形式——`ndt` 檔頭 trap note 2，量到 10 座交換機報 11）；`-f` 仍然會比中 log 路徑
+或開著檔的編輯器；`| head -1` 在 `pipefail` 下是 2026-08-20 那個 SIGPIPE 陷阱。
+而這個值是要交給 `mnexec -a` 的——**錯的 pid 不是錯的答案，是 root 跑進別人的 namespace**。
+
+改成 `faults.sh --topo-pid`（新 `topo_pid()`）：ps 索引、/proc 權威、argv 元素要**是**那支
+腳本；找到兩個就**拒絕並說出兩個 pid**，不猜。
+
+行為變更：`--topo-pid` 是新子命令；`faults.sh` 的 usage 多一行。舊的兩個字串不再出現在
+任何會被印出來的地方（測試直接斷言這件事）。
+
+變異閘門 `tests/shell/mutate_g9_faults_topo_pid.sh`：
+
+```
+  match-anywhere-in-line     caught by: a log file named after it is not it
+  head-1-picks-a-winner      caught by: two topologies -> refuses, rc 1
+  empty-on-success           caught by: and it is the right pid
+  advice-teaches-pgrep-again caught by: no pgrep -f inside anything it prints
+  control-comment-only       SURVIVED (control, as required)
+VERDICT: every mutation was caught by the check named for it; the control survived
+```
+
+測試 `tests/shell/test_faults_topo_pid.sh` 12 checks 全綠。
+檔案裡還留著兩個 `pgrep -f` **字串**，都在解釋這條規則的註解裡——測試斷言的是
+「沒有可執行行含它」與「沒有任何會被印出來的東西含它」，不是字元不准出現
+（CLAUDE.md 自己就寫著這個字串）。
