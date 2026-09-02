@@ -1,5 +1,9 @@
 # 2026-09-02 whole-machine live round -- CHECKPOINT
 
+> ⚠️ Read `ADDENDUM-01-viz-orphan-contamination.md` beside this file first: an orphaned viz JVM
+> was running at >100% CPU from step C27 (21:44) onward, so measurements taken after that point
+> must not be compared against the idle baseline without accounting for it.
+
 [Co-developed with claude code -- Adam]
 
 Written from the raw logs alone (`raw/A0..A8`, `B1..B21`, `C1..C51`, `D1..D2`, `E1..E5`, plus
