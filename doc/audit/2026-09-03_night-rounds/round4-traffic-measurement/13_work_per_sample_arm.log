@@ -1,0 +1,54 @@
+#### what this step proves: at a FIXED offered rate that loses nothing with one flow key,
+#### does raising the WORK PER SAMPLE reach the app-level (round-robin) drop path?
+2026-09-03T03:38:43+08:00
+
+======== arm w_1key: 60 000 datagrams/s for 10 s, 1 distinct flow key(s) ========
+2026-09-03T03:38:43+08:00
+ 03:38:43 up 15:18,  1 user,  load average: 0.14, 0.93, 1.04
+Mem:           15412        8126        1404        1056        7339        7285
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+tag=w_1key requested=60000 keys=1 datagram_bytes=224 sent=600000 send_errors=0 elapsed=10.000 achieved=60000/s
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+kernel CPU ticks consumed during the arm: 1303 (100 ticks = 1 core-second)
+flow table rows now: 1
+-- counter lines logged during the arm --
+   WARN lines: 0
+
+======== arm w_5000keys: 60 000 datagrams/s for 10 s, 5000 distinct flow key(s) ========
+2026-09-03T03:39:22+08:00
+ 03:39:22 up 15:19,  1 user,  load average: 0.18, 0.84, 1.00
+Mem:           15412        8320        1209        1058        7342        7091
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+tag=w_5000keys requested=60000 keys=5000 datagram_bytes=224 sent=600000 send_errors=0 elapsed=10.000 achieved=60000/s
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+kernel CPU ticks consumed during the arm: 1508 (100 ticks = 1 core-second)
+flow table rows now: 5000
+-- counter lines logged during the arm --
+   WARN lines: 0
+
+======== arm w_1key_again: 60 000 datagrams/s for 10 s, 1 distinct flow key(s) ========
+2026-09-03T03:40:01+08:00
+ 03:40:01 up 15:20,  1 user,  load average: 0.18, 0.76, 0.97
+Mem:           15412        8319        1208        1056        7342        7092
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+tag=w_1key_again requested=60000 keys=1 datagram_bytes=224 sent=600000 send_errors=0 elapsed=10.000 achieved=60000/s
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+kernel CPU ticks consumed during the arm: 1356 (100 ticks = 1 core-second)
+flow table rows now: 1
+-- counter lines logged during the arm --
+   WARN lines: 0
+======== done 2026-09-03T03:40:40+08:00 ========
+
+=== reading ===
+Offered rate HELD at 60 000 datagrams/s in all three arms; only the number of distinct 5-tuples
+moved, and the flow-table row count (1 -> 5000 -> 1) proves the work really happened.
+
+  arm            keys   sent      socket drops   kernel CPU (core-s / 10 s)   app_drop
+  w_1key            1   600 000   0              13.03                        0
+  w_5000keys     5000   600 000   0              15.08  (+15.7%)              0
+  w_1key_again      1   600 000   0              13.56                        0
+
+So neither more packets (step 09 reached 654 709/s) nor more work per packet (5000x the distinct
+keys) reached the app-level round-robin drop path. `droppedPackets` never left 0 in 9 548 120
+offered datagrams across steps 09, 11 and 13. The 1-key arms either side of the 5000-key arm are
+the control that says the +15.7% is the work and not drift.

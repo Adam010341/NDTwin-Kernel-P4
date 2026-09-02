@@ -1,0 +1,36 @@
+#### what this step proves: the boundary is set by PACKET arrival, not by BANDWIDTH ####
+# offered BIT RATE HELD at 1 Mbit/s in all four cells; flow count HELD at 1;
+# only the UDP payload size moves, 1400 -> 600 -> 250 -> 100 bytes (14x the packet rate).
+2026-09-03T03:26:40+08:00
+=== QUIET CELLS ===
+cell                       n   winA>0 winB(3s) winC(15s)   decoyB   decoyC liveness seen
+p1400_quiet                8      0/8      0/8      0/8        0        0 -
+p600_quiet                 8      0/8      0/8      0/8        0        0 -
+p250_quiet                 8      0/8      0/8      0/8        0        0 -
+p100_quiet                 8      0/8      0/8      0/8        0        0 -
+=== LOAD CELLS (all at 1 Mbit/s) ===
+cell                       n   winA>0 winB(3s) winC(15s)   decoyB   decoyC liveness seen
+p1400                     30    21/30    29/30    30/30        0        0 active,idle
+p600                      30    28/30    30/30    30/30        0        0 active
+p250                      30    29/30    30/30    30/30        0        0 active
+p100                      30    30/30    30/30    30/30        0        0 active
+
+=== iperf3 ground truth: same bit rate, different packet counts ===
+iperf_p100   [  7]   0.00-50.00  sec  5.96 MBytes  1000 Kbits/sec  0.000 ms  0/62499 (0%)  sender
+iperf_p1400  [  7]   0.00-50.00  sec  5.96 MBytes  1.00 Mbits/sec  0.000 ms  0/4465 (0%)  sender
+iperf_p250   [  7]   0.00-50.00  sec  5.96 MBytes  1000 Kbits/sec  0.000 ms  0/25000 (0%)  sender
+iperf_p600   [  7]   0.00-50.00  sec  5.96 MBytes  1.00 Mbits/sec  0.000 ms  0/10417 (0%)  sender
+
+=== proxy send-side samples per cell ===
+## cell p1400  rate=1M payload=1400 load=50s probe=30s
+{"t":1788376866.872092,"datagrams_sent":2961,"samples_sent":2961,"send_errors":0,"batch_size":1}
+{"t":1788376925.0027788,"datagrams_sent":3023,"samples_sent":3023,"send_errors":0,"batch_size":1}
+## cell p600  rate=1M payload=600 load=50s probe=30s
+{"t":1788376945.0442545,"datagrams_sent":3023,"samples_sent":3023,"send_errors":0,"batch_size":1}
+{"t":1788377003.1776824,"datagrams_sent":3151,"samples_sent":3151,"send_errors":0,"batch_size":1}
+## cell p250  rate=1M payload=250 load=50s probe=30s
+{"t":1788377023.2219942,"datagrams_sent":3151,"samples_sent":3151,"send_errors":0,"batch_size":1}
+{"t":1788377081.3599849,"datagrams_sent":3454,"samples_sent":3454,"send_errors":0,"batch_size":1}
+## cell p100  rate=1M payload=100 load=50s probe=30s
+{"t":1788377101.4016023,"datagrams_sent":3454,"samples_sent":3454,"send_errors":0,"batch_size":1}
+{"t":1788377159.5335522,"datagrams_sent":4175,"samples_sent":4175,"send_errors":0,"batch_size":1}

@@ -1,0 +1,125 @@
+#### what this step proves: LEAD 4 -- three windows, one flow, only the offered rate moving ####
+# flow count HELD at exactly 1 in every cell; payload HELD at 1400 B; only the rate sweeps.
+# quiet cell taken immediately before each load cell, same command, no traffic.
+# decoy flow key 10.0.0.3 -> 10.0.0.4 was never sent and must read absent in every poll.
+2026-09-03T03:18:01+08:00
+
+=== QUIET CELLS (forced-red direction: the probe must say ABSENT) ===
+cell                       n   winA>0 winB(3s) winC(15s)   decoyB   decoyC liveness seen
+green20M_quiet             8      0/8      0/8      0/8        0        0 -
+r5M_quiet                  8      0/8      0/8      0/8        0        0 -
+r2M_quiet                  8      0/8      0/8      0/8        0        0 -
+r1M_quiet                  8      0/8      0/8      0/8        0        0 -
+r500k_quiet                8      0/8      0/8      0/8        0        0 -
+r250k_quiet                8      0/8      0/8      0/8        0        0 -
+r125k_quiet                8      0/8      0/8      0/8        0        0 -
+r60k_quiet                 8      0/8      0/8      0/8        0        0 -
+
+=== LOAD CELLS ===
+cell                       n   winA>0 winB(3s) winC(15s)   decoyB   decoyC liveness seen
+green20M                  30    30/30    30/30    30/30        0        0 active
+r5M                       30    30/30    30/30    30/30        0        0 active
+r2M                       30    21/30    30/30    30/30        0        0 active
+r1M                       30    17/30    26/30    30/30        0        0 active,idle
+r500k                     30    11/30    21/30    30/30        0        0 active,idle
+r250k                     30     6/30    16/30    30/30        0        0 active,idle
+r125k                     30     4/30    12/30    30/30        0        0 active,idle
+r60k                      30     2/30     9/30    28/30        0        0 active,ended,idle
+
+=== iperf3 GROUND TRUTH per cell (offered vs delivered, and loss) ===
+iperf_green20M [  7]   0.00-50.00  sec   119 MBytes  20.0 Mbits/sec  0.000 ms  0/89285 (0%)  sender
+iperf_r125k    [  7]   0.00-50.00  sec   764 KBytes   125 Kbits/sec  0.000 ms  0/559 (0%)  sender
+iperf_r1M      [  7]   0.00-50.00  sec  5.96 MBytes  1.00 Mbits/sec  0.000 ms  0/4465 (0%)  sender
+iperf_r250k    [  7]   0.00-50.00  sec  1.49 MBytes   250 Kbits/sec  0.000 ms  0/1117 (0%)  sender
+iperf_r2M      [  7]   0.00-50.00  sec  11.9 MBytes  2.00 Mbits/sec  0.000 ms  0/8929 (0%)  sender
+iperf_r500k    [  7]   0.00-50.00  sec  2.98 MBytes   500 Kbits/sec  0.000 ms  0/2233 (0%)  sender
+iperf_r5M      [  7]   0.00-50.00  sec  29.8 MBytes  5.00 Mbits/sec  0.000 ms  0/22322 (0%)  sender
+iperf_r60k     [  7]   0.00-50.00  sec   366 KBytes  60.0 Kbits/sec  0.000 ms  0/268 (0%)  sender
+
+=== proxy send-side sample counters, per cell (independent of the kernel) ===
+## cell green20M  rate=20M payload=1400 load=50s probe=30s
+{"t":1788376034.8445783,"datagrams_sent":1403,"samples_sent":1403,"send_errors":0,"batch_size":1}
+{"t":1788376092.9832692,"datagrams_sent":2478,"samples_sent":2478,"send_errors":0,"batch_size":1}
+## cell r5M  rate=5M payload=1400 load=50s probe=30s
+{"t":1788376113.024049,"datagrams_sent":2478,"samples_sent":2478,"send_errors":0,"batch_size":1}
+{"t":1788376171.1698842,"datagrams_sent":2751,"samples_sent":2751,"send_errors":0,"batch_size":1}
+## cell r2M  rate=2M payload=1400 load=50s probe=30s
+{"t":1788376191.204447,"datagrams_sent":2751,"samples_sent":2751,"send_errors":0,"batch_size":1}
+{"t":1788376249.3402388,"datagrams_sent":2854,"samples_sent":2854,"send_errors":0,"batch_size":1}
+## cell r1M  rate=1M payload=1400 load=50s probe=30s
+{"t":1788376269.378291,"datagrams_sent":2854,"samples_sent":2854,"send_errors":0,"batch_size":1}
+{"t":1788376327.5226748,"datagrams_sent":2912,"samples_sent":2912,"send_errors":0,"batch_size":1}
+## cell r500k  rate=500K payload=1400 load=50s probe=30s
+{"t":1788376347.57038,"datagrams_sent":2912,"samples_sent":2912,"send_errors":0,"batch_size":1}
+{"t":1788376405.7012258,"datagrams_sent":2934,"samples_sent":2934,"send_errors":0,"batch_size":1}
+## cell r250k  rate=250K payload=1400 load=50s probe=30s
+{"t":1788376425.7407475,"datagrams_sent":2934,"samples_sent":2934,"send_errors":0,"batch_size":1}
+{"t":1788376483.8853984,"datagrams_sent":2944,"samples_sent":2944,"send_errors":0,"batch_size":1}
+## cell r125k  rate=125K payload=1400 load=50s probe=30s
+{"t":1788376503.923075,"datagrams_sent":2944,"samples_sent":2944,"send_errors":0,"batch_size":1}
+{"t":1788376562.057455,"datagrams_sent":2952,"samples_sent":2952,"send_errors":0,"batch_size":1}
+## cell r60k  rate=60K payload=1400 load=50s probe=30s
+{"t":1788376582.0932195,"datagrams_sent":2952,"samples_sent":2952,"send_errors":0,"batch_size":1}
+{"t":1788376640.2155194,"datagrams_sent":2958,"samples_sent":2958,"send_errors":0,"batch_size":1}
+=== sweepA BOTTOM-END cells (closing the band) ===
+cell                       n   winA>0 winB(3s) winC(15s)   decoyB   decoyC liveness seen
+r30k_quiet                 8      0/8      0/8      0/8        0        0 -
+r30k                      30     0/30     3/30    13/30        0        0 active,idle
+r15k_quiet                 8      0/8      0/8      0/8        0        0 -
+r15k                      30     2/30     3/30    20/30        0        0 active,idle
+
+=== iperf3 ground truth for those two ===
+[  7]   0.00-50.00  sec  91.6 KBytes  15.0 Kbits/sec  0.000 ms  0/67 (0%)  sender
+[  7]   0.00-50.00  sec   183 KBytes  30.0 Kbits/sec  0.000 ms  0/134 (0%)  sender
+
+=================== LEAD 4, SETTLED: the boundary ===================
+All cells: ONE flow, 0% loss on the wire (iperf3's own sender line), 1400 B frames,
+3 sampling hops (s1,s5,s2 -- read from the row's own path), 1/256 Bernoulli sampling.
+obs = fraction of 30 one-second polls in which that window said the flow was there.
+pred = 1-exp(-lambda*W), lambda from the proxy's own send-side counter.
+
+cell        offered       pps    samples/s | A: 2s edge    B: 3s DEFAULT C: 15s all   
+green20M  20 Mbit/s      1786        18.50 | 30/30 1.00    30/30 1.00    30/30 1.00   
+r5M        5 Mbit/s       446         4.71 | 30/30 1.00    30/30 1.00    30/30 1.00   
+r2M        2 Mbit/s       179         1.78 | 21/30 0.70    30/30 1.00    30/30 1.00   
+r1M        1 Mbit/s        89         1.00 | 17/30 0.57    26/30 0.87    30/30 1.00   
+r500k    500 kbit/s        45         0.38 | 11/30 0.37    21/30 0.70    30/30 1.00   
+r250k    250 kbit/s        22         0.17 |  6/30 0.20    16/30 0.53    30/30 1.00   
+r125k    125 kbit/s        11         0.14 |  4/30 0.13    12/30 0.40    30/30 1.00   
+r60k      60 kbit/s         5         0.10 |  2/30 0.07     9/30 0.30    28/30 0.93   
+r30k      30 kbit/s         3         <0.1 |  0/30 0.00     3/30 0.10    13/30 0.43   
+r15k      15 kbit/s         1         <0.1 |  2/30 0.07     3/30 0.10    20/30 0.67   
+
+WHERE THE DISAGREEMENT STARTS AND STOPS (1400 B frames, 3 hops, 1/256):
+  >= 5 Mbit/s (>=446 pps)   all three windows agree: present, 30/30.
+  2 Mbit/s    (179 pps)     DISAGREEMENT STARTS. The 2 s edge count drops to 0.70 while the
+                            3 s default and the 15 s table are still 1.00.
+  1 Mbit/s    (89 pps)      the 2 s edge count is at 0.57 -- its own 50% point.
+  250 kbit/s  (22 pps)      THE API DEFAULT crosses 50%: a flow sending continuously, delivered
+                            with 0% loss, is absent from /ndt/get_detected_flow_data in half of
+                            all one-second polls. The 15 s table still says 30/30.
+  125 kbit/s  (11 pps)      default 0.40, edge 0.13, table still 1.00 -- the widest gap.
+  60 kbit/s   (5 pps)       the 15 s table starts to fail too (0.93).
+  <= 30 kbit/s (<=3 pps)    DISAGREEMENT STOPS by all three converging on "absent": edge 0.00,
+                            default 0.10, table 0.43-0.67. Below this the twin simply does not
+                            see the flow at all. (r30k/r15k are 3 and 1 pps; their table figures
+                            differ in the wrong direction, which at ~0.02 samples/s is Poisson
+                            noise on 30 polls, not a reversal -- do not read a trend into it.)
+
+THE UNIT IS PACKETS, NOT BITS -- sweep B, same bandwidth, only the frame shrinking:
+  1 Mbit/s @ 1400 B =    4465 pkts -> 1.07 samples/s -> 2 s edge 0.70, 3 s default 0.97
+  1 Mbit/s @  600 B =   10417 pkts -> 2.21 samples/s -> 0.93, 1.00
+  1 Mbit/s @  250 B =   25000 pkts -> 5.22 samples/s -> 0.97, 1.00
+  1 Mbit/s @  100 B =   62499 pkts -> 12.4 samples/s -> 1.00, 1.00
+  Same offered bandwidth in all four, 0% loss in all four. Visibility moved from 0.70 to 1.00
+  on frame size alone. So every rate boundary above is a boundary in PACKETS PER SECOND
+  (~22 pps for the API default's 50% point, ~89 pps for the edge count's) and moves by up to
+  14x when a workload's frame size changes. Quoting the band in Mbit/s without the frame size
+  is not transferable.
+  p1400 also REPRODUCES sweep A's r1M cell 15 minutes later: edge 21/30 vs 17/30, default
+  29/30 vs 26/30 -- same cell, N=2, consistent within Poisson noise.
+
+CONTROLS: 12 quiet cells, one immediately before every load cell, same command, no traffic:
+  0/8 on all three windows in 12 of 12. A decoy flow key (10.0.0.3 -> 10.0.0.4) that was never
+  sent read absent in 100% of 456 polls while the real flow read present. Forced-green
+  (20 Mbit/s) 30/30 on all three. The probe can say yes, can say no, and can tell two keys apart.

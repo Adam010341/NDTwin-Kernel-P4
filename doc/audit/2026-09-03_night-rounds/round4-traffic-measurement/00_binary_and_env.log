@@ -1,0 +1,35 @@
+#### binary of record, commit, machine state before anything ran ####
+2026-09-03T02:57:48+08:00
+--- sha256sum build/bin/ndtwin_kernel ---
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+--- ls -l ---
+-rwxrwxr-x 1 adam adam 75990144 Sep  3 00:46 build/bin/ndtwin_kernel
+--- git HEAD ---
+1f06848f9a9b49d8a2f9ad97e553a6bbc04860b3 2026-09-03 02:56:13 +0800 Night round 3: restarts and concurrency
+--- branch ---
+trunk
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7484        2816        1061        6541        7927
+Swap:          20479        5971       14508
+--- uptime ---
+ 02:57:48 up 14:38,  1 user,  load average: 0.11, 0.20, 0.23
+--- who else is running (top 10 by cpu) ---
+    PID    PPID COMMAND         %CPU %MEM
+ 619898  619737 claude-desktop   5.1  4.7
+ 959412  619723 claude           4.4  2.4
+ 950260  619723 claude           4.4  2.2
+   3164    2859 gnome-shell      4.0  1.6
+ 555292  555023 agy              3.4  0.5
+ 791923    3164 chrome           2.6  2.2
+ 619785  619734 claude-desktop   2.5  0.4
+ 951262  619723 claude           2.3  1.9
+ 619723    3164 claude-desktop   2.0  2.1
+1093332  791945 chrome           1.8  5.7
+ 792329  791945 chrome           1.7  1.4
+--- ndtwin_kernel / bmv2 / java present? (ps -eo comm=, never pgrep -f) ---
+      5 python3
+      1 ovs-vswitchd
+      1 ovsdb-server
+--- ports of interest ---
+tcp   LISTEN 0      5                                  127.0.0.1:9090       0.0.0.0:*    users:(("python3",pid=78285,fd=4))  

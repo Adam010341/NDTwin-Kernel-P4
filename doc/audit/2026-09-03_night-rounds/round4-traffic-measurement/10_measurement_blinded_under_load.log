@@ -1,0 +1,60 @@
+#### what this step proves: under collector overload the twin's published traffic numbers
+#### collapse while every endpoint keeps returning 200/success and no field says why.
+2026-09-03T03:31:22+08:00
+
+======== cell A_control_before  real traffic 20 Mbit/s, sFlow flood=no ========
+2026-09-03T03:31:22+08:00
+ 03:31:22 up 15:11,  1 user,  load average: 1.46, 1.31, 0.99
+Mem:           15412        7995        1937        1043        6891        7417
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=4750478
+-- avg link usage right after --
+{"avg_link_usage":0.010332266,"status":"success"}
+-- every endpoint's status field right after (does ANY of them admit a problem?) --
+   get_average_link_usage             HTTP 200 in 0.000928s
+   get_detected_flow_data             HTTP 200 in 0.000454s
+   get_graph_data                     HTTP 200 in 0.004236s
+   get_openflow_capacity              HTTP 200 in 0.000808s
+-- iperf3 ground truth --
+[  7]   0.00-55.00  sec   131 MBytes  20.0 Mbits/sec  0.000 ms  0/98213 (0%)  sender
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=4750478
+-- kernel.log lines about sFlow loss during this cell --
+1
+
+======== cell B_flood  real traffic 20 Mbit/s, sFlow flood=yes ========
+2026-09-03T03:32:37+08:00
+ 03:32:37 up 15:12,  1 user,  load average: 1.76, 1.48, 1.08
+Mem:           15412        7887        2044        1040        6889        7525
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=4750478
+-- avg link usage right after --
+{"avg_link_usage":0.0221385475,"status":"success"}
+-- every endpoint's status field right after (does ANY of them admit a problem?) --
+   get_average_link_usage             HTTP 200 in 0.000560s
+   get_detected_flow_data             HTTP 200 in 0.000383s
+   get_graph_data                     HTTP 200 in 0.004172s
+   get_openflow_capacity              HTTP 200 in 0.000790s
+-- iperf3 ground truth --
+[  7]   0.00-55.00  sec   131 MBytes  20.0 Mbits/sec  0.000 ms  0/98213 (0%)  sender
+-- blaster --
+tag=B_flood requested=max keys=1 datagram_bytes=224 sent=17330000 send_errors=0 elapsed=32.001 achieved=541547/s
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+-- kernel.log lines about sFlow loss during this cell --
+33
+
+======== cell C_control_after  real traffic 20 Mbit/s, sFlow flood=no ========
+2026-09-03T03:33:52+08:00
+ 03:33:52 up 15:14,  1 user,  load average: 2.81, 2.02, 1.31
+Mem:           15412        7937        1990        1051        6903        7474
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+-- avg link usage right after --
+{"avg_link_usage":0.0132847075,"status":"success"}
+-- every endpoint's status field right after (does ANY of them admit a problem?) --
+   get_average_link_usage             HTTP 200 in 0.000583s
+   get_detected_flow_data             HTTP 200 in 0.000473s
+   get_graph_data                     HTTP 200 in 0.004168s
+   get_openflow_capacity              HTTP 200 in 0.000965s
+-- iperf3 ground truth --
+[  7]   0.00-55.00  sec   131 MBytes  20.0 Mbits/sec  0.000 ms  0/98213 (0%)  sender
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=17616588
+-- kernel.log lines about sFlow loss during this cell --
+0
+======== done 2026-09-03T03:35:07+08:00 ========

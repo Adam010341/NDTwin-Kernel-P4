@@ -1,0 +1,129 @@
+#### what this step proves: LEAD 5 -- sFlow samples are dropped, the four counters move,
+#### the ONLY place they appear is a log line, and no /ndt/ endpoint carries them.
+# The offered load is built by the repository's own producer, p4_proxy/proxy_agent/
+# sflow_emitter.build_datagram, so the datagram shape is the one the kernel parses.
+# Ground truth for every cell is the sender's own count.
+2026-09-03T03:28:00+08:00
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+
+======== cell forcedgreen_trickle  offered=20 for 6s ========
+2026-09-03T03:28:00+08:00
+-- machine noise: 03:28:00 up 15:08,  1 user,  load average: 1.10, 1.00, 0.82
+Mem:           15412        7963        1971        1057        6903        7448
+-- /proc/net/udp for :6343 BEFORE (independent of the collector's own counters) --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage BEFORE --
+{"avg_link_usage":0.0,"status":"success"}
+tag=forcedgreen_trickle requested=20 datagram_bytes=224 sent=120 send_errors=0 elapsed=6.000 achieved=20/s
+-- /proc/net/udp for :6343 AFTER --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage AFTER --
+{"avg_link_usage":0.0,"status":"success"}
+-- the ONLY channel to the four counters: new kernel.log lines mentioning sFlow ingest --
+-- did the synthetic flow 10.99.0.1 -> 10.99.0.2 reach the flow table? --
+   rows total=1, mine=1
+    idle rate_bps(proceeding)= 0 pkt_rate= 0 path_len= 0
+
+======== cell b2k  offered=2000 for 10s ========
+2026-09-03T03:28:19+08:00
+-- machine noise: 03:28:19 up 15:08,  1 user,  load average: 1.15, 1.02, 0.83
+Mem:           15412        8108        1826        1063        6909        7304
+-- /proc/net/udp for :6343 BEFORE (independent of the collector's own counters) --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage BEFORE --
+{"avg_link_usage":0.0,"status":"success"}
+tag=b2k requested=2000 datagram_bytes=224 sent=20000 send_errors=0 elapsed=10.000 achieved=2000/s
+-- /proc/net/udp for :6343 AFTER --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage AFTER --
+{"avg_link_usage":0.0,"status":"success"}
+-- the ONLY channel to the four counters: new kernel.log lines mentioning sFlow ingest --
+-- did the synthetic flow 10.99.0.1 -> 10.99.0.2 reach the flow table? --
+   rows total=1, mine=1
+    idle rate_bps(proceeding)= 0 pkt_rate= 0 path_len= 0
+
+======== cell b20k  offered=20000 for 10s ========
+2026-09-03T03:28:42+08:00
+-- machine noise: 03:28:42 up 15:08,  1 user,  load average: 1.19, 1.03, 0.84
+Mem:           15412        8036        1898        1065        6911        7375
+-- /proc/net/udp for :6343 BEFORE (independent of the collector's own counters) --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage BEFORE --
+{"avg_link_usage":0.0,"status":"success"}
+tag=b20k requested=20000 datagram_bytes=224 sent=200000 send_errors=0 elapsed=10.000 achieved=20000/s
+-- /proc/net/udp for :6343 AFTER --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage AFTER --
+{"avg_link_usage":0.0,"status":"success"}
+-- the ONLY channel to the four counters: new kernel.log lines mentioning sFlow ingest --
+-- did the synthetic flow 10.99.0.1 -> 10.99.0.2 reach the flow table? --
+   rows total=1, mine=1
+    idle rate_bps(proceeding)= 0 pkt_rate= 0 path_len= 0
+
+======== cell b60k  offered=60000 for 10s ========
+2026-09-03T03:29:05+08:00
+-- machine noise: 03:29:05 up 15:09,  1 user,  load average: 1.19, 1.05, 0.85
+Mem:           15412        7985        1948        1063        6910        7426
+-- /proc/net/udp for :6343 BEFORE (independent of the collector's own counters) --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage BEFORE --
+{"avg_link_usage":0.0,"status":"success"}
+tag=b60k requested=60000 datagram_bytes=224 sent=600000 send_errors=0 elapsed=10.000 achieved=60000/s
+-- /proc/net/udp for :6343 AFTER --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage AFTER --
+{"avg_link_usage":0.0,"status":"success"}
+-- the ONLY channel to the four counters: new kernel.log lines mentioning sFlow ingest --
+-- did the synthetic flow 10.99.0.1 -> 10.99.0.2 reach the flow table? --
+   rows total=1, mine=1
+    idle rate_bps(proceeding)= 0 pkt_rate= 0 path_len= 0
+
+======== cell b150k  offered=150000 for 10s ========
+2026-09-03T03:29:29+08:00
+-- machine noise: 03:29:29 up 15:09,  1 user,  load average: 1.49, 1.14, 0.89
+Mem:           15412        7840        2093        1038        6885        7571
+-- /proc/net/udp for :6343 BEFORE (independent of the collector's own counters) --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=0
+-- link usage BEFORE --
+{"avg_link_usage":0.0,"status":"success"}
+tag=b150k requested=150000 datagram_bytes=224 sent=1500000 send_errors=0 elapsed=10.000 achieved=149999/s
+-- /proc/net/udp for :6343 AFTER --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=5145
+-- link usage AFTER --
+{"avg_link_usage":0.0,"status":"success"}
+-- the ONLY channel to the four counters: new kernel.log lines mentioning sFlow ingest --
+[2026-09-03 03:29:38.025] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 5145 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=2158629, addressed=2158599, sock_ovfl_total=5145, app_drop_total=0
+-- did the synthetic flow 10.99.0.1 -> 10.99.0.2 reach the flow table? --
+   rows total=1, mine=1
+    idle rate_bps(proceeding)= 0 pkt_rate= 0 path_len= 0
+
+======== cell bmax  offered=max for 10s ========
+2026-09-03T03:29:52+08:00
+-- machine noise: 03:29:52 up 15:10,  1 user,  load average: 1.75, 1.22, 0.92
+Mem:           15412        7828        2104        1038        6885        7583
+-- /proc/net/udp for :6343 BEFORE (independent of the collector's own counters) --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=5145
+-- link usage BEFORE --
+{"avg_link_usage":0.0,"status":"success"}
+tag=bmax requested=max datagram_bytes=224 sent=6548000 send_errors=0 elapsed=10.001 achieved=654709/s
+-- /proc/net/udp for :6343 AFTER --
+local=00000000:18C7 rx_queue=00000000 inode=50076449 drops=4750478
+-- link usage AFTER --
+{"avg_link_usage":0.0,"status":"success"}
+-- the ONLY channel to the four counters: new kernel.log lines mentioning sFlow ingest --
+[2026-09-03 03:29:53.030] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 304275 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=2467074, addressed=2467048, sock_ovfl_total=309420, app_drop_total=0
+[2026-09-03 03:29:54.030] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 467867 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=2654945, addressed=2654926, sock_ovfl_total=777287, app_drop_total=0
+[2026-09-03 03:29:55.030] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 407897 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=2834397, addressed=2834368, sock_ovfl_total=1185184, app_drop_total=0
+[2026-09-03 03:29:56.030] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 493781 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=3013448, addressed=3013422, sock_ovfl_total=1678965, app_drop_total=0
+[2026-09-03 03:29:57.031] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 455121 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=3198213, addressed=3198167, sock_ovfl_total=2134086, app_drop_total=0
+[2026-09-03 03:29:58.031] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 325529 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=3379018, addressed=3378990, sock_ovfl_total=2459615, app_drop_total=0
+[2026-09-03 03:29:59.031] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 566786 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=3522044, addressed=3522020, sock_ovfl_total=3026401, app_drop_total=0
+[2026-09-03 03:30:00.032] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 602754 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=3674008, addressed=3673963, sock_ovfl_total=3629155, app_drop_total=0
+[2026-09-03 03:30:01.032] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 509152 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=3879960, addressed=3879917, sock_ovfl_total=4138307, app_drop_total=0
+[2026-09-03 03:30:02.033] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 488151 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=4083342, addressed=4083314, sock_ovfl_total=4626458, app_drop_total=0
+[2026-09-03 03:30:03.033] [warning] [FlowLinkUsageCollector.cpp:2137 calAvgFlowSendingRatesPeriodically] sFlow samples lost in the last second: 120710 to the socket queue, 0 dropped by us. Rates for this interval are understated. rx=4121817, addressed=4121817, sock_ovfl_total=4747168, app_drop_total=0
+-- did the synthetic flow 10.99.0.1 -> 10.99.0.2 reach the flow table? --
+   rows total=1, mine=1
+    idle rate_bps(proceeding)= 0 pkt_rate= 0 path_len= 0
+
+======== done 2026-09-03T03:30:15+08:00 ========

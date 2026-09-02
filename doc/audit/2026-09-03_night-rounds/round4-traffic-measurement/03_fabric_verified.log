@@ -1,0 +1,32 @@
+#### fabric verified through channels other than the tool's own claim ####
+2026-09-03T03:02:01+08:00
+--- bmv2 count (ps -eo comm=, never pgrep -f) ---
+10
+--- kernel pid from pidfile, and /proc/<pid>/exe sha256 ---
+1328839
+1328834
+kernel.child.pid=1328839
+1328839 1328834 Thu Sep  3 03:01:36 2026 ndtwin_kernel
+/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  /proc/1328839/exe
+--- ports ---
+udp   UNCONN 0      0                                    0.0.0.0:6343       0.0.0.0:*    users:(("curl",pid=1329241,fd=3),("sh",pid=1329240,fd=3),("ndtwin_kernel",pid=1328839,fd=3))
+tcp   LISTEN 0      2048                                 0.0.0.0:8081       0.0.0.0:*    users:(("python",pid=1328635,fd=4))                                                         
+tcp   LISTEN 0      4096                                 0.0.0.0:8000       0.0.0.0:*    users:(("curl",pid=1329241,fd=8),("sh",pid=1329240,fd=8),("ndtwin_kernel",pid=1328839,fd=8))
+tcp   LISTEN 0      4096                                       *:30057            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30056            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30059            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30058            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30053            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30052            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30055            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30054            *:*                                                                                                
+tcp   LISTEN 0      4096                                       *:30051            *:*                                                                                                
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7815        2430        1043        6578        7596
+Swap:          20479        5971       14508
+--- proxy sflow send-side counters (ground truth for lead 5) ---
+{"t":1788375721.6456268,"datagrams_sent":0,"samples_sent":0,"send_errors":0,"batch_size":1}
+--- host_count_override now ---
+4

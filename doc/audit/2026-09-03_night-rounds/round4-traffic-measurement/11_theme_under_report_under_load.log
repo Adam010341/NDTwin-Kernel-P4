@@ -1,0 +1,50 @@
+#### what this step proves: THE ROUND'S THEME. Under collector overload the twin under-reports
+#### a perfectly healthy flow by 2.76x while every endpoint answers 200/success in <5 ms.
+2026-09-03T03:36:19+08:00
+
+Design: three cells, the SAME real traffic in all three (iperf3 UDP 20 Mbit/s, 1400 B, h1->h2,
+55 s), flow count held at 1. The ONLY thing that changes is the load offered to the collector's
+UDP socket. A and C are the controls, taken 1 and 2 minutes either side of B on the same machine
+with the identical command.
+
+  cell                 wire ground truth (iperf3 sender)   sFlow flood
+  A_control_before     131 MBytes  20.0 Mbit/s  0/98213    none
+  B_flood              131 MBytes  20.0 Mbit/s  0/98213    17 330 000 datagrams in 32.0 s = 541 547/s
+  C_control_after      131 MBytes  20.0 Mbit/s  0/98213    none
+
+0% loss on the wire in all three -- byte-identical iperf3 lines. The flow really was there.
+
+WHAT THE TWIN PUBLISHED for that flow (median of 30 one-second polls of
+/ndt/get_detected_flow_data, field estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot):
+
+  A_control_before   19 688 106 bit/s     -1.6% vs the 20 000 000 offered
+  B_flood             7 136 938 bit/s    -64.3%   <-- 2.76x under-report
+  C_control_after    20 672 512 bit/s     +3.4%
+
+AND WHILE THAT WAS TRUE:
+  * /ndt/get_average_link_usage           HTTP 200 "status":"success" in 0.00056 s
+  * /ndt/get_detected_flow_data           HTTP 200                    in 0.00038 s
+  * /ndt/get_graph_data                   HTTP 200                    in 0.00417 s
+  * /ndt/get_openflow_capacity            HTTP 200                    in 0.00079 s
+    -- every one of them faster under the flood than in the control cell.
+  * the flow stayed "active" 30/30 polls in all three windows in ALL THREE cells, so a consumer
+    watching liveness saw nothing move.
+  * avg_link_usage went UP, not down: 0.0103 (A) -> 0.0221 (B) -> 0.0133 (C). The flood's
+    fabricated samples were credited to a real edge (agent 192.168.123.11, port 1->2), so the
+    published utilisation for that edge roughly DOUBLED while the edge carried nothing extra.
+  * the only trace anywhere is 33 WARN lines in .test_run/logs/kernel.log (0 in cell A after the
+    residue of the previous step, 33 in B, 0 in C) -- and by step 08 no /ndt/ endpoint carries
+    that fact.
+
+WHY IT IS LOSS AND NOT CPU STARVATION OF THE DRAIN LOOP:
+  the known per-flow bias (COMMON-BRIEF section 11) has no time denominator, so its error grows
+  WITH the loop period: a CPU-starved kernel would over-report, not under-report. The number fell
+  by 64%. The surviving-sample fraction predicted by step 09 at this offered rate is ~0.28-0.36;
+  the observed 0.357 of the true rate sits inside it. Loss explains it; starvation works against it.
+  (A and C reading 19.7 M and 20.7 M against a true 20.0 M is that same optimistic bias, small at
+  one flow. It makes B's under-report a LOWER bound.)
+
+--- raw: reported rate per poll, per cell ---
+A_control_before   n=30 median=  19688106 mean=  19573259 min=  7875242 max=  29532160
+B_flood            n=30 median=   7136938 mean=   7268192 min=  2953216 max=  15750485
+C_control_after    n=30 median=  20672512 mean=  20475630 min= 14766080 max=  29532160

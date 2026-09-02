@@ -1,0 +1,11 @@
+=== 2026-09-03T03:18:30+08:00 sweepA extra cell r30k rate 30K ===
+=== 2026-09-03T03:19:48+08:00 sweepA extra cell r15k rate 15K ===
+=== 2026-09-03T03:21:06+08:00 cell p1400 payload 1400 bytes, rate HELD at 1M ===
+--- drain 20 s ---
+=== 2026-09-03T03:22:25+08:00 cell p600 payload 600 bytes, rate HELD at 1M ===
+--- drain 20 s ---
+=== 2026-09-03T03:23:43+08:00 cell p250 payload 250 bytes, rate HELD at 1M ===
+--- drain 20 s ---
+=== 2026-09-03T03:25:01+08:00 cell p100 payload 100 bytes, rate HELD at 1M ===
+--- drain 20 s ---
+=== 2026-09-03T03:26:19+08:00 sweep B done ===

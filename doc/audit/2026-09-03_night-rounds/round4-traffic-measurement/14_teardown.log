@@ -1,0 +1,120 @@
+#### teardown, verified through channels other than the tool's own claim ####
+2026-09-03T03:42:50+08:00
+--- pids captured BEFORE teardown (these exact numbers get re-checked after) ---
+kernel.child.pid=1328839
+p4_proxy.child.pid=1328635
+one bmv2 pid=1328263
+my iperf3 server pid=1331560
+1328263 1328064 Thu Sep  3 03:01:29 2026 simple_switch_g
+1328635 1328630 Thu Sep  3 03:01:30 2026 python
+1328839 1328834 Thu Sep  3 03:01:36 2026 ndtwin_kernel
+1331560    2859 Thu Sep  3 03:04:44 2026 iperf3
+--- stop my own iperf3 server by EXACT pid (never pkill -f) ---
+1331560 iperf3
+--- counts before ---
+bmv2: 10  kernels: 1
+Mem:           15412        8208        1317        1060        7349        7203
+--- iperf3 server re-checked 20 s after SIGTERM ---
+1331560 iperf3             2294
+   still alive after SIGTERM, sending SIGKILL to that exact pid
+/bin/bash: line 7: kill: (1331560) - Operation not permitted
+   gone
+--- the iperf3 server is root-owned (started through 'sudo -n mnexec -a <h2> iperf3 -s -D'),
+--- so an unprivileged kill is refused. Kill it as root through the same allowed path,
+--- by EXACT pid, while h2's namespace still exists.
+h2 ns pid=1328056
+   kill issued
+   iperf3 1331560 confirmed gone by ps on the exact pid
+   iperf3 processes anywhere now: 0
+--- ndt down, launched under setsid (it reaches mn -c, whose internal pkill -9 can kill the calling shell). setsid returns immediately: its rc is NOT ndt's, per round 2's lesson, so completion is polled below. ---
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped p4_proxy
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+
+--- INDEPENDENT verification, taken 2026-09-03T03:44:23+08:00, well over the 3 s that round 3's C2 measured
+--- for a dead kernel's orphaned curl/sh to keep holding :8000 and :6343 (kernel pid gone 03:43:43) ---
+1) ps on the EXACT pids captured before teardown (kernel 1328839, proxy 1328635, bmv2 1328263, iperf3 1331560):
+   pid 1328839 gone
+   pid 1328635 gone
+   pid 1328263 gone
+   pid 1331560 gone
+2) counts by ps -eo comm= (never pgrep -f):
+   ndtwin_kernel: 0
+   simple_switch: 0
+   java: 0
+   iperf3: 0
+   ryu-manager: 0
+   any 'python' running ndt/ryu/proxy: 0
+3) mininet namespaces:
+   0 processes still tagged mininet:*
+4) ports -- including :6343, :6653, :6633 and :3005x, which no cleanup path checks
+   (round 1 D8: grep -c '6653|6633' tools/test_workflow/ndt = 0; round 3 C4: grep -c 6343 = 0)
+   (nothing printed above means every one of those 28 ports is free)
+5) /proc/net/udp still listing :6343?
+6) free -m
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7705        1837        1062        7334        7707
+ 03:44:24 up 15:24,  1 user,  load average: 1.40, 1.43, 1.24
+
+   (step 5 printed nothing: there is no socket bound to 6343 in /proc/net/udp at all)
+
+--- tracked files: exactly one was changed, and not by hand ---
+p4_proxy/mininet/host_count_override is now: 4
+git status for that path before restore:
+ M p4_proxy/mininet/host_count_override
+restoring by EXPLICIT SINGLE-FILE path (never a directory pathspec -- this worktree is shared):
+   value now: 128  (round-start value was 128)
+git status for that path after restore:
+   (empty above = clean)
+
+--- did this round touch any OTHER tracked file? ---
+    M doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf
+    M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf
+    M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png
+    M doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf
+    M doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log
+    M doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log
+    M doc/audit/2026-09-02_fix-design-campaign/LEDGER.md
+    M doc/audit/2026-09-02_fix-design-campaign/agents.tsv
+    M doc/audit/2026-09-02_fix-design-campaign/batch/agents.tsv
+    M tests/CMakeLists.txt
+    M tools/contract_test/check_logs.py
+    M tools/test_workflow/stack.sh
+   ^ everything listed belongs to other sessions; none of it is under this round's directory.
+
+--- this round's own files (all untracked, all under the round directory) ---
+   ?? doc/audit/2026-09-03_night-rounds/round4-traffic-measurement/
+
+--- HEAD unchanged? ---
+   7e2c4135c2d8e572a0305b8a020daa489087f3f3 KNOWN-ISSUES G-10, and pin down what A-8's machine was actually running
+--- binary unchanged under me? ---
+   a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+
+--- lab claim (kept, as instructed) ---
+lab
+  claim          yours -- 231m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           7e2c4135  +27 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+                 tools/test_workflow/supervise.sh
+
+configuration
+2026-09-03T03:44:40+08:00

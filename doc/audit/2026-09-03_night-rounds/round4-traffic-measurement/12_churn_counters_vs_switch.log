@@ -1,0 +1,64 @@
+#### what this step proves: whether the twin's flow-dispatch counters can be made to
+#### disagree with the switch's own table, and by how much, under rule churn at rate
+2026-09-03T03:37:36
+switch-side channel: http://127.0.0.1:8081/stats/flow/1  (P4Runtime read_table_entries, in the proxy process, not the kernel)
+
+baseline switch rows: 4
+   10.0.0.1 -> OUTPUT:3
+   10.0.0.2 -> OUTPUT:1
+   10.0.0.3 -> OUTPUT:2
+   10.0.0.4 -> OUTPUT:2
+
+--- arm DISTINCT (control: counters SHOULD equal rows): 20 installs, 20 distinct match(es), 0.05 s apart ---
+    counters before : {'dispatched': 0, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 0}
+    switch rows before: 4
+    20 POSTs in 1.0 s (19.3/s), HTTP: {200: 20}
+    counters after  : {'dispatched': 20, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 20}
+    switch rows after : 24
+    COUNTER delta dispatched=20 succeeded=20 failed=0
+    SWITCH  delta rows=20
+      + 10.0.0.100 -> OUTPUT:1
+      + 10.0.0.101 -> OUTPUT:2
+      + 10.0.0.102 -> OUTPUT:3
+      + 10.0.0.103 -> OUTPUT:1
+      + 10.0.0.104 -> OUTPUT:2
+      + 10.0.0.105 -> OUTPUT:3
+      ... 14 more
+
+--- arm SAME MATCH (all 20 POSTs are ipv4_dst 10.0.0.99): 20 installs, 1 distinct match(es), 0.05 s apart ---
+    counters before : {'dispatched': 20, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 20}
+    switch rows before: 24
+    20 POSTs in 1.0 s (19.3/s), HTTP: {200: 20}
+    counters after  : {'dispatched': 40, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 40}
+    switch rows after : 25
+    COUNTER delta dispatched=20 succeeded=20 failed=0
+    SWITCH  delta rows=1
+      + 10.0.0.99 -> OUTPUT:2
+
+=== the disagreement ===
+  distinct arm : counters +20, switch +20  -> ratio 1.00
+  same-match   : counters +20, switch +1  -> ratio 20.00
+
+--- cleanup: delete everything this step added, then re-read the switch ---
+  switch rows now: 4 (baseline was 4)
+  leftover rows this step added and could not remove: 0
+  counters at end: {'dispatched': 61, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 61}
+
+--- follow-up arm: 15 deletes for a match that DOES NOT EXIST (10.0.0.250) ---
+   counters before: {'dispatched': 61, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 61} switch rows: 4
+   first response body: {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log an
+   HTTP: {200: 15}
+   counters after : {'dispatched': 76, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 76} switch rows: 4
+   COUNTER delta dispatched=15 succeeded=15 failed=0 | SWITCH delta rows=0
+
+=== reading ===
+Both arms of the main experiment returned HTTP 200 with the same body and moved the counters
+by the same 20. The switch gained 20 rows in one and 1 in the other. So `succeeded` counts
+ACCEPTED PROGRAMMING OPERATIONS, not rules, and nothing in the response, the counters or
+`recent_failures` distinguishes an add from a replace. The DISTINCT arm is the control that
+gives the comparison its power: the counter CAN equal the row count, so a ratio of 20.00 is a
+property of the workload and not of the instrument.
+
+Consequence, stated exactly: from outside the switch you cannot derive how many rules exist.
+The divergence equals the number of replaces and is unbounded -- 20 POSTs in 1.0 s produced a
+20x gap; 1000 would produce 1000x. The only channel that knows is the switch itself.

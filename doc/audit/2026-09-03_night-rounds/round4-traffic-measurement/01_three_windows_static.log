@@ -1,0 +1,88 @@
+#### the three windows that answer 'how many flows', read from the source at commit 1f06848f ####
+
+WINDOW 1 -- 2 s, per EDGE. TopologyAndFlowMonitor.cpp flushEdgeFlowLoop:
+
+void
+TopologyAndFlowMonitor::flushEdgeFlowLoop()
+{
+    SPDLOG_LOGGER_DEBUG(Logger::instance(), "flushEdgeFlowLoop started");
+
+    while (m_running.load())
+    {
+        // prune under graph lock
+        {
+            std::unique_lock lock(*m_graphMutex);
+            for (auto e : boost::make_iterator_range(boost::edges(*m_graph)))
+            {
+                auto& edge = (*m_graph)[e];
+                for (auto it = edge.flowSet.begin(); it != edge.flowSet.end();)
+                {
+                    const auto& k = it->first;   // FlowKey
+                    const auto& ts = it->second; // last_seen
+                    if (Clock::now() - ts > std::chrono::seconds(2))
+                    {
+                        SPDLOG_LOGGER_TRACE(Logger::instance(),
+                                            "TTL expire flow {} -> {} on edge {}->{}",
+                                            utils::ipToString(k.srcIP),
+                                            utils::ipToString(k.dstIP),
+                                            edge.srcDpid,
+                                            edge.dstDpid);
+                        it = edge.flowSet.erase(it);
+                    }
+                    else
+                    {
+                        ++it;
+                    }
+                }
+
+consumer: HttpSession.cpp:2249 (/ndt/get_num_of_flows_passing_a_switch)
+    {
+        auto dpid = jsonData.at("dpid").get<uint64_t>();
+        auto g = m_topologyAndFlowMonitor->getGraph();
+        int numOfFlows = 0;
+        for (const auto& ed : boost::make_iterator_range(boost::edges(g)))
+        {
+            const auto& e = g[ed];
+            if (e.dstDpid == dpid)
+            {
+                numOfFlows += e.flowSet.size();
+            }
+        }
+        res.body() = json{{"status", "success"}, {"num_of_flows", numOfFlows}}.dump();
+    }
+    else
+    {
+
+WINDOW 2 -- 3 s, API default. include/ndt_core/collection/FlowLinkUsageCollector.hpp:78
+78:constexpr int64_t kFlowActiveWindowMs = 3000;
+default filter: include/ndt_core/http/HttpSession.hpp:63-64
+    static constexpr sflow::FlowLivenessFilter kFlowDataApiDefault =
+        sflow::FlowLivenessFilter::ActiveOnly;
+
+WINDOW 3 -- 15 s, the flow table. FlowLinkUsageCollector.hpp:35
+35:#define FLOW_IDLE_TIMEOUT 15000 // milliseconds
+
+classifier (SFlowType.hpp:569-582): age<3000 -> Active ; age>=15000 -> Ended ; else Idle
+
+#### sampling: 1/256, set in the P4 program, matching OVS sampling=256 ####
+52:const bit<16> SAMPLE_RATE = 256;
+and ndt status agrees: 'sample rate 1/256'
+
+#### PRE-REGISTERED arithmetic (written BEFORE any traffic ran) ####
+A flow of R bit/s made of P-byte frames offers R/(8P) packets/s to each switch it crosses.
+Each switch samples 1/256 independently, so ONE edge sees samples at
+    lambda_edge = R / (8 * P * 256)   per second
+and the flow TABLE (which any hop can refresh) sees H times that, H = hops that sample it.
+
+Boundaries where the mean sample interval equals each window, for P = 1400 B, per edge:
+    2 s  edge set   : R = 2 * 8 * 1400 * 256 / 2 ... = 8*1400*256/2   = 1.434 Mbit/s
+    3 s  API default: R = 8*1400*256/3                                = 0.956 Mbit/s
+    15 s flow table : R = 8*1400*256/15                               = 0.191 Mbit/s
+With H hops refreshing the table the 3 s and 15 s boundaries fall by a factor H.
+
+PREDICTION 1: sweeping R downward with ONE flow and P fixed, the flow leaves
+  get_num_of_flows_passing_a_switch first, then the default get_detected_flow_data,
+  and stays visible under ?liveness=all/retained longest.
+PREDICTION 2 (the mechanism test): the boundary is set by PACKET rate, not BIT rate.
+  Holding R fixed and shrinking P must move the flow BACK into the default answer.
+  If the boundary is bandwidth-driven instead, shrinking P changes nothing.

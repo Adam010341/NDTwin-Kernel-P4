@@ -1,0 +1,39 @@
+#### what this step proves: no /ndt/ endpoint exposes the four sFlow ingest/drop counters
+---- read endpoints, their status and their KEY SET ----
+  GET  /ndt/get_average_link_usage                        200  41 bytes
+  GET  /ndt/get_cpu_utilization                           200  201 bytes
+  GET  /ndt/get_detected_flow_data                        200  2 bytes
+  GET  /ndt/get_detected_flow_data?liveness=all           200  2 bytes
+  GET  /ndt/get_detected_top_k_flow_data                  200  2 bytes
+  GET  /ndt/get_flow_dispatch_status                      200  444 bytes
+  GET  /ndt/get_graph_data                                200  22762 bytes
+  GET  /ndt/get_memory_utilization                        200  201 bytes
+  GET  /ndt/get_nickname?dpid=1                           200  17 bytes
+  GET  /ndt/get_openflow_capacity                         200  1426 bytes
+  GET  /ndt/get_power_report                              200  345 bytes
+  GET  /ndt/get_static_topology_json                      200  13573 bytes
+  GET  /ndt/get_switches_power_state                      200  221 bytes
+  GET  /ndt/get_switch_openflow_table_entries             200  9490 bytes
+  GET  /ndt/get_temperature                               200  201 bytes
+  POST /ndt/get_num_of_flows_passing_a_switch             200  {"num_of_flows":0,"status":"success"}
+  POST /ndt/get_path_switch_count                         404  {"error":"Not Found"}
+  POST /ndt/get_total_input_traffic_load_passing_a_switch 200  {"status":"success","total_input_traffic_load_bps":0}
+
+---- endpoints a metrics/health surface would normally live at ----
+  GET  /metrics                       404  {"error":"Not Found"}
+  GET  /stats                         404  {"error":"Not Found"}
+  GET  /health                        404  {"error":"Not Found"}
+  GET  /healthz                       404  {"error":"Not Found"}
+  GET  /ndt/metrics                   404  {"error":"Not Found"}
+  GET  /ndt/stats                     404  {"error":"Not Found"}
+  GET  /ndt/get_sflow_stats           404  {"error":"Not Found"}
+  GET  /ndt/get_collector_stats       404  {"error":"Not Found"}
+  GET  /ndt/get_telemetry_status      404  {"error":"Not Found"}
+  GET  /sflow/stats                   404  {"error":"Not Found"}
+  GET  /ndt/get_drop_counters         404  {"error":"Not Found"}
+
+---- every JSON key the kernel returned anywhere, 105 of them ----
+  1, 10, 192.168.123.11, 192.168.123.12, 192.168.123.13, 192.168.123.14, 192.168.123.15, 192.168.123.16, 192.168.123.17, 192.168.123.18, 192.168.123.19, 192.168.123.20, 2, 3, 4, 5, 6, 7, 8, 9, BrocadeICX7250, HPE5520, OVS, actions, admin_disabled, agent_last_sample_age_seconds, avg_link_usage, bands, brand_name, bridge_name, byte_count, cookie, counters, counters_cover, device_layer, device_name, dispatch_routes, dispatched, dispatcher_running, dl_type, down_reason, dpid, dropped_after_stop, dst_dpid, dst_interface, dst_ip, duration_nsec, duration_sec, ecmp_groups, edges, error, failed, flags, flow_set, flows, groups, hard_timeout, id, idle_timeout, includes_boot_time_programming, includes_intent_translator, instructions, ip, is_enabled, is_up, last_sample_age_seconds, left_link_bandwidth_bps, left_link_bandwidth_source, length, link_bandwidth_bps, link_bandwidth_usage_bps, link_bandwidth_utilization_percent, mac, match, matches, max_entries, members, meters, nickname, nodes, num_of_flows, nw_dst, openflow_versions, packet_count, port_id, power_consumed, priority, recent_failures, recent_failures_capacity, recent_failures_evicted, smart_plug_ip, smart_plug_outlet, src_dpid, src_interface, src_ip, status, succeeded, supported, table_id, tables, telemetry_status, total_input_traffic_load_bps, type, types, vertex_type
+
+---- keys matching any loss/ingest word ['drop', 'ovfl', 'overflow', 'lost', 'loss', 'addressed', 'addresed', 'received_packet', 'receivedpacket', 'rx', 'sample_pool', 'samples_seen', 'datagram', 'queue', 'backlog', 'ingest'] ----
+  dropped_after_stop

@@ -1,0 +1,28 @@
+#### PRE-REGISTERED per-cell predictions for sweep A ####
+Written at 2026-09-03T03:11:11+08:00, while cell r2M was still running and cells r1M..r60k had not started.
+Only green20M and r5M had been read at this point (both 30/30 on all three windows).
+
+Calibration, measured not assumed: the proxy's own send-side counter
+  (GET :8081/sflow/stats) moved 1403->2478 = 1075 datagrams in the 58 s of the 20 Mbit/s
+  cell = 18.5 samples/s, and 2478->2751 = 273 in 58 s of the 5 Mbit/s cell = 4.7/s.
+  Model 3*R/(8*1400*256) predicts 20.9/s and 5.2/s. So the flow TABLE is refreshed by
+  lambda = 3R/2867200 per second (3 sampling hops: s1, s5, s2 -- from the row's own path).
+  One EDGE (window A at dpid 5) sees lambda/3.
+
+Sampling is Bernoulli, not a counter: ndtwin_switch.p4:405 is
+  random(meta.sample_rand, 0, SAMPLE_RATE-1); if (meta.sample_rand == 0) clone.
+  So inter-sample gaps are exponential and P(a poll finds age < W) = 1 - exp(-lambda*W).
+
+cell     lambda_tbl  P_winA_2s  P_winB_3s P_winC_15s
+r2M           2.093       0.75       1.00       1.00
+r1M           1.046       0.50       0.96       1.00
+r500k         0.523       0.29       0.79       1.00
+r250k         0.262       0.16       0.54       0.98
+r125k         0.131       0.08       0.32       0.86
+r60k          0.063       0.04       0.17       0.61
+
+PREDICTION: the three windows disagree over a band roughly 60 kbit/s .. 2 Mbit/s wide,
+and they disagree in a fixed ORDER: window A (2 s, per edge) fails first, then window B
+(3 s, the API DEFAULT), and window C (15 s, ?liveness=all) last. A flow that a human would
+call 'steady and running' is absent from the default answer well before it is absent
+from the table.

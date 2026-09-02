@@ -1,0 +1,17 @@
+=== 2026-09-03T03:07:14+08:00 cell green20M rate 20M ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:08:32+08:00 cell r5M rate 5M ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:09:51+08:00 cell r2M rate 2M ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:11:09+08:00 cell r1M rate 1M ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:12:27+08:00 cell r500k rate 500K ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:13:45+08:00 cell r250k rate 250K ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:15:03+08:00 cell r125k rate 125K ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:16:22+08:00 cell r60k rate 60K ===
+--- drain 20 s so the 15 s table empties before the next cell ---
+=== 2026-09-03T03:17:40+08:00 sweep A done ===
