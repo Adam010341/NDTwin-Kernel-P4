@@ -161,6 +161,11 @@ echo "=== mutations ==="
 verdict=0
 for name in "${CASES[@]}"; do
     expect="$(cat "$MUT_DIR/$name/expect")"
+    # Leading spaces are stripped from the suite's FAILED lines by run_suite's sed, so a check
+    # name that is indented (a sub-assertion) would never match its own expectation and the gate
+    # would report "red, but NOT the named check" with two identical-looking strings. Trim here
+    # so both sides are compared in the same shape.
+    expect="${expect#"${expect%%[![:space:]]*}"}"
     restore
     a="$(apply "$name")"
     if [[ "$a" != ok ]]; then
