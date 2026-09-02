@@ -1,0 +1,85 @@
+captured: 2026-09-02T12:02:22Z
+/home/ndt/Desktop/NDTwin-Kernel HEAD=936f8c6c9d05 dirty=0
+/home/ndt/p4-guide HEAD=43079a6e2c3b dirty=0
+/home/ndt/Desktop/Network-Traffic-Generator ABSENT
+/home/ndt/Desktop/Network-State-Recorder ABSENT
+/home/ndt/Desktop/Network-Traffic-Visualizer ABSENT
+/home/ndt/Desktop/Web-GUI ABSENT
+/home/ndt/Energy-Saving-App ABSENT
+/home/ndt/Simulation-Platform-Manager ABSENT
+--- kernel repo dirty files:
+--- docs snapshot:
+website commit: bcf98f5
+--- binaries:
+/usr/local/bin/simple_switch
+/usr/local/bin/simple_switch_grpc
+--- conda envs:
+ryu-env
+--- home listing:
+total 7044
+drwxr-x--- 18 ndt  ndt     4096 12:02 .
+drwxr-xr-x  4 root root    4096 11:34 ..
+drwxrwxr-x  2 ndt  ndt     4096 11:02 .anaconda
+-rw-r--r--  1 ndt  ndt      220 08:41 .bash_logout
+-rw-r--r--  1 ndt  ndt     3771 08:41 .bashrc
+drwx------  6 ndt  ndt     4096 11:57 .cache
+drwxrwxr-x  3 ndt  ndt     4096 11:57 .cmake
+drwxrwxr-x  3 ndt  ndt     4096 11:02 .conda
+drwxrwxr-x  3 ndt  ndt     4096 11:14 .local
+-rw-r--r--  1 ndt  ndt      807 08:41 .profile
+drwx------  2 ndt  ndt     4096 10:59 .ssh
+-rw-rw-r--  1 ndt  ndt      209 11:41 .wget-hsts
+-rw-rw-r--  1 ndt  ndt      683 11:39 BUGS.md
+-rw-rw-r--  1 ndt  ndt     5299 11:37 CHECKLIST.md
+-rw-rw-r--  1 ndt  ndt     2251 11:22 CHECKLIST_FINAL.txt
+-rw-r--r--  1 root root      20 10:59 CLOUD_INIT_DONE
+drwxrwxr-x  3 ndt  ndt     4096 11:08 Desktop
+-rw-rw-r--  1 ndt  ndt      589 12:02 GUEST-STATE.txt
+-rw-rw-r--  1 ndt  ndt     3747 11:41 JOURNAL.md
+drwxrwxr-x 22 ndt  ndt     4096 11:34 PI
+-rw-rw-r--  1 ndt  ndt     3566 11:21 SUMMARY_FINDINGS.md
+-rw-rw-r--  1 ndt  ndt      314 11:40 TEST_LOG.txt
+-rw-rw-r--  1 ndt  ndt     1384 11:35 TEST_PLAN.txt
+drwxrwxr-x 24 ndt  ndt     4096 11:44 behavioral-model
+-rwxrwxr-x  1 ndt  ndt      732 11:09 compile_ndtwin.sh
+-rw-rw-r--  1 ndt  ndt     2587 12:01 comprehensive_test.log
+-rwxrwxr-x  1 ndt  ndt      908 11:02 install_ryu.sh
+-rwxrwxr-x  1 ndt  ndt     1050 11:05 install_ryu_bg.sh
+drwxrwxr-x  2 ndt  ndt     4096 11:52 logs
+drwxrwxr-x 18 ndt  ndt     4096 11:02 miniconda3
+-rwxrwxr-x  1 ndt  ndt      362 11:39 monitor_p4.sh
+drwxrwxr-x  7 ndt  ndt     4096 10:59 ndtwin-docs
+drwxrwxr-x 85 ndt  ndt     4096 11:28 p4-guide
+-rw-rw-r--  1 ndt  ndt        6 11:28 p4_build.pid
+-rw-rw-r--  1 ndt  ndt        6 11:31 p4_install.pid
+drwxrwxr-x  2 ndt  ndt     4096 11:28 p4_setup
+drwxrwxr-x 20 ndt  ndt     4096 11:56 p4c
+drwxrwxr-x  6 ndt  ndt     4096 11:56 p4dev-python-venv
+-rwxrwxr-x  1 ndt  ndt     1403 11:41 run_comprehensive_tests.sh
+--- .test_run:
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/logs:
+total 256
+drwxrwxr-x 2 ndt ndt   4096 11:28 .
+drwxrwxr-x 4 ndt ndt   4096 11:28 ..
+-rw-rw-r-- 1 ndt ndt  15999 11:31 kernel.log
+-rw-rw-r-- 1 ndt ndt   7833 11:26 kernel.log.prev
+-rw-rw-r-- 1 ndt ndt  69634 11:26 ryu.log
+-rw-rw-r-- 1 ndt ndt 143892 11:23 ryu.log.prev
+
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids:
+total 16
+drwxrwxr-x 2 ndt ndt 4096 11:28 .
+drwxrwxr-x 4 ndt ndt 4096 11:28 ..
+-rw-rw-r-- 1 ndt ndt  195 11:28 kernel.cmd
+-rw-rw-r-- 1 ndt ndt    6 11:28 kernel.pid
+--- p4dev log head/tail:
+Found supported ID ubuntu and VERSION_ID 24.04 in /etc/os-release
+Minimum recommended memory to run this script: 1920 MBytes
+Memory on this system from /proc/meminfo:      5925 MBytes -> enough
+Minimum free disk space to run this script:    8192 MBytes
+Free disk space on this system from df output: 112177 MBytes -> enough
+...
+INFO:root:Using /home/ndt/p4c/build/_deps/z3-src/src/sat/sat_scc_params.pyg
+INFO:root:Generated "/home/ndt/p4c/build/_deps/z3-build/src/sat/sat_scc_params.hpp"
+[ 25%] Building CXX object _deps/z3-build/src/sat/CMakeFiles/sat.dir/dimacs.cpp.o
+1197676

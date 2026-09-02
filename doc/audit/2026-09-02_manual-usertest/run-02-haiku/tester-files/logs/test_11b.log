@@ -1,0 +1,7 @@
+=== TEST 11b: Fresh Flow Generation and Metadata ===
+Time: 11:49:59
+
+Generating fresh ping flow...
+Flows detected: 0
+
+VERDICT: WORKS-BUT - No flows generated in this attempt

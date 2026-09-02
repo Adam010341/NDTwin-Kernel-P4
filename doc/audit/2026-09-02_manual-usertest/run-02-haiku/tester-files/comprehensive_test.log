@@ -1,0 +1,111 @@
+Starting comprehensive test loop at Wed Sep  2 11:41:36 UTC 2026
+
+=== Test Iteration 1 at 11:41:36 - 0 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 2 at 11:42:36 - 1 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 3 at 11:43:36 - 2 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 4 at 11:44:36 - 3 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 5 at 11:45:36 - 4 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 6 at 11:46:36 - 5 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 7 at 11:47:36 - 6 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 8 at 11:48:36 - 7 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 9 at 11:49:36 - 8 min elapsed ===
+Flows detected: 5
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 10 at 11:50:36 - 9 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 11 at 11:51:37 - 10 min elapsed ===
+Flows detected: 2
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 12 at 11:52:37 - 11 min elapsed ===
+Flows detected: 3
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 13 at 11:53:37 - 12 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 14 at 11:54:37 - 13 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 15 at 11:55:37 - 14 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 16 at 11:56:37 - 15 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 17 at 11:57:37 - 16 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 18 at 11:58:37 - 17 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 19 at 11:59:37 - 18 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 20 at 12:00:37 - 19 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 21 at 12:01:37 - 20 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3
+
+=== Test Iteration 22 at 12:02:37 - 21 min elapsed ===
+Flows detected: 0
+Ryu: OK
+Processes - Ryu: 2, Topo: 3, Kernel: 3

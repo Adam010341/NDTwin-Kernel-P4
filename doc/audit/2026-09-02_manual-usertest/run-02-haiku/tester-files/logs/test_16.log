@@ -1,0 +1,8 @@
+=== TEST 16: Concurrent Flows - 5 Simultaneous Connections ===
+Time: 11:51:37
+
+Starting 5 concurrent iperf3 flows...
+Concurrent flows detected: 8
+Flows after 7 seconds: 8
+
+VERDICT: WORKS - Multiple concurrent flows detected (8 then 8)

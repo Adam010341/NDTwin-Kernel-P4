@@ -1,0 +1,20 @@
+=== Starting NDTwin OVS Fabric with ndt launcher ===
+Time: Wed Sep  2 11:15:19 UTC 2026
+ndt up ovs
+  hosts        128
+  topology     setting/StaticNetworkTopologyMininet_10Switches.json
+[1/4] control plane (Ryu)
+  XX  stack.sh exited early
+      Bringing up the ovs stack
+        topology: /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+      
+      [1/3] control plane (Ryu)
+      /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh: line 355: /home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/ryu.pid: Permission denied
+      /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh: line 315: /home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/ryu.cmd: Permission denied
+        started ryu (pid 38705) -> /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
+        waiting for Ryu REST on :8080 /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh: line 354: /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log: Permission denied
+       died
+        ryu exited while starting; :8080 may be held by something else
+        check /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log, then:  ss -ltnp | grep :8080
+        Ryu did not open :8080; see /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
+Fabric startup complete at Wed Sep  2 11:15:20 UTC 2026

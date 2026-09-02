@@ -1,0 +1,14 @@
+=== TEST 13: Sustained Traffic and Flow Persistence ===
+Time: 11:50:29
+
+Starting sustained iperf3 server and client for 10 seconds...
+Query 1 at +2 seconds:
+  2 flows detected
+Query 2 at +4 seconds:
+  2 flows detected
+Query 3 at +6 seconds:
+  2 flows detected
+Final query at +12 seconds:
+  2 flows detected
+
+VERDICT: WORKS - Flows detected and persisted during sustained traffic

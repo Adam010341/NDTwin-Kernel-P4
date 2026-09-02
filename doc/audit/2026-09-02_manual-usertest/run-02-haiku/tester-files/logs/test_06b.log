@@ -1,0 +1,13 @@
+=== TEST 6b: Kernel Status Check ===
+Time: 11:48:07
+
+Kernel processes: 130611
+130816
+130818
+Port 8000 status: LISTEN 0      4096         0.0.0.0:8000      0.0.0.0:*                                          
+Attempting API call...
+API Response:
+[{"dst_ip":50331658,"dst_port":37786,"estimated_flow_sending_rate_bps_in_the_last_sec":0,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":0,"estimated_packet_rate_in_the_last_sec":0,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":0,"first_sampled_time":"2026-09-02 11:47:49","latest_sampled_time":"2026-09-02 11:47:54","path":[{"interface":7,"node":83886090},{"interface":5,"node":1},{"interface":0,"node":50331658}],"protocol_id":6,"src_ip":83886090,"src_port":5201},{"dst_ip":83886090,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":0,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":0,"estimated_packet_rate_in_the_last_sec":0,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":0,"first_sampled_time":"2026-09-02 11:47:51","latest_sampled_time":"2026-09-02 11:47:53","path":[{"interface":5,"node":50331658},{"interface":7,"node":1},{"interface":0,"node":83886090}],"protocol_id":6,"src_ip":50331658,"src_port":37792},{"dst_ip":83886090,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":0,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":0,"estimated_packet_rate_in_the_last_sec":0,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":0,"first_sampled_time":"2026-09-02 11:47:49","latest_sampled_time":"2026-09-02 11:47:55","path":[{"interface":5,"node":50331658},{"interface":7,"node":1},{"interface":0,"node":83886090}],"protocol_id":6,"src_ip":50331658,"src_port":37786},{"dst_ip":50331658,"dst_port":37792,"estimated_flow_sending_rate_bps_in_the_last_sec":0,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":0,"estimated_packet_rate_in_the_last_sec":0,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":0,"first_sampled_time":"2026-09-02 11:47:49","latest_sampled_time":"2026-09-02 11:47:53","path":[{"interface":7,"node":83886090},{"interface":5,"node":1},{"interface":0,"node":50331658}],"protocol_id":6,"src_ip":83886090,"src_port":5201}]
+HTTP_CODE:200
+
+VERDICT: WORKS - Kernel responding to API calls

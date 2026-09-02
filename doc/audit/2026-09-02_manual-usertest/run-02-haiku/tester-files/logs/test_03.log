@@ -1,0 +1,6 @@
+=== TEST 3: Kernel Graph Data API ===
+Time: 11:46:06
+Testing: GET /ndt/get_graph_data
+
+Response: Edges: 288
+VERDICT: WORKS - Graph data returned

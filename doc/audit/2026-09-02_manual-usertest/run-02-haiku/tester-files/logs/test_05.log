@@ -1,0 +1,8 @@
+=== TEST 5: API Error Handling - Invalid endpoint ===
+Time: 11:46:35
+Testing: GET /ndt/invalid_endpoint (should return 404)
+
+HTTP Status Code: 404
+Response Body: {"error":"Not Found"}
+
+VERDICT: WORKS - API correctly returns 404 for invalid endpoint

@@ -1,0 +1,64 @@
+=== TEST 2: NDTwin Kernel API - GET /ndt/get_detected_flow_data ===
+Time: 11:45:54
+Expected: Array of flow objects with src_ip, dst_ip, ports, rates
+
+=== ACTUAL OUTPUT ===
+[
+    {
+        "dst_ip": 33554442,
+        "dst_port": 37486,
+        "estimated_flow_sending_rate_bps_in_the_last_sec": 430080,
+        "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot": 573440,
+        "estimated_packet_rate_in_the_last_sec": 768,
+        "estimated_packet_rate_in_the_proceeding_1sec_timeslot": 1024,
+        "first_sampled_time": "2026-09-02 11:35:11",
+        "latest_sampled_time": "2026-09-02 11:45:54",
+        "path": [
+            {
+                "interface": 3,
+                "node": 16777226
+            },
+            {
+                "interface": 4,
+                "node": 1
+            },
+            {
+                "interface": 0,
+                "node": 33554442
+            }
+        ],
+        "protocol_id": 6,
+        "src_ip": 16777226,
+        "src_port": 5201
+    },
+    {
+        "dst_ip": 16777226,
+        "dst_port": 5201,
+        "estimated_flow_sending_rate_bps_in_the_last_sec": 966856704,
+        "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot": 575139840,
+        "estimated_packet_rate_in_the_last_sec": 79616,
+        "estimated_packet_rate_in_the_proceeding_1sec_timeslot": 47360,
+        "first_sampled_time": "2026-09-02 11:35:11",
+        "latest_sampled_time": "2026-09-02 11:45:54",
+        "path": [
+            {
+                "interface": 4,
+                "node": 33554442
+            },
+            {
+                "interface": 3,
+                "node": 1
+            },
+            {
+                "interface": 0,
+                "node": 16777226
+            }
+        ],
+        "protocol_id": 6,
+        "src_ip": 33554442,
+        "src_port": 37486
+    }
+]
+
+=== VERDICT ===
+WORKS: Kernel detects 2 flows with complete data

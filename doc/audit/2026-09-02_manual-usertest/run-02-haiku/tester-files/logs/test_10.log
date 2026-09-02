@@ -1,0 +1,7 @@
+=== TEST 10: Multiple Simultaneous Flows Detection ===
+Time: 11:49:23
+
+Starting 3 parallel iperf3 flows...
+Total flows detected after 3 new iperf3 sessions: 5
+
+VERDICT: WORKS - Some flows detected (5 flows)
