@@ -1,0 +1,158 @@
+#### 14: hunt item 5 -- route install against a switch that is off, and against one powering off ####
+2026-09-03T01:30:48+08:00
+=== A. baseline: s5 alive, install a probe route 10.99.99.99 -> port 2 on dpid 5, prove the recipe works ===
+   twin: {5: True, 6: True}  procs: 10
+   --- s5 BEFORE any probe install (bmv2 CLI, thrift 9095) ---
+     0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 01
+     0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 02
+     0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 03
+     0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 03
+     0a000004/32  ->  Action entry: MyIngress.send_to_cpu - 
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+   http=200 total=0.001472s
+   --- s5 AFTER the probe install (positive control -- the recipe must be able to succeed) (bmv2 CLI, thrift 9095) ---
+     0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 01
+     0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 02
+     0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 03
+     0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 03
+     0a636363/32  ->  Action entry: MyIngress.ipv4_forward - 00, 02
+     0a636363/32  ->  Action entry: MyIngress.send_to_cpu - 
+
+=== B. now power s5 OFF and install a DIFFERENT probe route to it while it is off ===
+{"192.168.123.15":"Success"}
+   twin: {5: False, 6: True}  procs: 9
+   :30055 closed
+   install 10.99.99.88 -> port 2 on dpid 5, which is OFF:
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+   http=200 total=0.000994s
+   what the TWIN thinks dpid 5's table holds now:
+     dpid5 flows: 1 {"5": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_tim
+
+=== C. power s5 back on and read ITS OWN table. Did the refused install still land? ===
+{"192.168.123.15":"Success"}   power-on http=200 total=1.477278s
+   twin: {5: True, 6: True}  procs: 10
+   --- s5 AFTER power-on -- looking for 10.99.99.88 (0a63635 8) and 10.99.99.99 (bmv2 CLI, thrift 9095) ---
+     0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 01
+     0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 02
+     0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 03
+     0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 03
+     0a000004/32  ->  Action entry: MyIngress.send_to_cpu - 
+
+=== D. the actual window: fire an install at dpid 6 in the same instant as its power-off ===
+   twin: {5: True, 6: True}  procs: 10
+{"192.168.123.16":"Success"} <- power-off returned
+   concurrent install said:
+     {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+        http=200 total=0.240266s
+   twin: {5: True, 6: False}  procs: 9
+   power s6 back on and read its own table for 10.99.99.77:
+{"192.168.123.16":"Success"}   power-on http=200 total=1.469897s
+   --- s6 AFTER power-on (bmv2 CLI, thrift 9096) ---
+     0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 01
+     0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 02
+     0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 03
+     0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 03
+     0a000004/32  ->  Action entry: MyIngress.send_to_cpu - 
+DONE14
+
+=== E. FAIRNESS CHECK: the 200 body says per-entry outcomes are readable from
+===    GET /ndt/get_flow_dispatch_status. Does it actually record the three lost entries? ===
+2026-09-03T01:32:48+08:00
+{
+    "counters": {
+        "dispatched": 3,
+        "dropped_after_stop": 0,
+        "failed": 2,
+        "succeeded": 1
+    },
+    "counters_cover": {
+        "dispatch_routes": [
+            "/ndt/install_flow_entry",
+            "/ndt/modify_flow_entry",
+            "/ndt/delete_flow_entry",
+            "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries"
+        ],
+        "includes_boot_time_programming": false,
+        "includes_intent_translator": false
+    },
+    "dispatcher_running": true,
+    "recent_failures": [
+        {
+            "at_unix_ms": 1788370256309,
+            "controller_status": 200,
+            "dpid": 5,
+            "match": {
+                "eth_type": 2048,
+                "ipv4_dst": "10.99.99.88"
+            },
+            "message": "P4 proxy agent reported an error in a 200 response: {\"status\":\"error\",\"message\":\"Failed to add route\"}",
+            "op": "install",
+            "requested_priority": 10,
+            "seq": 2
+        },
+        {
+            "at_unix_ms": 1788370276230,
+            "controller_status": 200,
+            "dpid": 6,
+            "match": {
+                "eth_type": 2048,
+                "ipv4_dst": "10.99.99.77"
+            },
+            "message": "P4 proxy agent reported an error in a 200 response: {\"status\":\"error\",\"message\":\"Failed to add route\"}",
+            "op": "install",
+            "requested_priority": 10,
+            "seq": 3
+        }
+    ],
+    "recent_failures_capacity": 256,
+    "recent_failures_evicted": 0
+}
+
+=== F. and does the TWIN still believe the probe routes exist on s5 / s6? ===
+Traceback (most recent call last):
+  File "<string>", line 7, in <module>
+    rows=fl[0].get(str(t['dpid'])) if fl and isinstance(fl[0],dict) and str(t['dpid']) in fl[0] else fl
+                                                        ~~^^^
+KeyError: 0
+
+  probe IPs used: 10.99.99.99 = 0a636363, 10.99.99.88 = 0a636358, 10.99.99.77 = 0a63634d
+  A (live s5)      -> entry LANDED on the switch (0a636363). Positive control: the recipe works.
+  B (s5 powered off) -> identical 200 {"accepted":1,"status":"queued"}; after power-on the
+                        switch's own table does NOT contain 0a636358.
+  D (fired concurrently with the power-off of s6) -> identical 200; 0a63634d absent afterwards.
+  Also: the entry that DID land in A (0a636363) was gone after the power cycle, and nothing
+  in the power-on path says an operator-installed rule was dropped.
+
+  (my F parser above was wrong -- KeyError, not a measurement. Redone here.)
+=== F (redone): does the TWIN still list the probe route 10.99.99.99 on dpid 5,
+===             which the switch itself lost in the power cycle? ===
+Traceback (most recent call last):
+  File "<string>", line 12, in <module>
+    print('   nw_dst=',f.get('match',{}).get('nw_dst'),' actions=',f.get('actions'),' prio=',f.get('priority'))
+                       ^^^^^
+AttributeError: 'str' object has no attribute 'get'
+ dpid 5 entry count: 1
+
+  (second parser attempt also wrong. Third time -- dumping the raw shape first.)
+ raw dpid-5 object keys: ['dpid', 'flows']
+ raw dpid-5 payload (first 1200 chars):
+  {"dpid": 5, "flows": {"5": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.2"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:3"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.3"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:3"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.4"}, "packet_count": 0, "priority": 0, "table_id": 0}]}}
+
+  Shape is {"dpid":5,"flows":{"5":[...]}}. dpid 5 holds exactly 4 entries:
+    10.0.0.1->OUTPUT:1, 10.0.0.2->OUTPUT:2, 10.0.0.3->OUTPUT:3, 10.0.0.4->OUTPUT:3.
+  No probe route. So the TWIN agrees with the SWITCH that 10.99.99.99 is gone. No divergence.
+
+=== VERDICT for hunt item 5: the hypothesis is REFUTED for the kernel. ===
+  'A rejected request may still have had an effect' does not hold here, and neither does
+  'silently lost'. The 200 {"accepted":1,"status":"queued"} is an ASYNC ACCEPT, and the
+  endpoint it names keeps its promise: /ndt/get_flow_dispatch_status reported
+    counters: dispatched 3, succeeded 1, failed 2
+  and listed BOTH failures with dpid, match, op, timestamp and reason. The one install that
+  should have worked (A, live switch) is the one that succeeded, and it landed on the switch.
+  Residual, and it is the proxy's not the kernel's: the P4 proxy answers
+  HTTP 200 with body {"status":"error","message":"Failed to add route"}. The kernel
+  detects it explicitly ('reported an error in a 200 response'), so nothing is lost -- but a
+  200 carrying an error is a trap for any other client.
+  Observation, not yet a claim: an operator-installed rule does not survive a power cycle
+  (10.99.99.99 was gone after s5 came back) and the power-on 200 does not mention it. The twin
+  does not claim otherwise, so this is a documentation/expectation gap, not a divergence.

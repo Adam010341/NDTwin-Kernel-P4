@@ -1,0 +1,97 @@
+#### 12: reproduction of 11 with switch-side dumps on BOTH sides, then hunt item 3 (no route left) ####
+2026-09-03T01:18:22+08:00
+=== step 1: power s5 (dpid 5) back ON via the API. Time it, and see whether the path returns to it. ===
+{"192.168.123.15":"Success"} http=200 total=1.473104s
+power-on wall time: 1.481191210 s;  bmv2 procs: 10
+--- waiting up to 120 s for the graph to re-converge to 40/40 edges ---
+   converged to 40/40 after 12 s
+   switches down: none   edges up: 40 of 40
+--- BEFORE (s5 back up): switch-side ipv4_lpm (bmv2 CLI, thrift 9091) ---
+   dst 0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 03
+   dst 0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 01
+   dst 0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 01
+   dst 0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 01
+   dst 0a000004/32  ->  Action entry: MyIngress.send_to_cpu - 
+
+=== step 2: ping, then power off whichever switch the path uses ===
+=== T_OFF=1788369524.335508486 -- power OFF s5 again (repetition #2) ===
+{"192.168.123.15":"Success"} http=200 total=0.241721s
+bmv2 procs: 9
+--- AFTER s5 off: switch-side ipv4_lpm (bmv2 CLI, thrift 9091) ---
+   dst 0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 03
+   dst 0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 02
+   dst 0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 02
+   dst 0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 02
+   dst 0a000004/32  ->  Action entry: MyIngress.send_to_cpu - 
+   switches down: [5]   edges up: 32 of 40
+
+=== step 3: HUNT ITEM 3 -- power off s6 as well. Now NO path exists between h1 and h2. ===
+T_OFF2=1788369569.687616376
+{"192.168.123.16":"Success"} http=200 total=0.234033s
+bmv2 procs: 8
+--- what does the SWITCH say? (the finding is a route still pointing at an off switch) ---
+--- AFTER both s5 and s6 off: switch-side ipv4_lpm (bmv2 CLI, thrift 9091) ---
+   dst 0a000001/32  ->  Action entry: MyIngress.ipv4_forward - 01, 03
+   dst 0a000002/32  ->  Action entry: MyIngress.ipv4_forward - 02, 02
+   dst 0a000003/32  ->  Action entry: MyIngress.ipv4_forward - 03, 02
+   dst 0a000004/32  ->  Action entry: MyIngress.ipv4_forward - 04, 02
+   dst 0a000004/32  ->  Action entry: MyIngress.send_to_cpu - 
+--- what does the TWIN say? ---
+   switches down: [5]   edges up: 24 of 40
+   /ndt/get_path_switch_count?src=10.0.0.1&dst=10.0.0.2 :
+{"message":"Path not found for the given IPs.","status":"error"}
+{"data":[{"dst_ip":"10.0.0.4","src_ip":"10.0.0.3","switch_count":3},{"dst_ip":"10.0.0.3","src_ip":"10.0.0.4","switch_count":3}],"status":"success"}
+--- stop the ping by exact pid ---
+ping pid=1242634
+ping stopped (verified by exact pid)
+DONE12
+
+=== VERIFICATION of the step-3 anomaly: s6 was commanded OFF and the twin still says it is up ===
+2026-09-03T01:22:37+08:00
+--- ground truth: are s5 and s6's processes really gone? (manifest pids + ss on their gRPC ports) ---
+  s5 manifest pid = None  grpc_port 30055
+  s6 manifest pid = None  grpc_port 30056
+  :30055 closed
+  :30056 closed
+  bmv2 procs: 8
+--- the twin, sampled 3 times 5 s apart ---
+    [(5, False, True), (6, True, True)]
+    power_state s5= OFF  s6= ON
+    [(5, False, True), (6, True, True)]
+    power_state s5= OFF  s6= ON
+    [(5, False, True), (6, True, True)]
+    power_state s5= OFF  s6= ON
+--- proxy's own view of dpid 5 and 6 ---
+   dpid=5 probe_ok=False stream_alive=False last_lldp_age_s=248.628
+   dpid=6 probe_ok=False stream_alive=False last_lldp_age_s=203.627
+--- proxy topology switch list ---
+   dpids listed: [1, 2, 3, 4, 7, 8, 9, 10]
+
+=== CONFIRMED: a commanded power-off was LOST by the twin ===
+  s5 and s6 both: manifest pid null, gRPC port closed, 8 bmv2 processes. Both commanded off
+  through the same endpoint 45 s apart, both returned Success.
+    s5 -> is_up=False, power_state=OFF   (correct)
+    s6 -> is_up=True,  power_state=ON    (WRONG), stable across 3 samples 5 s apart, ~3 min later.
+  The proxy is not the cause: it lists neither 5 nor 6 in /v1.0/topology/switches any more and
+  reports probe_ok=False / stream_alive=False for both. The wrong value is simply stuck, and by
+  D15 nothing in the system will ever correct it.
+  Score so far: 1 lost out of 3 commanded power-offs tonight (s7 ok, s5 ok, s6 lost) => a race.
+
+=== ping #2 analysis (repetition of the 11_ measurement) ===
+replies: 367   seq range 1..544   missing: 177
+t_off = 1788369524.336
+last reply BEFORE power-off : 1788369524.316  (+0.019 s relative)
+first reply AFTER power-off : 1788369542.826  (+18.491 s relative)
+=> BLACK-HOLE WINDOW measured from the packets: 18.510 s
+gaps > 1 s: [('1788369524.316', '18.510s')]
+
+=== and against T_OFF2 (s6 off as well -- no path can exist) ===
+replies: 367   seq range 1..544   missing: 177
+t_off = 1788369569.688
+last reply BEFORE power-off : 1788369569.625  (+0.062 s relative)
+NO reply after the power-off at all -- traffic never recovered
+   observation window after t_off: -0.1 s of pings with 0 replies
+gaps > 1 s: [('1788369524.316', '18.510s')]
+
+  (awk artifact note: the last line of each table dump above, 'dst 0a000004/32 -> send_to_cpu',
+   is the table's DEFAULT entry; my awk reused the previous match key for it. Not a system fact.)

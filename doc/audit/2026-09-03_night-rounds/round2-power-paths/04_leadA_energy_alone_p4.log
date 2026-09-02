@@ -1,0 +1,175 @@
+#### 04: LEAD A, arm 1 -- Energy-Saving-App ALONE on the P4 plane (matches round 1's ovs4 condition,
+####      but with a working utilisation input and with the APP'S OWN LOG captured, which round 1 lacked) ####
+2026-09-03T00:54:10+08:00
+--- app decision chain, read from source before the run (so the log lines below can be located) ---
+  energy_saving_app.cpp:876 run_switch_cycle_once
+    -> easy_get_info_from_ndt(): aborts the WHOLE cycle if any switch flow table is empty
+    -> findRedundantNodes -> per group: group_avg_link_utilization (types.cpp:396)
+    -> <= LOW_WATER_MARK 0.40  => easy_disable_switch   (settings.hpp:7)
+    -> >= HIGH_WATER_MARK 0.60 => easy_enable_switch    (settings.hpp:6)
+  NOTE: 0.0 utilisation satisfies '<= 0.40'. Zero input means POWER IT OFF, not 'cannot decide'.
+  easy_disable_switch does NOT power anything off itself: it sends a simulation case to
+  request_manager localhost:8000 and the power-off happens only in
+  compareCasesAndPowerOnOffSwitches -> setSwitchesPowerState (energy_saving_app.cpp:247).
+--- pre-run: flow-table counts (empty table would abort the cycle) ---
+switches: 10 empty tables: []
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7502        3661        1044        5638        7910
+Swap:          20479        6174       14305
+--- START energy (sim deliberately NOT started in this arm) ---
+  XX  unknown app: start (known: energy sim nsr viz te)
+  ok  energy started (tmux: energy)
+rc=0
+apps
+  energy   running   Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+--- ndtwin-lab energy-out 200 (the app's OWN log; round 1 could not reach this) ---
+[2026-09-03 00:54:10.584989225] [info] [energy_saving_app.cpp:977 main] Logger L
+oads Successfully!
+HTTP/1.1 200 OK
+Server: ndt-server
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With
+Access-Control-Max-Age: 86400
+Content-Type: application/json
+Content-Length: 60
+
+{"app_id":1,"message":"Application registered successfully"}
+[2026-09-03 00:54:10.586184937] [info] [energy_saving_app.cpp:1065 preInstall] G
+et App ID: 1
+[2026-09-03 00:54:10.586281798] [info] [energy_saving_app.cpp:981 main] Mount NF
+S
+[2026-09-03 00:54:10.586300241] [info] [energy_saving_app.cpp:982 main] mount -t
+ nfs localhost:/srv/nfs/sim/1 /mnt/nfs/app
+[2026-09-03 00:54:10.662608066] [info] [energy_saving_app.cpp:1017 main] The ser
+ver starts at http://localhost:8001
+[2026-09-03 00:54:10.662897999] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-09-03 00:54:10.663503925] [info] [http.cpp:443 acquire_lock] Code 200
+[2026-09-03 00:54:10.663525593] [info] [http.cpp:447 acquire_lock] acquire_lock
+succeeded
+GET from /ndt/get_graph_data
+[2026-09-03 00:54:10.673787393] [info] [http.cpp:349 get_graph_data] Code: 200
+GET from /ndt/get_switch_openflow_table_entries
+[2026-09-03 00:54:10.679566553] [info] [http.cpp:319 get_switch_openflow_table_e
+ntries] Code: 200
+GET from /ndt/get_detected_flow_data
+[2026-09-03 00:54:10.682438560] [info] [http.cpp:377 get_detected_flow_data] Cod
+e: 200
+[2026-09-03 00:54:10.683530111] [info] [energy_saving_app.cpp:840 findRedundantN
+odes] Twin match 4 <-> 5
+[2026-09-03 00:54:10.683582872] [info] [energy_saving_app.cpp:840 findRedundantN
+odes] Twin match 6 <-> 7
+[2026-09-03 00:54:10.683611467] [info] [energy_saving_app.cpp:840 findRedundantN
+odes] Twin match 8 <-> 9
+[2026-09-03 00:54:10.683629554] [info] [energy_saving_app.cpp:854 findRedundantN
+odes] ===== Redundancy groups =====
+[2026-09-03 00:54:10.683645065] [info] [energy_saving_app.cpp:868 findRedundantN
+odes] Group(root=8) = [s9, s10]
+[2026-09-03 00:54:10.683655999] [info] [energy_saving_app.cpp:868 findRedundantN
+odes] Group(root=6) = [s7, s8]
+[2026-09-03 00:54:10.683667572] [info] [energy_saving_app.cpp:868 findRedundantN
+odes] Group(root=4) = [s5, s6]
+[2026-09-03 00:54:10.683679934] [info] [energy_saving_app.cpp:904 run_switch_cyc
+le_once] group with switch s9
+[2026-09-03 00:54:10.683698798] [info] [energy_saving_app.cpp:924 run_switch_cyc
+le_once] avgLinkUtilization 0
+[2026-09-03 00:54:10.684068650] [info] [energy_saving_app.cpp:595 easy_disable_s
+witch] candidateSwitches: 9, 10,
+[2026-09-03 00:54:10.684083503] [info] [energy_saving_app.cpp:600 easy_disable_s
+witch] cut_points: 4, 3, 2, 1,
+[2026-09-03 00:54:10.684210094] [info] [types.cpp:188 is_connected] vertices: 13
+, n_components: 1
+[2026-09-03 00:54:10.684223770] [info] [energy_saving_app.cpp:610 easy_disable_s
+witch] Checking Switch 9: true
+[2026-09-03 00:54:10.696038133] [info] [energy_saving_app.cpp:494 send_case] Gne
+rate /mnt/nfs/app/energy_saving_simulator/1.0/case1/input
+[2026-09-03 00:54:10.704303123] [info] [energy_saving_app.cpp:510 send_case] POS
+T to /ndt/received_a_simulation_case
+[2026-09-03 00:54:10.704339957] [info] [energy_saving_app.cpp:512 send_case] bod
+y = {"app_id":"1","case_id":"case1","inputfile":"input","simulator":"energy_savi
+ng_simulator","version":"1.0"}
+[2026-09-03 00:54:10.711844370] [info] [energy_saving_app.cpp:524 send_case] Res
+ponse: code = 502
+[2026-09-03 00:54:10.711880029] [info] [energy_saving_app.cpp:525 send_case] bod
+y = {"details":"no response from the simulator server at http://127.0.0.1:9000/s
+ubmit within 30s","error":"Simulation case was not accepted","status":"error"}
+[2026-09-03 00:54:10.711894901] [info] [energy_saving_app.cpp:526 send_case] kee
+p alive = true
+[2026-09-03 00:54:10.711901513] [warning] [energy_saving_app.cpp:530 send_case]
+Simulation Request NOT Accepted
+[2026-09-03 00:54:10.712046963] [info] [energy_saving_app.cpp:904 run_switch_cyc
+le_once] group with switch s7
+[2026-09-03 00:54:10.712071828] [info] [energy_saving_app.cpp:924 run_switch_cyc
+le_once] avgLinkUtilization 0
+[2026-09-03 00:54:10.712471003] [info] [energy_saving_app.cpp:595 easy_disable_s
+witch] candidateSwitches: 7, 8,
+[2026-09-03 00:54:10.712488764] [info] [energy_saving_app.cpp:600 easy_disable_s
+witch] cut_points: 4, 3, 2, 1,
+[2026-09-03 00:54:10.712637331] [info] [types.cpp:188 is_connected] vertices: 13
+, n_components: 1
+[2026-09-03 00:54:10.712647936] [info] [energy_saving_app.cpp:610 easy_disable_s
+witch] Checking Switch 7: true
+[2026-09-03 00:54:10.721238145] [info] [energy_saving_app.cpp:494 send_case] Gne
+rate /mnt/nfs/app/energy_saving_simulator/1.0/case2/input
+[2026-09-03 00:54:10.731552932] [info] [energy_saving_app.cpp:510 send_case] POS
+T to /ndt/received_a_simulation_case
+[2026-09-03 00:54:10.731588334] [info] [energy_saving_app.cpp:512 send_case] bod
+y = {"app_id":"1","case_id":"case2","inputfile":"input","simulator":"energy_savi
+ng_simulator","version":"1.0"}
+[2026-09-03 00:54:10.741030264] [info] [energy_saving_app.cpp:524 send_case] Res
+ponse: code = 502
+[2026-09-03 00:54:10.741064796] [info] [energy_saving_app.cpp:525 send_case] bod
+y = {"details":"no response from the simulator server at http://127.0.0.1:9000/s
+ubmit within 30s","error":"Simulation case was not accepted","status":"error"}
+[2026-09-03 00:54:10.741078014] [info] [energy_saving_app.cpp:526 send_case] kee
+p alive = true
+[2026-09-03 00:54:10.741084210] [warning] [energy_saving_app.cpp:530 send_case]
+Simulation Request NOT Accepted
+[2026-09-03 00:54:10.741177651] [info] [energy_saving_app.cpp:904 run_switch_cyc
+le_once] group with switch s5
+[2026-09-03 00:54:10.741221449] [info] [energy_saving_app.cpp:924 run_switch_cyc
+le_once] avgLinkUtilization 0.07910556925
+[2026-09-03 00:54:10.741656362] [info] [energy_saving_app.cpp:595 easy_disable_s
+witch] candidateSwitches: 5, 6,
+[2026-09-03 00:54:10.741679896] [info] [energy_saving_app.cpp:600 easy_disable_s
+witch] cut_points: 4, 3, 2, 1,
+[2026-09-03 00:54:10.741870012] [info] [types.cpp:188 is_connected] vertices: 13
+, n_components: 1
+[2026-09-03 00:54:10.741888193] [info] [energy_saving_app.cpp:610 easy_disable_s
+witch] Checking Switch 5: true
+[2026-09-03 00:54:10.751647120] [info] [energy_saving_app.cpp:494 send_case] Gne
+rate /mnt/nfs/app/energy_saving_simulator/1.0/case3/input
+[2026-09-03 00:54:10.763620610] [info] [energy_saving_app.cpp:510 send_case] POS
+T to /ndt/received_a_simulation_case
+[2026-09-03 00:54:10.763657466] [info] [energy_saving_app.cpp:512 send_case] bod
+y = {"app_id":"1","case_id":"case3","inputfile":"input","simulator":"energy_savi
+ng_simulator","version":"1.0"}
+[2026-09-03 00:54:10.773559364] [info] [energy_saving_app.cpp:524 send_case] Res
+ponse: code = 502
+[2026-09-03 00:54:10.773586338] [info] [energy_saving_app.cpp:525 send_case] bod
+y = {"details":"no response from the simulator server at http://127.0.0.1:9000/s
+ubmit within 30s","error":"Simulation case was not accepted","status":"error"}
+[2026-09-03 00:54:10.773597467] [info] [energy_saving_app.cpp:526 send_case] kee
+p alive = true
+[2026-09-03 00:54:10.773601755] [warning] [energy_saving_app.cpp:530 send_case]
+Simulation Request NOT Accepted
+
+
+--- is anything listening on the simulator port 9000? ---
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+--- ndt apps ---
+apps
+  energy   running   Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+--- twin graph: did anything actually get powered off? ---
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+2026-09-03T00:54:59+08:00

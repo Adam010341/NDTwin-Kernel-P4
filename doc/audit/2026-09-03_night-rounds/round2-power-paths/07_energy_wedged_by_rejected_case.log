@@ -1,0 +1,40 @@
+#### 07: the Energy-Saving-App wedges itself permanently on a REJECTED simulation case ####
+# Discovered while running 06. The app stopped doing anything at all and started spinning on
+# /ndt/acquire_lock. Mechanism, from its own source (/home/adam/Energy-Saving-App):
+
+  energy_saving_app.cpp:472   void send_case(...)          <-- returns VOID
+  energy_saving_app.cpp:530   logs 'Simulation Request NOT Accepted' on the 502 ... and drops it
+  energy_saving_app.cpp:615   canSendNextSimulation = false   (before sending)
+  energy_saving_app.cpp:620   send_case(...)                  (rejected, 502)
+  energy_saving_app.cpp:622   sentCase = true                 <-- SET UNCONDITIONALLY
+  energy_saving_app.cpp:627   if (!sentCase) { canSendNextSimulation = true; release_lock(); }
+                                              ^-- the ONLY recovery branch, and it is skipped
+  energy_saving_app.cpp:366   the other way back is caseID2SwitchesDpidToPowerOff.size()
+                              == completeSimulations.size(), in the simulation-COMPLETED
+                              handler -- which cannot fire, because the case never ran.
+  energy_saving_app.cpp:881   every later cycle: 'There is switch powering on/off, skip...'
+
+# So one 502 leaves canSendNextSimulation == false FOREVER and routing_lock UNRELEASED.
+# It is not self-healing after the simulator arrives either: 3 cases are already in
+# caseID2SwitchesDpidToPowerOff and 0 in completeSimulations, and no new case can be
+# prepared, so the equality at :366 can never hold again. The state is poisoned.
+2026-09-03T00:59:11+08:00
+--- the kernel confirms the lock is held (my own probe, a second channel) ---
+{"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held_by_lease":2,"retry_after_s":299}
+--- the app's own log: it is spinning on acquire_lock, not deciding anything ---
+other client; retry after its TTL","error":"Lock acquisition failed","held_by_le
+ase":1,"retry_after_s":0}
+[2026-09-03 00:59:11.023013064] [info] [http.cpp:97 send_post_json_request] POST
+ to /ndt/acquire_lock
+[2026-09-03 00:59:11.024797908] [info] [http.cpp:443 acquire_lock] Code 200
+[2026-09-03 00:59:11.024837673] [info] [http.cpp:447 acquire_lock] acquire_lock
+succeeded
+[2026-09-03 00:59:11.024864255] [info] [energy_saving_app.cpp:883 run_switch_cyc
+le_once] There is switch powering on/off, skip...
+
+
+--- 00:59:11 CONFIRMATION, from the app's own log ---
+  [00:59:11.024797] acquire_lock Code 200 / succeeded     <-- the TTL expired, it got the lock back
+  [00:59:11.024864] energy_saving_app.cpp:883 run_switch_cycle_once] There is switch powering on/off, skip...
+  and it does NOT release the lock on that path, so it squats routing_lock for another full
+  TTL while doing nothing, forever. Livelock, not deadlock.

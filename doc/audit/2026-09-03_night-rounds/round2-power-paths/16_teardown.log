@@ -1,0 +1,122 @@
+#### 16: teardown. Verified through ps on exact pids and ss on the ports, not the script's claim. ####
+2026-09-03T01:40:14+08:00
+--- BEFORE: the exact pids that must die ---
+kernel(:8000) pid=1260633   proxy(:8081) pid=1214126
+1214126 1214120 adam     python
+1260633 1260632 adam     curl
+bmv2 procs: 7
+LISTEN 0      2048         0.0.0.0:8081       0.0.0.0:*          
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+--- ndt down (under setsid: it reaches mn -c, whose internal pkill -9 -f can kill the caller) ---
+DOWN_RC=0
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped p4_proxy
+[2/3] topology session
+--- AFTER, second channel: ps on those exact pids ---
+  pid 1260633 is gone
+  pid 1214126 is gone
+--- ss on the ports ---
+LISTEN 0      4096               *:30056            *:*          
+LISTEN 0      4096               *:30058            *:*          
+LISTEN 0      4096               *:30053            *:*          
+LISTEN 0      4096               *:30052            *:*          
+LISTEN 0      4096               *:30054            *:*          
+LISTEN 0      4096               *:30051            *:*          
+--- bmv2 processes: 7 ---
+--- ndtwin-lab status ---
+topo: 1 windows (created Thu Sep  3 00:48:13 2026)
+bmv2: 7  mininet: 14
+--- ndt status (claim must still be held) ---
+lab
+  claim          yours -- 355m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           7394ace0  +28 file(s) with uncommitted changes
+                 4 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+                 tools/test_workflow/supervise.sh
+
+configuration
+  hosts          4
+  topology       setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  7       topo session   present
+  host/switch    14      manifest       present
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7330        3636        1037        5827        8081
+2026-09-03T01:40:20+08:00
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  XX  bmv2 switches: 1 still running
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+
+not clean
+
+🔴 CORRECTION, mine not the system's. 'DOWN_RC=0' above is **setsid's** exit code, not
+   'ndt down''s: setsid forks to become a session leader and the parent returns immediately
+   unless --wait is given. So my AFTER block ran 5 s in, while phase [2/3] was still working,
+   and the log looked like 'ndt down exited 0 leaving 7 bmv2 switches up'. It did not.
+   Same shape as the COMMON-BRIEF's sudo-forks warning; I walked into the sibling of it.
+   Re-verified below, after the teardown actually finished. ndt down is NOT impeached.
+
+--- FINAL VERIFICATION 2026-09-03T01:41:10+08:00 ---
+ps on the exact pids captured before teardown:
+  pid 1260633 is gone
+  pid 1214126 is gone
+bmv2 processes (ps -eo comm=, not pgrep -f): 0
+listeners on every port this round used:
+LISTEN 0      5          127.0.0.1:9090       0.0.0.0:*          
+ndtwin-lab status:
+  no lab sessions
+  bmv2: 0  mininet: 0
+mininet host namespaces still present:
+  0
+apps:
+  apps
+    energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+    sim      -         Simulation-Platform-Manager
+    nsr      -         Network-State-Recorder     (records; reads the kernel API)
+    viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+    te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+claim (must still be HELD -- later rounds need it):
+  lab
+    claim          yours -- 354m left (until 07:34:45)
+    note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+    exclusive cpu  no (heavy local jobs may overlap this claim)
+    measuring      nothing
+    code           7394ace0  +28 file(s) with uncommitted changes
+free -m:
+                 total        used        free      shared  buff/cache   available
+  Mem:           15412        7011        3955        1036        5827        8400
+
+--- tracked-file footprint of this round, and its restoration ---
+One tracked file was changed, and not by me editing it: 'ndt up p4 4' rewrites
+p4_proxy/mininet/host_count_override as a designed side effect and says so
+  ('!!  host_count_override: 128 -> 4 (persistent; affects every later run)', 01_).
+Value at round start: 128.  Value after my bring-up: 4.
+Restoring it by EXPLICIT SINGLE FILE PATH (never a directory pathspec -- this worktree is shared):
+  git checkout -- p4_proxy/mininet/host_count_override
+value now: 128
+git status for that file: '' (empty = clean)
+
+No other tracked file was touched by this round. Everything else in 'git status' belongs to
+other sessions and was left alone. All of this round's own output is untracked, under
+doc/audit/2026-09-03_night-rounds/round2-power-paths/. Nothing was committed or pushed.
+2026-09-03T01:41:52+08:00

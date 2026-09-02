@@ -1,0 +1,106 @@
+#### 13: reproduce the LOST power-off, and catch the is_up transition that explains it ####
+2026-09-03T01:23:48+08:00
+=== first, the composed consequence: s6's power-off was lost, so the twin thinks it is up,
+=== so D16 says the power-ON must be a no-op. Testing that on a switch nobody killed by hand.
+--- POST action=on for s6 (192.168.123.16) ---
+{"192.168.123.16":"Success"} http=200 total=0.001115s
+bmv2 procs after: 8
+:30056 STILL CLOSED
+
+--- restoring BOTH out of band (s5 via the API, which knows it is off; s6 via the helper) ---
+{"192.168.123.15":"Success"} s5 on: http=200 total=1.471170s
+{"status": "started", "name": "s6", "pid": 1246671}
+helper_rc=0
+{"status":"success","dpid":6,"clone_session":true,"routes_installed":0,"routes_attempted":0,"routes_pending":true,"note":"adopted, but no route was installable yet: this switch's links are still down, so no path crosses it. The link watchdog installs them when the beacons resume."}
+bmv2 procs: 10
+--- waiting for convergence before trial ---
+   converged 40/40 after 2 s
+
+########## TRIAL 1 ##########
+2026-09-03T01:24:22+08:00
+  power OFF s5 at 1788369865.671523279
+{"192.168.123.15":"Success"}
+  power OFF s6 at 1788369873.928840971   (8 s later, while the fabric is already degraded)
+{"192.168.123.16":"Success"}
+  bmv2 procs: 8
+  --- transitions seen for dpid 5 and 6 in this trial ---
+1788369862.69 5=1 6=1
+1788369865.93 5=0 6=1
+1788369874.19 5=0 6=0
+1788369877.27 5=0 6=1
+  --- final state: twin vs ground truth ---
+    twin power_state  s5= OFF  s6= ON
+    :30055 closed
+    :30056 closed
+    bmv2 procs: 8
+  --- restore both for the next trial (helper + readopt, the only route that always works) ---
+    bmv2 procs after restore: 10
+   converged 40/40 after 6 s
+
+########## TRIAL 2 ##########
+2026-09-03T01:25:46+08:00
+  power OFF s5 at 1788369949.389097749
+{"192.168.123.15":"Success"}
+  power OFF s6 at 1788369957.399383130   (8 s later, while the fabric is already degraded)
+{"192.168.123.16":"Success"}
+  bmv2 procs: 9
+  --- transitions seen for dpid 5 and 6 in this trial ---
+1788369946.41 5=0 6=1
+1788369957.66 5=0 6=0
+1788369969.94 5=1 6=0
+  --- final state: twin vs ground truth ---
+    twin power_state  s5= ON  s6= OFF
+    :30055 OPEN
+    :30056 closed
+    bmv2 procs: 9
+  --- restore both for the next trial (helper + readopt, the only route that always works) ---
+    bmv2 procs after restore: 10
+   converged 40/40 after 8 s
+
+########## TRIAL 3 ##########
+2026-09-03T01:27:11+08:00
+  power OFF s5 at 1788370034.633690553
+{"192.168.123.15":"Success"}
+  power OFF s6 at 1788370042.890074472   (8 s later, while the fabric is already degraded)
+{"192.168.123.16":"Success"}
+  bmv2 procs: 8
+  --- transitions seen for dpid 5 and 6 in this trial ---
+1788370031.65 5=1 6=1
+1788370034.89 5=0 6=1
+1788370043.15 5=0 6=0
+  --- final state: twin vs ground truth ---
+    twin power_state  s5= OFF  s6= OFF
+    :30055 closed
+    :30056 closed
+    bmv2 procs: 8
+  --- restore both for the next trial (helper + readopt, the only route that always works) ---
+    bmv2 procs after restore: 10
+   converged 40/40 after 6 s
+ALLDONE13
+
+=== TALLY over all 9 commanded power-offs tonight ===
+  09_ s7            correct
+  11_ s5            correct
+  12_ s5 (step 2)   correct
+  12_ s6 (step 3)   LOST      -- twin reported ON with the process dead
+  13_ T1 s5         correct
+  13_ T1 s6         LOST      -- transition CAUGHT: is_up 1 -> 0 at t=1788369874.19,
+                                 back to 1 at t=1788369877.27 (3.08 s later), process dead
+                                 throughout. So setVertexDown DID land and was then overwritten.
+  13_ T2 s5         NO-OP with Success -- see below
+  13_ T2 s6         correct
+  13_ T3 s5         correct
+  13_ T3 s6         correct
+  => 6 correct, 2 lost, 1 no-op-with-Success. Both failures are races on the same flag.
+
+=== the MIRROR defect, from trial 2 ===
+  Trial 2 opened with the twin wrongly holding s5 at is_up=0 while its process was running
+  (leftover from trial 1's restore). 'power OFF s5' then returned {"192.168.123.15":"Success"}
+  and killed NOTHING: the trial ended with 9 bmv2 procs, :30055 OPEN, :30056 closed.
+  P4PowerStrategy::powerOff:180  ->  if (!topoMonitor->getVertexIsUp(node)) return success();
+  P4PowerStrategy::powerOn:176   ->  if (getVertexIsUp(node) && !distrustWindow) return success();
+  Both directions early-return Success on the same isUp flag, and B3 showed that flag is a
+  record of commands rather than a measurement. So BOTH directions of the power API can
+  report Success while doing nothing, in opposite circumstances.
+  Trial 2 also shows the flag being re-raised by discovery: 5=0 -> 5=1 at t=1788369969.94,
+  which is correct there (s5 really was running) and is the same writer that corrupts it in T1.

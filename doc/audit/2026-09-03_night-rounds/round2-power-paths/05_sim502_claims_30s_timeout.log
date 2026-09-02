@@ -1,0 +1,18 @@
+#### 05: the 502 the Energy app dies on claims a 30 s timeout. Time it. ####
+# Claim under test: /ndt/received_a_simulation_case returns
+#   'no response from the simulator server at http://127.0.0.1:9000/submit within 30s'
+# The app's own log shows POST at 00:54:10.763620 and response at 00:54:10.773559 = 9.9 ms.
+2026-09-03T00:55:18+08:00
+--- is :9000 listening? ---
+(nothing on :9000 -- the simulator is NOT running)
+--- 5 timed calls, same body shape the app sends ---
+call 1: http=502 total=0.006996s
+     body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}
+call 2: http=502 total=0.009033s
+     body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}
+call 3: http=502 total=0.006601s
+     body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}
+call 4: http=502 total=0.007173s
+     body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}
+call 5: http=502 total=0.005956s
+     body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}

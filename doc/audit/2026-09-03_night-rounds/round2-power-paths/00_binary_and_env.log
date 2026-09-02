@@ -1,0 +1,17 @@
+#### 00: binary of record, repo state, machine state at round start ####
+2026-09-03T00:47:34+08:00
+--- sha256sum build/bin/ndtwin_kernel ---
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+-rwxrwxr-x 1 adam adam 75990144 2026-09-03 00:46:15.946901965 +0800 build/bin/ndtwin_kernel
+--- git HEAD ---
+6157d02a194ed30b08f42fa2eef4d1e22a0a984a 2026-09-03 00:46:15 +0800 Night round 1: the OVS plane, closed out
+--- uncommitted files that matter to THIS round (power + flow rate) ---
+ M include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
+ M src/ndt_core/collection/FlowLinkUsageCollector.cpp
+ M src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8064        3080        1057        5781        7347
+Swap:          20479        6169       14310
+--- uptime ---
+ 00:47:35 up 12:27,  1 user,  load average: 3.53, 3.32, 3.01

@@ -1,0 +1,211 @@
+#### 09: LEAD B -- can ANYTHING in the system tell an uncommanded switch death from a commanded power-off? ####
+# Structural hypothesis, read from source first:
+#   spec.py inv_all_switches_up: down = [n for n in switches if not n['is_up']]  (from /ndt/get_graph_data)
+#                                power.off_dpids  (from /ndt/get_switches_power_state)
+#                                unexplained_down = down - off_dpids   -> the ONLY failure path
+#   DeviceConfigurationAndPowerManager.cpp:305 queryMininet: result[sip] = (isUp ? 'ON' : 'OFF')
+#   => in MININET both sides read the SAME VertexProperty::isUp, so unexplained_down is
+#      structurally empty and the check can only ever say 'accounted for'.
+# Test by DISCRIMINATION: kill one switch WITHOUT commanding a power-off, command another off,
+# and look for any field anywhere that differs.
+2026-09-03T01:01:17+08:00
+
+--- 0. take the Energy-Saving-App out of the way first (persona trap: 'find out who did it') ---
+  ok  energy stopped
+stop_energy_rc=0
+  ok  sim stopped
+stop_sim_rc=0
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+--- dpid -> switch IP mapping, from the graph ---
+dpid 1 s1 ['11.123.168.192']
+dpid 2 s2 ['12.123.168.192']
+dpid 3 s3 ['13.123.168.192']
+dpid 4 s4 ['14.123.168.192']
+dpid 5 s5 ['15.123.168.192']
+dpid 6 s6 ['16.123.168.192']
+dpid 7 s7 ['17.123.168.192']
+dpid 8 s8 ['18.123.168.192']
+dpid 9 s9 ['19.123.168.192']
+dpid 10 s10 ['20.123.168.192']
+--- baseline: all up, all ON ---
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+--- bmv2 procs ---
+10
+
+=== ARM 1: UNCOMMANDED DEATH of s9 (dpid 9, 192.168.123.19) ===
+# The kernel is NOT told. ndtwin-p4-power SIGTERMs the one pid the manifest names for s9,
+# after re-verifying comm + cmdline + gRPC port. No pkill, no name matching.
+# This is also T-15 / hunt item 6: the FIRST real run of tools/p4_power_helper.py.
+s9 manifest pid = 1213762
+1213762 1213589 root     simple_switch_g
+2026-09-03T01:01:46+08:00
+--- run the helper ---
+{"status": "stopped", "name": "s9", "pid": 1213762}
+
+real	0m0.240s
+user	0m0.025s
+sys	0m0.012s
+helper_rc=0
+--- SECOND CHANNEL: is that exact pid actually gone? ---
+pid 1213762 is gone (ps found nothing)
+--- is its gRPC port 30059 still accepting? ---
+port 30059 closed
+--- bmv2 process count ---
+9
+--- manifest entry for s9 after the helper ---
+{
+ "pid": null,
+ "device_id": 9,
+ "grpc_port": 30059,
+ "thrift_port": 9099,
+ "log_file": "/tmp/s9_bmv2.log",
+ "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s9-eth1 -i 2@s9-eth2 -i 3@s9-eth3 -i 4@s9-eth4 --thrift-port 9099 --device-id 9 /home/adam/
+--- POLL after the uncommanded death of s9 (1 Hz, 120 s). t=0 is the start of this poll,
+    which begins ~2 s after the helper returned 'stopped' at 01:01:46 ---
+(the piped poll above was killed by my own 120 s tool timeout before it flushed -- no data;
+ re-run below writes straight to a file. The kill itself stands: s9 died at 01:01:46.)
+--- state ~2.5 min after the uncommanded death, sampled now ---
+2026-09-03T01:04:23+08:00
+dpid=1   is_up=True is_enabled=True down_reason=none
+dpid=2   is_up=True is_enabled=True down_reason=none
+dpid=3   is_up=True is_enabled=True down_reason=none
+dpid=4   is_up=True is_enabled=True down_reason=none
+dpid=5   is_up=True is_enabled=True down_reason=none
+dpid=6   is_up=True is_enabled=True down_reason=none
+dpid=7   is_up=True is_enabled=True down_reason=none
+dpid=8   is_up=True is_enabled=True down_reason=none
+dpid=9   is_up=True is_enabled=True down_reason=none
+dpid=10  is_up=True is_enabled=True down_reason=none
+edges down: 8 of 40
+  down edge 5 3 -> 9 1 reason none
+  down edge 6 3 -> 9 2 reason none
+  down edge 7 3 -> 9 3 reason none
+  down edge 8 3 -> 9 4 reason none
+  down edge 9 1 -> 5 3 reason none
+  down edge 9 2 -> 6 3 reason none
+  down edge 9 3 -> 7 3 reason none
+  down edge 9 4 -> 8 3 reason none
+--- power state ---
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+
+=== THE FINDING, sampled 2m34s after s9's process was proven gone ===
+  dpid 9: is_up=True  is_enabled=True  down_reason=none
+  /ndt/get_switches_power_state -> 192.168.123.19 : "ON"
+  ...while ps says the pid is gone, ss says :30059 is closed, and 9 bmv2 processes exist.
+  All 8 edges incident to s9 ARE down (down_reason=none), so the twin noticed the LINKS
+  and never the SWITCH.
+
+--- host vertices, to see whether the F-14 switch-unreachable derivation fired at all ---
+host dpid=0 name=h1 is_up=True down_reason=none
+host dpid=0 name=h2 is_up=True down_reason=none
+host dpid=0 name=h3 is_up=True down_reason=none
+host dpid=0 name=h4 is_up=True down_reason=none
+
+=== A-8 CHECK, run while s9 is provably dead and NOT commanded off (arm 1) ===
+# command: python3 tools/contract_test/run_contract_test.py --url http://localhost:8000 \
+#            --topology setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+2026-09-03T01:05:03+08:00
+A8_ARM1_RC=1
+
+=== WHY the twin never noticed: the proxy's own liveness view of dpid 9 ===
+# DeviceConfigurationAndPowerManager::p4LivenessFor reads this. probe_ok true => Up.
+2026-09-03T01:06:03+08:00
+probe_interval_s 2.0
+dpid=1   probe_ok=True probe_age_s=1.759 last_lldp_age_s=4.356 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=2   probe_ok=True probe_age_s=1.759 last_lldp_age_s=4.358 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=3   probe_ok=True probe_age_s=1.758 last_lldp_age_s=4.359 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=4   probe_ok=True probe_age_s=1.757 last_lldp_age_s=4.357 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=5   probe_ok=True probe_age_s=1.757 last_lldp_age_s=4.356 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=6   probe_ok=True probe_age_s=1.756 last_lldp_age_s=4.356 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=7   probe_ok=True probe_age_s=1.756 last_lldp_age_s=4.356 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=8   probe_ok=True probe_age_s=1.756 last_lldp_age_s=4.357 stream_alive=True detail='answered GetForwardingPipelineConfig'
+dpid=9   probe_ok=False probe_age_s=1.756 last_lldp_age_s=259.417 stream_alive=False detail='UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv6:%5B::1%5D:30059: tcp handshaker shutdown'
+dpid=10  probe_ok=True probe_age_s=1.755 last_lldp_age_s=4.356 stream_alive=True detail='answered GetForwardingPipelineConfig'
+
+=== ROOT CAUSE: the bmv2 liveness path never runs. Evidence chain. ===
+1. DeviceConfigurationAndPowerManager.cpp:675 gates the liveness fetch on m_dataPlaneIsBmv2:
+     if (m_mode == MININET && m_dataPlaneIsBmv2) p4SwitchState = fetchP4SwitchState();
+   fetchP4SwitchState issues  GET http://<proxy>/p4/switch_state  (buildSwitchStateCommand).
+2. Proxy access log for the WHOLE life of this fabric: 2 requests to /p4/switch_state,
+   and both are mine (curl from ports 60434 and 59126). The kernel issued ZERO,
+   against 154 GET /v1.0/... and 94 GET /stats/flow/<n> per switch in the same window.
+3. Kernel log contains 0 'cannot read bmv2 liveness from the proxy' warnings, so it did
+   not try and fail -- it never tried. => m_dataPlaneIsBmv2 is FALSE at runtime.
+4. It is false because of a STARTUP RACE between two threads:
+     TopologyAndFlowMonitor::run()  (cpp:2507)
+         loadStaticTopologyFromFile()  <- populates m_dpidToSwitchKind at cpp:309
+         initializeMappingsFromGraph()
+         configureTopologyApiUrls()    <- same all-bmv2 predicate
+     DeviceConfigurationAndPowerManager::start() (cpp:124) calls refreshDataPlaneKind(),
+     which reads m_dpidToSwitchKind ONCE and caches the answer for the process lifetime
+     (header:704 'Cached once by refreshDataPlaneKind()').
+   Live timestamps from THIS run's kernel.log:
+     00:48:22.689  TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+     00:48:22.690  DeviceConfigurationAndPowerManager.cpp:121 start] ...Starts Up   <- refreshDataPlaneKind() here
+     00:48:22.692  TopologyAndFlowMonitor.cpp:145 configureTopologyApiUrls] All-bmv2 topology: polling ...
+   The identical predicate answered TRUE 2 ms after refreshDataPlaneKind() answered FALSE.
+   The source comment at cpp:122 asserts the opposite: 'The topology is loaded by
+   TopologyAndFlowMonitor before this runs, so the switch-kind index is populated by now.'
+5. Consequence: p4LivenessFor() always receives nullopt -> Unknown -> the graph is never
+   written. On the P4 plane the twin has NO switch-liveness detection at all.
+   Note the proxy HAD the right answer the whole time (probe_ok=false, probe_age_s=1.756,
+   last_lldp_age_s=259.4, stream_alive=false), which p4LivenessFor's own policy maps to
+   Down (probe fresh < kProbeStaleSeconds=15, LLDP stale > kLldpFreshSeconds=12).
+
+--- was any PREVIOUS run different? (is this deterministic or a race that sometimes wins?) ---
+.test_run/logs/p4_proxy.log                   /p4/switch_state requests: 2
+.test_run/logs/p4_proxy.log.prev              /p4/switch_state requests: 4
+.test_run/logs/p4_proxy.log.prev2             /p4/switch_state requests: 0
+.test_run/logs/p4_proxy.restart.log           /p4/switch_state requests: 1
+
+=== ARM 1 RESULT: 260 samples over 270 s (plus the 2m34s before the poll started) ===
+  dpid 9: is_up=True is_enabled=True down_reason=none power_state=ON  -- ONE state, no transition.
+  ~7.5 minutes of a switch whose process is provably gone, reported as up and powered ON.
+  raw: raw/09_arm1_poll.tsv
+
+=== ARM 2: COMMANDED power-off of s7 (dpid 7, 192.168.123.17) -- the control ===
+s7 manifest pid before = 1213760
+2026-09-03T01:09:44+08:00
+--- POST /ndt/set_switches_power_state?ip=192.168.123.17&action=off ---
+http=200 total=0.236380s
+body: {"192.168.123.17":"Success"}
+--- SECOND CHANNEL: is s7's exact pid gone, and its gRPC port closed? ---
+pid 1213760 is gone
+port 30057 closed
+bmv2 procs: 8
+--- immediate twin view of BOTH: dpid 7 (commanded) vs dpid 9 (uncommanded) ---
+dpid=7 is_up=False is_enabled=True down_reason=none
+dpid=9 is_up=True is_enabled=True down_reason=none
+power_state dpid7 (192.168.123.17): OFF
+power_state dpid9 (192.168.123.19): ON
+
+=== A-8 CHECK with dpid 7 commanded OFF and dpid 9 dead-but-uncommanded, side by side ===
+A8_ARM2_RC=1   (raw/09_a8_arm2.log)
+6:  power    : powered off: [7]
+22:           accounted for: 1 switch(es) are down/disabled because /ndt/get_switches_power_state reports them OFF: s7(dpid=7) -- a powered-down switch is the Energy-Saving-App doing its job
+23:           accounted for: 8 edge(s) are down/disabled because they are incident to a switch /ndt/get_switches_power_state reports OFF
+65:39/40 passed in 0.0s
+67:FAILED checks: get_graph_data
+
+=== THE DISCRIMINATION TABLE -- both processes are provably gone (ps + ss verified) ===
+                              dpid 7 (commanded off)   dpid 9 (uncommanded death)
+  bmv2 process                gone                     gone
+  gRPC port                   closed (30057)           closed (30059)
+  graph is_up                 False                    True
+  graph is_enabled            True                     True
+  graph down_reason           none                     none
+  get_switches_power_state    OFF                      ON
+  A-8 inv_all_switches_up     'accounted for'          says NOTHING (not in 'down' at all)
+
+--- one more detail from raw/09_a8_arm2.log ---
+  The get_graph_data FAIL does list '6 edge(s) down/disabled: 5:3->9:1, 6:3->9:2, 8:3->9:4,
+  9:1->5:3, 9:2->6:3 (+1 more)'. So the EDGE-level invariant does see the dead switch.
+  Two of s9's eight edges (7:3->9:3, 9:3->7:3) were laundered into the 'accounted for: 8
+  edge(s)' bucket merely because their other end is the legitimately-off s7. And the
+  signal sits inside a FAIL dominated by ten A-4f telemetry-silence lines.
+  The SWITCH-level invariant -- the one A-8 is about -- says nothing at all.

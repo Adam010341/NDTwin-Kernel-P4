@@ -1,0 +1,50 @@
+#### 02: quiet cell -- baseline graph, power state, manifest, before anything is touched ####
+2026-09-03T00:50:30+08:00
+--- /ndt/get_switches_power_state ---
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+--- graph: dpid / is_up / is_enabled / down_reason ---
+dpid=1   name=s1     is_up=True is_enabled=True down_reason=none
+dpid=2   name=s2     is_up=True is_enabled=True down_reason=none
+dpid=3   name=s3     is_up=True is_enabled=True down_reason=none
+dpid=4   name=s4     is_up=True is_enabled=True down_reason=none
+dpid=5   name=s5     is_up=True is_enabled=True down_reason=none
+dpid=6   name=s6     is_up=True is_enabled=True down_reason=none
+dpid=7   name=s7     is_up=True is_enabled=True down_reason=none
+dpid=8   name=s8     is_up=True is_enabled=True down_reason=none
+dpid=9   name=s9     is_up=True is_enabled=True down_reason=none
+dpid=10  name=s10    is_up=True is_enabled=True down_reason=none
+edges 40 up 40
+--- manifest /tmp/ndtwin_p4_switches.json ---
+Expecting value: line 1 column 1 (char 0)
+--- bmv2 process count (comm, not -f) ---
+10
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8891        2272        1045        5639        6521
+Swap:          20479        6174       14305
+--- manifest (world-readable; no sudo needed) ---
+<class 'dict'> ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10']
+{
+ "s1": {
+  "pid": 1213754,
+  "device_id": 1,
+  "grpc_port": 30051,
+  "thrift_port": 9091,
+  "log_file": "/tmp/s1_bmv2.log",
+  "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s1-eth3 -i 1@s1-eth1 -i 2@s1-eth2 --thrift-port 9091 --device-id 1 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:30051 --cpu-port 255"
+ },
+ "s2": {
+  "pid": 1213755,
+  "device_id": 2,
+  "grpc_port": 30052,
+  "thrift_port": 9092,
+  "log_file": "/tmp/s2_bmv2.log",
+  "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s2-eth3 -i 1@s2-eth1 -i 2@s2-eth2 --thrift-port 9092 --device-id 2 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:30052 --cpu-port 255"
+ },
+ "s3": {
+  "pid": 1213756,
+  "device_id": 3,
+  "grpc_port": 30053,
+  "thrift_port": 9093,
+  "log_file": "/tmp/s3_bmv2.log",
+  "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s3-eth3 -i 1@s3-eth1 -i 2@s3-eth2 --thrift-port 9093 --device-id 3 /home/adam/Desktop/NDTwin-Kernel/p4_prox

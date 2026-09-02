@@ -1,0 +1,138 @@
+#### 03: telemetry control on the P4 plane -- does utilisation move at all here? ####
+# This is the control that separates round 1 lead A's two hypotheses. On ovs4 (round 1 D4)
+# no sFlow exists, so utilisation is structurally 0. If it moves here, the P4 plane is a
+# working input and the Energy app's behaviour here is about its LOGIC, not its input.
+2026-09-03T00:52:48+08:00
+h1 ns=1213552  h2 ns=1213555
+--- BEFORE: avg_link_usage at idle ---
+{"avg_link_usage":0.0,"status":"success"}
+--- DURING traffic (t+25s): avg_link_usage ---
+{"avg_link_usage":0.33493226025,"status":"success"}
+--- per-edge utilisation, non-zero only ---
+edges with utilisation > 0: 0
+--- detected flow data count ---
+flows detected: 2
+[
+ {
+  "dst_ip": 33554442,
+  "dst_port": 5201,
+  "ended_at_ms": 1788368009240,
+  "estimated_flow_sending_rate_bps_in_the_last_sec": 650107562,
+  "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot": 625302186,
+  "estimated_packet_rate_in_the_last_sec": 53674,
+  "estimated_packet_rate_in_the_proceeding_1sec_timeslot": 51626,
+  "first_sampled_time": "2026-09-03 00:52:49",
+  "last_seen_ms": 1788367994240,
+  "latest_sampled_time": "2026-09-03 00:53:14",
+  "liveness": "active",
+  "path": [
+   {
+    "interface": 3,
+    "node": 16777226
+   },
+   {
+    "interface": 1,
+    "node": 1
+   },
+   {
+    "interface": 2,
+    "node": 5
+   },
+   {
+    "interface": 3,
+    "node": 2
+   },
+   {
+    "interface": 0,
+    "node": 33554442
+   }
+  ],
+  "protocol_id": 6,
+  "src_ip": 16777226,
+  "src_port": 45806
+ },
+ {
+  "dst_ip": 16777226,
+  "dst_port": 45806,
+  "ended_at_ms": 1788368009239,
+  "estimated_flow_sending_rate_bps_in_the_last_sec": 13307904,
+  "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot": 13217792,
+  "estimated_packet_rate_in_the_last_sec": 25173,
+  "estimated_packet_rate_in_the_proceeding_1sec_timeslot": 25002,
+  "first_sampled_time": "2026-09-03 00:52:49",
+  "last_seen_ms": 1788367994239,
+  "latest_sampled_time": "2026-09-03 00:53:14",
+  "liveness": "active",
+  "path": [
+   {
+    "interface": 3,
+    "node": 33554442
+   },
+   {
+    "interface": 1,
+    "node": 2
+   },
+   {
+    "interface": 1,
+    "node": 5
+   },
+   {
+    "interface": 3,
+    "node": 1
+   },
+   {
+    "interface": 0,
+    "node": 16777226
+   }
+  ],
+  "protocol_id": 6,
+  "src_ip": 33554442,
+  "src_port": 5201
+ }
+]
+--- edge JSON keys, verbatim (guard against 'we failed to ask' being read as 'it said 0') ---
+edge keys: ['admin_disabled', 'agent_last_sample_age_seconds', 'down_reason', 'dst_dpid', 'dst_interface', 'dst_ip', 'flow_set', 'is_enabled', 'is_up', 'last_sample_age_seconds', 'left_link_bandwidth_bps', 'left_link_bandwidth_source', 'link_bandwidth_bps', 'link_bandwidth_usage_bps', 'link_bandwidth_utilization_percent', 'src_dpid', 'src_interface', 'src_ip', 'telemetry_status']
+sample edge: {
+ "admin_disabled": false,
+ "agent_last_sample_age_seconds": 0.006,
+ "down_reason": "none",
+ "dst_dpid": 5,
+ "dst_interface": 1,
+ "dst_ip": [
+  259762368
+ ],
+ "flow_set": [
+  {
+   "dst_ip": 33554442,
+   "dst_port": 5201,
+   "protocol_number": 6,
+   "src_ip": 16777226,
+   "src_port": 45806
+  }
+ ],
+ "is_enabled": true,
+ "is_up": true,
+ "last_sample_age_seconds": 0.006,
+ "left_link_bandwidth_bps": 395553149,
+ "left_link_bandwidth_source": "measured",
+ "link_bandwidth_bps": 1000000000,
+ "link_bandwidth_usage_bps": 604446851,
+ "link_bandwidth_utilization_percent": 60.44468510000001,
+ "src_dpid": 1,
+ "src_interface": 1,
+ "src_ip": [
+  192653504
+ ],
+ "telemetry_status": "live"
+}
+utilisation-ish key non-zero counts: {('link_bandwidth_utilization_percent', True): 8, ('link_bandwidth_utilization_percent', False): 32}
+
+CORRECTION, in place: my first probe above filtered on key 'link_bandwidth_utilization',
+which DOES NOT EXIST in this response, and printed 'edges with utilisation > 0: 0'.
+That was 'we failed to ask', not 'the twin said 0'. The real key is
+'link_bandwidth_utilization_percent' and 8 of 40 edges are non-zero (peak 60.44% on s1:1->s5:1).
+VERDICT for this step: the P4 plane HAS a working link-utilisation input. Round 1's D4
+(no sFlow, structurally zero) is ovs4-specific and does NOT apply here.
+Caveat (COMMON-BRIEF section 11): the per-FLOW rates printed above (650 Mbps) are not divided by
+elapsed time and are overstated; the per-LINK figures used for the energy decision are not
+affected by that bias.

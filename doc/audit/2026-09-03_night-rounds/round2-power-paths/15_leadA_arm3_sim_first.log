@@ -1,0 +1,67 @@
+#### 15: LEAD A closing arm -- Energy app started with the simulator ALREADY running ####
+# Arm 1 (04_): energy alone -> decision fires, 3 cases sent, all 502, app wedges (07_).
+# Arm 2 (06_): sim added to an ALREADY-WEDGED app -> still nothing, poisoned state.
+# Arm 3 (here): sim up first, then a FRESH energy app. If it powers a switch off, the chain
+#               works end to end and the only thing that was ever missing is the simulator.
+2026-09-03T01:34:07+08:00
+--- sim is listening on :9000 (checked). fabric before: ---
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+bmv2 procs: 10
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7377        3596        1039        5823        8034
+--- START energy ---
+  ok  energy started (tmux: energy)
+--- watch: power state + procs every 10 s for 200 s ---
+epoch	off_ips	procs	down_dpids
+1788370448	none	10	none
+1788370458	192.168.123.17	9	7
+1788370468	192.168.123.17	9	7
+1788370478	192.168.123.17	9	7
+1788370488	192.168.123.17	9	7
+1788370498	192.168.123.17	9	7
+1788370508	192.168.123.17,192.168.123.19	8	7,9
+1788370518	192.168.123.17,192.168.123.19	8	7,9
+1788370528	192.168.123.17,192.168.123.19	8	7,9
+1788370538	192.168.123.17,192.168.123.19	8	7,9
+1788370549	192.168.123.17,192.168.123.19	8	7,9
+1788370559	192.168.123.17,192.168.123.19	8	7,9
+1788370569	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370579	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370589	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370599	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370609	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370619	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370629	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+1788370639	192.168.123.15,192.168.123.17,192.168.123.19	7	5,7,9
+
+=== ARM 3 RESULT: the Energy-Saving-App REALLY POWERS SWITCHES OFF when the simulator is up. ===
+  10 -> 9 procs, s7 off  at ~01:34:18
+  9  -> 8 procs, s9 off  at ~01:35:08
+  8  -> 7 procs, s5 off  at ~01:36:09
+  MININET caveat: 'powered off' here means the graph flag plus a SIGTERM to the bmv2 process.
+  No wattage was measured. The saving figure such a run would produce is a model output (D14).
+
+  => LEAD A IS CLOSED. The chain works end to end. The only thing ever missing on ovs4 was the
+     Simulation-Platform-Manager. The 0.0% utilisation input was never the blocker -- it is on
+     the ACTING side of the threshold (04_).
+
+  In passing, from the app's own log: release_lock returns 412
+  {"detail":"Lock 'routing_lock' is not held","reason":"not_held"} -- the app releases a
+  lock it does not hold at the end of a cycle. Harmless here, noted not chased.
+
+--- STOP both apps ---
+  ok  energy stopped
+stop_energy_rc=0
+  ok  sim stopped
+stop_sim_rc=0
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+--- verified through a second channel: is anything still on :9000, and are the tmux sessions gone? ---
+:9000 free
+topo: 1 windows (created Thu Sep  3 00:48:13 2026)
+bmv2: 7  mininet: 14
+final: bmv2 procs 7

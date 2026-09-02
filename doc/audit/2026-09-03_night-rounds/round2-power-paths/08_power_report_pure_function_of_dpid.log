@@ -1,0 +1,21 @@
+#### 08: /ndt/get_power_report is a pure function of dpid -- verified by reimplementing the formula ####
+# DeviceConfigurationAndPowerManager.cpp:545 syntheticPowerMilliwattsFor(dpid):
+#   30000 + (splitmix64_finalizer(dpid + 0x9E3779B97F4A7C15) % 120000)   -- no input but dpid.
+# MININET caveat: this is a MODEL OUTPUT. No wattage is measured anywhere.
+2026-09-03T01:00:25+08:00
+--- live response ---
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+--- independently recomputed from the source formula, and compared ---
+dpid=1   api=92465    formula(dpid)=92465    MATCH
+dpid=2   api=98110    formula(dpid)=98110    MATCH
+dpid=3   api=49053    formula(dpid)=49053    MATCH
+dpid=4   api=73978    formula(dpid)=73978    MATCH
+dpid=5   api=68618    formula(dpid)=68618    MATCH
+dpid=6   api=100592   formula(dpid)=100592   MATCH
+dpid=7   api=44487    formula(dpid)=44487    MATCH
+dpid=8   api=147622   formula(dpid)=147622   MATCH
+dpid=9   api=142228   formula(dpid)=142228   MATCH
+dpid=10  api=33466    formula(dpid)=33466    MATCH
+
+mismatches: 0    -> 0 means the endpoint carries no information beyond the dpid
+keys present in each row: ['dpid', 'power_consumed']   -- note: no "source" field, nothing says it is synthetic

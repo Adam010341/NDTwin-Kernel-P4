@@ -1,0 +1,55 @@
+#### 10: hunt item 2 -- power a switch back ON. The recovery path against a twin that never noticed. ####
+# s9 is dead (uncommanded, 09_) and the twin still says is_up=True / power=ON.
+# P4PowerStrategy::powerOn:176 early-returns success when getVertexIsUp(node) is true and the
+# switch is not inside the post-power-off distrust window. s9 is not in that window -- the
+# window is only opened by this strategy's OWN powerOff (notePowerOff at :204), and nobody
+# commanded s9 off. Prediction: 200 Success, no command run, switch stays dead.
+2026-09-03T01:11:40+08:00
+--- BEFORE ---
+bmv2 procs: 8
+:30059 listeners: 0
+--- POST /ndt/set_switches_power_state?ip=192.168.123.19&action=on  (s9, dpid 9) ---
+http=200 total=0.000821s
+body: {"192.168.123.19":"Success"}
+--- AFTER: did anything actually start? ---
+bmv2 procs: 8
+:30059 STILL CLOSED
+manifest s9.pid: None
+proxy view of dpid 9:
+  probe_ok False stream_alive False detail UNAVAILABLE: failed to connect to all addresses; last error:
+
+=== RESULT: 200 {"192.168.123.19":"Success"} in 0.000821 s, and NOTHING happened. ===
+  8 bmv2 procs before and after, :30059 still closed, manifest pid still null, proxy still
+  reports the switch unreachable. For scale: the helper's real 'off' took 0.240 s and a real
+  'on' has to run the helper AND a readopt, so 0.8 ms is the early-return at powerOn:176.
+  Composed with D15: a switch that dies on its own can NEVER be recovered through the twin's
+  API, because the API believes it is already up and the belief is never corrected.
+
+=== hunt item 2, the CLEAN arm: power s7 (dpid 7) back on. The twin knows it is off. ===
+2026-09-03T01:12:02+08:00
+--- POST action=on for 192.168.123.17 ---
+http=200 total=1.480494s
+body: {"192.168.123.17":"Success"}
+--- AFTER ---
+bmv2 procs: 9
+:30057 OPEN
+  dpid=7 is_up=True is_enabled=True
+  dpid=9 is_up=True is_enabled=True
+  edges down: 14 of 40
+
+  CONTRAST: the clean recovery took 1.480 s and moved the process count 8 -> 9 with :30057
+  open. The undetected-death recovery took 0.000821 s and moved nothing. Same endpoint.
+
+=== restoring s9 OUT OF BAND (the twin's own API cannot do it -- that is the finding) ===
+2026-09-03T01:12:17+08:00
+--- sudo -n ndtwin-p4-power on s9 ---
+{"status": "started", "name": "s9", "pid": 1237739}
+
+real	0m0.239s
+user	0m0.026s
+sys	0m0.012s
+helper_rc=0
+--- proxy readopt for dpid 9 (pipeline/mastership/clone/routes) ---
+{"status":"success","dpid":9,"clone_session":true,"routes_installed":0,"routes_attempted":0,"routes_pending":true,"note":"adopted, but no route was installable yet: this switch's links are still down, so no path crosses it. The link watchdog installs them when the beacons resume."}
+http=200 total=1.019005s
+bmv2 procs: 10

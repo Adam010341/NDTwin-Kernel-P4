@@ -1,0 +1,47 @@
+#### 06: LEAD A, arm 2 -- add the Simulation-Platform-Manager. Does the app now power a switch off? ####
+# Arm 1 (log 04) = energy alone: decision fires, 3 cases sent, all 502. Arm 2 = same fabric, same
+# app, sim added. The ONLY change is the simulator. If a switch now goes off, the blocker is proven.
+2026-09-03T00:56:17+08:00
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7492        3669        1044        5640        7920
+Swap:          20479        6171       14308
+--- BEFORE: power state ---
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+--- bmv2 process count before ---
+10
+--- START sim ---
+  ok  sim started (tmux: sim)
+start_rc=0
+LISTEN 0      4096         0.0.0.0:9000       0.0.0.0:*          
+apps
+  energy   running   Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      running   Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+--- WATCH: power state + bmv2 process count, every 10 s for 240 s (4 app cycles at 60 s) ---
+epoch	iso	off_ips	bmv2_procs	graph_down_dpids
+1788368198	2026-09-03T00:56:38+08:00	none	10	none
+1788368208	2026-09-03T00:56:48+08:00	none	10	none
+1788368218	2026-09-03T00:56:58+08:00	none	10	none
+1788368228	2026-09-03T00:57:08+08:00	none	10	none
+1788368238	2026-09-03T00:57:18+08:00	none	10	none
+1788368248	2026-09-03T00:57:28+08:00	none	10	none
+1788368258	2026-09-03T00:57:38+08:00	none	10	none
+1788368268	2026-09-03T00:57:48+08:00	none	10	none
+1788368278	2026-09-03T00:57:58+08:00	none	10	none
+1788368288	2026-09-03T00:58:08+08:00	none	10	none
+1788368298	2026-09-03T00:58:18+08:00	none	10	none
+1788368308	2026-09-03T00:58:28+08:00	none	10	none
+1788368318	2026-09-03T00:58:38+08:00	none	10	none
+1788368328	2026-09-03T00:58:48+08:00	none	10	none
+1788368339	2026-09-03T00:58:59+08:00	none	10	none
+1788368349	2026-09-03T00:59:09+08:00	none	10	none
+1788368359	2026-09-03T00:59:19+08:00	none	10	none
+1788368369	2026-09-03T00:59:29+08:00	none	10	none
+1788368379	2026-09-03T00:59:39+08:00	none	10	none
+1788368389	2026-09-03T00:59:49+08:00	none	10	none
+1788368399	2026-09-03T00:59:59+08:00	none	10	none
+1788368409	2026-09-03T01:00:09+08:00	none	10	none
+1788368419	2026-09-03T01:00:19+08:00	none	10	none
+1788368429	2026-09-03T01:00:29+08:00	none	10	none

@@ -1,0 +1,74 @@
+#### 11: hunt item 1 -- power off a switch that is CARRYING traffic, measured from the packets ####
+2026-09-03T01:13:04+08:00
+--- convergence check after the s7/s9 restore ---
+switches up: 10 edges up: 40 of 40
+=== GROUND TRUTH BEFORE: s1's own ipv4_lpm table, read with bmv2's own CLI (thrift 9091) ===
+
+=== start ping h1 -> 10.0.0.2 at 10 Hz, timestamped ===
+--- the twin's view of the flow path while it is healthy ---
+
+=== T_OFF=1788369228.566640177  POST set_switches_power_state?ip=192.168.123.15&action=off  (s5, on the h1->h2 path) ===
+{"192.168.123.15":"Success"} http=200 total=0.236655s
+T_DONE=1788369228.810757272  (api call took .244117095 s)
+bmv2 procs: 9
+
+--- letting traffic run 100 s past the power-off ---
+=== GROUND TRUTH AFTER: s1's own ipv4_lpm table ===
+
+--- twin: graph + path view after ---
+  dpid=1 is_up=True is_enabled=True down_reason=none
+  dpid=2 is_up=True is_enabled=True down_reason=none
+  dpid=3 is_up=True is_enabled=True down_reason=none
+  dpid=4 is_up=True is_enabled=True down_reason=none
+  dpid=5 is_up=False is_enabled=True down_reason=none
+  dpid=6 is_up=True is_enabled=True down_reason=none
+  dpid=7 is_up=True is_enabled=True down_reason=none
+  dpid=8 is_up=True is_enabled=True down_reason=none
+  dpid=9 is_up=True is_enabled=True down_reason=none
+  dpid=10 is_up=True is_enabled=True down_reason=none
+  edges up: 32 of 40
+  detected flows: 0
+--- stop the ping (exact pid) ---
+ping pid=1238769
+ping stopped
+DONE
+
+=== ANALYSIS of raw/11_ping.txt against T_OFF (10 Hz ICMP, h1 -> 10.0.0.2) ===
+replies: 977   seq range 1..1112   missing: 135
+t_off = 1788369228.567
+last reply BEFORE power-off : 1788369228.555  (+0.012 s relative)
+first reply AFTER power-off : 1788369242.697  (+14.131 s relative)
+=> BLACK-HOLE WINDOW measured from the packets: 14.142 s
+gaps > 1 s: [('1788369228.555', '14.142s')]
+
+  NOTE on the two blank sections above: my 'GROUND TRUTH BEFORE' sed filter did not match
+  simple_switch_CLI's output format, and get_detected_flow_data listed no ICMP flow. Neither
+  is a measurement of the system -- they are my instrument failing to ask. Corrected in 12_,
+  which repeats the whole sequence with a working dump on both sides.
+
+=== s1's own ipv4_lpm table AFTER the power-off (bmv2 CLI, thrift 9091) ===
+TABLE ENTRIES
+**********
+Dumping entry 0x0
+Match key:
+* ipv4.dstAddr        : LPM       0a000001/32
+Action entry: MyIngress.ipv4_forward - 01, 03
+**********
+Dumping entry 0x1
+Match key:
+* ipv4.dstAddr        : LPM       0a000002/32
+Action entry: MyIngress.ipv4_forward - 02, 02
+**********
+Dumping entry 0x2
+Match key:
+* ipv4.dstAddr        : LPM       0a000003/32
+Action entry: MyIngress.ipv4_forward - 03, 02
+**********
+Dumping entry 0x3
+Match key:
+* ipv4.dstAddr        : LPM       0a000004/32
+Action entry: MyIngress.ipv4_forward - 04, 02
+==========
+Dumping default entry
+  s1 ports: 1 -> s5, 2 -> s6, 3 -> h1 (from the graph's edges 1:1->5:1, 1:2->6:1, 0:1->1:3).
+  So 10.0.0.2 now leaves s1 on port 2 = towards s6. The route was recomputed off the dead s5.
