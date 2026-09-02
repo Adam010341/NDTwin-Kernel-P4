@@ -165,12 +165,48 @@ VERDICT: every mutation was caught by the check named for it; the control surviv
 計數器為什麼不用 pgrep（`bmv2_count` 用 `ps -eo comm=`），它描述的行為沒有消失，**不需要改**。
 真正描述被移除行為的註解是 `cleanup` 區塊自己的那段，已隨修法改寫。
 
-**待 live 驗證**（需要真 fabric，claim 在 auditor 手上到 01:51）
+**待 live 驗證**（需要真 fabric）
+
+🔴 **L2 是必要條件，不是加分項——先讀下面「這支分支還沒被真實資料驗過什麼」。**
 
 - L1 真的跑一次 `sudo ndtwin-lab cleanup`，確認四行逐項輸出與 `cleanup done`。
-- L2 起一座 bmv2 再 cleanup，確認 `stopped simple_switch_grpc pid N` 且真的沒了。
+- 🔴 **L2 起一座真的 bmv2，先 `tr '\0' ' ' < /proc/<pid>/cmdline` 印出它的完整 argv**，
+  確認 `sweep_matches` 判得中（basename 或 `/pattern` 結尾），**再** cleanup，
+  確認 `stopped simple_switch_grpc pid N` 且真的沒了。
+  argv 要存進 audit-raw——它是這條修法唯一沒有被真實資料驗過的輸入。
 - L3 `ndtwin-lab status` 對照 `ndt status` 的 `bmv2_count`，兩個數要一致。
 - L4 旁邊開一個 `tail -f` 指到含 pattern 的檔名，cleanup 後確認它還活著。
+- L5 同樣對 `ntg_bmv2_topo.py` 與 `p4_testbed_topo.py` 各做一次 L2。
+
+### 🔴 這支分支還沒被真實資料驗過什麼（2026-09-03 03:30 自查）
+
+套用今晚剛談出來的那條判準——**鑑別力測試只證明它對你測過的輸入有鑑別力；
+若那些輸入抽自已涵蓋的集合，測試就照不出未涵蓋的部分**——回頭檢視我自己的測試：
+
+**`sweep_matches` 的每一個測試輸入都是我自己發明的命令列**（fixture 的 argv0、
+手寫的假 ps 行），**沒有一個抽自真的 bmv2／topology**。29 個 check 全綠證明的是
+「它對我想像中的命令列有鑑別力」。
+
+我在 03:25 對這台機器查了一次（唯讀），結果是 **bmv2 現在有 0 座**
+（`ps -eo pid=,comm=` 數 `simple_switch_g` ＝ 0，`ndt` 的 `bmv2_count` ＝ 0，
+我的 `sweep_count simple_switch_grpc` 也 ＝ 0，三者一致）——
+**空機器上三個方法都回 0，這對「它認不認得真的 bmv2」零鑑別力。**
+
+⇒ **風險具體化**：若真實的 `simple_switch_grpc` argv 形狀與我假設的不同
+（例如被包在某個 wrapper 底下、或執行檔名帶版本後綴），`sweep_find` 會**安靜地找不到它**，
+而 cleanup 會回報 `none simple_switch_grpc` ——
+**一個報告乾淨的掃除，正是這支分支存在的理由所反對的那種輸出。**
+L2 是唯一能關掉這個風險的檢查。
+
+### 附帶：一個當場撞到的自我比中實例（03:25，唯讀）
+
+查證的時候我自己寫了 `ps -eo args= | grep -c 'simple_switch_grpc'`，它回 **3**。
+真實數量是 **0**——那 3 全部是**自我比中**（grep 自己的 argv、`bash -c` 包裝、管線）。
+同一分鐘內，走 `comm` 的兩個方法都回 0。
+
+這是 `pgrep -f`／`ps | grep` 那條的一個現場實例，而且是我**在寫這條修法的同時**踩到的。
+`ndt` 檔頭 trap note 2 量到的是「10 座交換機報 11」；這次是「**0 座報 3**」——
+比例上更糟，因為分母是零時，自我比中就是全部的答案。
 
 ## 6. 回退
 
