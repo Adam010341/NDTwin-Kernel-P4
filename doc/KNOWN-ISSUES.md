@@ -1660,7 +1660,13 @@ E9（top-k 成員/排序/速率全對，`bps ÷ pps` 分毫不差）、E11（`--
 
 ### 🔴 CPU 汙染閘門有三個洞，其中一個讓「全部由短命行程造成的汙染」讀起來像安靜
 
-- **狀態**：**已知、未修**（2026-09-01）。E 輪 72 格全程依賴這支閘門，**且它的判讀已寫進該輪報告的口徑**。
+- **狀態**：🏁 **碼落地、變異閘過、live 待驗**（2026-09-02，`94e3c4b6`）。三段分開讀，**不標「已修」也不標「未修」**（Adam 09-02 裁決：live 待驗的東西進獨立佇列）：
+  - **碼落地**：三個洞一起關——壽命盲＝從 `/proc/<pid>/stat` 起始時刻回推、窗內起的行程**全額計入**；截切改成**只管列印不管加總**；身分改成 `(pid, starttime)`（`comm` 是核心會改寫的標籤，改名的 kworker 不是回收的 pid）。`foreign_cores` 改名 **`foreign_cores_attributable`**、新增 **`unattributed_cores`**（busy − 所有能指名的，是**上界不是歸屬**，永不折進總量）與 **`suspect`**；`UNACCOUNTED-SHORT-LIVED` 那一行**每次都印**，含零。suspect 刻意**不是第四個 exit code**。
+  - **變異閘過**：`tests/shell/mutate_cpu_gate_lifetime.sh` **11/11** 全抓（22 顆 unittest，fixture procfs 樹；起始時刻的欄位索引另對真 `/proc` 驗過，fixture 不能跟錯的 parser 互相同意）；接線的 `mutate_cell_gate_suspect_wiring.sh` **6/6**（12 個 case）。🔑 兩支 harness 都把「變異沒套上」「測試根本沒跑」與「存活」**分開報**——第二支第一次跑就靠這個抓到 harness 自己的錯（perl 替換字串漏了擷取群組、把 `lib_e.sh` 弄壞、測試在 source 就死、被讀成 SURVIVED）。
+  - **配對驗收已在實機跑過**（`cpu_gate.lifetime-acceptance.log`：648 個短命子行程、約 3.6 核）：舊閘 **excess 0.007 GREEN**；新閘 GREEN 但 **suspect=true unattributed=3.635**。`acceptance.sh` 現在從 git 拉修法前版本 `6a28e81d`，其 sha256 `897b8996…` **與 log 記的一致**。
+  - **接線**：`lib_e.sh:cell_cpu_gate_finish` 讀 `suspect`／`unattributed_cores`；suspect 的格、以及 **record 裡根本沒有 `suspect` 欄位的格**（＝舊版閘門寫的、從沒看過的），都記進 `cell_cpu/SUSPECT_CELLS`，**不 abort**。缺一個警告不等於乾淨——那是哨兵值那條的形狀。
+  - 🔴 **live 待驗，原因**：接線只在單元測試與變異閘下執行過。E 輪 72 格已收工、F5 未開跑，**沒有任何活的輪次跑過這條接線**；下一個用 `lib_e.sh` 的活輪次才是第一次。⚠️ 而 E 輪報告引用的 72 格 gate 判讀**是舊閘門給的**——那些 GREEN 沒有 `suspect` 欄位，依上面的規則全部是 UNKNOWN，不是 quiet。
+  - 🗄️ 原狀態：「已知、未修（2026-09-01）。E 輪 72 格全程依賴這支閘門，且它的判讀已寫進該輪報告的口徑。」——後半句照舊成立，見上一點。
 - **位置**：`doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py`。
 - **三個洞**（按嚴重度）：
   1. 🔴 **壽命盲**（`:176` `if pid not in a: continue`）：閘門取前後兩張 `/proc` 快照做差分，
