@@ -2395,6 +2395,32 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ---
 
+### G-10 🔴 `testbed_topo.py` 的內建自我檢測 128 對 ping 全部失敗，而結尾 banner 照印三個 `OK`
+
+- **狀態**：**已知、未修**（2026-09-03 登記）。出處：`doc/audit/2026-09-02_manual-usertest/run-04-sonnet/`（run-04 BUG-2）與 `doc/audit/2026-09-02_manual-usertest/prep5-ovs-without-p4/REPORT.md` §F3（A-8）。
+- **現象**：`sudo python3 testbed_topo.py` 內建的自我檢測對 128 對主機各發一次 ping，
+  **128 對全部回報 `1 packets transmitted, 0 received, 100% packet loss`**，
+  而它結尾仍然印出
+  `Host internet: OK | sFlow reachability: OK | Switch identification: OK`。
+- **機制**：那三個 `OK` 是**字串常數，與 ping 結果沒有任何關聯**
+  （`testbed_topo.py:142-149`／`:245-246`）；而那批 ping 是在**路徑還在安裝的期間**跑的。
+- **反證**：收斂**之後**手動 ping 同一對主機是 **4/4、0% loss**
+  （A-8：`h1→h2` avg 0.155 ms、`h1→h100` avg 0.387 ms）。⇒ 網路沒問題，**是自我檢測在說謊**。
+- 🔑 **為什麼可以跳過「再驗一輪」直接登記**：**兩個獨立觀測**——
+  run-04（sonnet，一台裝過 §6 的機器）與 A-8（prep5，一台**從沒見過 P4**、
+  且 `testbed_topo.py` 是不同版本的機器）**各重現一次**，run-04 那次還在兩次獨立重啟＋
+  NTG 自己那份副本上都重現。**兩台不同機器、兩份不同的碼、同一個假成功**
+  ⇒ 它不是環境造成的，是那段程式本身。**這句寫在這裡，是為了讓後面的人知道
+  我們沒有省略驗證步驟，而是已經有兩個獨立來源。**
+- ⚠️ **為什麼歸在 G 區（會製造假的測試結果）而不是 B 區**：讀者不會因為它而失敗，
+  但會因為它而**相信一個假的結論**——先看到 128 個 `100% packet loss` 會以為 fabric 壞了而去 debug
+  不存在的問題，看到結尾三個 `OK` 又會以為沒事。**同一次執行同時給出兩個互相矛盾的訊號，
+  而兩個都不是真的。**
+- **修法候選**：banner 三欄各自由對應的檢測結果算出來；ping 那批延到路徑安裝完成之後再跑，
+  或明講它跑在收斂前、結果不可用。
+
+---
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |

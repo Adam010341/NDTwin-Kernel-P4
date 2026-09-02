@@ -226,6 +226,38 @@ So the log line is missing because this machine runs older controller code, not 
 manual is wrong. A user cloning the public repo would see the line.
 ⚠️ **This is a real confound and is recorded as one** — see "Caveats".
 
+### 🔴 Open item — we do not fully know what controller code prep5 was running
+
+Stated as open on purpose. The temptation is to write "probably some intermediate version";
+that would be a guess presented as provenance, and this campaign has spent the night
+separating those two.
+
+**What was checked, and did not match:**
+
+| Source | Result |
+|---|---|
+| prep5's own `HEAD` (`936f8c6`) | ✗ — HEAD carries the ~2084-line version; the working tree has 724 lines |
+| The published snapshot `20cd80b` (what a user clones) | ✗ — contains the `install_all_pair_paths done:` string; the guest's tree deleted it |
+| **Every blob of `intelligent_router.py` reachable from any ref in this repository** — all branches, all history, scanned by object size | ✗ — **no blob is 28333 bytes**. The file has 31 commits; the sizes range from 28961 (its first appearance) to 114953 (current `HEAD` of `trunk`) |
+
+**What that narrows it to.** 28333 bytes is **628 bytes smaller than the earliest version ever
+committed** (`6f32bcae`, 2026-07-23, 28961 B). Its sibling on the same machine,
+`testbed_topo.py`, matches `6f32bcae` **exactly**. Both files were last modified 2026-09-01
+05:57, four minutes after the 05:53 clone that built the A-2 clean room.
+
+⇒ **Hypothesis, labelled as one:** both files come from the `6f32bcae` era (2026-07-23), and this
+`intelligent_router.py` is a version from *before* it was first committed, or a lightly edited
+copy of one. **Not established** — no artefact was found that contains it.
+
+**What would settle it:** the A-2 clean-room build scripts or logs from 2026-09-01 05:53–05:57,
+which are the only record of what wrote those two files.
+
+**What this does and does not affect.** It does **not** touch A-8's conclusion: the decisive
+evidence is `ldd build/bin/ndtwin_kernel` — seven shared objects, zero matches for
+`grpc|protobuf|bm2|bmv2|p4|libpi` — which is a property of the compiled kernel and does not
+depend on either Python file. It **does** limit extrapolation: "a user following the manual would
+see this" needs a machine whose code we can name, and this is not one.
+
 ### F3 — `testbed_topo.py`'s own ping test reports 100% packet loss on all 128 pairs, then prints `Host internet: OK | sFlow reachability: OK | Switch identification: OK`
 **§6? No.** This is **run-04 BUG-2 reproducing exactly** — the banner's three `OK`s are string
 literals with no relation to the ping results, and the pings run during path installation. Our
@@ -299,8 +331,8 @@ Process discovery throughout used `/proc/*/comm` + `/proc/*/cmdline` and `ss -tl
    - `testbed_topo.py` (240 lines, sha256 `d842cfd2…`) matches the file **as of `6f32bcae`**
      (2026-07-23, "Add P4 switch support via routing/power strategy pattern") — found by hashing
      every historical version of that path across all local refs.
-   - `intelligent_router.py` (724 lines, sha256 `e8ca8236…`) matches **no version in our local
-     history** (31 commits scanned). Its origin is unresolved.
+   - `intelligent_router.py` (724 lines, 28333 bytes, sha256 `e8ca8236…`) matches **no version in
+     our local history**. Its origin is **an open item, not a guess** — see below.
 
    Both were last modified 2026-09-01 05:57, four minutes after the 05:53 clone, so this was done
    deliberately when the A-2 clean room was built — but I do not know by what or why, and I did
