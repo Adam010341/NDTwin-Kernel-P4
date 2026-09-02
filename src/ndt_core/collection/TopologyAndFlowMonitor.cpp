@@ -520,6 +520,111 @@ TopologyAndFlowMonitor::fetchTopologyEndpoint(const std::string& url)
     }
 }
 
+TopologyAndFlowMonitor::PollRoundKind
+TopologyAndFlowMonitor::classifyPollRound(bool switchesAnswered,
+                                          bool hostsAnswered,
+                                          bool linksAnswered)
+{
+    // [Co-developed with claude code -- Adam]
+    const int answered =
+        (switchesAnswered ? 1 : 0) + (hostsAnswered ? 1 : 0) + (linksAnswered ? 1 : 0);
+    if (answered == 3)
+    {
+        return PollRoundKind::Complete;
+    }
+    if (answered == 0)
+    {
+        return PollRoundKind::Silent;
+    }
+    return PollRoundKind::Partial;
+}
+
+bool
+TopologyAndFlowMonitor::shouldAnnouncePartialRound(PollRoundKind previous, PollRoundKind current)
+{
+    // [Co-developed with claude code -- Adam]
+    // Silent -> Partial counts as newly partial and is announced: the control plane came back far
+    // enough to start feeding the graph again, which is when the mixed-age problem *starts*, and
+    // the warning next to m_topologyFetchFailures will not fire for it because its run counter is
+    // already non-zero by then.
+    return current == PollRoundKind::Partial && previous != PollRoundKind::Partial;
+}
+
+/** @brief Records how complete this round was, and says so once when it turns partial.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * doc/KNOWN-ISSUES.md A-2, third uncovered item; 11_behavior-evidence.md §6 open question 3 asked
+ * whether a round should be all-or-nothing. It should not, and the reasons are worth keeping next
+ * to the code that declines to do it:
+ *
+ *   1. All three writers are monotone-up. updateSwitches sets isUp/isEnabled true and never false;
+ *      so does updateLinks; neither removes a vertex or an edge. A partial round therefore cannot
+ *      manufacture a "down" -- it can only fail to lift one. Discarding the half that answered
+ *      would throw away the only evidence available that those switches are up.
+ *   2. A-2's failure direction is pessimistic and silent: the twin showed 40 links down and 10
+ *      switches disabled while the fabric forwarded at 0% loss. Dropping a good switches reply
+ *      because links did not answer converts a partial answer into no answer, which is a move in
+ *      exactly that pessimistic direction. With /links wedged and /switches healthy -- which is
+ *      the observed Ryu wedge, since get_link is the blocking one -- all-or-nothing would mean
+ *      the twin never learns that any switch is up again.
+ *   3. There is no transaction to roll back. updateSwitches has already mutated the shared graph
+ *      under m_graphMutex before updateLinks runs. Real atomicity means building a shadow graph
+ *      and swapping it, across a mutex shared with the liveness worker and the REST layer. That
+ *      is a design change, not the smallest change that makes this observable.
+ *
+ * So the round is applied as before, and what is new is that it now says which kind of round it
+ * was. The line is edge-triggered and carries kPartialRoundToken so a scraper can count episodes.
+ */
+TopologyAndFlowMonitor::PollRoundKind
+TopologyAndFlowMonitor::noteAndAnnouncePollRound(const std::string& switchesBody,
+                                                 const std::string& hostsBody,
+                                                 const std::string& linksBody)
+{
+    // [Co-developed with claude code -- Adam]
+    // empty(), not "has no entries": "[]" is an answer. See the header for why that distinction
+    // is the whole difference between reporting a wedge and inventing one at every boot.
+    const bool switchesAnswered = !switchesBody.empty();
+    const bool hostsAnswered = !hostsBody.empty();
+    const bool linksAnswered = !linksBody.empty();
+
+    const PollRoundKind kind = classifyPollRound(switchesAnswered, hostsAnswered, linksAnswered);
+    const bool announce = shouldAnnouncePartialRound(m_lastPollRoundKind, kind);
+    m_lastPollRoundKind = kind;
+
+    if (announce)
+    {
+        // Named by role rather than by URL: the roles are what the reader has to reason about,
+        // and they stay the same when the poll is re-pointed at the P4 proxy.
+        std::string answered;
+        std::string missing;
+        const auto note = [&answered, &missing](const char* role, bool ok) {
+            std::string& bucket = ok ? answered : missing;
+            bucket += bucket.empty() ? "" : ", ";
+            bucket += role;
+        };
+        note("switches", switchesAnswered);
+        note("hosts", hostsAnswered);
+        note("links", linksAnswered);
+
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{}: {} answered and {} did not, and the half that answered was "
+                           "applied anyway. The graph now mixes this poll's {} with whatever {} "
+                           "was last seen at, and nothing downstream can tell those two ages "
+                           "apart. Applying the half is deliberate -- dropping it would be the "
+                           "pessimistic direction, which is the direction of this bug -- so the "
+                           "thing to fix is {}. Logged once per episode, not once per poll.",
+                           kPartialRoundToken,
+                           answered,
+                           missing,
+                           answered,
+                           missing,
+                           missing);
+    }
+
+    return kind;
+}
+
 void
 TopologyAndFlowMonitor::pollControlPlaneTopology()
 {
@@ -566,6 +671,14 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     noteIfSilent(m_ryuUrl[0], switchesStr);
     noteIfSilent(m_ryuUrl[1], hostsStr);
     noteIfSilent(m_ryuUrl[2], linksStr);
+
+    // [Co-developed with claude code -- Adam]
+    // A-2's third uncovered item. This changes nothing about what gets applied -- see
+    // noteAndAnnouncePollRound for why all-or-nothing would make this bug worse rather than
+    // better -- it only records which kind of round this was and says so once when a round starts
+    // producing a mixed-age graph. Called before updateGraph so lastPollRoundKind() describes the
+    // round whose data the graph is about to receive.
+    noteAndAnnouncePollRound(switchesStr, hostsStr, linksStr);
 
     // Edge-triggered: this poll repeats every 5-30s forever, so an unrecovered control plane would
     // otherwise write this line until the disk filled. The run is per pass rather than per

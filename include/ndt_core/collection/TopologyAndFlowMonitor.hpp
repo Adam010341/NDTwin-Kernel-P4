@@ -475,6 +475,97 @@ class TopologyAndFlowMonitor
     /// @see kTopologyConnectTimeoutSeconds
     static constexpr int kTopologyRequestTimeoutSeconds = 5;
 
+    /**
+     * @brief How much of one control-plane poll round answered.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md A-2, the third explicitly uncovered item. One round fetches switches,
+     * hosts and links as three separate requests, and updateSwitches/updateHosts/updateLinks each
+     * return early on an empty body -- so a round where only some endpoints answer still applies
+     * the part that did, leaving a graph assembled from replies of two different ages.
+     *
+     * That application policy is deliberately UNCHANGED. See noteAndAnnouncePollRound for why
+     * all-or-nothing is the wrong direction for this particular bug. What was missing is that the
+     * mixed-age graph was indistinguishable from one a complete round produced: nothing in the
+     * log and nothing in this object said which of the two had just happened.
+     */
+    enum class PollRoundKind
+    {
+        /// No round has finished yet. The initial value, and never a classification result --
+        /// starting at Silent would report a wedge before the first request had been made.
+        NotYetPolled,
+        Complete, ///< All three endpoints produced a body.
+        Partial,  ///< At least one produced a body and at least one did not.
+        Silent    ///< None produced a body. The control plane is not answering at all.
+    };
+
+    /**
+     * @brief Classifies one round from whether each endpoint produced a body.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Pure and static for the same reason as buildTopologyFetchCommand: the method around it
+     * needs a live control plane, so nothing inside that method can be asserted, but this rule
+     * can. Never returns NotYetPolled -- a finished round is one of the other three.
+     */
+    static PollRoundKind classifyPollRound(bool switchesAnswered,
+                                           bool hostsAnswered,
+                                           bool linksAnswered);
+
+    /**
+     * @brief Whether this round earns the partial-round line, given what the previous round was.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Edge-triggered, the same shape and for the same reason as m_topologyFetchFailures: this
+     * poll repeats every 5-30 s forever, and a control plane that stays half-wedged must not
+     * write a line per poll until the disk fills. A Silent round does not earn this line -- the
+     * warning next to m_topologyFetchFailures already owns that case, and saying it twice would
+     * make the two faults harder to tell apart rather than easier.
+     */
+    static bool shouldAnnouncePartialRound(PollRoundKind previous, PollRoundKind current);
+
+    /**
+     * @brief Records this round's completeness and announces a newly partial one.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Takes the three reply bodies rather than reading them from the poll, so a test can drive it
+     * with poll-shaped replies without standing up Ryu. Same seam pattern as the discovery
+     * writers above.
+     *
+     * 🔴 An empty body and an empty JSON list are NOT the same thing, and this is the one place
+     * the difference is decided. utils::execCommand returns curl's stdout and swallows its exit
+     * status, so a request that timed out yields "" while a fabric that genuinely has no links
+     * yields "[]" -- two bytes, and a perfectly good answer. An OVS fabric reports exactly that
+     * for as long as LLDP has not finished discovering, which is every boot. Keying silence on
+     * anything but `empty()` would turn that normal state into a reported fault, which is the
+     * mistake this file has already made in the other direction once.
+     *
+     * @return this round's kind, which is also what lastPollRoundKind() will now report.
+     */
+    PollRoundKind noteAndAnnouncePollRound(const std::string& switchesBody,
+                                           const std::string& hostsBody,
+                                           const std::string& linksBody);
+
+    /**
+     * @brief What the most recently finished poll round was; NotYetPolled before the first.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The readable half of the fix. The log line says a mixed-age graph was applied; this says so
+     * to anything that can hold a reference to the monitor, which is what a test can check and
+     * what a future /ndt/get_graph_data freshness field would read.
+     */
+    PollRoundKind lastPollRoundKind() const { return m_lastPollRoundKind; }
+
+    /**
+     * @brief The grep token on the partial-round line.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Named so a runbook, a log scraper and the test cannot drift apart -- but the test asserts
+     * the literal as well as this constant, because a test that only compares against this symbol
+     * would follow a rename and stay green while every existing scraper broke.
+     */
+    static constexpr const char* kPartialRoundToken = "topology-round-partial";
+
   private:
     void initializeMappingsFromGraph();
     void flushEdgeFlowLoop();
@@ -522,6 +613,11 @@ class TopologyAndFlowMonitor
     /// Never cleared, because there is no recovery anyone needs a second line about.
     /// Touched only by the polling thread.
     std::set<uint32_t> m_switchIpsOfferedAsHosts;
+
+    /// What the last finished poll round was. Read by lastPollRoundKind(), written by
+    /// noteAndAnnouncePollRound(), and -- like m_topologyFetchFailures above -- touched only by
+    /// the polling thread. [Co-developed with claude code -- Adam]
+    PollRoundKind m_lastPollRoundKind = PollRoundKind::NotYetPolled;
 
     std::atomic<bool> m_running{false};
 
