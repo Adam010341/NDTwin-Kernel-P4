@@ -376,7 +376,17 @@ is_running() {
 }
 
 stop_one() {
-    local name="$1" pidfile="$PID_DIR/$name.pid"
+    # [Co-developed with claude code -- Adam]
+    # Two statements, not one. `local name="$1" pidfile="$PID_DIR/$name.pid"` expands BOTH
+    # right-hand sides before the local builtin runs, so `$name` there is whatever `name` held in
+    # the CALLER, never the argument on this line. It has always worked only by coincidence: both
+    # call sites happen to have a `name` in scope holding the same value (cmd_down's loop
+    # variable, start_bg's local), so the wrong reading and the right one agreed. Called from
+    # anywhere else it either dies under `set -u` -- which is how this was found, from a test --
+    # or, with some other `name` in scope, quietly stops a DIFFERENT component while reporting
+    # the one it was asked for.
+    local name="$1"
+    local pidfile="$PID_DIR/$name.pid"
     [[ -f "$pidfile" ]] || return 0
 
     # Refuse to follow a symlink: with a predictable path an attacker could point the
