@@ -181,8 +181,14 @@ def same(a, b):
     return norm(a) == norm(b)
 
 
-def check(verbose=True):
-    """Reproduce both shipped models from the fabric of the other one. True if both match."""
+def check(verbose=True, out=None):
+    """Reproduce both shipped models from the fabric of the other one. True if both match.
+
+    `out` is where the round-trip report goes. It is a parameter rather than a bare `print`
+    because under --stdout this script's stdout is a JSON document and nothing else may be
+    written to it -- see main().
+    """
+    out = out or sys.stdout
     ok = True
     # Cross-sourced deliberately: build the 4-host model from the 128-host file's fabric and
     # vice versa. Same-source would pass even if the two fabrics had silently diverged.
@@ -195,14 +201,14 @@ def check(verbose=True):
         ok &= match
         if verbose:
             print(f"  {'ok  ' if match else 'FAIL'} {hosts:>3} hosts: rebuilt from "
-                  f"{other.name} == {path.name}")
+                  f"{other.name} == {path.name}", file=out)
         if not match and verbose:
             bn = {n["device_name"] for n in built["nodes"]}
             sn = {n["device_name"] for n in shipped["nodes"]}
             print(f"       nodes {len(built['nodes'])} vs {len(shipped['nodes'])}, "
-                  f"edges {len(built['edges'])} vs {len(shipped['edges'])}")
+                  f"edges {len(built['edges'])} vs {len(shipped['edges'])}", file=out)
             if bn ^ sn:
-                print(f"       differing node names: {sorted(bn ^ sn)[:8]}")
+                print(f"       differing node names: {sorted(bn ^ sn)[:8]}", file=out)
     return bool(ok)
 
 
@@ -221,16 +227,28 @@ def main():
     if not args.hosts and not args.check:
         ap.error("give --hosts, or --check")
 
-    print("round-trip against the shipped models:")
-    if not check():
+    # --stdout's documented use is a redirect: `tools/make_topology.py --hosts 16 --stdout > f`
+    # (the usage block above says so). It could not work, because the round-trip report and the
+    # per-size progress lines were printed to the same stdout as the JSON, so the redirect
+    # produced a file whose first line is "round-trip against the shipped models:" and which no
+    # JSON parser accepts -- observed 2026-09-02, raw/B6_make_topology.log:
+    # "JSONDecodeError: Expecting value: line 1 column 1", and stripping the report by hand
+    # parsed to nodes 22, edges 56. Under --stdout the report therefore goes to stderr, which
+    # still puts it in front of an operator running the command interactively while leaving
+    # stdout a single JSON document. Without --stdout nothing moves: the report is the output.
+    report = sys.stderr if args.stdout else sys.stdout
+
+    print("round-trip against the shipped models:", file=report)
+    if not check(out=report):
         print("\nREFUSING TO GENERATE: this script no longer reproduces the shipped models, "
-              "so its idea of the format is wrong. Fix that before trusting its output.")
+              "so its idea of the format is wrong. Fix that before trusting its output.",
+              file=report)
         return 1
     if args.check and not args.hosts:
         return 0
 
     nodes, edges = fabric_from(KNOWN[128])
-    print()
+    print(file=report)
     for hosts in args.hosts:
         topo = build(hosts, nodes, edges)
         validate(topo, hosts)
@@ -239,19 +257,21 @@ def main():
         text = json.dumps(topo, indent=2) + "\n"
 
         if args.stdout:
-            print(text)
+            # The ONE thing that may reach stdout. `end=""` because `text` already ends in a
+            # newline; the old bare print appended a second one.
+            print(text, end="")
             continue
         out = SETTING / f"StaticNetworkTopologyOVS_10Switches_{hosts}Hosts.json"
         if out.exists() and not args.force:
-            print(f"  skip  {out.name} exists (--force to overwrite)")
+            print(f"  skip  {out.name} exists (--force to overwrite)", file=report)
             continue
         if hosts in KNOWN:
-            print(f"  skip  {hosts} hosts already ships as {KNOWN[hosts].name}")
+            print(f"  skip  {hosts} hosts already ships as {KNOWN[hosts].name}", file=report)
             continue
         out.write_text(text)
         pairs = hosts * (hosts - 1)
         print(f"  wrote {out.name}: {hosts} hosts, {pairs} ordered pairs, "
-              f"{len(topo['edges'])} edges, {len(text):,} bytes")
+              f"{len(topo['edges'])} edges, {len(text):,} bytes", file=report)
     return 0
 
 
