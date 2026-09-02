@@ -1,0 +1,30 @@
+#### step 01: does the shipped generator cap, truncate or warn at 300 hosts? ####
+## command: tools/make_topology.py --hosts 300 --stdout
+2026-09-03T03:48:47+08:00
+
+=== A. exit code and any warning text (body captured separately) ===
+rc=0
+--- stderr ---
+--- stdout: first 8 lines (the check banner) ---
+round-trip against the shipped models:
+  ok     4 hosts: rebuilt from StaticNetworkTopologyMininet_10Switches.json == StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  ok   128 hosts: rebuilt from StaticNetworkTopologyOVS_10Switches_4Hosts.json == StaticNetworkTopologyMininet_10Switches.json
+
+{
+  "nodes": [
+    {
+      "brand_name": "OVS",
+--- stdout byte count ---
+0
+--- any line containing warn/cap/truncat/limit (case-insensitive) ---
+(end grep)
+
+=== B. what came out ===
+host nodes: 300
+total nodes: 310  total edges: 632
+host IPs that are NOT valid IPv4: 45
+  first 5: [('h256', '10.0.0.256'), ('h257', '10.0.0.257'), ('h258', '10.0.0.258'), ('h259', '10.0.0.259'), ('h260', '10.0.0.260')]
+  last  5: [('h296', '10.0.0.296'), ('h297', '10.0.0.297'), ('h298', '10.0.0.298'), ('h299', '10.0.0.299'), ('h300', '10.0.0.300')]
+switch-side host ports used: 3 .. 77
+mac range: 1 .. 300
+uplink ports 1,2 collided?: False

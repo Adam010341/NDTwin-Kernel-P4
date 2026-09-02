@@ -1,0 +1,63 @@
+#### step 19: break a link the approved way (faults.sh L-3 = tc netem on BOTH ends), watch recovery, and stop a background launch by signal ####
+2026-09-03T04:15:37+08:00
+== the flow's path from the twin was h1 -> s1:1 -> s5:2 -> s2:3 -> h2, so s1-eth1/s5-eth1 IS the path
+== h1 ns pid: 1382604
+== A. start a background 10 Hz ping h1->h2 under setsid (this is the background launch that will be stopped by signal)
+   launcher (sudo) pid = 1386932 ; the real 'ping' pid by comm = 1386935
+   (COMMON-BRIEF: sudo forks rather than execs, so the launcher pid is NOT the process to signal)
+1386935 1386934 ping
+
+== B. qdisc + twin state BEFORE
+qdisc noqueue 0: root refcnt 2 
+qdisc noqueue 0: root refcnt 2 
+  edges_up=40/40
+    1 1 -> 5 1 is_up True down_reason none
+    5 1 -> 1 1 is_up True down_reason none
+
+== C. faults.sh run L-3 (the documented path)
+FAULTS_RC_of_setsid=0
+=== L-3 (link_loss direction=both loss=30% expect=moving) ===
+saved 44 qdisc lines -> /tmp/tmp.pOsg9baFyN
+10.0.0.1 -> 10.0.0.2: MOVING
+  ping      moving   both directions answer
+  paths     unknown  all_destination_paths unreadable at http://localhost:8080
+  counters  moving   peer rx 178676 -> 178724 over 2.0s (growth 48, floor 1)
+  before: moving
+  injected 30% loss on s1-eth1 (root)
+  injected 30% loss on s5-eth1 (root)
+10.0.0.1 -> 10.0.0.2: MOVING
+  ping      moving   both directions answer
+  paths     unknown  all_destination_paths unreadable at http://localhost:8080
+  counters  moving   peer rx 179299 -> 179331 over 2.0s (growth 32, floor 1)
+  during: moving (catalogue expects moving)
+10.0.0.1 -> 10.0.0.2: MOVING
+  ping      moving   both directions answer
+  paths     unknown  all_destination_paths unreadable at http://localhost:8080
+  counters  moving   peer rx 180135 -> 180183 over 2.0s (growth 48, floor 1)
+  after:  moving
+qdisc state unchanged (44 lines)
+PASS L-3: before=moving during=moving after=moving, qdisc clean
+
+== D. L-3 verdict: PASS (first run of this fault on the P4 plane; round 1 ran it on OVS).
+   Note for the harness: one of criteria.py's three quorum channels is structurally dead on P4 --
+   'paths unknown  all_destination_paths unreadable at http://localhost:8080' is Ryu's port, and
+   there is no Ryu on the P4 plane. The verdict rested on 2 channels (ping + peer rx counters), not 3.
+
+== E. stop the background launch BY SIGNAL, on the exact pid, and verify through a second channel
+   ping pid 1386935; the sudo launcher (1386934) is a different process -- signalling the launcher
+   would not stop the ping, which is COMMON-BRIEF section 7's hazard.
+-- before --
+1386934    2859       03:40 sudo
+1386935 1386934       03:40 ping
+-- after SIGTERM (rc of the kill above) --
+   ps rows for 1386935: 0
+   ps rows for 1386934 (sudo): 0
+   ping processes by comm on the whole machine: 0
+-- the ping's own last lines (its summary proves it terminated, not just vanished) --
+64 bytes from 10.0.0.2: icmp_seq=2174 ttl=61 time=5.21 ms
+64 bytes from 10.0.0.2: icmp_seq=2175 ttl=61 time=3.00 ms
+64 bytes from 10.0.0.2: icmp_seq=2176 ttl=61 time=3.63 ms
+64 bytes from 10.0.0.2: icmp_seq=2177 ttl=61 time=2.32 ms
+-- netem residue anywhere --
+0
+2026-09-03T04:19:20+08:00

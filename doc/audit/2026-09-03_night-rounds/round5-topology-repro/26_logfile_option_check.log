@@ -1,0 +1,74 @@
+#### step 26: verify the friction-log claim that --logfile is ignored, before publishing it ####
+2026-09-03T04:47:38+08:00
+== --help says ==
+Logging options are also accepted; see --logfile / --loglevel.
+
+== A. is --logfile parsed anywhere in the source? ==
+/home/adam/Desktop/NDTwin-Kernel/src/utils/Logger.cpp:31:        if (arg == "--logfile" || arg == "-f")
+/home/adam/Desktop/NDTwin-Kernel/src/utils/Logger.cpp:42:                      << " [--logfile|-f] [--loglevel|-l <level>]\n"
+/home/adam/Desktop/NDTwin-Kernel/src/utils/Logger.cpp:43:                         "  --logfile, -f       also write logs to netdt.log\n"
+/home/adam/Desktop/NDTwin-Kernel/src/main.cpp:79:           "Logging options are also accepted; see --logfile / --loglevel.\n"
+   (grep -rc over src+include for the literal string 'logfile':
+    2 file(s))
+
+== B. live: explicit, pre-created, writable, absolute --logfile ==
+kernel pid 1428002 alive rows: 0
+stdout.txt lines : 23
+probe.log  bytes : 0
+after stop -> probe.log bytes = 0 ; stdout.txt lines = 23
+-- stderr (any complaint about the option?) --
+-- stdout head --
+[2026-09-03 04:47:38.282] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+-- ls --
+total 16
+drwxrwxr-x  2 adam adam 4096 Sep  3 04:47 .
+drwx------ 15 adam adam 4096 Sep  3 04:47 ..
+-rw-rw-r--  1 adam adam    0 Sep  3 04:47 probe.log
+-rw-rw-r--  1 adam adam    0 Sep  3 04:47 stderr.txt
+-rw-rw-r--  1 adam adam 4235 Sep  3 04:47 stdout.txt
+ports after 3.5 s settle: tcp8000=1 udp6343=1
+
+== C. THE ANSWER: --logfile is a BOOLEAN, not an option that takes a path ==
+Logger::parse_cli_args(int argc, char* argv[])
+{
+    LogConfig cfg;
+    for (int i = 1; i < argc; ++i)
+    {
+        std::string arg(argv[i]);
+        if (arg == "--logfile" || arg == "-f")
+        {
+            cfg.enableFile = true;
+        }
+        else if ((arg == "--loglevel" || arg == "-l") && i + 1 < argc)
+        {
+            cfg.level = parse_level(argv[++i]);
+        }
+        else if (arg == "--help" || arg == "-h")
+        {
+            std::cout << "Usage: " << argv[0]
+                      << " [--logfile|-f] [--loglevel|-l <level>]\n"
+                         "  --logfile, -f       also write logs to netdt.log\n"
+                         "  --loglevel, -l lvl  set log level: trace, debug, info, "
+                         "warn, err, critical, off\n";
+            std::exit(0);
+        }
+    }
+    return cfg;
+}
+
+   -> the path argument I passed was swallowed as a stray positional and the named file stayed 0 bytes,
+      with no error on stderr. The log went to a HARD-CODED netdt.log in the process's cwd:
+-rw-rw-r-- 1 adam adam 74942 Sep  3 04:48 /home/adam/Desktop/NDTwin-Kernel/build/netdt.log
+      (git check-ignore: .gitignore:9:build/	build/netdt.log; nothing tracked was touched)
+
+== D. a second lesson, recorded because it bit me here ==
+   'setsid CMD &' gives $! = setsid's pid ONLY when setsid forks; when it execs, $! is the child.
+   setsid forks iff the caller is already a process-group leader, so which one you get depends on the
+   invocation context. In run_mutant.sh 'ps -o comm= -p $!' found ndtwin_kernel; in this step it found
+   nothing while the kernel was very much alive and holding :8000 and :6343 (see section B).
+   Same shape as COMMON-BRIEF section 7's sudo warning, different tool. I stopped it by exact pid found
+   through 'ps -eo pid=,comm=' (never pkill/pgrep -f) and re-verified the ports:
+     ndtwin_kernel processes now: 0
+     tcp:8000=0  udp:6343=0
+2026-09-03T04:48:43+08:00

@@ -1,0 +1,128 @@
+#### step 23: final lab state. Verified through channels other than any tool's own claim. ####
+2026-09-03T04:29:45+08:00
+== the last fabric (cycle J) was torn down by 'ndt down' at 04:26; this check is >5 min later,
+== far past round 3's 2.0-2.2 s window in which a dead kernel's orphaned curl still holds :8000/:6343.
+-- ps -eo comm= counts (never pkill/pgrep -f) --
+  ndtwin_kernel      0
+  simple_switch      0
+  ryu-manager        0
+  java               0
+  iperf3             0
+  ping               0
+  mnexec             0
+-- mininet namespaces --
+  0
+-- listeners on every port this round or a previous one has touched --
+  tcp:8000  0
+  tcp:8080  0
+  tcp:8081  0
+  tcp:9000  0
+  tcp:6653  0
+  tcp:6633  0
+  udp:6343  0
+  tcp:30050-30060 0
+  tcp:9091-9100   0
+-- any UDP socket bound to 6343 at all, in /proc/net/udp --
+  0
+-- tc netem qdiscs anywhere --
+  0
+-- switch manifest --
+ls: cannot access '/tmp/ndtwin_p4_switches.json': No such file or directory
+-- lab tmux session --
+sudo: a password is required
+-- free --
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7613        1911        1057        7347        7799
+
+== tracked files: exactly one was changed, and not by hand -- 'ndt up p4 4' rewrites it ==
+before restore: host_count_override = 4
+restore command: git checkout -- p4_proxy/mininet/host_count_override   (explicit single-file path, never a directory pathspec)
+after restore:  host_count_override = 128
+git status for that path: []
+
+== provenance at round end ==
+HEAD: bd187870cf590662e72de79c22d28fe6eb5db5f8
+binary on disk: a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+== this round's own files (all untracked, under the round directory) ==
+?? doc/audit/2026-09-03_night-rounds/round5-topology-repro/
+2026-09-03T04:29:45+08:00
+
+== FINAL lab state re-verified after step 24's 8 further bring-up/teardown cycles ==
+2026-09-03T04:41:58+08:00
+  ndtwin_kernel    0
+  simple_switch    0
+  ryu-manager      0
+  java             0
+  iperf3           0
+  ping             0
+  mnexec           0
+  mininet namespaces 0
+  tcp:8000  0
+  tcp:8080  0
+  tcp:8081  0
+  tcp:9000  0
+  tcp:6653  0
+  tcp:6633  0
+  udp:6343  0
+  tcp:30050-30060 0
+  tcp:9091-9100   0
+  /proc/net/udp sockets on 6343: 0
+  netem qdiscs: 0
+ls: cannot access '/tmp/ndtwin_p4_switches.json': No such file or directory
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7609        1903        1043        7345        7803
+  host_count_override before final restore: 4
+  host_count_override after  final restore: 128
+  git status for that path: []
+  HEAD: bd187870cf590662e72de79c22d28fe6eb5db5f8
+  binary: a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06
+lab
+  claim          yours -- 173m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           bd187870  +27 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+                 tools/test_workflow/supervise.sh
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+== POST-SCRIPT: re-verified after step 26 (which left a stray kernel; found by ps and stopped by exact pid) ==
+2026-09-03T04:49:41+08:00
+  ndtwin_kernel    0
+  simple_switch    0
+  ryu-manager      0
+  java             0
+  iperf3           0
+  ping             0
+  mnexec           0
+  mininet namespaces 0
+  tcp:8000  0
+  tcp:8080  0
+  tcp:8081  0
+  tcp:9000  0
+  tcp:6653  0
+  tcp:6633  0
+  udp:6343  0
+  tcp:30050-30060 0 / tcp:9091-9100 0
+  /proc/net/udp on 6343: 0
+  netem qdiscs: 0
+ls: cannot access '/tmp/ndtwin_p4_switches.json': No such file or directory
+  host_count_override = 128  git status: []
+  HEAD = bd187870cf590662e72de79c22d28fe6eb5db5f8
+  binary = a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06
+  build/ is gitignored: yes
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7756        1752        1054        7360        7656

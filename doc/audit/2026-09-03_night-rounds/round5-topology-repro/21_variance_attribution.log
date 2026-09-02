@@ -1,0 +1,32 @@
+#### step 21: is the pass-to-pass spread explained, or unexplained? Attribute it to the sampler or leave it open. ####
+2026-09-03T04:28:46+08:00
+Wire ground truth, identical in all three passes: 178570 packets in 100.0 s = 1785.7 pps, 0% loss.
+Sampling is 1/256 Bernoulli in the P4 program (round 4, ndtwin_switch.p4:52,405).
+So the expected number of samples the collector sees per second per hop is 1785.7/256 = 6.98.
+A 1 s window therefore carries Poisson(6.98): relative sd = 1/sqrt(lambda) = 37.9%.
+
+Every reported packet rate should be (k*256)/elapsed for a small integer k. Check:
+   pass1a  t+15 s pps=1792  -> k = pps/256 = 7.00 samples in the window
+   pass1a  t+50 s pps=1877  -> k = pps/256 = 7.33 samples in the window
+   pass1a  t+85 s pps=2304  -> k = pps/256 = 9.00 samples in the window
+   pass1b  t+15 s pps=2133  -> k = pps/256 = 8.33 samples in the window
+   pass1b  t+50 s pps=1621  -> k = pps/256 = 6.33 samples in the window
+   pass1b  t+85 s pps=1621  -> k = pps/256 = 6.33 samples in the window
+   pass2   t+15 s pps=2389  -> k = pps/256 = 9.33 samples in the window
+   pass2   t+50 s pps=1280  -> k = pps/256 = 5.00 samples in the window
+   pass2   t+85 s pps=2304  -> k = pps/256 = 9.00 samples in the window
+
+   k over the 9 cells: min 5.00 max 9.33 mean 7.52 sd 1.49
+   Poisson prediction: mean 6.98, sd 2.64. The MEANS agree (7.52 vs 6.98); the measured sd (1.49) is
+   SMALLER than Poisson's (2.64), so at n=9 Poisson is an upper bound on the noise, not a fitted model.
+   Corrected after the fact -- the first wording said 'mean/sd agree', which the sd does not support.
+
+   per-flow bit/s over the 9 cells: min 14766080 (-26.2%) max 27563349 (+37.8%) against a wire truth of 20 000 000
+   s1 input load bit/s over the 9 cells: min 8857008 (-55.7%) max 29524774 (+47.6%)
+
+VERDICT: EXPLAINED. The spread is the 1/256 Bernoulli sampler read over a 1 s window, and the
+arithmetic closes: the reported packet rate is literally (samples x 256) / window, samples ~ Poisson(7).
+It is NOT state leaking between runs -- the within-fabric control (pass1b) has the same spread as
+the between-fabric comparison. What it means for a paper: a SINGLE reading of
+/ndt/get_detected_flow_data or get_total_input_traffic_load_passing_a_switch at 20 Mbit/s carries
+about +/-38%% relative error, and nothing in the response says so.

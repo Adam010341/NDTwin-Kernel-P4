@@ -1,0 +1,44 @@
+#### step 10: where exactly does make_topology.py start emitting unloadable files, and does anything downstream cap it? ####
+2026-09-03T03:55:10+08:00
+== A. the generator's own boundary (pure python, no kernel) ==
+hosts=  128  rc=0  emitted=  128  invalid_ipv4=   0  switch host-ports 3..34  stderr=''
+hosts=  240  rc=0  emitted=  240  invalid_ipv4=   0  switch host-ports 3..62  stderr=''
+hosts=  248  rc=0  emitted=  248  invalid_ipv4=   0  switch host-ports 3..64  stderr=''
+hosts=  252  rc=0  emitted=  252  invalid_ipv4=   0  switch host-ports 3..65  stderr=''
+hosts=  256  rc=0  emitted=  256  invalid_ipv4=   1  switch host-ports 3..66  stderr=''
+hosts=  260  rc=0  emitted=  260  invalid_ipv4=   5  switch host-ports 3..67  stderr=''
+hosts=  300  rc=0  emitted=  300  invalid_ipv4=  45  switch host-ports 3..77  stderr=''
+hosts=  400  rc=0  emitted=  400  invalid_ipv4= 145  switch host-ports 3..102  stderr=''
+hosts= 1024  rc=0  emitted= 1024  invalid_ipv4= 769  switch host-ports 3..258  stderr=''
+
+== B. does 'ndt' itself cap the host count? (set_host_count / topo_for_hosts) ==
+28:#   * host_count_override, bmv2_binary_override and the compiled ndtwin_switch.json each
+420:    local f="$REPO/p4_proxy/mininet/host_count_override" line
+479:topo_for_hosts() {
+501:# set_host_count <n> -- rewrite the override the topology script reads.
+507:set_host_count() {
+508:    local n="$1" f="$REPO/p4_proxy/mininet/host_count_override" cur
+512:        err "host count must be a multiple of 4 and at least 4 (hosts split over s1-s4); got $n"
+516:    warn "host_count_override: $cur -> $n (persistent; affects every later run)"
+576:        set_host_count "$1" || return 1
+579:    topo="$(topo_for_hosts "$hosts" p4)"
+606:    info "hosts        $hosts        (p4_proxy/mininet/host_count_override)"
+847:    local ovs_topo; ovs_topo="$(topo_for_hosts "$ovs_hosts" ovs)"
+1229:    topo="$(topo_for_hosts "$hosts" p4)"
+2170:                  ndt up 4          p4 at 4 hosts   (rewrites host_count_override)
+2197:  ndt up derives the kernel's topology model from host_count_override, so the
+
+== C. which topology files exist to be picked up ==
+-rw-rw-r--  1 adam adam  80986 Jul 23 11:38 StaticNetworkTopology_ipAlias4_10_HPE_Switches_all_1g_cable.json
+-rw-rw-r--  1 adam adam  81018 Jul 23 11:38 StaticNetworkTopology_ipAlias4_10_HPE_Switches_smapled_by_p4.json
+-rw-rw-r--  1 adam adam  42926 Jul 23 11:38 StaticNetworkTopology_ipAlias4_10Switches_all_1g_cable.json
+-rw-rw-r--  1 adam adam  42854 Jul 23 11:38 StaticNetworkTopology_ipAlias4_10Switches.json
+-rw-rw-r--  1 adam adam  54894 Jul 23 11:38 StaticNetworkTopology_ipAlias4_9Switches_all_1g_cable.json
+-rw-rw-r--  1 adam adam 104698 Aug 19 16:55 StaticNetworkTopologyMininet_10Switches.json
+-rw-rw-r--  1 adam adam  25365 Aug 21 14:50 StaticNetworkTopologyOVS_10Switches_16Hosts.json
+-rw-rw-r--  1 adam adam  36653 Aug 21 14:50 StaticNetworkTopologyOVS_10Switches_32Hosts.json
+-rw-rw-r--  1 adam adam  23039 Sep  3 00:44 StaticNetworkTopologyOVS_10Switches_4Hosts.json
+-rw-rw-r--  1 adam adam  59277 Aug 21 14:50 StaticNetworkTopologyOVS_10Switches_64Hosts.json
+-rw-rw-r--  1 adam adam  19731 Aug 21 14:50 StaticNetworkTopologyOVS_10Switches_8Hosts.json
+-rw-rw-r--  1 adam adam 138820 Aug 19 23:34 StaticNetworkTopologyP4_10Switches_128Hosts.json
+-rw-rw-r--  1 adam adam  16960 Aug 31 11:07 StaticNetworkTopologyP4_10Switches_4Hosts.json

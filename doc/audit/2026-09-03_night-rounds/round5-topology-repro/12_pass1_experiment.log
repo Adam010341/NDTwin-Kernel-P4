@@ -1,0 +1,18 @@
+#### step 12: reproducibility PASS 1 -- routes, switch read-back, modify-by-priority, traffic, 3 telemetry samples 30+ s apart ####
+2026-09-03T04:00:30+08:00
+== free before: 7478 MB available
+== kernel /proc/1372001/exe: a8ba99c25f039315
+#### PASS 1 ####
+== A. idle fingerprint, before routes and before traffic
+   nodes=14 edges=40 edges_up=40 avg=0.0 switch_rows=4
+== B. install 4 routes via /ndt/install_flow_entry, verify by reading the switch
+   switch rows after install: 8 (was 4)
+== B2. modify ONE rule by priority (same match, same priority 100, new action port 2)
+== B3. modify the SAME match at a DIFFERENT priority (200) -- replace or add?
+== C. traffic h1(1371207) -> h2(1371210): iperf3 UDP 20M len 1400 for 100 s
+   sample t+15s: avg=0.023617471 nonzero_edges=4 flow_rows=1 h1h2_rate=[None]
+   sample t+50s: avg=0.0206685755 nonzero_edges=4 flow_rows=1 h1h2_rate=[None]
+   sample t+85s: avg=0.014763196 nonzero_edges=4 flow_rows=1 h1h2_rate=[None]
+   wire: {'bytes': 249998000, 'seconds': 100.001533, 'bits_per_second': 19999731.60145472, 'packets': 178570, 'lost_packets': 0, 'lost_percent': 0, 'jitter_ms': 0.01063252860011754}
+== D. cleanup: delete the 4 installed routes
+== written doc/audit/2026-09-03_night-rounds/round5-topology-repro/raw/pass1.json

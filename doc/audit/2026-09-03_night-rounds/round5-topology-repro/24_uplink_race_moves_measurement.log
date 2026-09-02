@@ -1,0 +1,62 @@
+#### step 24: does the bring-up route race move the per-link utilisation a paper would publish? ####
+## s3's two uplinks: port 1 -> s7, port 2 -> s8 (setting/StaticNetworkTopologyP4_10Switches_4Hosts.json).
+## Step 20 showed s3's boot route for 10.0.0.1 was OUTPUT:1 in cycles C,E,G,I,J and OUTPUT:2 in D,F,H.
+## Traffic h3 -> h1, 20 Mbit/s UDP, identical every cycle. The question is which EDGES light up.
+2026-09-03T04:30:52+08:00
+===== uplink cycle 1 : 2026-09-03T04:30:52+08:00 =====
+UJSON {"avg_link_usage": 0.01225107805, "cycle": "1", "nonzero_edges": {"0:1->3:3": 3.542, "1:3->0:1": 2.657, "3:1->7:1": 1.771, "5:1->1:1": 2.657, "7:3->9:3": 0.236, "9:1->5:3": 0.236}, "s3_route_to_10.0.0.1": "OUTPUT:1", "s3_uplink_used": "s7"}
+  s3 -> 10.0.0.1 via OUTPUT:1 (s7) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:1->7:1', '5:1->1:1', '7:3->9:3', '9:1->5:3']
+===== uplink cycle 1 : 2026-09-03T04:30:52+08:00 (sampled by hand: the outer loop was cut short, see friction log) =====
+UJSON {"avg_link_usage": 0.00966453675, "cycle": "1", "nonzero_edges": {"0:1->3:3": 3.246, "1:3->0:1": 2.361, "3:1->7:1": 1.18, "5:1->1:1": 2.361, "7:3->9:3": 0.148, "9:1->5:3": 0.177}, "s3_route_to_10.0.0.1": "OUTPUT:1", "s3_uplink_used": "s7"}
+  s3 -> 10.0.0.1 via OUTPUT:1 (s7) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:1->7:1', '5:1->1:1', '7:3->9:3', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7844MB
+  cycle 1 torn down: bmv2=0 iperf3=0
+===== uplink cycle 2 : 2026-09-03T04:32:10+08:00 =====
+UJSON {"avg_link_usage": 0.0099634396, "cycle": "2", "nonzero_edges": {"0:1->3:3": 2.066, "1:3->0:1": 2.066, "3:2->8:1": 1.476, "5:1->1:1": 2.066, "8:3->9:4": 0.295, "9:1->5:3": 0.148}, "s3_route_to_10.0.0.1": "OUTPUT:2", "s3_uplink_used": "s8"}
+  s3 -> 10.0.0.1 via OUTPUT:2 (s8) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:2->8:1', '5:1->1:1', '8:3->9:4', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7836MB
+===== uplink cycle 3 : 2026-09-03T04:33:28+08:00 =====
+UJSON {"avg_link_usage": 0.011513001699999999, "cycle": "3", "nonzero_edges": {"0:1->3:3": 2.362, "1:3->0:1": 1.476, "3:2->8:1": 2.657, "5:1->1:1": 1.476, "8:3->9:4": 0.266, "9:1->5:3": 0.207}, "s3_route_to_10.0.0.1": "OUTPUT:2", "s3_uplink_used": "s8"}
+  s3 -> 10.0.0.1 via OUTPUT:2 (s8) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:2->8:1', '5:1->1:1', '8:3->9:4', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7805MB
+===== uplink cycle 4 : 2026-09-03T04:34:45+08:00 =====
+UJSON {"avg_link_usage": 0.009151783375, "cycle": "4", "nonzero_edges": {"0:1->3:3": 1.181, "1:3->0:1": 2.067, "3:2->8:1": 1.181, "5:1->1:1": 2.067, "8:3->9:4": 0.295, "9:1->5:3": 0.118}, "s3_route_to_10.0.0.1": "OUTPUT:2", "s3_uplink_used": "s8"}
+  s3 -> 10.0.0.1 via OUTPUT:2 (s8) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:2->8:1', '5:1->1:1', '8:3->9:4', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7831MB
+===== uplink cycle 5 : 2026-09-03T04:36:03+08:00 =====
+UJSON {"avg_link_usage": 0.011143846774999999, "cycle": "5", "nonzero_edges": {"0:1->3:3": 3.838, "1:3->0:1": 1.476, "3:2->8:1": 2.362, "5:1->1:1": 1.476, "8:3->9:4": 0.384, "9:1->5:3": 0.236}, "s3_route_to_10.0.0.1": "OUTPUT:2", "s3_uplink_used": "s8"}
+  s3 -> 10.0.0.1 via OUTPUT:2 (s8) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:2->8:1', '5:1->1:1', '8:3->9:4', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7696MB
+===== uplink cycle 6 : 2026-09-03T04:37:18+08:00 =====
+UJSON {"avg_link_usage": 0.010332778625, "cycle": "6", "nonzero_edges": {"0:1->3:3": 2.952, "1:3->0:1": 0.886, "3:1->7:1": 2.952, "5:1->1:1": 0.886, "7:3->9:3": 0.207, "9:1->5:3": 0.089}, "s3_route_to_10.0.0.1": "OUTPUT:1", "s3_uplink_used": "s7"}
+  s3 -> 10.0.0.1 via OUTPUT:1 (s7) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:1->7:1', '5:1->1:1', '7:3->9:3', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7810MB
+===== uplink cycle 7 : 2026-09-03T04:38:36+08:00 =====
+UJSON {"avg_link_usage": 0.012911866675000001, "cycle": "7", "nonzero_edges": {"0:1->3:3": 2.066, "1:3->0:1": 1.771, "3:1->7:1": 2.951, "5:1->1:1": 1.771, "7:3->9:3": 0.266, "9:1->5:3": 0.177}, "s3_route_to_10.0.0.1": "OUTPUT:1", "s3_uplink_used": "s7"}
+  s3 -> 10.0.0.1 via OUTPUT:1 (s7) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:1->7:1', '5:1->1:1', '7:3->9:3', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7817MB
+===== uplink cycle 8 : 2026-09-03T04:39:53+08:00 =====
+UJSON {"avg_link_usage": 0.009521232000000001, "cycle": "8", "nonzero_edges": {"0:1->3:3": 2.362, "1:3->0:1": 2.067, "3:1->7:1": 1.476, "5:1->1:1": 2.067, "7:3->9:3": 0.089, "9:1->5:3": 0.177}, "s3_route_to_10.0.0.1": "OUTPUT:1", "s3_uplink_used": "s7"}
+  s3 -> 10.0.0.1 via OUTPUT:1 (s7) ; edges carrying traffic: ['0:1->3:3', '1:3->0:1', '3:1->7:1', '5:1->1:1', '7:3->9:3', '9:1->5:3']
+  torn down: bmv2=0 iperf3=0 tcp8000=0 free=7761MB
+ALL-CYCLES-DONE 2026-09-03T04:41:11+08:00
+
+== ANALYSIS: 8 identical bring-ups, identical h3 -> h1 traffic (20 Mbit/s UDP, 1400 B) ==
+cycle  | s3 route   | via      | s3:1->s7:1  | s7:3->s9:3  | s3:2->s8:1  | s8:3->s9:4  | avg_link_usage
+-------+------------+----------+-------------+-------------+-------------+-------------+---------------
+1      | OUTPUT:1   | s7       |       1.771 |       0.236 |         0.0 |         0.0 | 0.01225107805
+2      | OUTPUT:2   | s8       |         0.0 |         0.0 |       1.476 |       0.295 | 0.0099634396
+3      | OUTPUT:2   | s8       |         0.0 |         0.0 |       2.657 |       0.266 | 0.011513001699999999
+4      | OUTPUT:2   | s8       |         0.0 |         0.0 |       1.181 |       0.295 | 0.009151783375
+5      | OUTPUT:2   | s8       |         0.0 |         0.0 |       2.362 |       0.384 | 0.011143846774999999
+6      | OUTPUT:1   | s7       |       2.952 |       0.207 |         0.0 |         0.0 | 0.010332778625
+7      | OUTPUT:1   | s7       |       2.951 |       0.266 |         0.0 |         0.0 | 0.012911866675000001
+8      | OUTPUT:1   | s7       |       1.476 |       0.089 |         0.0 |         0.0 | 0.009521232000000001
+
+split: 4 of 8 bring-ups routed via s7, 4 via s8.
+the two edge PAIRS are perfectly anti-correlated: whichever pair carries the flow, the other reads exactly 0.0.
+
+What a paper would publish for 'utilisation of link s3-s7 under a 20 Mbit/s h3->h1 flow':
+   [0.0, 1.476, 1.771, 2.951, 2.952]  -- from the SAME command, the SAME topology file, on the SAME machine, within 10 minutes.
+And /ndt/get_path_switch_count answered identically in every one of them (step 20: 8/8 byte-identical),
+so the endpoint a researcher would use to check 'did the path change?' cannot distinguish these runs.

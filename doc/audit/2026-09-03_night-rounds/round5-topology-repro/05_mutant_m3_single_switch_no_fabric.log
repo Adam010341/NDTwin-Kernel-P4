@@ -1,0 +1,61 @@
+#### step 05: topology mutation -- one switch, all hosts on it, no inter-switch links ####
+== topology: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round5-topology-repro/topo/m3_single_switch_no_fabric.json
+== bytes:    3411
+== started:  2026-09-03T03:53:44+08:00
+== kernel pid: 1369051
+== :8000 opened at (s): 0.50
+== process died at (s): still alive at end of watch
+== ps on exact pid: 1369051 Ssl        00:05 ndtwin_kernel
+--- probes ---
+PROBE 200  http://127.0.0.1:8000/ndt/get_graph_data
+{"edges":[{"admin_disabled":false,"agent_last_sample_age_seconds":-1.0,"down_reason":"none","dst_dpid":0,"dst_interface":1,"dst_ip":[16777226],"flow_set":[],"is_enabled":false,"is_up":false,"last_sample_age_seconds":-1.0,"left_link_bandwidth_bps":1000000000,"left_link_bandwidth_source":"declared","l
+PROBE 200  http://127.0.0.1:8000/ndt/get_path_switch_count?ip1=10.0.0.1&ip2=10.0.0.2
+{"data":[],"status":"success"}
+PROBE 200  http://127.0.0.1:8000/ndt/get_path_switch_count?ip1=10.0.0.1&ip2=10.0.0.4
+{"data":[],"status":"success"}
+PROBE 200  http://127.0.0.1:8000/ndt/get_average_link_usage
+{"avg_link_usage":0.0,"status":"success"}
+PROBE 200  http://127.0.0.1:8000/ndt/get_switches_power_state
+{"192.168.123.11":"OFF"}
+GRAPH nodes=5 (vertex_type0=1 vertex_type1=4) edges=8
+GRAPH status: None top keys: ['edges', 'nodes']
+GRAPH device_names: ['h1', 'h2', 'h3', 'h4', 's1']
+GRAPH edge-endpoint histogram (top 8): [('192653504', 8), ('16777226', 2), ('33554442', 2), ('50331658', 2), ('67108874', 2)]
+--- exit ---
+== wait rc (143=SIGTERM, 134=abort, 1=exit1, 0=clean): 143
+== ps rows on exact pid after stop: 0
+--- stderr (all, max 25 lines) ---
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 http://localhost:8081/v1.0/topology/hosts
+--- stdout (last 12 lines) ---
+[2026-09-03 03:53:50.480] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-03 03:53:50.480] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_path_switch_count?ip1=10.0.0.1&ip2=10.0.0.4
+[2026-09-03 03:53:50.480] [info] [[94mHttpSession.cpp[0m:[95m2029[0m [96mhandleGetPathSwitchCount[0m] Handle Get All Path Switch Counts
+[2026-09-03 03:53:50.480] [info] [[94mHttpSession.cpp[0m:[95m409[0m [96mcloseSocket[0m] Close Socket
+[2026-09-03 03:53:50.486] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-03 03:53:50.486] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_average_link_usage
+[2026-09-03 03:53:50.486] [info] [[94mHttpSession.cpp[0m:[95m2188[0m [96mhandleGetAvgLinkUsage[0m] Handle Get Avg Link Usage
+[2026-09-03 03:53:50.486] [info] [[94mHttpSession.cpp[0m:[95m409[0m [96mcloseSocket[0m] Close Socket
+[2026-09-03 03:53:50.492] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-03 03:53:50.493] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switches_power_state
+[2026-09-03 03:53:50.493] [info] [[94mHttpSession.cpp[0m:[95m831[0m [96mhandleGetSwitchesPowerState[0m] Handle Get Switches Power State
+[2026-09-03 03:53:50.493] [info] [[94mHttpSession.cpp[0m:[95m409[0m [96mcloseSocket[0m] Close Socket
+--- kernel.log lines: 47 ---
+  Skipping-edge count: 0
+0
+--- kernel.log warning/error lines ---
+[2026-09-03 03:53:44.620] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-09-03 03:53:44.621] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-03 03:53:44.621] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-09-03 03:53:44.621] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case10/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-03 03:53:44.621] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-09-03 03:53:44.621] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-03 03:53:44.621] [warning] [[94mHistoricalDataManager.cpp[0m:[95m66[0m [96mstart[0m] HistoricalDataManager not started: MININET deployments do not run the recorder, so no historical link row will ever be written. /ndt/historical_logging reports this as reason=not-available-in-mininet-mode.
+--- kernel.log topology/load lines ---
+[2026-09-03 03:53:44.621] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-03 03:53:44.621] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1636[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: bmv2 (1 switch(es))
+[2026-09-03 03:53:44.622] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m145[0m [96mconfigureTopologyApiUrls[0m] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+== finished: 2026-09-03T03:53:50+08:00
+== after 3.2 s settle: tcp:8000=0 udp:6343=0

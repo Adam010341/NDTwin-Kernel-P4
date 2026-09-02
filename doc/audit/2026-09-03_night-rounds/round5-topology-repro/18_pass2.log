@@ -1,0 +1,18 @@
+#### step 18: reproducibility PASS 2 -- fabric B, byte-identical script and parameters to pass 1a/1b ####
+2026-09-03T04:11:08+08:00
+== free: 7522 MB available
+== kernel pid 1383387 exe sha: a8ba99c25f039315
+#### PASS 2 ####
+== A. idle fingerprint, before routes and before traffic
+   nodes=14 edges=40 edges_up=40 avg=0.0 switch_rows=4
+== B. install 4 routes via /ndt/install_flow_entry, verify by reading the switch
+   switch rows after install: 8 (was 4)
+== B2. modify ONE rule by priority (same match, same priority 100, new action port 2)
+== B3. modify the SAME match at a DIFFERENT priority (200) -- replace or add?
+== C. traffic h1(1382604) -> h2(1382607): iperf3 UDP 20M len 1400 for 100 s
+   sample t+15s: avg=0.02361968 nonzero_edges=4 flow_rows=1 h1h2_rate=[27563349] pps=[2389]
+   sample t+50s: avg=0.0147622605 nonzero_edges=4 flow_rows=1 h1h2_rate=[14766080] pps=[1280]
+   sample t+85s: avg=0.029523360999999998 nonzero_edges=4 flow_rows=1 h1h2_rate=[26578944] pps=[2304]
+   wire: {'bytes': 249998000, 'seconds': 100.000986, 'bits_per_second': 19999766.0008658, 'packets': 178570, 'lost_packets': 0, 'lost_percent': 0, 'jitter_ms': 0.010255148075919712}
+== D. cleanup: delete the 4 installed routes
+== written doc/audit/2026-09-03_night-rounds/round5-topology-repro/raw/pass2.json

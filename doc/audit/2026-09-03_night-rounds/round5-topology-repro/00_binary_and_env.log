@@ -1,0 +1,74 @@
+#### step 00: binary of record, commit, environment, lab state ####
+2026-09-03T03:48:23+08:00
+--- git rev-parse HEAD ---
+bd187870cf590662e72de79c22d28fe6eb5db5f8
+--- git branch ---
+trunk
+--- sha256sum build/bin/ndtwin_kernel ---
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+--- ls -la build/bin/ndtwin_kernel ---
+-rwxrwxr-x 1 adam adam 75990144 Sep  3 00:46 build/bin/ndtwin_kernel
+--- git status --short ---
+ M doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf
+ M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf
+ M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png
+ M doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf
+ M doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log
+ M doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log
+ M doc/audit/2026-09-02_fix-design-campaign/LEDGER.md
+ M doc/audit/2026-09-02_fix-design-campaign/agents.tsv
+ M doc/audit/2026-09-02_fix-design-campaign/batch/agents.tsv
+ M tests/CMakeLists.txt
+ M tools/contract_test/check_logs.py
+ M tools/test_workflow/stack.sh
+?? .claude/launch.json
+?? build-flowrate/
+?? doc/2026-08-29_bmv2-performance-study-figs/figs/
+?? doc/audit/2026-08-31_f5-fine-grid-round/run_f5.dryrun.restore.log
+?? doc/audit/2026-08-31_f5-fine-grid-round/run_f5.dryrun.selftest.log
+?? doc/audit/2026-08-31_f5-fine-grid-round/run_f5.plan.log
+?? doc/audit/2026-08-31_f5-fine-grid-round/run_f5.selftest.log
+?? doc/audit/2026-09-02_live-round/B5-REPORT.md
+?? doc/audit/2026-09-03_night-rounds/round5-topology-repro/
+?? tests/shell/mutate_b5_power_manager_shutdown.sh
+?? tests/shell/test_check_logs_crash_patterns.sh
+?? tests/shell/test_stop_one_targets_its_argument.sh
+?? tests/shell/test_supervise_exit_status.sh
+?? tests/test_PowerManagerShutdown.cpp
+?? tools/test_workflow/supervise.sh
+--- free -m ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7771        1768        1067        7341        7640
+Swap:          20479        5962       14517
+--- uptime ---
+ 03:48:23 up 15:28,  1 user,  load average: 0.18, 0.72, 0.99
+--- nproc ---
+14
+lab
+  claim          yours -- 227m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           bd187870  +27 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+                 tools/test_workflow/supervise.sh
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  apps           none running
+

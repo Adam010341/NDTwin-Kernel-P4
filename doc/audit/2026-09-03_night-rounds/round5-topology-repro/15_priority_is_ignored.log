@@ -1,0 +1,13 @@
+#### step 15: does 'priority' mean anything on the P4 flow path? Read back from the switch, not the API that wrote it. ####
+2026-09-03T04:08:21+08:00
+== step 0: baseline
+  baseline                                       total_rows=4  rows_for_10.0.0.210=[]  counters={'dispatched': 30, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 30}
+== step 1: install  priority=100 OUTPUT:1 -> HTTP 200 queued
+  after step 1                                   total_rows=5  rows_for_10.0.0.210=['10.0.0.210 p=0 -> OUTPUT:1']  counters={'dispatched': 31, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 31}
+== step 2: install  priority=500 OUTPUT:2  (same match, HIGHER priority) -> HTTP 200 queued
+  after step 2                                   total_rows=5  rows_for_10.0.0.210=['10.0.0.210 p=0 -> OUTPUT:2']  counters={'dispatched': 32, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 32}
+== step 3: modify   priority=777 OUTPUT:3  (a priority NO rule was created with) -> HTTP 200 queued
+  after step 3                                   total_rows=5  rows_for_10.0.0.210=['10.0.0.210 p=0 -> OUTPUT:3']  counters={'dispatched': 33, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 33}
+== step 4: delete priority=999 OUTPUT:9 (neither ever used) -> HTTP 200 queued
+  after delete                                   total_rows=4  rows_for_10.0.0.210=[]  counters={'dispatched': 34, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 34}
+== baseline restored: True

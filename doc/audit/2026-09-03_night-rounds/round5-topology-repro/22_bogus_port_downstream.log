@@ -1,0 +1,60 @@
+#### step 22: T5 downstream -- where does an unchecked port number from the topology file end up? ####
+2026-09-03T04:29:07+08:00
+== A. the loader does no range check (source) ==
+343:        ep.srcInterface = edgeJson.at("src_interface").get<uint32_t>();
+347:        ep.dstInterface = edgeJson.at("dst_interface").get<uint32_t>();
+1127:                //     (*m_graph)[e].srcInterface = srcPort;
+1130:                //     (*m_graph)[e].dstInterface = dstPort;
+1446:                            E.srcInterface,
+1449:                            E.dstInterface);
+
+== B. every consumer of srcInterface / dstInterface outside the loader ==
+     31 src/ndt_core/collection/TopologyAndFlowMonitor.cpp
+     14 src/ndt_core/http/HttpSession.cpp
+      4 include/common_types/GraphTypes.hpp
+      3 src/ndt_core/intent_translator/IntentTranslator.cpp
+      3 include/event_system/RequestParser.hpp
+      2 src/ndt_core/intent_translator/LLMAgent.cpp
+      2 include/event_system/PayloadTypes.hpp
+      1 src/ndt_core/collection/FlowLinkUsageCollector.cpp
+      1 include/ndt_core/collection/FlowLinkUsageCollector.hpp
+
+== C. does any of them turn it into an OUTPUT port on a rule? ==
+
+== D. the two mutants, side by side, as the API republishes them ==
+-- port 0 --
+"src_dpid":1,"src_interface":0,"src_ip":[192653504],"telemetry_status":"unknown"
+-- port 999999 --
+{'admin_disabled': False, 'agent_last_sample_age_seconds': -1.0, 'down_reason': 'none', 'dst_dpid': 5, 'dst_interface': 1, 'dst_ip': [259762368], 'flow_set': [], 'is_enabled': False, 'is_up': False, 'last_sample_age_seconds': -1.0, 'left_link_bandwidth_bps': 1000000000, 'left_link_bandwidth_source': 'declared', 'link_bandwidth_bps': 1000000000, 'link_bandwidth_usage_bps': 0, 'link_bandwidth_utilization_percent': 0.0, 'src_dpid': 1, 'src_interface': 999999, 'src_ip': [192653504], 'telemetry_status': 'unknown'}
+
+== E. for comparison, the baseline edge ==
+{'admin_disabled': False, 'agent_last_sample_age_seconds': -1.0, 'down_reason': 'none', 'dst_dpid': 5, 'dst_interface': 1, 'dst_ip': [259762368], 'flow_set': [], 'is_enabled': False, 'is_up': False, 'last_sample_age_seconds': -1.0, 'left_link_bandwidth_bps': 1000000000, 'left_link_bandwidth_source': 'declared', 'link_bandwidth_bps': 1000000000, 'link_bandwidth_usage_bps': 0, 'link_bandwidth_utilization_percent': 0.0, 'src_dpid': 1, 'src_interface': 1, 'src_ip': [192653504], 'telemetry_status': 'unknown'}
+
+== F. the one collector use -- this is where a bogus port has a consequence ==
+include/ndt_core/collection/FlowLinkUsageCollector.hpp:260:     * @param ifIndex   That switch's ingress port for this edge, i.e. the edge's `dstInterface`.
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:3017:                    path.push_back(std::make_pair(flowKey.srcIP, graph[edge].dstInterface));
+
+== G. the edge-matching context around it ==
+                        "host-edge:" + utils::ipToString(flowKey.srcIP),
+                        fmt::format("no host edge for {}; flows from it cannot be traced "
+                                    "(first seen for {} to {} proto {})",
+                                    utils::ipToString(flowKey.srcIP),
+                                    utils::ipToString(flowKey.srcIP),
+                                    utils::ipToString(flowKey.dstIP),
+                                    flowKey.protocol));
+                }
+                else
+                {
+                    auto edge = *edgeOpt;
+
+                    auto graph = m_topologyAndFlowMonitor->getGraph();
+
+                    path.push_back(std::make_pair(flowKey.srcIP, graph[edge].dstInterface));
+
+                    int hop = 0;
+                    for (hop = 0; hop < 100; ++hop)
+                    {
+                        auto srcSw = boost::target(edge, graph);
+
+                        // Reached host vertex?
+                        if (graph[srcSw].dpid == 0)

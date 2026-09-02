@@ -1,0 +1,47 @@
+#### step 25: attributing P3 -- why two identical bring-ups route h3->h1 out different uplinks ####
+2026-09-03T04:45:48+08:00
+
+== A. the code path, read at HEAD bd187870 ==
+  p4_proxy/proxy_agent/topology_manager.py:530   self.net = nx.DiGraph()
+  p4_proxy/proxy_agent/topology_manager.py:666-677  add_link() -> net.add_edge(...), called per discovered link
+  p4_proxy/proxy_agent/topology_manager.py:784   path = nx.shortest_path(search, source=src, target=dst)
+  p4_proxy/proxy_agent/topology_manager.py:1146,1167  install_initial_routes() -> calculate_all_paths()
+  The function's own docstring (:750-753) states the concurrency: 'handle_packet_in discovers a link,
+  calls add_link, then calls install_initial_routes -- which lands here -- while the OTHER switches'
+  receive threads are calling add_link of their own.'
+  grep for a deterministic tie-break in graph construction or path search: none.
+    sorted() appears at lines 50,255,307,356,503,905,1036,1578,1599,1994 -- all match-key formatting,
+    port lists and liveness listings; not one of them is in add_link or calculate_all_paths.
+
+== B. is there actually a tie for h3 -> h1? (computed from the shipped topology file) ==
+   all shortest paths h3 -> h1 (8 of them, each 6 hops):
+      ['10.0.0.3', 3, 7, 9, 5, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 8, 9, 5, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 7, 10, 5, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 8, 10, 5, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 7, 9, 6, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 8, 9, 6, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 7, 10, 6, 1, '10.0.0.1']
+      ['10.0.0.3', 3, 8, 10, 6, 1, '10.0.0.1']
+
+== C. does insertion order alone change which one nx.shortest_path returns? ==
+   Same edge SET, two different insertion ORDERS -- nothing else differs:
+     s7-uplink inserted first   -> ['10.0.0.3', 3, 7, 9, 5, 1, '10.0.0.1']   (s3 leaves via s7)
+     s8-uplink inserted first   -> ['10.0.0.3', 3, 8, 9, 5, 1, '10.0.0.1']   (s3 leaves via s8)
+
+   nx.shortest_path on an unweighted graph is BFS, and BFS breaks equal-length ties by the
+   order a node's neighbours are iterated -- which for nx.DiGraph is INSERTION ORDER.
+   Insertion order here is LLDP packet-in arrival order across ten concurrent gRPC receive threads.
+
+== E. attempted live confirmation of the ordering, and why it is not here ==
+   To tie a specific bring-up's chosen uplink to that bring-up's LLDP arrival order I would need the
+   proxy to record add_link order or the routes it pushed. At the shipped log level it records neither:
+   in .test_run/logs/p4_proxy.log (the last cycle's, 1694 lines) 'Pushing P4 rule' appears 0 times and
+   the only discovery lines are three banners:
+80:[Proxy Agent] Started LLDP Discovery...
+84:[TopologyManager] link watchdog seeded with 32 declared links
+85:[Proxy Agent] Started LLDP link watchdog...
+   Getting it would mean changing proxy logging, which is out of scope for a measurement round.
+   So the attribution rests on the source path plus the deterministic offline demonstration in section C,
+   which reproduces exactly the two outcomes seen live. Recorded as NOT-DONE in SUMMARY.md section E.
+2026-09-03T04:50:42+08:00

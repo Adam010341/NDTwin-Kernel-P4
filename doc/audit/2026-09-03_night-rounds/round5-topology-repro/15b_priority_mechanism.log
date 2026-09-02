@@ -1,0 +1,37 @@
+== A. does the kernel carry 'priority' into the P4 write path at all? (source, HEAD bd187870) ==
+-- P4 strategy files --
+src/ndt_core/power_management/P4PowerStrategy.cpp
+src/ndt_core/routing_management/FlowDispatcher.cpp
+src/ndt_core/routing_management/P4RoutingStrategy.cpp
+
+== B. what did the proxy actually receive? (p4_proxy.log, a different process) ==
+1694
+(priority lines above; count: 0)
+
+== C. did the kernel warn about the dropped priority? ==
+kernel.log lines: 1542
+  lines mentioning priority: 34
+      "priority": 100
+      "priority": 100
+      "priority": 100
+      "priority": 500
+      "priority": 777
+      "priority": 999
+== D. P4RoutingStrategy: is 'priority' referenced anywhere on the write path? ==
+grep -c priority src/ndt_core/routing_management/P4RoutingStrategy.cpp = 0
+grep -c priority src/ndt_core/routing_management/FlowDispatcher.cpp   = 0
+
+-- what the kernel POSTs to the proxy (the request it builds) --
+16:        "meters have no direct equivalent, the P4 proxy agent implements no such route, and "
+18:        "nonexistent proxy route and the 404 went unnoticed.")
+
+== E. the two lines the kernel logged around my priority=777 modify ==
+1506-        "ipv4_dst": "10.0.0.210"
+1507-      },
+1508:      "priority": 777
+1509-    }
+1510-  ]
+1511-}
+1512-[2026-09-03 04:08:30.451] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.4 ms | since start (689 iters) mean 1000.3 ms, min 1000.1, max 1001.1 (flows=0, counters=4) -- the LAST-N figure is the current denominator; the since-start one lags it
+1513-[2026-09-03 04:08:30.451] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2107[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000422 divisor_used_s=1.000422 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+1514-[2026-09-03 04:08:33.502] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection

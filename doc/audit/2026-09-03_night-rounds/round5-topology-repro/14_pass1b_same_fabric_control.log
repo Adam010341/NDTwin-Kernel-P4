@@ -1,0 +1,17 @@
+#### step 14: reproducibility PASS 1b -- SAME fabric A, identical script. This is the WITHIN-FABRIC control that bounds sampling artefact. ####
+2026-09-03T04:05:43+08:00
+== free: 7631 MB available
+#### PASS 1b ####
+== A. idle fingerprint, before routes and before traffic
+   nodes=14 edges=40 edges_up=40 avg=0.0 switch_rows=4
+== B. install 4 routes via /ndt/install_flow_entry, verify by reading the switch
+   switch rows after install: 8 (was 4)
+== B2. modify ONE rule by priority (same match, same priority 100, new action port 2)
+== B3. modify the SAME match at a DIFFERENT priority (200) -- replace or add?
+== C. traffic h1(1371207) -> h2(1371210): iperf3 UDP 20M len 1400 for 100 s
+   sample t+15s: avg=0.0118093245 nonzero_edges=4 flow_rows=1 h1h2_rate=[24610133] pps=[2133]
+   sample t+50s: avg=0.0132846465 nonzero_edges=4 flow_rows=1 h1h2_rate=[18703701] pps=[1621]
+   sample t+85s: avg=0.0191890725 nonzero_edges=4 flow_rows=1 h1h2_rate=[18703701] pps=[1621]
+   wire: {'bytes': 249998000, 'seconds': 100.001381, 'bits_per_second': 19999752.801077787, 'packets': 178570, 'lost_packets': 0, 'lost_percent': 0, 'jitter_ms': 0.02016138675220081}
+== D. cleanup: delete the 4 installed routes
+== written doc/audit/2026-09-03_night-rounds/round5-topology-repro/raw/pass1b.json
