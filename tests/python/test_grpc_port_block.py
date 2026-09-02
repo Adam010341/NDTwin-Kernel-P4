@@ -127,6 +127,31 @@ class TheBlockClearsThisMachinesEphemeralRange(unittest.TestCase):
         # The check the bring-up scripts actually call, on the real /proc paths.
         self.assertIsNone(G.check_port_block(G.grpc_port_block(TEN_SWITCHES)))
 
+    def test_the_imported_constant_matches_the_source_on_disk(self):
+        """
+        Guard against stale bytecode, which bit this change during development.
+
+        `GRPC_PORT_BASE = 30050` and `GRPC_PORT_BASE = 50050` are the same number of bytes, and
+        CPython decides a .pyc is fresh from the source's size plus its mtime **truncated to one
+        second**. Rewriting the constant and re-importing inside the same second therefore keeps
+        serving the old bytecode -- verified here: a .pyc written 26 ms *before* its source was
+        accepted, and the suite reported the port block as 50051-50060 while the file on disk
+        said 30051-30060. Every verdict in this suite is about the imported value, so without
+        this the whole file can be measuring a module nobody shipped.
+
+        Run the suite with PYTHONDONTWRITEBYTECODE=1 and this can never arise; the assertion is
+        for the runs that forget.
+        """
+        with open(G.__file__, encoding="utf-8") as fh:
+            source = fh.read()
+        on_disk = re.search(r"^GRPC_PORT_BASE\s*=\s*(\d+)", source, re.M)
+        self.assertIsNotNone(on_disk, f"no GRPC_PORT_BASE assignment in {G.__file__}")
+        self.assertEqual(
+            int(on_disk.group(1)), G.GRPC_PORT_BASE,
+            f"the imported grpc_ports says {G.GRPC_PORT_BASE} but {G.__file__} says "
+            f"{on_disk.group(1)} -- stale bytecode. Delete "
+            f"{os.path.join(os.path.dirname(G.__file__), '__pycache__')} and re-run.")
+
 
 # --- The mirror: a kernel whose range DOES cover the block -------------------------------
 
@@ -327,6 +352,104 @@ class TheFabricAndTheProxyAgreeOnThePortBlock(unittest.TestCase):
             source = fh.read()
         self.assertIn("grpc_ports.grpc_port(i)", source)
         self.assertNotIn("grpc_port=50050+i", source)
+
+
+#: Files under doc/ or tools/ that may still name the old 5005x block, each for a stated
+#: reason. Everything else in those trees must describe the fabric as it is now.
+#:
+#: doc/audit/ as a whole is excluded separately: it is the archive of finished rounds, and a
+#: round's record says what the ports were on the day it ran. Rewriting a measurement to match
+#: today's configuration would turn evidence into a claim. The eighteen archived files that
+#: still name the old block, recorded here so the exclusion is a list and not a shrug:
+#:
+#:   2026-07-17_structure-decomposition/testbed_topo_analysis.md
+#:   2026-07-29_codebase-review/PROMPT_Fable_CodebaseAudit.md
+#:   2026-07-29_codebase-review/PROMPT_KernelTestSuite_Review.md
+#:   2026-08-12_overnight-review/{A-live-runbook,B1-commit-review,B2-doc-rot,
+#:                                B3-test-mutation,D-testing-doc-update}.md
+#:   2026-08-15_fresh-acceptance-report.md
+#:   2026-08-18_live-full-stack-round/subagent-round2-FINDINGS.md
+#:   2026-08-18_three-model-questioner-round/questions/deepseek-agent-CONTAMINATED.md
+#:   2026-08-25_sampling-rounds/{gate_d.sh,PREREG.md,run_e8.log}
+#:   2026-08-28_manual-verification-coverage/FINDINGS-section6-and-T2.md
+#:   2026-08-30_live-full-stack-round/harness/{90_restore.sh,lib.sh}
+#:   2026-08_session-handoff-log.md
+#:
+#: ⚠️ 2026-08-25_sampling-rounds/gate_d.sh is the one archived file with a live port filter
+#: (`dport >= :50053 and dport <= :50062`) rather than prose. Re-running that harness against
+#: a renumbered fabric would read 0 bytes -- which is exactly the "telemetry is dead" verdict
+#: the gate exists to make, and its own comment says so. It stays as the record of that round;
+#: anyone reusing it must re-point the filter first.
+ARCHIVED_TREE = os.path.join("doc", "audit")
+ALLOWED_TO_NAME_THE_OLD_BLOCK = {
+    # The issue register. F-15's row has to name the ports it was about to be readable, and a
+    # resolved entry that cannot say what was wrong is not a record of anything.
+    os.path.join("doc", "KNOWN-ISSUES.md"),
+    # Carries measurements taken on 2026-08-11 -- ":50056 was listening", a 59-sample count --
+    # against the fabric as it was numbered that day. The header note says so; the numbers
+    # stay as they were observed.
+    os.path.join("doc", "2026-08-11_phase7_power_mechanism_design.md"),
+}
+
+#: 50051-50060, 50050, and the ":5005x" shorthand. Bounded so it does not fire on decimals:
+#: doc/audit/2026-08-28_flow-count-capacity/PREREG.md carries the value 0.5005557, which an
+#: unbounded search reports as a port reference.
+OLD_BLOCK = re.compile(r"\b5005[0-9]\b|\b50050\b|5005x")
+
+
+def text_files_under(*trees):
+    """Every readable text file under these trees, as repo-relative paths."""
+    for tree in trees:
+        for root, dirs, names in os.walk(os.path.join(REPO, tree)):
+            dirs[:] = [d for d in dirs if d != ".git"]
+            for name in sorted(names):
+                path = os.path.join(root, name)
+                rel = os.path.relpath(path, REPO)
+                if rel.startswith(ARCHIVED_TREE + os.sep) or rel in ALLOWED_TO_NAME_THE_OLD_BLOCK:
+                    continue
+                try:
+                    with open(path, encoding="utf-8") as fh:
+                        yield rel, fh.read()
+                except (OSError, UnicodeDecodeError):
+                    # Figures and binaries. Nothing to read, nothing to claim about them.
+                    continue
+
+
+class NoLiveDocumentStillNamesTheOldPortBlock(unittest.TestCase):
+    """
+    Renumbering the fabric without renumbering the pages that tell people how to run it leaves
+    the fix half-delivered: the switches answer on 30051 while the runbook sends the operator
+    to 50051, and "nothing is listening" is the least informative failure this project has.
+
+    The archive is exempt on purpose -- see ARCHIVED_TREE above.
+    """
+
+    def test_no_live_doc_or_tool_names_the_old_block(self):
+        offenders = []
+        for rel, text in text_files_under("doc", "tools"):
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if OLD_BLOCK.search(line):
+                    offenders.append(f"{rel}:{lineno}: {line.strip()[:100]}")
+        self.assertEqual(
+            offenders, [],
+            "these live documents still name the old 5005x gRPC block; the fabric now uses "
+            f"{G.grpc_port(1)}-{G.grpc_port(10)}:\n" + "\n".join(offenders))
+
+    def test_the_allowlist_is_not_hiding_a_typo(self):
+        # An allowlisted path that does not exist would silently widen to nothing, and the
+        # exemption would look considered while protecting a file that had been renamed.
+        for rel in ALLOWED_TO_NAME_THE_OLD_BLOCK:
+            self.assertTrue(os.path.exists(os.path.join(REPO, rel)),
+                            f"allowlisted path {rel} does not exist")
+
+    def test_the_scan_can_actually_find_the_old_block(self):
+        # The positive control. A scanner that reads nothing reports no offenders, and an
+        # empty result would otherwise be indistinguishable from a clean tree.
+        self.assertRegex("bmv2 listens on 50051-50060", OLD_BLOCK)
+        self.assertRegex("ECONNREFUSED to :5005x", OLD_BLOCK)
+        self.assertNotRegex("the ratio was 0.5005557", OLD_BLOCK)
+        seen = sum(1 for _ in text_files_under("doc", "tools"))
+        self.assertGreater(seen, 20, "the walk read almost nothing; the trees moved")
 
 
 if __name__ == "__main__":

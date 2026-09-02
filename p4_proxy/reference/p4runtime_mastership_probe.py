@@ -55,7 +55,7 @@ state you care about. Each scenario uses its own device so they cannot alias.
 
 Usage (needs the proxy venv -- the system python3 has no grpc):
     p4_proxy/venv/bin/python p4_proxy/reference/p4runtime_mastership_probe.py --scenario all
-    ... --scenario 1 --device-id 1 --addr 127.0.0.1:50051
+    ... --scenario 1 --device-id 1 --addr 127.0.0.1:30051
 """
 
 import argparse
@@ -73,6 +73,15 @@ from p4.v1 import p4runtime_pb2, p4runtime_pb2_grpc
 BUILD = "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build"
 P4INFO_PATH = f"{BUILD}/ndtwin_switch.p4info.txt"
 JSON_PATH = f"{BUILD}/ndtwin_switch.json"
+
+# [Co-developed with claude code -- Adam]
+# The port convention, from the fabric's own module rather than restated here. This does NOT
+# weaken the third-party discipline the docstring describes: grpc_ports carries a port number
+# and a /proc check, and shares no request-building code with proxy_agent/p4_client.py.
+import os  # noqa: E402
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
+from grpc_ports import GRPC_PORT_BASE, grpc_port  # noqa: E402
 
 # google.rpc.Code names. The arbitration status is a google.rpc.Status, whose
 # numeric code has no generated enum here, and a bare integer in a transcript is
@@ -375,7 +384,8 @@ def main():
         cfg = f.read()
 
     # A device each, so a wipe in one scenario cannot be mistaken for a result in
-    # the next. bmv2's gRPC port convention here is 50050 + device_id.
+    # the next. bmv2's gRPC port convention here is GRPC_PORT_BASE + device_id, and
+    # GRPC_PORT_BASE lives in p4_proxy/mininet/grpc_ports.py.
     plan = {"1": (scenario_1, 1), "2": (scenario_2, 2), "3": (scenario_3, 3)}
     wanted = ["1", "2", "3"] if args.scenario == "all" else [args.scenario]
 
@@ -383,7 +393,7 @@ def main():
     for key in wanted:
         fn, default_dev = plan[key]
         dev = args.device_id if args.device_id is not None else default_dev
-        addr = args.addr or f"127.0.0.1:{50050 + dev}"
+        addr = args.addr or f"127.0.0.1:{grpc_port(dev)}"
         results[key] = fn(addr, dev, p4info, cfg)
 
     print(f"\n{'=' * 78}\nSUMMARY")

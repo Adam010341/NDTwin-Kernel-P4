@@ -160,7 +160,7 @@ ndt up ovs4         # 4 hosts（P4 測試床的佈局搬到 OVS 上）
 **南向連線的方向相反：**
 
 - **OVS**：Ryu 是 server，switch 撥出去找它 ⇒ **Ryu 必須先聽好**，Mininet 才能起。
-- **P4**：bmv2 是 server（`simple_switch_grpc` 聽 `0.0.0.0:50051-50060`），proxy 是
+- **P4**：bmv2 是 server（`simple_switch_grpc` 聽 `0.0.0.0:30051-30060`），proxy 是
   gRPC **client** ⇒ **Mininet 必須先起**，否則 proxy 第一個 RPC 就 ECONNREFUSED，
   uvicorn 在開 :8081 之前就退出。
 

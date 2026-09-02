@@ -2,6 +2,11 @@
 
 [Co-developed with claude code -- Adam]
 
+> ⚠️ **port 號碼的時效（2026-09-02 補記）**：本文中的 `:50051`–`:50060`（尤其 `:50056`）
+> 是 **2026-08-11 當天實測到的號碼**，**刻意保留原值不改**——那是量測紀錄，改了就變成宣稱。
+> F-15 之後 fabric 改用 **`30051`–`30060`**（base 在 `p4_proxy/mininet/grpc_ports.py`）。
+> 要照本文重跑那些觀測，把 `5005x` 讀成 `3005x`。
+
 範圍：**機制不是策略**。kernel 提供 `/ndt/set_switches_power_state` → `P4PowerStrategy`；
 閒置判斷等策略在 Energy-Saving-App，dataplane 無關，不在此範圍。
 

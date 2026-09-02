@@ -8,7 +8,7 @@ This directory contains the Python scripts used to construct the emulated networ
 ## Responsibilities
 1. **Network Emulation**: Uses Mininet API to create virtual switches, hosts, and links.
 2. **BMv2 Instantiation**: Replaces standard OVS switches with BMv2 (`simple_switch_grpc`) processes.
-3. **Port Binding**: Assigns specific gRPC and Thrift ports to each switch for control plane access (e.g., gRPC ports 50051-50060).
+3. **Port Binding**: Assigns specific gRPC and Thrift ports to each switch for control plane access (e.g., gRPC ports 30051-30060).
 4. **Static ARP Configuration**: Pre-populates the ARP tables of all simulated hosts to bypass the need for dynamic ARP resolution and packet-in handling by the control plane.
 5. **Startup verification**: confirms each switch is actually usable before reporting success.
 6. **Switch manifest**: records each switch's PID and ports so one switch can be managed alone.
@@ -23,7 +23,7 @@ bmv2 stays up briefly before its gRPC server binds, and it reports a bind failur
 Polling rather than sleeping a fixed amount avoids false failures on a slow machine.
 
 This exists because the script previously printed
-`10 BMv2 Switches listening on gRPC ports 50051 ~ 50060` **unconditionally**. When s10 died
+`10 BMv2 Switches listening on gRPC ports 30051 ~ 30060` **unconditionally**. When s10 died
 at startup it said so anyway, and the real cause sat in a file nothing read:
 
 ```
@@ -57,6 +57,6 @@ Must be run with `sudo` privileges to manipulate Linux network namespaces:
 sudo python3 p4_testbed_topo.py
 ```
 
-Expect `All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060`. A `WARNING:` line
+Expect `All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060`. A `WARNING:` line
 naming the failed switches means the topology is not usable — fix the cause and restart
 rather than continuing, since the proxy expects all ten.

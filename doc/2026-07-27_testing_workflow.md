@@ -44,7 +44,7 @@
 OVS 模式                              P4 模式
 1. 控制層  Ryu                        1. 資料層  bmv2 Mininet (p4_testbed_topo.py)
 2. 資料層  Mininet (testbed_topo.py)  2. 控制層  P4 proxy agent
-   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:50051~60)
+   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:30051~60)
 
 3. Kernel     ndtwin_kernel     ← 一定要最後開，而且要等控制層收斂完
 4. 唯讀工具   Visualizer / NSR / Web-GUI
@@ -53,7 +53,7 @@ OVS 模式                              P4 模式
 ```
 
 Ryu 是 server、switch 連進來，所以 OVS 要先開 Ryu；bmv2 才是 server（`simple_switch_grpc`
-監聽 `0.0.0.0:50051-50060`），proxy 是 gRPC **client**，所以 P4 要先開 Mininet，否則 proxy
+監聽 `0.0.0.0:30051-30060`），proxy 是 gRPC **client**，所以 P4 要先開 Mininet，否則 proxy
 的第一個 RPC 就 ECONNREFUSED、uvicorn 直接 exit。`stack.sh up {ovs|p4}` 會自動走對的順序。
 
 **kernel 一定要最後開，而且開之前要等收斂。** `stack.sh` 會輪詢控制層直到數量跟拓撲檔對上

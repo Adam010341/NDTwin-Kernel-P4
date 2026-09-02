@@ -92,7 +92,7 @@ class P4RuntimeClient:
         #     without it          32.56 s
         #
         # Nothing legitimate was being shared. Each switch has its own address
-        # (localhost:50051..50060, main.build_p4_client), so there is normally exactly one live
+        # (localhost:30051..30060, main.build_p4_client), so there is normally exactly one live
         # client per address; the only sharing that ever occurred was between a dead client and
         # its replacement, which is precisely the bug. Note that gRPC ignores channel options it
         # does not recognise, so a typo here would be silent -- tests/test_p4_client_writes.py

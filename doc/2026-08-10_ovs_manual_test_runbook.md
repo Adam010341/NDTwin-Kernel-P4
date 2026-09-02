@@ -174,7 +174,7 @@ L1 passed: 1 test binary/binaries, clean under ctest and direct execution.
 
 ⚠️ C++ 測試必須**兩種跑法都通過**——`ctest` 每個 test case 開獨立 process，會掩蓋 suite 級別的失敗（例如 static init 順序、singleton 殘留狀態）。`l1_unit_tests.sh` 兩種都跑，並且交叉比對 ctest 註冊數和 gtest 發現數是否一致。
 
-⚠️ `test_p4_client.py` 整份 skip 是**預期行為**——它需要真實 bmv2 在 `:50051` 上跑，檔案裡有 `NDTWIN_L1_OPT_IN` 標記。不是失敗。
+⚠️ `test_p4_client.py` 整份 skip 是**預期行為**——它需要真實 bmv2 在 `:30051` 上跑，檔案裡有 `NDTWIN_L1_OPT_IN` 標記。不是失敗。
 
 ### OVS 模式沒有等價的「P4 pipeline 編譯」步驟
 
@@ -189,7 +189,7 @@ P4 模式有 `./l0_build_check.sh p4` 檢查 bmv2 pipeline 編譯。OVS 模式�
 | 模式 | 誰是 server | 正確順序 |
 |---|---|---|
 | OVS | **Ryu** 監聽 :6633（OpenFlow），switch 主動連進來 | **Ryu → Mininet** → 等收斂 → kernel |
-| P4 | **bmv2** 監聽 :50051-50060，proxy 是 gRPC **client** | Mininet → proxy → 等收斂 → kernel |
+| P4 | **bmv2** 監聽 :30051-30060，proxy 是 gRPC **client** | Mininet → proxy → 等收斂 → kernel |
 
 來源：`stack.sh:530-538`（「Treating both as 'control plane first' is what used to break P4 mode.」）。
 
@@ -1449,7 +1449,7 @@ kernel 現在有防禦：`classifyFlowStatsReply`（`DeviceConfigurationAndPower
 | liveness 檢查頻率 | 每秒（`pingWorker`） | 每秒（`pingWorker`） |
 | topology poll 頻率 | 前 90s 每 5s，之後每 30s | 同 |
 | flow table poll 頻率 | 每 10s（`openflowTablesUpdateWorker`） | 每 10s |
-| 關鍵 port | :8000 (kernel), :8080 (Ryu REST), :6633 (Ryu OpenFlow), :6343 (sFlow UDP) | :8000 (kernel), :8081 (proxy), :50051-50060 (bmv2 gRPC), :6343 (sFlow UDP) |
+| 關鍵 port | :8000 (kernel), :8080 (Ryu REST), :6633 (Ryu OpenFlow), :6343 (sFlow UDP) | :8000 (kernel), :8081 (proxy), :30051-30060 (bmv2 gRPC), :6343 (sFlow UDP) |
 
 
 ---

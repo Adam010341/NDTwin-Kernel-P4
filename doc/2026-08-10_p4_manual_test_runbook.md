@@ -124,7 +124,7 @@ L1 passed: 1 test binary/binaries, clean under ctest and direct execution.
 
 ⚠️ C++ 測試必須**兩種跑法都通過**——`ctest` 每個 test case 開獨立 process，會掩蓋 suite 級別的失敗（例如 static init 順序、singleton 殘留狀態）。`l1_unit_tests.sh` 兩種都跑，並且交叉比對 ctest 註冊數和 gtest 發現數是否一致。
 
-⚠️ `test_p4_client.py` 整份 skip 是**預期行為**——它需要真實 bmv2 在 `:50051` 上跑，檔案裡有 `NDTWIN_L1_OPT_IN` 標記。不是失敗。
+⚠️ `test_p4_client.py` 整份 skip 是**預期行為**——它需要真實 bmv2 在 `:30051` 上跑，檔案裡有 `NDTWIN_L1_OPT_IN` 標記。不是失敗。
 
 ### P4 pipeline 編譯（可選，除非改了 P4 程式本身）
 
@@ -149,7 +149,7 @@ All selected components build.
 | 模式 | 誰是 server | 正確順序 |
 |---|---|---|
 | OVS | **Ryu** 監聽 :6633，switch 主動連進來 | Ryu → Mininet → 等收斂 → kernel |
-| P4 | **bmv2** 監聽 :50051-50060，proxy 是 gRPC **client** | **Mininet → proxy** → 等收斂 → kernel |
+| P4 | **bmv2** 監聽 :30051-30060，proxy 是 gRPC **client** | **Mininet → proxy** → 等收斂 → kernel |
 
 `stack.sh up p4` 會走對的順序。kernel 一定要最後開。
 
@@ -162,7 +162,7 @@ sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.p
 ✅ 要看到：
 
 ```
-All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
 Switch manifest: /tmp/ndtwin_p4_switches.json
 ```
 
@@ -211,7 +211,7 @@ stack up. next: ./stack.sh wait
 
 ⚠️ **收斂時間約 2 秒**（P4 模式沒有 Ryu 的 hard-coded 60s sleep）。如果你看到 `paths=12` 且 `converged after 2s`，這是正常的。OVS 模式才需要 >60s。
 
-⚠️ 如果 proxy log 出現 `ECONNREFUSED` 到 `:5005x`，代表 bmv2 沒起來——回 3a。
+⚠️ 如果 proxy log 出現 `ECONNREFUSED` 到 `:3005x`，代表 bmv2 沒起來——回 3a。
 
 ⚠️ kernel log 裡**一筆** `curl` 失敗（對 `:8080` 的連線拒絕）是**預期且自癒的**。原因在 `FlowLinkUsageCollector.cpp:507` 的註解：`start()` 跑在 `loadStaticTopologyFromFile` 之前，所以 `controlPlaneHostAndPort()` 那時候還不知道這是 bmv2 fabric，第一次會去問 Ryu 的 port（`:8080`），拿到空回應；等 topology 載入後切換到 proxy 的 port（`:8081`），之後就正常了。這不是 bug。
 

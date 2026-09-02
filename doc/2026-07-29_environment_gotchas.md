@@ -137,7 +137,7 @@ terminate called after throwing an instance of 'boost::wrapexcept<boost::system:
 | 模式 | 誰是 server | 正確順序 |
 |---|---|---|
 | OVS | **Ryu** 監聽 :6633，switch 主動連進來 | Ryu → Mininet → 等收斂 → kernel |
-| P4 | **bmv2** 監聽 :50051-50060，proxy 是 gRPC **client** | **Mininet → proxy** → 等收斂 → kernel |
+| P4 | **bmv2** 監聽 :30051-30060，proxy 是 gRPC **client** | **Mininet → proxy** → 等收斂 → kernel |
 
 `stack.sh up {ovs|p4}` 會自動走對的順序。P4 若順序錯了，症狀是 proxy 完全不開 `:8081`
 （uvicorn 在 startup 就 exit），而真正的原因是 log 裡幾十行前的 ECONNREFUSED。

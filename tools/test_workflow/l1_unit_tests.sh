@@ -204,7 +204,7 @@ else
             # Three different situations reach here and they do not deserve the same verdict:
             #
             #  1. the file is an opt-in live test that says so. test_p4_client.py needs a real bmv2
-            #     on :50051 and skips deliberately -- that is the design, not a defect, so it must
+            #     on :30051 and skips deliberately -- that is the design, not a defect, so it must
             #     not fail the run. It has to *declare* itself, though, because "everything
             #     skipped" is indistinguishable from a broken file otherwise.
             #  2. no interpreter on this machine has the P4Runtime protobufs, so the skip is the
