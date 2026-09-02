@@ -153,20 +153,20 @@ echo
 echo "mutations:"
 
 # 1. The defect, verbatim: the outer shared_lock goes back above the delegating call.
-mutate '    nlohmann::json flowInfo = getFlowInfoJson();' \
+mutate '    nlohmann::json flowInfo = getFlowInfoJson(filter);' \
        '    shared_lock lock(m_flowInfoTableMutex);
-    nlohmann::json flowInfo = getFlowInfoJson();'
+    nlohmann::json flowInfo = getFlowInfoJson(filter);'
 report "the recursive shared_lock is put back" guard \
        "case 1  getTopKFlowInfoJson does not lock m_flowInfoTableMutex"
 
 # 2. The opposite direction, and the one a lock-removal fix invites: the INNER lock is deleted
 #    too. There is then no recursion and no protection, and cases 1 and 2 of the guard are both
 #    satisfied. Only the control case can see it.
-mutate 'FlowLinkUsageCollector::getFlowInfoJson()
+mutate 'FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
 {
     shared_lock lock(m_flowInfoTableMutex);
 ' \
-       'FlowLinkUsageCollector::getFlowInfoJson()
+       'FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
 {
 '
 report "the inner lock is deleted as well" guard \
@@ -175,7 +175,7 @@ report "the inner lock is deleted as well" guard \
 # 3. The delegation is dropped. Case 1 would still pass -- there is no lock -- but the function
 #    no longer reads the table at all, and an inlined copy of the loop would need its own lock
 #    that this guard would then never see.
-mutate 'nlohmann::json flowInfo = getFlowInfoJson();' \
+mutate 'nlohmann::json flowInfo = getFlowInfoJson(filter);' \
        'nlohmann::json flowInfo = nlohmann::json::array();'
 report "getTopKFlowInfoJson stops calling getFlowInfoJson" guard \
        "case 2  getTopKFlowInfoJson still calls getFlowInfoJson()"
