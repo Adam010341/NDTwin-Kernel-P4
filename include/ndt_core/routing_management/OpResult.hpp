@@ -33,20 +33,46 @@ struct OpResult
     /// Human-readable reason, for logs and for the /ndt/ response body. Empty on success.
     std::string message;
 
+    /**
+     * Machine-readable name for what actually happened, for the /ndt/ response body.
+     *
+     * [Co-developed with claude code -- Adam] F-13.
+     * `ok` and `httpStatus` answer "did the far end accept the request". They cannot answer
+     * "and did the thing the caller named actually change", because for group and meter mods
+     * Ryu answers 200 before the switch has adjudicated anything -- see
+     * HttpRoutingStrategyBase::entryExists for the citation. This field carries the extra bit:
+     * `deleted` means an entry that was verified present is now gone through, `unverified`
+     * means the operation was forwarded but its precondition could not be checked, and
+     * `no_such_group` names the reason for a refusal that shares its status code with another.
+     *
+     * Empty means the operation says nothing beyond `ok`, and respondToOpResult then omits the
+     * field entirely -- an added key is a contract break for a strict client, so paths that
+     * have nothing to add must not grow one.
+     */
+    std::string outcome;
+
+    /// A copy of this result carrying @p name as its outcome. Chainable at a return statement.
+    OpResult withOutcome(std::string name) const
+    {
+        OpResult copy = *this;
+        copy.outcome = std::move(name);
+        return copy;
+    }
+
     static OpResult success(int status = 200)
     {
-        return OpResult{true, status, ""};
+        return OpResult{true, status, "", ""};
     }
 
     static OpResult failure(int status, std::string why)
     {
-        return OpResult{false, status, std::move(why)};
+        return OpResult{false, status, std::move(why), ""};
     }
 
     /// No response at all: the far end is unreachable, or the request timed out.
     static OpResult unreachable(std::string why)
     {
-        return OpResult{false, 0, std::move(why)};
+        return OpResult{false, 0, std::move(why), ""};
     }
 
     /**
@@ -68,13 +94,13 @@ struct OpResult
      */
     static OpResult notSent(std::string why)
     {
-        return OpResult{false, 500, std::move(why)};
+        return OpResult{false, 500, std::move(why), ""};
     }
 
     /// The target data plane cannot express this operation (e.g. group entries on bmv2).
     static OpResult unsupported(std::string why)
     {
-        return OpResult{false, 501, std::move(why)};
+        return OpResult{false, 501, std::move(why), ""};
     }
 
     /// True when nothing answered, as opposed to answering with an error.

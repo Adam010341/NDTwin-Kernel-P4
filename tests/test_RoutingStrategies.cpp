@@ -453,6 +453,14 @@ TEST_F(RoutingStrategyFixture, P4RefusesGroupAndMeterEntriesWithoutSendingAnythi
 TEST_F(RoutingStrategyFixture, OpenFlowStillSupportsGroupAndMeterEntries)
 {
     // The OVS/hardware path genuinely has these, so the refusal must be P4-specific.
+    //
+    // [Co-developed with claude code -- Adam] F-13 added an existence check before each of these
+    // six, and this test still passes for a reason worth naming rather than leaving to be
+    // rediscovered: RecordingStrategy answers every command with the same "\n200", so the check
+    // gets an empty body, cannot read an answer out of it, and returns Unknown -- which forwards
+    // the mod rather than refusing it. So what this pins is still "OpenFlow does not refuse
+    // these", not "the guard is absent". The guard's own decisions are asserted in
+    // tests/test_GroupMeterExistence.cpp, against a recorder that answers GET and POST separately.
     RecordingOpenFlow s("localhost:8080");
     const json payload = json{{"dpid", 1}, {"group_id", 10}};
 

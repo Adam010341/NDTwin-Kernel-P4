@@ -87,6 +87,12 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // paths as well as their refusals.
     friend class HttpSessionStatusTestPeer;
 
+    // [Co-developed with claude code -- Adam]
+    // Third peer, for tests/test_GroupMeterExistence.cpp (F-13). Separate for the same ODR
+    // reason as the second, and it supplies a FlowRoutingManager rather than a LockManager
+    // because the six group/meter endpoints are the ones whose reply shape it pins.
+    friend class HttpSessionGroupMeterTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);

@@ -787,7 +787,19 @@ HttpSession::respondToOpResult(http::response<http::string_body>& res,
     if (result.ok)
     {
         res.result(http::status::ok);
-        res.body() = json{{"status", successMessage}}.dump();
+        // [Co-developed with claude code -- Adam] F-13.
+        // `status` is the kernel's own past-participle sentence and predates the fix, so it
+        // stays exactly as it was -- it is a cross-repo contract. `outcome` is the new bit: for
+        // group and meter mods a 200 from Ryu means "forwarded", not "done", so a caller needs
+        // to be able to tell a verified success ("deleted") from an unverified one
+        // ("unverified"). Added only when the layer below had something to say, because a key
+        // that appears unconditionally is a break for a client that counts fields.
+        json body{{"status", successMessage}};
+        if (!result.outcome.empty())
+        {
+            body["outcome"] = result.outcome;
+        }
+        res.body() = body.dump();
         return;
     }
 
@@ -811,10 +823,17 @@ HttpSession::respondToOpResult(http::response<http::string_body>& res,
         res.result(http::status::bad_gateway);
     }
 
-    res.body() = json{{"status", "error"},
-                      {"error", result.message},
-                      {"controller_status", result.httpStatus}}
-                     .dump();
+    json failureBody{{"status", "error"},
+                     {"error", result.message},
+                     {"controller_status", result.httpStatus}};
+    // [Co-developed with claude code -- Adam] F-13. 404 and 400 are each answered for more than
+    // one reason here -- "no such switch" and "no such group" are both 404 -- so the machine-
+    // readable discriminator goes in the body next to the sentence.
+    if (!result.outcome.empty())
+    {
+        failureBody["outcome"] = result.outcome;
+    }
+    res.body() = failureBody.dump();
 
     SPDLOG_LOGGER_WARN(Logger::instance(),
                        "Responding {} for a failed southbound operation: {}",

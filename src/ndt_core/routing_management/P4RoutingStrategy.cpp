@@ -15,7 +15,11 @@ refuse(const char* what)
         std::string(what) + " is not supported on a P4/bmv2 data plane: OpenFlow groups and "
         "meters have no direct equivalent, the P4 proxy agent implements no such route, and "
         "the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a "
-        "nonexistent proxy route and the 404 went unnoticed.");
+        "nonexistent proxy route and the 404 went unnoticed.")
+        // [Co-developed with claude code -- Adam] F-13: the six /ndt/ endpoints now name what
+        // happened in the body as well as in the status line, and "the data plane cannot express
+        // this at all" is a different answer from "the entry is not there".
+        .withOutcome("unsupported_on_p4");
 }
 
 } // namespace
