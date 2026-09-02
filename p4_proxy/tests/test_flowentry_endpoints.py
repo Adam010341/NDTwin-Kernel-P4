@@ -225,5 +225,85 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
         self.assertIs(tm.unroute_flow(1, {}), False)
 
 
+class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
+    """
+    FINDING-07's residue: `success` was true about the request and false about the consequence.
+
+    [Co-developed with claude code -- Adam]
+    Seventeen rules were POSTed at priorities 902 and 910-927 on 2026-08-30 and every one came
+    back off the switch at priority 0. The corrected reading is that nothing dropped the value:
+    a destination-only match compiles to `ipv4_lpm`, a P4 LPM table with no priority column at
+    all, where precedence is the prefix length. So the priority is not lost in transit -- it is
+    unrepresentable at the destination, and the endpoint accepted it, routed it to that table,
+    and answered `{"status": "success"}` with nothing said.
+
+    That is what these tests pin, and only that. They do NOT assert a refusal: a 200 -> 400 here
+    is a breaking change for a caller that does not read status codes, which this project has
+    (T-15 Option 0, and the 2026-08-30 §1.2 ruling it cites). The disclosure is additive, so the
+    kernel -- whose only check on this body is `status == "error"`,
+    HttpRoutingStrategyBase.cpp:123-125 -- cannot see the difference.
+
+    The topology is stubbed: which table a match compiles to is decided by `needs_five_tuple` on
+    the match alone, so driving a real TopologyManager would add a gRPC dependency without adding
+    coverage of the thing under test.
+    """
+
+    def setUp(self):
+        self.recorder = RecordingTopology(verdict=True)
+        api_routes.topology = self.recorder
+
+    def tearDown(self):
+        api_routes.topology = None
+
+    @staticmethod
+    def _add(match, priority=None, port=2):
+        body = {"dpid": 1, "match": match, "actions": [{"type": "OUTPUT", "port": port}]}
+        if priority is not None:
+            body["priority"] = priority
+        return call(api_routes.add_flow_entry, json.dumps(body).encode())
+
+    def test_a_destination_only_rule_says_its_priority_was_not_honoured(self):
+        # The exact shape of FINDING-07's seventeen: dl_type + nw_dst, priority 915.
+        out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(out["table"], "ipv4_lpm")
+        self.assertIs(out["priority_honoured"], False)
+        self.assertIn("prefix length", out["priority_note"])
+
+    def test_a_five_tuple_rule_says_its_priority_was_honoured(self):
+        # More than a destination, so it compiles to the ternary table that has a priority
+        # column. The same request shape must NOT carry the caveat, or the caveat means nothing.
+        out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240", "tp_dst": 5201,
+                         "nw_proto": 6}, priority=915)
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(out["table"], "flow_5tuple")
+        self.assertIs(out["priority_honoured"], True)
+        self.assertNotIn("priority_note", out)
+
+    def test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority(self):
+        # Every rule the kernel writes itself is destination-only and sends no priority. Telling
+        # those callers their priority was ignored would make the caveat noise, and a caveat that
+        # fires on every call is one nobody reads by the time it matters.
+        out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"})
+        self.assertEqual(out["table"], "ipv4_lpm")
+        self.assertIs(out["priority_honoured"], False)
+        self.assertNotIn("priority_note", out)
+
+    def test_a_failed_write_is_still_reported_as_an_error(self):
+        # The disclosure must not leak onto the failure path and turn a refused write into
+        # something that reads like a qualified success.
+        self.recorder.verdict = False
+        out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
+        self.assertEqual(out["status"], "error")
+        self.assertNotIn("priority_honoured", out)
+
+    def test_the_priority_still_reaches_the_topology_unchanged(self):
+        # Disclosing that a value is unused must not become a reason to stop forwarding it: the
+        # ternary path needs it, and the two paths share this handler.
+        self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
+        self.assertEqual(self.recorder.calls[-1][0], "route")
+        self.assertEqual(self.recorder.calls[-1][4], 915)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
