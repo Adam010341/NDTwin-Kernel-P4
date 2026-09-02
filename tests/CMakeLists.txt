@@ -42,6 +42,7 @@ add_executable(
   test_FlowBatchPartition.cpp
   test_TopologyAndFlowMonitor.cpp
   test_TopologyAndFlowMonitor_mininet.cpp
+  test_TopologyPollRound.cpp
   test_AdministrativeDisable.cpp
   test_AdminDisableConsumers.cpp
   test_ApiKeyNotLogged.cpp
