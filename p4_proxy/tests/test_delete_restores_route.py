@@ -106,6 +106,13 @@ def manager_with(client, routed=True):
     mgr.switches = {1: client}
     mgr._net_lock = threading.RLock()
     mgr._installed_routes = {}
+    # The flow methods also journal what the switch accepted (KNOWN-ISSUES A-4c), and
+    # unroute_flow reaches _note_in_journal on every path this file drives. None is the
+    # no-journal mode every existing construction site uses, so nothing here changes -- but
+    # __init__ always sets it, and a double that omits it is narrower than the object it
+    # stands in for. Same reasoning, and same value, as the double in test_five_tuple_match.py.
+    # [Co-developed with claude code -- Adam]
+    mgr._journal = None
 
     net = nx.DiGraph()
     net.add_node(1, type="switch")
