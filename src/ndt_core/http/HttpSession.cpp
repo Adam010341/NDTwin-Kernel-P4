@@ -1902,20 +1902,71 @@ HttpSession::handleSetHistoricalLoggingState(http::response<http::string_body>& 
     // the reply was false on every deployment this project has actually run. The flag really was
     // set, which is why this stays 200 rather than becoming an error: the request was honoured,
     // and it is the consequence that needed stating.
-    if (is_enabled && !m_historicalDataManager->canRecord())
+    //
+    // KNOWN-ISSUES B-3, second pass. Stating the consequence in `message` was not enough: both
+    // branches still answered `"status":"success"`, so the only machine-readable difference was
+    // `recording`, and a caller reading the status line or `status` -- which is what a caller
+    // reads -- still could not tell the two apart. Three things change here and the status code
+    // is not one of them:
+    //
+    //  * the non-recording branch answers `"status":"not_applicable"`, so `status` carries
+    //    information rather than being a constant;
+    //  * both branches carry `reason`, a stable token from HistoricalDataManager::reasonCode(),
+    //    so nobody has to regex the English;
+    //  * the predicate widened from canRecord() to recordingState(). canRecord() asks about the
+    //    deployment mode, not about this object -- a TESTBED manager that nobody start()ed, or
+    //    one whose every write is being rejected by the output directory (which is the documented
+    //    state of OUTPUT_DIR on this machine), answered canRecord() == true and wrote nothing.
+    //    The MININET case was simply the one that showed up every day.
+    //
+    // 200 stays. The flag really was set, `tools/contract_test/spec.py` pins [200, 500] for both
+    // states, and doc/2026-01-02_ndt_api.md section 39 documents 200 -- turning a reply that is
+    // now fully self-describing into a 501 would break a contract to say something the body
+    // already says. `Obj` in the contract schema is non-strict, so the added key is compatible.
+    using RecordingState = HistoricalDataManager::RecordingState;
+    const auto recState = m_historicalDataManager->recordingState();
+    const bool recording = (recState == RecordingState::RECORDING);
+
+    if (is_enabled && !recording)
     {
-        res.body() = json{
-            {"status", "success"},
-            {"recording", false},
-            {"message",
-             "Historical data logging is enabled, but this deployment does not record: the "
-             "recorder is only started outside MININET mode, so no rows will be written."}}.dump();
+        // The prose has to follow the reason. Keeping one sentence for every non-recording cause
+        // would put "the recorder is only started outside MININET mode" on a TESTBED reply, which
+        // is the same defect one level of detail further in. The MININET wording is unchanged
+        // from the shape doc/2026-01-02_ndt_api.md section 39 records, deliberately.
+        const char* why = "Historical data logging is enabled, but this deployment does not "
+                          "record, and no rows will be written.";
+        switch (recState)
+        {
+        case RecordingState::NOT_AVAILABLE_IN_MININET:
+            why = "Historical data logging is enabled, but this deployment does not record: the "
+                  "recorder is only started outside MININET mode, so no rows will be written.";
+            break;
+        case RecordingState::RECORDER_NOT_RUNNING:
+            why = "Historical data logging is enabled, but the recorder thread is not running, "
+                  "so no rows will be written until the kernel starts it.";
+            break;
+        case RecordingState::WRITES_FAILING:
+            why = "Historical data logging is enabled and the recorder is running, but every "
+                  "write to the output directory is failing, so no rows are being kept. See the "
+                  "kernel log for the path that was refused.";
+            break;
+        case RecordingState::RECORDING:
+        case RecordingState::DISABLED_BY_REQUEST:
+            break;
+        }
+
+        res.body() = json{{"status", "not_applicable"},
+                          {"recording", false},
+                          {"reason", HistoricalDataManager::reasonCode(recState)},
+                          {"message", why}}
+                         .dump();
         return;
     }
 
     res.body() = json{
         {"status", "success"},
-        {"recording", is_enabled},
+        {"recording", recording},
+        {"reason", HistoricalDataManager::reasonCode(recState)},
         {"message",
          "Historical data logging has been " +
              (is_enabled ? std::string("enabled") : std::string("disabled")) +

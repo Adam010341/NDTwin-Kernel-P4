@@ -48,9 +48,32 @@ HistoricalDataManager::~HistoricalDataManager()
 void
 HistoricalDataManager::start()
 {
-    if (m_running.exchange(true) or m_mode == utils::DeploymentMode::MININET)
+    // [Co-developed with claude code -- Adam]
+    // The mode test moved ahead of the exchange. It used to read
+    //     if (m_running.exchange(true) or m_mode == utils::DeploymentMode::MININET)
+    // and `or` evaluates left to right, so in MININET the exchange still ran: the object was
+    // left claiming m_running == true with no thread behind it. Anything asking "is the recorder
+    // running" got yes -- the same lie the REST endpoint was telling, one layer down. No thread
+    // is spawned in either version; what changes is that the flag can now be believed.
+    //
+    // The old comment said only "Already running", and described the left half of the condition.
+    // That this component does not start AT ALL in MININET -- which is both lab stacks, and so
+    // every run this project has ever measured -- appeared nowhere in the source, and a reader
+    // would take the early return for ordinary idempotence. Saying it in the log as well means
+    // the absence is visible without reading this file.
+    if (m_mode == utils::DeploymentMode::MININET)
     {
-        // Already running
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "HistoricalDataManager not started: MININET deployments do not run "
+                           "the recorder, so no historical link row will ever be written. "
+                           "/ndt/historical_logging reports this as "
+                           "reason=not-available-in-mininet-mode.");
+        return;
+    }
+
+    if (m_running.exchange(true))
+    {
+        // Already running.
         return;
     }
     m_thread = std::thread(&HistoricalDataManager::run, this);
