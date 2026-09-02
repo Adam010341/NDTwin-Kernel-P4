@@ -49,6 +49,21 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
 {
   public:
     /**
+     * @brief What the two flow-listing endpoints return when no `liveness` parameter is supplied.
+     *
+     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     *
+     * Public, and in the header, so that flipping it back is one visible line AND so a test can
+     * pin it. Pinning a constant is a weak test in the sense that it restates a decision -- the
+     * same trade FlowPathRecomputeInterval.IsOneSecondNotOneMillisecond makes, and for the same
+     * reason: the decision IS the change, and without the pin a silent revert leaves the suite
+     * green. What it is not is proof that the handler honours it; only a request served by a real
+     * collector shows that, and no test in this repository builds one yet.
+     */
+    static constexpr sflow::FlowLivenessFilter kFlowDataApiDefault =
+        sflow::FlowLivenessFilter::ActiveOnly;
+
+    /**
      * @brief Construct a new Http Session object.
      * @param socket The connected TCP socket to handle.
      * @param ...deps Various shared pointers to core application components.

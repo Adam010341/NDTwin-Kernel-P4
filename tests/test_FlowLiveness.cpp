@@ -29,10 +29,18 @@
  * without knowing FLOW_IDLE_TIMEOUT -- which doc/2026-01-02_ndt_api.md does not publish. What it
  * does publish, at :358, is that the endpoint returns "all active flows".
  *
- * MUTATION GATE: NOT RUN. A CPU-sensitive measurement was live for the whole of this session, so
- * nothing in this file has been compiled or executed. Every case below names the line of the
- * pre-patch code that makes it red; none of them has been SEEN red. Treat the file as UNVERIFIED
- * until someone runs it.
+ * MUTATION GATE: tests/shell/mutate_bx_flow_liveness.sh -- seven mutations plus a comment-only
+ * negative control, each naming the cases that must go red.
+ *
+ * 🔴 NOT RUN. A CPU-sensitive measurement was live for the whole of the session that wrote this,
+ * so nothing here has been compiled or executed. Every case below names the line of the pre-patch
+ * code that makes it red; none of them has been SEEN red. UNVERIFIED until someone runs the gate.
+ *
+ * Two cases in this file exist only because writing that gate found holes: the constant-relation
+ * case and the endpoint-default case. Every other case drives the active window through the test
+ * seam, so none of them reads kFlowActiveWindowMs, and nothing in this repository serves a request
+ * from a real collector, so nothing observed the API default. Both mutations survived on paper
+ * before those two cases were added -- which is what a gate is for, and it worked before it ran.
  */
 
 #include <algorithm>
@@ -55,6 +63,7 @@
 #include "ndt_core/collection/Classifier.hpp"
 #include "ndt_core/collection/FlowLinkUsageCollector.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
+#include "ndt_core/http/HttpSession.hpp" // for HttpSession::kFlowDataApiDefault
 #include "utils/Utils.hpp"
 
 using sflow::FlowLiveness;
@@ -157,6 +166,48 @@ TEST(FlowLivenessTest, AllAdmitsEveryClass)
     EXPECT_TRUE(passesLivenessFilter(FlowLiveness::Active, FlowLivenessFilter::All));
     EXPECT_TRUE(passesLivenessFilter(FlowLiveness::Idle, FlowLivenessFilter::All));
     EXPECT_TRUE(passesLivenessFilter(FlowLiveness::Ended, FlowLivenessFilter::All));
+}
+
+// --- the two constants that are decisions rather than derivations -----------------------------
+// [Co-developed with claude code -- Adam]
+//
+// 🔴 Both of these were added because the mutation gate found them missing, not because they were
+// designed in. tests/shell/mutate_bx_flow_liveness.sh applies `kFlowActiveWindowMs = 0`,
+// `= 1000000000` and `API default -> All`, and without these cases the first survived in one
+// direction and the other two survived outright: every collector-level case drives the window
+// through the test seam, so it never reads the constant, and no case in this repository serves a
+// request from a real collector, so nothing observed the API default at all.
+//
+// They are weak tests in the sense that they restate decisions. That is the same trade
+// FlowPathRecomputeInterval.IsOneSecondNotOneMillisecond makes and for the same stated reason: the
+// decision IS the change, and without the pin a silent revert leaves the suite green.
+
+TEST(FlowLivenessTest, TheActiveWindowSitsBetweenARateLoopPeriodAndTheIdleTimeout)
+{
+    // Not a restatement of 3000. It is the relationship that makes three states possible at all.
+    //
+    // Upper bound: at or above FLOW_IDLE_TIMEOUT, `Idle` becomes unreachable -- every retained row
+    // is Active until the purge deletes it -- and the whole lifecycle collapses back into the two
+    // states that produced the defect. Strict, because equality already empties the middle.
+    //
+    // Lower bound: the window has to clear one rate-loop period, or a continuously sending flow
+    // flaps between active and idle whenever the loop runs slow. The loop's own measured windowed
+    // mean was 1248.7 ms at 64 flows on 2026-08-25 and grows with table size, so 2000 is the
+    // floor with the least slack anyone should accept -- and 0 is far below it.
+    EXPECT_LT(sflow::kFlowActiveWindowMs, static_cast<int64_t>(FLOW_IDLE_TIMEOUT))
+        << "an active window at or past the idle timeout makes `idle` unreachable and returns the "
+           "API to the two-state behaviour this ticket is about";
+    EXPECT_GE(sflow::kFlowActiveWindowMs, 2000)
+        << "an active window shorter than a measured rate-loop period makes a flow that never "
+           "stopped flap between active and idle";
+}
+
+TEST(FlowLivenessTest, TheEndpointDefaultIsActiveOnlyRatherThanTheWholeTable)
+{
+    // The one line that decides whether the endpoint keeps contradicting its own documentation.
+    // ⚠️ This pins the VALUE, not the behaviour: nothing here shows the handler reads it. A test
+    // that serves the route from a real collector is the missing piece and is noted in the gate.
+    EXPECT_EQ(HttpSession::kFlowDataApiDefault, FlowLivenessFilter::ActiveOnly);
 }
 
 TEST(FlowLivenessTest, EndedAtIsExactlyOneTimeoutAfterTheLastSample)

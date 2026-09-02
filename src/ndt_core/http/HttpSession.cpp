@@ -596,13 +596,14 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
 // does, that consumer has been reading a 13x over-count and this default is the fix rather than
 // the regression. Either way `?liveness=all` restores byte-for-byte the old population, which is
 // why the parameter exists and why it is spelled out in the API document.
-static const sflow::FlowLivenessFilter kFlowDataApiDefault = sflow::FlowLivenessFilter::ActiveOnly;
+// The value itself now lives in HttpSession.hpp as a public constant, so that a test can pin it
+// and a revert is one visible line. [Co-developed with claude code -- Adam]
 
 bool
 HttpSession::readLivenessFilter(http::response<http::string_body>& res,
                                 sflow::FlowLivenessFilter& filter)
 {
-    filter = kFlowDataApiDefault;
+    filter = HttpSession::kFlowDataApiDefault;
     const std::string raw = utils::queryParam(m_req.target(), "liveness");
     if (!sflow::parseLivenessFilter(raw, filter))
     {
@@ -623,7 +624,7 @@ HttpSession::handleGetDetectedFlowData(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Detected Flow Data");
 
-    sflow::FlowLivenessFilter filter = kFlowDataApiDefault;
+    sflow::FlowLivenessFilter filter = HttpSession::kFlowDataApiDefault;
     if (!readLivenessFilter(res, filter))
     {
         return;
@@ -664,7 +665,7 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
     // ~45 rows of rate-0 corpses, and median 4 of the top 10 rows were ended flows. The document
     // calls this endpoint "Top-K active flows" (doc/2026-01-02_ndt_api.md:2395); with this
     // default it is.
-    sflow::FlowLivenessFilter filter = kFlowDataApiDefault;
+    sflow::FlowLivenessFilter filter = HttpSession::kFlowDataApiDefault;
     if (!readLivenessFilter(res, filter))
     {
         return;
