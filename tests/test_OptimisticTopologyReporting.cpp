@@ -70,9 +70,28 @@ class TestableMonitor : public TopologyAndFlowMonitor
     /// One derivation pass, as updateGraph runs it after the three discovery writers.
     void reconcile() { reconcileDerivedLiveness(); }
 
-    /// The constant under test, so a test can say "one fewer than enough" without restating it.
+    /// One whole poll: the three replies applied, then the derivation. Empty bodies make the
+    /// three writers no-ops (each early-returns on an empty string), which is how a test can look
+    /// at the wiring on its own.
+    void pollGraph(const std::string& sw, const std::string& hosts, const std::string& links)
+    {
+        updateGraph(sw, hosts, links);
+    }
+
+    /// The constant under test. Read by exactly one test, which asserts its value rather than
+    /// computing with it -- see kPollsToIsolate.
     static constexpr unsigned missesBeforeIsolating() { return kMissesBeforeIsolating; }
 };
+
+/// How many derivation passes the tests below run before expecting isolation.
+///
+/// [Co-developed with claude code -- Adam]
+/// A literal, deliberately, and not `TestableMonitor::missesBeforeIsolating()`. Written the
+/// symbolic way, every one of these tests adapts to the constant: raise kMissesBeforeIsolating to
+/// 1000 and the loops simply run 1000 times and still pass, so the suite cannot see a threshold
+/// that has moved -- which is exactly the mutant a gate must catch. The coupling is instead
+/// asserted once and loudly, in OneMissedPollDoesNotIsolateAnything.
+constexpr unsigned kPollsToIsolate = 2;
 
 constexpr uint64_t kS1 = 1;   ///< 192.168.123.11; 32 hosts and links to s5 and s6 hang off it.
 constexpr uint64_t kS5 = 5;   ///< 192.168.123.15; s1's neighbour.
@@ -304,7 +323,7 @@ TEST(OptimisticTopologyReportingTest, HostFacingEdgesOfAnUnreachableSwitchGoDown
     }
 
     ASSERT_NO_FATAL_FAILURE(fix.setSwitchUnusable(kS1));
-    for (unsigned i = 0; i < TestableMonitor::missesBeforeIsolating(); ++i)
+    for (unsigned i = 0; i < kPollsToIsolate; ++i)
     {
         fix.monitor.reconcile();
     }
@@ -337,7 +356,7 @@ TEST(OptimisticTopologyReportingTest, AHostBehindAnUnreachableSwitchIsMarkedDown
     ASSERT_TRUE(h.has_value()) << "fixture: 10.0.0.1 is not in the topology";
 
     ASSERT_NO_FATAL_FAILURE(fix.setSwitchUnusable(kS1));
-    for (unsigned i = 0; i < TestableMonitor::missesBeforeIsolating(); ++i)
+    for (unsigned i = 0; i < kPollsToIsolate; ++i)
     {
         fix.monitor.reconcile();
     }
@@ -383,7 +402,7 @@ TEST(OptimisticTopologyReportingTest, AHostWhoseSwitchIsHealthyStaysUp)
     }
 
     ASSERT_NO_FATAL_FAILURE(fix.setSwitchUnusable(kS1));
-    for (unsigned i = 0; i < TestableMonitor::missesBeforeIsolating() + 1; ++i)
+    for (unsigned i = 0; i < kPollsToIsolate + 1; ++i)
     {
         fix.monitor.reconcile();
     }
@@ -410,8 +429,13 @@ TEST(OptimisticTopologyReportingTest, OneMissedPollDoesNotIsolateAnything)
     ASSERT_NO_FATAL_FAILURE(fix.load());
     fix.converge();
 
-    ASSERT_GT(TestableMonitor::missesBeforeIsolating(), 1u)
-        << "this test only means something while the derivation has hysteresis at all";
+    // The one place the constant is read rather than assumed. Every other test here counts polls
+    // with the literal kPollsToIsolate, so this assertion is what keeps the two honest: a
+    // threshold that moves in either direction fails here and names itself, instead of being
+    // absorbed by loops that would simply iterate more.
+    ASSERT_EQ(TestableMonitor::missesBeforeIsolating(), kPollsToIsolate)
+        << "kMissesBeforeIsolating moved; the poll counts in this file are literals and no longer "
+           "mean what their names say. Change both together or not at all";
 
     auto h = fix.hostVertex(kHostOnS1);
     auto hostEdge = fix.switchToHostEdge(kS1, kHostOnS1);
@@ -448,7 +472,7 @@ TEST(OptimisticTopologyReportingTest, RecoveryClearsTheReasonWithoutRaisingAnyth
     ASSERT_TRUE(hostEdge.has_value());
 
     ASSERT_NO_FATAL_FAILURE(fix.setSwitchUnusable(kS1));
-    for (unsigned i = 0; i < TestableMonitor::missesBeforeIsolating(); ++i)
+    for (unsigned i = 0; i < kPollsToIsolate; ++i)
     {
         fix.monitor.reconcile();
     }
@@ -469,6 +493,84 @@ TEST(OptimisticTopologyReportingTest, RecoveryClearsTheReasonWithoutRaisingAnyth
     EXPECT_EQ(ep.downReason, DownReason::None) << "the reason outlived the condition it names";
     EXPECT_FALSE(ep.isUp)
         << "the derivation raised an edge nobody had re-observed; only discovery may do that";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Wiring. Every test above drives reconcileDerivedLiveness() directly, which proves the
+// derivation works and proves nothing about it being reachable from a poll.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The derivation must run as part of a poll, not only when a test calls it.
+ *
+ * [Co-developed with claude code -- Adam]
+ * This test exists because a mutation gate found the hole: deleting `reconcileDerivedLiveness();`
+ * from updateGraph left all seven of the other tests green. A derivation nothing calls is a
+ * derivation that does not exist, and the suite could not tell.
+ *
+ * Empty reply bodies on purpose. updateSwitches, updateHosts and updateLinks each return
+ * immediately on an empty string, so this drives the one thing under test -- that updateGraph
+ * ends by re-deriving -- with the three writers contributing nothing that could mask it.
+ */
+TEST(OptimisticTopologyReportingTest, TheDerivationRunsAsPartOfAPollNotOnlyWhenCalledDirectly)
+{
+    Fixture fix;
+    ASSERT_NO_FATAL_FAILURE(fix.load());
+    fix.converge();
+
+    auto h = fix.hostVertex(kHostOnS1);
+    ASSERT_TRUE(h.has_value());
+
+    ASSERT_NO_FATAL_FAILURE(fix.setSwitchUnusable(kS1));
+    for (unsigned i = 0; i < kPollsToIsolate; ++i)
+    {
+        fix.monitor.pollGraph("", "", "");
+    }
+
+    std::shared_lock lock(*fix.mutex);
+    const auto& vp = (*fix.graph)[*h];
+    EXPECT_FALSE(vp.isUp)
+        << "a poll went by without re-deriving liveness; the derivation is wired to nothing and "
+           "only the tests that call it directly can see it work";
+    EXPECT_EQ(vp.downReason, DownReason::SwitchUnreachable);
+}
+
+/**
+ * A hosts entry whose MAC resolves to nothing still raises the edges of the host its IP names.
+ *
+ * [Co-developed with claude code -- Adam]
+ * This pins TODAY'S behaviour, and pinning it is not endorsing it: updateHosts only WARNs when
+ * findVertexByMac misses and then carries on to the IP lookups, which is one link in F-4's chain
+ * and is called out as an open question in the fix design. It is pinned anyway, because without
+ * it the F-4 test can go green for a reason that has nothing to do with F-4. Add a `continue` to
+ * that WARN branch and the bogus entry is dropped before it reaches either edge lookup -- the
+ * inter-switch links stay down, ASwitchLearnedAsAHostDoesNotResurrectASwitchLink passes, and the
+ * three guards it is supposed to be exercising are never executed at all.
+ *
+ * So this is the test that says which of the two mechanisms is producing that green.
+ */
+TEST(OptimisticTopologyReportingTest, AHostsEntryWithAnUnknownMacIsStillAppliedByItsAddress)
+{
+    Fixture fix;
+    ASSERT_NO_FATAL_FAILURE(fix.load());
+    // Not converged: the loader starts every edge down, so a raise is visible.
+
+    auto fwd = fix.monitor.findEdgeByHostIp(utils::ipStringToUint32("10.0.0.1"));
+    ASSERT_TRUE(fwd.has_value());
+    {
+        std::shared_lock lock(*fix.mutex);
+        ASSERT_FALSE((*fix.graph)[*fwd].isUp) << "pre-condition: the loader starts edges down";
+    }
+
+    // h1's address, but a MAC no vertex in this topology carries. Exactly the shape of the entry
+    // ASwitchLearnedAsAHostDoesNotResurrectASwitchLink feeds in, minus the switch address.
+    fix.monitor.pollHosts(Fixture::hostReply("aa:bb:cc:dd:ee:f1", "10.0.0.1", kS1));
+
+    std::shared_lock lock(*fix.mutex);
+    EXPECT_TRUE((*fix.graph)[*fwd].isUp)
+        << "updateHosts now abandons an entry whose MAC it cannot resolve. That may well be the "
+           "right change, but it silently disarms the F-4 test, which relies on such an entry "
+           "reaching the edge lookups";
 }
 
 /*
@@ -495,4 +597,19 @@ TEST(OptimisticTopologyReportingTest, RecoveryClearsTheReasonWithoutRaisingAnyth
  *        pass, or if `>=` becomes `>` in a way that shifts the threshold down.
  *  - RecoveryClearsTheReasonWithoutRaisingAnything
  *        dies if the release branch sets isUp = true.
+ *  - TheDerivationRunsAsPartOfAPollNotOnlyWhenCalledDirectly
+ *        dies if `reconcileDerivedLiveness();` is deleted from updateGraph. Nothing else here
+ *        does -- they all call it directly.
+ *  - AHostsEntryWithAnUnknownMacIsStillAppliedByItsAddress
+ *        dies if a `continue` is added to updateHosts' "Host not found" WARN branch.
+ *
+ * 🔴 On the three F-4 guards, and why no single-guard mutation appears above. They are three
+ * routes to one edge, and any input that reaches the two direction checks is by construction an
+ * input the up-front findSwitchByIp rejection has already dropped -- an address that matches a
+ * switch-to-switch edge IS a switch's address. So removing any ONE of the three changes no
+ * observable state, and no test here can or should die to it. The gate
+ * (tests/shell/mutate_optimistic_topology_reporting.sh) therefore asserts the true property:
+ * each guard alone is expected to survive, and each PAIR containing the up-front rejection is
+ * expected to kill. A guard that is redundant today is still the thing that holds when a fourth
+ * route appears; what must not happen is anyone believing a single-guard mutation was tested.
  */

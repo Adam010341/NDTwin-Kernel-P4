@@ -405,7 +405,19 @@ class TopologyAndFlowMonitor
      */
     static constexpr unsigned kMissesBeforeIsolating = 2;
 
-  private:
+    /**
+     * @brief Applies one poll's three replies and then re-derives what they cannot say.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Moved from private to protected alongside the writers it calls, for a reason a mutation
+     * gate made concrete: with the derivation reachable only through this function, a test that
+     * calls reconcileDerivedLiveness() directly proves the derivation works and proves nothing
+     * about it being wired to anything. Deleting the call from the body left every test green.
+     *
+     * The ordering inside it is load-bearing -- the discovery writers raise, this lowers, and
+     * lowering must come last -- so the ordering is the thing that needs a test, and this is the
+     * only seam through which one can see it.
+     */
     void updateGraph(const std::string&, const std::string&, const std::string&);
 
   protected:
