@@ -24,6 +24,10 @@ logging every frame at DEBUG:
 the filesystem is at 85% (15 GB free). Stopped by the auditor with `kill -TERM` on the exact
 pids (893799 then 893609); both exited, and the log stopped growing.
 
+The log was afterwards compressed in place to `.test_run/logs/app_viz.log.gz` (875,463,322 ->
+23,695,327 bytes) because the filesystem was at 85%. Nothing was deleted; the first 2 KB is also
+kept separately as a sample. If you are looking for `app_viz.log`, that is where it went.
+
 ## Why nothing noticed
 
 `ndt apps stop viz` sends TERM to a single pid — the bash wrapper — and `app_spawn` does not put
