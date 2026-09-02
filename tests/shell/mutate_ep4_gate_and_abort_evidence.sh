@@ -14,6 +14,17 @@
 # snapshot. Baseline is the WORKING TREE, not HEAD, so this runs against an uncommitted fix. These
 # files are in a worktree other sessions write to.
 #
+# A mutation is KILLED only when the case named beside it goes red. Everything else is a
+# SURVIVOR, with the reason printed: `nothing went red`, `wrong test went red`, or
+# `anchor missing` (the perl matched nothing, so the mutation was never applied and proves
+# nothing about the test). The run ends with "N mutations, M survived".
+#
+# EXIT CODES
+#   0  every mutation was killed
+#   1  at least one survivor -- a real verdict: the suite is weaker than it claims
+#   2  harness fault -- the run measured nothing (red baseline, a baseline that was not
+#      restored, or a suite still red after the final restore)
+#
 # Usage:  bash tests/shell/mutate_ep4_gate_and_abort_evidence.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,15 +40,46 @@ cp "$LIB" "$BK/lib" && cp "$RUN" "$BK/run"
 restore() { cp "$BK/lib" "$LIB"; cp "$BK/run" "$RUN"; }
 trap 'restore; rm -rf "$BK"' EXIT
 
+MUTATIONS=0
 SURVIVORS=0
 run() { bash "$TEST" 2>&1; }
+
+# `perl -0pi -e 's/.../.../'` exits 0 when it matches NOTHING, so a moved anchor is otherwise
+# invisible: the mutation is never applied, the suite stays green, and the run blames the named
+# case for being decorative when in fact nothing was ever tested. report() always starts from a
+# restored tree, so "still identical to the baseline" means the perl above matched nothing.
+state() { sha256sum "$LIB" "$RUN" | cut -d' ' -f1 | tr '\n' ' '; }
+BASELINE_STATE=$(state)
+
+# A harness fault means the run measured nothing. It is never a survivor count and never a 1.
+harness_fault() {
+    printf '\n🔴 HARNESS FAULT: %s\n' "$1" >&2
+    printf '   This run measured nothing: it is not a pass and not a survivor count.\n' >&2
+    exit 2
+}
+
+# A mutation is KILLED only when the case named here goes red. Anything else is a SURVIVOR --
+# the reason names what we failed to learn, not whether the harness had a good day.
 report() {   # $1 = mutation name, $2 = case that must fail
-    local out rc
+    local out rc others
+    MUTATIONS=$((MUTATIONS + 1))
+    if [[ "$(state)" == "$BASELINE_STATE" ]]; then
+        printf '  SURVIVED %-52s (anchor missing -- never applied)\n' "$1"
+        SURVIVORS=$((SURVIVORS + 1)); restore; return
+    fi
     out=$(run); rc=$?
+    others=$(grep -E '^  FAILED' <<<"$out")
     if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $2" <<<"$out"; then
         printf '  caught   %-52s (%s went red)\n' "$1" "$2"
+    elif [[ -n "$others" ]]; then
+        printf '  SURVIVED %-52s (wrong test went red -- %s did not)\n' "$1" "$2"
+        sed 's/^/             /' <<<"$others"
+        SURVIVORS=$((SURVIVORS + 1))
     else
-        printf '  SURVIVED %-52s (%s stayed green -- that case proves nothing)\n' "$1" "$2"
+        # rc != 0 with no FAILED line at all is a suite that died without naming a case; that
+        # is no evidence of anything, so it must not be read as "the case went red".
+        printf '  SURVIVED %-52s (nothing went red -- %s proves nothing)\n' "$1" "$2"
+        [[ "$rc" -ne 0 ]] && printf '             (the suite exited %s without naming a case)\n' "$rc"
         grep -E '^  (ok|FAILED)' <<<"$out" | sed 's/^/             /'
         SURVIVORS=$((SURVIVORS + 1))
     fi
@@ -49,7 +91,8 @@ if run | tail -2 | grep -q '0 failed'; then
     echo "  ok       baseline green"
 else
     echo "  REFUSE: baseline is not green; mutation results would be meaningless"
-    run | sed 's/^/    /'; exit 2
+    run | sed 's/^/    /'
+    harness_fault "the suite is already red before any mutation"
 fi
 echo
 echo "mutations:"
@@ -87,6 +130,16 @@ if cmp -s "$BK/lib" "$LIB" && cmp -s "$BK/run" "$RUN"; then
 else
     echo "🔴 BASELINE NOT RESTORED -- a mutant is still on disk:"
     diff -u "$BK/lib" "$LIB" | head -20; diff -u "$BK/run" "$RUN" | head -20
-    exit 1
+    harness_fault "the baseline was not restored -- a mutant is still on disk"
 fi
-[[ "$SURVIVORS" -eq 0 ]]
+if ! run | tail -2 | grep -q '0 failed'; then
+    echo "🔴 THE SUITE IS RED AFTER RESTORE:"
+    run | sed 's/^/    /'
+    harness_fault "the suite is red after the final restore"
+fi
+echo "after restore: the suite is green again"
+
+echo
+printf '%d mutations, %d survived\n' "$MUTATIONS" "$SURVIVORS"
+((SURVIVORS == 0)) || exit 1
+exit 0

@@ -19,6 +19,23 @@
 # an EXIT trap restores it on any exit including interrupt, and the run ends by asserting the file
 # is byte-identical to the snapshot. This file lives in a worktree other sessions write to.
 #
+# A mutation is KILLED only when the case named beside it goes red. Everything else is a
+# SURVIVOR, with the reason printed: `nothing went red`, `wrong test went red`, or
+# `mutant does not compile` -- the named test never ran against that mutant, so it proves
+# nothing about the test. Build failures are also reported as their own sub-count, because
+# they usually mean the harness needs attention rather than the test, but a run that only
+# failed to build is not a clean sweep. An anchor that has moved is refused outright by
+# mutate() below, which is stricter still: the run stops rather than scoring anything.
+#
+# The run ends with "N mutations, M survived".
+#
+# EXIT CODES
+#   0  every mutation was killed
+#   1  at least one survivor -- a real verdict: the suite is weaker than it claims
+#   2  harness fault -- the run measured nothing (a red or unbuildable baseline, a mutation
+#      target that is no longer unique, a baseline that was not restored, or a tree that does
+#      not build or is red after the final restore)
+#
 # Usage:  bash tests/shell/mutate_topk_recursive_lock.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,11 +49,26 @@ FILTER='TopKFlowInfoTest*'
 BK=$(mktemp -d)
 
 cp "$SRC" "$BK/src"
-restore() { cp "$BK/src" "$SRC"; }
+# Checked on EVERY restore, not just at the end: a restore that quietly failed would leave the
+# next mutation stacking on top of the previous mutant, and every verdict after it would be
+# measured against a tree nobody described.
+restore() {
+    cp "$BK/src" "$SRC"
+    cmp -s "$BK/src" "$SRC" ||
+        harness_fault "$SRC did not come back byte-identical -- the next mutation would stack on this one"
+}
 trap 'restore; rm -rf "$BK"' EXIT
 
+MUTATIONS=0
 SURVIVORS=0
 BROKEN=0
+
+# A harness fault means the run measured nothing: it is never a survivor count and never a 1.
+harness_fault() {
+    printf '\n🔴 HARNESS FAULT: %s\n' "$1" >&2
+    printf '   This run measured nothing: it is not a pass and not a survivor count.\n' >&2
+    exit 2
+}
 
 mutate() {   # $1 = literal to find, $2 = literal replacement
     local from="$1" to="$2" n
@@ -50,31 +82,52 @@ mutate() {   # $1 = literal to find, $2 = literal replacement
 }
 
 # $1 = mutation name, $2 = harness (guard|gtest), $3 = case that must go red
+#
+# A mutation is KILLED only when the case named here goes red. Everything else is a SURVIVOR
+# with a reason, INCLUDING a mutant that does not compile: the named test never ran against it,
+# so it says nothing about the test. Build failures stay broken out as a sub-count because they
+# are usually a harness problem rather than a weak test, but they are survivors either way, and
+# a run that only failed to build must never be reported as a clean sweep.
 report() {
-    local name="$1" harness="$2" want="$3" out rc
+    local name="$1" harness="$2" want="$3" out rc others
+    MUTATIONS=$((MUTATIONS + 1))
     if [[ "$harness" == "gtest" ]]; then
         if ! cmake --build build --target test_routing_strategy -j"$(nproc)" >"$BK/build.log" 2>&1
         then
-            printf '  BUILD-FAIL %-42s (the mutation did not compile -- it tested nothing)\n' "$name"
+            printf '  SURVIVED %-46s (mutant does not compile -- it tested nothing)\n' "$name"
             tail -5 "$BK/build.log" | sed 's/^/             /'
-            BROKEN=$((BROKEN + 1)); restore; return
+            BROKEN=$((BROKEN + 1)); SURVIVORS=$((SURVIVORS + 1)); restore; return
         fi
         out=$("$BIN" --gtest_filter="$FILTER" 2>&1); rc=$?
+        others=$(grep -E '^\[  FAILED  \]' <<<"$out")
         if [[ "$rc" -ne 0 ]] && grep -qF "[  FAILED  ] $want" <<<"$out"; then
             printf '  caught   %-46s (%s went red)\n' "$name" "$want"
+        elif [[ -n "$others" ]]; then
+            printf '  SURVIVED %-46s (wrong test went red -- %s did not)\n' "$name" "$want"
+            sed 's/^/             /' <<<"$others"
+            SURVIVORS=$((SURVIVORS + 1))
         else
-            printf '  SURVIVED %-46s (%s stayed green)\n' "$name" "$want"
-            grep -E '^\[  FAILED  \]' <<<"$out" | sed 's/^/             /'
+            # An aborted binary and a green one look the same to a grep for "[  FAILED  ]",
+            # which is why a non-zero rc with no failure line is scored as no evidence at all
+            # rather than as the named case going red. See the note on mutation 4 below.
+            printf '  SURVIVED %-46s (nothing went red -- %s proves nothing)\n' "$name" "$want"
+            [[ "$rc" -ne 0 ]] && printf '             (the binary exited %s without naming a test)\n' "$rc"
             SURVIVORS=$((SURVIVORS + 1))
         fi
     else
         # The structural guard reads the source; no build needed, which is also why it is the
         # half that can gate a deletion cheaply.
         out=$(bash "$GUARD" 2>&1); rc=$?
+        others=$(grep -E '^  FAILED' <<<"$out")
         if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $want" <<<"$out"; then
             printf '  caught   %-46s (%s went red)\n' "$name" "$want"
+        elif [[ -n "$others" ]]; then
+            printf '  SURVIVED %-46s (wrong test went red -- %s did not)\n' "$name" "$want"
+            sed 's/^/             /' <<<"$others"
+            SURVIVORS=$((SURVIVORS + 1))
         else
-            printf '  SURVIVED %-46s (%s stayed green)\n' "$name" "$want"
+            printf '  SURVIVED %-46s (nothing went red -- %s proves nothing)\n' "$name" "$want"
+            [[ "$rc" -ne 0 ]] && printf '             (the guard exited %s without naming a case)\n' "$rc"
             grep -E '^  (ok|FAILED)' <<<"$out" | sed 's/^/             /'
             SURVIVORS=$((SURVIVORS + 1))
         fi
@@ -84,13 +137,16 @@ report() {
 
 echo "baseline (unmutated) must be green:"
 if ! cmake --build build --target test_routing_strategy -j"$(nproc)" >"$BK/build.log" 2>&1; then
-    echo "  REFUSE: the baseline does not build"; tail -20 "$BK/build.log" | sed 's/^/    /'; exit 2
+    echo "  REFUSE: the baseline does not build"; tail -20 "$BK/build.log" | sed 's/^/    /'
+    harness_fault "the unmutated tree does not build -- no mutation was applied"
 fi
 if ! bash "$GUARD" | tail -1 | grep -q 'all passed'; then
-    echo "  REFUSE: the structural guard is not green"; bash "$GUARD" | sed 's/^/    /'; exit 2
+    echo "  REFUSE: the structural guard is not green"; bash "$GUARD" | sed 's/^/    /'
+    harness_fault "the structural guard is already red -- no mutation was applied"
 fi
 if ! "$BIN" --gtest_filter="$FILTER" | grep -q '^\[  PASSED  \]'; then
-    echo "  REFUSE: the gtest cases are not green"; exit 2
+    echo "  REFUSE: the gtest cases are not green"
+    harness_fault "the gtest cases are already red -- no mutation was applied"
 fi
 echo "  ok       structural guard green, $FILTER green"
 echo
@@ -146,14 +202,31 @@ report "top-k ignores k and returns the whole table" gtest \
        "TopKFlowInfoTest.AKOfZeroOrLessIsAnEmptyArrayRatherThanTheWholeTable"
 
 restore
-cmake --build build --target test_routing_strategy -j"$(nproc)" >/dev/null 2>&1
 echo
 if cmp -s "$BK/src" "$SRC"; then
     echo "baseline restored: $SRC byte-identical to the pre-run snapshot"
 else
     echo "🔴 BASELINE NOT RESTORED -- a mutant is still on disk:"
     diff -u "$BK/src" "$SRC" | head -20
-    exit 1
+    harness_fault "the baseline was not restored -- a mutant is still on disk"
 fi
-echo "survivors=$SURVIVORS build-failures=$BROKEN"
-[[ "$SURVIVORS" -eq 0 && "$BROKEN" -eq 0 ]]
+# The source being back is not the same as the BINARY being back: without this rebuild the
+# tree still tests the last mutant, and without checking it we would not know.
+if ! cmake --build build --target test_routing_strategy -j"$(nproc)" >"$BK/build.log" 2>&1; then
+    tail -20 "$BK/build.log" | sed 's/^/    /'
+    harness_fault "the tree does not build after the final restore"
+fi
+if ! "$BIN" --gtest_filter="$FILTER" >"$BK/after.log" 2>&1; then
+    echo "🔴 THE SUITE IS RED AFTER RESTORE -- a mutant is still built in. Do NOT commit."
+    grep -E '^\[  FAILED  \]' "$BK/after.log" | sed 's/^/    /'
+    harness_fault "the suite is red after the final restore"
+fi
+echo "after restore: $FILTER green again"
+
+echo
+if ((BROKEN > 0)); then
+    printf '  of which %d did not compile\n' "$BROKEN"
+fi
+printf '%d mutations, %d survived\n' "$MUTATIONS" "$SURVIVORS"
+((SURVIVORS == 0)) || exit 1
+exit 0
