@@ -151,3 +151,83 @@ Tier 1 的每一筆仍要各自回頭看它的宣稱句。
 要判斷它得先讀那個類別，本次沒讀。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+## 5. Tier 4 收掉：Immediately 那條路是**另一個**缺陷，不是同一個
+
+讀了 `AutoRefreshQueue`（`include/common_types/SFlowType.hpp:193-266`）。
+
+`m_interval` 預設 `TIME_UNIT_INTERVAL = 1000`（ms，`:19`）。`refresh()`（`:251`）拿
+`steady_clock` 的現在時刻，把 `now - sample.timestampInMilliseconds > m_interval` 的樣本
+從佇列前端丟掉並同步扣掉 `m_sum`；`getSum()` **先 refresh 再回傳**。
+
+⇒ **它的分母是真的一秒，由時間戳修剪強制執行，不是假設出來的。**
+迴圈跑多久都不影響窗寬。**Immediately 那條路沒有「週期 / 1 s」那個倍數。**
+
+### 但它有自己的毛病，而且**同一個成因、相反的症狀**
+
+迴圈每 **1.03–1.25 s** 讀它一次，而每次只涵蓋**最近 1.0 s**。
+⇒ 兩次讀數之間有一段時間**不在任何一個回報視窗裡**，
+而那段空隙**隨負載變寬**（週期越長，漏掉越多）。
+
+| | Periodically | Immediately |
+|---|---|---|
+| 分母 | **假設**的 1 s（實際是週期） | **實測**的 1 s（時間戳修剪） |
+| 症狀 | **高估** × (週期/1 s) | 值正確，但**覆蓋有空隙** |
+| 隨負載 | 高估幅度變大 | 空隙變寬 |
+
+⇒ **兩個欄位量的不是同一個東西，而它們的分歧隨負載成長。**
+落在空隙裡的突發流量，Immediately 完全看不到；Periodically 看得到但把它記成偏高的值。
+
+**對兩個 Tier 4 消費者的判定**：
+
+- `tools/twin_audit/twin_audit.py`（`RATE_FIELD = "…_in_the_last_sec"`）：
+  **不受本增補的偏差影響**。它用這個欄位抓「陳舊樣本被當成活流」，
+  而時間戳修剪正是會讓陳舊樣本歸零的機制 ⇒ 對它的用途而言這條路是**對的選擇**。
+  ⚠️ 但它會漏掉落在空隙裡的短突發，那是**偵測靈敏度**問題，不是數值偏差。
+- `doc/audit/2026-08-28_chaos-harness/harness/invariants.py`：同上，讀 Immediately ⇒ 同一個判定。
+
+🔴 **邊界的 off-by-one**：`> m_interval` 保留了年齡剛好等於 1000 ms 的樣本，
+所以窗寬是 (0, 1000] 而不是 [0, 1000)。影響量級可忽略，記著是因為它會讓
+「窗寬剛好 1000 ms」這句話在嚴格意義上不成立。
+
+## 6. 第二類對帳：讀過 **OVS 平面**鏈路使用率的既有結果
+
+**起因**：09-03 夜間測試輪回報 `ndt up ovs4` 沒有在任何 bridge 上配置 sFlow，
+所以那座 fabric 上的遙測**結構性為零**，而 `/ndt/get_average_link_usage`
+回 `{"avg_link_usage":0.0,"status":"success"}`——**「沒問到」與「很閒」無法分辨**。
+
+### 6-1. 🔴 **範圍要收窄：這是 `ovs4` 的缺陷，不是「OVS 平面」的缺陷**
+
+獨立查證（唯讀）：
+
+| 指令 | 起的拓樸 | sFlow |
+|---|---|---|
+| `ndt up ovs4` | `tools/test_workflow/ovs_4host_topo.py` | **0 個參照** 🔴 |
+| `ndt up ovs`（128） | NTG repo 的 `testbed_topo.py`（`ndt:818` 明載） | `enable_sflow()` 定義在 `:110`、**`:190` 有呼叫** 🟢 |
+
+⇒ **128 台那條路有配 sFlow。** 把結論寫成「OVS 平面全零」會把 128 台那條路的結果
+一起誤判掉。**受影響的母體是「在 ovs4 fabric 上讀過分身遙測」的輪次。**
+
+### 6-2. 查過而清白（**不是沒查**）
+
+| 結果 | 為什麼不受影響 |
+|---|---|
+| **兩平面天花板圖**（`plot_deck_903_round2.py` 的 `fig_bandwidth_ceiling`，53.1 Gbit/s 那半） | OVS 那半由 `core_links()` 解析 **qdisc 讀出**（`s5-eth4 53.1 Gbit/s` 與 MAX/TOTAL 行）＝**介面計數器，不經過分身** |
+| **bmv2 效能研究 fig8 的 OVS 三點**（540/960/720） | 來源是 `doc/audit/2026-08-30_ovs-flowcount-control/FINDINGS.md`，該輪 ①跑 **NTG 的 `testbed_topo.py`**（128 那條路，有 sFlow）②數字是 **iperf3 吞吐**（`receiver-socket-bounded`／`htb-capped`），不是分身遙測 ⇒ **兩重都不受影響** |
+| **OVS 單鏈路 53.1 G／頻寬天花板那條線** | 同第一列，介面計數器 |
+
+### 6-3. 需要各自回頭看的（同時提到 `ovs4` 與分身的鏈路使用率端點）
+
+`doc/KNOWN-ISSUES.md`、`doc/audit/2026-08-28_chaos-harness/02_oracle_muse.md`、
+`doc/audit/2026-09-03_night-rounds/round1-ovs/FINDINGS.md`（就是回報這件事的那一輪）、
+`doc/audit/2026-08-18_three-model-questioner-round/questions/deepseek-agent-CONTAMINATED.md`。
+
+⚠️ 「同時提到」**不等於**「在 ovs4 上讀了那個端點並據以下結論」——
+這一格是**待查名單**，不是受影響清單。逐筆判定要看該輪實際跑的是哪座 fabric。
+
+📌 **這件事的形狀與本增補主題相同**：一個回 `success` 的零，
+與一個把週期當成 1 秒的除法，都是**輸出看起來正常、而它從來沒有量到它宣稱的東西**。
+
+[Co-developed with claude code -- Adam]
