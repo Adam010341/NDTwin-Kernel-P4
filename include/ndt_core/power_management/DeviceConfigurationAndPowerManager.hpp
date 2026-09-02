@@ -14,6 +14,10 @@
 #include <unordered_map>      // for unordered_map
 #include <vector>             // for vector
 class TopologyAndFlowMonitor; // lines 34-34
+// [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: isPollableForFlowTable takes this by
+// const reference, which needs only the declaration. Forward-declared rather than including
+// GraphTypes.hpp, matching how this header already treats TopologyAndFlowMonitor.
+struct VertexProperties;
 
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 #include "ndt_core/power_management/IPowerStrategy.hpp"
@@ -361,6 +365,56 @@ class DeviceConfigurationAndPowerManager
         json tables = json::array();
         std::vector<UnreadSwitch> unread;
     };
+
+    /**
+     * @brief Whether this poll will ask the control plane about this vertex at all.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * @details KNOWN-ISSUES F-6. A named predicate rather than the inline
+     * `vertexType != SWITCH || isUp == false` it replaced, because it is the **only** gate in
+     * front of `FlowTableFetch::unread` and therefore the entire boundary between the two facts
+     * this fix must not confuse:
+     *
+     *   - **not asked** -- a host, or a switch that is down. There is no failed read here, so
+     *     there is nothing to carry forward. Carrying one anyway would keep a dead switch's flow
+     *     table alive for as long as it stays dead: F-4/F-16's optimistic direction, and a worse
+     *     failure than the silent deletion F-6 is about.
+     *   - **asked and unanswered** -- everything past this predicate. Those may be carried
+     *     forward, marked stale.
+     *
+     * Inline, that distinction was a comment and nothing could test it: no unit test can drive
+     * fetchOpenFlowTablesInternal, which spawns a curl per switch. As a static predicate over
+     * plain VertexProperties it is testable with no graph, no network and no manager -- see
+     * test_StaleTableCarryForward.cpp's PollPolicy tests, which are what makes a mutation of this
+     * rule go red instead of silently through.
+     *
+     * @param props The vertex's properties as held in the topology graph.
+     * @return true if the flow-table read should be attempted for this vertex.
+     */
+    static bool isPollableForFlowTable(const VertexProperties& props);
+
+    /**
+     * @brief Merge one poll's result into the served cache, under the write lock.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * @details KNOWN-ISSUES F-6. Carries the previous table of every switch in
+     * `fetched.unread` into `fetched.tables`, marked stale, and only then replaces the cache.
+     *
+     * Split out of openflowTablesUpdateWorker so it can be tested. The worker is a ten-second
+     * sleep loop wrapped around a curl per switch, so nothing can drive it; while this logic
+     * lived inline, the tests could show that carryForwardUnreadTables computed the right array
+     * but never that `get_switch_openflow_table_entries` actually served it. A fix whose wiring
+     * is untested is the same shape as the defect it fixes.
+     *
+     * `nowEpochSeconds` is a parameter rather than read here so a test can assert what
+     * `stale_since` means.
+     *
+     * @param fetched         One poll: the switches read, and the ones that could not be.
+     * @param nowEpochSeconds Wall-clock seconds to stamp newly-stale switches with.
+     */
+    void applyFetchedTables(FlowTableFetch fetched, std::int64_t nowEpochSeconds);
 
     /**
      * @brief Decide whether a `/stats/flow` reply is evidence or an artefact of Ryu's timeout.

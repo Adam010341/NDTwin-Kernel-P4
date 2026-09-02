@@ -42,15 +42,31 @@
  */
 
 #include <cstdint>
+#include <memory>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "common_types/GraphTypes.hpp"
+#include "event_system/EventBus.hpp"
+#include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
+#include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "ndt_core/power_management/StaleTableCarryForward.hpp"
 #include "ndt_core/routing_management/PendingEntryFilter.hpp"
+#include "utils/Utils.hpp"
 
 using nlohmann::json;
+
+/// Reaches the protected static without constructing the manager, which would need a topology
+/// monitor, a classifier and three background threads. Same pattern as FlowStatsReader in
+/// test_FlowStatsTimeout.cpp.
+class PollPolicyReader : public DeviceConfigurationAndPowerManager
+{
+  public:
+    using DeviceConfigurationAndPowerManager::isPollableForFlowTable;
+};
 
 namespace
 {
@@ -89,6 +105,52 @@ find(const json& tables, std::uint64_t dpid)
 }
 
 } // namespace
+
+// --- which switches may be carried forward at all --------------------------------------------
+//
+// isPollableForFlowTable is the only gate in front of FlowTableFetch::unread, so it is the whole
+// boundary between "never asked" and "asked and got no answer". Only the second may be carried.
+// These four cases exist because no unit test can drive fetchOpenFlowTablesInternal -- it spawns
+// a curl per switch -- so without them a mutation that lets a down switch into `unread` would go
+// through silently, turning this fix into F-4/F-16: a dead switch whose rules never expire.
+
+namespace
+{
+
+VertexProperties vertexOf(VertexType type, bool isUp)
+{
+    VertexProperties props;
+    props.vertexType = type;
+    props.dpid = 3;
+    props.isUp = isUp;
+    return props;
+}
+
+} // namespace
+
+TEST(PollPolicy, AnUpSwitchIsPolledAndMayThereforeBeCarriedForward)
+{
+    EXPECT_TRUE(PollPolicyReader::isPollableForFlowTable(vertexOf(VertexType::SWITCH, true)));
+}
+
+TEST(PollPolicy, ADownSwitchIsNeverPolledSoItCanNeverEnterTheUnreadList)
+{
+    // THE GUARD. If this passes, a down switch is asked, its read fails, it lands in `unread`,
+    // and carryForwardUnreadTables keeps its flow table alive for as long as the switch stays
+    // dead -- with a `stale_since` that makes the staleness look like a transport fault rather
+    // than a switch that is gone. F-6's fix would have become F-4/F-16.
+    EXPECT_FALSE(PollPolicyReader::isPollableForFlowTable(vertexOf(VertexType::SWITCH, false)));
+}
+
+TEST(PollPolicy, AHostIsNeverPolledEvenWhenItIsUp)
+{
+    EXPECT_FALSE(PollPolicyReader::isPollableForFlowTable(vertexOf(VertexType::HOST, true)));
+}
+
+TEST(PollPolicy, ADownHostIsNeverPolledEither)
+{
+    EXPECT_FALSE(PollPolicyReader::isPollableForFlowTable(vertexOf(VertexType::HOST, false)));
+}
 
 // --- the defect itself ---------------------------------------------------------------------
 
@@ -308,6 +370,120 @@ TEST(StaleTableCarryForward, TheStaleMarkersSurviveTheT11PendingEntryFilter)
     EXPECT_EQ(sw3->value(kLastErrorField, std::string{}), std::string(kUnreadSuspectTimeout));
     EXPECT_EQ(sw3->value(kStalePollsField, std::int64_t{0}), 1);
     EXPECT_EQ(sw3->at("flows").at("0").size(), 1u);
+}
+
+// --- the wiring: what get_switch_openflow_table_entries actually serves ----------------------
+//
+// Everything above tests the rule. These test that the rule is CONNECTED -- that the cache the
+// endpoint reads (HttpSession.cpp:622 -> getOpenFlowTables) really keeps the switch. Without
+// these, a mutation that stops the worker calling carryForwardUnreadTables leaves every test
+// above green, which is the same "decided correctly, wired to nothing" shape as F-6 itself.
+
+namespace
+{
+
+/// Publishes the protected merge and its parameter type. Constructed directly rather than
+/// down-cast from a base pointer: static_cast to a derived type the object is not really is
+/// undefined behaviour, however common the trick.
+class CacheDriver : public DeviceConfigurationAndPowerManager
+{
+  public:
+    using DeviceConfigurationAndPowerManager::DeviceConfigurationAndPowerManager;
+    using DeviceConfigurationAndPowerManager::applyFetchedTables;
+    using DeviceConfigurationAndPowerManager::FlowTableFetch;
+};
+
+/// TESTBED with an empty smart-plug table and a null classifier: nothing these tests call reaches
+/// the network, and start() is never called so no worker thread exists. Same construction as
+/// test_FlowTableCacheOptionalFields.cpp.
+std::shared_ptr<CacheDriver>
+makeManager()
+{
+    auto graph = std::make_shared<Graph>();
+    const auto v = boost::add_vertex(*graph);
+    (*graph)[v].vertexType = VertexType::SWITCH;
+    (*graph)[v].dpid = 3;
+    (*graph)[v].ip.push_back(utils::ipStringToUint32("192.168.123.13"));
+
+    auto mutex = std::make_shared<std::shared_mutex>();
+    auto bus = std::make_shared<EventBus>();
+    auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph, mutex, bus, utils::MININET);
+    return std::make_shared<CacheDriver>(monitor, utils::TESTBED, "localhost", nullptr);
+}
+
+/// A poll that read dpid 3.
+CacheDriver::FlowTableFetch
+goodPoll()
+{
+    CacheDriver::FlowTableFetch f;
+    f.tables = json::array({switchWithRules(3, "10.0.0.3")});
+    return f;
+}
+
+/// A poll that asked about dpid 3 and got nothing usable back.
+CacheDriver::FlowTableFetch
+failedPoll(const char* reason)
+{
+    CacheDriver::FlowTableFetch f;
+    f.tables = json::array();
+    f.unread.push_back({3, reason});
+    return f;
+}
+
+} // namespace
+
+TEST(StaleTableCarryForwardWiring, TheServedCacheKeepsASwitchWhoseReadFailed)
+{
+    auto mgr = makeManager();
+
+    mgr->applyFetchedTables(goodPoll(), kT0);
+    const json afterGood = mgr->getOpenFlowTables();
+    ASSERT_NE(find(afterGood, 3), nullptr) << "precondition: dpid 3 was read once";
+
+    mgr->applyFetchedTables(failedPoll(kUnreadSuspectTimeout), kT1);
+
+    // Bound to a named value: getOpenFlowTables returns by value, so a pointer into the temporary
+    // would dangle before the first EXPECT ran.
+    const json served = mgr->getOpenFlowTables();
+    // CATCHES THE DEFECT AT THE PLACE THE USER SEES IT. Before the fix the second poll replaced
+    // the cache with an empty array and this endpoint stopped mentioning dpid 3 at all.
+    const json* sw3 = find(served, 3);
+    ASSERT_NE(sw3, nullptr) << "get_switch_openflow_table_entries dropped the switch entirely";
+    EXPECT_EQ(sw3->at("flows").at("0").size(), 1u) << "its last known rule should still be served";
+    EXPECT_EQ(sw3->value(kStaleSinceField, std::int64_t{0}), kT1);
+    EXPECT_EQ(sw3->value(kLastErrorField, std::string{}), std::string(kUnreadSuspectTimeout));
+}
+
+TEST(StaleTableCarryForwardWiring, TheServedCacheDropsTheMarkersOnceTheSwitchAnswersAgain)
+{
+    auto mgr = makeManager();
+
+    mgr->applyFetchedTables(goodPoll(), kT0);
+    mgr->applyFetchedTables(failedPoll(kUnreadNoResponse), kT1);
+    mgr->applyFetchedTables(goodPoll(), kT2);
+
+    const json served = mgr->getOpenFlowTables();
+    const json* sw3 = find(served, 3);
+    ASSERT_NE(sw3, nullptr);
+    EXPECT_FALSE(sw3->contains(kStaleSinceField)) << "a recovered switch must not look stale";
+    EXPECT_FALSE(sw3->contains(kLastErrorField));
+}
+
+TEST(StaleTableCarryForwardWiring, ConsecutiveFailedPollsAccumulateInTheServedCache)
+{
+    auto mgr = makeManager();
+
+    mgr->applyFetchedTables(goodPoll(), kT0);
+    mgr->applyFetchedTables(failedPoll(kUnreadReportedFailure), kT1);
+    mgr->applyFetchedTables(failedPoll(kUnreadReportedFailure), kT2);
+
+    const json served = mgr->getOpenFlowTables();
+    const json* sw3 = find(served, 3);
+    ASSERT_NE(sw3, nullptr);
+    // Reading the cache back through getOpenFlowTables proves the markers survive
+    // stripUnprogrammedEntries on the way out, not merely that they were written.
+    EXPECT_EQ(sw3->value(kStalePollsField, std::int64_t{0}), 2);
+    EXPECT_EQ(sw3->value(kStaleSinceField, std::int64_t{0}), kT1) << "since the FIRST failure";
 }
 
 // --- malformed input must not take the poll thread down --------------------------------------

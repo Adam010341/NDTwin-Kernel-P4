@@ -1016,6 +1016,16 @@ DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json&
                                                         : FlowStatsVerdict::Usable;
 }
 
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES F-6. See the declaration for why this is a named function instead of the inline
+// condition it replaced: it is the whole boundary between "not asked" and "asked and got no
+// answer", and only the second of those may be carried forward.
+bool
+DeviceConfigurationAndPowerManager::isPollableForFlowTable(const VertexProperties& props)
+{
+    return props.vertexType == VertexType::SWITCH && props.isUp;
+}
+
 DeviceConfigurationAndPowerManager::FlowTableFetch
 DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
 {
@@ -1027,14 +1037,15 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
     {
         const auto& props = graph[v];
         // [Co-developed with claude code -- Adam]
-        // KNOWN-ISSUES F-6: this skip is deliberately NOT recorded in fetched.unread. A switch
-        // that is down or is not a switch at all was never read, so there is no failed read to
-        // carry a previous answer forward from -- and carrying one forward would keep a dead
-        // switch's rules alive for as long as it stays dead, which is the optimistic direction of
-        // F-4/F-16. "Not attempted" and "attempted and failed" are different facts and this
-        // function must keep them apart. Everything below this point has actually asked the
-        // control plane a question.
-        if (props.vertexType != VertexType::SWITCH || props.isUp == false)
+        // KNOWN-ISSUES F-6. This is the ONLY gate in front of fetched.unread, which is what makes
+        // it worth its own named predicate rather than an inline condition: everything past this
+        // line has actually asked the control plane a question, so everything past this line may
+        // legitimately be carried forward when the answer does not come. A vertex rejected here
+        // was never asked, has no failed read to carry an answer forward from, and must never
+        // reach fetched.unread -- carrying it would keep a dead switch's rules alive for as long
+        // as it stays dead, which is the optimistic direction of F-4/F-16 and a worse failure
+        // than the one being fixed.
+        if (!isPollableForFlowTable(props))
         {
             continue;
         }
@@ -1902,6 +1913,48 @@ DeviceConfigurationAndPowerManager::statusUpdateWorker()
     }
 }
 
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES F-6. Split out of openflowTablesUpdateWorker so the merge can be tested: the
+// worker itself is a 10-second sleep loop around a curl per switch and no test can drive it, so
+// while this lived inline the only thing under test was that the helper computed the right array
+// -- never that the served cache actually kept the switch. That gap is the same shape as the
+// defect: a decision made correctly and then not wired to anything.
+void
+DeviceConfigurationAndPowerManager::applyFetchedTables(FlowTableFetch fetched,
+                                                       std::int64_t nowEpochSeconds)
+{
+    // The assignment at the end is a *replacement*, so before it happens the switches this poll
+    // could not read have to be put back -- otherwise the four skip paths in
+    // fetchOpenFlowTablesInternal, every one of which says in so many words that it is "keeping
+    // the previous table", delete the switch instead.
+    //
+    // The merge runs inside the unique lock rather than against a copy taken earlier because the
+    // previous value it reads is the same cache it is about to overwrite; a read-then-write across
+    // a lock gap would let updateOpenFlowTables' optimistic HTTP writes land in between and be
+    // silently dropped. Carrying forward is a small keyed walk over at most one entry per switch,
+    // so holding the write lock for it costs nothing next to the southbound poll that already
+    // happened outside the lock.
+    std::lock_guard<std::shared_mutex> lock(m_openflowTablesMutex);
+
+    const std::size_t carried = carryForwardUnreadTables(fetched.tables,
+                                                         m_cachedOpenFlowTables,
+                                                         fetched.unread,
+                                                         nowEpochSeconds);
+    if (carried > 0)
+    {
+        // Not edge-triggered like the per-path warnings in the fetch: those report the fault, this
+        // reports what the *answer* now contains, and a consumer reading a stale table has to be
+        // able to find the poll it came from in the log.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "serving {} switch(es) from their previous flow table; each is marked "
+                           "with stale_since/stale_polls/last_error in "
+                           "get_switch_openflow_table_entries",
+                           carried);
+    }
+
+    m_cachedOpenFlowTables = std::move(fetched.tables);
+}
+
 void
 DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
 {
@@ -1911,42 +1964,9 @@ DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
         try
         {
             // 1. Fetch new data (SLOW part, no lock held)
-            FlowTableFetch fetched = fetchOpenFlowTablesInternal();
-
-            // 2. Lock and update caches (FAST part)
-            //
-            // [Co-developed with claude code -- Adam]
-            // KNOWN-ISSUES F-6. The assignment below is a *replacement*, so before it happens the
-            // switches this poll could not read have to be put back -- otherwise the four skip
-            // paths in fetchOpenFlowTablesInternal, every one of which says in so many words that
-            // it is "keeping the previous table", delete the switch instead.
-            //
-            // The merge runs inside the unique lock rather than against a copy taken earlier
-            // because the previous value it reads is the same cache it is about to overwrite; a
-            // read-then-write across a lock gap would let updateOpenFlowTables' optimistic HTTP
-            // writes land in between and be silently dropped. Carrying forward is a small keyed
-            // walk over at most one entry per switch, so holding the write lock for it costs
-            // nothing next to the southbound poll that already happened above, outside the lock.
-            {
-                std::lock_guard<std::shared_mutex> lock(m_openflowTablesMutex);
-                const std::size_t carried =
-                    carryForwardUnreadTables(fetched.tables,
-                                             m_cachedOpenFlowTables,
-                                             fetched.unread,
-                                             utils::getCurrentTimeMillisSystemClock() / 1000);
-                if (carried > 0)
-                {
-                    // Not edge-triggered like the per-path warnings above: those report the fault,
-                    // this reports what the *answer* now contains, and a consumer reading a stale
-                    // table has to be able to find the poll it came from in the log.
-                    SPDLOG_LOGGER_WARN(Logger::instance(),
-                                       "serving {} switch(es) from their previous flow table; each "
-                                       "is marked with stale_since/stale_polls/last_error in "
-                                       "get_switch_openflow_table_entries",
-                                       carried);
-                }
-                m_cachedOpenFlowTables = std::move(fetched.tables);
-            }
+            // 2. Lock, merge and update the cache (FAST part) -- see applyFetchedTables.
+            applyFetchedTables(fetchOpenFlowTablesInternal(),
+                               utils::getCurrentTimeMillisSystemClock() / 1000);
         }
         catch (const std::exception& e)
         {
