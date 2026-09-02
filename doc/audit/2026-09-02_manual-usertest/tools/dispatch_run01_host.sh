@@ -10,12 +10,15 @@ G="ssh -n -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/de
 
 echo "=== preflight $(date -Is) ==="
 for p in /proc/[0-9]*; do e=$(readlink "$p/exe" 2>/dev/null) || continue; case "$e" in *qemu-system*) echo "qemu pid=$(basename $p) disk=$(tr '\0' ' ' < $p/cmdline | grep -oP 'file=\K[^,]+disk.qcow2' | head -1)";; esac; done
-if for p in /proc/[0-9]*; do tr '\0' ' ' < "$p/cmdline" 2>/dev/null; done | grep -q "ndtwin-vm-prep61/disk.qcow2"; then echo "FATAL: A-6 (prep61) still running -- RAM gate"; exit 1; fi
+# Scan only processes whose exe is qemu: a bare cmdline grep over /proc matches the grep itself (2026-09-02 14:06, false FATAL).
+PREP61=0; for p in /proc/[0-9]*; do e=$(readlink "$p/exe" 2>/dev/null) || continue; case "$e" in *qemu-system*) tr '\0' ' ' < "$p/cmdline" 2>/dev/null | grep -q "ndtwin-vm-prep61/disk.qcow2" && PREP61=1;; esac; done
+[ "$PREP61" = 0 ] || { echo "FATAL: A-6 (prep61) still running -- RAM gate"; exit 1; }
 AV=$(free -m | awk '/^Mem:/{print $7}'); echo "available MB: $AV"; [ "$AV" -ge 9000 ] || { echo "FATAL: need >= 9000 MB available"; exit 1; }
 ss -tlnH "( sport = :2311 )" | grep -q . && { echo "FATAL: 2311 listening"; exit 1; }
 [ -f "$VM_DIR/disk.qcow2" ] || { echo "FATAL: no disk"; exit 1; }
 [ -f "$VM_DIR/qemu.pid" ] && { echo "FATAL: stale pidfile"; exit 1; }
-grep -c Desktop "$VM_DIR/user-data" | grep -qx 0 || { echo "FATAL: seed still pre-creates Desktop"; exit 1; }
+# grep -c prints 0 but exits 1 on no match; under pipefail that read as FATAL on a correctly stripped seed (2026-09-02 14:07).
+[ "$(grep -c Desktop "$VM_DIR/user-data")" = 0 ] || { echo "FATAL: seed still pre-creates Desktop"; exit 1; }
 DOCS_COMMIT=$(git -C "$DOCS_SRC" log --format=%h -1); echo "docs commit: $DOCS_COMMIT"
 
 echo "=== start ==="
