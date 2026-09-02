@@ -87,6 +87,13 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // paths as well as their refusals.
     friend class HttpSessionStatusTestPeer;
 
+    // [Co-developed with claude code -- Adam]
+    // Third peer, for tests/test_HistoricalLogging.cpp, and separate for the same ODR reason the
+    // second one gives. It exists because KNOWN-ISSUES B-3 is a defect in what the *reply* says,
+    // and the reply is only observable through buildResponse(): the manager-level assertions in
+    // that file can prove the state is knowable, but not that the handler bothered to ask.
+    friend class HistoricalLoggingEndpointTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);

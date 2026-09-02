@@ -106,6 +106,71 @@ class HistoricalDataManager
      */
     bool canRecord() const { return m_mode != utils::DeploymentMode::MININET; }
 
+    /**
+     * @brief Whether the recorder thread is actually running.
+     *
+     * [Co-developed with claude code -- Adam]
+     * canRecord() answers a question about the *deployment mode*, not about this object. A
+     * TESTBED manager that nobody ever start()ed answers canRecord() == true and writes exactly
+     * as many rows as a MININET one. This accessor is the liveness half, and start() had to be
+     * reordered before it could tell the truth -- see the comment there.
+     */
+    bool isRecorderRunning() const { return m_running.load(); }
+
+    /**
+     * @brief Why -- or whether -- a row will actually appear.
+     *
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES B-3. The endpoint used to answer `200 {"status":"success"}` on both branches,
+     * so a caller reading the status line or the `status` field could not tell "recording" from
+     * "this deployment will never record", and the second branch is the one every run of this
+     * project has actually taken. Splitting the answer into a named state, rather than a second
+     * bool, is what lets the reply carry a machine-readable reason instead of prose.
+     *
+     * The order of the checks is the answer's precedence, and it is deliberate: mode is a
+     * permanent property of the deployment and dominates a flag the caller can flip, so a
+     * MININET manager with logging switched off reports NOT_AVAILABLE_IN_MININET rather than
+     * DISABLED_BY_REQUEST -- turning the flag back on would still not produce a row.
+     */
+    enum class RecordingState
+    {
+        RECORDING,                ///< thread running, logging on, writes landing
+        DISABLED_BY_REQUEST,      ///< the REST toggle is off; everything else is fine
+        NOT_AVAILABLE_IN_MININET, ///< start() refuses in MININET, so no thread exists
+        RECORDER_NOT_RUNNING,     ///< could record, but start() has not run (or stop() has)
+        WRITES_FAILING            ///< thread running, but the output directory is rejecting rows
+    };
+
+    RecordingState recordingState() const
+    {
+        if (!canRecord())
+        {
+            return RecordingState::NOT_AVAILABLE_IN_MININET;
+        }
+        if (!m_loggingEnabled.load())
+        {
+            return RecordingState::DISABLED_BY_REQUEST;
+        }
+        if (!m_running.load())
+        {
+            return RecordingState::RECORDER_NOT_RUNNING;
+        }
+        if (m_writeFailureActive.load())
+        {
+            return RecordingState::WRITES_FAILING;
+        }
+        return RecordingState::RECORDING;
+    }
+
+    /**
+     * @brief A stable, machine-readable token for @p state, for the REST reply.
+     *
+     * These strings are wire contract: they exist so a caller can branch without parsing the
+     * English message, which is the thing B-3 left it no choice but to do.
+     * [Co-developed with claude code -- Adam]
+     */
+    static const char* reasonCode(RecordingState state);
+
   private:
     std::chrono::minutes m_interval;
     std::atomic<bool> m_running{false};

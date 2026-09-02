@@ -191,7 +191,29 @@ HistoricalDataManager::run()
 
 }
 
-void 
+const char*
+HistoricalDataManager::reasonCode(RecordingState state)
+{
+    // [Co-developed with claude code -- Adam]
+    // No default label, deliberately: adding a state and forgetting to name it should be a
+    // compiler warning here rather than a silent "unknown" on the wire.
+    switch (state)
+    {
+    case RecordingState::RECORDING:
+        return "recording";
+    case RecordingState::DISABLED_BY_REQUEST:
+        return "disabled-by-request";
+    case RecordingState::NOT_AVAILABLE_IN_MININET:
+        return "not-available-in-mininet-mode";
+    case RecordingState::RECORDER_NOT_RUNNING:
+        return "recorder-not-running";
+    case RecordingState::WRITES_FAILING:
+        return "writes-failing";
+    }
+    return "unknown";
+}
+
+void
 HistoricalDataManager::setLoggingState(bool enable)
 {
     m_loggingEnabled.store(enable);
