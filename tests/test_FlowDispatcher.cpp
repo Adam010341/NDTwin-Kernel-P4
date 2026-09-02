@@ -340,3 +340,39 @@ TEST(FlowDispatcherTest, JobsDroppedAfterStopAreCountedAndNotSilent)
         << "a job enqueued after stop() reached the sender, which means a worker was spawned "
            "after workers_ was moved out -- the crash this refusal exists to prevent";
 }
+
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES A-7. droppedAfterStop() is published by GET /ndt/get_flow_dispatch_status, and a
+// published 0 is ambiguous on its own: the counter cannot leave 0 until stop() has run, so a live
+// dispatcher that has dropped nothing and a stopped dispatcher that has not yet been handed
+// anything to drop report the same number. running() is what separates them, and it is asserted
+// here rather than only at the endpoint because the endpoint reads this accessor and nothing else
+// -- if it answered a constant, the field would be decoration and the ambiguity would survive the
+// fix that was supposed to remove it.
+TEST(FlowDispatcherTest, RunningTellsAZeroDropCountApartFromAStoppedQueue)
+{
+    Recorder recorder;
+    FlowDispatcher dispatcher(recorder.sender(), /*burstSize*/ 8);
+
+    EXPECT_FALSE(dispatcher.running())
+        << "a dispatcher that was never started reports itself running; a reader would take "
+           "dropped_after_stop == 0 for health while every enqueue is being refused";
+
+    dispatcher.start();
+    EXPECT_TRUE(dispatcher.running());
+    EXPECT_EQ(dispatcher.droppedAfterStop(), 0u);
+
+    dispatcher.stop();
+    EXPECT_FALSE(dispatcher.running())
+        << "stop() left running() true, so the endpoint would report a live queue that in fact "
+           "refuses everything handed to it";
+
+    // The state the pair exists to disambiguate: stopped, and nothing dropped *yet*. Byte for
+    // byte the same zero a healthy kernel publishes, and the opposite meaning.
+    EXPECT_EQ(dispatcher.droppedAfterStop(), 0u);
+
+    dispatcher.enqueue(jobFor(1));
+    EXPECT_EQ(dispatcher.droppedAfterStop(), 1u);
+    EXPECT_FALSE(dispatcher.running())
+        << "an enqueue that was refused must not have restarted the dispatcher";
+}

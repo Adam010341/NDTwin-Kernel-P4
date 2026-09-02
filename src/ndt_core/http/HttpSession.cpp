@@ -667,6 +667,15 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
           // A different failure from the ones above and counted separately: those were attempted
           // and refused, these were never attempted.
           {"dropped_after_stop", m_controller->dispatcher().droppedAfterStop()}}},
+        // [Co-developed with claude code -- Adam]
+        // What makes the zero above readable. dropped_after_stop can only leave 0 once stop()
+        // has run, so on a healthy kernel it is 0 and on a kernel whose dispatcher has just
+        // stopped it is *also* 0 until the next enqueue arrives -- the same number for
+        // "everything was delivered" and "delivery has ended and nobody has noticed yet". With
+        // this flag the pair is unambiguous: running=true says the queue is live and the zero is
+        // health; running=false says every further write will be refused, and the 200
+        // {"status":"queued"} the install endpoint is still answering is no longer true.
+        {"dispatcher_running", m_controller->dispatcher().running()},
         {"recent_failures", std::move(failures)},
         {"recent_failures_capacity", outcomes.capacity()},
         // Non-zero means the list above is partial. Published rather than left implicit: a
