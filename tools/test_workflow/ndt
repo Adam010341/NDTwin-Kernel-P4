@@ -441,15 +441,24 @@ bmv2_binary() {
 # The sampling rate the *compiled* pipeline encodes, not the one the .p4 comment claims.
 # Read from the rng bound in the built JSON: random(0, N-1) is one sample in N. Caught a real
 # drift on 2026-08-20 -- the source comment still said 256 while the running fabric was 1024.
+# [Co-developed with claude code -- Adam]
+# 🔴 BOTH BOUNDS, NOT JUST THE UPPER ONE. random(lo, hi) with lo=0 samples 1 in (hi+1); with
+# lo=1 the draw can never be 0, the clone predicate `sample_rand == 0` never fires, and the
+# pipeline samples NOTHING -- while hi stays at 255 and this function used to answer "256".
+# That is the state this file was found in at 12:23 on 2026-09-02 (RESTORE-SWEEP): the A-arm
+# of the paired A/B, and exactly what a failed restore of that round or the 09-01 zero cell
+# leaves behind. Prints DISABLED:lo=<n> for it; rate_label() below turns that into words.
+# Test: tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
 sample_rate() {
     python3 - "$REPO/p4_proxy/p4_src/build/ndtwin_switch.json" <<'PY' 2>/dev/null || echo "unknown"
 import json, sys
 def walk(o):
     if isinstance(o, dict):
         if o.get("op") == "modify_field_rng_uniform":
-            hi = [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
-            if len(hi) == 2:
-                return int(hi[1], 16) + 1
+            b = [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
+            if len(b) == 2:
+                lo, hi = int(b[0], 16), int(b[1], 16)
+                return "DISABLED:lo=%d" % lo if lo else hi + 1
         for v in o.values():
             r = walk(v)
             if r: return r
@@ -523,6 +532,27 @@ stale_pipeline() {
     [[ "$built" -nt "$MANIFEST" ]]
 }
 
+# [Co-developed with claude code -- Adam]
+# source_ahead_of_build -- true when the .p4 source is newer than the artefact compiled from it,
+# i.e. somebody edited (or restored) the source and did not recompile. That is the R1 shape
+# (RESTORE-SWEEP 2026-09-02): the fabric keeps the experimental pipeline while every check that
+# reads the source says production. stale_pipeline() looks the other way and cannot see it.
+source_ahead_of_build() {
+    local src="$REPO/p4_proxy/p4_src/ndtwin_switch.p4"
+    local built="$REPO/p4_proxy/p4_src/build/ndtwin_switch.json"
+    [[ -e "$src" && -e "$built" ]] || return 1
+    [[ "$src" -nt "$built" ]]
+}
+
+# rate_label -- what the four print sites show. "1/256" for a rate; for a dead pipeline the
+# words, never "1/DISABLED", so a reader cannot skim past it as a fraction.
+rate_label() {
+    case "$1" in
+        DISABLED:lo=*) echo "SAMPLING DISABLED (rng lower bound=${1#DISABLED:lo=}: sample_rand==0 can never fire; restore + recompile)" ;;
+        *) echo "1/$1" ;;
+    esac
+}
+
 # --- preflight --------------------------------------------------------------------
 
 preflight() {
@@ -576,7 +606,7 @@ up_p4() {
     info "hosts        $hosts        (p4_proxy/mininet/host_count_override)"
     info "topology     ${topo#$REPO/}"
     info "bmv2         $binary"
-    info "sample rate  1/$rate     (compiled into ndtwin_switch.json)"
+    info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
     echo
 
     preflight p4 || return 1
@@ -593,7 +623,7 @@ up_p4() {
             # Reusing here would measure the old pipeline while every readout says the new one.
             err "the fabric predates the current build of ndtwin_switch.json."
             err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
-            err "are NOT running 1/$rate. take it down and back up:  ndt down && ndt up"
+            err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
             return 1
         fi
         ok "already up: $n switches, $live_hosts hosts, reusing"
@@ -1290,10 +1320,16 @@ cmd_status() {
     printf '  %-14s %s\n' "topology" "$( [[ -n "$topo" ]] && echo "${topo#$REPO/}" || echo "NONE for $hosts hosts" )"
     printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
     if stale_pipeline; then
-        printf '  %-14s 1/%s   %s\n' "sample rate" "$rate" "${Y}<- from the BUILT json; the running switches predate it${N}"
+        printf '  %-14s %s   %s\n' "sample rate" "$(rate_label "$rate")" "${Y}<- from the BUILT json; the running switches predate it${N}"
         problems+=("the fabric predates the current build of ndtwin_switch.json")
     else
-        printf '  %-14s 1/%s\n' "sample rate" "$rate"
+        printf '  %-14s %s\n' "sample rate" "$(rate_label "$rate")"
+    fi
+    # [Co-developed with claude code -- Adam] the two lies `status` could not see before 09-02
+    case "$rate" in DISABLED:lo=*) problems+=("the compiled pipeline samples nothing (rng lower bound above 0) -- restore + recompile") ;; esac
+    if source_ahead_of_build; then
+        printf '  %-14s %s\n' "pipeline" "${Y}ndtwin_switch.p4 is NEWER than build/ndtwin_switch.json -- restored source, never recompiled${N}"
+        problems+=("ndtwin_switch.p4 is newer than its compiled json (restored source, never recompiled)")
     fi
     printf '  %-14s %s\n' "note" "/ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py"
     echo
