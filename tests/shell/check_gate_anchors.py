@@ -34,14 +34,30 @@ missing, over-matched, its file is absent, or the merge conflicts; 2 the tool co
 parse a mutation construct, or read a gate and found no anchors at all -- neither is a pass,
 because an applier this tool cannot read is an applier it is not checking.
 
+🔴 "COULD NOT CHECK" IS NOT "CHECKED AND FINE", and every part of the output is built so the
+two cannot be confused. A cell that was counted and is fine reads `ok(n)` or `ok-via(n)`, and
+nothing else starts with `ok`. UNPARSED, NO-ANCHORS, VIA-UNCHECKED and PENDING-VIA are each
+named in the grid, counted on the summary line ("... of which N were NOT CHECKED AT ALL"),
+listed one per line under a header that says NOT checked, repeated on stderr so a teed or
+truncated stdout cannot swallow them, and they exit 2. The four gates L-3 found -- four cells
+this tool skipped while the run still looked orderly -- are the reason each of those exists.
+
 Counting is `str.count()` on the exact literal for literal anchors. Anchors that are
 regexes in the gate (perl `s///`, `sed -i s///`) are counted by perl and sed themselves,
 because reimplementing their regex dialects here would be a second place for the answer to
-be wrong.
+be wrong. `ok(n)` counts DISTINCT anchors: a gate that reaches the same text twice -- once
+through its table, once at the builder's own call site -- is checked once, because counting
+it twice would say nothing the first count did not.
 
-KNOWN LIMIT: a gate that only drives other gates (`mutate_lock_lease_all.sh`) has no
-anchors of its own and is reported NO-ANCHORS. That is the honest answer -- this tool has
-not checked it -- and the gates it delegates to must be listed separately.
+A gate that only drives other gates (`mutate_lock_lease_all.sh`, the whole kernel-side
+evidence for A-9) has no anchors of its own. It is not NO-ANCHORS any more and it is not
+`ok` either: the gates it runs are read out of the array it walks, and its cell becomes
+`ok-via(n)` only when every one of them was checked in this run and is ok. A delegate that
+is broken makes the driver VIA-BROKEN; a delegate this run did not check makes it
+VIA-UNCHECKED and exits 2, because a verdict nobody produced cannot be inherited.
+
+The shapes it reads are covered by tests/python/test_check_gate_anchors.py, whose own gate is
+tests/shell/mutate_check_gate_anchors.sh -- an instrument nobody has seen fail is a decoration.
 """
 import argparse
 import os
@@ -89,7 +105,7 @@ def split_commands(text):
     whole as a single word tagged 'H' so the python-heredoc extractor can read them.
     """
     cmds, cur, word, quote, i, n = [], [], [], "", 0, len(text)
-    pending_heredocs = []
+    pending_heredocs, substitutions = [], []
 
     def flush_word():
         nonlocal word, quote
@@ -106,7 +122,30 @@ def split_commands(text):
 
     while i < n:
         c = text[i]
-        if c == "'":
+        if c == "$" and text[i:i + 2] == "$'":
+            # ANSI-C quoting. `mutate_ndt_sample_rate_reads_both_bounds.sh` packs an anchor and
+            # its replacement into one argument separated by $'\x1f'; without this the escape is
+            # read as three literal characters and the whole call is unreadable.
+            j = i + 2
+            while j < n:
+                if text[j] == "\\" and j + 1 < n:
+                    j += 2
+                elif text[j] == "'":
+                    break
+                else:
+                    j += 1
+            word.append(_unescape_ansi_c(text[i + 2:j]))
+            quote = quote or "'"
+            i = j + 1
+        elif c == "$" and text[i:i + 2] == "$(":
+            # Command substitution. `m1=$(mutant m1 '<anchor>')` is a mutation call like any
+            # other; before this it was one unreadable word beginning `m1=$(mutant`. The inside
+            # is parsed as its own command list -- the outer word keeps nothing, because what
+            # the substitution EVALUATES to is not something this tool can know.
+            j = _match_close(text, i + 1, "(", ")")
+            substitutions.append(text[i + 2:j - 1] if j > i + 2 else "")
+            i = j
+        elif c == "'":
             j = text.find("'", i + 1)
             if j < 0:
                 j = n
@@ -163,19 +202,162 @@ def split_commands(text):
             word.append(c)
             i += 1
     flush_cmd()
+    for sub in substitutions:
+        cmds.extend(split_commands(sub))
     return cmds
 
 
-def scalar_assignments(text):
-    """`NAME=value` at the start of a line, value a plain word (no $(...) or backticks)."""
+def _match_close(text, i, opener, closer):
+    """Index just past the `closer` matching the `opener` at text[i], quotes respected."""
+    depth, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if c in "'\"":
+            j = i + 1
+            while j < n and text[j] != c:
+                j += 2 if (text[j] == "\\" and c == '"') else 1
+            i = j + 1
+            continue
+        if c == opener:
+            depth += 1
+        elif c == closer:
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return n
+
+
+_ANSI_C = {"a": "\a", "b": "\b", "e": "\x1b", "f": "\f", "n": "\n", "r": "\r",
+           "t": "\t", "v": "\v", "\\": "\\", "'": "'", '"': '"', "?": "?"}
+
+
+def _unescape_ansi_c(s):
+    """Bash $'...' semantics, enough of them: \\xHH, \\NNN, \\uHHHH and the named escapes."""
+    out, i, n = [], 0, len(s)
+    while i < n:
+        if s[i] != "\\" or i + 1 >= n:
+            out.append(s[i])
+            i += 1
+            continue
+        c = s[i + 1]
+        if c == "x":
+            m = re.match(r"[0-9a-fA-F]{1,2}", s[i + 2:])
+            if m:
+                out.append(chr(int(m.group(0), 16)))
+                i += 2 + m.end()
+                continue
+        if c in "uU":
+            m = re.match(r"[0-9a-fA-F]{1,8}", s[i + 2:])
+            if m:
+                out.append(chr(int(m.group(0), 16)))
+                i += 2 + m.end()
+                continue
+        if c in "01234567":
+            m = re.match(r"[0-7]{1,3}", s[i + 1:])
+            out.append(chr(int(m.group(0), 8)))
+            i += 1 + m.end()
+            continue
+        out.append(_ANSI_C.get(c, "\\" + c))
+        i += 2
+    return "".join(out)
+
+
+def scalar_assignments(text, gate_dir=None):
+    """`NAME=value` at the start of a line, value a plain word (no $(...) or backticks).
+
+    A gate names its targets relative to itself -- `NDT="$REPO/tools/test_workflow/ndt"`,
+    `GATES=("$HERE/mutate_lock_lease_expiry.sh")` -- and every path this tool hands to `git show`
+    has to be repo-relative. $REPO and $HERE are the two spellings every gate in this directory
+    uses and both are knowable without running anything: $HERE is the directory the gate is IN
+    (which the caller passes in) and $REPO is the root above it. Nothing else is guessed.
+    """
     out = {}
     for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=(\S*)\s*$", text, re.M):
         name, val = m.group(1), m.group(2)
-        if "$(" in val or "`" in val or val.startswith("$"):
+        if "$(" in val or "`" in val:
             continue
         if len(val) >= 2 and val[0] == val[-1] and val[0] in "'\"":
             val = val[1:-1]
-        out[name] = val
+        out[name] = _repo_relative(val, gate_dir)
+    return out
+
+
+def _repo_relative(val, gate_dir):
+    """$REPO/x -> x, $HERE/x -> <the gate's own directory>/x. Anything else is left alone."""
+    for pat in (r"^\$\{?REPO\}?/", r"^\$\{?ROOT\}?/"):
+        if re.match(pat, val):
+            return re.sub(pat, "", val)
+    if gate_dir is not None and re.match(r"^\$\{?HERE\}?/", val):
+        return os.path.normpath(os.path.join(gate_dir, re.sub(r"^\$\{?HERE\}?/", "", val)))
+    return val
+
+
+def quoted_assignments(text, gate_dir=None):
+    """`NAME='...'` / `NAME="..."` where the value has spaces or newlines in it.
+
+    scalar_assignments deliberately reads only single-token values, so a gate's negative-control
+    anchor (`CTRL_ANCHOR='    def _unavailable():'`) was invisible and the control was the one
+    mutation this tool never checked. Values are NOT chained into path guessing -- an anchor that
+    happens to contain a slash is not a file -- they exist so `"$CTRL_ANCHOR"` can be resolved.
+    """
+    out, i, n = {}, 0, len(text)
+    for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=(['\"])", text, re.M):
+        name, q = m.group(1), m.group(2)
+        j = m.end()
+        buf = []
+        while j < n:
+            if text[j] == "\\" and q == '"' and j + 1 < n:
+                buf.append(text[j:j + 2])
+                j += 2
+            elif text[j] == q:
+                break
+            else:
+                buf.append(text[j])
+                j += 1
+        if j >= n:
+            continue
+        rest = text[j + 1:].split("\n", 1)[0]
+        if rest.strip() and not rest.lstrip().startswith("#"):
+            continue                            # not a whole-value assignment; leave it alone
+        val = "".join(buf)
+        out[name] = _unescape_dq(val) if q == '"' else val
+    return out
+
+
+def _prune(env):
+    """Drop values that still carry an unexpanded parameter AND look like a path.
+
+    `BIN="$BUILD_DIR/bin/$TARGET"` would otherwise resolve to a plausible-looking path that is
+    in no git rev, and every anchor attributed to it would be reported NOFILE -- a broken
+    instrument reporting broken anchors. An anchor that merely contains a `$` is kept.
+    """
+    return {k: v for k, v in env.items()
+            if not (re.search(r"\$\{?[A-Za-z_]", v) and "/" in v)}
+
+
+def resolve_env(env, rounds=4):
+    """Expand "$VAR" / "${VAR}" that appear inside other values, so `CTRL_FILE="$SRC"` is a path.
+
+    Bounded rather than fixpointed: a self-referential value must stop, not hang, and after a few
+    rounds anything still unresolved is reported as unresolved rather than guessed at.
+    """
+    out = dict(env)
+    for _ in range(rounds):
+        changed = False
+        for k, v in list(out.items()):
+            if "$" not in v:
+                continue
+            def sub(m):
+                return out.get(m.group(1) or m.group(2), m.group(0))
+            nv = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)", sub, v)
+            if nv != v and "$" + k not in nv:
+                out[k], changed = nv, True
+        if not changed:
+            break
     return out
 
 
@@ -269,6 +451,157 @@ def _looks_like_python(s):
             or re.search(r"^\s*(old|guard|store)\s*=", s, re.M) is not None)
 
 
+# ------------------------------------------------------- the shapes a gate holds its table in
+# Four gates in this directory were reported UNPARSED or NO-ANCHORS -- among them
+# mutate_lock_lease_all.sh, which is the whole evidence for A-9 on the kernel side. None of them
+# is exotic; each holds its mutation table one indirection further out than the rules above can
+# follow, and the tool said so rather than pretending. The helpers below follow those four
+# indirections, and every one of them is a POSITIVE identification: a role this tool cannot name
+# stays unnamed and the gate stays UNPARSED.
+
+ROLE_ANCHOR = {"anchor", "old", "needle", "pattern", "search", "from", "before"}
+ROLE_FILE = {"file", "src", "path", "target", "source"}
+
+
+def function_bodies(text):
+    """-> {name: body} for every `name() { ... }`, brace-per-line and one-liner alike.
+
+    🔴 The one-liner is decided FIRST, per definition. Reading `add() { ... }` with a
+    dot-all "up to the next line that starts with }" swallows every function after it up to the
+    first multi-line one, and the roles of THAT function are then read as this one's -- which is
+    how a table builder came to look like it declared an `anchor` parameter. It happened to give
+    the right answer on the gate it was written against, and that is the worst way for it to be
+    wrong. Found by mutation M3 of tests/shell/mutate_check_gate_anchors.sh.
+    """
+    out = {}
+    for m in re.finditer(r"^([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", text, re.M):
+        name, start = m.group(1), m.end()
+        eol = text.find("\n", start)
+        line = text[start:eol if eol >= 0 else len(text)]
+        depth, closed = 1, None
+        for k, ch in enumerate(line):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    closed = k
+                    break
+        if closed is not None:
+            out.setdefault(name, line[:closed])
+            continue
+        end = re.search(r"^\}", text[start:], re.M)
+        out.setdefault(name, text[start:start + (end.start() if end else 0)])
+    return out
+
+
+_POSITIONAL = r'\$\{?([0-9]+)(?::-[^}]*)?\}?'
+
+
+def param_roles(body):
+    """{position: role} from a function's own `local label="$1" file="$2" anchor="$3"` line.
+
+    This is the gate telling us what its parameters ARE, in its own words, rather than this tool
+    guessing from argument order. A function that names no role yields nothing and its call sites
+    fall through to the generic rules.
+    """
+    roles = {}
+    for m in re.finditer(r'\b([A-Za-z_][A-Za-z0-9_]*)="?' + _POSITIONAL + r'"?', body):
+        roles.setdefault(int(m.group(2)), m.group(1).lower())
+    return roles
+
+
+def role_position(roles, wanted):
+    for pos, name in sorted(roles.items()):
+        if name in wanted:
+            return pos
+    return None
+
+
+def builder_arrays(body):
+    """{position: array} from a table builder's `MUT_ANCHOR+=("$3")` statements."""
+    out = {}
+    for m in re.finditer(r'\b([A-Za-z_][A-Za-z0-9_]*)\+=\(\s*"?' + _POSITIONAL + r'"?\s*\)', body):
+        out[int(m.group(2))] = m.group(1)
+    return out
+
+
+def array_assignments(text, gate_dir=None):
+    """{name: [element, ...]} for `NAME=( ... )`, comments and quotes respected."""
+    out = {}
+    for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=\(", text, re.M):
+        end = _match_close(text, m.end() - 1, "(", ")")
+        body = text[m.end():end - 1]
+        body = re.sub(r"#[^\n]*", "", body)
+        out[m.group(1)] = [_repo_relative(w, gate_dir)
+                           for w, _ in (c for cmd in split_commands(body) for c in cmd)]
+    return out
+
+
+def default_file_of(body, env, exists=None):
+    """The repo path a function bakes into its own body: `"$VAR"` where VAR is a declared path.
+
+    `exists` is git's answer, not a guess: without it a build artefact like "$BIN" would look
+    exactly like a source file and every anchor would be counted in a file that is not there.
+    """
+    for var in re.findall(r'"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"', body):
+        v = env.get(var)
+        if v and "/" in v and "$" not in v and (exists is None or exists(v)):
+            return v
+    return None
+
+
+def is_param_ref(word, quote):
+    """True when the word is an unexpanded parameter -- $1, "$anchor", "${MUT_ANCHOR[$i]}".
+
+    🔴 Load-bearing. `mutate "${MUT_LABEL[$i]}" ...` used to be recorded as a LITERAL anchor
+    spelled `${MUT_LABEL[$i]}`, which is why mutate_ryu_rest_topology_bounded.sh reported
+    MISSING:1 against a file whose anchors are all fine. A word that still contains a parameter
+    is never the text a gate searches for; it is one more indirection to follow or to report.
+    """
+    if quote == "'":
+        return False                            # inside '' a $ is just a dollar sign
+    return re.search(r"\$\{?[A-Za-z_0-9]", word) is not None
+
+
+def is_whole_param_ref(word, quote):
+    """The word is NOTHING BUT a parameter -- $anchor, "${MUT_ANCHOR[$i]}", "$1".
+
+    Distinguished from a word that merely contains a `$`: a mixed word like "value=$x" is a
+    literal with a substitution in it and has always been counted as one, whereas a word that is
+    only a parameter carries no text at all and is one more indirection to follow or to report.
+    """
+    if quote == "'":
+        return False
+    return re.fullmatch(r"\$\{?[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\}?", word.strip()) is not None
+
+
+def expand_word(word, quote, env):
+    """Substitute the variables the gate declared, inside a word.
+
+    `"$OLD_LOOP"$'\x1f''<replacement>'` is ONE word whose first field is a variable holding the
+    anchor. Only names the gate assigns are substituted; anything else is left visible so that
+    it is reported rather than silently dropped.
+    """
+    if quote == "'" or "$" not in word:
+        return word
+
+    def sub(m):
+        return env.get(m.group(1) or m.group(2), m.group(0))
+    return re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)", sub, word)
+
+
+def array_ref(word, quote):
+    """`${NAME[$i]}` / `${NAME[i]}` -> NAME."""
+    if quote == "'":
+        return None
+    m = re.fullmatch(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\[[^\]]*\]\}", word.strip())
+    return m.group(1) if m else None
+
+
+PACKED_SEP = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
 def declared_paths(gate_text, env):
     """Every repo path the gate names: plain assignments, and `$DIR/$name` combinations."""
     out = []
@@ -283,20 +616,32 @@ def declared_paths(gate_text, env):
     return sorted(set(out))
 
 
-def extract(gate_text, gate_name):
-    """-> (anchors, problems). anchor = (file, text, kind, where)."""
-    env = scalar_assignments(gate_text)
+def extract(gate_text, gate_name, gate_path=None, exists=None):
+    """-> (anchors, problems, delegates). anchor = (file, text, kind, where, want)."""
+    gate_dir = os.path.dirname(gate_path) if gate_path else None
+    paths_env = _prune(resolve_env(scalar_assignments(gate_text, gate_dir)))
+    env = dict(paths_env)
+    env.update(_prune(resolve_env(dict(scalar_assignments(gate_text, gate_dir),
+                                       **quoted_assignments(gate_text, gate_dir)))))
     anchors, problems = [], []
+
+    funcs = function_bodies(gate_text)
+    sigs = {n: param_roles(b) for n, b in funcs.items()}
+    builders = {n: m for n, m in ((n, builder_arrays(b)) for n, b in funcs.items()) if m}
+    fdefault = {n: default_file_of(b, paths_env, exists) for n, b in funcs.items()}
+    # Every name that is a function's own parameter or local. A word spelled "$anchor" INSIDE
+    # mutate() is that parameter, not a literal -- the value is at the call sites, and those are
+    # read separately. Without this the applier's own body would be reported as a broken anchor.
+    locals_ = set()
+    for b in funcs.values():
+        for m in re.finditer(r"\blocal\s+([^\n]*)", b):
+            locals_.update(re.findall(r"([A-Za-z_][A-Za-z0-9_]*)=", m.group(1)))
+            locals_.update(re.findall(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)(?=\s|$)", m.group(1)))
+        locals_.update(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)=\"?\$\{?[0-9]", b))
 
     # `mutate()` with the file baked into its body (mutate_topk_recursive_lock.sh style):
     # find which target variable the function writes to.
-    default_file = None
-    fn = re.search(r"^mutate\(\)\s*\{(.*?)^\}", gate_text, re.S | re.M)
-    if fn:
-        for var in re.findall(r'"\$([A-Za-z_][A-Za-z0-9_]*)"', fn.group(1)):
-            if var in env and "/" in env[var]:
-                default_file = env[var]
-                break
+    default_file = fdefault.get("mutate")
 
     # Function BODIES are removed before the scan below. They hold the applier itself --
     # `perl ... "$1"`, `grep -F -- "$2" "$1"` -- whose "anchor" is a positional parameter, not
@@ -326,6 +671,8 @@ def extract(gate_text, gate_name):
             # A one-argument call carries neither file nor anchor: it is a runner for the
             # apply_* calls above it, and those are picked up by the generic rule below.
             args = cmd[1:]
+            if len(args) >= 2 and is_whole_param_ref(*args[0]):
+                continue          # a table dispatch -- read at its call sites in pass 2 below
             if len(args) >= 2 and default_file:
                 anchors.append((default_file, args[0][0], LITERAL, "mutate", 1))
             elif len(args) >= 2:
@@ -387,7 +734,135 @@ def extract(gate_text, gate_name):
                 pending_py_file = files[-1]
             continue
 
-        if head in NOT_APPLIERS or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", head):
+    # ------------------------------------------------------------------- pass 2: the call sites
+    # This pass reads the FULL text, function bodies included, because that is where three of the
+    # four unreadable gates keep their mutation tables. It runs only rules that need a positively
+    # identified file AND a literal anchor; the appliers themselves (perl/sed/python over "$1")
+    # stay in pass 1 above, where a positional parameter cannot be mistaken for a string in a file.
+    full = split_commands(gate_text)
+    seen = {(f, t, k, n) for f, t, k, _w, n in anchors}
+    unread_params = []
+
+    def add(f, text_, where, want=1):
+        # Deduplicated: the same anchor reached twice -- once through the table, once at the
+        # builder's own call site -- is one anchor, and counting it twice would say nothing new.
+        if not text_ or (f, text_, LITERAL, want) in seen:
+            return
+        seen.add((f, text_, LITERAL, want))
+        anchors.append((f, text_, LITERAL, where, want))
+
+    def path_at(cmd, pos):
+        if pos is None or pos >= len(cmd):
+            return None
+        w, q = cmd[pos]
+        v = deref(w, q, env)
+        return v if (v is not w and "/" in v) else None
+
+    def var_head_targets(head, hq):
+        """`"$m" ... ` -- a callback. The value is at the enclosing function's own call sites:
+        each_mutation() takes `local m="$1"` and is called as `each_mutation mutate`."""
+        if hq == "'":
+            return []
+        m = re.fullmatch(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", head.strip())
+        if not m:
+            return []
+        var, out = m.group(1), []
+        for fname, roles in sigs.items():
+            for pos, role in roles.items():
+                if role != var:
+                    continue
+                for c in full:
+                    if c[0][0] == fname and pos < len(c) and c[pos][0] in funcs:
+                        out.append(c[pos][0])
+        return list(dict.fromkeys(out))
+
+    # (i) + (ii) a call whose own signature names which argument is the anchor -- either spelled
+    #     out on the line, or reached through the parallel arrays a table builder filled.
+    builders_used = set()
+    for cmd in full:
+        if len(cmd) < 2:
+            continue
+        head, hq = cmd[0]
+        for fn in ([head] if head in sigs else var_head_targets(head, hq)):
+            roles = sigs.get(fn) or {}
+            apos = role_position(roles, ROLE_ANCHOR)
+            if apos is None or apos >= len(cmd):
+                continue
+            fpos = role_position(roles, ROLE_FILE)
+            aw, aq = cmd[apos]
+            arr = array_ref(aw, aq)
+            if arr is None:
+                aw = expand_word(aw, aq, env)
+                if not is_whole_param_ref(aw, aq):
+                    add(path_at(cmd, fpos) or fdefault.get(fn), aw, fn)
+                continue
+            farr = array_ref(*cmd[fpos]) if (fpos is not None and fpos < len(cmd)) else None
+            b = next((bn for bn, mp in builders.items() if arr in mp.values()), None)
+            if b is None:
+                problems.append("%s: %s is dispatched from %s, which no table builder in this "
+                                "gate fills -- its anchors are NOT checked"
+                                % (gate_name, fn, arr))
+                continue
+            builders_used.add(b)
+            ba = next(p for p, a in builders[b].items() if a == arr)
+            bf = next((p for p, a in builders[b].items() if a == farr), None)
+            for c2 in full:
+                if c2[0][0] != b or ba >= len(c2):
+                    continue
+                w2, q2 = c2[ba]
+                w2 = expand_word(w2, q2, env)
+                if is_whole_param_ref(w2, q2):
+                    unread_params.append("%s() argument %d" % (b, ba))
+                    continue
+                add(path_at(c2, bf) or fdefault.get(fn), w2, "%s -> %s" % (b, arr))
+
+    # A gate that builds a mutation table this tool never managed to read is NOT checked, and
+    # says so. Silence here is the exact failure L-3 is about.
+    def _builder_uncovered(bn):
+        """Call sites of a table builder whose anchor is nowhere in what this tool extracted.
+
+        A gate may declare the same anchor twice -- once in a table used for a uniqueness
+        pre-check, once at the mutation call itself (mutate_bx_flow_liveness.sh does exactly
+        that) -- so "this tool did not read the dispatch" is not the same as "these anchors are
+        unchecked". What matters is whether the TEXT was checked, by whichever route.
+        """
+        covered = {t for _f, t, _k, _w, _n in anchors}
+        sites, blind = 0, 0
+        for c in full:
+            if not c or c[0][0] != bn:
+                continue
+            sites += 1
+            lits = [expand_word(w, q, env) for w, q in c[1:] if q in ("'", '"')]
+            if not any(l in covered for l in lits if len(l) >= 8):
+                blind += 1
+        return sites, blind
+
+    # (iii) an anchor and its replacement packed into ONE argument, separated by a control
+    #       character written as $'\x1f'. Nothing else in these scripts puts a control character
+    #       in an argument, so the marker identifies the shape on its own.
+    for cmd in full:
+        if len(cmd) < 2:
+            continue
+        head, hq = cmd[0]
+        if head in NOT_APPLIERS or hq == "H":
+            continue
+        for w, q in cmd[1:]:
+            if q not in ("'", '"') or not PACKED_SEP.search(w):
+                continue
+            first = expand_word(PACKED_SEP.split(w)[0], q, env)
+            if is_whole_param_ref(first, q):
+                unread_params.append("%s packed argument %s" % (head, first[:40]))
+            elif len(first) >= 8:
+                add(fdefault.get(head), first, "%s (packed)" % head)
+
+    for cmd in full:
+        if not cmd:
+            continue
+        head, hq = cmd[0]
+        if hq == "H" or head in NOT_APPLIERS or head in ("perl", "sed", "python3", "python"):
+            continue                 # those four are pass 1's, over the stripped body
+        if not (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", head)
+                or re.fullmatch(r"\$\{?[A-Za-z_][A-Za-z0-9_]*\}?", head)):
             continue
 
         # A `mutate "label" [args] '<python>'` style call: the body is a quoted argument.
@@ -413,7 +888,7 @@ def extract(gate_text, gate_name):
                 tgt = tuple(dict.fromkeys(same_line)) if len(same_line) > 1 else (
                     same_line[0] if same_line else None)
                 for name, val in got:
-                    anchors.append((tgt, val, LITERAL, "%s (%s)" % (name, head), 1))
+                    add(tgt, val, "%s (%s)" % (name, head))
         if took_python:
             continue
 
@@ -427,21 +902,56 @@ def extract(gate_text, gate_name):
             if val is w or "/" not in val:
                 continue
             nxt, nq = args[k + 1]
-            if nq in ("'", '"') and len(nxt) >= 8 and not nxt.startswith("-"):
-                # `apply_exact <file> <old> <new> <count>`: some anchors are deliberately
-                # NOT unique and the gate says how many it expects. Honour that number --
-                # calling a declared count of 3 a duplicate would be this tool inventing a
-                # failure, which is the same sin as missing a real one.
-                want = 1
-                if k + 3 < len(args) and re.fullmatch(r"\d+", args[k + 3][0]):
-                    want = int(args[k + 3][0])
-                anchors.append((val, nxt, LITERAL, head, want))
+            if nq not in ("'", '"') or len(nxt) < 8 or nxt.startswith("-"):
+                continue
+            nxt = expand_word(nxt, nq, env)
+            if is_whole_param_ref(nxt, nq):
+                # 🔴 NOT an anchor: it is one more indirection. `${MUT_ANCHOR[$i]}` is what made
+                # mutate_ryu_rest_topology_bounded.sh report MISSING:1 against a file whose
+                # anchors were all fine. A parameter of the enclosing function is the applier
+                # reading its own argument and is silent; an array the table dispatch already
+                # read is silent; anything else is unread, and is said so out loud.
+                name = re.sub(r"^\$\{?|\}?$", "", re.sub(r"\[.*\]", "", nxt))
+                if not (name in locals_ or name.isdigit() or array_ref(nxt, nq)):
+                    unread_params.append("%s %s" % (head, nxt[:40]))
+                continue
+            if len(nxt) < 8:
+                continue
+            # `apply_exact <file> <old> <new> <count>`: some anchors are deliberately
+            # NOT unique and the gate says how many it expects. Honour that number --
+            # calling a declared count of 3 a duplicate would be this tool inventing a
+            # failure, which is the same sin as missing a real one.
+            want = 1
+            if k + 3 < len(args) and re.fullmatch(r"\d+", args[k + 3][0]):
+                want = int(args[k + 3][0])
+            add(val, nxt, head, want)
 
     # An anchor whose file this tool could not pin down is checked against EVERY path the
     # gate declares, and counts as resolved when it appears exactly once across all of them.
     # That is weaker than naming the file, but it is the honest weakening: it still catches
     # the drift this tool exists for, and it never reports ok for an anchor it did not find.
-    union = tuple(declared_paths(gate_text, env))
+    # A gate that builds a mutation table this tool never read is NOT checked, and says so.
+    # Silence here is the exact failure L-3 is about: an anchor checker that skips a gate and
+    # scores the run as if it had not.
+    for bn in builders:
+        if bn in builders_used:
+            continue
+        sites, blind = _builder_uncovered(bn)
+        if blind or not sites:
+            problems.append("%s: %s() fills a mutation table and %s -- those anchors are "
+                            "NOT checked"
+                            % (gate_name, bn,
+                               "%d of its %d call sites carry an anchor this tool never read"
+                               % (blind, sites) if sites else "this tool found no call site"))
+
+    # When one rule pinned an anchor's file and another only reached the union of every path the
+    # gate declares, keep the pinned one: the union is the weaker answer, and it is the one that
+    # can invent a DUP by finding the same text in a second declared file.
+    pinned = {(t, k, n) for f, t, k, _w, n in anchors if isinstance(f, str)}
+    anchors = [a for a in anchors
+               if a[0] is not None or (a[1], a[2], a[4]) not in pinned]
+
+    union = tuple(declared_paths(gate_text, paths_env))
     fixed = []
     for f, text, kind, where, want in anchors:
         if f is None:
@@ -451,7 +961,23 @@ def extract(gate_text, gate_name):
             f = union                       # a tuple means "search all of these"
         fixed.append((f, text, kind, where, want))
 
-    return fixed, problems
+    for u in dict.fromkeys(unread_params):
+        problems.append("%s: %s is an anchor this tool could not resolve to a literal -- it is "
+                        "NOT checked" % (gate_name, u))
+
+    # A driver gate has no anchors of its own; it runs other gates. `mutate_lock_lease_all.sh` is
+    # the whole kernel-side evidence for A-9 and this tool used to report it NO-ANCHORS, which is
+    # honest but useless. Naming its delegates lets the caller give it their verdict instead, so
+    # a broken anchor three levels down cannot leave the driver looking unexamined-but-fine.
+    delegates = []
+    for name, vals in array_assignments(gate_text, gate_dir).items():
+        if not re.search(r'\bin\s+"\$\{%s\[@\]\}"' % re.escape(name), gate_text):
+            continue                        # declared but never walked: not a delegation
+        for v in vals:
+            if re.search(r"(^|/)mutate_[A-Za-z0-9_]+\.sh$", v) and v != gate_path:
+                delegates.append(v)
+
+    return fixed, problems, sorted(dict.fromkeys(delegates))
 
 
 # ------------------------------------------------------------------------------- git access
@@ -583,6 +1109,7 @@ def main():
     tmpdir = tempfile.mkdtemp(prefix="gate_anchors_")
 
     grid, unparsed, details = {}, [], []
+    delegation = {}
     for gate in names:
         for rv in revs:
             holder = src or rv
@@ -590,8 +1117,16 @@ def main():
             if text is None:
                 grid[(gate, rv.rev)] = "absent"
                 continue
-            anchors, problems = extract(text, os.path.basename(gate))
+            anchors, problems, delegates = extract(
+                text, os.path.basename(gate), gate, lambda p, _r=rv: _r.show(p) is not None)
             unparsed += ["%s @%s: %s" % (os.path.basename(gate), rv.rev, p) for p in problems]
+            if delegates and not anchors and not problems:
+                # A driver with no anchors of its own. Its verdict is its delegates' verdict,
+                # resolved after every cell exists -- never "ok", which would report a pass for
+                # a gate this tool did not read.
+                delegation[(gate, rv.rev)] = delegates
+                grid[(gate, rv.rev)] = "PENDING-VIA"
+                continue
             if not anchors and not problems:
                 # A gate with no anchors is an EXTRACTION failure, never a pass: this tool
                 # would otherwise report a perfect score for a gate it never read.
@@ -644,8 +1179,36 @@ def main():
                 details.append((os.path.basename(gate), rv.rev, f, "-", "no such file",
                                 -1, "(the anchor's target file is not in this rev)", 1))
 
+    # ------------------------------------------------------- a driver gate inherits its verdict
+    # Resolved only now, because a delegate's own cell has to exist first. Three ways this can
+    # go, and only one of them is a pass: every delegate checked and ok; a delegate this run did
+    # not check at all (report it and fail, never inherit a silence); or a delegate whose anchors
+    # are broken, which makes the driver broken too -- it is the driver that gets quoted as the
+    # evidence, so it must not read clean while the gate under it cannot apply its mutation.
+    for (gate, rev), delegates in delegation.items():
+        states, absent = [], []
+        for d in delegates:
+            if (d, rev) in grid:
+                states.append(grid[(d, rev)])
+            else:
+                absent.append(d)
+        if absent or not states:
+            grid[(gate, rev)] = "VIA-UNCHECKED"
+            for d in absent or ["(none resolved)"]:
+                unparsed.append("%s @%s: delegates to %s, which this run did not check -- the "
+                                "driver's verdict is NOT its delegates' verdict"
+                                % (os.path.basename(gate), rev, d))
+        elif all(s.startswith("ok") for s in states):
+            grid[(gate, rev)] = "ok-via(%d)" % len(states)
+        else:
+            grid[(gate, rev)] = "VIA-BROKEN"
+            for d, s in zip(delegates, states):
+                if not s.startswith("ok"):
+                    details.append((os.path.basename(gate), rev, d, "delegated gate", s,
+                                    -1, "(this driver's verdict is this delegate's verdict)", 1))
+
     w = max(len(os.path.basename(g)) for g in names) + 2
-    cw = 11
+    cw = 14
     print("anchors of each gate, counted in each rev's own files"
           + ("; gates read from %s" % a.gates_from if a.gates_from else ""))
     print("columns:")
@@ -665,14 +1228,25 @@ def main():
                   "\n  anchor: %s%s"
                   % (gate, rev, f, where, kind, c, want, head[:110],
                      " ..." if "\n" in anchor or len(head) > 110 else ""))
+    # 🔴 THE ONE THING THIS TOOL MUST NEVER DO is let "could not check" read like "checked and
+    # passed". Every counted-and-fine cell is `ok(n)` or `ok-via(n)`; everything else is named,
+    # counted here, and repeated on stderr so a truncated or teed stdout cannot swallow it.
+    bad = [v for v in grid.values() if not v.startswith("ok")]
+    blind = [k for k, v in grid.items()
+             if v in ("UNPARSED", "NO-ANCHORS", "VIA-UNCHECKED", "PENDING-VIA")]
+    print("\n%d/%d cells ok  (%d not ok, of which %d were NOT CHECKED AT ALL)"
+          % (len(grid) - len(bad), len(grid), len(bad), len(blind)))
     if unparsed:
-        print("\n--- UNPARSED mutation constructs (NOT checked) ---")
+        print("\n--- UNPARSED mutation constructs (NOT checked -- this is not a pass) ---")
         for u in unparsed:
             print("  " + u)
+        print("\nA gate this tool cannot read is a gate it is not checking. Exit 2 says so; it is"
+              "\nnot exit 0 with a caveat, and it must not be read as one.")
+        print("check_gate_anchors: %d gate-cell(s) COULD NOT BE CHECKED (exit 2); "
+              "%d other cell(s) not ok" % (len(blind), len(bad) - len(blind)), file=sys.stderr)
         return 2
-
-    bad = [v for v in grid.values() if not v.startswith("ok")]
-    print("\n%d/%d cells ok" % (len(grid) - len(bad), len(grid)))
+    if bad:
+        print("check_gate_anchors: %d cell(s) not ok (exit 1)" % len(bad), file=sys.stderr)
     return 1 if bad else 0
 
 
