@@ -205,12 +205,27 @@ run_logcheck() {
             ;;
     esac
 
+    # [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+    # Which switches the Energy-Saving-App has powered down. Passed straight through so the
+    # log check can tell "the proxy cannot read a switch we turned off" (correct) from "the
+    # control plane has stopped reading its switches" (the 2026-08-07 defect). Those two
+    # produce the same log line, so with no declaration the checker reports
+    # TOOL-PRECONDITION-FAILED (exit 3) rather than guessing -- which layer() still counts
+    # as a failed layer, but the run says why instead of naming a fault that is not there.
+    #   NDT_POWERED_OFF=5,7,9   ./run_layers.sh ...
+    #   NDT_POWERED_OFF=none    ./run_layers.sh ...   # assert nothing is off
+    local powered_off_args=()
+    if [[ -n "${NDT_POWERED_OFF:-}" ]]; then
+        powered_off_args=(--powered-off "$NDT_POWERED_OFF")
+    fi
+
     if [[ "$LOG_MARKED" -eq 1 ]]; then
         echo "${D}checking lines 1-$LOG_MARK (before the L2 error-path checks);"
         echo "crashes are still scanned across the whole file${N}"
-        "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG" --to-line "$LOG_MARK"
+        "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG" --to-line "$LOG_MARK" \
+            ${powered_off_args[@]+"${powered_off_args[@]}"}
     else
-        "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG"
+        "$CONTRACT_DIR/check_logs.py" "$KERNEL_LOG" ${powered_off_args[@]+"${powered_off_args[@]}"}
     fi
 }
 

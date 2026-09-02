@@ -47,6 +47,12 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools", "contract_test"))
 import spec  # noqa: E402
 from run_contract_test import Context  # noqa: E402
 from schema import SchemaError, validate  # noqa: E402
+from spec import (  # noqa: E402
+    ACCOUNTED_FOR,
+    TOOL_PRECONDITION,
+    PowerState,
+    classify_power_state,
+)
 
 #: The shipped P4 topology, used to build a *real* Context. See real_ctx().
 P4_TOPOLOGY = os.path.join(REPO_ROOT, "setting",
@@ -97,12 +103,19 @@ class Ctx:
     See the note there for why.
     """
 
-    def __init__(self, switches=2, hosts=1, edges=2, dpids=(1, 2), topk=5):
+    def __init__(self, switches=2, hosts=1, edges=2, dpids=(1, 2), topk=5, power_state=None):
         self.expected_switches = switches
         self.expected_hosts = hosts
         self.expected_edges = edges
         self.expected_dpids = set(dpids)
         self.topk = topk
+        # [Co-developed with claude code -- Adam] -- A-8.
+        # Defaults to a POSITIVE reading that nothing is powered off, not to "no reading".
+        # The distinction is the whole of A-8: on a fabric where nothing is off, a down
+        # switch is a real failure and every test below still asserts exactly that. Where a
+        # test means "the tool does not know", it must say so by passing
+        # PowerState.unknown(...) -- silence is not that claim.
+        self.power_state = power_state if power_state is not None else PowerState.all_on()
 
 
 def node(dpid, vertex_type=0, is_up=True, is_enabled=True, name=None):
@@ -423,6 +436,196 @@ class EdgeInvariantTest(unittest.TestCase):
 
     def test_healthy_edges_report_nothing(self):
         self.assertEqual(spec.inv_edges_enabled({"edges": [edge(1, 2)]}, Ctx()), [])
+
+
+class PoweredDownIsNotAFaultTest(unittest.TestCase):
+    """
+    KNOWN-ISSUES A-8: three test tools turn red when the system is working correctly.
+
+    Measured twice on a live fabric (2026-08-18 F-2, re-verified 2026-08-30 R-5): the
+    Energy-Saving-App powered down s5/s7/s9, the twin reported that accurately, and this
+    suite answered with 8 "switch(es) not up" lines and a BROKEN. Every one of the 20 down
+    edges was incident to a powered-off switch, so the twin's accounting was right and the
+    suite's complaint was wrong.
+
+    The three things pinned here are what stop that recurring without giving up what the
+    invariant was written for:
+
+      1. a switch that is down while the power state says it is ON is STILL a failure --
+         that is the P4 wiring failure (nothing calls /ndt/inform_switch_entered) and it
+         must survive this change intact;
+      2. a switch that is down while the power state says OFF is not a failure, and is
+         still SAID OUT LOUD, because an explained deviation nobody sees is
+         indistinguishable from no deviation;
+      3. when the power state cannot be read, the answer is neither -- it is
+         TOOL-PRECONDITION-FAILED. A tool must never be able to fail in a way that looks
+         like the system failing, and both available guesses are wrong in a different
+         direction: "assume all on" recreates the false alarm, "assume all off" hides (1).
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    #: The fabric shape from the live round: two switches up, one powered down by the app.
+    DOWN_GRAPH = {"nodes": [node(1), node(5, is_up=False, is_enabled=False)]}
+
+    def test_a_down_switch_is_still_a_failure_when_the_power_state_says_it_is_on(self):
+        out = spec.inv_all_switches_up(self.DOWN_GRAPH, Ctx(power_state=PowerState.all_on()))
+        self.assertTrue(any("switch(es) not up" in m and "s5" in m for m in out), out)
+
+    def test_a_down_switch_the_power_state_calls_off_is_not_a_failure(self):
+        out = spec.inv_all_switches_up(self.DOWN_GRAPH,
+                                       Ctx(power_state=PowerState({5})))
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+
+    def test_a_powered_off_switch_is_still_reported_rather_than_silently_dropped(self):
+        out = spec.inv_all_switches_up(self.DOWN_GRAPH, Ctx(power_state=PowerState({5})))
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "s5" in m for m in out), out)
+
+    def test_the_p4_wiring_hint_survives_for_a_switch_that_is_not_powered_off(self):
+        # The is_enabled half of the invariant is the one whose docstring names
+        # /ndt/inform_switch_entered. Powering off switch 5 must not silence it for switch 1.
+        data = {"nodes": [node(1, is_enabled=False), node(5, is_up=False, is_enabled=False)]}
+        out = spec.inv_all_switches_up(data, Ctx(power_state=PowerState({5})))
+        self.assertTrue(any("inform_switch_entered" in m and "s1" in m for m in out), out)
+        self.assertFalse(any("inform_switch_entered" in m and "s5" in m for m in out), out)
+
+    def test_an_unreadable_power_state_says_so_instead_of_reporting_a_fault(self):
+        out = spec.inv_all_switches_up(
+            self.DOWN_GRAPH, Ctx(power_state=PowerState.unknown("kernel returned HTTP 503")))
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+        self.assertIn("HTTP 503", out[0])
+
+    def test_the_precondition_message_does_not_reuse_the_failure_wording(self):
+        # doc/audit/2026-08-30_live-full-stack-round/harness/{40_r5_p4,50_r5_ovs}.sh grep for
+        # the literal "switch(es) not up" to decide whether A-8 is still present. If the
+        # precondition or accounted-for line carried that string, the fix would report
+        # itself as unfixed -- the instrument mimicking its own finding one level up.
+        for state in (PowerState.unknown("no answer"), PowerState({5})):
+            for m in spec.inv_all_switches_up(self.DOWN_GRAPH, Ctx(power_state=state)):
+                self.assertNotIn("switch(es) not up", m)
+
+    def test_a_ctx_with_no_power_state_at_all_is_unknown_not_all_on(self):
+        # A caller that forgot to wire the reading must be told, not given a confident
+        # answer built on a default.
+        class Bare:
+            expected_switches, expected_hosts, expected_edges = 2, 1, 2
+            expected_dpids, topk = {1, 5}, 5
+
+        out = spec.inv_all_switches_up(self.DOWN_GRAPH, Bare())
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+
+    def test_a_healthy_fabric_is_unaffected_by_any_of_this(self):
+        for state in (PowerState.all_on(), PowerState({5}),
+                      PowerState.unknown("no answer")):
+            self.assertEqual(
+                spec.inv_all_switches_up({"nodes": [node(1), node(2)]},
+                                         Ctx(power_state=state)), [])
+
+
+class PoweredDownEdgesTest(unittest.TestCase):
+    """A-8, edge half: 20 down edges, all incident to a powered-off switch."""
+
+    def test_an_edge_incident_to_a_powered_off_switch_is_not_a_failure(self):
+        data = {"edges": [edge(1, 5, is_up=False), edge(5, 2, is_up=False)]}
+        out = spec.inv_edges_enabled(data, Ctx(power_state=PowerState({5})))
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "2 edge(s)" in m for m in out), out)
+
+    def test_an_edge_between_two_powered_on_switches_is_still_a_failure(self):
+        data = {"edges": [edge(1, 2, is_up=False), edge(1, 5, is_up=False)]}
+        out = spec.inv_edges_enabled(data, Ctx(power_state=PowerState({5})))
+        failures = [m for m in out if not m.startswith(ACCOUNTED_FOR)]
+        self.assertEqual(len(failures), 1, out)
+        self.assertIn("1 edge(s) down/disabled", failures[0])
+        self.assertIn("1:1->2:1", failures[0])
+
+    def test_the_summary_count_is_of_the_unexplained_edges_only(self):
+        # Twenty down edges, fifteen of them explained: the reader must see 5, not 20, or
+        # the number itself keeps telling the old story.
+        data = {"edges": [edge(i, 5, is_up=False) for i in range(1, 16)]
+                         + [edge(j, j + 1, is_up=False) for j in range(20, 25)]}
+        out = spec.inv_edges_enabled(data, Ctx(power_state=PowerState({5})))
+        failures = [m for m in out if not m.startswith(ACCOUNTED_FOR)]
+        self.assertEqual(len(failures), 1, out)
+        self.assertIn("5 edge(s) down/disabled", failures[0])
+
+    def test_an_unreadable_power_state_blocks_the_edge_verdict_too(self):
+        data = {"edges": [edge(1, 2, is_up=False)]}
+        out = spec.inv_edges_enabled(data, Ctx(power_state=PowerState.unknown("timed out")))
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+        self.assertNotIn("edge(s) down/disabled", out[0])
+
+
+class PowerStateReadingTest(unittest.TestCase):
+    """
+    classify_power_state: every way the reading can be untrustworthy must return unknown.
+
+    A wrong-but-confident power reading is worse than none, because it feeds straight into
+    the three-way decision above and turns it back into a two-way one.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    IP_TO_DPID = {"192.168.123.11": 1, "192.168.123.15": 5}
+
+    def test_a_complete_reading_maps_off_switches_onto_dpids(self):
+        state = classify_power_state(
+            {"192.168.123.11": "ON", "192.168.123.15": "OFF"}, self.IP_TO_DPID)
+        self.assertTrue(state.known)
+        self.assertEqual(set(state.off_dpids), {5})
+
+    def test_all_on_is_a_positive_reading_not_an_absence(self):
+        state = classify_power_state(
+            {"192.168.123.11": "ON", "192.168.123.15": "ON"}, self.IP_TO_DPID)
+        self.assertTrue(state.known)
+        self.assertEqual(set(state.off_dpids), set())
+
+    def test_a_switch_missing_from_the_reading_makes_the_whole_reading_unknown(self):
+        # Before 04b8933 the kernel omitted a down switch's key from the sibling utilisation
+        # maps entirely (live-findings-2026-08-18-ovs.md F-3). Partial coverage here would
+        # read a powered-off switch as powered on, which is the A-8 false alarm again.
+        state = classify_power_state({"192.168.123.11": "ON"}, self.IP_TO_DPID)
+        self.assertFalse(state.known)
+        self.assertIn("192.168.123.15", state.error)
+
+    def test_an_unrecognised_power_value_is_unknown_not_assumed_on(self):
+        state = classify_power_state(
+            {"192.168.123.11": "ON", "192.168.123.15": "MAYBE"}, self.IP_TO_DPID)
+        self.assertFalse(state.known)
+        self.assertIn("MAYBE", state.error)
+
+    def test_an_ip_that_is_not_in_this_topology_is_unknown(self):
+        state = classify_power_state(
+            {"192.168.123.11": "ON", "192.168.123.15": "ON", "10.9.9.9": "OFF"},
+            self.IP_TO_DPID)
+        self.assertFalse(state.known)
+        self.assertIn("10.9.9.9", state.error)
+
+    def test_a_non_object_body_is_unknown(self):
+        self.assertFalse(classify_power_state([], self.IP_TO_DPID).known)
+        self.assertFalse(classify_power_state(None, self.IP_TO_DPID).known)
+
+    def test_the_state_values_are_read_case_insensitively(self):
+        state = classify_power_state(
+            {"192.168.123.11": "on", "192.168.123.15": " off "}, self.IP_TO_DPID)
+        self.assertTrue(state.known, state.error)
+        self.assertEqual(set(state.off_dpids), {5})
+
+
+class ContextCarriesTheJoinTest(unittest.TestCase):
+    """The IP-to-dpid join comes from the topology file, so it needs no kernel to build."""
+
+    def test_every_switch_ip_in_the_shipped_topology_maps_to_its_dpid(self):
+        ctx = real_ctx()
+        self.assertEqual(len(ctx.switch_ip_to_dpid), ctx.expected_switches)
+        self.assertEqual(set(ctx.switch_ip_to_dpid.values()), ctx.expected_dpids)
+
+    def test_a_fresh_context_has_not_read_the_power_state_yet(self):
+        # Not "all on": constructing a Context is not evidence about the fabric.
+        self.assertFalse(real_ctx().power_state.known)
 
 
 class BandwidthInvariantTest(unittest.TestCase):

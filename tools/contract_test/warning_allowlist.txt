@@ -97,6 +97,25 @@ WARNING | P4 BMv2 Power ON from Kernel is currently a stub | known gap: real bmv
 
 
 # ============================================================================
+# WHEN-POWERED-OFF: correct behaviour that only looks wrong out of context
+# ----------------------------------------------------------------------------
+# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+#
+# These are NOT plain WARNING entries and must never be converted into any. A plain entry
+# is a blanket permission, and each line below is *also* what a genuinely broken control
+# plane produces. The scoped kind permits it only for the dpids --powered-off names; for
+# any other switch it stays a full-volume failure, and with no declaration at all the run
+# reports TOOL-PRECONDITION-FAILED (exit 3) rather than guessing.
+#
+# The pattern MUST capture the switch in a group named `dpid`; check_logs.py refuses to
+# load one that does not.
+# ============================================================================
+
+WHEN-POWERED-OFF | reported a read failure for switch (?P<dpid>\d+) | the proxy cannot read a switch the Energy-Saving-App has powered down, and DeviceConfigurationAndPowerManager.cpp:1134 keeping the previous table is the correct conservative response. For a switch that is NOT powered off this is the 2026-08-07 wedged-controller defect (all ten switches reporting zero rules while s1 held 130) and must stay red
+WHEN-POWERED-OFF | returned an empty flow table for switch (?P<dpid>\d+) after | same call site (DeviceConfigurationAndPowerManager.cpp:1146), the timeout branch: a powered-off switch's flow-stats reply legitimately never arrives. Unscoped, this is the lost-reply signal that the suspicion threshold exists to raise
+
+
+# ============================================================================
 # FORBID: quiet messages that mean real trouble
 # ----------------------------------------------------------------------------
 # These fail even at info/debug level, because their severity is not reflected in the
