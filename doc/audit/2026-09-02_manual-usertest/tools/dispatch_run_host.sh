@@ -13,8 +13,24 @@ G="ssh -n -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/de
 echo "=== preflight $(date -Is) ==="
 for p in /proc/[0-9]*; do e=$(readlink "$p/exe" 2>/dev/null) || continue; case "$e" in *qemu-system*) echo "qemu pid=$(basename $p) disk=$(tr '\0' ' ' < $p/cmdline | grep -oP 'file=\K[^,]+disk.qcow2' | head -1)";; esac; done
 # Scan only processes whose exe is qemu: a bare cmdline grep over /proc matches the grep itself (2026-09-02 14:06, false FATAL).
-PREP61=0; for p in /proc/[0-9]*; do e=$(readlink "$p/exe" 2>/dev/null) || continue; case "$e" in *qemu-system*) tr '\0' ' ' < "$p/cmdline" 2>/dev/null | grep -q "ndtwin-vm-prep61/disk.qcow2" && PREP61=1;; esac; done
-[ "$PREP61" = 0 ] || { echo "FATAL: A-6 (prep61) still running -- RAM gate"; exit 1; }
+# The RAM gate alone does NOT enforce "Adam's VM + one tester VM": with a 6144 MB tester VM
+# already up this host still reported 17649 MB available (2026-09-02 23:0x), so the >=9000 check
+# passed and a second tester VM would have been started under the first. Two tester VMs also
+# contend for CPU, which contaminates both runs' timings. Enumerate instead of trusting free(1).
+# [Co-developed with claude code -- Adam]
+OTHER=""
+for p in /proc/[0-9]*; do
+    e=$(readlink "$p/exe" 2>/dev/null) || continue
+    case "$e" in *qemu-system*) ;; *) continue ;; esac
+    d=$(tr '\0' ' ' < "$p/cmdline" 2>/dev/null | grep -oP "file=\K[^,]*disk.qcow2" | head -1)
+    case "$d" in
+        "$VM_DIR"/*)           continue ;;   # our own VM
+        *ndtwin-vm-adam/*)     continue ;;   # Adam's machine, always allowed
+        "")                    continue ;;
+        *) OTHER="$OTHER $(basename "$(dirname "$d")")(pid $(basename "$p"))" ;;
+    esac
+done
+[ -z "$OTHER" ] || { echo "FATAL: another VM is running --$OTHER"; echo "  the gate is 'Adam's VM + ONE tester VM'; stop it before dispatching"; exit 1; }
 AV=$(free -m | awk '/^Mem:/{print $7}'); echo "available MB: $AV"; [ "$AV" -ge 9000 ] || { echo "FATAL: need >= 9000 MB available"; exit 1; }
 ss -tlnH "( sport = :${SSH_PORT} )" | grep -q . && { echo "FATAL: ${SSH_PORT} listening"; exit 1; }
 [ -f "$VM_DIR/disk.qcow2" ] || { echo "FATAL: no disk"; exit 1; }
