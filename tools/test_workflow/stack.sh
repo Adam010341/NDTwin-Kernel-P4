@@ -290,6 +290,32 @@ SUPERVISE="$HERE/supervise.sh"
 # action) is what the kernel returns on the *normal* `ndt down` path today -- treating non-zero
 # as failure would turn every teardown red tomorrow morning. Whether a crash on shutdown should
 # fail the command is a decision for Adam, not a side effect of making it visible.
+# fatal_exit_status <wait-status> -- true when it means the process died of a FAULT.
+#
+# [Co-developed with claude code -- Adam]
+# The line between "it was stopped" and "it crashed", drawn once so both report_exit and
+# cmd_down use the same one:
+#
+#   132 SIGILL   134 SIGABRT   135 SIGBUS   136 SIGFPE   137 SIGKILL   139 SIGSEGV
+#
+# 143 (SIGTERM) is deliberately NOT here: it is what `ndt down` produces on every healthy
+# kernel today, because main handles SIGINT only and TERM's default action kills the process.
+# Calling it a failure would turn every teardown red for a defect nobody has. 130 (SIGINT) is
+# out for the same reason -- it is how an operator stops the kernel by hand.
+#
+# 137 is in the list on purpose: systemd-oomd on this laptop kills builds and applications
+# routinely, a killed process prints nothing about itself, and an OOM-killed kernel would
+# otherwise be indistinguishable from a clean stop.
+fatal_exit_status() {
+    case "$1" in
+        132|134|135|136|137|139) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Set by report_exit, read by cmd_down. Names, not a count, so the message can say which.
+STACK_FATAL_ENDINGS=""
+
 report_exit() {
     # Two statements for the reason spelled out at the top of stop_one: a second assignment on a
     # `local` line cannot read the first one.
@@ -300,9 +326,14 @@ report_exit() {
     status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
     reason="$(sed -n 's/^reason=//p' "$f" 2>/dev/null)"
     [[ -n "$status" ]] || return 0
-    if [[ "$status" == "134" ]]; then
+    if fatal_exit_status "$status"; then
         err "  🔴 $name did not stop cleanly: $reason"
         err "     evidence: $f, and the tail of $LOG_DIR/$name.log"
+        STACK_FATAL_ENDINGS="${STACK_FATAL_ENDINGS:+$STACK_FATAL_ENDINGS }$name($status)"
+        # Delivered once. The durable copy is the appended line in $name.exit.log, which no
+        # start and no stop ever rewrites; leaving this file in place would make every later
+        # `down` fail again for a crash that has already been reported and acted on.
+        rm -f "$f"
     elif [[ "$status" == "0" ]]; then
         info "  $name exit status 0 ($reason)"
     else
@@ -948,10 +979,39 @@ cmd_down() {
                 ;;
         esac
     done
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. A component that ended on a fatal signal fails this command and is named
+    # in the failure. Until now a crash on shutdown was not merely unreported -- it was
+    # unreportable, because nothing recorded an exit status at all, and `down` said "done".
+    #
+    # Scanned as well as accumulated: report_exit fires from stop_one, which returns early when
+    # there is no pidfile, so a component that crashed and whose pidfile someone removed would
+    # otherwise be missed by the very check that exists for it.
+    local name f status
+    for f in "$PID_DIR"/*.exit; do
+        [[ -e "$f" ]] || continue
+        name="$(basename "$f" .exit)"
+        status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
+        [[ -n "$status" ]] || continue
+        if fatal_exit_status "$status"; then
+            err "  🔴 $name is recorded as having died of a fatal signal (status $status)"
+            err "     evidence: $f, and $PID_DIR/$name.exit.log"
+            STACK_FATAL_ENDINGS="${STACK_FATAL_ENDINGS:+$STACK_FATAL_ENDINGS }$name($status)"
+            rm -f "$f"
+        fi
+    done
+
     if (( leftovers > 0 )); then
         err "  find and stop it, or the next 'up' will report on it:"
         err "    ss -ltnp | grep -E ':(8000|8080|8081)'"
         err "    pgrep -ax ndtwin_kernel"
+        return 1
+    fi
+
+    if [[ -n "$STACK_FATAL_ENDINGS" ]]; then
+        err "  teardown itself worked, but something crashed rather than stopped:"
+        err "    $STACK_FATAL_ENDINGS"
+        err "  Reported once -- the durable record is $PID_DIR/<component>.exit.log."
         return 1
     fi
 

@@ -141,6 +141,56 @@ case "$out" in
     *) check "a normal stop is not called a crash" "yes" "yes" ;;
 esac
 
+# --- which endings fail the command ------------------------------------------------------------
+#
+# The acceptance criteria for making a crash on shutdown fail `ndt down`: an injected fatal
+# status must be red, the ordinary 143 must be green, and 0 must be green. 143 is not negotiable:
+# it is what `ndt down` produces on every healthy kernel today, because main handles SIGINT only.
+echo
+echo "cmd_down fails on a fatal ending, and only on one"
+
+for st in 132 134 135 136 137 139; do
+    if fatal_exit_status "$st"; then check "status $st is fatal" "yes" "yes"
+    else check "status $st is fatal" "yes" "no"; fi
+done
+for st in 0 1 2 130 143; do
+    if fatal_exit_status "$st"; then check "status $st is NOT fatal" "no" "yes"
+    else check "status $st is NOT fatal" "no" "no"; fi
+done
+
+# Seam: this run has no stack of its own, and cmd_down's other failure mode is a port that is
+# still listening. Overriding port_open keeps the verdict below about the ENDINGS, which is what
+# these cases are for; the port guard has its own tests.
+port_open() { return 1; }
+
+write_exit() { printf 'status=%s\nsignal=%s\nreason=%s\n' "$2" "${3:-none}" "injected by the test" \
+    >"$PID_DIR/$1.exit"; }
+
+rm -f "$PID_DIR"/*
+write_exit kernel 134 6
+out="$(cmd_down 2>&1)"; rc=$?
+check "an aborted kernel fails down" "1" "$rc"
+case "$out" in *kernel*134*) check "and down names it" "yes" "yes" ;;
+               *) check "and down names it" "yes" "no: $out" ;; esac
+out="$(cmd_down 2>&1)"; rc=$?
+check "the same crash is not reported twice" "0" "$rc"
+
+rm -f "$PID_DIR"/*
+write_exit kernel 137 9
+out="$(cmd_down 2>&1)"; rc=$?
+check "an OOM-killed kernel (137) fails down" "1" "$rc"
+
+rm -f "$PID_DIR"/*
+write_exit kernel 143 15
+out="$(cmd_down 2>&1)"; rc=$?
+check "the ordinary SIGTERM ending (143) does NOT fail down" "0" "$rc"
+
+rm -f "$PID_DIR"/*
+write_exit kernel 0
+out="$(cmd_down 2>&1)"; rc=$?
+check "a clean exit does not fail down" "0" "$rc"
+rm -f "$PID_DIR"/*
+
 # --- the log gate must recognise the message the kernel actually printed ----------------------
 echo
 echo "check_logs.py fails a log containing the B-5 abort"
