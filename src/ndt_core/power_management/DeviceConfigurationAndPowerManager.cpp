@@ -943,8 +943,12 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // dummy between 10 and 59
-            memory = 10 + (std::hash<std::string>{}(ip_str) % 50);
+            // [Co-developed with claude code -- Adam]
+            // Was `10 + (std::hash<std::string>{}(ip_str) % 50)` -- the same expression, on the
+            // same seed, as the CPU report, so the two endpoints answered byte-identical bodies.
+            // See kHealthMetricUnavailable in the header for why this is -1 and not a better
+            // fake. F-1 in doc/KNOWN-ISSUES.md.
+            memory = kHealthMetricUnavailable;
         }
         else if (vp.brandName == "HPE5520")
         {
@@ -1544,8 +1548,12 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // dummy: 10–59
-            cpu = 10 + (std::hash<std::string>{}(ip_str) % 50);
+            // [Co-developed with claude code -- Adam]
+            // Was `10 + (std::hash<std::string>{}(ip_str) % 50)`: a constant function of the
+            // management IP, identical to the memory report's, and drawn from only fifty buckets
+            // so two of ten switches usually collided. See kHealthMetricUnavailable in the
+            // header. F-1 in doc/KNOWN-ISSUES.md.
+            cpu = kHealthMetricUnavailable;
         }
         else if (vp.brandName == "HPE5520")
         {
@@ -1621,8 +1629,11 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // Dummy value for Mininet simulation: 25–49°C
-            temp = 25 + (std::hash<std::string>{}(ip_str) % 25);
+            // [Co-developed with claude code -- Adam]
+            // Was `25 + (std::hash<std::string>{}(ip_str) % 25)`. A bmv2 or OVS switch is a
+            // process; it has no thermal sensor, and a per-IP constant is not one. See
+            // kHealthMetricUnavailable in the header. F-1 in doc/KNOWN-ISSUES.md.
+            temp = kHealthMetricUnavailable;
         }
         else
         {
@@ -1807,7 +1818,13 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     // The rest of your logic remains the same...
     if (m_mode == utils::DeploymentMode::MININET)
     {
-        cpu = 10 + (std::hash<std::string>{}(deviceIdentifier) % 50);
+        // [Co-developed with claude code -- Adam]
+        // The fourth copy of the same fabrication, and the one doc/KNOWN-ISSUES.md's F-1 entry
+        // does not name: this is the Intent Translator's per-device path
+        // (IntentTranslator.cpp:447), so "what is s3's CPU?" answered with the same invented
+        // constant the map endpoint served. Same seed -- the IP string -- so the two at least
+        // agreed with each other; they were both wrong. See kHealthMetricUnavailable.
+        cpu = kHealthMetricUnavailable;
     }
     else if (targetSwitch->brandName == "HPE5520")
     {
