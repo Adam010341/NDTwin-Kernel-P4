@@ -54,11 +54,142 @@ kernel_reachable() {
     curl -sf --max-time 3 "$NDT_URL/ndt/get_graph_data" >/dev/null 2>&1
 }
 
+# --- which model describes the fabric that is actually running --------------------
+#
+# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES L-1.
+#
+# This used to be `p4) echo "$TOPO_P4"`, i.e. whatever components.env defaults to, which is the
+# 4-host P4 model. The fabric it runs against is whatever `ndt up` last built. On the night of
+# 2026-09-02 that was the 128-host model, so L2/L3 compared a 128-host fabric against a 4-host
+# file and reported `host count is 128, topology file says 4` / `edge count is 288, topology
+# file says 40` (raw/C39_r5_triage.log:5-9). The suite went red on a healthy system.
+#
+# That red is not just noise: `doc/audit/2026-08-30_live-full-stack-round/harness/40_r5_p4.sh:336`
+# greps this run's output for the literal `BROKEN` and reads it as evidence about **A-8** -- so
+# the highest-value fix merged that day could not get a live verdict, and the red it did get
+# would have been read as a product failure. An instrument that manufactures the finding it is
+# being read for is worse than one that says nothing.
+#
+# `ndt up` has always derived the model instead of assuming it (ndt:682 passes TOPO_P4 down to
+# stack.sh, from topo_for_hosts "$(host_count)"). The two readings differ in ONE way and it
+# matters here: ndt derives from `host_count_override`, the file that decides what the next
+# fabric will be built with; this derives from the fabric that is running NOW. For a test suite
+# the running fabric is the right source -- the override can be edited after bring-up, and the
+# whole defect is a model that describes a different network than the one under test.
+#
+# Three outcomes, and the third is the point:
+#   * a fabric is visible and a model matches its host count  -> use that model
+#   * no fabric is visible                                    -> the configured default, unchanged
+#   * a fabric is visible and NO model matches                -> refuse, loudly (rc 3)
+# Falling back to the default in the third case is what produced the bad red; a suite that
+# cannot know what it is testing must say so rather than test the wrong thing.
+: "${SETTING_DIR:=$KERNEL_DIR/setting}"
+
+# fabric_hosts_in -- count mininet host namespaces on stdin, one process argv per line.
+# Split from the `ps` call so the counting is testable without a fabric.
+#
+# Same reading as ndt's fabric_host_count(). The tag is assembled at run time so the literal
+# never appears in this script's own argv -- `mn -c` SIGKILLs a process whose command line
+# carries it. Prefix plus an all-digit tail, so `mininet:h12` counts and `mininet:s1` does not.
+fabric_hosts_in() {
+    local tag="mininet" n=0 line last
+    tag="${tag}:h"
+    while read -r line; do
+        last="${line##* }"
+        [[ "$last" == "$tag"* && "${last#$tag}" =~ ^[0-9]+$ ]] && n=$(( n + 1 ))
+    done
+    echo "$n"
+}
+
+fabric_host_count() { fabric_hosts_in < <(ps -eo args= 2>/dev/null); }
+
+# topo_for_hosts <host-count> <mode> -- the model in $SETTING_DIR with that many hosts, within
+# the family named after the data plane. Prints nothing when none matches.
+#
+# The family is part of the query rather than an afterthought: mixing a P4 model into an OVS run
+# is the mistake this exists to prevent, and on this tree the two families overlap on host count
+# (StaticNetworkTopologyMininet_10Switches.json and StaticNetworkTopologyP4_10Switches_128Hosts.json
+# both have 128), so a family-blind search would pick by filename order.
+topo_for_hosts() {
+    local want="$1" mode="${2:-p4}"
+    local pats="StaticNetworkTopologyP4_*.json"
+    [[ "$mode" != p4 ]] && pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json"
+    python3 - "$SETTING_DIR" "$want" $pats <<'PY' 2>/dev/null
+import glob, json, os, sys
+d, want, pats = sys.argv[1], int(sys.argv[2]), sys.argv[3:]
+for pat in pats:
+    for p in sorted(glob.glob(os.path.join(d, pat))):
+        try:
+            t = json.load(open(p))
+        except Exception:
+            continue
+        if sum(1 for n in t["nodes"] if n.get("vertex_type") == 1) == want:
+            print(p); raise SystemExit
+PY
+}
+
+# topo_for_mode <mode> -- the model to test against. Path on stdout, notes on stderr.
+#   rc 0  a model was chosen
+#   rc 2  not a data plane this script knows (usage error)
+#   rc 3  a fabric is running and no model in $SETTING_DIR describes it -- refuse
 topo_for_mode() {
-    case "$1" in
-        p4)  echo "$TOPO_P4" ;;
-        ovs) echo "$TOPO_OVS" ;;
-        *)   echo "" ;;
+    local mode="$1" configured live derived
+    case "$mode" in
+        p4)  configured="$TOPO_P4" ;;
+        ovs) configured="$TOPO_OVS" ;;
+        *)   return 2 ;;
+    esac
+
+    # NDT_TOPO short-circuits the whole thing, the same escape hatch and the same name ndt uses,
+    # for a model that does not follow the naming.
+    if [[ -n "${NDT_TOPO:-}" ]]; then
+        echo "${D}topology: $NDT_TOPO (NDT_TOPO override)${N}" >&2
+        echo "$NDT_TOPO"
+        return 0
+    fi
+
+    live="$(fabric_host_count)"
+    if [[ "${live:-0}" -le 0 ]]; then
+        # Nothing to derive from. Not an error here: `api`/`baseline` check kernel_reachable
+        # separately, and `full` deliberately runs the offline layers with no fabric at all.
+        echo "$configured"
+        return 0
+    fi
+
+    derived="$(topo_for_hosts "$live" "$mode")"
+    if [[ -z "$derived" ]]; then
+        echo "${R}the running fabric has $live host(s) and no $mode model in $SETTING_DIR" >&2
+        echo "describes a network that size.${N}" >&2
+        echo "testing against ${configured#$KERNEL_DIR/} anyway would compare the twin to a" >&2
+        echo "different network and report the difference as a product defect -- which is how" >&2
+        echo "a BROKEN line ended up being read as evidence about A-8 (KNOWN-ISSUES L-1)." >&2
+        echo "derive one first, or name it explicitly:" >&2
+        echo "  python3 tools/test_workflow/derive_p4_topology_json.py \\" >&2
+        echo "      setting/StaticNetworkTopologyMininet_10Switches.json \\" >&2
+        echo "      setting/StaticNetworkTopologyP4_10Switches_${live}Hosts.json" >&2
+        echo "  NDT_TOPO=/path/to/model $0 ..." >&2
+        return 3
+    fi
+
+    if [[ "$derived" != "$configured" ]]; then
+        echo "${Y}topology: the running fabric has $live host(s), so this run uses" >&2
+        echo "${derived#$KERNEL_DIR/} rather than the configured ${configured#$KERNEL_DIR/}.${N}" >&2
+    else
+        echo "${D}topology: ${derived#$KERNEL_DIR/} ($live host(s), matches the running fabric)${N}" >&2
+    fi
+    echo "$derived"
+    return 0
+}
+
+# select_topo <mode> <usage line> -- set $TOPO, or exit. Called at top level so `exit` works;
+# topo_for_mode itself runs in a $( ) and cannot end the script.
+select_topo() {
+    local mode="$1" usage="$2" rc
+    TOPO="$(topo_for_mode "$mode")"; rc=$?
+    case "$rc" in
+        0) ;;
+        2) echo "usage: $usage"; exit 2 ;;
+        *) exit 1 ;;
     esac
 }
 
@@ -288,6 +419,14 @@ summary() {
 
 # --- modes ------------------------------------------------------------------------
 
+# [Co-developed with claude code -- Adam]
+# tests/shell/test_run_layers_topology_from_fabric.sh sources this file with
+# NDTWIN_RUN_LAYERS_LIB_ONLY=1 to drive the topology selection on fixtures -- no kernel, no
+# fabric, no lab claim. Same seam and same name-shape as l1_unit_tests.sh's NDTWIN_L1_LIB_ONLY.
+# A selector reachable only by running a whole live round is a selector nobody watches go red,
+# which is how L-1 survived for as long as the 128-host model has existed.
+[[ -n "${NDTWIN_RUN_LAYERS_LIB_ONLY:-}" ]] && return 0
+
 MODE="${1:-}"
 shift || true
 
@@ -299,8 +438,7 @@ case "$MODE" in
 
     api)
         DP="${1:-}"; shift || true
-        TOPO="$(topo_for_mode "$DP")"
-        [[ -z "$TOPO" ]] && { echo "usage: $0 api {ovs|p4} [--traffic] [--mutations]"; exit 2; }
+        select_topo "$DP" "$0 api {ovs|p4} [--traffic] [--mutations]"
         EXTRA=()
         for a in "$@"; do
             case "$a" in
@@ -322,8 +460,7 @@ case "$MODE" in
 
     baseline)
         DP="${1:-}"; shift || true
-        TOPO="$(topo_for_mode "$DP")"
-        [[ -z "$TOPO" ]] && { echo "usage: $0 baseline {ovs|p4} [--traffic]"; exit 2; }
+        select_topo "$DP" "$0 baseline {ovs|p4} [--traffic]"
         EXTRA=()
         for a in "$@"; do
             case "$a" in
@@ -345,8 +482,7 @@ case "$MODE" in
 
     full)
         DP="${1:-}"; shift || true
-        TOPO="$(topo_for_mode "$DP")"
-        [[ -z "$TOPO" ]] && { echo "usage: $0 full {ovs|p4} [--traffic] [--mutations]"; exit 2; }
+        select_topo "$DP" "$0 full {ovs|p4} [--traffic] [--mutations]"
         EXTRA=()
         for a in "$@"; do
             case "$a" in
