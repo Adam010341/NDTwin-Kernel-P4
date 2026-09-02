@@ -61,6 +61,34 @@ run-05 的模板要加：凡是要寫進報告的數字，當下就 tee 進檔�
 
 ---
 
+## 🟢 A-8 也有答案了：Section 6 對 OVS 路徑**是真的可選**
+
+在一台 `simple_switch_grpc`／`p4c-bm2-ss`／`~/p4-guide`／`~/behavioral-model`／`~/p4c`／
+`p4dev-python-venv`／`p4_proxy/venv`／編好的 `ndtwin_switch.json` **全部缺席**的機器上，
+手冊的三終端流程**一次就起來**，而且每個數字都對：
+
+Ryu 3 s 內聽 `:6633`・十台交換機各 **130** 條流表（三次取樣共 1300）・
+kernel `topology from the control plane: 10 switches, 128 hosts, 288 edges up`・
+`get_graph_data` 138 節點／288 邊・`get_detected_flow_data` **兩筆雙向**・
+`h1↔h2` 與 `h1↔h100` ping 皆 4/4 零丟包・kernel `[error]/[critical]` **0**・關機後全部釋放。
+
+**最硬的證據是效果不是訊息**：`ldd build/bin/ndtwin_kernel` 只連七個 so，
+grep `grpc|protobuf|bm2|bmv2|p4|libpi` **零命中** ⇒ 這顆 binary 在結構上不可能依賴 §6 裝的東西。
+七項失敗全部查明**沒有一項是 §6 缺席造成的**。開機 16 分 35 秒，03:28:01 停機，映像 5.73 GiB 保留。
+
+> 🔑 **附帶收穫**：run-04 的 **BUG-2（自測 128 對全報 100% loss、banner 照印 OK）
+> 在一台從沒見過 P4 的機器上獨立重現**。兩台不同的機器、兩份不同的碼，同一個假成功。
+
+⚠️ **一個要跟著結論走的但書**：prep5 **不是使用者拿到的那份碼**。跑 OVS 路徑的兩個檔都被動過
+（clone 後四分鐘，09-01 05:57）：`testbed_topo.py` 比對到 `6f32bcae`，
+**`intelligent_router.py` 比對不到本地 31 個 commit 的任何一版，來源未解**。
+削弱的是**外推**不是結論——`ldd` 那條證據不依賴這兩個檔——但要說「使用者照做也會這樣」需要一台乾淨機器。
+
+**我自己的預測 ② 有一半是錯的，而且錯在前提**：我寫「手冊 Terminal 2 原句是
+`sudo ~/miniconda3/envs/ntg-env/bin/python testbed_topo.py`」——查 git 歷史，
+**OVS 頁從 `e3b7479`（01-04 首次加入）起就一直寫 `sudo python3 testbed_topo.py`**，該檔零相關 commit。
+那個 conda 字串在 NTG 頁和 OVS 頁的 G-7 但書裡，不在我說的位置。**我憑印象寫了一條關於手冊的預測，記錯了。**
+
 ## 1. 你醒來要裁的兩件事（其他都不必等你）
 
 ### ① 判準要不要允許 §6 以背景完成？
@@ -234,6 +262,6 @@ friction 統計要附中止原因。正本：`FINDING-a-stop-looks-like-completi
   §1–§5 全 friction 0；§6.1 照手冊新增的 detached 指令**逐字照做**（證據已在 build 進行中先取，
   `run-04-sonnet/orchestrator-evidence/`），約 02:00 完成；`BUGS.md` 已 526 行。
   ⚠️ 有 2 次干預 ⇒ **這一輪不能算「一次通關」**，但它的手冊發現有效。
-- **A-8（prep5 只做 §1–5、驗 OVS 不靠 §6）**：照你的裁定排在 run-04 之後，尚未開始。
+- **A-8**：✅ **已完成**（見上）。commit `64dc558f`＋`b534ed1b`，raw 30 檔在本機 `audit-raw` 的 `1b2da03`——**禁止 push，證據還沒離開這台機器**。
 - **未推的 commit**：kernel repo 與 website repo 都有；**沒有推過 `origin`**。
 - 筆電上的 lab 我全程沒碰（auditor 的整機一輪在跑，claim 到 01:51）。
