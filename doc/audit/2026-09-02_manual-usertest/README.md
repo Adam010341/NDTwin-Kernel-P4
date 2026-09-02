@@ -12,6 +12,7 @@ This file is written **before the first run** so the method cannot drift toward 
 | | |
 | :--- | :--- |
 | Machine | A **new** VM from the Ubuntu 24.04 cloud image (`ndtwin-vm.sh create`), 4 vCPU / 6144 MB — the size the shipped OVF declares, i.e. what a user actually gets. Not a copy of any prepared disk: the user starts at Section 1 |
+| Seed | `create`'s cloud-init pre-creates `~/Desktop` — its own comment calls this a deliberate workaround for finding M-1 (the manual assumed `~/Desktop` without creating it). Each campaign VM has its seed **rebuilt without those two lines** (`user-data.as-created` kept beside it), so whatever the manual does about `~/Desktop` today is what gets tested. `noble-base.img` is copied in beforehand so `create` reuses it instead of downloading 600 MB per run |
 | Tester | One subagent, one model per run. Rotation: **sonnet → haiku → opus → fable**, then variations |
 | Persona | A competent Linux user (bash, apt, git, ssh) who has never seen this project and knows nothing about its internals |
 | Documentation | The website source `content/en/docs/` **copied into the guest** at `~/ndtwin-docs/`. The tester reads it top-down like a website. It may open links the manual gives (p4-guide, Miniconda) as a user would in a browser |
