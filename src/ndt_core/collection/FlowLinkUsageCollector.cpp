@@ -1706,7 +1706,6 @@ FlowLinkUsageCollector::telemetryStatusFor(uint32_t agentIp,
                                            uint32_t ifIndex,
                                            double windowSeconds) const
 {
-    LinkTelemetryStatus out;
     const int64_t now = utils::getCurrentTimeMillisSteadyClock();
 
     int64_t portAt = 0;
@@ -1725,11 +1724,28 @@ FlowLinkUsageCollector::telemetryStatusFor(uint32_t agentIp,
         }
     }
 
+    // The lock is released before the decision: classifyTelemetry touches no member, so holding
+    // the collector's busiest mutex across it would be contention for nothing.
+    return classifyTelemetry(now, portAt, agentAt, windowSeconds);
+}
+
+// [Co-developed with claude code -- Adam]
+// A-4f. The decision, with no clock and no state -- see the header for why it is split out.
+FlowLinkUsageCollector::LinkTelemetryStatus
+FlowLinkUsageCollector::classifyTelemetry(int64_t nowMillis,
+                                          int64_t portLastSampleMillis,
+                                          int64_t agentLastSampleMillis,
+                                          double windowSeconds)
+{
+    LinkTelemetryStatus out;
+    const int64_t portAt = portLastSampleMillis;
+    const int64_t agentAt = agentLastSampleMillis;
+
     // -1 rather than a large age for "never". A never-seen link and one last seen an hour ago
     // are different claims, and a number that merely looks big invites a reader to treat the
     // first as the second.
-    out.lastSampleAgeSeconds = portAt > 0 ? (now - portAt) / 1000.0 : -1.0;
-    out.agentLastSampleAgeSeconds = agentAt > 0 ? (now - agentAt) / 1000.0 : -1.0;
+    out.lastSampleAgeSeconds = portAt > 0 ? (nowMillis - portAt) / 1000.0 : -1.0;
+    out.agentLastSampleAgeSeconds = agentAt > 0 ? (nowMillis - agentAt) / 1000.0 : -1.0;
 
     if (agentAt <= 0)
     {

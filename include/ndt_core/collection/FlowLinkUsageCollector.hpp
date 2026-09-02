@@ -219,6 +219,31 @@ class FlowLinkUsageCollector
                                            uint32_t ifIndex,
                                            double windowSeconds = 5.0) const;
 
+    /**
+     * @brief The four-way decision on its own, with no clock, no maps and no locks.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Split out from telemetryStatusFor because the two halves are different kinds of thing and
+     * only one of them has a judgement in it. The gathering half is two map lookups under a
+     * shared lock; the deciding half is the whole claim this feature makes about when a 0 bps
+     * reading may be trusted. Left inside, that claim would have been reachable from a test only
+     * by standing up a collector, its monitor, its device manager and its classifier, and by
+     * making real time pass -- so in practice it would not have been tested at all, and a
+     * mutation that pinned every link to "live" would have survived the suite.
+     *
+     * Pure and static: every input is an argument, so a test states the exact instant it means.
+     *
+     * @param nowMillis                 Steady-clock reading to judge against.
+     * @param portLastSampleMillis      Last sample on this (agent, ifIndex); 0 for never.
+     * @param agentLastSampleMillis     Last sample from this agent on any port; 0 for never.
+     * @param windowSeconds             How stale a sample may be and still count as current.
+     */
+    static LinkTelemetryStatus classifyTelemetry(int64_t nowMillis,
+                                                 int64_t portLastSampleMillis,
+                                                 int64_t agentLastSampleMillis,
+                                                 double windowSeconds);
+
   private:
     inline std::string ourIpToString(uint32_t ipFront, uint32_t ipBack);
     inline uint32_t ipFromFrontBack(uint32_t ipFront, uint32_t ipBack);

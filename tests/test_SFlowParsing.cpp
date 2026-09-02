@@ -553,3 +553,95 @@ TEST(BoundedWordsTest, EmptyViewThrowsOnAnyAccess)
     EXPECT_THROW(view[0], sflow::TruncatedDatagram);
     EXPECT_FALSE(view.has(0));
 }
+
+// --- A-4f: telling "this link is idle" apart from "nothing is measuring this link".
+//
+// [Co-developed with claude code -- Adam]
+// An OVS power cycle deletes the bridge and with it the sFlow record, so the switch keeps
+// forwarding and stops sampling. The links arriving at it then publish exactly 0 bps for ever,
+// which is bit-identical to an idle link's 0 and to a kernel that started a moment ago.
+//
+// 🔑 The hard limit these tests encode: with polling=0 an idle interface emits nothing at all,
+// so ONE link cannot answer the question about itself. The only signal above that noise floor is
+// whether the same agent is reporting on any of its other ports. Every case below is really a
+// case about that distinction, and the two that carry it are the pair
+// `AnAgentStillReportingElsewhereMakesThisLinksZeroAMeasurement` /
+// `AnAgentReportingNowhereMakesThisLinksZeroAnAbsence` -- identical silence on the port itself,
+// opposite verdicts. A classifier that cannot separate those has not implemented this feature.
+
+namespace
+{
+constexpr int64_t kNow = 1000000; // arbitrary steady-clock millisecond reading
+using Telemetry = sflow::FlowLinkUsageCollector;
+} // namespace
+
+TEST(TelemetrySilenceTest, AnAgentThatHasNeverReportedIsUnknownRatherThanSilent)
+{
+    // A kernel ten seconds old and a switch that was never given an sFlow record look identical
+    // from in here. "unknown" is the only one of the four answers that is not a guess.
+    const auto out = Telemetry::classifyTelemetry(kNow, 0, 0, 5.0);
+    EXPECT_EQ(out.status, "unknown");
+    EXPECT_DOUBLE_EQ(out.lastSampleAgeSeconds, -1.0);
+    EXPECT_DOUBLE_EQ(out.agentLastSampleAgeSeconds, -1.0);
+}
+
+TEST(TelemetrySilenceTest, ARecentSampleOnThisPortIsLive)
+{
+    const auto out = Telemetry::classifyTelemetry(kNow, kNow - 300, kNow - 300, 5.0);
+    EXPECT_EQ(out.status, "live");
+    EXPECT_DOUBLE_EQ(out.lastSampleAgeSeconds, 0.3);
+}
+
+TEST(TelemetrySilenceTest, AnAgentStillReportingElsewhereMakesThisLinksZeroAMeasurement)
+{
+    // Nothing on this port for a minute, but the agent sampled 400 ms ago on another one. The
+    // sampler is alive, so this link really is carrying nothing: the 0 is a measurement.
+    const auto out = Telemetry::classifyTelemetry(kNow, kNow - 60000, kNow - 400, 5.0);
+    EXPECT_EQ(out.status, "idle");
+    EXPECT_DOUBLE_EQ(out.lastSampleAgeSeconds, 60.0);
+    EXPECT_DOUBLE_EQ(out.agentLastSampleAgeSeconds, 0.4);
+}
+
+TEST(TelemetrySilenceTest, AnAgentReportingNowhereMakesThisLinksZeroAnAbsence)
+{
+    // A-4f itself. The port has been silent for exactly as long as in the case above; the whole
+    // difference is in the agent, which is the only place the difference exists.
+    const auto out = Telemetry::classifyTelemetry(kNow, kNow - 60000, kNow - 60000, 5.0);
+    EXPECT_EQ(out.status, "silent");
+}
+
+TEST(TelemetrySilenceTest, APortNeverSeenUnderALiveAgentIsIdleNotUnknown)
+{
+    // The link has never carried a sampled packet, but the switch is demonstrably sampling. That
+    // is an ordinary quiet link, not an unmeasurable one.
+    const auto out = Telemetry::classifyTelemetry(kNow, 0, kNow - 100, 5.0);
+    EXPECT_EQ(out.status, "idle");
+    EXPECT_DOUBLE_EQ(out.lastSampleAgeSeconds, -1.0);
+}
+
+TEST(TelemetrySilenceTest, TheWindowBoundaryIsInclusiveOnBothSides)
+{
+    // Exactly at the window is still current; one millisecond past it is not. Pinned because an
+    // off-by-one here turns healthy links `silent` once a second, which is the fastest way to
+    // get a real check switched off for crying wolf.
+    EXPECT_EQ(Telemetry::classifyTelemetry(kNow, kNow - 5000, kNow - 5000, 5.0).status, "live");
+    EXPECT_EQ(Telemetry::classifyTelemetry(kNow, kNow - 5001, kNow - 5001, 5.0).status, "silent");
+}
+
+TEST(TelemetrySilenceTest, TheWindowIsConsultedRatherThanHardcoded)
+{
+    // Same instants, different window, opposite verdicts -- so the parameter is really read.
+    EXPECT_EQ(Telemetry::classifyTelemetry(kNow, kNow - 8000, kNow - 8000, 5.0).status, "silent");
+    EXPECT_EQ(Telemetry::classifyTelemetry(kNow, kNow - 8000, kNow - 8000, 30.0).status, "live");
+}
+
+TEST(TelemetrySilenceTest, TheRawAgesAreReportedAlongsideEveryVerdict)
+{
+    // The label is a verdict; the ages are the evidence it was derived from. Serving only the
+    // verdict is the code grading its own homework -- the same reason the rate-divisor gate logs
+    // two numbers instead of a boolean -- and a reader could not tell a check that fired from a
+    // check that never ran.
+    const auto out = Telemetry::classifyTelemetry(kNow, kNow - 2500, kNow - 1250, 5.0);
+    EXPECT_DOUBLE_EQ(out.lastSampleAgeSeconds, 2.5);
+    EXPECT_DOUBLE_EQ(out.agentLastSampleAgeSeconds, 1.25);
+}
