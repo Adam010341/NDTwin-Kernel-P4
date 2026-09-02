@@ -229,6 +229,12 @@ def manager_with(client):
     mgr.net = types.SimpleNamespace(nodes={})
     mgr._installed_routes = {}
     mgr._net_lock = threading.RLock()
+    # The three flow methods now also journal what the switch accepted (KNOWN-ISSUES A-4c).
+    # None is the no-journal mode every existing construction site uses, so nothing here
+    # changes; it is listed because this fixture's contract is "just enough state for the
+    # three flow methods" and an omitted field makes that sentence false.
+    # [Co-developed with claude code -- Adam]
+    mgr._journal = None
     return mgr
 
 

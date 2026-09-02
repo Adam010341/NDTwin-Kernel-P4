@@ -7,6 +7,7 @@ import time
 import networkx as nx
 
 # Shared so the two loaders cannot disagree about which topology file is authoritative.
+from proxy_agent import boot_identity  # no cycle: boot_identity imports only the stdlib
 from proxy_agent import ryu_topology  # no cycle: ryu_topology imports nothing from here
 from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 
@@ -515,7 +516,7 @@ LIVENESS_PROBE_TIMEOUT_S = 1.5
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
 
-    def __init__(self, kernel_notifier=None, clock=time.monotonic):
+    def __init__(self, kernel_notifier=None, clock=time.monotonic, journal=None):
         # [Co-developed with claude code -- Adam]
         # `kernel_notifier` is optional so the many tests that build a bare TopologyManager keep
         # working, and because bookkeeping-only is a genuinely useful mode: without one the beacon
@@ -575,6 +576,26 @@ class TopologyManager:
         # about. Advertising that path told consumers a route existed when the packets were being
         # dropped. Guarded by _net_lock, which is an RLock, so the install path may hold it already.
         self._installed_routes = {}
+
+        # --- the durable half of the same question. [Co-developed with claude code -- Adam]
+        #
+        # KNOWN-ISSUES A-4c. `_installed_routes` above answers "where will a packet go", and it
+        # dies with this process: a restart rebuilds it from whatever install_initial_routes
+        # rewrites, which is the bring-up shortest path and not what was actually there. The
+        # journal answers the other question -- "what was this proxy asked to do" -- and it is
+        # the only place that answer can survive a restart, because nothing kernel-side keeps
+        # one either (FlowRoutingManager holds no map of installed entries; DispatchOutcomeLog
+        # discards a successful job's actions; m_cachedOpenFlowTables is replaced wholesale by
+        # the poll every ~10 s).
+        #
+        # It also records what `_installed_routes` structurally cannot: 5-tuple rules, which are
+        # excluded from that map on purpose (see route_flow) and therefore have no record
+        # anywhere else in the system.
+        #
+        # Optional, and None in every existing construction site, so a manager built without one
+        # behaves exactly as before. See rule_journal.py for why replay is a separate decision
+        # from recording.
+        self._journal = journal
 
         # --- Liveness evidence. [Co-developed with claude code -- Adam]
         #
@@ -875,7 +896,12 @@ class TopologyManager:
                 next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
             print(f"[TopologyManager] Pushing 5-tuple rule to DPID {dpid} "
                   f"prio={prio} keys={sorted(keys)} -> port {out_port}")
-            return bool(client.insert_5tuple_rule(keys, prio, next_hop_mac, out_port))
+            # Journalled even though _installed_routes deliberately is not written here: this
+            # is the rule class with no record anywhere else, so it is the one a restart loses
+            # irrecoverably. [Co-developed with claude code -- Adam]
+            return self._note_in_journal(
+                "install", dpid, match_dict, actions_dict, priority,
+                bool(client.insert_5tuple_rule(keys, prio, next_hop_mac, out_port)))
 
         if not ipv4_dst:
             print("[TopologyManager] Unsupported match criteria (needs nw_dst)")
@@ -905,7 +931,36 @@ class TopologyManager:
             # stop, walking back in through the REST door instead of the watchdog.
             with self._net_lock:
                 self._installed_routes[(dpid, ipv4_dst)] = out_port
-        return success
+        return self._note_in_journal("install", dpid, match_dict, actions_dict, priority,
+                                     success)
+
+    def _note_in_journal(self, op, dpid, match_dict, actions, priority, accepted):
+        """
+        Record one write, but only if the switch took it.
+
+        [Co-developed with claude code -- Adam]
+        KNOWN-ISSUES A-4c. `accepted` is passed in rather than checked by the caller so that
+        every one of the six success paths -- three verbs times the ipv4_lpm and flow_5tuple
+        branches -- goes through the same gate. Recording a refused write would put a rule in
+        the journal that was never installed, and a replay would then create one that never
+        existed; that is the same defect as insert_ipv4_route returning None for a rejected
+        write and every consumer being told the route existed.
+
+        Never raises. The journal is a record of routing, not a precondition for it: a full
+        disk must not stop the fabric forwarding. RuleJournal.record already returns False
+        instead of raising, and this second belt exists so a future journal implementation
+        cannot turn a logging failure into an outage.
+        """
+        if not accepted or self._journal is None:
+            return accepted
+        try:
+            self._journal.record(op=op, dpid=dpid, match=match_dict, actions=actions,
+                                 priority=priority)
+        except Exception as exc:  # noqa: BLE001 -- see the docstring
+            print(f"[TopologyManager] Could not journal the {op} on DPID {dpid} "
+                  f"({type(exc).__name__}: {exc}); the rule IS installed but will not survive "
+                  f"a proxy restart")
+        return accepted
 
     def unroute_flow(self, dpid, match_dict, priority=None):
         if dpid not in self.switches:
@@ -938,7 +993,8 @@ class TopologyManager:
             prio = p4_priority(priority)
             print(f"[TopologyManager] Deleting 5-tuple rule on DPID {dpid} "
                   f"prio={prio} keys={sorted(keys)}")
-            return bool(client.delete_5tuple_rule(keys, prio))
+            return self._note_in_journal("delete", dpid, match_dict, [], priority,
+                                         bool(client.delete_5tuple_rule(keys, prio)))
 
         if not ipv4_dst:
             return False
@@ -952,7 +1008,10 @@ class TopologyManager:
             # left on the switch for the packet to reach.
             with self._net_lock:
                 self._installed_routes.pop((dpid, ipv4_dst), None)
-        return success
+        # Journalled: without the delete, a replay resurrects a rule that was deliberately
+        # removed -- which is one of the three things a restart already does today.
+        # [Co-developed with claude code -- Adam]
+        return self._note_in_journal("delete", dpid, match_dict, [], priority, success)
 
     def modify_flow(self, dpid, match_dict, actions_dict, priority=None):
         if dpid not in self.switches:
@@ -987,7 +1046,9 @@ class TopologyManager:
             next_hop_mac = "00:00:00:00:00:00"
             if ipv4_dst and ipv4_dst in self.net.nodes:
                 next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
-            return bool(client.modify_5tuple_rule(keys, prio, next_hop_mac, out_port))
+            return self._note_in_journal(
+                "modify", dpid, match_dict, actions_dict, priority,
+                bool(client.modify_5tuple_rule(keys, prio, next_hop_mac, out_port)))
 
         if not ipv4_dst:
             return False
@@ -1002,7 +1063,8 @@ class TopologyManager:
             # renderer reading _installed_routes sends packets down the pre-modify hop.
             with self._net_lock:
                 self._installed_routes[(dpid, ipv4_dst)] = out_port
-        return success
+        return self._note_in_journal("modify", dpid, match_dict, actions_dict, priority,
+                                     success)
 
 # Developed in collaboration with Gemini 3.1 Pro.
     def install_initial_routes(self, only_dpid=None):
@@ -1471,12 +1533,36 @@ class TopologyManager:
                     "last_lldp_age_s": age(self._last_lldp_from.get(dpid)),
                     "stream_alive": bool(client.stream_alive) if client is not None else False,
                     "grpc_addr": getattr(client, "grpc_addr", None),
+                    # [Co-developed with claude code -- Adam]
+                    # KNOWN-ISSUES A-4c. Changes every time this proxy commits a pipeline to
+                    # this switch, which is every time it empties the switch's tables. None
+                    # until the first commit, which is not the same statement -- see
+                    # P4RuntimeClient.table_generation.
+                    #
+                    # A reader holds (boot_id, table_generation) per switch; either one
+                    # differing from the last poll means every rule it installed on that
+                    # switch is gone. Per switch rather than per process because
+                    # POST /p4/readopt/{dpid} wipes one switch with no restart at all.
+                    #
+                    # Additive: the kernel reads named keys out of this entry
+                    # (DeviceConfigurationAndPowerManager.cpp:426 looks up "probe_ok", then
+                    # "probe_age_s", then "last_lldp_age_s"), so an unknown key is inert to
+                    # the existing parse and no reader has to be updated in lockstep.
+                    "table_generation": getattr(client, "table_generation", None),
+                    "pipeline_commits": getattr(client, "pipeline_commits", 0),
                 }
 
         return {
             "status": "success",
             "probe_interval_s": LIVENESS_PROBE_INTERVAL_S,
             "switches": out,
+            # [Co-developed with claude code -- Adam]
+            # Which proxy process is answering. A different value than last poll means this
+            # process rebuilt `_installed_routes` from scratch, so everything it reports about
+            # which rules exist describes what it re-installed, not what was there. See
+            # boot_identity.
+            "boot_id": boot_identity.BOOT_ID,
+            "boot_at": boot_identity.BOOT_AT,
             # Additive, and the kernel reads only "switches" (DeviceConfigurationAndPowerManager
             # looks that key up by name), so this cannot change how it parses the reply. It is here
             # so the link watchdog's state can be seen without waiting for a POST to arrive at the
