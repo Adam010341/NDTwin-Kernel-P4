@@ -1395,7 +1395,7 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 | **F-17** | `get_average_link_usage` **只平均忙碌的鏈路**（分子分母都只算非零邊）。**round 4 量化：8/32 條邊忙碌時，只算忙碌邊的平均 0.11 vs 真實 0.027，正好 4.0×**。🔴 **08-29 更正：原文寫的「這是 Energy-App 關機決策的輸入」與「標頭文件寫的是另一個公式」兩句都是錯的**——見表下 | 兩者 | 樂觀（有負載時高估 4.0×）；**失效方向的完整敘述見表下** |
 | 🏁 **F-14** | **host 永遠不會被標成 down**——沒有任何程式路徑可以做到。發現之後 `is_up` 是常數 `true`。<br>🟢 **已修（2026-09-02，`6db478ca`，與 F-16／F-4 同一次）**：改從 switch 三態 liveness **推導**——連續 2 個 poll 讀不到就把邊與其下的 host 標 down 並帶 `down_reason`，恢復時不主動標 up。**刻意不用「這輪沒被報到」的對帳式**，因為那在 host 上永遠不會觸發（Ryu `HostState` 無 timeout、P4 圖 append-only）。變異閘 **16/16 全殺**（含 1000 次不隔離、`continue` 解除武裝、被否決的修法各一顆），ctest 9/9，整合樹 ctest 870/870 | 兩者 | 樂觀 |
 | 🏁 **F-16** | 交換機死掉時**只有交換機間的邊被標 down**，它面向 host 的邊維持 up，所以被孤立的 host 看起來還連著。<br>🟢 **已修（`6db478ca`，同上）。** ⚠️ 遲滯 `kMissesBeforeIsolating = 2` ⇒ 收斂後最壞 **60 秒**才把孤立的 host 標 down；那是刻意的，留成一行可改 | 兩者 | 樂觀 |
-| 🏁 **F-8** | `left_link_bandwidth_bps` 在第一次取樣前**寫死 1 Gbit/s**，所以每條 10 Gbit/s 核心鏈路只宣告十分之一的餘裕。🔑 **與「容量夾制」同根**：`link_bandwidth` 這個**模型宣告值**滲進量測欄位的**第二種方式**——F-8 拿它當**初始值**，夾制拿它當**上限**（見 `doc/audit/2026-08-27_capacity-clamp/FINDING.md`）。**兩條並列不合併。**<br>🔴 **措辭更正（2026-09-02）**：原文寫「F-8 是暫態、會被真資料取代」——**那只對曾經有過流量的邊成立**。MININET 的 counter-sample 分支在 `FlowLinkUsageCollector.cpp:1102-1107` 直接 `continue`，所以**一條從來沒有流量的邊永遠不會被更新，是永久錯誤不是暫態**。夾制那一半（持久、只在超載時觸發）不變。<br>🟢 **已修（2026-09-02，`28a9b550`）**：宣告容量本來就讀進來了（`TopologyAndFlowMonitor.cpp:320`）只是寫給了旁邊那個欄位，修法是**接線**不是新資料源；並加 `left_link_bandwidth_source` 讓那 272 條「巧合正確」的邊與 16 條真的錯的邊**第一次可以分辨**。變異閘 **4/4 全殺**，ctest 全綠，整合樹 ctest 870/870 | 兩者 | 樂觀 |
+| 🏁 **F-8** | `left_link_bandwidth_bps` 在第一次取樣前**寫死 1 Gbit/s**，所以每條 10 Gbit/s 核心鏈路只宣告十分之一的餘裕。🔑 **與「容量夾制」同根**：`link_bandwidth` 這個**模型宣告值**滲進量測欄位的**第二種方式**——F-8 拿它當**初始值**，夾制拿它當**上限**（見 `doc/audit/2026-08-27_capacity-clamp/FINDING.md`）。**兩條並列不合併。**<br>🔴 **這個錯值在有流量的邊上是暫態；在從未有流量的邊上是永久**（措辭更正 2026-09-02 定案，**格內文字 2026-09-03 依 `STATUS-CHANGES-DEFERRED.md` #18 改寫**）。MININET 的 counter-sample 分支在 `FlowLinkUsageCollector.cpp:1102-1107` 直接 `continue`，所以**一條從來沒有流量的邊永遠不會被更新**——它不會等到真資料。夾制那一半（持久、只在超載時觸發）不變。〔原文存查：「F-8 是暫態、會被真資料取代」，**只對曾經有過流量的邊成立**〕<br>🟢 **已修（2026-09-02，`28a9b550`）**：宣告容量本來就讀進來了（`TopologyAndFlowMonitor.cpp:320`）只是寫給了旁邊那個欄位，修法是**接線**不是新資料源；並加 `left_link_bandwidth_source` 讓那 272 條「巧合正確」的邊與 16 條真的錯的邊**第一次可以分辨**。變異閘 **4/4 全殺**，ctest 全綠，整合樹 ctest 870/870 | 兩者 | 樂觀 |
 | 🏁 **F-1** | `get_cpu_utilization` 與 `get_memory_utilization` **回傳位元組完全相同的內容**——同一個 `10 + hash(ip) % 50` 運算式；三個裝置健康指標都是交換機 IP 的常數函數。<br>🟢 **已修（2026-09-02，`65c5cdb1`）**：MININET 下**四個**捏造點（含條目原本漏掉的 `:1810 getSingleSwitchCpuReport`）一律改回檔案自己既有的哨兵 `-1`；**零 schema 變更**（`spec.py` 早就是 `Num(min=-1,max=100)`）。變異閘 **9/9 全殺**（M8 是宣告過的 expected-survivor，另計），ctest 全綠，整合樹 ctest 870/870。<br>🔴 **`ndt status` 那句「fabricated」提示要等部署才翻**：提示翻面的條件是**跑著的那顆 kernel 裡有這個修法**，不是 repo 裡有。⇒ **在部署同一顆 commit 之前，台上仍然要用「Mininet 模式下未實作」這個口徑** | 兩者 | 合成 |
 | 🏁 **F-13** | 🔴 **敘述更正（2026-09-02）：不只是「對不存在的做 modify/delete」，是 6 端點 × {存在,不存在} 的十二格裡有六格錯，而十二格的回應完全相同**——除了 modify/delete 打不存在的那四格，**還有 install 打已存在的那兩格**（`OFPGMFC_GROUP_EXISTS`／`OFPMMFC_METER_EXISTS`，交換機**保留原本那筆**，呼叫端拿到 200 後會以為載送它流量的 buckets 是自己下的，方向更糟）。**六個端點裡也沒有任何 get**，呼叫端連事後自己核對的管道都沒有。<br>🟢 **已修（2026-09-02，`10ca8852`）**：改成送出前先查存在性，變異閘 **5/5 全殺**，ctest 全綠，整合樹 ctest 870/870。⚠️ pre-check 引進的 TOCTOU **只縮窗不關窗**，修法自己標了。<br>〔原敘述：對不存在的 group / meter 做 modify/delete 回 200 "modified"/"deleted" 且什麼都沒改。6 個端點零契約覆蓋。⚠️ **08-30 更正機制、結論不變**：那個 200 現在是**從 Ryu 轉述**的，不是 kernel 自己捏的——kernel 已改成傳遞真實結果（`HttpSession.cpp:804-805` 的 `respondToOpResult`，`7856efc`），但**整條路徑上沒有任何存在性檢查**，請求原樣轉給 Ryu（`HttpRoutingStrategyBase.cpp:219-220`），而 Ryu 對不存在的 group 回 200 空 body，`post()` 只在非 2xx 或 body 內含 `{"status":"error"}` 時才判失敗（`:104`／`:118-125`）。⇒ **使用者看到的行為一模一樣**；`7856efc` 早於 08-18 的量測，所以當時量到的就是現在這個機制。<br>🔄 **08-30 sweep 補精度**：六端點**路由有登記**（`tools/contract_test/components.py:36-41` 全在、mapped POST），缺的是**回應形狀斷言**（components.py 以外 grep `group_entry` 零命中）——「零契約覆蓋」精確講是「**登記而無形狀斷言**」（`recording` 是同型第二例、已修；此六端點仍待）〕 | OVS | 靜默 |
 | 🏁 **F-6** | 讀取流表失敗的交換機**被從 `get_switch_openflow_table_entries` 刪除**，而四處程式碼註解承諾「保留前一份表格」。<br>🟢 **已修（2026-09-02，`d50f63f2`）**：選「保留最後一份＋標記」（`stale_since`／`stale_polls`／`last_error`），而不是靜靜省略；`isUp==false` 那一條**刻意不 carry**。變異閘 **7/7 全殺**、ctest 20/20、整合樹 ctest 870/870。<br>🔑 **這個閘門的第一輪值得記**：7 顆裡有 2 顆**因為 mutant 自己編不過而被計為 SURVIVED**（改 header 的變異觸發 `-Wunused-variable`）——**編不過就是存活，不是警告**；改寫成編得過之後才全殺。<br>⚠️ 已知副作用：`inv_tables_non_empty` 對新的 `never_read` 狀態會變紅，要一起決定 | 兩者 | 靜默 |
@@ -1404,10 +1404,22 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 
 🔴 **這張表有五列的機制敘述在 2026-09-02 被補正或部分推翻，更正在本表下方的
 〈📌 2026-09-02 fix-design 對帳：§C 表八列的機制補正〉一節**（F-1／F-4／F-6／F-8／F-13／F-14／F-16／F-15）。
-**其中 F-8 那格寫的「暫態、會被真資料取代」只對曾經有過流量的邊成立**——
-格子裡的字**本輪刻意沒有改**（狀態與措辭變更一律等批次編譯後一次批改），
-**所以讀到那一格的人必須往下讀那一節**。
-🔑 這一行存在的理由就是本文件自己記過兩次的形狀：**更正被歸檔到讀者不會經過的位置。**
+**其中 F-8 那格的「暫態、會被真資料取代」已於 2026-09-03 依
+`doc/audit/2026-09-02_fix-design-campaign/known-issues-delta/STATUS-CHANGES-DEFERRED.md` #18
+改寫成「有流量的邊上是暫態；從未有流量的邊上是永久」**——
+🔑 這一段原本寫著「格子裡的字本輪刻意沒有改，所以讀到那一格的人必須往下讀那一節」，
+那句在 `fe76c67b` 把更正寫進格子的同時就過期了；留著它會讓下一個讀者以為那一格還沒修，
+**而「一條過期的『還沒修』會害人重做已經做完的事」正是本文件自己在 G-2 記過的形狀**。
+
+> 🚩 **§D 連帶檢查（2026-09-03，只標記、未改動 §D）**
+> #18 與 `findings/F-8.md:388`（Q2）都警告這次措辭改動會牽動 **§D 裡以「反正會被真資料蓋掉」
+> 為理由的那一族裁定**。逐格讀過 **§D 五列**（`A-1 / A-2 / A-3`、`5-tuple 下發`、`F-5（＝B-1）`、
+> `F-4`、`F-17`）與 **§D-2 的唯一一項**（LLDP beacon 間隔）：
+> **沒有任何一列以「暫態／會被真資料覆蓋」作為它寫下來的理由**，
+> 五列的理由分別是「報告前凍結產品碼」「排序、無消費端」「發作率證據基礎鬆動」
+> 「翻案改修」「零活消費端＋修分母會翻面」。
+> ⇒ **#18 擔心的連帶不成立，§D 不需要因為 F-8 這次改字而重裁**；本行是那次檢查的紀錄，
+> 不是裁定。**§D 的任何實際改動仍然是 Adam 的。**
 
 > ### 🔴 F-17 的兩次更正，方向相反 —— 兩次都要讀完再引用
 >
@@ -2197,7 +2209,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 | **02** | R-3 收斂表四個數字有三個量的是 **harness 自己的時間**；`port_holder` 看不到 root 擁有的 listener | 🏁 **已修**（`cd440488`，**是本文件基底的祖先**；T-9／T-10）。算術改成 `mark_start()`＋配對當下讀 `date +%s`，新欄位 `own` 才是 app 自己的收斂；`port_holder` 改三態，`LISTENER-OWNER-HIDDEN` 走 skip 不走 pass。**紅綠與變異閘由 auditor 重跑**：34/34 綠、12/12 變異全殺、倒回 `lib.sh` ⇒ 12/34 紅。<br>⚠️ **殘餘（設計上的，非 bug）**：這支 harness **序列**啟動 app，`since_T0` 那一欄**永遠**量的是 harness 的排程 |
 | **03** | **唯一一條關於系統的**：kernel 把**排隊未編程**的請求當流表列服務出去，**兩個 fabric 都是**；08-18 之所以沒看到，是因為它的取樣格**第一格就在 t=2** | 見 **B-1**；工單 **T-11**（修法待裁） |
 | **04** | **兩條還原路徑都不還原**；`--rebuild` 把 fabric 拆掉就停住 | 已開工單 **T-10**；危險路徑已加勿執行註解 |
-| **05** | 一個註冊為 240 秒的窗口實際跑了 **474 秒**；一面**永遠亮著**的 banner | 🏁 **已修**（`cd440488`；T-10）。窗口改成 deadline 驅動（`25_apps_energy.sh:204-227`）⇒ **危險方向（安靜地變短）已封死**；banner 改成 gate 在腳本自己算出來的 `POWERED_OFF` 上。同一次 auditor 重跑涵蓋。<br>🔴 **殘餘，而且是這兩列裡唯一還開著的**：**註冊窗與實跑窗從來沒有被比較過**——`:224` 是 `info()`（`lib.sh:107`），**不計入 `CHECKS`／`FAILS`、不寫 `verdicts.jsonl`** ⇒ 兩個數字被印出來卻沒有任何判決，跑完照樣 `exit 0`；`WATCH_S` 也沒有進任何 artefact，overrun 從沒被算出來過。⇒ 待辦＝**`assert_window_span`**（把 `registered/actual/overrun` 變成一條會紅的斷言）。⚠️ 另註：240 是腳本字面量（`:204`），**不是預註冊參數**（`grep '240' PREREG.md` 無命中） |
+| **05** | 一個註冊為 240 秒的窗口實際跑了 **474 秒**；一面**永遠亮著**的 banner | 🏁 **已修**（`cd440488`；T-10）。窗口改成 deadline 驅動（`25_apps_energy.sh:204-227`）⇒ **危險方向（安靜地變短）已封死**；banner 改成 gate 在腳本自己算出來的 `POWERED_OFF` 上。同一次 auditor 重跑涵蓋。<br>🟢 **殘餘也已修（2026-09-03 對帳，碼在此之前就進來了）**：`assert_window_span` 已實作（`doc/audit/2026-08-30_live-full-stack-round/harness/lib.sh`，函式在 `fe76c67b` 上是 `:497`、今天 HEAD 上是 `:556`——**引用前重查行號**）並在 `25_apps_energy.sh:233` 被呼叫，把 `registered/actual/overrun` 變成一條**會紅**的斷言（UNDERRUN／OVERRUN 兩個方向都 `bad`），且每一條路徑都寫出 `${label}_span.tsv`，所以註冊值第一次進了 artefact。`tests/shell/test_harness_instruments.sh` 34/34、`mutate_harness_instruments.sh` 12/12 全殺。⚠️ **仍未 live 跑過**：`25_apps_energy.sh` 是 `2026-09-02_live-round/CHECKPOINT.md` 的 T-20，NOT RUN。⚠️ 另註：240 是腳本字面量（`:204`），**不是預註冊參數**（`grep '240' PREREG.md` 無命中） |
 
 🔴 **row 02 與 row 05 的「現況」欄已經過期（2026-09-02 對帳）——碼早就修了，這一格沒跟上。**
 `git merge-base --is-ancestor cd440488 HEAD` ⇒ **rc=0**：commit `cd440488`
@@ -2218,19 +2230,30 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   ⇒ 每一個呼叫端把它讀成「沒有人在聽」。**「讀不到」被印得跟「沒東西」一模一樣。**
   修後是三態（`""`＝FREE／`<pid>`／**`LISTENER-OWNER-HIDDEN`**），
   `assert_port_is` 對第三態走 **skip（UNTESTABLE）不是 pass**；12 個呼叫端逐一查過沒有被三態打壞。〔親自讀過〕
-- 🔴 **真正還沒修的殘餘（row 05）：註冊窗與實跑窗從來沒有被比較過。**
-  `25_apps_energy.sh` 已改成 deadline 驅動（`:204-227`，**危險方向已封死**），
-  但 `:224` 是 **`info`**——`info()`（`lib.sh:107`）**不計入 `CHECKS`／`FAILS`、不寫 `verdicts.jsonl`**
-  ⇒ 兩個數字被印出來、**沒有任何判決**，跑完照樣 `exit 0`；而 `:227` 只把 `WATCH_ACTUAL` 落檔，
-  **`WATCH_S` 沒有進任何 artefact**，overrun 沒有被算出來過。
-  ⚠️ 另外 **240 這個數字是腳本字面量（`:204`），不是預註冊參數**——`grep '240' PREREG.md` 無命中。
+- 🟢 **row 05 的殘餘也已經修了——這一格 2026-09-03 才跟上（原文寫「真正還沒修的殘餘」）。**
+  舊敘述是對的：`:224` 曾經只是 `info`（`info()` 不計入 `CHECKS`／`FAILS`、不寫 `verdicts.jsonl`），
+  兩個數字被印出來卻沒有判決。**現在 `25_apps_energy.sh:233` 呼叫 `assert_window_span`**
+  （`harness/lib.sh`，`fe76c67b` 上 `:497`、今天 HEAD 上 `:556`——**行號會動，引用前重查**），
+  UNDERRUN 與 OVERRUN 兩個方向都走 `bad`，預設容忍 30 s；註冊值、實跑值與 overrun
+  **每條路徑都寫進 `${label}_span.tsv`**，所以「窗有沒有被遵守」第一次可以從 raw/ 讀出來。
+  `tests/shell/test_harness_instruments.sh` 34/34、`mutate_harness_instruments.sh` 12/12 全殺。
+  ⚠️ **但它從來沒有 live 跑過**：`25_apps_energy.sh` 是 `2026-09-02_live-round/CHECKPOINT.md`
+  的 **T-20，NOT RUN** ⇒ 這條斷言目前只在單元測試與變異閘裡執行過。
+  ⚠️ 另外 **240 這個數字是腳本字面量（`:204`），不是預註冊參數**——`grep '240' PREREG.md` 無命中，
+  這一半仍然開著。
   🔑 **「用迭代次數冒充時間」在這個 harness 裡是房子的風格，不是一次手滑**（FINDING-05 的窗口、
-  FINDING-02 的 viz 與 te，三次）。**一個只會 `info` 的自我量測擋不住風格。**〔親自讀過〕
-- 🔴 **而且這一輪的修法一行永久回歸測試都沒有留下**：
-  `grep -rln 'port_holder|PORT_HOLDER_HIDDEN|r3_convergence|WATCH_ACTUAL|mark_start' tests/ tools/` ⇒ **無命中**。
-  驗收品質很高，但那些都是拋棄式的 extracted-logic harness，跑在獨立 worktree 裡。
-  ⇒ **現在的狀態是「碼是對的，而沒有任何東西守著它」**：下一個人可以把 `port_holder` 改回兩態、
-  把 `while` 改回 `for i in $(seq …)`，`bash -n` 全綠、`tests/` 全綠、**沒有一條紅線**。〔親自讀過〕
+  FINDING-02 的 viz 與 te，三次）——`assert_window_span` 是第一個擋得住那個風格的東西。
+  🔑 **而這一格自己過期了九天，正是它記載的那個形狀的反方向**：
+  **一條過期的「還沒修」會害下一個人重做已經做完的事。**〔實測，2026-09-03 逐項重查〕
+- 🟢 **「一行永久回歸測試都沒有留下」也已經不成立了（2026-09-03 重跑那個 grep）**：
+  當時 `grep -rlnE 'port_holder|PORT_HOLDER_HIDDEN|r3_convergence|WATCH_ACTUAL|mark_start' tests/ tools/`
+  是**無命中**，而今天同一條 grep（加上 `assert_window_span`）命中
+  `tests/shell/test_harness_instruments.sh`、`mutate_harness_instruments.sh`、
+  `tests/shell/test_preflight_instrument_self_failures.sh`、`mutate_preflight_instrument_self_failures.sh`。
+  ⇒ 上面那句「碼是對的，而沒有任何東西守著它」在寫下的當天為真，**今天不再為真**：
+  把 `port_holder` 改回兩態、把 `while` 改回 `for i in $(seq …)`，現在都會有東西變紅。
+  ⚠️ **守到的仍然只是被抽出來的那幾個函式**——整支 harness 的 live 行為不在任何測試的射程內。
+  〔實測，2026-09-03 重跑〕
   ⚠️ 修法分支由 auditor 重跑：34/34 綠、變異 12/12 殺、倒回 `lib.sh` ⇒ 12/34 紅。〔實測，auditor 重跑〕
 
 🔴 **引用這一輪任何數字之前先讀兩件事**：
