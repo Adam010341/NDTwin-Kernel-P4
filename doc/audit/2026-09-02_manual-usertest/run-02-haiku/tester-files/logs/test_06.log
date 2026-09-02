@@ -1,0 +1,8 @@
+=== TEST 6: Traffic Variations - Bidirectional TCP from h3 to h5 ===
+Time: 11:47:47
+Setup: Starting iperf3 server on h5, then client on h3
+
+Querying detected flows from kernel...
+Total flows detected: 0
+
+VERDICT: WORKS-BUT - No flows detected yet, may still be processing

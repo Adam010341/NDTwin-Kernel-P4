@@ -1,0 +1,8 @@
+=== TEST 14: Ryu Statistics and Port Info ===
+Time: 11:50:54
+
+Querying flow stats for switch 0000000000000001...
+Flow entries on switch 1: 
+
+
+VERDICT: WORKS-BUT - No flow stats available yet (may need active flows)

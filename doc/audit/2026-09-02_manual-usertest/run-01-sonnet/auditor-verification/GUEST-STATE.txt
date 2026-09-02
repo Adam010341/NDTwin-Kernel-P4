@@ -1,0 +1,36 @@
+captured: 2026-09-02T12:28:25Z
+ M intelligent_router.py
+ M p4_proxy/mininet/bmv2_binary_override
+ M tools/test_workflow/ndtwin-lab
+diff --git a/intelligent_router.py b/intelligent_router.py
+index 5c8e86a..cb43954 100644
+--- a/intelligent_router.py
++++ b/intelligent_router.py
+@@ -35,7 +35,7 @@ from ryu.lib import hub
+ # the kernel's graph reported ten switches, forty edges, all up and enabled.
+ static_topology_file_path = Path(os.environ.get(
+     "NDTWIN_RYU_TOPO_FILE",
+-    "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
++    "/home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
+ 
+ # (2) Deployment mode
+ # [Co-developed with claude code -- Adam]
+diff --git a/p4_proxy/mininet/bmv2_binary_override b/p4_proxy/mininet/bmv2_binary_override
+index f10ff72..d60cec8 100644
+--- a/p4_proxy/mininet/bmv2_binary_override
++++ b/p4_proxy/mininet/bmv2_binary_override
+@@ -12,4 +12,4 @@
+ # switches, same order, both runs). Same ceiling that stops TE from ever seeing its 70%
+ # threshold. [Co-developed with claude code -- Adam]
+ 
+-/usr/local/bmv2-fast/bin/simple_switch_grpc
++/usr/local/bin/simple_switch_grpc
+ mode change 100644 => 100755 tools/test_workflow/ndtwin-lab
+-rw-rw-r-- 1 ndt ndt 26962 12:27:07 logs/av2_kernel_1.log
+-rw-rw-r-- 1 ndt ndt  6215 12:27:28 logs/av2_kernel_2.log
+-rw-rw-r-- 1 ndt ndt 84629 12:27:26 logs/av2_ryu.log
+-rw-rw-r-- 1 ndt ndt 78633 12:26:59 logs/av2_topo.log
+-rw-rw-r-- 1 ndt ndt 26964 12:23:00 logs/av_kernel_1.log
+-rw-rw-r-- 1 ndt ndt  6215 12:23:56 logs/av_kernel_2.log
+-rw-rw-r-- 1 ndt ndt 89577 12:23:53 logs/av_ryu.log
+-rw-rw-r-- 1 ndt ndt 78633 12:22:52 logs/av_topo.log

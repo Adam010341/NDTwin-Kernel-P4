@@ -1,0 +1,8 @@
+ndt up ovs
+  hosts        128
+  topology     setting/StaticNetworkTopologyMininet_10Switches.json
+[1/4] control plane (Ryu)
+  ok  Ryu up, prompt reached
+[2/4] data plane (OVS fabric)
+sudo: /usr/local/sbin/ndtwin-lab: command not found
+  XX  ovs-topo-start failed

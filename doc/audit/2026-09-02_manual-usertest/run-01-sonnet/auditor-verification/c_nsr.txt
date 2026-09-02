@@ -1,0 +1,13 @@
+--- before nsr ---
+no server running on /tmp/tmux-0/ndtwinlab
+pids/: kernel.cmd kernel.pid 
+### ndt apps nsr  12:24:55
+  XX  NSR not found at /home/ndt/Network-State-Recorder
+rc=1
+--- after nsr (3s) ---
+no server running on /tmp/tmux-0/ndtwinlab
+pids/: kernel.cmd kernel.pid 
+### pane
+no server running on /tmp/tmux-0/ndtwinlab
+### .test_run/logs/app_nsr.log
+tail: cannot open '.test_run/logs/app_nsr.log' for reading: No such file or directory

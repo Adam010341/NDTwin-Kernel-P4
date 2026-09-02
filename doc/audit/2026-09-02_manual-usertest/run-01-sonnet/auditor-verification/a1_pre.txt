@@ -1,0 +1,31 @@
+### pre: root tmux
+error connecting to /tmp/tmux-0/ndtwinlab (No such file or directory)
+### pre: ndt status --check
+lab
+  claim          none
+  measuring      nothing
+  code           936f8c6  +3 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+                 p4_proxy/mininet/bmv2_binary_override
+                 tools/test_workflow/ndtwin-lab
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  apps           none running
+
+
+check: ok
+rc=0

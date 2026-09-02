@@ -1,0 +1,24 @@
+=== TEST 15: Flow Path Computation Accuracy ===
+Time: 11:51:18
+
+Generating traffic (h1 to h50)...
+Flows detected: 2
+
+Sample flow with path:
+Flow: 838860810:5201 -> 16777226:52624
+  Path length: 5 hops
+    Hop 0: node=0x3200000a interface=20
+    Hop 1: node=0x2 interface=1
+    Hop 2: node=0x5 interface=1
+    Hop 3: node=0x1 interface=3
+    Hop 4: node=0x100000a interface=0
+
+Flow: 16777226:52624 -> 838860810:5201
+  Path length: 5 hops
+    Hop 0: node=0x100000a interface=3
+    Hop 1: node=0x1 interface=1
+    Hop 2: node=0x5 interface=2
+    Hop 3: node=0x2 interface=20
+    Hop 4: node=0x3200000a interface=0
+
+VERDICT: WORKS - Paths computed for flows

@@ -1,0 +1,6 @@
+  ok  energy stopped
+  ok  sim stopped
+  nsr not running
+  viz not running
+  te not running
+rc=0

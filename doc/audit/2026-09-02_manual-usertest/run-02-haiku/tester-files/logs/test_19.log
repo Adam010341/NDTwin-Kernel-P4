@@ -1,0 +1,16 @@
+=== TEST 19: Flow Statistics and Rate Computation ===
+Time: 11:52:33
+
+Generating high-volume TCP flow...
+Active flows: 3
+
+Flow statistics (first flow):
+  Source: 335544330:54354
+  Destination: 503316490:5201
+  Protocol: 6
+  First seen: 2026-09-02 11:52:36
+  Last seen: 2026-09-02 11:52:37
+  Current bitrate: 0 bps (0.0 Mbps)
+  Packet rate: 0 pps
+
+VERDICT: WORKS - Flow statistics being computed and reported

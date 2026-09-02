@@ -1,0 +1,12 @@
+set -u
+echo "=== other clones / tool repos ==="; ls ~/Desktop; ls ~ | grep -v "^\." ; for d in ~/Desktop/*/ ~/*/; do [ -d "$d/.git" ] && echo "$d -> $(git -C "$d" remote get-url origin 2>/dev/null) @ $(git -C "$d" rev-parse --short HEAD 2>/dev/null) dirty=$(git -C "$d" status --porcelain 2>/dev/null | wc -l)"; done
+echo "=== Dockerfiles (BUG-009) ==="; find ~ -maxdepth 5 -name Dockerfile -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | while read f; do echo "-- $f"; grep -n "pnpm" "$f" | head -3; git -C "$(dirname "$f")" diff -- "$(basename "$f")" 2>/dev/null | grep "^[-+]" | grep -v "^+++\|^---" | head -4; done
+echo "=== NSR stop script (BUG-006) ==="; find ~ -maxdepth 5 -name "stop_network_state_recorder.sh" -not -path "*/.git/*" 2>/dev/null | while read f; do echo "-- $f"; grep -n "pgrep\|pkill\|kill" "$f" | head -5; done
+echo "=== NTG launcher (BUG-007/008) ==="; find ~ -maxdepth 5 -iname "*traffic*generator*" -maxdepth 3 -type d 2>/dev/null | head -3; find ~ -maxdepth 6 -path "*/pyvenv.cfg" -not -path "*/p4dev*" 2>/dev/null | while read f; do echo "-- $f"; grep -n "include-system-site-packages\|home" "$f"; done
+echo "=== who listens on 8001 / 9000 / 2049 ==="; sudo -n ss -tlnpH "( sport = :8001 or sport = :9000 )" 2>&1 | cut -c1-160
+echo "=== ESA decision -> kernel (kernel_sim2.log around first POST) ==="; sed -n '1730,1745p' ~/logs/kernel_sim2.log | cut -c1-190
+echo "--- graph queries after 10:26:49 ---"; awk 'NR>1735' ~/logs/kernel_sim2.log | grep -n "get_graph_data\|set_switches_power_state\|power\|Power" | head -8 | cut -c1-170
+echo "--- esa_run.log tail ---"; tail -12 ~/logs/esa_run.log | cut -c1-170
+echo "=== step6.1 timing ==="; head -3 ~/logs/step6.1_p4toolchain.log | cut -c1-120; ls -la --time-style=full-iso ~/logs/step6.1_p4toolchain.log ~/p4setup.bash | cut -c30-
+echo "=== BUG-005 reproduction (orchestrator): ndt apps sim ==="; cd ~/Desktop/NDTwin-Kernel; N=$(command -v ndt || ls tools/test_workflow/ndt); echo "ndt=$N"; before=$(for p in /proc/[0-9]*; do readlink $p/exe 2>/dev/null; done | grep -c "java\|ndtwin_kernel"); timeout 60 $N apps sim < /dev/null; echo "rc=$?"; sleep 5; after=$(for p in /proc/[0-9]*; do readlink $p/exe 2>/dev/null; done | grep -c "java\|ndtwin_kernel"); echo "java/kernel procs before=$before after=$after"; timeout 30 $N apps < /dev/null 2>&1 | head -12; echo "apps-list rc=$?"
+echo "=== ndt --help surface ==="; timeout 20 $N --help < /dev/null 2>&1 | head -30

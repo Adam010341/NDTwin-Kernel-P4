@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Deck figures 5-8 for the 9/03 report (and future paper use).
+# Deck figures 5-8 for the 9/03 report (and future paper use), plus fig5b
+# (2026-09-02): the fig5 matrix over all 34 coded bmv2-measuring papers.
 # fig5/fig6: literature survey. fig7: aggregate two-planes (data stated in
 # audit/2026-08-30_ovs-flowcount-control/FINDINGS.md). fig8: folk-knowledge
 # diagram (facts from study s1 item 4 and s2-1 row 13).
@@ -51,6 +52,25 @@ PAPERS = [
     "Network '25", "P4sim '25",
 ]
 
+# rows follow PAPERS; qualitative halves: ICNCC flags ("compiled in a
+# non-logging mode", no flags), TSSA pkt-size (two points, qualitative
+# attribution, never converted to pps).
+M12 = [
+    # thr var ver flg A/B pkt pps flw cmp
+    [1, 1, 0, 0, 0, 0, 0, 0, 0],   # TOMACS '25
+    [1, 1, 0, 0, 0, 0, 0, 0, 0],   # PADS '23
+    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # PADS '24
+    [1, 0, 1, 0.5, 0, 0, 0, 0, 0],  # ICNCC '23
+    [1, 0, 0, 0, 0, 0.5, 0, 0, 0],  # TSSA '23
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],   # SOSR '17 (latency only)
+    [1, 0, 0, 0, 0, 0, 1, 0, 0],   # P4CEP '18
+    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # P4-NIDS '24
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],   # PoliTO (delay only)
+    [1, 1, 0, 0, 0, 0, 0, 0, 0],   # PADS '26
+    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # Network '25
+    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # P4sim '25
+]
+
 # ---------------------------------------------------------------- fig 5
 # Reporting matrix. Cell values: 1 = stated, 0.5 = qualitative mention only,
 # 0 = absent from the full text. Column totals are the statistics paragraph's
@@ -61,24 +81,7 @@ def fig5():
             "flows as\nvariable", "comparison\nplane"]
     totals = ["10/12", "3/12", "1/12", "0/12", "0/12", "0/12",
               "1/12", "0/12", "0/12"]
-    # rows follow PAPERS; qualitative halves: ICNCC flags ("compiled in a
-    # non-logging mode", no flags), TSSA pkt-size (two points, qualitative
-    # attribution, never converted to pps).
-    M = [
-        # thr var ver flg A/B pkt pps flw cmp
-        [1, 1, 0, 0, 0, 0, 0, 0, 0],   # TOMACS '25
-        [1, 1, 0, 0, 0, 0, 0, 0, 0],   # PADS '23
-        [1, 0, 0, 0, 0, 0, 0, 0, 0],   # PADS '24
-        [1, 0, 1, 0.5, 0, 0, 0, 0, 0],  # ICNCC '23
-        [1, 0, 0, 0, 0, 0.5, 0, 0, 0],  # TSSA '23
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],   # SOSR '17 (latency only)
-        [1, 0, 0, 0, 0, 0, 1, 0, 0],   # P4CEP '18
-        [1, 0, 0, 0, 0, 0, 0, 0, 0],   # P4-NIDS '24
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],   # PoliTO (delay only)
-        [1, 1, 0, 0, 0, 0, 0, 0, 0],   # PADS '26
-        [1, 0, 0, 0, 0, 0, 0, 0, 0],   # Network '25
-        [1, 0, 0, 0, 0, 0, 0, 0, 0],   # P4sim '25
-    ]
+    M = M12
     for j, want in enumerate(totals):  # guard: figure == study statistics
         got = sum(1 for r in M if r[j] == 1)
         assert f"{got}/12" == want, (cols[j], got, want)
@@ -103,7 +106,7 @@ def fig5():
                                        facecolor="white", edgecolor="#cccccc",
                                        lw=0.5))
     ax.set_xlim(0, nc)
-    ax.set_ylim(-1.9, nr)
+    ax.set_ylim(-2.05, nr)
     ax.set_xticks([j + 0.5 for j in range(nc)],
                   [c.replace("\n", " ") for c in cols], fontsize=6.0,
                   rotation=32, ha="left", rotation_mode="anchor")
@@ -113,12 +116,16 @@ def fig5():
     ax.tick_params(axis="y", length=0)
     for j, t in enumerate(totals):
         bold = t.startswith("0") or cols[j].startswith("variant")
-        ax.annotate(t, (j + 0.5, -0.28), ha="center", fontsize=6.5,
+        # 2026-09-02: totals sat on the last row's cell edge (baseline at
+        # -0.28 put the glyph tops above y=0.12) and collided with it when
+        # the figure is scaled to .82\linewidth in the 2-page version.
+        # Anchor the totals' top edge below the cells instead.
+        ax.annotate(t, (j + 0.5, -0.2), ha="center", va="top", fontsize=6.5,
                     fontweight="bold" if bold else "normal",
                     color=C_HL if t == "0/12" else "#333333")
     ax.annotate("filled = stated in the paper; half = qualitative mention only\n"
                 "variant 3/12 = one lab lineage (2/11 as independent works)",
-                (0, -0.62), va="top", fontsize=5.8, color="#555555")
+                (0, -0.88), va="top", fontsize=5.8, color="#555555")
     for s in ("left", "bottom"):
         ax.spines[s].set_visible(False)
     save(fig, "fig5_reporting_matrix")
@@ -303,5 +310,121 @@ def fig8():
     save(fig, "fig8_known_but_never_reported")
 
 
-fig5(); fig6(); fig7(); fig8()
-print("wrote 4 figures ->", OUT)
+# ---------------------------------------------------------------- fig 5b
+# The fig5 matrix over all 34 bmv2-measuring papers coded so far: the 12
+# corpus papers (rows = M12; columns thr/var/ver/flg/pkt/pps; the "limit
+# check" column is the study's own "none of the 12 reports a check of what
+# limited its measurement") plus the 22 papers found after the corpus froze
+# and coded on the same sheet -- a post-hoc screen, not a census. Sources
+# (poster-package, outside the repo): 80a A-3 rows 1-7, 80e s5.1 rows 1-11,
+# 80f s1-s3 and s4.7. Column totals are asserted against 80f s7 "merged
+# statistics" so the figure cannot drift from the audit sheet. Columns the
+# screen did not code (build A/B, flows as variable, comparison plane) are
+# omitted rather than drawn as absent. Cell values as in fig5: 1 stated,
+# 0.5 qualitative mention only, 0 absent from the full text. Row-by-row
+# provenance and the exact quotes: fig5b_reporting_matrix_34.md (same dir).
+SCREEN = [
+    # label,                  thr  var  ver  flg  pkt  pps  lim   source
+    ("P4-IPsec Access '20",     1,   1,   0,   0,   0,   0,   0),  # 80a #1
+    ("MQTT-P4 arXiv '26",       1,   1,   0,   0,   0,   1,   0),  # 80a #2 kpps loads
+    ("Tokmakov arXiv '20",      1,   0,   1,   0,   0,   0,   0),  # 80a #3 "Release 1.11.0"
+    ("RL paths arXiv '25",      1,   0,   0,   0,   0,   0,   0),  # 80a #4 relative only
+    ("P4-MACsec Access '20",  0.5,   1,   0,   0,   0,   0,   0),  # 80a #5 qualitative; IEEE version not obtained
+    ("CEI-Net MedComNet '25",   1,   0,   0,   0, 0.5,   0,   0),  # 80a #6 MSS swept, throughput not per size
+    ("SDN envs LNNS '26",       1,   0,   0,   0,   0,   0,   0),  # 80a #7
+    ("APATCP Sci Rep '26",      1,   0,   0,   0,   0,   0,   0),  # 80e #1
+    ("SFARP Sci Rep '25",       1,   0,   0,   0,   0,   0,   0),  # 80e #2
+    ("MC-LBTO Sci Rep '25",     1,   1,   0,   0,   0,   0,   0),  # 80e #3
+    ("SBRC '26",                1,   0,   0, 0.5,   0,   0,   0),  # 80e #4 "adapted version" + performance.md, no flags
+    ("WPEIF '26",               0,   0,   0,   0,   0,   0,   0),  # 80e #5 latency only
+    ("TEPS Sci Rep '25",        1,   1,   0,   0,   0,   0,   0),  # 80e #6
+    ("DPF Network '25",         1,   0,   0,   0,   0,   0,   0),  # 80e #7
+    ("IoT-6G MDPI IoT '20",     1,   0,   0,   0,   0,   1,   0),  # 80e #8 Kpps axis, single 64 B
+    ("P4QCN Electronics '19",   1,   0,   0,   0,   0,   0, 0.5),  # 80e #9 own operating-range threshold
+    ("INCoS '22",               1,   0,   0,   0,   0,   0,   0),  # 80e #10 single 1440 B
+    ("L4-LB LOGIC '25",         1,   0,   0,   0,   0,   0,   0),  # 80e #11
+    ("Paolucci IEEE Netw '21",  1,   0,   0,   0,   0,   0,   0),  # 80f s1 single 1500 B
+    ("Elangovan APNOMS '21",    1, 0.5,   0, 0.5,   1,   0,   0),  # 80f s2 5 sizes; "without logging support"
+    ("HOL4P4.EXE VSTTE '25",    1,   0, 0.5,   0,   1,   1, 0.5),  # 80f s3 7 sizes, Mbps+pps; baseline for own switch only
+    ("NCTU thesis '18",         1,   0,   0,   0,   0,   0,   0),  # 80f s4.7 relative only
+]
+
+
+def fig5b():
+    cols = ["throughput\nmeasured", "variant", "version", "build\nflags",
+            "pkt-size\nsweep", "pps\nbasis", "limit\ncheck"]
+    corpus = [(PAPERS[i], r[0], r[1], r[2], r[3], r[5], r[6], 0)
+              for i, r in enumerate(M12)]
+    rows = corpus + SCREEN
+    n, nc, ncorp = len(rows), len(cols), len(corpus)
+    assert n == 34, n
+    # guard: (full, half) per column == 80f s7 merged statistics; the
+    # throughput column is derived (10/12 from fig5 + 20/22 from the screen:
+    # one latency-only, one qualitative) and pinned here against drift.
+    want = {"throughput\nmeasured": (30, 1), "variant": (8, 1),
+            "version": (2, 1), "build\nflags": (0, 3),
+            "pkt-size\nsweep": (2, 2), "pps\nbasis": (4, 0),
+            "limit\ncheck": (0, 2)}
+    totals = []
+    for j, c in enumerate(cols):
+        full = sum(1 for r in rows if r[1 + j] == 1)
+        half = sum(1 for r in rows if r[1 + j] == 0.5)
+        assert (full, half) == want[c], (c, full, half, want[c])
+        totals.append(f"{full}/{n}")
+
+    GAP = 0.7  # blank band between the corpus block and the screen block
+
+    def ypos(i):
+        return (n - 1 - i) + (GAP if i < ncorp else 0)
+
+    fig, ax = plt.subplots(figsize=(3.3, 6.4))
+    for i, r in enumerate(rows):
+        y = ypos(i)
+        for j in range(nc):
+            v = r[1 + j]
+            if v == 1:
+                ax.add_patch(Rectangle((j + 0.12, y + 0.12), 0.76, 0.76,
+                                       facecolor=C_A, edgecolor="none"))
+            elif v == 0.5:
+                ax.add_patch(Rectangle((j + 0.12, y + 0.12), 0.38, 0.76,
+                                       facecolor=C_B, edgecolor="none"))
+                ax.add_patch(Rectangle((j + 0.12, y + 0.12), 0.76, 0.76,
+                                       facecolor="none", edgecolor="#bbbbbb",
+                                       lw=0.5))
+            else:
+                ax.add_patch(Rectangle((j + 0.12, y + 0.12), 0.76, 0.76,
+                                       facecolor="white", edgecolor="#cccccc",
+                                       lw=0.5))
+    ysep = ypos(ncorp) + 1 + GAP / 2
+    ax.plot([0, nc], [ysep, ysep], color="#dddddd", lw=0.6)
+    for (lo, hi, lab) in ((0, ncorp, "corpus\n(12)"),
+                          (ncorp, n, "post-hoc screen\n(22)")):
+        yc = (ypos(lo) + 1 + ypos(hi - 1)) / 2
+        ax.text(-3.05, yc, lab, rotation=90, ha="center", va="center",
+                fontsize=6.0, color="#555555", clip_on=False)
+    ax.set_xlim(0, nc)
+    ax.set_ylim(-2.7, n + GAP)
+    ax.set_xticks([j + 0.5 for j in range(nc)],
+                  [c.replace("\n", " ") for c in cols], fontsize=6.0,
+                  rotation=32, ha="left", rotation_mode="anchor")
+    ax.xaxis.set_ticks_position("top")
+    ax.tick_params(axis="x", length=0)
+    ax.set_yticks([ypos(i) + 0.5 for i in range(n)], [r[0] for r in rows],
+                  fontsize=6.0)
+    ax.tick_params(axis="y", length=0)
+    for j, t in enumerate(totals):
+        zero = t.startswith("0/")
+        ax.annotate(t, (j + 0.5, -0.2), ha="center", va="top", fontsize=6.5,
+                    fontweight="bold" if zero else "normal",
+                    color=C_HL if zero else "#333333")
+    ax.annotate("filled = stated in the paper; half = qualitative mention only\n"
+                "build half-cells: 'no logging' / 'adapted version', no flag named (3)\n"
+                "rows: the 12 corpus papers + 22 found after the corpus froze, same sheet",
+                (0, -0.95), va="top", fontsize=5.6, color="#555555")
+    for s in ("left", "bottom"):
+        ax.spines[s].set_visible(False)
+    save(fig, "fig5b_reporting_matrix_34")
+
+
+fig5(); fig5b(); fig6(); fig7(); fig8()
+print("wrote 5 figures ->", OUT)

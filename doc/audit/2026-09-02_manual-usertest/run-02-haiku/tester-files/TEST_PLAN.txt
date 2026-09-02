@@ -1,0 +1,35 @@
+# OVS FABRIC COMPREHENSIVE TEST PLAN
+
+## Part A: Core Fabric Operation (Currently Testing)
+- Ryu controller starts on :8080 and loads intelligent_router.py
+- Mininet topology creates 10 switches, 128 hosts  
+- Switches connect to Ryu (verify with curl /v1.0/topology/switches)
+- Kernel starts on :8000 and connects to Ryu
+- Kernel loads topology from JSON file
+
+## Part B: Traffic and Flow Detection
+- Start iperf3 server: tmux send-keys -t T2 "h1 iperf3 -s &" Enter
+- Start iperf3 client: tmux send-keys -t T2 "h2 iperf3 -c h1 -t 60 &" Enter
+- Verify flow appears: curl localhost:8000/ndt/get_detected_flow_data
+- Verify flow has two directions
+- Verify IP addresses are integers (decodable)
+- Stop traffic and verify flows disappear after 15 seconds
+
+## Part C: API Endpoints Tested
+- GET /ndt/get_detected_flow_data (with traffic)
+- GET /ndt/get_detected_flow_data (after traffic stops)
+- GET /ndt/check_flow_status (if available)
+- GET /ndt/get_graph_data (topology graph)
+
+## Part D: Shutdown Procedure
+- Kill kernel in T3 (Ctrl+C in tmux or tmux send-keys)
+- Exit mininet in T2 (tmux send-keys -t T2 "exit" Enter)
+- Verify topology cleanup
+- Verify no zombie processes
+
+## Part E: Manual Three-Terminal Verification
+- Confirm T1 (Ryu) is tmux session
+- Confirm T2 (Topology) is tmux session  
+- Confirm T3 (Kernel) is tmux session
+- Verify tmux panes maintain terminal context
+

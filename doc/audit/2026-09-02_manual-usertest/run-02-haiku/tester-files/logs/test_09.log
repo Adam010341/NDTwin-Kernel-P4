@@ -1,0 +1,11 @@
+=== TEST 9: Kernel Graph Data Consistency ===
+Time: 11:49:10
+
+Graph nodes: 138
+Graph edges: 288
+
+Sample nodes (first 3):
+
+Sample edges (first 3):
+
+VERDICT: WORKS - Graph data consistent (138 nodes, 288 edges)

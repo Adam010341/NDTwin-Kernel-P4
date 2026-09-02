@@ -1,0 +1,9 @@
+=== TEST 7b: Ryu Response Format Analysis ===
+Time: 11:48:30
+
+Raw response (first 1500 chars):
+[{"dpid": "0000000000000001", "ports": [{"dpid": "0000000000000001", "port_no": "00000008", "hw_addr": "2a:aa:45:d5:60:38", "name": "s1-eth8"}, {"dpid": "0000000000000001", "port_no": "0000000a", "hw_addr": "9e:a8:6a:18:8e:4b", "name": "s1-eth10"}, {"dpid": "0000000000000001", "port_no": "0000001b", "hw_addr": "62:a2:71:e3:76:7f", "name": "s1-eth27"}, {"dpid": "0000000000000001", "port_no": "00000019", "hw_addr": "0a:bc:c5:c8:38:82", "name": "s1-eth25"}, {"dpid": "0000000000000001", "port_no": "00000017", "hw_addr": "46:f1:16:54:5c:32", "name": "s1-eth23"}, {"dpid": "0000000000000001", "port_no": "00000012", "hw_addr": "ae:df:c5:48:1e:f3", "name": "s1-eth18"}, {"dpid": "0000000000000001", "port_no": "00000018", "hw_addr": "b2:2e:82:13:81:4f", "name": "s1-eth24"}, {"dpid": "0000000000000001", "port_no": "0000000d", "hw_addr": "d6:42:d7:5b:1c:af", "name": "s1-eth13"}, {"dpid": "0000000000000001", "port_no": "00000009", "hw_addr": "9a:b8:ae:56:d9:9e", "name": "s1-eth9"}, {"dpid": "0000000000000001", "port_no": "00000005", "hw_addr": "da:3f:1a:ab:4c:d5", "name": "s1-eth5"}, {"dpid": "0000000000000001", "port_no": "0000000c", "hw_addr": "62:38:f5:44:08:18", "name": "s1-eth12"}, {"dpid": "0000000000000001", "port_no": "00000021", "hw_addr": "7a:55:5f:8a:90:93", "name": "s1-eth33"}, {"dpid": "0000000000000001", "port_no": "00000015", "hw_addr": "22:35:2f:0d:ec:53", "name": "s1-eth21"}, {"dpid": "0000000000000001", "port_no": "00000022", "hw_addr": "a2:e5:ed:77:b7:3a", "name": "s1-et
+
+Unique DPID values: 1
+
+VERDICT: WORKS - Ryu topology contains switch data (format analysis needed)

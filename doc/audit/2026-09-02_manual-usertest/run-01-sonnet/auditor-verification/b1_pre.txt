@@ -1,0 +1,17 @@
+### round 1
+wrapper($!)=27236 exe= cmd=sudo -n ./build/bin/ndtwin_kernel --mode mininet --topology setting/StaticNetworkTopologyMininet_10Switches.json --no-ai
+kernel= ppid= cmd=BOOT_IMAGE=/vmlinuz-6.8.0-138-generic root=LABEL=cloudimg-rootfs ro console=tty1 console=ttyS0
+--- kernel Sig* (pre) ---
+grep: /proc//status: No such file or directory
+--- wrapper Sig* (pre) ---
+Name:	sudo
+SigQ:	0/23548
+SigPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000000
+SigCgt:	00000000080b7a07
+--- :8000 ---
+LISTEN 0      4096   0.0.0.0:8000 0.0.0.0:* users:(("ndtwin_kernel",pid=27238,fd=8))
+--- topology lines ---
+23:[2026-09-02 12:22:49.065] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+185:[2026-09-02 12:22:53.909] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 0 switches, 128 hosts, 256 edges up

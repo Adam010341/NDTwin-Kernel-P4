@@ -1,0 +1,21 @@
+### 2026-09-02T12:13:49Z sudo -n -l
+
+User ndt may run the following commands on ndtwin-lab-vm:
+    (ALL) NOPASSWD: ALL
+### /home/adam
+ls: cannot access '/home/adam': No such file or directory
+### paths ndtwin-lab hardcodes
+ls: cannot access '/home/adam/miniconda3/envs/ntg-env/bin/python': No such file or directory
+ls: cannot access '/home/adam/Network-Traffic-Generator/testbed_topo.py': No such file or directory
+ls: cannot access '/home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/ntg_bmv2_topo.py': No such file or directory
+ls: cannot access '/home/adam/Energy-Saving-App': No such file or directory
+ls: cannot access '/home/adam/Simulation-Platform-Manager': No such file or directory
+### /usr/local/sbin/ndtwin-lab
+lrwxrwxrwx 1 root root 62 Sep  2 06:53 /usr/local/sbin/ndtwin-lab -> /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndtwin-lab
+NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
+BRIDGE=$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py
+ENERGY_DIR=/home/adam/Energy-Saving-App
+SIM_DIR=/home/adam/Simulation-Platform-Manager
+
+die() { echo "ndtwin-lab: $*" >&2; exit 1; }
+

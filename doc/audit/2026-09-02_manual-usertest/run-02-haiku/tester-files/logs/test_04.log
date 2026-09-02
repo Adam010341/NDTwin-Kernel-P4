@@ -1,0 +1,51 @@
+=== TEST 4: Mininet CLI - Send commands via tmux ===
+Time: 11:46:17
+
+Action: Send 'h1 ping -c 3 h2' to Mininet CLI
+Capturing Mininet pane output:
+[  5] 238.00-239.00 sec   114 MBytes   956 Mbits/sec
+[  5] 239.00-240.00 sec   114 MBytes   956 Mbits/sec
+[  5] 240.00-241.00 sec   113 MBytes   950 Mbits/sec
+[  5] 241.00-242.00 sec   114 MBytes   954 Mbits/sec
+[  5] 242.00-243.00 sec   114 MBytes   956 Mbits/sec
+[  5] 243.00-244.00 sec   114 MBytes   956 Mbits/sec
+[  5] 244.00-245.00 sec   114 MBytes   956 Mbits/sec
+[  5] 245.00-246.00 sec   114 MBytes   956 Mbits/sec
+[  5] 246.00-247.00 sec   114 MBytes   957 Mbits/sec
+[  5] 247.00-248.00 sec   114 MBytes   955 Mbits/sec
+[  5] 248.00-249.00 sec   114 MBytes   957 Mbits/sec
+[  5] 249.00-250.00 sec   114 MBytes   956 Mbits/sec
+[  5] 250.00-251.00 sec   114 MBytes   955 Mbits/sec
+[  5] 251.00-252.00 sec   114 MBytes   956 Mbits/sec
+[  5] 252.00-253.00 sec   114 MBytes   957 Mbits/sec
+[  5] 253.00-254.00 sec   114 MBytes   955 Mbits/sec
+[  5] 254.00-255.00 sec   114 MBytes   957 Mbits/sec
+[  5] 255.00-256.00 sec   114 MBytes   956 Mbits/sec
+[  5] 256.00-257.00 sec   114 MBytes   956 Mbits/sec
+[  5] 257.00-258.00 sec   114 MBytes   954 Mbits/sec
+[  5] 258.00-259.00 sec   114 MBytes   956 Mbits/sec
+[  5] 259.00-260.00 sec   114 MBytes   956 Mbits/sec
+[  5] 260.00-261.00 sec   114 MBytes   956 Mbits/sec
+[  5] 261.00-262.00 sec   114 MBytes   955 Mbits/sec
+[  5] 262.00-263.00 sec   114 MBytes   955 Mbits/sec
+[  5] 263.00-264.00 sec   114 MBytes   955 Mbits/sec
+[  5] 264.00-265.00 sec   114 MBytes   954 Mbits/sec
+[  5] 265.00-266.00 sec   114 MBytes   958 Mbits/sec
+[  5] 266.00-267.00 sec   114 MBytes   953 Mbits/sec
+[  5] 267.00-268.00 sec   114 MBytes   957 Mbits/sec
+[  5] 268.00-666.51 sec  44.3 GBytes   955 Mbits/sec
+iperf3: error - select failed: Bad file descriptor
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+-----------------------------------------------------------
+Server listening on 5201 (test #2)
+-----------------------------------------------------------
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=5.16 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.033 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.034 ms
+
+--- 10.0.0.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2028ms
+rtt min/avg/max/mdev = 0.033/1.743/5.162/2.417 ms
+mininet>
+
+VERDICT: WORKS - Mininet CLI accepts commands and produces output

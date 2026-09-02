@@ -1,0 +1,2 @@
+O="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR"
+ssh $O -p 2311 ndt@127.0.0.1 'cd ~/auditor-verification 2>/dev/null || { echo "no-dir"; exit 0; }; d=$(ls A_DONE B_DONE C_DONE ALL_DONE 2>/dev/null | tr "\n" ","); c=$([ -d /proc/2375 ] && echo alive || echo dead); n=$(ls | wc -l); l=$(tail -n 1 run.log 2>/dev/null | cut -c1-100); echo "done:$d chain:$c files:$n last:$l"'
