@@ -319,6 +319,22 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         ep.isEnabled = false;
         ep.linkBandwidth = edgeJson.at("link_bandwidth_bps").get<uint64_t>();
         ep.leftBandwidth = ep.linkBandwidth;
+        // [Co-developed with claude code -- Adam]
+        // F-8. The declared capacity was already being read on the line above and handed to
+        // leftBandwidth -- the field TESTBED mode reports -- while leftBandwidthFromFlowSample,
+        // the field MININET mode reports (HttpSession.cpp handleGetGraphData), was left holding
+        // its in-class initialiser. That initialiser was a literal 1 Gbit/s, so every core link
+        // this file declares at 10 Gbit/s advertised one tenth of its headroom until a flow
+        // sample arrived, and an edge that never carries traffic never gets one: in MININET mode
+        // the counter-sample branch returns before touching m_counterReports
+        // (FlowLinkUsageCollector.cpp), so only flow samples create the map entry the rate loop
+        // iterates. A permanently silent 10 Gbit/s link kept the wrong figure forever.
+        //
+        // Both fields are seeded here, from the same declared number, and both are stamped
+        // Declared. That is deliberately not the same claim as Measured: nothing has observed
+        // this link yet, and under Mininet nothing ever enforced the 10 Gbit/s either.
+        ep.leftBandwidthFromFlowSample = ep.linkBandwidth;
+        ep.leftBandwidthSource = BandwidthSource::Declared;
         ep.linkBandwidthUsage = 0;
         ep.linkBandwidthUtilization = 0;
         ep.srcIp =
@@ -1130,12 +1146,18 @@ TopologyAndFlowMonitor::updateLinkInfo(pair<uint32_t, uint32_t> agentIpAndPort,
     edgeProps.linkBandwidthUtilization = (1.0 - (double)leftOut / interfaceSpeed) * 100;
     edgeProps.linkBandwidthUsage = interfaceSpeed - leftOut;
     edgeProps.linkBandwidth = interfaceSpeed;
+    // [Co-developed with claude code -- Adam]
+    // F-8. interfaceSpeed here is the speed the switch itself reported in the sFlow counter
+    // sample, and leftOut/leftIn are deltas of its octet counters, so this figure really was
+    // observed -- unlike the loader's, which only repeats the topology file.
+    edgeProps.leftBandwidthSource = BandwidthSource::Measured;
 
     // Reverse Edge: from dst to src
     revEdgeProps.leftBandwidth = leftIn; // RX side
     revEdgeProps.linkBandwidthUtilization = (1.0 - (double)leftIn / interfaceSpeed) * 100;
     revEdgeProps.linkBandwidthUsage = interfaceSpeed - leftIn;
     revEdgeProps.linkBandwidth = interfaceSpeed;
+    revEdgeProps.leftBandwidthSource = BandwidthSource::Measured;
 }
 
 void
@@ -1187,6 +1209,12 @@ TopologyAndFlowMonitor::updateLinkInfoLeftLinkBandwidth(
         uint64_t leftIn =
             estimatedIn > edgeProps.linkBandwidth ? 0 : edgeProps.linkBandwidth - estimatedIn;
         edgeProps.leftBandwidthFromFlowSample = leftIn;
+        // [Co-developed with claude code -- Adam]
+        // F-8. Past this line the figure is derived from sampled bytes over a measured interval,
+        // so it stops being the topology file's claim and becomes an observation. This is the
+        // only place in MININET mode where that transition happens, which is why an edge that
+        // never carries traffic stays Declared indefinitely -- correctly, and now visibly.
+        edgeProps.leftBandwidthSource = BandwidthSource::Measured;
         edgeProps.linkBandwidthUtilization = (1.0 - (double)leftIn / edgeProps.linkBandwidth) * 100;
         edgeProps.linkBandwidthUsage =
             leftIn > edgeProps.linkBandwidth ? 0 : edgeProps.linkBandwidth - leftIn;

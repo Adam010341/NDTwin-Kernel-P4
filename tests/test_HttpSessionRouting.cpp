@@ -456,3 +456,102 @@ TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsNotRepor
     EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
     EXPECT_TRUE(edgeIsUp(1, 5)) << "the reported direction must still be marked up";
 }
+
+// --- F-8: what /ndt/get_graph_data says about where the headroom figure came from -------------
+// [Co-developed with claude code -- Adam]
+// The unit-level behaviour is in test_LeftBandwidthCapacity.cpp. This one is here because the
+// serialisation is decided by HttpSession -- handleGetGraphData chooses between leftBandwidth and
+// leftBandwidthFromFlowSample on m_mode -- and only HttpSession can be asked about it, the same
+// argument that put the app_id tests above in this file. The peer is MININET mode, which is the
+// mode the defect lives in.
+
+class GraphDataHeadroomTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_graph = std::make_shared<Graph>();
+        m_bus = std::make_shared<EventBus>();
+        m_monitor = std::make_shared<TopologyAndFlowMonitor>(m_graph,
+                                                             std::make_shared<std::shared_mutex>(),
+                                                             m_bus,
+                                                             utils::MININET);
+    }
+
+    void addEdge(uint64_t srcDpid, uint64_t capacity, uint64_t left, BandwidthSource source)
+    {
+        EdgeProperties ep;
+        ep.srcDpid = srcDpid;
+        ep.dstDpid = srcDpid + 100;
+        ep.srcInterface = 1;
+        ep.dstInterface = 1;
+        ep.isUp = true;
+        ep.linkBandwidth = capacity;
+        ep.leftBandwidth = left;
+        ep.leftBandwidthFromFlowSample = left;
+        ep.leftBandwidthSource = source;
+        const auto u = boost::add_vertex(*m_graph);
+        const auto v = boost::add_vertex(*m_graph);
+        boost::add_edge(u, v, ep, *m_graph);
+    }
+
+    /// The serialised edge whose src_dpid is `srcDpid`.
+    static nlohmann::json edgeOf(const std::string& body, uint64_t srcDpid)
+    {
+        const auto parsed = nlohmann::json::parse(body);
+        for (const auto& e : parsed.at("edges"))
+        {
+            if (e.at("src_dpid").get<uint64_t>() == srcDpid)
+            {
+                return e;
+            }
+        }
+        ADD_FAILURE() << "no edge with src_dpid " << srcDpid << " in: " << body;
+        return nlohmann::json::object();
+    }
+
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<EventBus> m_bus;
+    std::shared_ptr<TopologyAndFlowMonitor> m_monitor;
+};
+
+TEST_F(GraphDataHeadroomTest, TheHeadroomFigureCarriesItsProvenance)
+{
+    // Two edges that publish the *same* number for opposite reasons: one 10 Gbit/s core link
+    // nobody has sampled, and one 10 Gbit/s link observed to be idle. Before the provenance key
+    // existed a reader had nothing to tell them apart -- and before the loader was fixed the
+    // first of them published 1000000000 instead.
+    addEdge(/*srcDpid=*/5, /*capacity=*/10'000'000'000ULL, /*left=*/10'000'000'000ULL,
+            BandwidthSource::Declared);
+    addEdge(/*srcDpid=*/6, /*capacity=*/10'000'000'000ULL, /*left=*/10'000'000'000ULL,
+            BandwidthSource::Measured);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::get, "/ndt/get_graph_data");
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+
+    const auto declared = edgeOf(res.body(), 5);
+    const auto measured = edgeOf(res.body(), 6);
+
+    EXPECT_EQ(declared.at("left_link_bandwidth_bps").get<uint64_t>(), 10'000'000'000ULL)
+        << "an unsampled 10 Gbit/s link must not advertise a gigabit";
+    EXPECT_EQ(declared.at("left_link_bandwidth_source").get<std::string>(), "declared");
+    EXPECT_EQ(measured.at("left_link_bandwidth_source").get<std::string>(), "measured");
+}
+
+TEST_F(GraphDataHeadroomTest, TheExistingHeadroomKeyKeepsItsNameAndType)
+{
+    // /ndt/ is a cross-repo contract; the fix is additive by construction and this is the
+    // assertion that says so. A rename or a null here breaks the sister apps, not just a test.
+    addEdge(/*srcDpid=*/5, /*capacity=*/1'000'000'000ULL, /*left=*/1'000'000'000ULL,
+            BandwidthSource::Declared);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::get, "/ndt/get_graph_data");
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+
+    const auto e = edgeOf(res.body(), 5);
+    ASSERT_TRUE(e.contains("left_link_bandwidth_bps")) << res.body();
+    EXPECT_TRUE(e.at("left_link_bandwidth_bps").is_number_unsigned()) << res.body();
+    EXPECT_FALSE(e.at("left_link_bandwidth_bps").is_null());
+}

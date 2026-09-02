@@ -558,6 +558,16 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
              {"left_link_bandwidth_bps",
               m_mode == utils::DeploymentMode::MININET ? e.leftBandwidthFromFlowSample
                                                        : e.leftBandwidth},
+             // [Co-developed with claude code -- Adam]
+             // F-8. A new key rather than a changed one: /ndt/ is a cross-repo contract and the
+             // sister apps read left_link_bandwidth_bps unconditionally, so its name, type and
+             // presence are untouched -- tools/contract_test's GRAPH_EDGE is non-strict, so an
+             // added key passes. What the added key buys is the distinction the number cannot
+             // carry: "declared" says the figure is the topology file's link_bandwidth_bps with
+             // nothing observed on this link yet, "measured" says telemetry produced it. Before
+             // this, an unsampled 10 Gbit/s core link and a genuinely idle 1 Gbit/s access link
+             // published the same 1000000000 and were indistinguishable.
+             {"left_link_bandwidth_source", toString(e.leftBandwidthSource)},
              {"link_bandwidth_usage_bps", e.linkBandwidthUsage},
              {"link_bandwidth_utilization_percent", e.linkBandwidthUtilization},
              {"src_ip", e.srcIp},

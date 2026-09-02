@@ -5,6 +5,7 @@ add_executable(
   test_RoutingStrategies.cpp
   test_EstimatedRates.cpp
   test_RateDenominator.cpp
+  test_LeftBandwidthCapacity.cpp
   test_FlowPathRecomputeInterval.cpp
   test_SwitchKindDispatch.cpp
   test_SFlowParsing.cpp

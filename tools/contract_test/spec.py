@@ -83,7 +83,12 @@ GRAPH_EDGE = Obj({
     "link_bandwidth_usage_bps": Num(min=0),
     "link_bandwidth_utilization_percent": Num(min=0),
     "flow_set": List(FLOW_KEY),
-}, optional={"left_link_bandwidth_bps": Num()})
+    # [Co-developed with claude code -- Adam]
+    # F-8. Optional, not required: a kernel built before the field existed must still pass, and
+    # Obj is non-strict so an added key was already accepted. Listing it pins the vocabulary --
+    # a fourth value, or a free-form string, would be a contract change and should fail here.
+}, optional={"left_link_bandwidth_bps": Num(),
+             "left_link_bandwidth_source": Str(allowed=("declared", "measured", "unknown"))})
 
 GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)})
 
