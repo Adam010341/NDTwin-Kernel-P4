@@ -136,7 +136,8 @@ class ShellCommandConstructionTest(unittest.TestCase):
         with open(os.path.join(root, "include", "utils", "Utils.hpp"), encoding="utf-8") as handle:
             source = handle.read()
 
-        self.assertIn("execArgv", source, "the shell-free executor is gone")
+        # Not assertIn: on failure unittest would print the whole 900-line header as the message.
+        self.assertTrue("execArgv" in source, "the shell-free executor is gone from Utils.hpp")
 
         start = source.index("execArgv(const std::vector<std::string>& argv)\n{")
         end = source.index("\n}", start)
