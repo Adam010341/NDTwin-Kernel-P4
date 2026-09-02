@@ -165,9 +165,8 @@ fi
 python3 - "$SPEC" <<'PYEOF'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1]); s = p.read_text()
-old = ('}, optional={"left_link_bandwidth_bps": Num(),\n'
-       '             "left_link_bandwidth_source": Str(allowed=("declared", "measured", "unknown"))})')
-new = '}, optional={"left_link_bandwidth_bps": Num()})'
+old = '    "left_link_bandwidth_source": Str(allowed=("declared", "measured", "unknown")),\n'
+new = ''
 assert s.count(old) == 1, "spec.py anchor missing or ambiguous"
 p.write_text(s.replace(old, new, 1))
 PYEOF
