@@ -103,7 +103,7 @@ def fig5():
                                        facecolor="white", edgecolor="#cccccc",
                                        lw=0.5))
     ax.set_xlim(0, nc)
-    ax.set_ylim(-1.9, nr)
+    ax.set_ylim(-2.05, nr)
     ax.set_xticks([j + 0.5 for j in range(nc)],
                   [c.replace("\n", " ") for c in cols], fontsize=6.0,
                   rotation=32, ha="left", rotation_mode="anchor")
@@ -113,12 +113,16 @@ def fig5():
     ax.tick_params(axis="y", length=0)
     for j, t in enumerate(totals):
         bold = t.startswith("0") or cols[j].startswith("variant")
-        ax.annotate(t, (j + 0.5, -0.28), ha="center", fontsize=6.5,
+        # 2026-09-02: totals sat on the last row's cell edge (baseline at
+        # -0.28 put the glyph tops above y=0.12) and collided with it when
+        # the figure is scaled to .82\linewidth in the 2-page version.
+        # Anchor the totals' top edge below the cells instead.
+        ax.annotate(t, (j + 0.5, -0.2), ha="center", va="top", fontsize=6.5,
                     fontweight="bold" if bold else "normal",
                     color=C_HL if t == "0/12" else "#333333")
     ax.annotate("filled = stated in the paper; half = qualitative mention only\n"
                 "variant 3/12 = one lab lineage (2/11 as independent works)",
-                (0, -0.62), va="top", fontsize=5.8, color="#555555")
+                (0, -0.88), va="top", fontsize=5.8, color="#555555")
     for s in ("left", "bottom"):
         ax.spines[s].set_visible(False)
     save(fig, "fig5_reporting_matrix")
