@@ -90,6 +90,17 @@ REPO="${KERNEL_DIR:-$(cd "$HARNESS_DIR/../../../.." && pwd)}"
 : "${RYU_URL:=http://localhost:8080}"
 : "${P4_PROXY_URL:=http://localhost:8081}"
 : "${NDT_BIN:=$HOME/.local/bin/ndt}"
+# 🔴 NDT_OWNER must reach `ndt`, and it reaches it only if it is EXPORTED. `ndt` prints a claim as
+# "yours" only when the holder's name equals $NDT_OWNER (ndt:1145); with it unset every claim --
+# including this round's own -- renders as a stranger's name, so 00_preflight's §4.1/§4.2 gate
+# fails on a lab the executor has correctly claimed. Observed 2026-09-02
+# (2026-09-02_live-round/raw/C29_preflight_triage.log (a)): "claim auditor" unset vs "claim yours"
+# with NDT_OWNER=auditor, same second, same claim. CLAUDE.md already requires every `ndt` command
+# to carry it; a value set but not exported satisfies the letter and not the rule, so export it
+# here rather than trusting each executor's shell. Deliberately NOT defaulted: the harness cannot
+# invent an owner -- see claim_verdict's OWNER-UNSET branch, which says so instead of guessing.
+# [Co-developed with claude code -- Adam]
+if [[ -n "${NDT_OWNER:-}" ]]; then export NDT_OWNER; fi
 # The root-side lab wrapper, named here so the recovery instructions in 90_restore.sh can quote
 # a real path instead of prose. It is installed root-owned and reached through sudo; the harness
 # never invokes it directly. [Co-developed with claude code -- Adam]
@@ -411,13 +422,61 @@ stop_pid() {
 # arithmetic or a /proc lookup on it fails visibly instead of quietly meaning something else.
 PORT_HOLDER_HIDDEN='LISTENER-OWNER-HIDDEN'
 
+# _proc_starttime <pid> -- field 22 of /proc/<pid>/stat, in clock ticks since boot. Empty if the
+# process is gone. comm (field 2) can contain spaces AND parentheses, so the prefix up to the LAST
+# ')' is dropped before counting fields; splitting on whitespace alone misreads any process whose
+# name has a space in it. Factored out so listen_owner_pid can be tested without real processes.
+_proc_starttime() {
+    local st; st="$(cat "/proc/$1/stat" 2>/dev/null)" || return 0
+    printf '%s' "${st##*) }" | awk '{print $20}'      # after "pid (comm) ", starttime is the 20th
+}
+
+# listen_owner_pid <ss -lptnH output> -- WHICH of the processes ss lists actually owns the socket.
+#
+# 🔴 FIXED 2026-09-03 (L-10). `ss` prints EVERY process holding a file descriptor for the socket,
+# not the one that called listen(), and the old code took `head -1` of that list. Observed live on
+# 2026-09-02 (2026-09-02_live-round/raw/C29_preflight_triage.log (d)):
+#     LISTEN 0 4096 0.0.0.0:8000 0.0.0.0:* users:(("curl",pid=896662,fd=8),("curl",pid=896661,
+#            fd=8),("curl",pid=896660,fd=8),("ndtwin_kernel",pid=845333,fd=8))
+# The kernel forks and execs helpers (execArgv) while its listening fd is not FD_CLOEXEC, so three
+# transient curls appeared as holders and `head -1` named one of them. 00_preflight.sh then
+# reported ":8000 is held by pid 896662 (curl ...)" -- the machine is not quiet, held by a client
+# that is not holding anything. A preflight that misattributes the port it exists to inspect is
+# the instrument failing itself, and its FAIL is unactionable: the pid is gone by the time anyone
+# reads it.
+#
+# The rule: an fd can only be inherited from a process that already had it, so among the holders
+# the listener is the one that STARTED FIRST. Start time is preferred over walking ppids because a
+# reparented child (its intermediate parent exited) still gives the right answer. The one shape it
+# cannot see is a socket passed to an older process over SCM_RIGHTS, which nothing here does.
+# [Co-developed with claude code -- Adam]
+listen_owner_pid() {
+    local out="$1" p t best="" best_t="" pids=()
+    mapfile -t pids < <(printf '%s' "$out" | grep -oE 'pid=[0-9]+' | cut -d= -f2)
+    (( ${#pids[@]} )) || { printf ''; return 0; }
+    # One holder is not ambiguous, and /proc is not consulted for it: this path must keep working
+    # for a pid that is already gone by the time we look, which is the state ss itself can produce.
+    (( ${#pids[@]} == 1 )) && { printf '%s' "${pids[0]}"; return 0; }
+    for p in "${pids[@]}"; do
+        t="$(_proc_starttime "$p")"
+        # A holder whose start time cannot be read has just exited -- exactly the transient-client
+        # case -- and cannot be the listener of a socket that is still listening.
+        [[ "$t" =~ ^[0-9]+$ ]] || continue
+        if [[ -z "$best_t" ]] || (( t < best_t )); then best="$p"; best_t="$t"; fi
+    done
+    # Several holders and not one of them still exists. Naming one would be worse than saying so:
+    # the caller's third state ("a listener exists whose owner we cannot establish") is the truth.
+    [[ -n "$best" ]] || { printf '%s' "$PORT_HOLDER_HIDDEN"; return 0; }
+    printf '%s' "$best"
+}
+
 port_holder() {
     local port="$1" out pid
     out="$(ss -lptnH "sport = :$port" 2>/dev/null || true)"
     # No LISTEN line at all. This is the only state that means "free", and it is decided by the
     # line's PRESENCE, which is visible regardless of owner -- not by the pid field, which is not.
     [[ -n "$out" ]] || { printf ''; return 0; }
-    pid="$(printf '%s' "$out" | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2 || true)"
+    pid="$(listen_owner_pid "$out")"
     if [[ -n "$pid" ]]; then
         printf '%s' "$pid"
     else
@@ -679,6 +738,33 @@ ndt_down() {
     n="$(ps -eo comm= 2>/dev/null | grep -cx 'simple_switch_g' || true)"
     info "bmv2 processes remaining: ${n:-0}" >&2
     printf '%s' "${n:-0}"
+}
+
+# claim_verdict <claim-line> [owner] -- FIVE-VALUED. The claim line `ndt status` prints is
+# rendered RELATIVE TO $NDT_OWNER: ndt:1145 prints "yours" only when the holder's name equals it,
+# and anything else prints the holder's name. So a bare name means one of two different things,
+# and only $NDT_OWNER can tell them apart:
+#
+#   YOURS        this session holds the lab
+#   UNCLAIMED    nobody holds it
+#   EXPIRED      a claim exists and has run out (ndt treats it as free)
+#   FOREIGN      somebody else holds it -- we know that, because we know who we are
+#   OWNER-UNSET  a name is printed and we have no name to compare it with. NOT "foreign".
+#
+# 🔴 The fifth value is the L-10 fix. 00_preflight.sh used to fold OWNER-UNSET into FOREIGN and
+# report "the lab is claimed by someone else: auditor" while auditor WAS this round's own claim
+# (raw/C29_preflight_triage.log (a)). Same family as the port misattribution above: an instrument
+# that cannot establish something must say so, not answer the question it could not reach --
+# the harness already spends assert_port_is and verdict5 on exactly this principle.
+# [Co-developed with claude code -- Adam]
+claim_verdict() {
+    local line="$1" owner="${2-${NDT_OWNER:-}}"
+    case "$line" in
+        yours*)   printf 'YOURS' ;;
+        none|"")  printf 'UNCLAIMED' ;;
+        EXPIRED*) printf 'EXPIRED' ;;
+        *)        if [[ -n "$owner" ]]; then printf 'FOREIGN'; else printf 'OWNER-UNSET'; fi ;;
+    esac
 }
 
 ndt_status() {

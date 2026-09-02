@@ -36,11 +36,16 @@ say "PREREG §4.1 + §4.2 -- the lab claim"
 # `ndt status` prints:   claim   yours ...  |  none  |  EXPIRED ...  |  <someone else>
 CLAIM_LINE="$(grep -E '^  claim ' "$STATUS_TXT" | head -1 | sed 's/^  claim *//' || true)"
 info "claim line: ${CLAIM_LINE:-<absent>}"
-case "$CLAIM_LINE" in
-    yours*)  ok "the lab is claimed by this session (PREREG §4.2)" ;;
-    none|"") bad "the lab is NOT claimed. PREREG §4.2 requires a claim naming this round before any measurement. Run: NDT_OWNER=<you> ndt claim 240 'T-4 full-stack round'" ;;
-    EXPIRED*) bad "the lab claim has EXPIRED ($CLAIM_LINE) -- re-claim before measuring" ;;
-    *)       bad "the lab is claimed by someone else: $CLAIM_LINE. PREREG §4.1 requires 開機手冊 to have released it." ;;
+info "NDT_OWNER: ${NDT_OWNER:-<unset>}   (the name the claim line above is rendered relative to)"
+# The verdict is computed by lib.sh's claim_verdict, not by a case here, so that the five
+# outcomes -- in particular OWNER-UNSET, which this script used to report as FOREIGN -- are
+# testable without a lab. See lib.sh claim_verdict.
+case "$(claim_verdict "$CLAIM_LINE")" in
+    YOURS)   ok "the lab is claimed by this session (PREREG §4.2)" ;;
+    UNCLAIMED) bad "the lab is NOT claimed. PREREG §4.2 requires a claim naming this round before any measurement. Run: NDT_OWNER=<you> ndt claim 240 'T-4 full-stack round'" ;;
+    EXPIRED) bad "the lab claim has EXPIRED ($CLAIM_LINE) -- re-claim before measuring" ;;
+    FOREIGN) bad "the lab is claimed by someone else: $CLAIM_LINE (this session is NDT_OWNER=${NDT_OWNER:-}). PREREG §4.1 requires 開機手冊 to have released it." ;;
+    OWNER-UNSET) bad "THIS HARNESS CANNOT TELL WHOSE CLAIM THAT IS: NDT_OWNER is unset, so 'ndt status' renders every claim -- including this round's own -- as a stranger's name ($CLAIM_LINE). This is the instrument, not the lab. Re-run with the name the claim was made under: export NDT_OWNER=${CLAIM_LINE%% *} (and keep it exported for every later script)." ;;
 esac
 
 # §4.2 also requires exclusive_cpu=yes. `ndt status` prints the DECLARED value next to the
