@@ -178,7 +178,12 @@ def fig4():
     ax.plot([45, 360], [5.2, 5.2], "-", color=C_HL, lw=1.2, zorder=3)
     ax.annotate("this work: build A/B,\nsame machine ($\\approx\\times$8)",
                 (128, 5.55), ha="center", fontsize=6.5, color=C_HL)
-    ax.annotate("$\\sim$2,500$\\times$, zero papers report build",
+    # 2026-09-02: the in-figure line used to read "zero papers report build" with
+    # no denominator. Every negative statement in the paper is scoped to a named
+    # set (the 12 measuring papers / the eight that print a bit rate); the figure
+    # is the only reader path that carried an unscoped one. "the eight" = the
+    # bit-rate papers this axis draws from (fig caption: "in any of the eight").
+    ax.annotate("$\\sim$2,500$\\times$; none of the eight reports its build",
                 (24, -0.95), ha="center", fontsize=7, fontweight="bold")
     ax.set_xscale("log")
     ax.set_xlim(0.3, 9000)
