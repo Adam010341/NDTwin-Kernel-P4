@@ -8,6 +8,7 @@ from p4.v1 import p4runtime_pb2_grpc
 from p4.config.v1 import p4info_pb2
 from google.protobuf import text_format
 
+from proxy_agent import boot_identity
 from proxy_agent.sflow_emitter import PKTIN_META_INGRESS_PORT, sample_from_packet_in
 
 
@@ -70,7 +71,30 @@ class P4RuntimeClient:
         # PERMISSION_DENIED. doc/2026-08-13_p4runtime-mastership-spec-check.md has the three
         # scenarios; p4_proxy/reference/p4runtime_mastership_probe.py re-runs them.
         self.mastership_confirmed = False
-        
+
+        # --- what this client has destroyed. [Co-developed with claude code -- Adam]
+        #
+        # KNOWN-ISSUES A-4c. `set_forwarding_pipeline_config` empties every table on this switch
+        # (see the note above, and write_clone_session's docstring for the live measurement), and
+        # until now that left no trace anywhere: bmv2 keeps running, the port stays open, and the
+        # next poll reads a plausible table because install_initial_routes has refilled the
+        # bring-up shortest paths. The rules that are actually gone are the ones installed since.
+        #
+        # `table_generation` is None until this client has committed a pipeline, and a fresh token
+        # after each commit. None is not a token: a reader must be able to tell "this client has
+        # never wiped this switch" from "it wiped it, and here is which wipe", or the first poll
+        # after a start looks exactly like a wipe that already happened.
+        #
+        # Set only after the RPC returns, so a refused push -- the ordinary case when one bmv2 of
+        # ten is down, which startup() catches per switch and continues past -- does not report a
+        # wipe that did not occur.
+        self.table_generation = None
+        #: How many pipelines this client has committed. Diagnostic only; the comparison a reader
+        #: makes is on the token, because this counter restarts at zero when readopt replaces the
+        #: client object.
+        self.pipeline_commits = 0
+
+
         # [Co-developed with claude code -- Adam]
         # This client owns its subchannel pool. grpc-python's default is a process-global pool
         # keyed by target address, so a brand-new channel to an address is handed whatever
@@ -301,6 +325,14 @@ class P4RuntimeClient:
             req.config.p4_device_config = f.read()
         req.config.p4info.CopyFrom(self.p4info)
         self.stub.SetForwardingPipelineConfig(req, timeout=RPC_TIMEOUT_S)
+        # [Co-developed with claude code -- Adam]
+        # AFTER the RPC, never before. This line is the only record that every table entry on
+        # this switch just ceased to exist (KNOWN-ISSUES A-4c); stamping it ahead of the call
+        # would report a wipe for a push that was refused, and a refused push is the ordinary
+        # case startup() already handles per switch. Surfaced by TopologyManager.switch_liveness
+        # on GET /p4/switch_state, which the kernel already polls once a second.
+        self.table_generation = boot_identity.new_table_generation()
+        self.pipeline_commits += 1
 
     # [Co-developed with claude code -- Adam]
     def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT):
