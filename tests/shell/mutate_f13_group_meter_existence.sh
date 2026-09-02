@@ -49,10 +49,17 @@
 #   tests/shell/mutate_f13_group_meter_existence.sh
 #   BUILD_DIR=build-asan tests/shell/mutate_f13_group_meter_existence.sh
 #
+# A mutation is only ever CAUGHT by evidence. Two things that look like excuses are counted as
+# survivors instead, because in both of them the test never ran and therefore demonstrated
+# nothing: a mutant that does not compile, and an anchor that no longer matches. The second also
+# raises a harness fault, since a moved anchor means this script needs editing rather than the
+# code under test.
+#
 # Exit codes:
 #   0  every mutation caught, control green, baseline restored byte-identically
 #   1  at least one mutation SURVIVED (that behaviour is untested)
-#   2  harness fault: baseline red, anchor moved, control went red, or restore failed
+#   2  harness fault: baseline red, an anchor moved, the control went red, or restore failed
+#      (an anchor that moved is BOTH -- counted in the survivor score and exited 2)
 #
 # Never uses pkill/pgrep. Every rc is read unpiped.
 
@@ -181,6 +188,23 @@ verdict() {
     fi
 }
 
+# anchor_moved LABEL -- an edit could not be applied because its anchor no longer matches.
+#
+# This counts as a SURVIVOR, not a warning. The test never ran, so nothing was demonstrated about
+# it, and a gate that reported "5 mutations, 0 survived" while silently applying four of them
+# would be worse than no gate. HARNESS_FAULT is set as well, so the run exits 2 rather than 1:
+# a moved anchor means this script needs editing, which is a different job from a real survivor.
+anchor_moved() {
+    local label="$1"
+    MUTATIONS=$((MUTATIONS + 1))
+    SURVIVORS=$((SURVIVORS + 1))
+    HARNESS_FAULT=1
+    printf '\n=== %s ===\n' "$label"
+    printf '  🔴 SURVIVED %s  (anchor moved -- the mutation never ran, so the test never ran)\n' \
+        "$label"
+    restore
+}
+
 # mutate LABEL -- the caller has already applied the edits. Builds, runs, judges, restores.
 mutate() {
     local label="$1"
@@ -254,7 +278,7 @@ apply_exact "$STRAT" \
 '    (void)addressable;
     const Existence before = Existence::Unknown;' \
     1
-if [[ $? -ne 0 ]]; then echo "  🔴 anchor moved -- A not applied"; HARNESS_FAULT=1; restore; else
+if [[ $? -ne 0 ]]; then anchor_moved "A   the guard stops asking (F-13 put back)"; else
 
 RED_LIST=(
     GroupMeterFixture.DeletingAGroupThatIsNotThereIsRefusedRatherThanReportedDeleted
@@ -309,7 +333,7 @@ apply_exact "$STRAT" \
     1
 rc_a2=$?
 if [[ "$rc_a1" -ne 0 || "$rc_a2" -ne 0 ]]; then
-    echo "  🔴 anchor moved -- A' not applied"; HARNESS_FAULT=1; restore
+    anchor_moved "A'  Unknown collapses into Absent (instrument reports its own failure)"
 else
 
 RED_LIST=(
@@ -353,7 +377,7 @@ apply_exact "$STRAT" \
     }' \
 '    OpResult result = post(path, j, operation);' \
     1
-if [[ $? -ne 0 ]]; then echo "  🔴 anchor moved -- A\" not applied"; HARNESS_FAULT=1; restore; else
+if [[ $? -ne 0 ]]; then anchor_moved "A\" a controller failure gets relabelled with an outcome"; else
 
 RED_LIST=(
     GroupMeterFixture.AControllerRefusalOfTheModIsStillReported
@@ -398,7 +422,7 @@ apply_exact "$SESSION" \
     1
 rc_b2=$?
 if [[ "$rc_b1" -ne 0 || "$rc_b2" -ne 0 ]]; then
-    echo "  🔴 anchor moved -- B not applied"; HARNESS_FAULT=1; restore
+    anchor_moved "B   respondToOpResult stops emitting outcome"
 else
 
 RED_LIST=(
@@ -450,7 +474,7 @@ apply_exact "$SESSION" \
     1
 rc_c2=$?
 if [[ "$rc_c1" -ne 0 || "$rc_c2" -ne 0 ]]; then
-    echo "  🔴 anchor moved -- B' not applied"; HARNESS_FAULT=1; restore
+    anchor_moved "B'  respondToOpResult emits outcome unconditionally"
 else
 
 RED_LIST=(
