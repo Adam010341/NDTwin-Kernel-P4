@@ -38,11 +38,13 @@
 #include <string>
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/data_management/HistoricalDataManager.hpp"
 #include "ndt_core/event_handling/ControllerAndOtherEventHandler.hpp"
+#include "ndt_core/http/HttpSession.hpp"
 #include "utils/Utils.hpp"
 
 /// Reads back the member the constructor was supposed to store. Global scope: friend declaration.
@@ -54,6 +56,55 @@ class ControllerAndOtherEventHandlerTestPeer
     {
         return handler.m_historicalDataManager;
     }
+};
+
+/**
+ * @brief Drives HttpSession::buildResponse() for /ndt/historical_logging.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Global scope to match `friend class HistoricalLoggingEndpointTestPeer`.
+ *
+ * The session's own `mode` argument is MININET for every test in this file, including the ones
+ * that hand it a TESTBED manager. That mismatch is the point: it makes any assertion that passes
+ * proof the handler consulted the *manager* rather than its own m_mode, which is the only place
+ * the recorder's real state lives.
+ */
+class HistoricalLoggingEndpointTestPeer
+{
+  public:
+    explicit HistoricalLoggingEndpointTestPeer(std::shared_ptr<HistoricalDataManager> historical)
+        : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
+                                                  nullptr,        // TopologyAndFlowMonitor
+                                                  nullptr,        // EventBus
+                                                  utils::MININET, // mode -- see the note above
+                                                  nullptr,        // FlowLinkUsageCollector
+                                                  nullptr,        // FlowRoutingManager
+                                                  nullptr,        // DeviceConfig...PowerManager
+                                                  nullptr,        // ApplicationManager
+                                                  nullptr,        // SimulationRequestManager
+                                                  nullptr,        // IntentTranslator
+                                                  std::move(historical),
+                                                  nullptr,  // Controller
+                                                  nullptr)) // LockManager
+    {
+    }
+
+    const http::response<http::string_body>& send(const std::string& target)
+    {
+        m_session->m_req = {};
+        m_session->m_req.version(11);
+        m_session->m_req.method(http::verb::post);
+        m_session->m_req.target(target);
+        m_session->m_req.prepare_payload();
+
+        m_response = m_session->buildResponse();
+        return *m_response;
+    }
+
+  private:
+    boost::asio::io_context m_ioc;
+    std::shared_ptr<HttpSession> m_session;
+    std::shared_ptr<http::response<http::string_body>> m_response;
 };
 
 namespace
@@ -351,4 +402,174 @@ TEST(HistoricalLoggingModeGateTest, MininetReportsThatItCannotRecordRatherThanIm
     EXPECT_TRUE(testbed.canRecord())
         << "TESTBED is the mode that does start the recorder, so it must not be reported as "
            "incapable -- a gate that says no to everything is as useless as one that says yes";
+}
+
+// --- B-3 residue: the reply was honest in prose and identical on the wire -----------------------
+//
+// [Co-developed with claude code -- Adam]
+// What `aabe605` fixed was the *message*. What it left is that both branches answer 200 AND
+// `"status":"success"`, differing only in `recording` and in English -- so a caller that switches
+// on the status line, or on `status`, still cannot tell "recording" from "this deployment will
+// never record", and the second is the branch every run of this project has taken.
+//
+// These tests are also the place where the second half of the defect is pinned: canRecord() is a
+// question about the deployment mode, not about this object, so a TESTBED manager nobody started
+// answers "yes" and writes exactly as many rows as a MININET one -- zero.
+
+namespace
+{
+
+/// A manager in @p mode, with a monitor in the same mode so the two cannot disagree.
+std::shared_ptr<HistoricalDataManager>
+managerInMode(int mode)
+{
+    auto graph = std::make_shared<Graph>();
+    auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph,
+                                                            std::make_shared<std::shared_mutex>(),
+                                                            std::make_shared<EventBus>(),
+                                                            mode);
+    return std::make_shared<HistoricalDataManager>(monitor, mode);
+}
+
+nlohmann::json
+bodyOf(const http::response<http::string_body>& res)
+{
+    return nlohmann::json::parse(res.body());
+}
+
+} // namespace
+
+TEST(HistoricalLoggingReplyTest, MininetEnableIsNotAnsweredWithTheSameStatusFieldAsARealEnable)
+{
+    HistoricalLoggingEndpointTestPeer peer(managerInMode(utils::MININET));
+    const auto& res = peer.send("/ndt/historical_logging?state=enable");
+
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+    const auto body = bodyOf(res);
+
+    EXPECT_NE(body.value("status", ""), "success")
+        << "a deployment that will never write a row answered with the same `status` as one that "
+           "is recording, so `status` carries no information: " << res.body();
+
+    // The exact token as well as the inequality. "not success" alone would be satisfied by any
+    // string at all, so a reply that drifted to "enabled" -- which is what the endpoint said
+    // before aabe605 -- would keep this test green while telling a caller nothing it can branch
+    // on. The token is wire contract; doc/2026-01-02_ndt_api.md section 39 has to carry it.
+    EXPECT_EQ(body.value("status", ""), "not_applicable") << res.body();
+    EXPECT_FALSE(body.value("recording", true)) << res.body();
+}
+
+TEST(HistoricalLoggingReplyTest, TheEnableReplyNamesTheReasonInAMachineReadableField)
+{
+    HistoricalLoggingEndpointTestPeer peer(managerInMode(utils::MININET));
+    const auto& res = peer.send("/ndt/historical_logging?state=enable");
+
+    const auto body = bodyOf(res);
+    EXPECT_EQ(body.value("reason", ""), "not-available-in-mininet-mode")
+        << "the only signal was an English sentence, which a caller has to regex: " << res.body();
+}
+
+/**
+ * The positive control, and the reason this file has an endpoint peer at all.
+ *
+ * A handler that hardcoded the MININET answer would pass both tests above. This one hands it a
+ * manager that CAN record and has simply never been started: the honest answer is a different
+ * reason, and only a handler that actually asked the manager can produce it.
+ */
+TEST(HistoricalLoggingReplyTest, AnUnstartedRecorderIsNotReportedAsRecordingEither)
+{
+    HistoricalLoggingEndpointTestPeer peer(managerInMode(utils::TESTBED));
+    const auto& res = peer.send("/ndt/historical_logging?state=enable");
+
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+    const auto body = bodyOf(res);
+
+    EXPECT_FALSE(body.value("recording", true))
+        << "canRecord() is true for this manager, but nothing ever called start(), so no row can "
+           "appear and the reply must not claim otherwise: " << res.body();
+    EXPECT_EQ(body.value("reason", ""), "recorder-not-running") << res.body();
+
+    // The prose has to follow the reason. One sentence reused for every non-recording cause would
+    // tell a TESTBED operator that the recorder "is only started outside MININET mode" -- which is
+    // both false and the exact disease this endpoint is being treated for, one level further in.
+    EXPECT_EQ(body.value("message", "").find("MININET"), std::string::npos)
+        << "a TESTBED reply blamed MININET: " << res.body();
+}
+
+/// A fix that turned every reply into a refusal would be as useless as the lie it replaced.
+TEST(HistoricalLoggingReplyTest, DisablingIsStillAPlainSuccess)
+{
+    HistoricalLoggingEndpointTestPeer peer(managerInMode(utils::MININET));
+    const auto& res = peer.send("/ndt/historical_logging?state=disable");
+
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+    const auto body = bodyOf(res);
+    EXPECT_EQ(body.value("status", ""), "success")
+        << "switching logging off is a request the kernel can and did honour: " << res.body();
+    EXPECT_FALSE(body.value("recording", true)) << res.body();
+}
+
+/// The parameter contract is unchanged: validation still runs before anything else.
+TEST(HistoricalLoggingReplyTest, AnInvalidStateIsStillRejectedBeforeTheAvailabilityCheck)
+{
+    HistoricalLoggingEndpointTestPeer peer(managerInMode(utils::MININET));
+    const auto& res = peer.send("/ndt/historical_logging?state=bad");
+
+    EXPECT_EQ(res.result_int(), 400u) << res.body();
+}
+
+// --- the state itself, without the endpoint -----------------------------------------------------
+
+TEST(HistoricalLoggingStateTest, StartInMininetLeavesTheObjectNotClaimingToBeRunning)
+{
+    // `if (m_running.exchange(true) or m_mode == MININET)` evaluates the exchange first, because
+    // `or` is left-to-right. So the MININET early return happened *after* the object had already
+    // been marked running, and every later reader of that flag was told a thread existed. That is
+    // the same lie the endpoint was telling, one layer down, and it is why isRecorderRunning()
+    // could not simply be exposed as-is.
+    auto manager = managerInMode(utils::MININET);
+    manager->start();
+
+    EXPECT_FALSE(manager->isRecorderRunning())
+        << "no thread was spawned, so nothing may report itself as running";
+}
+
+TEST(HistoricalLoggingStateTest, StartOutsideMininetIsStillTheThingThatMakesItRun)
+{
+    // The other half of the control. A flag that is false everywhere would pass the test above.
+    //
+    // This is the one test in the file that starts the real thread, and therefore the one that
+    // touches OUTPUT_DIR. It is safe because the graph is empty: writeSnapshot iterates zero
+    // edges, so it opens no file and creates nothing under another user's home. stop() joins
+    // within one second -- the sleep loop rechecks m_running every second.
+    auto manager = managerInMode(utils::TESTBED);
+    EXPECT_FALSE(manager->isRecorderRunning()) << "not started yet";
+
+    manager->start();
+    EXPECT_TRUE(manager->isRecorderRunning())
+        << "TESTBED is the mode that does spawn the recorder";
+
+    manager->stop();
+    EXPECT_FALSE(manager->isRecorderRunning()) << "stop() must be observable too";
+}
+
+TEST(HistoricalLoggingStateTest, TheReportedStateDistinguishesTheFourReachableCauses)
+{
+    using State = HistoricalDataManager::RecordingState;
+
+    auto mininet = managerInMode(utils::MININET);
+    EXPECT_EQ(mininet->recordingState(), State::NOT_AVAILABLE_IN_MININET);
+
+    // Mode dominates the toggle: switching the flag back on would still not produce a row, so
+    // reporting DISABLED_BY_REQUEST here would point the reader at the wrong lever.
+    mininet->setLoggingState(false);
+    EXPECT_EQ(mininet->recordingState(), State::NOT_AVAILABLE_IN_MININET);
+
+    auto testbed = managerInMode(utils::TESTBED);
+    EXPECT_EQ(testbed->recordingState(), State::RECORDER_NOT_RUNNING);
+
+    testbed->setLoggingState(false);
+    EXPECT_EQ(testbed->recordingState(), State::DISABLED_BY_REQUEST)
+        << "an explicit disable is a different cause from a recorder that was never started, and "
+           "the caller fixes them differently";
 }
