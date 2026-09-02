@@ -158,3 +158,329 @@ const bit<16> TYPE_ARP = 0x0806;
 [12:37:19]   fabric is left DOWN; 'ndt up' brings it back on the production binary.
 [12:37:19]     ✓ condition holds
 [ab_s1024_1khz_r1_nopoll] h1=57471 h33=57535  200Mbit/s for 300s
+done: 600 samples over 300s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw/ab_s1024_1khz_r1_nopoll_cpu.jsonl
+done: 1200 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw/ab_s1024_1khz_r1_nopoll_twin.jsonl
+[12:55:02] ================ paired A/B, DUR=300s, 12 cells ================
+[12:55:02] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[12:55:02] arm shas as found on disk:
+[12:55:02]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[12:55:02]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[12:55:02]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[12:55:02] discriminator, read out of each arm (must differ):
+[12:55:02]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[12:55:03]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[12:55:03] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[12:55:03] shared instruments (unmodified, identified by sha):
+[12:55:03]   358f5a0f3adf7ffe  netdev_only.py
+[12:55:03]   0747492fc2b7cd32  slim_client_json.sh
+[12:55:03]   cb711c8dbc913d1a  cpu_probe.py
+[12:55:03] === rep 1 / zero / order: 1hz then 1khz ===
+[12:55:03]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[12:55:03]   ---- ab_zero_1hz_r1_nopoll: already complete on disk, skipping ----
+[12:55:03]   ---- ab_zero_1khz_r1_nopoll: already complete on disk, skipping ----
+[12:55:03] === rep 1 / s1024 / order: 1khz then 1hz ===
+[12:55:03]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[12:55:03]   ---- ab_s1024_1khz_r1_nopoll ----
+Shutting down (reverse order)
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+no topo session
+cleanup done
+[12:55:08]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 125545) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=6336              paths=10528              paths=16256                                                        converged after 13s
+[3/3] kernel
+  started kernel (pid 141480) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[12:55:35]     verifying condition (sampled) before measuring
+  mode: sampled   twin polls: 24   worst edge reading: 342,425,246 bps   non-zero edges (max over polls): 3
+  bytes moved on switch interfaces: 1,891,175,804
+VERIFY OK: traffic moved and telemetry is flowing (3 edges non-zero, worst 342,425,246 bps)
+[12:56:06]     ✓ condition holds
+[ab_s1024_1khz_r1_nopoll] h1=122726 h33=122790  200Mbit/s for 300s
+[ab_s1024_1khz_r1_nopoll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw/ab_s1024_1khz_r1_nopoll_{cpu,twin}.jsonl, ab_s1024_1khz_r1_nopoll_client.json
+[12:56:06]     ab_s1024_1khz_r1_nopoll done
+[12:56:06]   ---- ab_s1024_1hz_r1_nopoll ----
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+[12:56:22]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 146539) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=10592              paths=15488              paths=16256                                                        converged after 13s
+[3/3] kernel
+  started kernel (pid 162350) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[12:56:48]     verifying condition (sampled) before measuring
+  mode: sampled   twin polls: 24   worst edge reading: 283,222,157 bps   non-zero edges (max over polls): 3
+  bytes moved on switch interfaces: 1,889,888,098
+VERIFY OK: traffic moved and telemetry is flowing (3 edges non-zero, worst 283,222,157 bps)
+[12:57:20]     ✓ condition holds
+[ab_s1024_1hz_r1_nopoll] h1=143632 h33=143696  200Mbit/s for 300s
+[13:01:39] ================ paired A/B, DUR=20s, 12 cells ================
+[13:01:39] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[13:01:39] arm shas as found on disk:
+[13:01:39]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[13:01:39]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[13:01:39]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[13:01:39] discriminator, read out of each arm (must differ):
+[13:01:40]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[13:01:40]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[13:01:40] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:01:40] shared instruments (unmodified, identified by sha):
+[13:01:40]   358f5a0f3adf7ffe  netdev_only.py
+[13:01:40]   0747492fc2b7cd32  slim_client_json.sh
+[13:01:40]   cb711c8dbc913d1a  cpu_probe.py
+[13:01:40] ################  DRY RUN -- cells are prefixed 'dry_' and are not data  ################
+[13:01:40] === rep 0 / zero / order: 1hz then 1khz ===
+[13:01:40]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[13:01:40]   ---- dry_ab_zero_1hz_r0_nopoll ----
+Shutting down (reverse order)
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+no topo session
+cleanup done
+[13:01:45]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 174738) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=5856              paths=12736              paths=16192              paths=16256                                                        converged after 15s
+[3/3] kernel
+  started kernel (pid 190721) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[13:02:11]     verifying condition (zero) before measuring
+  mode: zero   twin polls: 24   worst edge reading: 0 bps   non-zero edges (max over polls): 0
+  bytes moved on switch interfaces: 1,895,514,782
+VERIFY OK: traffic moved and every edge read zero
+[13:02:43]     ✓ condition holds
+[13:02:43] FATAL: running kernel exe UNREADABLE (pid 190721); unreadable is not the arm
+[13:02:43] --- restoring instruments (rc=1) ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+[13:02:46] --- signal received: restoring instruments, then EXITING (not continuing) ---
+[13:02:46] --- restoring instruments (rc=0) ---
+Shutting down (reverse order)
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+[13:02:48]   p4 predicate restored
+[13:02:48]   SAMPLE_RATE restored to 256
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[13:02:48]   p4 recompiled from the restored source
+[13:02:48]   production kernel restored, sha256 verified
+[13:02:48]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[13:02:48]   SAMPLE_RATE  : SAMPLE_RATE = 256;
+[13:02:48]   kernel now   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[13:02:48]   fabric is left DOWN; 'ndt up' brings it back on the production binary.
+[13:03:57] ================ paired A/B, DUR=20s, 12 cells ================
+[13:03:57] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[13:03:57] arm shas as found on disk:
+[13:03:57]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[13:03:57]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[13:03:57]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[13:03:58] discriminator, read out of each arm (must differ):
+[13:03:58]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[13:03:58]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[13:03:58] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:03:58] shared instruments (unmodified, identified by sha):
+[13:03:58]   358f5a0f3adf7ffe  netdev_only.py
+[13:03:58]   0747492fc2b7cd32  slim_client_json.sh
+[13:03:58]   cb711c8dbc913d1a  cpu_probe.py
+[13:03:58] ################  DRY RUN -- cells are prefixed 'dry_' and are not data  ################
+[13:03:58] === rep 0 / zero / order: 1hz then 1khz ===
+[13:03:58]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[13:03:58]   ---- dry_ab_zero_1hz_r0_nopoll ----
+Shutting down (reverse order)
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+[13:04:14]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 196490) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=7488              paths=10304              paths=14016              paths=16256                                                        converged after 16s
+[3/3] kernel
+  started kernel (pid 212376) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+[13:04:40]     verifying condition (zero) before measuring
+  mode: zero   twin polls: 24   worst edge reading: 0 bps   non-zero edges (max over polls): 0
+  bytes moved on switch interfaces: 1,893,223,444
+VERIFY OK: traffic moved and every edge read zero
+[13:05:11]     ✓ condition holds
+[13:05:11]     running kernel pid=212376 exe sha256 matches 1hz (read via direct)
+[dry_ab_zero_1hz_r0_nopoll] h1=193759 h33=193823  200Mbit/s for 20s
+done: 40 samples over 20s -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw/dry_ab_zero_1hz_r0_nopoll_cpu.jsonl
+done: 80 samples -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw/dry_ab_zero_1hz_r0_nopoll_twin.jsonl
+[dry_ab_zero_1hz_r0_nopoll] done -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw/dry_ab_zero_1hz_r0_nopoll_{cpu,twin}.jsonl, dry_ab_zero_1hz_r0_nopoll_client.json
+[13:05:35] --- signal received: restoring instruments, then EXITING (not continuing) ---
+[13:05:35] --- restoring instruments (rc=0) ---
+Shutting down (reverse order)
+  stopped kernel
+  stopped p4_proxy
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+[13:05:38]   p4 predicate restored
+[13:05:38]   SAMPLE_RATE restored to 256
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[13:05:39]   p4 recompiled from the restored source
+[13:05:39]   production kernel restored, sha256 verified
+[13:05:39]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[13:05:39]   SAMPLE_RATE  : SAMPLE_RATE = 256;
+[13:05:39]   kernel now   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[13:05:39]   fabric is left DOWN; 'ndt up' brings it back on the production binary.
+[13:06:32] ================ paired A/B, DUR=300s, 12 cells ================
+[13:06:32] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[13:06:32] arm shas as found on disk:
+[13:06:32]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[13:06:32]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[13:06:32]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[13:06:32] discriminator, read out of each arm (must differ):
+[13:06:32]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[13:06:32]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[13:06:32] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:06:32] shared instruments (unmodified, identified by sha):
+[13:06:32]   358f5a0f3adf7ffe  netdev_only.py
+[13:06:32]   0747492fc2b7cd32  slim_client_json.sh
+[13:06:32]   cb711c8dbc913d1a  cpu_probe.py
+[13:06:32] === rep 1 / zero / order: 1hz then 1khz ===
+[13:06:32]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[13:06:33]   ---- ab_zero_1hz_r1_nopoll: already complete on disk, skipping ----
+[13:06:33]   ---- ab_zero_1khz_r1_nopoll: already complete on disk, skipping ----
+[13:06:33] === rep 1 / s1024 / order: 1khz then 1hz ===
+[13:06:33]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+[13:06:33]   ---- ab_s1024_1khz_r1_nopoll ----
+Shutting down (reverse order)
+Mininet was started manually; clean it up with:  sudo mn -c
+done
+topo stopped
+cleanup done
+[13:06:48]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+Bringing up the p4 stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+
+[1/3] data plane (bmv2 Mininet, needs sudo)
+  bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+  and it exits if it cannot reach the switches.
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+
+[2/3] control plane (P4 proxy agent)
+  started p4_proxy (pid 217095) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+  waiting for P4 proxy agent on :8081 . up
+  waiting for link discovery: want 16256 destination paths
+    paths=9792              paths=14016              paths=16256                                                        converged after 13s
+[3/3] kernel
+  started kernel (pid 232731) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 .[13:07:07]     verifying condition (sampled) before measuring
+ up
+
+stack up. next: /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh wait
+  mode: sampled   twin polls: 24   worst edge reading: 365,848,855 bps   non-zero edges (max over polls): 3
+  bytes moved on switch interfaces: 1,890,264,460
+VERIFY OK: traffic moved and telemetry is flowing (3 edges non-zero, worst 365,848,855 bps)
+[13:07:38]     ✓ condition holds
+[13:07:38]     running kernel pid=232731 exe sha256 matches 1khz (read via direct)
+[ab_s1024_1khz_r1_nopoll] h1=214085 h33=214149  200Mbit/s for 300s

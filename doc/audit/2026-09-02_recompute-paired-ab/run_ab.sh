@@ -47,6 +47,17 @@ SAMPLING_OFF='random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);'
 
 say() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
 
+# 🔴 ONE INSTANCE ONLY. On 2026-09-02 two instances of this script ran at once (PREREG 3c): the
+# second tore down the fabric the first had just built, deployed the other arm over the one in
+# place, and both wrote the same raw files. That is not repairable after the fact. flock on a
+# file in the round directory; a second launcher refuses before touching anything, and it
+# refuses BEFORE the traps are armed so it cannot run restore_all against the live instance.
+exec 9>"$HERE/.run_ab.lock"
+if ! flock -n 9; then
+    echo "REFUSE: another run_ab.sh holds $HERE/.run_ab.lock -- two instances would race" >&2
+    exit 75
+fi
+
 # --- instrument restoration ---------------------------------------------------------------
 # Leaving either of these behind is silent and expensive: a kernel binary that is not the
 # production one, or a fabric compiled with sampling disabled, would change what every later
@@ -98,7 +109,21 @@ restore_all() {
     say "  kernel now   : $(sha256sum "$KBIN" | cut -d' ' -f1)"
     say "  fabric is left DOWN; 'ndt up' brings it back on the production binary."
 }
-trap restore_all EXIT INT TERM
+# 🔴 A TRAPPED SIGNAL DOES NOT END THE SCRIPT. bash runs the handler and then resumes where it
+# was. The first version trapped INT/TERM straight onto restore_all, so the SIGTERM sent to stop
+# the round at a pair boundary restored the instruments -- and then carried on into the next
+# cell: it tore down the fabric a resumed instance had just built, copied its arm over the one
+# the other instance had deployed, and both wrote the same raw files. Two cells were voided
+# (PREREG 3c). The handler restores, disarms the EXIT trap so the restore does not run twice,
+# and exits.
+on_signal() {
+    say "--- signal received: restoring instruments, then EXITING (not continuing) ---"
+    restore_all
+    trap - EXIT
+    exit 143
+}
+trap on_signal INT TERM
+trap restore_all EXIT
 
 swap_p4() {
     python3 - "$P4SRC" "$1" "$2" <<'PY'
@@ -205,7 +230,31 @@ cell() {                     # cell <cond> <arm> <rep>
         exit 1
     fi
     say "    ✓ condition holds"
-    POLL=off "$HERE/measure.sh" "$label" "$DUR" 200 >>"$LOG" 2>&1
+    # 🔴 Identity is re-read from the RUNNING PROCESS at the last moment before measuring, not
+    # only from the file at deploy time. In the 09-02 race the file in build/bin was overwritten
+    # and the fabric restarted BETWEEN this cell's deploy and its measurement, so the deploy-time
+    # check had passed and the cell measured the other arm. /proc/<pid>/exe is what executes.
+    local want_sha now_sha kpid
+    [ "$arm" = 1hz ] && want_sha="$A_SHA" || want_sha="$B_SHA"
+    kpid=$(ps -eo pid=,comm= | awk '$2=="ndtwin_kernel"{print $1; exit}')
+    [ -n "$kpid" ] || { say "FATAL: no running ndtwin_kernel to identify before measuring"; exit 1; }
+    # Unprivileged first, sudo as the fallback, and say which one answered (lib_e.sh's
+    # running_kernel_sha, adopted). stack.sh starts the kernel as this user, so the direct read
+    # is the one that normally works; `sudo -n sha256sum` is NOT in this machine's NOPASSWD list
+    # and always fails -- the first version tried only that and refused every cell.
+    local via=direct
+    now_sha=$(sha256sum "/proc/$kpid/exe" 2>/dev/null | cut -d' ' -f1)
+    if [ -z "$now_sha" ]; then
+        now_sha=$(sudo -n sha256sum "/proc/$kpid/exe" 2>/dev/null | cut -d' ' -f1); via=sudo
+    fi
+    # Shape first: an unreadable exe must refuse, not compare (two unreadables compare equal).
+    [[ "$now_sha" =~ ^[0-9a-f]{64}$ ]] || { say "FATAL: running kernel exe UNREADABLE (pid $kpid, tried direct and sudo); unreadable is not the arm"; exit 1; }
+    [ "$now_sha" = "$want_sha" ] || { say "FATAL: running kernel is $now_sha, this cell claims $arm ($want_sha) -- refusing to measure"; exit 1; }
+    say "    running kernel pid=$kpid exe sha256 matches $arm (read via $via)"
+    if ! POLL=off "$HERE/measure.sh" "$label" "$DUR" 200 >>"$LOG" 2>&1; then
+        say "FATAL: measure.sh failed for $label (see log). A cell that did not measure is not 'done'."
+        exit 1
+    fi
     say "    $label done"
 }
 

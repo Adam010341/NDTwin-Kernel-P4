@@ -38,3 +38,54 @@
 [12:37:19]   kernel now   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
 [12:37:19]   fabric is left DOWN; 'ndt up' brings it back on the production binary.
 [12:37:19]     ✓ condition holds
+[12:56:06]     ab_s1024_1khz_r1_nopoll done
+[12:56:06]   ---- ab_s1024_1hz_r1_nopoll ----
+[12:56:22]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[12:56:48]     verifying condition (sampled) before measuring
+[12:57:20]     ✓ condition holds
+a04068f92aa45a54e74372bebec75ec343b956
+[12:55:02]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[12:55:02]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[12:55:02] discriminator, read out of each arm (must differ):
+[12:55:02]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[12:55:03]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[12:55:03] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[12:55:03] shared instruments (unmodified, identified by sha):
+[12:55:03]   358f5a0f3adf7ffe  netdev_only.py
+[12:55:03]   0747492fc2b7cd32  slim_client_json.sh
+[12:55:03]   cb711c8dbc913d1a  cpu_probe.py
+[12:55:03] === rep 1 / zero / order: 1hz then 1khz ===
+[12:55:03]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[12:55:03]   ---- ab_zero_1hz_r1_nopoll: already complete on disk, skipping ----
+[12:55:03]   ---- ab_zero_1khz_r1_nopoll: already complete on disk, skipping ----
+[12:55:03] === rep 1 / s1024 / order: 1khz then 1hz ===
+[12:55:03]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+[12:55:03]   ---- ab_s1024_1khz_r1_nopoll ----
+[12:55:08]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[12:55:35]     verifying condition (sampled) before measuring
+[12:56:06]     ✓ condition holds
+[13:06:32] ================ paired A/B, DUR=300s, 12 cells ================
+[13:06:32] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[13:06:32] arm shas as found on disk:
+[13:06:32]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[13:06:32]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[13:06:32]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[13:06:32] discriminator, read out of each arm (must differ):
+[13:06:32]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[13:06:32]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[13:06:32] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:06:32] shared instruments (unmodified, identified by sha):
+[13:06:32]   358f5a0f3adf7ffe  netdev_only.py
+[13:06:32]   0747492fc2b7cd32  slim_client_json.sh
+[13:06:32]   cb711c8dbc913d1a  cpu_probe.py
+[13:06:32] === rep 1 / zero / order: 1hz then 1khz ===
+[13:06:32]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:06:33]   ---- ab_zero_1hz_r1_nopoll: already complete on disk, skipping ----
+[13:06:33]   ---- ab_zero_1khz_r1_nopoll: already complete on disk, skipping ----
+[13:06:33] === rep 1 / s1024 / order: 1khz then 1hz ===
+[13:06:33]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+[13:06:33]   ---- ab_s1024_1khz_r1_nopoll ----
+[13:06:48]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[13:07:07]     verifying condition (sampled) before measuring
+[13:07:38]     ✓ condition holds
+[13:07:38]     running kernel pid=232731 exe sha256 matches 1khz (read via direct)
