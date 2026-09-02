@@ -135,6 +135,16 @@ DeviceConfigurationAndPowerManager::start()
         thread(&DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker, this);
 }
 
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES B-5. stop() is what joins the workers, and the destructor is what guarantees it
+// runs: an object that is started and then dropped without a stop() -- an early return, an
+// exception on a startup path, or simply main's shared_ptr going away -- would otherwise destroy
+// joinable std::threads and abort. Idempotent, because main calls stop() explicitly first.
+DeviceConfigurationAndPowerManager::~DeviceConfigurationAndPowerManager()
+{
+    stop();
+}
+
 void
 DeviceConfigurationAndPowerManager::stop()
 {
@@ -150,6 +160,25 @@ DeviceConfigurationAndPowerManager::stop()
     if (m_statusUpdateThread.joinable())
     {
         m_statusUpdateThread.join();
+    }
+
+    // [Co-developed with claude code -- Adam]
+    // KNOWN-ISSUES B-5, the thread this function used to forget. start() launches three workers
+    // and this joined two of them, so the third was still joinable when the object was
+    // destroyed -- which is std::terminate, not a leak: "terminate called without an active
+    // exception" and SIGABRT, every time the kernel reached its own shutdown path.
+    //
+    // It was invisible because the path that reaches this code is rarely taken: main registers a
+    // handler for SIGINT only (src/main.cpp:314), and `ndt down` sends SIGTERM, whose default
+    // action kills the process outright -- no destructors, no abort, exit status 143. Only an
+    // operator pressing Ctrl-C in a terminal, which is exactly what the manual usertest does,
+    // ever ran the shutdown that crashes.
+    //
+    // Any thread added to start() from here on must be joined here too; the shutdown test asserts
+    // the shape (nothing joinable survives stop()), not this one member.
+    if (m_openflowTablesUpdateThread.joinable())
+    {
+        m_openflowTablesUpdateThread.join();
     }
 }
 
