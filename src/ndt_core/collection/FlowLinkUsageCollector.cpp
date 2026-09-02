@@ -1443,9 +1443,25 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                 if (m_mode == utils::MININET)
                 {
                     std::unique_lock<std::shared_mutex> lk(m_counterReportsMutex);
-                    m_counterReports[make_pair(agentIp, relevantPort)]
-                        .inputByteCountOnALinkMultiplySampingRate +=
+                    auto& ingress = m_counterReports[make_pair(agentIp, relevantPort)];
+                    ingress.inputByteCountOnALinkMultiplySampingRate +=
                         uint64_t(frameLength) * samplingRate;
+
+                    // [Co-developed with claude code -- Adam]
+                    // A-4f. Two timestamps, under the lock this line already holds. The rate
+                    // drain a second later cannot leave them behind: it zeroes the byte
+                    // accumulator, which is exactly why the accumulator alone can never
+                    // distinguish "no bytes because the link is idle" from "no bytes because
+                    // nobody is sampling this switch any more". These do not get zeroed.
+                    //
+                    // lastReportTimestampInMilliseconds is reused rather than duplicated: on
+                    // the MININET path it is otherwise never written (only the TESTBED
+                    // counter-sample branch at :1120 touches it) and the two paths are
+                    // mutually exclusive on m_mode, so the field means what its name says in
+                    // both.
+                    const int64_t sampleAt = utils::getCurrentTimeMillisSteadyClock();
+                    ingress.lastReportTimestampInMilliseconds = sampleAt;
+                    m_lastSampleFromAgentMillis[agentIp] = sampleAt;
 
                     // The same sample also crossed the sampling switch's *egress* edge. For a
                     // switch-to-switch edge that credit belongs to the downstream sampler, but
@@ -1680,6 +1696,65 @@ FlowLinkUsageCollector::sampledByteCreditFor(uint32_t agentIp, uint32_t port) co
     std::shared_lock<std::shared_mutex> lk(m_counterReportsMutex);
     const auto it = m_counterReports.find(std::make_pair(agentIp, port));
     return it == m_counterReports.end() ? 0u : it->second.inputByteCountOnALinkMultiplySampingRate;
+}
+
+// [Co-developed with claude code -- Adam]
+// A-4f. See the header for the four states and for why the agent, not the port, is the level at
+// which this question can be answered at all.
+FlowLinkUsageCollector::LinkTelemetryStatus
+FlowLinkUsageCollector::telemetryStatusFor(uint32_t agentIp,
+                                           uint32_t ifIndex,
+                                           double windowSeconds) const
+{
+    LinkTelemetryStatus out;
+    const int64_t now = utils::getCurrentTimeMillisSteadyClock();
+
+    int64_t portAt = 0;
+    int64_t agentAt = 0;
+    {
+        std::shared_lock<std::shared_mutex> lk(m_counterReportsMutex);
+        const auto port = m_counterReports.find(std::make_pair(agentIp, ifIndex));
+        if (port != m_counterReports.end())
+        {
+            portAt = port->second.lastReportTimestampInMilliseconds;
+        }
+        const auto agent = m_lastSampleFromAgentMillis.find(agentIp);
+        if (agent != m_lastSampleFromAgentMillis.end())
+        {
+            agentAt = agent->second;
+        }
+    }
+
+    // -1 rather than a large age for "never". A never-seen link and one last seen an hour ago
+    // are different claims, and a number that merely looks big invites a reader to treat the
+    // first as the second.
+    out.lastSampleAgeSeconds = portAt > 0 ? (now - portAt) / 1000.0 : -1.0;
+    out.agentLastSampleAgeSeconds = agentAt > 0 ? (now - agentAt) / 1000.0 : -1.0;
+
+    if (agentAt <= 0)
+    {
+        // Nothing has ever arrived from this agent. A kernel that started ten seconds ago and a
+        // switch that was never given an sFlow record look identical from in here, and saying
+        // "unknown" is the only one of the four that is not a guess.
+        out.status = "unknown";
+        return out;
+    }
+    if (out.agentLastSampleAgeSeconds > windowSeconds)
+    {
+        // The agent has gone quiet on every port while the switch is still in the graph. This is
+        // A-4f: the 0 bps on this edge is an absence of telemetry, not a measurement of traffic.
+        out.status = "silent";
+        return out;
+    }
+    if (portAt > 0 && out.lastSampleAgeSeconds <= windowSeconds)
+    {
+        out.status = "live";
+        return out;
+    }
+    // The agent is reporting, just not on this port: the sampler is alive, so 0 here means the
+    // link really is carrying nothing.
+    out.status = "idle";
+    return out;
 }
 
 // [Co-developed with claude code -- Adam]

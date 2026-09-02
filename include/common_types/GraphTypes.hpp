@@ -170,6 +170,61 @@ to_string(MemberType t)
 }
 
 /**
+ * @brief One OVS bridge's sFlow configuration, as read back off the live switch.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * KNOWN-ISSUES A-4f. This is what `ovs-vsctl del-br` destroys along with the bridge, and what
+ * powerOn has to put back. It is a value, not a command string, so the strategy that saves it
+ * and the strategy that replays it cannot disagree about the format.
+ *
+ * 🔑 `agentIpCidr` is here and is NOT optional. The sFlow row alone is not enough: the agent is
+ * the bridge's own internal port, whose IPv4 address `del-br` also takes with it, and that
+ * address is what the collector reads as `AgentKey.agentIP` to attribute samples to an edge
+ * (FlowLinkUsageCollector.cpp:1442-1447 keys on the agent IP; TopologyAndFlowMonitor.cpp:1571
+ * resolves it against `dstIp`). Restoring the record onto an address-less interface would be a
+ * restore that runs, succeeds, and lands somewhere the samples cannot be attributed from --
+ * the shape memory `injections-must-assert-their-own-success` calls the ninth form.
+ *
+ * The three-state contract mirrors executeListPorts':
+ *   - `std::nullopt` from the reader           -- the query failed; we do not know
+ *   - `configured == false`                    -- the bridge genuinely has no sFlow (TESTBED,
+ *                                                 or a bridge nobody wanted sampled)
+ *   - `configured == true`                     -- these are its settings
+ * Collapsing the first two is the conflation that cost this file its port list once already.
+ */
+struct SflowBridgeState
+{
+    /// The bridge had an sFlow record. False means it genuinely had none -- not "we could not tell".
+    bool configured = false;
+
+    /// True when powerOff could not read the state at all, so powerOn must not claim to restore it.
+    bool unknown = false;
+
+    /**
+     * @brief powerOn still owes this bridge an sFlow restore.
+     *
+     * Set by powerOff whenever there was (or might have been) a record to lose; cleared by
+     * powerOn only once the restore has been read back and confirmed.
+     *
+     * 🔴 It is also the second half of powerOn's early-return guard, and that is not incidental.
+     * powerOn marks the vertex up even when the sFlow restore failed -- the switch really is
+     * forwarding -- so on `getVertexIsUp` alone a retry would take the early return, report
+     * success, and never re-attempt the restore. That is the exact trap
+     * P4PowerStrategy.cpp:100-114 documents from a live fabric, and reproducing it here while
+     * fixing A-4f would be trading one silent failure for another.
+     */
+    bool restorePending = false;
+
+    std::string agentIface;   ///< sFlow `agent`, i.e. the interface whose IP stamps the datagrams.
+    std::string agentIpCidr;  ///< That interface's IPv4/prefix, e.g. "192.168.123.13/24".
+    std::string targets;      ///< sFlow `targets`, e.g. "192.168.123.1:6343".
+    std::string header;       ///< sFlow `header`, e.g. "128".
+    std::string sampling;     ///< sFlow `sampling`, e.g. "256".
+    std::string polling;      ///< sFlow `polling`. "0" in MININET, deliberately -- see testbed_topo.py.
+};
+
+/**
  * @brief Properties associated with a vertex in the topology graph.
  *
  * Stores addressing, identity and configuration information for either
@@ -248,6 +303,22 @@ struct VertexProperties
     int smartPlugOutlet = -1;
 
     std::vector<std::string> bridgeConnectedPortsForMininet;
+
+    /**
+     * @brief What this bridge's sFlow looked like before powerOff deleted it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES A-4f. Saved for the same reason and at the same moment as
+     * bridgeConnectedPortsForMininet: `ovs-vsctl del-br` destroys the Bridge row, and the sFlow
+     * row hangs off it. The sFlow table is not an OVSDB root table, so once no Bridge references
+     * it, it is garbage-collected -- the bridge is the only record of it, exactly as the bridge
+     * was once the only record of its ports.
+     *
+     * Not serialised, like bridgeConnectedPortsForMininet: this is live state about a running
+     * fabric, not part of the topology file or of any /ndt/ response shape.
+     */
+    SflowBridgeState savedSflow;
+
     std::vector<EcmpGroup> ecmpGroups;
 };
 

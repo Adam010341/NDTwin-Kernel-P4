@@ -54,4 +54,62 @@ protected:
      * two cases.
      */
     virtual std::optional<std::vector<std::string>> executeListPorts(const std::string& br);
+
+    /**
+     * @brief Reads a bridge's sFlow record and its agent interface's address, or reports that it
+     *        could not find out.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES A-4f. `powerOff` calls this before `del-br` and `powerOn` calls it again after
+     * the restore, so one seam both saves the state and verifies that putting it back worked.
+     *
+     * Three outcomes, and keeping them apart is the whole point (see executeListPorts above for
+     * what conflating two of them cost the port list):
+     *
+     *   - `std::nullopt`         -- the query failed. Not "no sFlow".
+     *   - `configured == false`  -- the bridge genuinely has no sFlow record.
+     *   - `configured == true`   -- the record, plus the IPv4 on its agent interface.
+     *
+     * ⚠️ The commands this runs are new `sudo -n ovs-vsctl` argv shapes. A NOPASSWD allowlist is
+     * argv-pattern scoped, so `list-ports` being permitted says nothing about `get bridge`. A
+     * denial arrives on stderr with a non-zero status and must come back as nullopt, never as an
+     * empty state -- that is the same "counted 0 from an empty stream" trap the memory file
+     * `injections-must-assert-their-own-success` records as its eighth form.
+     */
+    virtual std::optional<SflowBridgeState> executeReadSflowState(const std::string& br);
+
+    /**
+     * @brief Rebuilds the sFlow record on a freshly created bridge and puts the agent address
+     *        back, then reads it back and says whether it is really there.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Separate from powerOn's body so the read-back and the decision it drives can be tested
+     * without a fabric. Returns true only when executeReadSflowState afterwards reports
+     * `configured == true` -- an ovs-vsctl that exits 0 is not evidence that the record is
+     * attached, and this project has already paid twice for treating an exit status as proof of
+     * an effect.
+     */
+    bool restoreSflow(const std::string& swName, const SflowBridgeState& saved);
+
+    /**
+     * @brief Settles whatever sFlow restore the switch is owed, marks it up, and says what
+     *        happened.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Reached from two places: the end of a full bring-up, and directly from the top of powerOn
+     * when the switch is already running and only the telemetry is missing. Those two must not
+     * share a code path any further back than this, because a switch that is already up cannot
+     * be brought up again -- `add-br` on an existing bridge exits 1 and would fail the retry for
+     * the wrong reason.
+     *
+     * Marks the vertex up on every path including the failures: a bridge with no sFlow forwards
+     * traffic, and that is exactly what makes A-4f silent rather than obvious.
+     */
+    OpResult finishTelemetryRestore(Graph::vertex_descriptor node,
+                                    const std::string& swName,
+                                    const SflowBridgeState& saved,
+                                    TopologyAndFlowMonitor* topoMonitor);
 };

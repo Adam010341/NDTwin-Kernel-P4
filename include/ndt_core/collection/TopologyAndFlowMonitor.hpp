@@ -174,6 +174,13 @@ class TopologyAndFlowMonitor
     bool getVertexIsEnabled(Graph::vertex_descriptor v);
     void setMininetBridgePorts(Graph::vertex_descriptor v, std::vector<std::string> ports);
     std::vector<std::string> getMininetBridgePorts(Graph::vertex_descriptor v);
+
+    // [Co-developed with claude code -- Adam]
+    // A-4f. The sFlow sibling of the two above, and stored the same way for the same reason:
+    // `ovs-vsctl del-br` destroys the bridge's sFlow record and the address on its agent
+    // interface, so the graph has to hold them across the power cycle or they are gone.
+    void setBridgeSflowState(Graph::vertex_descriptor v, SflowBridgeState state);
+    SflowBridgeState getBridgeSflowState(Graph::vertex_descriptor v);
     double getAvgLinkUsage(const Graph& g) const;
 
     std::optional<Graph::vertex_descriptor> findSwitchByDpid(uint64_t dpid) const;

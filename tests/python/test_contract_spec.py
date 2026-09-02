@@ -110,11 +110,28 @@ def node(dpid, vertex_type=0, is_up=True, is_enabled=True, name=None):
             "is_up": is_up, "is_enabled": is_enabled}
 
 
-def edge(src=1, dst=2, is_up=True, is_enabled=True, cap=10 ** 9, used=0.0, pct=0.0):
-    return {"src_dpid": src, "dst_dpid": dst, "src_interface": 1, "dst_interface": 1,
-            "is_up": is_up, "is_enabled": is_enabled,
-            "link_bandwidth_bps": cap, "link_bandwidth_usage_bps": used,
-            "link_bandwidth_utilization_percent": pct}
+def edge(src=1, dst=2, is_up=True, is_enabled=True, cap=10 ** 9, used=0.0, pct=0.0,
+         telemetry=None, age=None, agent_age=None):
+    """
+    One edge of get_graph_data.
+
+    [Co-developed with claude code -- Adam]
+    `telemetry`/`age`/`agent_age` are omitted unless a test asks for them, because a kernel
+    that predates A-4f's fix does not send them and inv_no_silent_telemetry has to behave
+    correctly against both shapes. Defaulting them to a value would have hidden exactly the
+    case the invariant exists to report.
+    """
+    e = {"src_dpid": src, "dst_dpid": dst, "src_interface": 1, "dst_interface": 1,
+         "is_up": is_up, "is_enabled": is_enabled,
+         "link_bandwidth_bps": cap, "link_bandwidth_usage_bps": used,
+         "link_bandwidth_utilization_percent": pct}
+    if telemetry is not None:
+        e["telemetry_status"] = telemetry
+    if age is not None:
+        e["last_sample_age_seconds"] = age
+    if agent_age is not None:
+        e["agent_last_sample_age_seconds"] = agent_age
+    return e
 
 
 def flow(dst, src=None, path=(), last_sec=1000.0, next_sec=1000.0):
@@ -438,6 +455,126 @@ class BandwidthInvariantTest(unittest.TestCase):
     def test_a_sane_edge_reports_nothing(self):
         data = {"edges": [edge(cap=10 ** 9, used=5.0e8, pct=50.0)]}
         self.assertEqual(spec.inv_link_bandwidth_sane(data, Ctx()), [])
+
+
+# --- telemetry silence (A-4f) --------------------------------------------------------
+
+
+class SilentTelemetryTest(unittest.TestCase):
+    """
+    KNOWN-ISSUES A-4f: an OVS power cycle deletes the bridge and with it the sFlow record, so
+    the links entering that switch read *exactly* 0 bps for ever while carrying real traffic.
+    Nothing in get_graph_data could tell that 0 apart from an idle link's 0.
+
+    [Co-developed with claude code -- Adam]
+    Two rules, and the second is the one this whole file exists for.
+
+      1. An edge the kernel marks `silent` is named.
+      2. A response whose edges carry no telemetry_status at all does NOT pass. It reports
+         that the check could not run. A kernel without the field cannot answer the question,
+         and an invariant that says nothing in that case occupies the slot where a real check
+         would go -- the failure mode named at the top of this file.
+
+    `idle` is deliberately not a failure: the sampling agent is alive and reporting on its
+    other ports, so 0 on this one *is* a measurement. `unknown` is deliberately not a failure
+    either, because it is the honest state of a freshly started kernel; that one is pinned
+    below as "documents current behaviour" so the next reader can see it was a decision.
+    """
+
+    def test_a_silent_edge_is_named(self):
+        data = {"edges": [edge(src=3, dst=8, telemetry="silent", age=-1.0, agent_age=-1.0)]}
+        out = spec.inv_no_silent_telemetry(data, Ctx())
+        self.assertTrue(out, "a silent link produced no finding")
+        self.assertIn("3:1->8:1", out[0])
+
+    def test_the_finding_says_the_reading_is_an_absence_not_a_measurement(self):
+        # The whole point of the field: a reader who sees 0 bps must be told which 0 it is.
+        data = {"edges": [edge(telemetry="silent", age=-1.0, agent_age=-1.0)]}
+        out = spec.inv_no_silent_telemetry(data, Ctx())
+        self.assertTrue(any("silent" in m for m in out), out)
+
+    def test_an_idle_edge_is_not_a_failure(self):
+        # The agent is sampling on its other ports, so 0 here is a real measurement.
+        data = {"edges": [edge(telemetry="idle", age=-1.0, agent_age=0.4)]}
+        self.assertEqual(spec.inv_no_silent_telemetry(data, Ctx()), [])
+
+    def test_a_live_edge_is_not_a_failure(self):
+        data = {"edges": [edge(telemetry="live", age=0.3, agent_age=0.3)]}
+        self.assertEqual(spec.inv_no_silent_telemetry(data, Ctx()), [])
+
+    def test_an_unknown_edge_is_not_a_failure_documents_current_behaviour(self):
+        # A kernel that started ten seconds ago has seen no sample from anyone yet. Failing
+        # here would make the contract test red on every fresh stack, which is how a check
+        # gets disabled.
+        data = {"edges": [edge(telemetry="unknown", age=-1.0, agent_age=-1.0)]}
+        self.assertEqual(spec.inv_no_silent_telemetry(data, Ctx()), [])
+
+    def test_a_kernel_without_the_field_is_reported_rather_than_passed(self):
+        # The defect this invariant exists for is invisible without the field. Passing here
+        # would mean the check reports green precisely when it cannot see anything.
+        data = {"edges": [edge(), edge(src=2, dst=1)]}
+        out = spec.inv_no_silent_telemetry(data, Ctx())
+        self.assertTrue(out, "an unanswerable check reported success")
+        self.assertIn("telemetry_status", out[0])
+
+    def test_one_edge_carrying_the_field_is_enough_for_the_check_to_run(self):
+        # Mixed shapes mean the kernel does have the field; the bare edges are then just
+        # edges, not evidence of an old kernel.
+        data = {"edges": [edge(), edge(src=2, dst=1, telemetry="live", age=0.2, agent_age=0.2)]}
+        self.assertEqual(spec.inv_no_silent_telemetry(data, Ctx()), [])
+
+    def test_an_empty_edge_list_is_reported_not_passed(self):
+        # "Examined nothing" is the failure mode this file was written for.
+        #
+        # [Co-developed with claude code -- Adam] The first version of this test asserted only
+        # that *something* was returned, and the mutation gate killed it: deleting the
+        # empty-edge branch entirely left the test green, because an empty list also has no
+        # edge carrying telemetry_status and fell through to the other branch. Two different
+        # situations were reporting the same way. An empty graph is not an old kernel, and
+        # telling an operator to go looking for a missing field when the real problem is that
+        # the topology never loaded sends them to the wrong place -- so the message is asserted,
+        # not just its existence.
+        out = spec.inv_no_silent_telemetry({"edges": []}, Ctx())
+        self.assertTrue(out, "examined zero edges and reported success")
+        self.assertIn("no edges", out[0])
+        self.assertNotIn("telemetry_status", out[0])
+
+    def test_at_most_ten_silent_edges_are_listed(self):
+        data = {"edges": [edge(src=i, telemetry="silent", age=-1.0, agent_age=-1.0)
+                          for i in range(20)]}
+        self.assertLessEqual(len(spec.inv_no_silent_telemetry(data, Ctx())), 10)
+
+    def test_the_invariant_is_registered_on_get_graph_data(self):
+        # An invariant nobody runs is not an invariant. get_graph_data is the endpoint that
+        # serves the zero.
+        ep = next(e for e in spec.ENDPOINTS if e["name"] == "get_graph_data")
+        self.assertIn(spec.inv_no_silent_telemetry, ep["invariants"])
+
+    @staticmethod
+    def _wire_edge(**kw):
+        """An edge with every field GRAPH_EDGE requires, for the schema assertions.
+
+        edge() above is shaped for the invariants and omits src_ip/dst_ip/flow_set, which the
+        invariants never read but the schema does.
+        """
+        e = edge(**kw)
+        e.update({"src_ip": [16777226], "dst_ip": [33554442], "flow_set": []})
+        return e
+
+    def test_the_edge_schema_accepts_the_three_new_fields(self):
+        self.assertEqual(
+            validate(spec.GRAPH_EDGE,
+                     self._wire_edge(telemetry="silent", age=-1.0, agent_age=-1.0)),
+            [])
+
+    def test_the_edge_schema_still_accepts_an_edge_without_them(self):
+        # /ndt/ is a cross-repo contract: a kernel that predates the fix must not fail
+        # structurally.
+        self.assertEqual(validate(spec.GRAPH_EDGE, self._wire_edge()), [])
+
+    def test_the_edge_schema_rejects_a_telemetry_status_it_does_not_define(self):
+        # A typo'd or invented status must not slip through as a string.
+        self.assertTrue(validate(spec.GRAPH_EDGE, self._wire_edge(telemetry="probably fine")))
 
 
 # --- answers that claim success -----------------------------------------------------

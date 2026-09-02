@@ -50,6 +50,20 @@ LOCK_TTL = 5
 UINT32_MAX = 0xFFFFFFFF
 IP_LIST = List(Int(min=0, max=UINT32_MAX))
 
+# [Co-developed with claude code -- Adam]
+# A-4f. The kernel's four-valued answer to "is this edge's 0 bps a measurement or an absence?".
+# Written out here rather than as a bare Str() so a typo'd or invented state fails the contract
+# instead of arriving as a plausible-looking string.
+#
+#   live    -- a sample was attributed to this edge inside the freshness window
+#   idle    -- none for this edge, but the sampling agent reported on another of its ports,
+#              so the agent is alive and 0 IS a measurement
+#   silent  -- the sampling agent reported on no port at all while the switch is up, so 0 is
+#              NOT a measurement. This is A-4f firing.
+#   unknown -- that agent has never reported since the kernel started; a fresh kernel and a
+#              switch that was never given an sFlow record are indistinguishable here
+TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
+
 FLOW_KEY = Obj({
     "src_ip": Int(min=0, max=UINT32_MAX),
     "dst_ip": Int(min=0, max=UINT32_MAX),
@@ -83,7 +97,18 @@ GRAPH_EDGE = Obj({
     "link_bandwidth_usage_bps": Num(min=0),
     "link_bandwidth_utilization_percent": Num(min=0),
     "flow_set": List(FLOW_KEY),
-}, optional={"left_link_bandwidth_bps": Num()})
+}, optional={
+    "left_link_bandwidth_bps": Num(),
+    # [Co-developed with claude code -- Adam]
+    # A-4f. Optional, not required: /ndt/ is a cross-repo contract read by seven components and
+    # a kernel that predates the fix must still pass the structural check. Whether the field is
+    # *present* is the business of inv_no_silent_telemetry, which reports its absence rather
+    # than passing -- keeping the two apart is what stops a missing field from reading as a
+    # structural break on one side and as silence on the other.
+    "telemetry_status": Str(allowed=TELEMETRY_STATES),
+    "last_sample_age_seconds": Num(),
+    "agent_last_sample_age_seconds": Num(),
+})
 
 GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)})
 
@@ -207,6 +232,71 @@ def inv_link_bandwidth_sane(data, ctx):
             out.append(
                 f"edge {e['src_dpid']}:{e['src_interface']} utilization {pct}% out of 0..100"
             )
+    return out[:10]
+
+
+def inv_no_silent_telemetry(data, ctx):
+    """
+    A link reading 0 bps because nothing is measuring it must not look like an idle link.
+
+    [Co-developed with claude code -- Adam]
+    KNOWN-ISSUES A-4f. An OVS power cycle runs `ovs-vsctl del-br`, which destroys the bridge
+    row and with it the sFlow record hanging off it (OVSPowerStrategy.cpp:171). powerOn
+    rebuilds the bridge, the ports and the controller and never re-creates the record
+    (OVSPowerStrategy.cpp:97-112), so that switch stops sampling for good. The edges *entering*
+    it -- m_counterReports is keyed by the sampler's ingress port, resolved through
+    getAgentKeyFromTheOtherSide -- then publish exactly 0 every second, which is bit-identical
+    to an idle link and to a kernel that has not received a sample yet. Measured: 0 bps on a
+    link carrying 103 Mbps.
+
+    Two rules:
+
+      1. Any edge the kernel marks `silent` is reported. That is the twin saying, in its own
+         words, that the number it is serving is an absence rather than a measurement.
+
+      2. A response whose edges carry no telemetry_status at all is ALSO reported -- as a check
+         that could not run, not as a pass. Three of this file's invariants were once found
+         reporting PASS while examining zero records, and that is the more dangerous shape:
+         it occupies the slot where a real check would go. A kernel without the field cannot
+         answer the question, so the honest output is "cannot tell", never green.
+
+    `idle` is not a failure: the sampling agent reported on another of its ports inside the
+    window, so it is alive and this link's 0 is a genuine measurement. `unknown` is not a
+    failure either -- it is the truthful state of a kernel that started moments ago, and
+    failing on it would make the contract test red on every fresh stack, which is how a check
+    gets switched off. Both are decisions, not oversights; tests/python/test_contract_spec.py
+    pins them.
+
+    The raw ages travel alongside the label in the response for the reason the rate-divisor
+    gate logs two numbers instead of a verdict (FlowLinkUsageCollector.cpp:2010-2019): a label
+    is the code grading its own homework, and a reader who cannot see the inputs cannot tell a
+    passing check from a check that never ran.
+    """
+    edges = data["edges"]
+    if not edges:
+        return ["no edges in the graph, so this check examined nothing -- it is not a pass"]
+
+    answered = [e for e in edges if "telemetry_status" in e]
+    if not answered:
+        return [
+            f"no edge of {len(edges)} carries telemetry_status, so whether any link has gone "
+            f"silent cannot be determined from this response. This kernel predates the A-4f "
+            f"fix: a link that stopped being sampled reads exactly 0 bps and is "
+            f"indistinguishable here from an idle one. Reported rather than passed."
+        ]
+
+    out = []
+    for e in answered:
+        if e.get("telemetry_status") != "silent":
+            continue
+        out.append(
+            f"edge {e['src_dpid']}:{e['src_interface']}->{e['dst_dpid']}:{e['dst_interface']} "
+            f"is silent: its sampling agent has reported on no port for "
+            f"{e.get('agent_last_sample_age_seconds', 'an unknown time')}s, so its "
+            f"{e['link_bandwidth_usage_bps']} bps is an absence of telemetry and not a "
+            f"measurement (A-4f). If this switch was power-cycled, its sFlow record was not "
+            f"restored."
+        )
     return out[:10]
 
 
@@ -379,7 +469,8 @@ ENDPOINTS = [
     dict(name="get_graph_data", method="GET", path="/ndt/get_graph_data",
          category=READ, schema=GRAPH_DATA,
          invariants=[inv_graph_matches_topology, inv_all_switches_up,
-                     inv_edges_enabled, inv_link_bandwidth_sane],
+                     inv_edges_enabled, inv_link_bandwidth_sane,
+                     inv_no_silent_telemetry],
          note="used by all 7 tools/apps -- if this breaks, everything breaks"),
 
     dict(name="get_detected_flow_data", method="GET", path="/ndt/get_detected_flow_data",

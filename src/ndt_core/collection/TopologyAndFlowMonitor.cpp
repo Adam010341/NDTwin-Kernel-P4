@@ -2370,6 +2370,24 @@ TopologyAndFlowMonitor::getMininetBridgePorts(Graph::vertex_descriptor v)
     return (*m_graph)[v].bridgeConnectedPortsForMininet;
 }
 
+// [Co-developed with claude code -- Adam]
+// A-4f. Deliberately the same shape as the two above, including taking the value by copy: these
+// are called from the power path while other threads read the graph, and the OVS strategy holds
+// no lock of its own.
+void
+TopologyAndFlowMonitor::setBridgeSflowState(Graph::vertex_descriptor v, SflowBridgeState state)
+{
+    unique_lock lock(*m_graphMutex);
+    (*m_graph)[v].savedSflow = std::move(state);
+}
+
+SflowBridgeState
+TopologyAndFlowMonitor::getBridgeSflowState(Graph::vertex_descriptor v)
+{
+    shared_lock lock(*m_graphMutex);
+    return (*m_graph)[v].savedSflow;
+}
+
 void
 TopologyAndFlowMonitor::setVertexEnable(Graph::vertex_descriptor v)
 {

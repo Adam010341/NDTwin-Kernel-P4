@@ -32,6 +32,21 @@ public:
      * @return ok when the switch was actually started, otherwise a failure describing why
      *         not. An implementation that cannot start a switch must not mark the twin's
      *         state as up.
+     *
+     * [Co-developed with claude code -- Adam]
+     * There is a third outcome, and it was missing here. A switch can come back forwarding
+     * traffic and still not be *usable by the twin*: OVSPowerStrategy rebuilds the bridge but
+     * the sFlow record went with the old one (KNOWN-ISSUES A-4f), and P4PowerStrategy restarts
+     * bmv2 but the proxy may fail to re-adopt it. Those two differ in one way that decides what
+     * the vertex flag should say: the P4 switch has no pipeline and cannot forward a packet, so
+     * it is not up; the OVS switch forwards perfectly and only cannot be measured, so it IS up
+     * and saying otherwise would be a lie in the opposite direction.
+     *
+     * So: mark up if and only if the switch is really carrying traffic, and return a failure
+     * whenever the twin did not get back everything it needs. Those two are allowed to disagree,
+     * and an implementation that takes that path must leave itself a way to retry -- a caller
+     * repeating the request must not hit an "already up" early return that skips the part that
+     * failed.
      */
     virtual OpResult powerOn(Graph::vertex_descriptor node,
                              const std::string& swName,

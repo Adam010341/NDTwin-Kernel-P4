@@ -71,7 +71,55 @@ class FakeOvs : public OVSPowerStrategy
         return listPortsResult;
     }
 
+    /**
+     * A-4f. Overridden for the same reason executeListPorts is, and the reason is not
+     * hypothetical: this file's header records that add-br once bypassed the fake and really ran
+     * `sudo ovs-vsctl` against the developer's machine because the seam had a hole in it. A new
+     * shell seam that the fake did not cover would put the hole straight back.
+     *
+     * A marker goes into `commands` so ordering is observable: powerOff MUST read the record
+     * before del-br destroys it, and an assertion on the saved value alone cannot see the
+     * difference between reading it first and reading it from a bridge that is already gone.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::optional<SflowBridgeState> executeReadSflowState(const std::string& br) override
+    {
+        ++readSflowCalls;
+        commands.push_back("[read-sflow " + br + "]");
+        if (!sflowScript.empty())
+        {
+            const auto next = sflowScript.front();
+            sflowScript.erase(sflowScript.begin());
+            return next;
+        }
+        return sflowResult;
+    }
+
   public:
+    /// What executeReadSflowState answers once the script is exhausted. Default: a bridge with
+    /// no sFlow record at all, so every test written before A-4f behaves exactly as it did.
+    std::optional<SflowBridgeState> sflowResult = SflowBridgeState{};
+
+    /// Consumed one per call, front first. Lets a test give powerOff one answer and powerOn's
+    /// read-back a different one -- which is the only way to model a restore that did not take.
+    std::vector<std::optional<SflowBridgeState>> sflowScript;
+
+    int readSflowCalls = 0;
+
+    /// Position of the first command containing `fragment`, or commands.size() if absent.
+    size_t indexOf(const std::string& fragment) const
+    {
+        for (size_t i = 0; i < commands.size(); ++i)
+        {
+            if (commands[i].find(fragment) != std::string::npos)
+            {
+                return i;
+            }
+        }
+        return commands.size();
+    }
+
     bool ran(const std::string& fragment) const
     {
         for (const std::string& cmd : commands)
@@ -138,7 +186,33 @@ struct Fixture
     {
         (*graph)[sw].bridgeConnectedPortsForMininet = std::move(ports);
     }
+
+    SflowBridgeState savedSflow() const
+    {
+        return (*graph)[sw].savedSflow;
+    }
+
+    void setSavedSflow(SflowBridgeState state)
+    {
+        (*graph)[sw].savedSflow = std::move(state);
+    }
 };
+
+/// The sFlow record testbed_topo.py's enable_sflow() puts on s1, as executeReadSflowState reads
+/// it back. [Co-developed with claude code -- Adam]
+SflowBridgeState
+liveSflow()
+{
+    SflowBridgeState s;
+    s.configured = true;
+    s.agentIface = "s1";
+    s.agentIpCidr = "192.168.123.11/24";
+    s.targets = "192.168.123.1:6343";
+    s.header = "128";
+    s.sampling = "256";
+    s.polling = "0";
+    return s;
+}
 
 } // namespace
 
@@ -351,6 +425,245 @@ TEST(OvsPowerStrategyTest, PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAn
     EXPECT_TRUE(fix.isUp());
 }
 
+// --- A-4f: the sFlow record the power cycle used to lose.
+//
+// [Co-developed with claude code -- Adam]
+// `ovs-vsctl del-br` destroys the Bridge row, and the sFlow row hangs off it -- the sFlow table
+// is not an OVSDB root table, so an unreferenced record is garbage-collected. powerOn rebuilt the
+// bridge, the ports and the controller and never the record, so the switch came back forwarding
+// and never sampled again. Measured on a live fabric: s3->s8 read exactly 0 bps while carrying
+// 103 Mbps, and 0 bps is what an idle link reads too.
+//
+// These tests cover the config half. The half that makes the loss *visible* lives in
+// FlowLinkUsageCollector::telemetryStatusFor and in the contract test's inv_no_silent_telemetry,
+// because no assertion inside powerOn can wait a sampling window to see datagrams arrive.
+
+TEST(OvsPowerStrategyTest, PowerOffReadsTheSflowRecordBeforeItDeletesTheBridge)
+{
+    Fixture fix;
+    FakeOvs ovs;
+    ovs.listPortsResult = std::vector<std::string>{"s1-eth1"};
+    ovs.sflowResult = liveSflow();
+
+    const OpResult result = ovs.powerOff(fix.sw, "s1", fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_LT(ovs.indexOf("[read-sflow s1]"), ovs.indexOf("del-br s1"))
+        << "read it after del-br, by which time the record no longer exists";
+    EXPECT_TRUE(fix.savedSflow().configured);
+    EXPECT_EQ(fix.savedSflow().targets, "192.168.123.1:6343");
+    EXPECT_EQ(fix.savedSflow().agentIpCidr, "192.168.123.11/24")
+        << "the agent's address goes with the bridge too, and without it a restored record has "
+           "no source IP for the collector to key samples on";
+    EXPECT_TRUE(fix.savedSflow().restorePending);
+}
+
+TEST(OvsPowerStrategyTest, PowerOffRecordsAnUnreadableSflowAsUnknownRatherThanAsAbsent)
+{
+    // The same three-state discipline executeListPorts needed: "I could not ask" must not be
+    // stored as "there was none", because the second answer makes powerOn skip the restore
+    // silently and report success.
+    Fixture fix;
+    FakeOvs ovs;
+    ovs.listPortsResult = std::vector<std::string>{"s1-eth1"};
+    ovs.sflowResult = std::nullopt;
+
+    const OpResult result = ovs.powerOff(fix.sw, "s1", fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << "an unreadable sFlow record must not block the power-off itself";
+    EXPECT_TRUE(ovs.ran("del-br s1"));
+    EXPECT_TRUE(fix.savedSflow().unknown);
+    EXPECT_FALSE(fix.savedSflow().configured);
+    EXPECT_TRUE(fix.savedSflow().restorePending) << "we cannot rule out that there was a record";
+}
+
+TEST(OvsPowerStrategyTest, PowerOffLeavesNothingPendingForABridgeThatHadNoSflow)
+{
+    Fixture fix;
+    FakeOvs ovs;
+    ovs.listPortsResult = std::vector<std::string>{"s1-eth1"};
+    ovs.sflowResult = SflowBridgeState{}; // answered, and the answer is "none"
+
+    ovs.powerOff(fix.sw, "s1", fix.monitor.get());
+
+    EXPECT_FALSE(fix.savedSflow().restorePending)
+        << "nothing was lost, so powerOn must not invent a configuration";
+}
+
+TEST(OvsPowerStrategyTest, PowerOnRestoresTheAgentAddressAndTheSflowRecord)
+{
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    fix.setSavedPorts({"s1-eth1"});
+    SflowBridgeState saved = liveSflow();
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    FakeOvs ovs;
+    ovs.sflowResult = liveSflow(); // the read-back finds it attached
+
+    const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_TRUE(ovs.ran("ifconfig s1 192.168.123.11/24 up"))
+        << "the record's agent interface must get its address back first";
+    EXPECT_TRUE(ovs.ran("create sflow agent=s1"));
+    EXPECT_TRUE(ovs.ran("target=\\\"192.168.123.1:6343\\\""))
+        << "same escaping as testbed_topo.py, or ovsdb stores the quotes as part of the address";
+    EXPECT_TRUE(ovs.ran("sampling=256"));
+    EXPECT_TRUE(ovs.ran("polling=0")) << "polling=0 is deliberate in MININET -- see testbed_topo.py";
+    EXPECT_TRUE(ovs.ran("set bridge s1 sflow=@sflow"));
+    EXPECT_TRUE(fix.isUp());
+    EXPECT_FALSE(fix.savedSflow().restorePending) << "verified, so nothing is still owed";
+}
+
+TEST(OvsPowerStrategyTest, PowerOnRestoresTheSflowAfterTheBridgeExists)
+{
+    // Ordering is load-bearing: the agent is the bridge's own internal port, so there is nothing
+    // to address and nothing to attach a record to until add-br has run.
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    SflowBridgeState saved = liveSflow();
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    FakeOvs ovs;
+    ovs.sflowResult = liveSflow();
+    ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_LT(ovs.indexOf("add-br s1"), ovs.indexOf("create sflow"));
+}
+
+TEST(OvsPowerStrategyTest, PowerOnReportsFailureWhenTheSflowRecordDoesNotComeBack)
+{
+    // The commands all "succeed" -- executeSystemCommand returns true for every one of them --
+    // and the record is still not there. An exit status is not evidence of an effect, which is
+    // why restoreSflow judges on the read-back and not on the rc.
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    SflowBridgeState saved = liveSflow();
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    FakeOvs ovs;
+    ovs.sflowScript = {SflowBridgeState{}}; // read-back: still no record
+
+    const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_FALSE(result.ok) << "every ovs-vsctl exited 0, so nothing else would have said anything";
+    EXPECT_EQ(result.httpStatus, 502);
+    EXPECT_NE(result.message.find("A-4f"), std::string::npos) << result.message;
+    EXPECT_TRUE(fix.isUp())
+        << "the switch really is forwarding; marking it down would be a lie in the other direction";
+    EXPECT_TRUE(fix.savedSflow().restorePending) << "still owed, so a retry has something to do";
+}
+
+TEST(OvsPowerStrategyTest, PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddress)
+{
+    // The record is attached and every command exited 0, and it is still useless: with no IPv4 on
+    // the agent interface the datagrams carry no address the collector can key an edge from. A
+    // restore that runs, succeeds and lands somewhere it cannot be seen is the failure shape the
+    // memory file calls the ninth form, so the assertion has to cover placement and not just
+    // presence.
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    SflowBridgeState saved = liveSflow();
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    SflowBridgeState attachedButAddressless = liveSflow();
+    attachedButAddressless.agentIpCidr = "";
+
+    FakeOvs ovs;
+    ovs.sflowScript = {attachedButAddressless};
+
+    const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.httpStatus, 502);
+}
+
+TEST(OvsPowerStrategyTest, PowerOnTreatsAnUnreadableReadBackAsFailureNotAsSuccess)
+{
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    SflowBridgeState saved = liveSflow();
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    FakeOvs ovs;
+    ovs.sflowScript = {std::nullopt}; // could not read it back
+
+    const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_FALSE(result.ok) << "an unverified restore is exactly what A-4f is made of";
+    EXPECT_EQ(result.httpStatus, 502);
+}
+
+TEST(OvsPowerStrategyTest, PowerOnSaysSoWhenPowerOffNeverManagedToReadTheRecord)
+{
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    SflowBridgeState saved;
+    saved.unknown = true;
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    FakeOvs ovs;
+    const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.httpStatus, 502);
+    EXPECT_EQ(ovs.countContaining("create sflow"), 0u)
+        << "there was nothing to replay; inventing a configuration would be worse than saying so";
+    EXPECT_TRUE(fix.isUp());
+}
+
+TEST(OvsPowerStrategyTest, ARetriedPowerOnReAttemptsTheSflowRestore)
+{
+    // 🔴 The trap this test exists for. powerOn marks the vertex up even when the restore failed,
+    // so a guard that asked only `getVertexIsUp` would take the early return on the retry, report
+    // success, and leave the link dark for ever. P4PowerStrategy.cpp:100-114 documents that exact
+    // sequence from a live fabric; reproducing it here while fixing A-4f would have traded one
+    // silent failure for another.
+    Fixture fix;
+    (*fix.graph)[fix.sw].isUp = false;
+    SflowBridgeState saved = liveSflow();
+    saved.restorePending = true;
+    fix.setSavedSflow(saved);
+
+    FakeOvs first;
+    first.sflowScript = {SflowBridgeState{}};
+    ASSERT_FALSE(first.powerOn(fix.sw, "s1", 1, fix.monitor.get()).ok);
+    ASSERT_TRUE(fix.isUp()) << "precondition: the retry now meets an already-up vertex";
+
+    FakeOvs retry;
+    retry.sflowResult = liveSflow(); // this time the restore takes
+    const OpResult result = retry.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_TRUE(retry.ran("create sflow agent=s1"))
+        << "the retry returned without re-attempting the restore";
+    EXPECT_EQ(retry.countContaining("add-br"), 0u)
+        << "the bridge already exists; a second add-br exits 1 and would fail the retry at step "
+           "one, for a reason unrelated to why it was retried";
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_FALSE(fix.savedSflow().restorePending);
+}
+
+TEST(OvsPowerStrategyTest, AnAlreadyUpSwitchWithNothingOwedStillRunsNoCommands)
+{
+    // Regression guard on the widened early return: Energy-Saving-App sends action=on to switches
+    // that are already on, and a second add-br exits 1.
+    Fixture fix; // isUp = true, savedSflow default => restorePending false
+    FakeOvs ovs;
+
+    const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
+
+    EXPECT_TRUE(result.ok) << result.message;
+    EXPECT_TRUE(ovs.commands.empty()) << "ran " << ovs.commands.size() << " commands anyway";
+    EXPECT_EQ(ovs.readSflowCalls, 0) << "and did not shell out to ask about sFlow either";
+}
+
 // --- The seam itself, unfaked.
 
 TEST(OvsPowerStrategyTest, TheRealShellSeamRunsTheCommandAndReportsItsExitStatus)
@@ -561,6 +874,14 @@ class RendezvousOvs : public OVSPowerStrategy
     std::optional<std::vector<std::string>> executeListPorts(const std::string&) override
     {
         return std::vector<std::string>{};
+    }
+
+    /// A-4f: overridden for the same reason as the two above. Without it this fixture would shell
+    /// out to a real ovs-vsctl from inside a concurrency test.
+    /// [Co-developed with claude code -- Adam]
+    std::optional<SflowBridgeState> executeReadSflowState(const std::string&) override
+    {
+        return SflowBridgeState{};
     }
 };
 
