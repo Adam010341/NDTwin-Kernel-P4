@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -18,6 +19,37 @@ enum class LockType {
 struct LockState {
     bool isLocked = false;
     std::chrono::steady_clock::time_point expiryTime;
+
+    /**
+     * [Co-developed with claude code -- Adam]
+     * Identifies one *lease*, not one holder. Bumped by every successful acquire, never reused.
+     *
+     * This is deliberately not an owner field. An owner field means the kernel knows *who* is
+     * calling, which it does not and cannot without a credential on the wire; KNOWN-ISSUES B-2②
+     * is that problem and it is not this one. A lease id answers a narrower question that the
+     * kernel *can* answer -- "is the lock still on the same lease it was on when you took it?"
+     * -- and a caller that echoes the id it was given gets told when the answer is no.
+     */
+    std::uint64_t leaseId = 0;
+
+    /// The lease that was last reclaimed by expiry on this lock, and how many have been. Kept so
+    /// that a late release can be told what happened to it instead of being answered "released".
+    std::uint64_t expiredLeaseId = 0;
+    std::uint64_t expiredLeaseCount = 0;
+
+    /**
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES B-2②. How many times a live lease on this lock has been released or renewed
+     * by a request that named no lease -- i.e. by a request the kernel could not attribute to
+     * anybody, and acted on anyway.
+     *
+     * Today that is EVERY release and renew in the workspace, so the number is not interesting
+     * as a fraction. It is interesting as a fact: "any caller can release any caller's lock" has
+     * been in KNOWN-ISSUES since round 2 with no measurement attached, because nothing counted.
+     * When the callers start sending `lease` this becomes the number that says how much of the
+     * traffic is still unattributable, which is what tells you when it is safe to enforce.
+     */
+    std::uint64_t unattributedActions = 0;
 };
 
 class LockManager
@@ -28,9 +60,17 @@ class LockManager
     static constexpr const char* DEFAULT_LOCK_TYPE_STR = "routing_lock";
 
   private:
-    std::mutex m_mutex; 
+    std::mutex m_mutex;
     // Using Enum as the key for the map is more efficient than using strings
     std::unordered_map<LockType, LockState> m_locks;
+
+    /// Monotonic across every lock in this manager, so a lease id is unique per process run and
+    /// two locks can never present the same id. Starts at 1: 0 means "no lease".
+    std::uint64_t m_nextLeaseId = 1;
+
+    /// KNOWN-ISSUES B-2②. Off by default; see setRequireLeaseId() for why it is a switch and why
+    /// nothing turns it on. Read and written only under m_mutex.
+    bool m_requireLeaseId = false;
 
     /**
      * @brief Helper function to convert string input to LockType enum.
@@ -46,7 +86,171 @@ class LockManager
         return LockType::Unknown;
     }
 
+    /**
+     * @brief The wire name of a LockType, for messages and logs.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The inverse of stringToLockType, written out rather than derived, so that a log line
+     * always quotes the vocabulary the caller used rather than an enum's spelling.
+     */
+    static const char* lockTypeToString(LockType type) {
+        switch (type) {
+            case LockType::Routing: return "routing_lock";
+            case LockType::Graph:   return "graph_lock";
+            case LockType::Power:   return "power_lock";
+            default:                return "unknown_lock";
+        }
+    }
+
+    /**
+     * @brief If this lock's lease has run out, end it -- visibly -- and report that it did.
+     *
+     * [Co-developed with claude code -- Adam]
+     * 🔴 THIS IS THE CHANGE A-9 IS. Before it, expiry was a thing only `acquireLock` and (since
+     * B-2①) `renew` *asked about*; nothing ever *recorded* it. `isLocked` stayed true forever,
+     * so:
+     *
+     *   - `unlock()` answered true for a lease that had been dead for hours, and the endpoint
+     *     answered 200 {"status":"released"} -- byte-identical to a real release;
+     *   - worse, if somebody else had legitimately acquired in the meantime, that same late
+     *     release cleared the NEW holder's flag. The new holder was never told. Two apps then
+     *     both believed they held the lock that serialises writes to real switches;
+     *   - and nothing anywhere -- no log line, no counter, no endpoint -- said a lease had ever
+     *     been reclaimed. The TR-5 diagnosis (doc/audit/2026-08-30_live-traffic-round/
+     *     FINDING-08) had to be made from the *application's* tmux buffer, because the kernel
+     *     side of a held lock is not observable at all.
+     *
+     * The previous revision saw this and wrote it down rather than doing it, on the explicit
+     * grounds that clearing `isLocked` on a refusal path "would silently alter what unlock()
+     * answers for the same lock ... That is its own decision and it is not smuggled in here."
+     * This is that decision, taken deliberately and pinned by tests: an expired lease is ended
+     * here, once, in the one place all three of acquire/renew/release consult -- so the three
+     * cannot drift apart about what "held" means, which is the failure that produced B-2① in the
+     * first place.
+     *
+     * @return true if a lease was reclaimed by THIS call (so the caller can say `expired` rather
+     *         than `not held`, which are different sentences to a client that thought it held it).
+     *
+     * @note Called with m_mutex already held, and it logs while holding it. That is a deliberate
+     *       trade: the lock endpoints run at roughly 1 Hz (Energy-Saving-App's retry loop) and
+     *       one WARN under a mutex costs less than the alternative, which is returning the fact
+     *       out to three separate call sites and trusting each to log it.
+     */
+    bool reapIfExpired(LockType type, LockState& state,
+                       std::chrono::steady_clock::time_point now)
+    {
+        if (!state.isLocked || now < state.expiryTime) {
+            return false;
+        }
+        const auto overdue =
+            std::chrono::duration_cast<std::chrono::seconds>(now - state.expiryTime).count();
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "lock {} lease {} expired {}s ago and is being reclaimed; its holder "
+                           "never released it",
+                           lockTypeToString(type), state.leaseId, overdue);
+        state.isLocked = false;
+        state.expiredLeaseId = state.leaseId;
+        state.expiredLeaseCount += 1;
+        return true;
+    }
+
   public:
+    /**
+     * @brief What a release attempt actually did. [Co-developed with claude code -- Adam]
+     *
+     * Five answers, because the caller's next move differs for each and the old `bool` could
+     * only say two. `Expired` in particular used to be reported as success. `LeaseRequired` is
+     * reachable only when setRequireLeaseId(true) has been called, which nothing does yet.
+     */
+    enum class ReleaseOutcome {
+        Released,      ///< a lease that was still in force was released by this call
+        Expired,       ///< the lease had already run out and was reclaimed; nothing was released
+        NotHeld,       ///< no lease at all, or an unknown lock name
+        LeaseMismatch, ///< the caller named a lease that is not the current one -- refused
+        LeaseRequired  ///< the lock is held, the caller named no lease, and enforcement is on
+    };
+
+    /// The renew twin of ReleaseOutcome, for the same reason: "expired" and "never held" are
+    /// different problems with different fixes, and 412 alone cannot tell them apart.
+    enum class RenewOutcome {
+        Renewed,
+        Expired,
+        NotHeld,
+        LeaseMismatch,
+        LeaseRequired
+    };
+
+    /**
+     * @brief Refuse a release or renew of a HELD lock that names no lease. Default: off.
+     *
+     * [Co-developed with claude code -- Adam]
+     * 🔴 THIS IS THE WHOLE OF KNOWN-ISSUES B-2②, AND IT IS A POLICY SWITCH RATHER THAN A
+     * MECHANISM, DELIBERATELY. The mechanism -- a per-lease token the kernel can check a request
+     * against -- is `LockState::leaseId`, added for A-9. B-2② does not need a second one, and
+     * building "ownership" twice would give two answers to one question, which is how B-2①
+     * happened in the first place. What B-2② needs on top of A-9 is the decision to make the
+     * token MANDATORY, and that decision cannot be taken by the kernel alone:
+     *
+     *   - with it OFF (the default, and today's behaviour), a release naming no lease acts on
+     *     the lock by name, exactly as it always has. Every deployed caller does this --
+     *     Energy-Saving-App/src/app/http.cpp:461, Traffic-engineering-App.py:85, the chaos
+     *     harness probes.py:206, tools/contract_test/spec.py -- so "any caller can release any
+     *     caller's lock" is still true, and LockState::unattributedActions now counts it;
+     *   - with it ON, those same callers get 400 and their releases stop working. That is a
+     *     flag day across four repos, and it belongs to Adam, not to this class.
+     *
+     * So: not wired to anything. There is no env var and no call site; `main.cpp` constructs a
+     * LockManager and never touches this. That is not an oversight -- an unwired switch that
+     * says so is honest, whereas an env var read inside a constructor would change the behaviour
+     * of 47 unit tests depending on the shell they run in. Turning it on is a separate, visible
+     * commit once the callers send `lease`; the one-line wiring is written up in the A-9/B-2②
+     * findings alongside the app-side patch that has to land first.
+     *
+     * @note acquire is untouched by this. An acquire does not name a lease, it creates one.
+     * @note Both accessors take m_mutex. The flag is expected to be set once before the manager
+     *       serves anything, but "expected to" is not a guarantee, and an unsynchronised bool
+     *       read from the HTTP thread pool while another thread writes it is a data race that
+     *       tsan would rightly flag. Neither accessor is const for that reason.
+     */
+    void setRequireLeaseId(bool required)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_requireLeaseId = required;
+    }
+
+    bool requiresLeaseId()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_requireLeaseId;
+    }
+
+    /**
+     * @brief What an acquire attempt saw, for callers that want to say more than "no".
+     *
+     * [Co-developed with claude code -- Adam]
+     * Every field is optional to consume; the parameter defaults to nullptr so that every
+     * existing caller and test compiles and behaves exactly as before.
+     */
+    struct AcquireReport {
+        std::uint64_t leaseId = 0;             ///< set on success: the lease the caller now holds
+        std::uint64_t blockingLeaseId = 0;     ///< set on refusal: the lease that is in the way
+        long long     remainingSeconds = 0;    ///< set on refusal: how long that lease has left
+        bool          reclaimedExpiredLease = false; ///< this acquire took over a dead lease
+    };
+
+    /// A read-only view of one lock, so that "who holds it and for how long" is answerable
+    /// without having to try to take it. Nothing in the kernel could answer that before.
+    struct LockSnapshot {
+        bool          held = false;
+        std::uint64_t leaseId = 0;
+        long long     remainingSeconds = 0;
+        std::uint64_t expiredLeaseCount = 0;
+        std::uint64_t lastExpiredLeaseId = 0;
+        /// KNOWN-ISSUES B-2②: releases and renews of a live lease that named no lease id, and
+        /// were acted on anyway. The measurement that entry has never had.
+        std::uint64_t unattributedActions = 0;
+    };
+
     /**
      * @brief Check if the provided lock type string is valid.
      */
@@ -97,6 +301,13 @@ class LockManager
         int ttl = DEFAULT_TTL_SECONDS;
         RequestError error = RequestError::None;
         std::string requestedType;   // what the caller actually sent, for the error message
+
+        // [Co-developed with claude code -- Adam]
+        // A-9. Optional, and 0 means "not named" -- see LockManager::release(). It gets the same
+        // treatment as `ttl` and for the same stated reason: it cannot make a request act on
+        // something other than the lock it named, it can only make the request act on LESS.
+        // A wrong lease id refuses; it never redirects.
+        std::uint64_t lease = 0;
     };
 
     static LockRequest parseRequest(const std::string& body)
@@ -137,6 +348,9 @@ class LockManager
         if (!isValidType(out.requestedType)) {
             out.error = RequestError::InvalidType;
             return out;
+        }
+        if (parsed.contains("lease") && parsed["lease"].is_number_unsigned()) {
+            out.lease = parsed["lease"].get<std::uint64_t>();
         }
         if (parsed.contains("ttl") && parsed["ttl"].is_number_integer()) {
             out.ttl = parsed["ttl"].get<int>();
@@ -187,9 +401,17 @@ class LockManager
      * @brief Attempt to acquire a lock.
      * @param lockNameStr The string name of the lock (e.g., "routing_lock").
      * @param ttlSeconds Time-To-Live in seconds.
+     * @param report Optional; filled in with the lease taken, or with what blocked the attempt.
      * @return true if acquired successfully, false if busy or invalid name.
+     *
+     * [Co-developed with claude code -- Adam]
+     * `report` defaults to nullptr so that every existing caller -- the endpoint, 29 unit tests,
+     * the endpoint tests -- compiles and behaves exactly as it did. The endpoint passes one so
+     * that a 200 can hand back the lease id, and a 423 can say how long the caller has to wait
+     * instead of only that it must.
      */
-    bool acquireLock(const std::string& lockNameStr, int ttlSeconds)
+    bool acquireLock(const std::string& lockNameStr, int ttlSeconds,
+                     AcquireReport* report = nullptr)
     {
         // 1. Convert string to Enum
         LockType type = stringToLockType(lockNameStr);
@@ -197,24 +419,42 @@ class LockManager
         // 2. Validation: Reject unknown lock types
         if (type == LockType::Unknown) {
             SPDLOG_LOGGER_WARN(Logger::instance(), "Invalid lock type requested: {}", lockNameStr);
-            return false; 
+            return false;
         }
 
         std::lock_guard<std::mutex> lock(m_mutex);
-        
+
         // 3. Access lock state using the Enum key
         LockState& state = m_locks[type];
         auto now = std::chrono::steady_clock::now();
 
-        // 4. Check if it is currently locked and has not expired
+        // 4. End an expired lease before deciding, so that "the previous holder's lease ran out"
+        //    is recorded once, here, rather than being an invisible side effect of somebody
+        //    else's successful acquire. The comparison itself is unchanged -- this call is what
+        //    acquireLock's own `now < expiryTime` test always implied and never wrote down.
+        const bool reclaimed = reapIfExpired(type, state, now);
+
+        // 5. Check if it is currently locked and has not expired
         if (state.isLocked && now < state.expiryTime)
         {
+            if (report) {
+                report->blockingLeaseId = state.leaseId;
+                report->remainingSeconds = std::chrono::duration_cast<std::chrono::seconds>(
+                                               state.expiryTime - now)
+                                               .count();
+            }
             return false; // Lock is held by someone else
         }
 
-        // 5. Acquire the lock
+        // 6. Acquire the lock, on a new lease. The id is never reused, so a caller that echoes
+        //    it back on release or renew can be told when the lock has moved on without it.
         state.isLocked = true;
         state.expiryTime = now + std::chrono::seconds(ttlSeconds);
+        state.leaseId = m_nextLeaseId++;
+        if (report) {
+            report->leaseId = state.leaseId;
+            report->reclaimedExpiredLease = reclaimed;
+        }
         return true;
     }
 
@@ -232,22 +472,153 @@ class LockManager
      *
      * The sibling renew() already returns bool and distinguishes exactly these three cases, so
      * this is the shape the class had settled on; only unlock had not been given it.
+     *
+     * 🔴 2026-09-02, A-9: this is now a two-valued view of release()'s four-valued answer, kept
+     * so that existing callers compile and read the same. ONE ANSWER CHANGED: releasing a lease
+     * that has already run out used to return **true** and now returns **false**, because the
+     * lock was reclaimed by expiry rather than released by the caller. Callers that need to tell
+     * `Expired` from `NotHeld` -- the endpoint does, they are different sentences to a client
+     * that believed it held the lock -- must call release() directly.
      */
     bool unlock(const std::string& lockNameStr)
+    {
+        return release(lockNameStr) == ReleaseOutcome::Released;
+    }
+
+    /**
+     * @brief Release a lock, and say which of the five things actually happened.
+     *
+     * [Co-developed with claude code -- Adam]
+     * 🔴 A-9. `unlock()` above used to BE this function, and it could only answer two of the five:
+     * it looked at `isLocked` and nothing else. Since expiry never cleared `isLocked`, a release
+     * arriving after its own lease had run out found the flag still set, cleared it, and was
+     * answered `200 {"status":"released"}` -- the same bytes as a real release. That is the shape
+     * KNOWN-ISSUES A-9 was measured through: the Energy-Saving-App takes routing_lock with
+     * ttl=300 and reaches its two release_lock() calls only on paths that need a
+     * Simulation-Platform-Manager round trip, so on the TR-5 arms it never released at all.
+     *
+     * 🔑 THE DANGEROUS CASE IS NOT THE APP'S OWN. It is the one where somebody else has since
+     * acquired legitimately:
+     *
+     *     t=0    A acquires routing_lock ttl=300           lease 7
+     *     t=300  the lease runs out. Nothing notices.      isLocked is still true
+     *     t=301  B acquires -- correctly, the lock is free lease 8
+     *     t=302  A finally releases                        cleared LEASE 8, answered 200
+     *
+     * B was never told, and both apps then believed they held the lock that serialises writes to
+     * real switches. Two things are done about it here, and it is worth being exact about which
+     * one closes what:
+     *
+     *   1. The expired-lease case is no longer reported as a release. reapIfExpired() ends the
+     *      lease first, so at t=302-with-nobody-else A gets `Expired`, not `Released`. Closed.
+     *   2. The t=302-with-B-holding case CANNOT be closed by the kernel alone, because the two
+     *      requests are byte-identical: `POST /ndt/release_lock {"type":"routing_lock"}`, with
+     *      nothing in either that says who is asking. So `leaseId` is offered instead: a caller
+     *      that passes back the id its acquire returned is refused with LeaseMismatch rather than
+     *      releasing a stranger's lock. A caller that passes 0 -- which is every caller today --
+     *      gets exactly the old behaviour. **This is opt-in, and until the sibling apps opt in,
+     *      case 2 is still open.** It is KNOWN-ISSUES B-2②'s cross-repo protocol change, and
+     *      pretending otherwise here would be the more expensive lie.
+     *
+     * @param leaseId 0 (the default) means "I am not naming a lease" and keeps the old,
+     *                name-only behaviour. Non-zero is checked against the current lease.
+     */
+    ReleaseOutcome release(const std::string& lockNameStr, std::uint64_t leaseId = 0,
+                           std::uint64_t* actedLeaseId = nullptr)
     {
         LockType type = stringToLockType(lockNameStr);
         if (type == LockType::Unknown) {
             SPDLOG_LOGGER_WARN(Logger::instance(), "Invalid lock type released: {}", lockNameStr);
-            return false;
+            return ReleaseOutcome::NotHeld;
         }
 
         std::lock_guard<std::mutex> lock(m_mutex);
         const auto it = m_locks.find(type);
-        if (it == m_locks.end() || !it->second.isLocked) {
-            return false;
+        if (it == m_locks.end()) {
+            return ReleaseOutcome::NotHeld;
+        }
+
+        // Same reap the acquire path runs, in the same place in the sequence, so that the three
+        // endpoints cannot disagree about whether this lock is held. Two functions in one class
+        // answering that question differently is precisely how B-2① happened.
+        if (reapIfExpired(type, it->second, std::chrono::steady_clock::now())) {
+            return ReleaseOutcome::Expired;
+        }
+
+        if (!it->second.isLocked) {
+            return ReleaseOutcome::NotHeld;
+        }
+
+        if (leaseId != 0 && leaseId != it->second.leaseId) {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "refused a release of {} naming lease {}; the current lease is {}. "
+                               "The lock was NOT released",
+                               lockTypeToString(type), leaseId, it->second.leaseId);
+            return ReleaseOutcome::LeaseMismatch;
+        }
+
+        // KNOWN-ISSUES B-2②. The request names no lease, so the kernel cannot attribute it to
+        // anybody -- this caller and the actual holder send the same bytes. With enforcement on
+        // it is refused; with it off (the default, and every deployed caller) it is acted on and
+        // COUNTED, which is the first time this has been measurable at all.
+        if (leaseId == 0) {
+            if (m_requireLeaseId) {
+                return ReleaseOutcome::LeaseRequired;
+            }
+            it->second.unattributedActions += 1;
+        }
+
+        // Reported from inside the mutex, not read back afterwards: between an unlocked read and
+        // this point another thread can acquire, and the caller would be told it released a lease
+        // that is somebody else's fresh one -- an answer that is wrong in exactly the direction
+        // B-2② is about.
+        if (actedLeaseId) {
+            *actedLeaseId = it->second.leaseId;
         }
         it->second.isLocked = false;
-        return true;
+        return ReleaseOutcome::Released;
+    }
+
+    /**
+     * @brief Read one lock's state without trying to take it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Added for A-9. There was no way to ask this: the only three entry points all *change* the
+     * lock, so "is routing_lock held, and for how long" could only be answered by trying to
+     * acquire it -- which either fails (telling you nothing about how long) or succeeds (which is
+     * not a read). The TR-5 write-up had to reconstruct the answer from the application's own
+     * tmux buffer for exactly this reason.
+     *
+     * @note This does NOT reap. A read must not change what it is reading; `held` is reported
+     *       against the same `now < expiryTime` test every writer uses, so an expired lease reads
+     *       back as not held whether or not anybody has reaped it yet.
+     */
+    LockSnapshot snapshot(const std::string& lockNameStr)
+    {
+        LockSnapshot out;
+        LockType type = stringToLockType(lockNameStr);
+        if (type == LockType::Unknown) {
+            return out;
+        }
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const auto it = m_locks.find(type);
+        if (it == m_locks.end()) {
+            return out;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        out.expiredLeaseCount = it->second.expiredLeaseCount;
+        out.lastExpiredLeaseId = it->second.expiredLeaseId;
+        out.unattributedActions = it->second.unattributedActions;
+        if (it->second.isLocked && now < it->second.expiryTime) {
+            out.held = true;
+            out.leaseId = it->second.leaseId;
+            out.remainingSeconds =
+                std::chrono::duration_cast<std::chrono::seconds>(it->second.expiryTime - now)
+                    .count();
+        }
+        return out;
     }
 
     /**
@@ -287,26 +658,82 @@ class LockManager
      * would be a state change made by a call that returns false, and it would silently alter what
      * unlock() answers for the same lock (unlock currently reports true for an expired-but-flagged
      * entry). That is its own decision and it is not smuggled in here.
+     *
+     * 🔴 2026-09-02, A-9: THAT DECISION HAS NOW BEEN TAKEN, AND THE OPPOSITE WAY. An expired
+     * entry IS cleared, by reapIfExpired(), on this path and on the release and acquire paths --
+     * once, in one place, so the three cannot drift. The objection above was right about the
+     * consequence and right to refuse to smuggle it in: unlock() *does* now answer differently
+     * for an expired lock (false, not true), and that change is the point rather than a side
+     * effect. See reapIfExpired() and release() for why.
      */
     bool renew(const std::string& lockNameStr, int ttlSeconds)
     {
+        return renewLease(lockNameStr, ttlSeconds) == RenewOutcome::Renewed;
+    }
+
+    /**
+     * @brief Renew, saying which of the four things happened. [Co-developed with claude code -- Adam]
+     *
+     * The renew twin of release(). `bool renew()` above is the two-valued view of it and is what
+     * every existing caller and test uses; the endpoint calls this one so that its 412 can say
+     * *which* precondition failed. "Your lease ran out while you were working" and "you never
+     * held this" send a caller to two different places, and one status code cannot carry both.
+     *
+     * @param leaseId 0 (the default) keeps the old name-only behaviour. Non-zero is checked
+     *                against the current lease -- see release() for why this is opt-in and what
+     *                it does NOT close.
+     */
+    RenewOutcome renewLease(const std::string& lockNameStr, int ttlSeconds,
+                            std::uint64_t leaseId = 0, std::uint64_t* actedLeaseId = nullptr)
+    {
         LockType type = stringToLockType(lockNameStr);
-        if (type == LockType::Unknown) return false;
+        if (type == LockType::Unknown) return RenewOutcome::NotHeld;
 
         std::lock_guard<std::mutex> lock(m_mutex);
 
         const auto it = m_locks.find(type);
         const auto now = std::chrono::steady_clock::now();
 
+        if (it == m_locks.end()) {
+            return RenewOutcome::NotHeld;
+        }
+
         // Cannot renew a lock that does not exist, is not held, or whose lease has already run
         // out. The third clause is the one that was missing; the same `now < expiryTime` test
-        // acquireLock uses, so the two agree about what "held" means.
-        if (it == m_locks.end() || !it->second.isLocked || now >= it->second.expiryTime) {
-            return false;
+        // acquireLock uses, so the two agree about what "held" means. Since A-9 the expiry test
+        // also *ends* the lease rather than only refusing on it, which is what makes the refusal
+        // reportable as `expired` instead of being folded into `not held`.
+        if (reapIfExpired(type, it->second, now)) {
+            return RenewOutcome::Expired;
+        }
+        if (!it->second.isLocked) {
+            return RenewOutcome::NotHeld;
+        }
+
+        if (leaseId != 0 && leaseId != it->second.leaseId) {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "refused a renew of {} naming lease {}; the current lease is {}. "
+                               "The lease was NOT extended",
+                               lockTypeToString(type), leaseId, it->second.leaseId);
+            return RenewOutcome::LeaseMismatch;
+        }
+
+        // KNOWN-ISSUES B-2②, renew side. The entry's own worked example is a renew: a client
+        // holding nothing extends somebody else's lock from 3 seconds to 120 and locks a third
+        // party out. Since B-2① that no longer works on a dead lease -- which leaves exactly the
+        // live one, handled here.
+        if (leaseId == 0) {
+            if (m_requireLeaseId) {
+                return RenewOutcome::LeaseRequired;
+            }
+            it->second.unattributedActions += 1;
         }
 
         // Extend the expiry time
+        if (actedLeaseId) {
+            *actedLeaseId = it->second.leaseId;
+        }
         it->second.expiryTime = now + std::chrono::seconds(ttlSeconds);
-        return true;
+        return RenewOutcome::Renewed;
     }
 };

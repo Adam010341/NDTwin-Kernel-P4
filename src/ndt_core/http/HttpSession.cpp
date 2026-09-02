@@ -2040,21 +2040,40 @@ HttpSession::handleAcquireLock(http::response<http::string_body>& res)
             return;
         }
 
-        if (m_lockManager->acquireLock(reqLock.type, reqLock.ttl))
+        // [Co-developed with claude code -- Adam]
+        // A-9. The report is what makes a lease visible on the wire. `lease` on the 200 is the
+        // id the caller may echo back on release/renew to be protected against releasing a lock
+        // that has moved on without it; `reclaimed_expired_lease` says this acquire took over a
+        // lease whose holder never released it -- which used to be completely silent, and is the
+        // fingerprint of the Energy-Saving-App failure this endpoint was measured through.
+        LockManager::AcquireReport report;
+        if (m_lockManager->acquireLock(reqLock.type, reqLock.ttl, &report))
         {
             res.result(http::status::ok);
-            res.body() =
-                json{{"status", "locked"}, {"type", reqLock.type}, {"ttl", reqLock.ttl}}.dump();
+            res.body() = json{{"status", "locked"},
+                              {"type", reqLock.type},
+                              {"ttl", reqLock.ttl},
+                              {"lease", report.leaseId},
+                              {"reclaimed_expired_lease", report.reclaimedExpiredLease}}
+                             .dump();
         }
         else
         {
             // Reaching here now means exactly one thing: the type was valid and the lock is
             // held by someone else. Retrying is the right response, which 423 says and 400
             // does not.
+            //
+            // `retry_after_s` is the number the old sentence told the caller to work out for
+            // itself ("retry after its TTL" -- whose TTL? the caller does not know what ttl the
+            // holder asked for). The Energy-Saving-App retries this at 1 Hz for the whole 300 s
+            // of somebody else's lease; a client that can read the remaining time can at least
+            // log how long it has left to wait instead of only that it is waiting.
             res.result(http::status::locked);
             res.body() = json{{"error", "Lock acquisition failed"},
                               {"detail", "lock \"" + reqLock.type +
-                                             "\" is held by another client; retry after its TTL"}}
+                                             "\" is held by another client; retry after its TTL"},
+                              {"held_by_lease", report.blockingLeaseId},
+                              {"retry_after_s", report.remainingSeconds}}
                              .dump();
         }
     }
@@ -2093,21 +2112,71 @@ HttpSession::handleRenewLock(http::response<http::string_body>& res)
             return;
         }
 
-        if (m_lockManager->renew(reqLock.type, reqLock.ttl))
+        // [Co-developed with claude code -- Adam]
+        // A-9. `is expired or not held` was one sentence for two states that send a caller to
+        // two different places: "your lease ran out while you were working" means the work you
+        // did after it ran out was unprotected, and "you never held this" means you have a bug
+        // in your acquire path. The status stays 412 for both -- it is what the contract and
+        // tools/contract_test/spec.py expect -- and the body now says which.
+        std::uint64_t renewedLease = 0;
+        const auto renewOutcome =
+            m_lockManager->renewLease(reqLock.type, reqLock.ttl, reqLock.lease, &renewedLease);
+        if (renewOutcome == LockManager::RenewOutcome::Renewed)
         {
+            // `lease` (B-2②) names the lease this request actually extended. A caller that keeps
+            // the id from its own acquire can compare -- which is the only way, today, for the
+            // real holder's neighbour to notice it has just extended somebody else's lease.
             res.result(http::status::ok);
-            res.body() =
-                json{{"status", "renewed"}, {"type", reqLock.type}, {"ttl", reqLock.ttl}}.dump();
+            res.body() = json{{"status", "renewed"},
+                              {"type", reqLock.type},
+                              {"ttl", reqLock.ttl},
+                              {"lease", renewedLease}}
+                             .dump();
+        }
+        else if (renewOutcome == LockManager::RenewOutcome::LeaseRequired)
+        {
+            // 400, not 412: this is a missing required field, not a state the caller can fix by
+            // acquiring. Only reachable when LockManager::setRequireLeaseId(true) has been called,
+            // which nothing does yet -- see that function for why the switch exists unwired.
+            res.result(http::status::bad_request);
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"reason", "lease_required"},
+                              {"detail", "this kernel requires a \"lease\" on renew; lock '" +
+                                             reqLock.type +
+                                             "' is held and the request named no lease, so it "
+                                             "could not be attributed to a holder. Nothing was "
+                                             "extended"}}
+                             .dump();
+        }
+        else if (renewOutcome == LockManager::RenewOutcome::LeaseMismatch)
+        {
+            // 409, not 412: this is not a precondition the caller can satisfy by acquiring, it
+            // is a statement that the lock has moved on to a lease that is not the caller's.
+            // Only reachable when the caller sent a "lease" -- no existing caller does -- so it
+            // cannot change any deployed client's behaviour.
+            res.result(http::status::conflict);
+            res.body() = json{{"error", "Renew failed"},
+                              {"reason", "lease_mismatch"},
+                              {"detail", "Lock '" + reqLock.type + "' is no longer on lease " +
+                                             std::to_string(reqLock.lease) +
+                                             "; nothing was extended"}}
+                             .dump();
         }
         else
         {
             // "or invalid type" has gone from this sentence because an invalid type can no
             // longer reach here -- it is a 400 above. What is left is exactly the retryable
             // state 412 is for.
+            const bool expired = (renewOutcome == LockManager::RenewOutcome::Expired);
             res.result(http::status::precondition_failed); // 412 Precondition Failed
-            res.body() = json{{"error", "Renew failed"},
-                              {"detail", "Lock '" + reqLock.type + "' is expired or not held"}}
-                             .dump();
+            res.body() =
+                json{{"error", "Renew failed"},
+                     {"reason", expired ? "expired" : "not_held"},
+                     {"detail", expired ? "Lock '" + reqLock.type +
+                                              "' had a lease that already ran out; it has been "
+                                              "reclaimed and was not extended"
+                                        : "Lock '" + reqLock.type + "' is not held"}}
+                    .dump();
         }
     }
     catch (...)
@@ -2157,17 +2226,77 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
         // locked so your request cannot proceed", whereas the failure here is "there was no
         // lock of yours to release". An invalid type no longer arrives here -- it is a 400
         // above -- so it has been dropped from the sentence.
-        if (!m_lockManager->unlock(reqLock.type))
+        //
+        // [Co-developed with claude code -- Adam]
+        // 🔴 A-9. This used to be `if (!unlock(type))`, and `unlock` answered **true** for a
+        // lease that had already run out -- so a release arriving after its own TTL got
+        // `200 {"status":"released"}`, byte-identical to a release that actually released
+        // something. That is how a lock nobody held stayed indistinguishable from a lock
+        // somebody had just tidied up, and it is why the TR-5 write-up could not tell from the
+        // kernel side what had happened to the Energy-Saving-App's lease.
+        //
+        // Four outcomes now, three answers. The status for `expired` stays 412 so that
+        // tools/contract_test/spec.py's release_lock_not_held ([412, 400, 404]) and
+        // doc/2026-07-27_testing_workflow.md keep their meaning; the body carries the
+        // distinction, because "your lease was reclaimed" and "there was nothing here" are
+        // different things to have just learned.
+        std::uint64_t releasedLease = 0;
+        const auto releaseOutcome =
+            m_lockManager->release(reqLock.type, reqLock.lease, &releasedLease);
+
+        if (releaseOutcome == LockManager::ReleaseOutcome::LeaseRequired)
         {
-            res.result(http::status::precondition_failed);
-            res.body() = json{{"error", "Release failed"},
-                              {"detail", "Lock '" + reqLock.type + "' is not held"}}
+            // 400, not 412: a missing required field, not a state. Only reachable when
+            // LockManager::setRequireLeaseId(true) has been called, which nothing does yet.
+            res.result(http::status::bad_request);
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"reason", "lease_required"},
+                              {"detail", "this kernel requires a \"lease\" on release; lock '" +
+                                             reqLock.type +
+                                             "' is held and the request named no lease, so it "
+                                             "could not be attributed to a holder. Nothing was "
+                                             "released"}}
                              .dump();
             return;
         }
 
+        if (releaseOutcome == LockManager::ReleaseOutcome::LeaseMismatch)
+        {
+            // 409: the lock is held, but on a lease that is not the caller's. Refusing is the
+            // whole point -- releasing here would free a lock the caller does not hold, which is
+            // the failure this branch exists to prevent. Only reachable when the caller sent a
+            // "lease"; no deployed client does yet.
+            res.result(http::status::conflict);
+            res.body() = json{{"error", "Release failed"},
+                              {"reason", "lease_mismatch"},
+                              {"detail", "Lock '" + reqLock.type + "' is no longer on lease " +
+                                             std::to_string(reqLock.lease) +
+                                             "; it was NOT released"}}
+                             .dump();
+            return;
+        }
+
+        if (releaseOutcome != LockManager::ReleaseOutcome::Released)
+        {
+            const bool expired = (releaseOutcome == LockManager::ReleaseOutcome::Expired);
+            res.result(http::status::precondition_failed);
+            res.body() =
+                json{{"error", "Release failed"},
+                     {"reason", expired ? "expired" : "not_held"},
+                     {"detail", expired ? "Lock '" + reqLock.type +
+                                              "' had a lease that already ran out; it was "
+                                              "reclaimed by expiry, not released by this request"
+                                        : "Lock '" + reqLock.type + "' is not held"}}
+                    .dump();
+            return;
+        }
+
+        // `lease` (B-2②) names the lease this request actually released. Until every caller sends
+        // a lease id, a release names only a lock -- so this field is how a caller finds out,
+        // after the fact, that the lease it just freed was not the one it was holding.
         res.result(http::status::ok);
-        res.body() = json{{"status", "released"}, {"type", reqLock.type}}.dump();
+        res.body() =
+            json{{"status", "released"}, {"type", reqLock.type}, {"lease", releasedLease}}.dump();
     }
     catch (...)
     {

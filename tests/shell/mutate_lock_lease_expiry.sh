@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the KNOWN-ISSUES B-2① fix: LockManager::renew() must refuse a lease that has
-# already run out.
+# Mutation gate for the KNOWN-ISSUES A-9 fix: a lock lease that runs out must END, visibly, and a
+# release that arrives after it must be told so rather than answered "released".
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation below reintroduces one part of the defect, or breaks one half of the property the
+# Each mutation below reintroduces one part of the defect, or breaks one half of a property the
 # fix rests on, and names the case that must go red. A mutation that SURVIVES means that case is
 # decorative.
 #
-# 🔴 THIS GATE MATTERS MORE THAN USUAL HERE, because the test suite it is gating used to assert
-# the DEFECT. tests/test_LockManager.cpp had `RenewingAnExpiredLockPutsItBackInForce`, green,
-# with a written rationale -- so "the tests pass" was true before the fix and is true after it,
-# and only a mutation run can tell you which of the two the suite is actually pinning.
+# 🔴 THIS GATE HAS NEVER BEEN RUN. The change it gates was written under a no-build constraint
+# (a CPU-sensitive measurement was in progress), so tests/test_LockLeaseExpiry.cpp and the three
+# new LockEndpointTest cases have NOT been seen red, and have not been seen green either. Per the
+# project's mutation-gate rule that is NOT a delivery. Running this script is the first thing a
+# human should do with this branch, and its output is the evidence the fix currently lacks.
+#
+# Same shape as tests/shell/mutate_lock_renew_expiry.sh, which gates B-2① in the same two files.
+# Read that one first if this is unfamiliar; the harness notes below are identical by design.
 #
 # 🔴 The harness guards its own baseline. Originals are snapshotted before the first mutation, an
 # EXIT trap restores them on any exit including interrupt, and the run ends by asserting the files
@@ -21,7 +25,7 @@
 # The baseline is the WORKING TREE, not HEAD: this is meant to be runnable against an uncommitted
 # fix, and "restore to HEAD" would silently discard it.
 #
-# Usage:  bash tests/shell/mutate_lock_renew_expiry.sh
+# Usage:  bash tests/shell/mutate_lock_lease_expiry.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -36,7 +40,7 @@ BUILD_DIR="${BUILD_DIR:-build}"
 TARGET=test_routing_strategy
 GATE_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 BIN="$BUILD_DIR/bin/$TARGET"
-FILTER='LockManager*:LockRequestParsing*:LockEndpoint*'
+FILTER='LockManager*:LockRequestParsing*:LockEndpoint*:LockLeaseExpiry*'
 BK=$(mktemp -d)
 
 cp "$LOCK" "$BK/lock" && cp "$HTTP" "$BK/http"
@@ -64,7 +68,7 @@ BROKEN=0
 ANCHORS_MISSED=0
 ANCHOR_MISS=""
 
-# $1 = mutation name, $2 = gtest case that must fail, $3 = the perl edit's target file
+# $1 = mutation name, $2 = gtest case that must fail
 report() {
     local name="$1" want="$2" out rc
     MUTATIONS=$((MUTATIONS + 1))
@@ -105,8 +109,7 @@ report() {
 
 # Every mutation is a literal string replacement asserted to have fired exactly once. A perl
 # substitution that matches nothing edits nothing, and the run then reports the UNMUTATED tree as
-# "caught"/"survived" -- four green ticks that mean nothing. memory/injections-must-assert-their-
-# own-success.
+# "caught"/"survived" -- ticks that mean nothing. memory/injections-must-assert-their-own-success.
 mutate() {   # $1 = file, $2 = literal to find, $3 = literal replacement
     local file="$1" from="$2" to="$3" n
     n=$(FROM="$from" perl -0777 -ne 'my $f = quotemeta $ENV{FROM}; my $c = () = /$f/g; print $c' "$file")
@@ -158,80 +161,89 @@ fi
 echo
 echo "mutations:"
 
-# 🔴 ALL SIX TARGETS BELOW WERE REWRITTEN ON 2026-09-02, and the reason is worth reading before
-#    the mutations themselves.
-#
-#    The A-9 change (commit "End a lock lease that runs out...") replaced renew()'s inline
-#    `|| now >= it->second.expiryTime` with a call to the shared reapIfExpired(), and turned
-#    `bool renew()` into a wrapper over `RenewOutcome renewLease()`. B-2①'s GUARANTEE is intact --
-#    an expired lease still cannot be renewed, and the same LockManagerTest cases still pin it --
-#    but every one of this file's six literal targets stopped existing. `mutate()` REFUSES on a
-#    target it cannot find exactly once, so the gate would have exited 2 rather than passing
-#    silently; it was still a gate that could no longer be run.
-#
-#    🔑 A mutation gate is source-coupled by construction: it names lines. So a refactor of the
-#    code under it is also a change to the gate, and "the tests are still green" does not tell you
-#    the gate survived. This one was found by re-counting the targets after the refactor, not by
-#    running anything -- see the A-9 findings.
-
-# 1. The fix itself, removed: renew stops asking whether the lease has run out. This is the
-#    shipped defect, verbatim -- an expired lease is still flagged isLocked, so it falls through.
+# 1. The reap never fires. This is the pre-A-9 tree, verbatim: expiry is asked about but never
+#    recorded, `isLocked` stays true forever, and a late release finds the flag set.
 mutate "$LOCK" \
-    'if (reapIfExpired(type, it->second, now)) {
-            return RenewOutcome::Expired;
-        }
-' \
-    ''
-report "renew drops the expiry check (the defect)" \
-       "LockManagerTest.RenewingAnExpiredLeaseIsRefusedRatherThanResurrectingIt"
+    'if (!state.isLocked || now < state.expiryTime) {
+            return false;
+        }' \
+    'if (true) {
+            return false;
+        }'
+report "the lease reap never fires (the defect)" \
+       "LockLeaseExpiryTest.ReleasingAnExpiredLeaseIsReportedAsExpiredNotAsReleased"
 
-# 2. The comparison is present but backwards -- reaps live leases, spares dead ones. The direction
-#    has to be pinned separately from the presence, or "it compares something" passes.
+# 2. The reap fires on the wrong side of the comparison: live leases are reaped, dead ones are
+#    not. Presence and direction have to be pinned separately, or "it compares something" passes.
 mutate "$LOCK" '!state.isLocked || now < state.expiryTime' \
                '!state.isLocked || now >= state.expiryTime'
-report "the expiry comparison is inverted" \
-       "LockManagerTest.RenewingALockThatIsStillInForceRewritesItsDeadline"
+report "the reap's expiry comparison is inverted" \
+       "LockLeaseExpiryTest.ALiveLeaseIsStillReleasedNormally"
 
-# 3. renew answers Renewed without writing the new deadline. Every refusal test still passes; only
-#    the ttl-0 shrink probe can see this.
+# 3. The reap ends the lease but records nothing. Every outcome test still passes; only the
+#    observability half can see this, and observability is half of what A-9 is about.
 mutate "$LOCK" \
-    'it->second.expiryTime = now + std::chrono::seconds(ttlSeconds);
-        return RenewOutcome::Renewed;' \
-    'return RenewOutcome::Renewed;'
-report "renew reports success without extending" \
-       "LockManagerTest.RenewingALockThatIsStillInForceRewritesItsDeadline"
-
-# 4. The held check goes. A released lock keeps its old expiryTime and its cleared isLocked, so
-#    without this check a lock that was explicitly unlocked becomes renewable again.
-mutate "$LOCK" \
-    'if (!it->second.isLocked) {
-            return RenewOutcome::NotHeld;
-        }' \
+    'state.expiredLeaseId = state.leaseId;
+        state.expiredLeaseCount += 1;' \
     ''
-report "renew stops checking isLocked" "LockManagerTest.RenewingALockNobodyHoldsIsRefused"
+report "an expired lease is reclaimed but not recorded" \
+       "LockLeaseExpiryTest.AReclaimedLeaseIsCountedAndNamedSoItCanBeSeenAfterwards"
 
-# 5. An absent entry is created instead of being refused, so renew becomes a second way to take a
-#    lock that was never acquired -- bypassing the held check entirely.
+# 4. The outcome itself: release calls an expired lease a release. The state change is correct,
+#    only the answer lies -- which is precisely the pre-A-9 endpoint behaviour.
+mutate "$LOCK" 'return ReleaseOutcome::Expired;' 'return ReleaseOutcome::Released;'
+report "release reports an expired lease as released" \
+       "LockLeaseExpiryTest.ReleasingAnExpiredLeaseIsReportedAsExpiredNotAsReleased"
+
+# 5. Lease ids stop being unique. Every outcome test still passes -- until a stale id from one
+#    cycle matches a fresh one from the next and the mismatch check silently stops working.
+mutate "$LOCK" 'state.leaseId = m_nextLeaseId++;' 'state.leaseId = 1;'
+report "lease ids are reused" \
+       "LockLeaseExpiryTest.LeaseIdsAreNeverReusedAcrossAcquiresOrAcrossLocks"
+
+# 6. The opt-in ownership check goes. A caller naming a superseded lease releases the current
+#    holder's lock again -- the sequence KNOWN-ISSUES A-9 and B-2② are both about.
 mutate "$LOCK" \
-    'if (it == m_locks.end()) {
-            return RenewOutcome::NotHeld;
-        }' \
-    'if (it == m_locks.end()) {
-            m_locks[type].isLocked = true;
-            m_locks[type].expiryTime = now + std::chrono::seconds(ttlSeconds);
-            return RenewOutcome::Renewed;
-        }'
-report "renew creates a lock nobody acquired" "LockManagerTest.RenewingALockNobodyHoldsIsRefused"
+    'if (leaseId != 0 && leaseId != it->second.leaseId) {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "refused a release of {} naming lease {}; the current lease is {}. "
+                               "The lock was NOT released",
+                               lockTypeToString(type), leaseId, it->second.leaseId);
+            return ReleaseOutcome::LeaseMismatch;
+        }
 
-# 6. The handler side: the refusal loses its own status code and answers 200 like a success. The
-#    LockManager tests cannot see this at all -- it is why the endpoint has its own cases.
+' \
+    ''
+report "release stops checking the lease it was given" \
+       "LockLeaseExpiryTest.ALateReleaseNamingItsOwnLeaseCannotFreeTheLeaseThatReplacedIt"
+
+# 7. The read reaps. An operator looking at the lock would end the holder's lease by looking, and
+#    the reclaim would be attributed to whichever request happened to arrive next.
+mutate "$LOCK" \
+    'const auto now = std::chrono::steady_clock::now();
+        out.expiredLeaseCount' \
+    'const auto now = std::chrono::steady_clock::now();
+        reapIfExpired(type, it->second, now);
+        out.expiredLeaseCount'
+report "snapshot() reaps the lease it reports" \
+       "LockLeaseExpiryTest.SnapshotDoesNotReapTheLeaseItIsReporting"
+
+# 8. The handler side: the expired refusal loses its status code and answers 200 like a success.
+#    The LockManager tests cannot see this at all -- it is why the endpoint has its own cases.
 mutate "$HTTP" \
-    'const bool expired = (renewOutcome == LockManager::RenewOutcome::Expired);
-            res.result(http::status::precondition_failed); // 412 Precondition Failed' \
-    'const bool expired = (renewOutcome == LockManager::RenewOutcome::Expired);
+    'const bool expired = (releaseOutcome == LockManager::ReleaseOutcome::Expired);
+            res.result(http::status::precondition_failed);' \
+    'const bool expired = (releaseOutcome == LockManager::ReleaseOutcome::Expired);
             res.result(http::status::ok);'
-report "handleRenewLock answers 200 on a refused renew" \
-       "LockEndpointTest.RenewingAnExpiredLeaseIs412AndLeavesTheLockAcquirable"
+report "handleReleaseLock answers 200 on an expired lease" \
+       "LockEndpointTest.ReleasingAnExpiredLeaseIs412AndSaysExpiredRatherThan200Released"
+
+# 9. The lease never reaches the wire, so the opt-in check of mutation 6 has no way to be used by
+#    anybody. A LockManager-only test suite cannot see this either.
+mutate "$HTTP" '{"lease", report.leaseId},
+                              ' ''
+report "the acquire reply drops the lease id" \
+       "LockEndpointTest.AnAcquireHandsBackALeaseIdAndSaysWhenItTookOverADeadOne"
 
 restore
 [[ "${MUTATE_DRY_RUN:-0}" == "1" ]] || build > /dev/null 2>&1

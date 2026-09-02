@@ -206,7 +206,14 @@ TEST_F(LockEndpointTest, ReleasingAHeldLockSucceeds)
     EXPECT_EQ(body.value("status", ""), "released");
     // /ndt/ is a cross-repo contract; T-7b must not have altered the success reply.
     EXPECT_EQ(body.value("type", ""), "routing_lock");
-    EXPECT_EQ(body.size(), 2u) << "the success reply gained or lost a field: " << res.body();
+    // [Co-developed with claude code -- Adam]
+    // 2 -> 3 on 2026-09-02, deliberately: B-2② adds `lease`, naming the lease this request
+    // released. The count is kept as an assertion rather than relaxed -- its job is to make any
+    // change to this reply a decision somebody had to write down, and this is that write-up.
+    // Adding a field is non-breaking for consumers (tools/contract_test/schema.py's Obj is
+    // non-strict by default and says why), which is what makes the addition acceptable at all.
+    EXPECT_GT(body.value("lease", 0u), 0u) << "no lease named on a release: " << res.body();
+    EXPECT_EQ(body.size(), 3u) << "the success reply gained or lost a field: " << res.body();
 }
 
 /// ...and the release was real, not just reported. This is the assertion that a "return false
@@ -405,7 +412,10 @@ TEST_F(LockEndpointTest, ARenewNamingItsOwnLockSucceedsAndKeepsItsReplyShape)
     EXPECT_EQ(body.value("status", ""), "renewed");
     EXPECT_EQ(body.value("type", ""), "power_lock");
     EXPECT_EQ(body.value("ttl", -1), 30);
-    EXPECT_EQ(body.size(), 3u) << "the success reply gained or lost a field: " << res.body();
+    // 3 -> 4 on 2026-09-02: B-2② adds `lease`, naming the lease this renew extended. Same
+    // reasoning as the release reply above.
+    EXPECT_GT(body.value("lease", 0u), 0u) << "no lease named on a renew: " << res.body();
+    EXPECT_EQ(body.size(), 4u) << "the success reply gained or lost a field: " << res.body();
 
     // That the handler actually reached renew() and renew() actually wrote, with no wall clock:
     // a second renew to ttl 0 sets expiryTime = now, so the lease ends immediately and the lock
@@ -453,6 +463,121 @@ TEST(LockManagerUnlockTest, UnlockDistinguishesHeldFromNotHeldFromInvalid)
     ASSERT_TRUE(locks.acquireLock("routing_lock", 30));
     EXPECT_TRUE(locks.unlock("routing_lock")) << "a held lock releases";
     EXPECT_FALSE(locks.unlock("routing_lock")) << "and does not release twice";
+}
+
+// --- A-9: an expired lease is not a release, on the wire ----------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// tests/test_LockLeaseExpiry.cpp pins the LockManager side. These three are the endpoint side,
+// which the unit tests cannot see: the status code and the body are chosen in HttpSession, and
+// the whole point of A-9 is what a *caller* can tell from the answer it gets back.
+//
+// Setup uses `acquireLock(name, 0)` -- an already-run-out lease -- rather than a sleep, the same
+// device the rest of this file uses.
+
+TEST_F(LockEndpointTest, ReleasingAnExpiredLeaseIs412AndSaysExpiredRatherThan200Released)
+{
+    // 🔴 THE REGRESSION THIS FILE EXISTS TO CATCH. Before A-9 this answered
+    // 200 {"status":"released"} -- byte-identical to a real release -- because unlock() looked at
+    // `isLocked`, which expiry never cleared. KNOWN-ISSUES A-9: the Energy-Saving-App holds
+    // routing_lock for a 300 s ttl and never releases it on the failing path, so this is the
+    // reply an operator following the documented workaround actually gets.
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0)) << "held, and already run out";
+
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/release_lock",
+                                   R"({"type":"routing_lock"})");
+
+    EXPECT_EQ(res.result_int(), 412u) << "body: " << res.body();
+    EXPECT_NE(res.body().find(R"("reason":"expired")"), std::string::npos)
+        << "the reply does not say the lease expired: " << res.body();
+    EXPECT_EQ(res.body().find(R"("status":"released")"), std::string::npos)
+        << "an expired lease was reported as released: " << res.body();
+
+    // and the lock is genuinely free afterwards -- the refusal is about attribution, not about
+    // leaving the lock wedged
+    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30))
+        << "the refusal left the lock held by nobody";
+}
+
+TEST_F(LockEndpointTest, ReleasingALiveLockIsStill200AndStillSaysReleased)
+{
+    // The control for the case above and for the whole four-outcome split: an implementation that
+    // answered 412 to every release would satisfy every A-9 assertion and break the endpoint.
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600)) << "held, and in force";
+
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/release_lock",
+                                   R"({"type":"routing_lock"})");
+
+    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_NE(res.body().find(R"("status":"released")"), std::string::npos) << res.body();
+    EXPECT_EQ(res.body().find(R"("reason":)"), std::string::npos)
+        << "a successful release carried a failure reason: " << res.body();
+}
+
+TEST_F(LockEndpointTest, AnAcquireHandsBackALeaseIdAndSaysWhenItTookOverADeadOne)
+{
+    // The lease id has to reach the wire or the opt-in release check has no way to be used, and
+    // `reclaimed_expired_lease` is the only signal anywhere that a previous holder went away
+    // without releasing. Both were completely absent before A-9 -- the acquire reply was
+    // {"status","type","ttl"} and nothing else.
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0)) << "somebody's lease, already run out";
+
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/acquire_lock",
+                                   R"({"type":"routing_lock","ttl":30})");
+
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    const auto body = nlohmann::json::parse(res.body());
+    EXPECT_EQ(body.value("status", ""), "locked");
+    EXPECT_GT(body.value("lease", 0u), 0u) << "no lease id on a successful acquire: " << res.body();
+    EXPECT_TRUE(body.value("reclaimed_expired_lease", false))
+        << "this acquire took over a lease that had run out and did not say so: " << res.body();
+}
+
+// --- B-2②: the lease requirement, on the wire ---------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// tests/test_LockOwnership.cpp pins the LockManager side and explains why the switch is off by
+// default. These two are the endpoint side: the status code and the body, which the unit tests
+// cannot see. 400 rather than 412 is the load-bearing choice -- 412 means "acquire it and try
+// again", which is wrong advice for a caller whose request is simply missing a field.
+
+TEST_F(LockEndpointTest, WithEnforcementOnAReleaseNamingNoLeaseIs400AndReleasesNothing)
+{
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600)) << "somebody holds it, on a live lease";
+    m_locks->setRequireLeaseId(true);
+
+    const auto& res = m_peer->send(http::verb::post,
+                                   "/ndt/release_lock",
+                                   R"({"type":"routing_lock"})");
+
+    EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
+    EXPECT_NE(res.body().find(R"("reason":"lease_required")"), std::string::npos) << res.body();
+    EXPECT_EQ(res.body().find(R"("status":"released")"), std::string::npos)
+        << "a refused release reported success: " << res.body();
+
+    // The half that matters: the refusal must not have released it anyway.
+    EXPECT_FALSE(m_locks->acquireLock("routing_lock", 30))
+        << "the request was refused and the lock was freed regardless";
+}
+
+TEST_F(LockEndpointTest, WithEnforcementOnAReleaseNamingItsOwnLeaseStillSucceeds)
+{
+    // The control. "400 to every release" satisfies the test above and breaks the endpoint.
+    LockManager::AcquireReport a;
+    ASSERT_TRUE(m_locks->acquireLock("routing_lock", 3600, &a));
+    m_locks->setRequireLeaseId(true);
+
+    const auto& res =
+        m_peer->send(http::verb::post,
+                     "/ndt/release_lock",
+                     R"({"type":"routing_lock","lease":)" + std::to_string(a.leaseId) + "}");
+
+    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_NE(res.body().find(R"("status":"released")"), std::string::npos) << res.body();
+    EXPECT_TRUE(m_locks->acquireLock("routing_lock", 30)) << "the lock was not actually freed";
 }
 
 // --- the per-switch stat endpoints --------------------------------------------------------------
