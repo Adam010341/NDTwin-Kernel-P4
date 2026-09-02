@@ -1,5 +1,14 @@
 # 並發流對帳補測(2026-08-16 凌晨)
 
+> 🔴 **2026-09-03 更正（auditor）：本文件中所有取自
+> `estimated_..._proceeding_1sec_timeslot` 的絕對數值作廢，包括 `:73` 的
+> 「積分 = 4.49 GB = 3.46×」。** 原因與本輪的分析無關：該欄位在
+> `FlowLinkUsageCollector.cpp:1934/1952` **從未除以經過時間**，所以回報值 ＝ 真值 × 迴圈週期 T，
+> 而 T > 1 且隨負載變長（實測 1.04–1.25 s）。**這不是可事後換算的固定倍數**——每個讀數要用它
+> 當下的 T，而 T 只出現在 `kernel.log`、每 30 次迴圈才印一次。修法在分支
+> `fix/flow-rate-denominator`，說明見 `doc/audit/2026-09-02_live-round/FLOW-RATE-DENOMINATOR.md`。
+> **本文件其餘不依賴該欄位絕對值的結論不受影響**；要沿用 `:73` 那個積分必須重新推導。
+
 > 三判官一致排序的頭號補測缺口(`2026-08-15_acceptance-judgments.md` 可行動輸出 #6:
 > 「並發對帳 > 寫入路徑 > 多速率 > 故障矩陣」),外加同檔 #1(3c 修復)與
 > 3f 的 59-vs-10 double-counting 反核。全程 agent 自駕(wrapper + stack.sh + NTG bridge),
