@@ -239,7 +239,14 @@ Commit `6f32bca` 已經把基礎打好了：`IRoutingStrategy`/`IPowerStrategy` 
 - Proxy：把缺的 **`POST /stats/flowentry/delete`**（非 strict）實作出來。所有 `priority == -1` 的刪除都走這條，包括 Intent Translator 發出的。
 - Proxy：`route_flow`／`unroute_flow` 裡寫死的 `/32` 要改成真正解析 prefix（`"10.0.0.0/24"` 和 masked-pair 兩種寫法），這樣聚合路由才能用。
 - Proxy：用 asyncio timer 幫每筆規則模擬 `idle_timeout`，時間到就刪掉（kernel 的表格模型假設 flow 會自己過期）。
-- 加一個 `dpid → grpc_addr` 對照，**從 kernel 讀的同一份拓撲 JSON** 載入，取代 `main.py` 裡寫死的 `range(1, 11)`／`50050+i`／手工列出的 4 台 host。
+- 加一個 `dpid → grpc_addr` 對照，**從 kernel 讀的同一份拓撲 JSON** 載入，取代 `main.py` 裡寫死的 `range(1, 11)`／port 公式／手工列出的 4 台 host。
+
+  **2026-09-02 部分完成（F-15）**：port 公式那一項已經不是「寫死在 `main.py`」了——
+  base 收斂到 `p4_proxy/mininet/grpc_ports.py` 一處，`main.py` 改成 import
+  （原本 fabric 與 proxy 各寫死一份，兩份會各自漂移）。手工列出的 4 台 host 也已改成讀
+  `host_count_override`。**仍未做的是這一條的主體**：`dpid → grpc_addr` 還是用
+  `GRPC_PORT_BASE + dpid` 算出來的，不是從拓撲 JSON 讀的，所以下面那個「拓撲來源分裂」
+  的缺陷照舊。
 
   ### ⚠️ 拓撲來源分裂：一半讀檔案，一半寫死
 

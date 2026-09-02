@@ -68,6 +68,16 @@ BUILD = "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build"
 P4INFO_PATH = f"{BUILD}/ndtwin_switch.p4info.txt"
 JSON_PATH = f"{BUILD}/ndtwin_switch.json"
 
+# [Co-developed with claude code -- Adam]
+# The default gRPC port, from the fabric's own module. This does NOT weaken the third-party
+# discipline the docstring describes: grpc_ports holds a port number and a /proc check, and
+# shares nothing with proxy_agent/p4_client.py's request building. What it buys is that F-15's
+# renumber cannot leave this probe dialling an empty port and reporting it as a dead switch.
+import os  # noqa: E402
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
+from grpc_ports import grpc_port  # noqa: E402
+
 SESSION_ID = 250
 CPU_PORT = 255
 
@@ -160,7 +170,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", required=True, choices=list("abcde"))
     ap.add_argument("--device-id", type=int, default=1)
-    ap.add_argument("--addr", default="127.0.0.1:50051")
+    ap.add_argument("--addr", default=f"127.0.0.1:{grpc_port(1)}")
     args = ap.parse_args()
 
     with open(P4INFO_PATH) as f:

@@ -89,7 +89,7 @@ ctest            → 100% tests passed, 0 tests failed out of 12   ← 謊言
 OVS 模式                              P4 模式
 1. 控制層  Ryu                        1. 資料層  bmv2 Mininet
 2. 資料層  Mininet                    2. 控制層  P4 proxy agent
-   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:50051~60)
+   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:30051~60)
 3. Kernel  ndtwin_kernel   ← 開這個之前必須等收斂（兩個模式都要）
 4. 唯讀工具  Visualizer / NSR / Web-GUI
 5. 產流量    NTG
@@ -97,7 +97,7 @@ OVS 模式                              P4 模式
 ```
 
 Ryu 是 server、switch 連進來，所以 Ryu 要先開；bmv2 才是 server（`simple_switch_grpc` 監聽
-`0.0.0.0:50051-50060`），proxy 是 gRPC **client**，所以 P4 模式要先開 Mininet。`stack.sh up`
+`0.0.0.0:30051-30060`），proxy 是 gRPC **client**，所以 P4 模式要先開 Mininet。`stack.sh up`
 會依模式自動走對的順序。
 
 ```bash

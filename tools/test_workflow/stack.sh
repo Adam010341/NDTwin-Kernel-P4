@@ -689,7 +689,7 @@ cmd_up() {
     #        6633, 10/10 connected; the website's verbatim command (with singular
     #        --observe-link) -> 6633, 10 switches / 32 links, paths installed. An earlier
     #        version of this comment claimed the 6633 flag "breaks it silently". It does not.
-    #   P4:  bmv2 is the server -- simple_switch_grpc listens on 0.0.0.0:50051-50060 -- and the
+    #   P4:  bmv2 is the server -- simple_switch_grpc listens on 0.0.0.0:30051-30060 -- and the
     #        proxy is a gRPC *client* connecting to each one. So Mininet has to be up first, or
     #        the proxy's first real RPC gets ECONNREFUSED and uvicorn exits before opening :8081.
     #
@@ -744,7 +744,7 @@ cmd_up() {
             bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
         wait_for_port 8081 "P4 proxy agent" 30 p4_proxy || {
             err "  proxy did not open :8081; see $LOG_DIR/p4_proxy.log"
-            err "  if the log shows ECONNREFUSED to :5005x, bmv2 is not running -- start it first"
+            err "  if the log shows ECONNREFUSED to :3005x, bmv2 is not running -- start it first"
             return 1; }
     fi
 

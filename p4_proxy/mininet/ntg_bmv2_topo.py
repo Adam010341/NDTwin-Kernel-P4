@@ -47,9 +47,11 @@ sys.path.append(NTG_DIR)
 from mininet.net import Mininet
 from mininet.log import setLogLevel
 
+import grpc_ports
 from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, _host_count_override,
-                             disable_host_offloads, reap_manifest_switches,
-                             resolve_bmv2_launcher, verify_switches, write_manifest)
+                             disable_host_offloads, partial_fabric_verdict,
+                             reap_manifest_switches, resolve_bmv2_launcher, verify_switches,
+                             write_manifest)
 
 
 def fail(msg: str) -> None:
@@ -78,6 +80,16 @@ def main() -> None:
         binary, lib_dir = resolve_bmv2_launcher()
     except ValueError as e:
         fail(str(e))
+
+    # And the gRPC port block, against this machine's ephemeral range rather than against the
+    # number that was safe when it was chosen. See grpc_ports.py and F-15.
+    try:
+        warning = grpc_ports.assert_port_block_is_safe(
+            grpc_ports.grpc_port_block(range(1, 11)))
+    except grpc_ports.PortBlockError as e:
+        fail(str(e))
+    if warning:
+        print(warning)
     print(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
 
     # Reset exactly the way p4_testbed_topo.main does: mn -c does not touch bmv2, and an
@@ -117,15 +129,28 @@ def main() -> None:
     failures = verify_switches(switches)
     write_manifest(switches)
 
+    fatal, report = partial_fabric_verdict(failures, len(switches))
+    ports = grpc_ports.grpc_port_block(range(1, len(switches) + 1))
+
     print("\n======================================================================")
-    if failures:
-        print(f"WARNING: {len(failures)} of {len(switches)} BMv2 switches did NOT come up:")
-        for name, reason in failures:
-            print(f"  {name}: {reason}")
-        print("Fix the cause and restart rather than generating traffic on a partial fabric.")
+    if report:
+        print(report)
     else:
-        print(f"All {len(switches)} BMv2 switches listening on gRPC 50051 ~ 50060.")
+        print(f"All {len(switches)} BMv2 switches listening on gRPC "
+              f"{ports[0]} ~ {ports[-1]}.")
         print(f"Switch manifest: {MANIFEST_PATH}")
+    if fatal:
+        # This one mattered more than the topology script's: the next statement used to be
+        # NTG's traffic generator, so the advice "do not generate traffic on a partial fabric"
+        # was printed directly above the prompt that generates traffic on a partial fabric.
+        print("======================================================================\n")
+        net.stop()
+        reap_manifest_switches()
+        try:
+            os.remove(MANIFEST_PATH)
+        except OSError:
+            pass
+        sys.exit(1)
     print("Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),")
     print("then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an")
     print("absolute path -- the cwd moves to NTG's repo before the prompt appears):")

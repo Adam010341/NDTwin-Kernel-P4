@@ -384,7 +384,7 @@ sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.p
 ```
 
 > ⚠️ **P4 的順序和 OVS 相反，這是對的，不是筆誤。** OVS 是交換機主動撥給 Ryu，所以 Ryu 要先；
-> bmv2 反過來 —— `simple_switch_grpc` 是 **server**（listen `50051-50060`），proxy 是 gRPC
+> bmv2 反過來 —— `simple_switch_grpc` 是 **server**（listen `30051-30060`），proxy 是 gRPC
 > **client**。proxy 連不到就會直接退出（而且因為 gRPC channel 是 lazy 連線，錯誤會延到第一個
 > 阻塞 RPC 才浮現，看起來像別的問題）。
 
@@ -407,7 +407,7 @@ cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 ✅ 要看到 10 台都 `Clone session 250 -> port 255 installed`，0 失敗。
 ⚠️ 沒設 clone session 的話 bmv2 會**安靜地**丟掉每一份 clone，telemetry 全空但不報錯。
 
-⚠️ log 出現 `ECONNREFUSED` 到 `:5005x` 就是 bmv2 沒起來 —— 回 2a。
+⚠️ log 出現 `ECONNREFUSED` 到 `:3005x` 就是 bmv2 沒起來 —— 回 2a。
 
 ```bash
 ./stack.sh wait

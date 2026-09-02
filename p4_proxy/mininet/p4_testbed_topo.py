@@ -19,6 +19,7 @@ from mininet.log import setLogLevel, info
 # how test_readopt and test_bmv2_binary_override went red the day the JSON wiring landed.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import topo_from_json  # noqa: E402
+import grpc_ports  # noqa: E402
 
 # [Co-developed with claude code -- Adam]
 # Where the switch manifest is written: name -> pid, grpc_port, thrift_port, device_id.
@@ -236,7 +237,9 @@ def bmv2_launch_head(binary, lib_dir):
 
 class BMv2Switch(Switch):
     """BMv2 switch for Mininet"""
-    def __init__(self, name, json_path=None, device_id=1, grpc_port=50051, thrift_port=9090, **kwargs):
+    def __init__(self, name, json_path=None, device_id=1,
+                 grpc_port=grpc_ports.grpc_port(1), thrift_port=grpc_ports.THRIFT_PORT_BASE,
+                 **kwargs):
         Switch.__init__(self, name, **kwargs)
         self.json_path = json_path
         self.device_id = device_id
@@ -360,9 +363,13 @@ class MultiSwitchTopo(Topo):
         switches = {}
         for i in range(1, 11):
             s_name = f's{i}'
-            # grpc_port: 50051-50060, thrift_port: 9091-9100, device_id: 1-10
-            s = self.addSwitch(s_name, cls=BMv2Switch, json_path=json_path, 
-                               device_id=i, grpc_port=50050+i, thrift_port=9090+i)
+            # grpc_port: 30051-30060, thrift_port: 9091-9100, device_id: 1-10.
+            # Both bases live in grpc_ports.py, which is also where the reason the gRPC block
+            # is 30050-based rather than 50050-based is written down (F-15: 50051-50060 was
+            # inside the kernel's ephemeral range, so switches randomly failed to bind).
+            s = self.addSwitch(s_name, cls=BMv2Switch, json_path=json_path,
+                               device_id=i, grpc_port=grpc_ports.grpc_port(i),
+                               thrift_port=grpc_ports.thrift_port(i))
             switches[i] = s
 
         # Which model to build from. The host count still selects it -- that is the one knob
@@ -423,6 +430,49 @@ def verify_switches(switches, timeout=10.0):
         if pending:
             time.sleep(0.5)
     return [(sw.name, sw.failure_reason() or "unknown") for sw in pending]
+
+
+#: Set to "1" to keep a partial fabric instead of aborting. Same shape as grpc_ports'
+#: override: an escape hatch for someone who has decided they want nine switches, never a
+#: default.
+ALLOW_PARTIAL_ENV = "NDTWIN_P4_ALLOW_PARTIAL_FABRIC"
+
+
+def partial_fabric_verdict(failures, total, env=None):
+    """
+    What to do about the switches that did not come up: (fatal, message).
+
+    [Co-developed with claude code -- Adam]
+    Split out of main() so the decision can be tested without a fabric, and because it was not
+    a decision at all before: main() printed a WARNING and then dropped into the CLI anyway,
+    exiting 0. A run with eight of ten switches therefore looked, to anything scripting it,
+    exactly like a run with ten -- and every measurement taken on top of it was silently
+    against a different topology. Detecting the failure and then continuing is worse than not
+    detecting it, because the banner makes it look handled.
+
+    `fatal` is False only when there are no failures, or when someone set ALLOW_PARTIAL_ENV.
+    """
+    env = os.environ if env is None else env
+    if not failures:
+        return (False, None)
+
+    alive = total - len(failures)
+    lines = [f"{len(failures)} of {total} BMv2 switches did NOT come up."]
+    lines.extend(f"  {name}: {reason}" for name, reason in failures)
+    lines.append(f"{alive}/{total} switches are usable. The P4 proxy expects all {total} and "
+                 f"will report errors for the rest, so anything measured now is measured "
+                 f"against a fabric that is not the one being described.")
+
+    if env.get(ALLOW_PARTIAL_ENV) == "1":
+        lines.insert(0, f"WARNING ({ALLOW_PARTIAL_ENV}=1, continuing anyway):")
+        return (False, "\n".join(lines))
+
+    lines.insert(0, "ERROR: bring-up failed.")
+    lines.append(f"Fix the cause and re-run. If a gRPC port was already in use, check "
+                 f"whether the block still sits outside the ephemeral range: "
+                 f"cat {grpc_ports.EPHEMERAL_RANGE_PATH}. Set {ALLOW_PARTIAL_ENV}=1 to keep "
+                 f"a partial fabric deliberately.")
+    return (True, "\n".join(lines))
 
 
 def disable_host_offloads(hosts):
@@ -585,6 +635,20 @@ def main():
         sys.exit(1)
     print(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
 
+    # Pre-flight the gRPC port block, for the same reason and in the same place as the binary
+    # check above: this must fail before `mn -c` tears down whatever is running, not after.
+    # The block is checked against the *running kernel's* ephemeral range rather than against
+    # the number that was safe when it was chosen -- ip_local_port_range is a sysctl, and the
+    # demo machine is not necessarily this one. See grpc_ports.py and F-15.
+    try:
+        warning = grpc_ports.assert_port_block_is_safe(
+            grpc_ports.grpc_port_block(range(1, 11)))
+    except grpc_ports.PortBlockError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    if warning:
+        print(warning)
+
     os.system('sudo mn -c > /dev/null 2>&1')
     # [Co-developed with claude code -- Adam]
     # `mn -c` does not touch bmv2, so a switch orphaned by a closed terminal keeps holding its
@@ -624,24 +688,35 @@ def main():
     failures = verify_switches(switches)
     write_manifest(switches)
 
+    fatal, report = partial_fabric_verdict(failures, len(switches))
+    ports = grpc_ports.grpc_port_block(range(1, len(switches) + 1))
+
     print("\n======================================================================")
-    if failures:
+    if report:
         # Reported as a failure rather than the old unconditional success line. A dead switch
         # used to be completely silent here: its bind error went to /tmp/sN_bmv2.log, which
         # nothing read, and this banner claimed all ten were listening anyway. The proxy then
         # failed only on that one switch, tens of lines deep in its own log.
-        print(f"WARNING: {len(failures)} of {len(switches)} BMv2 switches did NOT come up.")
-        for name, reason in failures:
-            print(f"  {name}: {reason}")
-        alive = len(switches) - len(failures)
-        print(f"\n{alive}/{len(switches)} switches are usable. The P4 proxy expects all "
-              f"{len(switches)} and will report errors for the rest.")
-        print("Fix the cause and restart this script rather than continuing.")
+        print(report)
     else:
         print("Multi-Switch Network Started.")
-        print(f"All {len(switches)} BMv2 switches verified listening on gRPC 50051 ~ 50060")
+        print(f"All {len(switches)} BMv2 switches verified listening on gRPC "
+              f"{ports[0]} ~ {ports[-1]}")
         print(f"Switch manifest: {MANIFEST_PATH}")
     print("======================================================================\n")
+
+    if fatal:
+        # Refuse the CLI rather than printing a warning above it. The warning was there before
+        # and it did not stop a single run: the operator got a prompt, the wrapper got exit 0,
+        # and the partial fabric was used. The switch logs stay on disk (/tmp/sN_bmv2.log) for
+        # the post-mortem -- what is withheld is the ability to carry on as if nothing broke.
+        net.stop()
+        reap_manifest_switches()
+        try:
+            os.remove(MANIFEST_PATH)
+        except OSError:
+            pass
+        sys.exit(1)
 
     CLI(net)
     net.stop()

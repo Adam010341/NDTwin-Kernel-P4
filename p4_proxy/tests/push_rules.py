@@ -1,3 +1,4 @@
+import os
 import sys
 import grpc
 from p4.v1 import p4runtime_pb2
@@ -6,6 +7,13 @@ from p4.config.v1 import p4info_pb2
 from google.protobuf import text_format
 import socket
 import struct
+
+# [Co-developed with claude code -- Adam]
+# The gRPC port comes from the fabric's own module. It was a literal 50051 until F-15 moved the
+# block off the kernel's ephemeral range.
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
+from grpc_ports import grpc_port  # noqa: E402
 
 def build_p4info(p4info_file_path):
     p4info = p4info_pb2.P4Info()
@@ -89,7 +97,7 @@ def insert_route(stub, p4info, device_id, dst_ip, prefix_len, next_hop_mac, port
         print(f"Failed to add route {dst_ip}: {e.details()}")
 
 if __name__ == '__main__':
-    channel = grpc.insecure_channel('localhost:50051')
+    channel = grpc.insecure_channel(f'localhost:{grpc_port(1)}')
     stub = p4runtime_pb2_grpc.P4RuntimeStub(channel)
     import os
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

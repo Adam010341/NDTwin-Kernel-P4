@@ -632,7 +632,7 @@ up_p4() {
             info "the running fabric has $live_hosts hosts, this run wants $hosts; rebuilding it"
         fi
         if [[ "$n" -gt 0 ]] && ! topo_session; then
-            # Orphans outlive `mn -c` and hold :5005x, which makes the next fabric fail to
+            # Orphans outlive `mn -c` and hold :3005x, which makes the next fabric fail to
             # bind with an error that reads like a P4 problem.
             warn "$n orphan bmv2 process(es) with no topo session; sweeping first"
             sudo -n "$LAB" cleanup >/dev/null 2>&1
