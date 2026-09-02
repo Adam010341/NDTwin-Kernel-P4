@@ -1,0 +1,124 @@
+# 早安 — 2026-09-03 早上的簡報
+
+夜裡的目標（Adam 09-02 23:2x 定）：**用不同模型測安裝手冊，直到有人能一次通關。**
+判準：Installation Manual **§1–§6 全做完**、無 friction 3、無 tester 自己發明的 workaround、
+最後 kernel 起得來。
+
+> ⚠️ 這份是 run-04 開跑後寫的，**結果欄會在它收案後更新**。若下面還寫著「進行中」，
+> 表示我還沒收到它的完成通知。
+
+---
+
+## 1. 你醒來要裁的兩件事（其他都不必等你）
+
+### ① 判準要不要允許 §6 以背景完成？
+
+§6.1 的 P4 toolchain build **要 2 小時 07 分**（run-03 實測 7640 s，4 vCPU／6 GB）。
+一個有 session 限額的 tester 不可能用前景撐完它——**不改判準的話，量到的是限額不是手冊**。
+
+- auditor 不動你親定的判準，列進這張單。
+- 建議的改法：「§6 允許以背景完成，但 tester 必須**回頭收結果並跑手冊自己的驗收**
+  （Step 6.2 的兩條 `--version`），只看 `SCRIPT_EXIT=0` 不算。」
+- 若照現行判準，run-03 與 run-04 的 §6 都會落在灰色地帶。
+
+### ② 公開快照 `20cd80b`（08-28）要不要更新？
+
+**這是整個 campaign 最貴的一件事，而且只有你能做。**
+
+手冊叫使用者 `git clone https://github.com/ndtwin-lab/NDTwin-Kernel`（沒有 pin），
+那份公開碼停在 08-28，**不含**下列已併進 trunk 的修法：
+
+| KNOWN-ISSUES | 修法 | 併入 | 在公開快照？ |
+|---|---|---|---|
+| A-4e（`modify_flow_entry` 改掉每條同 match 的規則，含控制器自己的路由 ⇒ 斷流） | `c46c51eb` | 08-31 | ❌ |
+| B-2d（鎖 API 少 `type` 仍取走 `routing_lock`） | `4ee086f8` | 08-30 | ❌ |
+| F-1（CPU／記憶體使用率回捏造值） | `65c5cdb1` | 09-02 | ❌ |
+
+run-03 的 tester 從 GitHub clone、**當場把這三條「已修」缺陷完整重現**。
+兩條線各自獨立驗到（本線 `merge-base --is-ancestor`；auditor 那條線的讀碼 agent 查 origin）。
+
+最尖銳的是文件：API 頁把 B-2d 的修法寫成**帶日期的既成事實**
+（「Until 2026-08-30 … All three now return `400`…」），而讀者拿得到的 build 裡沒有它。
+
+⇒ 不更新的話，**每一輪 naive-user 測試都會再撞一次同一批**，而且我們永遠測不到修好的碼。
+推 `origin` 需要你本人；auditor 與本線都不推。
+
+---
+
+## 2. 夜裡發生了什麼
+
+| 時間 | 事件 |
+|---|---|
+| 22:08 | run-03（opus）被**我們自己 session 的用量上限**打死（非專案缺陷） |
+| 23:01 | run-03 的 §6.1 build 無人看管自己跑完，手冊四項驗收全過 |
+| 23:23 | run-03 收案、VM 停機、映像 17 GB 保留、帳本 release |
+| 23:2x | 三筆手冊硬錯修正經 auditor 覆核後進版（`f671631`），我又砍掉自己一句重複的（`2612b0a`） |
+| 23:31–23:37 | run-04 建機、開機、派工（sonnet，docs 凍結 `2612b0a`） |
+| 00:0x | **干預 #1**：tester 18 分鐘就停，以為背景 build 完成會有通知 → 喚醒 |
+| 00:1x | 你要求補的兩條 proxy API 進版（`174beca`，新頁 `P4 Proxy API`） |
+
+### run-03（opus）成績
+
+94 分鐘、**零干預**、**22 條 BUGS（新 15）**、38 條宣稱裡 36 條逐字對得上檔案
+（0 UNSUPPORTED／0 CONTRADICTED）。走完 §1–§5，§6.1 完成但它沒看到，
+User Manual 的 OVS 三終端跑通，41 個 REST 端點逐一驗**效果**。
+
+**結論是關於手冊的**：三輪都走得完 §1–§5，opus 連 §6.1 也跑完 ⇒ **手冊主幹是好的**。
+22 條裡真正 🔴 的六條**沒有一條在安裝主線上**——兩條 API 語意、一條 relay 誠實度、
+一條 NSR 啟動路徑、兩條是 `ndt` 這個「捷徑」。
+**手冊自己說三終端「still the reference」，而三輪裡三終端次次成功、捷徑次次失敗。**
+
+### 手冊改了什麼（run-04 的快照 `2612b0a`）
+
+只修硬錯、措辭不動、每筆對到一個 run-03 的 BUG 編號（auditor 裁的門檻）：
+
+| 對到 | 改動 |
+|---|---|
+| #3 | `ln -sf … ~/.local/bin/ndt` 前補 `mkdir -p ~/.local/bin`；並註明 Ubuntu 的 `~/.profile` 是**登入時**才測那個目錄，所以要開新的 login shell |
+| #12 | 收斂停止條件 `131 per switch` → **130**（128 目的地規則＋1 LLDP＋1 table-miss）。原本三個數字互不相同：敘述算 129、印出 131、機器 130 |
+| §6.1 | 補 detached 跑法（`tmux new-session -d`）與回收方法；明寫 `SCRIPT_EXIT=0` 不是驗收 |
+
+刻意**不修**的（是決定不是遺漏）：#2 埠不一致、#11 回應體不符——真的硬錯，但不在 §1–§6 路徑上，
+多改一處就多一個自變數。run-05 排第一。逐條理由見 `run-04-sonnet/DOCS-FIX-MAP.md`。
+
+---
+
+## 3. 夜裡新發現的缺陷（不必你裁，已交 auditor）
+
+**`ndt` 有兩個 `sudo -n` 呼叫不在手冊教的 sudoers 規則裡**（那條只涵蓋 `ndtwin-lab` 一個檔）：
+`ndt:1177` 的 `ovs-vsctl list-br`、`ndt:1206` 的 `mnexec … ping`。在一台照手冊裝、
+sudo 要密碼的機器上，`-n` 直接失敗而且失敗被吞掉：
+
+1. `ovs_bridge_count()` 回 **0** ⇒「底下有活的 OVS fabric 就拒絕」那道守衛永不觸發 ⇒
+   **`ndt up` 會靜靜拆掉別人正在跑的 fabric**。
+2. `dataplane_ok()` 有 0／1／2 三個回傳，沒權限走的是 **1（不通）不是 2（測不了）** ⇒
+   印出 `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`，
+   **把「我沒權限問」變成一句關於資料平面的具體斷言**。
+
+🔴 **四輪 usertest 都看不見它**，因為 tester VM 給了全域免密碼 sudo——
+**我們為了讓測試跑得動而放寬的條件，正好關掉了被測物最重要的一條失敗路徑。**
+
+auditor 已裁：走 `ndtwin-lab`（已是 root）不擴 sudoers，分支 `fix/ndt-sudo-surface`，
+驗收條件＝**沒權限問必須回 2，不准回 1**。
+
+---
+
+## 3b. 一個會改變判準怎麼讀的方法學發現
+
+**Tester 停手，在記錄上看起來跟「手冊沒問題了」一模一樣。** 今晚兩條線各自撞到：
+本線是 haiku 四次、sonnet 一次「等一個不存在的背景完成通知」；auditor 那條線是兩個 agent
+死於用量上限、判定沒落盤。run-03 的 opus 更極端——它死後 53 分鐘，§6.1 自己成功了。
+
+⇒ **任何一輪的「沒有更多 friction」都要先排除「tester 只是停了」。**
+收案程序因此加三條：成績單只算 tester 親眼看到的；收案要明寫停在第幾步、哪些章節沒走到；
+friction 統計要附中止原因。正本：`FINDING-a-stop-looks-like-completion.md`。
+
+模板的修法是**點破那個信念**而不是重申規則（規則 1 早就寫著「結束回合＝run 結束」，sonnet 照樣停）：
+在 guest 裡 detach 的行程不是 harness 的背景工作，harness 啟動的是一個已經返回的 ssh。
+
+## 4. 狀態
+
+- **run-04（sonnet）**：進行中。
+- **A-8（prep5 只做 §1–5、驗 OVS 不靠 §6）**：照你的裁定排在 run-04 之後，尚未開始。
+- **未推的 commit**：kernel repo 與 website repo 都有；**沒有推過 `origin`**。
+- 筆電上的 lab 我全程沒碰（auditor 的整機一輪在跑，claim 到 01:51）。

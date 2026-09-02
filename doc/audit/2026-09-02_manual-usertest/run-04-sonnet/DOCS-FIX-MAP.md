@@ -25,16 +25,40 @@
 | NTG 的 catch-22（venv 少 `--system-site-packages`、User Manual 指向不存在的 conda 路徑） | **已經修好了**——`062d8eb`（20:48:30）與 `df614ce`（20:50:18）都在 `d5259f0` 裡。時序值得記：這兩個修法是在 run-03 的 VM 開機（20:30:35）之後 18 分鐘才落地的 |
 | **#21 #22**（`ndt up ovs` 與 `ndtwin-lab` 的假成功） | **auditor 指示今晚不動**。G-7 由另一個 session 在 `fix/g7-ndtwin-lab-config` 上處理，範圍只到 repo 內版本支援安裝期設定檔；已安裝的 `/usr/local/sbin/ndtwin-lab` 與 sudoers 是提權路徑，夜裡無人在旁不碰。Known-limitation 段落（含三終端程序）維持原樣 |
 | **#9 #10 #13**（trunk 已修卻完整重現） | **不是手冊能修的**。安裝手冊叫人 `git clone https://github.com/ndtwin-lab/NDTwin-Kernel`，而那個公開快照停在 `20cd80b`（08-28），比 `c46c51eb`／`4ee086f8`／`65c5cdb1` 三個修法都舊。修法＝更新公開快照＝推公開 repo，**超出我的授權**（見早上要問 Adam 的清單）。#10 尤其尖銳：API 頁把修法寫成帶日期的既成事實，而讀者拿得到的 build 裡沒有它 |
-| **#2**（SIM_SERVER_URL 埠不一致）、**#11**（flow entry 回應體與實際不符） | 都是真的硬錯，但**不在 §1–§6 ＋ bring-up 的路徑上**（一個在 Simulation Platform 頁、一個在 API 頁），不影響本輪判準。為了讓 run-01↔run-04 的差異指向修的那三條，這兩條留到下一輪一起修 |
+| **#2**（SIM_SERVER_URL 埠不一致）、**#11**（flow entry 回應體與實際不符） | 🔶 **已確認的硬錯，本輪刻意不修——這是決定，不是遺漏。** 兩條都真的會讓照做的人失敗，但**不在 §1–§6 ＋ bring-up 的路徑上**（一個在 Simulation Platform 頁、一個在 API 頁），不影響本輪判準。為了讓 run-01↔run-04 的差異指向修的那三條，這兩條留到下一輪一起修 |
 | **#16**（runtime API 弄髒 git checkout，手冊沒警告） | 補警語屬於**新增說明**，不是硬錯——照做不會失敗 |
 | **#18**（NSR 的 `logs/` 不存在，手冊的監看指令不能用） | 修法會變成把 tester 的 `mkdir` workaround 寫進手冊 ⇒ **禁止**。正規修法在 NSR 那支腳本裡 |
 | **#4 #5 #6 #7 #8 #14 #17 #20** ＋ 本線補立的 NTG 毒化案 | **程式／腳本缺陷，不是手冊錯**。歸 KNOWN-ISSUES 與 fix-design 那條線 |
 | **#15 #19** | 正面紀錄，不是缺陷 |
 
+## run-05 的自變數：不只三筆
+
+`174beca` 在 run-04 派工**之後**進版，新增了一整頁 **`P4 Proxy API`**（Developer Manual，
+記錄 proxy 的 `GET /p4/switch_state` 與 `POST /p4/readopt/{dpid}`，Adam 09-03 00:1x 交辦）。
+
+⚠️ **它與上面三筆是不同性質的自變數**：三筆是**修正既有錯誤**（讀者照做會失敗 → 不會失敗），
+這一頁是**新增原本不存在的內容**（讀者本來找不到 → 找得到）。前者只會減少 friction，
+後者可能同時減少 friction（讀者不再需要猜）**和**增加涵蓋面（讀者會去試以前不知道存在的東西，
+於是撞到新的 bug）。歸因 run-05 時兩類要分開算。
+
+- run-04 的凍結快照 ＝ **`2612b0a`**（＝三筆修正，**不含**這頁）
+- run-05 的起點 ＝ **`174beca`** 或更後
+
+頁上的 provenance 標記（逐欄標明哪些值是實測、哪些是從 handler 推的）**是文件的一部分，
+整理時不要抹掉**。
+
 ## 早上要問 Adam 的
 
 1. **判準要不要允許 §6 以背景完成？** §6.1 要 2 h 07 m。一個有 session 限額的 tester 幾乎不可能在「一次通關」裡用前景撐完它。若不調整，量到的是限額不是手冊。（auditor 不改 Adam 親定的判準，列進清單。）
-2. **公開快照 `20cd80b`（08-28）要不要更新？** 不更新的話，#9／#10／#13 這三條已修缺陷每一輪都會重現，naive-user 測試永遠測不到修好的碼。這需要推公開 repo，我不做。
+2. **公開 repo 落後 trunk，導致每一輪 usertest 都在測舊碼；要不要推公開快照？（推 `origin` 需要你本人）**
+   手冊叫人 `git clone https://github.com/ndtwin-lab/NDTwin-Kernel`，那份公開碼停在 `20cd80b`（08-28），
+   不含 `c46c51eb`（A-4e，08-31 就併進 trunk）／`4ee086f8`（B-2d）／`65c5cdb1`（F-1）。
+   run-03 的 tester 正是從 GitHub clone、當場重現了那三個「已修」的 bug。
+   **兩條線各自獨立驗到同一件事**：本線用 `merge-base --is-ancestor` 逐一比對，
+   09-01 auditor 那條線的讀碼 agent 也查出公開 `origin` 缺 `c46c51e`。
+   ⇒ 不是手冊的問題，是**使用者拿到的碼不是我們在修的碼**。auditor 與本線都不推，等你裁。
+
+3. **run-05 的優先順序**：若還要再跑一輪，#2 與 #11 排第一（本輪刻意不修的那兩條）。
 
 ## 凍結
 
