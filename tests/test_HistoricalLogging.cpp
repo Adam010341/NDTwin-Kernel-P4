@@ -450,6 +450,12 @@ TEST(HistoricalLoggingReplyTest, MininetEnableIsNotAnsweredWithTheSameStatusFiel
     EXPECT_NE(body.value("status", ""), "success")
         << "a deployment that will never write a row answered with the same `status` as one that "
            "is recording, so `status` carries no information: " << res.body();
+
+    // The exact token as well as the inequality. "not success" alone would be satisfied by any
+    // string at all, so a reply that drifted to "enabled" -- which is what the endpoint said
+    // before aabe605 -- would keep this test green while telling a caller nothing it can branch
+    // on. The token is wire contract; doc/2026-01-02_ndt_api.md section 39 has to carry it.
+    EXPECT_EQ(body.value("status", ""), "not_applicable") << res.body();
     EXPECT_FALSE(body.value("recording", true)) << res.body();
 }
 
@@ -482,6 +488,12 @@ TEST(HistoricalLoggingReplyTest, AnUnstartedRecorderIsNotReportedAsRecordingEith
         << "canRecord() is true for this manager, but nothing ever called start(), so no row can "
            "appear and the reply must not claim otherwise: " << res.body();
     EXPECT_EQ(body.value("reason", ""), "recorder-not-running") << res.body();
+
+    // The prose has to follow the reason. One sentence reused for every non-recording cause would
+    // tell a TESTBED operator that the recorder "is only started outside MININET mode" -- which is
+    // both false and the exact disease this endpoint is being treated for, one level further in.
+    EXPECT_EQ(body.value("message", "").find("MININET"), std::string::npos)
+        << "a TESTBED reply blamed MININET: " << res.body();
 }
 
 /// A fix that turned every reply into a refusal would be as useless as the lie it replaced.
