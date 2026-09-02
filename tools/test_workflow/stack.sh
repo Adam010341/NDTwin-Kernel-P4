@@ -699,6 +699,13 @@ cmd_up() {
         if [[ ! -x "$RYU_MANAGER" ]]; then
             err "  ryu-manager not found: $RYU_MANAGER"; return 1
         fi
+        # Fail here rather than at wait_for_port. A missing app file makes ryu-manager exit, and
+        # the symptom -- :8080 never opening -- reads like a slow controller rather than like a
+        # file that is not there. [Co-developed with claude code -- Adam]
+        if [[ ! -f "$RYU_TOPOLOGY_APP" ]]; then
+            err "  bounded topology app not found: $RYU_TOPOLOGY_APP"
+            err "  (it is version-controlled at tools/ryu_apps/rest_topology_bounded.py)"; return 1
+        fi
         # intelligent_router.py only serves /ryu_server/all_destination_paths. Every other Ryu
         # REST endpoint the kernel depends on comes from a stock app, and loading neither of
         # these is a silent 404 that surfaces as garbage rather than as an error:
@@ -709,6 +716,14 @@ cmd_up() {
         #     Without the REST app, updateSwitches() feeds the 404's HTML to json::parse,
         #     catches the throw and returns -- so the graph stays down and disabled.
         #
+        #     🔴 This is $RYU_TOPOLOGY_APP -- OUR copy (tools/ryu_apps/rest_topology_bounded.py),
+        #     not the stock `ryu.app.rest_topology` module, and the stock one must NOT be added
+        #     back alongside it: both register the same /v1.0/topology/* routes. KNOWN-ISSUES A-2
+        #     -- upstream these three handlers block forever in send_request -> reply_q.get(), so
+        #     a wedged ryu.topology.switches accepts the kernel's connection and never answers.
+        #     The copy bounds each at 3 s and returns 503 with an empty body. See
+        #     tools/ryu_apps/README.md for why both of those numbers are what they are.
+        #
         #   ofctl_rest -> GET /stats/flow/<dpid>, POST /stats/flowentry/{add,modify,delete,
         #                 delete_strict}
         #     Every flow install/modify/delete and all flow-table polling. Without it the
@@ -717,7 +732,7 @@ cmd_up() {
         #     nothing usable, the Classifier stays empty so every flow's path is [], and
         #     install_flow_entry fails with "Ryu controller returned HTTP 404".
         start_bg ryu "$LOG_DIR/ryu.log" \
-            bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' ryu.app.rest_topology ryu.app.ofctl_rest"
+            bash -c "cd '$KERNEL_DIR' && '$RYU_MANAGER' --observe-links '$RYU_APP' '$RYU_TOPOLOGY_APP' ryu.app.ofctl_rest"
         wait_for_port 8080 "Ryu REST" 40 ryu || {
             err "  Ryu did not open :8080; see $LOG_DIR/ryu.log"; return 1; }
 
