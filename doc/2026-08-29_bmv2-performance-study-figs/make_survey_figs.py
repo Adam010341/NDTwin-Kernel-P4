@@ -56,19 +56,19 @@ PAPERS = [
 # non-logging mode", no flags), TSSA pkt-size (two points, qualitative
 # attribution, never converted to pps).
 M12 = [
-    # thr var ver flg A/B pkt pps flw cmp
-    [1, 1, 0, 0, 0, 0, 0, 0, 0],   # TOMACS '25
-    [1, 1, 0, 0, 0, 0, 0, 0, 0],   # PADS '23
-    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # PADS '24
-    [1, 0, 1, 0.5, 0, 0, 0, 0, 0],  # ICNCC '23
-    [1, 0, 0, 0, 0, 0.5, 0, 0, 0],  # TSSA '23
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],   # SOSR '17 (latency only)
-    [1, 0, 0, 0, 0, 0, 1, 0, 0],   # P4CEP '18
-    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # P4-NIDS '24
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],   # PoliTO (delay only)
-    [1, 1, 0, 0, 0, 0, 0, 0, 0],   # PADS '26
-    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # Network '25
-    [1, 0, 0, 0, 0, 0, 0, 0, 0],   # P4sim '25
+    # thr var ver flg A/B pkt pps flw cmp | 2nd  (2nd = second plane measured, added 2026-09-02)
+    [1, 1, 0, 0, 0, 0, 0, 0, 0, 1],   # TOMACS '25
+    [1, 1, 0, 0, 0, 0, 0, 0, 0, 1],   # PADS '23
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],   # PADS '24
+    [1, 0, 1, 0.5, 0, 0, 0, 0, 0, 1],   # ICNCC '23
+    [1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0],   # TSSA '23
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],   # SOSR '17 (latency only)
+    [1, 0, 0, 0, 0, 0, 1, 0, 0, 1],   # P4CEP '18
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],   # P4-NIDS '24
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],   # PoliTO (delay only)
+    [1, 1, 0, 0, 0, 0, 0, 0, 0, 1],   # PADS '26
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],   # Network '25
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],   # P4sim '25
 ]
 
 # ---------------------------------------------------------------- fig 5
@@ -324,47 +324,65 @@ def fig8():
 # 0.5 qualitative mention only, 0 absent from the full text. Row-by-row
 # provenance and the exact quotes: fig5b_reporting_matrix_34.md (same dir).
 SCREEN = [
-    # label,                  thr  var  ver  flg  pkt  pps  lim   source
-    ("P4-IPsec Access '20",     1,   1,   0,   0,   0,   0,   0),  # 80a #1
-    ("MQTT-P4 arXiv '26",       1,   1,   0,   0,   0,   1,   0),  # 80a #2 kpps loads
-    ("Tokmakov arXiv '20",      1,   0,   1,   0,   0,   0,   0),  # 80a #3 "Release 1.11.0"
-    ("RL paths arXiv '25",      1,   0,   0,   0,   0,   0,   0),  # 80a #4 relative only
-    ("P4-MACsec Access '20",  0.5,   1,   0,   0,   0,   0,   0),  # 80a #5 qualitative; IEEE version not obtained
-    ("CEI-Net MedComNet '25",   1,   0,   0,   0, 0.5,   0,   0),  # 80a #6 MSS swept, throughput not per size
-    ("SDN envs LNNS '26",       1,   0,   0,   0,   0,   0,   0),  # 80a #7
-    ("APATCP Sci Rep '26",      1,   0,   0,   0,   0,   0,   0),  # 80e #1
-    ("SFARP Sci Rep '25",       1,   0,   0,   0,   0,   0,   0),  # 80e #2
-    ("MC-LBTO Sci Rep '25",     1,   1,   0,   0,   0,   0,   0),  # 80e #3
-    ("SBRC '26",                1,   0,   0, 0.5,   0,   0,   0),  # 80e #4 "adapted version" + performance.md, no flags
-    ("WPEIF '26",               0,   0,   0,   0,   0,   0,   0),  # 80e #5 latency only
-    ("TEPS Sci Rep '25",        1,   1,   0,   0,   0,   0,   0),  # 80e #6
-    ("DPF Network '25",         1,   0,   0,   0,   0,   0,   0),  # 80e #7
-    ("IoT-6G MDPI IoT '20",     1,   0,   0,   0,   0,   1,   0),  # 80e #8 Kpps axis, single 64 B
-    ("P4QCN Electronics '19",   1,   0,   0,   0,   0,   0, 0.5),  # 80e #9 own operating-range threshold
-    ("INCoS '22",               1,   0,   0,   0,   0,   0,   0),  # 80e #10 single 1440 B
-    ("L4-LB LOGIC '25",         1,   0,   0,   0,   0,   0,   0),  # 80e #11
-    ("Paolucci IEEE Netw '21",  1,   0,   0,   0,   0,   0,   0),  # 80f s1 single 1500 B
-    ("Elangovan APNOMS '21",    1, 0.5,   0, 0.5,   1,   0,   0),  # 80f s2 5 sizes; "without logging support"
-    ("HOL4P4.EXE VSTTE '25",    1,   0, 0.5,   0,   1,   1, 0.5),  # 80f s3 7 sizes, Mbps+pps; baseline for own switch only
-    ("NCTU thesis '18",         1,   0,   0,   0,   0,   0,   0),  # 80f s4.7 relative only
+    # label,                  thr  var  ver  flg  pkt  pps  lim | A/B  flw  2nd  cmp   source
+    ("P4-IPsec Access '20",      1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0),  # 80a #1
+    ("MQTT-P4 arXiv '26",        1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0),  # 80a #2 kpps loads
+    ("Tokmakov arXiv '20",       1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0),  # 80a #3 "Release 1.11.0"
+    ("RL paths arXiv '25",       1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80a #4 relative only
+    ("P4-MACsec Access '20",     0.5, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80a #5 qualitative; IEEE version not obtained
+    ("CEI-Net MedComNet '25",    1, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0),  # 80a #6 MSS swept, throughput not per size
+    ("SDN envs LNNS '26",        1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0),  # 80a #7; ver 0->1 2026-09-02 coverage audit (Table 4)
+    ("APATCP Sci Rep '26",       1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0),  # 80e #1
+    ("SFARP Sci Rep '25",        1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0),  # 80e #2
+    ("MC-LBTO Sci Rep '25",      1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0),  # 80e #3
+    ("SBRC '26",                 1, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0),  # 80e #4 "adapted version" + performance.md, no flags
+    ("WPEIF '26",                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80e #5 latency only
+    ("TEPS Sci Rep '25",         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80e #6
+    ("DPF Network '25",          1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80e #7
+    ("IoT-6G MDPI IoT '20",      1, 0, 0, 0, 0, 1, 0, 0, 0, 0.5, 0),  # 80e #8 Kpps axis, single 64 B
+    ("P4QCN Electronics '19",    1, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0),  # 80e #9 own operating-range threshold
+    ("INCoS '22",                1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0),  # 80e #10 single 1440 B
+    ("L4-LB LOGIC '25",          1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80e #11
+    ("Paolucci IEEE Netw '21",   1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0),  # 80f s1 single 1500 B
+    ("Elangovan APNOMS '21",     1, 0.5, 0, 0.5, 1, 0, 0, 0, 0, 0, 0),  # 80f s2 5 sizes; "without logging support"
+    ("HOL4P4.EXE VSTTE '25",     1, 0, 0.5, 0, 1, 1, 0.5, 0, 0, 1, 0),  # 80f s3 7 sizes, Mbps+pps; baseline for own switch only
+    ("NCTU thesis '18",          1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),  # 80f s4.7 relative only
 ]
 
 
 def fig5b():
-    cols = ["throughput\nmeasured", "variant", "version", "build\nflags",
-            "pkt-size\nsweep", "pps\nbasis", "limit\ncheck"]
-    corpus = [(PAPERS[i], r[0], r[1], r[2], r[3], r[5], r[6], 0)
+    # 2026-09-02: `throughput measured` dropped (it is the inclusion criterion,
+    # not a reporting item -- 30/34 filled, carrying no claim; the four
+    # exceptions are named in the .md). Four columns added: the three fig5
+    # columns the screen had not coded, plus `second plane measured`, which is
+    # a NEW claim with no precedent in the study (codebook: CODEBOOK-2ndplane).
+    cols = ["variant", "version", "build\nflags", "build\nA/B",
+            "pkt-size\nsweep", "pps\nbasis", "limit\ncheck",
+            "flows as\nvariable", "second plane\nmeasured",
+            "comparison plane\n(multi-flow)"]
+    #                var   ver   flg   A/B   pkt   pps  lim  flw   2nd   cmp
+    corpus = [(PAPERS[i], r[1], r[2], r[3], r[4], r[5], r[6], 0, r[7], r[9], r[8])
               for i, r in enumerate(M12)]
-    rows = corpus + SCREEN
+    # SCREEN is stored thr,var,ver,flg,pkt,pps,lim,A/B,flw,2nd,cmp; the
+    # figure's column order interleaves A/B after flg, so map explicitly.
+    screen = [(r[0], r[2], r[3], r[4], r[8], r[5], r[6], r[7],
+               r[9], r[10], r[11]) for r in SCREEN]
+    rows = corpus + screen
     n, nc, ncorp = len(rows), len(cols), len(corpus)
     assert n == 34, n
-    # guard: (full, half) per column == 80f s7 merged statistics; the
-    # throughput column is derived (10/12 from fig5 + 20/22 from the screen:
-    # one latency-only, one qualitative) and pinned here against drift.
-    want = {"throughput\nmeasured": (30, 1), "variant": (8, 1),
-            "version": (2, 1), "build\nflags": (0, 3),
-            "pkt-size\nsweep": (2, 2), "pps\nbasis": (4, 0),
-            "limit\ncheck": (0, 2)}
+    # guard: (full, half) per column. Six columns are pinned against 80f s7
+    # "merged statistics"; `version` is 3 not 2 since the 2026-09-02 coverage
+    # audit found LNNS'26 Table 4 ("BMv2 1.16") -- Springer keeps tables off
+    # the chapter page, so the browser-innerText coding had missed it.
+    # `build A/B`, `flows as variable` and `comparison plane (multi-flow)` are
+    # fig5's own columns, coded for the screen in this round (CODEBOOK.md).
+    # `second plane measured` is the new claim (CODEBOOK-2ndplane.md); 17 is
+    # the body-text reading -- see the .md for the two other readings.
+    want = {"variant": (8, 1), "version": (3, 1), "build\nflags": (0, 3),
+            "build\nA/B": (0, 0), "pkt-size\nsweep": (2, 2),
+            "pps\nbasis": (4, 0), "limit\ncheck": (0, 2),
+            "flows as\nvariable": (0, 1), "second plane\nmeasured": (17, 2),
+            "comparison plane\n(multi-flow)": (0, 0)}
     totals = []
     for j, c in enumerate(cols):
         full = sum(1 for r in rows if r[1 + j] == 1)
@@ -377,7 +395,7 @@ def fig5b():
     def ypos(i):
         return (n - 1 - i) + (GAP if i < ncorp else 0)
 
-    fig, ax = plt.subplots(figsize=(3.3, 6.4))
+    fig, ax = plt.subplots(figsize=(4.9, 6.6))
     for i, r in enumerate(rows):
         y = ypos(i)
         for j in range(nc):
@@ -400,7 +418,7 @@ def fig5b():
     for (lo, hi, lab) in ((0, ncorp, "corpus\n(12)"),
                           (ncorp, n, "post-hoc screen\n(22)")):
         yc = (ypos(lo) + 1 + ypos(hi - 1)) / 2
-        ax.text(-3.05, yc, lab, rotation=90, ha="center", va="center",
+        ax.text(-4.15, yc, lab, rotation=90, ha="center", va="center",
                 fontsize=6.0, color="#555555", clip_on=False)
     ax.set_xlim(0, nc)
     ax.set_ylim(-2.7, n + GAP)
@@ -418,8 +436,8 @@ def fig5b():
                     fontweight="bold" if zero else "normal",
                     color=C_HL if zero else "#333333")
     ax.annotate("filled = stated in the paper; half = qualitative mention only\n"
-                "build half-cells: 'no logging' / 'adapted version', no flag named (3)\n"
-                "rows: the 12 corpus papers + 22 found after the corpus froze, same sheet",
+                "rows: the 12 corpus papers + 22 found after the corpus froze, same sheet\n"
+                "17 papers measured a second plane; none of them at a multi-flow condition",
                 (0, -0.95), va="top", fontsize=5.6, color="#555555")
     for s in ("left", "bottom"):
         ax.spines[s].set_visible(False)

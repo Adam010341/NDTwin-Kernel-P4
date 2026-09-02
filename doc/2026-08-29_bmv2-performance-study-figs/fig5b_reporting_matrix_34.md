@@ -24,42 +24,135 @@ SRv6-24, HPC PADS'26) and its "edge" cases (CSITSS'25 screenshots); everything s
 is one author group, and TOMACS'25 is the journal extension of PADS'23 — 34 publication
 records, 31 independent works. Counts on the figure are per record, as in fig5.
 
-## 2. Columns (all seven are coded for every one of the 34 rows)
+## 2. Columns (all ten are coded for every one of the 34 rows)
 
 | column | 1 (filled) | 0.5 (half) | 0 |
 |---|---|---|---|
-| throughput measured | prints a bmv2 throughput / goodput / pps figure, absolute or relative | qualitative statement only | latency-only paper |
 | variant | names `simple_switch` / `simple_switch_grpc` (or an explicit extension of one) | says "with P4Runtime support" without naming the target | "bmv2" / "BMv2 switch" only |
 | version | states a bmv2 release or commit for the measured binary | a release named for another purpose (LoC count) | none (p4c, ONOS, Mininet versions do not count) |
 | build flags | any compiler flag, `-O` level, or `configure` line | says "no logging" / "adapted version for higher throughput" without a flag | none |
 | pkt-size sweep | bmv2 throughput reported at ≥3 frame/payload sizes | sizes varied but throughput not reported per size, or 2 sizes with qualitative attribution | single size or unstated |
 | pps basis | packets/s appears as a unit or an axis for the bmv2 figure | — | bit rate (or relative %) only |
 | limit check | a measured check of what limited the instrument (generator ceiling, loopback, baseline) | an own operating-range threshold, or a baseline for another switch but not for bmv2 | attribution in prose at most |
+| build A/B | measures bmv2 under >=2 different builds of the binary and reports the effect with numbers | says it compared builds, or saw a build effect, qualitatively | nothing of the kind (a run-time logging/tracing toggle is 0; two P4 programs on one bmv2 is 0) |
+| flows as variable | a bmv2 figure reported per level of the concurrent-flow count, >=2 levels, topology and placement held fixed | the flow count varies at fixed topology but the effect is remarked on qualitatively only | one flow count; count unstated; or flows vary together with something else (rule count and rate sweeps are not flow counts) |
+| second plane measured | the paper itself measures a non-bmv2 forwarding plane and prints a number for it | qualitative only, or the number exists solely in a figure with no value in the body | none; or another paper's number is cited; or the "other plane" is the same bmv2 with a different P4 program, topology, or VM/native split |
+| comparison plane (multi-flow) | a non-bmv2 plane measured on the **same** flow count(s) (>=2), same topology and placement, with both planes' numbers printed per flow count | the second plane is under multi-flow load but the comparison is qualitative, or the pairs are for different topologies | no such pairing (this is the study's `:145` column) |
 
-**Omitted on purpose:** fig5's `build A/B`, `flows as variable` and `comparison plane` were
-not coded for the 22 (the screen's sheet has no such fields), so drawing them empty would
-turn "not coded" into "not reported". The 12 corpus rows keep those values in fig5.
+**2026-09-02 revision.** The three fig5 columns that this figure originally omitted
+(`build A/B`, `flows as variable`, `comparison plane`) have now been coded for all 22 screened
+papers from their full texts (codebook: `CODEBOOK.md` in the round's scratchpad; per-paper
+evidence in `results/group{A..D}.md`). A fourth column, `second plane measured`, was added; it is
+a **new claim with no precedent in the study** (codebook: `CODEBOOK-2ndplane.md`). One column was
+dropped: `throughput measured` (30/34) is the **inclusion criterion**, not a reporting item -- the
+corpus is defined as "papers that measure bmv2" -- so a near-full column carried no claim. Its four
+exceptions: SOSR'17 and the PoliTO thesis measure latency only, WPEIF'26 measures latency only,
+and P4-MACsec'20 is qualitative (numbers not in the ar5iv text; the IEEE version is unobtained).
 
-## 3. Totals — asserted in the script against 80f §7 "合併統計"
+**Why `comparison plane` keeps its condition.** The study's own name for that column is
+「多流條件下帶對照平面」-- *carries a comparison plane under multi-flow conditions*
+(`doc/2026-08-29_bmv2-performance-study.md:145`), and `:191` states the conjunction explicitly:
+"「隔離流數」＋「帶對照平面」兩個條件同時成立的量測：這 18 篇裡 0 篇". The multi-flow requirement
+is that column's own definition, not a criterion borrowed from `flows as variable`. The figure
+therefore labels it `comparison plane (multi-flow)`, and the unconditional question gets its own
+column so that a reader is not asked to infer which one is meant.
+
+## 3. Totals — asserted in the script
 
 | column | corpus (12) | screen (22) | **34** | half-cells |
 |---|---|---|---|---|
-| throughput measured | 10 | 20 | **30/34** | 1 (P4-MACsec, qualitative) |
 | variant | 3 | 5 | **8/34** | 1 (Elangovan) |
-| version | 1 | 1 | **2/34** | 1 (HOL4P4.EXE) |
+| version | 1 | 2 | **3/34** | 1 (HOL4P4.EXE) |
 | build flags | 0 | 0 | **0/34** | 3 (ICNCC'23, SBRC'26, Elangovan) |
+| build A/B | 0 | 0 | **0/34** | 0 |
 | pkt-size sweep | 0 | 2 | **2/34** | 2 (TSSA'23, CEI-Net) |
 | pps basis | 1 | 3 | **4/34** | 0 |
 | limit check | 0 | 0 | **0/34** | 2 (P4QCN, HOL4P4.EXE) |
+| flows as variable | 0 | 0 | **0/34** | 1 (SBRC'26) |
+| second plane measured | 9 | 8 | **17/34** | 2 (P4sim'25, IoT-6G) |
+| comparison plane (multi-flow) | 0 | 0 | **0/34** | 0 |
 
-The six coded columns match 80f §7 line by line (build 0/34 + 質性 3/34; version 2/34 + 1🟡;
-variant 8/34 + 1🟡; ≥3-size sweep 2/34; pps 4/34; 儀器檢查 0/34 + 2🟡). The throughput column is
-derived here (10/12 from fig5 + 20/22: one latency-only, one qualitative) and pinned by the
-same assert so it cannot drift silently.
+Six columns still match 80f §7 line by line. **`version` is 3, not the 2 in 80f §7** — see §3.1.
 
-**Mutation gate (run 2026-09-02, scratchpad copy):** flipping Tokmakov's `version` cell 1→0
-made the script exit 1 with `AssertionError: ('version', 1, 1, (2, 1))`; the unmodified script
-reproduced `fig5_reporting_matrix.png` byte-for-byte (`24e8d236b8058d48…`) — positive control.
+### 3.1 One published cell changed: LNNS'26 `version` ✗ → 1
+
+`80a A-3 #7` coded that paper as stating no bmv2 version. It does state one: Table 4 reads
+`Mininet 2.3.0 & BMv2 1.16`. The miss was not a misreading — **Springer serves chapter tables from
+a separate URL (`/chapter/<DOI>/tables/N`), so they are absent from the chapter page's innerText**,
+which is how that row was coded. This is a coverage defect in the extraction pipeline, not in the
+judgement, and it applies to every field coded that way (audit: `COVERAGE-AUDIT.md`, this round's
+scratchpad). INCoS'22 — the only other browser-innerText row — was re-checked table by table and
+its codings all stand; **checked-and-clean and never-checked are different states**, and only the
+first lets a ✗ count as evidence.
+
+Two observations about that paper that are **not** coded anywhere: p4lang/behavioral-model has no
+`1.16` tag (releases stop at 1.15.6), and its Table 7/10 report bmv2 throughput of
+1002–1008 Mbit/s over links the paper itself configures at 1 Gbit/s.
+
+### 3.2 `second plane measured`: three readings, and why the headline does not depend on them
+
+| reading | corpus | screen | 34 |
+|---|---|---|---|
+| A — the registered codebook, read literally | 10 | 8 (+1 half) | 18/34 |
+| **B — reported here** (P4sim downgraded, see below) | 9 (+1 half) | 8 (+1 half) | **17/34** |
+| C — B minus the three Sci Rep papers of §3.3 | 9 (+1 half) | 5 (+1 half) | 14/34 |
+
+`comparison plane (multi-flow)` is **0/34 under all three**. The claim this figure supports is
+therefore independent of every contested cell: *17 of 34 papers did measure a second forwarding
+plane, and not one of them measured it under a multi-flow condition.*
+
+**P4sim'25, coded 0.5.** The codebook, written before the data, contains two boundaries that this
+paper straddles: one names an ns-3 P4 model as counting, the other says a virtual-time bmv2 is
+still bmv2. Coding turned up the deciding fact — **P4sim links `bm::switch` and reuses bmv2's own
+pipeline library** — which the codebook's author did not have when writing either boundary. Since
+the rule is *ambiguous* rather than wrong, a post-hoc decision is unavoidable (declining to decide
+is also a decision), and it was taken in the direction that cannot be self-serving. The independent
+fallback, a plain ns-3 bridge, is measured but its throughput appears only in Fig. 4 with no value
+in the body — hence 0.5, not 1. The codebook carries a revision note; **boundary 1 was not
+rewritten**, so the ambiguity stays visible.
+
+### 3.3 Three papers whose second-plane cell rests on an unsupported claim
+
+APATCP, SFARP and MC-LBTO (Sci Rep, one author group) each **state** that they measured
+NetFPGA-SUME and/or Intel Tofino and print numbers (3.1 / 1.4 / 3.3 / 1.6 µs pipeline latency;
+MC-LBTO's Tofino throughput is explicitly extrapolated). None gives that platform's hardware
+setup, traffic or working point, and all three Limitations sections describe the evaluation as
+Mininet-WiFi plus bmv2.
+
+They are **coded 1 anyway**, because the registered codebook is unambiguous here: it asks whether
+the paper measured a non-bmv2 plane and printed a number, and by its letter they did. Downgrading
+them would mean **adding a criterion** ("must state the second plane's setup") after seeing the
+data — a different act from resolving the P4sim ambiguity, and one that would be post-hoc even
+though it moves the count against us. *Changing a rule is changing a rule; the direction of the
+change does not make it neutral.* Reading C above lets a reader subtract them.
+
+### 3.4 Provenance of the corpus column
+
+The 12 corpus rows were coded from full text against `CODEBOOK-2ndplane.md`
+(`results/corpus12_secondplane.md`). The result, 10/12, **came in above the 7–9 the codebook
+recorded as a pre-judgement, and the coder said so explicitly rather than moving toward it** —
+that is the evidence this column is not contaminated by its author's expectation. Eight of the ten
+rest on body-text or table numbers rather than figure reads. The two zeros are firm: TSSA's only
+OvS comparison is a citation, and the PoliTO thesis's "two environments" are a VM and a bare-metal
+server running the *same* bmv2.
+
+### 3.5 That the rules are satisfiable — the positive control
+
+A column that nobody can score is a definition, not a finding. Two checks
+(`POSITIVE-CONTROL.md`): our own paper would score 1 on all three of `build A/B`,
+`flows as variable` and `comparison plane (multi-flow)`; and **P4-IPsec'20 Fig. 22 plots
+"Number of flows" 1–16 and reports 24 Gbit/s at 16 parallel tunnels — on Tofino**, while the same
+paper's bmv2 section gives one goodput figure at a flow count it never states. The shape exists in
+the literature. It is not applied to bmv2.
+
+⚠️ What is *not* controlled: agreement with fig5's 0/12 is **not** evidence, because the
+codebook's 0.5/0 boundaries were calibrated against those very codings. That agreement is
+constructed, not confirmatory.
+
+**Mutation gate (2026-09-02, scratchpad copy).** Flipping INCoS'22's `second plane` cell 1→0 gave
+`AssertionError: ('second plane\nmeasured', 16, 2, (17, 2))`; reverting LNNS'26's `version` to the
+pre-audit 0 gave `AssertionError: ('version', 2, 1, (3, 1))`. The unmodified script reproduced
+`fig5_reporting_matrix.png` byte-for-byte (`24e8d236b8058d48…`) — fig5 is untouched by this round.
 
 ## 4. Row-by-row provenance (screen block; corpus block = fig5 / study §2-1)
 
