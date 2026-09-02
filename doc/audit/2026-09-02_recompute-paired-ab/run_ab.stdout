@@ -89,3 +89,75 @@ a04068f92aa45a54e74372bebec75ec343b956
 [13:07:07]     verifying condition (sampled) before measuring
 [13:07:38]     ✓ condition holds
 [13:07:38]     running kernel pid=232731 exe sha256 matches 1khz (read via direct)
+[13:12:42]     ab_s1024_1khz_r1_nopoll done
+[13:12:42]   ---- ab_s1024_1hz_r1_nopoll ----
+[13:12:58]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[13:13:25]     verifying condition (sampled) before measuring
+[13:13:56]     ✓ condition holds
+[13:13:56]     running kernel pid=271748 exe sha256 matches 1hz (read via direct)
+[13:19:00]     ab_s1024_1hz_r1_nopoll done
+[13:19:00] === rep 2 / zero / order: 1khz then 1hz ===
+[13:19:00]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:19:01]   ---- ab_zero_1khz_r2_nopoll ----
+[13:19:17]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[13:19:43]     verifying condition (zero) before measuring
+[13:20:15]     ✓ condition holds
+[13:20:15]     running kernel pid=300880 exe sha256 matches 1khz (read via direct)
+[13:25:19]     ab_zero_1khz_r2_nopoll done
+[13:25:19]   ---- ab_zero_1hz_r2_nopoll ----
+[13:25:35]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[13:26:01]     verifying condition (zero) before measuring
+[13:26:33]     ✓ condition holds
+[13:26:33]     running kernel pid=338358 exe sha256 matches 1hz (read via direct)
+[13:31:37]     ab_zero_1hz_r2_nopoll done
+[13:31:37] === rep 2 / s1024 / order: 1hz then 1khz ===
+[13:31:37]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+[13:31:37]   ---- ab_s1024_1hz_r2_nopoll ----
+[13:31:54]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[13:32:20]     verifying condition (sampled) before measuring
+[13:32:51]     ✓ condition holds
+[13:32:51]     running kernel pid=369009 exe sha256 matches 1hz (read via direct)
+[13:37:55]     ab_s1024_1hz_r2_nopoll done
+[13:37:55]   ---- ab_s1024_1khz_r2_nopoll ----
+[13:38:12]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[13:38:31]     verifying condition (sampled) before measuring
+[13:39:02]     ✓ condition holds
+[13:39:02]     running kernel pid=394495 exe sha256 matches 1khz (read via direct)
+[13:44:06]     ab_s1024_1khz_r2_nopoll done
+[13:44:06] === rep 3 / zero / order: 1hz then 1khz ===
+[13:44:06]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[13:44:07]   ---- ab_zero_1hz_r3_nopoll ----
+[13:44:23]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[13:44:49]     verifying condition (zero) before measuring
+[13:45:20]     ✓ condition holds
+[13:45:20]     running kernel pid=437900 exe sha256 matches 1hz (read via direct)
+[13:50:25]     ab_zero_1hz_r3_nopoll done
+[13:50:25]   ---- ab_zero_1khz_r3_nopoll ----
+[13:50:42]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[13:51:13]     verifying condition (zero) before measuring
+[13:51:44]     ✓ condition holds
+[13:51:44]     running kernel pid=471907 exe sha256 matches 1khz (read via direct)
+[13:56:49]     ab_zero_1khz_r3_nopoll done
+[13:56:49] === rep 3 / s1024 / order: 1khz then 1hz ===
+[13:56:49]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+[13:56:49]   ---- ab_s1024_1khz_r3_nopoll ----
+[13:57:05]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[13:57:32]     verifying condition (sampled) before measuring
+[13:58:03]     ✓ condition holds
+[13:58:03]     running kernel pid=510974 exe sha256 matches 1khz (read via direct)
+[14:03:07]     ab_s1024_1khz_r3_nopoll done
+[14:03:07]   ---- ab_s1024_1hz_r3_nopoll ----
+[14:03:23]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[14:03:55]     verifying condition (sampled) before measuring
+[14:04:26]     ✓ condition holds
+[14:04:26]     running kernel pid=541294 exe sha256 matches 1hz (read via direct)
+[14:09:30]     ab_s1024_1hz_r3_nopoll done
+[14:09:30] ================ all 12 cells done ================
+[14:09:30] --- restoring instruments (rc=0) ---
+[14:09:33]   SAMPLE_RATE restored to 256
+[14:09:34]   p4 recompiled from the restored source
+[14:09:34]   production kernel restored, sha256 verified
+[14:09:34]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[14:09:34]   SAMPLE_RATE  : SAMPLE_RATE = 256;
+[14:09:34]   kernel now   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[14:09:34]   fabric is left DOWN; 'ndt up' brings it back on the production binary.

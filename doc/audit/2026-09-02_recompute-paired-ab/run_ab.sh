@@ -52,9 +52,9 @@ say() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
 # place, and both wrote the same raw files. That is not repairable after the fact. flock on a
 # file in the round directory; a second launcher refuses before touching anything, and it
 # refuses BEFORE the traps are armed so it cannot run restore_all against the live instance.
-exec 9>"$HERE/.run_ab.lock"
+exec 9>"$(git -C "$HERE" rev-parse --show-toplevel)/.test_run/run_ab.lock"
 if ! flock -n 9; then
-    echo "REFUSE: another run_ab.sh holds $HERE/.run_ab.lock -- two instances would race" >&2
+    echo "REFUSE: another run_ab.sh holds .test_run/run_ab.lock -- two instances would race" >&2
     exit 75
 fi
 
