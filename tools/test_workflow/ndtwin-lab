@@ -21,6 +21,17 @@
 
 set -euo pipefail
 
+# [Co-developed with claude code -- Adam]
+# G-9. Decided once, here, because two things below have to agree about it and they sit on
+# opposite sides of the root guard: the guard must not `die` when a non-root test sources this
+# file for its function definitions, and the dispatch must not run.
+#
+# `(return ...)` succeeds only inside a sourced file; executed, it is an error in a subshell and
+# the flag stays 0.  sudo always execs, so the installed root path takes the same branch it
+# always did and the guard below is unchanged for every real invocation.
+NDTWIN_LAB_SOURCED=0
+(return 0 2>/dev/null) && NDTWIN_LAB_SOURCED=1
+
 TMUX="tmux -L ndtwinlab"
 
 # 🔴 KERNEL_DIR IS HARDCODED, AND DELIBERATELY NOT OVERRIDABLE. READ THIS BEFORE "FIXING" IT.
@@ -83,7 +94,7 @@ die() { echo "ndtwin-lab: $*" >&2; exit 1; }
 # the rest run mn/tmux/kill as root -- so there is no verb this guard wrongly blocks. WORSE than
 # blocking: without it, `ndtwin-lab topo-start` run without sudo would create a topo session in
 # the CALLING user's namespace, where nothing else in this project can ever see it.
-if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+if (( NDTWIN_LAB_SOURCED == 0 )) && [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     die "must be run as root, e.g. 'sudo ndtwin-lab $*'.
   tmux's socket namespace is per-uid, so from uid ${EUID:-$(id -u)} this command would look in
   /tmp/tmux-${EUID:-$(id -u)}/ndtwinlab and find nothing, while the lab's sessions are in root's
@@ -92,6 +103,179 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
 fi
 
 session_running() { $TMUX has-session -t "$1" 2>/dev/null; }
+
+# -------------------------------------------------------------------------------------
+# THE ORPHAN SWEEP.  G-9.
+#
+# [Co-developed with claude code -- Adam]
+#
+# What this replaces, and why it is a project red line:
+#
+#     pkill -f ntg_bmv2_topo.py
+#     pkill -f p4_testbed_topo.py
+#     pkill -f "Network-Traffic-Generator/testbed_topo.py"
+#     pkill -f simple_switch_grpc
+#
+# `pkill -f` matches against the WHOLE COMMAND LINE of every process on the machine, and then
+# signals whatever matched.  Three ways that has gone wrong here, each observed:
+#
+#   1. IT MATCHES THE SEARCHER.  A guard written to ask "is a foreign X running" puts the
+#      pattern in its own argv, so it finds itself, and a scan that finds itself cannot tell
+#      "X is running" from "I am looking for X".  lib_e.sh's iperf3 guard carries the same
+#      lesson in its own comment; `ndt` carries it twice more (header trap notes 1-2, and
+#      app_ps_snapshot).  Run from a shell that has the pattern in its command line -- an
+#      operator debugging this very function -- `pkill -f` signals that shell.
+#   2. IT MATCHES MENTIONS.  `bash -c "echo restarting simple_switch_grpc"` is not a switch.
+#      Neither is an editor holding p4_testbed_topo.py open, nor a `tail -f` on its log.
+#   3. IT SIGNALS WITHOUT VERIFYING.  Nothing checks that the thing that matched is what was
+#      meant, that it died, or that a pid reused in the meantime is not now a stranger.
+#
+# What replaces it, and the ordering that matters: `ps` is the INDEX, /proc is the AUTHORITY.
+# A ps line is only a candidate; /proc/<pid>/cmdline decides, and it is read AFTER the
+# candidate list is built -- so a process that exited in between has no /proc entry and drops
+# out, and a pid recycled into a stranger fails the comparison.  Then TERM, wait, KILL, and
+# read /proc once more to say whether it actually went.
+#
+# 🔑 This is still a MACHINE-WIDE sweep: `cleanup` means "reset the lab", and a bmv2 switch
+#    belonging to some other round is a switch this is meant to reap.  What changed is not the
+#    breadth, it is that the sweep can no longer kill the sweeper, kill a mention, or report a
+#    clean machine it never checked.
+
+# sweep_self_pids -- this script and every process that is an ancestor of it.
+#
+# The self-match defence.  $$ and $PPID are not enough: the pattern is in the argv of whatever
+# shell the operator typed it into, which may be several levels up, and `pkill -f` signals it.
+# Ancestors are the right set to exclude and the process GROUP is not -- a bmv2 switch started
+# from the same terminal shares the group and IS a legitimate target, so excluding the group
+# would make cleanup quietly skip exactly the orphan it was called to reap.
+sweep_self_pids() {
+    local pid=$$ guard=0
+    while (( pid > 1 && guard < 64 )); do
+        echo "$pid"
+        pid="$(awk '/^PPid:/{print $2; exit}' "/proc/$pid/status" 2>/dev/null)"
+        [[ "$pid" =~ ^[0-9]+$ ]] || break
+        guard=$(( guard + 1 ))
+    done
+    return 0
+}
+
+# sweep_matches <pattern> <argv element>... -- is this process really that program?
+#
+# 🔑 THIS is what `pkill -f` gets wrong and the reason the replacement is not just "pkill with
+# extra steps".  `-f` asks whether the pattern appears ANYWHERE in the command line, so it is
+# true of:
+#
+#     bash -c 'echo restarting simple_switch_grpc'      a message about a switch
+#     tail -f /var/log/ntg_bmv2_topo.py.log             a log file named after a script
+#     vim p4_testbed_topo.py                            an editor holding it open
+#     sudo ndtwin-lab cleanup                           ...typed in a shell that said the word
+#
+# and `pkill -f` signals all four.  A program's identity is not "the string occurs somewhere",
+# it is "one of my argv elements IS this file": argv[0] for a compiled binary
+# (/usr/local/bin/simple_switch_grpc), argv[1] for an interpreted one (python ntg_bmv2_topo.py).
+# So: an element matches when its basename equals the pattern, or when it ends with the pattern
+# as a path suffix -- the second form is what lets "Network-Traffic-Generator/testbed_topo.py"
+# name one testbed_topo.py and not another.
+sweep_matches() {
+    local pattern="$1" e; shift
+    for e in "$@"; do
+        [[ -z "$e" ]] && continue
+        [[ "${e##*/}" == "$pattern" ]] && return 0
+        [[ "$e" == *"/$pattern" ]] && return 0
+    done
+    return 1
+}
+
+# sweep_find <pattern> -- pids that really are that program, minus ourselves and our ancestors.
+sweep_find() {
+    local pattern="$1" pid args self
+    local -a argv=()
+    self=" $(sweep_self_pids | tr '\n' ' ') "
+    # ps is the INDEX: a cheap way to get a candidate list without opening /proc for every pid
+    # on the machine.  It is never the authority -- its `args` column is space-joined, so it
+    # cannot tell one argv element from two, which is the ambiguity the match rule turns on.
+    while read -r pid args; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        (( pid > 1 )) || continue
+        [[ "$self" == *" $pid "* ]] && continue
+        [[ "$args" == *"$pattern"* ]] || continue
+        # ...and /proc is the AUTHORITY, read after the candidate list was built: a process that
+        # exited in between has no /proc entry and drops out, and a pid recycled into a stranger
+        # fails the match.  Reading it NUL-separated is what makes argv elements addressable.
+        argv=()
+        # `2>/dev/null` BEFORE the `<`. Redirections are applied left to right, so the usual
+        # `mapfile ... < "$f" 2>/dev/null` opens the file first and bash prints "No such file or
+        # directory" anyway -- from a sweep whose whole job is that the pid may already be gone.
+        # sim-start in this same script carries the identical note; verified both orders here.
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || continue
+        (( ${#argv[@]} > 0 )) || continue
+        sweep_matches "$pattern" "${argv[@]}" || continue
+        echo "$pid"
+    done < <(sweep_ps_snapshot)
+}
+
+# A seam: the tests replace this so a unit test can never signal a real process on the machine
+# it runs on.  ps is never the authority here, only the candidate list, so bounding it does not
+# weaken what is being tested.
+sweep_ps_snapshot() { ps -eo pid=,args= 2>/dev/null; }
+
+# sweep_alive <pid> <pattern> -- is that pid still there AND still the thing we matched?
+sweep_alive() {
+    local pid="$1" pattern="$2"
+    local -a argv=()
+    mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || return 1
+    (( ${#argv[@]} > 0 )) || return 1
+    sweep_matches "$pattern" "${argv[@]}"
+}
+
+# sweep_kill <label> <pattern> -- TERM, wait, KILL, then say what actually happened.
+#
+# Prints one line per pid so `cleanup` stops being a command that reports "cleanup done" without
+# ever having said what it did.  Returns non-zero if anything survived: a sweep that could not
+# finish must not read as a clean machine.
+sweep_kill() {
+    local label="$1" pattern="$2" pid i rc=0 found=0
+    for pid in $(sweep_find "$pattern"); do
+        found=$(( found + 1 ))
+        kill -TERM "$pid" 2>/dev/null || true
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+            sweep_alive "$pid" "$pattern" || break
+            sleep 0.5
+        done
+        if sweep_alive "$pid" "$pattern"; then
+            kill -KILL "$pid" 2>/dev/null || true
+            sleep 1
+        fi
+        if sweep_alive "$pid" "$pattern"; then
+            echo "  STILL RUNNING  $label pid $pid (TERM and KILL both refused or ignored)"
+            rc=1
+        else
+            echo "  stopped        $label pid $pid"
+        fi
+    done
+    (( found == 0 )) && echo "  none           $label"
+    return "$rc"
+}
+
+# sweep_count <pattern> -- how many live processes really carry <pattern>.
+#
+# Replaces `pgrep -c -f <pattern>` in `status`.  Same three defects as above, plus one that is
+# specific to counting: `pgrep -c -f` counts the pgrep too, so an empty machine reports 1.  The
+# comm-truncation trap that pushes people towards -f in the first place is documented in ndt's
+# header (trap note 2): `pgrep -c simple_switch_grpc` returns 0 with ten switches running,
+# because comm is cut at 15 characters.  Reading /proc/<pid>/cmdline has neither problem.
+sweep_count() {
+    local n
+    n="$(sweep_find "$1" | grep -c . || true)"
+    echo "${n:-0}"
+}
+
+# Sourced rather than executed: define the functions and stop, exactly as ndt and stack.sh do.
+# Without this there is no way to test the sweep at all -- the alternative that was used
+# elsewhere in this repo is asserting that a string still appears in the file, which is a test
+# of the text and not of the behaviour.  sudo always execs, never sources, so the installed
+# root path is unaffected.
+(( NDTWIN_LAB_SOURCED == 1 )) && return 0
 
 case "${1:-}" in
     topo-start)
@@ -128,13 +312,25 @@ case "${1:-}" in
         # plus the stray topology pythons that outlive their terminals (seen live 2026-08-15:
         # a bridge survived its closed terminal and needed a manual root kill). Everything a
         # dead round can leave behind goes here, so no human is needed to reset the lab.
-        pkill -f ntg_bmv2_topo.py 2>/dev/null || true
-        pkill -f p4_testbed_topo.py 2>/dev/null || true
-        pkill -f "Network-Traffic-Generator/testbed_topo.py" 2>/dev/null || true
+        # G-9: four `pkill -f ... 2>/dev/null || true` became four verified sweeps. The
+        # `|| true` was load-bearing in the old form and is gone on purpose: "nothing matched"
+        # and "I could not kill what matched" were the same rc, so `cleanup` could not fail.
+        rc=0
+        sweep_kill "ntg_bmv2_topo"  ntg_bmv2_topo.py  || rc=1
+        sweep_kill "p4_testbed_topo" p4_testbed_topo.py || rc=1
+        sweep_kill "NTG testbed_topo" "Network-Traffic-Generator/testbed_topo.py" || rc=1
         mn -c >/dev/null 2>&1 || true
-        pkill -f simple_switch_grpc 2>/dev/null || true
+        sweep_kill "simple_switch_grpc" simple_switch_grpc || rc=1
         rm -f /tmp/ndtwin_p4_switches.json
-        echo "cleanup done"
+        if (( rc == 0 )); then
+            echo "cleanup done"
+        else
+            # An orphan that outlived TERM and KILL is the one thing a human has to know about,
+            # and the old form could not say it: every kill was `|| true` and the last line was
+            # printed unconditionally.
+            echo "cleanup INCOMPLETE -- something above survived TERM and KILL" >&2
+            exit 1
+        fi
         ;;
     ovs-topo-start)
         # NTG's own OVS topology (128 hosts, RemoteController -> Ryu). Ryu must already be
@@ -217,7 +413,7 @@ case "${1:-}" in
     status)
         $TMUX list-sessions 2>/dev/null || echo "no lab sessions"
         printf 'bmv2: %s  mininet: %s\n' \
-            "$(pgrep -c -f simple_switch_grpc || true)" \
+            "$(sweep_count simple_switch_grpc)" \
             "$(ps -eo args | awk '$NF ~ /^mininet:/{c++} END{print c+0}')"
         ;;
     *)
