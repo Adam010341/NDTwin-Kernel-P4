@@ -203,7 +203,7 @@ TEST_F(SimulatedDeviceMetricsTest, ADownSwitchStillReportsTheSameSentinel)
     // a simulated one are both "no reading available", and neither is 0%.
     addSwitch("10.0.0.4", 4, /*isUp=*/false);
 
-    for (const nlohmann::json report : {m_manager->fetchCpuReportInternal(),
+    for (const nlohmann::json& report : {m_manager->fetchCpuReportInternal(),
                                         m_manager->fetchMemoryReportInternal(),
                                         m_manager->fetchTemperatureReportInternal()})
     {
@@ -270,7 +270,7 @@ TEST_F(SimulatedDeviceMetricsTest, HostsAreStillOmittedFromEveryReport)
     (*m_graph)[v].vertexType = VertexType::HOST;
     (*m_graph)[v].ip.push_back(utils::ipStringToUint32("10.0.0.100"));
 
-    for (const nlohmann::json report : {m_manager->fetchCpuReportInternal(),
+    for (const nlohmann::json& report : {m_manager->fetchCpuReportInternal(),
                                         m_manager->fetchMemoryReportInternal(),
                                         m_manager->fetchTemperatureReportInternal()})
     {
