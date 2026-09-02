@@ -33,3 +33,7 @@ guest＝UTC；本目錄的檔是 guest 的原樣。`GUEST-STATE.txt`＝拉檔當
 第一次跑的 `av_b_sigint.sh` 用 `readlink /proc/<pid>/exe` 找 kernel——kernel 是 root 行程，ndt 讀不到它的 `exe` ⇒ `kpid()` 回空字串，
 `b1_pre.txt` 的 `kernel=` 空、`kill -INT ''` 報 `not a pid`、cleanup 對空字串下手；腳本沒有斷言 pid 非空。log 與 `:8000` 本身已證明 kernel 死了，
 但 SigCgt 等要 pid 才抓得到，所以用 `av_b2_sigint.sh`（以 `:8000` 持有者取 pid）重跑；第一次的 `b*.txt` 原樣保留在本目錄。
+
+## auditor（9/1）裁定
+
+**auditor 裁定 20:41**：三預測收下。`terminate called without an active exception` ⇒ KNOWN-ISSUES **§B 新條目（kernel 缺陷：關機路徑上 joinable `std::thread` 或解構子丟例外，行程以 134 而非 0 退出；示範看不到、檢查 rc 的 harness 會被騙）**，auditor 今晚整機一輪每次 `ndt down` 抓 kernel exit code 與 log 末五行複驗，修法排示範後、開單；`ndt apps stop all` 假 ok ⇒ 併 ⑤（§G，同「只看 tmux rc」的根）；`intelligent_router.py:38` 預設路徑（有 `NDTWIN_RYU_TOPO_FILE` 可覆寫、比 ④ 軟、但 naive user 不知道要設）⇒ 併 ④ 家族；`p4_proxy/mininet/bmv2_binary_override`（**trunk 追蹤的檔**、指 `/usr/local/bmv2-fast/…`、設計上無 fallback、檔不對就拒起 topology）⇒ §G 第三實例，**手冊安裝步驟必須要人（或 install script）寫這個檔**。三處進 auditor 的 KNOWN-ISSUES 下一波 diff（引 `01e642e8` 的 README）。run-03 照跑；push 仍 auditor 整合後一次做。
