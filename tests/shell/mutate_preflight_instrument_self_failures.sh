@@ -36,15 +36,19 @@ trap 'rm -rf "$BK"' EXIT
 BASE_SHA="$(sha256sum "$LIB" "$PRE" | cut -d' ' -f1 | tr '\n' ' ')"
 
 SURVIVORS=0
-run_against() { LIB_UNDER_TEST="$1" PREFLIGHT_UNDER_TEST="$2" bash "$TEST" 2>&1; }
-report() {   # $1 = name, $2 = lib to use, $3 = preflight to use, $4 = case that must go red
+# An empty argument means "use the shipped file": only one of the two is mutated at a time, and
+# passing "$LIB"/"$PRE" at the report call sites would make check_gate_anchors.py read `report`
+# itself as a mutation applier (file = the path argument, anchor = the case string).
+run_against() { LIB_UNDER_TEST="${1:-$LIB}" PREFLIGHT_UNDER_TEST="${2:-$PRE}" bash "$TEST" 2>&1; }
+report() {   # $1 = label, $2 = mutated lib or "", $3 = mutated preflight or "", $4 = case that must go red
+    local label="$1" libcopy="$2" precopy="$3" wanted="$4"
     local out rc
-    out="$(run_against "$2" "$3")"; rc=$?
-    if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $4" <<<"$out"; then
-        printf '  caught   %-52s (%s went red)\n' "$1" "$4"
+    out="$(run_against "$libcopy" "$precopy")"; rc=$?
+    if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $wanted" <<<"$out"; then
+        printf '  caught   %-52s (%s went red)\n' "$label" "$wanted"
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  SURVIVED %-52s (%s stayed green -- that case proves nothing)\n' "$1" "$4"
+        printf '  SURVIVED %-52s (%s stayed green -- that case proves nothing)\n' "$label" "$wanted"
         grep -E '^  (ok|FAILED)' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -73,42 +77,42 @@ mutate_pre() {   # $1 = mutant name, $2 = anchor (exact text), $3 = replacement 
 }
 
 echo "baseline (must be green before any mutation):"
-run_against "$LIB" "$PRE" | tail -1
-run_against "$LIB" "$PRE" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+run_against "" "" | tail -1
+run_against "" "" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo
 
 m1=$(mutate_lib m1 '*)        if [[ -n "$owner" ]]; then printf '"'"'FOREIGN'"'"'; else printf '"'"'OWNER-UNSET'"'"'; fi ;;' \
                    '*)        printf '"'"'FOREIGN'"'"' ;;')
-report "M1: a name with no NDT_OWNER is FOREIGN again" "$m1" "$PRE" \
+report "M1: a name with no NDT_OWNER is FOREIGN again" "$m1" "" \
   "case 2  a NAME with NDT_OWNER UNSET is OWNER-UNSET, not FOREIGN (the L-10 defect)"
 
 m2=$(mutate_lib m2 '*)        if [[ -n "$owner" ]]; then printf '"'"'FOREIGN'"'"'; else printf '"'"'OWNER-UNSET'"'"'; fi ;;' \
                    '*)        printf '"'"'OWNER-UNSET'"'"' ;;')
-report "M2: everything is OWNER-UNSET (the amnesty)" "$m2" "$PRE" \
+report "M2: everything is OWNER-UNSET (the amnesty)" "$m2" "" \
   "case 3  a NAME with a DIFFERENT NDT_OWNER set is still FOREIGN (the check is not silenced)"
 
 m3=$(mutate_lib m3 'if [[ -n "${NDT_OWNER:-}" ]]; then export NDT_OWNER; fi' \
                    ':  # deliberately not exported')
-report "M3: lib.sh does not export NDT_OWNER" "$m3" "$PRE" \
+report "M3: lib.sh does not export NDT_OWNER" "$m3" "" \
   "case 4d sourcing lib.sh EXPORTS a set-but-unexported NDT_OWNER so ndt can see it"
 
 m4=$(mutate_pre m4 '    OWNER-UNSET) bad "THIS HARNESS' \
                    '    NEVER-MATCHES) bad "THIS HARNESS')
-report "M4: 00_preflight.sh loses its OWNER-UNSET branch" "$LIB" "$m4" \
+report "M4: 00_preflight.sh loses its OWNER-UNSET branch" "" "$m4" \
   "case 4c 00_preflight.sh calls claim_verdict, has an OWNER-UNSET branch, and dropped the old catch-all"
 
 m5=$(mutate_lib m5 '    (( ${#pids[@]} == 1 )) && { printf '"'"'%s'"'"' "${pids[0]}"; return 0; }' \
                    '    printf '"'"'%s'"'"' "${pids[0]}"; return 0')
-report "M5: listen_owner_pid takes head -1 (the original defect)" "$m5" "$PRE" \
+report "M5: listen_owner_pid takes head -1 (the original defect)" "$m5" "" \
   "case 5  the LISTEN owner is the kernel, not the curl ss printed first"
 
 m6=$(mutate_lib m6 '(( t < best_t ))' '(( t > best_t ))')
-report "M6: listen_owner_pid takes the NEWEST holder" "$m6" "$PRE" \
+report "M6: listen_owner_pid takes the NEWEST holder" "$m6" "" \
   "case 6  with the ages reversed the answer follows the age, not the process name"
 
 m7=$(mutate_lib m7 '[[ -n "$best" ]] || { printf '"'"'%s'"'"' "$PORT_HOLDER_HIDDEN"; return 0; }' \
                    '[[ -n "$best" ]] || { printf '"'"'%s'"'"' "${pids[0]}"; return 0; }')
-report "M7: all holders gone -> name the first one instead of HIDDEN" "$m7" "$PRE" \
+report "M7: all holders gone -> name the first one instead of HIDDEN" "$m7" "" \
   "case 7a several holders, all gone -> LISTENER-OWNER-HIDDEN (not a guess)"
 
 echo
