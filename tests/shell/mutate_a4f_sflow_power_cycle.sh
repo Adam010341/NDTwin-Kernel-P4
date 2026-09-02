@@ -65,7 +65,7 @@ BUILD_DIR="${BUILD_DIR:-build}"
 # rather than assumed, because `ninja test_OvsPowerStrategy` does not exist and would fail with
 # a message about an unknown target rather than about anything to do with these tests.
 TARGET=test_routing_strategy
-BIN="$BUILD_DIR/tests/$TARGET"
+BIN="${BIN:-$BUILD_DIR/bin/$TARGET}"
 FILTER='OvsPowerStrategyTest.*:OvsPowerStrategyConcurrencyTest.*:TelemetrySilenceTest.*'
 
 POWER=src/ndt_core/power_management/OVSPowerStrategy.cpp
