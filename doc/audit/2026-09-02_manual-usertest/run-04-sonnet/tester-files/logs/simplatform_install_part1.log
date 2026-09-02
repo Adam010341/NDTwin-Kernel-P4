@@ -1,0 +1,219 @@
++ date +%H:%M
+16:38
++ cd /home/ndt
++ git clone https://github.com/ndtwin-lab/Simulation-Platform-Manager.git
+Cloning into 'Simulation-Platform-Manager'...
++ git clone https://github.com/ndtwin-lab/Energy-Saving-App.git
+Cloning into 'Energy-Saving-App'...
++ sudo apt install -y nlohmann-json3-dev libboost-all-dev libspdlog-dev libfmt-dev libssl-dev
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+nlohmann-json3-dev is already the newest version (3.11.3-1).
+libboost-all-dev is already the newest version (1.83.0.1ubuntu2).
+libspdlog-dev is already the newest version (1:1.12.0+ds-2build1).
+libfmt-dev is already the newest version (9.1.0+ds1-2).
+libssl-dev is already the newest version (3.0.13-0ubuntu3.15).
+0 upgraded, 0 newly installed, 0 to remove and 35 not upgraded.
++ echo '=== NFS server ==='
+=== NFS server ===
++ sudo apt update
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Hit:1 https://download.docker.com/linux/ubuntu noble InRelease
+Get:2 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+Hit:3 http://archive.ubuntu.com/ubuntu noble InRelease
+Get:4 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:5 http://security.ubuntu.com/ubuntu noble-security/main amd64 Components [46.4 kB]
+Get:6 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:7 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.3 kB]
+Get:8 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1232 kB]
+Get:9 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [180 kB]
+Get:10 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1690 kB]
+Get:11 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+Get:12 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+Get:13 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5744 B]
+Get:14 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.6 kB]
+Fetched 4010 kB in 5s (736 kB/s)
+Reading package lists...
+Building dependency tree...
+Reading state information...
+35 packages can be upgraded. Run 'apt list --upgradable' to see them.
++ sudo apt install -y nfs-kernel-server
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  keyutils libnfsidmap1 nfs-common rpcbind
+Suggested packages:
+  watchdog
+The following NEW packages will be installed:
+  keyutils libnfsidmap1 nfs-common nfs-kernel-server rpcbind
+0 upgraded, 5 newly installed, 0 to remove and 35 not upgraded.
+Need to get 569 kB of archives.
+After this operation, 2022 kB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libnfsidmap1 amd64 1:2.6.4-3ubuntu5.1 [48.3 kB]
+Get:2 http://archive.ubuntu.com/ubuntu noble/main amd64 rpcbind amd64 1.2.6-7ubuntu2 [46.5 kB]
+Get:3 http://archive.ubuntu.com/ubuntu noble/main amd64 keyutils amd64 1.6.3-3build1 [56.8 kB]
+Get:4 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 nfs-common amd64 1:2.6.4-3ubuntu5.1 [248 kB]
+Get:5 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 nfs-kernel-server amd64 1:2.6.4-3ubuntu5.1 [169 kB]
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+dpkg-preconfigure: unable to re-open stdin: 
+Fetched 569 kB in 4s (135 kB/s)
+Selecting previously unselected package libnfsidmap1:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 129196 files and directories currently installed.)
+Preparing to unpack .../libnfsidmap1_1%3a2.6.4-3ubuntu5.1_amd64.deb ...
+Unpacking libnfsidmap1:amd64 (1:2.6.4-3ubuntu5.1) ...
+Selecting previously unselected package rpcbind.
+Preparing to unpack .../rpcbind_1.2.6-7ubuntu2_amd64.deb ...
+Unpacking rpcbind (1.2.6-7ubuntu2) ...
+Selecting previously unselected package keyutils.
+Preparing to unpack .../keyutils_1.6.3-3build1_amd64.deb ...
+Unpacking keyutils (1.6.3-3build1) ...
+Selecting previously unselected package nfs-common.
+Preparing to unpack .../nfs-common_1%3a2.6.4-3ubuntu5.1_amd64.deb ...
+Unpacking nfs-common (1:2.6.4-3ubuntu5.1) ...
+Selecting previously unselected package nfs-kernel-server.
+Preparing to unpack .../nfs-kernel-server_1%3a2.6.4-3ubuntu5.1_amd64.deb ...
+Unpacking nfs-kernel-server (1:2.6.4-3ubuntu5.1) ...
+Setting up libnfsidmap1:amd64 (1:2.6.4-3ubuntu5.1) ...
+Setting up rpcbind (1.2.6-7ubuntu2) ...
+Created symlink /etc/systemd/system/multi-user.target.wants/rpcbind.service → /usr/lib/systemd/system/rpcbind.service.
+Created symlink /etc/systemd/system/sockets.target.wants/rpcbind.socket → /usr/lib/systemd/system/rpcbind.socket.
+Setting up keyutils (1.6.3-3build1) ...
+Setting up nfs-common (1:2.6.4-3ubuntu5.1) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+
+Creating config file /etc/idmapd.conf with new version
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+
+Creating config file /etc/nfs.conf with new version
+info: Selecting UID from range 100 to 999 ...
+
+info: Adding system user `statd' (UID 111) ...
+info: Adding new user `statd' (UID 111) with group `nogroup' ...
+info: Not creating home directory `/var/lib/nfs'.
+Created symlink /etc/systemd/system/multi-user.target.wants/nfs-client.target → /usr/lib/systemd/system/nfs-client.target.
+Created symlink /etc/systemd/system/remote-fs.target.wants/nfs-client.target → /usr/lib/systemd/system/nfs-client.target.
+auth-rpcgss-module.service is a disabled or a static unit, not starting it.
+nfs-idmapd.service is a disabled or a static unit, not starting it.
+nfs-utils.service is a disabled or a static unit, not starting it.
+proc-fs-nfsd.mount is a disabled or a static unit, not starting it.
+rpc-gssd.service is a disabled or a static unit, not starting it.
+rpc-statd-notify.service is a disabled or a static unit, not starting it.
+rpc-statd.service is a disabled or a static unit, not starting it.
+rpc-svcgssd.service is a disabled or a static unit, not starting it.
+Setting up nfs-kernel-server (1:2.6.4-3ubuntu5.1) ...
+Created symlink /etc/systemd/system/nfs-mountd.service.requires/fsidd.service → /usr/lib/systemd/system/fsidd.service.
+Created symlink /etc/systemd/system/nfs-server.service.requires/fsidd.service → /usr/lib/systemd/system/fsidd.service.
+Created symlink /etc/systemd/system/nfs-client.target.wants/nfs-blkmap.service → /usr/lib/systemd/system/nfs-blkmap.service.
+Created symlink /etc/systemd/system/multi-user.target.wants/nfs-server.service → /usr/lib/systemd/system/nfs-server.service.
+nfs-mountd.service is a disabled or a static unit, not starting it.
+nfsdcld.service is a disabled or a static unit, not starting it.
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+
+Creating config file /etc/exports with new version
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+
+Creating config file /etc/default/nfs-kernel-server with new version
+Processing triggers for man-db (2.12.0-4build2) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.8) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+
+Running kernel seems to be up-to-date.
+
+Restarting services...
+
+Service restarts being deferred:
+ systemctl restart unattended-upgrades.service
+
+No containers need to be restarted.
+
+User sessions running outdated binaries:
+ ndt @ session #156: install-p4dev-v[16585], tmux: server[16582]
+ ndt @ user manager service: bash[16583]
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
++ sudo systemctl enable --now nfs-kernel-server
+Synchronizing state of nfs-kernel-server.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable nfs-kernel-server
++ sudo mkdir -p /srv/nfs/sim
++ sudo chown nobody:nogroup /srv/nfs/sim
++ sudo chmod 777 /srv/nfs/sim
++ echo '/srv/nfs/sim localhost(rw,sync,no_subtree_check,all_squash)'
++ sudo tee -a /etc/exports
+/srv/nfs/sim localhost(rw,sync,no_subtree_check,all_squash)
++ sudo systemctl restart nfs-kernel-server
++ cat /etc/exports
+# /etc/exports: the access control list for filesystems which may be exported
+#		to NFS clients.  See exports(5).
+#
+# Example for NFSv2 and NFSv3:
+# /srv/homes       hostname1(rw,sync,no_subtree_check) hostname2(ro,sync,no_subtree_check)
+#
+# Example for NFSv4:
+# /srv/nfs4        gss/krb5i(rw,sync,fsid=0,crossmnt,no_subtree_check)
+# /srv/nfs4/homes  gss/krb5i(rw,sync,no_subtree_check)
+#
+/srv/nfs/sim localhost(rw,sync,no_subtree_check,all_squash)
++ echo '=== NFS client ==='
+=== NFS client ===
++ sudo apt install -y nfs-common
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+nfs-common is already the newest version (1:2.6.4-3ubuntu5.1).
+nfs-common set to manually installed.
+0 upgraded, 0 newly installed, 0 to remove and 35 not upgraded.
++ sudo mkdir -p /mnt/nfs/sim
++ sudo mkdir -p /mnt/nfs/app
++ date +%H:%M
+16:39
++ echo SIMPLATFORM_PART1_DONE
+SIMPLATFORM_PART1_DONE

@@ -1,0 +1,1 @@
+NO TMUX SERVER AT HARVEST TIME: no server running on /tmp/tmux-1000/default

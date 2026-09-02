@@ -1,0 +1,142 @@
++ date +%H:%M
+16:04
++ python3 -m venv --system-site-packages /home/ndt/ntg-env
++ source /home/ndt/ntg-env/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/home/ndt/ntg-env
+++ VIRTUAL_ENV=/home/ndt/ntg-env
+++ _OLD_VIRTUAL_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ PATH=/home/ndt/ntg-env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(ntg-env) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(ntg-env) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ pip install --upgrade pip
+Requirement already satisfied: pip in ./ntg-env/lib/python3.12/site-packages (24.0)
+Collecting pip
+  Downloading pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+Downloading pip-26.2.1-py3-none-any.whl (1.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 2.7 MB/s eta 0:00:00
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 24.0
+    Uninstalling pip-24.0:
+      Successfully uninstalled pip-24.0
+Successfully installed pip-26.2.1
++ pip install loguru prompt_toolkit nornir nornir-utils pyyaml numpy pandas paramiko requests pydantic
+Collecting loguru
+  Using cached loguru-0.7.3-py3-none-any.whl.metadata (22 kB)
+Collecting prompt_toolkit
+  Downloading prompt_toolkit-3.0.53-py3-none-any.whl.metadata (6.4 kB)
+Collecting nornir
+  Using cached nornir-3.6.0-py3-none-any.whl.metadata (5.2 kB)
+Collecting nornir-utils
+  Downloading nornir_utils-0.3.0-py3-none-any.whl.metadata (2.0 kB)
+Requirement already satisfied: pyyaml in /usr/lib/python3/dist-packages (6.0.1)
+Collecting numpy
+  Downloading numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+Collecting pandas
+  Downloading pandas-3.0.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+Collecting paramiko
+  Downloading paramiko-5.0.0-py3-none-any.whl.metadata (3.7 kB)
+Requirement already satisfied: requests in /usr/lib/python3/dist-packages (2.31.0)
+Collecting pydantic
+  Downloading pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+Collecting wcwidth>=0.1.4 (from prompt_toolkit)
+  Downloading wcwidth-0.8.3-py3-none-any.whl.metadata (43 kB)
+Collecting ruamel-yaml>=0.17 (from nornir)
+  Using cached ruamel_yaml-0.19.1-py3-none-any.whl.metadata (16 kB)
+Requirement already satisfied: colorama<0.5,>=0.4.3 in /usr/lib/python3/dist-packages (from nornir-utils) (0.4.6)
+Requirement already satisfied: python-dateutil>=2.8.2 in /usr/lib/python3/dist-packages (from pandas) (2.8.2)
+Requirement already satisfied: bcrypt>=3.2 in /usr/lib/python3/dist-packages (from paramiko) (3.2.2)
+Requirement already satisfied: cryptography>=3.3 in /usr/lib/python3/dist-packages (from paramiko) (41.0.7)
+Collecting invoke>=2.0 (from paramiko)
+  Downloading invoke-3.0.3-py3-none-any.whl.metadata (3.2 kB)
+Collecting pynacl>=1.5 (from paramiko)
+  Downloading pynacl-1.6.2-cp38-abi3-manylinux_2_34_x86_64.whl.metadata (10.0 kB)
+Collecting annotated-types>=0.6.0 (from pydantic)
+  Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.5 (from pydantic)
+  Downloading pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting typing-extensions>=4.14.1 (from pydantic)
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting typing-inspection>=0.4.2 (from pydantic)
+  Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting cffi>=2.0.0 (from pynacl>=1.5->paramiko)
+  Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)
+Collecting pycparser (from cffi>=2.0.0->pynacl>=1.5->paramiko)
+  Downloading pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+Using cached loguru-0.7.3-py3-none-any.whl (61 kB)
+Downloading prompt_toolkit-3.0.53-py3-none-any.whl (392 kB)
+Using cached nornir-3.6.0-py3-none-any.whl (32 kB)
+Downloading nornir_utils-0.3.0-py3-none-any.whl (17 kB)
+Downloading numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.7/16.7 MB 27.3 MB/s  0:00:00
+Downloading pandas-3.0.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.0/11.0 MB 48.6 MB/s  0:00:00
+Downloading paramiko-5.0.0-py3-none-any.whl (208 kB)
+Downloading pydantic-2.13.5-py3-none-any.whl (472 kB)
+Downloading pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 29.0 MB/s  0:00:00
+Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Downloading invoke-3.0.3-py3-none-any.whl (160 kB)
+Downloading pynacl-1.6.2-cp38-abi3-manylinux_2_34_x86_64.whl (1.4 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 29.1 MB/s  0:00:00
+Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)
+Using cached ruamel_yaml-0.19.1-py3-none-any.whl (118 kB)
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Downloading wcwidth-0.8.3-py3-none-any.whl (331 kB)
+Downloading pycparser-3.0-py3-none-any.whl (48 kB)
+Installing collected packages: wcwidth, typing-extensions, ruamel-yaml, pycparser, numpy, loguru, invoke, annotated-types, typing-inspection, pydantic-core, prompt_toolkit, pandas, nornir, cffi, pynacl, pydantic, nornir-utils, paramiko
+  Attempting uninstall: typing-extensions
+    Found existing installation: typing_extensions 4.10.0
+    Not uninstalling typing-extensions at /usr/lib/python3/dist-packages, outside environment /home/ndt/ntg-env
+    Can't uninstall 'typing_extensions'. No files were found to uninstall.
+
+Successfully installed annotated-types-0.8.0 cffi-2.1.1 invoke-3.0.3 loguru-0.7.3 nornir-3.6.0 nornir-utils-0.3.0 numpy-2.5.2 pandas-3.0.5 paramiko-5.0.0 prompt_toolkit-3.0.53 pycparser-3.0 pydantic-2.13.5 pydantic-core-2.46.5 pynacl-1.6.2 ruamel-yaml-0.19.1 typing-extensions-4.16.0 typing-inspection-0.4.4 wcwidth-0.8.3
++ cd /home/ndt
++ git clone https://github.com/ndtwin-lab/Network-Traffic-Generator.git
+Cloning into 'Network-Traffic-Generator'...
++ cd Network-Traffic-Generator
++ cat NTG.yaml
+---
+# From nornir
+inventory:
+  plugin: SimpleInventory
+  options:
+    host_file: "./setting/Hardware.yaml"
+    group_file: "./setting/API_server_startup.yaml"
+
+runner:
+  plugin: threaded
+  options:
+    num_workers: 5
+
+logging:
+  enabled: false+ echo '--- setting dir ---'
+--- setting dir ---
++ ls setting/
+API_server_startup.yaml
+Hardware.yaml
+Mininet.yaml
++ python3 -c 'import mininet; print('\''mininet importable from ntg-env:'\'', mininet.__file__)'
+mininet importable from ntg-env: /usr/lib/python3/dist-packages/mininet/__init__.py
++ date +%H:%M
+16:04
++ echo NTG_INSTALL_DONE
+NTG_INSTALL_DONE

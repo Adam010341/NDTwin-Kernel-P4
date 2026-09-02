@@ -1,0 +1,5 @@
+{
+  "D5": "D5. docker-compose ps (3 services up) -- BROKEN for the full 3-service stack (frontend never builds, see BUG-5) but WORKS-BUT for the 2 non-frontend services in isolation: `docker compose up -d postgres node-positions-api` (bypassing the broken frontend target) brought both up cleanly -- postgres reports \"ready to accept connections\", node-positions-api listens on :3001 and answers HTTP (curl -> 404 \"Cannot GET /\", i.e. a live Express server, not a dead port). node-positions-api's startup log shows one ECONNREFUSED against postgres:5432 (a startup-order race, postgres was not ready yet), not retried/resolved by the time I checked. Narrows BUG-5 to the frontend image specifically -- the backend half of this tool is not affected by the pnpm problem.",
+  "D6": "D6. docker-compose logs -- WORKS for the 2 running services (see D5); NOT-TRIED for frontend (never built)",
+  "D7": "D7. docker-compose down / up -d / restart -- WORKS for the 2-service subset (up -d demonstrated in D5); did not separately test down/restart given the frontend remains blocked regardless"
+}

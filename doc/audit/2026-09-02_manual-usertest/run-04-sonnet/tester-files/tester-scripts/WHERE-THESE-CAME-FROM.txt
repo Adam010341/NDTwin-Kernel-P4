@@ -1,0 +1,11 @@
+Every file here was harvested from the guest's ~ (the tester's home), not from /tmp.
+The tester drove the whole run by writing a small shell script or JSON patch to ~,
+running it, and teeing output into ~/logs/. They are moved into this subdirectory
+only so the top level of tester-files/ stays readable; contents are unedited.
+
+  bugs_*.sh      -- appended a bug entry to ~/BUGS.md (and usually ran the probe first)
+  journal_*.sh   -- appended a section to ~/JOURNAL.md
+  s2_*..s6_*.sh  -- the Installation Manual sections, one script per step group
+  update*.json   -- payloads fed to update_checklist.py to tick ~/CHECKLIST.md
+  *_install.sh   -- the tool installs (NSR / NTG / Traffic Visualizer / Web GUI / SPM)
+[Co-developed with claude code -- Adam]

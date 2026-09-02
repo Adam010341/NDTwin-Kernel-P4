@@ -1,0 +1,19 @@
++ date +%H:%M
+15:59
++ cd /home/ndt/Desktop/NDTwin-Kernel
++ mkdir -p /home/ndt/.local/bin
++ ln -sf /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndt /home/ndt/.local/bin/ndt
++ ls -l /home/ndt/.local/bin/ndt
+lrwxrwxrwx 1 ndt ndt 55 Sep  2 15:59 /home/ndt/.local/bin/ndt -> /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
++ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
++ ls -l /usr/local/sbin/ndtwin-lab
+-rwxr-xr-x 1 root root 6560 Sep  2 15:59 /usr/local/sbin/ndtwin-lab
++ echo 'ndt ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab'
++ sudo tee /etc/sudoers.d/ndtwin-lab
+ndt ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
++ sudo cat /etc/sudoers.d/ndtwin-lab
+ndt ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
++ date +%H:%M
+15:59
++ echo NDT_INSTALL_DONE
+NDT_INSTALL_DONE

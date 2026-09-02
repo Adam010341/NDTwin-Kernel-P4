@@ -1,0 +1,6 @@
+[2026-09-02 16:42:50.226077088] [info] [[94msimulation_platform_manager.cpp[0m:[95m481[0m [96mmain[0m] Logger Loads Successfully!
+[2026-09-02 16:42:50.226118035] [info] [[94msimulation_platform_manager.cpp[0m:[95m483[0m [96mmain[0m] Mount NFS
+[2026-09-02 16:42:50.226126506] [info] [[94msimulation_platform_manager.cpp[0m:[95m484[0m [96mmain[0m] mount -t nfs localhost:/srv/nfs/sim /mnt/nfs/sim
+[2026-09-02 16:42:50.444998816] [info] [[94msimulation_platform_manager.cpp[0m:[95m521[0m [96mmain[0m] Server started at http://localhost:9000
+[2026-09-02 16:44:08.796031757] [info] [[94msimulation_platform_manager.cpp[0m:[95m30[0m [96msignal_handler[0m] Received signal 2, unmounting NFS
+EXIT=130

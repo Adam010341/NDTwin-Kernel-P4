@@ -1,0 +1,3 @@
+{
+  "F7": "F7. python3 network_state_recorder.py (foreground mode) -- WORKS, output streamed live to the terminal as documented once `display_on_console` was set to `true` in setting/recorder_setting.yaml (the stop script normally flips this automatically; set by hand here since I was not using the stop script this time)"
+}

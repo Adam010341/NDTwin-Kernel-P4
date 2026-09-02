@@ -1,0 +1,11 @@
+{
+  "A7": "A7. `ndt check` -- WORKS (telemetry double-count tripwire; also independently confirms the WebGUI/Visualizer docs' warning that MININET-mode CPU util is `10 + hash(ip) % 50`, a fake constant, not a measurement)",
+  "A8": "A8. `ndt claim` / `ndt release` (with NDT_OWNER) -- WORKS (claim shows owner+expiry+note in `ndt status`, release clears it)",
+  "A9": "A9. `ndt apps` interactive picker -- BROKEN for `nsr`: expects the clone at ~/Desktop/<name> (NSR's own Installation Manual says clone to ~) and expects a **conda** env at ~/miniconda3/envs/ntg-env (NTG's own Installation Manual builds a plain **venv** at ~/ntg-env, no conda). See BUGS.md addendum to BUG-1. Did not try the bare interactive-picker form (no args) given the underlying per-app paths are already broken.",
+  "A10": "A10. `ndt ntg` -- BROKEN, same /home/adam hardcoded-path family as BUG-1: \"not found: /home/adam/Network-Traffic-Generator/setting/Mininet.yaml\". Exits non-zero, error is legible.",
+  "A12": "A12. `ndt up` (P4 default) -- NOT-TRIED (P4 toolchain not finished building yet at time of Kernel-usage testing; revisit once Section 6 completes)",
+  "B12": "B12. Safe shutdown: mininet exit, sudo mn -c -- WORKS, reproduced across 2 full cycles",
+  "B13": "B13. Confirm mn -c also kills Ryu (Terminal 1 dies) -- WORKS (confirmed via tmux session list before/after, both cycles)",
+  "B14": "B14. Kernel Ctrl-C -> \"terminate called without an active exception\" line -- WORKS-BUT: process did stop and :8000 was released within seconds (matches the functional claim), but the specific log line the manual quotes did not appear in what I captured -- plausibly an artifact of sending the signal via `tmux send-keys C-c` into a `sudo ... | tee` pipeline rather than a real keypress; not chased further.",
+  "B15": "B15. Restart whole stack a second time after clean shutdown -- WORKS, full 2nd (3rd overall) restart converged (130 flows/switch on all 10 within ~30s) and the kernel reported the same \"10 switches, 128 hosts, 288 edges\" again"
+}

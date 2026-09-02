@@ -1,0 +1,453 @@
+captured: 2026-09-02T18:37:15Z  (local 2026-09-02 18:37:15 UTC)
+--- uptime / mem:
+ 18:37:15 up  3:02,  1 user,  load average: 0.00, 0.02, 0.41
+               total        used        free      shared  buff/cache   available
+Mem:            5925         725        1585           1        3976        5199
+--- tmux ls (user):
+no server running on /tmp/tmux-1000/default
+--- tmux -L ndtwinlab (root):
+no server running on /tmp/tmux-0/ndtwinlab
+--- pane capture errors:
+NO TMUX SERVER AT HARVEST TIME: no server running on /tmp/tmux-1000/default
+--- tmux pane sizes:
+-rw-rw-r-- 1 ndt ndt 76 18:37:15 /home/ndt/pane_capture_errors.txt
+--- listeners (ss -tlnpH):
+LISTEN 0      4096         0.0.0.0:49707 0.0.0.0:*
+LISTEN 0      64           0.0.0.0:41407 0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:111   0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:22    0.0.0.0:*
+LISTEN 0      4096      127.0.0.54:53    0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:54849 0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:38191 0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:47891 0.0.0.0:*
+LISTEN 0      4096   127.0.0.53%lo:53    0.0.0.0:*
+LISTEN 0      64           0.0.0.0:2049  0.0.0.0:*
+LISTEN 0      4096            [::]:37715    [::]:*
+LISTEN 0      64              [::]:45393    [::]:*
+LISTEN 0      4096            [::]:53509    [::]:*
+LISTEN 0      4096            [::]:111      [::]:*
+LISTEN 0      4096            [::]:22       [::]:*
+LISTEN 0      4096            [::]:48107    [::]:*
+LISTEN 0      4096            [::]:55823    [::]:*
+LISTEN 0      64              [::]:2049     [::]:*
+--- udp listeners (ss -ulnpH):
+UNCONN 0      0               0.0.0.0:37279 0.0.0.0:*
+UNCONN 0      0             127.0.0.1:619   0.0.0.0:*
+UNCONN 0      0               0.0.0.0:34240 0.0.0.0:*
+UNCONN 0      0               0.0.0.0:38901 0.0.0.0:*
+UNCONN 0      0               0.0.0.0:60733 0.0.0.0:*
+UNCONN 0      0               0.0.0.0:48736 0.0.0.0:*
+UNCONN 0      0            127.0.0.54:53    0.0.0.0:*
+UNCONN 0      0         127.0.0.53%lo:53    0.0.0.0:*
+UNCONN 0      0      10.0.2.15%enp0s2:68    0.0.0.0:*
+UNCONN 0      0               0.0.0.0:111   0.0.0.0:*
+UNCONN 0      0                  [::]:45451    [::]:*
+UNCONN 0      0                  [::]:37641    [::]:*
+UNCONN 0      0                  [::]:38236    [::]:*
+UNCONN 0      0                  [::]:52068    [::]:*
+UNCONN 0      0                  [::]:36242    [::]:*
+UNCONN 0      0                  [::]:111      [::]:*
+--- sflow port 6343 specifically:
+--- ls -la ~/logs:
+total 3512
+drwxrwxr-x  2 ndt ndt    4096 09-02_18:19:24 .
+drwxr-x--- 34 ndt ndt    4096 09-02_18:37:15 ..
+-rw-rw-r--  1 ndt ndt   29182 09-02_16:59:08 NR3_kernel.log
+-rw-rw-r--  1 ndt ndt   67863 09-02_16:34:54 NTG_T2_snapshot.txt
+-rw-rw-r--  1 ndt ndt   85402 09-02_16:37:33 NTG_T3_kernel.log
+-rw-rw-r--  1 ndt ndt   11713 09-02_18:20:28 P4T3_kernel.log
+-rw-rw-r--  1 ndt ndt   11240 09-02_17:02:38 QR3_kernel.log
+-rw-rw-r--  1 ndt ndt   16938 09-02_16:57:54 R3_kernel.log
+-rw-rw-r--  1 ndt ndt  103621 09-02_16:11:09 T1_ryu.log
+-rw-rw-r--  1 ndt ndt   78633 09-02_16:08:48 T2_mininet.log
+-rw-rw-r--  1 ndt ndt   53561 09-02_16:12:39 T2_mininet_snapshot1.txt
+-rw-rw-r--  1 ndt ndt   66508 09-02_16:12:57 T2_mininet_snapshot2.txt
+-rw-rw-r--  1 ndt ndt    2385 09-02_16:15:09 T3_kernel.log
+-rw-rw-r--  1 ndt ndt    5659 09-02_16:20:49 T3_kernel_run2.log
+-rw-rw-r--  1 ndt ndt   85498 09-02_16:33:55 T3_kernel_run3.log
+-rw-rw-r--  1 ndt ndt     623 09-02_16:41:13 esa_make.log
+-rw-rw-r--  1 ndt ndt     915 09-02_16:43:18 esa_run.log
+-rw-rw-r--  1 ndt ndt      83 09-02_15:50:30 journal_append.log
+-rw-rw-r--  1 ndt ndt     286 09-02_16:05:56 ndt_down_1.log
+-rw-rw-r--  1 ndt ndt    1906 09-02_15:59:46 ndt_help.log
+-rw-rw-r--  1 ndt ndt     832 09-02_15:59:10 ndt_install.log
+-rw-rw-r--  1 ndt ndt     663 09-02_16:05:56 ndt_status_after_down.log
+-rw-rw-r--  1 ndt ndt     663 09-02_15:59:52 ndt_status_baseline.log
+-rw-rw-r--  1 ndt ndt     258 09-02_16:05:17 ndt_up_ovs_attempt1.log
+-rw-rw-r--  1 ndt ndt     466 09-02_18:16:26 ndt_up_p4_attempt1.log
+-rw-rw-r--  1 ndt ndt     600 09-02_16:48:37 nsr_foreground_test.log
+-rw-rw-r--  1 ndt ndt    5306 09-02_16:04:15 nsr_install.log
+-rw-rw-r--  1 ndt ndt    7592 09-02_16:04:54 ntg_install.log
+-rw-rw-r--  1 ndt ndt     811 09-02_15:40:48 s2_1_miniconda.log
+-rw-rw-r--  1 ndt ndt    8849 09-02_15:41:20 s2_1b_ryuenv.log
+-rw-rw-r--  1 ndt ndt   51969 09-02_15:43:51 s2_2to5_ryu.log
+-rw-rw-r--  1 ndt ndt     216 09-02_15:44:31 s2_5_ryutest.txt
+-rw-rw-r--  1 ndt ndt       0 09-02_15:44:42 s2_5_ryutest_afterctrlc.txt
+-rw-rw-r--  1 ndt ndt    6227 09-02_15:45:03 s2_7.log
+-rw-rw-r--  1 ndt ndt  171617 09-02_15:49:56 s3_all.log
+-rw-rw-r--  1 ndt ndt       0 09-02_15:45:26 s3_all.wrapper.log
+-rw-rw-r--  1 ndt ndt    1798 09-02_15:51:31 s4_1_clone.log
+-rw-rw-r--  1 ndt ndt   11711 09-02_15:57:07 s4_2_build.log
+-rw-rw-r--  1 ndt ndt       0 09-02_15:51:49 s4_2_build.wrapper.log
+-rw-rw-r--  1 ndt ndt     192 09-02_15:58:17 s5_check.log
+-rw-rw-r--  1 ndt ndt     159 09-02_16:02:54 s6_0_check.log
+-rw-rw-r--  1 ndt ndt      27 09-02_16:02:54 s6_1_clone.log
+-rw-rw-r--  1 ndt ndt       6 09-02_16:02:59 s6_1_kickoff_time.log
+-rw-rw-r--  1 ndt ndt      14 09-02_16:02:54 s6_1_pyversion.log
+-rw-rw-r--  1 ndt ndt   12628 09-02_18:11:58 s6_2to6_setup.log
+-rw-rw-r--  1 ndt ndt   12006 09-02_16:39:22 simplatform_install_part1.log
+-rw-rw-r--  1 ndt ndt     565 09-02_16:42:09 spm_make.log
+-rw-rw-r--  1 ndt ndt     723 09-02_16:44:08 spm_run.log
+-rw-rw-r--  1 ndt ndt  401328 09-02_16:45:56 trafficvis_install.log
+-rw-rw-r--  1 ndt ndt  401372 09-02_16:45:56 trafficvis_install.wrapper.log
+-rw-rw-r--  1 ndt ndt  128453 09-02_16:46:35 trafficvis_run_headless.log
+-rw-rw-r--  1 ndt ndt 1559087 09-02_16:47:27 trafficvis_run_xvfb.log
+-rw-rw-r--  1 ndt ndt   14068 09-02_16:30:13 webgui_deploy.log
+-rw-rw-r--  1 ndt ndt      25 09-02_16:30:13 webgui_deploy.wrapper.log
+-rw-rw-r--  1 ndt ndt    8492 09-02_16:26:35 webgui_docker_install.log
+-rw-rw-r--  1 ndt ndt    8539 09-02_16:26:35 webgui_docker_install.wrapper.log
+--- df -h /:
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1       116G   13G  103G  12% /
+--- home listing:
+total 2136
+drwxr-x--- 34 ndt  ndt     4096 09-02_18:37:15 .
+drwxr-xr-x  4 root root    4096 09-02_16:14:46 ..
+drwxrwxr-x  2 ndt  ndt     4096 09-02_15:41:11 .anaconda
+-rw-------  1 ndt  ndt      261 09-02_16:23:58 .bash_history
+-rw-r--r--  1 ndt  ndt      220 03-31_08:41:03 .bash_logout
+-rw-r--r--  1 ndt  ndt     3771 03-31_08:41:03 .bashrc
+drwx------  7 ndt  ndt     4096 09-02_16:46:49 .cache
+drwxrwxr-x  3 ndt  ndt     4096 09-02_16:34:01 .cmake
+drwxrwxr-x  3 ndt  ndt     4096 09-02_15:41:11 .conda
+drwx------  3 ndt  ndt     4096 09-02_16:30:03 .docker
+drwxrwxr-x  3 ndt  ndt     4096 09-02_15:59:10 .local
+drwxrwxr-x  4 ndt  ndt     4096 09-02_16:45:30 .m2
+drwxrwxr-x  3 ndt  ndt     4096 09-02_16:46:35 .openjfx
+-rw-r--r--  1 ndt  ndt      807 03-31_08:41:03 .profile
+drwx------  2 ndt  ndt     4096 09-02_15:34:58 .ssh
+-rw-rw-r--  1 ndt  ndt      209 09-02_16:14:04 .wget-hsts
+drwxrwxr-x  3 ndt  ndt     4096 09-02_18:11:20 .wireshark
+-rw-rw-r--  1 ndt  ndt    41925 09-02_18:17:17 BUGS.md
+-rw-rw-r--  1 ndt  ndt    21472 09-02_18:25:27 CHECKLIST.md
+-rw-r--r--  1 root root      20 09-02_15:35:01 CLOUD_INIT_DONE
+drwxrwxr-x  3 ndt  ndt     4096 09-02_16:25:02 Desktop
+drwxrwxr-x  5 ndt  ndt     4096 09-02_16:41:13 Energy-Saving-App
+-rw-rw-r--  1 ndt  ndt     6203 09-02_18:37:15 GUEST-STATE.txt
+-rw-rw-r--  1 ndt  ndt    41522 09-02_18:24:54 JOURNAL.md
+-rw-rw-r--  1 ndt  ndt    40052 09-02_18:23:48 JOURNAL.md.bak-dedup
+drwxrwxr-x  8 ndt  ndt     4096 09-02_16:27:36 Network-State-Recorder
+drwxrwxr-x 11 ndt  ndt     4096 09-02_16:35:48 Network-Traffic-Generator
+drwxrwxr-x  8 ndt  ndt     4096 09-02_16:45:50 Network-Traffic-Visualizer
+drwxrwxr-x 22 ndt  ndt     4096 09-02_16:07:03 PI
+drwxrwxr-x  5 ndt  ndt     4096 09-02_16:42:26 Simulation-Platform-Manager
+drwxrwxr-x  6 ndt  ndt     4096 09-02_16:29:54 Web-GUI
+drwxrwxr-x 24 ndt  ndt     4096 09-02_16:16:51 behavioral-model
+-rw-rw-r--  1 ndt  ndt     2754 09-02_16:25:45 bugs_addendum.sh
+-rw-rw-r--  1 ndt  ndt     5870 09-02_16:06:35 bugs_ndt_up_ovs.sh
+-rw-rw-r--  1 ndt  ndt     3401 09-02_17:01:48 bugs_ndtapps_falseok.sh
+-rw-rw-r--  1 ndt  ndt     1831 09-02_18:17:15 bugs_ndtup_p4_addendum.sh
+-rw-rw-r--  1 ndt  ndt     4245 09-02_16:27:28 bugs_nsr.sh
+-rw-rw-r--  1 ndt  ndt     2241 09-02_16:31:21 bugs_nsr_update.sh
+-rw-rw-r--  1 ndt  ndt     1013 09-02_16:37:53 bugs_ntg_selftest.sh
+-rw-rw-r--  1 ndt  ndt     5300 09-02_16:19:26 bugs_orphan_kernel.sh
+-rw-rw-r--  1 ndt  ndt     5802 09-02_16:14:37 bugs_selftest.sh
+-rw-rw-r--  1 ndt  ndt     3545 09-02_16:44:00 bugs_simplatform.sh
+-rw-rw-r--  1 ndt  ndt     2271 09-02_16:29:39 bugs_webgui_docker.sh
+-rw-rw-r--  1 ndt  ndt      989 09-02_17:09:40 bugs_webgui_env_note.sh
+-rw-rw-r--  1 ndt  ndt     3352 09-02_16:32:36 bugs_webgui_pnpm.sh
+drwxrwxr-x  2 ndt  ndt     4096 09-02_18:12:05 install-details
+-rw-rw-r--  1 ndt  ndt      738 09-02_15:40:16 journal_init.sh
+-rw-rw-r--  1 ndt  ndt     1035 09-02_15:58:00 journal_interrupt.sh
+-rw-rw-r--  1 ndt  ndt      878 09-02_16:54:30 journal_interrupt2.sh
+-rw-rw-r--  1 ndt  ndt     2458 09-02_16:38:42 journal_ntg.sh
+-rw-rw-r--  1 ndt  ndt     1407 09-02_18:11:37 journal_p4_binaries_ready.sh
+-rw-rw-r--  1 ndt  ndt     1259 09-02_17:44:22 journal_p4_milestone.sh
+-rw-rw-r--  1 ndt  ndt      843 09-02_18:14:59 journal_p4_script_exit.sh
+-rw-rw-r--  1 ndt  ndt     4496 09-02_18:22:06 journal_p4_usermanual.sh
+-rw-rw-r--  1 ndt  ndt     3048 09-02_15:50:16 journal_s2.sh
+-rw-rw-r--  1 ndt  ndt     1219 09-02_15:51:15 journal_s3.sh
+-rw-rw-r--  1 ndt  ndt     4139 09-02_15:58:47 journal_s4_s5.sh
+-rw-rw-r--  1 ndt  ndt     2862 09-02_18:12:53 journal_s6_install.sh
+-rw-rw-r--  1 ndt  ndt     5905 09-02_16:23:44 journal_sectionB.sh
+-rw-rw-r--  1 ndt  ndt     2748 09-02_16:44:51 journal_simplatform.sh
+-rw-rw-r--  1 ndt  ndt     3607 09-02_18:24:53 journal_summary.sh
+-rw-rw-r--  1 ndt  ndt     3833 09-02_16:33:32 journal_tools1.sh
+-rw-rw-r--  1 ndt  ndt     1789 09-02_16:48:05 journal_trafficvis.sh
+-rw-rw-r--  1 ndt  ndt  1510268 09-02_18:13:04 log.txt
+drwxrwxr-x  2 ndt  ndt     4096 09-02_18:19:24 logs
+drwxrwxr-x 18 ndt  ndt     4096 09-02_15:40:48 miniconda3
+drwxrwxr-x 12 ndt  ndt     4096 09-02_18:11:18 mininet
+-rw-rw-r--  1 ndt  ndt      541 09-02_15:59:09 ndt_install.sh
+drwxrwxr-x  7 ndt  ndt     4096 09-02_15:35:05 ndtwin-docs
+drwxrwxr-x  5 ndt  ndt     4096 09-02_16:04:06 nsr-env
+-rw-rw-r--  1 ndt  ndt      535 09-02_16:04:05 nsr_install.sh
+drwxrwxr-x  5 ndt  ndt     4096 09-02_16:04:31 ntg-env
+-rw-rw-r--  1 ndt  ndt      572 09-02_16:04:30 ntg_install.sh
+drwxrwxr-x 85 ndt  ndt     4096 09-02_16:02:57 p4-guide
+-rw-rw-r--  1 ndt  ndt      180 09-02_18:17:27 p4_t1_topo.sh
+drwxrwxr-x 20 ndt  ndt     4096 09-02_16:32:57 p4c
+drwxrwxr-x  6 ndt  ndt     4096 09-02_16:32:28 p4dev-python-venv
+drwxrwxr-x 10 ndt  ndt     4096 09-02_18:11:59 p4runtime-shell
+-rw-rw-r--  1 ndt  ndt      213 09-02_18:12:08 p4setup.bash
+-rw-rw-r--  1 ndt  ndt      218 09-02_18:12:08 p4setup.csh
+-rw-rw-r--  1 ndt  ndt       76 09-02_18:37:15 pane_capture_errors.txt
+drwxrwxr-x 11 ndt  ndt     4096 09-02_18:11:33 ptf
+-rw-rw-r--  1 ndt  ndt      423 09-02_15:40:34 s2_1_miniconda.sh
+-rw-rw-r--  1 ndt  ndt      479 09-02_15:41:09 s2_1b_ryuenv.sh
+-rw-rw-r--  1 ndt  ndt      735 09-02_15:41:46 s2_2to5_ryu.sh
+-rw-rw-r--  1 ndt  ndt      287 09-02_15:44:56 s2_7.sh
+-rw-rw-r--  1 ndt  ndt      662 09-02_15:45:25 s3_all.sh
+-rw-rw-r--  1 ndt  ndt      313 09-02_15:51:29 s4_1_clone.sh
+-rw-rw-r--  1 ndt  ndt      363 09-02_15:51:48 s4_2_build.sh
+-rw-rw-r--  1 ndt  ndt      164 09-02_15:58:16 s5_check.sh
+-rw-rw-r--  1 ndt  ndt      890 09-02_16:02:53 s6_1_p4toolchain_kickoff.sh
+-rw-rw-r--  1 ndt  ndt     1430 09-02_18:11:38 s6_2to6_setup.sh
+-rw-rw-r--  1 ndt  ndt      859 09-02_16:38:58 simplatform_install_part1.sh
+-rw-rw-r--  1 ndt  ndt      492 09-02_16:45:02 trafficvis_install.sh
+drwxrwxr-x 14 ndt  ndt     4096 09-02_18:12:04 tutorials
+-rw-rw-r--  1 ndt  ndt      896 09-02_16:07:04 update1.json
+-rw-rw-r--  1 ndt  ndt     1092 09-02_16:55:32 update10.json
+-rw-rw-r--  1 ndt  ndt      293 09-02_16:57:42 update11.json
+-rw-rw-r--  1 ndt  ndt      233 09-02_16:59:27 update12.json
+-rw-rw-r--  1 ndt  ndt      742 09-02_17:02:00 update13.json
+-rw-rw-r--  1 ndt  ndt      326 09-02_17:02:34 update14.json
+-rw-rw-r--  1 ndt  ndt      283 09-02_17:03:42 update15.json
+-rw-rw-r--  1 ndt  ndt      682 09-02_17:05:05 update16.json
+-rw-rw-r--  1 ndt  ndt     1663 09-02_18:12:25 update17.json
+-rw-rw-r--  1 ndt  ndt      323 09-02_18:17:16 update18.json
+-rw-rw-r--  1 ndt  ndt      484 09-02_18:18:31 update19.json
+-rw-rw-r--  1 ndt  ndt     2566 09-02_16:20:40 update2.json
+-rw-rw-r--  1 ndt  ndt      721 09-02_18:19:23 update20.json
+-rw-rw-r--  1 ndt  ndt      331 09-02_18:19:47 update21.json
+-rw-rw-r--  1 ndt  ndt      613 09-02_18:20:12 update22.json
+-rw-rw-r--  1 ndt  ndt      707 09-02_18:21:29 update23.json
+-rw-rw-r--  1 ndt  ndt      266 09-02_18:25:26 update24.json
+-rw-rw-r--  1 ndt  ndt     2038 09-02_16:26:02 update3.json
+-rw-rw-r--  1 ndt  ndt     1801 09-02_16:31:39 update4.json
+-rw-rw-r--  1 ndt  ndt     1509 09-02_16:33:04 update5.json
+-rw-rw-r--  1 ndt  ndt     2010 09-02_16:38:10 update6.json
+-rw-rw-r--  1 ndt  ndt     2010 09-02_16:44:29 update7.json
+-rw-rw-r--  1 ndt  ndt     1250 09-02_16:47:46 update8.json
+-rw-rw-r--  1 ndt  ndt      581 09-02_16:49:49 update9.json
+-rw-rw-r--  1 ndt  ndt      885 09-02_16:06:52 update_checklist.py
+-rw-rw-r--  1 ndt  ndt      446 09-02_16:29:52 webgui_deploy.sh
+-rw-rw-r--  1 ndt  ndt     1271 09-02_16:26:15 webgui_install_docker.sh
+--- /tmp listing:
+total 96
+drwxrwxrwt 18 root root 12288 09-02_18:37:15 .
+drwxr-xr-x 22 root root  4096 09-02_16:32:19 ..
+drwxrwxrwt  2 root root  4096 09-02_15:34:53 .ICE-unix
+drwxrwxrwt  2 root root  4096 09-02_16:47:27 .X11-unix
+drwxrwxrwt  2 root root  4096 09-02_15:34:53 .XIM-unix
+drwxrwxrwt  2 root root  4096 09-02_15:34:53 .font-unix
+-rw-rw-r--  1 ndt  ndt    745 09-02_15:55:40 g4.sh
+-rw-rw-r--  1 ndt  ndt   5581 09-02_18:37:15 harvest04.sh
+drwxr-xr-x  2 ndt  ndt   4096 09-02_16:47:27 hsperfdata_ndt
+drwxr-xr-x  2 root root  4096 09-02_16:45:24 hsperfdata_root
+-rw-rw-r--  1 ndt  ndt    739 09-02_18:36:24 recon04.sh
+drwx------  2 root root  4096 09-02_15:34:53 snap-private-tmp
+drwx------  3 root root  4096 09-02_15:43:17 systemd-private-b02f9f2489c246cb83b69509d910e9ac-ModemManager.service-qYQh0K
+drwx------  3 root root  4096 09-02_16:26:30 systemd-private-b02f9f2489c246cb83b69509d910e9ac-fwupd.service-IIAQfK
+drwx------  3 root root  4096 09-02_15:43:17 systemd-private-b02f9f2489c246cb83b69509d910e9ac-polkit.service-mT8wwJ
+drwx------  3 root root  4096 09-02_15:34:59 systemd-private-b02f9f2489c246cb83b69509d910e9ac-systemd-logind.service-x35AEC
+drwx------  3 root root  4096 09-02_15:34:53 systemd-private-b02f9f2489c246cb83b69509d910e9ac-systemd-resolved.service-xIFWC1
+drwx------  3 root root  4096 09-02_15:34:53 systemd-private-b02f9f2489c246cb83b69509d910e9ac-systemd-timesyncd.service-Dk5F0M
+drwx------  2 root root  4096 09-02_18:13:23 tmux-0
+drwx------  2 ndt  ndt   4096 09-02_18:17:28 tmux-1000
+drwx------  2 ndt  ndt   4096 09-02_16:46:47 xvfb-run.NdCqXi
+--- repos:
+== /home/ndt/Desktop/NDTwin-Kernel
+   936f8c6 Snapshot of the P4/BMv2 kernel tree at 20cd80b, published for the manual
+   status --porcelain:
+      M p4_proxy/mininet/bmv2_binary_override
+== /home/ndt/p4-guide
+   43079a6 Add links to P4 development VM images created on 2026-Sep-01
+   b2ef0fd Remove some older images
+   a2f9f8c Add disk usage reporting to new install script
+   status --porcelain:
+== /home/ndt/p4c
+   d46d824202 Automated Release v1.2.5.17 (#5747)
+   55fe8f2775 Drop dead mirror_copy_to_cpu_ctrl translation (#5743)
+   e630371924 Fix Predication when a loop body is removed (#5744)
+   status --porcelain:
+== /home/ndt/behavioral-model
+   1c8c9a4f Automated Release 1.15.6 (#1447)
+   8be95de0 Update tag name for Ubuntu 24.04 third-party docker image (#1446)
+   583e76e4 test: replace assert with GoogleTest assertions (#1436)
+   status --porcelain:
+      M ci/install-thrift.sh
+      M install_deps.sh
+     ?? ci/install-thrift.sh.orig
+     ?? targets/simple_switch_grpc/config.h.in
+== /home/ndt/ndtwin-docs
+   fatal: not a git repository (or any of the parent directories): .git
+   status --porcelain:
+     fatal: not a git repository (or any of the parent directories): .git
+== /home/ndt/mininet
+   6eb8973 Fix typo in test_switchdpidassignment.py (#1195)
+   0848c5f Fix typo in test_hifi.py (#1194)
+   41ac7c4 Remove unused import setup.py (#1203)
+   status --porcelain:
+      M util/install.sh
+== /home/ndt/Network-Traffic-Generator
+   6e3f388 Merge branch 'main' of https://github.com/AlenChen0216/Network-Traffic-Generator
+   a75f86e 1. currently change the duration to 1 if it's original value is less than 1 to prevent iperf3 execute unlimited duration. 2. upload the distribution fils.
+   436920d Add files via upload
+   status --porcelain:
+      M NTG.yaml
+== /home/ndt/Network-State-Recorder
+   850f61d Add files via upload
+   f598337 Add LICENSE file
+   b4d11f6 Add files via upload
+   status --porcelain:
+== /home/ndt/Network-Traffic-Visualizer
+   b5e039c Update:"estimated_flow_sending_rate_bps_in_the_last_sec"to "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot"
+   a791975 feat: show top k flows and flow api interval adjustable
+   55fb312 Integrate NDT Top-K API into Flow Information
+   status --porcelain:
+      M dependency-reduced-pom.xml
+== /home/ndt/Web-GUI
+   f63a55c Add files via upload
+   c19c911 change estimated_flow_sending_rate_bps_in_the_last_sec to estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot
+   5da240c feat: change show k-top flow default to show all flow
+   status --porcelain:
+     ?? .env
+== /home/ndt/Energy-Saving-App
+   e5b3ec1 Add files via upload
+   bd41e36 Add LICENSE file
+   da0395c Delete LICENSE
+   status --porcelain:
+      M energy_saving_app
+      M energy_saving_simulator
+== /home/ndt/Simulation-Platform-Manager
+   b7efd93 Add files via upload
+   840faf3 Add LICENSE file
+   4c2ebeb Delete LICENSE
+   status --porcelain:
+      M registered/energy_saving_simulator/1.0/executable
+      M registered/simple_sim/1.0/executable
+== /home/ndt/PI
+   577b502 Update the docker image to Ubuntu 24. (#632)
+   4bd2eef Automated Release v0.1.3 (#662)
+   749760b Add copyright and license annotations for most remaining files (#661)
+   status --porcelain:
+== /home/ndt/ptf
+   95a0531 Automated Release v0.12.3 (#272)
+   790a087 Delete debian directory (#271)
+   78572d9 Automated Release v0.12.2 (#270)
+   status --porcelain:
+== /home/ndt/p4runtime-shell
+   4b69a67 Bump actions/setup-python from 5 to 6 (#147)
+   2039db7 Merge pull request #160 from p4lang/dependabot/github_actions/actions/checkout-7
+   dd78512 Bump actions/checkout from 6 to 7
+   status --porcelain:
+      M setup.cfg
+     ?? setup.cfg.orig
+== /home/ndt/tutorials
+   098ce0b Updates for install 2026-09-01 (#755)
+   f5a0e52 Remove use of obsolete Python package p4.tmp (#754)
+   9eab058 Update vm-ubuntu-24.04 for 2026-Aug-01 (#752)
+   status --porcelain:
+--- docs snapshot:
+website commit: 2612b0a
+--- docs HEAD:
+fatal: not a git repository (or any of the parent directories): .git
+--- .test_run:
+/home/ndt/Desktop/NDTwin-Kernel/.test_run:
+total 16
+drwxrwxr-x  4 ndt ndt 4096 09-02_16:51:17 .
+drwxrwxr-x 18 ndt ndt 4096 09-02_16:00:10 ..
+drwxrwxr-x  2 ndt ndt 4096 09-02_16:25:02 logs
+drwxrwxr-x  2 ndt ndt 4096 09-02_16:51:17 pids
+
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/logs:
+total 100
+drwxrwxr-x 2 ndt ndt  4096 09-02_16:25:02 .
+drwxrwxr-x 4 ndt ndt  4096 09-02_16:51:17 ..
+-rw-rw-r-- 1 ndt ndt   103 09-02_16:25:02 app_nsr.log
+-rw-rw-r-- 1 ndt ndt 72599 09-02_16:18:38 kernel.log
+-rw-rw-r-- 1 ndt ndt  8214 09-02_16:05:52 ryu.log
+
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids:
+total 8
+drwxrwxr-x 2 ndt ndt 4096 09-02_16:51:17 .
+drwxrwxr-x 4 ndt ndt 4096 09-02_16:51:17 ..
+--- .test_run/pids contents:
+--- pid liveness for recorded pids:
+--- BUG-3 orphan pid 59174 now:
+GONE
+--- any ndtwin_kernel / ryu / simple_switch alive (via /proc scan, no pgrep):
+  11291: ovs-vswitchd unix:/var/run/openvswitch/db.sock -vconsole:emer -vsyslog:err -vfile:info --mlockall --no-chdir --log-file=
+--- binaries:
+ls: cannot access '/home/ndt/Desktop/NDTwin-Kernel/bin/': No such file or directory
+/usr/local/bin/p4c
+/usr/local/bin/simple_switch
+/usr/local/bin/simple_switch_grpc
+/usr/local/sbin/ndtwin-lab
+ls: cannot access '/usr/local/bin/ndtwin-lab': No such file or directory
+lrwxrwxrwx 1 ndt  ndt    55 Sep  2 15:59 /home/ndt/.local/bin/ndt -> /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+-rwxr-xr-x 1 root root 6560 Sep  2 15:59 /usr/local/sbin/ndtwin-lab
+--- .local birth/stat:
+  File: /home/ndt/.local
+  Size: 4096      	Blocks: 8          IO Block: 4096   directory
+Device: 253,1	Inode: 1048577     Links: 3
+Access: (0775/drwxrwxr-x)  Uid: ( 1000/     ndt)   Gid: ( 1000/     ndt)
+Access: 2026-09-02 16:03:09.717805063 +0000
+Modify: 2026-09-02 15:59:10.386846147 +0000
+Change: 2026-09-02 15:59:10.386846147 +0000
+ Birth: 2026-09-02 15:59:10.386846147 +0000
+  File: /home/ndt/.local/bin
+  Size: 4096      	Blocks: 8          IO Block: 4096   directory
+Device: 253,1	Inode: 1048578     Links: 2
+Access: (0775/drwxrwxr-x)  Uid: ( 1000/     ndt)   Gid: ( 1000/     ndt)
+Access: 2026-09-02 16:03:09.717805063 +0000
+Modify: 2026-09-02 15:59:10.388846134 +0000
+Change: 2026-09-02 15:59:10.388846134 +0000
+ Birth: 2026-09-02 15:59:10.386846147 +0000
+--- .profile PATH stanza:
+22-fi
+23-
+24-# set PATH so it includes user's private bin if it exists
+25:if [ -d "$HOME/.local/bin" ] ; then
+26:    PATH="$HOME/.local/bin:$PATH"
+27-fi
+--- p4 versions (manual's Step 6.2 acceptance):
+1.15.6-1c8c9a4f
+p4c-bm2-ss
+Version 1.2.5.17 (SHA: d46d824202 BUILD: Release)
+2.3.1b4
+--- conda envs:
+ryu-env
+--- venvs:
+/home/ndt/nsr-env
+/home/ndt/ntg-env
+/home/ndt/p4dev-python-venv
+--- python interpreters:
+  /usr/bin/python3 -> 3.12.3 mininet=/usr/lib/python3/dist-packages/mininet/__init__.py
+  /home/ndt/miniconda3/envs/ryu-env/bin/python -> 3.8.20 mininet=None
+  /home/ndt/p4dev-python-venv/bin/python -> 3.12.3 mininet=None
+  /home/ndt/ntg-env/bin/python -> 3.12.3 mininet=/usr/lib/python3/dist-packages/mininet/__init__.py
+  /home/ndt/nsr-env/bin/python -> 3.12.3 mininet=None
+--- bash_history:
+cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info 2>&1 | tee ~/logs/T3_kernel_run2.log
+cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel
+--- SUMMARY present in JOURNAL?:
+1
+--- wc -l of the three source files:
+   517 /home/ndt/JOURNAL.md
+   115 /home/ndt/CHECKLIST.md
+   618 /home/ndt/BUGS.md
+   492 /home/ndt/JOURNAL.md.bak-dedup
+  1742 total
+--- sizes NOT tarred:
+16M	/home/ndt/install-details
+usr-local-1-before-protobuf.txt
+usr-local-3-after-grpc.txt
+usr-local-4-after-PI.txt
+usr-local-5-after-behavioral-model.txt
+usr-local-6-after-p4c.txt
+usr-local-7-after-mininet-install.txt
+usr-local-8-after-ptf-install.txt
+usr-local-9-after-miscellaneous-install.txt
+8

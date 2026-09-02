@@ -1,0 +1,3 @@
+[32m2026-09-02 16:48:37[0m | [1mINFO : Recorder settings: NDTwin server: http://127.0.0.1:8000, Request interval: 5 seconds, Storage interval: 2 minutes[0m
+[32m2026-09-02 16:48:37[0m | [31m[1mERROR : Error checking NDTwin server status: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /ndt/get_detected_flow_data (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))[0m
+[32m2026-09-02 16:48:37[0m | [31m[1mERROR : NDTwin server is not reachable, exiting...[0m

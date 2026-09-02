@@ -1,0 +1,12 @@
+{
+  "E1": "E1. ntg-env venv (--system-site-packages) + pip deps -- WORKS, mininet importable from venv confirmed via python3 -c import test",
+  "E2": "E2. clone Network-Traffic-Generator -- WORKS",
+  "E3": "E3. configure NTG.yaml host_file -> setting/Mininet.yaml -- confirms manual is correct that this edit is REQUIRED: shipped default is Hardware.yaml, not Mininet.yaml. WORKS once edited.",
+  "E4": "E4. sudo ~/ntg-env/bin/python testbed_topo.py -- WORKS (reaches its own \"NTG>\" prompt in custom_command mode; needs Terminal 3 kernel running too, to get past \"Failed to get hosts/paths from NDTwin server\" retries -- undocumented dependency on this page but easy to infer). Same self-test false-100%-failure as BUG-2 also seen here -- see BUGS.md note.",
+  "E5": "E5. NTG CLI tab-complete / path-complete -- NOT-TRIED (tmux send-keys does not exercise readline tab completion meaningfully; would need a real interactive terminal)",
+  "E6": "E6. `flow --config <file>` command -- WORKS, ran flow_template.json end-to-end (\"SUCCESS : Experiment completed.\"), independently cross-checked: kernel API reported 29 real detected-flow records during the run",
+  "E7": "E7. `dist --config <file>` command -- WORKS, ran dist_template.json against the shipped cesnet_2022/*.csv distribution files, generated real iperf3 flows with distribution-derived parameters",
+  "E8": "E8. `exit` command -- NOT-TRIED directly (used Ctrl-C instead, see E9; did not separately test typing `exit`)",
+  "E9": "E9. interrupting a running experiment (Ctrl-C) shuts down NTG entirely -- WORKS, confirmed verbatim: \"Keyboard interrupt received. Stopping ongoing tasks and exiting...\" / \"Exiting CLI and cleaning up...\", then the whole Mininet topology tore down -- matches the manual's own \"Notice\" exactly. Tested naturally on a config with unlimited-duration flows, which is the realistic case where a user would want to interrupt.",
+  "E10": "E10. Hardware/worker-node mode -- NOT-TRIED (no second machine available)"
+}

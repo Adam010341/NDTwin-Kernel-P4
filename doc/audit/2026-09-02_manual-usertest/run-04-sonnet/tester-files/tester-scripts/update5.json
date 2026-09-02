@@ -1,0 +1,14 @@
+{
+  "D1": "D1. Docker + docker compose install -- WORKS (Docker 29.7.2, Compose v5.5.0); minor doc slip noted separately (chmod docker.asc typo, harmless here)",
+  "D2": "D2. clone Web-GUI, cp .env.example .env, set NDT_API_BASE_URL -- WORKS",
+  "D3": "D3. ./web_gui_deploy.sh -- BROKEN: frontend Docker image fails to build (`pnpm install --frozen-lockfile` -> ERR_PNPM_IGNORED_BUILDS on an unpinned, freshly-pulled pnpm v12.3.0). See BUGS.md BUG-5. Whole deploy aborts, 0 containers start.",
+  "D4": "D4. curl localhost:3000 (frontend reachable) -- NOT-TRIED (blocked by D3; nothing listens on 3000)",
+  "D5": "D5. docker-compose ps (3 services up) -- BROKEN, `docker compose ps -a` shows zero containers after the failed deploy",
+  "D6": "D6. docker-compose logs -- NOT-TRIED (nothing to log; no containers were created)",
+  "D7": "D7. docker-compose down / up -d / restart -- NOT-TRIED (blocked by D3)",
+  "D8": "D8. Network Topology page visual features -- NOT-TRIED (needs real browser; also blocked by D3 regardless)",
+  "D9": "D9. Device Information panel, CPU/mem placeholder values -- NOT-TRIED (needs real browser; also blocked by D3)",
+  "D10": "D10. Switch Flow Table add/modify/delete flow entry -- NOT-TRIED (needs real browser; also blocked by D3)",
+  "D11": "D11. NDTwin Assistant (LLM prompt) features -- NOT-TRIED (needs real browser and an API key; also blocked by D3)",
+  "D12": "D12. Availability Status historical trace playback -- NOT-TRIED (needs real browser; also blocked by D3)"
+}

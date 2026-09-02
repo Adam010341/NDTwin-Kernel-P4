@@ -1,0 +1,9 @@
+{
+  "A1": "A1. install ndt symlink (~/.local/bin/ndt) -- WORKS (needs `bash -l` / new login shell for PATH -- see BUGS.md friction note)",
+  "A2": "A2. install ndtwin-lab root-side script (/usr/local/sbin) -- WORKS (installed, root:root 755)",
+  "A3": "A3. sudoers.d NOPASSWD entry for ndtwin-lab -- WORKS (sudo -n ndtwin-lab did not prompt)",
+  "A4": "A4. `ndt up ovs` -- BROKEN, reproduces manual's own documented G-7 limitation: hardcoded /home/adam paths in ndtwin-lab -> \"XX fabric has 0 hosts, expected 128\" after 5m08s. See BUGS.md BUG-1.",
+  "A5": "A5. `ndt status` -- WORKS (clean baseline before start, and after `ndt down`; shows hosts/topology/bmv2-binary config + running state)",
+  "A6": "A6. `ndt down` -- WORKS (cleaned up after the failed `ndt up ovs`, all verify-clean checks passed)",
+  "A11": "A11. `ndt --help` -- WORKS (matches the User Manual's command table exactly)"
+}

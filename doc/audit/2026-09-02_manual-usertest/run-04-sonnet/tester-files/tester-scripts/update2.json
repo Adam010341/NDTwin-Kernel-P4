@@ -1,0 +1,13 @@
+{
+  "B1": "B1. Terminal 1: ryu-manager intelligent_router.py + rest_topology + ofctl_rest on 6633 -- WORKS (loaded cleanly both times; note: app self-polls its own REST API every ~2s continuously, e.g. /v1.0/topology/switches, /ryu_server/all_destination_paths -- not documented, not a problem, just noted)",
+  "B2": "B2. Terminal 2: sudo python3 testbed_topo.py -- WORKS-BUT: brings up the fabric correctly (confirmed via manual ping + iperf3) but its OWN internal all-pairs self-test falsely reports 100% packet loss and its final banner says OK anyway regardless. See BUGS.md BUG-2. Piping its output through `tee` at launch (my own methodology, not the manual's) crashed the CLI once; running it unpiped (as the manual shows) did not reproduce that crash across 2 tries.",
+  "B3": "B3. Convergence check via ovs-ofctl dump-flows count (expect 130/switch, 10 switches) -- WORKS, matched exactly (130 on all 10 switches), reached in under 20s from topology-script start in the fastest of 2 runs -- much faster than the manual's 80-90s reference, not a problem, just a faster machine/run",
+  "B4": "B4. \"all-destination paths installed\" message timing (manual: ~80-85s) -- WORKS-BUT: did not time this message directly (used the flow-count method instead, as the manual itself recommends over eyeballing the log) -- Ryu's log did show `install_all_pair_paths done: hosts=128 pairs=16256 rules=128 paths=3968` confirming the same underlying event",
+  "B5": "B5. Terminal 3: sudo bin/ndtwin_kernel --mode mininet --topology ... --no-ai --loglevel info -- WORKS (once a stale prior kernel process holding the sFlow port was cleared -- see BUGS.md BUG-3); immediately reported \"topology from the control plane: 10 switches, 128 hosts, 288 edges up\", matching the OVS/128-host fabric exactly",
+  "B6": "B6. Kernel with NO flags -> interactive 3-question prompt -- NOT-TRIED YET",
+  "B7": "B7. iperf3 server on h1 (background) -- WORKS",
+  "B8": "B8. iperf3 client h2->h1 (background, -t 300) -- WORKS, sustained ~955-956 Mbit/s (near the 1000Mbit TCLink cap) in one run",
+  "B9": "B9. curl :8000/ndt/get_detected_flow_data while flow active (expect 2 records) -- WORKS, exactly 2 records, one per direction, matching the manual's own worked example numbers exactly (src_ip 16777226 / dst_ip 33554442)",
+  "B10": "B10. decode src_ip/dst_ip integer -> dotted quad -- WORKS, 16777226 -> 10.0.0.1 (h1), 33554442 -> 10.0.0.2 (h2), matches manual's own example value verbatim",
+  "B11": "B11. query API after flow idle >15s (expect []) -- WORKS, got [] after ~20s idle"
+}

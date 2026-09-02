@@ -1,0 +1,17 @@
+[2026-09-02 16:15:08.822] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 16:15:08.822] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 16:15:08.823] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 16:15:08.823] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 16:15:08.823] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 16:15:08.823] [error] [[94mFlowLinkUsageCollector.cpp[0m:[95m690[0m [96mopenReceiveSocket[0m] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+[2026-09-02 16:15:08.824] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 16:15:08.824] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-02 16:15:08.827] [critical] [[94mmain.cpp[0m:[95m406[0m [96mmain[0m] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+[2026-09-02 16:15:08.855] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-09-02 16:15:08.856] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2100[0m [96mrun[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 16:15:09.824] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 16:15:09.824] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 16:15:09.824] [info] [[94mApplicationManager.cpp[0m:[95m266[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 16:15:09.824] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+KERNEL_EXITED_CODE=1

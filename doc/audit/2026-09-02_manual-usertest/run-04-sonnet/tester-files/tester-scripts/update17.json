@@ -1,0 +1,9 @@
+{
+  "C3": "C3. simple_switch_grpc --version -- WORKS, `1.15.6-1c8c9a4f`, exact match for the manual's own worked example dated 2026-09-02",
+  "C4": "C4. p4c-bm2-ss --version -- WORKS, `Version 1.2.5.17 (SHA: d46d824202 BUILD: Release)`, exact match for the manual's own worked example dated 2026-09-02",
+  "C5": "C5. compile ndtwin_switch.p4 -> ndtwin_switch.json + p4info -- WORKS, compiled cleanly (2 benign warnings: unused TYPE_ARP constant, deprecated .txt p4info format), produced ndtwin_switch.json (75852 B) and ndtwin_switch.p4info.txt (4051 B)",
+  "C6": "C6. p4_proxy/venv Python 3.12 env + requirements.txt -- WORKS, venv built from Python 3.12.3 (ryu-env correctly not active), all pinned requirements installed cleanly including protobuf==3.20.3 as the manual insists on",
+  "C7": "C7. AppConfig.hpp P4_PROXY_IP_AND_PORT check + kernel rebuild -- NOT-NEEDED: already correct (localhost:8081, ALLOW_MIXED_DATAPLANE=false) from the original build in Section 4.2, no edit or rebuild required",
+  "C8": "C8. host_count_override = 128 -- WORKS",
+  "C9": "C9. bmv2_binary_override points at real executable -- WORKS-BUT: shipped default pointed at the not-yet-built /usr/local/bmv2-fast path (with an unusually detailed embedded comment explaining why, including a prior finding about the debug build's throughput ceiling masking a downstream app's traffic-sensitivity -- read but not acted on further, out of scope for this test); switched it to the stock /usr/local/bin/simple_switch_grpc per the manual's own Step 6.6 instructions since Step 6.7 (the fast build) was skipped as optional-of-optional. Confirmed selected path exists and is executable."
+}

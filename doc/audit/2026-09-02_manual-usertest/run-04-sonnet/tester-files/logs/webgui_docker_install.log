@@ -1,0 +1,154 @@
++ date +%H:%M
+16:26
++ sudo apt update
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Hit:1 http://security.ubuntu.com/ubuntu noble-security InRelease
+Hit:2 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:3 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:4 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Reading package lists...
+Building dependency tree...
+Reading state information...
+35 packages can be upgraded. Run 'apt list --upgradable' to see them.
++ sudo apt install -y ca-certificates curl gnupg
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+ca-certificates is already the newest version (20260601~24.04.1).
+ca-certificates set to manually installed.
+curl is already the newest version (8.5.0-2ubuntu10.13).
+gnupg is already the newest version (2.4.4-2ubuntu17.4).
+gnupg set to manually installed.
+0 upgraded, 0 newly installed, 0 to remove and 35 not upgraded.
++ sudo install -m 0755 -d /etc/apt/keyrings
++ curl -fsSL https://download.docker.com/linux/ubuntu/gpg
++ sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
++ echo '--- literal transcription of the manual'\''s next line, which chmods docker.asc, not docker.gpg -- testing whether this is a real bug ---'
+--- literal transcription of the manual's next line, which chmods docker.asc, not docker.gpg -- testing whether this is a real bug ---
++ sudo chmod a+r /etc/apt/keyrings/docker.asc
+chmod: cannot access '/etc/apt/keyrings/docker.asc': No such file or directory
++ echo CHMOD_ASC_EXIT=1
+CHMOD_ASC_EXIT=1
++ ls -la /etc/apt/keyrings/
+total 12
+drwxr-xr-x 2 root root 4096 Sep  2 16:26 .
+drwxr-xr-x 8 root root 4096 Aug 26 12:59 ..
+-rw-r--r-- 1 root root 2760 Sep  2 16:26 docker.gpg
++ echo '--- effective permissions on the file the manual actually created ---'
+--- effective permissions on the file the manual actually created ---
++ stat -c '%a %U:%G %n' /etc/apt/keyrings/docker.gpg
+644 root:root /etc/apt/keyrings/docker.gpg
++ sudo tee /etc/apt/sources.list.d/docker.list
+++ dpkg --print-architecture
+++ lsb_release -cs
++ echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu noble stable'
++ sudo apt update
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Get:1 https://download.docker.com/linux/ubuntu noble InRelease [48.5 kB]
+Get:2 https://download.docker.com/linux/ubuntu noble/stable amd64 Packages [64.2 kB]
+Hit:3 http://security.ubuntu.com/ubuntu noble-security InRelease
+Hit:4 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:5 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:6 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Fetched 113 kB in 2s (74.0 kB/s)
+Reading package lists...
+Building dependency tree...
+Reading state information...
+35 packages can be upgraded. Run 'apt list --upgradable' to see them.
++ sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  docker-ce-rootless-extras pigz
+Suggested packages:
+  cgroupfs-mount | cgroup-lite docker-model-plugin
+The following NEW packages will be installed:
+  containerd.io docker-buildx-plugin docker-ce docker-ce-cli
+  docker-ce-rootless-extras docker-compose-plugin pigz
+0 upgraded, 7 newly installed, 0 to remove and 35 not upgraded.
+Need to get 102 MB of archives.
+After this operation, 395 MB of additional disk space will be used.
+Get:1 https://download.docker.com/linux/ubuntu noble/stable amd64 containerd.io amd64 2.3.4-1~ubuntu.24.04~noble [22.7 MB]
+Get:2 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-ce-cli amd64 5:29.7.2-1~ubuntu.24.04~noble [17.0 MB]
+Get:3 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-ce amd64 5:29.7.2-1~ubuntu.24.04~noble [24.0 MB]
+Get:4 http://archive.ubuntu.com/ubuntu noble/universe amd64 pigz amd64 2.8-1 [65.6 kB]
+Get:5 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-buildx-plugin amd64 0.36.1-1~ubuntu.24.04~noble [17.2 MB]
+Get:6 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-ce-rootless-extras amd64 5:29.7.2-1~ubuntu.24.04~noble [10.2 MB]
+Get:7 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-compose-plugin amd64 5.5.0-1~ubuntu.24.04~noble [11.1 MB]
+Fetched 102 MB in 1s (100.0 MB/s)
+Selecting previously unselected package containerd.io.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 124743 files and directories currently installed.)
+Preparing to unpack .../0-containerd.io_2.3.4-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking containerd.io (2.3.4-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-ce-cli.
+Preparing to unpack .../1-docker-ce-cli_5%3a29.7.2-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-ce-cli (5:29.7.2-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-ce.
+Preparing to unpack .../2-docker-ce_5%3a29.7.2-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-ce (5:29.7.2-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package pigz.
+Preparing to unpack .../3-pigz_2.8-1_amd64.deb ...
+Unpacking pigz (2.8-1) ...
+Selecting previously unselected package docker-buildx-plugin.
+Preparing to unpack .../4-docker-buildx-plugin_0.36.1-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-buildx-plugin (0.36.1-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-ce-rootless-extras.
+Preparing to unpack .../5-docker-ce-rootless-extras_5%3a29.7.2-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-ce-rootless-extras (5:29.7.2-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-compose-plugin.
+Preparing to unpack .../6-docker-compose-plugin_5.5.0-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-compose-plugin (5.5.0-1~ubuntu.24.04~noble) ...
+Setting up docker-buildx-plugin (0.36.1-1~ubuntu.24.04~noble) ...
+Setting up containerd.io (2.3.4-1~ubuntu.24.04~noble) ...
+Created symlink /etc/systemd/system/multi-user.target.wants/containerd.service → /usr/lib/systemd/system/containerd.service.
+Setting up docker-compose-plugin (5.5.0-1~ubuntu.24.04~noble) ...
+Setting up docker-ce-cli (5:29.7.2-1~ubuntu.24.04~noble) ...
+Setting up pigz (2.8-1) ...
+Setting up docker-ce-rootless-extras (5:29.7.2-1~ubuntu.24.04~noble) ...
+Setting up docker-ce (5:29.7.2-1~ubuntu.24.04~noble) ...
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /usr/lib/systemd/system/docker.service.
+Created symlink /etc/systemd/system/sockets.target.wants/docker.socket → /usr/lib/systemd/system/docker.socket.
+Processing triggers for man-db (2.12.0-4build2) ...
+
+Running kernel seems to be up-to-date.
+
+Restarting services...
+
+Service restarts being deferred:
+ systemctl restart unattended-upgrades.service
+
+No containers need to be restarted.
+
+User sessions running outdated binaries:
+ ndt @ session #156: install-p4dev-v[16585], tmux: server[16582]
+ ndt @ user manager service: bash[16583]
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
++ sudo groupadd docker
+groupadd: group 'docker' already exists
++ echo 'docker group already exists'
+docker group already exists
++ sudo usermod -aG docker ndt
++ sudo systemctl start docker
++ sudo systemctl enable docker
+Synchronizing state of docker.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable docker
++ docker --version
+Docker version 29.7.2, build a7dcaa6
++ docker compose version
+Docker Compose version v5.5.0
++ date +%H:%M
+16:26
++ echo WEBGUI_DOCKER_INSTALL_DONE
+WEBGUI_DOCKER_INSTALL_DONE

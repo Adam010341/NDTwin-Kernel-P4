@@ -1,0 +1,127 @@
+loading app /home/ndt/Desktop/NDTwin-Kernel/intelligent_router.py
+NDTWIN: load_static_topology will run OFF the event handler (NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL, default since 2026-08-25; set 0 to opt out)
+NDTWIN: SIGUSR2 dumps greenlet stacks to /tmp/ndtwin_ryu_greenlets.txt (kill -USR2 <ryu pid>)
+NDTWIN: LLDP_SEND_GUARD default is 0.01s (Ryu ships 0.05; override with NDTWIN_RYU_LLDP_GUARD)
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app /home/ndt/Desktop/NDTwin-Kernel/intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(15078) wsgi starting up on http://0.0.0.0:8080
+(15078) accepted ('127.0.0.1', 57284)
+(15078) accepted ('127.0.0.1', 37656)
+127.0.0.1 - - [02/Sep/2026 16:05:17] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.006022
+(15078) accepted ('127.0.0.1', 37662)
+127.0.0.1 - - [02/Sep/2026 16:05:17] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000217
+(15078) accepted ('127.0.0.1', 37676)
+127.0.0.1 - - [02/Sep/2026 16:05:17] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000137
+(15078) accepted ('127.0.0.1', 37686)
+127.0.0.1 - - [02/Sep/2026 16:05:19] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000283
+(15078) accepted ('127.0.0.1', 37688)
+127.0.0.1 - - [02/Sep/2026 16:05:19] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000200
+(15078) accepted ('127.0.0.1', 37702)
+127.0.0.1 - - [02/Sep/2026 16:05:19] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000134
+(15078) accepted ('127.0.0.1', 37716)
+127.0.0.1 - - [02/Sep/2026 16:05:21] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000616
+(15078) accepted ('127.0.0.1', 37718)
+127.0.0.1 - - [02/Sep/2026 16:05:21] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000219
+(15078) accepted ('127.0.0.1', 37720)
+127.0.0.1 - - [02/Sep/2026 16:05:21] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000131
+(15078) accepted ('127.0.0.1', 42288)
+127.0.0.1 - - [02/Sep/2026 16:05:23] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000300
+(15078) accepted ('127.0.0.1', 42296)
+127.0.0.1 - - [02/Sep/2026 16:05:23] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000227
+(15078) accepted ('127.0.0.1', 42304)
+127.0.0.1 - - [02/Sep/2026 16:05:23] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000138
+(15078) accepted ('127.0.0.1', 42310)
+127.0.0.1 - - [02/Sep/2026 16:05:25] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000287
+(15078) accepted ('127.0.0.1', 42320)
+127.0.0.1 - - [02/Sep/2026 16:05:25] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000261
+(15078) accepted ('127.0.0.1', 42336)
+127.0.0.1 - - [02/Sep/2026 16:05:25] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000285
+(15078) accepted ('127.0.0.1', 42352)
+127.0.0.1 - - [02/Sep/2026 16:05:27] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000658
+(15078) accepted ('127.0.0.1', 42356)
+127.0.0.1 - - [02/Sep/2026 16:05:27] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000216
+(15078) accepted ('127.0.0.1', 42362)
+127.0.0.1 - - [02/Sep/2026 16:05:27] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000152
+(15078) accepted ('127.0.0.1', 42376)
+127.0.0.1 - - [02/Sep/2026 16:05:29] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000297
+(15078) accepted ('127.0.0.1', 42386)
+127.0.0.1 - - [02/Sep/2026 16:05:29] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000209
+(15078) accepted ('127.0.0.1', 42394)
+127.0.0.1 - - [02/Sep/2026 16:05:29] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000137
+(15078) accepted ('127.0.0.1', 42404)
+127.0.0.1 - - [02/Sep/2026 16:05:31] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000278
+(15078) accepted ('127.0.0.1', 42414)
+127.0.0.1 - - [02/Sep/2026 16:05:31] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000213
+(15078) accepted ('127.0.0.1', 42420)
+127.0.0.1 - - [02/Sep/2026 16:05:31] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000143
+(15078) accepted ('127.0.0.1', 32824)
+127.0.0.1 - - [02/Sep/2026 16:05:33] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000278
+(15078) accepted ('127.0.0.1', 32834)
+127.0.0.1 - - [02/Sep/2026 16:05:33] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000201
+(15078) accepted ('127.0.0.1', 32850)
+127.0.0.1 - - [02/Sep/2026 16:05:33] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000130
+(15078) accepted ('127.0.0.1', 32856)
+127.0.0.1 - - [02/Sep/2026 16:05:35] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000638
+(15078) accepted ('127.0.0.1', 32870)
+127.0.0.1 - - [02/Sep/2026 16:05:35] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000203
+(15078) accepted ('127.0.0.1', 32876)
+127.0.0.1 - - [02/Sep/2026 16:05:35] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000144
+(15078) accepted ('127.0.0.1', 32878)
+127.0.0.1 - - [02/Sep/2026 16:05:37] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000303
+(15078) accepted ('127.0.0.1', 32892)
+127.0.0.1 - - [02/Sep/2026 16:05:37] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000209
+(15078) accepted ('127.0.0.1', 32900)
+127.0.0.1 - - [02/Sep/2026 16:05:37] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000134
+(15078) accepted ('127.0.0.1', 32910)
+127.0.0.1 - - [02/Sep/2026 16:05:40] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000594
+(15078) accepted ('127.0.0.1', 32918)
+127.0.0.1 - - [02/Sep/2026 16:05:40] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000208
+(15078) accepted ('127.0.0.1', 32928)
+127.0.0.1 - - [02/Sep/2026 16:05:40] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000130
+(15078) accepted ('127.0.0.1', 32938)
+127.0.0.1 - - [02/Sep/2026 16:05:42] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000291
+(15078) accepted ('127.0.0.1', 32948)
+127.0.0.1 - - [02/Sep/2026 16:05:42] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000208
+(15078) accepted ('127.0.0.1', 32952)
+127.0.0.1 - - [02/Sep/2026 16:05:42] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000135
+(15078) accepted ('127.0.0.1', 40108)
+127.0.0.1 - - [02/Sep/2026 16:05:44] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000281
+(15078) accepted ('127.0.0.1', 40110)
+127.0.0.1 - - [02/Sep/2026 16:05:44] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000218
+(15078) accepted ('127.0.0.1', 40116)
+127.0.0.1 - - [02/Sep/2026 16:05:44] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000127
+(15078) accepted ('127.0.0.1', 40128)
+127.0.0.1 - - [02/Sep/2026 16:05:46] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000279
+(15078) accepted ('127.0.0.1', 40130)
+127.0.0.1 - - [02/Sep/2026 16:05:46] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000211
+(15078) accepted ('127.0.0.1', 40142)
+127.0.0.1 - - [02/Sep/2026 16:05:46] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000131
+(15078) accepted ('127.0.0.1', 40150)
+127.0.0.1 - - [02/Sep/2026 16:05:48] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000278
+(15078) accepted ('127.0.0.1', 40160)
+127.0.0.1 - - [02/Sep/2026 16:05:48] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000206
+(15078) accepted ('127.0.0.1', 40162)
+127.0.0.1 - - [02/Sep/2026 16:05:48] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000129
+(15078) accepted ('127.0.0.1', 40168)
+127.0.0.1 - - [02/Sep/2026 16:05:50] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000286
+(15078) accepted ('127.0.0.1', 40172)
+127.0.0.1 - - [02/Sep/2026 16:05:50] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000211
+(15078) accepted ('127.0.0.1', 40174)
+127.0.0.1 - - [02/Sep/2026 16:05:50] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000351
+(15078) accepted ('127.0.0.1', 40182)
+127.0.0.1 - - [02/Sep/2026 16:05:52] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000280
+(15078) accepted ('127.0.0.1', 40184)
+127.0.0.1 - - [02/Sep/2026 16:05:52] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000205
+(15078) accepted ('127.0.0.1', 40200)
+127.0.0.1 - - [02/Sep/2026 16:05:52] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000139

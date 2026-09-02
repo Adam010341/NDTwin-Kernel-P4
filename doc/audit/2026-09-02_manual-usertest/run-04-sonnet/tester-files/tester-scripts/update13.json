@@ -1,0 +1,3 @@
+{
+  "A9": "A9. `ndt apps` interactive picker -- BROKEN in two distinct ways: (1) `nsr` needs a clone location and conda env this project's own Installation Manual pages do not build (see BUGS.md addendum to BUG-1); (2) `energy` and `sim` both print \"ok ... started\" while the tmux session is already gone, reproduced twice including once with a fully converged OVS fabric+kernel already up -- see BUGS.md BUG-6. `viz` correctly and honestly refuses (\"is a JavaFX GUI and there is no display; not starting it\") -- so the tool CAN detect problems, it just does not for energy/sim. `te` correctly reports \"TE app not found\" (Traffic-Engineering-App was never cloned in this run). Did not try the bare interactive-picker form (no args)."
+}

@@ -1,0 +1,599 @@
+[2026-09-02 16:35:13.120] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 16:35:13.120] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 16:35:13.120] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 16:35:13.120] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 16:35:13.120] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 16:35:13.120] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 16:35:13.121] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-02 16:35:13.121] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 16:35:13.121] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=225908 tid=225911
+[2026-09-02 16:35:13.121] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-02 16:35:13.121] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=225908 tid=225912
+[2026-09-02 16:35:13.121] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=225908 tid=225915
+[2026-09-02 16:35:13.122] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=225908 tid=225913
+[2026-09-02 16:35:13.122] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-02 16:35:13.122] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=225908 tid=225914
+[2026-09-02 16:35:13.122] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-02 16:35:13.134] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-09-02 16:35:13.184] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 16:35:13.612] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:13.612] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:35:13.612] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:35:13.627] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:35:13.631] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:13.632] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:13.632] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_path_switch_count
+[2026-09-02 16:35:13.632] [info] [[94mHttpSession.cpp[0m:[95m1716[0m [96mhandleGetPathSwitchCount[0m] Handle Get All Path Switch Counts
+[2026-09-02 16:35:13.632] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:14.121] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2072[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+[2026-09-02 16:35:15.633] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:15.633] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:35:15.633] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:35:15.649] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:35:15.652] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:15.652] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:15.652] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_path_switch_count
+[2026-09-02 16:35:15.653] [info] [[94mHttpSession.cpp[0m:[95m1716[0m [96mhandleGetPathSwitchCount[0m] Handle Get All Path Switch Counts
+[2026-09-02 16:35:15.653] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:17.657] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:17.657] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:35:17.657] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:35:17.672] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:35:17.675] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:17.676] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:17.676] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_path_switch_count
+[2026-09-02 16:35:17.676] [info] [[94mHttpSession.cpp[0m:[95m1716[0m [96mhandleGetPathSwitchCount[0m] Handle Get All Path Switch Counts
+[2026-09-02 16:35:17.676] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:18.442] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:35:18.500] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will answer from now on.
+[2026-09-02 16:35:19.677] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:19.677] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:35:19.677] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:35:19.691] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:35:19.694] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:19.695] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:35:19.695] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_path_switch_count
+[2026-09-02 16:35:19.695] [info] [[94mHttpSession.cpp[0m:[95m1716[0m [96mhandleGetPathSwitchCount[0m] Handle Get All Path Switch Counts
+[2026-09-02 16:35:19.874] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:35:43.128] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.2 ms | since start (29 iters) mean 1000.2 ms, min 1000.1, max 1003.0 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:35:43.128] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000130 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:35:49.045] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m271[0m [96mpopulateIfIndexToOfportMap[0m] Populating ifIndex to OFPort map...
+[2026-09-02 16:35:49.258] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m437[0m [96mpopulateIfIndexToOfportMap[0m] Finished populating ifIndex to OFPort map. Size: 160
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.94 -> 10.0.0.12 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.78 -> 10.0.0.100 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.100 -> 10.0.0.67 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.126 -> 10.0.0.32 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.67 -> 10.0.0.100 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.126 -> 10.0.0.32 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.137] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.12 -> 10.0.0.94 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.32 -> 10.0.0.126 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:05.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.2 -> 10.0.0.108 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.11 -> 10.0.0.43 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:06.138] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.55 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.11 -> 10.0.0.99 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.7 -> 10.0.0.90 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.90 -> 10.0.0.7 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.8 -> 10.0.0.43 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.15 -> 10.0.0.93 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.11 -> 10.0.0.99 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.93 -> 10.0.0.15 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.6 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.25 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.99 -> 10.0.0.11 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.41 -> 10.0.0.109 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.41 idles
+[2026-09-02 16:36:07.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.41 idles
+[2026-09-02 16:36:08.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.15 -> 10.0.0.93 idles
+[2026-09-02 16:36:08.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.125 -> 10.0.0.63 idles
+[2026-09-02 16:36:08.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.85 -> 10.0.0.62 idles
+[2026-09-02 16:36:08.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.63 -> 10.0.0.125 idles
+[2026-09-02 16:36:08.141] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.125 -> 10.0.0.63 idles
+[2026-09-02 16:36:09.507] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:36:09.507] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:36:09.507] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:36:09.509] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:36:13.943] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1027.2 ms | since start (59 iters) mean 1013.9 ms, min 1000.1, max 1157.6 (flows=29, counters=65) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:36:13.957] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.012740 divisor_used_s=1.012740 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:36:17.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.100 -> 10.0.0.39 idles
+[2026-09-02 16:36:17.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.51 -> 10.0.0.24 idles
+[2026-09-02 16:36:17.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.62 -> 10.0.0.85 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.3 -> 10.0.0.72 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.53 -> 10.0.0.125 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.24 -> 10.0.0.51 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.112 -> 10.0.0.44 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.69 -> 10.0.0.26 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.55 -> 10.0.0.71 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.71 -> 10.0.0.55 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.85 -> 10.0.0.62 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.109 -> 10.0.0.61 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.26 -> 10.0.0.69 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.125 -> 10.0.0.53 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.108 -> 10.0.0.80 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.126 -> 10.0.0.25 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.80 -> 10.0.0.108 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.39 -> 10.0.0.100 idles
+[2026-09-02 16:36:18.142] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.126 idles
+[2026-09-02 16:36:18.851] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:36:19.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.106 -> 10.0.0.92 idles
+[2026-09-02 16:36:19.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.92 -> 10.0.0.106 idles
+[2026-09-02 16:36:19.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.44 -> 10.0.0.112 idles
+[2026-09-02 16:36:20.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.101 -> 10.0.0.85 idles
+[2026-09-02 16:36:20.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.72 -> 10.0.0.25 idles
+[2026-09-02 16:36:20.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.25 -> 10.0.0.72 idles
+[2026-09-02 16:36:21.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.101 -> 10.0.0.85 idles
+[2026-09-02 16:36:21.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.85 -> 10.0.0.101 idles
+[2026-09-02 16:36:21.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.82 -> 10.0.0.17 idles
+[2026-09-02 16:36:21.143] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.17 -> 10.0.0.82 idles
+[2026-09-02 16:36:44.534] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1019.7 ms | since start (89 iters) mean 1015.9 ms, min 1000.1, max 1157.6 (flows=32, counters=77) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:36:44.626] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.046739 divisor_used_s=1.046739 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:36:52.147] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.23 -> 10.0.0.82 idles
+[2026-09-02 16:36:53.147] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.100 -> 10.0.0.7 idles
+[2026-09-02 16:36:53.147] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.6 -> 10.0.0.121 idles
+[2026-09-02 16:36:54.147] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.86 -> 10.0.0.10 idles
+[2026-09-02 16:36:54.147] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.18 -> 10.0.0.113 idles
+[2026-09-02 16:36:54.147] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.18 -> 10.0.0.113 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.84 -> 10.0.0.54 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.37 -> 10.0.0.101 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.67 -> 10.0.0.126 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.86 -> 10.0.0.10 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.10 -> 10.0.0.86 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.126 -> 10.0.0.67 idles
+[2026-09-02 16:36:55.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.113 -> 10.0.0.18 idles
+[2026-09-02 16:36:56.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.54 -> 10.0.0.84 idles
+[2026-09-02 16:36:56.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.20 -> 10.0.0.123 idles
+[2026-09-02 16:36:56.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.123 -> 10.0.0.20 idles
+[2026-09-02 16:36:56.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.84 -> 10.0.0.54 idles
+[2026-09-02 16:36:57.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.115 -> 10.0.0.87 idles
+[2026-09-02 16:36:57.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.87 -> 10.0.0.115 idles
+[2026-09-02 16:36:58.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.70 -> 10.0.0.55 idles
+[2026-09-02 16:36:58.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.2 -> 10.0.0.101 idles
+[2026-09-02 16:36:59.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.38 -> 10.0.0.126 idles
+[2026-09-02 16:36:59.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.40 -> 10.0.0.13 idles
+[2026-09-02 16:36:59.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.81 -> 10.0.0.59 idles
+[2026-09-02 16:36:59.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.65 -> 10.0.0.126 idles
+[2026-09-02 16:36:59.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.71 -> 10.0.0.116 idles
+[2026-09-02 16:36:59.148] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.116 -> 10.0.0.71 idles
+[2026-09-02 16:37:04.149] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.101 -> 10.0.0.37 idles
+[2026-09-02 16:37:04.149] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.37 -> 10.0.0.101 idles
+[2026-09-02 16:37:07.149] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.20 -> 10.0.0.81 idles
+[2026-09-02 16:37:14.589] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.589] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.589] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.589] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 1:2 -> 6:1
+[2026-09-02 16:37:14.595] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.597] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.600] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.600] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.601] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:1 -> 1:2
+[2026-09-02 16:37:14.601] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.602] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.602] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.603] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.603] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 1:1 -> 5:1
+[2026-09-02 16:37:14.604] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.604] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.604] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.604] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.604] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:1 -> 1:1
+[2026-09-02 16:37:14.606] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.606] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.606] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.606] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.606] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:4 -> 10:2
+[2026-09-02 16:37:14.607] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.608] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.608] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.608] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.608] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:2 -> 6:4
+[2026-09-02 16:37:14.609] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.610] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.610] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.610] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.610] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:2 -> 2:2
+[2026-09-02 16:37:14.611] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.611] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.611] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.611] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.611] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 2:2 -> 6:2
+[2026-09-02 16:37:14.613] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.613] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.613] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.613] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.613] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:3 -> 9:2
+[2026-09-02 16:37:14.614] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.615] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.615] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.615] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.615] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:2 -> 6:3
+[2026-09-02 16:37:14.616] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.616] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.616] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.616] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.617] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:3 -> 9:4
+[2026-09-02 16:37:14.618] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.618] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.618] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.618] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.618] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:4 -> 8:3
+[2026-09-02 16:37:14.619] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.620] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.620] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.620] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.620] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:1 -> 3:2
+[2026-09-02 16:37:14.621] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.622] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.622] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.622] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 3:2 -> 8:1
+[2026-09-02 16:37:14.622] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.624] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.624] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.624] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:2 -> 4:2
+[2026-09-02 16:37:14.624] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.626] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.626] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.626] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 4:2 -> 8:2
+[2026-09-02 16:37:14.626] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.627] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.627] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.627] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.627] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 3:1 -> 7:1
+[2026-09-02 16:37:14.628] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.629] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.629] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.629] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.629] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:1 -> 3:1
+[2026-09-02 16:37:14.630] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.631] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.631] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.631] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.631] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:3 -> 7:3
+[2026-09-02 16:37:14.632] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.633] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.633] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.633] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.633] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:3 -> 9:3
+[2026-09-02 16:37:14.633] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.634] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.634] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.634] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:1 -> 5:3
+[2026-09-02 16:37:14.636] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.636] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.636] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.636] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.636] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:3 -> 9:1
+[2026-09-02 16:37:14.637] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.637] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.638] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.638] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.638] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 4:1 -> 7:2
+[2026-09-02 16:37:14.638] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.639] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.639] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.639] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.639] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:2 -> 4:1
+[2026-09-02 16:37:14.640] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.641] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.641] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.641] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.641] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 2:1 -> 5:2
+[2026-09-02 16:37:14.641] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.643] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.643] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.643] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:2 -> 2:1
+[2026-09-02 16:37:14.644] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.644] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.644] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.644] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:4 -> 10:1
+[2026-09-02 16:37:14.645] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.646] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.646] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.646] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.646] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:1 -> 5:4
+[2026-09-02 16:37:14.646] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.647] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.648] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.648] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.648] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:4 -> 10:3
+[2026-09-02 16:37:14.648] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.649] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.649] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.649] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.649] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:3 -> 7:4
+[2026-09-02 16:37:14.651] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.651] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.651] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.651] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.651] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:4 -> 8:4
+[2026-09-02 16:37:14.651] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:14.652] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:37:14.653] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:37:14.653] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:37:14.653] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:4 -> 10:4
+[2026-09-02 16:37:14.653] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:37:15.153] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.33 -> 10.0.0.6 idles
+[2026-09-02 16:37:15.648] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 0 switches, 128 hosts, 256 edges up
+[2026-09-02 16:37:16.559] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1067.5 ms | since start (119 iters) mean 1028.9 ms, min 1000.1, max 1157.6 (flows=13, counters=78) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:37:16.574] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.014860 divisor_used_s=1.014860 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:37:19.153] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.102 -> 10.0.0.46 idles
+[2026-09-02 16:37:19.251] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:37:22.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.57 -> 10.0.0.103 idles
+[2026-09-02 16:37:22.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.77 -> 10.0.0.20 idles
+[2026-09-02 16:37:22.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.126 -> 10.0.0.38 idles
+[2026-09-02 16:37:22.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.20 -> 10.0.0.81 idles
+[2026-09-02 16:37:23.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.115 -> 10.0.0.7 idles
+[2026-09-02 16:37:24.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.39 -> 10.0.0.125 idles
+[2026-09-02 16:37:24.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.7 -> 10.0.0.115 idles
+[2026-09-02 16:37:24.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.31 -> 10.0.0.97 idles
+[2026-09-02 16:37:24.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.123 -> 10.0.0.54 idles
+[2026-09-02 16:37:24.154] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.125 -> 10.0.0.39 idles
+[2026-09-02 16:37:27.155] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.32 -> 10.0.0.53 idles
+[2026-09-02 16:37:27.155] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.53 -> 10.0.0.32 idles
+[2026-09-02 16:37:31.235] [info] [[94mmain.cpp[0m:[95m422[0m [96mmain[0m] Shutdown requested. Cleaning up…
+[2026-09-02 16:37:31.649] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2100[0m [96mrun[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 16:37:31.649] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+[2026-09-02 16:37:31.747] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m878[0m [96mrun[0m] Run loop exiting
+[2026-09-02 16:37:31.747] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m888[0m [96mrun[0m] Run loop existing
+[2026-09-02 16:37:31.804] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2103[0m [96mcalAvgFlowSendingRatesPeriodically[0m] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-02 16:37:32.155] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2280[0m [96mpurgeIdleFlows[0m] Exiting Loop of purgeIdleFlows
+[2026-09-02 16:37:32.901] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2201[0m [96mtestCalAvgFlowSendingRatesRandomly[0m] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-02 16:37:32.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 16:37:32.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m108[0m [96mstop[0m] io_context stopped
+[2026-09-02 16:37:32.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m115[0m [96mstop[0m] acceptor_ close
+[2026-09-02 16:37:32.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m138[0m [96mstop[0m] Attempting to poke the server socket to unblock accept.
+[2026-09-02 16:37:32.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m157[0m [96mstop[0m] Poke connection refused (port likely already fully closed).
+[2026-09-02 16:37:32.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m180[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-02 16:37:32.902] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m214[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-02 16:37:32.902] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] m_serverThread joined.
+[2026-09-02 16:37:32.902] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m189[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-02 16:37:32.902] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m140[0m [96mstop[0m] Collector Stops
+[2026-09-02 16:37:33.644] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-02 16:37:33.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 16:37:33.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 16:37:33.644] [info] [[94mApplicationManager.cpp[0m:[95m266[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 16:37:33.644] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+terminate called without an active exception
+EXIT=134

@@ -1,0 +1,3 @@
+{
+  "F9": "F9. manual stop via kill -15 <PID> -- WORKS: `pgrep -af network_state_recorder.py` to list, confirmed the one real PID, `sudo kill -15 <that PID>` -- log shows a clean graceful shutdown (\"Zipping Stopped.\" / \"NSR stopped.\"), no collateral damage, unlike BUG-4's stop script."
+}

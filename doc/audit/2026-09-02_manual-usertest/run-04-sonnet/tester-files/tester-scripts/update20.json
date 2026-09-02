@@ -1,0 +1,4 @@
+{
+  "C12": "C12. Terminal 2: p4_proxy venv proxy_agent/main.py, listens :8081 -- WORKS. Its first 10 attempts to inform the kernel of switches entering all failed with Connection refused (kernel not started yet, Terminal 3 comes last) -- the proxy's own log names this as expected (\"normal when the kernel starts after the proxy... retrying in the background for up to 5 minutes\") and moved on to LLDP discovery, link discovery and proactive route install without getting stuck. Confirms Uvicorn on 0.0.0.0:8081.",
+  "C13": "C13. curl :8081/ryu_server/all_destination_paths (expect 16256, stable across samples) -- WORKS, exactly 16256 reached in well under a minute, confirmed stable across 2 more samples 5s apart"
+}

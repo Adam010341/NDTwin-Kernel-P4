@@ -1,0 +1,7 @@
++ date +%H:%M
+16:02
++ cd /home/ndt/Desktop/NDTwin-Kernel
++ ls p4_proxy/p4_src/ndtwin_switch.p4
+p4_proxy/p4_src/ndtwin_switch.p4
++ echo S6_0_EXIT=0
+S6_0_EXIT=0

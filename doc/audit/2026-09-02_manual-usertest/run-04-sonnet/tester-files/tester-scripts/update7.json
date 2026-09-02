@@ -1,0 +1,12 @@
+{
+  "H1": "H1. clone Simulation-Platform-Manager + Energy-Saving-App -- WORKS",
+  "H2": "H2. apt deps (nlohmann-json3-dev, boost, spdlog, fmt, ssl) -- WORKS (all already satisfied from earlier Kernel install)",
+  "H3": "H3. NFS server install + /srv/nfs/sim export -- WORKS",
+  "H4": "H4. NFS client install + /mnt/nfs/sim, /mnt/nfs/app mount points -- WORKS",
+  "H5": "H5. configure settings.hpp for both apps (localhost, same-machine demo) -- WORKS (shipped .hpp.example defaults are already the same-machine-demo values; just copied, no edits needed)",
+  "H6": "H6. Energy-Saving-App `make all` (builds + registers simulator) -- WORKS, built energy_saving_app + energy_saving_simulator, and copied the simulator into Simulation-Platform-Manager/registered/energy_saving_simulator/1.0/executable as documented",
+  "H7": "H7. Simulation-Platform-Manager `make all` -- WORKS, built simulation_platform_manager (+ request_manager, app, simple_sim -- extra targets not mentioned on this manual page)",
+  "H8": "H8. AppConfig SIM_SERVER_URL + kernel rebuild -- NOT-NEEDED: shipped default already correct (localhost:9000); manual's own worked example uses the wrong port (8003) -- see BUGS.md",
+  "H9": "H9. sudo ./simulation_platform_manager, \"Server started\", NFS mount -- WORKS, verified with real evidence (not just the log line): `mount | grep nfs` showed a genuine nfs4 mount of localhost:/srv/nfs/sim at /mnt/nfs/sim, and `ss -tlnp` showed it listening on :9000. Started standalone, cleanly, without Ryu/Mininet/Kernel running first.",
+  "H10": "H10. end-to-end: kernel submits task, simulator runs -- NOT-TRIED (would need the full Ryu+Mininet+Kernel+WebGUI stack up simultaneously to trigger a real simulation case; WebGUI is currently blocked by BUG-5). Standalone `sudo ./energy_saving_app` (tried out of curiosity) failed at its NFS mount because the app-specific NFS subdirectory `/srv/nfs/sim/power` does not exist without a prior successful kernel registration -- see BUGS.md dependency note."
+}

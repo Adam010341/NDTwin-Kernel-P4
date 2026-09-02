@@ -1,0 +1,7 @@
+[2026-09-02 16:43:18.294026665] [info] [[94menergy_saving_app.cpp[0m:[95m973[0m [96mmain[0m] Logger Loads Successfully!
+Error: connect: Connection refused [system:111 at /usr/include/boost/asio/detail/reactive_socket_service.hpp:589:5 in function 'boost::system::error_code boost::asio::detail::reactive_socket_service<Protocol>::connect(implementation_type&, const endpoint_type&, boost::system::error_code&)']
+[2026-09-02 16:43:18.294825765] [info] [[94menergy_saving_app.cpp[0m:[95m977[0m [96mmain[0m] Mount NFS
+[2026-09-02 16:43:18.294836351] [info] [[94menergy_saving_app.cpp[0m:[95m978[0m [96mmain[0m] mount -t nfs localhost:/srv/nfs/sim/power /mnt/nfs/app
+mount.nfs: mounting localhost:/srv/nfs/sim/power failed, reason given by server: No such file or directory
+[2026-09-02 16:43:18.351416712] [critical] [[94menergy_saving_app.cpp[0m:[95m982[0m [96mmain[0m] Mount NFS Failed
+EXIT=1

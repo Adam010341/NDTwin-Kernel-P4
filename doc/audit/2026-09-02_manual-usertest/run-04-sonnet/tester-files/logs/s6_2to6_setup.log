@@ -1,0 +1,176 @@
++ date +%H:%M
+18:11
++ echo '=== verify toolchain binaries first ==='
+=== verify toolchain binaries first ===
++ simple_switch_grpc --version
+1.15.6-1c8c9a4f
++ echo SSG_EXIT=0
+SSG_EXIT=0
++ p4c-bm2-ss --version
+p4c-bm2-ss
+Version 1.2.5.17 (SHA: d46d824202 BUILD: Release)
++ echo P4C_EXIT=0
+P4C_EXIT=0
++ echo '=== Step 6.2: compile pipeline ==='
+=== Step 6.2: compile pipeline ===
++ cd /home/ndt/Desktop/NDTwin-Kernel
++ mkdir -p p4_proxy/p4_src/build
++ p4c-bm2-ss --arch v1model -o p4_proxy/p4_src/build/ndtwin_switch.json --p4runtime-files p4_proxy/p4_src/build/ndtwin_switch.p4info.txt p4_proxy/p4_src/ndtwin_switch.p4
+p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
++ echo P4C_COMPILE_EXIT=0
+P4C_COMPILE_EXIT=0
++ ls -la p4_proxy/p4_src/build/
+total 88
+drwxrwxr-x 2 ndt ndt  4096 Sep  2 18:11 .
+drwxrwxr-x 3 ndt ndt  4096 Sep  2 18:11 ..
+-rw-rw-r-- 1 ndt ndt 75852 Sep  2 18:11 ndtwin_switch.json
+-rw-rw-r-- 1 ndt ndt  4051 Sep  2 18:11 ndtwin_switch.p4info.txt
++ echo '=== Step 6.3: proxy venv ==='
+=== Step 6.3: proxy venv ===
++ python3 --version
+Python 3.12.3
++ cd /home/ndt/Desktop/NDTwin-Kernel
++ python3 -m venv p4_proxy/venv
++ p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt
+Collecting grpcio>=1.50.0 (from -r p4_proxy/requirements.txt (line 6))
+  Downloading grpcio-1.83.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+Collecting protobuf==3.20.3 (from -r p4_proxy/requirements.txt (line 14))
+  Downloading protobuf-3.20.3-py2.py3-none-any.whl.metadata (720 bytes)
+Collecting p4runtime==1.4.1 (from -r p4_proxy/requirements.txt (line 15))
+  Downloading p4runtime-1.4.1-py3-none-any.whl.metadata (10 kB)
+Collecting fastapi>=0.95.0 (from -r p4_proxy/requirements.txt (line 17))
+  Downloading fastapi-0.141.1-py3-none-any.whl.metadata (27 kB)
+Collecting uvicorn>=0.22.0 (from -r p4_proxy/requirements.txt (line 18))
+  Downloading uvicorn-0.52.4-py3-none-any.whl.metadata (6.6 kB)
+Collecting networkx>=3.0 (from -r p4_proxy/requirements.txt (line 19))
+  Downloading networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+Collecting requests>=2.28 (from -r p4_proxy/requirements.txt (line 23))
+  Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting hypothesis==6.165.5 (from -r p4_proxy/requirements.txt (line 28))
+  Downloading hypothesis-6.165.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.7 kB)
+Collecting thrift==0.24.0 (from -r p4_proxy/requirements.txt (line 45))
+  Downloading thrift-0.24.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.7 kB)
+Collecting googleapis-common-protos>=1.52 (from p4runtime==1.4.1->-r p4_proxy/requirements.txt (line 15))
+  Downloading googleapis_common_protos-1.75.2-py3-none-any.whl.metadata (8.5 kB)
+Collecting sortedcontainers<3.0.0,>=2.1.0 (from hypothesis==6.165.5->-r p4_proxy/requirements.txt (line 28))
+  Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+Collecting typing-extensions~=4.12 (from grpcio>=1.50.0->-r p4_proxy/requirements.txt (line 6))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting starlette>=0.46.0 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading starlette-1.6.0-py3-none-any.whl.metadata (6.4 kB)
+Collecting pydantic>=2.9.0 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Using cached pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+Collecting typing-inspection>=0.4.2 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Using cached typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting click>=7.0 (from uvicorn>=0.22.0->-r p4_proxy/requirements.txt (line 18))
+  Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting h11>=0.8 (from uvicorn>=0.22.0->-r p4_proxy/requirements.txt (line 18))
+  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting charset_normalizer<4,>=2 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Using cached charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+Collecting idna<4,>=2.5 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Using cached idna-3.19-py3-none-any.whl.metadata (9.2 kB)
+Collecting urllib3<3,>=1.26 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Using cached urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests>=2.28->-r p4_proxy/requirements.txt (line 23))
+  Using cached certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+INFO: pip is looking at multiple versions of googleapis-common-protos to determine which version is compatible with other requirements. This could take a while.
+Collecting googleapis-common-protos>=1.52 (from p4runtime==1.4.1->-r p4_proxy/requirements.txt (line 15))
+  Downloading googleapis_common_protos-1.75.1-py3-none-any.whl.metadata (8.5 kB)
+  Downloading googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+  Downloading googleapis_common_protos-1.74.0-py3-none-any.whl.metadata (9.2 kB)
+  Downloading googleapis_common_protos-1.73.1-py3-none-any.whl.metadata (9.2 kB)
+  Downloading googleapis_common_protos-1.73.0-py3-none-any.whl.metadata (9.4 kB)
+Collecting annotated-types>=0.6.0 (from pydantic>=2.9.0->fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.5 (from pydantic>=2.9.0->fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Using cached pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting anyio<5,>=3.6.2 (from starlette>=0.46.0->fastapi>=0.95.0->-r p4_proxy/requirements.txt (line 17))
+  Downloading anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+Downloading protobuf-3.20.3-py2.py3-none-any.whl (162 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 162.1/162.1 kB 758.2 kB/s eta 0:00:00
+Downloading p4runtime-1.4.1-py3-none-any.whl (44 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.0/45.0 kB 2.5 MB/s eta 0:00:00
+Downloading hypothesis-6.165.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 3.7 MB/s eta 0:00:00
+Downloading thrift-0.24.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (539 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 539.6/539.6 kB 27.9 MB/s eta 0:00:00
+Downloading grpcio-1.83.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.0/7.0 MB 22.0 MB/s eta 0:00:00
+Downloading fastapi-0.141.1-py3-none-any.whl (131 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 132.0/132.0 kB 10.4 MB/s eta 0:00:00
+Downloading uvicorn-0.52.4-py3-none-any.whl (79 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 79.9/79.9 kB 5.4 MB/s eta 0:00:00
+Downloading networkx-3.6.1-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 72.4 MB/s eta 0:00:00
+Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+Downloading annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Using cached certifi-2026.7.22-py3-none-any.whl (136 kB)
+Using cached charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (248 kB)
+Downloading click-8.5.0-py3-none-any.whl (125 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 125.3/125.3 kB 8.0 MB/s eta 0:00:00
+Downloading googleapis_common_protos-1.73.0-py3-none-any.whl (297 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 297.6/297.6 kB 16.0 MB/s eta 0:00:00
+Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached idna-3.19-py3-none-any.whl (68 kB)
+Using cached pydantic-2.13.5-py3-none-any.whl (472 kB)
+Using cached pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+Downloading starlette-1.6.0-py3-none-any.whl (75 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 76.0/76.0 kB 5.1 MB/s eta 0:00:00
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Using cached typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Using cached urllib3-2.7.0-py3-none-any.whl (131 kB)
+Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 125.8/125.8 kB 8.7 MB/s eta 0:00:00
+Installing collected packages: thrift, sortedcontainers, urllib3, typing-extensions, protobuf, networkx, idna, hypothesis, h11, click, charset_normalizer, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, requests, pydantic-core, grpcio, googleapis-common-protos, anyio, starlette, pydantic, p4runtime, fastapi
+Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.14.2 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 fastapi-0.141.1 googleapis-common-protos-1.73.0 grpcio-1.83.1 h11-0.16.0 hypothesis-6.165.5 idna-3.19 networkx-3.6.1 p4runtime-1.4.1 protobuf-3.20.3 pydantic-2.13.5 pydantic-core-2.46.5 requests-2.34.2 sortedcontainers-2.4.0 starlette-1.6.0 thrift-0.24.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.7.0 uvicorn-0.52.4
++ p4_proxy/venv/bin/python --version
+Python 3.12.3
++ echo '=== Step 6.4: check AppConfig.hpp ==='
+=== Step 6.4: check AppConfig.hpp ===
++ grep -n 'P4_PROXY_IP_AND_PORT\|ALLOW_MIXED_DATAPLANE' setting/AppConfig.hpp
+10:    static const std::string P4_PROXY_IP_AND_PORT = "localhost:8081";
+15:    static constexpr bool ALLOW_MIXED_DATAPLANE = false;
++ echo '=== Step 6.5: host_count_override ==='
+=== Step 6.5: host_count_override ===
++ echo 128
++ cat p4_proxy/mininet/host_count_override
+128
++ echo '=== Step 6.6: bmv2_binary_override ==='
+=== Step 6.6: bmv2_binary_override ===
++ cat p4_proxy/mininet/bmv2_binary_override
+# Which simple_switch_grpc the topology launches. First non-comment line wins; it must be
+# an absolute path to an executable, and ../lib beside it is picked up as LD_LIBRARY_PATH.
+# There is NO fallback: delete this file, or comment out every line, and the topology REFUSES
+# to start rather than picking a binary for you. Both installs answer --version identically
+# and differ ~10x in throughput, so a silent choice is a wrong number that looks plausible.
+# To run the stock build, write /usr/local/bin/simple_switch_grpc here instead.
+#
+# Why this is pointed at bmv2-fast (2026-08-17): the stock build is -O0 with full logging,
+# and on it the energy app's consolidation decision is traffic-insensitive -- links are
+# declared 1 Gbps while the switches top out around 22 Mbps, so utilisation never leaves
+# ~2% and the decision is identical with and without traffic (measured: same three
+# switches, same order, both runs). Same ceiling that stops TE from ever seeing its 70%
+# threshold. [Co-developed with claude code -- Adam]
+
+/usr/local/bmv2-fast/bin/simple_switch_grpc
++ echo /usr/local/bin/simple_switch_grpc
+++ grep -vE '^[[:space:]]*(#|$)' p4_proxy/mininet/bmv2_binary_override
+++ head -1
++ p=/usr/local/bin/simple_switch_grpc
++ echo 'selected: /usr/local/bin/simple_switch_grpc'
+selected: /usr/local/bin/simple_switch_grpc
++ '[' -x /usr/local/bin/simple_switch_grpc ']'
++ echo 'OK: exists and is executable'
+OK: exists and is executable
++ date +%H:%M
+18:11
++ echo S6_2TO6_DONE
+S6_2TO6_DONE

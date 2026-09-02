@@ -1,0 +1,380 @@
++ date +%H:%M
+16:29
++ cd /home/ndt
++ git clone https://github.com/ndtwin-lab/Web-GUI.git
+Cloning into 'Web-GUI'...
++ cd Web-GUI
++ ls -la
+total 208
+drwxrwxr-x  6 ndt ndt   4096 Sep  2 16:29 .
+drwxr-x--- 20 ndt ndt   4096 Sep  2 16:29 ..
+-rw-rw-r--  1 ndt ndt    641 Sep  2 16:29 .env.example
+drwxrwxr-x  8 ndt ndt   4096 Sep  2 16:29 .git
+-rw-rw-r--  1 ndt ndt    570 Sep  2 16:29 Dockerfile
+-rw-rw-r--  1 ndt ndt  10729 Sep  2 16:29 LICENSE
+-rw-rw-r--  1 ndt ndt   8264 Sep  2 16:29 README.md
+-rw-rw-r--  1 ndt ndt   1687 Sep  2 16:29 docker-compose.yml
+-rw-rw-r--  1 ndt ndt    372 Sep  2 16:29 index.html
+-rw-rw-r--  1 ndt ndt    334 Sep  2 16:29 init.sql
+drwxrwxr-x  2 ndt ndt   4096 Sep  2 16:29 messages
+-rw-rw-r--  1 ndt ndt   1011 Sep  2 16:29 ndtwin-license-header.txt
+-rw-rw-r--  1 ndt ndt   1577 Sep  2 16:29 package.json
+-rw-rw-r--  1 ndt ndt 105503 Sep  2 16:29 pnpm-lock.yaml
+-rw-rw-r--  1 ndt ndt     81 Sep  2 16:29 postcss.config.js
+drwxrwxr-x  2 ndt ndt   4096 Sep  2 16:29 server
+drwxrwxr-x  8 ndt ndt   4096 Sep  2 16:29 src
+-rw-rw-r--  1 ndt ndt    168 Sep  2 16:29 tailwind.config.js
+-rw-rw-r--  1 ndt ndt    727 Sep  2 16:29 tsconfig.app.json
+-rw-rw-r--  1 ndt ndt    277 Sep  2 16:29 tsconfig.json
+-rw-rw-r--  1 ndt ndt    630 Sep  2 16:29 tsconfig.node.json
+-rw-rw-r--  1 ndt ndt   1188 Sep  2 16:29 vite.config.ts
+-rwxrwxr-x  1 ndt ndt   2251 Sep  2 16:29 web_gui_deploy.sh
++ cp .env.example .env
++ echo '--- original .env ---'
+--- original .env ---
++ cat .env
+# Database Configuration
+DB_NAME=ndtdb
+DB_USER=user
+DB_PASSWORD=1234
+DB_HOST=postgres
+DB_PORT=5432
+
+# NDT Server API Configuration (Required)
+# Update this to point to your NDTwin server address
+NDT_API_BASE_URL=http://192.168.64.8:8000
+
+# Node Positions API Configuration (Optional)
+# Default: http://localhost:3001 (for Docker) or http://localhost:3001 (for local)
+VITE_NODE_POSITIONS_API_URL=http://localhost:3001
+
+# Server Port Configuration (Optional)
+# Port for the node-positions-api server
+SERVER_PORT=3001
+
+# GitHub Token (Optional)
+# Required only if using LLM features that need GitHub API access
+VITE_GITHUB_TOKEN=your_token_here+ sed -i 's#^NDT_API_BASE_URL=.*#NDT_API_BASE_URL=http://127.0.0.1:8000#' .env
++ echo '--- edited .env ---'
+--- edited .env ---
++ cat .env
+# Database Configuration
+DB_NAME=ndtdb
+DB_USER=user
+DB_PASSWORD=1234
+DB_HOST=postgres
+DB_PORT=5432
+
+# NDT Server API Configuration (Required)
+# Update this to point to your NDTwin server address
+NDT_API_BASE_URL=http://127.0.0.1:8000
+
+# Node Positions API Configuration (Optional)
+# Default: http://localhost:3001 (for Docker) or http://localhost:3001 (for local)
+VITE_NODE_POSITIONS_API_URL=http://localhost:3001
+
+# Server Port Configuration (Optional)
+# Port for the node-positions-api server
+SERVER_PORT=3001
+
+# GitHub Token (Optional)
+# Required only if using LLM features that need GitHub API access
+VITE_GITHUB_TOKEN=your_token_here+ chmod +x web_gui_deploy.sh
++ ./web_gui_deploy.sh
+Starting deployment of NDT application...
+Stopping existing containers...
+Cleaning up old containers and volumes...
+ Building and starting containers...
+ Image postgres:15-alpine Pulling 
+ 516ac23b2d22 Pulling fs layer 0B
+ ecbc0f97fe87 Pulling fs layer 0B
+ d30adf595bd0 Pulling fs layer 0B
+ a5b616744b9f Pulling fs layer 0B
+ 4989bdaa0ad3 Pulling fs layer 0B
+ 26065aa66f8d Pulling fs layer 0B
+ 236e3b4c2204 Pulling fs layer 0B
+ e7426913c582 Pulling fs layer 0B
+ 0141deae452e Pulling fs layer 0B
+ 55afa1ecc21d Pulling fs layer 0B
+ 2521846a4c4b Pulling fs layer 0B
+ f9b271aad813 Download complete 0B
+ 516ac23b2d22 Download complete 0B
+ f67b1fb6e304 Download complete 0B
+ d30adf595bd0 Download complete 0B
+ 236e3b4c2204 Download complete 0B
+ ecbc0f97fe87 Downloading 12.58MB
+ ecbc0f97fe87 Downloading 24.12MB
+ ecbc0f97fe87 Downloading 35.65MB
+ a5b616744b9f Download complete 0B
+ 4989bdaa0ad3 Download complete 0B
+ ecbc0f97fe87 Downloading 47.19MB
+ 26065aa66f8d Download complete 0B
+ 0141deae452e Download complete 0B
+ ecbc0f97fe87 Downloading 58.72MB
+ ecbc0f97fe87 Downloading 70.25MB
+ e7426913c582 Download complete 0B
+ 55afa1ecc21d Downloading 1.049MB
+ ecbc0f97fe87 Downloading 80.74MB
+ 55afa1ecc21d Download complete 0B
+ ecbc0f97fe87 Downloading 89.13MB
+ 55afa1ecc21d Extracting 1B
+ ecbc0f97fe87 Downloading 100.7MB
+ 2521846a4c4b Download complete 0B
+ 516ac23b2d22 Pull complete 0B
+ d30adf595bd0 Pull complete 0B
+ a5b616744b9f Pull complete 0B
+ 55afa1ecc21d Pull complete 0B
+ 2521846a4c4b Pull complete 0B
+ ecbc0f97fe87 Downloading 110.5MB
+ ecbc0f97fe87 Download complete 0B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ ecbc0f97fe87 Extracting 1B
+ 4989bdaa0ad3 Pull complete 0B
+ 26065aa66f8d Pull complete 0B
+ ecbc0f97fe87 Pull complete 0B
+ 236e3b4c2204 Pull complete 0B
+ 0141deae452e Pull complete 0B
+ e7426913c582 Pull complete 0B
+ Image postgres:15-alpine Pulled 
+ Image web-gui-node-positions-api Building 
+ Image web-gui-frontend Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.09kB done
+#1 DONE 0.0s
+
+#2 [frontend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 609B done
+#2 DONE 0.0s
+
+#3 [node-positions-api internal] load build definition from Dockerfile
+#3 transferring dockerfile: 319B done
+#3 DONE 0.0s
+
+#4 [node-positions-api internal] load metadata for docker.io/library/node:18-alpine
+#4 DONE 2.0s
+
+#5 [frontend internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [node-positions-api internal] load build context
+#6 transferring context: 26.26kB done
+#6 DONE 0.0s
+
+#7 [frontend internal] load build context
+#7 transferring context: 1.10MB 0.0s done
+#7 DONE 0.0s
+
+#8 [node-positions-api builder 1/7] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+#8 resolve docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e 0.0s done
+#8 sha256:25ff2da83641908f65c3a74d80409d6b1b62ccfaab220b9ea70b80df5a2e0549 0B / 446B 0.2s
+#8 sha256:25ff2da83641908f65c3a74d80409d6b1b62ccfaab220b9ea70b80df5a2e0549 446B / 446B 0.2s done
+#8 sha256:1e5a4c89cee5c0826c540ab06d4b6b491c96eda01837f430bd47f0d26702d6e3 0B / 1.26MB 0.3s
+#8 sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870 0B / 3.64MB 0.2s
+#8 sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 0B / 40.01MB 0.2s
+#8 sha256:1e5a4c89cee5c0826c540ab06d4b6b491c96eda01837f430bd47f0d26702d6e3 1.26MB / 1.26MB 0.4s done
+#8 sha256:1e5a4c89cee5c0826c540ab06d4b6b491c96eda01837f430bd47f0d26702d6e3 1.26MB / 1.26MB 0.4s done
+#8 sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 13.63MB / 40.01MB 0.8s
+#8 sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870 3.64MB / 3.64MB 0.9s done
+#8 sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870 3.64MB / 3.64MB 0.9s done
+#8 sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 40.01MB / 40.01MB 1.0s done
+#8 extracting sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870 0.1s done
+#8 sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 40.01MB / 40.01MB 1.0s done
+#8 extracting sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e
+#8 extracting sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 0.5s done
+#8 extracting sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 0.5s done
+#8 extracting sha256:1e5a4c89cee5c0826c540ab06d4b6b491c96eda01837f430bd47f0d26702d6e3 0.0s done
+#8 extracting sha256:25ff2da83641908f65c3a74d80409d6b1b62ccfaab220b9ea70b80df5a2e0549 done
+#8 DONE 1.6s
+
+#9 [frontend builder 2/7] WORKDIR /app
+#9 DONE 0.3s
+
+#10 [node-positions-api 3/6] RUN npm install -g pnpm
+#10 ...
+
+#11 [frontend production 2/4] RUN npm install -g serve
+#11 3.868 
+#11 3.868 added 85 packages in 3s
+#11 3.869 
+#11 3.869 26 packages are looking for funding
+#11 3.869   run `npm fund` for details
+#11 3.871 npm notice
+#11 3.871 npm notice New major version of npm available! 10.8.2 -> 12.0.2
+#11 3.871 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+#11 3.871 npm notice To update run: npm install -g npm@12.0.2
+#11 3.871 npm notice
+#11 DONE 4.0s
+
+#12 [frontend production 3/4] WORKDIR /app
+#12 DONE 0.1s
+
+#13 [frontend builder 3/7] RUN npm install -g pnpm
+#13 3.796 
+#13 3.796 added 2 packages in 4s
+#13 3.797 npm notice
+#13 3.797 npm notice New major version of npm available! 10.8.2 -> 12.0.2
+#13 3.797 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+#13 3.797 npm notice To update run: npm install -g npm@12.0.2
+#13 3.797 npm notice
+#13 DONE 3.8s
+
+#10 [node-positions-api 3/6] RUN npm install -g pnpm
+#10 3.837 
+#10 3.837 added 2 packages in 4s
+#10 3.838 npm notice
+#10 3.838 npm notice New major version of npm available! 10.8.2 -> 12.0.2
+#10 3.838 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+#10 3.838 npm notice To update run: npm install -g npm@12.0.2
+#10 3.838 npm notice
+#10 DONE 3.9s
+
+#14 [frontend builder 4/7] COPY package.json pnpm-lock.yaml ./
+#14 DONE 0.0s
+
+#15 [node-positions-api 4/6] COPY server/package.json server/pnpm-lock.yaml ./
+#15 DONE 0.0s
+
+#16 [node-positions-api 5/6] RUN pnpm install --frozen-lockfile --prod
+#16 0.184 ? Verifying lockfile against supply-chain policies (84 entries)...
+#16 0.330 Packages are hard linked from the content-addressable store to the virtual store.
+#16 0.330   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+#16 0.331   Virtual store is at:             node_modules/.pnpm
+#16 0.447 ✓ Lockfile passes supply-chain policies (84 entries in 262ms)
+#16 0.447 Lockfile is up to date, resolution step is skipped
+#16 0.448 Packages: +84
+#16 0.449 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#16 0.454 Progress: resolved 84, reused 0, downloaded 84, added 84, done
+#16 0.473 
+#16 0.473 dependencies:
+#16 0.473 + cors 2.8.5
+#16 0.473 + express 4.22.1
+#16 0.473 + pg 8.16.3
+#16 0.473 
+#16 0.479 Done in 322ms using pnpm v12.3.0
+#16 DONE 0.6s
+
+#17 [frontend builder 5/7] RUN pnpm install --frozen-lockfile
+#17 0.209 ? Verifying lockfile against supply-chain policies (361 entries)...
+#17 0.453 Packages are hard linked from the content-addressable store to the virtual store.
+#17 0.453   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+#17 0.453   Virtual store is at:             node_modules/.pnpm
+#17 0.545 Downloading react-icons@5.5.0: 0.00 B/22.22 MB
+#17 0.824 Downloading echarts@5.6.0: 0.00 B/10.43 MB
+#17 ...
+
+#18 [node-positions-api 6/6] COPY server/index.js ./index.js
+#18 DONE 0.2s
+
+#19 [node-positions-api] exporting to image
+#19 exporting layers
+#19 ...
+
+#17 [frontend builder 5/7] RUN pnpm install --frozen-lockfile
+#17 1.892 Progress: resolved 317, reused 0, downloaded 313, added 288
+#17 2.212 ✓ Lockfile passes supply-chain policies (361 entries in 2s)
+#17 2.212 Lockfile is up to date, resolution step is skipped
+#17 2.344 Packages: +317
+#17 2.344 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#17 2.370 Progress: resolved 317, reused 0, downloaded 317, added 317, done
+#17 2.412 
+#17 2.412 dependencies:
+#17 2.412 + @types/cytoscape 3.21.9
+#17 2.412 + axios 1.10.0
+#17 2.412 + cytoscape 3.32.0
+#17 2.412 + cytoscape-grid-guide 2.3.3
+#17 2.412 + dotenv 17.2.0
+#17 2.412 + echarts 5.6.0
+#17 2.412 + echarts-for-react 3.0.2
+#17 2.412 + i18next 25.3.2
+#17 2.412 + i18next-browser-languagedetector 8.2.0
+#17 2.412 + openai 5.9.0
+#17 2.412 + react 19.1.0
+#17 2.412 + react-cytoscapejs 2.0.0
+#17 2.412 + react-dom 19.1.0
+#17 2.412 + react-draggable 4.4.6
+#17 2.412 + react-i18next 15.6.1
+#17 2.412 + react-icons 5.5.0
+#17 2.412 + react-router 7.6.2
+#17 2.412 + react-router-dom 7.6.2
+#17 2.412 + zod 4.0.5
+#17 2.412 
+#17 2.412 devDependencies:
+#17 2.412 + @eslint/js 9.29.0
+#17 2.412 + @types/node 24.1.0
+#17 2.412 + @types/react 19.1.8
+#17 2.412 + @types/react-dom 19.1.6
+#17 2.412 + @vitejs/plugin-react 4.5.2
+#17 2.412 + autoprefixer 10.4.21
+#17 2.412 + eslint 9.29.0
+#17 2.412 + eslint-config-prettier 10.1.8
+#17 2.412 + eslint-plugin-prettier 5.5.4
+#17 2.412 + eslint-plugin-react-hooks 5.2.0
+#17 2.412 + eslint-plugin-react-refresh 0.4.20
+#17 2.412 + eslint-plugin-tailwindcss 3.18.2
+#17 2.412 + globals 16.2.0
+#17 2.412 + postcss 8.5.6
+#17 2.412 + prettier 3.6.2
+#17 2.412 + tailwindcss 3.4.17
+#17 2.412 + typescript 5.8.3
+#17 2.412 + typescript-eslint 8.34.1
+#17 2.412 + vite 6.3.5
+#17 2.412 
+#17 2.425 Error: ERR_PNPM_IGNORED_BUILDS
+#17 2.425 
+#17 2.425   × installing dependencies
+#17 2.425   ╰─▶ Ignored build scripts: esbuild@0.25.5
+#17 2.425   help: Run "pnpm approve-builds" to pick which dependencies should be allowed
+#17 2.425         to run scripts.
+#17 2.425 
+#17 ERROR: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+
+#19 [node-positions-api] exporting to image
+#19 exporting layers 1.9s done
+#19 CANCELED
+------
+ > [frontend builder 5/7] RUN pnpm install --frozen-lockfile:
+2.412 + typescript-eslint 8.34.1
+2.412 + vite 6.3.5
+2.412 
+2.425 Error: ERR_PNPM_IGNORED_BUILDS
+2.425 
+2.425   × installing dependencies
+2.425   ╰─▶ Ignored build scripts: esbuild@0.25.5
+2.425   help: Run "pnpm approve-builds" to pick which dependencies should be allowed
+2.425         to run scripts.
+2.425 
+------
+Dockerfile:14
+
+--------------------
+
+  12 |     COPY package.json pnpm-lock.yaml ./
+
+  13 |     
+
+  14 | >>> RUN pnpm install --frozen-lockfile
+
+  15 |     COPY . .
+
+  16 |     RUN pnpm run build
+
+--------------------
+
+target frontend: failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+
+Failed to start containers. Check the logs:
++ echo DEPLOY_EXIT=1
+DEPLOY_EXIT=1
++ date +%H:%M
+16:30
++ echo WEBGUI_DEPLOY_DONE
+WEBGUI_DEPLOY_DONE

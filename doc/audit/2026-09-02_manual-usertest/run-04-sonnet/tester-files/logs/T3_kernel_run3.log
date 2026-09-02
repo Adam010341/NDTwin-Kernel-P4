@@ -1,0 +1,605 @@
+[2026-09-02 16:23:58.199] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 16:23:58.199] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 16:23:58.199] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 16:23:58.199] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 16:23:58.199] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 16:23:58.199] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 16:23:58.199] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-02 16:23:58.199] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=174216 tid=174219
+[2026-09-02 16:23:58.199] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-02 16:23:58.199] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=174216 tid=174220
+[2026-09-02 16:23:58.199] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=174216 tid=174221
+[2026-09-02 16:23:58.199] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=174216 tid=174223
+[2026-09-02 16:23:58.199] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 16:23:58.199] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-02 16:23:58.200] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-02 16:23:58.201] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=174216 tid=174222
+[2026-09-02 16:23:58.212] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-09-02 16:23:58.261] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 16:24:02.495] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:02.495] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:02.506] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:02.506] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:02.510] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:02.510] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:02.510] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:02.525] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:02.528] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:03.531] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:24:03.594] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will answer from now on.
+[2026-09-02 16:24:07.200] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2072[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+[2026-09-02 16:24:14.359] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:14.359] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:14.435] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:14.435] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:14.435] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:14.449] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:14.452] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:14.452] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:14.452] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:14.466] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:14.702] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:14.702] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:14.703] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:14.717] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:14.952] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:14.953] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:14.953] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:14.966] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:15.203] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:15.203] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:15.203] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:15.216] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:15.453] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:15.453] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:15.453] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:15.467] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:15.703] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:15.703] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:15.703] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:15.717] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:15.953] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:15.953] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:15.953] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:15.967] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:16.203] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:16.203] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:16.203] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:16.217] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:16.453] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:16.453] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:16.453] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:16.468] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:16.703] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:16.703] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:16.703] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:16.717] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:16.953] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:16.953] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:16.953] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:16.967] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:17.203] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:17.203] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:17.203] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:17.218] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:17.453] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:17.453] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:17.453] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:17.468] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:17.703] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:17.703] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:17.703] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:17.718] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:17.953] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:17.953] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:17.953] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:17.968] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:18.203] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:18.204] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:18.204] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:18.217] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:18.454] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:18.454] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:18.454] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:18.467] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:18.704] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:18.704] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:18.704] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:18.718] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:18.954] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:18.954] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:18.954] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:18.968] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:19.204] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:19.204] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:19.204] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:19.218] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:19.454] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:19.454] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:19.454] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:19.468] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:19.704] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:19.704] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:19.704] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:19.718] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:19.954] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:19.954] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:19.954] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:19.969] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:20.204] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:20.204] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:20.204] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:20.218] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:20.454] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:20.454] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:20.454] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:20.468] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:20.704] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:20.704] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:20.704] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:20.718] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:20.954] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:20.954] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:20.954] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:20.968] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:21.204] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:21.204] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:21.205] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:21.218] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:21.454] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:21.455] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:21.455] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:21.468] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:21.705] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:21.705] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:21.705] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:21.719] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:21.955] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:21.955] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:21.955] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:21.969] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:22.205] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:22.205] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:22.205] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:22.219] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:22.784] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:22.784] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:22.795] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:22.795] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:22.799] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:24:22.799] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:24:22.799] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:24:22.813] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:24:22.815] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:24:28.201] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.1 ms | since start (29 iters) mean 1000.1 ms, min 1000.0, max 1000.1 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:24:28.201] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000134 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:24:58.204] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.0, max 1000.1 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:24:58.204] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000118 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:25:03.911] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:25:07.181] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:25:07.181] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:25:07.193] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:25:07.193] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:25:07.197] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:25:07.197] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:25:07.197] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:25:07.211] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:25:07.213] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:25:28.206] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (89 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:25:28.206] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000101 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:25:58.211] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.2 ms | since start (119 iters) mean 1000.1 ms, min 1000.0, max 1002.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:25:58.211] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000064 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:26:04.274] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:26:28.213] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (149 iters) mean 1000.1 ms, min 1000.0, max 1002.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:26:28.213] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000144 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:26:58.216] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (179 iters) mean 1000.1 ms, min 1000.0, max 1002.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:26:58.216] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000113 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:27:04.643] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:27:28.218] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (209 iters) mean 1000.1 ms, min 1000.0, max 1002.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:27:28.218] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000126 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:27:36.746] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:36.746] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:27:36.746] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:27:36.746] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:36.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:36.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:27:36.748] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:27:36.762] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:27:36.764] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:36.764] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:27:36.764] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:27:41.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:41.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:27:41.748] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:27:41.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:41.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:27:41.748] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:27:41.762] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:27:41.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:41.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:46.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:46.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:27:46.748] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:27:46.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:46.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:27:46.748] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:27:46.762] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:27:46.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:46.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:51.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:51.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:27:51.748] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:27:51.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:51.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:27:51.748] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:27:51.762] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:27:51.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:51.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:56.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:56.748] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:27:56.748] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:27:56.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:27:56.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:27:56.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:27:56.763] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:27:56.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:56.764] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:27:58.220] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (239 iters) mean 1000.1 ms, min 1000.0, max 1002.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:27:58.220] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000110 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:28:01.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:01.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:01.749] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:01.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:01.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:01.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:01.763] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:01.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:01.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:05.006] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:28:06.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:06.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:06.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:06.763] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:06.764] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:06.764] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:06.764] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:06.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:06.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:11.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:11.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:11.749] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:11.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:11.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:11.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:11.763] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:11.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:11.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:16.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:16.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:16.749] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:16.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:16.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:16.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:16.763] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:16.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:16.765] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:21.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:21.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:21.749] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:21.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:21.750] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:21.750] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:21.750] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:21.764] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:21.766] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:26.659] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m271[0m [96mpopulateIfIndexToOfportMap[0m] Populating ifIndex to OFPort map...
+[2026-09-02 16:28:26.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:26.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:26.749] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:26.749] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:26.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:26.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:26.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:26.764] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:26.766] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:26.798] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m437[0m [96mpopulateIfIndexToOfportMap[0m] Finished populating ifIndex to OFPort map. Size: 160
+[2026-09-02 16:28:28.229] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.3 ms | since start (269 iters) mean 1000.1 ms, min 1000.0, max 1006.2 (flows=2, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:28:28.229] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.006169 divisor_used_s=1.006169 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:28:31.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:31.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:31.749] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:31.765] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:31.766] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:31.766] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:31.766] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:31.767] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:31.767] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:36.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:36.749] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:36.749] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:36.749] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:36.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:36.750] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:36.750] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:36.764] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:36.766] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:41.750] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:41.750] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:41.750] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:41.766] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:41.767] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:41.767] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:41.767] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:41.768] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:41.768] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:46.753] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:46.754] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:46.754] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:46.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:46.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:46.755] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:46.781] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:46.782] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:46.783] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:51.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:51.754] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:51.754] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:51.784] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:51.786] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:51.786] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:51.786] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:51.786] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:51.786] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:56.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:56.754] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:28:56.754] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:28:56.773] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:28:56.775] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:28:56.775] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:28:56.775] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:28:56.775] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:56.775] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:28:57.229] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.1 -> 10.0.0.2 idles
+[2026-09-02 16:28:57.229] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.2 -> 10.0.0.1 idles
+[2026-09-02 16:28:58.258] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.0 ms | since start (299 iters) mean 1000.2 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:28:58.260] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001469 divisor_used_s=1.001469 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:29:01.752] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:01.754] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:01.754] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:01.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:01.754] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:01.755] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:01.784] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:01.785] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:01.785] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:05.393] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:29:06.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:06.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:06.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:06.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:06.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:06.755] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:06.781] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:06.782] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:06.782] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:11.750] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:11.750] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:11.750] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:11.751] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:11.752] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:11.752] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:11.752] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:11.766] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:11.768] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:16.752] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:16.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:16.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:16.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:16.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:16.755] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:16.781] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:16.783] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:16.783] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:21.752] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:21.752] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:21.752] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:21.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:21.754] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:21.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:21.755] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:21.781] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:21.782] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:26.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:26.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:26.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:26.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:26.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:26.756] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:26.785] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:26.787] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:26.787] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:28.296] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.2 ms | since start (329 iters) mean 1000.3 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:29:28.297] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001869 divisor_used_s=1.001869 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:29:31.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:31.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:31.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:31.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:31.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:31.756] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:31.786] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:31.788] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:31.788] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:36.753] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:36.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:36.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:36.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:36.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:36.756] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:36.783] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:36.785] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:36.785] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:41.753] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:41.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:41.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:41.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:41.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:41.756] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:41.786] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:41.787] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:41.793] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:46.757] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:46.757] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:46.757] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:46.758] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:46.758] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:46.758] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:46.776] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:46.778] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:46.778] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:51.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:51.754] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:51.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:51.757] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:51.758] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:51.758] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:51.758] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:51.781] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:51.782] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:56.754] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:56.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:29:56.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:29:56.758] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:56.758] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:29:56.759] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:29:56.759] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:29:56.789] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:29:56.790] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:29:58.338] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.4 ms | since start (359 iters) mean 1000.4 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:29:58.340] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001740 divisor_used_s=1.001740 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:30:01.752] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:01.752] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:01.752] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:01.753] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:01.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:01.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:01.755] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:01.770] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:01.772] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:05.753] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:30:06.752] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:06.753] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:06.753] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:06.753] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:06.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:06.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:06.756] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:06.769] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:06.771] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:11.753] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:11.753] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:11.753] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:11.754] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:11.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:11.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:11.756] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:11.774] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:11.778] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:16.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:16.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:16.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:16.759] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:16.760] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:16.760] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:16.760] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:16.780] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:16.782] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:21.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:21.755] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:21.755] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:21.759] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:21.760] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:21.760] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:21.760] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:21.788] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:21.790] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:26.755] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:26.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:26.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:26.758] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:26.759] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:26.759] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:26.759] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:26.789] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:26.790] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:28.370] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.1 ms | since start (389 iters) mean 1000.4 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:30:28.371] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000518 divisor_used_s=1.000518 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:30:31.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:31.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:31.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:31.759] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:31.760] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:31.760] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:31.760] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:31.788] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:31.790] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:36.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:36.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:36.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:36.759] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:36.760] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:36.760] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:36.760] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:36.790] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:36.792] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:41.756] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:41.756] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:30:41.756] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:30:41.758] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:30:41.760] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:41.760] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:30:41.760] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:30:41.790] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:30:41.792] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:46.165] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:46.166] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:30:58.412] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.4 ms | since start (419 iters) mean 1000.5 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:30:58.413] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000505 divisor_used_s=1.000505 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:31:06.134] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:31:28.452] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.3 ms | since start (449 iters) mean 1000.6 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:31:28.453] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000635 divisor_used_s=1.000635 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:31:58.493] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.4 ms | since start (479 iters) mean 1000.6 ms, min 1000.0, max 1006.2 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:31:58.493] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000497 divisor_used_s=1.000497 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:32:06.510] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:32:28.533] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.3 ms | since start (509 iters) mean 1000.7 ms, min 1000.0, max 1007.7 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:32:28.533] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001421 divisor_used_s=1.001421 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:32:58.551] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.6 ms | since start (539 iters) mean 1000.7 ms, min 1000.0, max 1007.7 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:32:58.553] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000602 divisor_used_s=1.000602 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:33:06.871] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:33:28.572] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.7 ms | since start (569 iters) mean 1000.7 ms, min 1000.0, max 1007.7 (flows=0, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:33:28.572] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000371 divisor_used_s=1.000371 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:33:52.519] [info] [[94mmain.cpp[0m:[95m422[0m [96mmain[0m] Shutdown requested. Cleaning up…
+[2026-09-02 16:33:52.934] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2100[0m [96mrun[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 16:33:53.362] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+[2026-09-02 16:33:53.416] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m878[0m [96mrun[0m] Run loop exiting
+[2026-09-02 16:33:53.416] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m888[0m [96mrun[0m] Run loop existing
+[2026-09-02 16:33:53.590] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2103[0m [96mcalAvgFlowSendingRatesPeriodically[0m] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-02 16:33:53.652] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2201[0m [96mtestCalAvgFlowSendingRatesRandomly[0m] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-02 16:33:54.269] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2280[0m [96mpurgeIdleFlows[0m] Exiting Loop of purgeIdleFlows
+[2026-09-02 16:33:54.269] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 16:33:54.269] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m108[0m [96mstop[0m] io_context stopped
+[2026-09-02 16:33:54.270] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m115[0m [96mstop[0m] acceptor_ close
+[2026-09-02 16:33:54.270] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m138[0m [96mstop[0m] Attempting to poke the server socket to unblock accept.
+[2026-09-02 16:33:54.270] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m150[0m [96mstop[0m] Poke connection successful. Closing poke socket.
+[2026-09-02 16:33:54.270] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m180[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-02 16:33:54.270] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m214[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-02 16:33:54.271] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] m_serverThread joined.
+[2026-09-02 16:33:54.271] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m189[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-02 16:33:54.271] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m140[0m [96mstop[0m] Collector Stops
+[2026-09-02 16:33:54.894] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-02 16:33:54.894] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 16:33:54.894] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 16:33:54.894] [info] [[94mApplicationManager.cpp[0m:[95m266[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 16:33:54.894] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+terminate called without an active exception
+EXIT=134

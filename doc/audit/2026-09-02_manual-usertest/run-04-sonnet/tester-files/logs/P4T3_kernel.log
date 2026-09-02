@@ -1,0 +1,77 @@
+[2026-09-02 18:19:24.479] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 18:19:24.479] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+[2026-09-02 18:19:24.480] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 18:19:24.480] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 18:19:24.481] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 18:19:24.481] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 18:19:24.481] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-02 18:19:24.481] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=383455 tid=383458
+[2026-09-02 18:19:24.481] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-02 18:19:24.481] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=383455 tid=383459
+[2026-09-02 18:19:24.481] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=383455 tid=383461
+[2026-09-02 18:19:24.481] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 18:19:24.481] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=383455 tid=383460
+[2026-09-02 18:19:24.481] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-02 18:19:24.482] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=383455 tid=383462
+[2026-09-02 18:19:24.482] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-02 18:19:24.496] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: bmv2 (10 switch(es))
+[2026-09-02 18:19:24.497] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m145[0m [96mconfigureTopologyApiUrls[0m] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+[2026-09-02 18:19:24.539] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 18:19:30.245] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 18:19:30.296] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8081 (16256 pairs); path and switch-count queries will answer from now on.
+[2026-09-02 18:19:33.861] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 18:19:33.864] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=1
+[2026-09-02 18:19:33.864] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.869] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=2
+[2026-09-02 18:19:33.869] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.876] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=3
+[2026-09-02 18:19:33.877] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.893] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=4
+[2026-09-02 18:19:33.893] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.896] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=5
+[2026-09-02 18:19:33.896] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.897] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=6
+[2026-09-02 18:19:33.897] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.898] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=7
+[2026-09-02 18:19:33.898] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.899] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=8
+[2026-09-02 18:19:33.899] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.899] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=9
+[2026-09-02 18:19:33.899] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:33.900] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=10
+[2026-09-02 18:19:33.900] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 18:19:50.274] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m238[0m [96mconfigurePortMapping[0m] All-bmv2 topology: using identity ifIndex->port mapping and skipping ovs-vsctl, which does not know about bmv2 interfaces.
+[2026-09-02 18:19:50.488] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2072[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=5, app_drop=0, addressed=5, sock_ovfl_total=0
+[2026-09-02 18:19:54.204] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 18:19:54.205] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 18:19:54.205] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 18:19:54.205] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 18:19:54.489] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.3 ms | since start (29 iters) mean 1000.3 ms, min 1000.1, max 1001.0 (flows=2, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 18:19:54.489] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000432 divisor_used_s=1.000432 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 18:20:24.501] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.4 ms | since start (59 iters) mean 1000.3 ms, min 1000.1, max 1001.4 (flows=2, counters=2) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 18:20:24.502] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001420 divisor_used_s=1.001420 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 18:20:25.917] [info] [[94mmain.cpp[0m:[95m422[0m [96mmain[0m] Shutdown requested. Cleaning up…
+[2026-09-02 18:20:26.607] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2100[0m [96mrun[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 18:20:26.608] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+[2026-09-02 18:20:26.683] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m878[0m [96mrun[0m] Run loop exiting
+[2026-09-02 18:20:26.683] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m888[0m [96mrun[0m] Run loop existing
+[2026-09-02 18:20:27.492] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2280[0m [96mpurgeIdleFlows[0m] Exiting Loop of purgeIdleFlows
+[2026-09-02 18:20:27.506] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2103[0m [96mcalAvgFlowSendingRatesPeriodically[0m] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-02 18:20:27.623] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2201[0m [96mtestCalAvgFlowSendingRatesRandomly[0m] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-02 18:20:27.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 18:20:27.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m108[0m [96mstop[0m] io_context stopped
+[2026-09-02 18:20:27.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m115[0m [96mstop[0m] acceptor_ close
+[2026-09-02 18:20:27.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m138[0m [96mstop[0m] Attempting to poke the server socket to unblock accept.
+[2026-09-02 18:20:27.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m157[0m [96mstop[0m] Poke connection refused (port likely already fully closed).
+[2026-09-02 18:20:27.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m180[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-02 18:20:27.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m214[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-02 18:20:27.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] m_serverThread joined.
+[2026-09-02 18:20:27.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m189[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-02 18:20:27.625] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m140[0m [96mstop[0m] Collector Stops
+[2026-09-02 18:20:28.521] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-02 18:20:28.521] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 18:20:28.521] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 18:20:28.521] [info] [[94mApplicationManager.cpp[0m:[95m266[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 18:20:28.521] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+terminate called without an active exception

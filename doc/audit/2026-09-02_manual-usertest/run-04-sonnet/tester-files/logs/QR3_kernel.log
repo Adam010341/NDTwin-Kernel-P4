@@ -1,0 +1,76 @@
+[2026-09-02 17:01:11.823] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 17:01:11.824] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 17:01:11.824] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 17:01:11.824] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 17:01:11.824] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 17:01:11.824] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 17:01:11.824] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-02 17:01:11.824] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=321371 tid=321376
+[2026-09-02 17:01:11.824] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 17:01:11.824] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=321371 tid=321374
+[2026-09-02 17:01:11.824] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-02 17:01:11.825] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-02 17:01:11.826] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=321371 tid=321375
+[2026-09-02 17:01:11.826] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=321371 tid=321377
+[2026-09-02 17:01:11.826] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=321371 tid=321378
+[2026-09-02 17:01:11.826] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-02 17:01:11.838] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-09-02 17:01:11.888] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 17:01:12.826] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2072[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+[2026-09-02 17:01:17.150] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 17:01:17.215] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will answer from now on.
+[2026-09-02 17:01:41.829] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.1 ms | since start (29 iters) mean 1000.1 ms, min 1000.0, max 1000.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 17:01:41.829] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000152 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 17:02:09.156] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 17:02:09.156] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 17:02:09.156] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 17:02:09.157] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 17:02:09.158] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 17:02:09.159] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 17:02:09.159] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 17:02:09.159] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 17:02:09.159] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 17:02:09.159] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 17:02:09.174] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 17:02:11.831] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.0, max 1000.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 17:02:11.831] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000131 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 17:02:14.158] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 17:02:14.158] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 17:02:14.158] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 17:02:14.158] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 17:02:14.158] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 17:02:14.158] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 17:02:14.173] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 17:02:14.175] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 17:02:14.175] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 17:02:14.976] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 17:02:14.976] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 17:02:17.540] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+Command failed (killed by signal 2): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/7
+[2026-09-02 17:02:35.700] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1074[0m [96mfetchOpenFlowTablesInternal[0m] no flow-table response from localhost:8080 (switch 7 and possibly others); tables are left as they were
+[2026-09-02 17:02:35.735] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1084[0m [96mfetchOpenFlowTablesInternal[0m] flow tables readable again after 1 empty response(s)
+[2026-09-02 17:02:35.879] [info] [[94mmain.cpp[0m:[95m422[0m [96mmain[0m] Shutdown requested. Cleaning up…
+[2026-09-02 17:02:36.714] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2100[0m [96mrun[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 17:02:36.840] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+[2026-09-02 17:02:36.929] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m878[0m [96mrun[0m] Run loop exiting
+[2026-09-02 17:02:36.929] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m888[0m [96mrun[0m] Run loop existing
+[2026-09-02 17:02:37.276] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2201[0m [96mtestCalAvgFlowSendingRatesRandomly[0m] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-02 17:02:37.834] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2103[0m [96mcalAvgFlowSendingRatesPeriodically[0m] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-02 17:02:37.840] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2280[0m [96mpurgeIdleFlows[0m] Exiting Loop of purgeIdleFlows
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m108[0m [96mstop[0m] io_context stopped
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m115[0m [96mstop[0m] acceptor_ close
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m138[0m [96mstop[0m] Attempting to poke the server socket to unblock accept.
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m157[0m [96mstop[0m] Poke connection refused (port likely already fully closed).
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m180[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m214[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] m_serverThread joined.
+[2026-09-02 17:02:37.840] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m189[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-02 17:02:37.840] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m140[0m [96mstop[0m] Collector Stops
+[2026-09-02 17:02:38.550] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-02 17:02:38.550] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 17:02:38.550] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 17:02:38.550] [info] [[94mApplicationManager.cpp[0m:[95m266[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 17:02:38.550] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+terminate called without an active exception

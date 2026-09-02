@@ -1,0 +1,4 @@
+g++ -std=c++17 -Iinclude -Wall Logger.cpp registered/simple_sim/1.0/simple_sim.cpp -o registered/simple_sim/1.0/executable -lspdlog -lfmt
+g++ -std=c++17 -Iinclude -Wall Logger.cpp request_manager.cpp -o request_manager -lpthread -lboost_system -lboost_thread -lspdlog -lfmt
+g++ -std=c++17 -Iinclude -Wall Logger.cpp simulation_platform_manager.cpp -o simulation_platform_manager -lpthread -lboost_system -lboost_thread -lboost_filesystem -lspdlog -lfmt
+g++ -std=c++17 -Iinclude -Wall Logger.cpp app.cpp -o app -lpthread -lboost_system -lboost_thread -lspdlog -lfmt

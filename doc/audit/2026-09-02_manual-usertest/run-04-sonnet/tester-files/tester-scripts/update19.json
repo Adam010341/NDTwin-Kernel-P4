@@ -1,0 +1,4 @@
+{
+  "C10": "C10. Terminal 1: sudo python3 p4_proxy/mininet/p4_testbed_topo.py, \"10 BMv2 switches verified\" -- WORKS, exact message match, all 10 switches started with the stock (non-fast) simple_switch_grpc binary as configured, converged in well under a minute",
+  "C11": "C11. /tmp/ndtwin_p4_switches.json manifest -- WORKS, valid JSON, 10 entries with real PIDs/gRPC ports/log files, argv confirms each uses p4_src/build/ndtwin_switch.json (the pipeline compiled in Step 6.2)"
+}

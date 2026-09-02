@@ -1,0 +1,11 @@
+{
+  "F1": "F1. nsr-env venv + pip deps -- WORKS",
+  "F2": "F2. clone Network-State-Recorder, chmod +x scripts -- WORKS-BUT: `ndt apps nsr` (Kernel's own tooling) expects the clone at ~/Desktop/<name>, not ~ as this page's own `cd ~ && git clone` puts it -- see BUGS.md addendum to BUG-1",
+  "F3": "F3. ./start_network_state_recorder.sh (background mode) -- BROKEN as documented (bare `python3`, ModuleNotFoundError for nornir); WORKS once `~/nsr-env` is activated first in the same shell (undocumented on the User Manual page for Option 1). See BUGS.md BUG-4.",
+  "F4": "F4. pgrep -af network_state_recorder.py -- WORKS as a status check by itself",
+  "F5": "F5. recorded_info/*.json + *_json.zip files produced -- WORKS-BUT: the *.json file for the currently-open storage_interval reads as 0 bytes (misleading if checked mid-interval); real content confirmed once rotated into the *_json.zip (826 B, valid newline-delimited JSON matching the documented flowinfo/graphinfo format, real flow data present after generating iperf3 traffic)",
+  "F6": "F6. logs/NSR_<date>.log content -- WORKS, matches documented format (loguru INFO/SUCCESS/WARNING/DEBUG lines)",
+  "F7": "F7. python3 network_state_recorder.py (foreground mode) -- NOT-TRIED (background mode already exercised the same underlying script; foreground only changes display_on_console)",
+  "F8": "F8. ./stop_network_state_recorder.sh -- BROKEN: reproduced live, killed an unrelated process (my own shell) via `pgrep -f` collateral match in addition to correctly stopping NSR. See BUGS.md BUG-4 update.",
+  "F9": "F9. manual stop via kill -15 <PID> -- NOT-TRIED separately (used the (broken) stop script instead; the manual's own \"list first, sudo kill -15 <PID>\" alternative is clearly the safer of the two and was not itself exercised)"
+}

@@ -1,0 +1,9 @@
++ date +%H:%M
+15:58
++ cd /home/ndt/Desktop/NDTwin-Kernel
++ ls -l testbed_topo.py
+-rwxrwxr-x 1 ndt ndt 10575 Sep  2 15:51 testbed_topo.py
++ date +%H:%M
+15:58
++ echo S5_CHECK_DONE
+S5_CHECK_DONE

@@ -1,0 +1,3 @@
+{
+  "D7": "D7. docker-compose down / up -d / restart -- WORKS for the 2-service subset: `docker compose up -d postgres node-positions-api` and `docker compose down` both completed cleanly (containers+network created/removed correctly); frontend remains blocked regardless (BUG-5)"
+}

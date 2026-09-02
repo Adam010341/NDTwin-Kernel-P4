@@ -1,0 +1,3 @@
+{
+  "A12": "A12. `ndt up` (P4 default) -- BROKEN, same root cause as A4/BUG-1: \"XX fabric did not come up: 0/10 switches, manifest missing\" after 3m06s. Better diagnostics than the OVS path (suggests `sudo -n /usr/local/sbin/ndtwin-lab topo-out 40`, which confirms \"no topo session\"). See BUGS.md addendum to BUG-1."
+}

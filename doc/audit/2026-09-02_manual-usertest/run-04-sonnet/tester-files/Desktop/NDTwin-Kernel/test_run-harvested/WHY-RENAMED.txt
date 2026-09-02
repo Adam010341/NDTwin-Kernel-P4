@@ -1,0 +1,13 @@
+This directory was harvested from the guest as ~/Desktop/NDTwin-Kernel/.test_run/
+(the live working directory that tools/test_workflow/ndt creates).
+
+It is renamed to test_run-harvested/ because the repo root .gitignore line 21 has
+a bare `.test_run/` rule, which does not discriminate by path: it silently swallows
+archived copies under doc/audit/ too. That is exactly what happened in run-02 --
+its pull6.sh did pull Desktop/NDTwin-Kernel/.test_run/logs back, yet
+`git ls-files ...run-02-haiku/ | grep test_run` returns nothing, so run-02's
+kernel.log / ryu.log never entered version control and nobody noticed.
+run-03's closer found it and worked around it the same way.
+
+Contents are byte-identical to what was on the guest; only the directory name changed.
+[Co-developed with claude code -- Adam]

@@ -1,0 +1,11 @@
+ndt up p4
+  hosts        128        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2         /usr/local/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+[1/3] bmv2 fabric
+  waiting for 10 switches and the manifest
+  XX  fabric did not come up: 0/10 switches, manifest missing
+  XX  look at the pane:  sudo -n /usr/local/sbin/ndtwin-lab topo-out 40
+NDT_UP_EXIT=1

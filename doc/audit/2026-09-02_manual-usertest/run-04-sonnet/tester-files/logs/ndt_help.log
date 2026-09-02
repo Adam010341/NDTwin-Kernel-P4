@@ -1,0 +1,33 @@
+usage: ndt <command>
+
+  up [what]     bring the whole lab up and verify it
+                  ndt up            p4 at the current host count (default)
+                  ndt up 4          p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up p4 128     p4 at 128 hosts
+                  ndt up ovs        Ryu + OVS, 128 hosts
+                  ndt up ovs4       Ryu + OVS on the P4 test bed's 4-host layout
+                NDT_TOPO=<file> forces a specific kernel model.
+  down [--deep] take it all down and prove the machine is clean
+                  --deep also kills whatever still holds :8000/:8080/:8081, including
+                  processes this stack did not start. Off by default: without it, a
+                  stray is reported and left alone rather than killed.
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+  clean         just the teardown assertion (exit 1 if anything survived)
+  check         telemetry double-count tripwire
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  ndt up derives the kernel's topology model from host_count_override, so the
+  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+  environment variable.
+
+repo: /home/ndt/Desktop/NDTwin-Kernel

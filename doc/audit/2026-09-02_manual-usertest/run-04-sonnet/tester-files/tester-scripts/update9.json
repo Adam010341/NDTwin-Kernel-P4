@@ -1,0 +1,5 @@
+{
+  "B6": "B6. Kernel with NO flags -> interactive 3-question prompt -- WORKS, prompt text matches manual verbatim (\"Select your deployment environment... [1] Local Mininet... [2] Remote Testbed\", etc.), answered 1/1/2 by hand via tmux send-keys, kernel started identically to the flagged form",
+  "C1": "C1. clone NDTwin-Kernel-P4-public (superset repo) -- WORKS (done in Section 4.1, commit 936f8c6; p4_proxy/p4_src/ndtwin_switch.p4 confirmed present, Step 6.0's own check)",
+  "C2": "C2. p4-guide install-p4dev-v8.sh (long build, ~1-2h) -- IN PROGRESS, kicked off 16:02:57"
+}

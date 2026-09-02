@@ -1,0 +1,498 @@
+[2026-09-02 16:08:38.740] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 16:08:38.740] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 16:08:38.741] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 16:08:38.741] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 16:08:38.742] [warning] [[94mHistoricalDataManager.cpp[0m:[95m35[0m [96mHistoricalDataManager[0m] HistoricalDataManager: cannot create /home/of-controller-sflow-collector/LinkData: Permission denied. Historical link data will not be recorded.
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 16:08:38.742] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 16:08:38.742] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=59174 tid=59181
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=59174 tid=59182
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=59174 tid=59183
+[2026-09-02 16:08:38.742] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m118[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=59174 tid=59184
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=59174 tid=59185
+[2026-09-02 16:08:38.742] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-02 16:08:38.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-02 16:08:38.755] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1192[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-09-02 16:08:38.796] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 16:08:39.242] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:39.242] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:40.742] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2072[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+[2026-09-02 16:08:44.052] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:08:44.109] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will answer from now on.
+[2026-09-02 16:08:47.676] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.679] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.679] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.679] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 1:1 -> 5:1
+[2026-09-02 16:08:47.680] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.681] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.681] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.681] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.681] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:1 -> 1:1
+[2026-09-02 16:08:47.682] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.935] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.936] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.936] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.936] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:4 -> 10:2
+[2026-09-02 16:08:47.937] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.938] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.939] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.939] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.939] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:2 -> 6:4
+[2026-09-02 16:08:47.940] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.941] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.941] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.941] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.941] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:2 -> 2:2
+[2026-09-02 16:08:47.941] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.942] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.942] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.942] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.942] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 2:2 -> 6:2
+[2026-09-02 16:08:47.943] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.944] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.944] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.944] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.944] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:3 -> 9:2
+[2026-09-02 16:08:47.944] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.946] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.946] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.946] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.946] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:2 -> 6:3
+[2026-09-02 16:08:47.946] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.947] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.947] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.947] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.947] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 6:1 -> 1:2
+[2026-09-02 16:08:47.948] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.949] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.949] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.949] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.949] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 1:2 -> 6:1
+[2026-09-02 16:08:47.949] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.950] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.950] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.950] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.950] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 3:2 -> 8:1
+[2026-09-02 16:08:47.951] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.952] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.952] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.952] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.952] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:1 -> 3:2
+[2026-09-02 16:08:47.952] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.953] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.953] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.953] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.953] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 3:1 -> 7:1
+[2026-09-02 16:08:47.954] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.955] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.955] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.955] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.955] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:1 -> 3:1
+[2026-09-02 16:08:47.955] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.956] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.956] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.956] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.956] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:4 -> 8:4
+[2026-09-02 16:08:47.957] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.958] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.958] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.958] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.958] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:4 -> 10:4
+[2026-09-02 16:08:47.959] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.960] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.960] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.960] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.960] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:1 -> 5:4
+[2026-09-02 16:08:47.960] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.961] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.961] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.961] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.961] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:4 -> 10:1
+[2026-09-02 16:08:47.962] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.963] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.963] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.963] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.964] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 10:3 -> 7:4
+[2026-09-02 16:08:47.964] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.965] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.965] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.965] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.965] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:4 -> 10:3
+[2026-09-02 16:08:47.966] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.967] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.967] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.967] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.967] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 4:1 -> 7:2
+[2026-09-02 16:08:47.967] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.968] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.968] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.968] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.968] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:2 -> 4:1
+[2026-09-02 16:08:47.969] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.970] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.970] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.970] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.970] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 4:2 -> 8:2
+[2026-09-02 16:08:47.971] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.972] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.972] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.972] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.972] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:2 -> 4:2
+[2026-09-02 16:08:47.972] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.973] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.973] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.973] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.973] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 2:1 -> 5:2
+[2026-09-02 16:08:47.974] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.975] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.975] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.975] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.975] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:2 -> 2:1
+[2026-09-02 16:08:47.976] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.977] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.977] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.977] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.977] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 7:3 -> 9:3
+[2026-09-02 16:08:47.978] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.978] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.978] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.978] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.979] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:3 -> 7:3
+[2026-09-02 16:08:47.979] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.980] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.980] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.980] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.980] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:3 -> 9:4
+[2026-09-02 16:08:47.980] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.981] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.981] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.981] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.981] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:4 -> 8:3
+[2026-09-02 16:08:47.982] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.983] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.983] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.983] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.983] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 5:3 -> 9:1
+[2026-09-02 16:08:47.983] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:47.984] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:08:47.984] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 16:08:47.984] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 16:08:47.984] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:1 -> 5:3
+[2026-09-02 16:08:47.985] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:08:48.873] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 0 switches, 128 hosts, 256 edges up
+[2026-09-02 16:09:08.745] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.1 ms | since start (29 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:09:08.745] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000203 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:09:38.748] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:09:38.748] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000178 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:09:44.176] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 3968 paths from controller
+[2026-09-02 16:10:08.751] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (89 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:10:08.751] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000173 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:10:38.755] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (119 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:10:38.755] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000183 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:10:44.243] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 3968 paths from controller
+[2026-09-02 16:11:08.758] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (149 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:11:08.758] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000136 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:11:38.766] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.3 ms | since start (179 iters) mean 1000.1 ms, min 1000.0, max 1000.5 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:11:38.766] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000456 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:11:44.278] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 16:11:55.527] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.528] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=6
+[2026-09-02 16:11:55.528] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.539] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.540] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.546] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=4
+[2026-09-02 16:11:55.546] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.548] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.549] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.551] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.551] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=6
+[2026-09-02 16:11:55.551] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.551] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=8
+[2026-09-02 16:11:55.551] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.552] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.553] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.554] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.557] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=9
+[2026-09-02 16:11:55.557] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.559] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.559] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.560] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=1
+[2026-09-02 16:11:55.560] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.561] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.561] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.562] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=5
+[2026-09-02 16:11:55.562] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.563] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.564] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.565] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=3
+[2026-09-02 16:11:55.566] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.567] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.567] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.569] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=7
+[2026-09-02 16:11:55.569] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.593] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.594] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.595] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=2
+[2026-09-02 16:11:55.595] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.597] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.598] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.598] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=10
+[2026-09-02 16:11:55.598] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.598] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.601] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.603] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.603] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.603] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 6:3 -> 9:2
+[2026-09-02 16:11:55.605] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.606] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.606] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.606] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.606] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 10:4 -> 8:4
+[2026-09-02 16:11:55.606] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.607] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.608] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.608] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.608] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 6:1 -> 1:2
+[2026-09-02 16:11:55.608] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.610] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.610] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.611] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.611] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.611] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 6:2 -> 2:2
+[2026-09-02 16:11:55.611] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=1
+[2026-09-02 16:11:55.611] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.612] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.613] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.614] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.615] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.615] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=2
+[2026-09-02 16:11:55.615] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.615] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.616] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.616] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.616] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.616] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 10:3 -> 7:4
+[2026-09-02 16:11:55.616] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=3
+[2026-09-02 16:11:55.616] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.617] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.617] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.618] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.618] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.618] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 6:4 -> 10:2
+[2026-09-02 16:11:55.618] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.619] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.619] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=4
+[2026-09-02 16:11:55.619] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.620] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.621] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.621] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.622] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.622] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.622] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 10:2 -> 6:4
+[2026-09-02 16:11:55.622] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=5
+[2026-09-02 16:11:55.622] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.623] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 10:1 -> 5:4
+[2026-09-02 16:11:55.625] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=7
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.625] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.626] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.627] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.628] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.628] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=8
+[2026-09-02 16:11:55.628] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.628] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.629] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.629] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.629] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.629] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 2:1 -> 5:2
+[2026-09-02 16:11:55.630] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=9
+[2026-09-02 16:11:55.630] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.630] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.631] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.631] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.631] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.631] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 2:2 -> 6:2
+[2026-09-02 16:11:55.632] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.633] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.633] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.634] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.634] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.634] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 7:4 -> 10:3
+[2026-09-02 16:11:55.635] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.636] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.636] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/inform_switch_entered?dpid=10
+[2026-09-02 16:11:55.636] [info] [[94mHttpSession.cpp[0m:[95m1126[0m [96mhandleInformSwitchEntered[0m] Handle Inform Switch Entered
+[2026-09-02 16:11:55.636] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.636] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.636] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 7:2 -> 4:1
+[2026-09-02 16:11:55.636] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.637] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.638] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.638] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.638] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.638] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 3:1 -> 7:1
+[2026-09-02 16:11:55.638] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.639] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.639] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.639] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.639] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 7:3 -> 9:3
+[2026-09-02 16:11:55.640] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.640] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.640] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.641] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.641] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 7:1 -> 3:1
+[2026-09-02 16:11:55.641] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.642] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.642] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.642] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.642] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 3:2 -> 8:1
+[2026-09-02 16:11:55.643] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.644] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.644] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.644] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 1:1 -> 5:1
+[2026-09-02 16:11:55.645] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.645] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.646] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.646] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.646] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 5:4 -> 10:1
+[2026-09-02 16:11:55.646] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.647] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.647] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.647] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.647] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 5:3 -> 9:1
+[2026-09-02 16:11:55.649] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.649] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.649] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.649] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.649] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 5:2 -> 2:1
+[2026-09-02 16:11:55.649] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.650] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.651] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.651] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.651] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 5:1 -> 1:1
+[2026-09-02 16:11:55.651] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.652] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.652] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.652] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.652] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 1:2 -> 6:1
+[2026-09-02 16:11:55.653] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.654] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.654] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.654] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.654] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 8:2 -> 4:2
+[2026-09-02 16:11:55.655] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.655] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.655] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.655] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.655] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 8:3 -> 9:4
+[2026-09-02 16:11:55.656] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.657] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.658] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.658] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.658] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 9:4 -> 8:3
+[2026-09-02 16:11:55.658] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.659] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.661] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.661] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.661] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 4:2 -> 8:2
+[2026-09-02 16:11:55.664] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.664] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.664] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.664] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.664] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 8:4 -> 10:4
+[2026-09-02 16:11:55.664] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.665] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.665] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.665] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.666] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 9:3 -> 7:3
+[2026-09-02 16:11:55.666] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.667] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.667] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.667] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.667] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 4:1 -> 7:2
+[2026-09-02 16:11:55.667] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.668] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.669] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.669] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.669] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 9:2 -> 6:3
+[2026-09-02 16:11:55.669] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.670] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.670] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.670] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.670] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 8:1 -> 3:2
+[2026-09-02 16:11:55.671] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:11:55.671] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:11:55.672] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_recovery_detected
+[2026-09-02 16:11:55.672] [info] [[94mHttpSession.cpp[0m:[95m466[0m [96mhandleLinkRecovery[0m] Handle Link Recovery
+[2026-09-02 16:11:55.672] [info] [[94mHttpSession.cpp[0m:[95m482[0m [96mhandleLinkRecovery[0m] link recovered on 9:1 -> 5:3
+[2026-09-02 16:11:55.672] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:12:08.769] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (209 iters) mean 1000.1 ms, min 1000.0, max 1000.5 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:12:08.769] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000125 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:12:09.623] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 16:12:33.115] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m271[0m [96mpopulateIfIndexToOfportMap[0m] Populating ifIndex to OFPort map...
+[2026-09-02 16:12:33.292] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m437[0m [96mpopulateIfIndexToOfportMap[0m] Finished populating ifIndex to OFPort map. Size: 160
+[2026-09-02 16:12:38.779] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.3 ms | since start (239 iters) mean 1000.2 ms, min 1000.0, max 1003.0 (flows=1, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:12:38.779] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000319 divisor_used_s=1.000319 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:12:44.677] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:12:48.782] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.53 -> 10.0.0.117 idles
+[2026-09-02 16:13:08.788] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.3 ms | since start (269 iters) mean 1000.2 ms, min 1000.0, max 1003.0 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:13:08.788] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000311 divisor_used_s=1.000311 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:13:38.801] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.5 ms | since start (299 iters) mean 1000.2 ms, min 1000.0, max 1003.0 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:13:38.801] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000325 divisor_used_s=1.000325 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:13:45.093] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:14:08.817] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.5 ms | since start (329 iters) mean 1000.2 ms, min 1000.0, max 1003.0 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:14:08.817] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000352 divisor_used_s=1.000352 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:14:38.835] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.6 ms | since start (359 iters) mean 1000.3 ms, min 1000.0, max 1003.0 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:14:38.835] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000290 divisor_used_s=1.000290 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:14:45.472] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:15:08.845] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.3 ms | since start (389 iters) mean 1000.3 ms, min 1000.0, max 1003.0 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:15:08.845] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000341 divisor_used_s=1.000341 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:15:33.574] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:15:33.574] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:15:33.585] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:15:33.585] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:15:33.590] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:15:33.590] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 16:15:33.590] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 16:15:33.605] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 16:15:33.607] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:15:38.863] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.6 ms | since start (419 iters) mean 1000.3 ms, min 1000.0, max 1003.3 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:15:38.863] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000290 divisor_used_s=1.000290 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:15:45.850] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:16:08.878] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.5 ms | since start (449 iters) mean 1000.3 ms, min 1000.0, max 1003.3 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:16:08.878] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000337 divisor_used_s=1.000337 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:16:38.888] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.4 ms | since start (479 iters) mean 1000.3 ms, min 1000.0, max 1003.3 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:16:38.889] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000307 divisor_used_s=1.000307 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:16:46.234] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:16:52.250] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:16:52.250] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:16:52.251] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:16:52.251] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:17:08.903] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.5 ms | since start (509 iters) mean 1000.3 ms, min 1000.0, max 1003.3 (flows=2, counters=3) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:17:08.903] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000505 divisor_used_s=1.000505 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:17:38.823] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.2 -> 10.0.0.1 idles
+[2026-09-02 16:17:38.932] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1001.0 ms | since start (539 iters) mean 1000.4 ms, min 1000.0, max 1003.3 (flows=1, counters=3) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:17:38.933] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.001583 divisor_used_s=1.001583 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:17:39.824] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2255[0m [96mpurgeIdleFlows[0m] Flow Key: 10.0.0.1 -> 10.0.0.2 idles
+[2026-09-02 16:17:46.600] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 16256 paths from controller
+[2026-09-02 16:18:08.948] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.5 ms | since start (569 iters) mean 1000.4 ms, min 1000.0, max 1003.3 (flows=0, counters=3) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:18:08.948] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000571 divisor_used_s=1.000571 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 16:18:35.856] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 16:18:35.856] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 16:18:35.856] [info] [[94mHttpSession.cpp[0m:[95m577[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 16:18:35.856] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 16:18:38.963] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.5 ms | since start (599 iters) mean 1000.4 ms, min 1000.0, max 1003.3 (flows=0, counters=3) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 16:18:38.964] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000618 divisor_used_s=1.000618 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)

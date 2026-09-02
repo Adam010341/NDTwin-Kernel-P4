@@ -1,0 +1,8 @@
+{
+  "G1": "G1. openjdk-21-jdk install -- WORKS (java 21 confirmed)",
+  "G2": "G2. clone Network-Traffic-Visualizer, checkout b5e039c -- WORKS",
+  "G3": "G3. ./mvnw clean package -- WORKS, BUILD SUCCESS in 26s, both jars produced (shaded 61MB, original 238KB)",
+  "G4": "G4. ./network_traffic_visualizer.sh (headless: expect exit, no display) -- WORKS-AS-DOCUMENTED: exits with a Maven/JavaFX launch failure (exit 1) with no X server, exactly as the manual's own troubleshooting section predicts",
+  "G5": "G5. run under xvfb-run to confirm it starts -- WORKS: `xvfb-run -a ./network_traffic_visualizer.sh` starts for real (confirmed via `ps aux`: genuine Xvfb + java/javafx processes alive, not just a log claim), and the app's own debug log shows a live render loop drawing an empty canvas -- matching the manual's own note that an empty canvas is the expected look when NDT_API_URL (default localhost:8000) is unreachable, which it was in this isolated test (no kernel running)",
+  "G6": "G6. GUI features (fat-tree layout, flow animation, playback, dark mode, etc.) -- NOT-TRIED (needs a real display, per this test's own ground rules; xvfb only confirms the process starts and renders internally, not that any feature looks/behaves correctly)"
+}

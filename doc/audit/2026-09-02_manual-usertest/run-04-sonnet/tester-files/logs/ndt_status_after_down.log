@@ -1,0 +1,22 @@
+lab
+  claim          none
+  measuring      nothing
+  code           936f8c6  (clean tree)
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  apps           none running
+

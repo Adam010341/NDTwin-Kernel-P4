@@ -1,0 +1,3 @@
+{
+  "B16": "B16. Operate a Physical (Hardware) Network section -- NOT-TRIED end-to-end (no physical switches available). Partial: tried `sudo bin/ndtwin_kernel --mode testbed --no-ai --loglevel info` anyway out of curiosity, with nothing real behind it. It starts cleanly, loads its own built-in default hardware topology file (StaticNetworkTopology_ipAlias4_9Switches_all_1g_cable.json, 9 switches, hardcoded smart-plug IPs on a 10.10.10.x/172.25.166.121 lab network I do not have), then fails informatively and immediately (`curl: (7) Failed to connect` against Ryu's :8080) rather than hanging or crashing -- a legible failure when the dependencies genuinely are not present."
+}

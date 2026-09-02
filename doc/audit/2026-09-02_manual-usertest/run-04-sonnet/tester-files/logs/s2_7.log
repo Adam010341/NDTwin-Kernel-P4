@@ -1,0 +1,136 @@
++ date +%H:%M
+15:44
++ source /home/ndt/miniconda3/etc/profile.d/conda.sh
+++ export CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ export _CONDA_ROOT=/home/ndt/miniconda3
+++ _CONDA_ROOT=/home/ndt/miniconda3
+++ '[' -z '' ']'
+++ export CONDA_SHLVL=0
+++ CONDA_SHLVL=0
+++ '[' -n '' ']'
+++++ dirname /home/ndt/miniconda3/bin/conda
++++ dirname /home/ndt/miniconda3/bin
+++ PATH=/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export PATH
+++ '[' -z '' ']'
+++ PS1=
++ conda activate ryu-env
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate ryu-env
++ '[' -n '' ']'
++ local ask_conda
+++ PS1=
+++ __conda_exe shell.posix activate ryu-env
+++ '[' -n '' ']'
+++ /home/ndt/miniconda3/bin/conda shell.posix activate ryu-env
++ ask_conda='export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+PS1='\''(ryu-env) '\''
+export PATH='\''/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'\''
+export CONDA_PREFIX='\''/home/ndt/miniconda3/envs/ryu-env'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''ryu-env'\''
+export CONDA_PROMPT_MODIFIER='\''(ryu-env) '\''
+export CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export _CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export CONDA_PYTHON_EXE='\''/home/ndt/miniconda3/bin/python'\''
+export _CONDA_ROOT='\''/home/ndt/miniconda3'\'''
++ eval 'export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+PS1='\''(ryu-env) '\''
+export PATH='\''/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'\''
+export CONDA_PREFIX='\''/home/ndt/miniconda3/envs/ryu-env'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''ryu-env'\''
+export CONDA_PROMPT_MODIFIER='\''(ryu-env) '\''
+export CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export _CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export CONDA_PYTHON_EXE='\''/home/ndt/miniconda3/bin/python'\''
+export _CONDA_ROOT='\''/home/ndt/miniconda3'\'''
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ PS1='(ryu-env) '
+++ export PATH=/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ PATH=/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export CONDA_PREFIX=/home/ndt/miniconda3/envs/ryu-env
+++ CONDA_PREFIX=/home/ndt/miniconda3/envs/ryu-env
+++ export CONDA_SHLVL=1
+++ CONDA_SHLVL=1
+++ export CONDA_DEFAULT_ENV=ryu-env
+++ CONDA_DEFAULT_ENV=ryu-env
+++ export 'CONDA_PROMPT_MODIFIER=(ryu-env) '
+++ CONDA_PROMPT_MODIFIER='(ryu-env) '
+++ export CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ export _CONDA_ROOT=/home/ndt/miniconda3
+++ _CONDA_ROOT=/home/ndt/miniconda3
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ python --version
+Python 3.8.20
++ pip install -U networkx
+Collecting networkx
+  Downloading networkx-3.1-py3-none-any.whl.metadata (5.3 kB)
+Downloading networkx-3.1-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 3.0 MB/s eta 0:00:00
+Installing collected packages: networkx
+Successfully installed networkx-3.1
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
++ pip install -U 'requests<2.29' 'urllib3<2'
+Collecting requests<2.29
+  Downloading requests-2.28.2-py3-none-any.whl.metadata (4.6 kB)
+Collecting urllib3<2
+  Downloading urllib3-1.26.20-py2.py3-none-any.whl.metadata (50 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 50.1/50.1 kB 291.9 kB/s eta 0:00:00
+Requirement already satisfied: charset-normalizer<4,>=2 in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (from requests<2.29) (3.5.1)
+Requirement already satisfied: idna<4,>=2.5 in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (from requests<2.29) (3.15)
+Requirement already satisfied: certifi>=2017.4.17 in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (from requests<2.29) (2026.7.22)
+Downloading requests-2.28.2-py3-none-any.whl (62 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 62.8/62.8 kB 1.3 MB/s eta 0:00:00
+Downloading urllib3-1.26.20-py2.py3-none-any.whl (144 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 144.2/144.2 kB 966.1 kB/s eta 0:00:00
+Installing collected packages: urllib3, requests
+  Attempting uninstall: urllib3
+    Found existing installation: urllib3 2.2.3
+    Uninstalling urllib3-2.2.3:
+      Successfully uninstalled urllib3-2.2.3
+  Attempting uninstall: requests
+    Found existing installation: requests 2.32.4
+    Uninstalling requests-2.32.4:
+      Successfully uninstalled requests-2.32.4
+Successfully installed requests-2.28.2 urllib3-1.26.20
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
++ pip list
++ grep -E 'networkx|requests|urllib3'
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+networkx           3.1
+requests           2.28.2
+urllib3            1.26.20
++ date +%H:%M
+15:45
++ echo STEP_2_7_DONE
+STEP_2_7_DONE

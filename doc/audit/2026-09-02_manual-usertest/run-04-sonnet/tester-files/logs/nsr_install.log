@@ -1,0 +1,103 @@
++ date +%H:%M
+16:04
++ cd /home/ndt
++ git clone https://github.com/ndtwin-lab/Network-State-Recorder.git
+Cloning into 'Network-State-Recorder'...
++ cd Network-State-Recorder
++ python3 -m venv /home/ndt/nsr-env
++ source /home/ndt/nsr-env/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/home/ndt/nsr-env
+++ VIRTUAL_ENV=/home/ndt/nsr-env
+++ _OLD_VIRTUAL_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ PATH=/home/ndt/nsr-env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(nsr-env) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(nsr-env) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ pip install nornir loguru orjson requests
+Collecting nornir
+  Downloading nornir-3.6.0-py3-none-any.whl.metadata (5.2 kB)
+Collecting loguru
+  Downloading loguru-0.7.3-py3-none-any.whl.metadata (22 kB)
+Collecting orjson
+  Downloading orjson-3.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (41 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.0/42.0 kB 532.3 kB/s eta 0:00:00
+Collecting requests
+  Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting ruamel-yaml>=0.17 (from nornir)
+  Downloading ruamel_yaml-0.19.1-py3-none-any.whl.metadata (16 kB)
+Collecting charset_normalizer<4,>=2 (from requests)
+  Downloading charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.9/45.9 kB 987.0 kB/s eta 0:00:00
+Collecting idna<4,>=2.5 (from requests)
+  Downloading idna-3.19-py3-none-any.whl.metadata (9.2 kB)
+Collecting urllib3<3,>=1.26 (from requests)
+  Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests)
+  Using cached certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+Downloading nornir-3.6.0-py3-none-any.whl (32 kB)
+Downloading loguru-0.7.3-py3-none-any.whl (61 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 61.6/61.6 kB 1.2 MB/s eta 0:00:00
+Downloading orjson-3.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (131 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 131.2/131.2 kB 904.3 kB/s eta 0:00:00
+Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 2.7 MB/s eta 0:00:00
+Using cached certifi-2026.7.22-py3-none-any.whl (136 kB)
+Downloading charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (248 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 248.8/248.8 kB 3.4 MB/s eta 0:00:00
+Downloading idna-3.19-py3-none-any.whl (68 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 68.5/68.5 kB 3.9 MB/s eta 0:00:00
+Downloading ruamel_yaml-0.19.1-py3-none-any.whl (118 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 118.1/118.1 kB 5.6 MB/s eta 0:00:00
+Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 131.1/131.1 kB 5.8 MB/s eta 0:00:00
+Installing collected packages: urllib3, ruamel-yaml, orjson, loguru, idna, charset_normalizer, certifi, requests, nornir
+Successfully installed certifi-2026.7.22 charset_normalizer-3.5.1 idna-3.19 loguru-0.7.3 nornir-3.6.0 orjson-3.12.0 requests-2.34.2 ruamel-yaml-0.19.1 urllib3-2.7.0
++ chmod +x start_network_state_recorder.sh stop_network_state_recorder.sh
++ ls -l start_network_state_recorder.sh stop_network_state_recorder.sh
+-rwxrwxr-x 1 ndt ndt 265 Sep  2 16:04 start_network_state_recorder.sh
+-rwxrwxr-x 1 ndt ndt 315 Sep  2 16:04 stop_network_state_recorder.sh
++ cat NSR.yaml
+---
+# From nornir
+inventory:
+  plugin: SimpleInventory
+  options:
+    host_file: "./setting/recorder_setting.yaml"
+
+runner:
+  plugin: threaded
+  options:
+    num_workers: 1
+
+logging:
+  enabled: false+ echo ---recorder_setting---
+---recorder_setting---
++ cat setting/recorder_setting.yaml
+---
+Recorder:
+  data:
+    ndtwin_kernel: "http://127.0.0.1:8000"
+    request_interval: 5 # in seconds, need to be integer and >= 1
+    storage_interval: 2 # in minutes, need to be integer and >= 1
+    # set to false to disable real-time logging output to console, otherwise true.
+    display_on_console: true
+    log_level: "DEBUG"+ date +%H:%M
+16:04
++ echo NSR_INSTALL_DONE
+NSR_INSTALL_DONE

@@ -1,0 +1,3 @@
+{
+  "C15": "C15. traffic validation iperf3 + curl :8000 on P4 fabric -- WORKS, exactly 2 records (h1/h2, same IP encoding as the OVS test: 16777226/33554442), each with a real `path` (switch interfaces + node IDs). Measured throughput on this STOCK (non-fast) simple_switch_grpc build: ~34-37 Mbit/s one direction, ~0.8-1.1 Mbit/s the other -- well below the 1000Mbit link declaration, consistent with the manual's own documented debug-build ceiling (\"roughly 3.6 kpps... about 40 Mbps of delivered UDP\") for the binary I deliberately selected in Step 6.6 (skipped the optional bmv2-fast rebuild, Step 6.7)."
+}

@@ -1,0 +1,3 @@
+g++ -std=c++23 -Iinclude -Wall src/utils/Logger.cpp src/app/http.cpp src/common/types.cpp src/app/energy_saving_app.cpp -o energy_saving_app -lpthread -lboost_system -lboost_thread -lspdlog -lfmt -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE
+g++ -std=c++23 -Iinclude -Wall src/utils/Logger.cpp src/common/types.cpp src/sim/max_min_fairness.cpp src/sim/energy_saving_simulator.cpp -o energy_saving_simulator -lpthread -lboost_system -lboost_thread -lspdlog -lfmt -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -lssl -lcrypto
+cp ./energy_saving_simulator ../Simulation-Platform-Manager/registered/energy_saving_simulator/1.0/executable

@@ -1,0 +1,1914 @@
+loading app intelligent_router.py
+NDTWIN: load_static_topology will run OFF the event handler (NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL, default since 2026-08-25; set 0 to opt out)
+NDTWIN: SIGUSR2 dumps greenlet stacks to /tmp/ndtwin_ryu_greenlets.txt (kill -USR2 <ryu pid>)
+NDTWIN: LLDP_SEND_GUARD default is 0.01s (Ryu ships 0.05; override with NDTWIN_RYU_LLDP_GUARD)
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(36999) wsgi starting up on http://0.0.0.0:8080
+(36999) accepted ('127.0.0.1', 58962)
+127.0.0.1 - - [02/Sep/2026 16:07:22] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.006133
+(36999) accepted ('127.0.0.1', 58968)
+127.0.0.1 - - [02/Sep/2026 16:07:22] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000262
+(36999) accepted ('127.0.0.1', 58976)
+127.0.0.1 - - [02/Sep/2026 16:07:22] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000174
+(36999) accepted ('127.0.0.1', 35288)
+127.0.0.1 - - [02/Sep/2026 16:07:24] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000320
+(36999) accepted ('127.0.0.1', 35304)
+127.0.0.1 - - [02/Sep/2026 16:07:24] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000236
+(36999) accepted ('127.0.0.1', 35306)
+127.0.0.1 - - [02/Sep/2026 16:07:24] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000161
+(36999) accepted ('127.0.0.1', 35316)
+127.0.0.1 - - [02/Sep/2026 16:07:26] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000300
+(36999) accepted ('127.0.0.1', 35320)
+127.0.0.1 - - [02/Sep/2026 16:07:26] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000252
+(36999) accepted ('127.0.0.1', 35328)
+127.0.0.1 - - [02/Sep/2026 16:07:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000198
+(36999) accepted ('127.0.0.1', 35338)
+127.0.0.1 - - [02/Sep/2026 16:07:28] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000309
+(36999) accepted ('127.0.0.1', 35344)
+127.0.0.1 - - [02/Sep/2026 16:07:28] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000245
+(36999) accepted ('127.0.0.1', 35346)
+127.0.0.1 - - [02/Sep/2026 16:07:28] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000158
+(36999) accepted ('127.0.0.1', 35350)
+127.0.0.1 - - [02/Sep/2026 16:07:30] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000308
+(36999) accepted ('127.0.0.1', 35362)
+127.0.0.1 - - [02/Sep/2026 16:07:30] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000271
+(36999) accepted ('127.0.0.1', 35368)
+127.0.0.1 - - [02/Sep/2026 16:07:30] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000354
+(36999) accepted ('127.0.0.1', 35384)
+127.0.0.1 - - [02/Sep/2026 16:07:32] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000306
+(36999) accepted ('127.0.0.1', 35400)
+127.0.0.1 - - [02/Sep/2026 16:07:32] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000251
+(36999) accepted ('127.0.0.1', 35410)
+127.0.0.1 - - [02/Sep/2026 16:07:32] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000161
+(36999) accepted ('127.0.0.1', 54990)
+127.0.0.1 - - [02/Sep/2026 16:07:34] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000282
+(36999) accepted ('127.0.0.1', 54994)
+127.0.0.1 - - [02/Sep/2026 16:07:34] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000217
+(36999) accepted ('127.0.0.1', 55008)
+127.0.0.1 - - [02/Sep/2026 16:07:34] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000154
+(36999) accepted ('127.0.0.1', 55010)
+127.0.0.1 - - [02/Sep/2026 16:07:36] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000300
+(36999) accepted ('127.0.0.1', 55016)
+127.0.0.1 - - [02/Sep/2026 16:07:36] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000224
+(36999) accepted ('127.0.0.1', 55024)
+127.0.0.1 - - [02/Sep/2026 16:07:36] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000159
+(36999) accepted ('127.0.0.1', 55026)
+127.0.0.1 - - [02/Sep/2026 16:07:38] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000323
+(36999) accepted ('127.0.0.1', 55032)
+127.0.0.1 - - [02/Sep/2026 16:07:38] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000310
+(36999) accepted ('127.0.0.1', 55044)
+127.0.0.1 - - [02/Sep/2026 16:07:39] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000197
+(36999) accepted ('127.0.0.1', 55052)
+127.0.0.1 - - [02/Sep/2026 16:07:41] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000314
+(36999) accepted ('127.0.0.1', 55066)
+127.0.0.1 - - [02/Sep/2026 16:07:41] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000250
+(36999) accepted ('127.0.0.1', 55072)
+127.0.0.1 - - [02/Sep/2026 16:07:41] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000154
+(36999) accepted ('127.0.0.1', 45844)
+127.0.0.1 - - [02/Sep/2026 16:07:43] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000298
+(36999) accepted ('127.0.0.1', 45858)
+127.0.0.1 - - [02/Sep/2026 16:07:43] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000246
+(36999) accepted ('127.0.0.1', 45870)
+127.0.0.1 - - [02/Sep/2026 16:07:43] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000157
+(36999) accepted ('127.0.0.1', 45872)
+127.0.0.1 - - [02/Sep/2026 16:07:45] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000298
+(36999) accepted ('127.0.0.1', 45884)
+127.0.0.1 - - [02/Sep/2026 16:07:45] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000238
+(36999) accepted ('127.0.0.1', 45888)
+127.0.0.1 - - [02/Sep/2026 16:07:45] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000153
+(36999) accepted ('127.0.0.1', 45898)
+127.0.0.1 - - [02/Sep/2026 16:07:47] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000294
+(36999) accepted ('127.0.0.1', 45912)
+127.0.0.1 - - [02/Sep/2026 16:07:47] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000246
+(36999) accepted ('127.0.0.1', 45914)
+127.0.0.1 - - [02/Sep/2026 16:07:47] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000157
+(36999) accepted ('127.0.0.1', 45928)
+127.0.0.1 - - [02/Sep/2026 16:07:49] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000305
+(36999) accepted ('127.0.0.1', 45934)
+127.0.0.1 - - [02/Sep/2026 16:07:49] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000247
+(36999) accepted ('127.0.0.1', 45948)
+127.0.0.1 - - [02/Sep/2026 16:07:49] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000169
+(36999) accepted ('127.0.0.1', 45962)
+127.0.0.1 - - [02/Sep/2026 16:07:51] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000285
+(36999) accepted ('127.0.0.1', 45964)
+127.0.0.1 - - [02/Sep/2026 16:07:51] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000249
+(36999) accepted ('127.0.0.1', 45968)
+127.0.0.1 - - [02/Sep/2026 16:07:51] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000159
+(36999) accepted ('127.0.0.1', 50010)
+127.0.0.1 - - [02/Sep/2026 16:07:53] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000301
+(36999) accepted ('127.0.0.1', 50022)
+127.0.0.1 - - [02/Sep/2026 16:07:53] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000273
+(36999) accepted ('127.0.0.1', 50024)
+127.0.0.1 - - [02/Sep/2026 16:07:53] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000170
+(36999) accepted ('127.0.0.1', 50036)
+127.0.0.1 - - [02/Sep/2026 16:07:55] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000299
+(36999) accepted ('127.0.0.1', 50052)
+127.0.0.1 - - [02/Sep/2026 16:07:55] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000238
+(36999) accepted ('127.0.0.1', 50068)
+127.0.0.1 - - [02/Sep/2026 16:07:55] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000399
+(36999) accepted ('127.0.0.1', 50084)
+127.0.0.1 - - [02/Sep/2026 16:07:57] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000293
+(36999) accepted ('127.0.0.1', 50090)
+127.0.0.1 - - [02/Sep/2026 16:07:57] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000252
+(36999) accepted ('127.0.0.1', 50100)
+127.0.0.1 - - [02/Sep/2026 16:07:57] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000148
+(36999) accepted ('127.0.0.1', 50110)
+127.0.0.1 - - [02/Sep/2026 16:07:59] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000287
+(36999) accepted ('127.0.0.1', 50118)
+127.0.0.1 - - [02/Sep/2026 16:07:59] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000232
+(36999) accepted ('127.0.0.1', 50132)
+127.0.0.1 - - [02/Sep/2026 16:07:59] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000165
+(36999) accepted ('127.0.0.1', 50136)
+127.0.0.1 - - [02/Sep/2026 16:08:01] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000314
+(36999) accepted ('127.0.0.1', 50138)
+127.0.0.1 - - [02/Sep/2026 16:08:01] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000256
+(36999) accepted ('127.0.0.1', 50146)
+127.0.0.1 - - [02/Sep/2026 16:08:01] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000160
+(36999) accepted ('127.0.0.1', 60566)
+127.0.0.1 - - [02/Sep/2026 16:08:03] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000300
+(36999) accepted ('127.0.0.1', 60580)
+127.0.0.1 - - [02/Sep/2026 16:08:03] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000274
+(36999) accepted ('127.0.0.1', 60588)
+127.0.0.1 - - [02/Sep/2026 16:08:03] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000192
+(36999) accepted ('127.0.0.1', 60600)
+127.0.0.1 - - [02/Sep/2026 16:08:05] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000299
+(36999) accepted ('127.0.0.1', 60608)
+127.0.0.1 - - [02/Sep/2026 16:08:05] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000275
+(36999) accepted ('127.0.0.1', 60612)
+127.0.0.1 - - [02/Sep/2026 16:08:05] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000188
+(36999) accepted ('127.0.0.1', 60620)
+127.0.0.1 - - [02/Sep/2026 16:08:07] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000290
+(36999) accepted ('127.0.0.1', 60634)
+127.0.0.1 - - [02/Sep/2026 16:08:07] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000254
+(36999) accepted ('127.0.0.1', 60636)
+127.0.0.1 - - [02/Sep/2026 16:08:07] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000160
+(36999) accepted ('127.0.0.1', 60638)
+127.0.0.1 - - [02/Sep/2026 16:08:09] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000288
+(36999) accepted ('127.0.0.1', 60650)
+127.0.0.1 - - [02/Sep/2026 16:08:09] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000217
+(36999) accepted ('127.0.0.1', 60662)
+127.0.0.1 - - [02/Sep/2026 16:08:09] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000154
+(36999) accepted ('127.0.0.1', 60664)
+127.0.0.1 - - [02/Sep/2026 16:08:11] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000297
+(36999) accepted ('127.0.0.1', 60676)
+127.0.0.1 - - [02/Sep/2026 16:08:11] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000229
+(36999) accepted ('127.0.0.1', 60688)
+127.0.0.1 - - [02/Sep/2026 16:08:11] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000164
+(36999) accepted ('127.0.0.1', 33428)
+127.0.0.1 - - [02/Sep/2026 16:08:13] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000310
+(36999) accepted ('127.0.0.1', 33436)
+127.0.0.1 - - [02/Sep/2026 16:08:13] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000257
+(36999) accepted ('127.0.0.1', 33452)
+127.0.0.1 - - [02/Sep/2026 16:08:13] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000181
+(36999) accepted ('127.0.0.1', 33462)
+127.0.0.1 - - [02/Sep/2026 16:08:16] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000318
+(36999) accepted ('127.0.0.1', 33476)
+127.0.0.1 - - [02/Sep/2026 16:08:16] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000288
+(36999) accepted ('127.0.0.1', 33492)
+127.0.0.1 - - [02/Sep/2026 16:08:16] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000186
+(36999) accepted ('127.0.0.1', 33502)
+127.0.0.1 - - [02/Sep/2026 16:08:18] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000314
+(36999) accepted ('127.0.0.1', 33510)
+127.0.0.1 - - [02/Sep/2026 16:08:18] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000240
+(36999) accepted ('127.0.0.1', 33516)
+127.0.0.1 - - [02/Sep/2026 16:08:18] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000162
+(36999) accepted ('127.0.0.1', 33524)
+127.0.0.1 - - [02/Sep/2026 16:08:20] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.001065
+(36999) accepted ('127.0.0.1', 33538)
+127.0.0.1 - - [02/Sep/2026 16:08:20] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000983
+(36999) accepted ('127.0.0.1', 33546)
+127.0.0.1 - - [02/Sep/2026 16:08:20] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000178
+(36999) accepted ('127.0.0.1', 33552)
+127.0.0.1 - - [02/Sep/2026 16:08:22] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000762
+(36999) accepted ('127.0.0.1', 33560)
+127.0.0.1 - - [02/Sep/2026 16:08:22] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000293
+(36999) accepted ('127.0.0.1', 33576)
+127.0.0.1 - - [02/Sep/2026 16:08:22] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.001085
+Datapath ID: 6
+Datapath ID: 1
+Datapath ID: 3
+Datapath ID: 10
+Datapath ID: 8
+Datapath ID: 2
+Datapath ID: 9
+Datapath ID: 7
+Datapath ID: 4
+Datapath ID: 5
+Switch 0000000000000006 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea950e670>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+switch-enter queued for topology rebuild (dpid=6)
+Switch 0000000000000003 connected (EventOFPStateChange)
+Topology update triggered
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94c1d30>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000004 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94c1a60>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000002 connected (EventOFPStateChange)
+Complete get_switch
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea946e130>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000008 connected (EventOFPStateChange)
+Complete get_link
+Switch entered: 6
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76beaa2fcc40>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000009 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94fea60>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+spawning load_static_topology off the event handler (NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL=1)
+Loaded static topology from /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea947b5e0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000001 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea954cf70>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000007 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94e7970>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000005 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9477b80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 000000000000000a connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea93f88b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+switch-enter queued for topology rebuild (dpid=3)
+switch-enter queued for topology rebuild (dpid=4)
+switch-enter queued for topology rebuild (dpid=2)
+switch-enter queued for topology rebuild (dpid=8)
+switch-enter queued for topology rebuild (dpid=9)
+switch-enter queued for topology rebuild (dpid=1)
+switch-enter queued for topology rebuild (dpid=7)
+switch-enter queued for topology rebuild (dpid=5)
+switch-enter queued for topology rebuild (dpid=10)
+Link added: Link: Port<dpid=6, port_no=1, LIVE> to Port<dpid=1, port_no=2, LIVE>
+topology changed (link 6 -> 1 up); route reinstall scheduled
+Topology update triggered
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94e1c70>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=2, LIVE> to Port<dpid=2, port_no=2, LIVE>
+topology changed (link 6 -> 2 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94e7640>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=4, LIVE> to Port<dpid=10, port_no=2, LIVE>
+topology changed (link 6 -> 10 up); route reinstall scheduled
+Complete get_switch
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea93f8f70>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=3, LIVE> to Port<dpid=7, port_no=4, LIVE>
+topology changed (link 10 -> 7 up); route reinstall scheduled
+Complete get_link
+Switch entered: 1
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea93f8d60>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+topology changed (link 1 -> 5 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76beaa308190>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 2
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea940f1f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 3
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76beaa23cb80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+topology changed (link 10 -> 5 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9414370>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 4
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea940b700>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+topology changed (link 10 -> 8 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea946e4f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 5
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea93f8fa0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=6, port_no=3, LIVE> to Port<dpid=9, port_no=2, LIVE>
+topology changed (link 6 -> 9 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea941e040>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 7
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94c1790>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=3, LIVE> to Port<dpid=9, port_no=3, LIVE>
+topology changed (link 7 -> 9 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea940b4f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 8
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea940f4f0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=3, LIVE> to Port<dpid=9, port_no=1, LIVE>
+topology changed (link 5 -> 9 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76beaa23cc10>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=2, LIVE> to Port<dpid=4, port_no=1, LIVE>
+topology changed (link 7 -> 4 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea93f8d60>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 9
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76beaa23ce20>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=2, LIVE> to Port<dpid=2, port_no=1, LIVE>
+topology changed (link 5 -> 2 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9414b80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch entered: 10
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9474130>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=1, LIVE> to Port<dpid=1, port_no=1, LIVE>
+topology changed (link 5 -> 1 up); route reinstall scheduled
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94fb5b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9414ca0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=4, LIVE> to Port<dpid=10, port_no=3, LIVE>
+topology changed (link 7 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea941e3d0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=5, port_no=4, LIVE> to Port<dpid=10, port_no=1, LIVE>
+topology changed (link 5 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea93af070>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=7, port_no=1, LIVE> to Port<dpid=3, port_no=1, LIVE>
+topology changed (link 7 -> 3 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94c1c40>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=10, port_no=2, LIVE> to Port<dpid=6, port_no=4, LIVE>
+topology changed (link 10 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94fba60>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+topology changed (link 1 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9477fa0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+topology changed (link 9 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9474a90>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=2, LIVE> to Port<dpid=6, port_no=3, LIVE>
+topology changed (link 9 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9545310>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=3, LIVE> to Port<dpid=9, port_no=4, LIVE>
+topology changed (link 8 -> 9 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9414b50>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=4, LIVE> to Port<dpid=10, port_no=4, LIVE>
+topology changed (link 8 -> 10 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76beabe87b80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=2, LIVE> to Port<dpid=4, port_no=2, LIVE>
+topology changed (link 8 -> 4 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94c1ac0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+topology changed (link 2 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea941eee0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+topology changed (link 9 -> 5 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94e1580>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=9, port_no=3, LIVE> to Port<dpid=7, port_no=3, LIVE>
+topology changed (link 9 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea95556a0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=8, port_no=1, LIVE> to Port<dpid=3, port_no=2, LIVE>
+topology changed (link 8 -> 3 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9474c40>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=2, port_no=2, LIVE> to Port<dpid=6, port_no=2, LIVE>
+topology changed (link 2 -> 6 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94c1790>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+topology changed (link 4 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9477280>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+topology changed (link 4 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9414490>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+topology changed (link 3 -> 7 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea9414820>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Link added: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+topology changed (link 3 -> 8 up); route reinstall scheduled
+Failed to notify NDT: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76bea94fb370>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+(36999) accepted ('127.0.0.1', 33606)
+127.0.0.1 - - [02/Sep/2026 16:08:24] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001486
+(36999) accepted ('127.0.0.1', 33616)
+127.0.0.1 - - [02/Sep/2026 16:08:24] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000426
+(36999) accepted ('127.0.0.1', 33632)
+127.0.0.1 - - [02/Sep/2026 16:08:24] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000763
+(36999) accepted ('127.0.0.1', 33634)
+127.0.0.1 - - [02/Sep/2026 16:08:26] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001158
+(36999) accepted ('127.0.0.1', 33648)
+127.0.0.1 - - [02/Sep/2026 16:08:26] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000459
+(36999) accepted ('127.0.0.1', 33656)
+127.0.0.1 - - [02/Sep/2026 16:08:26] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000168
+(36999) accepted ('127.0.0.1', 33668)
+127.0.0.1 - - [02/Sep/2026 16:08:28] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000832
+(36999) accepted ('127.0.0.1', 33682)
+127.0.0.1 - - [02/Sep/2026 16:08:28] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000530
+(36999) accepted ('127.0.0.1', 33688)
+127.0.0.1 - - [02/Sep/2026 16:08:28] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000755
+route reinstall waiting for the initial install to finish
+(36999) accepted ('127.0.0.1', 33690)
+127.0.0.1 - - [02/Sep/2026 16:08:30] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000793
+(36999) accepted ('127.0.0.1', 33692)
+127.0.0.1 - - [02/Sep/2026 16:08:30] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000917
+(36999) accepted ('127.0.0.1', 33708)
+127.0.0.1 - - [02/Sep/2026 16:08:30] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000193
+(36999) accepted ('127.0.0.1', 33720)
+127.0.0.1 - - [02/Sep/2026 16:08:32] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000836
+(36999) accepted ('127.0.0.1', 33736)
+127.0.0.1 - - [02/Sep/2026 16:08:32] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000468
+(36999) accepted ('127.0.0.1', 33752)
+127.0.0.1 - - [02/Sep/2026 16:08:32] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000166
+host discovery: 0/128 after 10s
+(36999) accepted ('127.0.0.1', 44958)
+127.0.0.1 - - [02/Sep/2026 16:08:34] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001431
+(36999) accepted ('127.0.0.1', 44970)
+127.0.0.1 - - [02/Sep/2026 16:08:34] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000991
+(36999) accepted ('127.0.0.1', 44976)
+127.0.0.1 - - [02/Sep/2026 16:08:34] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000174
+host discovery complete: 128/128 hosts have an IPv4 after 13s (NDTWIN_RYU_SETTLE_S=40 is the ceiling, not the wait)
+install_all_pair_paths
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+all_destination_paths in
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 288 ===
+1 -> 5: {'port': 1}
+1 -> 6: {'port': 2}
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+2 -> 5: {'port': 1}
+2 -> 6: {'port': 2}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+3 -> 7: {'port': 1}
+3 -> 8: {'port': 2}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+4 -> 7: {'port': 1}
+4 -> 8: {'port': 2}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+5 -> 1: {'port': 1}
+5 -> 9: {'port': 3}
+5 -> 2: {'port': 2}
+5 -> 10: {'port': 4}
+6 -> 1: {'port': 1}
+6 -> 9: {'port': 3}
+6 -> 2: {'port': 2}
+6 -> 10: {'port': 4}
+7 -> 3: {'port': 1}
+7 -> 9: {'port': 3}
+7 -> 4: {'port': 2}
+7 -> 10: {'port': 4}
+8 -> 3: {'port': 1}
+8 -> 9: {'port': 3}
+8 -> 4: {'port': 2}
+8 -> 10: {'port': 4}
+9 -> 5: {'port': 1}
+9 -> 6: {'port': 2}
+9 -> 7: {'port': 3}
+9 -> 8: {'port': 4}
+10 -> 5: {'port': 1}
+10 -> 6: {'port': 2}
+10 -> 7: {'port': 3}
+10 -> 8: {'port': 4}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+00:00:00:00:00:3c -> 2: {'port': 0}
+00:00:00:00:00:3d -> 2: {'port': 0}
+00:00:00:00:00:3e -> 2: {'port': 0}
+00:00:00:00:00:3f -> 2: {'port': 0}
+00:00:00:00:00:40 -> 2: {'port': 0}
+00:00:00:00:00:41 -> 3: {'port': 0}
+00:00:00:00:00:42 -> 3: {'port': 0}
+00:00:00:00:00:43 -> 3: {'port': 0}
+00:00:00:00:00:44 -> 3: {'port': 0}
+00:00:00:00:00:45 -> 3: {'port': 0}
+00:00:00:00:00:46 -> 3: {'port': 0}
+00:00:00:00:00:47 -> 3: {'port': 0}
+00:00:00:00:00:48 -> 3: {'port': 0}
+00:00:00:00:00:49 -> 3: {'port': 0}
+00:00:00:00:00:4a -> 3: {'port': 0}
+00:00:00:00:00:4b -> 3: {'port': 0}
+00:00:00:00:00:4c -> 3: {'port': 0}
+00:00:00:00:00:4d -> 3: {'port': 0}
+00:00:00:00:00:4e -> 3: {'port': 0}
+00:00:00:00:00:4f -> 3: {'port': 0}
+00:00:00:00:00:50 -> 3: {'port': 0}
+00:00:00:00:00:51 -> 3: {'port': 0}
+00:00:00:00:00:52 -> 3: {'port': 0}
+00:00:00:00:00:53 -> 3: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.338s install=0.136s report=0.202s
+Static topology initialized, all-destination paths installed.
+(36999) accepted ('127.0.0.1', 44984)
+127.0.0.1 - - [02/Sep/2026 16:08:36] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000773
+(36999) accepted ('127.0.0.1', 44992)
+127.0.0.1 - - [02/Sep/2026 16:08:36] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000439
+(36999) accepted ('127.0.0.1', 45002)
+127.0.0.1 - - [02/Sep/2026 16:08:36] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.025296
+recomputing all-pair routes after topology change
+install_all_pair_paths
+00:00:00:00:00:54 -> 3: {'port': 0}
+00:00:00:00:00:55 -> 3: {'port': 0}
+00:00:00:00:00:56 -> 3: {'port': 0}
+00:00:00:00:00:57 -> 3: {'port': 0}
+00:00:00:00:00:58 -> 3: {'port': 0}
+00:00:00:00:00:59 -> 3: {'port': 0}
+00:00:00:00:00:5a -> 3: {'port': 0}
+00:00:00:00:00:5b -> 3: {'port': 0}
+00:00:00:00:00:5c -> 3: {'port': 0}
+00:00:00:00:00:5d -> 3: {'port': 0}
+00:00:00:00:00:5e -> 3: {'port': 0}
+00:00:00:00:00:5f -> 3: {'port': 0}
+00:00:00:00:00:60 -> 3: {'port': 0}
+00:00:00:00:00:61 -> 4: {'port': 0}
+00:00:00:00:00:62 -> 4: {'port': 0}
+00:00:00:00:00:63 -> 4: {'port': 0}
+00:00:00:00:00:64 -> 4: {'port': 0}
+00:00:00:00:00:65 -> 4: {'port': 0}
+00:00:00:00:00:66 -> 4: {'port': 0}
+00:00:00:00:00:67 -> 4: {'port': 0}
+00:00:00:00:00:68 -> 4: {'port': 0}
+00:00:00:00:00:69 -> 4: {'port': 0}
+00:00:00:00:00:6a -> 4: {'port': 0}
+00:00:00:00:00:6b -> 4: {'port': 0}
+00:00:00:00:00:6c -> 4: {'port': 0}
+00:00:00:00:00:6d -> 4: {'port': 0}
+00:00:00:00:00:6e -> 4: {'port': 0}
+00:00:00:00:00:6f -> 4: {'port': 0}
+00:00:00:00:00:70 -> 4: {'port': 0}
+00:00:00:00:00:71 -> 4: {'port': 0}
+00:00:00:00:00:72 -> 4: {'port': 0}
+00:00:00:00:00:73 -> 4: {'port': 0}
+00:00:00:00:00:74 -> 4: {'port': 0}
+00:00:00:00:00:75 -> 4: {'port': 0}
+00:00:00:00:00:76 -> 4: {'port': 0}
+00:00:00:00:00:77 -> 4: {'port': 0}
+00:00:00:00:00:78 -> 4: {'port': 0}
+00:00:00:00:00:79 -> 4: {'port': 0}
+00:00:00:00:00:7a -> 4: {'port': 0}
+00:00:00:00:00:7b -> 4: {'port': 0}
+00:00:00:00:00:7c -> 4: {'port': 0}
+00:00:00:00:00:7d -> 4: {'port': 0}
+00:00:00:00:00:7e -> 4: {'port': 0}
+00:00:00:00:00:7f -> 4: {'port': 0}
+00:00:00:00:00:80 -> 4: {'port': 0}
+all_destination_paths in
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 288 ===
+1 -> 5: {'port': 1}
+1 -> 6: {'port': 2}
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+2 -> 5: {'port': 1}
+2 -> 6: {'port': 2}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+3 -> 7: {'port': 1}
+3 -> 8: {'port': 2}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+4 -> 7: {'port': 1}
+4 -> 8: {'port': 2}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+5 -> 1: {'port': 1}
+5 -> 9: {'port': 3}
+5 -> 2: {'port': 2}
+5 -> 10: {'port': 4}
+6 -> 1: {'port': 1}
+6 -> 9: {'port': 3}
+6 -> 2: {'port': 2}
+6 -> 10: {'port': 4}
+7 -> 3: {'port': 1}
+7 -> 9: {'port': 3}
+7 -> 4: {'port': 2}
+7 -> 10: {'port': 4}
+8 -> 3: {'port': 1}
+8 -> 9: {'port': 3}
+8 -> 4: {'port': 2}
+8 -> 10: {'port': 4}
+9 -> 5: {'port': 1}
+9 -> 6: {'port': 2}
+9 -> 7: {'port': 3}
+9 -> 8: {'port': 4}
+10 -> 5: {'port': 1}
+10 -> 6: {'port': 2}
+10 -> 7: {'port': 3}
+10 -> 8: {'port': 4}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+00:00:00:00:00:3c -> 2: {'port': 0}
+00:00:00:00:00:3d -> 2: {'port': 0}
+00:00:00:00:00:3e -> 2: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.340s install=0.139s report=0.201s
+route reinstall done
+(36999) accepted ('127.0.0.1', 45006)
+127.0.0.1 - - [02/Sep/2026 16:08:38] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000772
+(36999) accepted ('127.0.0.1', 45018)
+127.0.0.1 - - [02/Sep/2026 16:08:38] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000646
+(36999) accepted ('127.0.0.1', 45024)
+127.0.0.1 - - [02/Sep/2026 16:08:38] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000356
+(36999) accepted ('127.0.0.1', 35548)
+127.0.0.1 - - [02/Sep/2026 16:08:43] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.022213
+(36999) accepted ('127.0.0.1', 35550)
+127.0.0.1 - - [02/Sep/2026 16:08:43] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000689
+(36999) accepted ('127.0.0.1', 35554)
+127.0.0.1 - - [02/Sep/2026 16:08:43] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000633
+(36999) accepted ('127.0.0.1', 35560)
+127.0.0.1 - - [02/Sep/2026 16:08:43] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000510
+Link deleted: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+removed edge 1 -> 5 from the routing graph
+topology changed (link 1 -> 5 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=1, LIVE> to Port<dpid=1, port_no=1, LIVE>
+removed edge 5 -> 1 from the routing graph
+topology changed (link 5 -> 1 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=6, port_no=4, LIVE> to Port<dpid=10, port_no=2, LIVE>
+removed edge 6 -> 10 from the routing graph
+topology changed (link 6 -> 10 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=2, LIVE> to Port<dpid=6, port_no=4, LIVE>
+removed edge 10 -> 6 from the routing graph
+topology changed (link 10 -> 6 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=6, port_no=2, LIVE> to Port<dpid=2, port_no=2, LIVE>
+removed edge 6 -> 2 from the routing graph
+topology changed (link 6 -> 2 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=2, port_no=2, LIVE> to Port<dpid=6, port_no=2, LIVE>
+removed edge 2 -> 6 from the routing graph
+topology changed (link 2 -> 6 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=6, port_no=3, LIVE> to Port<dpid=9, port_no=2, LIVE>
+removed edge 6 -> 9 from the routing graph
+topology changed (link 6 -> 9 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=2, LIVE> to Port<dpid=6, port_no=3, LIVE>
+removed edge 9 -> 6 from the routing graph
+topology changed (link 9 -> 6 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=6, port_no=1, LIVE> to Port<dpid=1, port_no=2, LIVE>
+removed edge 6 -> 1 from the routing graph
+topology changed (link 6 -> 1 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+removed edge 1 -> 6 from the routing graph
+topology changed (link 1 -> 6 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+removed edge 3 -> 8 from the routing graph
+topology changed (link 3 -> 8 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=1, LIVE> to Port<dpid=3, port_no=2, LIVE>
+removed edge 8 -> 3 from the routing graph
+topology changed (link 8 -> 3 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+removed edge 3 -> 7 from the routing graph
+topology changed (link 3 -> 7 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=1, LIVE> to Port<dpid=3, port_no=1, LIVE>
+removed edge 7 -> 3 from the routing graph
+topology changed (link 7 -> 3 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+removed edge 10 -> 8 from the routing graph
+topology changed (link 10 -> 8 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=4, LIVE> to Port<dpid=10, port_no=4, LIVE>
+removed edge 8 -> 10 from the routing graph
+topology changed (link 8 -> 10 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+removed edge 10 -> 5 from the routing graph
+topology changed (link 10 -> 5 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=4, LIVE> to Port<dpid=10, port_no=1, LIVE>
+removed edge 5 -> 10 from the routing graph
+topology changed (link 5 -> 10 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=3, LIVE> to Port<dpid=7, port_no=4, LIVE>
+removed edge 10 -> 7 from the routing graph
+topology changed (link 10 -> 7 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=4, LIVE> to Port<dpid=10, port_no=3, LIVE>
+removed edge 7 -> 10 from the routing graph
+topology changed (link 7 -> 10 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+removed edge 4 -> 7 from the routing graph
+topology changed (link 4 -> 7 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=2, LIVE> to Port<dpid=4, port_no=1, LIVE>
+removed edge 7 -> 4 from the routing graph
+topology changed (link 7 -> 4 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+removed edge 4 -> 8 from the routing graph
+topology changed (link 4 -> 8 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=2, LIVE> to Port<dpid=4, port_no=2, LIVE>
+removed edge 8 -> 4 from the routing graph
+topology changed (link 8 -> 4 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+removed edge 2 -> 5 from the routing graph
+topology changed (link 2 -> 5 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=2, LIVE> to Port<dpid=2, port_no=1, LIVE>
+removed edge 5 -> 2 from the routing graph
+topology changed (link 5 -> 2 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=7, port_no=3, LIVE> to Port<dpid=9, port_no=3, LIVE>
+removed edge 7 -> 9 from the routing graph
+topology changed (link 7 -> 9 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=3, LIVE> to Port<dpid=7, port_no=3, LIVE>
+removed edge 9 -> 7 from the routing graph
+topology changed (link 9 -> 7 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=8, port_no=3, LIVE> to Port<dpid=9, port_no=4, LIVE>
+removed edge 8 -> 9 from the routing graph
+topology changed (link 8 -> 9 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+removed edge 9 -> 8 from the routing graph
+topology changed (link 9 -> 8 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=5, port_no=3, LIVE> to Port<dpid=9, port_no=1, LIVE>
+removed edge 5 -> 9 from the routing graph
+topology changed (link 5 -> 9 down); route reinstall scheduled
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+removed edge 9 -> 5 from the routing graph
+topology changed (link 9 -> 5 down); route reinstall scheduled
+Notified NDT, status code: 200
+Switch 0000000000000006 disconnected (EventOFPStateChange)
+Switch 0000000000000001 disconnected (EventOFPStateChange)
+Switch 0000000000000003 disconnected (EventOFPStateChange)
+Switch 000000000000000a disconnected (EventOFPStateChange)
+Switch 0000000000000008 disconnected (EventOFPStateChange)
+Switch 0000000000000002 disconnected (EventOFPStateChange)
+Switch 0000000000000009 disconnected (EventOFPStateChange)
+Switch 0000000000000007 disconnected (EventOFPStateChange)
+Switch 0000000000000004 disconnected (EventOFPStateChange)
+Switch 0000000000000005 disconnected (EventOFPStateChange)
+(36999) accepted ('127.0.0.1', 35562)
+127.0.0.1 - - [02/Sep/2026 16:08:48] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000306
+(36999) accepted ('127.0.0.1', 35578)
+127.0.0.1 - - [02/Sep/2026 16:08:48] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000813
+(36999) accepted ('127.0.0.1', 35594)
+127.0.0.1 - - [02/Sep/2026 16:08:48] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000184
+recomputing all-pair routes after topology change
+install_all_pair_paths
+00:00:00:00:00:3f -> 2: {'port': 0}
+00:00:00:00:00:40 -> 2: {'port': 0}
+00:00:00:00:00:41 -> 3: {'port': 0}
+00:00:00:00:00:42 -> 3: {'port': 0}
+00:00:00:00:00:43 -> 3: {'port': 0}
+00:00:00:00:00:44 -> 3: {'port': 0}
+00:00:00:00:00:45 -> 3: {'port': 0}
+00:00:00:00:00:46 -> 3: {'port': 0}
+00:00:00:00:00:47 -> 3: {'port': 0}
+00:00:00:00:00:48 -> 3: {'port': 0}
+00:00:00:00:00:49 -> 3: {'port': 0}
+00:00:00:00:00:4a -> 3: {'port': 0}
+00:00:00:00:00:4b -> 3: {'port': 0}
+00:00:00:00:00:4c -> 3: {'port': 0}
+00:00:00:00:00:4d -> 3: {'port': 0}
+00:00:00:00:00:4e -> 3: {'port': 0}
+00:00:00:00:00:4f -> 3: {'port': 0}
+00:00:00:00:00:50 -> 3: {'port': 0}
+00:00:00:00:00:51 -> 3: {'port': 0}
+00:00:00:00:00:52 -> 3: {'port': 0}
+00:00:00:00:00:53 -> 3: {'port': 0}
+00:00:00:00:00:54 -> 3: {'port': 0}
+00:00:00:00:00:55 -> 3: {'port': 0}
+00:00:00:00:00:56 -> 3: {'port': 0}
+00:00:00:00:00:57 -> 3: {'port': 0}
+00:00:00:00:00:58 -> 3: {'port': 0}
+00:00:00:00:00:59 -> 3: {'port': 0}
+00:00:00:00:00:5a -> 3: {'port': 0}
+00:00:00:00:00:5b -> 3: {'port': 0}
+00:00:00:00:00:5c -> 3: {'port': 0}
+00:00:00:00:00:5d -> 3: {'port': 0}
+00:00:00:00:00:5e -> 3: {'port': 0}
+00:00:00:00:00:5f -> 3: {'port': 0}
+00:00:00:00:00:60 -> 3: {'port': 0}
+00:00:00:00:00:61 -> 4: {'port': 0}
+00:00:00:00:00:62 -> 4: {'port': 0}
+00:00:00:00:00:63 -> 4: {'port': 0}
+00:00:00:00:00:64 -> 4: {'port': 0}
+00:00:00:00:00:65 -> 4: {'port': 0}
+00:00:00:00:00:66 -> 4: {'port': 0}
+00:00:00:00:00:67 -> 4: {'port': 0}
+00:00:00:00:00:68 -> 4: {'port': 0}
+00:00:00:00:00:69 -> 4: {'port': 0}
+00:00:00:00:00:6a -> 4: {'port': 0}
+00:00:00:00:00:6b -> 4: {'port': 0}
+00:00:00:00:00:6c -> 4: {'port': 0}
+00:00:00:00:00:6d -> 4: {'port': 0}
+00:00:00:00:00:6e -> 4: {'port': 0}
+00:00:00:00:00:6f -> 4: {'port': 0}
+00:00:00:00:00:70 -> 4: {'port': 0}
+00:00:00:00:00:71 -> 4: {'port': 0}
+00:00:00:00:00:72 -> 4: {'port': 0}
+00:00:00:00:00:73 -> 4: {'port': 0}
+00:00:00:00:00:74 -> 4: {'port': 0}
+00:00:00:00:00:75 -> 4: {'port': 0}
+00:00:00:00:00:76 -> 4: {'port': 0}
+00:00:00:00:00:77 -> 4: {'port': 0}
+00:00:00:00:00:78 -> 4: {'port': 0}
+00:00:00:00:00:79 -> 4: {'port': 0}
+00:00:00:00:00:7a -> 4: {'port': 0}
+00:00:00:00:00:7b -> 4: {'port': 0}
+00:00:00:00:00:7c -> 4: {'port': 0}
+00:00:00:00:00:7d -> 4: {'port': 0}
+00:00:00:00:00:7e -> 4: {'port': 0}
+00:00:00:00:00:7f -> 4: {'port': 0}
+00:00:00:00:00:80 -> 4: {'port': 0}
+all_destination_paths in
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 256 ===
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=128 paths=3968 walk=0.053s install=0.017s report=0.036s
+route reinstall done
+(36999) accepted ('127.0.0.1', 60750)
+127.0.0.1 - - [02/Sep/2026 16:08:53] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000282
+(36999) accepted ('127.0.0.1', 60760)
+127.0.0.1 - - [02/Sep/2026 16:08:53] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000769
+(36999) accepted ('127.0.0.1', 60776)
+127.0.0.1 - - [02/Sep/2026 16:08:53] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000180
+(36999) accepted ('127.0.0.1', 60780)
+127.0.0.1 - - [02/Sep/2026 16:08:58] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000316
+(36999) accepted ('127.0.0.1', 60790)
+127.0.0.1 - - [02/Sep/2026 16:08:58] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000793
+(36999) accepted ('127.0.0.1', 60806)
+127.0.0.1 - - [02/Sep/2026 16:08:58] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000194
+(36999) accepted ('127.0.0.1', 41084)
+127.0.0.1 - - [02/Sep/2026 16:09:03] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000286
+(36999) accepted ('127.0.0.1', 41098)
+127.0.0.1 - - [02/Sep/2026 16:09:03] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000774
+(36999) accepted ('127.0.0.1', 41106)
+127.0.0.1 - - [02/Sep/2026 16:09:03] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000187
+(36999) accepted ('127.0.0.1', 41120)
+127.0.0.1 - - [02/Sep/2026 16:09:08] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000299
+(36999) accepted ('127.0.0.1', 41126)
+127.0.0.1 - - [02/Sep/2026 16:09:08] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000772
+(36999) accepted ('127.0.0.1', 41142)
+127.0.0.1 - - [02/Sep/2026 16:09:08] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000187
+(36999) accepted ('127.0.0.1', 35470)
+127.0.0.1 - - [02/Sep/2026 16:09:14] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000289
+(36999) accepted ('127.0.0.1', 35486)
+127.0.0.1 - - [02/Sep/2026 16:09:14] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001028
+(36999) accepted ('127.0.0.1', 35500)
+127.0.0.1 - - [02/Sep/2026 16:09:14] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000196
+(36999) accepted ('127.0.0.1', 35506)
+127.0.0.1 - - [02/Sep/2026 16:09:19] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000279
+(36999) accepted ('127.0.0.1', 35516)
+127.0.0.1 - - [02/Sep/2026 16:09:19] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000777
+(36999) accepted ('127.0.0.1', 35520)
+127.0.0.1 - - [02/Sep/2026 16:09:19] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000205
+(36999) accepted ('127.0.0.1', 35588)
+127.0.0.1 - - [02/Sep/2026 16:09:24] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000286
+(36999) accepted ('127.0.0.1', 35596)
+127.0.0.1 - - [02/Sep/2026 16:09:24] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000809
+(36999) accepted ('127.0.0.1', 35610)
+127.0.0.1 - - [02/Sep/2026 16:09:24] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000187
+(36999) accepted ('127.0.0.1', 35620)
+127.0.0.1 - - [02/Sep/2026 16:09:29] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000288
+(36999) accepted ('127.0.0.1', 35630)
+127.0.0.1 - - [02/Sep/2026 16:09:29] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000787
+(36999) accepted ('127.0.0.1', 35644)
+127.0.0.1 - - [02/Sep/2026 16:09:29] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000194
+(36999) accepted ('127.0.0.1', 49270)
+127.0.0.1 - - [02/Sep/2026 16:09:34] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000309
+(36999) accepted ('127.0.0.1', 49284)
+127.0.0.1 - - [02/Sep/2026 16:09:34] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000765
+(36999) accepted ('127.0.0.1', 49294)
+127.0.0.1 - - [02/Sep/2026 16:09:34] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000180
+(36999) accepted ('127.0.0.1', 49308)
+127.0.0.1 - - [02/Sep/2026 16:09:39] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000283
+(36999) accepted ('127.0.0.1', 49324)
+127.0.0.1 - - [02/Sep/2026 16:09:39] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000994
+(36999) accepted ('127.0.0.1', 49330)
+127.0.0.1 - - [02/Sep/2026 16:09:39] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000182
+(36999) accepted ('127.0.0.1', 35316)
+127.0.0.1 - - [02/Sep/2026 16:09:44] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 190128 0.004006
+(36999) accepted ('127.0.0.1', 35332)
+127.0.0.1 - - [02/Sep/2026 16:09:44] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000301
+(36999) accepted ('127.0.0.1', 35344)
+127.0.0.1 - - [02/Sep/2026 16:09:44] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000766
+(36999) accepted ('127.0.0.1', 35352)
+127.0.0.1 - - [02/Sep/2026 16:09:44] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000196
+(36999) accepted ('127.0.0.1', 35358)
+127.0.0.1 - - [02/Sep/2026 16:09:49] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000284
+(36999) accepted ('127.0.0.1', 35374)
+127.0.0.1 - - [02/Sep/2026 16:09:49] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000757
+(36999) accepted ('127.0.0.1', 35378)
+127.0.0.1 - - [02/Sep/2026 16:09:49] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000180
+(36999) accepted ('127.0.0.1', 52566)
+127.0.0.1 - - [02/Sep/2026 16:09:54] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000298
+(36999) accepted ('127.0.0.1', 52576)
+127.0.0.1 - - [02/Sep/2026 16:09:54] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000784
+(36999) accepted ('127.0.0.1', 52582)
+127.0.0.1 - - [02/Sep/2026 16:09:54] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000176
+(36999) accepted ('127.0.0.1', 52596)
+127.0.0.1 - - [02/Sep/2026 16:09:59] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000285
+(36999) accepted ('127.0.0.1', 52604)
+127.0.0.1 - - [02/Sep/2026 16:09:59] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000951
+(36999) accepted ('127.0.0.1', 52618)
+127.0.0.1 - - [02/Sep/2026 16:09:59] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000176
+(36999) accepted ('127.0.0.1', 32928)
+127.0.0.1 - - [02/Sep/2026 16:10:04] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000282
+(36999) accepted ('127.0.0.1', 32930)
+127.0.0.1 - - [02/Sep/2026 16:10:04] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000773
+(36999) accepted ('127.0.0.1', 32942)
+127.0.0.1 - - [02/Sep/2026 16:10:04] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000178
+(36999) accepted ('127.0.0.1', 32944)
+127.0.0.1 - - [02/Sep/2026 16:10:09] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000295
+(36999) accepted ('127.0.0.1', 32954)
+127.0.0.1 - - [02/Sep/2026 16:10:09] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000777
+(36999) accepted ('127.0.0.1', 32958)
+127.0.0.1 - - [02/Sep/2026 16:10:09] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000183
+(36999) accepted ('127.0.0.1', 55090)
+127.0.0.1 - - [02/Sep/2026 16:10:39] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000295
+(36999) accepted ('127.0.0.1', 55104)
+127.0.0.1 - - [02/Sep/2026 16:10:39] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000795
+(36999) accepted ('127.0.0.1', 55110)
+127.0.0.1 - - [02/Sep/2026 16:10:39] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000192
+(36999) accepted ('127.0.0.1', 47552)
+127.0.0.1 - - [02/Sep/2026 16:10:44] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 190128 0.003833
+(36999) accepted ('127.0.0.1', 39720)
+127.0.0.1 - - [02/Sep/2026 16:11:09] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000352
+(36999) accepted ('127.0.0.1', 39724)
+127.0.0.1 - - [02/Sep/2026 16:11:09] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001039
+(36999) accepted ('127.0.0.1', 39740)
+127.0.0.1 - - [02/Sep/2026 16:11:09] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000227

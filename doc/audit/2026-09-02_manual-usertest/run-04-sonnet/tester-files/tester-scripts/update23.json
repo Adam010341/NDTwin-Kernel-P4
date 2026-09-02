@@ -1,0 +1,3 @@
+{
+  "C16": "C16. P4 safe shutdown: kernel, proxy, mininet exit, mn -c, simple_switch_grpc survivor check, port 8081/8000 released -- WORKS, cleanly, and better than the manual implies: kernel Ctrl-C showed \"terminate called without an active exception\" as documented (resolving the ambiguity noted in B14 -- that message DOES appear under normal capture, so the earlier non-appearance was likely an artifact of my own tee-piped capture method there); proxy Ctrl-C released :8081 immediately; Mininet's own `exit` already left ZERO simple_switch_grpc survivors (`ps -eo args= | grep -c \"[s]imple_switch_grpc\"` -> 0) even before `mn -c` ran; `ndt status` independently confirmed fully clean afterward."
+}
