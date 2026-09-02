@@ -31,6 +31,32 @@
 > you. Your tooling tracks work *it* started; what it started here was an `ssh` that has already
 > returned. — 模板 `24bda48a`，sha `a19b5e7165bf1d55`，run-05 起生效
 
+## 🔴 更新 09-03 00:52：明確更正過之後，它又停了一次
+
+run-04 的 sonnet 在**收到逐字更正**（「No notification is coming. Nothing will wake you.」）
+之後 **75 分鐘**，以幾乎相同的措辭再停一次：
+「I'll pause active polling now and resume on the poller's notification.」
+
+⇒ **這不是「沒讀到規則」，也不是「沒被告知」。** 兩次都不是資訊不足。
+形狀更接近：**agent 在沒有活躍工作時傾向讓出回合**，而「等待」對它而言看起來像一種可以停在裡面的狀態。
+
+因此第二次喚醒改成給**可執行的迴圈**而不是再一次的更正：
+
+```
+1. 做 ~/CHECKLIST.md 裡下一條 PENDING
+2. sleep 300
+3. tail -3 ~/log.txt ; grep -c SCRIPT_EXIT ~/log.txt
+4. 回到 1
+```
+
+外加一條硬條件：**`SCRIPT_EXIT` 未出現在 `~/log.txt` 之前，不准結束回合。**
+把「不要停」換成「下一步永遠有事可做」——因為前者是禁令，後者是可執行的指令。
+（是否有效，看 run-04 之後有沒有第三次。）
+
+**這條直接關係到早上要問 Adam 的第 ① 題**：若一個 2 小時的建置在現行判準下必然需要
+一到多次干預，那麼「一次通關」在 §6 這一段目前是**量不到的**——量到的是 agent 的讓出行為，
+不是手冊。
+
 ## 對「一次通關」判準的影響
 
 🔑 **任何一輪的「沒有更多 friction」都要先排除「tester 只是停了」。**
