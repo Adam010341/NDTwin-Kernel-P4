@@ -57,6 +57,90 @@ else
     R=''; G=''; Y=''; D=''; N=''
 fi
 
+# --- scoring the kernel-side lane ------------------------------------------------
+# [Co-developed with claude code -- Adam]
+# Defined up here, above the build, so tests/shell/test_l1_shell_scoring.sh can source this
+# file with NDTWIN_L1_LIB_ONLY=1 and drive the scorer on fixtures without configuring cmake or
+# touching the lab. A scorer reachable only by running the whole lane is a scorer nobody ever
+# watches go red -- which is how the defect below survived: it was wrong for five suites for as
+# long as those suites have existed, and the lane it broke is the thing that would have said so.
+
+# shell_summary <log> -- echo "<ran> <failed>" for a tests/shell harness log.
+#
+# tests/shell does not use unittest, and only some of it ever printed unittest's vocabulary. The
+# suites there end in one of three summary lines (counts as of 2026-09-02, 17 suites):
+#
+#   A   Ran 60 checks, all passed   /   Ran 6 checks, 0 failed        (12 suites)
+#   B   12 passed, 0 failed             (optionally indented)         (4 suites)
+#   C   ===== 34 check(s): 34 ok, 0 FAILED =====                      (1 suite)
+#
+# Scoring form A alone is what made L1 red on a green tree on 2026-09-02
+# (doc/audit/2026-09-02_live-round/raw/B15,B16): five suites exited 0 with every check ok and
+# were each counted as a problem group, so local_ci.sh reported the project broken.
+#
+# 🔴 What this must never do is answer "passed" for a log it does not understand. No recognised
+# summary echoes "0 0", and 0 is a FAILURE in l1_lane_verdict below -- the same verdict as an
+# explicit "Ran 0 checks" or "0 passed, 0 failed". "The suite asserted nothing" and "the suite
+# asserted N things and they held" stay different facts and only the second is a pass. That is
+# the distinction the whole count exists for: a harness whose cases sit under a guard that
+# quietly stops matching runs zero of them and still exits 0, and the count is what catches it.
+shell_summary() {
+    awk '
+        # The k-th run of digits on the line, or -1 if there are fewer than k.
+        function numat(s, k,   n, t, i, j) {
+            n = split(s, t, /[^0-9]+/)
+            i = 0
+            for (j = 1; j <= n; j++)
+                if (t[j] != "") { i++; if (i == k) return t[j] + 0 }
+            return -1
+        }
+        # A. The failed count is the SECOND number; "all passed" carries no second number.
+        /^[[:space:]]*Ran [0-9]+ check/ {
+            ran = numat($0, 1)
+            failed = ($0 ~ /all passed/) ? 0 : numat($0, 2)
+            if (failed < 0) failed = 0
+            next
+        }
+        # B. Anchored at both ends: a check whose NAME quotes this shape is output, not a
+        #    summary, and counting it would invent tests that never ran.
+        /^[[:space:]]*[0-9]+ passed, [0-9]+ failed[[:space:]]*$/ {
+            failed = numat($0, 2); ran = numat($0, 1) + failed
+            next
+        }
+        # C. "===== N check(s): P ok, F FAILED =====".
+        /^[[:space:]]*=+ [0-9]+ check\(s\): [0-9]+ ok, [0-9]+ FAILED =+[[:space:]]*$/ {
+            ran = numat($0, 1); failed = numat($0, 3)
+            next
+        }
+        # Last summary on the log wins, as `tail -1` did. Absent one, ran stays 0.
+        END { printf "%d %d\n", ran + 0, failed + 0 }
+    ' "$1"
+}
+
+# l1_lane_verdict <rc> <ran> <failed> <skipped> -- one token for what the lane should print.
+#
+# The order is the one this lane has always used, and each step is load-bearing:
+#   FAIL-RC        the harness itself said no.
+#   FAIL-SKIP      before NO-TESTS-RAN, because a shell suite that skips exits before printing
+#                  a summary; scored the other way round the real reason is lost.
+#   NO-TESTS-RAN   nothing was collected, or nothing this lane can read. Never a pass.
+#   FAIL-CHECKS    exit 0 over a summary line that says checks failed. Cannot turn a red run
+#                  green; it only refuses to believe a green exit code over its own numbers.
+#   PASS
+l1_lane_verdict() {
+    local rc="$1" ran="$2" failed="$3" skipped="$4"
+    if   [[ "$rc"      -ne 0 ]]; then echo FAIL-RC
+    elif [[ "$skipped" -gt 0 ]]; then echo FAIL-SKIP
+    elif [[ "$ran"     -eq 0 ]]; then echo NO-TESTS-RAN
+    elif [[ "$failed"  -gt 0 ]]; then echo FAIL-CHECKS
+    else                              echo PASS
+    fi
+}
+
+# Everything below this line runs the lane. The suite that tests the two functions above stops
+# here; nothing before it builds, writes or connects to anything.
+[[ -n "${NDTWIN_L1_LIB_ONLY:-}" ]] && return 0
+
 DO_BUILD=1
 [[ "${1:-}" == "--no-build" ]] && DO_BUILD=0
 
@@ -306,19 +390,27 @@ else
             (cd "$KERNEL_DIR" && bash "$testfile") >"$log" 2>&1
         fi
         rc=$?
-        # Both harnesses print a "Ran N" line; zero means nothing was collected, which proves
-        # nothing and must not read as a pass.
+        # How many checks ran, and how many of them were red. Zero ran means nothing was
+        # collected, which proves nothing and must not read as a pass.
         # [Co-developed with claude code -- Adam]
         # Per file type, because the two harnesses report differently and applying unittest's
         # vocabulary to a shell script silently measures nothing. All three problems here were
         # found by agy-review 0117; the previous version had one code path for both.
         #
-        # "Ran N" counts skipped tests, so N > 0 does not mean anything was asserted. Nothing in
-        # this directory may skip for an environment reason when $PY_KERNEL carries networkx --
-        # the walk suites' guards are then inert -- so a skip is still a broken test.
-        ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
-        ran=${ran:-0}
+        # 2026-09-02: the count itself was still unittest's for both types -- a bare
+        # `grep '^Ran [0-9]+'` -- and tests/shell has three summary forms of which only one
+        # starts with "Ran". The five suites that print the other two were scored ran=0 and
+        # counted as failures while every check in them was ok (raw/B15, raw/B16), so this lane
+        # and local_ci.sh were red on a green tree. Shell logs now go through shell_summary,
+        # which knows all three forms and still answers 0 for a log it cannot read.
+        ran=0; failed=0
         if [[ "$testfile" == *.py ]]; then
+            # unittest's own line, which is correct here and stays. It counts skipped tests
+            # inside "Ran N", so N > 0 does not mean anything was asserted -- hence the skip
+            # check below -- and a file whose cases sit under a __main__ guard collects nothing
+            # and prints "Ran 0 tests", the shape this lane must keep calling a failure.
+            ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
+            ran=${ran:-0}
             # Both spellings: the "... skipped" lines that -v produces, and the summary count, which
             # appears either way. Belt and braces, because relying on -v alone is what broke before.
             skipped=$(grep -cE "\.\.\. skipped" "$log")
@@ -330,26 +422,39 @@ else
             # Shell tests do not use unittest. This repo's convention is a "SKIP:" line, and such a
             # script exits 0 *before* printing its "Ran N checks" summary -- which used to surface as
             # a confusing "NO TESTS RAN" rather than as a skip.
+            read -r ran failed <<<"$(shell_summary "$log")"
             skipped=$(grep -cE "^[[:space:]]*SKIP:" "$log")
             skip_evidence='^[[:space:]]*SKIP:'
         fi
-        if [[ $rc -ne 0 ]]; then
+        case "$(l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}")" in
+        FAIL-RC)
             echo "${R}FAIL${N} (exit $rc, ran=$ran)"
             grep -E "^(FAIL|ERROR):|AssertionError|FAILED " "$log" | head -8 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
-        elif [[ ${skipped:-0} -gt 0 ]]; then
+            ;;
+        FAIL-SKIP)
             # Checked before the ran-eq-0 branch: a shell test that skips exits before printing a
             # summary, so it would otherwise be reported as "no tests ran" and the real reason lost.
             echo "${R}FAIL${N} ${skipped} skip(s) — nothing in tests/python or tests/shell has a" \
                  "reason to skip"
             grep -E "$skip_evidence" "$log" | head -5 | sed 's/^/      /'
             FAILURES=$((FAILURES + 1))
-        elif [[ $ran -eq 0 ]]; then
+            ;;
+        NO-TESTS-RAN)
             echo "${Y}NO TESTS RAN${N} ${D}(see $log)${N}"
             FAILURES=$((FAILURES + 1))
-        else
+            ;;
+        FAIL-CHECKS)
+            # Exit 0 with a summary line that names failures. The harness contradicted itself;
+            # believe the numbers, not the status.
+            echo "${R}FAIL${N} ${failed} of ${ran} check(s) failed, but the suite exited 0"
+            grep -E "^[[:space:]]*(FAILED|FAIL )" "$log" | head -8 | sed 's/^/      /'
+            FAILURES=$((FAILURES + 1))
+            ;;
+        *)
             echo "${G}PASS${N} ${D}${ran} ran and passed${N}"
-        fi
+            ;;
+        esac
     done
 fi
 
