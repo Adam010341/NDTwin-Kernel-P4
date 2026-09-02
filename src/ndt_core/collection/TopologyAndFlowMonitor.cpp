@@ -769,13 +769,68 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                 continue;
             }
             const uint32_t ip = *ipOpt;
+
+            // [Co-developed with claude code -- Adam]
+            // doc/KNOWN-ISSUES.md F-4, first of two guards. A control plane learns a host from
+            // traffic, and a switch's own management interface emits traffic, so this reply
+            // contains entries whose "host" address belongs to a switch in our own topology.
+            // Everything below keys on that address, and the two lookups it reaches -- both of
+            // which match on IP alone -- then resolve to a **switch-to-switch** edge and set it
+            // up. In StaticNetworkTopologyMininet_10Switches.json the very first edge is
+            // 192.168.123.11 -> 192.168.123.15, so the entry for s1's management address
+            // resurrects the s1-s5 link. Every poll, for the life of the process, which is how a
+            // link an operator had marked down came back within one interval.
+            //
+            // Rejected here rather than only at the lookups because this is the one place that
+            // can say *why*: an entry naming a switch is a misclassification upstream, and that
+            // is worth a line an operator can act on. The per-lookup direction checks below stay
+            // as well -- they are what makes the invariant hold for a route to this mistake
+            // nobody has thought of yet.
+            //
+            // The MAC-keyed vertex update above is unaffected and deliberately left where it is:
+            // a switch's MAC is not in the host vertex set, so it already finds nothing.
+            if (findSwitchByIp(ip).has_value())
+            {
+                // Once per address, not once per poll: this reply repeats every 5 to 30 seconds
+                // and neither control plane's host table forgets anything, so the condition is
+                // permanent. See m_switchIpsOfferedAsHosts.
+                if (m_switchIpsOfferedAsHosts.insert(ip).second)
+                {
+                    SPDLOG_LOGGER_WARN(Logger::instance(),
+                                       "ignoring hosts entries for {}: {} is a switch's management "
+                                       "address in this topology, not a host. The control plane "
+                                       "has learned a switch as a host; that switch's links are "
+                                       "left to the links poll. Reported once per address",
+                                       macStr,
+                                       ipStr);
+                }
+                continue;
+            }
+
             auto edgeOpt = findEdgeByHostIp(ip);
 
+            // The far end must actually be a host. `findEdgeByHostIp` returns the first edge
+            // whose srcIp list contains the address and checks nothing else, and hosts are the
+            // vertices with no datapath id -- see findEdgeToHostByAgentIpAndPort, which has made
+            // the same check since it was written. [Co-developed with claude code -- Adam]
             if (edgeOpt)
             {
                 unique_lock lock(*m_graphMutex);
-                (*m_graph)[*edgeOpt].isUp = true;
-                (*m_graph)[*edgeOpt].isEnabled = true;
+                if ((*m_graph)[*edgeOpt].srcDpid == 0)
+                {
+                    (*m_graph)[*edgeOpt].isUp = true;
+                    (*m_graph)[*edgeOpt].isEnabled = true;
+                }
+                else
+                {
+                    SPDLOG_LOGGER_WARN(Logger::instance(),
+                                       "hosts entry {} ({}) matched edge {} -> {}, which leaves a "
+                                       "switch rather than a host; not touching it",
+                                       macStr,
+                                       ipStr,
+                                       (*m_graph)[*edgeOpt].srcDpid,
+                                       (*m_graph)[*edgeOpt].dstDpid);
+                }
             }
             else
             {
@@ -814,8 +869,28 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                 if (edgeRevOpt.has_value())
                 {
                     unique_lock lock(*m_graphMutex);
-                    (*m_graph)[edgeRevOpt.value()].isUp = true;
-                    (*m_graph)[edgeRevOpt.value()].isEnabled = true;
+                    // [Co-developed with claude code -- Adam]
+                    // doc/KNOWN-ISSUES.md F-4, second guard, and the more direct of the two
+                    // routes: findEdgeBySrcAndDstIp matches (srcIp, dstIp) with no regard for
+                    // datapath ids, so when `ip` is a switch's management address and
+                    // `vertexOpt2` is its neighbour, this pair *is* the switch-to-switch edge
+                    // between them. A host's edge is the one whose far end has no dpid.
+                    if ((*m_graph)[edgeRevOpt.value()].dstDpid == 0)
+                    {
+                        (*m_graph)[edgeRevOpt.value()].isUp = true;
+                        (*m_graph)[edgeRevOpt.value()].isEnabled = true;
+                    }
+                    else
+                    {
+                        SPDLOG_LOGGER_WARN(
+                            Logger::instance(),
+                            "hosts entry {} ({}) matched reverse edge {} -> {}, whose far end is "
+                            "a switch rather than a host; not touching it",
+                            macStr,
+                            ipStr,
+                            (*m_graph)[edgeRevOpt.value()].srcDpid,
+                            (*m_graph)[edgeRevOpt.value()].dstDpid);
+                    }
                 }
                 else
                 {
@@ -994,11 +1069,165 @@ TopologyAndFlowMonitor::updateGraph(const string& switchesStr,
     updateSwitches(switchesStr);
     updateHosts(hostsStr);
     updateLinks(linksStr);
+    // Last, so it has the final word within a pass. The three writers above will happily set a
+    // dead switch's host-facing edge back up every poll -- the control planes' host tables are
+    // append-only, so they keep reporting a host that has been unreachable for an hour -- and
+    // this is what puts it back. Ordering, not idempotence, is what makes that correct.
+    // [Co-developed with claude code -- Adam]
+    reconcileDerivedLiveness();
     // DEBUG, not INFO, matching logGraph() below. Unconditional and content-free: it says a poll
     // ran, not that anything changed. run()'s poll loop already prints one line when the up-counts
     // actually move, which is the version worth keeping. [Co-developed with claude code -- Adam]
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "\033[1;32mTopology Update From REST\033[0m");
     logGraph();
+}
+
+/** @brief See the header for what this does not do and why. [Co-developed with claude code -- Adam]
+ */
+void
+TopologyAndFlowMonitor::reconcileDerivedLiveness()
+{
+    std::unique_lock lock(*m_graphMutex);
+
+    // Pass 1: which switches have been unusable for long enough to isolate what they carry.
+    //
+    // isUsable, not isUp: a switch an operator has taken out of service, or one the control plane
+    // cannot drive, carries no traffic either. That is the same intersection the six other
+    // availability checks in this process take, and taking a different one here is exactly how
+    // getAvgLinkUsage ended up counting links nobody could use.
+    std::set<Graph::vertex_descriptor> isolating;
+    for (auto v : boost::make_iterator_range(boost::vertices(*m_graph)))
+    {
+        const auto& vp = (*m_graph)[v];
+        if (vp.vertexType != VertexType::SWITCH)
+        {
+            continue;
+        }
+
+        if (isUsable(vp))
+        {
+            m_switchUnusablePolls.erase(vp.dpid);
+            continue;
+        }
+
+        const unsigned misses = ++m_switchUnusablePolls[vp.dpid];
+        if (misses >= kMissesBeforeIsolating)
+        {
+            isolating.insert(v);
+        }
+    }
+
+    // Counted rather than logged per object: isolating one switch moves a dozen edges and a
+    // handful of hosts, and one line each is how the two 1 Hz INFO lines in this process reached
+    // 138,000 lines a day. Edge-triggered on the reason field, so a wedge that persists for an
+    // hour is one line, not one per poll -- the same shape as m_topologyFetchFailures.
+    std::size_t edgesTakenDown = 0;
+    std::size_t edgesReleased = 0;
+    std::size_t hostsTakenDown = 0;
+    std::size_t hostsReleased = 0;
+
+    // Pass 2: edges. An edge with an isolating switch at either end cannot carry traffic --
+    // including the host-facing ones, which is doc/KNOWN-ISSUES.md F-16: the only other writer of
+    // edge-down is /ndt/link_failed, and that is keyed on a pair of dpids, so a host's edge (dpid
+    // 0 at one end) was not addressable by it at all.
+    for (auto e : boost::make_iterator_range(boost::edges(*m_graph)))
+    {
+        auto& ep = (*m_graph)[e];
+        const bool cut = isolating.count(boost::source(e, *m_graph)) != 0 ||
+                         isolating.count(boost::target(e, *m_graph)) != 0;
+
+        if (cut)
+        {
+            if (ep.downReason != DownReason::SwitchUnreachable)
+            {
+                ++edgesTakenDown;
+            }
+            ep.isUp = false;
+            ep.downReason = DownReason::SwitchUnreachable;
+        }
+        else if (ep.downReason == DownReason::SwitchUnreachable)
+        {
+            // Release, do not raise. Whether this edge is up again is discovery's call, and
+            // discovery has evidence; this function has only the absence of a reason to keep it
+            // down. It will read up on this same poll if updateLinks/updateHosts already said so,
+            // and stay down until they do if they did not.
+            ep.downReason = DownReason::None;
+            ++edgesReleased;
+        }
+    }
+
+    // Pass 3: hosts. doc/KNOWN-ISSUES.md F-14. A host is unreachable when every switch it attaches
+    // to is isolating -- "every", not "any", so a dual-homed host in a future topology does not go
+    // down because one of its two switches did.
+    //
+    // Attachment is read off the graph's own edges rather than from the control plane's
+    // `port.dpid`, because that is the relation the twin can still evaluate when the control plane
+    // has stopped mentioning the switch at all.
+    for (auto v : boost::make_iterator_range(boost::vertices(*m_graph)))
+    {
+        auto& vp = (*m_graph)[v];
+        if (vp.vertexType != VertexType::HOST)
+        {
+            continue;
+        }
+
+        std::size_t attachments = 0;
+        std::size_t isolatedAttachments = 0;
+        for (auto e : boost::make_iterator_range(boost::out_edges(v, *m_graph)))
+        {
+            const auto peer = boost::target(e, *m_graph);
+            if ((*m_graph)[peer].vertexType != VertexType::SWITCH)
+            {
+                continue;
+            }
+            ++attachments;
+            if (isolating.count(peer) != 0)
+            {
+                ++isolatedAttachments;
+            }
+        }
+
+        // attachments == 0 is a host the topology file left dangling. It has no switch whose
+        // state could be derived from, so nothing is claimed about it -- saying "down" there
+        // would be asserting a fact about a machine on the strength of our own file being
+        // incomplete.
+        if (attachments > 0 && isolatedAttachments == attachments)
+        {
+            if (vp.downReason != DownReason::SwitchUnreachable)
+            {
+                ++hostsTakenDown;
+            }
+            vp.isUp = false;
+            vp.downReason = DownReason::SwitchUnreachable;
+        }
+        else if (vp.downReason == DownReason::SwitchUnreachable)
+        {
+            vp.downReason = DownReason::None;
+            ++hostsReleased;
+        }
+    }
+
+    if (edgesTakenDown != 0 || hostsTakenDown != 0)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} switch(es) unusable for {}+ polls: {} edge(s) and {} host(s) moved "
+                           "to down with down_reason=switch-unreachable. These are derived, not "
+                           "probed: nothing asked the hosts anything, and they are reported down "
+                           "because the only switch they reach the fabric through is not there",
+                           isolating.size(),
+                           kMissesBeforeIsolating,
+                           edgesTakenDown,
+                           hostsTakenDown);
+    }
+    if (edgesReleased != 0 || hostsReleased != 0)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "{} edge(s) and {} host(s) no longer isolated by an unusable switch; "
+                           "their down_reason is cleared and discovery decides whether they are "
+                           "up",
+                           edgesReleased,
+                           hostsReleased);
+    }
 }
 
 void
@@ -1860,6 +2089,11 @@ TopologyAndFlowMonitor::setEdgeUp(Graph::edge_descriptor e)
     // TODO[OPTIMIZE]: Use atomic<bool> in data structure
     std::unique_lock lock(*m_graphMutex);
     (*m_graph)[e].isUp = true;
+    // The reason describes why this is down; something has just declared it up, so carrying the
+    // reason forward would publish `is_up: true, down_reason: "switch-unreachable"`, which is a
+    // contradiction a consumer has no way to resolve. reconcileDerivedLiveness re-derives it on
+    // the next poll if it still holds. [Co-developed with claude code -- Adam]
+    (*m_graph)[e].downReason = DownReason::None;
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "setEdgeUp {}", (*m_graph)[e].isUp);
 }
 
@@ -1868,6 +2102,8 @@ TopologyAndFlowMonitor::setEdgeUpNoLock(Graph::edge_descriptor e)
 {
     // TODO[OPTIMIZE]: Use atomic<bool> in data structure
     (*m_graph)[e].isUp = true;
+    /// @see setEdgeUp for why the reason is cleared here.
+    (*m_graph)[e].downReason = DownReason::None;
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "setEdgeUpNoLock {}", (*m_graph)[e].isUp);
 }
 
@@ -2367,6 +2603,8 @@ TopologyAndFlowMonitor::setVertexUp(Graph::vertex_descriptor v)
 {
     unique_lock lock(*m_graphMutex);
     (*m_graph)[v].isUp = true;
+    /// @see setEdgeUp for why the reason is cleared here.
+    (*m_graph)[v].downReason = DownReason::None;
 }
 
 bool
