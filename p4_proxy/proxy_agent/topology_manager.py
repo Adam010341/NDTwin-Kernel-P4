@@ -830,6 +830,13 @@ class TopologyManager:
         migration at priority 100 *layers over* the default rule at 10, while here it
         *replaces* the destination's only entry.
 
+        That replacement is what makes the withdrawal asymmetric too, and this docstring used
+        to stop one sentence short of saying so (doc/KNOWN-ISSUES.md A-4d): the control plane's
+        route is gone the moment this write lands, so a plain delete afterwards left the
+        destination with no entry at all rather than back where it started. unroute_flow now
+        restores it instead of removing it; the restore is recomputed from dest_paths, not
+        remembered from here, so nothing on this path has to be snapshotted.
+
         `idle_timeout` has no producer. The kernel omits the field for 0 and -1
         (HttpRoutingStrategyBase.cpp:181), the TE app's live path sends no timeout key at all
         and its disabled path sends 0, and the OVS control plane never sets one either -- so
@@ -962,6 +969,40 @@ class TopologyManager:
                   f"a proxy restart")
         return accepted
 
+    def _control_plane_port(self, dpid, ipv4_dst):
+        """
+        The port `install_initial_routes` would write for this (switch, destination) right now,
+        or None if the control plane has no route to it.
+
+        [Co-developed with claude code -- Adam]
+        The same three lookups install_initial_routes makes -- the destination's path from this
+        switch, the next node on it, that edge's port -- so a restore cannot diverge from the
+        route the control plane would install a moment later on any link transition.
+
+        Reads `dest_paths` as it stands rather than recalculating. `calculate_all_paths`
+        reassigns `self.dest_paths` as a side effect, and a delete is the wrong place to move
+        global state; the map is refreshed on discovery and on every link transition, and a
+        transition rewrites this entry anyway, so there is no window in which it is stale in a
+        way that matters.
+
+        None is a real answer, not a failure: a destination the fabric cannot currently reach,
+        or one the control plane never routed at all (an address outside the topology, which is
+        the only kind of rule that is purely an application's own).
+        """
+        with self._net_lock:
+            info = (self.dest_paths.get(ipv4_dst) or {}).get(dpid)
+            if not info:
+                return None
+            path = info.get("path") or []
+            try:
+                next_node = path[path.index(dpid) + 1]
+            except (ValueError, IndexError):
+                return None
+            try:
+                return self.net.edges[dpid, next_node]["port"]
+            except KeyError:
+                return None
+
     def unroute_flow(self, dpid, match_dict, priority=None):
         if dpid not in self.switches:
             return False
@@ -999,6 +1040,41 @@ class TopologyManager:
         if not ipv4_dst:
             return False
             
+        # ---- give the slot back to the control plane, do not empty it -----------------------
+        # [Co-developed with claude code -- Adam]
+        # doc/KNOWN-ISSUES.md A-4d. ipv4_lpm holds one entry per destination, and route_flow
+        # writes the same dst/32 key install_initial_routes does -- so an application's rule
+        # does not sit on top of the control plane's route, it *replaces* it, through
+        # insert_ipv4_route's MODIFY fallback. Deleting it therefore removed the destination's
+        # only entry, the table missed to its send_to_cpu() default, handle_packet_in dropped
+        # everything that was not LLDP, and the destination measured 0 MB with 100% ping loss.
+        #
+        # The same two calls are safe under OVS because a migration at priority 100 layers over
+        # the router's rule at priority 10 and deleting the top one uncovers the one underneath.
+        # A single-key LPM table has no underneath. The equivalent is to put back what the
+        # control plane would have there, which is what a delete on OVS effectively leaves.
+        #
+        # Restoring through insert_ipv4_route rather than delete-then-insert is the point, not a
+        # shortcut: the entry exists, so that call is refused as a duplicate and lands as an
+        # in-place MODIFY. A DELETE followed by an INSERT reaches the same final state and
+        # black-holes the destination for the width of the gap -- the same failure, briefly.
+        restore_port = self._control_plane_port(dpid, ipv4_dst)
+        if restore_port is not None:
+            next_hop_mac = "00:00:00:00:00:00"
+            if ipv4_dst in self.net.nodes:
+                next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
+            print(f"[TopologyManager] Withdrawing rule for {ipv4_dst} on DPID {dpid}: "
+                  f"restoring control-plane route -> port {restore_port}")
+            success = bool(client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, restore_port))
+            if success:
+                with self._net_lock:
+                    self._installed_routes[(dpid, ipv4_dst)] = restore_port
+            # A refused restore leaves the caller's own rule in the switch, so the delete did
+            # not happen and must not be reported as though it had.
+            return success
+
+        # No control-plane route to hand the slot back to -- the destination is unreachable in
+        # the current graph, or was never one this fabric routes. Removal is the honest outcome.
         # [Co-developed with claude code -- Adam] -- as above: report the real outcome.
         success = bool(client.delete_ipv4_route(ipv4_dst, 32))
         if success:
