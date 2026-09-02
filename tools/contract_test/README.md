@@ -47,6 +47,26 @@ cd tools/contract_test
 
 兩支都是**成功才回傳 exit code 0**，可以直接接進 CI。
 
+### exit code 3＝工具沒有下判斷（A-8）
+
+三支工具（`run_contract_test.py`、`l3_component_check.py`、`check_logs.py`）都多了一個
+**exit code 3 ＝ `TOOL-PRECONDITION-FAILED`**：工具在下判斷之前需要知道的事沒能確立，
+所以它**對系統不做任何宣稱**。這跟 exit 1（「系統壞了」）是兩件事。
+
+為什麼要分開：Energy-Saving-App **正確地**關掉一台交換機時，這三支工具會同時變紅
+（KNOWN-ISSUES A-8，2026-08-18 實測、2026-08-30 重驗）。一個在系統正確時變紅的套件，
+會訓練它的讀者忽略紅色。**一個儀器唯一不能有的故障，就是長得跟它自己的發現一模一樣的那個。**
+
+- L2／L3 開跑前先讀一次 `/ndt/get_switches_power_state`，`is_up=false` 的交換機分三種答案：
+  power state 說 ON ⇒ **仍然是失敗**（P4 接線失敗的偵測原封不動）；說 OFF ⇒ 列成
+  `accounted for`，不算失敗；**讀不到 ⇒ exit 3**，不猜。
+- `check_logs.py` 用 `--powered-off 5,7,9` 宣告哪幾台被關掉；`--powered-off none` 是
+  「我宣告沒有任何一台被關」（**跟不給這個旗標不一樣**）。
+- `run_layers.sh` 用環境變數轉發：`NDT_POWERED_OFF=5,7,9 ./run_layers.sh api ovs`。
+
+`run_layers.sh` 的 `layer()` 只看「非 0 就是 FAIL」，所以 exit 3 在那裡仍然算一層失敗
+（fail closed）——差別在報告會說出「我沒有下判斷」而不是指認一個不存在的故障。
+
 ---
 
 ## run_contract_test.py
@@ -137,7 +157,17 @@ acquire → 第二次 acquire 必須 423 → renew → release → 再 acquire �
 | `error` / `critical` 等級 | **失敗**，除非明確列在 allowlist |
 | `warning` 等級 | **失敗**，除非列在 allowlist |
 | 符合 `FORBID` 樣式 | **失敗，不管什麼等級**（包含 info/debug） |
-| allowlist 有列但這次沒對到 | 提示（方便清理過期項目） |
+| 符合 `WHEN-POWERED-OFF` 樣式，且該 dpid 有被 `--powered-off` 宣告 | **EXPECTED**，不算失敗 |
+| 符合 `WHEN-POWERED-OFF` 樣式，但該 dpid 沒被宣告 | **失敗**（照原本的等級規則走） |
+| 符合 `WHEN-POWERED-OFF` 樣式，而**完全沒有宣告** | **exit 3**，不下判斷 |
+| allowlist 有列但這次沒對到 | 提示（方便清理過期項目；`FORBID`／`WHEN-POWERED-OFF` 不算） |
+
+`WHEN-POWERED-OFF` 是**有範圍的許可**，不是 allowlist 的第四種寫法：
+`... reported a read failure for switch 5 ...` 這一行，在 s5 被關掉時是 kernel **正確**的保守處理
+（`DeviceConfigurationAndPowerManager.cpp:1134`），在 s5 沒被關掉時就是 2026-08-07 那個
+「Ryu wedged、十台全報 0 條規則而 s1 其實有 130 條」的缺陷。
+**寫成普通 `WARNING` 會把這支工具變成掩蓋那個缺陷的東西。**
+所以樣式必須用 `(?P<dpid>\d+)` 抓出是哪一台，`check_logs.py` 拒絕載入沒有這個 group 的規則。
 
 ### 崩潰偵測（不受 allowlist 影響）
 

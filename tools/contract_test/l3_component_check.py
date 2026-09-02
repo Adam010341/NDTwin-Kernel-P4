@@ -55,7 +55,15 @@ from components import (  # noqa: E402
 DEFAULT_HTTP_SESSION = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "src", "ndt_core", "http", "HttpSession.cpp")
-from run_contract_test import Context, Palette, check_endpoint, request, supports_colour  # noqa: E402
+from run_contract_test import (  # noqa: E402
+    EXIT_PRECONDITION,
+    Context,
+    Palette,
+    check_endpoint,
+    probe_power_state,
+    request,
+    supports_colour,
+)
 from spec import ENDPOINTS  # noqa: E402
 
 # Endpoints whose contract is covered by spec.py, keyed by bare endpoint name.
@@ -223,6 +231,11 @@ def main() -> int:
         return 2
 
     ctx = Context(args.topology, args.topk, args.probe_ip)
+    # [Co-developed with claude code -- Adam] -- A-8.
+    # L3 does not recompute the graph invariants, it reuses L2's via check_endpoint. So it
+    # inherited L2's false alarm on a correctly powered-down fabric and fanned it out across
+    # the seven components that depend on get_graph_data. Same reading, same three answers.
+    ctx.power_state = probe_power_state(args.url, ctx, args.timeout)
     selected = COMPONENTS
     if args.component:
         wanted = set(args.component)
@@ -235,12 +248,16 @@ def main() -> int:
     print("NDTwin L3 component contract check")
     print(f"  kernel   : {args.url}")
     print(f"  topology : {ctx.describe()}")
+    print(f"  power    : {ctx.power_state.describe()}")
     print(f"  components: {len(selected)}\n")
 
     # Probe and validate each distinct endpoint once, then attribute results.
     needed = sorted({ep for c in selected for ep in c.endpoints})
     existence: dict[str, tuple[bool, int, str]] = {}
     contract: dict[str, tuple[bool, list[str]]] = {}
+    # Endpoints whose contract could not be judged at all, kept apart from the broken ones.
+    # [Co-developed with claude code -- Adam]
+    blocked: dict[str, list[str]] = {}
 
     print("Shared endpoint checks:")
     for ep in needed:
@@ -267,17 +284,29 @@ def main() -> int:
 
         res = check_endpoint(args.url, spec_ep, ctx, args)
         contract[ep] = (res.ok, res.failures)
-        tag = pal.green("ok") if res.ok else pal.red("BROKEN")
-        print(f"  {tag:>7}  /ndt/{ep}")
+        if res.preconditions and not res.failures:
+            # Not BROKEN: the check made no claim. The literal "BROKEN" is grepped by the
+            # R5 harnesses as an A-8 detector, so emitting it here would report the defect
+            # as still present after it is fixed. [Co-developed with claude code -- Adam]
+            blocked[ep] = res.preconditions
+            print(f"  {pal.yellow('PRECOND'):>7}  /ndt/{ep}")
+        else:
+            tag = pal.green("ok") if res.ok else pal.red("BROKEN")
+            print(f"  {tag:>7}  /ndt/{ep}")
         for f in res.failures:
             print(f"           {pal.red('-')} {f}")
+        for p in res.preconditions:
+            print(f"           {pal.yellow('?')} {p}")
+        for a in res.accounted_for:
+            print(f"           {pal.dim('accounted for: ' + a)}")
 
     # --- attribute to components -----------------------------------------------
     print(f"\n{'=' * 70}\nPer-component verdict\n")
     broken_components = []
     degraded_components = []
+    unjudged_components = []
     for comp in selected:
-        problems, known_gaps = [], []
+        problems, known_gaps, unjudged = [], [], []
         for ep in comp.endpoints:
             ok, status, why = existence[ep]
             if not ok:
@@ -288,20 +317,30 @@ def main() -> int:
                 else:
                     problems.append(f"/ndt/{ep} missing ({why})")
                 continue
+            if ep in blocked:
+                unjudged.append(f"/ndt/{ep} not judged: {blocked[ep][0]}")
+                continue
             c_ok, c_failures = contract.get(ep, (True, []))
-            if not c_ok:
+            # `c_failures[0]` guarded: a result can now be not-ok with an empty failure
+            # list. [Co-developed with claude code -- Adam]
+            if not c_ok and c_failures:
                 problems.append(f"/ndt/{ep} contract violated: {c_failures[0]}")
 
         writes = pal.yellow(" [writes]") if comp.writes else ""
         if problems:
             broken_components.append(comp.name)
             print(f"  {pal.red('AFFECTED')} {comp.name}{writes}")
-            for p in problems + known_gaps:
+            for p in problems + known_gaps + unjudged:
                 print(f"             - {p}")
         elif known_gaps:
             degraded_components.append(comp.name)
             print(f"  {pal.yellow('DEGRADED')} {comp.name}{writes}")
-            for p in known_gaps:
+            for p in known_gaps + unjudged:
+                print(f"             - {p}")
+        elif unjudged:
+            unjudged_components.append(comp.name)
+            print(f"  {pal.yellow('UNJUDGED')} {comp.name}{writes}")
+            for p in unjudged:
                 print(f"             - {p}")
         else:
             print(f"  {pal.green('OK')}       {comp.name}{writes} "
@@ -315,6 +354,12 @@ def main() -> int:
         print(pal.red(f"{len(broken_components)} component(s) affected: "
                       f"{', '.join(broken_components)}"))
         return 1
+    if unjudged_components:
+        # [Co-developed with claude code -- Adam] -- A-8: no verdict, and it says so.
+        print(pal.yellow(f"TOOL-PRECONDITION-FAILED: {len(unjudged_components)} component(s) "
+                         f"could not be judged: {', '.join(unjudged_components)}"))
+        print(pal.dim(f"  Power state: {ctx.power_state.describe()}"))
+        return EXIT_PRECONDITION
     print(pal.green(f"All {len(selected)} component(s) have their dependencies satisfied "
                     f"(known gaps aside)."))
     return 0

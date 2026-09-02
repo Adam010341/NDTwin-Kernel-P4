@@ -25,7 +25,16 @@ Usage
   # verify the schemas themselves against the examples in doc/2026-01-02_ndt_api.md
   ./run_contract_test.py --self-test
 
-Exit code is 0 only when every selected check passes, so this can gate CI.
+Exit code
+---------
+  0  every selected check passed
+  1  at least one check FAILED -- a claim about the system
+  2  usage error (no topology, no matching checks)
+  3  TOOL-PRECONDITION-FAILED -- the suite could not establish what it needed to know
+     before judging, so it makes no claim about the system. Distinct from 1 on purpose:
+     a tool must never be able to fail in a way that looks like the system failing
+     (KNOWN-ISSUES A-8). Callers that only test `rc != 0` still fail closed.
+     [Co-developed with claude code -- Adam]
 
 [Co-developed with claude code -- Adam]
 """
@@ -45,9 +54,33 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from schema import validate  # noqa: E402
-from spec import ERRORPATH, MUTATE, READ, endpoints_by_category  # noqa: E402
+from spec import (  # noqa: E402
+    ERRORPATH,
+    MUTATE,
+    READ,
+    PowerState,
+    classify_power_state,
+    endpoints_by_category,
+    partition_messages,
+)
+
+# Re-exported: PowerState and classify_power_state live in spec.py (pure, importable by the
+# fixtures without pulling in the runner), but l3_component_check.py and the tests have
+# always reached for run_contract_test for runner-side names.
+# [Co-developed with claude code -- Adam]
+__all__ = ["PowerState", "classify_power_state", "probe_power_state", "Context", "Palette",
+           "Result", "check_endpoint", "request", "supports_colour", "EXIT_PRECONDITION"]
 
 RESET, RED, GREEN, YELLOW, DIM = "\033[0m", "\033[31m", "\033[32m", "\033[33m", "\033[2m"
+
+#: Exit code for "the suite could not establish its own preconditions". See the module
+#: docstring. [Co-developed with claude code -- Adam]
+EXIT_PRECONDITION = 3
+
+#: The endpoint that answers "which switches has the operator deliberately powered down?".
+#: Already part of the contract table (spec.py get_switches_power_state); read once up front
+#: because the graph invariants need the answer before the table reaches it.
+POWER_STATE_PATH = "/ndt/get_switches_power_state"
 
 
 def supports_colour() -> bool:
@@ -72,6 +105,18 @@ class Palette:
 
     def dim(self, s):
         return self._w(DIM, s)
+
+
+def probe_power_state(base_url, ctx, timeout) -> PowerState:
+    """Read POWER_STATE_PATH once, before the endpoint table runs. [Co-developed ... -- Adam]"""
+    ep = {"name": "probe_power_state", "method": "GET", "path": POWER_STATE_PATH,
+          "category": READ}
+    status, data, err = request(base_url, ep, ctx, timeout)
+    if err:
+        return PowerState.unknown(f"{POWER_STATE_PATH}: {err}")
+    if status != 200:
+        return PowerState.unknown(f"{POWER_STATE_PATH} answered HTTP {status}")
+    return classify_power_state(data, ctx.switch_ip_to_dpid)
 
 
 class Context:
@@ -99,6 +144,21 @@ class Context:
         self.brand_names = sorted({s.get("brand_name", "") for s in switches})
         self.topk = topk
         self.probe_ip = probe_ip
+
+        # [Co-developed with claude code -- Adam] -- A-8.
+        # /ndt/get_switches_power_state is keyed by IPv4 string, the graph by dpid. This is
+        # the join, and it comes from the topology file so it needs no kernel to build.
+        self.switch_ip_to_dpid = {}
+        for s in switches:
+            switch_ip = self._first_ip(s)
+            if switch_ip:
+                self.switch_ip_to_dpid[switch_ip] = s["dpid"]
+
+        # Replaced by probe_power_state() before the endpoint table runs. Until then the
+        # reading is UNKNOWN -- deliberately not "everything is on", which is the assumption
+        # that produced A-8. A caller that constructs a Context and skips the probe gets
+        # TOOL-PRECONDITION-FAILED on a degraded fabric, not a wrong answer.
+        self.power_state = PowerState.unknown("the runner has not read it yet")
 
         # A switch dpid to use for per-switch queries. min() keeps runs reproducible.
         self.a_dpid = min(self.expected_dpids) if self.expected_dpids else 1
@@ -139,10 +199,19 @@ class Context:
 
 class Result:
     def __init__(self, name, ok, failures=None, status=None, skipped=False, note=None,
-                 known_gap=None, gap_closed=False, data=None):
+                 known_gap=None, gap_closed=False, data=None,
+                 preconditions=None, accounted_for=None):
         self.name = name
         self.ok = ok
         self.failures = failures or []
+        # [Co-developed with claude code -- Adam] -- A-8.
+        # `preconditions` is the check saying it could not establish what it needed before
+        # judging; it is NOT a claim that the system is broken, and it is reported and
+        # exit-coded separately for that reason. `accounted_for` is the opposite end: a
+        # deviation the run can explain, printed so it is never silently swallowed -- the
+        # same "the note travels with it" rule l3_component_check.py already applies to a 503.
+        self.preconditions = preconditions or []
+        self.accounted_for = accounted_for or []
         self.status = status
         self.skipped = skipped
         self.note = note
@@ -205,20 +274,42 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
     name = ep["name"]
     gap = ep.get("known_gap")
 
-    def finish(ok, failures):
+    def finish(_ok_hint, messages):
         """
-        Applies known-gap handling.
+        Splits the invariant output three ways, then applies known-gap handling.
+
+        [Co-developed with claude code -- Adam] -- A-8.
+        The split comes first because a TOOL-PRECONDITION-FAILED message is not a claim
+        about the kernel, so it must not be excused by a known_gap (there is nothing to
+        excuse) and must not be counted as a contract failure (there is no verdict). An
+        ACCOUNTED-FOR message is a deviation the run can explain: it is printed, and it does
+        not fail the check.
 
         A known_gap excuses only the specific shortcoming it documents -- a wrong-but-sane
         response. It must NOT excuse the kernel throwing (5xx) or being unreachable:
         marking those as an accepted gap would hide a crashed or hung kernel behind a
         yellow tick, which is the opposite of the point.
         """
+        failures, preconditions, accounted = partition_messages(messages)
+        # Derived, not taken from the caller: every call site passes `not failures` anyway,
+        # and after the split an ACCOUNTED-FOR-only message list must read as a pass, which
+        # the caller's pre-split hint gets wrong. _ok_hint is kept only so the call sites
+        # still read as statements of intent. [Co-developed with claude code -- Adam]
+        ok = not failures
+
+        def build(res_ok, res_failures, **kw):
+            return Result(name, res_ok, res_failures, status, note=ep.get("note"),
+                          data=data, preconditions=preconditions, accounted_for=accounted,
+                          **kw)
+
+        if preconditions and not failures:
+            # No verdict on the system: neither a pass nor a contract failure.
+            return build(False, [])
+
         if gap:
             if ok:
                 # The defect was fixed: say so loudly rather than staying quiet.
-                return Result(name, True, [], status, note=ep.get("note"),
-                              known_gap=gap, gap_closed=True, data=data)
+                return build(True, [], known_gap=gap, gap_closed=True)
 
             unexcusable = None
             if status == 0:
@@ -226,13 +317,12 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
             elif status >= 500:
                 unexcusable = f"the kernel returned {status}"
             if unexcusable:
-                return Result(name, False,
-                              failures + [f"not excused by the known gap: {unexcusable}"],
-                              status, note=ep.get("note"), known_gap=gap, data=data)
+                return build(False,
+                             failures + [f"not excused by the known gap: {unexcusable}"],
+                             known_gap=gap)
 
-            return Result(name, True, failures, status, note=ep.get("note"),
-                          known_gap=gap, data=data)
-        return Result(name, ok, failures, status, note=ep.get("note"), data=data)
+            return build(True, failures, known_gap=gap)
+        return build(ok, failures)
 
     expected = ep.get("expect_status", [200])
     if status not in expected:
@@ -293,10 +383,20 @@ def run_self_test(pal: Palette) -> int:
     print(f"\n  Invariants against documented/synthetic data:")
     for name, fn, data, ctx, expect_failures in fx.INVARIANT_CASES:
         got = fn(data, ctx)
-        ok = bool(got) == expect_failures
+        # [Co-developed with claude code -- Adam] -- A-8.
+        # `bool(got)` alone would let a TOOL-PRECONDITION-FAILED message satisfy a case that
+        # was written to assert a real failure -- the same "a red light is not an identity"
+        # trap the mutation gate exists for. Only unprefixed messages count as failures here.
+        real_failures, _pre, _acc = partition_messages(got)
+        ok = bool(real_failures) == expect_failures
         if ok:
             passed += 1
-            detail = f" (correctly reported: {got[0][:70]})" if got else ""
+            if real_failures:
+                detail = f" (correctly reported: {real_failures[0][:70]})"
+            elif got:
+                detail = f" (no failure; said: {got[0][:70]})"
+            else:
+                detail = ""
             print(f"  {pal.green('ok')}    {name}{pal.dim(detail)}")
         else:
             failed += 1
@@ -347,6 +447,11 @@ def main() -> int:
         return 2
 
     ctx = Context(args.topology, args.topk, args.probe_ip)
+    # [Co-developed with claude code -- Adam] -- A-8.
+    # Read the power state before anything judges the graph. get_switches_power_state is
+    # already in the endpoint table, but it sits *after* get_graph_data in declaration order,
+    # so the graph invariants would reach their verdict before the answer existed.
+    ctx.power_state = probe_power_state(args.url, ctx, args.timeout)
 
     categories = [READ, ERRORPATH] + ([MUTATE] if args.allow_mutations else [])
     endpoints = endpoints_by_category(categories)
@@ -361,6 +466,7 @@ def main() -> int:
     print(f"  topology : {ctx.describe()}")
     print(f"  traffic  : {'expected' if args.with_traffic else 'not expected'}")
     print(f"  mutations: {'included' if args.allow_mutations else 'skipped'}")
+    print(f"  power    : {ctx.power_state.describe()}")
     print(f"  checks   : {len(endpoints)}\n")
 
     if args.save_json:
@@ -379,8 +485,12 @@ def main() -> int:
             with open(os.path.join(args.save_json, f"{ep['name']}.json"), "w") as fh:
                 json.dump(res.data, fh, indent=2, sort_keys=True)
 
+        # [Co-developed with claude code -- Adam] -- A-8: PRECOND is its own tag, checked
+        # before FAIL, so "the tool could not decide" never renders as "the system is broken".
         if res.gap_closed:
             tag = pal.yellow("FIXED")
+        elif res.preconditions and not res.failures:
+            tag = pal.yellow("PRECOND")
         elif res.known_gap and res.failures:
             tag = pal.yellow("GAP ")
         elif res.ok:
@@ -403,13 +513,21 @@ def main() -> int:
             elif res.note:
                 print(f"           {pal.dim('note: ' + res.note)}")
 
+        for p in res.preconditions:
+            print(f"           {pal.yellow('?')} {p}")
+        # Printed on every result, pass or fail: an explained deviation that nobody sees is
+        # indistinguishable from no deviation at all.
+        for a in res.accounted_for:
+            print(f"           {pal.dim('accounted for: ' + a)}")
+
     elapsed = time.time() - started
-    failed = [r for r in results if not r.ok]
+    failed = [r for r in results if not r.ok and not (r.preconditions and not r.failures)]
+    blocked = [r for r in results if r.preconditions and not r.failures]
     gaps = [r for r in results if r.known_gap and r.failures and not r.gap_closed]
     fixed = [r for r in results if r.gap_closed]
 
     print(f"\n{'=' * 70}")
-    print(f"{len(results) - len(failed)}/{len(results)} passed in {elapsed:.1f}s")
+    print(f"{len(results) - len(failed) - len(blocked)}/{len(results)} passed in {elapsed:.1f}s")
     if gaps:
         print(pal.yellow(f"{len(gaps)} known kernel gap(s) (not counted as failures): "
                          f"{', '.join(r.name for r in gaps)}"))
@@ -422,6 +540,15 @@ def main() -> int:
             print(pal.dim("\nhint: flow/path/rate checks are skipped without --with-traffic;"
                           " start traffic and re-run to cover the telemetry path"))
         return 1
+    if blocked:
+        # Deliberately not the word FAIL and deliberately not exit 1: this run makes no
+        # claim about the kernel. [Co-developed with claude code -- Adam]
+        print(pal.yellow(f"\nTOOL-PRECONDITION-FAILED: "
+                         f"{', '.join(r.name for r in blocked)}"))
+        print(pal.dim("  These checks could not establish what they needed before judging, "
+                      "so they judged nothing."))
+        print(pal.dim(f"  Power state: {ctx.power_state.describe()}"))
+        return EXIT_PRECONDITION
     print(pal.green("\nAll contract checks passed."))
     return 0
 

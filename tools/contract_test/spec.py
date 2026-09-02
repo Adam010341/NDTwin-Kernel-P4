@@ -35,6 +35,123 @@ READ = "read"        # safe: never changes network state
 MUTATE = "mutate"    # changes flow rules / power / names; needs --allow-mutations
 ERRORPATH = "error"  # deliberately bad input; asserts a sane failure
 
+# --- verdict prefixes an invariant may return instead of a plain failure ------------
+# [Co-developed with claude code -- Adam]
+# An invariant returns a list of strings and the runner used to treat every one of them as
+# "the system is broken". That gave the suite exactly two outputs, so the one thing it could
+# not say was "I cannot tell" -- and a tool whose failure is serialised the same way as its
+# finding will mislead you precisely when it matters (KNOWN-ISSUES A-8; the memory note
+# instrument-must-not-mimic-its-own-finding). These two prefixes are the third and fourth
+# answers. run_contract_test.check_endpoint partitions on them; anything unprefixed is still
+# a red failure, so an invariant that has not been taught about them cannot change meaning.
+TOOL_PRECONDITION = "TOOL-PRECONDITION-FAILED: "
+ACCOUNTED_FOR = "ACCOUNTED-FOR: "
+
+
+class PowerState:
+    """
+    Which switches the operator has deliberately powered down -- or why we do not know.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+
+    The graph invariants need to separate "this switch is down because the
+    Energy-Saving-App turned it off" from "this switch never connected". Those are the same
+    bit in the graph (is_up=false), and the second is the P4 wiring failure the suite exists
+    to catch, so neither may be dropped and neither may be assumed.
+
+    Hence three states, not two. `known` false means the reading is not trustworthy, and the
+    invariants answer TOOL-PRECONDITION-FAILED rather than guessing in either direction:
+    guessing "all on" reproduces the false alarm, guessing "all off" hides the wiring failure.
+    An empty `off_dpids` with `known` true is a real, positive statement -- nothing is
+    powered off -- and is not the same object as `unknown()`.
+    """
+
+    def __init__(self, off_dpids=(), error=None):
+        self.off_dpids = frozenset(off_dpids)
+        self.error = error
+
+    @property
+    def known(self) -> bool:
+        return self.error is None
+
+    @classmethod
+    def unknown(cls, error: str) -> "PowerState":
+        return cls((), error)
+
+    @classmethod
+    def all_on(cls) -> "PowerState":
+        """A positive reading that nothing is powered off. For tests and for empty fabrics."""
+        return cls(())
+
+    def describe(self) -> str:
+        if not self.known:
+            return f"unknown ({self.error})"
+        if not self.off_dpids:
+            return "all switches powered on"
+        return f"powered off: {sorted(self.off_dpids)}"
+
+
+def classify_power_state(payload, ip_to_dpid) -> PowerState:
+    """
+    Turn a /ndt/get_switches_power_state body into a PowerState. Pure; no I/O.
+
+    Every branch that cannot produce a *complete and unambiguous* dpid set returns unknown
+    with a reason, including the quiet ones:
+
+      * a value that is neither ON nor OFF -- treating an unrecognised state as "on" is
+        exactly how a tool acquires a confident wrong answer;
+      * a key that is not a switch in this topology -- then the reading describes some other
+        fabric and mapping it onto this one is a guess;
+      * a switch in the topology with no key in the reading -- partial coverage would make
+        a powered-off switch look powered on, which is the A-8 false alarm again. The kernel
+        has form here: before 04b8933 the CPU/memory maps omitted a down switch's key
+        entirely (live-findings-2026-08-18-ovs.md, F-3).
+
+    [Co-developed with claude code -- Adam]
+    """
+    if not isinstance(payload, dict):
+        return PowerState.unknown(
+            f"expected an object keyed by switch IP, got {type(payload).__name__}")
+
+    off = set()
+    for ip, value in payload.items():
+        dpid = ip_to_dpid.get(ip)
+        if dpid is None:
+            return PowerState.unknown(
+                f"reading names {ip!r}, which is not a switch in this topology")
+        state = str(value).strip().upper()
+        if state == "OFF":
+            off.add(dpid)
+        elif state != "ON":
+            return PowerState.unknown(f"{ip} reports power state {value!r}, not ON or OFF")
+
+    missing = sorted(set(ip_to_dpid) - set(payload))
+    if missing:
+        return PowerState.unknown(
+            f"no power reading for {len(missing)} switch(es): {', '.join(missing)}")
+
+    return PowerState(off)
+
+
+def partition_messages(messages):
+    """
+    Split invariant output into (failures, preconditions, accounted_for).
+
+    Kept here rather than in the runner so that l3_component_check.py and any future caller
+    classify identically -- three tools disagreeing about what red means is how A-8 became
+    three separate false alarms instead of one.
+    """
+    failures, preconditions, accounted = [], [], []
+    for m in messages:
+        if m.startswith(TOOL_PRECONDITION):
+            preconditions.append(m[len(TOOL_PRECONDITION):])
+        elif m.startswith(ACCOUNTED_FOR):
+            accounted.append(m[len(ACCOUNTED_FOR):])
+        else:
+            failures.append(m)
+    return failures, preconditions, accounted
+
+
 # Lock type used by the lock checks. Must be one the kernel accepts
 # (routing_lock / graph_lock / power_lock) or acquireLock rejects it outright.
 # graph_lock is real but unused by every app in the workspace, so these checks get real
@@ -158,6 +275,22 @@ def inv_graph_matches_topology(data, ctx):
     return out
 
 
+def _power_state(ctx):
+    """
+    The powered-off switches this run is allowed to account for, or None if unknown.
+
+    [Co-developed with claude code -- Adam]
+    A ctx with no `power_state` attribute at all is treated as UNKNOWN rather than as
+    "everything is powered on". A caller that forgot to wire the reading must be told so,
+    not handed a confident answer built on a default.
+    """
+    return getattr(ctx, "power_state", None)
+
+
+def _describe(nodes):
+    return ", ".join(f"{n['device_name']}(dpid={n['dpid']})" for n in nodes)
+
+
 def inv_all_switches_up(data, ctx):
     """
     The single highest-value invariant for P4 work.
@@ -165,31 +298,122 @@ def inv_all_switches_up(data, ctx):
     In P4 mode the graph currently stays isEnabled=false because nothing calls
     /ndt/inform_switch_entered, which silently empties BFS pathing, flow-table polling
     and link usage. This turns that into an explicit failure.
+
+    [Co-developed with claude code -- Adam] -- A-8.
+    Written to catch a P4 wiring failure, it was applied unconditionally in both modes, and a
+    switch the Energy-Saving-App had *correctly* powered down is indistinguishable from one
+    that never connected: both are is_up=false. On 2026-08-18 and again on 2026-08-30 that
+    turned a healthy, deliberately degraded fabric red (8 lines plus a BROKEN), with the
+    endpoint's own note reading "if this breaks, everything breaks".
+
+    So the invariant now asks *why* a switch is down before calling it a fault, and it has
+    three answers, not two:
+
+      down, and powered ON            -> a real failure. The P4 detection is untouched.
+      down, and powered OFF           -> accounted for. Reported, not failed.
+      down, and the power state is not readable
+                                      -> TOOL-PRECONDITION-FAILED. The tool says it cannot
+                                         decide, which must not look like the fabric being
+                                         broken (instrument-must-not-mimic-its-own-finding).
+
+    NOTE for anyone editing the strings below: `switch(es) not up` is grepped by
+    doc/audit/2026-08-30_live-full-stack-round/harness/{40_r5_p4,50_r5_ovs}.sh as the F-2/A-8
+    detector. It must stay on the *real failure* path and must not appear in the
+    accounted-for or precondition wording, or those harnesses will keep reporting A-8 as
+    present after it is fixed.
+
+    admin_disabled is deliberately NOT the key here: per doc/2026-08-10_p4_manual_test_runbook.md
+    it marks the Intent Translator's DisableSwitch, not the power app, and was measured false
+    for all three powered-off switches on 2026-08-18.
     """
     out = []
-    down = [f"{n['device_name']}(dpid={n['dpid']})"
-            for n in data["nodes"] if n["vertex_type"] == 0 and not n["is_up"]]
-    if down:
-        out.append(f"switch(es) not up: {', '.join(down)}")
+    switches = [n for n in data["nodes"] if n["vertex_type"] == 0]
+    down = [n for n in switches if not n["is_up"]]
+    disabled = [n for n in switches if not n["is_enabled"]]
+    if not down and not disabled:
+        return out
 
-    disabled = [f"{n['device_name']}(dpid={n['dpid']})"
-                for n in data["nodes"] if n["vertex_type"] == 0 and not n["is_enabled"]]
-    if disabled:
+    power = _power_state(ctx)
+    if power is None or not power.known:
+        why = power.error if power is not None else "the runner did not read it"
+        return [
+            TOOL_PRECONDITION
+            + f"{len(down)} switch(es) report is_up=false and {len(disabled)} report "
+              f"is_enabled=false, and the power state could not be read ({why}), so this "
+              f"check cannot tell a deliberate power-down from a switch that never "
+              f"connected. No verdict on the fabric."
+        ]
+
+    unexplained_down = [n for n in down if n["dpid"] not in power.off_dpids]
+    explained_down = [n for n in down if n["dpid"] in power.off_dpids]
+    unexplained_disabled = [n for n in disabled if n["dpid"] not in power.off_dpids]
+    explained_disabled = [n for n in disabled if n["dpid"] in power.off_dpids]
+
+    if unexplained_down:
+        out.append(f"switch(es) not up: {_describe(unexplained_down)}")
+    if unexplained_disabled:
         out.append(
-            f"switch(es) not enabled (not connected to a controller): {', '.join(disabled)}"
+            f"switch(es) not enabled (not connected to a controller): "
+            f"{_describe(unexplained_disabled)}"
             " -- in P4 mode this usually means the proxy never called"
             " /ndt/inform_switch_entered"
+        )
+
+    accounted = sorted({n["dpid"] for n in explained_down + explained_disabled})
+    if accounted:
+        out.append(
+            ACCOUNTED_FOR
+            + f"{len(accounted)} switch(es) are down/disabled because "
+              f"/ndt/get_switches_power_state reports them OFF: "
+              f"{_describe(explained_down or explained_disabled)}"
+              " -- a powered-down switch is the Energy-Saving-App doing its job"
         )
     return out
 
 
 def inv_edges_enabled(data, ctx):
-    down = [f"{e['src_dpid']}:{e['src_interface']}->{e['dst_dpid']}:{e['dst_interface']}"
-            for e in data["edges"] if not e["is_up"] or not e["is_enabled"]]
-    if down:
-        shown = ", ".join(down[:5]) + (f" (+{len(down) - 5} more)" if len(down) > 5 else "")
-        return [f"{len(down)} edge(s) down/disabled: {shown}"]
-    return []
+    """
+    [Co-developed with claude code -- Adam] -- A-8, same three answers as inv_all_switches_up.
+
+    An edge incident to a powered-off switch is down for a reason the run already knows. On
+    2026-08-18 all 20 down edges were exactly the links incident to the three switches the
+    power app had turned off, and the suite still called them a fault.
+    """
+    def name(e):
+        return f"{e['src_dpid']}:{e['src_interface']}->{e['dst_dpid']}:{e['dst_interface']}"
+
+    down = [e for e in data["edges"] if not e["is_up"] or not e["is_enabled"]]
+    if not down:
+        return []
+
+    power = _power_state(ctx)
+    if power is None or not power.known:
+        why = power.error if power is not None else "the runner did not read it"
+        return [
+            TOOL_PRECONDITION
+            + f"{len(down)} edge(s) are down/disabled and the power state could not be read "
+              f"({why}), so this check cannot tell a link incident to a deliberately "
+              f"powered-off switch from a broken one. No verdict on the fabric."
+        ]
+
+    def incident_to_off(e):
+        return e["src_dpid"] in power.off_dpids or e["dst_dpid"] in power.off_dpids
+
+    unexplained = [e for e in down if not incident_to_off(e)]
+    explained = [e for e in down if incident_to_off(e)]
+
+    out = []
+    if unexplained:
+        names = [name(e) for e in unexplained]
+        shown = ", ".join(names[:5]) + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
+        out.append(f"{len(names)} edge(s) down/disabled: {shown}")
+    if explained:
+        out.append(
+            ACCOUNTED_FOR
+            + f"{len(explained)} edge(s) are down/disabled because they are incident to a "
+              f"switch /ndt/get_switches_power_state reports OFF"
+        )
+    return out
 
 
 def inv_link_bandwidth_sane(data, ctx):

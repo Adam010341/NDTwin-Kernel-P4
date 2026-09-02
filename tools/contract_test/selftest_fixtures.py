@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import spec
 from schema import Any_, MapOf, Num, OneOf, Str, is_ipv4_string
+from spec import PowerState
 
 # --- doc/2026-01-02_ndt_api.md section 3: GET /ndt/get_graph_data -----------------------------
 GRAPH_DATA_SAMPLE = {
@@ -123,12 +124,18 @@ FIXTURES = {
 class FakeCtx:
     """Stands in for the topology-derived Context during self-test."""
 
-    def __init__(self, switches=2, hosts=1, edges=1, dpids=None, topk=5):
+    def __init__(self, switches=2, hosts=1, edges=1, dpids=None, topk=5, power_state=None):
         self.expected_switches = switches
         self.expected_hosts = hosts
         self.expected_edges = edges
         self.expected_dpids = dpids if dpids is not None else {106225808380928}
         self.topk = topk
+        # [Co-developed with claude code -- Adam] -- A-8.
+        # A *positive* reading that nothing is powered off, so the switch/edge cases below
+        # still assert what they were written to assert: a down switch on a fully powered-on
+        # fabric is a real failure. Leaving this unset would make them assert the
+        # precondition path instead, which is a different claim wearing the same red.
+        self.power_state = power_state if power_state is not None else PowerState.all_on()
 
 
 # A graph matching FakeCtx exactly, used as the "good" case.
@@ -147,6 +154,16 @@ _GRAPH_EDGE_DOWN = {
     "nodes": GRAPH_DATA_SAMPLE["nodes"],
     "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False}],
 }
+
+# [Co-developed with claude code -- Adam] -- A-8.
+# The same two graphs, read against a run that knows why they look that way. _GOOD_CTX asserts
+# nothing is powered off, so above they are genuine failures; here the reading explains them.
+_CTX_THAT_SWITCH_OFF = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
+                               power_state=PowerState({106225808380928}))
+_CTX_EDGE_SRC_OFF = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
+                            power_state=PowerState({106225808402492}))
+_CTX_POWER_UNKNOWN = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
+                             power_state=PowerState.unknown("kernel returned HTTP 503"))
 
 _GRAPH_OVER_CAPACITY = {
     "nodes": GRAPH_DATA_SAMPLE["nodes"],
@@ -207,11 +224,18 @@ INVARIANT_CASES = [
      spec.inv_all_switches_up, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
     ("all_switches_up: catches switch down / not enabled",
      spec.inv_all_switches_up, _GRAPH_SWITCH_DOWN, _GOOD_CTX, True),
+    # [Co-developed with claude code -- Adam] -- A-8.
+    ("all_switches_up: a switch the power state says is OFF is not a failure",
+     spec.inv_all_switches_up, _GRAPH_SWITCH_DOWN, _CTX_THAT_SWITCH_OFF, False),
+    ("all_switches_up: an unreadable power state is not a failure either",
+     spec.inv_all_switches_up, _GRAPH_SWITCH_DOWN, _CTX_POWER_UNKNOWN, False),
 
     ("edges_enabled: accepts healthy edges",
      spec.inv_edges_enabled, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
     ("edges_enabled: catches a down edge",
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _GOOD_CTX, True),
+    ("edges_enabled: a down edge incident to a powered-off switch is not a failure",
+     spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _CTX_EDGE_SRC_OFF, False),
 
     ("link_bandwidth_sane: accepts usage below capacity",
      spec.inv_link_bandwidth_sane, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
