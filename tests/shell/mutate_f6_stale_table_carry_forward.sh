@@ -16,12 +16,23 @@
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # and the run asserts byte-identity at the end. The baseline is the WORKING TREE, not HEAD, so
-# this runs against an uncommitted fix.
+# this runs against an uncommitted fix. Restore is `cp -p` followed by `touch`: cp -p puts the
+# ORIGINAL mtime back, which is older than the object built from the mutant, so ninja would decide
+# there was nothing to do and the NEXT mutation would be scored against the previous mutant's
+# binary. The run rebuilds once more after the final restore and refuses to finish green if the
+# restored tree does not build or is not byte-identical.
+#
+# 🔴 Anything that stops the tests from RUNNING counts as SURVIVED, never as a warning: an anchor
+# that no longer matches, a mutation that cannot be applied, and a mutant that does not compile.
+# In all three the targeted behaviour is exactly as unproven as if the suite had stayed green, and
+# scoring them softly lets the gate shrink silently as the code moves under it.
 #
 # Usage:  tests/shell/mutate_f6_stale_table_carry_forward.sh
 #         BUILD_DIR=build-asan tests/shell/mutate_f6_stale_table_carry_forward.sh
 # Assumes: cwd is the repo root, ${BUILD_DIR:-build} is already configured (ninja).
-# Exit:    0 all mutations caught, 1 a mutation survived, 2 refused (baseline red / not restored).
+# Exit:    0 all mutations caught
+#          1 a mutation survived -- including one that failed to build or whose anchor moved
+#          2 refused (baseline red, tree unbuildable, or a source not restored byte-identically)
 set -uo pipefail
 
 BUILD_DIR="${BUILD_DIR:-build}"
@@ -109,8 +120,17 @@ PY
     fi
 
     if ! build; then
-        echo "  ⚠️  mutant does not compile -- proves nothing about the tests, so it does not count."
-        MUTATIONS=$((MUTATIONS - 1)); restore; return
+        # A SURVIVOR, not a warning. The test never ran, so the behaviour this mutation targets
+        # is exactly as unproven as if the suite had stayed green -- and scoring it as a warning
+        # lets the gate shrink silently: a later edit that stops a mutation compiling would
+        # quietly remove it from the run while the script still reported "0 survived".
+        # Declared-uncovered does not exempt this either: "cannot be observed by a gtest" is a
+        # statement about a mutation that BUILT and RAN.
+        echo "  🔴 MUTANT DOES NOT COMPILE -- the test never ran, so this counts as SURVIVED."
+        echo "     Fix the mutation (or the anchor); a mutation that cannot build proves nothing."
+        cmake --build "$BUILD_DIR" --target "$TARGET" 2>&1 | grep -E 'error|Error' | head -5 |
+            sed 's/^/       /'
+        SURVIVORS=$((SURVIVORS + 1)); restore; return
     fi
 
     local failed; failed=$(red_tests)
@@ -196,7 +216,7 @@ mutate "4. stale_polls never accumulates" \
 # 5. A switch that has never been read is omitted instead of listed -- F-6 half-fixed, which is
 #    the tempting version: the common case looks right and the boot-time case stays silent.
 #    Both lines go, so the mutant has no unreachable statement after the `continue` -- an
-#    -Werror build would reject that and the mutation would be scored "does not compile".
+#    -Werror build would reject that, and a mutant that does not compile is scored SURVIVED.
 mutate "5. a never-read switch is omitted instead of listed" \
     "$HDR" \
     '            entry = nlohmann::json{{"dpid", u.dpid}, {"flows", nlohmann::json::object()}};
