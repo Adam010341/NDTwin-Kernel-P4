@@ -35,6 +35,7 @@ add_executable(
   test_HttpSessionRouting.cpp
   test_LLMResponseParsing.cpp
   test_LockManager.cpp
+  test_LockLeaseExpiry.cpp
   test_ClassifierActionForms.cpp
   test_FlowStatsTimeout.cpp
   test_FlowTableConcurrency.cpp
