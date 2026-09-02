@@ -33,7 +33,13 @@ cd "$REPO"
 
 LOCK=include/ndt_core/lock_management/LockManager.hpp
 HTTP=src/ndt_core/http/HttpSession.cpp
-BIN=build/bin/test_routing_strategy
+# [Co-developed with claude code -- Adam]
+# BUILD_DIR is honoured so tests/shell/mutate_lock_lease_all.sh can point all three gates at one
+# build tree. Only TARGET is ever built -- never the whole tree, and never a configure step.
+BUILD_DIR="${BUILD_DIR:-build}"
+TARGET=test_routing_strategy
+GATE_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
+BIN="$BUILD_DIR/bin/$TARGET"
 FILTER='LockManager*:LockRequestParsing*:LockEndpoint*:LockLeaseExpiry*'
 BK=$(mktemp -d)
 
@@ -41,15 +47,21 @@ cp "$LOCK" "$BK/lock" && cp "$HTTP" "$BK/http"
 restore() { cp "$BK/lock" "$LOCK"; cp "$BK/http" "$HTTP"; }
 trap 'restore; rm -rf "$BK"' EXIT
 
-build() { cmake --build build --target test_routing_strategy -j"$(nproc)" 2>&1; }
+build() { cmake --build "$BUILD_DIR" --target "$TARGET" -j"$(nproc)" 2>&1; }
 run() { "$BIN" --gtest_filter="$FILTER" 2>&1; }
 
 SURVIVORS=0
 BROKEN=0
+MUTATIONS=0
 
 # $1 = mutation name, $2 = gtest case that must fail
 report() {
     local name="$1" want="$2" out rc
+    MUTATIONS=$((MUTATIONS + 1))
+    if [[ "${MUTATE_DRY_RUN:-0}" == "1" ]]; then
+        printf '  anchor-ok %-46s (would redden %s)\n' "$name" "$want"
+        return
+    fi
     if ! build > "$BK/build.log" 2>&1; then
         # A mutation that does not compile proves nothing about the tests: it never reached them.
         printf '  BUILD-FAIL %-44s (the mutation did not compile -- it tested nothing)\n' "$name"
@@ -80,25 +92,39 @@ mutate() {   # $1 = file, $2 = literal to find, $3 = literal replacement
         echo "     target: $from"
         exit 2
     fi
+    # Anchor-only pass. The target was found exactly once, which is the whole of what a dry run
+    # checks -- and it is the check that goes stale silently when somebody refactors the code
+    # under this gate. Running it costs a second; finding out after a 20-minute build does not.
+    [[ "${MUTATE_DRY_RUN:-0}" == "1" ]] && return 0
     FROM="$from" TO="$to" perl -0777 -pi -e 'my $f = quotemeta $ENV{FROM}; s/$f/$ENV{TO}/' "$file"
 }
 
-echo "baseline (unmutated) must be green:"
-if ! build > "$BK/build.log" 2>&1; then
+# [Co-developed with claude code -- Adam]
+# Rewritten 2026-09-02: this ran the suite up to three times and judged it on `run | grep -q`,
+# so the verdict came from the PIPE's exit code and the binary's own rc was discarded. One run,
+# rc captured unpiped, and the failing case names printed.
+baseline_check() {
+    local out rc
+    out=$(run); rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        echo "  REFUSE: baseline is not green (rc=$rc); mutation results would be meaningless"
+        grep -E '^\[  FAILED  \]' <<<"$out" | sed 's/^/    /'
+        exit 2
+    fi
+    grep -E '^\[==========\]|^\[  PASSED  \]' <<<"$out" | sed 's/^/  /'
+}
+
+if [[ "${MUTATE_DRY_RUN:-0}" == "1" ]]; then
+    echo "dry run: mutation anchors only -- nothing is built, mutated or executed"
+elif ! build > "$BK/build.log" 2>&1; then
     echo "  REFUSE: the baseline does not build"
     tail -20 "$BK/build.log" | sed 's/^/    /'
     exit 2
-fi
-if run | grep -q '^\[  PASSED  \]'; then
-    run | grep -E '^\[==========\]|^\[  PASSED  \]|^\[  FAILED  \]' | sed 's/^/  /'
+elif [[ "${MUTATE_SKIP_BASELINE:-0}" == "1" ]]; then
+    echo "baseline: already checked by the batch runner (MUTATE_SKIP_BASELINE=1)"
 else
-    echo "  REFUSE: baseline is not green; mutation results would be meaningless"
-    run | tail -20 | sed 's/^/    /'
-    exit 2
-fi
-if run | grep -q '^\[  FAILED  \]'; then
-    echo "  REFUSE: baseline has failures"
-    exit 2
+    echo "baseline (unmutated) must be green:"
+    baseline_check
 fi
 echo
 echo "mutations:"
@@ -188,7 +214,7 @@ report "the acquire reply drops the lease id" \
        "LockEndpointTest.AnAcquireHandsBackALeaseIdAndSaysWhenItTookOverADeadOne"
 
 restore
-build > /dev/null 2>&1
+[[ "${MUTATE_DRY_RUN:-0}" == "1" ]] || build > /dev/null 2>&1
 echo
 if cmp -s "$BK/lock" "$LOCK" && cmp -s "$BK/http" "$HTTP"; then
     echo "baseline restored: both files byte-identical to the pre-run snapshot"
@@ -198,5 +224,21 @@ else
     diff -u "$BK/http" "$HTTP" | head -20
     exit 1
 fi
+# One machine-readable line per gate, for tests/shell/mutate_lock_lease_all.sh to aggregate.
+#
+# 🔑 A DRY RUN GETS ITS OWN LINE AND REPORTS NO KILLS. The first version of this printed
+# `killed=9 survived=0` after a run that had built nothing and executed nothing -- an instrument
+# reporting its own finding, which is the exact shape this repo keeps getting caught by. A reader
+# skimming for "survived=0" would have taken an anchor check for a passing mutation gate.
+if [[ "${MUTATE_DRY_RUN:-0}" == "1" ]]; then
+    printf 'GATE-SUMMARY name=%s mode=dry-run anchors=%d mutations=0 killed=0 survived=0 build_failures=0\n' \
+           "$GATE_NAME" "$MUTATIONS"
+    echo "dry run: $MUTATIONS anchors each matched exactly once."
+    echo "NOTHING was mutated, built or executed -- this is not a mutation result."
+    exit 0
+fi
+
+printf 'GATE-SUMMARY name=%s mode=run mutations=%d killed=%d survived=%d build_failures=%d\n' \
+       "$GATE_NAME" "$MUTATIONS" "$((MUTATIONS - SURVIVORS - BROKEN))" "$SURVIVORS" "$BROKEN"
 echo "survivors=$SURVIVORS build-failures=$BROKEN"
 [[ "$SURVIVORS" -eq 0 && "$BROKEN" -eq 0 ]]
