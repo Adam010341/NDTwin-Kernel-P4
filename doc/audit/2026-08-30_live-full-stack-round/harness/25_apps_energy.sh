@@ -224,6 +224,13 @@ sed 's/^/      /' "$OUT/energy_watch.tsv"
 info "watch window: requested ${WATCH_S}s, ACHIEVED ${WATCH_ACTUAL}s over $WATCH_N samples (mean interval $(( WATCH_ACTUAL / (WATCH_N > 1 ? WATCH_N - 1 : 1) ))s)"
 info "that is $(( WATCH_ACTUAL / 60 )) full 60 s app cycles, which is the number to quote -- not ${WATCH_S}s."
 printf '%s\n' "$WATCH_ACTUAL" > "$OUT/energy_watch_actual_seconds.txt"
+# [Co-developed with claude code -- Adam]
+# ASSERTED, not merely reported. The two info() lines above are the state this phase was left in by
+# the first T-10 pass: both numbers printed, neither compared, and info() counts no check and
+# writes no verdict -- so a window that drifted said so in the scrollback and the run proceeded.
+# On 08-30 that produced "in 240s" over a span of 474 s. This is the gate; the lines above are the
+# detail. See lib.sh assert_window_span for why the two directions are not symmetric.
+assert_window_span energy_watch "$WATCH_S" "$WATCH_ACTUAL"
 
 # -------------------------------------------------------------------------------------------------
 say "AFTER -- and the assertion that the injection actually landed"

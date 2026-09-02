@@ -1517,10 +1517,10 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 | # | 缺陷 | 現況 |
 |---|---|---|
 | **01** | 🔴 **`ndt` 的「model matches fabric」比的是模型和模型，從來不讀 fabric** —— `$hosts` 來自 kernel graph、`$want_hosts` 來自餵給 kernel 的拓撲 JSON，**兩邊同源**。實測它在一座 **128 host** 的 fabric 上印出 `ok model matches fabric: 4 hosts` | 🟢 **已修**（`eae75da`，工單 T-8）。現在第三個量來自 fabric：`fabric_host_count()` 從 `ps` 數 host namespace（`tools/test_workflow/ndt:747-758`）。🔑 **「讀不到」判紅不判綠**——`fabric_host_count` 回 0 代表**讀數失敗**，而舊碼等於對每個值都走那一支 |
-| **02** | R-3 收斂表四個數字有三個量的是 **harness 自己的時間**；`port_holder` 看不到 root 擁有的 listener | 已開工單 **T-9／T-10** |
+| **02** | R-3 收斂表四個數字有三個量的是 **harness 自己的時間**；`port_holder` 看不到 root 擁有的 listener | 🟢 **已修**（`cd440488`，工單 T-9／T-10；**09-02 複驗**）。Defect A：三個 `T0 + i` 換成配對當下的 `date +%s`，並新增 per-app `t_start`，表頭多一欄 `own`（`20_apps_lifecycle.sh:151, 261, 315, 341-346`）。Defect B：`port_holder` 改**三態**，`LISTENER-OWNER-HIDDEN` 與「沒人在聽」分開，`assert_port_is` 對它判 **N/A 不判 pass**（`lib.sh:412-451`），12 個呼叫端已逐一複驗。🔴 **但 `since_T0` 那一欄永遠量的是 harness 的排程**——這支 harness **序列**啟動 app，PREREG §3 登記的「from `ndt up` to all apps serving」**這個設計答不了**，只答得了 break condition。⚠️ 修法原本**沒有留下任何回歸測試**（驗收跑在拋棄式 worktree）⇒ 09-02 補 `tests/shell/test_harness_instruments.sh`＋`mutate_harness_instruments.sh`（12 突變全殺） |
 | **03** | **唯一一條關於系統的**：kernel 把**排隊未編程**的請求當流表列服務出去，**兩個 fabric 都是**；08-18 之所以沒看到，是因為它的取樣格**第一格就在 t=2** | 見 **B-1**；工單 **T-11**（修法待裁） |
 | **04** | **兩條還原路徑都不還原**；`--rebuild` 把 fabric 拆掉就停住 | 已開工單 **T-10**；危險路徑已加勿執行註解 |
-| **05** | 一個註冊為 240 秒的窗口實際跑了 **474 秒**；一面**永遠亮著**的 banner | 已開工單 **T-10** |
+| **05** | 一個註冊為 240 秒的窗口實際跑了 **474 秒**；一面**永遠亮著**的 banner | 🟢 **已修**（banner＋迴圈＝`cd440488`；比較＝09-02）。banner 已 gate 在腳本自己算出的 `POWERED_OFF` 上，`else` 分支明講「**不要**跑 `90_restore.sh`」（`25_apps_energy.sh:311-320`）。watch 迴圈改 **deadline 驅動**，危險方向（安靜縮短）已封死。🔴 **09-02 找到剩下的一半**：`WATCH_S` 與 `WATCH_ACTUAL` **只被 `info` 印出、從來沒有被比較過**，而 `info()` 不計 check、不計 fail、不寫 verdict ⇒ 窗口漂移照樣 `exit 0`，且 `WATCH_S` **從未進過任何 artefact**。已補 `assert_window_span`（`lib.sh`）：印 `registered=240 actual=474 overrun=234` **並判紅**，一律寫 `energy_watch_span.tsv`；**underrun 零容忍**（deadline 迴圈不可能提早結束⇒短了就是回歸），overrun 容忍 30 s（一個 sleep＋一次 query 的結構上界）。🔑 **用迭代次數冒充時間在這個 harness 裡已是第三例**（本窗口＋FINDING-02 的 viz 與 te）：那是房子的風格，不是手滑，所以要 gate 不是註解 |
 
 🔴 **引用這一輪任何數字之前先讀兩件事**：
 ① **那一輪的網路沒有流量**（R-2 的 1800 個取樣裡 `flows` 全部是 `[]`），

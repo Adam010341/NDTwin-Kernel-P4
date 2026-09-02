@@ -451,6 +451,86 @@ assert_port_is() {
 }
 
 # =================================================================================================
+# MEASUREMENT WINDOWS
+# =================================================================================================
+#
+# assert_window_span <label> <registered_s> <actual_s> [<overrun_tol_s>]
+#
+# A window that was registered as N seconds and then ran for some other number of seconds must SAY
+# SO, as a verdict, in the run's own output and in its artefacts.
+#
+# [Co-developed with claude code -- Adam]
+# WHY THIS EXISTS (T-10, FINDING-05). 25_apps_energy.sh registered a 240 s watch window and ran
+# 474 s of it, and reported the run as "in 240s". The loop counted ITERATIONS -- `seq 0
+# $((WATCH_S/10))` with a `sleep 10` inside -- while each graph query cost ~10 s on OVS and ~0 s on
+# P4, and the query time was not counted, so the window was whatever the fabric's response time
+# made it.
+#
+# 🔑 That loop is now deadline-driven, which closes the mechanism. This function closes the other
+# half, which the fix left open: THE TWO NUMBERS WERE STILL NEVER COMPARED. They were printed with
+# info(), and info() counts no check, counts no failure and writes no verdict -- so a run whose
+# window drifted printed both numbers and proceeded, and nothing in raw/ afterwards recorded the
+# registered value at all. A self-measurement that can only print cannot hold a loop honest, and
+# an iteration count standing in for a time has now appeared THREE times in this harness (this
+# window, and FINDING-02 Defect A's viz and te). It is a house style, not a slip, and a style needs
+# a gate rather than a comment.
+#
+# The two directions are NOT symmetric, and the asymmetry is the design:
+#
+#   UNDERRUN (actual < registered) -- RED with no tolerance at all. A deadline-driven loop cannot
+#       end before its deadline, so any shortfall means the loop has stopped being deadline-driven.
+#       And it is the direction that destroys the conclusion: 240 s was chosen as four of the
+#       Energy-App's 60 s cycles precisely so that "nothing happened" would be a statement about
+#       the app rather than about our patience. Short of that, it is a statement about our patience.
+#
+#   OVERRUN (actual > registered + tol) -- RED past a tolerance. A longer window makes the
+#       "nothing happened" conclusion STRONGER, so this is not a threat to the finding; what it
+#       breaks is the report, because "in 240s" was false. The structural overrun of a deadline
+#       loop is bounded by one sleep plus one sample (~20 s on the OVS arm), so the default 30 s
+#       admits that and nothing else. 08-30's real numbers -- 240 registered, 474 achieved -- land
+#       234 s past it and go red, which is what should have happened at the time.
+#
+# The artefact is written on EVERY path, red or green. Before this, only the achieved value reached
+# disk (energy_watch_actual_seconds.txt); the registered value reached no file, so a later reader
+# could not tell from raw/ whether the window had been honoured. Reconstructing that took reading
+# the script.
+assert_window_span() {
+    local label="$1" registered="$2" actual="$3" tol="${4:-${WINDOW_OVERRUN_TOL_S:-30}}"
+    local delta verdict v
+
+    # A non-integer here means the caller's own arithmetic is broken, and a window whose length we
+    # cannot state is not a window. There is no branch that continues past it.
+    for v in "$registered" "$actual" "$tol"; do
+        [[ "$v" =~ ^[0-9]+$ ]] || die "assert_window_span $label: '$v' is not a whole number of seconds. A window whose length cannot be stated cannot be reported as one."
+    done
+
+    delta=$(( actual - registered ))
+    if   (( delta < 0 ));    then verdict=UNDERRUN
+    elif (( delta > tol ));  then verdict=OVERRUN
+    else                          verdict=OK
+    fi
+
+    mkdir -p "$OUT"
+    {
+        printf 'label\tregistered_s\tactual_s\toverrun_s\tverdict\ttolerance_s\tt\n'
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "$label" "$registered" "$actual" "$delta" "$verdict" "$tol" "$(_ts)"
+    } > "$OUT/${label}_span.tsv"
+
+    case "$verdict" in
+        OK)
+            ok "$label window honoured: registered=${registered}s actual=${actual}s overrun=${delta}s (tolerance ${tol}s)"
+            ;;
+        UNDERRUN)
+            bad "$label window UNDERRUN: registered=${registered}s actual=${actual}s overrun=${delta}s. A deadline-driven loop cannot finish early, so this one is no longer deadline-driven -- and a window shorter than the registered one makes 'nothing happened' a statement about our patience, which is the thing ${registered}s was chosen to rule out. Do not write up a null result from this window."
+            ;;
+        OVERRUN)
+            bad "$label window OVERRUN: registered=${registered}s actual=${actual}s overrun=${delta}s (tolerance ${tol}s). The finding is not weakened by a longer window, but the REPORT is wrong if it says ${registered}s -- quote ${actual}s. An overrun this far past one sample interval means the loop is not honouring its deadline; check that its per-iteration cost is being counted (FINDING-05)."
+            ;;
+    esac
+}
+
+# =================================================================================================
 # HTTP  (H-19)
 # =================================================================================================
 
