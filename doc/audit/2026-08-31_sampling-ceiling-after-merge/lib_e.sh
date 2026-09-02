@@ -916,6 +916,39 @@ swap_kernel() {   # $1 = 1khz | 1hz
 # does three things instead of printing: it ASSERTS each element landed, it drops a marker file
 # that a release must trip over, and it returns non-zero.
 # -------------------------------------------------------------------------------------------------
+# The sampling parameters the COMPILED artefact encodes.  bmv2 loads this JSON at exec and never
+# reloads it, so these two numbers -- not the .p4 -- are what describes the fabric a later round
+# will measure on.  p4c compiles `random(meta.sample_rand, (bit<16>)LO, SAMPLE_RATE - 1)` into a
+# single modify_field_rng_uniform primitive whose two hexstr parameters are LO and SAMPLE_RATE-1,
+# so both axes this project moves are readable from it and from nothing else:
+#   "0 255" = production, 1-in-256          (lo=0, hi=SAMPLE_RATE-1)
+#   "0 7"   = an E-round arm left at 1/8    (hi carries the rate)
+#   "1 255" = the 09-01/09-02 zero cells    (lo=1 ⇒ the draw can never be 0 ⇒ NOTHING is cloned,
+#                                            while every source-level and `ndt status` reading of
+#                                            the rate still says 1/256)
+# Prints "<lo> <hi>", or UNREADABLE if the primitive is not where p4c puts it -- which must be
+# treated as a failure, never as a pass: an assertion that cannot read its subject has not
+# checked it.  Same decode as tools/test_workflow/ndt's sample_rate().
+compiled_rng() {
+    "$PY_PROXY" - "$P4BUILD/ndtwin_switch.json" <<'PY' 2>/dev/null || echo UNREADABLE
+import json, sys
+def walk(o):
+    if isinstance(o, dict):
+        if o.get("op") == "modify_field_rng_uniform":
+            return [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
+        for v in o.values():
+            r = walk(v)
+            if r: return r
+    elif isinstance(o, list):
+        for v in o:
+            r = walk(v)
+            if r: return r
+    return None
+b = walk(json.load(open(sys.argv[1])))
+print("%d %d" % (int(b[0], 16), int(b[1], 16)) if b and len(b) == 2 else "UNREADABLE")
+PY
+}
+
 assert_restore_landed() {
     local fail=0 f="$OUT/RESTORE-FAILED"
     # Each element is checked against the artefact that will actually be READ next time, not
@@ -925,14 +958,32 @@ assert_restore_landed() {
             dry_note "forcing restore verification to FAIL"
             fail=1
         else
-            dry_note "would assert: SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in source AND in the"
-            dry_note "  compiled JSON; kernel sha256 == the production backup's; no RESTORE-FAILED marker"
+            dry_note "would assert: SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in source; truncate op"
+            dry_note "  AND rng bounds 0..255 in the compiled JSON; kernel sha256 == the production"
+            dry_note "  backup's; the kernel copy reported success; no RESTORE-FAILED marker"
         fi
     else
         grep -q '^const bit<16> SAMPLE_RATE = 256;' "$P4SRC" || { say "🔴 restore: SAMPLE_RATE is not 256"; fail=1; }
         grep -q '^const bit<32> SAMPLE_TRUNC_BYTES = 128;' "$P4SRC" || { say "🔴 restore: truncate is not 128"; fail=1; }
         grep -q '"op" *: *"truncate"' "$P4BUILD/ndtwin_switch.json" 2>/dev/null \
             || { say "🔴 restore: the compiled JSON has no truncate op"; fail=1; }
+        # 🔴 The truncate op above is present in EVERY build -- at every rate and with sampling
+        # switched off -- so on its own it is a check with no discriminating power over the one
+        # axis this round actually moves.  It stayed green through every arm.  The rng bounds are
+        # the axis: assert BOTH, because hi alone cannot see lo=1 ("samples nothing") and lo alone
+        # cannot see a rate left at 1/8.
+        local rng; rng="$(compiled_rng)"
+        if [[ "$rng" != "0 255" ]]; then
+            say "🔴 restore: the compiled JSON's rng bounds are '$rng', production is '0 255'"
+            say "🔴          hi != 255 ⇒ the fabric is still compiled at 1/\$((hi+1)), not 1/256"
+            say "🔴          lo != 0   ⇒ the clone predicate can never fire: it samples NOTHING"
+            fail=1
+        fi
+        # A copy that failed and said nothing is the defect this function exists for; the sha
+        # comparison below cannot see it when $KBIN_BACKUP is absent.
+        if [[ "${_RESTORE_KERNEL_CP_FAILED:-0}" == 1 ]]; then
+            say "🔴 restore: the production-kernel copy reported failure (see above)"; fail=1
+        fi
         if [[ -f "$KBIN_BACKUP" ]]; then
             local a b; a=$(sha256sum "$KBIN_BACKUP" | cut -d' ' -f1); b=$(sha256sum "$KBIN" | cut -d' ' -f1)
             [[ "$a" == "$b" ]] || { say "🔴 restore: kernel is $b, production backup is $a"; fail=1; }
@@ -955,11 +1006,28 @@ assert_restore_landed() {
 
 restore_production() {
     say "--- restoring production config (1/256, truncate 128, batch unset, production kernel) ---"
-    if [[ -f "$KBIN_BACKUP" ]]; then
-        RUN cp -f "$KBIN_BACKUP" "$KBIN"
-        say "    kernel restored: $(RUN sha256sum "$KBIN" 2>/dev/null | cut -d' ' -f1)"
-    fi
+    _RESTORE_KERNEL_CP_FAILED=0
+    # 🔴 THE STACK GOES DOWN FIRST, and the old order was correct only by accident.  `cp` onto a
+    # file a live process is executing fails with ETXTBSY; `cp -f` then papers over that by
+    # UNLINKING the destination and creating a new file, so the path on disk becomes right while
+    # the running kernel keeps executing the ARM binary from the unlinked inode -- and the sha
+    # printed on the next line measures the file, not the process.  What made the old order come
+    # out right was `teardown` on the line below killing that process anyway.  An abort path must
+    # not rest on an accident, and run_ab.sh (a plain `cp`, ETXTBSY honestly reported) is how this
+    # was found.  Same order as run_ab.sh restore_all(): stack down, then touch the binary.
     teardown
+    if [[ -f "$KBIN_BACKUP" ]]; then
+        # And READ THE RC.  `RUN` is `"$@"`, so it returns the command's status and the `if` is
+        # what turns it into a check; the old call site had no `||` at all.  Do not return here:
+        # the P4 side still has to be restored, and assert_restore_landed is the one place that
+        # reports the whole picture and drops the marker file.
+        if RUN cp -f "$KBIN_BACKUP" "$KBIN"; then
+            say "    kernel restored: $(RUN sha256sum "$KBIN" 2>/dev/null | cut -d' ' -f1)"
+        else
+            _RESTORE_KERNEL_CP_FAILED=1
+            say "🔴 restore: cp of the production kernel FAILED -- $KBIN is NOT the production binary"
+        fi
+    fi
     compile_at 256 || { assert_restore_landed; return 1; }
     assert_restore_landed || return 1
     return 0
