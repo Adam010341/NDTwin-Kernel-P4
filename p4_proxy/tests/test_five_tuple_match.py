@@ -229,6 +229,12 @@ def manager_with(client):
     mgr.net = types.SimpleNamespace(nodes={})
     mgr._installed_routes = {}
     mgr._net_lock = threading.RLock()
+    # Empty rather than absent. `__init__` always sets it, so a double without it is narrower
+    # than the object it stands in for, and unroute_flow's A-4d restore reads it -- which turned
+    # a correct production change into a failure here. Empty is also the right value for this
+    # file: no control-plane route means a delete stays a delete, which is what these tests
+    # assert. [Co-developed with claude code -- Adam]
+    mgr.dest_paths = {}
     return mgr
 
 
