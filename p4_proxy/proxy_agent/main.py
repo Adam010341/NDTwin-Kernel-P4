@@ -89,7 +89,19 @@ MASTERSHIP_SETTLE_S = 1.0
 #: deriving them from the topology JSON is Phase 3 work. Named constants so a test can drive
 #: `startup` over two fake switches without pretending there are ten.
 DEFAULT_SWITCH_DPIDS = tuple(range(1, 11))
-DEFAULT_GRPC_PORT_BASE = 50050
+
+# [Co-developed with claude code -- Adam]
+# Imported, not written again. This was `DEFAULT_GRPC_PORT_BASE = 50050`, a second copy of the
+# number p4_testbed_topo.py assigns from -- the fabric picks the ports and this file dials
+# them, and nothing tied the two together. F-15 had to change that number (50051-50060 sat
+# inside the kernel's ephemeral range, so switches randomly failed to bind); had the copies
+# stayed, changing one of them would have left the proxy dialling ports no switch listens on,
+# which presents as "the whole fabric is down" rather than as an edit that was half applied.
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
+from grpc_ports import GRPC_PORT_BASE  # noqa: E402
+
+DEFAULT_GRPC_PORT_BASE = GRPC_PORT_BASE
 
 
 def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE):

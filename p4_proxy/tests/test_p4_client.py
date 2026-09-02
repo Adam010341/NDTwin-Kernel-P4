@@ -56,8 +56,17 @@ except ImportError:
     P4RuntimeClient = None
     HAVE_P4RUNTIME = False
 
+sys.path.append(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
+from grpc_ports import grpc_port  # noqa: E402
+
 GRPC_HOST = "localhost"
-GRPC_PORT = 50051
+# [Co-developed with claude code -- Adam]
+# Taken from the fabric's own port module rather than written as 50051. This suite gates
+# itself on `something_is_listening(GRPC_PORT)`, so a stale number here does not fail -- it
+# SKIPS, and a skipped test reports as a passing one. When F-15 moved the block off the
+# ephemeral range, a literal here would have quietly stopped exercising bmv2 altogether.
+GRPC_PORT = grpc_port(1)
 PROXY_PORT = 8081
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 P4INFO = os.path.join(BASE_DIR, "p4_src", "build", "ndtwin_switch.p4info.txt")
