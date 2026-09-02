@@ -81,7 +81,7 @@ check "case 1  getTopKFlowInfoJson does not lock $MUTEX" 0 \
 # 2. And it still delegates, so check 1 is not passing because the call was inlined -- an inlined
 #    copy of the loop would need its own lock and this guard would then be silent about it.
 check "case 2  getTopKFlowInfoJson still calls getFlowInfoJson()" 1 \
-      "$(grep -cE 'getFlowInfoJson\(\)' <<<"$topk")"
+      "$(grep -cE 'getFlowInfoJson\(' <<<"$topk")"
 
 # 3. The control: the lock still exists on the inner function. See the header -- without this,
 #    "nobody locks anything" satisfies cases 1 and 2.
