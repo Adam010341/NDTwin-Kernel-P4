@@ -101,7 +101,29 @@
 | 62 | **`src_interface` 0 與 999999 完全不做範圍檢查**，被 `get_graph_data` 原樣公布，並經 `FlowLinkUsageCollector.cpp:3017` 流進 flow path。 | 無效值一路流到量測 | round5 |
 | 63 | **`--logfile` 文件寫得像吃路徑，實際是 boolean**（`Logger.cpp:31`）：路徑被吞掉、指定的檔 0 bytes、stderr 無話。 | 使用者以為自己在收 log，其實沒有 | round5 |
 
+### Round 6（歷史 bug 形狀的未檢驗實例）——十個候選全數判定
+
+| # | 缺陷 | 為什麼嚴重 | 證據 |
+|---|---|---|---|
+| 64 | 🔴 **拓樸輪次的「完整性」檢查只測 body 非空，從不看 HTTP status**（`TopologyAndFlowMonitor.cpp:588-590` 只有 `!body.empty()`）。switches／hosts／links 任一回 **500**、回**非陣列 JSON**、或回**純文字**，全都算「答了」⇒ 該輪被記為 Complete，**log 一行都沒有、API 一欄都沒有**。空 body 那組會紅。**這正是 round 1 的 X-1 造不出來的「半答案」情境。** 修法規格現成：**同一顆 binary 的 flow-table 抓取路徑有分辨**（`reported_failure`／`unparseable`）。 | 一個宣稱「這輪拓樸是完整的」的判斷，實際上只知道對方有回話 | round6 `N1`，含變異閘 2→3 |
+| 65 | **三種「讀不到交換機」有三種行為，只有兩種被標記**：HTTP 500 → `reported_failure`、非 JSON → `unparseable`（兩者都保留上次快照並說明）；但**格式正確、型別錯誤**的 body（`{"dpid":3,"flows":{"3":{"unexpected":"object"}}}`）**被原樣轉發且完全沒有標記**。 | 第三種失敗偽裝成成功 | round6 `N2`，2/2 重現 |
+| 66 | **交換機死掉後，flow table 照舊供應 10–12 秒且無任何 stale 標記**，要到第一次失敗輪詢之後才出現。 | 一個十秒的窗口，過期資料看起來是新鮮的 | round6 `N3` |
+| 67 | **power cycle 會弄丟操作者裝的規則且不還原**，而 `get_flow_dispatch_status` 仍把它們記為 succeeded。 | 規則消失，而計數器說它們還在 | round6 `N4` |
+| 68 | **兩個 elephant flag 是唯寫的**：1 個宣告、6 個賦值、**全樹 0 個讀取**，也不在端點的 15 個 key 裡。 | 見下方對我自己的更正 | round6 `N5` |
+
 ## 驗證結果（不是缺陷，但今晚第一次問得出來）
+
+- **Round 6 關掉六道門**（推翻與確認同等有價值）：`:2020-2027` 的 Immediately 路徑**兩道保護都在**、
+  實測 1.5 秒內歸零（rank 1）；per-switch epoch 正確、15 秒內復原（rank 2）；10 秒 worker 會自我修正，
+  而 readopt 對活著的交換機根本回 502 mastership（rank 3）；group/meter 的 P4 臂六個端點全回 501
+  `unsupported_on_p4`，**與 round 1 的 D5 是不同的東西**（rank 5、6）；`get_power_report` 的值是
+  `splitmix64(dpid)`，屬於已知的 #39／#33，**不是 cache bug**（rank 7）。
+- **rank 4 在 P4 上結構性到不了**：本輪自證 1929 行 proxy log 裡 `GET /p4/switch_state` **0 次**
+  （對照：topology 輪詢 108 次）、liveness warning 0 條 ⇒ **獨立佐證了 #32 那個啟動競態**。
+- **未 settled（刻意放掉）**：rank 6 與 rank 4 的 **OVS 臂**，兩者都需要 ovs4，約 20 分鐘，
+  會來不及在期限前完成乾淨驗證。實驗設計已寫在 round6 `14_SUMMARY.log` D 節，可直接接手。
+- **留下一支可控南向替身** `fake_southbound.py`（照 `ryu_topology.py` 的形狀），可單獨劣化任一端點或任一 dpid
+  ——**活的 fabric 做不到這件事**；#64／#65 之後要重現直接用它，不必起 fabric。
 
 - **跨趟的速率散佈已解釋，不是狀態外洩**：線材真值三趟**完全一致**（249,998,000 B／178,570 封包／0% 遺失），
   而 twin 的單流速率 14.77–27.56 Mbit/s（−26%…+38%）。回報的封包率就是 **(k×256)/window**，
