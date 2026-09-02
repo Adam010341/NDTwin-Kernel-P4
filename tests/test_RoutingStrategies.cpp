@@ -17,6 +17,7 @@
 #include "ndt_core/routing_management/P4RoutingStrategy.hpp"
 #include "utils/Logger.hpp"
 
+#include <algorithm>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -28,6 +29,14 @@ namespace
 
 /// Records the commands a strategy builds and returns a canned reply, so the request shape
 /// and the response handling can both be asserted without a controller.
+///
+/// [Co-developed with claude code -- Adam]
+/// The seam is now executeArgv(), because post() no longer builds a shell command line
+/// (doc/KNOWN-ISSUES.md B-2b). `commands` keeps holding a flat string so the existing request-shape
+/// assertions read the same, but note what that string now is: a *rendering* of the argument
+/// vector, not a command line. `argvs` holds the real thing, and the injection tests below assert
+/// on that -- because the whole property being pinned is that arguments stay separate, and a joined
+/// string is exactly the representation that loses it.
 template <typename Strategy>
 class RecordingStrategy : public Strategy
 {
@@ -38,10 +47,18 @@ class RecordingStrategy : public Strategy
     }
 
     std::vector<std::string> commands;
+    std::vector<std::vector<std::string>> argvs;
 
-    /// What executeCommand returns. curl is invoked with -w '\n%{http_code}', so the reply
+    /// What executeArgv returns as stdout. curl is invoked with -w '\n%{http_code}', so the reply
     /// is the body followed by a newline and the status; "000" means nothing answered.
     std::string cannedReply = "\n200";
+
+    /// Whether curl is pretended to have run at all. False stands for fork failing or curl being
+    /// absent -- the cases where the request never left the host and no component may be blamed.
+    bool cannedRan = true;
+
+    /// Wait status reported alongside cannedRan. 127 << 8 is "command not found".
+    int cannedStatus = 0;
 
     const std::string& lastCommand() const
     {
@@ -49,11 +66,20 @@ class RecordingStrategy : public Strategy
         return commands.empty() ? empty : commands.back();
     }
 
-  protected:
-    std::string executeCommand(const std::string& cmd) override
+    const std::vector<std::string>& lastArgv() const
     {
-        commands.push_back(cmd);
-        return cannedReply;
+        static const std::vector<std::string> empty;
+        return argvs.empty() ? empty : argvs.back();
+    }
+
+  protected:
+    utils::CommandOutcome executeArgv(const std::vector<std::string>& argv) override
+    {
+        argvs.push_back(argv);
+        commands.push_back(utils::describeArgv(argv));
+        return utils::CommandOutcome{cannedRan ? cannedReply : std::string(),
+                                     cannedRan,
+                                     cannedStatus};
     }
 };
 
@@ -298,12 +324,103 @@ TEST_F(RoutingStrategyFixture, AcceptsASuccessBodyAndANonJsonBody)
 TEST_F(RoutingStrategyFixture, HandlesOutputWithNoStatusLine)
 {
     // If curl itself fails to run there is no trailing status at all.
+    //
+    // [Co-developed with claude code -- Adam]
+    // This test used to end `EXPECT_TRUE(r.noResponse())`, and that expectation *was* the defect
+    // in doc/KNOWN-ISSUES.md B-2b, written down and pinned: "curl never ran" was being recorded as
+    // "the controller did not respond". Kept as a reminder that a test can hold a bug in place
+    // while looking like coverage -- the assertion is now the opposite one.
     RecordingOpenFlow s("localhost:8080");
     s.cannedReply = "";
 
     const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
     EXPECT_FALSE(r.ok);
-    EXPECT_TRUE(r.noResponse());
+    EXPECT_FALSE(r.noResponse())
+        << "no status line means curl did not run, which is not the controller failing to answer";
+    EXPECT_EQ(r.httpStatus, 500) << "the fault is local, so it must not map to 502 Bad Gateway";
+}
+
+// =====================================================================================
+// doc/KNOWN-ISSUES.md B-2b: a single quote must not break the request, and must not make
+// the kernel accuse a component it never contacted.
+//
+// [Co-developed with claude code -- Adam]
+// Round 4 measured that a quote in a match value and a genuinely dead controller produced the
+// byte-identical verdict `no response from <component> at <url> within 5s`. Two properties have to
+// hold for that to be over: the quote must be transported rather than interpreted, and the two
+// causes must produce different verdicts. One test each.
+// =====================================================================================
+
+TEST_F(RoutingStrategyFixture, AQuoteInAMatchValueIsSentAsDataAndDoesNotBreakTheRequest)
+{
+    // The body is one argv element, so a quote -- or a whole shell command -- is just bytes in it.
+    // This is the assertion that would have failed before the argv migration: the old code built
+    // `-d '<body>'` for /bin/sh, where this value ends the quoting on its first character.
+    RecordingOpenFlow s("localhost:8080");
+    json match = sampleMatch();
+    match["eth_dst"] = R"(aa'; touch /tmp/pwned; echo ')";
+
+    const OpResult r = s.installAnEntry(1, 1, match, sampleActions(), 0);
+
+    EXPECT_TRUE(r.ok) << "a quote in a match value is data, not a transport failure: " << r.message;
+
+    // The payload travels in exactly one argument, immediately after -d. If it were ever split
+    // across arguments, or a shell were reintroduced, that argument would stop being the body.
+    const std::vector<std::string>& argv = s.lastArgv();
+    const auto dashD = std::find(argv.begin(), argv.end(), "-d");
+    ASSERT_NE(dashD, argv.end()) << "the request must still carry a body";
+    ASSERT_NE(dashD + 1, argv.end()) << "-d must be followed by the body";
+    const std::string& sentBody = *(dashD + 1);
+
+    EXPECT_NE(sentBody.find(R"(aa'; touch /tmp/pwned; echo ')"), std::string::npos)
+        << "the value must arrive intact, neither escaped nor stripped: " << sentBody;
+    EXPECT_EQ(json::parse(sentBody)["match"]["eth_dst"].get<std::string>(),
+              R"(aa'; touch /tmp/pwned; echo ')")
+        << "round-trips as JSON, so the controller sees what the caller sent";
+
+    // No element may be a shell invocation. This is the property, not the quoting.
+    for (const std::string& arg : argv)
+    {
+        EXPECT_EQ(arg.find("sh -c"), std::string::npos) << "a shell is back in the path: " << arg;
+    }
+    EXPECT_EQ(argv.front(), "curl") << "argv[0] must be the program, not a shell";
+}
+
+TEST_F(RoutingStrategyFixture, ARequestThatNeverRanDoesNotAccuseTheController)
+{
+    // The honesty half. curl absent / fork failed: the controller was never contacted, so naming
+    // it is a false accusation, and round 4 showed the message was indistinguishable from a real
+    // outage. The two verdicts are compared against each other here rather than matched against
+    // fixed strings, because "they differ" is the property that was broken.
+    RecordingOpenFlow neverRan("localhost:8080");
+    neverRan.cannedRan = false;
+    neverRan.cannedStatus = 127 << 8;
+
+    RecordingOpenFlow deadController("localhost:8080");
+    deadController.cannedReply = "\n000";
+
+    const OpResult notSent = neverRan.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+    const OpResult unreachable =
+        deadController.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    ASSERT_FALSE(notSent.ok);
+    ASSERT_FALSE(unreachable.ok);
+
+    EXPECT_NE(notSent.message, unreachable.message)
+        << "the whole defect is that these two were the same sentence";
+    EXPECT_NE(notSent.httpStatus, unreachable.httpStatus)
+        << "and that a program could not tell them apart either";
+
+    EXPECT_EQ(notSent.message.find("no response from"), std::string::npos)
+        << "must not report an absent response from a component that was never asked: "
+        << notSent.message;
+    EXPECT_NE(notSent.message.find("curl"), std::string::npos)
+        << "must name the local cause so an operator looks at this host: " << notSent.message;
+    EXPECT_EQ(notSent.httpStatus, 500) << "our fault, not the gateway's";
+
+    EXPECT_NE(unreachable.message.find("no response from"), std::string::npos)
+        << unreachable.message;
+    EXPECT_EQ(unreachable.httpStatus, 0) << "a real outage is still a 0/502";
 }
 
 // =====================================================================================

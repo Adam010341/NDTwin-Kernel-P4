@@ -13,16 +13,31 @@ using json = nlohmann::json;
 namespace
 {
 
-/// Splits curl's output into (body, httpStatus). The status is the trailing line produced
-/// by -w '\n%{http_code}'; curl reports 000 there when it could not connect at all.
-std::pair<std::string, int>
+/// What curl's stdout told us.
+///
+/// [Co-developed with claude code -- Adam]
+/// `statusLinePresent` is new, and it is the fix for doc/KNOWN-ISSUES.md B-2b's misattribution.
+/// The old version returned `{output, 0}` for two situations that mean opposite things:
+///   - curl ran, could not connect, and wrote `000` -- the component really is unreachable;
+///   - curl produced nothing at all -- it never ran, so nothing was ever asked of the component.
+/// Collapsing both to status 0 is what let a broken command line be reported as a dead controller.
+/// -w '\n%{http_code}' is written by curl on every completed invocation, connection failures
+/// included, so its absence is a reliable signal that curl itself did not run.
+struct CurlOutput
+{
+    std::string body;
+    int httpStatus = 0;
+    bool statusLinePresent = false;
+};
+
+CurlOutput
 splitBodyAndStatus(const std::string& output)
 {
     const auto lastNewline = output.find_last_of('\n');
     if (lastNewline == std::string::npos)
     {
         // No status line: curl itself failed to run, or produced nothing.
-        return {output, 0};
+        return {output, 0, false};
     }
 
     const std::string statusText = output.substr(lastNewline + 1);
@@ -36,9 +51,9 @@ splitBodyAndStatus(const std::string& output)
     catch (const std::exception&)
     {
         // Trailing line was not a number, so treat it as part of the body.
-        return {output, 0};
+        return {output, 0, false};
     }
-    return {body, status};
+    return {body, status, true};
 }
 
 /// Trims to a length that is useful in a log line without dumping a whole response.
@@ -64,32 +79,86 @@ briefly(const std::string& text, size_t limit = 200)
 
 } // namespace
 
-std::string
-HttpRoutingStrategyBase::executeCommand(const std::string& cmd)
+utils::CommandOutcome
+HttpRoutingStrategyBase::executeArgv(const std::vector<std::string>& argv)
 {
-    return utils::execCommand(cmd);
+    return utils::execArgv(argv);
 }
 
 OpResult
 HttpRoutingStrategyBase::post(const std::string& path, const json& body, const char* operation)
 {
-    std::ostringstream cmd;
-    // -w appends the status on its own line so both body and status come back through
-    // stdout; --max-time bounds a hung controller. Note this still interpolates the JSON
-    // into a shell command inside single quotes, which json::dump() does not escape --
-    // tracked as a separate hardening task, and the reason this construction now lives in
-    // exactly one place.
-    cmd << "curl -s -w '\\n%{http_code}' --max-time " << REQUEST_TIMEOUT_SECONDS
-        << " -X POST http://" << apiUrl() << path
-        << " -H \"Content-Type: application/json\" -d '" << body.dump() << "'";
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-2b. This was one std::ostringstream producing a shell command line,
+    // with body.dump() interpolated between two single quotes. json::dump() escapes what JSON
+    // needs escaped, and `'` is not a JSON metacharacter, so it went through untouched: a match
+    // value containing a quote ended the quoting and everything after it was read by /bin/sh as
+    // commands. Since the northbound API listens on 0.0.0.0:8000 with no authentication and match
+    // values come straight from it, that was remote command execution, not a formatting bug.
+    //
+    // An argument vector has no such reading. Each element is one argument to execvp, so a quote,
+    // a semicolon, a newline, `$(...)` and a backtick are all just bytes inside the body. Note
+    // this is not "escaping done right" -- there is no character table here to get wrong, which is
+    // the property that makes it a fix rather than a patch. -w still asks for the status on its
+    // own line; --max-time still bounds a hung controller.
+    //
+    // The one subtlety worth stating: "\\n%{http_code}" keeps its backslash-n. The shell used to
+    // strip the single quotes and hand curl a literal backslash followed by 'n', which curl itself
+    // turns into a newline. Passing an actual newline here instead would change curl's output
+    // shape and break splitBodyAndStatus.
+    const std::vector<std::string> argv = {"curl",
+                                           "-s",
+                                           "-w",
+                                           "\\n%{http_code}",
+                                           "--max-time",
+                                           std::to_string(REQUEST_TIMEOUT_SECONDS),
+                                           "-X",
+                                           "POST",
+                                           "http://" + apiUrl() + path,
+                                           "-H",
+                                           "Content-Type: application/json",
+                                           "-d",
+                                           body.dump()};
 
-    SPDLOG_LOGGER_DEBUG(Logger::instance(), "execCommand: {}", cmd.str());
+    SPDLOG_LOGGER_DEBUG(Logger::instance(), "execArgv: {}", utils::describeArgv(argv));
 
-    const std::string output = executeCommand(cmd.str());
-    const auto [responseBody, status] = splitBodyAndStatus(output);
+    const utils::CommandOutcome outcome = executeArgv(argv);
+    const CurlOutput curl = splitBodyAndStatus(outcome.output);
+
+    // [Co-developed with claude code -- Adam]
+    // The honesty half of B-2b, and the half that is not fixed by removing the shell. Whenever the
+    // request did not leave this host, the verdict must name this host. It used to name the
+    // component -- "no response from <component> at <url> within 5s" -- for causes the component
+    // had no part in, and round 4 measured that a genuinely dead controller produced that exact
+    // sentence, so the log could not tell the two apart. Naming the local cause is what makes the
+    // message actionable; the status code (500, not 502) is what makes it actionable to a program.
+    if (!outcome.ran)
+    {
+        auto result = OpResult::notSent(
+            std::string("this kernel could not run curl, so the ") + describe() + " at " +
+            apiUrl() + " was never asked: " + utils::describeCommandStatus(outcome.status));
+        SPDLOG_LOGGER_WARN(Logger::instance(), "{} failed: {}", operation, result.message);
+        return result;
+    }
+
+    if (!curl.statusLinePresent)
+    {
+        // curl writes the -w line on every completed invocation, connection failures included, so
+        // its absence means curl did not complete. Exit 127 is the common cause (not installed).
+        auto result = OpResult::notSent(
+            std::string("curl produced no status line, so the ") + describe() + " at " + apiUrl() +
+            " was never asked: " + utils::describeCommandStatus(outcome.status, "curl"));
+        SPDLOG_LOGGER_WARN(Logger::instance(), "{} failed: {}", operation, result.message);
+        return result;
+    }
+
+    const std::string& responseBody = curl.body;
+    const int status = curl.httpStatus;
 
     if (status == 0)
     {
+        // Now unambiguous: curl ran, reported %{http_code} == 000, and that means it really could
+        // not get an answer. This sentence has earned the right to name the component.
         auto result = OpResult::unreachable(
             std::string("no response from ") + describe() + " at " + apiUrl() +
             " within " + std::to_string(REQUEST_TIMEOUT_SECONDS) + "s");

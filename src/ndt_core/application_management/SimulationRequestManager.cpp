@@ -112,24 +112,108 @@ SimulationRequestManager::validateRequestBody(const std::string& body)
     return reason.str();
 }
 
-std::string
+namespace
+{
+
+/// Splits `-w '\n%{http_code}'` output into (body, status). Mirrors HttpRoutingStrategyBase's
+/// splitter; `present` false means curl wrote no status line, so curl itself did not complete.
+/// [Co-developed with claude code -- Adam]
+struct CurlOutput
+{
+    std::string body;
+    int httpStatus = 0;
+    bool statusLinePresent = false;
+};
+
+CurlOutput
+splitBodyAndStatus(const std::string& output)
+{
+    const auto lastNewline = output.find_last_of('\n');
+    if (lastNewline == std::string::npos)
+    {
+        return {output, 0, false};
+    }
+    try
+    {
+        return {output.substr(0, lastNewline), std::stoi(output.substr(lastNewline + 1)), true};
+    }
+    catch (const std::exception&)
+    {
+        return {output, 0, false};
+    }
+}
+
+} // namespace
+
+// [Co-developed with claude code -- Adam]
+SimulationRequestManager::Dispatch
 SimulationRequestManager::requestSimulation(const std::string& body)
 {
-    // NOTE: `body` is interpolated into a shell command line without escaping, and json::dump()
-    // does not escape single quotes. That is a known, deliberately-deferred issue shared by every
-    // southbound curl call in the kernel -- validateRequestBody() above checks *shape only* and
-    // must not be mistaken for a fix. Do not add sanitising here piecemeal; it needs to be done
-    // once, for all call sites, with a proper argv-based executor.
-    std::ostringstream cmd;
-    cmd << "curl -s -X POST \"" << SIM_SERVER_URL << "\" "
-        << "-H \"Content-Type: application/json\" " << "-d '" << body << "'";
+    // doc/KNOWN-ISSUES.md B-4. This was an std::ostringstream building a shell command line, with
+    // `body` between two single quotes and SIM_SERVER_URL between two double quotes, handed to
+    // popen(). Both were injection sites and they were not equally obvious: a single quote in the
+    // body ended its quoting, but the *double*-quoted URL needed no quote at all, because $(...)
+    // and backticks still substitute inside double quotes. Any fix that filtered `'` would have
+    // left the second one open -- which is the concrete reason KNOWN-ISSUES says not to add
+    // escaping call site by call site.
+    //
+    // As an argument vector there is nothing to filter: execvp receives the body as one argument.
+    //
+    // -w is new. Without it curl reports nothing about the far end, so this function could not
+    // have told its caller whether the simulator accepted the case even if the caller had asked --
+    // and HttpSession's unconditional 202 is what that gap looked like from outside.
+    const std::vector<std::string> argv = {"curl",
+                                           "-s",
+                                           "-w",
+                                           "\\n%{http_code}",
+                                           "--max-time",
+                                           std::to_string(REQUEST_TIMEOUT_SECONDS),
+                                           "-X",
+                                           "POST",
+                                           SIM_SERVER_URL,
+                                           "-H",
+                                           "Content-Type: application/json",
+                                           "-d",
+                                           body};
 
-    std::string resp = utils::execCommand(cmd.str());
+    const utils::CommandOutcome outcome = utils::execArgv(argv);
+    const CurlOutput curl = splitBodyAndStatus(outcome.output);
+
+    Dispatch dispatch;
+    if (!outcome.ran || !curl.statusLinePresent)
+    {
+        // Never left this host. The message names curl and this kernel, not the simulator: the
+        // simulator has no case to answer, and telling an operator otherwise is B-2b's defect.
+        dispatch.failureReason = "this kernel could not run curl, so " + SIM_SERVER_URL +
+                                 " was never asked: " +
+                                 utils::describeCommandStatus(outcome.status, "curl");
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "Simulation request not sent: {}",
+                            dispatch.failureReason);
+        return dispatch;
+    }
+
+    dispatch.sent = true;
+    dispatch.httpStatus = curl.httpStatus;
+    dispatch.response = curl.body;
+
+    if (curl.httpStatus == 0)
+    {
+        dispatch.failureReason = "no response from the simulator server at " + SIM_SERVER_URL +
+                                 " within " + std::to_string(REQUEST_TIMEOUT_SECONDS) + "s";
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Simulation request unanswered: {}",
+                           dispatch.failureReason);
+        return dispatch;
+    }
+
+    dispatch.answered = true;
     SPDLOG_LOGGER_INFO(Logger::instance(),
-                       "Requested simulation on {} - response: {}",
+                       "Requested simulation on {} - HTTP {} - response: {}",
                        SIM_SERVER_URL,
-                       resp);
-    return resp;
+                       curl.httpStatus,
+                       curl.body);
+    return dispatch;
 }
 
 void
@@ -146,11 +230,68 @@ SimulationRequestManager::onSimulationResult(int appId,
         }
         const std::string& apiUrl = apiUrlOpt.value();
 
-        std::ostringstream cmd;
-        cmd << "curl -s -X POST \"" << apiUrl << "\" " << "-H \"Content-Type: application/json\" "
-            << "-d '" << body << "'";
+        // [Co-developed with claude code -- Adam]
+        // doc/KNOWN-ISSUES.md B-4's second site, and the more dangerous of the two: `apiUrl` is
+        // whatever string an application supplied as `simulation_completed_url` when it called
+        // POST /ndt/app_register, and it was interpolated into a *double*-quoted shell word. A
+        // registered URL of the form `http://x/$(command)` therefore ran a command here without
+        // containing a single quote anywhere -- so the entry's framing as "the single-quote bug"
+        // understated it, and a filter written from that framing would not have caught this.
+        //
+        // As an argument vector both the URL and the body are transported, not interpreted.
+        const std::vector<std::string> argv = {"curl",
+                                               "-s",
+                                               "-w",
+                                               "\\n%{http_code}",
+                                               "--max-time",
+                                               std::to_string(REQUEST_TIMEOUT_SECONDS),
+                                               "-X",
+                                               "POST",
+                                               apiUrl,
+                                               "-H",
+                                               "Content-Type: application/json",
+                                               "-d",
+                                               body};
 
-        std::string result = utils::execCommand(cmd.str());
-        SPDLOG_LOGGER_INFO(Logger::instance(), "Forwarded simulation result, response: {}", result);
+        const utils::CommandOutcome outcome = utils::execArgv(argv);
+        const CurlOutput curl = splitBodyAndStatus(outcome.output);
+
+        // [Co-developed with claude code -- Adam]
+        // This thread is detached and HttpSession::handleSimulationCompleted has already answered
+        // 200 {"status":"result forwarded"} by the time it runs, so there is no caller left to
+        // tell. What can still be fixed is the log: it used to print `response: ` with an empty
+        // value for every one of "the app's callback returned nothing", "the app's callback is
+        // down" and "the command never ran", which is the same three-into-one collapse B-2b is
+        // about. The 200 remains premature by construction -- closing that needs a job id the
+        // caller can query, which is a design change and not this one.
+        if (!outcome.ran || !curl.statusLinePresent)
+        {
+            SPDLOG_LOGGER_ERROR(Logger::instance(),
+                                "Simulation result for app {} was NOT forwarded: this kernel "
+                                "could not run curl ({}). The application has not been told its "
+                                "simulation finished.",
+                                appId,
+                                utils::describeCommandStatus(outcome.status, "curl"));
+        }
+        else if (curl.httpStatus == 0)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "Simulation result for app {} was sent to {} but nothing answered "
+                               "within {}s. The application has not been told its simulation "
+                               "finished.",
+                               appId,
+                               apiUrl,
+                               REQUEST_TIMEOUT_SECONDS);
+        }
+        else
+        {
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "Forwarded simulation result for app {} to {} - HTTP {} - "
+                               "response: {}",
+                               appId,
+                               apiUrl,
+                               curl.httpStatus,
+                               curl.body);
+        }
     }).detach();
 }

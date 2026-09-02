@@ -2,9 +2,15 @@
 #pragma once
 
 #include "ndt_core/routing_management/IRoutingStrategy.hpp"
+// [Co-developed with claude code -- Adam] For utils::CommandOutcome, which is the seam's return
+// type. This pulls Utils.hpp into every translation unit that includes this header; that cost is
+// accepted because the alternative -- an incomplete return type -- cannot be overridden by the
+// test double, and a seam a test cannot override is not a seam.
+#include "utils/Utils.hpp"
 #include <nlohmann/json.hpp>
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 /**
  * @brief Shared implementation for control planes reached over Ryu-shaped HTTP.
@@ -66,13 +72,26 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
                   const char* operation);
 
     /**
-     * @brief Runs a shell command and returns its stdout.
+     * @brief Runs curl with an explicit argument vector and returns what happened.
      *
      * The test seam. Kept as the single point where a command is executed so a mock can
-     * capture the request without a live controller, and so the shell-injection fix that
-     * this construction still needs lands in one place.
+     * capture the request without a live controller.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-2b. This was `std::string executeCommand(const std::string&)`, and both
+     * halves of that signature were defects rather than style. The string parameter meant post()
+     * had to flatten a JSON body into shell source, where a single quote in a match value ended
+     * the quoting and the rest became commands. The string return meant the caller could not learn
+     * whether curl had run at all, so "the shell rejected my command line" and "the controller is
+     * dead" arrived as the same empty string and got the same verdict.
+     *
+     * Renaming rather than adding an overload is deliberate. An added executeArgv() would leave
+     * every existing executeCommand() override -- including the one in test_RoutingStrategies.cpp
+     * -- compiling, silently unused, and no longer intercepting anything, so the tests would start
+     * running real curl against localhost while still passing. Removing the old name makes that a
+     * compile error instead. See MEMORY [[existence-is-not-wiring]].
      */
-    virtual std::string executeCommand(const std::string& cmd);
+    virtual utils::CommandOutcome executeArgv(const std::vector<std::string>& argv);
 
     /**
      * @brief The route that modifies exactly the entry named by (match, priority).

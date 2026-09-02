@@ -22,6 +22,8 @@ add_executable(
   test_PendingEntryFilter.cpp
   test_Controller.cpp
   test_ParamParsing.cpp
+  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-2b/B-4: the shell-free executor.
+  test_ExecArgv.cpp
   test_SimulationRequestValidation.cpp
   test_OvsPowerStrategy.cpp
   test_P4PowerStrategy.cpp
