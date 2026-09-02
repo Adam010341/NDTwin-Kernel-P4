@@ -166,11 +166,30 @@ deploy() {
     esac
 }
 
+# A cell already on disk and complete is not measured again. The round was stopped once at a
+# pair boundary (PREREG 3b) and resumes in the pre-registered order; the judge of "complete" is
+# the same is_complete() the analyser uses, so a cell the analysis would reject is re-measured
+# rather than trusted because its files exist.
+cell_complete() {
+    python3 - "$1" <<'PY'
+import importlib.util, sys
+old = "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/analyse_matrix.py"
+spec = importlib.util.spec_from_file_location("am", old)
+am = importlib.util.module_from_spec(spec); spec.loader.exec_module(am)
+am.BASE = "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/raw"
+sys.exit(0 if am.is_complete(sys.argv[1]) else 1)
+PY
+}
+
 cell() {                     # cell <cond> <arm> <rep>
     local cond="$1" arm="$2" rep="$3" label
     # LABEL_PFX is set by the dry run so its cells can never be mistaken for real ones by a
     # glob, by the analyser, or by a reader of raw/.
     label="${LABEL_PFX:-}ab_${cond}_${arm}_r${rep}_nopoll"
+    if cell_complete "$label"; then
+        say "  ---- $label: already complete on disk, skipping ----"
+        return 0
+    fi
     say "  ---- $label ----"
     teardown
     case "$arm" in

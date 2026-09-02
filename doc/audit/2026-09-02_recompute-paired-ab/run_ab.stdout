@@ -1,0 +1,40 @@
+[12:23:35] ================ paired A/B, DUR=300s, 12 cells ================
+[12:23:35] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[12:23:35] arm shas as found on disk:
+[12:23:35]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[12:23:35]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[12:23:35]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[12:23:35] discriminator, read out of each arm (must differ):
+[12:23:36]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[12:23:36]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[12:23:36] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[12:23:36] shared instruments (unmodified, identified by sha):
+[12:23:36]   358f5a0f3adf7ffe  netdev_only.py
+[12:23:36]   0747492fc2b7cd32  slim_client_json.sh
+[12:23:36]   cb711c8dbc913d1a  cpu_probe.py
+[12:23:36] === rep 1 / zero / order: 1hz then 1khz ===
+[12:23:36]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[12:23:36]   ---- ab_zero_1hz_r1_nopoll ----
+[12:23:41]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[12:24:08]     verifying condition (zero) before measuring
+[12:24:39]     ✓ condition holds
+[12:29:43]     ab_zero_1hz_r1_nopoll done
+[12:29:43]   ---- ab_zero_1khz_r1_nopoll ----
+[12:29:59]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[12:30:26]     verifying condition (zero) before measuring
+[12:30:57]     ✓ condition holds
+[12:36:01]     ab_zero_1khz_r1_nopoll done
+[12:36:01] === rep 1 / s1024 / order: 1khz then 1hz ===
+[12:36:01]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+[12:36:01]   ---- ab_s1024_1khz_r1_nopoll ----
+[12:36:18]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[12:36:44]     verifying condition (sampled) before measuring
+[12:37:15] --- restoring instruments (rc=1) ---
+[12:37:18]   SAMPLE_RATE restored to 256
+[12:37:18]   p4 recompiled from the restored source
+[12:37:19]   production kernel restored, sha256 verified
+[12:37:19]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[12:37:19]   SAMPLE_RATE  : SAMPLE_RATE = 256;
+[12:37:19]   kernel now   : e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[12:37:19]   fabric is left DOWN; 'ndt up' brings it back on the production binary.
+[12:37:19]     ✓ condition holds
