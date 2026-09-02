@@ -955,8 +955,12 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // dummy between 10 and 59
-            memory = 10 + (std::hash<std::string>{}(ip_str) % 50);
+            // [Co-developed with claude code -- Adam]
+            // Was `10 + (std::hash<std::string>{}(ip_str) % 50)` -- the same expression, on the
+            // same seed, as the CPU report, so the two endpoints answered byte-identical bodies.
+            // See kHealthMetricUnavailable in the header for why this is -1 and not a better
+            // fake. F-1 in doc/KNOWN-ISSUES.md.
+            memory = kHealthMetricUnavailable;
         }
         else if (vp.brandName == "HPE5520")
         {
@@ -1556,8 +1560,12 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // dummy: 10–59
-            cpu = 10 + (std::hash<std::string>{}(ip_str) % 50);
+            // [Co-developed with claude code -- Adam]
+            // Was `10 + (std::hash<std::string>{}(ip_str) % 50)`: a constant function of the
+            // management IP, identical to the memory report's, and drawn from only fifty buckets
+            // so two of ten switches usually collided. See kHealthMetricUnavailable in the
+            // header. F-1 in doc/KNOWN-ISSUES.md.
+            cpu = kHealthMetricUnavailable;
         }
         else if (vp.brandName == "HPE5520")
         {
@@ -1603,12 +1611,28 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
     {
         const auto& vp = graph[v];
 
-        std::string ip_str = utils::ipToString(vp.ip.front());
+        // [Co-developed with claude code -- Adam] F-1b: read the IP AFTER the type filter, the
+        // shape fetchCpuReportInternal and fetchMemoryReportInternal already have. It used to be
+        // the first statement in the loop body, so vp.ip.front() was taken from a vertex of ANY
+        // type -- and VertexProperties::ip is a std::vector that starts empty.
+        //
+        // The hazard was already written down for the power path: the note on
+        // syntheticPowerMilliwattsFor in the header says a vertex ip vector can be empty and the
+        // MININET path must not call ip.front(), which is why that report is keyed by dpid. This
+        // loop never got the same treatment, and it was the only one of the three that read
+        // before it filtered.
+        //
+        // A switch carrying no IP would still fault one branch later, in all three functions.
+        // That is a separate question -- what a switch with no management IP should report -- and
+        // is deliberately not answered here.
         if (vp.vertexType != VertexType::SWITCH)
         {
             continue;
         }
-        else if (!vp.isUp)
+
+        std::string ip_str = utils::ipToString(vp.ip.front());
+
+        if (!vp.isUp)
         {
             // [Co-developed with claude code -- Adam]
             // -1, matching CPU and memory. This used to answer the string "The switch is down.",
@@ -1633,8 +1657,11 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
 
         if (m_mode == utils::DeploymentMode::MININET)
         {
-            // Dummy value for Mininet simulation: 25–49°C
-            temp = 25 + (std::hash<std::string>{}(ip_str) % 25);
+            // [Co-developed with claude code -- Adam]
+            // Was `25 + (std::hash<std::string>{}(ip_str) % 25)`. A bmv2 or OVS switch is a
+            // process; it has no thermal sensor, and a per-IP constant is not one. See
+            // kHealthMetricUnavailable in the header. F-1 in doc/KNOWN-ISSUES.md.
+            temp = kHealthMetricUnavailable;
         }
         else
         {
@@ -1819,7 +1846,13 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     // The rest of your logic remains the same...
     if (m_mode == utils::DeploymentMode::MININET)
     {
-        cpu = 10 + (std::hash<std::string>{}(deviceIdentifier) % 50);
+        // [Co-developed with claude code -- Adam]
+        // The fourth copy of the same fabrication, and the one doc/KNOWN-ISSUES.md's F-1 entry
+        // does not name: this is the Intent Translator's per-device path
+        // (IntentTranslator.cpp:447), so "what is s3's CPU?" answered with the same invented
+        // constant the map endpoint served. Same seed -- the IP string -- so the two at least
+        // agreed with each other; they were both wrong. See kHealthMetricUnavailable.
+        cpu = kHealthMetricUnavailable;
     }
     // [Co-developed with claude code -- Adam]
     // doc/KNOWN-ISSUES.md B-2b sweep. These two are the only shell commands in this file built

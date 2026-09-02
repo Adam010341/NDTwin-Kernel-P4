@@ -543,6 +543,51 @@ class DeviceConfigurationAndPowerManager
      */
     static std::string describeCommandStatus(int status);
 
+    /**
+     * @brief What the three device-health endpoints report when there is nothing to read.
+     *
+     * @details
+     * Mininet and bmv2 have no CPU register, no memory gauge and no thermal sensor to poll --
+     * the "switch" is a process, and the only CPU figure that exists is the host's, shared by
+     * every switch on the machine. So MININET mode reports this sentinel rather than a number.
+     *
+     * It used to report a number: `10 + hash(ip) % 50` for CPU **and, byte for byte, the same
+     * expression for memory**, plus `25 + hash(ip) % 25` for temperature. All three were
+     * constant functions of the management IP, so a switch under full load and an idle one read
+     * the same, and CPU and memory read the same as each other. `% 50` has fifty buckets, so on
+     * a ten-switch topology two switches showing the identical percentage was the likely case,
+     * not the unlucky one. That is F-1 in doc/KNOWN-ISSUES.md.
+     *
+     * -1 rather than a new, more plausible-looking figure: a fabricated number that *varies*
+     * would be worse than one that does not, because it would survive the questions that catch
+     * this one. And -1 is not invented here -- it is the value all three functions already
+     * initialise to for the SNMP-failure path, the value their `!isUp` branch already returns,
+     * the value doc/2026-01-02_ndt_api.md documents as "SNMP query failed or data is
+     * unavailable", the value tools/contract_test/spec.py already admits (`Num(min=-1, max=100)`)
+     * and the value Web-GUI's DeviceInformation.tsx already renders as "unavailable".
+     *
+     * Contrast syntheticPowerMilliwattsFor above, which is deliberately NOT being replaced by
+     * this: the Energy-Saving application consumes the power figure and needs a plausible one to
+     * make any decision at all, whereas nothing acts on CPU, memory or temperature -- they are
+     * displayed. A displayed number that is wrong is a claim; an absent one is not.
+     *
+     * To measure real CPU under Mininet, use tools/test_workflow/cpu_probe.py, which reads
+     * /proc/<pid>/stat per switch process.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    static constexpr int kHealthMetricUnavailable = -1;
+
+    // [Co-developed with claude code -- Adam]
+    // Protected rather than private for the test seam the neighbouring policy helpers use (see
+    // PowerProbe in test_SyntheticPower.cpp, LivenessProbe in test_OvsLiveness.cpp): a derived
+    // class in a test can re-export them and drive the real function over a hand-built graph.
+    // The public accessors read m_cached*, which only statusUpdateWorker fills, so reaching the
+    // reports through them would mean starting the background thread.
+    json fetchMemoryReportInternal();
+    json fetchCpuReportInternal();
+    json fetchTemperatureReportInternal();
+
   private:
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
     utils::DeploymentMode m_mode;
@@ -676,9 +721,8 @@ class DeviceConfigurationAndPowerManager
     // --- The *actual* (slow) data-fetching functions ---
     // These are the original implementations, just renamed.
     json fetchPowerReportInternal();
-    json fetchMemoryReportInternal();
-    json fetchCpuReportInternal();
-    json fetchTemperatureReportInternal();
+    // fetchMemoryReportInternal / fetchCpuReportInternal / fetchTemperatureReportInternal are
+    // declared in the protected section above, for the test seam. [Co-developed with claude code -- Adam]
     json fetchOpenFlowTablesInternal();
 
     std::vector<SwitchInfo> switchSmartPlugTable;

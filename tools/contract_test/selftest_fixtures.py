@@ -81,17 +81,32 @@ FIXTURES = {
         POWER_REPORT_SAMPLE),
     "get_switches_power_state": (
         MapOf(Str(), key_check=is_ipv4_string), {"10.10.10.10": "ON"}),
+    # [Co-developed with claude code -- Adam]
+    # min=-1, matching spec.py. These fixtures carry their own copy of each schema rather than
+    # reading spec.py's, and this copy had drifted narrower than the one the contract test
+    # actually runs: spec.py:502 is Num(min=-1, max=100) with a comment explaining that -1 is
+    # the documented "unavailable" sentinel, while this said min=0 and would have rejected it.
+    # A self-test whose purpose is "prove the schemas accept what the kernel documents" cannot
+    # do that against a schema the kernel does not use.
+    #
+    # The samples now carry a -1 as well, so --self-test exercises the sentinel instead of
+    # merely tolerating it. It is no longer a rare case: since the F-1 fix, MININET mode reports
+    # -1 for every switch on all three endpoints rather than inventing a figure.
+    # Pinned by tests/python/test_unavailable_metric_sentinel.py.
     "get_cpu_utilization": (
-        MapOf(Num(min=0, max=100), key_check=is_ipv4_string),
-        {"10.10.10.10": 1, "10.10.10.3": 1, "10.10.10.4": 1, "10.10.10.9": 1}),
+        MapOf(Num(min=-1, max=100), key_check=is_ipv4_string),
+        {"10.10.10.10": 1, "10.10.10.3": 1, "10.10.10.4": 1, "10.10.10.9": -1}),
     "get_memory_utilization": (
-        MapOf(Num(min=0, max=100), key_check=is_ipv4_string),
-        {"10.10.10.10": 28, "10.10.10.3": 27}),
-    # Mixed int/string values are intentional: the kernel explains why a reading is absent.
+        MapOf(Num(min=-1, max=100), key_check=is_ipv4_string),
+        {"10.10.10.10": 28, "10.10.10.3": 27, "10.10.10.9": -1}),
+    # Mixed int/string values are intentional: the kernel explains why a reading is absent by
+    # model, and reports the numeric sentinel when it has no reading at all. The down switch is
+    # -1 here, not "The switch is down." -- spec.py:511-513 records that no current build emits
+    # that string, so keeping it as the only unavailable case pinned a shape that is gone.
     "get_temperature": (
         MapOf(OneOf(Num(), Str()), key_check=is_ipv4_string),
         {"10.10.10.15": "The temperature function only supports the HPE 5520.",
-         "10.10.10.16": 29, "10.10.10.17": "The switch is down."}),
+         "10.10.10.16": 29, "10.10.10.17": -1}),
     "get_average_link_usage": (
         spec.Obj({"status": Str(), "avg_link_usage": Num()}),
         {"status": "success", "avg_link_usage": 0.12}),

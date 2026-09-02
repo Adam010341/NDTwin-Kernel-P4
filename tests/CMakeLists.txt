@@ -16,6 +16,12 @@ add_executable(
   test_P4FlowStatsToClassifier.cpp
   test_OvsLiveness.cpp
   test_SyntheticPower.cpp
+  # [Co-developed with claude code -- Adam] F-1: the CPU/memory/temperature figures MININET mode
+  # used to invent. Next to test_SyntheticPower.cpp because they are the same question about the
+  # other three endpoints, and the answers deliberately differ -- power keeps a plausible
+  # synthetic value because the Energy-Saving App acts on it; these three do not, because nothing
+  # acts on them and a displayed wrong number is a claim.
+  test_SimulatedDeviceMetrics.cpp
   test_KeyedFailureLog.cpp
   test_IpToString.cpp
   test_FlowDispatcher.cpp
