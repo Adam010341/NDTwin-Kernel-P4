@@ -28,6 +28,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 DRIVER_REL="tools/test_workflow/l1_unit_tests.sh"
 SUITE_REL="tests/shell/test_l1_shell_scoring.sh"
+# Named as a variable so check_gate_anchors.py can resolve the last mutation's anchor: the
+# tool checks an unpinned anchor against every path the gate declares.
+CORPUS_REL="tests/shell/test_faults.sh"
 
 KILLED=0
 SURVIVED=0
@@ -136,11 +139,8 @@ s = s.replace("    elif [[ \"$ran\"     -eq 0 ]]; then echo NO-TESTS-RAN\n", "")
 '
 
 mutate "the NO-TESTS-RAN arm stops counting, so the lane prints red and exits 0" "$DRIVER_REL" '
-s = s.replace("""        NO-TESTS-RAN)
-            echo \"${Y}NO TESTS RAN${N} ${D}(see $log)${N}\"
-            FAILURES=$((FAILURES + 1))""",
-              """        NO-TESTS-RAN)
-            echo \"${Y}NO TESTS RAN${N} ${D}(see $log)${N}\"""")
+s = s.replace("echo \"${Y}NO TESTS RAN${N} ${D}(see $log)${N}\"\n            FAILURES=$((FAILURES + 1))",
+              "echo \"${Y}NO TESTS RAN${N} ${D}(see $log)${N}\"")
 '
 
 echo
@@ -163,7 +163,7 @@ s = s.replace("elif [[ \"$failed\"  -gt 0 ]]; then echo FAIL-CHECKS",
 echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
 
-mutate "a suite stops printing any summary the lane understands" "tests/shell/test_faults.sh" '
+mutate "a suite stops printing any summary the lane understands" "$CORPUS_REL" '
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"everything is fine\"")
 '
