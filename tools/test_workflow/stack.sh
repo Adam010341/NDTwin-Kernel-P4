@@ -277,6 +277,39 @@ CMD_SUFFIX=".cmd"
 
 recorded_cmd() { cat "$PID_DIR/$1$CMD_SUFFIX" 2>/dev/null; }
 
+# The wrapper that records how a component ended. See supervise.sh; KNOWN-ISSUES B-5.
+# [Co-developed with claude code -- Adam]
+SUPERVISE="$HERE/supervise.sh"
+
+# report_exit <name> -- says how a component ended, from the file supervise.sh left behind.
+# Silent when there is nothing to report, loud when the ending was an abort: an exit status that
+# is only in a file nobody opens is barely more observable than no exit status at all.
+#
+# [Co-developed with claude code -- Adam]
+# Reporting only. It deliberately does NOT change any exit code, because 143 (SIGTERM's default
+# action) is what the kernel returns on the *normal* `ndt down` path today -- treating non-zero
+# as failure would turn every teardown red tomorrow morning. Whether a crash on shutdown should
+# fail the command is a decision for Adam, not a side effect of making it visible.
+report_exit() {
+    # Two statements for the reason spelled out at the top of stop_one: a second assignment on a
+    # `local` line cannot read the first one.
+    local name="$1"
+    local f="$PID_DIR/$name.exit"
+    [[ -f "$f" ]] || return 0
+    local status reason
+    status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
+    reason="$(sed -n 's/^reason=//p' "$f" 2>/dev/null)"
+    [[ -n "$status" ]] || return 0
+    if [[ "$status" == "134" ]]; then
+        err "  🔴 $name did not stop cleanly: $reason"
+        err "     evidence: $f, and the tail of $LOG_DIR/$name.log"
+    elif [[ "$status" == "0" ]]; then
+        info "  $name exit status 0 ($reason)"
+    else
+        warn "  $name exit status $status ($reason)"
+    fi
+}
+
 # When a pid started, as an epoch second. Empty if it cannot be determined.
 #
 # [Co-developed with claude code -- Adam]
@@ -361,7 +394,30 @@ start_bg() {
         [[ -s "$log.prev" ]] && mv -f "$log.prev" "$log.prev2"
         mv -f "$log" "$log.prev"
     fi
-    setsid "$@" >"$log" 2>&1 &
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. Launched through supervise.sh so that HOW the component ended is written
+    # down. Nothing here waited for these processes and nothing recorded their exit status, so a
+    # component that aborted and a component that stopped cleanly left the same evidence: a pid
+    # that is no longer there. The kernel had been dying of SIGABRT on every Ctrl-C shutdown, and
+    # no log in this repository could have distinguished that from a clean stop.
+    #
+    # The recorded pid is still the supervisor -- it is the process-group leader, which is what
+    # stop_one signals with `kill -TERM -$pid` and what port_owner_verdict compares pgids against,
+    # so both keep working unchanged. The pid of the process actually doing the work is written
+    # separately, to $name.child.pid.
+    #
+    # A missing supervisor is a warning, not a refusal: losing the exit status is worse than
+    # nothing recorded it before, but it is much better than a stack that will not come up. The
+    # warning names exactly what is lost.
+    rm -f "$PID_DIR/$name.exit" "$PID_DIR/$name.child.pid"
+    if [[ -x "$SUPERVISE" ]]; then
+        setsid "$SUPERVISE" "$PID_DIR/$name" "$@" >"$log" 2>&1 &
+    else
+        warn "  $SUPERVISE is missing or not executable; starting $name unsupervised."
+        warn "    Its exit status will NOT be recorded, so an abort on shutdown will look"
+        warn "    exactly like a clean stop."
+        setsid "$@" >"$log" 2>&1 &
+    fi
     echo $! >"$PID_DIR/$name.pid"
     { printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY"; } \
         >"$PID_DIR/$name$CMD_SUFFIX"
@@ -443,7 +499,16 @@ stop_one() {
             info "  stopped $name"
         fi
     fi
-    rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. Read after the process is gone, never before: supervise.sh writes the
+    # file and then exits, so by the time the kill loop above sees the pid disappear the answer
+    # is already on disk. A component that had died on its own before `down` ran is reported here
+    # too -- that is the point, since nothing else would ever have said so.
+    report_exit "$name"
+    # .child.pid names a pid that is now dead. Removed with the pidfile so that nobody signals a
+    # recycled number out of a file this script left behind. .exit is evidence and is kept; the
+    # next start_bg clears it.
+    rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX" "$PID_DIR/$name.child.pid"
 }
 
 port_open() {
@@ -787,8 +852,18 @@ cmd_up() {
         return 1
     fi
     # Both dataplanes run under mode=mininet; the topology file is what selects OVS vs bmv2.
+    #
+    # [Co-developed with claude code -- Adam]
+    # `exec` matters: without it this bash stays alive as the kernel's parent, and every number
+    # and every exit status anyone recorded for "the kernel" belonged to that shell instead. With
+    # it the shell becomes the kernel, so $name.child.pid is the kernel's own pid, /proc/<pid>/comm
+    # reads ndtwin_kernel, and the status supervise.sh records is the kernel's own.
+    #
+    # This changes the recorded command string, so the first `up` after this change restarts a
+    # kernel that is already running -- start_bg's own rule, and the reason it is worth naming
+    # here rather than being discovered as a surprise.
     start_bg kernel "$LOG_DIR/kernel.log" \
-        bash -c "cd '$KERNEL_DIR/build' && ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
+        bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
     wait_for_port 8000 "kernel API" 40 kernel || {
         err "  kernel did not open :8000; see $LOG_DIR/kernel.log"; return 1; }
 
