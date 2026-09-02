@@ -2118,12 +2118,35 @@ HttpSession::handleRenewLock(http::response<http::string_body>& res)
         // did after it ran out was unprotected, and "you never held this" means you have a bug
         // in your acquire path. The status stays 412 for both -- it is what the contract and
         // tools/contract_test/spec.py expect -- and the body now says which.
-        const auto renewOutcome = m_lockManager->renewLease(reqLock.type, reqLock.ttl, reqLock.lease);
+        std::uint64_t renewedLease = 0;
+        const auto renewOutcome =
+            m_lockManager->renewLease(reqLock.type, reqLock.ttl, reqLock.lease, &renewedLease);
         if (renewOutcome == LockManager::RenewOutcome::Renewed)
         {
+            // `lease` (B-2②) names the lease this request actually extended. A caller that keeps
+            // the id from its own acquire can compare -- which is the only way, today, for the
+            // real holder's neighbour to notice it has just extended somebody else's lease.
             res.result(http::status::ok);
-            res.body() =
-                json{{"status", "renewed"}, {"type", reqLock.type}, {"ttl", reqLock.ttl}}.dump();
+            res.body() = json{{"status", "renewed"},
+                              {"type", reqLock.type},
+                              {"ttl", reqLock.ttl},
+                              {"lease", renewedLease}}
+                             .dump();
+        }
+        else if (renewOutcome == LockManager::RenewOutcome::LeaseRequired)
+        {
+            // 400, not 412: this is a missing required field, not a state the caller can fix by
+            // acquiring. Only reachable when LockManager::setRequireLeaseId(true) has been called,
+            // which nothing does yet -- see that function for why the switch exists unwired.
+            res.result(http::status::bad_request);
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"reason", "lease_required"},
+                              {"detail", "this kernel requires a \"lease\" on renew; lock '" +
+                                             reqLock.type +
+                                             "' is held and the request named no lease, so it "
+                                             "could not be attributed to a holder. Nothing was "
+                                             "extended"}}
+                             .dump();
         }
         else if (renewOutcome == LockManager::RenewOutcome::LeaseMismatch)
         {
@@ -2217,7 +2240,25 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
         // doc/2026-07-27_testing_workflow.md keep their meaning; the body carries the
         // distinction, because "your lease was reclaimed" and "there was nothing here" are
         // different things to have just learned.
-        const auto releaseOutcome = m_lockManager->release(reqLock.type, reqLock.lease);
+        std::uint64_t releasedLease = 0;
+        const auto releaseOutcome =
+            m_lockManager->release(reqLock.type, reqLock.lease, &releasedLease);
+
+        if (releaseOutcome == LockManager::ReleaseOutcome::LeaseRequired)
+        {
+            // 400, not 412: a missing required field, not a state. Only reachable when
+            // LockManager::setRequireLeaseId(true) has been called, which nothing does yet.
+            res.result(http::status::bad_request);
+            res.body() = json{{"error", "Invalid lock request"},
+                              {"reason", "lease_required"},
+                              {"detail", "this kernel requires a \"lease\" on release; lock '" +
+                                             reqLock.type +
+                                             "' is held and the request named no lease, so it "
+                                             "could not be attributed to a holder. Nothing was "
+                                             "released"}}
+                             .dump();
+            return;
+        }
 
         if (releaseOutcome == LockManager::ReleaseOutcome::LeaseMismatch)
         {
@@ -2250,8 +2291,12 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
             return;
         }
 
+        // `lease` (B-2②) names the lease this request actually released. Until every caller sends
+        // a lease id, a release names only a lock -- so this field is how a caller finds out,
+        // after the fact, that the lease it just freed was not the one it was holding.
         res.result(http::status::ok);
-        res.body() = json{{"status", "released"}, {"type", reqLock.type}}.dump();
+        res.body() =
+            json{{"status", "released"}, {"type", reqLock.type}, {"lease", releasedLease}}.dump();
     }
     catch (...)
     {

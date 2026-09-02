@@ -100,60 +100,78 @@ fi
 echo
 echo "mutations:"
 
+# 🔴 ALL SIX TARGETS BELOW WERE REWRITTEN ON 2026-09-02, and the reason is worth reading before
+#    the mutations themselves.
+#
+#    The A-9 change (commit "End a lock lease that runs out...") replaced renew()'s inline
+#    `|| now >= it->second.expiryTime` with a call to the shared reapIfExpired(), and turned
+#    `bool renew()` into a wrapper over `RenewOutcome renewLease()`. B-2①'s GUARANTEE is intact --
+#    an expired lease still cannot be renewed, and the same LockManagerTest cases still pin it --
+#    but every one of this file's six literal targets stopped existing. `mutate()` REFUSES on a
+#    target it cannot find exactly once, so the gate would have exited 2 rather than passing
+#    silently; it was still a gate that could no longer be run.
+#
+#    🔑 A mutation gate is source-coupled by construction: it names lines. So a refactor of the
+#    code under it is also a change to the gate, and "the tests are still green" does not tell you
+#    the gate survived. This one was found by re-counting the targets after the refactor, not by
+#    running anything -- see the A-9 findings.
+
 # 1. The fix itself, removed: renew stops asking whether the lease has run out. This is the
-#    shipped defect, verbatim.
+#    shipped defect, verbatim -- an expired lease is still flagged isLocked, so it falls through.
 mutate "$LOCK" \
-    'if (it == m_locks.end() || !it->second.isLocked || now >= it->second.expiryTime) {' \
-    'if (it == m_locks.end() || !it->second.isLocked) {'
-report "renew drops the expiry comparison (the defect)" \
+    'if (reapIfExpired(type, it->second, now)) {
+            return RenewOutcome::Expired;
+        }
+' \
+    ''
+report "renew drops the expiry check (the defect)" \
        "LockManagerTest.RenewingAnExpiredLeaseIsRefusedRatherThanResurrectingIt"
 
-# 2. The comparison is present but backwards -- refuses live leases, accepts dead ones. The
-#    direction has to be pinned separately from the presence, or "it compares something" passes.
-mutate "$LOCK" 'now >= it->second.expiryTime' 'now < it->second.expiryTime'
-report "renew's expiry comparison is inverted" \
+# 2. The comparison is present but backwards -- reaps live leases, spares dead ones. The direction
+#    has to be pinned separately from the presence, or "it compares something" passes.
+mutate "$LOCK" '!state.isLocked || now < state.expiryTime' \
+               '!state.isLocked || now >= state.expiryTime'
+report "the expiry comparison is inverted" \
        "LockManagerTest.RenewingALockThatIsStillInForceRewritesItsDeadline"
 
-# 3. renew answers true without writing the new deadline. Every refusal test still passes; only
+# 3. renew answers Renewed without writing the new deadline. Every refusal test still passes; only
 #    the ttl-0 shrink probe can see this.
 mutate "$LOCK" \
     'it->second.expiryTime = now + std::chrono::seconds(ttlSeconds);
-        return true;' \
-    'return true;'
+        return RenewOutcome::Renewed;' \
+    'return RenewOutcome::Renewed;'
 report "renew reports success without extending" \
        "LockManagerTest.RenewingALockThatIsStillInForceRewritesItsDeadline"
 
-# 4. The held check goes, leaving only the expiry check. A released lock keeps its old expiryTime,
-#    so a lock that was explicitly unlocked becomes renewable again.
-mutate "$LOCK" '!it->second.isLocked || now >= it->second.expiryTime' \
-               'now >= it->second.expiryTime'
+# 4. The held check goes. A released lock keeps its old expiryTime and its cleared isLocked, so
+#    without this check a lock that was explicitly unlocked becomes renewable again.
+mutate "$LOCK" \
+    'if (!it->second.isLocked) {
+            return RenewOutcome::NotHeld;
+        }' \
+    ''
 report "renew stops checking isLocked" "LockManagerTest.RenewingALockNobodyHoldsIsRefused"
 
-# 5. An absent entry falls through instead of being refused, so renew becomes a second way to
-#    take a lock that was never acquired -- bypassing the held check entirely.
+# 5. An absent entry is created instead of being refused, so renew becomes a second way to take a
+#    lock that was never acquired -- bypassing the held check entirely.
 mutate "$LOCK" \
-    'if (it == m_locks.end() || !it->second.isLocked || now >= it->second.expiryTime) {
-            return false;
-        }
-
-        // Extend the expiry time
-        it->second.expiryTime' \
-    'if (it != m_locks.end() && (!it->second.isLocked || now >= it->second.expiryTime)) {
-            return false;
-        }
-
-        // Extend the expiry time
-        m_locks[type].isLocked = true;
-        m_locks[type].expiryTime'
+    'if (it == m_locks.end()) {
+            return RenewOutcome::NotHeld;
+        }' \
+    'if (it == m_locks.end()) {
+            m_locks[type].isLocked = true;
+            m_locks[type].expiryTime = now + std::chrono::seconds(ttlSeconds);
+            return RenewOutcome::Renewed;
+        }'
 report "renew creates a lock nobody acquired" "LockManagerTest.RenewingALockNobodyHoldsIsRefused"
 
 # 6. The handler side: the refusal loses its own status code and answers 200 like a success. The
 #    LockManager tests cannot see this at all -- it is why the endpoint has its own cases.
 mutate "$HTTP" \
-    'res.result(http::status::precondition_failed); // 412 Precondition Failed
-            res.body() = json{{"error", "Renew failed"},' \
-    'res.result(http::status::ok);
-            res.body() = json{{"error", "Renew failed"},'
+    'const bool expired = (renewOutcome == LockManager::RenewOutcome::Expired);
+            res.result(http::status::precondition_failed); // 412 Precondition Failed' \
+    'const bool expired = (renewOutcome == LockManager::RenewOutcome::Expired);
+            res.result(http::status::ok);'
 report "handleRenewLock answers 200 on a refused renew" \
        "LockEndpointTest.RenewingAnExpiredLeaseIs412AndLeavesTheLockAcquirable"
 

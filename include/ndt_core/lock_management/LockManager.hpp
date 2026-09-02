@@ -36,6 +36,20 @@ struct LockState {
     /// that a late release can be told what happened to it instead of being answered "released".
     std::uint64_t expiredLeaseId = 0;
     std::uint64_t expiredLeaseCount = 0;
+
+    /**
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES B-2②. How many times a live lease on this lock has been released or renewed
+     * by a request that named no lease -- i.e. by a request the kernel could not attribute to
+     * anybody, and acted on anyway.
+     *
+     * Today that is EVERY release and renew in the workspace, so the number is not interesting
+     * as a fraction. It is interesting as a fact: "any caller can release any caller's lock" has
+     * been in KNOWN-ISSUES since round 2 with no measurement attached, because nothing counted.
+     * When the callers start sending `lease` this becomes the number that says how much of the
+     * traffic is still unattributable, which is what tells you when it is safe to enforce.
+     */
+    std::uint64_t unattributedActions = 0;
 };
 
 class LockManager
@@ -53,6 +67,10 @@ class LockManager
     /// Monotonic across every lock in this manager, so a lease id is unique per process run and
     /// two locks can never present the same id. Starts at 1: 0 means "no lease".
     std::uint64_t m_nextLeaseId = 1;
+
+    /// KNOWN-ISSUES B-2②. Off by default; see setRequireLeaseId() for why it is a switch and why
+    /// nothing turns it on. Read and written only under m_mutex.
+    bool m_requireLeaseId = false;
 
     /**
      * @brief Helper function to convert string input to LockType enum.
@@ -147,7 +165,8 @@ class LockManager
         Released,      ///< a lease that was still in force was released by this call
         Expired,       ///< the lease had already run out and was reclaimed; nothing was released
         NotHeld,       ///< no lease at all, or an unknown lock name
-        LeaseMismatch  ///< the caller named a lease that is not the current one -- refused
+        LeaseMismatch, ///< the caller named a lease that is not the current one -- refused
+        LeaseRequired  ///< the lock is held, the caller named no lease, and enforcement is on
     };
 
     /// The renew twin of ReleaseOutcome, for the same reason: "expired" and "never held" are
@@ -156,8 +175,53 @@ class LockManager
         Renewed,
         Expired,
         NotHeld,
-        LeaseMismatch
+        LeaseMismatch,
+        LeaseRequired
     };
+
+    /**
+     * @brief Refuse a release or renew of a HELD lock that names no lease. Default: off.
+     *
+     * [Co-developed with claude code -- Adam]
+     * 🔴 THIS IS THE WHOLE OF KNOWN-ISSUES B-2②, AND IT IS A POLICY SWITCH RATHER THAN A
+     * MECHANISM, DELIBERATELY. The mechanism -- a per-lease token the kernel can check a request
+     * against -- is `LockState::leaseId`, added for A-9. B-2② does not need a second one, and
+     * building "ownership" twice would give two answers to one question, which is how B-2①
+     * happened in the first place. What B-2② needs on top of A-9 is the decision to make the
+     * token MANDATORY, and that decision cannot be taken by the kernel alone:
+     *
+     *   - with it OFF (the default, and today's behaviour), a release naming no lease acts on
+     *     the lock by name, exactly as it always has. Every deployed caller does this --
+     *     Energy-Saving-App/src/app/http.cpp:461, Traffic-engineering-App.py:85, the chaos
+     *     harness probes.py:206, tools/contract_test/spec.py -- so "any caller can release any
+     *     caller's lock" is still true, and LockState::unattributedActions now counts it;
+     *   - with it ON, those same callers get 400 and their releases stop working. That is a
+     *     flag day across four repos, and it belongs to Adam, not to this class.
+     *
+     * So: not wired to anything. There is no env var and no call site; `main.cpp` constructs a
+     * LockManager and never touches this. That is not an oversight -- an unwired switch that
+     * says so is honest, whereas an env var read inside a constructor would change the behaviour
+     * of 47 unit tests depending on the shell they run in. Turning it on is a separate, visible
+     * commit once the callers send `lease`; the one-line wiring is written up in the A-9/B-2②
+     * findings alongside the app-side patch that has to land first.
+     *
+     * @note acquire is untouched by this. An acquire does not name a lease, it creates one.
+     * @note Both accessors take m_mutex. The flag is expected to be set once before the manager
+     *       serves anything, but "expected to" is not a guarantee, and an unsynchronised bool
+     *       read from the HTTP thread pool while another thread writes it is a data race that
+     *       tsan would rightly flag. Neither accessor is const for that reason.
+     */
+    void setRequireLeaseId(bool required)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_requireLeaseId = required;
+    }
+
+    bool requiresLeaseId()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_requireLeaseId;
+    }
 
     /**
      * @brief What an acquire attempt saw, for callers that want to say more than "no".
@@ -181,6 +245,9 @@ class LockManager
         long long     remainingSeconds = 0;
         std::uint64_t expiredLeaseCount = 0;
         std::uint64_t lastExpiredLeaseId = 0;
+        /// KNOWN-ISSUES B-2②: releases and renews of a live lease that named no lease id, and
+        /// were acted on anyway. The measurement that entry has never had.
+        std::uint64_t unattributedActions = 0;
     };
 
     /**
@@ -455,7 +522,8 @@ class LockManager
      * @param leaseId 0 (the default) means "I am not naming a lease" and keeps the old,
      *                name-only behaviour. Non-zero is checked against the current lease.
      */
-    ReleaseOutcome release(const std::string& lockNameStr, std::uint64_t leaseId = 0)
+    ReleaseOutcome release(const std::string& lockNameStr, std::uint64_t leaseId = 0,
+                           std::uint64_t* actedLeaseId = nullptr)
     {
         LockType type = stringToLockType(lockNameStr);
         if (type == LockType::Unknown) {
@@ -488,6 +556,24 @@ class LockManager
             return ReleaseOutcome::LeaseMismatch;
         }
 
+        // KNOWN-ISSUES B-2②. The request names no lease, so the kernel cannot attribute it to
+        // anybody -- this caller and the actual holder send the same bytes. With enforcement on
+        // it is refused; with it off (the default, and every deployed caller) it is acted on and
+        // COUNTED, which is the first time this has been measurable at all.
+        if (leaseId == 0) {
+            if (m_requireLeaseId) {
+                return ReleaseOutcome::LeaseRequired;
+            }
+            it->second.unattributedActions += 1;
+        }
+
+        // Reported from inside the mutex, not read back afterwards: between an unlocked read and
+        // this point another thread can acquire, and the caller would be told it released a lease
+        // that is somebody else's fresh one -- an answer that is wrong in exactly the direction
+        // B-2② is about.
+        if (actedLeaseId) {
+            *actedLeaseId = it->second.leaseId;
+        }
         it->second.isLocked = false;
         return ReleaseOutcome::Released;
     }
@@ -523,6 +609,7 @@ class LockManager
         const auto now = std::chrono::steady_clock::now();
         out.expiredLeaseCount = it->second.expiredLeaseCount;
         out.lastExpiredLeaseId = it->second.expiredLeaseId;
+        out.unattributedActions = it->second.unattributedActions;
         if (it->second.isLocked && now < it->second.expiryTime) {
             out.held = true;
             out.leaseId = it->second.leaseId;
@@ -596,7 +683,7 @@ class LockManager
      *                it does NOT close.
      */
     RenewOutcome renewLease(const std::string& lockNameStr, int ttlSeconds,
-                            std::uint64_t leaseId = 0)
+                            std::uint64_t leaseId = 0, std::uint64_t* actedLeaseId = nullptr)
     {
         LockType type = stringToLockType(lockNameStr);
         if (type == LockType::Unknown) return RenewOutcome::NotHeld;
@@ -630,7 +717,20 @@ class LockManager
             return RenewOutcome::LeaseMismatch;
         }
 
+        // KNOWN-ISSUES B-2②, renew side. The entry's own worked example is a renew: "一個什麼都
+        // 沒持有的 client 把別人的鎖從 3 秒延長到 120 秒". Since B-2① that only works while the
+        // lease is still alive, which is exactly the case left here.
+        if (leaseId == 0) {
+            if (m_requireLeaseId) {
+                return RenewOutcome::LeaseRequired;
+            }
+            it->second.unattributedActions += 1;
+        }
+
         // Extend the expiry time
+        if (actedLeaseId) {
+            *actedLeaseId = it->second.leaseId;
+        }
         it->second.expiryTime = now + std::chrono::seconds(ttlSeconds);
         return RenewOutcome::Renewed;
     }
