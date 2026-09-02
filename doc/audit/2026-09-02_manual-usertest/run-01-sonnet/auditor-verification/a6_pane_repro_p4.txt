@@ -1,0 +1,25 @@
+tmux new-session rc=0
+bash: line 1: /home/adam/miniconda3/envs/ntg-env/bin/python: No such file or dir
+ectory
+EXIT=127
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

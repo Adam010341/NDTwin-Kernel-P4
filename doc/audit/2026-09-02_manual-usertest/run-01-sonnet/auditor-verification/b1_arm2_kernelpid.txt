@@ -1,0 +1,12 @@
+### b1_arm2_kernelpid: kill -INT  at 12:23:14.002040694
+kernel  alive after 15s: YES
+--- shutdown lines in log ---
+204:[2026-09-02 12:23:00.969] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+209:terminate called without an active exception
+--- :8000 ---
+--- State/Sig (post) ---
+grep: /proc//status: No such file or directory
+### still alive after both arms -> SIGTERM then SIGKILL (cleanup)
+kill: failed to parse argument: '': No such file or directory
+kill: failed to parse argument: '': No such file or directory
+alive: YES

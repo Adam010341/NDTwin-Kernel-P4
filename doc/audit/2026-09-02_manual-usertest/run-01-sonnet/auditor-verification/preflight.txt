@@ -1,0 +1,36 @@
+preflight 2026-09-02T12:13:49Z
+ 12:13:49 up 4 min,  1 user,  load average: 0.00, 0.00, 0.00
+OK  /home/ndt/.local/bin/ndt
+OK  /usr/local/sbin/ndtwin-lab
+OK  /home/ndt/miniconda3/envs/ryu-env/bin/ryu-manager
+OK  /home/ndt/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+OK  /home/ndt/Desktop/NDTwin-Kernel/intelligent_router.py
+OK  /home/ndt/Desktop/NDTwin-Kernel/testbed_topo.py
+OK  /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+OK  /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/stack.sh
+OK  /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/ntg_bmv2_topo.py
+OK  /usr/local/bin/simple_switch_grpc
+--- where are intelligent_router.py / testbed_topo.py
+/home/ndt/Desktop/NDTwin-Kernel/testbed_topo.py
+/home/ndt/Desktop/NDTwin-Kernel/intelligent_router.py
+--- sudo -n -l
+User ndt may run the following commands on ndtwin-lab-vm:
+    (ALL) NOPASSWD: ALL
+--- manual's kernel / ryu / topology commands
+51:The code below is the snippet of `testbed_topo.py` in our NTG.
+120:ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --observe-link
+135:# Run testbed_topo.py with the interpreter that has NTG's dependencies
+138:sudo ~/miniconda3/envs/ntg-env/bin/python testbed_topo.py
+143:> **Why name the interpreter instead of running `sudo ./testbed_topo.py`?**
+165:sudo bin/ndtwin_kernel --mode mininet \
+189:> sudo -E bin/ndtwin_kernel --mode mininet \
+240:ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --observe-link
+--- stray processes
+--- listening
+--- root tmux
+error connecting to /tmp/tmux-0/ndtwinlab (No such file or directory)
+--- .test_run ownership
+drwxrwxr-x 2 ndt ndt 4096 Sep  2 07:03 /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs
+drwxrwxr-x 2 ndt ndt 4096 Sep  2 07:15 /home/ndt/Desktop/NDTwin-Kernel/.test_run/pids
+--- mininet hosts
+0

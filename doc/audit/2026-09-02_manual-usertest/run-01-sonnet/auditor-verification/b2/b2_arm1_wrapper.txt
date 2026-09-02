@@ -1,0 +1,6 @@
+### b2_arm1_wrapper: kill -INT 56554 at 12:27:25.894747398
+kernel 56556 alive after 3s: no
+--- shutdown lines in log ---
+40:[2026-09-02 12:27:28.313] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+45:terminate called without an active exception
+--- :8000 ---

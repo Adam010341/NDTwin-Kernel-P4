@@ -1,0 +1,25 @@
+tmux new-session rc=0
+bash: line 1: ./simulation_platform_manager: No such file or directory
+EXIT=127
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

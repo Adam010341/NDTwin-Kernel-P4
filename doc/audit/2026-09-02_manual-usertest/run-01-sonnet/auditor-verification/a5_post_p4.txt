@@ -1,0 +1,85 @@
+### post p4: root tmux
+no server running on /tmp/tmux-0/ndtwinlab
+### topo-out
+ndtwin-lab: no topo session
+### ndtwin-lab status
+no lab sessions
+bmv2: 0  mininet: 0
+### ndt status --check
+lab
+  claim          none
+  measuring      nothing
+  code           936f8c6  +3 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+                 p4_proxy/mininet/bmv2_binary_override
+                 tools/test_workflow/ndtwin-lab
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  apps           none running
+
+
+check: ok
+rc=0
+### manifest
+ls: cannot access '/tmp/ndtwin_p4_switches.json': No such file or directory
+
+### .test_run
+.test_run/logs:
+total 156
+drwxrwxr-x 2 ndt ndt   4096 Sep  2 12:13 .
+drwxrwxr-x 4 ndt ndt   4096 Sep  2 07:15 ..
+-rw-rw-r-- 1 ndt ndt  25508 Sep  2 07:04 kernel.log
+-rw-rw-r-- 1 ndt ndt   8885 Sep  2 07:01 kernel.log.prev
+-rw-rw-r-- 1 ndt ndt   1843 Sep  2 12:19 ryu.log
+-rw-rw-r-- 1 ndt ndt 100410 Sep  2 07:01 ryu.log.prev
+
+.test_run/pids:
+total 8
+drwxrwxr-x 2 ndt ndt 4096 Sep  2 12:19 .
+drwxrwxr-x 4 ndt ndt 4096 Sep  2 07:15 ..
+-- .test_run/logs/kernel.log
+[2026-09-02 07:03:45.306] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 07:03:45.306] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 07:03:45.306] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 8:3 -> 9:4
+[2026-09-02 07:03:45.307] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 07:03:45.307] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 07:03:45.308] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: POST /ndt/link_failure_detected
+[2026-09-02 07:03:45.308] [info] [[94mHttpSession.cpp[0m:[95m405[0m [96mhandleLinkFailure[0m] Handle Link Failure
+[2026-09-02 07:03:45.308] [info] [[94mHttpSession.cpp[0m:[95m414[0m [96mhandleLinkFailure[0m] link failed on 9:4 -> 8:3
+[2026-09-02 07:03:45.308] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 07:03:47.482] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2081[0m [96mrun[0m] topology from the control plane: 0 switches, 128 hosts, 256 edges up
+[2026-09-02 07:04:07.352] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.1 ms | since start (29 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 07:04:07.352] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000224 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 07:04:37.356] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.0, max 1000.2 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 07:04:37.356] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000161 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 07:04:42.795] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 3968 paths from controller
+-- .test_run/logs/ryu.log
+(2505) wsgi starting up on http://0.0.0.0:8080
+(2505) accepted ('127.0.0.1', 49590)
+(2505) accepted ('127.0.0.1', 40558)
+127.0.0.1 - - [02/Sep/2026 12:18:58] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.006157
+(2505) accepted ('127.0.0.1', 40574)
+127.0.0.1 - - [02/Sep/2026 12:18:58] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000237
+(2505) accepted ('127.0.0.1', 40576)
+127.0.0.1 - - [02/Sep/2026 12:18:58] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000148
+(2505) accepted ('127.0.0.1', 40588)
+(2505) accepted ('127.0.0.1', 39160)
+127.0.0.1 - - [02/Sep/2026 12:19:00] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000280
+(2505) accepted ('127.0.0.1', 39168)
+127.0.0.1 - - [02/Sep/2026 12:19:00] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000211
+(2505) accepted ('127.0.0.1', 39182)
+127.0.0.1 - - [02/Sep/2026 12:19:00] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000132

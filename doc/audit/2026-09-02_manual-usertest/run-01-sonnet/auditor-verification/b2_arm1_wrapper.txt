@@ -1,0 +1,8 @@
+### b2_arm1_wrapper: kill -INT 30150 at 12:23:53.585739143
+kernel  alive after 15s: YES
+--- shutdown lines in log ---
+40:[2026-09-02 12:23:56.734] [info] [[94mmain.cpp[0m:[95m430[0m [96mmain[0m] All subsystems stopped. Exiting.
+45:terminate called without an active exception
+--- :8000 ---
+--- State/Sig (post) ---
+grep: /proc//status: No such file or directory
