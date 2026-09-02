@@ -521,8 +521,9 @@ TEST(OvsPowerStrategyTest, PowerOnRestoresTheAgentAddressAndTheSflowRecord)
     EXPECT_TRUE(ovs.ran("ifconfig s1 192.168.123.11/24 up"))
         << "the record's agent interface must get its address back first";
     EXPECT_TRUE(ovs.ran("create sflow agent=s1"));
-    EXPECT_TRUE(ovs.ran("target=\\\"192.168.123.1:6343\\\""))
-        << "same escaping as testbed_topo.py, or ovsdb stores the quotes as part of the address";
+    EXPECT_TRUE(ovs.ran("target=\"192.168.123.1:6343\""))
+        << "the quotes are OVSDB's string syntax and must reach ovs-vsctl; with no shell in the "
+           "path they are the argument itself, not a backslash the shell would have stripped";
     EXPECT_TRUE(ovs.ran("sampling=256"));
     EXPECT_TRUE(ovs.ran("polling=0")) << "polling=0 is deliberate in MININET -- see testbed_topo.py";
     EXPECT_TRUE(ovs.ran("set bridge s1 sflow=@sflow"));
