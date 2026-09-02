@@ -432,7 +432,35 @@ foreign_iperf3_guard() {
         fi
         dry_note "synthesising: no foreign iperf3"; return 0
     fi
-    pids=$(ps -eo pid=,comm= | awk '$2=="iperf3"{printf "%s ", $1}')
+    # 🔴 THE COMPARISON MUST NOT HAPPEN IN A CHILD WHOSE OWN ARGV CARRIES THE STRING.
+    # `awk '$2=="iperf3"{...}'` -- what this line used to be -- puts `iperf3` into the AWK
+    # PROCESS'S command line, which makes this guard a legal target for the very
+    # `pkill -f iperf3` it exists to protect against (measure.sh:45,46,99, run as root in the
+    # root pid namespace).  This file has no `set -e` and no `pipefail`, so a killed awk yields
+    # an EMPTY $pids, the test below is false, and the guard returns 0 -- it answers "clean" at
+    # the exact moment it is destroyed.  A guard whose failure direction is "proceed" is not a
+    # guard.  Keeping the comparison inside this shell means no child carries the string:
+    # `ps -eo pid=,comm=` is the only command spawned and its argv says nothing about iperf3.
+    # `< <(...)` and not a pipe, so the loop runs in THIS shell and $pids survives it.
+    # Reachable only when two sessions overlap -- which is the whole premise of this hazard.
+    # [Co-developed with claude code -- Adam]
+    local _pid _comm _seen=0
+    pids=""
+    while read -r _pid _comm; do
+        [[ -n "$_pid" ]] || continue     # a blank line is not a process, and must not count as one
+        _seen=$((_seen + 1))
+        [[ "$_comm" == iperf3 ]] && pids+="$_pid "
+    done < <(ps -eo pid=,comm=)
+    # 🔴 AND THE SAME FAILURE DIRECTION ONE LEVEL UP.  An empty process table is not an answer:
+    # every live machine has processes, so zero lines means `ps` did not run, was killed, or was
+    # shimmed away -- i.e. the guard did not look.  "Could not look" must never be reported as
+    # "looked and found nothing", which is the defect above with a different cause.
+    if [[ "$_seen" -eq 0 ]]; then
+        printf 'REFUSE: could not read the process list (ps produced no lines), so this guard\n' >&2
+        printf '        did not look.  That is not the same as "no foreign iperf3" and must not\n' >&2
+        printf '        be recorded as one.  Fix ps/PATH, then re-run.\n' >&2
+        return 1
+    fi
     if [[ -n "${pids// /}" ]]; then
         printf 'REFUSE: iperf3 already running (pids: %s) and this round did not start it.\n' "$pids" >&2
         printf '        measure.sh clears stale servers with `pkill -f iperf3` at the ROOT pid\n' >&2
