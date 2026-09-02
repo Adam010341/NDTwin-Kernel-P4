@@ -201,8 +201,14 @@ network_traffic_visualizer.sh   (bash)      ← app_spawn 記到的就是這個 
 的形狀下都會失效。** `comm` 是 `java`，cmdline 是 maven／JVM 的——沒有一個帶得上 app 的身分。
 **修法方向應該是路徑式而不是名字式的 signature**（存活的 JVM 的 argv 很可能帶
 `/home/adam/Network-Traffic-Visualizer/`），**外加 `app_spawn` 用 `setsid`／process group
-讓 stop 停得掉整棵樹**。🔴 **「JVM 的 argv 帶專案路徑」是我的推測，沒有實測**——
-現在沒有 viz 在跑，argv 我拿不到。**要 L6 驗過才能當成修法依據。**
+讓 stop 停得掉整棵樹**。🔴 **「JVM 的 argv 帶專案路徑」是我的推測，沒有實測。**
+**而且它已經確定不可能從今晚的紀錄補回來**：auditor 2026-09-03 回報，23:38 收掉那兩個 JVM 時
+只抓了 `pid/ppid/etime/pcpu/rss/comm`，**沒有抓 args**；他把整輪 raw 掃過一遍，
+只找得到 launcher 的路徑，**沒有任何一份 log 存了存活 JVM 的完整 argv**。
+
+⇒ **L6 是唯一的取得路徑。** auditor 已把「啟動 viz 的輪次必須存四層 argv 與 ppid 鏈」
+加進測試輪的共同 brief，所以那個輸入會在下一輪自然產生，不必為它搶機器。
+🔴 **在 argv 到手之前不要動手寫 viz 的修法**——那會是「用想像中的形狀寫修法」的第二次機會。
 
 #### 我改的那半（energy／sim）**沒有**被這個形狀咬到，而且理由是可查證的
 
@@ -215,6 +221,16 @@ network_traffic_visualizer.sh   (bash)      ← app_spawn 記到的就是這個 
 
 ⇒ **這是結構上的安全，不是我測出來的安全**——我的 fixture 一樣是自己發明的。
 差別在於這一次我能指出「為什麼它不可能長成那個形狀」，而 viz 那條我指不出來。
+
+🔴 **但那個論證擋掉的東西比它看起來少，寫清楚免得它被當成比實際更強的保證。**
+`file` 說它是 ELF，**只排除掉 shell wrapper 那一種形狀**——沒有 `#!` 交棒、
+沒有「launcher 執行完就退場、只剩子孫」的結構。它**不排除**一個 ELF 自己 fork 出
+真正幹活的行程然後退場（那樣 app 就是那個子行程，而子行程可能不帶 signature）。
+
+我能排除前者是因為那是**具體機制**（ELF 沒有 `#!` 交棒這一步）；
+後者我**只是沒有證據說它會發生**——那不是論證，是沒看過。
+**L5 要關掉的就是這個殘差**：把真的 energy／sim 的 argv **與子行程**印出來，
+確認「lab 起的那個 pid」就是「一直在跑的那個 pid」。
 
 **待 live 驗證**（要真 fabric／真 app，我沒做）
 
