@@ -13,8 +13,9 @@
 #   M2  read only the upper bound, as `ndt status` used to        -> case 3 (lo=1, samples nothing)
 #   M3  assert unconditionally (always red)                       -> case 1 (production accepted)
 #   M4  compiled_rng lies: always reports production bounds       -> case 2
-#   M5  the old order: copy the kernel binary before teardown     -> case 4
-#   M6  drop the rc read on the copy                              -> case 5b
+#   M5  teardown no longer runs before the copy                   -> case 4
+#   M6  a stray second teardown after the copy                    -> case 4
+#   M7  drop the rc read on the copy                              -> case 5b
 #
 # 🔴 Guards its own baseline: mutations are applied to a COPY of lib_e.sh in a temp dir and the
 # test is pointed at the copy with LIB_E_UNDER_TEST.  The round's own lib_e.sh is never written --
@@ -41,16 +42,20 @@ report() {   # $1 = mutation name, $2 = mutated copy, $3 = case that must go red
         grep -E '^  (ok|FAILED)' <<<"$out" | sed 's/^/             /'
     fi
 }
-mutant() {   # $1 = name, $2.. = alternating old/new text; prints the path to the mutated copy
-    local out="$BK/lib_e.$1.sh"; cp "$LIB" "$out"; shift
-    python3 - "$out" "$@" <<'PY'
+# 🔑 The parameters are named `anchor`/`replacement` in a `local` line on purpose: that is how
+# tests/shell/check_gate_anchors.py learns which argument is the text to look for (its
+# ROLE_ANCHOR set), and a gate it cannot parse is a gate nobody is checking -- L-3. One anchor
+# per call for the same reason: only the first would be read.
+mutant() {   # $1 = mutant name, $2 = anchor (exact text), $3 = replacement
+    local name="$1" anchor="$2" replacement="$3"
+    local out="$BK/lib_e.$name.sh"
+    cp "$LIB" "$out"
+    python3 - "$out" "$anchor" "$replacement" <<'PY'
 import sys
-p, pairs = sys.argv[1], sys.argv[2:]
+p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(p).read()
-for a, b in zip(pairs[0::2], pairs[1::2]):
-    assert s.count(a) == 1, "anchor is not unique (%d hits): %r" % (s.count(a), a[:70])
-    s = s.replace(a, b)
-open(p, "w").write(s)
+assert s.count(a) == 1, "anchor is not unique (%d hits): %r" % (s.count(a), a[:70])
+open(p, "w").write(s.replace(a, b))
 PY
     echo "$out"
 }
@@ -77,23 +82,29 @@ m4=$(mutant m4 'print("%d %d" % (int(b[0], 16), int(b[1], 16)) if b and len(b) =
 report "M4: compiled_rng always reports production bounds" "$m4" \
        "case 2  compiled artefact still at 1/8 while the source reads 256 is REJECTED"
 
+# M5 and M6 bracket the ordering from both sides. The original defect (copy first, teardown
+# second) is one of the traces they rule out: case 4 asserts the WHOLE trace, so a teardown that
+# is missing, late, or duplicated all fail it. Two single-anchor mutations rather than one
+# two-anchor reorder, because check_gate_anchors.py reads one anchor per call.
 m5=$(mutant m5 '    teardown
-    if [[ -f "$KBIN_BACKUP" ]]; then' '    if [[ -f "$KBIN_BACKUP" ]]; then' \
-               '    fi
-    compile_at 256' '    fi
-    teardown
-    compile_at 256')
-report "M5: the old order -- copy the binary while the stack is up" "$m5" \
+    if [[ -f "$KBIN_BACKUP" ]]; then' '    if [[ -f "$KBIN_BACKUP" ]]; then')
+report "M5: teardown no longer runs before the copy" "$m5" \
        "case 4  restore_production tears the stack down BEFORE copying the kernel binary"
 
-m6=$(mutant m6 'if RUN cp -f "$KBIN_BACKUP" "$KBIN"; then' \
-                'RUN cp -f "$KBIN_BACKUP" "$KBIN"; if true; then')
-report "M6: the exit code of the copy is not read" "$m6" \
+m6=$(mutant m6 '    compile_at 256 || { assert_restore_landed; return 1; }' \
+               '    teardown
+    compile_at 256 || { assert_restore_landed; return 1; }')
+report "M6: a second teardown after the copy (order no longer pinned)" "$m6" \
+       "case 4  restore_production tears the stack down BEFORE copying the kernel binary"
+
+m7=$(mutant m7 'if RUN cp -f "$KBIN_BACKUP" "$KBIN"; then' \
+               'RUN cp -f "$KBIN_BACKUP" "$KBIN"; if true; then')
+report "M7: the exit code of the copy is not read" "$m7" \
        "case 5b a kernel copy that FAILS is reported and makes restore_production non-zero"
 
 echo
 [[ "$(sha256sum "$LIB" | cut -d' ' -f1)" == "$BASE_SHA" ]] \
     && echo "baseline byte-identical: yes" \
     || { echo "🔴 baseline CHANGED -- lib_e.sh was written during the gate"; exit 3; }
-if [[ "$SURVIVORS" -eq 0 ]]; then echo "mutation gate: 6 mutations, 0 survived"; exit 0
+if [[ "$SURVIVORS" -eq 0 ]]; then echo "mutation gate: 7 mutations, 0 survived"; exit 0
 else echo "mutation gate: $SURVIVORS survived"; exit 1; fi
