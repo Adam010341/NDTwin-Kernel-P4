@@ -14,9 +14,15 @@
 #include <unordered_map>      // for unordered_map
 #include <vector>             // for vector
 class TopologyAndFlowMonitor; // lines 34-34
+// [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: isPollableForFlowTable takes this by
+// const reference, which needs only the declaration. Forward-declared rather than including
+// GraphTypes.hpp, matching how this header already treats TopologyAndFlowMonitor.
+struct VertexProperties;
 
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 #include "ndt_core/power_management/IPowerStrategy.hpp"
+// [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: UnreadSwitch and the carry-forward rule.
+#include "ndt_core/power_management/StaleTableCarryForward.hpp"
 
 using json = nlohmann::json;
 
@@ -326,6 +332,89 @@ class DeviceConfigurationAndPowerManager
         SuspectTimedOut, ///< Empty *and* slow. Keep the previous table; do not apply this one.
         ReportedFailure, ///< The body says "error": the control plane could not read the switch.
     };
+
+    // [Co-developed with claude code -- Adam]
+    // KNOWN-ISSUES F-6, and worth a pointer because the two halves are not next to each other:
+    // "keep the previous table" is NOT what the `continue` in fetchOpenFlowTablesInternal does.
+    // That loop builds a fresh array and only records the dpid in FlowTableFetch::unread; the
+    // keeping happens afterwards in openflowTablesUpdateWorker, via carryForwardUnreadTables.
+    // Between 2026-08-07 and 2026-09-02 the second half was missing, and the sentences above --
+    // in four skip paths, this enum, buildFlowStatsCommand's note and two test files -- described
+    // a merge no code performed: the switch was deleted from the listing instead.
+
+    /**
+     * @brief One poll's worth of flow tables: what was read, and what could not be.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * KNOWN-ISSUES F-6. `tables` used to be fetchOpenFlowTablesInternal's whole return value, and
+     * openflowTablesUpdateWorker assigned it straight over the cache -- so a switch that failed to
+     * read was not "kept", it was deleted, in contradiction of every comment on the four skip
+     * paths. Reporting the failures alongside the data, instead of only to the log, is what lets
+     * the worker carry the previous copy forward and mark it.
+     *
+     * `unread` holds only switches whose read was **attempted and failed**. A switch skipped for
+     * being down never enters it: see the note at the top of the loop for why that distinction is
+     * the whole safety of this fix.
+     *
+     * Protected rather than private so a test can reach it by subclassing, the way
+     * test_FlowStatsTimeout.cpp's FlowStatsReader reaches FlowStatsVerdict.
+     */
+    struct FlowTableFetch
+    {
+        json tables = json::array();
+        std::vector<UnreadSwitch> unread;
+    };
+
+    /**
+     * @brief Whether this poll will ask the control plane about this vertex at all.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * @details KNOWN-ISSUES F-6. A named predicate rather than the inline
+     * `vertexType != SWITCH || isUp == false` it replaced, because it is the **only** gate in
+     * front of `FlowTableFetch::unread` and therefore the entire boundary between the two facts
+     * this fix must not confuse:
+     *
+     *   - **not asked** -- a host, or a switch that is down. There is no failed read here, so
+     *     there is nothing to carry forward. Carrying one anyway would keep a dead switch's flow
+     *     table alive for as long as it stays dead: F-4/F-16's optimistic direction, and a worse
+     *     failure than the silent deletion F-6 is about.
+     *   - **asked and unanswered** -- everything past this predicate. Those may be carried
+     *     forward, marked stale.
+     *
+     * Inline, that distinction was a comment and nothing could test it: no unit test can drive
+     * fetchOpenFlowTablesInternal, which spawns a curl per switch. As a static predicate over
+     * plain VertexProperties it is testable with no graph, no network and no manager -- see
+     * test_StaleTableCarryForward.cpp's PollPolicy tests, which are what makes a mutation of this
+     * rule go red instead of silently through.
+     *
+     * @param props The vertex's properties as held in the topology graph.
+     * @return true if the flow-table read should be attempted for this vertex.
+     */
+    static bool isPollableForFlowTable(const VertexProperties& props);
+
+    /**
+     * @brief Merge one poll's result into the served cache, under the write lock.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * @details KNOWN-ISSUES F-6. Carries the previous table of every switch in
+     * `fetched.unread` into `fetched.tables`, marked stale, and only then replaces the cache.
+     *
+     * Split out of openflowTablesUpdateWorker so it can be tested. The worker is a ten-second
+     * sleep loop wrapped around a curl per switch, so nothing can drive it; while this logic
+     * lived inline, the tests could show that carryForwardUnreadTables computed the right array
+     * but never that `get_switch_openflow_table_entries` actually served it. A fix whose wiring
+     * is untested is the same shape as the defect it fixes.
+     *
+     * `nowEpochSeconds` is a parameter rather than read here so a test can assert what
+     * `stale_since` means.
+     *
+     * @param fetched         One poll: the switches read, and the ones that could not be.
+     * @param nowEpochSeconds Wall-clock seconds to stamp newly-stale switches with.
+     */
+    void applyFetchedTables(FlowTableFetch fetched, std::int64_t nowEpochSeconds);
 
     /**
      * @brief Decide whether a `/stats/flow` reply is evidence or an artefact of Ryu's timeout.
@@ -723,7 +812,11 @@ class DeviceConfigurationAndPowerManager
     json fetchPowerReportInternal();
     // fetchMemoryReportInternal / fetchCpuReportInternal / fetchTemperatureReportInternal are
     // declared in the protected section above, for the test seam. [Co-developed with claude code -- Adam]
-    json fetchOpenFlowTablesInternal();
+
+    /// Returns both halves of the poll: see FlowTableFetch, declared protected above beside
+    /// FlowStatsVerdict so a test can reach it by subclassing the way FlowStatsReader does. The
+    /// method itself stays private -- it talks to the network.
+    FlowTableFetch fetchOpenFlowTablesInternal();
 
     std::vector<SwitchInfo> switchSmartPlugTable;
 

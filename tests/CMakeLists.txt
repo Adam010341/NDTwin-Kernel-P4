@@ -48,6 +48,7 @@ add_executable(
   test_LockOwnership.cpp
   test_ClassifierActionForms.cpp
   test_FlowStatsTimeout.cpp
+  test_StaleTableCarryForward.cpp
   test_FlowTableConcurrency.cpp
   test_TopKFlowInfoLocking.cpp
   test_FlowBatchPartition.cpp
