@@ -170,6 +170,14 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @note Intended for clients that need to visualize or consume the live network graph
      *       (e.g., GUI/dashboard). In MININET mode, "left_link_bandwidth_bps" is derived from
      *       flow samples; otherwise it reflects the configured/measured link bandwidth.
+     *
+     * @note "left_link_bandwidth_source" says which of those two it actually is, per edge:
+     *       "measured" once telemetry has produced a figure, "declared" while the value is still
+     *       the topology file's link_bandwidth_bps. A link that carries no traffic never leaves
+     *       "declared" in MININET mode, because only flow samples drive the update -- so a client
+     *       that treats headroom as an observation must read this key, not just the number.
+     *       Added for F-8; see BandwidthSource in common_types/GraphTypes.hpp.
+     *       [Co-developed with claude code -- Adam]
      */
     void handleGetGraphData(http::response<http::string_body>& res);
     /**

@@ -353,6 +353,66 @@ to_json(nlohmann::json& j, const VertexProperties& v)
 }
 
 /**
+ * @brief Where an edge's remaining-bandwidth figure came from.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * F-8: `leftBandwidthFromFlowSample` used to be initialised to MININET_INTERFACE_SPEED and the
+ * topology loader never touched it, so before the first flow sample every edge advertised
+ * exactly 1 Gbit/s of headroom -- including the sixteen core edges the topology files declare
+ * at 10 Gbit/s. The number was wrong on 16 of 288 edges and *right on the other 272 by
+ * coincidence*, because the sentinel happened to equal their declared capacity. No field
+ * distinguished the two cases, which is the "sentinel value that looks like data" shape.
+ *
+ * A wider number cannot carry that distinction: 0 is a producible measurement (the capacity
+ * clamp at TopologyAndFlowMonitor.cpp publishes 0 left for a saturated link) and so is every
+ * other uint64_t. The provenance therefore has to be its own field.
+ *
+ * Declared is NOT a weaker spelling of Measured. Under Mininet the declared 10 Gbit/s is never
+ * enforced at all -- Mininet silently ignores `bw>1000` (link.py:238), so those core links carry
+ * no shaper, and this topology cannot reach 10 Gbit/s arithmetically anyway (two 1 Gbit/s uplinks
+ * per access switch). "Declared" is the honest word for it: this is what the model says, and
+ * nobody has measured it.
+ */
+enum class BandwidthSource : uint8_t
+{
+    Unknown = 0,  // nothing has been read or declared for this edge -- do not treat as capacity
+    Declared = 1, // from the topology file's link_bandwidth_bps; a model figure, not an observation
+    Measured = 2  // from a telemetry sample (sFlow flow sample, or a testbed counter sample)
+};
+
+/** @brief Wire spelling of BandwidthSource for the /ndt/ JSON. [Co-developed with claude code -- Adam] */
+inline const char*
+toString(BandwidthSource s)
+{
+    switch (s)
+    {
+    case BandwidthSource::Declared:
+        return "declared";
+    case BandwidthSource::Measured:
+        return "measured";
+    case BandwidthSource::Unknown:
+        break;
+    }
+    return "unknown";
+}
+
+/** @brief Inverse of toString; anything unrecognised reads back as Unknown, never as a capacity. */
+inline BandwidthSource
+bandwidthSourceFromString(const std::string& s)
+{
+    if (s == "declared")
+    {
+        return BandwidthSource::Declared;
+    }
+    if (s == "measured")
+    {
+        return BandwidthSource::Measured;
+    }
+    return BandwidthSource::Unknown;
+}
+
+/**
  * @brief Properties associated with an edge in the topology graph.
  *
  * Tracks link state, capacity, utilization and the set of flows that
@@ -373,7 +433,19 @@ struct EdgeProperties
     uint64_t linkBandwidthUsage = 0;
     double linkBandwidthUtilization = 0;
 
-    uint64_t leftBandwidthFromFlowSample = MININET_INTERFACE_SPEED;
+    // [Co-developed with claude code -- Adam]
+    // F-8. This used to read `= MININET_INTERFACE_SPEED`, and loadStaticTopologyFromFile never
+    // wrote it, so an edge that had never been sampled reported a full gigabit of free headroom
+    // -- a number indistinguishable from a real reading of an idle 1 Gbit/s link. It is now 0 and
+    // paired with leftBandwidthSource, which is the field a reader must consult: 0 is itself a
+    // producible measurement (a saturated link publishes 0 left), so the number alone can never
+    // say "nobody has looked at this edge yet".
+    uint64_t leftBandwidthFromFlowSample = 0;
+
+    // Provenance of leftBandwidth / leftBandwidthFromFlowSample, in that order of precedence per
+    // deployment mode; see BandwidthSource. Written by the topology loader (Declared) and by the
+    // two telemetry write paths (Measured). [Co-developed with claude code -- Adam]
+    BandwidthSource leftBandwidthSource = BandwidthSource::Unknown;
 
     // srcIp (host or agent ip), port represents "physical" port (on switch)
     std::vector<uint32_t> srcIp;
@@ -402,6 +474,13 @@ from_json(const json& j, EdgeProperties& e)
     e.adminDisabled = j.value("admin_disabled", false);
     e.leftBandwidth = j.at("left_link_bandwidth_bps").get<uint64_t>();
     e.linkBandwidth = j.at("link_bandwidth_bps").get<uint64_t>();
+    // [Co-developed with claude code -- Adam]
+    // value(), not at(): a payload produced before this field existed carries no provenance, and
+    // the honest reading of that is Unknown rather than a guess in either direction. Mirrors the
+    // key HttpSession emits so a round trip through /ndt/get_graph_data keeps the distinction.
+    e.leftBandwidthSource =
+        bandwidthSourceFromString(j.value("left_link_bandwidth_source", std::string{}));
+    e.leftBandwidthFromFlowSample = e.leftBandwidth;
     e.linkBandwidthUsage = j.at("link_bandwidth_usage_bps").get<uint64_t>();
     e.linkBandwidthUtilization = j.at("link_bandwidth_utilization_percent").get<double>();
     e.srcIp = j.at("src_ip").get<std::vector<uint32_t>>();
