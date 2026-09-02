@@ -1,6 +1,8 @@
 #include "ndt_core/application_management/ApplicationManager.hpp"
 #include "spdlog/spdlog.h"
 #include "utils/Logger.hpp"
+// [Co-developed with claude code -- Adam] utils::execArgv, for the two sudo commands below.
+#include "utils/Utils.hpp"
 #include <algorithm> // std::mismatch, for the path-prefix test in isSquashedClientContentFailure
 #include <cstdlib>
 #include <cstring>
@@ -191,14 +193,14 @@ ApplicationManager::exportsLineFor(const std::string& appDir)
 }
 
 // [Co-developed with claude code -- Adam]
-std::string
+std::vector<std::string>
 ApplicationManager::buildUnexportCommand(const std::string& folder)
 {
-    return "sudo exportfs -u " + folder;
+    return {"sudo", "exportfs", "-u", folder};
 }
 
 // [Co-developed with claude code -- Adam]
-std::string
+std::vector<std::string>
 ApplicationManager::buildExportsPurgeCommand(const std::string& folder,
                                              const std::string& exportsFile)
 {
@@ -216,7 +218,12 @@ ApplicationManager::buildExportsPurgeCommand(const std::string& folder,
         }
         escaped += c;
     }
-    return "sudo sed -i '/^" + escaped + " /d' " + exportsFile;
+    // [Co-developed with claude code -- Adam]
+    // The sed script is one argument, so the single quotes that used to wrap it are gone with the
+    // shell that needed them. They were never sed syntax -- they were shell syntax protecting sed
+    // syntax, and a `'` in `folder` went straight through the BRE escaping above (which does not
+    // cover it, correctly, because it is not a BRE metacharacter) and closed them. See the header.
+    return {"sudo", "sed", "-i", "/^" + escaped + " /d", exportsFile};
 }
 
 // [Co-developed with claude code -- Adam]
@@ -304,9 +311,12 @@ bool ApplicationManager::cleanupAppFolder(const std::string& folder)
             std::string sedWhy;
             if (hadExportLine)
             {
-                // Unexport folder
-                std::string cmd = buildUnexportCommand(folder);
-                unexportWhy = describeCommandFailure(std::system(cmd.c_str()));
+                // Unexport folder. [Co-developed with claude code -- Adam] execArgv, not
+                // std::system: `ran == false` and a wait status are different facts, and
+                // describeCommandFailure's -1 branch already says "never created" for the first.
+                const utils::CommandOutcome unexport =
+                    utils::execArgv(buildUnexportCommand(folder));
+                unexportWhy = describeCommandFailure(unexport.ran ? unexport.status : -1);
                 if (!unexportWhy.empty())
                 {
                     SPDLOG_LOGGER_WARN(
@@ -317,8 +327,9 @@ bool ApplicationManager::cleanupAppFolder(const std::string& folder)
                 }
 
                 // Remove from /etc/exports
-                std::string sedCmd = buildExportsPurgeCommand(folder, "/etc/exports");
-                sedWhy = describeCommandFailure(std::system(sedCmd.c_str()));
+                const utils::CommandOutcome purge =
+                    utils::execArgv(buildExportsPurgeCommand(folder, "/etc/exports"));
+                sedWhy = describeCommandFailure(purge.ran ? purge.status : -1);
                 if (!sedWhy.empty())
                 {
                     SPDLOG_LOGGER_WARN(Logger::instance(),

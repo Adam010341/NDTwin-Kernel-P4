@@ -804,7 +804,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
     }
 }
 
-std::string
+std::vector<std::string>
 DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gwUrl,
                                                            const SwitchInfo& si,
                                                            const std::string& action)
@@ -819,14 +819,26 @@ DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gw
     // had dropped it, so adopting that code as-is would have quietly changed the request the
     // testbed's gateway receives. The power report hits the same endpoint with the same three
     // parameters, and it is the only working example of this API in the repo.
-    std::ostringstream cmd;
-    cmd << "curl -s --max-time 8 -w '\\n%{http_code}' -X POST "
-        << "\"http://" << gwUrl << ":8000/relay"
+    //
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-2b sweep. `action` is the only value in the whole remaining shell
+    // population that originates in an HTTP request: it is the `action` query parameter of
+    // POST /ndt/set_switches_power_state (HttpSession.cpp:712). It is checked against exactly
+    // {"on","off"} twice before it gets here -- at the HTTP boundary (HttpSession.cpp:714) and
+    // fifteen lines above the call (setPowerStateTestbed) -- so it was not exploitable.
+    //
+    // It is migrated anyway, because "not exploitable" here rests on a two-element allowlist two
+    // call frames away rather than on anything local. As an argv element the question stops being
+    // asked: the URL is one argument no matter what is in `action`. The single and double quotes
+    // are gone because they were shell syntax, not curl syntax -- `-w` now receives the two
+    // characters `\` and `n` directly, which is exactly what the shell used to hand it.
+    std::ostringstream url;
+    url << "http://" << gwUrl << ":8000/relay"
         << "?ip=" << si.plugIp
         << "&resource=outlet"
         << "&index=" << si.plugIdx
-        << "&method=" << action << "\"";
-    return cmd.str();
+        << "&method=" << action;
+    return {"curl", "-s", "--max-time", "8", "-w", "\\n%{http_code}", "-X", "POST", url.str()};
 }
 
 /** @brief Builds the P4 liveness request. See the header for why this is a separate function. */
@@ -1382,8 +1394,8 @@ DeviceConfigurationAndPowerManager::setPowerStateTestbed(const SwitchInfo& si,
 
     try
     {
-        const RelayResult relay =
-            interpretRelayResponse(utils::execCommand(buildRelayPowerCommand(GW_IP, si, action)));
+        const RelayResult relay = interpretRelayResponse(
+            utils::execArgv(buildRelayPowerCommand(GW_IP, si, action)).output);
 
         if (!relay.ok)
         {
@@ -1809,11 +1821,28 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     {
         cpu = 10 + (std::hash<std::string>{}(deviceIdentifier) % 50);
     }
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-2b sweep. These two are the only shell commands in this file built
+    // from one of its own std::string parameters rather than from a re-rendered integer, and the
+    // parameter's caller chain starts at an LLM-supplied device name.
+    //
+    // They were never exploitable, and the reason is worth writing down because it is not
+    // visible here: the loop above only sets targetSwitch when
+    // `utils::ipToString(vp.ip.front()) == deviceIdentifier`, and returns early otherwise, so
+    // whatever reaches this point is byte-identical to an inet_ntop rendering of a uint32. That
+    // is a real guarantee -- and an entirely incidental one. It is a side effect of a lookup, it
+    // is twenty lines away, and nothing marks it as load-bearing. Deleting the `== deviceIdentifier`
+    // comparison in favour of any looser match would have turned a lookup change into a shell
+    // injection, silently.
+    //
+    // As an argv element the identifier cannot be anything but one argument to snmpget, so the
+    // guarantee stops needing to hold.
     else if (targetSwitch->brandName == "HPE5520")
     {
-        auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.25506.2.6.1.1.1.1.6.212",
-                               deviceIdentifier);
-        std::string snmp_result = utils::execCommand(cmd);
+        const std::string snmp_result =
+            utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
+                             "1.3.6.1.4.1.25506.2.6.1.1.1.1.6.212"})
+                .output;
         static const std::regex re(R"(INTEGER:\s*(\d+))");
         std::smatch match;
         if (std::regex_search(snmp_result, match, re))
@@ -1823,9 +1852,10 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     }
     else
     {
-        auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.1991.1.1.2.1.52.0",
-                               deviceIdentifier);
-        std::string snmp_result = utils::execCommand(cmd);
+        const std::string snmp_result =
+            utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
+                             "1.3.6.1.4.1.1991.1.1.2.1.52.0"})
+                .output;
         static const std::regex re(R"(Gauge32:\s*(\d+))");
         std::smatch match;
         if (std::regex_search(snmp_result, match, re))

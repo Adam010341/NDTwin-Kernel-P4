@@ -83,14 +83,27 @@ class ApplicationManager
     static std::string exportsLineFor(const std::string& appDir);
 
     /**
-     * @brief `sudo exportfs -u <folder>`, extracted for the reason set out at
+     * @brief `sudo exportfs -u <folder>` as an argument vector, for utils::execArgv.
+     *
+     * @details Extracted for the reason set out at
      * DeviceConfigurationAndPowerManager::buildRelayPowerCommand: the method around it needs
      * root and a live NFS server, so the only assertable thing is the command itself.
-     * Quoting of `folder` is deliberately unchanged from the inline original -- shell quoting
-     * across every southbound command is the deferred debt tracked in issue #2, and fixing one
-     * call site here would misrepresent the rest as safe.
+     *
+     * [Co-developed with claude code -- Adam]
+     * This used to return a std::string for std::system(), under the note: "Quoting of `folder` is
+     * deliberately unchanged from the inline original -- shell quoting across every southbound
+     * command is the deferred debt tracked in issue #2, and fixing one call site here would
+     * misrepresent the rest as safe." That reasoning was sound and is now spent: the sweep for
+     * doc/KNOWN-ISSUES.md B-2b/B-4 went through every shell-execution site in the kernel, so
+     * fixing this one no longer implies anything false about the others.
+     *
+     * `folder` is not request-controlled -- it is m_nfsExportDir plus an integer app id, and the
+     * export root is operator configuration. This site was migrated anyway, and that is a
+     * deliberate exception to "do not migrate what is not reachable": the command runs under
+     * sudo, and an export root containing a space silently unexported the wrong path. An argv
+     * cannot split on a space.
      */
-    static std::string buildUnexportCommand(const std::string& folder);
+    static std::vector<std::string> buildUnexportCommand(const std::string& folder);
 
     /**
      * @brief The sed invocation that removes exactly one app directory's line from an exports
@@ -104,9 +117,20 @@ class ApplicationManager
      * and to the space that separates the directory from its options in exportsLineFor, with
      * BRE metacharacters escaped. `exportsFile` is a parameter so the sed semantics are
      * testable against a temp file; production passes /etc/exports.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Now an argument vector, and that resolves a layer confusion rather than merely hardening a
+     * call site. The escaping below is *BRE* escaping -- it covers `.*[]^$\/` because those are
+     * sed's address metacharacters. The result was then embedded in `'...'` inside a string handed
+     * to std::system(), which means it also had to survive *shell* parsing, and `'` is not in that
+     * table. So this function did escape, carefully, for the wrong one of the two layers it was
+     * crossing: a folder containing a quote would have ended the sed script and started a command.
+     *
+     * With execArgv there is exactly one layer left -- sed's -- and the existing escaping is
+     * precisely right for it. Nothing was added; a layer was removed.
      */
-    static std::string buildExportsPurgeCommand(const std::string& folder,
-                                                const std::string& exportsFile);
+    static std::vector<std::string> buildExportsPurgeCommand(const std::string& folder,
+                                                            const std::string& exportsFile);
 
     /**
      * @brief Make one app directory writable through an all_squash NFS export: chmod 0777.

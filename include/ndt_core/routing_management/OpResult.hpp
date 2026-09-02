@@ -49,6 +49,28 @@ struct OpResult
         return OpResult{false, 0, std::move(why)};
     }
 
+    /**
+     * @brief The request never left this host, so the far end has no case to answer.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-2b. unreachable() was being used for this too, and its message names
+     * the component ("no response from <component> at <url>"). When the request was never sent --
+     * the shell could not parse the command line, curl is not installed, fork failed -- that
+     * sentence accuses a component the kernel never contacted, and it is byte-identical to what a
+     * genuinely dead controller produces. An operator reading the log is sent to the wrong machine.
+     *
+     * 500 rather than 0: httpStatus 0 means noResponse(), which HttpSession maps to 502 Bad
+     * Gateway -- "the gateway failed", which is the accusation being retracted. The fault is here,
+     * so it is a 500, and it reaches the caller as one through the existing 400..599 passthrough
+     * in HttpSession::respondToSouthboundResult without that function needing to change.
+     *
+     * @param why Must name the local cause, not the component. That is the whole point of the type.
+     */
+    static OpResult notSent(std::string why)
+    {
+        return OpResult{false, 500, std::move(why)};
+    }
+
     /// The target data plane cannot express this operation (e.g. group entries on bmv2).
     static OpResult unsupported(std::string why)
     {

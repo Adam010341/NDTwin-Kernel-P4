@@ -56,9 +56,11 @@ class SimulationRequestManager
      * the body went straight to curl and whatever the simulator server said (including nothing) was
      * wrapped as `{"status": "..."}`. An application had no way to learn it had sent rubbish.
      *
-     * Validation only. It deliberately does **not** sanitise: the body still reaches a shell in
-     * requestSimulation(), and making this look like a sanitiser would be worse than not having one.
-     * See the note on requestSimulation().
+     * Validation only, and still not a sanitiser -- but the reason has changed. It used to be "the
+     * body still reaches a shell, so do not mistake this for protection". requestSimulation() no
+     * longer builds shell source at all (see its note), so there is nothing left here to sanitise
+     * against: content is transported, not interpreted. This function's job is and always was to
+     * answer the caller about shape.
      *
      * @param body Raw request body.
      * @return A human-readable reason, or std::nullopt when the body has all of
@@ -67,16 +69,57 @@ class SimulationRequestManager
     static std::optional<std::string> validateRequestBody(const std::string& body);
 
     /**
-     * @brief Asynchronously request the simulator server to run a case
+     * @brief What happened to one simulation request.
      *
-     * @warning `body` is interpolated into a shell command line unescaped (see the implementation).
-     *          Callers must not treat validateRequestBody() as making an untrusted body safe -- it
-     *          checks shape, not content. Hardening this is tracked separately and deliberately
-     *          deferred; it covers every southbound curl call in the kernel, not just this one.
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-4. requestSimulation() returned std::string, and that type cannot say
+     * "this never left the host" -- an empty string meant the simulator answered with nothing,
+     * meant curl was not installed, and meant /bin/sh had refused to parse the command line,
+     * indistinguishably. HttpSession did not even look at it: it answered 202 Accepted
+     * unconditionally, so a request that was never sent was reported as accepted, with no id the
+     * caller could later query. That is the "silent" failure direction in one sentence.
+     */
+    struct Dispatch
+    {
+        /**
+         * @brief True when the request actually left this host.
+         *
+         * False means curl never ran -- so the simulator server has no case to answer, and any
+         * message about it would be an accusation the kernel cannot support. Kept separate from
+         * @c answered rather than inferred from the other fields, because the caller has to pick
+         * between "500, this is our fault" and "502, the far end failed" and inferring that from
+         * an empty string is how the two got confused in the first place.
+         */
+        bool sent = false;
+
+        /// True only when the simulator server actually answered. Not "curl exited 0".
+        bool answered = false;
+
+        /// The simulator's HTTP status, or 0 when it did not answer.
+        int httpStatus = 0;
+
+        /// The simulator's response body, with curl's status line removed.
+        std::string response;
+
+        /// Names the local cause when answered is false. Must never name the simulator for a
+        /// failure the simulator had no part in -- that is B-2b's mistake, in this file.
+        std::string failureReason;
+    };
+
+    /**
+     * @brief Request the simulator server to run a case, and report whether it was reached.
+     *
+     * @details The body is passed to curl as a single argument vector element, so its content is
+     * never parsed as shell source. It used to be interpolated between two single quotes on a
+     * command line handed to popen(): a `'` anywhere in any of the five fields ended the quoting,
+     * /bin/sh reported a syntax error to a stderr nobody read, curl never ran, and the caller got
+     * 202 Accepted. A deliberate `'` got command execution rather than a syntax error, and
+     * `inputfile` is a path -- the one field most likely to carry a quote by accident.
      *
      * @param body Request body, forwarded verbatim to SIM_SERVER_URL.
+     * @return Whether the simulator answered, and what it said.
      */
-    std::string requestSimulation(const std::string& body);
+    Dispatch requestSimulation(const std::string& body);
 
     /**
      * @brief This method should be called by the network layer when the simulator server
@@ -87,6 +130,19 @@ class SimulationRequestManager
      * @param outputFilePath   Path to the output file produced by the simulation
      */
     void onSimulationResult(int appId, const std::string& body);
+
+    /**
+     * @brief Seconds before a request to the simulator server is abandoned.
+     *
+     * [Co-developed with claude code -- Adam]
+     * There was no bound at all. Both curl calls in this class ran with neither --max-time nor
+     * --connect-timeout, so a simulator server that accepted the connection and then stalled held
+     * an HttpSession thread indefinitely -- the same failure that was fixed for the topology poll
+     * and for the routing strategies, on the one path that still had it. 30s rather than the
+     * routing strategies' 5s because starting a simulation case is not a hot path and the far end
+     * does real work before replying.
+     */
+    static constexpr int REQUEST_TIMEOUT_SECONDS = 30;
 
   private:
     std::shared_ptr<ApplicationManager> m_applicatonManager;

@@ -13,6 +13,9 @@
 // kernel start (cleanupStaleEntries runs from the constructor).
 
 #include "ndt_core/application_management/ApplicationManager.hpp"
+// [Co-developed with claude code -- Adam] utils::execArgv / describeArgv / CommandOutcome, used by
+// purgeSurvivors below. ApplicationManager.hpp does not pull Utils.hpp in, so this is not spare.
+#include "utils/Utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -81,10 +84,20 @@ TEST(DescribeCommandFailure, ASignalIsReportedAsASignal)
 
 TEST(UnexportCommand, NamesExportfsAndTheFolder)
 {
-    const auto cmd = Seams::buildUnexportCommand("/srv/nfs/sim/7");
-    EXPECT_EQ(cmd.rfind("sudo ", 0), 0u) << cmd;
-    EXPECT_NE(cmd.find("exportfs -u"), std::string::npos) << cmd;
-    EXPECT_NE(cmd.find("/srv/nfs/sim/7"), std::string::npos) << cmd;
+    const auto argv = Seams::buildUnexportCommand("/srv/nfs/sim/7");
+    EXPECT_EQ(argv, (std::vector<std::string>{"sudo", "exportfs", "-u", "/srv/nfs/sim/7"}));
+}
+
+// [Co-developed with claude code -- Adam]
+// WHICH LINE MAKES THIS RED: ApplicationManager::buildUnexportCommand's return. The old
+// `return "sudo exportfs -u " + folder;` was one string for std::system, so an export root
+// containing a space became two arguments and exportfs unexported a path nobody configured --
+// under sudo. Restore that line (and the std::string return type) to see this fail.
+TEST(UnexportCommand, AFolderContainingASpaceStaysOneArgument)
+{
+    const auto argv = Seams::buildUnexportCommand("/srv/my exports/7");
+    ASSERT_EQ(argv.size(), 4u) << "a space in the export root must not add an argument";
+    EXPECT_EQ(argv.back(), "/srv/my exports/7");
 }
 
 TEST(ExportsLine, StartsWithTheDirectoryAndASpace)
@@ -118,9 +131,18 @@ std::vector<std::string> purgeSurvivors(const std::string& folder,
         }
     }
 
-    const std::string cmd = Seams::buildExportsPurgeCommand(folder, file.string());
-    EXPECT_EQ(cmd.rfind("sudo ", 0), 0u) << cmd;
-    EXPECT_EQ(std::system(cmd.substr(5).c_str()), 0) << cmd;
+    // [Co-developed with claude code -- Adam]
+    // The builder returns an argv now, so dropping the privilege escalation is dropping argv[0]
+    // rather than slicing five characters off a string -- which is the same improvement the
+    // production path got: there is no command line to mis-parse. Running it through execArgv
+    // rather than std::system also means this test no longer needs a shell to check sed's
+    // behaviour, so a temp path containing a space or a quote could not break the test itself.
+    std::vector<std::string> argv = Seams::buildExportsPurgeCommand(folder, file.string());
+    EXPECT_EQ(argv.front(), "sudo") << utils::describeArgv(argv);
+    argv.erase(argv.begin());
+
+    const utils::CommandOutcome outcome = utils::execArgv(argv);
+    EXPECT_TRUE(outcome.succeeded()) << utils::describeArgv(argv);
 
     std::vector<std::string> survivors;
     std::ifstream in(file);

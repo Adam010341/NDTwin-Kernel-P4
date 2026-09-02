@@ -13,11 +13,13 @@
  * `from_json(SimulationTask)` calls `j.at(f).get_to(std::string)` on each of them, so a body that
  * fails this check would have thrown over there -- in a process with no way to answer the caller.
  *
- * What this file does *not* test is escaping, because there is none: the body still reaches a shell
- * unescaped. That is deliberately deferred and covers every southbound curl call, not just this one.
- * A test asserting a dangerous body is rejected would be worse than no test, because it would read
- * as a claim that the injection is handled. So there is one test in the other direction, pinning
- * that validation is shape-only, with the reason written down.
+ * This file used to say: "What this file does *not* test is escaping, because there is none: the
+ * body still reaches a shell unescaped." That is no longer true, and the way it stopped being true
+ * matters. requestSimulation() does not escape the body either -- it stopped building shell source,
+ * so there is nothing for a quote to escape *from*. The test that pinned "validation is shape-only,
+ * do not mistake it for a defence" is still here and still passes, because that statement was
+ * always about validateRequestBody() and is still correct; what changed is that shape-only is no
+ * longer dangerous. See ShapeCheckIsStillNotASanitiserAndNoLongerNeedsToBe below.
  */
 
 #include <limits>
@@ -198,20 +200,31 @@ TEST(SimulationRequestValidationTest, NeverThrowsWhateverItIsGiven)
     }
 }
 
-TEST(SimulationRequestValidationTest, ChecksShapeOnlyAndIsNotAnInjectionDefence)
+TEST(SimulationRequestValidationTest, ShapeCheckIsStillNotASanitiserAndNoLongerNeedsToBe)
 {
-    // Deliberate, and the reason it is a test rather than a comment: the body still reaches a shell
-    // unescaped in requestSimulation(), and a future reader must not mistake the 400 for
-    // sanitisation. A shell metacharacter inside a well-formed string field is accepted here.
+    // [Co-developed with claude code -- Adam]
+    // Was ChecksShapeOnlyAndIsNotAnInjectionDefence. Its comment said: "If the deferred injection
+    // work ever lands, this test SHOULD fail. Change it then -- do not 'fix' it by rejecting quotes
+    // here". The work has landed, and the instruction is followed rather than the letter of the
+    // prediction: the expectation is unchanged, because rejecting quotes here was never the fix and
+    // is not the fix now.
     //
-    // If the deferred injection work ever lands, this test SHOULD fail. Change it then -- do not
-    // "fix" it by rejecting quotes here, which would break legitimate paths and leave the other 22
-    // call sites exposed anyway.
+    // A shell metacharacter inside a well-formed string field is still accepted, and that is now
+    // *correct* rather than merely deferred. requestSimulation() passes the body to execvp as one
+    // argument, so `'` has no meaning to anything between here and the simulator server; rejecting
+    // it would break legitimate values -- `inputfile` is a path, and paths may contain quotes --
+    // for no gain.
+    //
+    // The property this test defends has therefore inverted, and it is worth stating plainly: it
+    // used to warn a reader not to trust the 400, and now it stops someone "hardening" this
+    // function with a character blacklist. Such a blacklist would be actively harmful: it would
+    // read as protection for the other call sites, and it would not have caught the injection via
+    // app_register's simulation_completed_url at all, which needs no quote (it was interpolated
+    // inside double quotes, where $(...) substitutes).
     json body = validBody();
     body["case_id"] = R"(case'; touch /tmp/pwned; #)";
     EXPECT_FALSE(SimulationRequestManager::validateRequestBody(body.dump()).has_value())
-        << "validation now rejects shell metacharacters -- see the comment above before changing "
-           "this expectation";
+        << "shape validation must not become a character blacklist -- read the comment above";
 }
 
 // --- app_id parsing for POST /ndt/simulation_completed.

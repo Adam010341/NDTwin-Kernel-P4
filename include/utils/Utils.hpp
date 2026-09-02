@@ -7,6 +7,9 @@
 #include <string_view>
 #include <cstring>
 #include <sys/wait.h>
+// [Co-developed with claude code -- Adam] fork/pipe/dup2/read/close/execvp/_exit for execArgv(),
+// the shell-free executor. sys/wait.h above already covers waitpid and the W* status macros.
+#include <unistd.h>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/core.hpp>
@@ -531,6 +534,191 @@ describeCommandStatus(int status, std::string_view command = {}, int savedErrno 
 }
 
 /**
+ * @brief What running a child process actually produced.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @details The reason this type exists is doc/KNOWN-ISSUES.md B-2b. execCommand() returns a bare
+ * std::string containing the child's stdout, and prints the wait status to std::cerr -- so the
+ * caller is not merely *not told* whether the command ran, it is **incapable of being told**.
+ * HttpRoutingStrategyBase::post() is where that costs something: a body that breaks the shell and
+ * a controller that is genuinely dead both arrive as "", both become HTTP status 0, and both
+ * produce the byte-identical verdict "no response from <component>". The kernel then accuses a
+ * healthy component of a failure it never had, and the log cannot tell an operator which of the
+ * two happened.
+ *
+ * @c ran is the discriminator that was being thrown away: false means the child never became the
+ * program we asked for (fork failed, exec failed, or -- for execCommand -- /bin/sh refused to
+ * parse the command line). It is deliberately *not* "exited zero": curl exiting 22 on an HTTP 404
+ * ran perfectly well.
+ */
+struct CommandOutcome
+{
+    /// The child's stdout. Empty is a legitimate value, which is exactly why it cannot be a status.
+    std::string output;
+
+    /// Whether the program was reached and reaped at all. See the note above on what it is not.
+    bool ran = false;
+
+    /// Wait status from waitpid()/pclose(), or -1. Pass to describeCommandStatus() to render.
+    int status = -1;
+
+    /// True when the program ran and exited 0.
+    bool succeeded() const { return ran && status == 0; }
+};
+
+/**
+ * @brief Renders an argv as one line for a log or an error message. Not a shell quoter.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @warning The result is for humans. It is **not** a command line: feeding it back to a shell is
+ *          precisely the defect execArgv() exists to remove, and an argument containing a space or
+ *          a quote will not round-trip. Named "describe", not "join", for that reason.
+ */
+inline std::string
+describeArgv(const std::vector<std::string>& argv)
+{
+    std::string out;
+    for (const std::string& arg : argv)
+    {
+        if (!out.empty())
+        {
+            out += ' ';
+        }
+        out += arg;
+    }
+    return out;
+}
+
+/**
+ * @brief Runs a program with an explicit argument vector and captures its stdout. **No shell.**
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * @details The mechanism doc/KNOWN-ISSUES.md B-2b and B-4 both say is missing. popen() and
+ * std::system() hand their string to `/bin/sh -c`, so every value interpolated into that string is
+ * shell *code*: a single quote in a JSON body ends the quoting and what follows is a command. This
+ * function never constructs a command line at all -- @p argv goes to execvp() as separate
+ * arguments, so a quote, a semicolon, `$(...)`, a newline and a backtick are all just bytes inside
+ * one argument.
+ *
+ * Note that this is not "escaping done properly". Escaping leaves the shell in the path and makes
+ * every call site responsible for a character table; the two KNOWN-ISSUES entries both warn against
+ * adding it piecemeal, and 2.6 of the fix design records why a table-based filter would have missed
+ * the `app_register` URL (interpolated inside *double* quotes, where `$(...)` needs no quote at
+ * all). Removing the shell removes the character table.
+ *
+ * @param argv Program name followed by its arguments. argv[0] is resolved through PATH by execvp.
+ * @return The child's stdout, plus whether it ran and its wait status.
+ * @throws std::invalid_argument if @p argv is empty.
+ * @throws std::runtime_error if pipe() fails.
+ *
+ * @note Only stdout is captured; the child's stderr is inherited, matching execCommand() so that
+ *       curl's own `-S` diagnostics keep reaching the kernel log.
+ * @note fork() is called from threads here (SimulationRequestManager detaches one). The child
+ *       therefore does nothing between fork() and execvp() that is not async-signal-safe, and the
+ *       char* array is built *before* the fork for the same reason.
+ */
+inline CommandOutcome
+execArgv(const std::vector<std::string>& argv)
+{
+    if (argv.empty())
+    {
+        throw std::invalid_argument("execArgv: argv must name a program");
+    }
+
+    // Built before fork(): allocating in the child would not be async-signal-safe. The const_cast
+    // is safe because execvp does not modify the strings, and the vector outlives the call.
+    std::vector<char*> cArgv;
+    cArgv.reserve(argv.size() + 1);
+    for (const std::string& arg : argv)
+    {
+        cArgv.push_back(const_cast<char*>(arg.c_str()));
+    }
+    cArgv.push_back(nullptr);
+
+    int fds[2];
+    if (::pipe(fds) != 0)
+    {
+        throw std::runtime_error("pipe() failed!");
+    }
+
+    const pid_t pid = ::fork();
+    if (pid < 0)
+    {
+        const int savedErrno = errno;
+        ::close(fds[0]);
+        ::close(fds[1]);
+        std::cerr << "Command failed (could not fork: " << std::strerror(savedErrno)
+                  << "): " << describeArgv(argv) << "\n";
+        // Reported, not thrown: a caller that cannot fork is in the same position as one whose
+        // command did not run, and CommandOutcome can say that. execCommand throws here only
+        // because its return type has nowhere to put it.
+        return CommandOutcome{"", false, -1};
+    }
+
+    if (pid == 0)
+    {
+        // Child. Async-signal-safe calls only, all the way to execvp.
+        ::close(fds[0]);
+        if (::dup2(fds[1], STDOUT_FILENO) < 0)
+        {
+            ::_exit(127);
+        }
+        ::close(fds[1]);
+        ::execvp(cArgv[0], cArgv.data());
+        // Only reached if exec failed. 127 is what a shell reports for "not found", so
+        // describeCommandStatus names the missing tool the same way for both executors.
+        ::_exit(127);
+    }
+
+    ::close(fds[1]);
+
+    std::string result;
+    std::array<char, 256> buffer;
+    for (;;)
+    {
+        const ssize_t n = ::read(fds[0], buffer.data(), buffer.size());
+        if (n > 0)
+        {
+            result.append(buffer.data(), static_cast<size_t>(n));
+            continue;
+        }
+        if (n < 0 && errno == EINTR)
+        {
+            continue;
+        }
+        break;
+    }
+    ::close(fds[0]);
+
+    int status = 0;
+    while (::waitpid(pid, &status, 0) < 0)
+    {
+        if (errno != EINTR)
+        {
+            // Reaped by someone else, or never ours. Cannot claim it ran.
+            return CommandOutcome{result, false, -1};
+        }
+    }
+
+    // Ran, whatever it exited with. An exec failure shows up as exit 127 rather than ran == false,
+    // and is left that way on purpose: the parent cannot distinguish "no such program" from "the
+    // program itself exited 127" without a second pipe, and inventing the distinction would be a
+    // worse lie than not drawing it. Callers that need "did the request leave this host" read
+    // succeeded(), not ran.
+    if (status != 0)
+    {
+        const int savedErrno = errno;
+        const std::string rendered = describeArgv(argv);
+        const std::string why = describeCommandStatus(status, rendered, savedErrno);
+        std::cerr << "Command failed (" << why << "): " << rendered << "\n";
+    }
+    return CommandOutcome{result, true, status};
+}
+
+/**
  * @brief Execute a shell command and capture its stdout.
  *
  * @param cmd Shell command string passed to popen().
@@ -539,6 +727,20 @@ describeCommandStatus(int status, std::string_view command = {}, int savedErrno 
  *
  * @warning This function executes via the shell. Do not pass untrusted input
  *          into @p cmd unless properly escaped/sanitized.
+ *
+ * @warning [Co-developed with claude code -- Adam] **Do not add call sites.** Use execArgv()
+ *          above, which cannot have this problem because it never builds a command line.
+ *
+ *          The doc/KNOWN-ISSUES.md B-2b sweep classified every shell-execution site in the kernel
+ *          by what reaches it. None of the remaining callers of this function interpolates a
+ *          request-controlled string: what they carry is compile-time constants, AppConfig /
+ *          topology-file values, and integers re-rendered as text (utils::ipToString on a uint32,
+ *          std::to_string on a dpid), which cannot contain a shell metacharacter whatever their
+ *          origin. That is a statement about today's callers, not about this function -- it is
+ *          still `/bin/sh -c`, and one new caller passing a request field would be B-2b again.
+ *
+ *          tests/python/test_shell_command_construction.py holds the per-site classification and
+ *          fails if a site appears that is not in it.
  */
 inline std::string
 execCommand(const std::string& cmd)

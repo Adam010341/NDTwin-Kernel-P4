@@ -377,8 +377,15 @@ TEST(IntentReplyRenderingTest, FlowReplyCarriesTheHttpStatusAndDetail)
 }
 
 /**
- * A device name from an LLM can contain a quote. The DISABLE/ENABLE cases build their replies by
- * string concatenation and would emit a malformed body; the renderers here must not.
+ * A device name from an LLM can contain a quote, and the renderers must not emit a malformed body.
+ *
+ * [Co-developed with claude code -- Adam]
+ * This comment used to end "The DISABLE/ENABLE cases build their replies by string concatenation
+ * and would emit a malformed body; the renderers here must not." That was true, and it described
+ * a live defect that the test below could not catch, because it only exercised the renderers --
+ * the twenty-two cases that did NOT use them went untested for exactly the property being
+ * asserted here. Those cases now use json{...}.dump() too, and the test immediately after this
+ * one drives one of them through performTask rather than trusting that.
  */
 TEST(IntentReplyRenderingTest, ADeviceNameContainingAQuoteStillProducesParseableJson)
 {
@@ -387,4 +394,32 @@ TEST(IntentReplyRenderingTest, ADeviceNameContainingAQuoteStillProducesParseable
 
     EXPECT_EQ(reply.value("device", ""), nasty);
     EXPECT_FALSE(reply.contains("injected"));
+}
+
+/**
+ * The same property, through the real switch statement rather than a renderer.
+ *
+ * [Co-developed with claude code -- Adam]
+ * DISABLE_SWITCH is chosen because it was the first of the twenty-two hand-built replies and is
+ * reachable with an unknown device name, so no topology setup is needed to reach the branch.
+ *
+ * WHICH LINE MAKES THIS RED: IntentTranslator.cpp's DISABLE_SWITCH "Switch not found" return. With
+ * the old `return "{\"error\": \"Switch not found\", \"device\": \"" + disableTask->deviceName +
+ * "\"}";` the device name below closes the JSON string and adds its own key, so json::parse either
+ * throws (failing at the parse) or yields an object containing "injected" (failing the last
+ * expectation). Restore that one line to see both.
+ */
+TEST_F(IntentTaskOutcomesTest, ADeviceNameContainingAQuoteCannotInjectKeysIntoADisableReply)
+{
+    llmResponse::DisableSwitchTask task;
+    task.deviceName = R"(s1", "injected": "yes)";
+
+    nlohmann::json reply;
+    ASSERT_NO_THROW(reply = nlohmann::json::parse(m_peer->perform(&task)))
+        << "the reply was not even parseable JSON";
+
+    EXPECT_EQ(reply.value("device", ""), task.deviceName)
+        << "the name must survive as one string value: " << reply.dump();
+    EXPECT_FALSE(reply.contains("injected"))
+        << "the device name added a key to this kernel's own reply: " << reply.dump();
 }

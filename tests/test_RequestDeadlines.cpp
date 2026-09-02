@@ -112,7 +112,7 @@ TEST(RequestDeadlines, TheLivenessRequestIsBounded)
 TEST(RequestDeadlines, TheRelayRequestIsBounded)
 {
     // Runs inside a request handler; an unresponsive gateway would hold the caller open.
-    const std::string cmd = RequestBuilder::buildRelayPowerCommand("localhost", plug(), "on");
+    const std::string cmd = utils::describeArgv(RequestBuilder::buildRelayPowerCommand("localhost", plug(), "on"));
 
     EXPECT_NE(cmd.find("--max-time"), std::string::npos) << cmd;
     EXPECT_GT(deadlineOf(cmd), 0.0) << cmd;

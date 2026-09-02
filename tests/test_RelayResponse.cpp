@@ -199,7 +199,7 @@ TEST(RelayResponseTest, NeverThrowsOnAnythingTheGatewayCouldSend)
 
 TEST(RelayPowerCommandTest, CarriesTheThreeParametersTheGatewayIsKnownToAccept)
 {
-    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "off");
+    const std::string cmd = utils::describeArgv(RelayReader::buildRelayPowerCommand("localhost", plug(), "off"));
 
     EXPECT_NE(cmd.find("ip=172.25.166.135"), std::string::npos) << cmd;
     EXPECT_NE(cmd.find("index=3"), std::string::npos) << cmd;
@@ -218,9 +218,43 @@ TEST(RelayPowerCommandTest, CarriesTheThreeParametersTheGatewayIsKnownToAccept)
         << "the request method is not pinned, so a change to GET would pass silently: " << cmd;
 }
 
+// [Co-developed with claude code -- Adam]
+// doc/KNOWN-ISSUES.md B-2b sweep. `action` is the one value in the kernel's remaining shell
+// population that starts life as an HTTP query parameter, and this pins that it can no longer be
+// read as anything but data -- independently of the two "on"/"off" checks upstream, which is the
+// point: those checks are what this test must not have to trust.
+//
+// WHICH LINE MAKES THIS RED: buildRelayPowerCommand's return. Restore the old
+// `cmd << "curl -s ... -X POST " << "\"http://" << gwUrl << ... << "&method=" << action << "\"";`
+// (returning std::string) and the value below closes the double quote and appends a second
+// command, so the argv assertions fail -- and on the old code the string was handed to popen().
+TEST(RelayPowerCommandTest, AHostileActionValueStaysInsideOneArgument)
+{
+    const std::string hostile = R"(on"; touch /tmp/ndtwin-relay-pwned; echo ")";
+    const auto argv = RelayReader::buildRelayPowerCommand("localhost", plug(), hostile);
+
+    ASSERT_FALSE(argv.empty());
+    EXPECT_EQ(argv.front(), "curl") << "argv[0] must be the program, not a shell";
+
+    // Exactly one element carries the URL, and the whole hostile value is inside it.
+    int carriers = 0;
+    for (const std::string& arg : argv)
+    {
+        if (arg.find("method=") != std::string::npos)
+        {
+            ++carriers;
+            EXPECT_NE(arg.find(hostile), std::string::npos)
+                << "the value must arrive intact rather than escaped or truncated: " << arg;
+            EXPECT_EQ(arg.rfind("http://", 0), 0u)
+                << "the URL element must still be a URL: " << arg;
+        }
+    }
+    EXPECT_EQ(carriers, 1) << "the action must not be able to spread across arguments";
+}
+
 TEST(RelayPowerCommandTest, AsksForTheHttpStatusInterpretRelayResponseReadsItsVerdictFrom)
 {
-    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "on");
+    const std::string cmd = utils::describeArgv(RelayReader::buildRelayPowerCommand("localhost", plug(), "on"));
 
     // Without -w there is no status line, and interpretRelayResponse answers
     // "response carried no HTTP status line" for every reply, including the successful ones.
@@ -233,7 +267,7 @@ TEST(RelayPowerCommandTest, AsksForTheHttpStatusInterpretRelayResponseReadsItsVe
 
 TEST(RelayPowerCommandTest, IsBoundedInTimeBecauseItRunsInsideARequestHandler)
 {
-    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "on");
+    const std::string cmd = utils::describeArgv(RelayReader::buildRelayPowerCommand("localhost", plug(), "on"));
     EXPECT_NE(cmd.find("--max-time"), std::string::npos)
         << "an unresponsive gateway stalls the HTTP handler indefinitely: " << cmd;
 }
@@ -242,7 +276,7 @@ TEST(RelayPowerCommandTest, TheStatusLineSurvivesTheRoundTripIntoAVerdict)
 {
     // The two halves have to agree, and nothing else checks that they do: build the command,
     // then feed interpretRelayResponse what curl would produce under it.
-    const std::string cmd = RelayReader::buildRelayPowerCommand("localhost", plug(), "on");
+    const std::string cmd = utils::describeArgv(RelayReader::buildRelayPowerCommand("localhost", plug(), "on"));
     ASSERT_NE(cmd.find("\\n%{http_code}"), std::string::npos);
 
     EXPECT_TRUE(RelayReader::interpretRelayResponse(reply(kOnPage, "200")).ok);

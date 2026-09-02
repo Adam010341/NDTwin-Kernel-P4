@@ -1356,12 +1356,60 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
         return;
     }
 
-    std::string resp = m_simulationRequestManager->requestSimulation(m_req.body());
+    const auto dispatch = m_simulationRequestManager->requestSimulation(m_req.body());
+
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-4. These four lines used to be three: 202 Accepted, unconditionally,
+    // with the return value of requestSimulation() pasted into a hand-built JSON string. Two
+    // separate defects sat in that.
+    //
+    // First, 202 means "I have taken responsibility for this request". Nothing here had checked
+    // whether the request left the machine, so a body whose `inputfile` path contained a quote --
+    // the ordinary way this failed -- produced a syntax error inside /bin/sh, no curl process at
+    // all, and `202 {"status":""}` to the caller. There was no id in the reply either, so the
+    // caller could not have discovered the truth later even if it had thought to look. 202 is now
+    // sent only when the simulator server has answered, and the simulator's own status is passed
+    // through when it refuses, so an application can tell "you sent me a bad case" from "the
+    // simulator is down" from "the kernel is broken".
+    //
+    // Second, `"{\"status\":\"" + resp + "\"}"` is a JSON document built with string concatenation
+    // out of a value from another process. A response body containing a quote or a newline made
+    // this kernel's reply malformed JSON -- the same class of defect as the shell interpolation
+    // one line above it, in the other direction. json{...}.dump() cannot produce that.
+    res.set(http::field::content_type, "application/json");
+
+    if (!dispatch.answered)
+    {
+        // 500 when the request never left this host: the fault is ours, and answering "bad
+        // gateway" would blame the simulator for a request it was never sent. 502 when it did
+        // leave and nothing came back. This is the distinction B-2b's message collapsed, expressed
+        // as a status code so that a program and not just a human can act on it.
+        res.result(dispatch.sent ? http::status::bad_gateway
+                                 : http::status::internal_server_error);
+        res.body() = json{{"status", "error"},
+                          {"error", "Simulation case was not accepted"},
+                          {"details", dispatch.failureReason}}
+                         .dump();
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Responding {} for a simulation case that was not dispatched: {}",
+                           static_cast<int>(res.result_int()),
+                           dispatch.failureReason);
+        return;
+    }
+
+    if (dispatch.httpStatus < 200 || dispatch.httpStatus >= 300)
+    {
+        res.result(static_cast<http::status>(dispatch.httpStatus));
+        res.body() = json{{"status", "error"},
+                          {"error", "The simulator server rejected the case"},
+                          {"simulator_status", dispatch.httpStatus},
+                          {"simulator_response", dispatch.response}}
+                         .dump();
+        return;
+    }
 
     res.result(http::status::accepted);
-    res.set(http::field::content_type, "application/json");
-    std::string bodyStr = std::string("{\"status\":\"") + resp + "\"}";
-    res.body() = std::move(bodyStr);
+    res.body() = json{{"status", dispatch.response}}.dump();
 }
 
 void
