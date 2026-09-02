@@ -45,6 +45,14 @@ WARNING | ^NFS server reloaded\.$ | ApplicationManager logs a successful NFS rel
 WARNING | ^ControllerAndOtherEventHandler stopped\.$ | normal shutdown message
 WARNING | acceptor_\.close\(\) error | benign during shutdown when the acceptor is already closed
 # [Co-developed with claude code -- Adam]
+# KNOWN-ISSUES B-3. Allowlisted rather than downgraded to info: it is a warning, and it fires
+# exactly once per startup, on every MININET kernel -- which is both lab stacks. Allowlisting
+# does not remove the line, and the line is the point: until now, "this component does not start
+# at all in MININET" was stated nowhere in the source and nowhere in the log, so a reader took
+# the early return for ordinary idempotence. If this ever appears more than once per run, or
+# appears on a TESTBED kernel, the pattern is too loose and should be tightened, not widened.
+WARNING | ^HistoricalDataManager not started: MININET | MININET does not run the recorder; stated once at startup so the absence of historical rows is visible without reading the source
+# [Co-developed with claude code -- Adam]
 # REMOVED, and the reasoning that put it here was wrong. `switch not found dpid N` was
 # allowlisted on the strength of one measurement in a healthy environment -- 50 occurrences over
 # 105 ms at startup -- with the note that "a version of this that does NOT stop would be a real
