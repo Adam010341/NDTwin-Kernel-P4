@@ -61,24 +61,24 @@ struct OpResult
 
     static OpResult success(int status = 200)
     {
-        return OpResult{true, status, ""};
+        return OpResult{true, status, "", ""};
     }
 
     static OpResult failure(int status, std::string why)
     {
-        return OpResult{false, status, std::move(why)};
+        return OpResult{false, status, std::move(why), ""};
     }
 
     /// No response at all: the far end is unreachable, or the request timed out.
     static OpResult unreachable(std::string why)
     {
-        return OpResult{false, 0, std::move(why)};
+        return OpResult{false, 0, std::move(why), ""};
     }
 
     /// The target data plane cannot express this operation (e.g. group entries on bmv2).
     static OpResult unsupported(std::string why)
     {
-        return OpResult{false, 501, std::move(why)};
+        return OpResult{false, 501, std::move(why), ""};
     }
 
     /// True when nothing answered, as opposed to answering with an error.
