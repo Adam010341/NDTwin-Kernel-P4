@@ -50,3 +50,31 @@ P1 裡我寫的具體摩擦點對帳：
 - tester 模板禁用 Browser 工具（`3b09e75c`）；WebGUI 純視覺功能這一輪留下 6 條 NOT-TRIED，**要有人親眼看**（Adam 或帶真瀏覽器的一輪）。
 - tester 的自我工時帳不可信（報告與 journal 自相矛盾），以 journal 的分段時間為準。
 - tester 的 BUG 敘述可能把兩個 log 混在一起（BUG-010）；每個「log 顯示 X」都要回 raw 檔驗。
+
+## 6. auditor（9/1）裁定（09-02 19:2x–19:4x，親讀 trunk 後）
+
+| 項 | 裁定 |
+|---|---|
+| ⑤④③＋`cleanup` | 進 KNOWN-ISSUES §G（auditor 併入下一波 diff，出處引本檔 §3） |
+| ⑥ NSR `pgrep -f`、⑨ Web-GUI pnpm | 回各 repo owner |
+| ①②⑦⑧＋131 | 純文件；**等 run-02 結束再修** |
+| BUG-010 降級 | 同意（站得住的只有「wrapper 收 SIGINT 後 kernel 沒死」＋手冊 P4 關機檢查缺 :8000） |
+| run-02 沿用 `bcf98f5` | 同意（③ 那道牆本身是 P3 的資訊：haiku 找不找得到 workaround） |
+| 推送 | auditor 的整合分支合進 trunk 後一次推 lab／p4；本線不推 |
+| 補驗（§7） | 排在 run-02 stop 之後；**這台今天被 systemd-oomd 殺了四次（含 Adam 的 app 一次）**，不准壓到 4 GB |
+
+**④ 的機制（本線讀碼）與修法（auditor 修正）**：`tools/test_workflow/ndtwin-lab:26-31` 寫死 `KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel`、
+`NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python`、`ENERGY_DIR`／`SIM_DIR=/home/adam/…`；`ovs-topo-start`（143-144）跑
+`/home/adam/Network-Traffic-Generator/testbed_topo.py`；`topo-start`（99-100）跑 `$NTG_PY $BRIDGE`。使用者叫 `ndt` 時全部不存在 ⇒ root tmux pane 秒死、
+`ndt` 等 300 s 報 `fabric has 0 hosts`（tester 記的 06:54→06:59）。**修法不是 source `components.env`**：檔頭明寫「KERNEL_DIR IS HARDCODED, AND
+DELIBERATELY NOT OVERRIDABLE」（08-30 FINDING-01：env 覆寫曾讓 `ndt`／`stack.sh` 與這支腳本各讀不同樹）⇒ 修法＝**安裝時期設定檔**（例如
+`/etc/ndtwin-lab.conf`，沒設定檔就明確 die 並印缺哪一項），維持「不吃呼叫端 env」。
+**③ 的根**：sudoers 放行的是 `/usr/local/sbin/ndtwin-lab`（root 擁有、與 repo 副本 byte-identical）——repo 改了要重裝才生效；手冊的安裝步驟必須含這一步。
+**⑤ 的機制**：`sim-start`／`energy-start`＝`tmux new-session -d -s X -c "$DIR" ./binary; echo started`，秒死也 rc 0，`ndt:1928-1929` 只看 rc；修法比照 `nsr` 的 `app_spawn`，排在整合合併之後。
+**另列**：`ndtwin-lab cleanup:132-136` 四個 `pkill -f`（含 `simple_switch_grpc`）——與 KNOWN-ISSUES 1488（`mn -c` 內部的 `pkill -9 -f`）不同，另列 §G；修法候選＝tmux session／pid 檔定向殺。
+
+## 7. 補驗（auditor 第 4 點）
+
+帳本 A-7 / run-01 補驗（`c48789cd`）；腳本 `orchestrator-scripts/av_{a,b,c}_*.sh`（`74d068d5`）；預測先寫（(a) pane 最後一行 `No such file or directory`；
+(b) sudo 轉送 SIGINT、kernel ~5 s 退出；(c) sim／energy 再假 ok、nsr 誠實）。執行窗＝run-02 stop 之後。raw 落 `auditor-verification/`。
+
