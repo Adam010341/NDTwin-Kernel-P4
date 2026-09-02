@@ -1091,11 +1091,12 @@ cell_cpu_gate_start() {   # $1 = cell
 }
 cell_cpu_gate_finish() {   # $1 = cell
     if [[ "$DRY_RUN" == 1 ]]; then
-        dry_note "would collect the cell's gate verdict; RED or UNREADABLE aborts the round"
+        dry_note "would collect the cell's gate verdict; RED or UNREADABLE aborts the round,"
+        dry_note "  suspect=true (or a record with no suspect field) lists the cell in cell_cpu/SUSPECT_CELLS"
         return 0
     fi
     [[ -n "${CELL_GATE_PID:-}" ]] && wait "$CELL_GATE_PID" 2>/dev/null
-    local v cov
+    local v cov sus
     v=$("$PY_PROXY" -c "
 import json
 try: r=json.loads(open('$CELL_GATE_OUT').read().strip().split(chr(10))[-1])
@@ -1107,8 +1108,38 @@ try:
     r=json.loads(open('$CELL_GATE_OUT').read().strip().split(chr(10))[-1])
     print(' '.join('%s=%s'%(k,x) for k,x in r.get('covariates',{}).items()))
 except Exception: print('')" 2>/dev/null)
+    # 🔴 THE VERDICT IS NOT THE WHOLE READING.  cpu_gate.py's lifetime version (2026-09-01) puts
+    # two more fields in the record: suspect, and unattributed_cores -- the CPU the gate could NOT
+    # put a name to, which is exactly where a window full of short-lived processes ends up.  This
+    # function used to read verdict= and excess= and stop, so a GREEN beside 3.6 unattributed
+    # cores was recorded as a quiet cell (KNOWN-ISSUES "CPU 汙染閘門有三個洞": the defect was
+    # never in the gate's arithmetic, it was in the reader that took verdict= for the total).
+    #
+    # suspect is deliberately not a fourth exit code and is NOT an abort here: the verdict still
+    # names the CPU the gate could see, and that number is still right.  What suspect changes is
+    # what the cell may be cited as -- so it is written to cell_cpu/SUSPECT_CELLS, where the
+    # analysis has to walk past it.
+    #
+    # 🔴 A record with NO suspect field is not a clean record, it is a record from a gate that
+    # never looked (a pre-lifetime cpu_gate.py).  It is listed as UNKNOWN, not read as false: the
+    # absence of a warning must never be the thing that makes a cell citable.
+    sus=$("$PY_PROXY" -c "
+import json
+try: r=json.loads(open('$CELL_GATE_OUT').read().strip().split(chr(10))[-1])
+except Exception: print('UNREADABLE'); raise SystemExit
+if 'suspect' not in r: print('UNKNOWN unattributed=n/a (no lifetime accounting in this record)')
+else: print('%s unattributed=%s' % (str(r['suspect']).lower(), r.get('unattributed_cores', 'n/a')))" 2>/dev/null)
     say "    cell CPU gate: ${v:-UNREADABLE}"
+    say "    suspect:       ${sus:-UNREADABLE}"
     say "    covariates:    ${cov:-<none>}"
+    case "${sus:-UNREADABLE}" in
+        true*|UNKNOWN*)
+            RUN mkdir -p "$OUT/cell_cpu"
+            printf '%s %s\n' "$1" "$sus" >>"$OUT/cell_cpu/SUSPECT_CELLS"
+            say "    🔴 SUSPECT: the verdict above names only the CPU the gate could attribute."
+            say "       This cell is listed in cell_cpu/SUSPECT_CELLS and must not be cited as quiet."
+            ;;
+    esac
     case "${v:-UNREADABLE}" in
         RED*) abort "§4 exclusive-CPU" "$1: foreign load exceeded the registered threshold DURING
         this cell.  The readout is a CPU plateau, so this cell measured a different machine from

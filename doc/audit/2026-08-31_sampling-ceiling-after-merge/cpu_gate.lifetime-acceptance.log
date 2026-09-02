@@ -1,0 +1,35 @@
+# cpu_gate.py lifetime fix -- paired acceptance run, 2026-09-01
+# machine: 14 cores, 7.0.0-30-generic
+# OLD = git HEAD (sha256 897b8996d9da3b88), NEW = working tree
+# both gates read the SAME 24s window on the SAME machine, concurrently.
+
+churn: spawned 648 short-lived children over 34s
+
+=== OLD (pre-fix) ===
+GATE acc_OLD foreign_cores=0.568 baseline=0.561 excess=0.007 threshold=0.5 verdict=GREEN
+     covariates claude-desktop=0.057 claude=0.203 gnome-shell=0.094 chrome=0.151
+     foreign  pid=1588553 comm=chrome           cores=0.104
+     foreign  pid=   3281 comm=gnome-shell      cores=0.094
+     foreign  pid=1503442 comm=claude           cores=0.056
+     foreign  pid=1575364 comm=claude           cores=0.051
+     foreign  pid= 914788 comm=claude           cores=0.037
+     ours     pid=1019839 comm=python           cores=0.017
+     ours     pid=1034020 comm=ndtwin_kernel    cores=0.015
+rc=0
+
+=== NEW (post-fix) ===
+GATE acc_NEW foreign_cores_attributable=0.704 baseline=0.508 excess=0.196 threshold=0.5 verdict=GREEN suspect=true
+     UNACCOUNTED-SHORT-LIVED unattributed_cores=3.635 (suspect at 0.5) excluded_midwindow=16 vanished=13 no_baseline=0 pid_reused=0
+🔴   SUSPECT: 3.635 cores of this window belong to no process this gate could
+     name.  verdict= above is the CPU it COULD name; it is not a claim about the
+     rest.  Short-lived processes are invisible to a two-snapshot difference, so
+     a green verdict beside this line does not mean the cell was quiet.
+     covariates claude-desktop=0.059 claude=0.204 gnome-shell=0.094 chrome=0.177
+     foreign  pid=1588553 comm=chrome           cores=0.104
+     foreign  pid=   3281 comm=gnome-shell      cores=0.094
+     foreign  pid=1503442 comm=claude           cores=0.056
+     foreign  pid=1589294 comm=nautilus         cores=0.052  [started mid-window]
+     foreign  pid=1575364 comm=claude           cores=0.051
+     ours     pid=1019839 comm=python           cores=0.017
+     ours     pid=1034020 comm=ndtwin_kernel    cores=0.015
+rc=0
