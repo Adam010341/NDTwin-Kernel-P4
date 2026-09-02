@@ -1,5 +1,13 @@
 # G-7 — `ndtwin-lab` 寫死 Adam 的路徑
 
+> 🔴 **未重裝前，這支分支不改變任何實際行為。**
+> `ndtwin-lab` 的 repo 副本與已安裝的 `/usr/local/sbin/ndtwin-lab` 原本 byte-identical，
+> 改完之後不再相同，而**機器上跑的是已安裝的那份**。閘門全綠 ≠ 缺陷在這台機器上修好了。
+> 重裝指令在 `doc/2026-09-02_ndtwin-lab-config.md`；
+> **合併時要把「重裝並重新確認兩份 byte-identical」寫成一個步驟**——
+> 那個「兩份逐位元相同」原本是個安全性質：它讓「我讀的是不是 root 會執行的那份」
+> 有一個一秒鐘的答案。現在它破了，補回去之前它一直是破的。
+
 分支 `fix/g7-ndtwin-lab-config`，base `6283ff5e19e6c6cee71ba6d04019bda936c90729`（trunk，2026-09-02 23:20）。
 
 [Co-developed with claude code -- Adam]
@@ -66,8 +74,10 @@ lab_config_parse        內容說了什麼、可不可用
 |---|---|---|
 | 沒有 `/etc/ndtwin-lab.conf` | 用寫死的路徑 | **完全相同**（四個預設值逐字未動，測試逐一釘住） |
 | 有一份 root-owned 0644 的設定檔 | 無此概念 | 生效 |
-| 設定檔是 adam 所有／可寫 | — | **拒絕並說明理由**，不退回預設 |
-| 設定檔所在目錄可被他人寫 | — | **拒絕**（先於檔案檢查） |
+| 設定檔是 adam 所有／可寫 | — | **拒絕採用**，用內建預設，理由印在最顯眼處 |
+| 設定檔所在目錄可被他人寫 | — | **拒絕採用**（先於檔案檢查） |
+| 設定檔被拒時跑 `status`／`config` | — | **照跑**（唯讀），先印 🔴 拒絕理由＋`sudo rm` 的救援指令 |
+| 設定檔被拒時跑任何會動東西的子命令 | — | **失敗關閉**，同樣印出理由與救援指令 |
 | 設定檔是 symlink | — | 拒絕（rc 本來就會拒，見 §5；新增的是「說出理由」） |
 | 設定檔有未知鍵／相對路徑／`..` | — | 拒絕，並指出行號 |
 | `KERNEL_DIR` 底下沒有 bridge 腳本 | — | **載入時**拒絕 |
@@ -103,6 +113,11 @@ lab_config_parse        內容說了什麼、可不可用
   no-bridge-validation       caught by: a KERNEL_DIR with no bridge script
   environment-gets-a-vote    caught by: an exported KERNEL_DIR is ignored
   default-tree-changed       caught by: KERNEL_DIR is the pre-G-7 default
+  gate-locks-out-status      caught by: status still runs
+  gate-lets-everything-run   caught by: topo-start does NOT
+  no-restore-on-refusal      caught by:   a half-applied file leaves no residue
+  refusal-is-silent          caught by: the refusal is announced
+  no-removal-instructions    caught by:   and says how to remove the file
   control-comment-only       SURVIVED (control, as required)
 
 restore: tools/test_workflow/ndtwin-lab is byte-identical to the pre-gate snapshot
@@ -110,9 +125,9 @@ restore: tools/test_workflow/ndtwin-lab is byte-identical to the pre-gate snapsh
 VERDICT: every mutation was caught by the check named for it; the control survived
 ```
 
-測試 `tests/shell/test_ndtwin_lab_config.sh`，42 checks 全綠。
+測試 `tests/shell/test_ndtwin_lab_config.sh`，59 checks 全綠。
 
-**閘門在這一支抓到的三件事**（都是讀碼看不出來的）：
+**閘門在這一支抓到的四件事**（都是讀碼看不出來的）：
 
 1. `no-owner-check`、`symlink-allowed` 兩個變異**存活**——被目錄檢查擋在前面，
    檔案層的斷言其實一條都沒被執行到。→ 拆成三個述詞。
@@ -120,7 +135,13 @@ VERDICT: every mutation was caught by the check named for it; the control surviv
    因為 `stat` 不解參考、報的是 link 本身，而 link 是 mode 777、被 group/other-writable 那條擋下。
    所以明確的 symlink 檢查**不改變 rc**，它買到的是「說出理由」＋擋住未來有人改成 `stat -L`。
    **斷言因此寫在訊息上，而且測試裡寫明了為什麼**——不是因為 rc 剛好不方便。
-3. 測試套件本身：`source ndtwin-lab` 會把 `set -e` 帶進測試，而一個題材就是「故意觸發失敗」的套件
+3. **09-03 改完之後**：`no-restore-on-refusal`（把還原那四行刪掉）**存活**。
+   原因是我這個測試造得出來的檔**一定先被信任檢查擋下**，`lab_config_parse` 根本沒跑到，
+   所以沒有東西需要還原 ⇒ 那條斷言不必還原存在也會過。
+   改成先直接呼叫 `parse` 製造半套用、再讓 `load` 去收拾，才碰得到那段碼。
+   （而那不是造作的形狀：它就是「load 執行時值已經不是預設」，
+   也正是還原要讀 `LAB_DEFAULT_*` 而不是進入時快照的理由。）
+4. 測試套件本身：`source ndtwin-lab` 會把 `set -e` 帶進測試，而一個題材就是「故意觸發失敗」的套件
    在 errexit 下**會中途離開卻仍然把已跑過的每一條印成 `ok`**——看起來像通過，只是提早結束。
    （實測：停在「and it says what is missing」，連結尾的 `Ran N checks` 都沒有。）已 `set +e`。
 
@@ -136,9 +157,22 @@ VERDICT: every mutation was caught by the check named for it; the control surviv
      其中一條是這條修法新造出來的 near-miss：`KERNEL_DIR` 裡剛好含 `topo:` 的路徑。
    - `lib_e.sh:749` 輪詢 `'bmv2: 10'`（子字串比對，不受首行影響）。
 2. `config` 是新子命令，舊的 usage 字串改了。
-3. 設定檔一旦不可信就**整支失敗**（連 `status` 都不能用）。這是刻意的：
-   不可信的設定檔代表有人以為自己換了樹。但這意味著一個打錯的設定檔會讓 lab 完全不能操作，
-   救法是 `sudo rm /etc/ndtwin-lab.conf`。**這個取捨要 Adam 確認。**
+3. ~~設定檔一旦不可信就整支失敗（連 `status` 都不能用）。~~
+   **2026-09-03 依 auditor 裁決改掉一半。** 方向保留——**會動東西的子命令一律失敗關閉**，
+   因為不可信的檔不該決定 root 跑哪棵樹。但 `status` 與 `config` 是**唯讀**的，而且正是
+   打錯一個字之後你會用來搞清楚發生什麼事的那兩個命令；把它們一起鎖掉，
+   等於讓救援路徑只剩「已經知道要 `sudo rm /etc/ndtwin-lab.conf`」，
+   不知道的人會以為 lab 壞了。
+
+   現在：拒絕的是**採用那個設定檔**，不是執行。內建預設留在原位，
+   `LAB_CONF_ERROR` 記下理由，`lab_conf_gate` 在任何子命令之前把理由（含檔案路徑與
+   `sudo rm` 指令）印到 stderr，然後唯讀的放行、其餘的 `die`。
+   這不弱化安全性：`status` 不碰任何東西，而「拒絕採用」比「不能執行」提供更多資訊。
+
+   🔑 **還原不是整潔問題**：`lab_config_parse` 是邊讀邊賦值的，所以第三行壞掉的檔
+   已經套用了前兩行——**半套用的設定比檔案或預設都糟，因為它對不上任何人寫下來的東西**。
+   還原讀的是 `LAB_DEFAULT_*` 而不是「進入 load 時的值」，因為後者只在 load 只被呼叫一次時
+   才等價，而那正是這個 repo 一直在付錢的那種假設。
 4. 新的 sourced-guard 讓這個檔可以被 `source`。sudo 一律 exec 不 source，所以已安裝路徑不受影響。
 
 **待 live 驗證**（需要 root／真 lab，claim 在 auditor 手上）

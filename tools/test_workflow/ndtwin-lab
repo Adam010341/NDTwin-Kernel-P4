@@ -84,15 +84,45 @@ TMUX="tmux -L ndtwinlab"
 
 LAB_CONF=/etc/ndtwin-lab.conf
 
-# The pre-G-7 values, unchanged. These are what runs when there is no config file.
-KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
-NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
-ENERGY_DIR=/home/adam/Energy-Saving-App
-SIM_DIR=/home/adam/Simulation-Platform-Manager
+# The pre-G-7 values, unchanged. These are what runs when there is no config file, and what a
+# REFUSED config file falls back to.
+#
+# Held in their own LAB_DEFAULT_* variables rather than only in the live ones, because the live
+# ones are what a config file overwrites: restoring "whatever they were when load started" is
+# only the same thing while load is called exactly once. It is called once today. A restore that
+# silently depends on that is the kind of assumption this repo keeps paying for, and the fix is
+# four more lines.
+LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+LAB_DEFAULT_NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
+LAB_DEFAULT_ENERGY_DIR=/home/adam/Energy-Saving-App
+LAB_DEFAULT_SIM_DIR=/home/adam/Simulation-Platform-Manager
+
+KERNEL_DIR=$LAB_DEFAULT_KERNEL_DIR
+NTG_PY=$LAB_DEFAULT_NTG_PY
+ENERGY_DIR=$LAB_DEFAULT_ENERGY_DIR
+SIM_DIR=$LAB_DEFAULT_SIM_DIR
 
 # LAB_CONF_SOURCE -- what `config` and `status` print, so FINDING-01's "no message saying so"
 # cannot happen again: the tree in use is always answerable without reading this file.
 LAB_CONF_SOURCE="built-in defaults (no $LAB_CONF)"
+
+# LAB_CONF_ERROR -- non-empty when a config file was present and REFUSED.
+#
+# [Co-developed with claude code -- Adam]
+# G-7, revised 2026-09-03 after review. The first version died on any untrusted or unparsable
+# config, for every verb. The direction is right for anything that ACTS -- a config that cannot
+# be trusted must not choose which tree root runs, and failing closed is the only safe answer.
+# It was wrong for `status` and `config`, and wrong in a way that matters: those two are exactly
+# what an operator reaches for after a typo, they touch nothing, and locking them out leaves the
+# rescue path as "already know to run `sudo rm /etc/ndtwin-lab.conf`". Someone who does not know
+# that concludes the lab is broken.
+#
+# So the failure is RECORDED rather than fatal, the defaults stay in force, and the dispatch
+# decides: read-only verbs run and say loudly why the file was refused; everything else dies.
+# Refusing to adopt the file is not weaker than refusing to run -- it carries strictly more
+# information, and nothing from that file is used either way.
+LAB_CONF_ERROR=""
+conf_fail() { LAB_CONF_ERROR="$*"; return 1; }
 
 # lab_config_load -- apply /etc/ndtwin-lab.conf if there is a trustworthy one.
 #
@@ -121,16 +151,31 @@ LAB_CONF_SOURCE="built-in defaults (no $LAB_CONF)"
 #    root-owned one away, drop your own in its place -- after which every check on the file
 #    passes on an attacker-supplied file. Checking only the file is the standard hole in this
 #    design.
+# Three predicates, not one, and the reason is the mutation gate: the directory is judged first
+# (it has to be -- see below), so a single function makes every file-level check UNREACHABLE for
+# a non-root test. There is no directory a non-root user can write to that is also root-owned,
+# so "adam-owned file in a trusted directory" cannot be constructed as a fixture at all. Split,
+# each half is exercised directly, and the gate can show each one going red on its own.
+#
+# Each records its reason via conf_fail and returns 1; none of them exits. What a refusal COSTS
+# is decided at the dispatch, not here -- see lab_conf_gate.
+#
+# 🔑 THE DIRECTORY IS JUDGED BEFORE THE FILE, and that ordering is the check, not a detail:
+#    write permission on the directory is permission to REPLACE the file -- rename the
+#    root-owned one away, drop your own in its place -- after which every check on the file
+#    passes on an attacker-supplied file. Checking only the file is the standard hole in this
+#    design.
 lab_conf_dir_trusted() {
     local dir="$1" owner perms
     owner="$(stat -c '%u' "$dir" 2>/dev/null)"
     perms="$(stat -c '%a' "$dir" 2>/dev/null)"
-    [[ "$owner" == 0 ]] || die "$dir must be owned by root (it is owned by uid ${owner:-?}).
+    [[ "$owner" == 0 ]] || { conf_fail "$dir must be owned by root (it is owned by uid ${owner:-?}).
   Write access to the directory is permission to replace the config file in it, so a
-  non-root-owned directory makes every check on the file itself meaningless."
+  non-root-owned directory makes every check on the file itself meaningless."; return 1; }
     if (( (0$perms & 0022) != 0 )); then
-        die "$dir is mode $perms; a group- or other-writable directory lets a non-root user
+        conf_fail "$dir is mode $perms; a group- or other-writable directory lets a non-root user
   replace the config file outright, which defeats the checks on the file."
+        return 1
     fi
     return 0
 }
@@ -143,26 +188,28 @@ lab_conf_file_trusted() {
     # trusted directory point at an adam-writable file elsewhere. Refusing is the only answer
     # that is right in both directions.
     if [[ -L "$conf" ]]; then
-        die "$conf is a symlink (-> $(readlink "$conf")); refusing to read it.
+        conf_fail "$conf is a symlink (-> $(readlink "$conf")); refusing to read it.
   What gets read would be the target, and the target is not in the directory this checked."
+        return 1
     fi
-    [[ -f "$conf" ]] || die "$conf is not a regular file"
+    [[ -f "$conf" ]] || { conf_fail "$conf is not a regular file"; return 1; }
     owner="$(stat -c '%u' "$conf" 2>/dev/null)"
     perms="$(stat -c '%a' "$conf" 2>/dev/null)"
-    [[ "$owner" == 0 ]] || die "$conf must be owned by root (it is owned by uid ${owner:-?}).
+    [[ "$owner" == 0 ]] || { conf_fail "$conf must be owned by root (it is owned by uid ${owner:-?}).
   A config anyone can write is the environment override this script refuses, wearing a hat:
-  it would let a non-root user choose which .py root executes."
+  it would let a non-root user choose which .py root executes."; return 1; }
     # 0022 = group-write or other-write. Either one hands the same choice to a non-root user.
     if (( (0$perms & 0022) != 0 )); then
-        die "$conf is mode $perms; it must not be group- or other-writable (try 644)."
+        conf_fail "$conf is mode $perms; it must not be group- or other-writable (try 644)."
+        return 1
     fi
     return 0
 }
 
 lab_config_trusted() {
     local conf="$1"
-    lab_conf_dir_trusted "$(dirname "$conf")"
-    lab_conf_file_trusted "$conf"
+    lab_conf_dir_trusted "$(dirname "$conf")" || return 1
+    lab_conf_file_trusted "$conf" || return 1
 }
 
 lab_config_parse() {
@@ -173,7 +220,7 @@ lab_config_parse() {
         line="${line#"${line%%[![:space:]]*}"}"
         line="${line%"${line##*[![:space:]]}"}"
         [[ -z "$line" || "$line" == \#* ]] && continue
-        [[ "$line" == *=* ]] || die "$conf:$n: not KEY=VALUE: $line"
+        [[ "$line" == *=* ]] || { conf_fail "$conf:$n: not KEY=VALUE: $line"; return 1; }
         key="${line%%=*}"; val="${line#*=}"
         key="${key%"${key##*[![:space:]]}"}"
         val="${val#"${val%%[![:space:]]*}"}"
@@ -181,34 +228,71 @@ lab_config_parse() {
         # rather than a silently ignored line that whoever wrote it believes took effect.
         case "$key" in
             KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
-            *) die "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR)" ;;
+            *) conf_fail "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR)"
+               return 1 ;;
         esac
-        [[ "$val" == /* ]] || die "$conf:$n: $key must be an absolute path, got '$val'"
+        [[ "$val" == /* ]] || { conf_fail "$conf:$n: $key must be an absolute path, got '$val'"; return 1; }
         case "$val" in
-            *..*) die "$conf:$n: $key must not contain '..': $val" ;;
+            *..*) conf_fail "$conf:$n: $key must not contain '..': $val"; return 1 ;;
         esac
         printf -v "$key" '%s' "$val"
     done < "$conf"
-    [[ -d "$KERNEL_DIR" ]] || die "$conf: KERNEL_DIR=$KERNEL_DIR is not a directory"
+    [[ -d "$KERNEL_DIR" ]] || { conf_fail "$conf: KERNEL_DIR=$KERNEL_DIR is not a directory"; return 1; }
     [[ -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]] ||
-        die "$conf: KERNEL_DIR=$KERNEL_DIR has no p4_proxy/mininet/ntg_bmv2_topo.py.
-  topo-start would otherwise have failed at run time, with root halfway through a fabric."
+        { conf_fail "$conf: KERNEL_DIR=$KERNEL_DIR has no p4_proxy/mininet/ntg_bmv2_topo.py.
+  topo-start would otherwise have failed at run time, with root halfway through a fabric."; return 1; }
     LAB_CONF_SOURCE="$conf"
     return 0
 }
 
 # lab_config_load -- apply /etc/ndtwin-lab.conf if there is a trustworthy one.
 #
-# Refuses rather than falls back. A config file that is present but unusable means someone meant
-# to change the tree, and running the default while they believe otherwise is FINDING-01 again.
+# Refuses to ADOPT rather than falling back silently: on any failure the defaults stay in force,
+# LAB_CONF_ERROR says why, and LAB_CONF_SOURCE still reports the defaults. Silently running the
+# default while the operator believes their config took effect is FINDING-01 again.
+#
+# 🔑 The restore is not tidiness. lab_config_parse assigns as it reads, so a file whose third
+#    line is bad has already applied its first two -- and a half-applied config is worse than
+#    either the file or the defaults, because it matches nothing anybody wrote down.
 lab_config_load() {
     local conf="${1:-$LAB_CONF}"
+    LAB_CONF_ERROR=""
     [[ -e "$conf" ]] || return 0
-    lab_config_trusted "$conf"
-    lab_config_parse "$conf"
+    if lab_config_trusted "$conf" && lab_config_parse "$conf"; then
+        return 0
+    fi
+    KERNEL_DIR="$LAB_DEFAULT_KERNEL_DIR"
+    NTG_PY="$LAB_DEFAULT_NTG_PY"
+    ENERGY_DIR="$LAB_DEFAULT_ENERGY_DIR"
+    SIM_DIR="$LAB_DEFAULT_SIM_DIR"
+    LAB_CONF_SOURCE="built-in defaults ($conf was REFUSED)"
+    return 1
 }
 
-lab_config_load
+# lab_conf_gate <verb> -- what a refused config costs this verb.
+#
+# Read-only verbs run on the defaults and shout; everything that ACTS fails closed. Separated
+# from the dispatch so it is testable without root, and so the read-only list is one visible
+# thing rather than a condition spread across the case arms.
+lab_conf_gate() {
+    [[ -n "$LAB_CONF_ERROR" ]] || return 0
+    printf '🔴 %s was REFUSED and is NOT in use:\n' "$LAB_CONF" >&2
+    printf '%s\n' "$LAB_CONF_ERROR" | sed 's/^/   /' >&2
+    printf '   running on built-in defaults. remove it with:  sudo rm %s\n' "$LAB_CONF" >&2
+    case "$1" in
+        status|config)
+            # Read-only, touches nothing, and is what an operator reaches for after a typo.
+            # Locking it out would leave the rescue path as "already know the answer".
+            printf '   (%s is read-only, so it runs anyway -- on the DEFAULTS, not on that file)\n' "$1" >&2
+            return 0 ;;
+        *)
+            die "refusing to run '$1' with a config file that cannot be trusted." ;;
+    esac
+}
+
+# `|| true`: the script runs under `set -e`, and a refused config must reach lab_conf_gate
+# rather than aborting here with no explanation.
+lab_config_load || true
 
 BRIDGE=$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py
 SIM_LOG=$KERNEL_DIR/.test_run/logs/app_sim.log
@@ -253,6 +337,10 @@ session_running() { $TMUX has-session -t "$1" 2>/dev/null; }
 # Sourced rather than executed: define the functions and stop, exactly as ndt and stack.sh do.
 # Without this there is no way to test lab_config_load at all. sudo always execs, never sources.
 (( NDTWIN_LAB_SOURCED == 1 )) && return 0
+
+# Before any verb runs: a refused config file is announced here, once, and decides whether this
+# invocation may proceed. Read-only verbs continue on the defaults; anything that acts dies.
+lab_conf_gate "${1:-}"
 
 case "${1:-}" in
     topo-start)

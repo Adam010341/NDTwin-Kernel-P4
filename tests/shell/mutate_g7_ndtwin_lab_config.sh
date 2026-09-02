@@ -81,19 +81,19 @@ PAIR
 # directory was never examined.
 CASES+=(directory-checked-second)
 write_case directory-checked-second "a bad directory refuses before the file" <<'PAIR'
-    lab_conf_dir_trusted "$(dirname "$conf")"
-    lab_conf_file_trusted "$conf"
+    lab_conf_dir_trusted "$(dirname "$conf")" || return 1
+    lab_conf_file_trusted "$conf" || return 1
 @@@TO@@@
-    lab_conf_file_trusted "$conf"
-    lab_conf_dir_trusted "$(dirname "$conf")"
+    lab_conf_file_trusted "$conf" || return 1
+    lab_conf_dir_trusted "$(dirname "$conf")" || return 1
 PAIR
 
 # The whole point: a config anyone can write is the env override wearing a hat.
 CASES+=(no-owner-check)
 write_case no-owner-check "a file owned by this user is refused" <<'PAIR'
-    [[ "$owner" == 0 ]] || die "$conf must be owned by root (it is owned by uid ${owner:-?}).
+    [[ "$owner" == 0 ]] || { conf_fail "$conf must be owned by root (it is owned by uid ${owner:-?}).
   A config anyone can write is the environment override this script refuses, wearing a hat:
-  it would let a non-root user choose which .py root executes."
+  it would let a non-root user choose which .py root executes."; return 1; }
 @@@TO@@@
     :
 PAIR
@@ -102,8 +102,9 @@ PAIR
 CASES+=(symlink-allowed)
 write_case symlink-allowed "  and says it will not read the target" <<'PAIR'
     if [[ -L "$conf" ]]; then
-        die "$conf is a symlink (-> $(readlink "$conf")); refusing to read it.
+        conf_fail "$conf is a symlink (-> $(readlink "$conf")); refusing to read it.
   What gets read would be the target, and the target is not in the directory this checked."
+        return 1
     fi
 @@@TO@@@
     :
@@ -125,7 +126,8 @@ PAIR
 # An unknown key silently ignored is a config the writer believes took effect and did not.
 CASES+=(unknown-key-ignored)
 write_case unknown-key-ignored "unknown-key is refused" <<'PAIR'
-            *) die "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR)" ;;
+            *) conf_fail "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR)"
+               return 1 ;;
 @@@TO@@@
             *) continue ;;
 PAIR
@@ -134,8 +136,8 @@ PAIR
 CASES+=(no-bridge-validation)
 write_case no-bridge-validation "a KERNEL_DIR with no bridge script" <<'PAIR'
     [[ -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]] ||
-        die "$conf: KERNEL_DIR=$KERNEL_DIR has no p4_proxy/mininet/ntg_bmv2_topo.py.
-  topo-start would otherwise have failed at run time, with root halfway through a fabric."
+        { conf_fail "$conf: KERNEL_DIR=$KERNEL_DIR has no p4_proxy/mininet/ntg_bmv2_topo.py.
+  topo-start would otherwise have failed at run time, with root halfway through a fabric."; return 1; }
 @@@TO@@@
     :
 PAIR
@@ -143,28 +145,68 @@ PAIR
 # The header's original argument, which this change must not quietly undo.
 CASES+=(environment-gets-a-vote)
 write_case environment-gets-a-vote "an exported KERNEL_DIR is ignored" <<'PAIR'
-KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
-NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
+KERNEL_DIR=$LAB_DEFAULT_KERNEL_DIR
+NTG_PY=$LAB_DEFAULT_NTG_PY
 @@@TO@@@
-KERNEL_DIR="${KERNEL_DIR:-/home/adam/Desktop/NDTwin-Kernel}"
-NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
+KERNEL_DIR="${KERNEL_DIR:-$LAB_DEFAULT_KERNEL_DIR}"
+NTG_PY=$LAB_DEFAULT_NTG_PY
 PAIR
 
 # "A missing config file changes NOTHING" is a claim about specific literal values, so it is
 # pinned to those values rather than to the sentence.
 CASES+=(default-tree-changed)
 write_case default-tree-changed "KERNEL_DIR is the pre-G-7 default" <<'PAIR'
-ENERGY_DIR=/home/adam/Energy-Saving-App
+LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
 @@@TO@@@
-ENERGY_DIR=/home/adam/Energy-Saving-App
-KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-somewhere-else
+LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-somewhere-else
+PAIR
+
+# --- the 2026-09-03 revision: what a refused config costs, verb by verb ------------------
+CASES+=(gate-locks-out-status)
+write_case gate-locks-out-status "status still runs" <<'PAIR'
+        status|config)
+@@@TO@@@
+        config)
+PAIR
+
+CASES+=(gate-lets-everything-run)
+write_case gate-lets-everything-run "topo-start does NOT" <<'PAIR'
+        *)
+            die "refusing to run '$1' with a config file that cannot be trusted." ;;
+@@@TO@@@
+        *)
+            : ;;
+PAIR
+
+CASES+=(no-restore-on-refusal)
+write_case no-restore-on-refusal "  a half-applied file leaves no residue" <<'PAIR'
+    KERNEL_DIR="$LAB_DEFAULT_KERNEL_DIR"
+    NTG_PY="$LAB_DEFAULT_NTG_PY"
+    ENERGY_DIR="$LAB_DEFAULT_ENERGY_DIR"
+    SIM_DIR="$LAB_DEFAULT_SIM_DIR"
+@@@TO@@@
+    :
+PAIR
+
+CASES+=(refusal-is-silent)
+write_case refusal-is-silent "the refusal is announced" <<'PAIR'
+    printf '🔴 %s was REFUSED and is NOT in use:\n' "$LAB_CONF" >&2
+@@@TO@@@
+    printf '' >&2
+PAIR
+
+CASES+=(no-removal-instructions)
+write_case no-removal-instructions "  and says how to remove the file" <<'PAIR'
+    printf '   running on built-in defaults. remove it with:  sudo rm %s\n' "$LAB_CONF" >&2
+@@@TO@@@
+    printf '   running on built-in defaults.\n' >&2
 PAIR
 
 CASES+=(control-comment-only)
 write_case control-comment-only "" <<'PAIR'
-# Refuses rather than falls back. A config file that is present but unusable means someone meant
+# lab_conf_gate <verb> -- what a refused config costs this verb.
 @@@TO@@@
-# Refuses rather than falls back. (x) A config file that is present but unusable means someone meant
+# lab_conf_gate <verb> -- what a refused config costs this verb. (x)
 PAIR
 
 apply() {   # apply <name>; echo ok|drift

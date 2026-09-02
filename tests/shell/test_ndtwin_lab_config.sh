@@ -63,9 +63,13 @@ TMPROOT="$(mktemp -d /tmp/ndtwin-lab-config-XXXXXX)"
 cleanup() { [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndtwin-lab-config-* ]] && rm -rf "$TMPROOT"; return 0; }
 trap cleanup EXIT INT TERM
 
-# rc_of / err_of -- run in a subshell, because die exits.
+# rc_of / err_of -- still a subshell. The config predicates record rather than exit now, but the
+# dispatch gate still dies, and a subshell is the only form that is right for both.
+#
+# err_of reads LAB_CONF_ERROR rather than stderr for the predicates: a refusal is RECORDED, not
+# printed, and asserting on stderr would quietly pass for the wrong reason once nothing prints.
 rc_of()  { ( "$@" >/dev/null 2>&1 ); echo $?; }
-err_of() { ( "$@" 2>&1 >/dev/null ); }
+err_of() { ( "$@" >/dev/null 2>&1; printf '%s' "$LAB_CONF_ERROR" ); }
 
 # --- 0. the default: a machine with no config file behaves as it always did -------------
 echo "no config file (the behaviour that must not change)"
@@ -192,6 +196,74 @@ check "  and was NOT executed"                   no  "$(if [[ -e "$TMPROOT/PWNED
 #
 # The header's original argument, kept as an assertion so a later "convenience" cannot quietly
 # reintroduce it.
+# --- 2b. a refused config file: what it costs, verb by verb ----------------------------
+#
+# [Co-developed with claude code -- Adam]
+# Revised 2026-09-03 after review. Failing closed is right for anything that ACTS -- an
+# untrusted file must not choose which tree root runs. It was wrong for `status` and `config`:
+# read-only, touch nothing, and exactly what an operator reaches for after a typo. Locking them
+# out leaves the rescue path as "already know to run `sudo rm /etc/ndtwin-lab.conf`", and
+# someone who does not know that concludes the lab is broken.
+echo "a refused config file (the rescue path has to stay open)"
+
+# A file that is fine in every way except the directory it lives in -- which is the whole point:
+# a world-writable directory means the file can be swapped out, so nothing about it is believable.
+BADDIR="$TMPROOT/opendir"
+mkdir -p "$BADDIR"; chmod 777 "$BADDIR"
+BADCONF="$BADDIR/ndtwin-lab.conf"
+printf 'KERNEL_DIR=%s\n' "$FAKETREE" > "$BADCONF"
+
+check "load of a refused file -> rc 1"           1 "$(rc_of lab_config_load "$BADCONF")"
+
+# The values must be the BUILT-IN defaults afterwards, not the file's, and not a mixture.
+# lab_config_parse assigns as it reads, so a file whose later line is bad has already applied
+# its earlier ones -- a half-applied config matches nothing anybody wrote down.
+after="$( lab_config_load "$BADCONF" >/dev/null 2>&1
+          printf '%s|%s|%s|%s' "$KERNEL_DIR" "$NTG_PY" "$ENERGY_DIR" "$SIM_DIR" )"
+check "  the built-in defaults are in force"     "$LAB_DEFAULT_KERNEL_DIR|$LAB_DEFAULT_NTG_PY|$LAB_DEFAULT_ENERGY_DIR|$LAB_DEFAULT_SIM_DIR" "$after"
+
+# The residue case, and getting AT it takes one deliberate step: a file this test can create is
+# always refused by the trust check first, so parse never runs and there is nothing to restore --
+# a check written the obvious way passes without the restore existing at all (measured: the
+# mutation that deletes the restore SURVIVED it). So the half-application is produced directly,
+# and then load is asked to clean up after it.
+#
+# That is not a contrived shape. It is exactly "load runs when the values are already not the
+# defaults", which is why the restore reads LAB_DEFAULT_* rather than snapshotting whatever the
+# variables happened to hold on entry.
+half="$TMPROOT/half.conf"
+printf 'SIM_DIR=/opt/sim\nKERNEL_DIR=relative\n' > "$half"
+after="$( lab_config_parse "$half" >/dev/null 2>&1; printf '%s' "$SIM_DIR" )"
+check "  parse alone DOES half-apply"            /opt/sim "$after"
+after="$( lab_config_parse "$half" >/dev/null 2>&1
+          lab_config_load "$BADCONF" >/dev/null 2>&1
+          printf '%s' "$SIM_DIR" )"
+check "  a half-applied file leaves no residue"  "$LAB_DEFAULT_SIM_DIR" "$after"
+
+after="$( lab_config_load "$BADCONF" >/dev/null 2>&1; printf '%s' "$LAB_CONF_SOURCE" )"
+check "  and the source says it was REFUSED"     yes "$(has "REFUSED" "$after")"
+
+# The gate: read-only verbs survive it, acting verbs do not.
+gate_rc() { ( LAB_CONF_ERROR="something is wrong"; lab_conf_gate "$1" >/dev/null 2>&1 ); echo $?; }
+gate_err() { ( LAB_CONF_ERROR="something is wrong"; lab_conf_gate "$1" 2>&1 >/dev/null ); }
+
+check "status still runs"                        0 "$(gate_rc status)"
+check "config still runs"                        0 "$(gate_rc config)"
+check "topo-start does NOT"                      1 "$(gate_rc topo-start)"
+check "cleanup does NOT"                         1 "$(gate_rc cleanup)"
+check "energy-start does NOT"                    1 "$(gate_rc energy-start)"
+check "sim-stop does NOT"                        1 "$(gate_rc sim-stop)"
+
+check "the refusal is announced"                 yes "$(has "was REFUSED and is NOT in use" "$(gate_err status)")"
+check "  and says how to remove the file"        yes "$(has "sudo rm /etc/ndtwin-lab.conf" "$(gate_err status)")"
+check "  and says defaults are in use"           yes "$(has "built-in defaults" "$(gate_err status)")"
+check "  even on the verb that dies"             yes "$(has "sudo rm /etc/ndtwin-lab.conf" "$(gate_err topo-start)")"
+
+# Nothing is announced when there is nothing wrong -- otherwise every run would carry a banner
+# and the banner would stop being read.
+check "a good config prints no banner"           "" "$( LAB_CONF_ERROR=""; lab_conf_gate status 2>&1 >/dev/null )"
+check "  and does not block anything"            0 "$(rc_of lab_conf_gate topo-start)"
+
 echo "the environment still does not get a vote"
 
 envout="$(KERNEL_DIR=/tmp/attacker LAB_CONF=/tmp/attacker.conf bash -c 'source "$1" >/dev/null 2>&1; echo "$KERNEL_DIR|$LAB_CONF"' _ "$LAB")"
