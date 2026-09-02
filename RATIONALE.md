@@ -1,5 +1,13 @@
 # G-9 — cleanup 用 `pkill -f`
 
+> 🔴 **未重裝前，這支分支不改變任何實際行為。**
+> `ndtwin-lab` 的 repo 副本與已安裝的 `/usr/local/sbin/ndtwin-lab` 原本 byte-identical，
+> 改完之後不再相同，而**機器上跑的是已安裝的那份**。閘門全綠 ≠ 缺陷在這台機器上修好了。
+> 重裝指令在 `doc/2026-09-02_ndtwin-lab-config.md`（G-7 分支）；
+> **合併時要把「重裝並重新確認兩份 byte-identical」寫成一個步驟**——
+> 那個「兩份逐位元相同」原本是個安全性質：它讓「我讀的是不是 root 會執行的那份」
+> 有一個一秒鐘的答案。現在它破了，補回去之前它一直是破的。
+
 分支 `fix/g9-cleanup-no-pkill-f`，base `6283ff5e19e6c6cee71ba6d04019bda936c90729`（trunk，2026-09-02 23:20）。
 
 [Co-developed with claude code -- Adam]
@@ -208,3 +216,37 @@ VERDICT: every mutation was caught by the check named for it; the control surviv
 檔案裡還留著兩個 `pgrep -f` **字串**，都在解釋這條規則的註解裡——測試斷言的是
 「沒有可執行行含它」與「沒有任何會被印出來的東西含它」，不是字元不准出現
 （CLAUDE.md 自己就寫著這個字串）。
+
+---
+
+## 附錄二：`cleanup` 從「不可能失敗」變成「可能失敗」，呼叫端盤點
+
+auditor 2026-09-03 要求：**一個從不失敗的東西開始會失敗，它的呼叫端就是新的風險面。**
+下面是 repo 內全部呼叫點（`grep`，排除 `.git` 與其他 agent 的 worktree）。
+**沒有動任何一個呼叫端**——這是清單，不是修法。
+
+### 產品碼（`tools/`），兩處
+
+| 位置 | 現況 | 新 rc 的影響 |
+|---|---|---|
+| `ndt:638` | `sudo -n "$LAB" cleanup >/dev/null 2>&1` | rc **完全丟棄**。這是 `up_p4` 在「有 orphan bmv2、沒有 topo session」時的先掃除。掃不乾淨（有東西扛過 TERM+KILL）現在**回 rc 1 而這裡看不到**，接著就在那個 orphan 上面建 fabric——而註解自己寫著 orphan 會佔住 `:3005x`、讓下一個 fabric 綁不上、錯誤訊息看起來像 P4 問題。**這是清單裡最值得修的一個**，但它是別人的碼，我只列。 |
+| `ndt:1083` | `sudo -n "$LAB" cleanup 2>&1 \| sed 's/^/      /'` | `ndt` 是 `set -uo pipefail`（`:51`），所以管線的 rc 會變成 cleanup 的非零。但 `cmd_down` **沒有讀它**，下一行就繼續。行為上等同丟棄，只是丟棄的路徑不同。 |
+
+### 測試輪／audit 腳本（`doc/`），六處以上
+
+`matrix.sh:38`、`gate_d.sh:50`、`gate_e.sh:34`、`h_probe.sh:50`、`cal_c.sh:28`、`ladder_ext.sh:49`
+以及兩份 `lib_e.sh` —— **全部是 `setsid $LAB cleanup ... || true`**。
+`|| true` 是明示的忽略，所以不會壞掉；但它們現在會**明示地忽略一個真的失敗**。
+要不要讓其中某些輪次對 rc 1 中止，是測試輪那邊的決定，不是這支分支的。
+
+### 🔴 這支分支**沒有**修的那一半
+
+`doc/KNOWN-ISSUES.md:2164`：「**`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。」
+那是 `mn -c` **自己內部**的 `pkill -9 -f`（KNOWN-ISSUES 1488），**不是** cleanup 的那四行。
+我把 `mn -c` 原樣留著，所以：
+
+- 上面那些腳本的 `setsid` 紀律**仍然必要**；
+- 「cleanup 可能殺掉呼叫它的 shell」這條**沒有因為這支分支而解除**。
+
+寫在這裡是因為兩者很容易被混為一談——今晚的 LEDGER 與 RECONCILIATION 都特別註明過它們是兩條不同的事。
+
