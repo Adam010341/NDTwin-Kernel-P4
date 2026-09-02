@@ -1059,11 +1059,15 @@ cmd_down() {
         started=1
         [[ "$APP_STATE" == pidfile-lost-but-alive ]] &&
             warn "$a is running untracked (pid ${APP_LIVE_PIDS[*]}) -- stopping it by pid"
-        if app_stop "$a" >/dev/null 2>&1; then
-            info "stopped $a"
-        else
-            err "could NOT stop $a -- rerun 'ndt apps stop $a' to see why"
-        fi
+        # rc 2 is "there was nothing to stop": reachable here despite the probe above, because
+        # the app can exit between the two calls. It is not a failure and must not be reported
+        # as one -- only rc 1 is. (G-6)
+        app_stop "$a" >/dev/null 2>&1; local src=$?
+        case "$src" in
+            0) info "stopped $a" ;;
+            2) info "$a had already exited" ;;
+            *) err "could NOT stop $a -- rerun 'ndt apps stop $a' to see why" ;;
+        esac
     done
 
     # Order matters and is not the obvious one: `cleanup` does not stop the topo session, so
@@ -1630,6 +1634,18 @@ app_sig() {
         nsr) echo "network_state_recorder.py" ;;
         te)  echo "Traffic-engineering-App.py" ;;
         viz) echo "network_traffic_visualizer.sh" ;;
+        # [Co-developed with claude code -- Adam]
+        # G-6. energy and sim had no signature because their witness was the tmux session, and
+        # a session was taken to be the program. It is not: `<name>-start` is
+        # `tmux new-session -d ...; echo`, so the session outlives nothing and proves nothing
+        # about the second after it was created. These two strings are what lets a /proc scan
+        # answer the question the session cannot.
+        #
+        # sim matches TWICE on a logging run -- `script -qfa <log> -c ./simulation_platform_manager`
+        # and the ./simulation_platform_manager it execs both carry the string. That is why every
+        # caller below asks "is there at least one" and never "is there exactly one".
+        energy) echo "energy_saving_app" ;;
+        sim)    echo "simulation_platform_manager" ;;
     esac
 }
 
@@ -1824,14 +1840,53 @@ app_pidfile_pid() {
 # success while a process kept running.
 APP_STATE=""
 APP_LIVE_PIDS=()
+# Set by app_probe for energy|sim only: a lab tmux session exists but nothing inside it carries
+# the app's signature -- i.e. the program started and died. It is a REASON attached to
+# not-running, never a state of its own: callers that only ask "is it up" must keep reading
+# APP_STATE and must not learn a fourth word.
+APP_SESSION_WITHOUT_PROCESS=0
 app_probe() {
     local name="$1" from_file pid
-    APP_STATE=""; APP_LIVE_PIDS=()
+    APP_STATE=""; APP_LIVE_PIDS=(); APP_SESSION_WITHOUT_PROCESS=0
     case "$name" in
-        # tmux sessions, with no pidfile to lose. lab_session is the witness and there is
-        # nothing for a /proc scan to add.
+        # [Co-developed with claude code -- Adam]
+        # G-6. This branch used to read: "lab_session is the witness and there is nothing for a
+        # /proc scan to add." Both halves were wrong, in opposite directions, and each one was
+        # observed:
+        #
+        #   * a session is not a program. `<name>-start` is `tmux new-session -d ...; echo`;
+        #     tmux returns 0 for a session it created and the program in it may be gone a second
+        #     later. C26 (2026-09-02) recorded `ok sim started (tmux: sim)` where the only thing
+        #     that made it true was that the binary happened to exist on that machine -- the
+        #     check itself could not tell. Session up + no process is NOT running.
+        #
+        #   * a program is not a session. energy or sim started by hand, outside the lab socket,
+        #     has no session at all, and answering "not running" about a live Energy-Saving-App
+        #     is the same blindness the pidfile apps had -- and this one powers switches down
+        #     under whatever measurement runs next. Session down + a live process is the third
+        #     state, which apps_orphans already knows how to report.
+        #
+        # So: the session says whether the LAB started it, the scan says whether it is THERE,
+        # and only the two together name the state.
         energy|sim)
-            if app_running "$name"; then APP_STATE=running; else APP_STATE=not-running; fi
+            local lab_pid
+            while read -r lab_pid; do
+                [[ -n "$lab_pid" ]] && APP_LIVE_PIDS+=("$lab_pid")
+            done < <(app_scan_pids "$name")
+            if app_running "$name"; then
+                if (( ${#APP_LIVE_PIDS[@]} > 0 )); then
+                    APP_STATE=running
+                else
+                    # The C26 shape. Reported as not-running because nothing is running; the
+                    # flag is what lets start and stop say WHY rather than just "no".
+                    APP_STATE=not-running
+                    APP_SESSION_WITHOUT_PROCESS=1
+                fi
+            elif (( ${#APP_LIVE_PIDS[@]} > 0 )); then
+                APP_STATE=pidfile-lost-but-alive
+            else
+                APP_STATE=not-running
+            fi
             return 0 ;;
     esac
     from_file="$(app_pidfile_pid "$name")"
@@ -1908,6 +1963,58 @@ app_spawn() {
     ok "$name started (pid $pid) -> .test_run/logs/app_$name.log"
 }
 
+# app_wait_started <name> -- poll until the app is really there; explain it if it is not.
+#
+# [Co-developed with claude code -- Adam]
+# G-6. The old energy/sim start read the rc of `sudo -n ndtwin-lab <name>-start` and printed
+# `ok` on 0. That rc is tmux's answer to "did you create a session", which is a question about
+# the REQUEST, not about the program -- and the two differ exactly when it matters, because a
+# binary that is missing, unbuilt or dies on its config still leaves a session behind for the
+# instant tmux needs to report success. The nsr/viz/te path had had `sleep 1; kill -0` since
+# 08-20 for the same reason; this gives the lab apps the same standard of evidence.
+#
+# Polling rather than one `sleep 1`: these two are heavier than the python apps and a fixed
+# wait would have to be pessimistic for everyone. Returns as soon as it is up; 5s is the budget
+# before a start is called a failure.
+app_wait_started() {
+    local name="$1" i
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        app_probe "$name"
+        [[ "$APP_STATE" == not-running ]] || return 0
+        sleep 0.5
+    done
+    err "$name did not start: the lab accepted the request, but no live process carries its signature"
+    if [[ "$APP_SESSION_WITHOUT_PROCESS" == 1 ]]; then
+        err "   a tmux session named '$name' exists with nothing running in it -- the program exited"
+    fi
+    err "   look at what it said:  sudo -n $LAB $name-out 40"
+    return 1
+}
+
+# app_wait_stopped <name> -- poll until nothing carrying the app's signature is left.
+#
+# [Co-developed with claude code -- Adam]
+# G-6. `<name>-stop` sends C-c, waits 2s, then kills the SESSION. Killing a session kills the
+# pane's process group in the ordinary case, but "ordinary" is an assumption and this repo has
+# been bitten by every one of them -- a child reparented out of the pane, or an instance that
+# was never in a pane at all (started by hand), survives it untouched. The old code printed
+# `ok <name> stopped` without asking. This asks.
+app_wait_stopped() {
+    local name="$1" i pid
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        app_probe "$name"
+        [[ "$APP_STATE" == not-running ]] && return 0
+        sleep 0.5
+    done
+    err "$name is STILL RUNNING after $LAB $name-stop"
+    for pid in "${APP_LIVE_PIDS[@]}"; do
+        err "   pid $pid: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"
+    done
+    err "   the lab stops a tmux SESSION; an instance started outside one survives that."
+    err "   verify, then stop it yourself:  sudo kill -TERM <pid>"
+    return 1
+}
+
 app_start() {
     local name="$1"
     # Through app_probe, not app_running: starting a second TE beside an untracked first one
@@ -1925,8 +2032,22 @@ app_start() {
     local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
     mkdir -p "$pid_dir" "$log_dir"
     case "$name" in
-        energy) sudo -n "$LAB" energy-start >/dev/null && ok "energy started (tmux: energy)" ;;
-        sim)    sudo -n "$LAB" sim-start    >/dev/null && ok "sim started (tmux: sim)" ;;
+        # [Co-developed with claude code -- Adam]
+        # G-6. Was: `sudo -n "$LAB" <name>-start >/dev/null && ok "<name> started (tmux: <name>)"`.
+        # The && reads the rc of a `tmux new-session -d ...; echo`, which is 0 for a session
+        # created around a program that is already gone -- so `ok` was printed for a state
+        # nothing had checked. rc is now kept for what it does say (the request was refused,
+        # e.g. a session of that name already exists), and liveness is a separate question with
+        # its own witness.
+        energy|sim)
+            local lab_rc=0
+            sudo -n "$LAB" "$name-start" >/dev/null || lab_rc=$?
+            if (( lab_rc != 0 )); then
+                err "$LAB $name-start refused the request (rc $lab_rc)"
+                return 1
+            fi
+            app_wait_started "$name" || return 1
+            ok "$name started (tmux: $name, pid(s) ${APP_LIVE_PIDS[*]})" ;;
         nsr)
             [[ -f "$NSR_DIR/network_state_recorder.py" ]] || { err "NSR not found at $NSR_DIR"; return 1; }
             app_spawn nsr "$NSR_DIR" "$NTG_PY" network_state_recorder.py ;;
@@ -1952,11 +2073,48 @@ app_start() {
 # line is the 20-hour invisible TE-App: no pidfile was read as no process, on rc 0, with a
 # reassuring message. The scan below is what turns "not running" from an assumption into a
 # finding.
+#
+# 🔴 EXIT CODES (G-6, 2026-09-02). Three outcomes, three codes, because a caller that can only
+# see 0/1 cannot tell a teardown that stopped everything from one that stopped nothing:
+#
+#     0  it was running, and it is not now
+#     2  there was nothing to stop -- earned by a scan, not inferred from a missing pidfile
+#     1  it could not be stopped, or the pidfile was poisoned, or the app is unknown
+#
+# 2 rather than 0 for the no-op is the user-visible behaviour change here: `ndt apps stop <app>`
+# on an app that is not running used to exit 0. Scripts that treat any non-zero as failure will
+# now see a failure where they saw success; scripts that only ever asked "did this work" want
+# `rc != 1`. Both forms are in this repo and both are correct -- what was not correct was having
+# no way to ask the question at all.
 app_stop() {
     local name="$1"
     case "$name" in
-        energy) sudo -n "$LAB" energy-stop >/dev/null 2>&1; ok "energy stopped" ;;
-        sim)    sudo -n "$LAB" sim-stop    >/dev/null 2>&1; ok "sim stopped" ;;
+        # [Co-developed with claude code -- Adam]
+        # G-6. Was: `sudo -n "$LAB" <name>-stop >/dev/null 2>&1; ok "<name> stopped"`. Note the
+        # `;` -- the rc was not merely unchecked, it was discarded, and `ok` was unconditional.
+        # `ndt apps stop sim` answered "ok sim stopped", rc 0, for a sim that had never been
+        # started on that machine (C26/D1, 2026-09-02, APPS_STOP_ALL_RC=0). Two different things
+        # were being reported with one word: "it was running and now it is not", and "I did not
+        # find anything". They now get different words AND different exit codes -- see the rc
+        # contract on app_stop above.
+        energy|sim)
+            app_probe "$name"
+            if [[ "$APP_STATE" == not-running ]]; then
+                info "$name not running (no live process carries its signature)"
+                if [[ "$APP_SESSION_WITHOUT_PROCESS" == 1 ]]; then
+                    warn "  but a tmux session named '$name' is still there with nothing in it"
+                    warn "  clearing the empty session so the next start is not refused by it"
+                    sudo -n "$LAB" "$name-stop" >/dev/null 2>&1 || true
+                fi
+                return 2
+            fi
+            if [[ "$APP_STATE" == pidfile-lost-but-alive ]]; then
+                warn "$name is running OUTSIDE the lab session (pid(s) ${APP_LIVE_PIDS[*]})"
+                warn "  '$name-stop' stops a tmux session, so it may not reach this one"
+            fi
+            sudo -n "$LAB" "$name-stop" >/dev/null 2>&1 || true
+            app_wait_stopped "$name" || return 1
+            ok "$name stopped (was: $APP_STATE)" ;;
         nsr|viz|te)
             local p pid rc=0 poisoned=0
             p="$(app_pidfile "$name")"
@@ -1991,7 +2149,15 @@ app_stop() {
                         rm -f "$p"
                         info "  discarded a pidfile whose pid is not $name"
                     fi
-                    return "$poisoned" ;;
+                    # [Co-developed with claude code -- Adam]
+                    # G-6. Was `return "$poisoned"`, i.e. 0 in the ordinary case -- the same rc
+                    # a real stop returns. The MESSAGE here has been honest since 08-31; the
+                    # exit code was not, and a driver script reads the exit code. D1
+                    # (2026-09-02) recorded APPS_STOP_ALL_RC=0 for a teardown in which two of
+                    # the five apps were never running: nothing distinguished it from a
+                    # teardown that stopped five.
+                    (( poisoned == 1 )) && return 1
+                    return 2 ;;
                 pidfile-lost-but-alive)
                     warn "$name is RUNNING as pid(s) ${APP_LIVE_PIDS[*]} and the pidfile does not name it"
                     warn "  this is the state that used to answer 'not running' with rc 0"
@@ -2093,8 +2259,34 @@ cmd_apps() {
             shift
             local targets="${*:-all}"
             [[ "$targets" == all ]] && targets="$APP_NAMES"
-            local a rc=0; for a in $targets; do app_stop "$a" || rc=1; done
-            return "$rc"
+            # [Co-developed with claude code -- Adam]
+            # G-6. Was `for a in $targets; do app_stop "$a" || rc=1; done`. With app_stop's new
+            # rc 2 that `||` would call "there was nothing to stop" a failure, which is the
+            # opposite error to the one being fixed. The three outcomes are counted instead:
+            #
+            #     1  at least one app could not be stopped        (a real failure)
+            #     2  nothing was stopped because nothing was up   (a truthful no-op)
+            #     0  at least one app was running and now is not
+            #
+            # `ndt apps stop all` on an idle machine therefore exits 2 rather than 0. That is the
+            # point: D1 (2026-09-02) recorded APPS_STOP_ALL_RC=0 from a teardown that stopped
+            # three of five and reported the same code it would have reported for zero of five.
+            local a arc n_fail=0 n_noop=0 n_stopped=0
+            for a in $targets; do
+                app_stop "$a"; arc=$?
+                case "$arc" in
+                    0) n_stopped=$(( n_stopped + 1 )) ;;
+                    2) n_noop=$(( n_noop + 1 )) ;;
+                    *) n_fail=$(( n_fail + 1 )) ;;
+                esac
+            done
+            (( n_fail > 0 )) && { err "$n_fail app(s) could not be stopped"; return 1; }
+            if (( n_stopped == 0 )); then
+                info "nothing to stop ($n_noop app(s) were already not running)"
+                return 2
+            fi
+            (( n_noop > 0 )) && info "stopped $n_stopped; $n_noop were already not running"
+            return 0
             ;;
         # The pre-run check. Same scan as `stop`, without stopping anything.
         orphans) apps_orphans ;;

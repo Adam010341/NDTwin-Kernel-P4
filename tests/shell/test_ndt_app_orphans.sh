@@ -249,10 +249,17 @@ check "stop's not-running path also scans"        yes "$( (( $(snapshot_calls) >
 # --- 5. stop -- the state that used to report success while the app ran -----------
 echo "stop"
 
+# [Co-developed with claude code -- Adam]
+# 2026-09-02, G-6: this check asserted rc 0 and now asserts rc 2. It is not a test being
+# weakened -- it is the contract changing, and this line is where the old contract was written
+# down. app_stop's "there was nothing to stop" used to be indistinguishable from "it was
+# running and now is not", which is how D1_teardown.log recorded APPS_STOP_ALL_RC=0 for a
+# teardown that stopped three of five apps. The prose here was already honest; only the exit
+# code was not, and a driver script reads the exit code.
 SNAPSHOT_LINES=""
 rm -f "$PIDDIR/app_te.pid"
 out="$(app_stop te 2>&1)"; rc=$?
-check "nothing running -> rc 0"                   0 "$rc"
+check "nothing running -> rc 2 (was 0 before G-6)" 2 "$rc"
 check "  says not running"                        yes "$(has "not running" "$out")"
 check "  and says how it knows"                   yes "$(has "no live instance found by pid or by scan" "$out")"
 
@@ -271,7 +278,8 @@ check "  the process is actually gone"            no  "$(yn pid_is_app "$VICTIM"
 echo "$PLAIN" > "$PIDDIR/app_te.pid"
 SNAPSHOT_LINES=""
 out="$(app_stop te 2>&1)"; rc=$?
-check "stale pidfile naming a stranger -> rc 0"   0 "$rc"
+# rc 2 for the same reason as above: the stranger is not this app, so nothing was stopped.
+check "stale pidfile naming a stranger -> rc 2"   2 "$rc"
 check "  the stranger is still alive"             yes "$(yn test -d "/proc/$PLAIN")"
 check "  and the bad pidfile was discarded"       no  "$(yn test -e "$PIDDIR/app_te.pid")"
 
