@@ -1,0 +1,48 @@
+[11:41:23] ================ paired A/B, DUR=20s, 12 cells ================
+[11:41:23] PREREG: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-02_recompute-paired-ab/PREREG.md
+[11:41:23] arm shas as found on disk:
+[11:41:23]   1hz : fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956
+[11:41:23]   1khz: 4dc9193de97a2cfed2307fb3ef50fa9d8ee7b62879bfb277e92ed3626b74bba6
+[11:41:23]   prod: e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94
+[11:41:23] discriminator, read out of each arm (must differ):
+[11:41:24]   1hz -> sleep_forIlSt5ratioILl1ELl1EE
+[11:41:24]   1khz -> sleep_forIlSt5ratioILl1ELl1000000EE
+[11:41:24] p4 at start: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[11:41:24] shared instruments (unmodified, identified by sha):
+[11:41:24]   358f5a0f3adf7ffe  netdev_only.py
+[11:41:24]   0747492fc2b7cd32  slim_client_json.sh
+[11:41:24]   cb711c8dbc913d1a  cpu_probe.py
+[11:41:24] ################  DRY RUN -- cells are prefixed 'dry_' and are not data  ################
+[11:41:24] === rep 0 / zero / order: 1hz then 1khz ===
+[11:41:24]   p4: random(meta.sample_rand, (bit<16>)1, SAMPLE_RATE - 1);  SAMPLE_RATE = 256;
+[11:41:24]   ---- dry_ab_zero_1hz_r0_nopoll ----
+[11:41:41]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[11:42:07]     verifying condition (zero) before measuring
+[11:42:38]     ✓ condition holds
+[11:43:02]     dry_ab_zero_1hz_r0_nopoll done
+[11:43:02]   ---- dry_ab_zero_1khz_r0_nopoll ----
+[11:43:19]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[11:43:50]     verifying condition (zero) before measuring
+[11:44:21]     ✓ condition holds
+[11:44:46]     dry_ab_zero_1khz_r0_nopoll done
+[11:44:46]   negative control: verify_cond.py sampled against a NON-sampling fabric must fail
+[11:45:12]   ✓ sampled-mode verifier correctly refused (rc=0)
+[11:45:12] === rep 0 / s1024 / order: 1khz then 1hz ===
+[11:45:12]   p4: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);  SAMPLE_RATE = 1024;
+[11:45:12]   ---- dry_ab_s1024_1khz_r0_nopoll ----
+[11:45:29]   deployed 1khz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1000000EE
+[11:45:52]     verifying condition (sampled) before measuring
+[11:46:23]     ✓ condition holds
+[11:46:47]     dry_ab_s1024_1khz_r0_nopoll done
+[11:46:47]   ---- dry_ab_s1024_1hz_r0_nopoll ----
+[11:47:04]   deployed 1hz  sha ok  recompute=sleep_forIlSt5ratioILl1ELl1EE
+[11:47:35]     verifying condition (sampled) before measuring
+[11:48:07]     ✓ condition holds
+[11:48:31]     dry_ab_s1024_1hz_r0_nopoll done
+[11:48:31] ################  DRY RUN complete  ################
+[11:48:31] --- restoring instruments (rc=0) ---
+[11:48:31]   SAMPLE_RATE restored to 256
+cp: cannot create regular file '/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel': Text file busy
+[11:48:31]   🔴 FATAL: restored kernel sha fcb0d9d40d5814a80b37127d01a04068f92aa45a54e74372bebec75ec343b956 != e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94 -- DO NOT RUN THE STACK
+[11:48:31]   predicate now: random(meta.sample_rand, (bit<16>)0, SAMPLE_RATE - 1);
+[11:48:31]   SAMPLE_RATE  : SAMPLE_RATE = 256;
