@@ -1795,6 +1795,54 @@ FlowLinkUsageCollector::creditHostBoundEgressEdges(double elapsedSeconds)
 }
 
 void
+FlowLinkUsageCollector::runFlowRatePass()
+{
+    // [Co-developed with claude code -- Adam]
+    // Flow-side twin of the drain-to-drain interval the link path measures further down. It has
+    // to be its own anchor: the flow counters are snapshotted (...Previous = ...Current) inside
+    // the walk below, the counter reports are zeroed at the bottom of the loop body, and the two
+    // spans differ by however long the walk takes. Using the link one here would be the mistake
+    // f5e35561's own commit message warns about -- two intervals that agree on average, so the
+    // wrong one survives inspection and then misses the 1% gate.
+    const auto nowFlowDrain = std::chrono::steady_clock::now();
+    const double flowElapsedSeconds =
+        std::chrono::duration<double>(nowFlowDrain - m_lastFlowDrainAt).count();
+
+    // Refuse, exactly as updateLinkInfoLeftLinkBandwidth does, and for the same reason: no rate
+    // exists over a non-positive interval, and a flow publishing 0 is indistinguishable from a
+    // flow that stopped. The anchor is deliberately NOT advanced here -- the bytes stay banked
+    // and are paid out over the next interval, which is the one difference from the link path,
+    // where the accumulator is zeroed unconditionally by its caller.
+    if (!(flowElapsedSeconds > 0.0))
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "per-flow rate pass skipped: elapsed interval {} s is not positive, "
+                            "so the banked counters cannot be converted to a rate. Flow rates "
+                            "left unchanged and the bytes kept for the next interval.",
+                            flowElapsedSeconds);
+        return;
+    }
+
+    m_lastFlowDrainAt = nowFlowDrain;
+    m_lastFlowRateDivisorSeconds.store(flowElapsedSeconds);
+
+    unique_lock lock(m_flowInfoTableMutex);
+    for (auto& [flowKey, info] : m_flowInfoTable)
+    {
+        sflow::updateFlowRatesForInterval(info, flowElapsedSeconds, MICE_FLOW_UNDER_THRESHOLD);
+
+        SPDLOG_LOGGER_TRACE(Logger::instance(),
+                            "FlowKey: {} -> {} estimated flow sending rate (Periodically): {} bps "
+                            "over {:.6f} s, packet rate {} pps",
+                            utils::ipToString(flowKey.srcIP),
+                            utils::ipToString(flowKey.dstIP),
+                            info.estimatedFlowSendingRatePeriodically,
+                            flowElapsedSeconds,
+                            info.estimatedPacketSendingRatePeriodically);
+    }
+}
+
+void
 FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
 {
     log_thread_ids("calAvgFlowSendingRatesPeriodically");
@@ -1827,8 +1875,21 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     // 1.539, 1.135, 1.032, 0.873, the last below the sleep's own floor and therefore impossible.
     // Polling the HTTP graph cannot resolve this; the loop has to say so itself.
     //
-    // It is also the acceptance instrument for the fix. Once the accumulator is divided by the
-    // measured interval instead of an assumed one, this line must read ~1000 ms forever.
+    // 🔴 THE PARAGRAPH ABOVE IS HISTORY, NOT CURRENT BEHAVIOUR, and the two sentences that used
+    // to stand here were worse than stale -- they were wrong when written and they misled a
+    // reviewer into writing a gate that a correct fix would have failed (PREREG Qb-1). Deleted
+    // rather than corrected: "once the accumulator is divided by the measured interval this line
+    // must read ~1000 ms forever" is false, because dividing by the measured interval fixes the
+    // arithmetic without making an iteration any shorter.
+    //
+    // Both denominators now exist. The link accumulator is divided by drainElapsedSeconds
+    // (f5e35561, ticket Q), and the per-flow rates by the interval runFlowRatePass measures.
+    // The period below is therefore a health signal, not a correctness one: it says how long the
+    // body takes, which still matters -- it bounds sample freshness and it is what
+    // kFlowActiveWindowMs was sized against -- but no published rate assumes it is 1000 ms any
+    // more. The acceptance gate is the "rate divisor check" line further down, which compares
+    // the divisors actually used against the intervals measured for the same iteration.
+    // [Co-developed with claude code -- Adam]
     //
     // Logged every iteration at DEBUG (off by default) and summarised at INFO every 30, so the
     // steady state is greppable without the per-second flood this file has had to undo before.
@@ -1908,137 +1969,14 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
             }
         }
 
-        // Estimate average flow sending rate
-        {
-            unique_lock lock(m_flowInfoTableMutex);
-            for (auto& [flowKey, info] : m_flowInfoTable)
-            {
-                uint64_t avgFlowSendingRateTemp = 0;
-                uint64_t avgPacketSendingRateTemp = 0;
-                int hopsCounter = 0;
-                for (auto& [agentKey, stats] : info.agentFlowStats)
-                {
-                    // --- 1. CALCULATE ALL RATES FOR THE CURRENT INTERVAL ---
-
-                    uint32_t currentSamplingRate =
-                        (stats.samplingRate > 0) ? stats.samplingRate : 1;
-
-                    // Calculate byte rate
-                    uint64_t byte_count_current =
-                        stats.ingressByteCountCurrent + stats.egressByteCountCurrent;
-                    uint64_t byte_count_previous =
-                        stats.ingressByteCountPrevious + stats.egressByteCountPrevious;
-                    // counterDelta, not a bare subtraction: these are uint64_t, so a counter
-                    // that went backwards wrapped to ~1.8e19 and was reported as the flow's bit
-                    // rate. [Co-developed with claude code -- Adam]
-                    stats.avgByteRateInBps =
-                        sflow::counterDelta(byte_count_current, byte_count_previous) * 8 *
-                        currentSamplingRate;
-
-                    SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                        "Agent {}:{} Current ingress byte counter: {},Current "
-                                        "egress byte counter: {} stats.avgByteRateInBps {}",
-                                        utils::ipToString(agentKey.agentIP),
-                                        agentKey.interfacePort,
-                                        stats.ingressByteCountCurrent,
-                                        stats.egressByteCountCurrent,
-                                        stats.avgByteRateInBps);
-
-                    // Calculate packet rate
-                    uint64_t packetCountCurrent =
-                        stats.ingresspacketCountCurrent + stats.egresspacketCountCurrent;
-                    uint64_t packetCountPrevious =
-                        stats.ingresspacketCountPrevious + stats.egresspacketCountPrevious;
-                    stats.avgPacketRate =
-                        sflow::counterDelta(packetCountCurrent, packetCountPrevious) *
-                        currentSamplingRate;
-
-                    // --- 2. AGGREGATE THE RESULTS  ---
-
-                    avgFlowSendingRateTemp += stats.avgByteRateInBps;
-                    avgPacketSendingRateTemp += stats.avgPacketRate;
-
-                    if (stats.avgByteRateInBps != 0)
-                    {
-                        hopsCounter++;
-                    }
-
-                    // --- 3. UPDATE STATE FOR THE *NEXT* INTERVAL ---
-                    // All state updates are done together at the end.
-
-                    stats.ingressByteCountPrevious = stats.ingressByteCountCurrent;
-                    stats.egressByteCountPrevious = stats.egressByteCountCurrent;
-                    stats.ingresspacketCountPrevious = stats.ingresspacketCountCurrent;
-                    stats.egresspacketCountPrevious = stats.egresspacketCountCurrent;
-                }
-
-                SPDLOG_LOGGER_TRACE(Logger::instance(), "Hops counter: {}", hopsCounter);
-
-                const sflow::EstimatedRates rates = sflow::computeEstimatedRates(
-                    avgFlowSendingRateTemp, avgPacketSendingRateTemp, hopsCounter);
-
-                if (!rates.hasActiveHops)
-                {
-                    // [Co-developed with claude code -- Adam]
-                    // Clear, exactly as the Immediately path a few hundred lines below does.
-                    //
-                    // This used to `continue` without clearing, justified as "leave the previous
-                    // estimates in place rather than dividing by zero" -- but that reason does not
-                    // hold: the divide-by-zero is already prevented by `hasActiveHops` itself, and
-                    // writing 0 divides by nothing. What to report *after* the guard was a separate
-                    // choice, and carrying the old value forward was the wrong one.
-                    //
-                    // The consequence was not cosmetic. getTopKFlowInfoJson orders by
-                    // estimated_packet_rate_in_the_proceeding_1sec_timeslot -- this field -- so a
-                    // flow that stopped kept its last non-zero rate forever, stayed flagged as an
-                    // elephant, and never left top-k. Measured: five and ten seconds after iperf3
-                    // ended, top-k still reported a bit-identical 20.3 Mbps / 10496 pps while
-                    // `_in_the_last_sec` in the same object read 0 (KNOWN-ISSUES A-3, reproduced in
-                    // scratch/phase2/FINDINGS.md E9). Optimistic failure: it shows load that is not
-                    // there, and it looks like stability rather than staleness.
-                    //
-                    // Introduced on this branch by the divide-by-zero guard (31b357a6), so it is
-                    // ours to fix.
-                    info.estimatedFlowSendingRatePeriodically = 0;
-                    info.estimatedPacketSendingRatePeriodically = 0;
-                    info.isElephantFlowPeriodically = false;
-                    continue;
-                }
-
-                uint64_t estimatedFlowSendingRatePeriodically = rates.flowSendingRate;
-                info.estimatedFlowSendingRatePeriodically = estimatedFlowSendingRatePeriodically;
-
-                // [Co-developed with claude code -- Adam]
-                // The else was commented out, so the flag latched: once set it was never cleared,
-                // and a flow that spiked for one interval stayed an elephant for the rest of the
-                // process. The name says "Periodically" -- it is meant to describe this interval --
-                // and the Immediately variant a few hundred lines down has always had its else, so
-                // this was an oversight rather than a decision.
-                //
-                // A latched flag mattered more than it looks: the unsigned underflow above could
-                // set it from a single lost counter update, permanently.
-                if (estimatedFlowSendingRatePeriodically >= MICE_FLOW_UNDER_THRESHOLD)
-                {
-                    info.isElephantFlowPeriodically = true;
-                }
-                else
-                {
-                    info.isElephantFlowPeriodically = false;
-                }
-
-                uint64_t estimatedPacketSendingRatePeriodically = rates.packetSendingRate;
-                info.estimatedPacketSendingRatePeriodically =
-                    estimatedPacketSendingRatePeriodically;
-
-                SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                    "FlowKey: {} -> {}",
-                                    utils::ipToString(flowKey.srcIP),
-                                    utils::ipToString(flowKey.dstIP));
-                SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                    "Estimated flow sending rate (Periodically): {}",
-                                    estimatedFlowSendingRatePeriodically);
-            }
-        }
+        // [Co-developed with claude code -- Adam]
+        // Ticket Q's other half. This walk used to compute each hop's rate inline as
+        // `delta * 8 * samplingRate` -- bits per LOOP PERIOD, published under a bits-per-second
+        // name -- because Q enumerated its targets by grepping `MultiplySampingRate` and the
+        // per-flow counters are not spelled that way. runFlowRatePass measures the interval and
+        // sflow::updateFlowRatesForInterval divides by it; both are seams the suite can reach,
+        // which the inline version was not.
+        runFlowRatePass();
 
         // [Co-developed with claude code -- Adam]
         // The interval the accumulators actually covered: previous drain to this drain. NOT the
@@ -2104,11 +2042,20 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         if (m_mode == utils::MININET && iterCount > 1 && iterCount % 30 == 0)
         {
             const double used = m_topologyAndFlowMonitor->lastRateDivisorSeconds();
+            // [Co-developed with claude code -- Adam]
+            // flow_divisor_used_s is the same gate for the per-flow rates, and it is printed
+            // separately rather than folded in because the two divisors measure different
+            // drains: this one spans the counter-report drain at the bottom of the body, the
+            // flow one spans the flow walk near the top. They should agree to about the walk's
+            // own jitter, and a persistent gap between them is a real signal -- it says the walk
+            // is taking long enough to matter, which is the condition under which the missing
+            // flow denominator used to do its worst damage.
             SPDLOG_LOGGER_INFO(Logger::instance(),
                                "rate divisor check: measured_interval_s={:.6f} divisor_used_s={:.6f}"
+                               " flow_divisor_used_s={:.6f}"
                                " (ticket Q gate: these must agree to 1%; a negative divisor means "
                                "no rate has been published yet, which is not a pass)",
-                               drainElapsedSeconds, used);
+                               drainElapsedSeconds, used, lastFlowRateDivisorSeconds());
         }
 
         // log socket dropped packet number

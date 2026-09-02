@@ -669,6 +669,128 @@ struct FlowInfo
     Path flowPath;
 };
 
+/**
+ * @brief Republishes one flow's periodic rates from the counters banked over an interval.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * TICKET Q, THE HALF THAT WAS NEVER IN SCOPE. Q's pre-registration
+ * (doc/audit/2026-08-27_hardcoded-denominator/PREREG.md) enumerated the defect by grepping
+ * `MultiplySampingRate`, which finds the two LINK accumulators and nothing else. The per-flow
+ * rates are built from differently named members -- ingressByteCountCurrent and friends -- so
+ * they fell outside the grep, and f5e35561 divided only the link path. The per-flow figure
+ * stayed `delta * 8 * samplingRate`, published as
+ * `estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot`: bits per LOOP PERIOD
+ * wearing a bits-per-second label. The mechanism sentence Q registered -- "the accumulator is
+ * cleared every round, multiplied by 8 and sent as bps, and nothing on the path divides by the
+ * real elapsed time" -- was true here word for word.
+ *
+ * WHY IT IS A FUNCTION AND NOT TEN LINES IN THE LOOP. Same reason
+ * FlowLinkUsageCollector::classifyTelemetry is one: inside the rate loop this arithmetic is
+ * reachable from a test only by standing up a collector, its monitor, its device manager and
+ * its classifier, and by making a second of real time pass. That is why it went four generations
+ * without a test while the link path beside it got six. Everything here is an argument, so a
+ * test states the exact interval it means.
+ *
+ * The elephant threshold is a parameter rather than MICE_FLOW_UNDER_THRESHOLD directly: that
+ * constant lives in TopologyAndFlowMonitor.hpp and common_types must not depend on it. It also
+ * makes the load-dependence testable -- the same bytes over a 1.25 s period are 20% below the
+ * threshold that they cross over a 1.00 s one, which is exactly the promotion the missing
+ * denominator was handing out under load.
+ *
+ * @param info                 Flow to update; its counters are drained on success.
+ * @param elapsedSeconds       Interval those counters banked over (drain to drain).
+ * @param elephantThresholdBps Bit rate at or above which the flow is flagged an elephant.
+ * @return false when the interval cannot produce a rate, in which case NOTHING is touched --
+ *         not the published rates, not the elephant flag, and not the counters, so the bytes
+ *         are paid out over the next interval instead of being lost.
+ */
+inline bool
+updateFlowRatesForInterval(FlowInfo& info, double elapsedSeconds, uint64_t elephantThresholdBps)
+{
+    // Refuse rather than publish, exactly as updateLinkInfoLeftLinkBandwidth does. Zero bytes
+    // over zero seconds is not zero bits per second, and a flow reading 0 is indistinguishable
+    // from a flow that stopped -- which is the confusion the hold-last fix above already cost
+    // this file once.
+    if (!(elapsedSeconds > 0.0))
+    {
+        return false;
+    }
+
+    uint64_t accumulatedBitRate = 0;
+    uint64_t accumulatedPacketRate = 0;
+    int hopsCounter = 0;
+
+    for (auto& [agentKey, stats] : info.agentFlowStats)
+    {
+        (void)agentKey;
+        const uint32_t samplingScale = (stats.samplingRate > 0) ? stats.samplingRate : 1;
+
+        // counterDelta, not a bare subtraction: these are uint64_t, so a counter that went
+        // backwards wrapped to ~1.8e19 and was reported as the flow's bit rate.
+        const uint64_t byteDelta =
+            counterDelta(stats.ingressByteCountCurrent + stats.egressByteCountCurrent,
+                         stats.ingressByteCountPrevious + stats.egressByteCountPrevious);
+        const uint64_t packetDelta =
+            counterDelta(stats.ingresspacketCountCurrent + stats.egresspacketCountCurrent,
+                         stats.ingresspacketCountPrevious + stats.egresspacketCountPrevious);
+
+        // The division ticket Q added to the link path and not to this one. In double, then
+        // truncated once: the delta times a 1024x sampling rate times 8 overflows nothing here,
+        // but doing the divide in integers would quantise every rate to a multiple of the
+        // period and silently zero a slow flow.
+        stats.avgByteRateInBps = static_cast<uint64_t>(
+            static_cast<double>(byteDelta) * 8.0 * samplingScale / elapsedSeconds);
+        stats.avgPacketRate = static_cast<uint64_t>(
+            static_cast<double>(packetDelta) * samplingScale / elapsedSeconds);
+
+        accumulatedBitRate += stats.avgByteRateInBps;
+        accumulatedPacketRate += stats.avgPacketRate;
+
+        // Unchanged, and deliberately so: the packet numerator is accumulated unconditionally
+        // while the hop denominator counts only hops with a non-zero BYTE rate. That asymmetry
+        // is a separate defect with its own entry; correcting it here would change the reported
+        // packet rate for a reason that has nothing to do with the denominator, and this change
+        // has to be attributable.
+        if (stats.avgByteRateInBps != 0)
+        {
+            hopsCounter++;
+        }
+
+        stats.ingressByteCountPrevious = stats.ingressByteCountCurrent;
+        stats.egressByteCountPrevious = stats.egressByteCountCurrent;
+        stats.ingresspacketCountPrevious = stats.ingresspacketCountCurrent;
+        stats.egresspacketCountPrevious = stats.egresspacketCountCurrent;
+    }
+
+    const EstimatedRates rates =
+        computeEstimatedRates(accumulatedBitRate, accumulatedPacketRate, hopsCounter);
+
+    // With no active hop computeEstimatedRates returns a zeroed result, so these three writes
+    // are the clear the rate loop used to do in a separate `continue` branch. That branch's
+    // history is worth keeping, because other documents cite the line it stood on:
+    //
+    //   The clear used to be a bare `continue` justified as "leave the previous estimates in
+    //   place rather than dividing by zero" -- but the divide-by-zero was already prevented by
+    //   hasActiveHops itself, and writing 0 divides by nothing. What to report AFTER the guard
+    //   was a separate choice, and carrying the old value forward was the wrong one:
+    //   getTopKFlowInfoJson orders by estimated_packet_rate_in_the_proceeding_1sec_timeslot --
+    //   this field -- so a flow that stopped kept its last non-zero rate forever, stayed flagged
+    //   an elephant, and never left top-k. Measured five and ten seconds after iperf3 ended:
+    //   top-k still reported a bit-identical 20.3 Mbps / 10496 pps while `_in_the_last_sec` in
+    //   the same object read 0 (KNOWN-ISSUES A-3; doc/audit/2026-08-27_flow-table-idle-tail).
+    //   Introduced by the divide-by-zero guard in 31b357a6, so it was ours to fix.
+    //
+    // ⚠️ Those two figures were read from THIS field before it had a denominator, so their
+    // magnitudes are overstated by the loop period of that run. The claim they support is that
+    // the value REPEATED bit-for-bit across two samples, which a uniform rescale cannot affect.
+    info.estimatedFlowSendingRatePeriodically = rates.flowSendingRate;
+    info.estimatedPacketSendingRatePeriodically = rates.packetSendingRate;
+    info.isElephantFlowPeriodically =
+        rates.hasActiveHops && rates.flowSendingRate >= elephantThresholdBps;
+    return true;
+}
+
 template <typename T>
 inline void
 hashCombine(std::size_t& seed, const T& val)
