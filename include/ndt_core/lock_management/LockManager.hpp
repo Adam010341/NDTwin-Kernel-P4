@@ -158,8 +158,9 @@ class LockManager
     /**
      * @brief What a release attempt actually did. [Co-developed with claude code -- Adam]
      *
-     * Four answers, because the caller's next move differs for each and the old `bool` could
-     * only say two. `Expired` in particular used to be reported as success.
+     * Five answers, because the caller's next move differs for each and the old `bool` could
+     * only say two. `Expired` in particular used to be reported as success. `LeaseRequired` is
+     * reachable only when setRequireLeaseId(true) has been called, which nothing does yet.
      */
     enum class ReleaseOutcome {
         Released,      ///< a lease that was still in force was released by this call
@@ -485,10 +486,10 @@ class LockManager
     }
 
     /**
-     * @brief Release a lock, and say which of the four things actually happened.
+     * @brief Release a lock, and say which of the five things actually happened.
      *
      * [Co-developed with claude code -- Adam]
-     * 🔴 A-9. `unlock()` above used to BE this function, and it could only answer two of the four:
+     * 🔴 A-9. `unlock()` above used to BE this function, and it could only answer two of the five:
      * it looked at `isLocked` and nothing else. Since expiry never cleared `isLocked`, a release
      * arriving after its own lease had run out found the flag still set, cleared it, and was
      * answered `200 {"status":"released"}` -- the same bytes as a real release. That is the shape
@@ -717,9 +718,10 @@ class LockManager
             return RenewOutcome::LeaseMismatch;
         }
 
-        // KNOWN-ISSUES B-2②, renew side. The entry's own worked example is a renew: "一個什麼都
-        // 沒持有的 client 把別人的鎖從 3 秒延長到 120 秒". Since B-2① that only works while the
-        // lease is still alive, which is exactly the case left here.
+        // KNOWN-ISSUES B-2②, renew side. The entry's own worked example is a renew: a client
+        // holding nothing extends somebody else's lock from 3 seconds to 120 and locks a third
+        // party out. Since B-2① that no longer works on a dead lease -- which leaves exactly the
+        // live one, handled here.
         if (leaseId == 0) {
             if (m_requireLeaseId) {
                 return RenewOutcome::LeaseRequired;
