@@ -331,6 +331,15 @@ Process discovery throughout used `/proc/*/comm` + `/proc/*/cmdline` and `ss -tl
 
 - `raw/` — 30 files, unedited, pulled guest → nslab → here. Includes the three raw tmux pane
   captures, the three API samples, and the archived manual page.
+  🔴 **Per this repo's convention (`.gitignore:74`, and the pre-commit hook), raw is not tracked
+  on a working branch — it is committed to the `audit-raw` orphan branch at `1b2da03`.**
+  That commit is **local only**: this task forbade `git push`, so it has not been sent to `lab`
+  or `p4`, whose `audit-raw` still points at `5f37fb59`. Anyone who needs the raw off this
+  machine has to push it first. Read it with:
+  ```
+  git ls-tree -r --name-only audit-raw -- doc/audit/2026-09-02_manual-usertest/prep5-ovs-without-p4/raw/
+  git show audit-raw:doc/audit/2026-09-02_manual-usertest/prep5-ovs-without-p4/raw/<file>
+  ```
 - `scripts/` — the 12 scripts sent (`00`…`11`, plus the two nslab-side helpers `a8-run.sh` and
   `a8-pull.sh`).
 
