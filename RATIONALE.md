@@ -164,12 +164,72 @@ VERDICT: every mutation was caught by the check named for it; the control surviv
   不要 root、動不到別人 claim 的 testbed。
 - 沒有碰 `tools/test_workflow/ndtwin-lab`（那是 G-7／G-9 的檔案）。
 
-**待 live 驗證**（要真 fabric，claim 在 auditor 手上到 01:51，我沒做）
+### 🔴 這支分支**沒有**修什麼，以及它為什麼**碰巧**沒有被同一個形狀咬到（2026-09-03 03:50 自查）
+
+套用當晚談出來的判準——**鑑別力測試只證明它對你注入的輸入有鑑別力；若那些輸入抽自已涵蓋的
+集合，測試在結構上照不出未涵蓋的部分**——回頭檢視 G-6，用的是一個**實測到的**輸入而不是我發明的。
+
+**那個輸入**（`doc/audit/2026-09-02_live-round/ADDENDUM-01-viz-orphan-contamination.md`，
+已提交於 `b4ee69bf`；不在本分支 base `6283ff5e` 上，我在主工作樹讀的）：
+
+```
+pid 893609  ppid 2859     elapsed 01:54:08   1.2% cpu    9.5 MB   java   (wrapper)
+pid 893799  ppid 893609   elapsed 01:54:07   111% cpu   247 MB    java   (the viz JVM)
+```
+
+`ndt apps stop viz` 對**單一 pid**（bash wrapper）送 TERM，而 `app_spawn` **沒有 `setsid`、
+沒有自己的 process group** ⇒ JVM 活下來並被 reparent。之後 `ndt status`、`ndt apps orphans`、
+teardown log **三個通道全部**回報 viz 沒在跑（原文：`viz not running (no live instance found by
+pid or by scan)`）。它跑了 1h54m、111% CPU、寫了 875 MB log。
+
+#### 🔴 G-6 沒有修這個，而且不要把「兩個 witness」讀成修了它
+
+我親自查證的鏈路（`/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh`，362 bytes）：
+
+```
+network_traffic_visualizer.sh   (bash)      ← app_spawn 記到的就是這個 pid
+  └─ ./mvnw javafx:run          (maven wrapper，又是一支 shell script)
+       └─ java (maven)          ← 觀測到的 893609
+            └─ java (JavaFX app) ← 觀測到的 893799，111% CPU
+```
+
+**三層，不是兩層。** 而 `app_sig viz` 是 `network_traffic_visualizer.sh` ——
+**存活下來的那兩個 java 的 cmdline 裡不會有這個字串**，所以 `app_scan_pids viz`
+在結構上找不到它們。這條路徑（nsr/viz/te 的掃描邏輯）**早於本次修法且未被本次修法改動**。
+
+📌 通則（auditor 2026-09-03，我確認）：**任何靠名字比對的 witness，在「存活者不帶那個名字」
+的形狀下都會失效。** `comm` 是 `java`，cmdline 是 maven／JVM 的——沒有一個帶得上 app 的身分。
+**修法方向應該是路徑式而不是名字式的 signature**（存活的 JVM 的 argv 很可能帶
+`/home/adam/Network-Traffic-Visualizer/`），**外加 `app_spawn` 用 `setsid`／process group
+讓 stop 停得掉整棵樹**。🔴 **「JVM 的 argv 帶專案路徑」是我的推測，沒有實測**——
+現在沒有 viz 在跑，argv 我拿不到。**要 L6 驗過才能當成修法依據。**
+
+#### 我改的那半（energy／sim）**沒有**被這個形狀咬到，而且理由是可查證的
+
+- `/home/adam/Energy-Saving-App/energy_saving_app` 與
+  `/home/adam/Simulation-Platform-Manager/simulation_platform_manager`
+  **兩個都是 ELF 執行檔**（`file` 查的，2026-09-03），不是會 exec 出 JVM 的 shell wrapper。
+- 所以**存活的那個行程自己的 argv 就帶著 signature**：sim 在 `script -qfa LOG -c
+  ./simulation_platform_manager` 底下時，wrapper 與 child **兩個都** match（已寫進 `app_sig` 註解）；
+  wrapper 死了，child 仍然 match。
+
+⇒ **這是結構上的安全，不是我測出來的安全**——我的 fixture 一樣是自己發明的。
+差別在於這一次我能指出「為什麼它不可能長成那個形狀」，而 viz 那條我指不出來。
+
+**待 live 驗證**（要真 fabric／真 app，我沒做）
 
 - L1 真的 `ndt apps sim` 一次，確認 5s 內看得到 pid、`ok` 印得出來。
 - L2 把 `SIM_DIR` 的 binary 暫時改名，再 `ndt apps sim`，確認 rc 1 且訊息指向 `sim-out`。
 - L3 手動在 lab 外面起一個 energy，確認 `ndt apps` 顯示 ORPHAN、`stop` 回 rc 1。
 - L4 整輪 teardown 跑一次，確認 `APPS_STOP_ALL_RC` 是 0 還是 2，並對帳 D1。
+- 🔴 **L5（合併前必要條件，與 G-9 的 L2 同性質）** 起一個真的 energy 與 sim，
+  **先把完整 argv 印出來存進 audit-raw**（`tr '\0' ' ' < /proc/<pid>/cmdline`，
+  sim 的 wrapper 與 child 各做一次），確認 `app_sig`／`app_scan_pids` 真的判得中，**再**接受本閘門。
+  理由：本支所有測試輸入都是**我發明的命令列**，沒有一個抽自真的 app。
+- 🔴 **L6（不是本支的驗收，是下一支的前置）** 起一個真的 viz，把
+  `network_traffic_visualizer.sh` → `mvnw` → maven JVM → app JVM 四層的 argv 與 ppid 鏈全部存證，
+  然後**殺掉最外層**，確認 `app_probe viz` 在「wrapper 已死、JVM 被 reparent」下說什麼。
+  預期它會說 `not-running`（＝ ADDENDUM 那個缺陷），**那正是要拿去設計下一支修法的輸入**。
 
 **回退**
 
