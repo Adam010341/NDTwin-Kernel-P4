@@ -1,0 +1,117 @@
+test_the_dead_switch_is_down_string_is_not_still_being_pinned (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_dead_switch_is_down_string_is_not_still_being_pinned) ... FAIL
+test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) ... 
+  test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) (endpoint='get_cpu_utilization') ... FAIL
+  test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) (endpoint='get_memory_utilization') ... FAIL
+  test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) (endpoint='get_temperature') ... FAIL
+test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts) ... 
+  test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts) (endpoint='get_cpu_utilization') ... FAIL
+  test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts) (endpoint='get_memory_utilization') ... FAIL
+test_a_map_of_sentinels_still_satisfies_the_coverage_invariant (__main__.ShippedSchemaAcceptsTheSentinelTest.test_a_map_of_sentinels_still_satisfies_the_coverage_invariant) ... ok
+test_every_health_endpoint_schema_accepts_an_all_unavailable_response (__main__.ShippedSchemaAcceptsTheSentinelTest.test_every_health_endpoint_schema_accepts_an_all_unavailable_response) ... ok
+test_the_schemas_still_reject_a_value_below_the_sentinel (__main__.ShippedSchemaAcceptsTheSentinelTest.test_the_schemas_still_reject_a_value_below_the_sentinel) ... ok
+
+======================================================================
+FAIL: test_the_dead_switch_is_down_string_is_not_still_being_pinned (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_dead_switch_is_down_string_is_not_still_being_pinned)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a687e5496d8b836f5/tests/python/test_unavailable_metric_sentinel.py", line 143, in test_the_dead_switch_is_down_string_is_not_still_being_pinned
+    self.assertNotIn("The switch is down.",
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+                     list(fixture_sample("get_temperature").values()))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'The switch is down.' unexpectedly found in ['The temperature function only supports the HPE 5520.', 29, 'The switch is down.']
+
+======================================================================
+FAIL: test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) (endpoint='get_cpu_utilization')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a687e5496d8b836f5/tests/python/test_unavailable_metric_sentinel.py", line 135, in test_the_documented_example_actually_contains_the_sentinel
+    self.assertIn(
+    ~~~~~~~~~~~~~^
+        UNAVAILABLE, list(fixture_sample(name).values()),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"{name}'s self-test sample never shows an unavailable reading, so the "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"self-test cannot tell whether the schema admits one")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: -1 not found in [1, 1, 1, 1] : get_cpu_utilization's self-test sample never shows an unavailable reading, so the self-test cannot tell whether the schema admits one
+
+======================================================================
+FAIL: test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) (endpoint='get_memory_utilization')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a687e5496d8b836f5/tests/python/test_unavailable_metric_sentinel.py", line 135, in test_the_documented_example_actually_contains_the_sentinel
+    self.assertIn(
+    ~~~~~~~~~~~~~^
+        UNAVAILABLE, list(fixture_sample(name).values()),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"{name}'s self-test sample never shows an unavailable reading, so the "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"self-test cannot tell whether the schema admits one")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: -1 not found in [28, 27] : get_memory_utilization's self-test sample never shows an unavailable reading, so the self-test cannot tell whether the schema admits one
+
+======================================================================
+FAIL: test_the_documented_example_actually_contains_the_sentinel (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_documented_example_actually_contains_the_sentinel) (endpoint='get_temperature')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a687e5496d8b836f5/tests/python/test_unavailable_metric_sentinel.py", line 135, in test_the_documented_example_actually_contains_the_sentinel
+    self.assertIn(
+    ~~~~~~~~~~~~~^
+        UNAVAILABLE, list(fixture_sample(name).values()),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"{name}'s self-test sample never shows an unavailable reading, so the "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"self-test cannot tell whether the schema admits one")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: -1 not found in ['The temperature function only supports the HPE 5520.', 29, 'The switch is down.'] : get_temperature's self-test sample never shows an unavailable reading, so the self-test cannot tell whether the schema admits one
+
+======================================================================
+FAIL: test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts) (endpoint='get_cpu_utilization')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a687e5496d8b836f5/tests/python/test_unavailable_metric_sentinel.py", line 124, in test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        validate(fixture_schema(name), MININET_RESPONSE), [],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"{name}'s self-test schema rejects -1, which spec.py accepts and "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"doc/2026-01-02_ndt_api.md documents")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['10.0.0.1: expected >= 0, got -1'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'10.0.0.1: expected >= 0, got -1'
+
+- ['10.0.0.1: expected >= 0, got -1']
++ [] : get_cpu_utilization's self-test schema rejects -1, which spec.py accepts and doc/2026-01-02_ndt_api.md documents
+
+======================================================================
+FAIL: test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts (__main__.SelfTestFixtureMatchesTheShippedSchemaTest.test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts) (endpoint='get_memory_utilization')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/.claude/worktrees/agent-a687e5496d8b836f5/tests/python/test_unavailable_metric_sentinel.py", line 124, in test_the_fixture_schema_accepts_the_sentinel_the_shipped_schema_accepts
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        validate(fixture_schema(name), MININET_RESPONSE), [],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"{name}'s self-test schema rejects -1, which spec.py accepts and "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"doc/2026-01-02_ndt_api.md documents")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['10.0.0.1: expected >= 0, got -1'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'10.0.0.1: expected >= 0, got -1'
+
+- ['10.0.0.1: expected >= 0, got -1']
++ [] : get_memory_utilization's self-test schema rejects -1, which spec.py accepts and doc/2026-01-02_ndt_api.md documents
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.003s
+
+FAILED (failures=6)
+rc=1

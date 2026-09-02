@@ -1,0 +1,97 @@
+--- a/doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py
++++ b/doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py
+@@ -276,6 +276,7 @@
+         raise ValueError(f"window measured {elapsed!r}s of elapsed time; nothing can be a rate over that")
+ 
+     foreign, mine = [], []
++    name_exempt = []
+     by_comm = {}
+     foreign_total = mine_total = midwindow_foreign = 0.0
+     named_ticks = 0
+@@ -328,6 +329,13 @@
+         if _is_fabric(comm) or pid in proxy or pid == self_pid:
+             mine_total += cores
+             bucket = mine
++            if _is_fabric(comm) and pid not in proxy and pid != self_pid:
++                # 🔑 ABSOLVED BY NAME ALONE -- no pid of ours vouches for it.  The header above
++                # already names this as the unsafe direction of the prefix test (foreign -> ours);
++                # this records WHICH processes actually took that exit, so the risk stops being
++                # accepted in the abstract and becomes a list somebody can read.
++                name_exempt.append(dict(pid=pid, comm=comm, cores=round(cores, 3),
++                                        started="mid-window" if midwindow else "pre-window"))
+         else:
+             foreign_total += cores
+             if midwindow:
+@@ -347,6 +355,28 @@
+     # residual below, and the count says how many mouths it came from.
+     counts["excluded_vanished"] = len(a.keys() - b.keys())
+ 
++    # 🔴 WHICH of the vanished were ones the allow list covers -- i.e. the signature of a KILL.
++    #
++    # `excluded_vanished` above is a bare count, and an exiting shell produces it just as readily
++    # as a signal does.  This pipeline needs the narrower question answered, because two of its
++    # instruments treat the string `iperf3` in OPPOSITE ways and neither knows the other exists:
++    #     measure.sh:45,46,99   `sudo -n mnexec -a … pkill -f iperf3`  KILLS anything whose ARGV
++    #                           mentions it -- unanchored, as root, and (per measure.sh:42-44) in
++    #                           the ROOT pid namespace, so its scope is the machine.
++    #     FABRIC_PREFIXES/:252  `comm.startswith("iperf3")`             ABSOLVES anything whose
++    #                           COMM starts with it, straight out of the foreign accounting.
++    # The two matched sets are neither equal nor nested: `grep iperf3 f` is killed AND counted as
++    # foreign, while a process that prctl()s its name to "iperf3" is absolved AND survives.
++    #
++    # 🔑 Whichever of the two ran first decides what this cell measured, and today NOTHING records
++    # that a decision was taken: measure.sh's kill is `2>/dev/null || true`, and a process alive at
++    # the opening snapshot and gone at the closing one is never visited by the loop above.  One
++    # set difference makes it an artefact.  It is REPORT-ONLY -- no verdict changes.
++    # [Co-developed with claude code -- Adam]
++    vanished_fabric_named = sorted(
++        (dict(pid=pid, comm=a[pid][0]) for pid in a.keys() - b.keys() if _is_fabric(a[pid][0])),
++        key=lambda r: r["pid"])
++
+     # 🔴 THE RESIDUAL.  All busy cores minus every core we could put a name to.  It is the only
+     # term that sees a process which both started and ended inside the window, and it sees it
+     # only in aggregate -- so it is a bound, not an attribution, and is never folded into
+@@ -362,7 +392,10 @@
+                 foreign_cores_attributable=round(foreign_total, 3),
+                 mine_cores_attributable=round(mine_total, 3),
+                 midwindow_foreign_cores=round(midwindow_foreign, 3),
+-                unattributed_cores=round(unattributed, 3), **counts)
++                unattributed_cores=round(unattributed, 3),
++                name_exempt=name_exempt[:10], name_exempt_n=len(name_exempt),
++                vanished_fabric_named=vanished_fabric_named[:10],
++                vanished_fabric_named_n=len(vanished_fabric_named), **counts)
+ 
+ 
+ def main():
+@@ -503,6 +536,9 @@
+                excluded_vanished=m["excluded_vanished"],
+                excluded_no_baseline=m["excluded_no_baseline"],
+                excluded_pid_reused=m["excluded_pid_reused"],
++               name_exempt=m["name_exempt"], name_exempt_n=m["name_exempt_n"],
++               vanished_fabric_named=m["vanished_fabric_named"],
++               vanished_fabric_named_n=m["vanished_fabric_named_n"],
+                covariates=covariates, foreign=foreign[:10], mine=mine[:10], **provenance)
+     print(f"GATE {a.label} foreign_cores_attributable={total} baseline={baseline} "
+           f"excess={excess} threshold={a.threshold} verdict={verdict} suspect={str(suspect).lower()}")
+@@ -518,6 +554,21 @@
+               + ("  [started mid-window]" if r.get("started") else ""))
+     for r in mine[:8]:
+         print(f"     ours     pid={r['pid']:>7} comm={r['comm']:<16} cores={r['cores']}")
++    # 🔴 Two blocks that did not exist before, and without which "which of the two scripts ran
++    # first" is unrecoverable after the fact.  Neither is a verdict.
++    if m["vanished_fabric_named_n"]:
++        print(f"🔴   KILL-SHAPED: {m['vanished_fabric_named_n']} process(es) the allow list covers"
++              " were alive when this window opened and gone when it closed.  measure.sh:45,46,99"
++              " run `pkill -f iperf3` as root in the root pid namespace and discard the outcome,"
++              " so that is what this looks like.  Their CPU is NOT in the verdict above; it is in"
++              " unattributed_cores.  If this round did not start them, something else lost data.")
++        for r in m["vanished_fabric_named"][:5]:
++            print(f"     vanished pid={r['pid']:>7} comm={r['comm']}")
++    if m["name_exempt_n"]:
++        print(f"     note  {m['name_exempt_n']} process(es) left the foreign accounting by NAME"
++              " alone (comm prefix), with no pid of ours vouching for them: "
++              + " ".join(f"{r['comm']}/{r['pid']}[{r['started']}]"
++                         for r in m["name_exempt"][:5]))
+     if a.out:
+         with open(a.out, "a") as fh:
+             fh.write(json.dumps(rec) + "\n")

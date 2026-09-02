@@ -1,0 +1,25 @@
+--- a/doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
++++ b/doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
+@@ -432,7 +432,21 @@
+         fi
+         dry_note "synthesising: no foreign iperf3"; return 0
+     fi
+-    pids=$(ps -eo pid=,comm= | awk '$2=="iperf3"{printf "%s ", $1}')
++    # 🔴 THE COMPARISON MUST NOT HAPPEN IN A CHILD WHOSE OWN ARGV CARRIES THE STRING.
++    # `awk '$2=="iperf3"{...}'` -- what this line used to be -- puts `iperf3` into the AWK
++    # PROCESS'S command line, which makes this guard a legal target for the very
++    # `pkill -f iperf3` it exists to protect against (measure.sh:45,46,99, run as root in the
++    # root pid namespace).  This file has no `set -e` and no `pipefail`, so a killed awk yields
++    # an EMPTY $pids, the test below is false, and the guard returns 0 -- it answers "clean" at
++    # the exact moment it is destroyed.  A guard whose failure direction is "proceed" is not a
++    # guard.  Keeping the comparison inside this shell means no child carries the string.
++    # Reachable only when two sessions overlap -- which is the whole premise of this hazard.
++    # [Co-developed with claude code -- Adam]
++    local _pid _comm
++    pids=""
++    while read -r _pid _comm; do
++        [[ "$_comm" == iperf3 ]] && pids+="$_pid "
++    done < <(ps -eo pid=,comm=)
+     if [[ -n "${pids// /}" ]]; then
+         printf 'REFUSE: iperf3 already running (pids: %s) and this round did not start it.\n' "$pids" >&2
+         printf '        measure.sh clears stale servers with `pkill -f iperf3` at the ROOT pid\n' >&2

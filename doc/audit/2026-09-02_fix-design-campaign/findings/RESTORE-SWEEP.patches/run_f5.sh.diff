@@ -1,0 +1,70 @@
+Proposed patch — NOT APPLIED. Read-only audit RESTORE-SWEEP, 2026-09-02.
+Target: doc/audit/2026-08-31_f5-fine-grid-round/run_f5.sh
+Defect: R1 in the DETECTOR, not in a mutator. run_f5.sh never seds the .p4 and
+never cp's a kernel binary (checked: its only two `cp`s are :330 for a log and
+:726 for the prereg file), so it cannot itself leave the fabric wrong. It is the
+round that is supposed to CATCH the neighbouring round's failed restore -- :274-276
+say so explicitly -- and its check has a hole exactly where R1 lives.
+
+assert_sampling_config() at :279 asserts SAMPLE_RATE in the SOURCE (:287) and then
+asserts only that a `truncate` op EXISTS in the compiled JSON (:294). The truncate
+op is present at every rate and in the sampling-disabled build too. So the line it
+prints -- "source and compiled JSON agree" (:297) -- is not a thing this function
+established: the JSON's RATE is never read, and the zero-sampling predicate that
+zero_cell.sh and run_ab.sh install is invisible to it in both files.
+
+F-5 HAS NOT BEEN RUN LIVE. raw/ holds only 3 selftest jsonl files and one frozen
+dst_sequence.txt; there is no run_f5.log (only .dryrun/.plan/.selftest logs). So
+this fix costs nothing to land now and is the guard for the round's first real run.
+
+--- a/doc/audit/2026-08-31_f5-fine-grid-round/run_f5.sh
++++ b/doc/audit/2026-08-31_f5-fine-grid-round/run_f5.sh
+@@ -276,6 +276,34 @@
+ # only "did I set it", it is "did the previous round put it back".
++
++# The rng bound pair the COMPILED artefact encodes. bmv2 loads the JSON at exec and never
++# reloads, so this is the fabric's actual sampling configuration.
++#   lo=0, hi=N-1  -> one sample in N          (production: 0, 255)
++#   lo=1          -> the draw can never be 0, the clone NEVER fires, the fabric samples NOTHING
++# 🔴 The second case is the one nothing in this repo currently catches. The 09-01 zero-cell
++# and the 09-02 paired A/B both install it, and BOTH leave `hi` at 255 -- so ndt's own
++# sample_rate() (tools/test_workflow/ndt:445, which reads only `hi`) reports "1/256" for a
++# pipeline that samples nothing, and grepping SAMPLE_RATE in the source reports 256 too.
++compiled_rng() {
++    python3 - "$KERNEL_DIR/p4_proxy/p4_src/build/ndtwin_switch.json" <<'PY' 2>/dev/null || echo UNREADABLE
++import json, sys
++def walk(o):
++    if isinstance(o, dict):
++        if o.get("op") == "modify_field_rng_uniform":
++            return [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
++        for v in o.values():
++            r = walk(v)
++            if r: return r
++    elif isinstance(o, list):
++        for v in o:
++            r = walk(v)
++            if r: return r
++b = walk(json.load(open(sys.argv[1])))
++print("%d %d" % (int(b[0], 16), int(b[1], 16)) if b and len(b) == 2 else "UNREADABLE")
++PY
++}
++
+ assert_sampling_config() {
+@@ -294,6 +322,17 @@
+     grep -q '"op" *: *"truncate"' "$json" 2>/dev/null \
+         || abort "#7/#8" "the truncate op is absent from the compiled JSON -- bmv2 runs the artefact,
+         so asserting only the source would assert the wrong file"
+-    say "    sampling config: SAMPLE_RATE=$EXPECT_SAMPLE_RATE truncate=128, source and compiled JSON agree"
++    # 🔴 The truncate op is present at EVERY rate and with sampling disabled, so on its own it
++    # does not establish the sentence this function used to print. Read the RATE out of the
++    # artefact and require it to equal the source's, and require the predicate to be live.
++    local rng want_hi; rng="$(compiled_rng)"; want_hi=$(( EXPECT_SAMPLE_RATE - 1 ))
++    [[ "$rng" == "0 $want_hi" ]] || abort "#7/#8" "the COMPILED pipeline's rng bounds are '$rng',
++        but this round registers 1/$EXPECT_SAMPLE_RATE, i.e. '0 $want_hi'.
++        A lower bound of 1 means the clone predicate can never fire and the fabric samples
++        NOTHING while both the source and 'ndt status' still read 1/$EXPECT_SAMPLE_RATE.
++        If E, the 09-01 zero cell or the 09-02 paired A/B ran before this round, this is what
++        a failed restore of theirs looks like from here -- do not measure, and do not release."
++    say "    sampling config: SAMPLE_RATE=$EXPECT_SAMPLE_RATE truncate=128; the COMPILED JSON's"
++    say "                     rng bounds are $rng, which is 1/$EXPECT_SAMPLE_RATE with sampling ON"
+ }

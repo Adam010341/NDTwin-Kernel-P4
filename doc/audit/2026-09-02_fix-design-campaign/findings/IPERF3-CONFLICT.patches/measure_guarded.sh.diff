@@ -1,0 +1,113 @@
+--- /dev/null
++++ b/doc/audit/2026-08-31_sampling-ceiling-after-merge/measure_guarded.sh
+@@ -0,0 +1,110 @@
++#!/usr/bin/env bash
++# measure_guarded.sh -- a refuse-only shim in front of the FROZEN measure.sh.
++#
++# [Co-developed with claude code -- Adam]
++#
++# WHY THIS EXISTS AS A WRAPPER AND NOT AS AN EDIT TO measure.sh.
++#   measure.sh clears stale iperf3 servers with `pkill -f iperf3` (:45, :46, :99).  `-f` matches
++#   the whole command line as an unanchored substring, the call runs under `sudo -n` so it is
++#   root, and measure.sh's own comment (:42-44) records that mininet hosts share the ROOT pid
++#   namespace -- "which is why a plain pkill reaches them at all".  So its scope is the machine,
++#   and a sibling session's iperf3 is a target; so is any process merely MENTIONING the string
++#   (a grep for it, an editor with the file open, a tail of *iperf3.log).  The failure shape is
++#   the worst kind: the other session's data silently goes short, and `2>/dev/null || true`
++#   keeps no record that anything was killed.
++#
++#   Adam's ruling (2026-09-02) FREEZES the kill: four archived rounds are anchored on this exact
++#   instrument, and byte-comparability outranks compliance for now.  Editing measure.sh -- even
++#   only to insert lines ABOVE the kill -- changes its md5 and shifts :45/:46/:99, invalidating
++#   every citation in KNOWN-ISSUES, TBD-DRAFT, FINDINGS and HANDOFF.  A wrapper that ends in
++#   `exec` changes ZERO bytes of measure.sh, keeps its line numbers, and hands it the identical
++#   argv, environment, pid and stdio.  A cell that RUNS is therefore produced by literally the
++#   same instrument as the archived ones.
++#
++# WHAT IT CHANGES, HONESTLY.
++#   Nothing about a successful run: same file, same argv, same env (POLL= is passed through),
++#   same pid after exec, same sampling.  What changes is the set of runs that HAPPEN: a cell with
++#   a foreign iperf3 present at T0 is now refused instead of completing.  Those cells are missing
++#   NOT AT RANDOM -- they are missing exactly when the machine was contaminated -- so the count
++#   and reason of refusals is part of the result and must be reported with it, never dropped.
++#   The alternative is not "no cost": today that cell completes AND destroys a sibling's run.
++#   The choice is whether the cost lands in our own archive (a missing cell) or in someone
++#   else's (a silently truncated measurement).
++#
++# WHAT IT CANNOT DO.
++#   * It OFFERS protection, it does not ENFORCE it: anyone who invokes measure.sh directly is
++#     still unprotected.  That is today's state exactly, so it is not a regression -- and making
++#     it enforcing would require renaming measure.sh, which is the citation breakage this wrapper
++#     exists to avoid.
++#   * Because it ends in `exec`, it is gone before iperf3 starts, so it CANNOT write the
++#     "pids this round started" manifest.  That has to live elsewhere (see IPERF3-CONFLICT §3.1).
++#   * The census is a POINT SAMPLE at T0.  A foreign iperf3 appearing after it is not seen --
++#     the same limit lib_e.sh:foreign_iperf3_guard already has.  Detection of the mid-window case
++#     is the cpu_gate.py `vanished` half of this pair, not this file.
++#
++# Usage:  measure_guarded.sh <label> <seconds> <rate-mbit>
++#         MEASURE_SH=<path to the frozen measure.sh>   (required; no default -- see below)
++#         MEASURE_GUARD_OUT=<file>                     (optional: append the census here too)
++set -u
++
++TARGET_COMM=iperf3
++
++if [ "$#" -lt 1 ]; then
++    echo "usage: measure_guarded.sh <label> [seconds] [rate-mbit]" >&2
++    exit 2
++fi
++LABEL="$1"
++
++# 🔴 No default path.  Three copies of measure.sh exist (08-20, 09-01, 09-02) and they are NOT
++# interchangeable: 08-20 differs from the other two at :25, :59 and :86, so the copy chosen
++# decides which raw/ the cell lands in AND which netdev_only.py / slim_client_json.sh runs.
++# Guessing one would silently move a cell into another round's directory.
++if [ -z "${MEASURE_SH:-}" ]; then
++    echo "REFUSE: MEASURE_SH is unset.  Name the frozen measure.sh explicitly -- the three" >&2
++    echo "        copies differ (08-20 vs 09-01/09-02 at :25,:59,:86) and picking the wrong" >&2
++    echo "        one writes the cell into another round's raw/." >&2
++    exit 2
++fi
++if [ ! -x "$MEASURE_SH" ]; then
++    echo "REFUSE: MEASURE_SH='$MEASURE_SH' is not an executable file." >&2
++    exit 2
++fi
++
++# The census runs IN THIS SHELL.  It deliberately does not use awk, grep or pgrep:
++#   * `pgrep -f`/`pkill -f` are prohibited project-wide, and a -f pattern always self-matches.
++#   * `awk '$2=="iperf3"{...}'` puts the string into the AWK PROCESS'S OWN ARGV, which makes the
++#     census a legal target for the very `pkill -f iperf3` it is protecting against.  That is not
++#     hypothetical: lib_e.sh:435 is written that way, and with no `set -e` and no `pipefail` a
++#     killed awk yields an empty result, i.e. the guard answers "clean" at the moment it dies.
++#   This loop keeps the comparison inside bash, so no child process carries the string in argv.
++# Matching is on `comm`, EXACTLY -- never a substring of the command line.
++found=""
++while read -r _pid _comm; do
++    if [ "$_comm" = "$TARGET_COMM" ]; then
++        found="$found$_pid "
++    fi
++done < <(ps -eo pid=,comm=)
++
++stamp=$(date -Is)
++# The census is recorded even when it is EMPTY.  "The machine was clean at T0" is otherwise an
++# assumption with no artefact behind it, and this round has been bitten before by checks that
++# left nothing to re-read.  stdout is inherited by the caller's log (run_e.sh redirects it).
++census_line="IPERF3-CENSUS when=$stamp label=$LABEL comm=$TARGET_COMM pids=[${found% }] measure_sh=$MEASURE_SH"
++echo "$census_line"
++if [ -n "${MEASURE_GUARD_OUT:-}" ]; then
++    printf '%s\n' "$census_line" >>"$MEASURE_GUARD_OUT" || true
++fi
++
++if [ -n "${found% }" ]; then
++    echo "REFUSE: iperf3 already running (pids: ${found% }) and this round did not start it." >&2
++    echo "        $MEASURE_SH clears stale servers with \`pkill -f iperf3\` at the ROOT pid" >&2
++    echo "        namespace and under sudo, so continuing would destroy a sibling session's" >&2
++    echo "        process and its data would silently go short.  Stop it BY PID yourself" >&2
++    echo "        (never \`pkill -f\`), then re-run.  This cell has NOT been measured -- record" >&2
++    echo "        it as a refusal, not as a missing cell." >&2
++    exit 3
++fi
++
++# exec: same pid, same argv, same environment, same stdio.  Nothing about the measurement that
++# follows differs from invoking measure.sh directly.
++exec "$MEASURE_SH" "$@"

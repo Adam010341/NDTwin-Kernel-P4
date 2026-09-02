@@ -1,0 +1,11 @@
+mine-new-a-all-killed        rc=0   | 5 mutations, 0 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-b-nothing-red       rc=1   | 5 mutations, 1 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-c-no-compile        rc=1   | 5 mutations, 1 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-d-anchor-hdr        rc=1   | 5 mutations, 1 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-d2-anchor-cpp       rc=1   | 5 mutations, 1 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-e-baseline-red      rc=2   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-new-f-restore-broken    rc=2   | (no summary line printed)    | 🔴 SANDBOX SOURCES CHANGED | porcelain empty
+mine-new-g-wrong-test        rc=1   | 5 mutations, 1 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-h-nobuilddir        rc=2   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-new-i-builddir-override rc=0   | 5 mutations, 0 survived      | sandbox sources byte-identical | porcelain empty
+mine-new-j-silent-fail       rc=1   | 5 mutations, 1 survived      | sandbox sources byte-identical | porcelain empty

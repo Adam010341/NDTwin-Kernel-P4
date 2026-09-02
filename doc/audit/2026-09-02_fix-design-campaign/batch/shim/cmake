@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# PATH shim: force `cmake --build` to -j2 no matter what the caller passed (-j, -jN, --parallel).
+# Reason: gate scripts hardcode -j4 / -j$(nproc); on this 15 GB laptop that trips systemd-oomd.
+# [Co-developed with claude code -- Adam]
+args=(); skip=0; build=0
+for a in "$@"; do
+  if [[ $skip == 1 ]]; then skip=0; continue; fi
+  case "$a" in
+    -j|--parallel) skip=1 ;;
+    -j*|--parallel=*) ;;
+    --build) build=1; args+=("$a") ;;
+    *) args+=("$a") ;;
+  esac
+done
+if [[ $build == 1 ]]; then exec /usr/bin/cmake "${args[@]}" -j"${SHIM_JOBS:-2}"; else exec /usr/bin/cmake "${args[@]}"; fi

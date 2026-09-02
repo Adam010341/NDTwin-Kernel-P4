@@ -1,0 +1,110 @@
+rest_topology.py under test: /home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py
+test_a_blocked_link_read_answers_instead_of_propagating (__main__.BoundedTopologyRest.test_a_blocked_link_read_answers_instead_of_propagating) ... ERROR
+test_a_blocked_read_names_the_endpoint_in_the_log (__main__.BoundedTopologyRest.test_a_blocked_read_names_the_endpoint_in_the_log) ... ERROR
+test_a_healthy_read_still_returns_the_same_json (__main__.BoundedTopologyRest.test_a_healthy_read_still_returns_the_same_json) ... ok
+test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) ... 
+  test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) (endpoint='get_switch') ... ERROR
+  test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) (endpoint='get_host') ... ERROR
+  test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) (endpoint='get_link') ... ERROR
+test_the_answer_to_a_blocked_read_has_an_empty_body (__main__.BoundedTopologyRest.test_the_answer_to_a_blocked_read_has_an_empty_body) ... ERROR
+test_the_answer_to_a_blocked_read_is_503 (__main__.BoundedTopologyRest.test_the_answer_to_a_blocked_read_is_503) ... ERROR
+test_the_server_gives_up_before_the_kernel_does (__main__.BoundedTopologyRest.test_the_server_gives_up_before_the_kernel_does) ... ERROR
+
+======================================================================
+ERROR: test_a_blocked_link_read_answers_instead_of_propagating (__main__.BoundedTopologyRest.test_a_blocked_link_read_answers_instead_of_propagating)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 210, in test_a_blocked_link_read_answers_instead_of_propagating
+    response = controller()._links(None)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_a_blocked_read_names_the_endpoint_in_the_log (__main__.BoundedTopologyRest.test_a_blocked_read_names_the_endpoint_in_the_log)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 245, in test_a_blocked_read_names_the_endpoint_in_the_log
+    controller()._links(None)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) (endpoint='get_switch')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 237, in test_all_three_endpoints_are_bounded
+    response = getattr(controller(), handler)(None)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 101, in _switches
+    switches = get_switch(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) (endpoint='get_host')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 237, in test_all_three_endpoints_are_bounded
+    response = getattr(controller(), handler)(None)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 117, in _hosts
+    hosts = get_host(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) (endpoint='get_link')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 237, in test_all_three_endpoints_are_bounded
+    response = getattr(controller(), handler)(None)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_the_answer_to_a_blocked_read_has_an_empty_body (__main__.BoundedTopologyRest.test_the_answer_to_a_blocked_read_has_an_empty_body)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 220, in test_the_answer_to_a_blocked_read_has_an_empty_body
+    response = controller()._links(None)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_the_answer_to_a_blocked_read_is_503 (__main__.BoundedTopologyRest.test_the_answer_to_a_blocked_read_is_503)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 226, in test_the_answer_to_a_blocked_read_is_503
+    response = controller()._links(None)
+  File "/home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py", line 109, in _links
+    links = get_link(self.topology_api_app, dpid)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 172, in __call__
+    raise StubTimeout(getattr(REST, "TOPO_REST_TIMEOUT_S", 3.0))
+StubTimeout: 3.0
+
+======================================================================
+ERROR: test_the_server_gives_up_before_the_kernel_does (__main__.BoundedTopologyRest.test_the_server_gives_up_before_the_kernel_does)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_test_ryu_rest_topology_bounded.py", line 254, in test_the_server_gives_up_before_the_kernel_does
+    self.assertLess(REST.TOPO_REST_TIMEOUT_S, 5.0,
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'a2_rest_topology_under_test' has no attribute 'TOPO_REST_TIMEOUT_S'
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.004s
+
+FAILED (errors=8)

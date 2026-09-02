@@ -1,0 +1,19 @@
+rest_topology.py under test: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/fix-designs/A-2_ryu_rest_topology_patched.py
+test_a_blocked_link_read_answers_instead_of_propagating (__main__.BoundedTopologyRest.test_a_blocked_link_read_answers_instead_of_propagating) ... topology read links did not answer within 3.0s -- ryu.topology.switches may be blocked. Answering 503 with an empty body rather than holding the connection.
+ok
+test_a_blocked_read_names_the_endpoint_in_the_log (__main__.BoundedTopologyRest.test_a_blocked_read_names_the_endpoint_in_the_log) ... ok
+test_a_healthy_read_still_returns_the_same_json (__main__.BoundedTopologyRest.test_a_healthy_read_still_returns_the_same_json) ... ok
+test_all_three_endpoints_are_bounded (__main__.BoundedTopologyRest.test_all_three_endpoints_are_bounded) ... topology read switches did not answer within 3.0s -- ryu.topology.switches may be blocked. Answering 503 with an empty body rather than holding the connection.
+topology read hosts did not answer within 3.0s -- ryu.topology.switches may be blocked. Answering 503 with an empty body rather than holding the connection.
+topology read links did not answer within 3.0s -- ryu.topology.switches may be blocked. Answering 503 with an empty body rather than holding the connection.
+ok
+test_the_answer_to_a_blocked_read_has_an_empty_body (__main__.BoundedTopologyRest.test_the_answer_to_a_blocked_read_has_an_empty_body) ... topology read links did not answer within 3.0s -- ryu.topology.switches may be blocked. Answering 503 with an empty body rather than holding the connection.
+ok
+test_the_answer_to_a_blocked_read_is_503 (__main__.BoundedTopologyRest.test_the_answer_to_a_blocked_read_is_503) ... topology read links did not answer within 3.0s -- ryu.topology.switches may be blocked. Answering 503 with an empty body rather than holding the connection.
+ok
+test_the_server_gives_up_before_the_kernel_does (__main__.BoundedTopologyRest.test_the_server_gives_up_before_the_kernel_does) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK

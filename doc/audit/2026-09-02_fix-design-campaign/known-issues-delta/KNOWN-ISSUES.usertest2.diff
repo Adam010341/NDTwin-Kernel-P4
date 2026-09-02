@@ -1,0 +1,95 @@
+--- base.md
++++ base.md
+@@ -1141,4 +1141,41 @@
+ - **證據**：實測，`scratch/phase2/FINDINGS.md` E12
+ 
++### B-5 🔴 kernel 每一次正常關機都以 `terminate called without an active exception` 收尾（abort，不是 exit）
++
++- **狀態**：**OPEN。** 2026-09-02 由 run-01 的 auditor 補驗在 **VM 上讀 log 實證**；
++  **尚未在 Adam 這台機器上重現**——本條的證據全部來自
++  `nslab:~/ndtwin-vm-usertest-01-sonnet/`（run-01 結束時的狀態）。
++  🔴 **所以「每一次」的定義域是那台 VM 的四次關機，不是「所有部署」。**
++  修法排在示範之後、已開單。
++  ⏳ auditor 今晚的整機一輪會在**每一次 `ndt down`** 抓 kernel 的 exit code 與 log 末五行，
++  那一輪才會把「Adam 這台也一樣」變成觀測。
++- **平面**：兩者（在 `main` 的關機路徑上，與資料面無關）
++- **失效方向**：**對人是靜默**（示範上看不見，關機序列該印的都印了）、
++  **對程式是主動誤導**——**任何讀 exit code 的 harness 都會把一次乾淨的關機讀成失敗**。
++- **現象（實測，讀 log；行號本文以 `git show HEAD:` 逐一覆核）**：
++  kernel 印完 `main.cpp:430` 的 `All subsystems stopped. Exiting.` 之後**還會再印三行**
++  （`ControllerAndOtherEventHandler.cpp:102 already stopped`／`ApplicationManager.cpp:266 cleanupNFS`／
++  `FlowLinkUsageCollector.cpp:580 Collector Stops`），**然後才是那一行 abort**。
++  ⇒ 🔑 **最後一行 log 不是 `Exiting.`，是 `Collector Stops`**——
++  查的時候不要只看 `Exiting.` 就以為它之後什麼都沒發生。
++  四份 log 全中，一次不漏：
++  `logs/av2_kernel_1.log:208`（共 208 行）／`logs/av2_kernel_2.log:45`（共 45 行）／
++  `logs/av_kernel_1.log:209`／`logs/av_kernel_2.log:45`，全在 `doc/audit/2026-09-02_manual-usertest/run-01-sonnet/auditor-verification/`。
++  tester 自己那一輪的 `kernel_p4.log` 同句（**轉述 README，本文未開該檔**）。
++- **機制**：**未定位。** `terminate called without an active exception` 是 libstdc++ 在
++  **沒有在處理例外時**呼叫 `std::terminate` 印的，最常見的兩個成因是
++  **①一個仍 joinable 的 `std::thread` 被解構**、**②解構子拋例外**。
++  ⇒ **本條沒有指認是哪一個，也沒有指認是哪個物件**；上面那三行 log 只說明它發生在
++  collector 停掉之後，**縮小了範圍但沒有定位**。〔讀碼推論〕
++- 🔴 **exit code 是 134 這件事是推論，不是量到的——寫清楚免得被引用成觀測**：
++  abort ⇒ `SIGABRT` ⇒ shell 記 `128+6=134`，這條推理成立，
++  **但補驗那一輪沒有記下 kernel 的 exit code**（該目錄裡唯二的 `EXIT=` 都是 127，
++  而且是 tmux pane 重現腳本的，與 kernel 無關）。⇒ **今晚那一輪要補的就是這個數字。**
++- **為什麼值得單獨開一條而不是併進別條**：本文件已經有一整族「失敗回報成功」的條目，
++  **這一條是反方向的——成功回報失敗**。它不會讓任何人在台上看到問題，
++  但它會讓每一支「跑完檢查 rc」的腳本得到錯的答案，而那正是 §G 那些儀器缺陷的養分。
++- **證據**：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/auditor-verification/` 的 `logs/av*_kernel_*.log`（實測，讀 log）；出處：該目錄的 `README.md`（trunk `01e642e8`；auditor 裁定在該檔 `:39`）。
++  ⚠️ **本條未在 Adam 的機器上重現、未定位到具體物件、exit code 未量。**
++
+ ---
+ 
+@@ -2131,5 +2168,21 @@
+   ⚠️ **走 `app_spawn` 的是 `nsr`（`:1932`）、`viz`（`:1938`）與 `te`（`:1942`）三個**——
+   **只有 `energy` 與 `sim` 繞過它**。（口徑更正：不是「只有 nsr 誠實」。）
+-- **修法**：`energy`／`sim` 比照 `app_spawn` 的形狀。⚠️ 它們是 root tmux session，
++- 🔴 **停止那一側同樣說謊，而且更直接（2026-09-02 補驗實測）**：
++  `ndt apps stop all` 對**從來沒起來過**的 sim／energy 印
++  **`ok energy stopped`／`ok sim stopped`、rc 0**
++  （raw：`auditor-verification/c_stop_all.txt`）。
++  🔑 **同一份輸出裡就有對照組**：同一次呼叫對 `nsr`／`viz`／`te` 印的是
++  **`nsr not running`／`viz not running`／`te not running`**——
++  **走 pidfile／`app_probe` 那條路的三個誠實，走 tmux 那條路的兩個說謊。**
++  ⇒ 這不是「訊息不好」，是**同一個指令的五個目標裡有兩個給了相反的答案**。
++- 🔴 **停止側的碼比啟動側更糟一級**：`ndt:1958-1959` 是
++  `energy) sudo -n "$LAB" energy-stop >/dev/null 2>&1; ok "energy stopped" ;;`（`sim` 同形）
++  ——注意那是 **`;` 不是 `&&`**：**rc 連看都沒看**（啟動側 `:1928-1929` 至少還用了 `&&`）。
++  而且 `>/dev/null 2>&1` **丟掉的正是誠實的那句話**：`ndtwin-lab` 的 `energy-stop`（`:163-168`）
++  在沒有 session 時印的是 **`no energy session`** 然後 `exit 0`。
++  ⇒ **下層說了實話，上層把它丟掉再蓋上一句假話。**〔實測（README §(c) 額外＋`c_stop_all.txt`）＋讀碼〕
++- **修法**：`energy`／`sim` 比照 `app_spawn` 的形狀，**啟動側與停止側要一起改**
++  （只改一側會留下「起得來報得準、停得掉報不準」的半修）。
++  ⚠️ 它們是 root tmux session，
+   所以存活檢查要在 `ndtwin-lab` 那一端做（`session_running` ＋ pane 內容或 pid），
+   不能只在 `ndt` 這一端補——**否則補的是回報，不是判斷**。
+@@ -2163,4 +2216,27 @@
+ - ⚠️ **行號口徑**：出處檔 §6 寫的是 `ndtwin-lab:26-31`——那是**說明用的檔頭註解區**（`:26-35`），
+   **真正的賦值在 `:51-56`**。引用時用後者。〔實測，本文以 `git show HEAD:` 覆核〕
++- 🔴 **同一家族還有兩處，而且它們不在 `ndtwin-lab` 裡——修完這支腳本並不會修好它們**
++  （2026-09-02 run-01 補驗順帶查到；tester 在 VM 上為了讓東西跑起來，**兩處都動手改過**）：
++  1. **Ryu app 的靜態拓樸預設路徑**：`intelligent_router.py:36-38`
++     `Path(os.environ.get("NDTWIN_RYU_TOPO_FILE", "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))`。
++     **比 `ndtwin-lab` 那一族軟**——它**可以**用 `NDTWIN_RYU_TOPO_FILE` 覆寫；
++     🔑 **但「可覆寫」對一個照著手冊走的人等於「不可覆寫」，因為手冊沒說要設它，
++     而預設值指向的是另一個人的家目錄。** 失效時 Ryu 拿不到拓樸，症狀往下游跑。〔實測，本文覆核〕
++  2. 🔴 **`p4_proxy/mininet/bmv2_binary_override` —— 一個 *repo 追蹤* 的檔，內容是 Adam 這台的路徑**
++     `/usr/local/bmv2-fast/bin/simple_switch_grpc`。
++     **而且它的「沒有 fallback」是刻意設計，不是疏忽**：檔案自己的註解逐字寫著
++     「There is NO fallback: delete this file, or comment out every line, and the topology
++     REFUSES to start rather than picking a binary for you」，理由是
++     **兩個 build 的 `--version` 一模一樣而吞吐量差約 10 倍**——
++     **靜靜選一個就是「一個看起來很合理的錯數字」**。
++     實作在 `p4_proxy/mininet/p4_testbed_topo.py:180-203`，四種情況各自 raise：
++     檔不在（`:184-189`，訊息裡就寫著 "This file is tracked and must name the simple_switch_grpc to run"）／
++     全部被註解掉（`:193-197`）／不是絕對路徑（`:199-200`）／指到的不是可執行檔（`:202-203`）。
++     ⇒ 🔑 **這一條的結論與另外兩處相反：不要把它改成有 fallback。**
++     **要改的是安裝流程——手冊（或 install script）必須寫這個檔**，
++     否則新機器上 P4 拓樸會**正確地拒絕啟動**，而使用者不知道要寫什麼。
++     〔實測，本文以 `git ls-tree`／`git show HEAD:` 覆核追蹤狀態與四個 raise〕
++  ⚠️ **出處檔說 tester 在 VM 上把這兩處改成了 `/home/ndt`／`/usr/local/bin/`**，
++  **那是未提交的修改、trunk 至今仍是 `/home/adam`**；引用時不要把 tester 的本機修改讀成 repo 狀態。
+ 
+ ### G-8 ⚠️ User Manual 只建 `ndt` 的 symlink ⇒ `ndtwin-lab` 缺席時，`ndt up` 失敗而且不說為什麼

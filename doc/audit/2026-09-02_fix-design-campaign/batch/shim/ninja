@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# PATH shim: force ninja to -j2 (see cmake shim). [Co-developed with claude code -- Adam]
+args=(); skip=0
+for a in "$@"; do if [[ $skip == 1 ]]; then skip=0; continue; fi; case "$a" in -j) skip=1 ;; -j*) ;; *) args+=("$a") ;; esac; done
+exec /usr/bin/ninja -j"${SHIM_JOBS:-2}" "${args[@]}"

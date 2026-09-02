@@ -1,0 +1,95 @@
+--- base.md
++++ base.md
+@@ -2034,4 +2034,5 @@
+   **不動工作區、不動 HEAD、不攤任何檔案到磁碟**，共用 worktree 上還有別的 session 在工作。
+ - 🔴 **`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。
++  ⚠️ **本則講的是 `mn -c` 內部的 `pkill -9 -f`；`cleanup` 自己還另外寫了四行 `pkill -f`，見 §G-9。**
+   🔄 08-30 收窄（sweep 實讀 `/usr/lib/python3/dist-packages/mininet/clean.py:29/:37/:66`）：
+   機制＝`pkill -9 -f`，**argv 對上 pattern 才殺**——`sudo mn -c` 的 shell 不匹配
+@@ -2112,4 +2113,86 @@
+ 
+ ---
++
++### G-6 🔴 `ndt apps sim`／`energy` 印「started」並回 rc 0，而那個 app 可能已經死了
++
++- **狀態**：**已知、未修**（2026-09-02 登記；今天的手動 user test run-01 實地踩到）。
++  出處：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/RECONCILIATION.md` §6（trunk `5da71c74`）。
++- **平面**：兩者（是工具缺陷，不是 kernel 缺陷）
++- **失效方向**：樂觀 ＋ 靜默——**「失敗回報成功」那一族的又一個實例**
++- **機制**（讀碼，行號本文以 `git show HEAD:` 覆核於 trunk）：
++  - `tools/test_workflow/ndt:1928-1929` 兩行**只看 `sudo -n "$LAB" …-start` 的 rc**：
++    `energy) sudo -n "$LAB" energy-start >/dev/null && ok "energy started (tmux: energy)"`（`sim` 同形）。
++  - 而 `tools/test_workflow/ndtwin-lab` 的 `energy-start`（`:158-162`）／`sim-start`（`:173-`）是
++    **`tmux new-session -d …` 後面直接 `echo`**——`tmux new-session -d` 只要 session 建得起來就回 0，
++    **裡面那支程式秒死也一樣**。⇒ 兩層加起來：**沒有任何一層問過「它還活著嗎」。**
++- 🔑 **對照組就在同一個檔案裡，而且是對的**：`app_spawn`（`ndt:1893-1909`）起完之後
++  `sleep 1` 再 `kill -0`（`:1902`），死了就印
++  `<name> exited immediately -- see .test_run/logs/app_<name>.log` 並把 log 尾三行印出來、**回 1**。
++  ⚠️ **走 `app_spawn` 的是 `nsr`（`:1932`）、`viz`（`:1938`）與 `te`（`:1942`）三個**——
++  **只有 `energy` 與 `sim` 繞過它**。（口徑更正：不是「只有 nsr 誠實」。）
++- **修法**：`energy`／`sim` 比照 `app_spawn` 的形狀。⚠️ 它們是 root tmux session，
++  所以存活檢查要在 `ndtwin-lab` 那一端做（`session_running` ＋ pane 內容或 pid），
++  不能只在 `ndt` 這一端補——**否則補的是回報，不是判斷**。
++- ⚠️ **本條的證據是 user test 實地踩到的行為 ＋ 讀碼**；`app_spawn` 那顆 `kill -0` 本身也值得一提：
++  同一個檔案的 `:1639-1677` 花了一整段論證 `kill -0` 對**停止**路徑是錯的工具（EPERM、pid 回收），
++  改用 `pid_is_app`；**啟動路徑這一顆還是 `kill -0`**。對「秒死」這個問題它夠用，但不要當成同一級的檢查。
++
++### G-7 🔴 `ndtwin-lab` 寫死了一個人的絕對路徑，而且**是刻意不可覆寫的** ⇒ 換一台機器就整個 fabric 起不來
++
++- **狀態**：**已知、未修**（2026-09-02 登記）。出處：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/RECONCILIATION.md` §6（trunk `5da71c74`）。
++- **平面**：兩者
++- **失效方向**：悲觀 ＋ **診斷指向錯的地方**（`ndt` 說 fabric 不對，真因是路徑不存在）
++- **機制**：`tools/test_workflow/ndtwin-lab` **`:51`／`:53`／`:55`／`:56`** 寫死
++  `KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel`、`NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python`、
++  `ENERGY_DIR=/home/adam/Energy-Saving-App`、`SIM_DIR=/home/adam/Simulation-Platform-Manager`；
++  `ovs-topo-start`（**`:143-144`**）另外**逐字**跑 `/home/adam/Network-Traffic-Generator/testbed_topo.py`，
++  `topo-start`（`:99-100`）跑 `"$NTG_PY" "$BRIDGE"`。
++  ⇒ 在別人的 checkout／別的使用者底下，**root tmux pane 秒死**（pane 最後一行是
++  `No such file or directory`），而 `ndt up` 只會在 300 秒後說
++  **`fabric has 0 hosts, expected 128`**（P4 那邊是 `0/10 switches, manifest missing`）。
++  🔑 **手冊那條「開三個終端機」的路徑會動**——因為它不經過這支腳本。
++- 🔴 **不要用 env 覆寫來修，那是被實測否決過的**：檔頭 `:26-35` 逐字寫著
++  「KERNEL_DIR IS HARDCODED, AND DELIBERATELY NOT OVERRIDABLE. READ THIS BEFORE "FIXING" IT.」，
++  理由是 08-30 的 **FINDING-01**：那次 `KERNEL_DIR` 被 export 之後，`ndt`／`stack.sh`／`components.env`
++  讀新樹而這支腳本讀主樹 ⇒ **fabric 128、model 4、每一項結構檢查全綠**。
++  ⇒ **修法＝安裝期設定檔**（例如 `/etc/ndtwin-lab.conf`，由安裝步驟寫入；
++  沒有設定檔或缺 key 就**明確 die 並印出缺哪一項**），**維持「不吃呼叫端 env」的原意**。
++- 🔴 **改 repo 那份不會生效，要重裝**：sudoers NOPASSWD 放行的是 **`/usr/local/sbin/ndtwin-lab`**
++  （root 擁有；本文覆核**與 trunk HEAD 的 repo 副本 byte-identical**）。
++  **手冊的安裝步驟必須含這一步**，否則「我改好了可是行為沒變」會變成下一個人的一小時。
++- ⚠️ **行號口徑**：出處檔 §6 寫的是 `ndtwin-lab:26-31`——那是**說明用的檔頭註解區**（`:26-35`），
++  **真正的賦值在 `:51-56`**。引用時用後者。〔實測，本文以 `git show HEAD:` 覆核〕
++
++### G-8 ⚠️ User Manual 只建 `ndt` 的 symlink ⇒ `ndtwin-lab` 缺席時，`ndt up` 失敗而且不說為什麼
++
++- **狀態**：**已知、未修**（2026-09-02 登記）。出處：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/RECONCILIATION.md` §6（trunk `5da71c74`）。
++- **失效方向**：靜默（**工具 fail-open，手冊缺一步**）
++- **機制**：手冊的安裝段只把 `ndt` 連進 PATH，沒有提 `ndtwin-lab`（它還必須裝到
++  `/usr/local/sbin/` 並配 sudoers，見 §G-7）。`ndt` 呼叫 `sudo -n "$LAB" …` 拿到的失敗
++  **不會被翻譯成「這個工具沒裝」**，使用者看到的是 fabric 起不來。
++- 🔑 **兩邊都要修，而且分屬不同 repo**：**文件那一半在 website repo**（安裝步驟補 `ndtwin-lab`）；
++  **工具那一半在本 repo**——`ndt` 應該在用它之前先確認它存在且可執行，
++  **並說出「缺的是什麼、要裝到哪裡」**。⇒ 只補文件會留下同一個 fail-open。
++
++### G-9 🔴 `ndtwin-lab cleanup` 自己呼叫了四次 `pkill -f` —— 專案硬規矩被寫在 lab 工具裡
++
++- **狀態**：**已知、未修**（2026-09-02 登記）。出處：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/RECONCILIATION.md` §6（trunk `5da71c74`）。
++- **機制**：`tools/test_workflow/ndtwin-lab` 的 `cleanup` 分支裡，
++  **`:131`／`:132`／`:133`／`:135` 四行都是 `pkill -f`**——
++  `ntg_bmv2_topo.py`、`p4_testbed_topo.py`、`"Network-Traffic-Generator/testbed_topo.py"`、
++  `simple_switch_grpc`（`:134` 夾著 `mn -c`）。〔實測，本文以 `git show HEAD:` 覆核；
++  出處檔 §6 寫的 `:132-136` 差一行〕
++- 🔴 **這與上面那條「`cleanup` 可能殺掉呼叫它的 shell」不是同一件事，兩條要一起讀**：
++  那一條講的是 **`mn -c` 內部**的 `pkill -9 -f`（`mininet/clean.py`），
++  **本條講的是 `ndtwin-lab` 自己寫的四行**。⇒ 就算 mininet 那邊哪天改乾淨了，這四行還在。
++- 🔑 **為什麼值得單獨記**：CLAUDE.md 的規矩是「**永不 `pkill -f`／`pgrep -f` 殺程序**」，
++  而 `-f` 比對整條 argv ⇒ **任何指令列提到那些字串的行程都是目標**，
++  包含只是 `grep` 它、`tail` 一個檔名有它的檔、或用編輯器打開它的那個 shell。
++  這與文末〈同一個字串 `iperf3`〉那一則是**同一個形狀，只是換了字串**。
++- **修法候選**：改成 **tmux session／pid 檔定向殺**——這支腳本自己就在管 tmux session
++  （`session_running`），要殺的東西幾乎都在它自己起的 session 裡，
++  **它有精確的把手卻用了模糊的**。
++
++---
+ 
+ ## 證據索引

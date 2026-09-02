@@ -1,0 +1,84 @@
+Proposed patch — NOT APPLIED. Read-only audit RESTORE-SWEEP, 2026-09-02.
+Target: doc/audit/2026-09-01_cpu-matrix-1hz/matrix_1hz.sh
+Defect: R1, partial. compile_at() DOES recompile, so the happy path restores the
+fabric correctly. What is missing is (a) any trap, so every `|| exit 1` in the body
+leaves the compiled JSON at the cell's rate, and (b) any assertion against the
+compiled artefact -- the round's own closing evidence line (":151") greps the
+SOURCE, which is exactly the file that proves nothing.
+
+EVIDENCE THIS PATH IS REAL, NOT HYPOTHETICAL:
+doc/audit/2026-09-01_cpu-matrix-1hz/matrix_1hz.aborted-2131.log ends after the
+m1024_poll cell, i.e. the round aborted with the JSON compiled at 1/1024 and no
+trap to put it back. It happened to be harmless because the restart 3 minutes
+later called compile_at 1024 again before measuring anything -- luck, not design.
+
+--- a/doc/audit/2026-09-01_cpu-matrix-1hz/matrix_1hz.sh
++++ b/doc/audit/2026-09-01_cpu-matrix-1hz/matrix_1hz.sh
+@@ -63,10 +63,46 @@
+ compile_at() {
+     sed -i -E "s/^const bit<16> SAMPLE_RATE = [0-9]+;/const bit<16> SAMPLE_RATE = $1;/" "$P4SRC"
+     grep -q "SAMPLE_RATE = $1;" "$P4SRC" || { say "FATAL: sed did not take for rate $1"; return 1; }
+     p4c-bm2-ss --arch v1model -o "$P4BUILD/ndtwin_switch.json" \
+         --p4runtime-files "$P4BUILD/ndtwin_switch.p4info.txt" "$P4SRC" >>"$LOG" 2>&1
++        || { say "FATAL: p4c failed at rate $1"; return 1; }
++    # Assert against the COMPILED artefact: p4_testbed_topo.py:357 loads the JSON, and bmv2
++    # reads it at exec and never reloads. A green read of the source says nothing about it.
++    local got; got="$(compiled_rate)"
++    [[ "$got" == "$1" ]] || { say "FATAL: compiled JSON encodes 1/$got, asked for 1/$1"; return 1; }
+ }
++
++# The sampling rate the COMPILED pipeline encodes. Same decode as tools/test_workflow/ndt's
++# sample_rate(): random(0, N-1) is one sample in N.
++compiled_rate() {
++    python3 - "$P4BUILD/ndtwin_switch.json" <<'PY' 2>/dev/null || echo unknown
++import json, sys
++def walk(o):
++    if isinstance(o, dict):
++        if o.get("op") == "modify_field_rng_uniform":
++            hi = [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
++            if len(hi) == 2: return int(hi[1], 16) + 1
++        for v in o.values():
++            r = walk(v)
++            if r: return r
++    elif isinstance(o, list):
++        for v in o:
++            r = walk(v)
++            if r: return r
++print(walk(json.load(open(sys.argv[1]))) or "unknown")
++PY
++}
++
++# 🔴 EVERY EXIT PATH MUST RESTORE, NOT JUST THE LAST LINE OF THE SCRIPT.
++# Without this, the seven `|| exit 1` calls below leave p4_src/build/ndtwin_switch.json at
++# whatever rate the failing cell was using -- and the next round inherits a fabric whose
++# numbers are merely a little odd. matrix_1hz.aborted-2131.log is that exit, taken for real.
++restore_p4_on_exit() {
++    local rc=$?
++    [[ "$(compiled_rate)" == 256 ]] && return $rc
++    say "--- [exit rc=$rc] compiled pipeline is not 1/256; restoring ---"
++    if compile_at 256; then
++        say "    restored: compiled JSON now encodes 1/$(compiled_rate)"
++        rm -f "$HERE/RESTORE-FAILED"
++    else
++        say "🔴🔴🔴 PRODUCTION RESTORE FAILED -- DO NOT RELEASE THE LAB 🔴🔴🔴"
++        printf 'RESTORE-FAILED %s -- compiled rate=%s\n' "$(date -Is)" "$(compiled_rate)" >&2
++        printf 'RESTORE-FAILED %s\n' "$(date -Is)" >"$HERE/RESTORE-FAILED"
++    fi
++    return $rc
++}
++trap restore_p4_on_exit EXIT INT TERM
+
+ cell() {  # $1 = label, $2 = poll on|off
+     POLL="$2" "$HERE/measure.sh" "$1" "$DUR" 200 >>"$LOG" 2>&1
+     say "    $1 done"
+ }
+@@ -148,6 +184,8 @@
+ say "--- restoring production config (1/256, clone on) ---"
+ teardown
+ compile_at 256 || exit 1
+ bringup "" || exit 1
+-say "  p4 SAMPLE_RATE at end: $(grep -oE 'SAMPLE_RATE = [0-9]+' "$P4SRC")"
++# 🔴 The old line here read the SOURCE. The source is the one file whose contents cannot
++# tell you what the fabric is running; report the artefact bmv2 actually loaded.
++say "  compiled rate at end: 1/$(compiled_rate)   (source says: $(grep -oE 'SAMPLE_RATE = [0-9]+' "$P4SRC"))"
+ say "=== matrix complete, production config restored ==="

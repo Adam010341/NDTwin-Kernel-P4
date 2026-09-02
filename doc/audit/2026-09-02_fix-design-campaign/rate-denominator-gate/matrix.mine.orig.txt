@@ -1,0 +1,11 @@
+mine-orig-a-all-killed       rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-b-nothing-red      rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-c-no-compile       rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-d-anchor-hdr       rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-d2-anchor-cpp      rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-e-baseline-red     rc=2   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-f-restore-broken   rc=2   | (no summary line printed)    | 🔴 SANDBOX SOURCES CHANGED | porcelain empty
+mine-orig-g-wrong-test       rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-h-nobuilddir       rc=2   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-i-builddir-override rc=2   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty
+mine-orig-j-silent-fail      rc=0   | (no summary line printed)    | sandbox sources byte-identical | porcelain empty

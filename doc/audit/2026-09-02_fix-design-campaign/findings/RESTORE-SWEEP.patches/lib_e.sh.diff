@@ -1,0 +1,99 @@
+Proposed patch — NOT APPLIED. Read-only audit RESTORE-SWEEP, 2026-09-02.
+Target: doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
+Defects: R2 (ordering + unread rc), and a narrow R1 gap in the assertion.
+
+R2 — restore_production() at :928 copies the kernel binary BEFORE `teardown`, i.e.
+while the stack is still up, and reads no exit code (`RUN` at :211 just runs "$@"
+and returns; the call site has no `||`). The reason this round did not get burned
+is an accident worth naming: `cp -f` on ETXTBSY UNLINKS the destination and creates
+a fresh file, so the on-disk file becomes correct while the RUNNING process keeps
+executing the unlinked arm binary -- and `teardown` on the next line then kills that
+process. Swap the two lines and the accident becomes a design. (run_ab.sh, which
+uses a plain `cp`, got the honest ETXTBSY and that is how this defect was found.)
+
+R1 — assert_restore_landed() at :891 checks SAMPLE_RATE=256 in the SOURCE only.
+Its one compiled-JSON check is `"op" : "truncate"`, which is present at EVERY rate
+and in the sampling-disabled build too, so it cannot distinguish a correct restore
+from a stale artefact. compile_at() does recompile, so the fabric IS restored; what
+is missing is the evidence that it was.
+
+--- a/doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
++++ b/doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
+@@ -888,6 +888,26 @@
+ # -------------------------------------------------------------------------------------------------
++
++# The rate the COMPILED artefact encodes -- bmv2 loads the JSON at exec and never reloads, so
++# this is the only number that describes the fabric. Same decode as tools/test_workflow/ndt's
++# sample_rate(). Returns both rng bounds: `lo` matters because the 09-01/09-02 zero-sampling
++# cells move the LOWER bound to 1 (the draw can never be 0, so nothing is ever cloned) while
++# leaving `hi` at 255 -- a pipeline that samples nothing and that ndt still reports as "1/256".
++compiled_rng() {
++    "$PY_PROXY" - "$P4BUILD/ndtwin_switch.json" <<'PY' 2>/dev/null || echo UNREADABLE
++import json, sys
++def walk(o):
++    if isinstance(o, dict):
++        if o.get("op") == "modify_field_rng_uniform":
++            return [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
++        for v in o.values():
++            r = walk(v)
++            if r: return r
++    elif isinstance(o, list):
++        for v in o:
++            r = walk(v)
++            if r: return r
++b = walk(json.load(open(sys.argv[1])))
++print("%d %d" % (int(b[0], 16), int(b[1], 16)) if b and len(b) == 2 else "UNREADABLE")
++PY
++}
++
+ assert_restore_landed() {
+     local fail=0 f="$OUT/RESTORE-FAILED"
+@@ -900,9 +920,17 @@
+             dry_note "would assert: SAMPLE_RATE=256 and SAMPLE_TRUNC_BYTES=128 in source AND in the"
+             dry_note "  compiled JSON; kernel sha256 == the production backup's; no RESTORE-FAILED marker"
+         fi
+     else
+         grep -q '^const bit<16> SAMPLE_RATE = 256;' "$P4SRC" || { say "🔴 restore: SAMPLE_RATE is not 256"; fail=1; }
+         grep -q '^const bit<32> SAMPLE_TRUNC_BYTES = 128;' "$P4SRC" || { say "🔴 restore: truncate is not 128"; fail=1; }
+         grep -q '"op" *: *"truncate"' "$P4BUILD/ndtwin_switch.json" 2>/dev/null \
+             || { say "🔴 restore: the compiled JSON has no truncate op"; fail=1; }
++        # 🔴 The truncate op above is present at EVERY rate, so on its own it is a check with no
++        # discriminating power over the axis this round actually moved. Assert the RATE, in the
++        # artefact, and assert BOTH rng bounds: lo=0 is "sampling on", lo=1 is "sampling off".
++        local rng; rng="$(compiled_rng)"
++        if [[ "$rng" != "0 255" ]]; then
++            say "🔴 restore: the compiled JSON's rng bounds are '$rng', production is '0 255'"
++            say "🔴          (lo=1 means the clone predicate can never fire: the fabric samples NOTHING)"
++            fail=1
++        fi
+         if [[ -f "$KBIN_BACKUP" ]]; then
+             local a b; a=$(sha256sum "$KBIN_BACKUP" | cut -d' ' -f1); b=$(sha256sum "$KBIN" | cut -d' ' -f1)
+             [[ "$a" == "$b" ]] || { say "🔴 restore: kernel is $b, production backup is $a"; fail=1; }
+         fi
+     fi
+@@ -926,13 +954,25 @@
+ restore_production() {
+     say "--- restoring production config (1/256, truncate 128, batch unset, production kernel) ---"
+-    if [[ -f "$KBIN_BACKUP" ]]; then
+-        RUN cp -f "$KBIN_BACKUP" "$KBIN"
+-        say "    kernel restored: $(RUN sha256sum "$KBIN" 2>/dev/null | cut -d' ' -f1)"
+-    fi
+-    teardown
++    # 🔴 THE STACK GOES DOWN FIRST. `cp` onto a file a live process is executing fails with
++    # ETXTBSY; `cp -f` then papers over it by UNLINKING the destination, so the file on disk
++    # becomes right while the running process keeps executing the arm binary from the unlinked
++    # inode. The old order survived only because `teardown` on the next line killed that
++    # process anyway -- an accident, not a guarantee, and not one an abort path should rely on.
++    teardown
++    if [[ -f "$KBIN_BACKUP" ]]; then
++        # And read the exit code. A restore whose copy failed and said nothing is the whole
++        # defect; RUN returns the command's status, so the `||` is what makes it a check.
++        if ! RUN cp -f "$KBIN_BACKUP" "$KBIN"; then
++            say "🔴 restore: cp of the production kernel FAILED (rc=$?) -- is something still running it?"
++        fi
++        say "    kernel restored: $(RUN sha256sum "$KBIN" 2>/dev/null | cut -d' ' -f1)"
++    fi
+     compile_at 256 || { assert_restore_landed; return 1; }
+     assert_restore_landed || return 1
+     return 0
+ }

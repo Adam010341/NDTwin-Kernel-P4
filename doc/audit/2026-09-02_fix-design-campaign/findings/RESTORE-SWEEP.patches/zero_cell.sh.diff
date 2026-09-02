@@ -1,0 +1,93 @@
+Proposed patch — NOT APPLIED. Read-only audit RESTORE-SWEEP, 2026-09-02.
+Target: doc/audit/2026-09-01_cpu-matrix-1hz/zero_cell.sh
+Defect: R1 (restoring the .p4 SOURCE does not restore the fabric).
+
+WHY: restore_p4() is the EXIT/INT/TERM trap (line 64) and it rewrites ONLY the .p4
+source. Every abort path in this script (line 115 `bringup || exit 1`, line 122
+"control did NOT hold" -> exit 1, line 137 `bringup || exit 1`) therefore leaves
+p4_src/build/ndtwin_switch.json holding the SAMPLING-DISABLED predicate while the
+source reads correct. p4_testbed_topo.py:357 loads the JSON, so every later round
+on this machine would sample NOTHING and no source-based check could see it.
+Second, independent instance: the happy-path p4c at line 135-136 has NO rc check,
+so a failed recompile still prints "=== done ===".
+
+--- a/doc/audit/2026-09-01_cpu-matrix-1hz/zero_cell.sh
++++ b/doc/audit/2026-09-01_cpu-matrix-1hz/zero_cell.sh
+@@ -47,17 +47,43 @@
+ say() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
+
++# The rng bound the COMPILED artefact encodes. random(lo,hi) with lo=0 samples 1 in (hi+1);
++# lo=1 can never draw 0, so the clone never fires. Both bounds matter -- ndt's own
++# sample_rate() reads only `hi`, so it reports "1/256" for a pipeline that samples nothing.
++compiled_rng() {
++    python3 - "$P4BUILD/ndtwin_switch.json" <<'PY' 2>/dev/null || echo "UNREADABLE"
++import json, sys
++def walk(o):
++    if isinstance(o, dict):
++        if o.get("op") == "modify_field_rng_uniform":
++            return [p["value"] for p in o["parameters"] if p.get("type") == "hexstr"]
++        for v in o.values():
++            r = walk(v)
++            if r: return r
++    elif isinstance(o, list):
++        for v in o:
++            r = walk(v)
++            if r: return r
++b = walk(json.load(open(sys.argv[1])))
++print("%d %d" % (int(b[0], 16), int(b[1], 16)) if b and len(b) == 2 else "UNREADABLE")
++PY
++}
++
+ restore_p4() {
+     if grep -qF "$SAMPLING_OFF" "$P4SRC"; then
+         python3 - "$P4SRC" "$SAMPLING_OFF" "$SAMPLING_ON" <<'PY'
+ import sys
+ p, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+ s = open(p).read()
+ assert s.count(old) == 1, f"expected exactly one occurrence, found {s.count(old)}"
+ open(p, "w").write(s.replace(old, new))
+ PY
+         say "  p4 sampling predicate restored"
+     fi
++    # 🔴 RESTORING THE SOURCE RESTORES NOTHING. The fabric loads the COMPILED artefact
++    # (p4_proxy/mininet/p4_testbed_topo.py:357 reads p4_src/build/ndtwin_switch.json) and
++    # bmv2 reads it at exec and never reloads. A source-only restore leaves every later
++    # round on this machine sampling nothing, with every source-based check reading green.
++    if ! p4c-bm2-ss --arch v1model -o "$P4BUILD/ndtwin_switch.json" \
++            --p4runtime-files "$P4BUILD/ndtwin_switch.p4info.txt" "$P4SRC" >>"$LOG" 2>&1; then
++        say "  🔴🔴🔴 FATAL: p4c FAILED on the restored source -- THE COMPILED JSON IS STALE"
++        say "  🔴 DO NOT RELEASE THE LAB. The next round would sample at this round's setting."
++        printf 'RESTORE-FAILED %s -- compiled JSON not rebuilt\n' "$(date -Is)" >&2
++        printf 'RESTORE-FAILED %s\n' "$(date -Is)" >"$HERE/RESTORE-FAILED"
++        return 1
++    fi
++    # Assert against the artefact that will actually be READ next, not the one just edited.
++    local rng; rng="$(compiled_rng)"
++    if [[ "$rng" != "0 255" ]]; then
++        say "  🔴🔴🔴 FATAL: compiled rng bounds are '$rng', production is '0 255' (1/256, sampling on)"
++        printf 'RESTORE-FAILED %s -- compiled rng=%s\n' "$(date -Is)" "$rng" >&2
++        printf 'RESTORE-FAILED %s\n' "$(date -Is)" >"$HERE/RESTORE-FAILED"
++        return 1
++    fi
++    rm -f "$HERE/RESTORE-FAILED"
++    say "  compiled JSON verified: rng bounds 0..255 (1/256, sampling ON)"
+ }
+ # Leaving the fabric compiled with sampling disabled would silently zero the telemetry of every
+ # later round on this machine. This must run whatever happens, including Ctrl-C.
+ trap 'restore_p4' EXIT INT TERM
+@@ -130,11 +156,10 @@
+ done
+
+ say "--- restoring production pipeline ---"
+-restore_p4
+ teardown
+-p4c-bm2-ss --arch v1model -o "$P4BUILD/ndtwin_switch.json" \
+-    --p4runtime-files "$P4BUILD/ndtwin_switch.p4info.txt" "$P4SRC" >>"$LOG" 2>&1
++# restore_p4 now recompiles and verifies the compiled artefact itself, so the bare p4c that
++# used to stand here -- whose exit code nothing read -- is gone.
++restore_p4 || exit 1
+ bringup || exit 1
+ say "  predicate now: $(grep -oF "$SAMPLING_ON" "$P4SRC")"
+ say "  SAMPLE_RATE  : $(grep -oE 'SAMPLE_RATE = [0-9]+;' "$P4SRC" | head -1)"
++say "  compiled rng : $(compiled_rng)   <- the artefact bmv2 loads, not the source"
+ say "=== done ==="

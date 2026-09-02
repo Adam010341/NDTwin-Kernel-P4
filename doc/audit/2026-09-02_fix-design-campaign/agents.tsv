@@ -1,0 +1,30 @@
+a0170b1609e75e0a1	known-issues-reconcile	1c8828b6	0
+a11e762acc26b604d	fix/a4c-proxy-restart-honesty	05976e27	1
+a12e05453bd0ac03f	worktree-agent-a12e05453bd0ac03f	868d4bd8	28
+a27cec4ea2b97600b	fix/F-8-declared-link-capacity	28a9b550	2
+a2c2a6601f812a7eb	fix-demo-behavior	3f5afe71	0
+a2f68538444b9c3e1	fix/a-9-lock-lease	3dfa51cc	5
+a34a737e04007097c	fix/f13-group-meter-existence	40bcb7de	3
+a580418ad7a3c5fab	fix/f15-grpc-port-block	77e2f506	2
+a6027dd08134f9eb2	ndt-harness-t9-t10-instruments	b4059384	1
+a678d74f17815d0a6	agent/b-1-verify	b19045b0	2
+a687e5496d8b836f5	fix/f-1-mininet-health-metrics	65496a5d	2
+a6f9792013e8d6d7b	fix/b-2b-b-4-no-shell-strings	051faf12	4
+a7849481426976515	DETACHED	fb68ef1d	1
+a7914ee118d9f1b40	fix/b3-historical-logging-honest-reply	341b66be	4
+a8c312d48ddcb2dab	fix/f-6-stale-table-carry-forward	65cc9b3a	3
+a8eb8baaeb9ad1065	t7b-release-renew	5e878eca	27
+aa205db037b094416	audit/desk-check-remaining-manual-pages	b20b8aeb	22
+aa95917bce14562d3	fix/a-4d-delete-restores-p4-route	a1a4a295	1
+aaf83a756cda5386e	fix-demo-seatbelt	ba1bf75d	0
+abf084771d76f4411	worktree-agent-abf084771d76f4411	9d2c43b7	23
+ac5cac4ba46a60148	fix/optimistic-topology-reporting-f14-f16-f4	6db478ca	2
+acf41fea34307c956	t8-t10-fixes	37d7d579	10
+aeac636943db8b2a8	fix/bx-flow-liveness	7d678ed0	2
+aef4d43052f22d5e3	fix/a-4f-sflow-lost-on-power-cycle	e9993f9f	2
+ae8a61e4cbc666d74	fix/mutate-rate-denominator-survivor-accounting (spawned 13:5x, gate accounting)	-	-
+a687e5496d8b836f5 = F-1 agent; aabd5b7bb0c2427f8 = KNOWN-ISSUES delta (read-only)
+aebcf7bc104af3efb	A-2 (fix/a-2-ryu-get-link-and-partial-apply) spawned 13:55	-	-
+a0c8400b7727aeeb0	A-4e verify + gate anchor drift matrix (verify/a-4e-and-gate-drift) spawned 13:55	-	-
+a6eccbf1c04194d7a	A-7 (fix/a-7-dispatch-status-wiring) spawned 13:55	-	-
+ab3bd14789bf18491	INTEGRATION (integrate/2026-09-02-fix-campaign in buildwt) spawned 18:05	-	-

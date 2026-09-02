@@ -1,0 +1,60 @@
+Self-test: validating schemas against doc/2026-01-02_ndt_api.md examples
+
+  ok    get_graph_data
+  ok    get_detected_flow_data
+  ok    get_detected_top_k_flow_data
+  ok    get_switch_openflow_table_entries
+  ok    get_power_report
+  ok    get_switches_power_state
+  ok    get_cpu_utilization
+  ok    get_memory_utilization
+  ok    get_temperature
+  ok    get_average_link_usage
+  ok    get_path_switch_count
+  ok    get_num_of_flows_passing_a_switch
+  ok    get_total_input_traffic_load_passing_a_switch
+  ok    get_nickname
+  ok    acquire_lock
+  ok    release_lock
+  ok    install_flow_entry
+  ok    modify_nickname
+  ok    get_openflow_capacity
+
+  Invariants against documented/synthetic data:
+  ok    graph_matches_topology: accepts matching graph
+  ok    graph_matches_topology: catches wrong switch count (correctly reported: switch count is 1, topology file says 10)
+  ok    graph_matches_topology: catches missing dpid (correctly reported: dpid(s) not present in the topology file: [106225808380928])
+  ok    all_switches_up: accepts healthy graph
+  ok    all_switches_up: catches switch down / not enabled (correctly reported: switch(es) not up: s4(dpid=106225808380928))
+  ok    edges_enabled: accepts healthy edges
+  ok    edges_enabled: catches a down edge (correctly reported: 1 edge(s) down/disabled: 106225808402492:1->0:0)
+  ok    link_bandwidth_sane: accepts usage below capacity
+  ok    link_bandwidth_sane: catches usage above capacity (correctly reported: edge 106225808402492:1 reports usage 2000000000 bps above capacity 100)
+  ok    flows_present: catches no flows while traffic runs (correctly reported: no flows detected, but --with-traffic says traffic should be running)
+  ok    flows_present: accepts flows
+  ok    flow_paths_non_empty: accepts populated path
+  ok    flow_paths_non_empty: catches empty path (the P4 Classifier gap) (correctly reported: 1 of 1 routable flow(s) with an empty path: 1359063232->16885952 -- th)
+  ok    flow_paths_non_empty: refuses an all-multicast sample (checked nothing) (correctly reported: no routable-unicast flows among 2 sampled flow(s), so this invariant e)
+  ok    flow_paths_non_empty: refuses an all-broadcast sample (checked nothing) (correctly reported: no routable-unicast flows among 1 sampled flow(s), so this invariant e)
+  ok    flow_paths_non_empty: refuses an all-link-local sample (checked nothing) (correctly reported: no routable-unicast flows among 1 sampled flow(s), so this invariant e)
+  ok    flow_paths_non_empty: one routable flow among multicast noise is enough
+  ok    flow_paths_non_empty: still catches the bad one among multicast noise (correctly reported: 1 of 1 routable flow(s) with an empty path: 1359063232->67108874 -- th)
+  ok    flow_rates_nonzero: accepts non-zero rates
+  ok    flow_rates_nonzero: catches all-zero rates (correctly reported: every detected flow reports a rate of 0 -- telemetry is arriving but r)
+  ok    tables_non_empty: accepts populated table
+  ok    tables_non_empty: catches the [] stub (correctly reported: no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is pr)
+  ok    tables_non_empty: catches an empty per-switch table (correctly reported: switch(es) with an empty flow table: 106225808402492)
+  ok    topk_bounded: accepts k or fewer
+  ok    topk_bounded: catches more than k (correctly reported: asked for top 5 flows, got 6)
+  ok    power_covers_switches: accepts full coverage
+  ok    power_covers_switches: catches a missing switch (correctly reported: no power reading for dpid(s): [999])
+  ok    avg_link_usage_range: accepts 0..100
+  ok    avg_link_usage_range: catches out-of-range (correctly reported: avg_link_usage is 150, expected 0..100)
+  ok    power_state_values: accepts ON/OFF
+  ok    power_state_values: catches an unexpected value (correctly reported: unexpected power state value(s): {'10.0.0.1': 'MAYBE'})
+  ok    util_map_covers_switches: accepts full coverage
+  ok    util_map_covers_switches: catches partial coverage (correctly reported: only 1 switch(es) reported, expected 2)
+
+======================================================================
+Self-test passed: 52 checks
+rc=0

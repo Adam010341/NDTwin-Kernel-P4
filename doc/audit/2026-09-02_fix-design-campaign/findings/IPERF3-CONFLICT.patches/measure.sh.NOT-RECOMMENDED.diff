@@ -1,0 +1,33 @@
+--- a/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh
++++ b/doc/audit/2026-08-20_sampling-rate-and-cpu/measure.sh
+@@ -42,6 +42,30 @@
+ # A stale server from a previous condition would accept the flow and silently make this run
+ # measure the wrong thing, so clear first. Hosts share the root PID namespace, which is why a
+ # plain pkill reaches them at all.
++#
++# 🔴 REFUSE-ONLY PRE-CHECK.  Added 2026-09-02; the two kill lines below are UNCHANGED byte for
++# byte.  `pkill -f` matches the whole command line unanchored, runs here under sudo (so: any
++# user, including root) and, per the comment above, in the ROOT pid namespace -- so its scope is
++# this machine, not this host.  A sibling session's iperf3 is a target, and so is any process
++# merely mentioning the string.  This block refuses rather than kills; it never sends a signal.
++# Enumeration is by EXACT `comm` and is done in this shell: `pgrep -f` is prohibited project-wide
++# and an awk holding the pattern would put the string into its own argv, making the check a
++# target of the kill it guards.
++# 🔴 COST, STATED: this shifts the kill lines from :45,:46,:99 to :69,:70,:123, invalidating
++# every `measure.sh:45-46,96` citation in KNOWN-ISSUES, TBD-DRAFT, FINDINGS and HANDOFF, and it
++# changes this file's md5 -- so the 08-20/08-25 archived cells are no longer produced by a
++# byte-identical instrument.  measure_guarded.sh achieves the same refusal at zero byte cost.
++# [Co-developed with claude code -- Adam]
++_foreign=""
++while read -r _p _c; do
++    [ "$_c" = iperf3 ] && _foreign="$_foreign$_p "
++done < <(ps -eo pid=,comm=)
++if [ -n "${_foreign% }" ]; then
++    echo "REFUSE [$LABEL]: iperf3 already running (pids: ${_foreign% }) and this run did not" >&2
++    echo "        start it.  The next two lines would destroy it.  Stop it by PID (never" >&2
++    echo "        \`pkill -f\`), then re-run.  This cell has NOT been measured." >&2
++    exit 3
++fi
+ sudo -n mnexec -a "$H33" pkill -f iperf3 2>/dev/null || true
+ sudo -n mnexec -a "$H1" pkill -f iperf3 2>/dev/null || true
+ sleep 1

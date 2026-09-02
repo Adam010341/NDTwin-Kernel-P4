@@ -1,0 +1,72 @@
+F-6 mutation gate
+  build dir : build
+  target    : test_routing_strategy
+  filter    : StaleTableCarryForward*:PollPolicy.*
+  baseline  : e87bc2fc666831ea include/ndt_core/power_management/StaleTableCarryForward.hpp
+  baseline  : 2b43f0356ed1959f src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+
+baseline (unmutated) must build and be green:
+    [----------] Global test environment tear-down
+    [==========] 20 tests from 3 test suites ran. (0 ms total)
+    [  PASSED  ] 20 tests.
+  ok       baseline green
+
+=== 1. carry-forward disabled at the call site (back to erase) ===
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ✅ caught by StaleTableCarryForwardWiring.TheServedCacheKeepsASwitchWhoseReadFailed
+     all red: StaleTableCarryForwardWiring.ConsecutiveFailedPollsAccumulateInTheServedCache StaleTableCarryForwardWiring.TheServedCacheKeepsASwitchWhoseReadFailed 
+
+=== 2. stale_since is never set ===
+  anchor occurrences: 1 in include/ndt_core/power_management/StaleTableCarryForward.hpp
+  🔴 MUTANT DOES NOT COMPILE -- the test never ran, so this counts as SURVIVED.
+     Fix the mutation (or the anchor); a mutation that cannot build proves nothing.
+       ccache /usr/bin/c++ -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/libs -g -O0 -DDEBUG_BUILD -std=c++23 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Wunused-function -Wunused-variable -Wunused-local-typedefs -Werror -pthread -MD -MT src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o -MF src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o.d -o src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/src/ndt_core/collection/FlowLinkUsageCollector.cpp
+       /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include/ndt_core/power_management/StaleTableCarryForward.hpp:226:28: error: unused variable ‘staleSince’ [-Werror=unused-variable]
+       cc1plus: all warnings being treated as errors
+       ccache /usr/bin/c++ -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/libs -g -O0 -DDEBUG_BUILD -std=c++23 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Wunused-function -Wunused-variable -Wunused-local-typedefs -Werror -pthread -MD -MT src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o -MF src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o.d -o src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+       /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include/ndt_core/power_management/StaleTableCarryForward.hpp:226:28: error: unused variable ‘staleSince’ [-Werror=unused-variable]
+
+=== 3. a down switch is polled, so it can enter the unread list ===
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ✅ caught by PollPolicy.ADownSwitchIsNeverPolledSoItCanNeverEnterTheUnreadList
+     all red: PollPolicy.ADownSwitchIsNeverPolledSoItCanNeverEnterTheUnreadList 
+
+=== 4. stale_polls never accumulates ===
+  anchor occurrences: 1 in include/ndt_core/power_management/StaleTableCarryForward.hpp
+  🔴 MUTANT DOES NOT COMPILE -- the test never ran, so this counts as SURVIVED.
+     Fix the mutation (or the anchor); a mutation that cannot build proves nothing.
+       ccache /usr/bin/c++ -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/libs -g -O0 -DDEBUG_BUILD -std=c++23 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Wunused-function -Wunused-variable -Wunused-local-typedefs -Werror -pthread -MD -MT src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o -MF src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o.d -o src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/src/ndt_core/collection/FlowLinkUsageCollector.cpp
+       /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include/ndt_core/power_management/StaleTableCarryForward.hpp:230:28: error: unused variable ‘priorPolls’ [-Werror=unused-variable]
+       cc1plus: all warnings being treated as errors
+       ccache /usr/bin/c++ -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/libs -g -O0 -DDEBUG_BUILD -std=c++23 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Wunused-function -Wunused-variable -Wunused-local-typedefs -Werror -pthread -MD -MT src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o -MF src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o.d -o src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+       /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4e0e8cb4-1c72-4731-b5fe-2989d7af1d65/scratchpad/buildwt/include/ndt_core/power_management/StaleTableCarryForward.hpp:230:28: error: unused variable ‘priorPolls’ [-Werror=unused-variable]
+
+=== 5. a never-read switch is omitted instead of listed ===
+  anchor occurrences: 1 in include/ndt_core/power_management/StaleTableCarryForward.hpp
+  ✅ caught by StaleTableCarryForward.ASwitchNeverReadIsStillListedAndSaysSo
+     all red: StaleTableCarryForward.AMalformedPreviousCacheIsTreatedAsHavingNothingToCarry StaleTableCarryForward.ASwitchNeverReadIsStillListedAndSaysSo StaleTableCarryForward.ASwitchThatStaysUnreadSinceBootKeepsCountingAndStaysFlagged 
+
+=== 6. a stale copy no longer yields to a fresh read ===
+  anchor occurrences: 1 in include/ndt_core/power_management/StaleTableCarryForward.hpp
+  ✅ caught by StaleTableCarryForward.AFreshReadIsNeverOverwrittenByAStaleCopy
+     all red: StaleTableCarryForward.AFreshReadIsNeverOverwrittenByAStaleCopy 
+
+=== 7. the T-11 filter rebuilds the switch object and drops the markers ===
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ✅ caught by StaleTableCarryForwardWiring.TheServedCacheKeepsASwitchWhoseReadFailed
+     all red: StaleTableCarryForwardWiring.ConsecutiveFailedPollsAccumulateInTheServedCache StaleTableCarryForwardWiring.TheServedCacheKeepsASwitchWhoseReadFailed 
+
+=== 8. the merge reads the cache outside the write lock ===
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ⚪ SURVIVED AS DECLARED -- single-threaded tests cannot see a lock-ordering change; needs TSan + a concurrent writer
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1 in include/ndt_core/power_management/StaleTableCarryForward.hpp
+  ✅ green: the suite does not react to a comment
+
+--- baseline restored? ---
+  byte-identical  include/ndt_core/power_management/StaleTableCarryForward.hpp
+  byte-identical  src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  suite green again after restore
+
+7 mutations, 2 survived (+1 declared-uncovered, listed above)
