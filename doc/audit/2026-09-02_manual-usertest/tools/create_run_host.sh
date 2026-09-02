@@ -28,7 +28,7 @@ PY
 cloud-localds "$D/seed.iso" "$D/user-data" "$D/meta-data" && echo "seed rebuilt"
 echo "Desktop in user-data: $(grep -c Desktop "$D/user-data")   in seed.iso strings: $(strings "$D/seed.iso" | grep -c Desktop)   in as-created: $(grep -c Desktop "$D/user-data.as-created")"
 diff "$D/user-data.as-created" "$D/user-data" | head -12
-printf 'cpus=4\nmem=6144\ndisk=120G\nport=$P\n' > "$D/CONFIG"
+printf 'cpus=4\nmem=6144\ndisk=120G\nport=%s\n' "$P" > "$D/CONFIG"
 printf 'owner: adam (campaign A-7, '"${RUN:?set RUN}"', tester model: '"${MODEL:?set MODEL}"')\nsince: 2026-09-02\nport:  '"$P"'\nnote:  Fresh Ubuntu 24.04 cloud image. Seed rebuilt WITHOUT the ~/Desktop pre-creation (user-data.as-created keeps the original) so finding M-1 is really tested.\nnote:  See NSLAB-USAGE-RULES.md row A-7 / '"$RUN"' and doc/audit/2026-09-02_manual-usertest/.\n' > "$D/OWNER"; chmod 600 "$D/OWNER"
 echo "=== result ==="; ls -la "$D" | awk '{print $5, $6, $7, $8, $9}'; qemu-img info "$D/disk.qcow2" | grep -i "virtual size\|disk size\|backing"
 df -h ~ | tail -1
