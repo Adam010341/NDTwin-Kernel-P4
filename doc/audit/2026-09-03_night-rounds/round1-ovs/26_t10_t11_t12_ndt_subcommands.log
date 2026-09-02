@@ -1,0 +1,81 @@
+#### T-10 / T-11 / T-12: ndt apps orphans, ndt ntg, ndt check -- none ever invoked ####
+# 2026-09-03T00:03:50+08:00; kernel ae8b752f...; fabric ovs4; no apps running
+
+===== T-10: ndt apps orphans (the A-1 guard; exits 1 if an untracked app runs) =====
+  ok  no untracked app processes
+ORPHANS_RC=0
+  control -- is any app actually running right now?
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+
+===== T-11: ndt ntg (no argument, then the two documented forms) =====
+NTG mode: cli
+  cli    -> the topology drops into Mininet's CLI
+  prompt -> the topology hands control to NTG's own prompt
+  change it with:  ndt ntg cli|prompt     (takes effect on the next 'ndt up')
+NTG_NOARG_RC=0
+--- ndt ntg cli ---
+  ok  NTG mode already cli
+NTG_CLI_RC=0
+--- ndt ntg prompt ---
+  !!  edited /home/adam/Network-Traffic-Generator/setting/Mininet.yaml (a sibling repo's config): mode cli -> prompt
+  takes effect on the next 'ndt up'; the running topology keeps its current mode
+NTG_PROMPT_RC=0
+--- restoring whatever it was: read it back ---
+NTG mode: prompt
+  cli    -> the topology drops into Mininet's CLI
+  prompt -> the topology hands control to NTG's own prompt
+  change it with:  ndt ntg cli|prompt     (takes effect on the next 'ndt up')
+
+===== T-12: ndt check (telemetry double-count tripwire) =====
+ndt check
+  sampling the twin and /proc/net/dev for 8s
+  window               8.0s over 32 inter-switch links
+  excluded             4 host-facing iface(s) (comparison is inter-switch only)
+  twin  (integrated)   0.0 Mbit/s
+  /proc/net/dev        0.0 Mbit/s
+  --  under 1 Mbit/s crossing the fabric; the ratio is not meaningful yet.
+      run this while traffic is flowing.
+
+  CPU: /ndt/get_cpu_utilization returns 10 + hash(ip) % 50 in MININET mode -- a
+       constant unrelated to load, which the Web-GUI displays as if it were real.
+       measure with:  python3 tools/test_workflow/cpu_probe.py <secs> <hz> <out.jsonl>
+CHECK_RC=0
+
+== RESTORING the sibling-repo config T-11 mutated (it was 'cli' before I ran it) ==
+  !!  edited /home/adam/Network-Traffic-Generator/setting/Mininet.yaml (a sibling repo's config): mode prompt -> cli
+  takes effect on the next 'ndt up'; the running topology keeps its current mode
+RESTORE_RC=0
+NTG mode: cli
+  cli    -> the topology drops into Mininet's CLI
+  file state:
+6:    mode: "cli" 
+
+== T-12 RE-RUN, this time WITH traffic -- the first run said 'not meaningful yet' ==
+   This doubles as a test of the tripwire's discriminative power: on ovs4 the twin has NO
+   sFlow (finding 4), so the twin must read ~0 while /proc/net/dev sees real bytes.
+   A tripwire that stays quiet on that gap is not discriminating.
+ndt check
+  sampling the twin and /proc/net/dev for 8s
+  window               8.0s over 32 inter-switch links
+  excluded             4 host-facing iface(s) (comparison is inter-switch only)
+      s2-eth3      moved 2.3 MB, twin reports usage=0  <- twin models it but reports zero
+      s1-eth3      moved 2.3 MB, twin reports usage=0  <- twin models it but reports zero
+  twin  (integrated)   0.0 Mbit/s
+  /proc/net/dev        9.2 Mbit/s
+  ratio                0.00   under-counting
+      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone
+      replicas. Absolute numbers cannot show this -- only the ratio can.
+
+  CPU: /ndt/get_cpu_utilization returns 10 + hash(ip) % 50 in MININET mode -- a
+       constant unrelated to load, which the Web-GUI displays as if it were real.
+       measure with:  python3 tools/test_workflow/cpu_probe.py <secs> <hz> <out.jsonl>
+CHECK_WITH_TRAFFIC_RC=0
+  traffic that ran underneath:
+--- 10.0.0.2 ping statistics ---
+4000 packets transmitted, 4000 received, 0% packet loss, time 19994ms
+rtt min/avg/max/mdev = 0.005/0.026/0.601/0.017 ms

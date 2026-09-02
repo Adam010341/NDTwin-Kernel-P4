@@ -1,0 +1,105 @@
+#### T-20: harness 25_apps_energy.sh -- writes graph_energy_before.json (without which 90_restore aborts)
+####      and is the ONLY live caller of the T-9 instrument assert_window_span ####
+# 2026-09-03T00:19:48+08:00; kernel ae8b752f...; fabric ovs4; OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+# NOTE: the Energy-Saving-App POWERS SWITCHES DOWN. That is the point of the step.
+Mem:           15412        8098        2826        1044        5876        7313
+Swap:          20479        6393       14086
+ENERGY_RC=2
+
+===== 25_apps_energy  (2026-09-02T16:19:48Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+
+  REFUSING TO RUN WITHOUT AN EXPLICIT FLAG.
+
+  This phase powers real switches down. Re-invoke as:
+
+      ./25_apps_energy.sh --yes-power-switches-off
+
+  Before you do:
+    * every other phase of the round must be finished (10, 20, 30, 40, 50)
+    * you must be prepared to run 90_restore.sh afterwards
+    * on OVS, plan on a full 'ndt down && ndt up' rebuild rather than power-on,
+      because F-7a's shaping loss is not undone by powering the switch back on
+
+== did it write the file 90_restore.sh needs? ==
+ls: cannot access '/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/graph_energy_before.json': No such file or directory
+
+== RE-RUN with --yes-power-switches-off  2026-09-03T00:27:09+08:00 ==
+   DEVIATION, stated not hidden: the script asks that phases 10,20,30,40,50 be finished.
+   Done: 10 (log 29), 30 (log 32), 50 (log 16). NOT done: 20 (20_apps_lifecycle.sh --
+   deferred, it starts the viz JavaFX JVM and another session is running 2x cc1plus;
+   see 19_free_mem_checkpoints.log) and 40 (40_r5_p4.sh is P4-only, this is the OVS plane).
+Mem:           15412        7592        3979        1023        5209        7819
+Swap:          20479        6383       14096
+ENERGY_RC=0
+
+===== 25_apps_energy  (2026-09-02T16:27:09Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+
+===== BEFORE -- one snapshot, taken now, not reused from preflight =====
+      switches=10 up=10 enabled=10 admin_disabled=0 hosts=4 edges=40 edges_down=0
+      switches currently down: none
+  PASS  fabric is intact before the energy phase (10/10 switches up, 40 edges, 0 down)
+
+===== START the Energy-Saving-App =====
+        ok  energy started (tmux: energy)
+  PASS  energy reports running (via ndt's own lab_session predicate, not a signal probe -- H-17)
+
+===== WATCH -- the app's cadence is 60 s, so watch for at least three cycles =====
+      epoch	up	enabled	admin_disabled	edges_down	util_max	down_names
+      1788366430	10	10	0	0	0.0	none
+      1788366440	10	10	0	0	0.0	none
+      1788366451	10	10	0	0	0.0	none
+      1788366461	10	10	0	0	0.0	none
+      1788366471	10	10	0	0	0.0	none
+      1788366481	10	10	0	0	0.0	none
+      1788366492	10	10	0	0	0.0	none
+      1788366502	10	10	0	0	0.0	none
+      1788366512	10	10	0	0	0.0	none
+      1788366523	10	10	0	0	0.0	none
+      1788366533	10	10	0	0	0.0	none
+      1788366543	10	10	0	0	0.0	none
+      1788366553	10	10	0	0	0.0	none
+      1788366564	10	10	0	0	0.0	none
+      1788366574	10	10	0	0	0.0	none
+      1788366584	10	10	0	0	0.0	none
+      1788366595	10	10	0	0	0.0	none
+      1788366605	10	10	0	0	0.0	none
+      1788366615	10	10	0	0	0.0	none
+      1788366626	10	10	0	0	0.0	none
+      1788366636	10	10	0	0	0.0	none
+      1788366646	10	10	0	0	0.0	none
+      1788366656	10	10	0	0	0.0	none
+      1788366667	10	10	0	0	0.0	none
+      1788366677	10	10	0	0	0.0	none
+      watch window: requested 240s, ACHIEVED 247s over 25 samples (mean interval 10s)
+      that is 4 full 60 s app cycles, which is the number to quote -- not 240s.
+  PASS  energy_watch window honoured: registered=240s actual=247s overrun=7s (tolerance 30s)
+
+===== AFTER -- and the assertion that the injection actually landed =====
+      switches=10 up=10 enabled=10 admin_disabled=0 edges=40 edges_down=0
+      switches now down: none
+      switches powered off by the app: 0
+  N/A   the Energy-App powered NOTHING off in the 247s actually watched (4 cycles at its 60 s cadence). This is NOT a failure, but F-2 and F-3 are NO LONGER REACHABLE THIS RUN and must be recorded as untestable, not as fixed.
+      why: NOT TRAFFIC, and the cause is NOT ESTABLISHED. Peak link utilisation during the watch was 0.0%, far BELOW the app's LOW_WATER_MARK of 0.40 -- the decision chain predicts a shutdown and it did not happen. Do NOT record 'the network was busy'; there was nothing to stop.
+           candidates NOT distinguished by this run: the app's grouping may reject these switches for a topology reason; the power loop is gated by /ndt/acquire_lock (energy_saving_app.cpp:952) and lock behaviour was not observed; the OVS path may differ elsewhere. One run per fabric is one run per fabric.
+           reaching this needs the app's own output, which needs the ndtwin-lab/ndt session-visibility disagreement resolved first (see 09_t8-t10-evidence.md §4).
+
+===== STOP the Energy-Saving-App =====
+        ok  energy stopped
+  PASS  energy stopped, verified from ndt apps status (a stop that reports success while the process survives is the failure this repo keeps re-finding)
+      
+  PASS  the fabric is NOT degraded: the app powered 0 switches off, and this script changed nothing else.
+         Do NOT run ./90_restore.sh. There is nothing to restore, and its rebuild route would
+         tear down a healthy fabric to fix nothing. Verify for yourself:  ndt status --check
+
+===== 25_apps_energy: 7 check(s), 0 FAIL =====
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+== the file 90_restore.sh needs ==
+-rw-rw-r-- 1 adam adam 22720 Sep  3 00:27 /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/graph_energy_before.json

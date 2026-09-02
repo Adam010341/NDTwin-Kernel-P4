@@ -1,0 +1,1 @@
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}

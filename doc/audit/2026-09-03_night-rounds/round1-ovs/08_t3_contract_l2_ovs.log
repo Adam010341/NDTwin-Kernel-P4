@@ -1,0 +1,58 @@
+#### T-3: run_contract_test.py live L2 against the OVS plane (C4 was P4 only) ####
+# 2026-09-02T23:43:04+08:00; kernel a8ba99c2.../f41a06a6; fabric ovs4 (10 sw, 4 hosts, 40 edges)
+# NOTE: --topology is given the OVS model explicitly, because ndt's own config reports the P4 model (finding 2).
+
+NDTwin L2 contract test
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyOVS_10Switches_4Hosts.json: 10 switches (OVS), 4 hosts, 40 edges
+  traffic  : not expected
+  mutations: skipped
+  power    : all switches powered on
+  checks   : 40
+
+  PASS [200]  get_graph_data
+  PASS [200]  get_detected_flow_data
+  PASS [200]  get_detected_top_k_flow_data
+  PASS [200]  get_switch_openflow_table_entries
+  PASS [200]  get_flow_dispatch_status
+  PASS [200]  get_static_topology_json
+  PASS [200]  get_average_link_usage
+  PASS [200]  get_path_switch_count
+  PASS [200]  get_num_of_flows_passing_a_switch
+  PASS [200]  get_total_input_traffic_load_passing_a_switch
+  PASS [200]  get_power_report
+  PASS [200]  get_switches_power_state
+  PASS [200]  get_cpu_utilization
+  PASS [200]  get_memory_utilization
+  PASS [200]  get_temperature
+  PASS [200]  get_openflow_capacity
+  PASS [200]  get_nickname
+  PASS [200]  acquire_lock
+  PASS [423]  acquire_lock_conflict
+  PASS [200]  renew_lock
+  PASS [200]  release_lock
+  PASS [200]  acquire_lock_after_release
+  PASS [200]  release_lock_cleanup
+  PASS [412]  release_lock_not_held
+  PASS [400]  acquire_lock_invalid_type
+  PASS [404]  install_flow_entry__unknown_dpid
+  PASS [400]  install_flow_entry__malformed_json
+  PASS [400]  install_flow_entry__missing_fields
+  PASS [400]  get_path_switch_count__bad_ip
+  PASS [200]  get_num_of_flows__unknown_dpid
+  PASS [404]  get_nickname__unknown_dpid
+  PASS [400]  inform_switch_entered__bad_dpid
+  PASS [404]  unknown_endpoint
+  PASS [404]  batch_flow_entries__all_unknown_dpids
+  PASS [400]  received_a_simulation_case__malformed
+  PASS [400]  received_a_simulation_case__missing_fields
+  PASS [400]  simulation_completed__malformed
+  PASS [400]  app_register__missing_fields
+  PASS [400]  historical_logging__bad_state
+  PASS [503]  intent_translator_text__incomplete_body
+
+======================================================================
+40/40 passed in 0.0s
+
+All contract checks passed.
+L2_RC=0

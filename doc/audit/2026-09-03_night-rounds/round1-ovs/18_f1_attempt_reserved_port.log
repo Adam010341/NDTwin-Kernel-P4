@@ -1,0 +1,60 @@
+#### R-5 F-1: can the reserved-out-port path be reached on this fabric? (50_r5_ovs said 'did not fire') ####
+# 2026-09-02T23:50:14+08:00; kernel ae8b752f..., fabric ovs4
+== the punt rules DO exist and the code IS unguarded (from 50_r5_ovs.sh) ==
+   reserved-port guard sites in FlowLinkUsageCollector.cpp: 0
+   OUTPUT:CONTROLLER rules on s1 (via Ryu): 2
+
+== baseline: 'edge not found' lines in kernel.log ==
+0
+kernel.log lines before: 840
+
+== drive table-miss traffic: h1 -> 10.0.0.99, an IP with NO host and NO specific rule ==
+--- 10.0.0.99 ping statistics ---
+40 packets transmitted, 0 received, +30 errors, 100% packet loss, time 11311ms
+pipe 10
+-- and to a second unknown IP, to be sure the miss is not cached away:
+--- 10.0.0.77 ping statistics ---
+40 packets transmitted, 0 received, +30 errors, 100% packet loss, time 11300ms
+pipe 10
+-- Ryu's PacketIn / punt rules on s1 right now:
+total flows on s1: 7
+rules whose action is OUTPUT:CONTROLLER: 0
+prio-0 table-miss rules: 1
+
+== after 35 s: did the kernel resolve anything to a reserved port? ==
+'edge not found' lines now: 0
+lines naming a reserved port (4294967293 / CONTROLLER / LOCAL): 0
+-- does the kernel see ANY flow at all? (this is the gate F-1 must pass through)
+[2026-09-02 23:50:39.296] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (599 iters) mean 1000.1 ms, min 1000.0, max 1000.6 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 23:51:09.300] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (629 iters) mean 1000.1 ms, min 1000.0, max 1001.5 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+get_detected_flow_data?liveness=all : []
+
+== accuracy check on the CONTROLLER-rule count (my parser said 0, 50_r5_ovs.sh said 2) ==
+s1 flows: 7
+  prio=65535 actions=['OUTPUT:CONTROLLER']
+  prio=10    actions=['OUTPUT:3']
+  prio=10    actions=['OUTPUT:2']
+  prio=10    actions=['OUTPUT:1']
+  prio=10    actions=['OUTPUT:1']
+  prio=778   actions=['OUTPUT:2']
+  prio=0     actions=['OUTPUT:CONTROLLER']
+
+== VERDICT for R-5 F-1 on the ndt-up-ovs4 fabric ==
+NOT REACHABLE HERE, and the reason is mechanical, not luck:
+  - the defect is intact: 0 reserved-port guard sites in FlowLinkUsageCollector.cpp
+  - table-miss traffic WAS generated (80 pkts to 10.0.0.99 and 10.0.0.77, 100% loss)
+  - but the kernel observes NO FLOWS AT ALL on this fabric: flows=0/counters=0 in every
+    rate-loop line, get_detected_flow_data?liveness=all == []
+  - F-1 requires the kernel to resolve an OBSERVED flow's out-port to an edge. With no
+    sFlow configured on any bridge (see 12_sflow_absent_rates_structurally_zero.log)
+    the kernel never observes a flow, so the reserved-port path cannot be entered.
+=> F-1 is blocked behind finding 4. Fixing sFlow on ovs_4host_topo.py is a PREREQUISITE
+   for ever reaching F-1 on this fabric. Reported as NOT RE-CHECKED-REACHABLE, not as 'fine'.
+
+== CORRECTION: my first parser was wrong, the harness was right ==
+Ryu returns actions as STRINGS ('OUTPUT:CONTROLLER'), not dicts, so my dict-based filter
+counted 0. The dump above shows s1 really does carry 2 OUTPUT:CONTROLLER rules
+(prio=65535 and the prio=0 table-miss). 50_r5_ovs.sh's count of 2 is correct; my "0" was an
+instrument error in this log, corrected here rather than deleted.
+Also visible: a leftover `prio=778 OUTPUT:2` -- the valid control rule 50_r5_ovs.sh installed
+for its F-5 control and did not remove.

@@ -1,0 +1,98 @@
+#### X-6 (B-2b) and X-7 (B-4): a single quote in a request body ####
+# 2026-09-03T00:01:44+08:00; kernel ae8b752f...; fabric ovs4
+# X-6: a body containing ' must NOT accuse a component and must NOT execute shell.
+# X-7: a simulation case whose text contains ' must really be SENT, not silently dropped.
+
+== X-6 arm 1: single quote in a flow-install body ==
+  body: {"dpid":1,"priority":901,"match":{"eth_type":2048,"ipv4_dst":"10.0.0.250"},"actions":[{"type":"OUTPUT","port":2}],"note":"it's a quote"}
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+
+== X-6 arm 2: a quote in a field the kernel echoes back (nickname) ==
+  HTTP 400
+  body: {"details":"[json.exception.out_of_range.403] key 'identifier' not found","error":"Failed to modify nickname"}
+  read back: {"nickname":"s1"}
+
+== X-6 arm 3: shell metacharacters that would matter IF the body reached a shell ==
+  payload=it\'s\ a\ quote          HTTP 400  body={"details":"[json.exception.out_of_range.403] key 'identifier' not found","error":"Failed to modify nickname"}
+  payload=\'\;\ touch\ /tmp/ndt_sh HTTP 400  body={"details":"[json.exception.out_of_range.403] key 'identifier' not found","error":"Failed to modify nickname"}
+  payload=\$\(touch\ /tmp/ndt_shel HTTP 400  body={"details":"[json.exception.out_of_range.403] key 'identifier' not found","error":"Failed to modify nickname"}
+  payload=\`touch\ /tmp/ndt_shell_ HTTP 400  body={"details":"[json.exception.out_of_range.403] key 'identifier' not found","error":"Failed to modify nickname"}
+  SHELL EXECUTION CHECK -- canary file /tmp/ndt_shell_canary_1088945 exists? no (good)
+
+== X-6 arm 4: does any response ACCUSE a component? (B-2b's other half) ==
+  (no ACCUSATION line above = no component named in the responses)
+
+== X-7 (B-4): a simulation case whose text contains a single quote ==
+  body: {"app_id": "sim-1", "case_name": "it's a case", "description": "quote ' inside", "topology": "ovs4"}
+  HTTP 400
+  body: {"details":"missing required field(s): simulator, version, case_id, inputfile","error":"Invalid simulation case"}
+
+== X-7 evidence that it was really SENT, not dropped: the kernel log ==
+[2026-09-02 23:43:26.845] [warning] [[94mHttpSession.cpp[0m:[95m1511[0m [96mhandleReceivedSimulationCase[0m] Rejecting simulation case: body is not valid JSON: [json.exception.parse_error.101] parse error at line 1, column 3: syntax error while parsing object key - invalid literal; last read: '{no'; expected string literal
+[2026-09-02 23:43:26.847] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/simulation_completed
+[2026-09-02 23:43:26.847] [info] [[94mHttpSession.cpp[0m:[95m1579[0m [96mhandleSimulationCompleted[0m] Handle Simulation Completed
+[2026-09-02 23:43:26.848] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/simulation_completed
+[2026-09-02 23:43:26.848] [info] [[94mHttpSession.cpp[0m:[95m1579[0m [96mhandleSimulationCompleted[0m] Handle Simulation Completed
+[2026-09-03 00:01:46.673] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 00:01:46.673] [info] [[94mHttpSession.cpp[0m:[95m1502[0m [96mhandleReceivedSimulationCase[0m] Handle Recieved Simulation Case
+[2026-09-03 00:01:46.673] [warning] [[94mHttpSession.cpp[0m:[95m1511[0m [96mhandleReceivedSimulationCase[0m] Rejecting simulation case: missing required field(s): simulator, version, case_id, inputfile
+
+====================================================================
+== RE-RUN with the CORRECT schemas. The first attempt above used the wrong field names
+   ('nickname' not 'identifier'/'new_nickname'; a sim case missing 4 required fields), so
+   every payload died in validation and the test had ZERO discriminative power for the
+   'is the quote handled' question. Kept above rather than deleted. 2026-09-03T00:02:24+08:00
+====================================================================
+
+== X-6 arm 2 (correct schema): a single quote in new_nickname, must round-trip intact ==
+  original nickname of dpid 1: {"nickname":"s1"}
+  modify HTTP 200
+  body: {"status": "success", "message": "Nickname updated successfully."}
+  READ BACK: {"nickname":"it's a switch"}
+  -> the quote must be present and unescaped-mangled above
+
+== X-6 arm 3 (correct schema): shell metacharacters in a field that IS accepted ==
+  HTTP 200  read-back={"nickname":"'; touch /tmp/ndt_canary2_1090096; echo '"}
+  HTTP 200  read-back={"nickname":"$(touch /tmp/ndt_canary2_1090096)"}
+  HTTP 200  read-back={"nickname":"`touch /tmp/ndt_canary2_1090096`"}
+  HTTP 200  read-back={"nickname":"x' OR '1'='1"}
+  SHELL EXECUTION CHECK -- canary /tmp/ndt_canary2_1090096 exists? no (good)
+  COMPONENT ACCUSATION CHECK in the last response:
+
+  RESTORING the original nickname (this endpoint writes state):
+   restore HTTP 200
+   nickname now: {"nickname":"s1"}
+
+== X-7 (correct schema): a simulation case whose text contains a single quote ==
+  body: {"simulator": "ns-3", "version": "3.40", "case_id": "case-it's-1", "inputfile": "/tmp/it's.xml", "description": "quote ' inside the text"}
+  HTTP 400
+  body: {"details":"missing required field(s): app_id","error":"Invalid simulation case"}
+  kernel log for THIS request:
+[2026-09-03 00:01:46.673] [warning] [[94mHttpSession.cpp[0m:[95m1511[0m [96mhandleReceivedSimulationCase[0m] Rejecting simulation case: missing required field(s): simulator, version, case_id, inputfile
+[2026-09-03 00:02:27.665] [info] [[94mHttpSession.cpp[0m:[95m1502[0m [96mhandleReceivedSimulationCase[0m] Handle Recieved Simulation Case
+[2026-09-03 00:02:27.665] [warning] [[94mHttpSession.cpp[0m:[95m1511[0m [96mhandleReceivedSimulationCase[0m] Rejecting simulation case: missing required field(s): app_id
+
+== X-7 final: add app_id (the kernel disclosed its required fields in two batches) ==
+  body: {"app_id": "round1-ovs", "simulator": "ns-3", "version": "3.40", "case_id": "case-it's-1", "inputfile": "/tmp/it's.xml", "description": "quote ' inside the text"}
+  HTTP 502
+  body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}
+  kernel log for THIS request (must NOT say 'Rejecting'):
+[2026-09-03 00:02:27.665] [warning] [[94mHttpSession.cpp[0m:[95m1511[0m [96mhandleReceivedSimulationCase[0m] Rejecting simulation case: missing required field(s): app_id
+[2026-09-03 00:02:51.866] [info] [[94mHttpSession.cpp[0m:[95m1502[0m [96mhandleReceivedSimulationCase[0m] Handle Recieved Simulation Case
+[2026-09-03 00:02:51.873] [warning] [[94mHttpSession.cpp[0m:[95m1554[0m [96mhandleReceivedSimulationCase[0m] Responding 502 for a simulation case that was not dispatched: no response from the simulator server at http://127.0.0.1:9000/submit within 30s
+
+  CONTROL -- the same case WITHOUT any quote, to show the quote is not what decides it:
+  HTTP 502
+  body: {"details":"no response from the simulator server at http://127.0.0.1:9000/submit within 30s","error":"Simulation case was not accepted","status":"error"}
+
+== VERDICTS ==
+X-6 (B-2b): PASS. A single quote in new_nickname round-trips INTACT ("it's a switch").
+  Four shell-metacharacter payloads ('; touch, $( ), backticks, SQL-style) were all
+  accepted with 200 and stored VERBATIM; the canary file was never created, so nothing
+  reached a shell. No response named any component. State restored (nickname back to s1).
+X-7 (B-4): see the HTTP code above; the quote-bearing case and the plain control are
+  compared side by side so the quote is not confounded with the schema.
+
+MINOR observation, recorded not claimed as a defect: /ndt/received_a_simulation_case
+  discloses its required fields in BATCHES -- first 'simulator, version, case_id,
+  inputfile', then 'app_id' - so a caller needs 3 round trips to learn the schema.

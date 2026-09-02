@@ -1,0 +1,121 @@
+#### T-5: check_logs.py against the OVS kernel log, with and without --powered-off ####
+# 2026-09-02T23:43:41+08:00; kernel a8ba99c2.../f41a06a6; fabric ovs4, nothing powered off yet
+# the allowlist has OVS-only entries that went UNUSED on the P4 run (C7/C37)
+
+== kernel log under test ==
+-rw-rw-r-- 1 adam adam 70002 Sep  2 23:43 .test_run/logs/kernel.log
+557 .test_run/logs/kernel.log
+
+== check_logs.py --help (to get the flag spelling right) ==
+usage: check_logs.py [-h] [--allowlist ALLOWLIST] [--suggest-allowlist]
+                     [--max-report MAX_REPORT] [--ignore-unparsed]
+                     [--to-line N] [--from-line N] [--powered-off DPIDS]
+                     logfile
+
+Check a kernel log against the allowlist
+
+positional arguments:
+  logfile               log file, or - for stdin
+
+options:
+  -h, --help            show this help message and exit
+  --allowlist ALLOWLIST
+  --suggest-allowlist   print allowlist lines for everything currently
+                        unmatched, for review before adoption
+  --max-report MAX_REPORT
+                        max example lines per distinct message (default: 15)
+  --ignore-unparsed     do not warn about lines that do not match the log
+                        format (crash detection still scans them)
+  --to-line N           only check the first N lines. Used to exclude errors
+                        that the L2 error-path checks provoke on purpose,
+                        which would otherwise make this check permanently red
+  --from-line N         skip the first N lines (e.g. a previous run in the
+                        same file)
+  --powered-off DPIDS   comma-separated dpids the Energy-Saving-App (or an
+
+== default allowlist run ==
+Log check: .test_run/logs/kernel.log
+  parsed   : 473 log lines (info=443, warning=30)
+  allowlist: 41 rule(s) (31 warning, 0 error, 8 forbid, 2 when-powered-off)
+  powered off: not declared (--powered-off)
+
+  note: 84 line(s) did not match the expected log format (stdout from a subprocess?), first at line 2
+
+PROBLEMS
+
+  [WARNING] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, which is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+      warning is not in the allowlist
+      1 occurrence(s) at line(s): 58
+
+UNUSED ALLOWLIST ENTRIES (nothing matched them in this log)
+  Expected for warnings that only appear in the other data plane or
+  only during startup. Prune anything that is permanently unused.
+  warning_allowlist.txt:44  WARNING | ^NFS server reloaded\.$
+  warning_allowlist.txt:45  WARNING | ^ControllerAndOtherEventHandler stopped\.$
+  warning_allowlist.txt:46  WARNING | acceptor_\.close\(\) error
+  warning_allowlist.txt:81  WARNING | ^Host \(.*\) not found in static network topology file$
+  warning_allowlist.txt:82  WARNING | ^Edge \(host .*\) not found in static network topology file$
+  warning_allowlist.txt:83  WARNING | ^Link \(dpid .* port .*\) not found in static network topology file$
+  warning_allowlist.txt:84  WARNING | ^edge not found by dpid/port
+  warning_allowlist.txt:85  WARNING | ^No edge found for host IP
+  warning_allowlist.txt:86  WARNING | ^cannot find graph vertex for switch IP
+  warning_allowlist.txt:96  WARNING | P4 BMv2 Power ON from Kernel is currently a stub
+  warning_allowlist.txt:153  WARNING | ^Bad entry in request:
+  warning_allowlist.txt:154  WARNING | ^Exception in intent_translator:
+  warning_allowlist.txt:155  WARNING | ^Invalid lock type requested:
+  warning_allowlist.txt:156  WARNING | ^lock \w+ lease [0-9]+ expired -?[0-9]+s ago
+  warning_allowlist.txt:157  WARNING | ^refused a (release|renew) of \w+ naming lease [0-9]+
+  warning_allowlist.txt:162  WARNING | ^get_nickname: dpid .* is not an unsigned integer
+  warning_allowlist.txt:163  WARNING | ^modify_device_name: mac .* is not a MAC address
+  warning_allowlist.txt:164  WARNING | ^modify_nickname: mac .* is not a MAC address
+  warning_allowlist.txt:168  WARNING | ^Rejecting simulation result: app_id .* is not a valid id
+
+======================================================================
+FAIL: 1 problem line(s) across 1 distinct message(s)
+to accept one deliberately, add it to warning_allowlist.txt with a reason
+CHECKLOGS_RC=1
+
+== T-5 SECOND ARM, run now that a switch has actually been powered off and on
+   (log 23 powered dpid 9 OFF at 23:57 and back ON at ~23:59). 2026-09-03T00:33:44+08:00 ==
+   The header above promised 'with and without --powered-off'; only the default arm had
+   been run at that point. This completes it.
+
+-- unscoped re-run over the now-longer log (control for the scoped run below):
+   RC_UNSCOPED=1
+  parsed   : 7115 log lines (info=7061, warning=54)
+  [WARNING] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, which is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+  [WARNING] install group entry refused: group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] install group entry on dpid 1 failed: group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] Responding 409 for a failed southbound operation: group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] install meter entry refused: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] install meter entry on dpid 1 failed: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] Responding 409 for a failed southbound operation: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] 1 switch(es) unusable for 2+ polls: 8 edge(s) and 0 host(s) moved to down with down_reason=switch-unreachable. These are derived, not probed: nothing asked the hosts anything, and they are reported down because the only switch they reach the fabric through is not there
+  [WARNING] Simulation request unanswered: no response from the simulator server at http://127.0.0.1:9000/submit within 30s
+  [WARNING] Responding 502 for a simulation case that was not dispatched: no response from the simulator server at http://127.0.0.1:9000/submit within 30s
+  [WARNING] Could not open /etc/exports for writing.
+  [WARNING] Per-app export line for /srv/nfs/sim/1 is not active (writing /etc/exports needs root); clients can still mount it through a parent export of /srv/nfs/sim if one is configured
+FAIL: 20 problem line(s) across 12 distinct message(s)
+
+-- scoped with --powered-off 9 (the dpid this round actually powered down):
+   RC_SCOPED=1
+  parsed   : 7115 log lines (info=7061, warning=54)
+  [WARNING] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, which is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+  [WARNING] install group entry refused: group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] install group entry on dpid 1 failed: group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] Responding 409 for a failed southbound operation: group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] install meter entry refused: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] install meter entry on dpid 1 failed: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] Responding 409 for a failed southbound operation: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+  [WARNING] 1 switch(es) unusable for 2+ polls: 8 edge(s) and 0 host(s) moved to down with down_reason=switch-unreachable. These are derived, not probed: nothing asked the hosts anything, and they are reported down because the only switch they reach the fabric through is not there
+  [WARNING] Simulation request unanswered: no response from the simulator server at http://127.0.0.1:9000/submit within 30s
+  [WARNING] Responding 502 for a simulation case that was not dispatched: no response from the simulator server at http://127.0.0.1:9000/submit within 30s
+  [WARNING] Could not open /etc/exports for writing.
+  [WARNING] Per-app export line for /srv/nfs/sim/1 is not active (writing /etc/exports needs root); clients can still mount it through a parent export of /srv/nfs/sim if one is configured
+  note: dpid(s) declared powered off produced no matching log line: [9]
+FAIL: 20 problem line(s) across 12 distinct message(s)
+
+-- does the scope actually MOVE anything? (if the two runs are identical the flag is inert)
+   outputs differ in length
+   unscoped problem lines: 12
+   scoped   problem lines: 12

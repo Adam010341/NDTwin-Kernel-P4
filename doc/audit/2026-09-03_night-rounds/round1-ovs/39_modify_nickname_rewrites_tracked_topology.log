@@ -1,0 +1,22 @@
+#### SIDE EFFECT I CAUSED: /ndt/modify_nickname rewrote a TRACKED topology file ####
+# 2026-09-03T00:44:21+08:00
+  file : setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  mtime: 2026-09-03 00:02:27.223 -- exactly my X-6 modify_nickname restore (24_...log)
+  diff : 1772 lines changed (886 insertions, 886 deletions) on an 889-line file
+  BUT  : semantically IDENTICAL to HEAD (verified by parsing both and comparing objects)
+  cause: the kernel re-serialises the whole file -- indentation 4 spaces -> 2, and the
+         top-level key order flips ('nodes' first -> 'edges' first):
+           HEAD    line2:     "nodes": [
+           current line2:   "edges": [
+
+  WHY THIS MATTERS beyond my own tidiness: this worktree is shared by several sessions.
+  A single nickname write produces a 1772-line diff carrying no information. CLAUDE.md's
+  rule is to check when a diff suddenly balloons; this is a generator of exactly that.
+  spec.py:1221-1226 already warns 'EXPECT A DIRTY TREE ANYWAY' for modify_device_name;
+  recorded here because the magnitude (whole-file reformat) is the part that bites.
+
+== RESTORING it: safe precisely because it is semantically a no-op ==
+  git status for that path after restore:
+    (no line above = clean)
+  NOTE: I restored ONLY this one file, by explicit path. No directory pathspec was used,
+  and no other session's uncommitted work was touched.

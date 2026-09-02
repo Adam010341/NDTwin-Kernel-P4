@@ -1,0 +1,34 @@
+#### EVIDENCE-VALIDITY CHECK: is my post-log-04 fabric attached to a SURVIVING controller? ####
+# 2026-09-03T00:32:40+08:00. Prompted by: 'ndt' never checks :6653/:6633, so log 03's CLEAN_RC=0 has
+# zero discriminative power for 'did Ryu die'. Answered from EXISTING evidence, no re-run.
+
+== the tool-side gap, confirmed independently (read-only) ==
+  grep -c '6653|6633' tools/test_workflow/ndt = 0
+  ndt:1112  for p in 8000 8080 8081; do        <- the clean/sweep port set
+  ndt:1119  ok "ports 8000/8080/8081 closed"   <- what CLEAN_RC=0 actually asserts
+  ovs_4host_topo.py:31-34: 'with no port, RemoteController tries 6653 then 6633 and falls
+    back to 6653 when neither answers, which silently masks a controller that is not up yet.'
+
+== ANSWER: (a) IT DIED. Verified, from evidence recorded before the retry. ==
+  OLD Ryu  pid 992388, started 23:36:16, owned :6653/:6633/:8080
+           (02_ndt_up_failure_leaves_fabric_running.log lines 28, 35-37)
+  After 'ndt down' at 23:39:59, TWO independent channels in 03_ndt_down_after_failed_up.log:
+    - process scan for 'ryu-manager' returned NOTHING (only my own bash/awk)
+    - my own listener check, whose grep pattern was ':(8000|8080|6633|6653)' -- i.e. it DID
+      include the two OpenFlow ports that ndt itself never looks at -- printed '(all free)'
+  NEW Ryu  pid 1006083, started Wed Sep 2 23:40:32, which is INSIDE the retry window
+           (04_t1_ndt_up_ovs4_retry.log header: started 23:40:33; the log's own line
+           'started ryu (pid 1006083)'; .test_run/pids/ryu.pid written 23:40:33.359)
+  NOW      :6653/:6633/:8080 all owned by pid 1006083:
+    LISTEN 0      50           0.0.0.0:6653       0.0.0.0:*    users:(("ryu-manager",pid=1006083,fd=6))  
+    LISTEN 0      50           0.0.0.0:6633       0.0.0.0:*    users:(("ryu-manager",pid=1006083,fd=5))  
+    LISTEN 0      50           0.0.0.0:8080       0.0.0.0:*    users:(("ryu-manager",pid=1006083,fd=4))  
+    1006083 Wed Sep  2 23:40:32 2026 /home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ry
+
+  => different pid, different start time, start time AFTER the retry began, argv and pidfile
+     agree (06_t9_x3 read /proc/1006083/cmdline). Every conclusion from log 04 onward is
+     measured against a controller THIS ROUND started. No annotation needed on them.
+
+  NOTE the distinction that matters for the auditor: my evidence is good only because I
+  happened to grep 6633/6653 myself. 'ndt clean' returning 0 would have said the same thing
+  with a live Ryu still holding both OpenFlow ports.

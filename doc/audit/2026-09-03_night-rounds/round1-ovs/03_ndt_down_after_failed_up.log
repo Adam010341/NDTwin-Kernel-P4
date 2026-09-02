@@ -1,0 +1,40 @@
+#### Does 'ndt down' clean up the fabric a FAILED 'ndt up' abandoned? ####
+# 2026-09-02T23:39:59+08:00
+== before ==
+LISTEN 0      50           0.0.0.0:6653       0.0.0.0:*          
+LISTEN 0      50           0.0.0.0:6633       0.0.0.0:*          
+LISTEN 0      50           0.0.0.0:8080       0.0.0.0:*          
+== ndt down ==
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped ryu
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+DOWN_RC=0
+== ndt clean ==
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+CLEAN_RC=0
+== after: processes ==
+1003799 bash            /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1788361777114-yzlr8g.sh 2>/dev/null || true && shopt -u extglob 2>/
+1004583 awk             awk $0 ~ /ryu-manager|ovs_4host_topo|ndtwin_kernel/
+== after: listeners ==
+(all free)
+== after: links ==
+veth-ish links: 0

@@ -1,0 +1,7 @@
+/tmp/ndtwin_p4_switches.json	ABSENT
+/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log	1788364008 78776 17e79eba8b7a9177
+/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log	1788357960 5155981 cf24f32fbb4c3efb
+/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log	1788364008 73264 a43a18e2116b23e9
+/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_nsr.log	1788356631 0 e3b0c44298fc1c14
+/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_viz.log	1788363532 875463322 91bf6473af5cbd31
+/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_te.log	1788356649 685 87b45739335f0c5d

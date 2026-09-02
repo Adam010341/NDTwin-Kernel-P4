@@ -1,0 +1,75 @@
+#### T-6 / X-11: harness 50_r5_ovs.sh -- FIRST EVER EXECUTION. Only path to R-5 F-1 and F-5; closes the F-5b differential ####
+# 2026-09-02T23:48:31+08:00
+# kernel binary ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a (running pid 1009541)
+# fabric: ovs4, 10 switches, 4 hosts, 40 edges, healthy
+# OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+
+
+===== 50_r5_ovs  (2026-09-02T15:48:31Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+
+===== sanity: this is the OVS stack =====
+  PASS  artefact /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log was rewritten by this run (was: 1788364008 78776 17e79eba8b7a9177 / now: 1788364089 95314 e6b558009f6fd8c8)
+      fabric: 10 switches, 4 hosts, 40 edges  (08-18's OVS round was 10/128/288)
+      If this is the 4-host layout, do NOT compare any count to the 08-18 OVS figures.
+
+===== tool availability -- stated up front so a missing tool is not read as a missing rule =====
+  N/A   ovs-ofctl is not usable without a password. F-5 below drops from THREE independent sources to TWO (Ryu and the kernel). That is a weaker instrument: the whole point of F-5 is that the kernel disagrees with the switch, and without the switch's own view the comparison rests on Ryu as proxy for it. Record this limitation in the write-up.
+
+===== F-1 -- the punt-to-controller rule, on the fabric where it can actually fire =====
+      reserved-port guard sites in /home/adam/Desktop/NDTwin-Kernel/src/ndt_core/collection/FlowLinkUsageCollector.cpp: 0
+      OUTPUT:CONTROLLER rules on s1 (from Ryu): 2  (curl_rc=0 http=200)
+      kernel.log: 0 'edge not found' line(s), of which 0 name a reserved port
+  R-5 F-1    NO LONGER REACHABLE    the punt rules exist (2 on s1) and the code is unguarded, but no flow resolved to a reserved port during this run. The defect is intact and simply did not fire. To reach it, send traffic that has no specific forwarding rule on some switch along its path, so it falls to the prio-0 table-miss.
+
+===== F-5 -- a rejected rule reported as installed, then silently vanishing =====
+
+=====   control first: a rule WITH the eth_type prerequisite must install and persist =====
+      valid rule -> curl_rc=0 http=200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readab
+  PASS  CONTROL HOLDS: the valid rule reached the switch (Ryu sees priority 778), so the write path works and the instrument can see a rule that exists
+
+=====   the invalid rule, sampled from three sources every 2 s =====
+      invalid rule -> curl_rc=0 http=200  body: {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+      elapsed_s	switch	ryu	kernel	kernel_actions_shape
+      0	-	0	1	object
+      3	-	0	1	object
+      5	-	0	0	-
+      7	-	0	0	-
+      10	-	0	0	-
+      12	-	0	0	-
+      15	-	0	0	-
+      17	-	0	0	-
+      20	-	0	0	-
+      22	-	0	0	-
+      24	-	0	0	-
+      27	-	0	0	-
+      max seen -- kernel:1 ryu:0 ; kernel at end:0 ; samples with object-shaped actions:2
+      kernel.log error/critical lines: 0 ; 'dispatched ... failed' lines: 0
+  R-5 F-5    STILL PRESENT          the kernel asserted a rule that Ryu never had, then stopped: kernel peaked at 1 and ended at 0 while Ryu stayed at 0. Object-shaped actions in 2 sample(s) -- the fingerprint that says the kernel is echoing the POST body, not reporting the table. kernel.log error lines this run: 0, dispatch-failure lines: 0. The API's own advice ('per-entry outcomes are reported in the kernel log') still points at an empty place if those are 0.
+
+===== F-5b -- the OVS half of the differential =====
+      over 835 kernel.log lines: 0 dispatch-failure line(s), 0 error/critical line(s)
+  R-5 F-5b   STILL PRESENT          OVS stayed silent about a rejected rule (0 dispatch-failure lines over 835 log lines), exactly as 08-18 recorded, while 40_r5_p4.sh's P4 arm logged it. The differential survives. Mechanism unchanged: Controller.cpp:55 detects failure by finding an error INSIDE a 200 body, and Ryu's 200 arrives before the switch has ruled.
+
+===== F-2 / F-3 on OVS -- same shape as the P4 arm, same degraded-fabric requirement =====
+      switches down: 0
+  R-5 F-2    NO LONGER REACHABLE    OVS arm: no switch is down. Run 25_apps_energy.sh on this fabric, then re-run this script before 90_restore.sh.
+  R-5 F-3    NO LONGER REACHABLE    OVS arm: no switch is down, so no -1 sentinel is produced.
+      F-4 is source-only and fabric-independent -- recorded by 40_r5_p4.sh; not repeated here.
+
+===== 50_r5_ovs: 9 check(s), 0 FAIL =====
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+
+===== R-5 verdict table =====
+      2026-09-02T15:48:31Z	50_r5_ovs	F-1	unreachable	the punt rules exist (2 on s1) and the code is unguarded, but no flow resolved to a reserved port during this run. The defect is intact and simply did not fire. To reach it, send traffic that has no specific forwarding rule on some switch along its path, so it falls to the prio-0 table-miss.
+      2026-09-02T15:49:09Z	50_r5_ovs	F-5	present	the kernel asserted a rule that Ryu never had, then stopped: kernel peaked at 1 and ended at 0 while Ryu stayed at 0. Object-shaped actions in 2 sample(s) -- the fingerprint that says the kernel is echoing the POST body, not reporting the table. kernel.log error lines this run: 0, dispatch-failure lines: 0. The API's own advice ('per-entry outcomes are reported in the kernel log') still points at an empty place if those are 0.
+      2026-09-02T15:49:09Z	50_r5_ovs	F-5b	present	OVS stayed silent about a rejected rule (0 dispatch-failure lines over 835 log lines), exactly as 08-18 recorded, while 40_r5_p4.sh's P4 arm logged it. The differential survives. Mechanism unchanged: Controller.cpp:55 detects failure by finding an error INSIDE a 200 body, and Ryu's 200 arrives before the switch has ruled.
+      2026-09-02T15:49:09Z	50_r5_ovs	F-2	unreachable	OVS arm: no switch is down. Run 25_apps_energy.sh on this fabric, then re-run this script before 90_restore.sh.
+      2026-09-02T15:49:09Z	50_r5_ovs	F-3	unreachable	OVS arm: no switch is down, so no -1 sentinel is produced.
+      
+      Any of F-1..F-5b with no row above was NOT RE-CHECKED. That is a fourth state, distinct
+      from R-5's three, and the write-up must say so rather than folding it into 'unreachable'.
+R5_OVS_RC=0

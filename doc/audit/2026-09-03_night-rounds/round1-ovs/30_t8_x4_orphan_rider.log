@@ -1,0 +1,114 @@
+#### T-8 / X-4: the A-1 orphan-app rider ####
+# 2026-09-03T00:16:49+08:00
+== Does the 08-31 measurement still apply? The rider measures tools/test_workflow/ndt (a
+   shell script), not the kernel binary. It recorded a sha; compare it. ==
+  08-31 recorded : 67412ba47f9d4d337536e886ffaded7fe05f72ad7992067956cbe3c5fbe32c75
+  today          : 617b5540f708046d587d71707839219de092243c5e82c10dd9578338685522fb
+  => CHANGED since 08-31. The 08-31 pass has silently expired for this file; RE-RUN REQUIRED.
+  -- what changed in the app/orphan region:
+     33338e15 Merge fix/f15-grpc-port-block into the 09-02 integration branch
+     77e2f506 Renumber the pages and the probes too, and add the check that stops them drifting apart again
+     f2836fc3 ndt: report a pipeline that samples nothing as DISABLED, not as 1/256
+     b50cb5f6 Correct the withdrawn 20h32m at every citation point in the code
+     6045cab4 ndt apps stop: three states, so 'not running' has to be earned
+  -- does the fix's marker still exist in the file?
+     marker count: 14
+
+== STEP 0: code under measurement ==
+  HEAD: 16419664f54d6ec388a4b40c48939fd413899540
+  ndt : 617b5540f708046d587d71707839219de092243c5e82c10dd9578338685522fb  tools/test_workflow/ndt
+  fabric: ovs4 already up (the 08-31 run also used ovs4; the rider's own note says the
+          substitution costs no discriminative power -- TE's only external dep is :8000)
+
+== STEP 2: start a REAL TE-App. Bare 'ndt apps te' dies on EOFError; mode 2 is the only
+   mode that keeps working and stops reading stdin (rider step 2 correction). ==
+  ok  te started (pid 1155604) -> .test_run/logs/app_te.log
+APPS_TE_RC=0
+  apps status:
+  te       running   Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+  pidfile: 1155604
+
+  TEPID=1155604
+
+== STEP 3: is it actually working? (otherwise step 7 stops a corpse) ==
+  cmdline: /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+  Threads:	1
+  app_te.log lines t0: 8
+  app_te.log lines t+20s: 56
+  (they must DIFFER; equal => the TE is static and step 7's evidence weakens)
+
+== STEP 4: make it an orphan -- take the pidfile, DO NOT touch the process ==
+  pids/: kernel.cmd
+  pids/: kernel.pid
+  pids/: ryu.cmd
+  pids/: ryu.pid
+  PROCESS STILL ALIVE (1155604)
+
+== STEP 5: the CONTROL, from the pre-fix ndt (c10ac7c), placed at .test_run/ctl/ ==
+   The rider is emphatic: it must live where $HERE/../.. resolves back to this repo,
+   otherwise REPO=/ and the old code prints 'te not running' for the WRONG reason.
+  control sha : 856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34  .test_run/ctl/ndt_before_c10ac7c.sh
+  expected     : 856cfb9b5a9d448aa3e14f0878c80ba84038374b339893488787c1598c1c5e34
+  grep -c apps_orphans (must be 0, else wrong version): 0
+
+  -- 5a WIRING CHECK: with the pidfile restored, the old version must SEE the app.
+     If it cannot, 5b's 'te not running' is worthless and we stop.
+       te       running   Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+
+  -- 5b THE CONTROL: pidfile gone, old version asked to stop it
+       te not running
+     rc=0
+     STILL ALIVE AFTER OLD STOP
+
+  -- 5b rc RE-CAPTURED without a pipe (the rc above was sed's):
+     CONTROL_STOP_RC=0
+       te not running
+     STILL ALIVE AFTER OLD STOP (1155604)
+
+== STEP 6: the NEW behaviour, four interfaces, each rc captured without a pipe ==
+  -- ndt apps orphans
+     ORPHANS_RC=1
+       XX  te: pidfile-lost-but-alive -- Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+       XX      pid 1155604  /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+       XX      stop it with:  ndt apps stop te
+       XX  1 app(s) are running without a pidfile that names them
+  -- ndt apps status
+     STATUS_RC=0
+       te       ORPHAN    Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+                          ^ pid(s) 1155604, no pidfile names it -- 'ndt apps stop te'
+  -- ndt status --check
+     CHECK_RC=1
+       untracked      te(1155604) -- running, and no pidfile names them
+     check: 2 problem(s)
+       - untracked app process(es) with no pidfile: te(1155604)
+  -- ndt apps stop te
+     STOP_RC=0
+       !!  te is RUNNING as pid(s) 1155604 and the pidfile does not name it
+       !!    this is the state that used to answer 'not running' with rc 0
+         pid 1155604: /home/adam/miniconda3/envs/te-env/bin/python Traffic-engineering-App.py 
+       ok  te stopped (was: pidfile-lost-but-alive)
+
+== STEP 7: three independent proofs it is really gone ==
+     /proc/1155604: GONE
+     ORPHANS_RC_t0=0
+       ok  no untracked app processes
+     ORPHANS_RC_t30=0
+       ok  no untracked app processes
+     (t+30 rules out self-restart; per the rider, an rc=1 here would be a NEW finding)
+     independent /proc sweep for any leftover TE process:
+       count: 0
+
+== STEP 8: clean up the rider's own artefacts (verify STATE, not rc) ==
+  control: GONE
+  pidfile backup: GONE
+  .test_run/pids/ now: kernel.cmd kernel.pid ryu.cmd ryu.pid 
+
+== VERDICT T-8 / X-4 (A-1): PASS on ndt 617b5540 (the file CHANGED since the 08-31 pass,
+   so that pass had silently expired and this re-run was required, not redundant). ==
+   All four interfaces behave as specified; the pre-fix control (c10ac7c, sha 856cfb9b,
+   grep -c apps_orphans = 0, wiring-checked at 5a) reproduces the old bug exactly:
+   'te not running' / rc=0 / STILL ALIVE. Post-stop: /proc GONE, orphans rc=0 at t+0 and
+   t+30, independent /proc sweep 0 leftover TE processes.
+   NOT covered, same two gaps the rider itself records: the app_kill_pid TERM-window/KILL
+   fallback (TE installs no signal handler, so it is structurally unreachable with this
+   app), and how a pidfile disappears in the wild (mine was rm'd, like the unit test's).

@@ -1,0 +1,7 @@
+{
+  "lease": 2,
+  "reclaimed_expired_lease": false,
+  "status": "locked",
+  "ttl": 5,
+  "type": "graph_lock"
+}

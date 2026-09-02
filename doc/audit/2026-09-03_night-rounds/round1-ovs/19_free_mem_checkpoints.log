@@ -1,0 +1,28 @@
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8625        3956        1054        4278        6786
+Swap:          20479        7199       13280
+Mem:           15412       10711        2180        1130        4188        4701
+Swap:          20479        7162       13317
+Mem:           15412       12518        1522        1201        3176        2893
+Swap:          20479        6801       13678
+               total        used        free      shared  buff/cache   available
+Mem:           15412        9792        1207        1032        5790        5619
+Swap:          20479        6579       13900
+
+== 00:16 DEFERRAL DECISION ==
+free=1207MB available=5619MB swap_used=6579MB -- below the coordinator's raised 3 GB floor.
+Cause is NOT this round: two cc1plus processes (943MB + 475MB = 1.4GB) -- another session is
+compiling C++, the exact hazard MEMORY.md records. My own fabric is 31MB total
+(ryu-manager 22MB + ndtwin_kernel 9MB). Chrome is 1.8GB across 3 pids.
+DECISION: defer T-19 (20_apps_lifecycle.sh) and T-20 (25_apps_energy.sh) -- 20_apps_lifecycle
+starts the viz JavaFX JVM (harness lines 169/214/246/274: sim, nsr, viz, te) and a JVM on top of
+a live C++ build is how Adam's app got killed on 09-02. Do the light items first and re-check.
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8601        2407        1043        5793        6810
+Swap:          20479        6393       14086
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8478        3124        1023        5178        6933
+Swap:          20479        6383       14096
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8631        2692         989        5423        6780
+Swap:          20479        6291       14188

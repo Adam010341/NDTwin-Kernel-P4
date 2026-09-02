@@ -1,0 +1,8 @@
+recorded 2026-09-02T15:46:48Z
+kernel source commit (git rev-parse HEAD, i.e. a SOURCE identifier, not a build id): dbe07a8cab207ee4fd325b50cf3fd42facac0215
+kernel worktree dirty: YES
+kernel binary path: /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+kernel binary sha256: ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a
+bmv2 binary ndt reports:   bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+bmv2 binary actually running: none
+PREREG names kernel-under-test: faffdbe (compare the line above; if they differ, say so in the write-up rather than editing the PREREG)

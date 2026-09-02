@@ -1,0 +1,126 @@
+#### T-7 / X-2: A-2's --max-time 5 arm. Ryu stopped, :8080 held by a listener that ACCEPTS and never answers ####
+# 2026-09-03T00:34:26+08:00. RUN LAST: it destroys the control plane.
+# Discriminator: elapsed ~15 s (3x5 s) and 'curl: (28) Operation timed out',
+#   NOT ~6 s (3x2 s) and 'Failed to connect' -- the latter is the --connect-timeout arm
+#   that 08-31 already measured with an iptables SYN drop.
+
+== STEP 0: the binary under measurement ==
+  on-disk : ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a  build/bin/ndtwin_kernel
+  RUNNING kernel (pid 1009541) image: ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a
+  strings 'topology poll got no answer' in the RUNNING image (want 1): 1
+  RUNPATH/RPATH: none
+
+== STEP 1: POSITIVE CONTROL -- Ryu answers right now, and the WARN has never fired ==
+  ryu topology/switches HTTP 200
+  'topology poll got no answer' lines so far (want 0): 0
+  poll-thread liveness witness -- kernel log lines mentioning the topology poll: 62
+
+== STEP 2: stop Ryu -- read the pidfile, ASSERT ITS IDENTITY, then kill by exact PID ==
+  ryu.pid = 1006083
+  identity (must contain ryu-manager / intelligent_router): /home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ryu-manager --observe-links /home/adam/Desktop/NDTwin-Kernel/intelligent_router.py /home/adam/Desktop/NDTwin-Kernel/tools/ryu_apps/rest_topology_bounded.py ryu.app.ofctl_rest 
+  RYU STOPPED (pid 1006083 gone)
+  :8080 now: (free)
+  :6653 now: (free -- the OpenFlow ports went with it)
+
+== STEP 3: a user-level listener that ACCEPTS and never answers now holds :8080 ==
+  recorded pid: 1189893
+  identity via /proc (must show stall_8080.py): /bin/bash: line 66: /proc/1189893/cmdline: No such file or directory
+
+  actual LISTEN owner of :8080 (second channel, in case setsid re-forked):
+    LISTEN 0      64         127.0.0.1:8080       0.0.0.0:*    users:(("python3",pid=1189895,fd=3))                                                                                                          
+
+== STEP 4: INJECTION ASSERTION -- prove it is accept-then-stall, NOT connection-refused ==
+   Both give http_code 000. They hit DIFFERENT flags. This is the step that decides
+   which arm the rest of the run measures.
+  http_code/curl says : curl: (28) Operation timed out after 3002 milliseconds with 0 bytes received
+000
+  real elapsed        : 3.013154113 s
+  EXPECT: 000 + 'Operation timed out' + ~3.0 s  => accept-then-stall (--max-time arm)
+  FAIL  : <0.1 s + 'Failed to connect'/'Connection refused' => listener not up, STOP
+
+== NOTE on step 3: setsid RE-FORKED. Recorded pid 1189893 does not exist; the real
+   listener is pid 1189895 (from ss). This is the COMMON-BRIEF hazard -- 'a pid captured
+   by a launch script is not the process that must die' -- reproduced with setsid, not sudo.
+   Cleanup below kills 1189895, the pid the SOCKET names, not the one I recorded.
+
+== STEP 5: wait out two poll cycles (>=115 s) and witness the curl children live ==
+   poll period: 5 s for the first 90 s after monitor start, 30 s once converged
+   (TopologyAndFlowMonitor.cpp run(): kWhileConverging / kOnceConverged). The kernel has
+   been up since 23:40, so it is in the 30 s regime.
+   Discriminator: each poll's curl child should live ~15 s (3x5 s), not ~6 s (3x2 s).
+   2026-09-03T00:35:15+08:00 starting 150 s witness
+curl children of pid 1009541 observed during the window:
+  total distinct curl children: 0
+   2026-09-03T00:37:45+08:00 witness done
+
+== STEP 6: read the kernel log -- this is the primary evidence ==
+  'topology poll got no answer' line count: 1
+  the line(s):
+    7313:[2026-09-03 00:34:57.065] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m690[0m [96mpollControlPlaneTopology[0m] topology poll got no answer from http://localhost:8080/v1.0/topology/switches, http://localhost:8080/v1.0/topology/hosts, http://localhost:8080/v1.0/topology/links after 12.033s (each request bounded at 2s connect / 5s total). The graph keeps what it last saw, and this retries next poll -- but until it clears, switches and links this twin never saw will read as down and disabled while the fabric may be forwarding normally. Confirm with: curl -s -o /dev/null --max-time 3 -w '%{http_code}\n' http://localhost:8080/v1.0/topology/switches
+
+  curl's own diagnosis, as recorded by the kernel (this is what separates the two flags):
+    7344:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7347:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7355:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7358:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7362:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7372:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7374:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+    7377:curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+
+  any other topology-poll lines since Ryu was stopped (00:34:5x):
+    [2026-09-03 00:34:57.065] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m690[0m [96mpollControlPlaneTopology[0m] topology poll got no answer from http://localhost:8080/v1.0/topology/switches, http://localhost:8080/v1.0/topology/hosts, http://localhost:8080/v1.0/topology/links after 12.033s (each request bounded at 2s connect / 5s total). The graph keeps what it last saw, and this retries next poll -- but until it clears, switches and links this twin never saw will read as down and disabled while the fabric may be forwarding normally. Confirm with: curl -s -o /dev/null --max-time 3 -w '%{http_code}\n' http://localhost:8080/v1.0/topology/switches
+    [2026-09-03 00:35:42.191] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+    [2026-09-03 00:35:42.968] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+    [2026-09-03 00:36:08.356] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2040[0m [96mapplyFetchedTables[0m] serving 10 switch(es) from their previous flow table; each is marked with stale_since/stale_polls/last_error in get_switch_openflow_table_entries
+    [2026-09-03 00:37:38.461] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2040[0m [96mapplyFetchedTables[0m] serving 10 switch(es) from their previous flow table; each is marked with stale_since/stale_polls/last_error in get_switch_openflow_table_entries
+
+== why the witness saw 0 curl children: is curl a DIRECT child of the kernel? ==
+  any curl process at all right now, with its parent:
+    1202342 1202341       2 curl
+  does the kernel shell out at all? processes whose parent is the kernel:
+    1202341 1009541 sh
+  kernel thread count (is the poll thread still alive?):
+    Threads:	48
+
+  is the kernel still serving? (a dead poll thread vs a dead kernel are different claims)
+    kernel /ndt/get_graph_data HTTP 200
+  last 6 kernel log lines:
+    Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8080/stats/flow/2
+    [2026-09-03 00:38:07.691] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+    [2026-09-03 00:38:07.692] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+    [2026-09-03 00:38:07.692] [info] [[94mHttpSession.cpp[0m:[95m538[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+    [2026-09-03 00:38:07.697] [info] [[94mHttpSession.cpp[0m:[95m626[0m [96mhandleGetGraphData[0m] get_graph_data success
+    [2026-09-03 00:38:07.698] [info] [[94mHttpSession.cpp[0m:[95m409[0m [96mcloseSocket[0m] Close Socket
+
+== VERDICT T-7 / X-2: the --max-time 5 arm IS reached. This is its first live measurement. ==
+  1. EXACTLY 1 'topology poll got no answer' line (edge-triggered), at 00:34:57.065.
+  2. The line reports 'after 12.033s (each request bounded at 2s connect / 5s total)'.
+  3. curl's own diagnosis in the kernel log, repeatedly:
+       curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received
+     THAT is the discriminator. 08-31's iptables SYN-drop produced
+       'Failed to connect ... after 2001 ms'  (the --connect-timeout arm).
+     5002 ms per request = the --max-time 5 bound firing. X-2 is answered on its own terms.
+
+  CAVEAT I am NOT rounding away: the rider PREDICTED ~15 s (3x5 s); the measurement is
+  12.033 s. That is neither ~6 s (the already-known connect arm) nor the predicted 15 s.
+  I did not attribute the ~3 s difference. A plausible but UNTESTED explanation is that the
+  poll straddled the transition -- Ryu was killed at ~00:34:4x and the stall listener bound
+  at ~00:34:5x, so at least one of the three requests may have met a closed port rather than
+  the stall. Recorded as an open detail, not explained away.
+
+  4. The 'exactly 1 line' result has discriminative power here, because the poll thread is
+     provably still alive afterwards: 48 kernel threads, the kernel still answers
+     /ndt/get_graph_data 200, and 'Command failed (exit code 28): curl ... /stats/flow/2'
+     lines keep appearing after the WARN. So the single line is edge-triggering, not a
+     thread that died on the first round.
+
+  5. MY OWN INSTRUMENT ERROR, corrected: the step-5 witness reported 0 curl children because
+     it filtered on ppid == kernel pid. curl is a GRANDchild -- the kernel forks sh, sh forks
+     curl (observed live: pid 1202341 'sh' with ppid 1009541, pid 1202342 'curl' with ppid
+     1202341). The per-child ~15 s lifetime therefore was NOT measured; the timing evidence
+     above rests on the kernel's own 'after 12.033s' and on curl's 5002 ms diagnosis.
+
+  6. SIDE EFFECT that turned out to be the round's best result: stopping Ryu made all ten
+     switches unreadable-but-present, which is the exact condition F-6 describes. That is
+     how X-9 got closed -- see 37_x9_stale_fields_captured.log.

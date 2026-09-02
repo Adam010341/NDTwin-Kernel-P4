@@ -1,0 +1,49 @@
+{"t":"2026-09-02T15:46:47Z","verdict":"pass","script":"00_preflight","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-09-02T15:46:48Z","verdict":"pass","script":"00_preflight","text":"the lab is claimed by this session (PREREG \u00a74.2)"}
+{"t":"2026-09-02T15:46:48Z","verdict":"fail","script":"00_preflight","text":"the claim does not set exclusive_cpu=yes; PREREG \u00a74.2 requires it"}
+{"t":"2026-09-02T15:46:48Z","verdict":"pass","script":"00_preflight","text":"ndt status reports measuring=nothing (the sanctioned source; do NOT re-derive this with pgrep)"}
+{"t":"2026-09-02T15:46:48Z","verdict":"fail","script":"00_preflight","text":"1 qemu process(es) are running. PREREG \u00a74.1: that VM is invisible to 'measuring' and its load lands on the same cores."}
+{"t":"2026-09-02T15:46:48Z","verdict":"untestable","script":"00_preflight","text":"kernel source is dbe07a8c, PREREG registered faffdbe -- NOT a failure, but the write-up must say which was measured and must not quote PREREG's commit"}
+{"t":"2026-09-02T15:46:49Z","verdict":"pass","script":"00_preflight","text":"artefact baseline written to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/artifact-baseline.txt"}
+{"t":"2026-09-02T15:46:49Z","verdict":"pass","script":"00_preflight","text":"/tmp/ndtwin_p4_switches.json is absent -- no previous manifest can be mistaken for this run's"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"no bmv2 switches are already running  [0]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"fail","script":"00_preflight","text":":8000 is held by pid 1009541 (./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwi) -- P-1: a second instance on a taken port still runs its startup and writes to the data plane before it discovers the port is gone"}
+{"t":"2026-09-02T15:46:50Z","verdict":"fail","script":"00_preflight","text":":8080 is held by pid 1006083 (/home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/en) -- P-1: a second instance on a taken port still runs its startup and writes to the data plane before it discovers the port is gone"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":":8081 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":":9000 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"no consumer app is already running  [none running]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"energy present at /home/adam/Energy-Saving-App  [/home/adam/Energy-Saving-App]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"sim present at /home/adam/Simulation-Platform-Manager  [/home/adam/Simulation-Platform-Manager]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"nsr present at /home/adam/Network-State-Recorder/network_state_recorder.py  [/home/adam/Network-State-Recorder/network_state_recorder.py]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"viz present at /home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh  [/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"te present at /home/adam/Traffic-Engineering-App/Traffic-engineering-App.py  [/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py]"}
+{"t":"2026-09-02T15:46:50Z","verdict":"pass","script":"00_preflight","text":"a display is present, so viz can start"}
+{"t":"2026-09-02T15:46:50Z","verdict":"untestable","script":"00_preflight","text":"te calls input() twice in ask_mode() (Traffic-engineering-App.py:595-612) with no EOFError guard; started headless it will raise EOFError and die. 20_apps_lifecycle.sh gives it a pty. Recorded here so the crash is not mistaken for a kernel fault."}
+{"t":"2026-09-02T15:48:31Z","verdict":"pass","script":"50_r5_ovs","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-09-02T15:48:31Z","verdict":"pass","script":"50_r5_ovs","text":"artefact /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log was rewritten by this run (was: 1788364008 78776 17e79eba8b7a9177 / now: 1788364089 95314 e6b558009f6fd8c8)"}
+{"t":"2026-09-02T15:48:31Z","verdict":"untestable","script":"50_r5_ovs","text":"ovs-ofctl is not usable without a password. F-5 below drops from THREE independent sources to TWO (Ryu and the kernel). That is a weaker instrument: the whole point of F-5 is that the kernel disagrees with the switch, and without the switch's own view the comparison rests on Ryu as proxy for it. Record this limitation in the write-up."}
+{"t":"2026-09-02T15:48:40Z","verdict":"pass","script":"50_r5_ovs","text":"CONTROL HOLDS: the valid rule reached the switch (Ryu sees priority 778), so the write path works and the instrument can see a rule that exists"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Energy-Saving-App -> /home/adam/Energy-Saving-App"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Simulation-Platform-Manager -> /home/adam/Simulation-Platform-Manager"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Network-Traffic-Visualizer -> /home/adam/Network-Traffic-Visualizer"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Web-GUI -> /home/adam/Web-GUI"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Network-State-Recorder -> /home/adam/Network-State-Recorder"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Network-Traffic-Generator -> /home/adam/Network-Traffic-Generator"}
+{"t":"2026-09-02T16:15:28Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"Traffic-Engineering-App -> /home/adam/Traffic-Engineering-App"}
+{"t":"2026-09-02T16:15:32Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"positive control: the fragment search found 'get_graph_data' in 13 file(s) across the repos, so a zero below means absence rather than a broken search"}
+{"t":"2026-09-02T16:15:36Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"URL idioms captured to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/r1_url_idioms.txt (read it; the matrix in the write-up must be derived from this file, not from memory)"}
+{"t":"2026-09-02T16:15:36Z","verdict":"untestable","script":"10_r1_endpoint_callers","text":"R-1 UNTESTABLE by observation of consumers: no repo references the endpoint under either spelling. PREREG \u00a73 registers this branch explicitly -- it is NOT a pass. The response-shape change cannot break a caller that does not exist."}
+{"t":"2026-09-02T16:15:36Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"PREREG's spelling returns 404, confirming it is the handler name and not a route (the kernel ANSWERED; it did not fail)"}
+{"t":"2026-09-02T16:15:36Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"the MININET early-return branch fired: recording=false with the 'does not record' message -- the branch PREREG \u00a73 says fires in every run this project does"}
+{"t":"2026-09-02T16:15:36Z","verdict":"pass","script":"10_r1_endpoint_callers","text":"control: an invalid state returns 400 (HttpSession.cpp:1774-1778), so the 200 above came from the handler, not from a catch-all"}
+{"t":"2026-09-02T16:19:48Z","verdict":"pass","script":"25_apps_energy","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-09-02T16:27:09Z","verdict":"pass","script":"25_apps_energy","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-09-02T16:27:09Z","verdict":"pass","script":"25_apps_energy","text":"fabric is intact before the energy phase (10/10 switches up, 40 edges, 0 down)"}
+{"t":"2026-09-02T16:27:10Z","verdict":"pass","script":"25_apps_energy","text":"energy reports running (via ndt's own lab_session predicate, not a signal probe -- H-17)"}
+{"t":"2026-09-02T16:31:17Z","verdict":"pass","script":"25_apps_energy","text":"energy_watch window honoured: registered=240s actual=247s overrun=7s (tolerance 30s)"}
+{"t":"2026-09-02T16:31:17Z","verdict":"untestable","script":"25_apps_energy","text":"the Energy-App powered NOTHING off in the 247s actually watched (4 cycles at its 60 s cadence). This is NOT a failure, but F-2 and F-3 are NO LONGER REACHABLE THIS RUN and must be recorded as untestable, not as fixed."}
+{"t":"2026-09-02T16:31:20Z","verdict":"pass","script":"25_apps_energy","text":"energy stopped, verified from ndt apps status (a stop that reports success while the process survives is the failure this repo keeps re-finding)"}
+{"t":"2026-09-02T16:31:20Z","verdict":"pass","script":"25_apps_energy","text":"the fabric is NOT degraded: the app powered 0 switches off, and this script changed nothing else."}
+{"t":"2026-09-02T16:33:21Z","verdict":"pass","script":"90_restore","text":"pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss"}
+{"t":"2026-09-02T16:33:21Z","verdict":"untestable","script":"90_restore","text":"nothing was powered off, so there is nothing to restore"}

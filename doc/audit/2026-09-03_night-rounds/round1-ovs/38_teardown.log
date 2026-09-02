@@ -1,0 +1,81 @@
+#### TEARDOWN ####
+# 2026-09-03T00:40:06+08:00
+== 1. the stall listener: kill the pid the SOCKET names, not the one I recorded ==
+  recorded at launch : 1189893  <- setsid re-forked, this pid is wrong
+  actual socket owner: 1189895
+  -- verification through TWO independent channels:
+     ps  on pid 1189895 : (gone)
+     ss  on :8080   : (free)
+
+== 2. remove this round's scratch scripts from the shared worktree ==
+  .test_run/ctl: GONE
+
+== 3. ndt down (plain first: it refuses to kill what it did not start -- that IS the check) ==
+  DOWN_RC=0
+  ndt down
+  [1/3] kernel + proxy/Ryu
+          stopped kernel
+  [2/3] topology session
+        topo stopped
+  [3/3] sweep
+        cleanup done
+  
+  verify clean
+    ok  bmv2 switches: 0
+    ok  host/switch processes: 0
+    ok  no topo session
+    ok  no switch manifest
+    ok  ports 8000/8080/8081 closed
+  
+  clean
+
+== 4. ndt clean (the assertion on its own) ==
+  CLEAN_RC=0
+    ok  bmv2 switches: 0
+    ok  host/switch processes: 0
+    ok  no topo session
+    ok  no switch manifest
+    ok  ports 8000/8080/8081 closed
+  
+  clean
+
+== 5. MY OWN verification, covering what 'ndt clean' structurally cannot (finding 21) ==
+  -- the two OpenFlow ports ndt never checks:
+     :6653  (free)
+     :6633  (free)
+  -- every port this round touched:
+     :8000  free
+     :8080  free
+     :8081  free
+     :9000  free
+     :6343  free
+  -- processes, by exact comm (never pkill -f / pgrep -f):
+     ndtwin_kernel      count=0
+     ryu-manager        count=0
+     simple_switch_g    count=0
+  -- fabric remnants:
+     veth-ish links : 0
+     netem qdiscs   : 0
+     OVS bridges    : 0
+     tmux topo      : 0 session(s)
+     apps running   : 1 (1 = none untracked)
+
+== 6. state this round CHANGED and whether it was put back ==
+  NTG Mininet.yaml mode (T-11 flipped it, then restored):
+     6:    mode: "cli" 
+  s1 nickname (X-6 set it to a quoted string, then restored to s1): restored while the
+     kernel was live -- see 24_x6_x7...log 'nickname now: {"nickname":"s1"}'
+  groups/meters 77/88/555/601/602/603 and flows prio 778/901/915/916: they lived in the
+     OVS bridges, which are gone with the topology (OVS bridges above = 0).
+  host_count_override: NOT touched (finding 2 deliberately did not modify it).
+  build/bin/ndtwin_kernel: NOT touched by this round.
+
+== 7. the claim is DELIBERATELY NOT released -- later rounds need it ==
+  lab
+    claim          yours -- 415m left (until 07:34:45)
+    note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+    exclusive cpu  no (heavy local jobs may overlap this claim)
+    measuring      nothing
+    code           fbe4dd8f  +36 file(s) with uncommitted changes
+                   4 of them can change behaviour:
+                   include/common_types/SFlowType.hpp

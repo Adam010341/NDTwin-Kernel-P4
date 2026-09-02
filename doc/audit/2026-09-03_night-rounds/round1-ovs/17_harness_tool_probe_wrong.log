@@ -1,0 +1,29 @@
+#### Did 50_r5_ovs.sh weaken F-5 on a WRONG tool-availability probe? ####
+# 2026-09-02T23:49:33+08:00
+== the harness said: ==
+  'N/A  ovs-ofctl is not usable without a password. F-5 below drops from THREE independent
+   sources to TWO (Ryu and the kernel).'
+
+== but these ran fine, unattended, in this same round: ==
+-- sudo -n ovs-vsctl (used at 23:44 for the sflow finding):
+ovs-vsctl (Open vSwitch) 3.3.9
+   rc=0
+-- sudo -n ovs-ofctl:
+sudo: a password is required
+   rc=0
+-- sudo -n ovs-ofctl dump-flows s1 (a real query against a real bridge):
+sudo: a password is required
+   rc=1
+-- count of flows ovs-ofctl can see on s1:
+0
+
+== what the harness actually probes ==
+78:if command -v ovs-ofctl >/dev/null 2>&1 && sudo -n ovs-ofctl --version >/dev/null 2>&1; then
+79:    HAVE_OFCTL=1; ok "ovs-ofctl is usable without a password -- the switch's own view is available"
+81:    skip "ovs-ofctl is not usable without a password. F-5 below drops from THREE independent sources to TWO (Ryu and the kernel). That is a weaker instrument: the whole point of F-5 is that the kernel disagrees with the switch, and without the switch's own view the comparison rests on Ryu as proxy for it. Record this limitation in the write-up."
+149:            SW="$(sudo -n ovs-ofctl dump-flows s1 2>/dev/null | grep -c 'priority=777' || true)"
+
+== sudoers view ==
+    (root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+    (root) NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec
+    (root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power

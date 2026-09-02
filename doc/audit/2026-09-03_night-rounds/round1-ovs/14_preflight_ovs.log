@@ -1,0 +1,68 @@
+#### harness 00_preflight.sh on the OVS plane -- establishes the artifact-baseline 50_r5_ovs.sh reads (H-20) ####
+# 2026-09-02T23:46:47+08:00; OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+
+===== 00_preflight  (2026-09-02T15:46:47Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+      ndt status captured at /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/ndt_status_pre.txt
+
+===== PREREG §4.1 + §4.2 -- the lab claim =====
+      claim line: yours -- 468m left (until 07:34:45)
+  PASS  the lab is claimed by this session (PREREG §4.2)
+      exclusive cpu:   exclusive cpu  no (heavy local jobs may overlap this claim)
+  FAIL  the claim does not set exclusive_cpu=yes; PREREG §4.2 requires it
+
+===== PREREG §4.4 -- nothing else is measuring, and nothing invisible is loading the machine =====
+      measuring: nothing
+  PASS  ndt status reports measuring=nothing (the sanctioned source; do NOT re-derive this with pgrep)
+      load1=1.54 over 14 cores
+  FAIL  1 qemu process(es) are running. PREREG §4.1: that VM is invisible to 'measuring' and its load lands on the same cores.
+      REMINDER, not a gate: the session running this harness is itself a covariate (~0.3 core idle). Record it in the write-up; do not try to subtract it.
+
+===== PREREG §4.3 -- name the binaries this round measures =====
+      provenance written to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/binary-provenance.txt
+      recorded 2026-09-02T15:46:48Z
+      kernel source commit (git rev-parse HEAD, i.e. a SOURCE identifier, not a build id): dbe07a8cab207ee4fd325b50cf3fd42facac0215
+      kernel worktree dirty: YES
+      kernel binary path: /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+      kernel binary sha256: ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a
+      bmv2 binary ndt reports:   bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+      bmv2 binary actually running: none
+      PREREG names kernel-under-test: faffdbe (compare the line above; if they differ, say so in the write-up rather than editing the PREREG)
+  N/A   kernel source is dbe07a8c, PREREG registered faffdbe -- NOT a failure, but the write-up must say which was measured and must not quote PREREG's commit
+
+===== H-20 -- artefacts a previous run could have left, signed BEFORE anything starts =====
+      /tmp/ndtwin_p4_switches.json	ABSENT
+      /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log	1788364008 78776 17e79eba8b7a9177
+      /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log	1788357960 5155981 cf24f32fbb4c3efb
+      /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log	1788364008 73264 a43a18e2116b23e9
+      /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_nsr.log	1788356631 0 e3b0c44298fc1c14
+      /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_viz.log	1788363532 875463322 91bf6473af5cbd31
+      /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_te.log	1788356649 685 87b45739335f0c5d
+  PASS  artefact baseline written to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/artifact-baseline.txt
+  PASS  /tmp/ndtwin_p4_switches.json is absent -- no previous manifest can be mistaken for this run's
+
+===== the machine is quiet: no fabric, no kernel, no apps =====
+      bmv2 processes: 0   (comm is truncated to 15 chars; 'simple_switch_g' is the whole name the kernel reports)
+  PASS  no bmv2 switches are already running  [0]
+  FAIL  :8000 is held by pid 1009541 (./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwi) -- P-1: a second instance on a taken port still runs its startup and writes to the data plane before it discovers the port is gone
+  FAIL  :8080 is held by pid 1006083 (/home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/en) -- P-1: a second instance on a taken port still runs its startup and writes to the data plane before it discovers the port is gone
+  PASS  :8081 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)
+  PASS  :9000 is free (no LISTEN line -- decided on the line's presence, which is visible whoever owns it)
+  PASS  no consumer app is already running  [none running]
+
+===== the five apps exist where components.env says they do =====
+      WORKSPACE_ROOT=/home/adam
+  PASS  energy present at /home/adam/Energy-Saving-App  [/home/adam/Energy-Saving-App]
+  PASS  sim present at /home/adam/Simulation-Platform-Manager  [/home/adam/Simulation-Platform-Manager]
+  PASS  nsr present at /home/adam/Network-State-Recorder/network_state_recorder.py  [/home/adam/Network-State-Recorder/network_state_recorder.py]
+  PASS  viz present at /home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh  [/home/adam/Network-Traffic-Visualizer/network_traffic_visualizer.sh]
+  PASS  te present at /home/adam/Traffic-Engineering-App/Traffic-engineering-App.py  [/home/adam/Traffic-Engineering-App/Traffic-engineering-App.py]
+  PASS  a display is present, so viz can start
+  N/A   te calls input() twice in ask_mode() (Traffic-engineering-App.py:595-612) with no EOFError guard; started headless it will raise EOFError and die. 20_apps_lifecycle.sh gives it a pty. Recorded here so the crash is not mistaken for a kernel fault.
+
+===== 00_preflight: 21 check(s), 4 FAIL =====
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+PREFLIGHT_RC=0

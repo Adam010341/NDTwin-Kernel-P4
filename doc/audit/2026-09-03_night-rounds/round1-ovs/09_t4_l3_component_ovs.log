@@ -1,0 +1,63 @@
+#### T-4: l3_component_check.py live on the OVS plane (C5 was P4 only) ####
+# 2026-09-02T23:43:26+08:00; kernel a8ba99c2.../f41a06a6; fabric ovs4
+NDTwin L3 component contract check
+  kernel   : http://localhost:8000
+  topology : StaticNetworkTopologyOVS_10Switches_4Hosts.json: 10 switches (OVS), 4 hosts, 40 edges
+  power    : all switches powered on
+  components: 7
+
+Shared endpoint checks:
+       ok  /ndt/acquire_lock
+  exists  /ndt/app_register (contract skipped: needs --allow-mutations)
+  exists  /ndt/delete_flow_entry (contract skipped: needs --allow-mutations)
+  MISSING /ndt/disable_switch  not in the kernel's dispatch table
+       ok  /ndt/get_average_link_usage
+       ok  /ndt/get_cpu_utilization
+       ok  /ndt/get_detected_flow_data
+       ok  /ndt/get_detected_top_k_flow_data
+       ok  /ndt/get_graph_data
+       ok  /ndt/get_memory_utilization
+       ok  /ndt/get_nickname
+       ok  /ndt/get_path_switch_count
+       ok  /ndt/get_switch_openflow_table_entries
+       ok  /ndt/get_temperature
+  exists  /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries (contract skipped: needs --allow-mutations)
+       ok  /ndt/install_flow_entry
+  exists  /ndt/intent_translator/text  exists but declining: 503, the documented answer for a disabled feature
+       ok  /ndt/intent_translator/text
+  exists  /ndt/modify_device_name (contract skipped: needs --allow-mutations)
+  exists  /ndt/modify_flow_entry (contract skipped: needs --allow-mutations)
+  exists  /ndt/modify_nickname (contract skipped: needs --allow-mutations)
+       ok  /ndt/received_a_simulation_case
+       ok  /ndt/release_lock
+  exists  /ndt/set_switches_power_state (contract skipped: needs --allow-mutations)
+       ok  /ndt/simulation_completed
+
+======================================================================
+Per-component verdict
+
+  DEGRADED Energy-Saving-App [writes]
+             - /ndt/disable_switch missing (known gap)
+  OK       Traffic-Engineering-App [writes] (5 endpoints)
+  OK       Web-GUI [writes] (12 endpoints)
+  OK       Network-Traffic-Visualizer (5 endpoints)
+  OK       Network-State-Recorder (2 endpoints)
+  OK       Network-Traffic-Generator (2 endpoints)
+  OK       Simulation-Platform-Manager (3 endpoints)
+
+======================================================================
+1 component(s) degraded by a known gap: Energy-Saving-App
+All 7 component(s) have their dependencies satisfied (known gaps aside).
+L3_RC=0
+
+=== drift scanner: does the P4 false positive (CHECKPOINT finding 6) also fire on OVS? ===
+KERNEL_ENDPOINTS has drifted from HttpSession.cpp:
+  - KERNEL_ENDPOINTS lists /ndt/get_detected_flow_data but the kernel no longer registers it
+  - KERNEL_ENDPOINTS lists /ndt/get_detected_top_k_flow_data but the kernel no longer registers it
+
+  Update KERNEL_ENDPOINTS in components.py to match.
+DRIFT_RC=1
+
+=== control for the drift claim: do those two endpoints answer 200 live on OVS right now? ===
+get_detected_flow_data           200
+get_detected_top_k_flow_data     200

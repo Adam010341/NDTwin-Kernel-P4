@@ -1,0 +1,46 @@
+#### T-18: harness 10_r1_endpoint_callers.sh -- no run evidence on either plane ####
+# 2026-09-03T00:15:28+08:00; kernel ae8b752f...; fabric ovs4; OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+R1_RC=0
+
+===== 10_r1_endpoint_callers  (2026-09-02T16:15:28Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+
+===== the seven sibling repos exist =====
+  PASS  Energy-Saving-App -> /home/adam/Energy-Saving-App
+  PASS  Simulation-Platform-Manager -> /home/adam/Simulation-Platform-Manager
+  PASS  Network-Traffic-Visualizer -> /home/adam/Network-Traffic-Visualizer
+  PASS  Web-GUI -> /home/adam/Web-GUI
+  PASS  Network-State-Recorder -> /home/adam/Network-State-Recorder
+  PASS  Network-Traffic-Generator -> /home/adam/Network-Traffic-Generator
+  PASS  Traffic-Engineering-App -> /home/adam/Traffic-Engineering-App
+
+===== POSITIVE CONTROL for the search method (H-18) =====
+  PASS  positive control: the fragment search found 'get_graph_data' in 13 file(s) across the repos, so a zero below means absence rather than a broken search
+
+===== PASS 1 -- literal endpoint spellings =====
+      pass 1 literal hits: 0
+
+===== PASS 2 -- fragments, for callers that concatenate onto a base URL =====
+      pass 2 fragment hits: 0  (expect some NOISE: 'historical' appears in Web-GUI and
+      Visualizer UI strings about replaying historical DATA FILES, which is a different feature.
+      Read /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/r1_scan.txt by hand before concluding -- a hit is a candidate, not a caller.)
+
+===== PASS 3 -- how each repo builds kernel URLs, so a future reader can audit the enumeration =====
+  PASS  URL idioms captured to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/r1_url_idioms.txt (read it; the matrix in the write-up must be derived from this file, not from memory)
+
+===== R-1 VERDICT (three-valued, per PREREG §3) =====
+  N/A   R-1 UNTESTABLE by observation of consumers: no repo references the endpoint under either spelling. PREREG §3 registers this branch explicitly -- it is NOT a pass. The response-shape change cannot break a caller that does not exist.
+
+===== direct kernel probe -- the endpoint's own behaviour, independent of whether anyone calls it =====
+      PREREG spelling  -> curl_rc=0 http=404  body: {"error":"Not Found"}
+  PASS  PREREG's spelling returns 404, confirming it is the handler name and not a route (the kernel ANSWERED; it did not fail)
+      real route       -> curl_rc=0 http=200  body: {"message":"Historical data logging is enabled, but this deployment does not record: the recorder is only started outside MININET mode, so no rows will be written.","reason":"not-available-in-mininet-mode","recording":false,"status":"not_applicable"}
+  PASS  the MININET early-return branch fired: recording=false with the 'does not record' message -- the branch PREREG §3 says fires in every run this project does
+      NOTE for the write-up: both branches answer 200 with status="success". Only 'recording' and 'message' differ, so any caller that keys on the status code or on the status field is blind to the distinction.
+  PASS  control: an invalid state returns 400 (HttpSession.cpp:1774-1778), so the 200 above came from the handler, not from a catch-all
+
+===== 10_r1_endpoint_callers: 14 check(s), 0 FAIL =====
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z

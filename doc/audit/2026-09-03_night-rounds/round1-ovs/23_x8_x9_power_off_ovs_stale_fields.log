@@ -1,0 +1,84 @@
+#### X-8 (A-4f OVS half) + X-9 (F-6 endpoint half): power an OVS switch off, then read the switch table back ####
+# 2026-09-02T23:57:22+08:00; kernel ae8b752f...; fabric ovs4
+# X-9 needs a CAPTURED HTTP RESPONSE containing stale_since / stale_polls / last_error.
+#   The kernel log line firing is not the endpoint half (persona brief).
+
+== BEFORE: does any response body already carry the three fields? (baseline, must be 0) ==
+  stale_since  in table response: 0
+  stale_polls  in table response: 0
+  last_error   in table response: 0
+  switches listed before: 10
+  telemetry_status before:
+    {'unknown': 40}  (edges: 40 )
+
+== POWER OFF switch 9 (192.168.123.19) via the kernel API ==
+{"192.168.123.19":"Success"}
+  power state now:
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"OFF","192.168.123.20":"ON"}
+== wait for the kernel to notice (F-6 needs the read to actually fail; F-14 lag was ~40 s on P4) ==
+  t=15s  switches_in_response=9  stale_since=0  stale_polls=0  last_error=0
+  t=30s  switches_in_response=9  stale_since=0  stale_polls=0  last_error=0
+  t=45s  switches_in_response=9  stale_since=0  stale_polls=0  last_error=0
+  t=60s  switches_in_response=9  stale_since=0  stale_polls=0  last_error=0
+  t=75s  switches_in_response=9  stale_since=0  stale_polls=0  last_error=0
+  t=90s  switches_in_response=9  stale_since=0  stale_polls=0  last_error=0
+
+== kernel log: the F-6 line the P4 round saw (C32) ==
+[2026-09-02 23:57:59.729] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1325[0m [96mreconcileDerivedLiveness[0m] 1 switch(es) unusable for 2+ polls: 8 edge(s) and 0 host(s) moved to down with down_reason=switch-unreachable. These are derived, not probed: nothing asked the hosts anything, and they are reported down because the only switch they reach the fabric through is not there
+
+== X-8: sFlow half ==
+  Precondition check -- was sFlow EVER configured on this fabric?
+name sflow
+---- -----
+s8   []
+s6   []
+  (see 12_sflow_absent_rates_structurally_zero.log: sflow is [] on all 10 bridges)
+
+== X-8 continued: power switch 9 back ON and read telemetry_status ==
+{"192.168.123.19":"Success"}
+  power state:
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+  switches back in the table response:
+    10
+  telemetry_status AFTER the power cycle:
+    {'unknown': 40}  (edges: 40 )
+  edges down / down_reason:
+    is_up: {True: 40}
+    down_reason: {'none': 40}
+
+== VERDICTS ==
+X-9 (F-6 endpoint half): the three fields were NOT observed in ANY captured response.
+  7 captures over 90 s while switch 9 was OFF: stale_since=0 stale_polls=0 last_error=0 in
+  every one. The unreadable switch is DROPPED from the response (10 -> 9 switches), not
+  served from its previous table with markers. The kernel DID detect the condition --
+  '1 switch(es) unusable for 2+ polls ... down_reason=switch-unreachable' -- so this is not
+  a failure to trigger. The C32 line 'serving N switch(es) from their previous flow table'
+  does NOT appear in this OVS log at all.
+  SCOPE LIMIT, stated rather than glossed: the trigger I could create on OVS is a
+  powered-OFF switch (bridge gone), not P4's DEADLINE_EXCEEDED read failure on a switch
+  that still exists. So this proves the fields are absent in the scenario reachable here;
+  it does not prove they can never appear. X-9 remains UNVERIFIED-with-evidence, and the
+  evidence points at 'not implemented on the endpoint'.
+
+X-8 (A-4f OVS half): BLOCKED, and the blocker is finding 4.
+  The task is 'power-cycle an OVS switch, then assert the sFlow record came back'.
+  sFlow was never configured on ANY bridge on this fabric, so there is no record that
+  could come back. This arm is structurally unrunnable on 'ndt up ovs4' until
+  ovs_4host_topo.py configures sFlow the way testbed_topo.py:105/202 does.
+  The half that COULD be run was run: the power cycle itself works (Success both ways,
+  state OFF then ON, switch count 10 -> 9 -> back), and telemetry_status stayed 'unknown'
+  on all 40 edges throughout -- which is the expected consequence of no sFlow, NOT an
+  independent confirmation of A-4f.
+
+== 🔴 CORRECTION 2026-09-03 00:39 -- the X-9 verdict above is SUPERSEDED by 37_x9_stale_fields_captured.log ==
+The verdict above ("the evidence points at 'not implemented on the endpoint'") was reached from
+the WRONG TRIGGER, and my own later experiment refutes it.
+  * Here I powered a switch OFF. A powered-off switch is DROPPED from the response (10 -> 9),
+    so there is no row left to carry a stale marker. That observation still stands.
+  * The condition F-6 actually describes is a switch that still EXISTS but cannot be READ.
+    T-7 produced it by accident: stopping Ryu made all 10 switches unreadable at once.
+  * Under that condition the endpoint DOES carry the fields, on 10/10 switches:
+    stale_since=1788366888, stale_polls=2, last_error='no_response'.
+    Captured response saved as x9_table_response.json (16567 bytes).
+=> X-9 is a PASS. What remains as a (smaller, separate) gap: a POWERED-OFF switch is dropped
+   rather than served stale-marked, so the two unreachability causes are reported differently.

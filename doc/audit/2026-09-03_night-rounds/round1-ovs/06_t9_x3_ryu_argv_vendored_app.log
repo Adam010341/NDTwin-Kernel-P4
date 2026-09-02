@@ -1,0 +1,27 @@
+#### T-9 / X-3: is the VENDORED tools/ryu_apps/rest_topology_bounded.py the app ryu-manager actually loaded? Evidence = argv ####
+# 2026-09-02T23:41:38+08:00
+== ryu-manager pid, from the pidfile the stack wrote ==
+total 16
+-rw-rw-r-- 1 adam adam 205 Sep  2 23:40 kernel.cmd
+-rw-rw-r-- 1 adam adam   8 Sep  2 23:40 kernel.pid
+-rw-rw-r-- 1 adam adam 269 Sep  2 23:40 ryu.cmd
+-rw-rw-r-- 1 adam adam   8 Sep  2 23:40 ryu.pid
+ryu.pid = 1006083
+== argv, read from /proc/<pid>/cmdline (NUL-separated, one arg per line) ==
+ryu-manager pid = 1006083
+     1	/home/adam/miniconda3/envs/ryu-env/bin/python
+     2	/home/adam/miniconda3/envs/ryu-env/bin/ryu-manager
+     3	--observe-links
+     4	/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py
+     5	/home/adam/Desktop/NDTwin-Kernel/tools/ryu_apps/rest_topology_bounded.py
+     6	ryu.app.ofctl_rest
+== is that path our vendored copy or the packaged one? ==
+-- vendored file in the repo:
+-rw-rw-r-- 1 adam adam 11563 Sep  2 20:47 tools/ryu_apps/rest_topology_bounded.py
+f7569d5aa82781e346186222f1f2131d64706bcb302046764d998520753eacaa  tools/ryu_apps/rest_topology_bounded.py
+-- packaged ryu app of the same role (for contrast):
+-rw-rw-r-- 1 adam docker 3967 Jun  9 19:27 /home/adam/miniconda3/envs/ryu-env/lib/python3.8/site-packages/ryu/app/rest_topology.py
+== what the process actually has OPEN / imported ==
+(no PYTHONPATH in env)
+-- loaded module files matching rest_topology (from /proc/<pid>/maps + open fds is not enough for .py; use the module list via the REST app's own marker instead):
+occurrences of the word bounded in the vendored file: 9

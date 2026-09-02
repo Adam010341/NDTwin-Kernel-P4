@@ -1,0 +1,63 @@
+#### PROVENANCE ALERT: build/bin/ndtwin_kernel was REPLACED during this round. Which binary is the running kernel? ####
+# 2026-09-02T23:47:16+08:00
+== at round start (23:35) ==
+  a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel  (== the 09-02 CHECKPOINT binary)
+== now, on disk ==
+ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a  build/bin/ndtwin_kernel
+-rwxrwxr-x 1 adam adam 75958992 2026-09-02 23:44:44.174618313 +0800 build/bin/ndtwin_kernel
+== the RUNNING kernel (pid 1009541, started 23:40:5x) ==
+lrwxrwxrwx 1 adam adam 0 Sep  2 23:47 /proc/1009541/exe -> /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel (deleted)
+-- inode of the running image vs the on-disk file:
+running exe : inode=1443760 size=75958992 mtime=2026-09-02 23:35:33.678958608 +0800
+on-disk file: inode=1443803 size=75958992 mtime=2026-09-02 23:44:44.174618313 +0800
+-- sha256 of the image the running process actually has mapped:
+sudo: a password is required
+ae8b752f8d6d693317c0ea3f9a230e7d0f0c5616acb6e4f5191417e2858feb4a  /proc/1009541/exe
+== was it deleted-and-replaced (would show ' (deleted)') ? ==
+/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel (deleted)
+== repo HEAD now vs at round start ==
+  round start: 81d49d73b06a7b56eaf09cda9fddb1bf800a1716
+  now        : dbe07a8cab207ee4fd325b50cf3fd42facac0215  2026-09-02 23:39:50 +0800  Live round: record that an orphaned viz JVM contaminated the second half
+== who is building? recent build artefacts ==
+total 276828
+-rwxrwxr-x 1 adam adam  75958992 2026-09-02 23:44:44.174618313 +0800 ndtwin_kernel
+-rw-rw-r-- 1 adam adam      2407 2026-09-02 20:59:06.296612111 +0800 ndtwin_kernel.provenance
+-rwxrwxr-x 1 adam adam 207498664 2026-09-02 23:44:05.363942561 +0800 test_routing_strategy
+
+== RESOLUTION ==
+running exe is inode 1443760 (deleted), mtime 23:35:33, sha256 ae8b752f... -- read directly
+from /proc/1009541/exe, which resolves to the open inode even after the path was replaced.
+The on-disk file was replaced AGAIN at 23:44:44 (inode 1443803) with byte-identical content
+(same sha), so the running kernel's content is ae8b752f for its entire life.
+
+TIMELINE
+  23:35:07  I sample build/bin/ndtwin_kernel      -> a8ba99c2 (the CHECKPOINT binary)
+  23:35:33  a concurrent session REPLACES it       -> ae8b752f  (inode 1443760)
+  23:40:5x  my 'ndt up ovs4' starts the kernel from that file -> running = ae8b752f
+  23:39:50  repo HEAD moves 81d49d73 -> dbe07a8c
+  23:44:44  the file is replaced once more         -> ae8b752f  (inode 1443803, same bytes)
+
+CONSEQUENCE: every measurement in this round is against ae8b752f, NOT the CHECKPOINT's
+a8ba99c2. Corrected in FINDINGS.md. The 09-02 CHECKPOINT's binary of record is no longer
+the file at that path.
+
+== is a8ba99c2 still recoverable anywhere? ==
+e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94  .test_run/binaries/e-round/ndtwin_kernel.production-backup
+e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94  .test_run/binaries/pre-integ-2026-09-02/ndtwin_kernel.e3bad23c
+e3bad23cdfe4fec38bf5bf0b473ae8f4e16a9962cafab6b53c950aec3afd1b94  /home/adam/ndtwin-artifacts/production-kernel/ndtwin_kernel.production-2026-08-31
+
+== what is IN ae8b752f: the A8 discriminator strings the CHECKPOINT used ==
+  topology-round-partial           1
+  left_link_bandwidth_source       1
+  stale_since                      2
+  stale_polls                      2
+  counters_cover                   1
+  telemetry_status                 1
+  down_reason                      3
+  not_applicable                   1
+
+== uncommitted source that a 23:35 rebuild would have compiled in ==
+ M include/common_types/SFlowType.hpp
+ M include/ndt_core/collection/FlowLinkUsageCollector.hpp
+ M include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
+ M src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp

@@ -1,0 +1,241 @@
+#### T-14 compare_baseline.py, and T-13 stack.sh invoked DIRECTLY with rc captured ####
+# 2026-09-03T00:05:31+08:00; kernel ae8b752f...; fabric ovs4
+
+===== T-14: tools/contract_test/compare_baseline.py (never invoked; its allowlist unexercised) =====
+usage: compare_baseline.py [-h] [--allowlist ALLOWLIST]
+                           [--baseline-name BASELINE_NAME]
+                           [--candidate-name CANDIDATE_NAME]
+                           [--ignore-volatile] [--strict-volatile]
+                           baseline candidate
+
+L4 OVS-baseline vs P4 differential
+
+positional arguments:
+  baseline              directory of known-good responses (usually OVS)
+  candidate             directory of responses under test (usually P4)
+
+options:
+  -h, --help            show this help message and exit
+  --allowlist ALLOWLIST
+  --baseline-name BASELINE_NAME
+  --candidate-name CANDIDATE_NAME
+  --ignore-volatile     compare volatile fields by type only (default)
+  --strict-volatile     also compare volatile field values (rarely useful)
+--- I captured 22 OVS response bodies during T-3 into contract_ovs/. Compare OVS vs the P4 baseline: ---
+acquire_lock_after_release.json
+acquire_lock.json
+get_average_link_usage.json
+get_cpu_utilization.json
+get_detected_flow_data.json
+  P4 baseline files: 22
+  OVS capture files: 22
+L4 differential: P4 against a OVS baseline
+  OVS      : doc/audit/2026-09-02_live-round/raw/contract_p4 (22 endpoint responses)
+  P4       : doc/audit/2026-09-03_night-rounds/round1-ovs/contract_ovs (22 endpoint responses)
+  allowlist: 18 accepted difference(s)
+
+ACCEPTED DIFFERENCES (2)
+  get_graph_data: list is empty in P4 but populated in OVS: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+  get_graph_data: list is empty in OVS but populated in P4: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+
+UNEXPECTED DIFFERENCES (10)
+
+  get_switch_openflow_table_entries
+      [shape] extra field in P4: [].flows.10[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.1[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.2[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.3[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.4[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.5[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.6[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.7[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.8[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.9[].match.dl_dst (str)
+
+UNUSED ALLOWLIST ENTRIES (the difference they permit did not occur -- possibly now fixed)
+  baseline_diff_allowlist.txt:39  get_graph_data | type differs at nodes\[\]\.brand_name
+  baseline_diff_allowlist.txt:43  get_cpu_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:44  get_memory_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:45  get_temperature | type differs
+  baseline_diff_allowlist.txt:65  get_detected_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:66  get_detected_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:67  get_detected_flow_data | any_packet_rate_nonzero:
+  baseline_diff_allowlist.txt:68  get_detected_top_k_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:69  get_detected_top_k_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:70  get_detected_top_k_flow_data | any_packet_rate_nonzero:
+  baseline_diff_allowlist.txt:71  get_graph_data | any_link_usage_nonzero:
+  baseline_diff_allowlist.txt:72  get_graph_data | any_edge_has_flow_set:
+  baseline_diff_allowlist.txt:73  get_average_link_usage | avg_link_usage_nonzero:
+  baseline_diff_allowlist.txt:74  get_detected_flow_data | list is empty in P4 but populated in OVS: <root list>
+  baseline_diff_allowlist.txt:75  get_detected_top_k_flow_data | list is empty in P4 but populated in OVS: <root list>
+  baseline_diff_allowlist.txt:86  get_graph_data | list is empty in (P4|OVS) but populated in (OVS|P4): edges\[\]\.flow_set\[\]
+  baseline_diff_allowlist.txt:101  get_switch_openflow_table_entries | field missing in P4: \[\]\.flows\.[0-9]+\[\]\.match\.dl_dst
+
+======================================================================
+FAIL: 10 unexpected difference(s) between OVS and P4
+each one is either a bug, or an accepted P4 limitation that belongs in baseline_diff_allowlist.txt with a reason
+COMPARE_RC=0
+
+===== T-13: stack.sh directly. Non-destructive arms first (the fabric is live and in use) =====
+--- stack.sh with no args (usage) ---
+usage: tools/test_workflow/stack.sh <command>
+
+  up {ovs|p4}   bring the stack up in the order that mode requires, then the kernel
+                  ovs: Ryu -> Mininet -> wait -> kernel   (switches dial out to Ryu)
+                  p4:  Mininet -> proxy -> wait -> kernel  (proxy dials out to bmv2)
+  wait [secs]   block until every switch is up AND enabled (default 90s)
+  status        show process/port/graph state
+  down          stop kernel, proxy/Ryu (Mininet needs 'sudo mn -c')
+  logs          list logs and show the log-check command
+
+run artefacts: /home/adam/Desktop/NDTwin-Kernel/.test_run
+NOARG_RC=0
+--- stack.sh wait ovs  (should confirm the running stack) ---
+waiting for topology convergence (expect 10 switches up+enabled, timeout ovss)
+  switches=10 up=10 enabled=10 edges=40
+converged after 0s
+WAIT_RC=0
+--- stack.sh up ovs  (ports are held by MY stack: it must refuse, not clobber) ---
+refusing 'up ovs': a Mininet is already running (15 mininet: processes).
+Starting Ryu under a live Mininet triggers the /stats/flow wedge (empty replies
+forever; no recovery). Exit the Mininet CLI first, then re-run this; start
+Mininet when [2/3] prompts for it. To accept the risk: tools/test_workflow/stack.sh up ovs --force
+UP_WHILE_UP_RC=0
+--- did that attempt damage the running fabric? ---
+LISTEN 0      50           0.0.0.0:8080       0.0.0.0:*          
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+  kernel /ndt/get_graph_data HTTP 200
+
+====================================================================
+== RC CORRECTION 2026-09-03T00:05:59+08:00. Every RC above was captured after a pipe into head/tail,
+   so it is HEAD's exit code, not the tool's -- the pipeline-tail mistake 50_r5_ovs.sh's
+   own header (H-21) warns about. Re-captured below WITHOUT a pipe. Kept above, corrected here.
+====================================================================
+
+== T-14 compare_baseline.py, real rc ==
+COMPARE_RC_REAL=1
+-- the 10 unexpected differences it found (the head of the report I truncated before):
+L4 differential: P4 against a OVS baseline
+  OVS      : doc/audit/2026-09-02_live-round/raw/contract_p4 (22 endpoint responses)
+  P4       : doc/audit/2026-09-03_night-rounds/round1-ovs/contract_ovs (22 endpoint responses)
+  allowlist: 18 accepted difference(s)
+
+ACCEPTED DIFFERENCES (2)
+  get_graph_data: list is empty in P4 but populated in OVS: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+  get_graph_data: list is empty in OVS but populated in P4: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+
+UNEXPECTED DIFFERENCES (10)
+
+  get_switch_openflow_table_entries
+      [shape] extra field in P4: [].flows.10[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.1[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.2[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.3[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.4[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.5[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.6[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.7[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.8[].match.dl_dst (str)
+      [shape] extra field in P4: [].flows.9[].match.dl_dst (str)
+
+UNUSED ALLOWLIST ENTRIES (the difference they permit did not occur -- possibly now fixed)
+  baseline_diff_allowlist.txt:39  get_graph_data | type differs at nodes\[\]\.brand_name
+  baseline_diff_allowlist.txt:43  get_cpu_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:44  get_memory_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:45  get_temperature | type differs
+  baseline_diff_allowlist.txt:65  get_detected_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:66  get_detected_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:67  get_detected_flow_data | any_packet_rate_nonzero:
+  baseline_diff_allowlist.txt:68  get_detected_top_k_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:69  get_detected_top_k_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:70  get_detected_top_k_flow_data | any_packet_rate_nonzero:
+  baseline_diff_allowlist.txt:71  get_graph_data | any_link_usage_nonzero:
+  baseline_diff_allowlist.txt:72  get_graph_data | any_edge_has_flow_set:
+  baseline_diff_allowlist.txt:73  get_average_link_usage | avg_link_usage_nonzero:
+  baseline_diff_allowlist.txt:74  get_detected_flow_data | list is empty in P4 but populated in OVS: <root list>
+  baseline_diff_allowlist.txt:75  get_detected_top_k_flow_data | list is empty in P4 but populated in OVS: <root list>
+  baseline_diff_allowlist.txt:86  get_graph_data | list is empty in (P4|OVS) but populated in (OVS|P4): edges\[\]\.flow_set\[\]
+  baseline_diff_allowlist.txt:101  get_switch_openflow_table_entries | field missing in P4: \[\]\.flows\.[0-9]+\[\]\.match\.dl_dst
+
+======================================================================
+
+== T-13 stack.sh, real rc for each arm (no pipes) ==
+NOARG_RC_REAL=2
+WAIT_RC_REAL=0
+  switches=10 up=10 enabled=10 edges=40
+converged after 0s
+UP_WHILE_UP_RC_REAL=1
+Starting Ryu under a live Mininet triggers the /stats/flow wedge (empty replies
+forever; no recovery). Exit the Mininet CLI first, then re-run this; start
+Mininet when [2/3] prompts for it. To accept the risk: tools/test_workflow/stack.sh up ovs --force
+STATUS_RC_REAL=0
+mode: ovs /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+
+  COMPONENT      PROCESS    ENDPOINT
+  ryu            running    :8080 open
+  p4_proxy       -          :8081 closed
+  kernel         running    :8000 open
+
+  graph: 10 switches (10 up, 10 enabled), 4 hosts, 40 edges
+LOGS_RC_REAL=0
+  p4_proxy.log.prev2
+  app_te.log.prev
+
+check the kernel log against the allowlist:
+  /home/adam/Desktop/NDTwin-Kernel/tools/contract_test/check_logs.py /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+
+== T-14 ARGUMENT-ORDER CORRECTION 2026-09-03T00:06:30+08:00 ==
+The tool's contract is: compare_baseline.py <baseline: usually OVS> <candidate: usually P4>
+(compare_baseline.py:259-260). I passed P4 first, so the report's OVS/P4 labels above are
+INVERTED and its '[shape] extra field in P4: ...dl_dst' actually describes the OVS capture.
+That was MY error, not the tool's. Re-run in the documented order:
+
+COMPARE_RC_CORRECT_ORDER=0
+L4 differential: P4 against a OVS baseline
+  OVS      : doc/audit/2026-09-03_night-rounds/round1-ovs/contract_ovs (22 endpoint responses)
+  P4       : doc/audit/2026-09-02_live-round/raw/contract_p4 (22 endpoint responses)
+  allowlist: 18 accepted difference(s)
+
+ACCEPTED DIFFERENCES (12)
+  get_graph_data: list is empty in P4 but populated in OVS: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+  get_graph_data: list is empty in OVS but populated in P4: nodes[].ecmp_groups[]
+      accepted: the two topology files populate ecmp_groups on different switches
+  get_switch_openflow_table_entries: field missing in P4: [].flows.10[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.1[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.2[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.3[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.4[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.5[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.6[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.7[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.8[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+  get_switch_openflow_table_entries: field missing in P4: [].flows.9[].match.dl_dst (is str in OVS)
+      accepted: ipv4_lpm keys on the destination address only, so OVS's dl_dst match field is genuinely absent -- not a stub. Measured: this is the ONLY field that differs under flows
+
+
+UNUSED ALLOWLIST ENTRIES (the difference they permit did not occur -- possibly now fixed)
+  baseline_diff_allowlist.txt:39  get_graph_data | type differs at nodes\[\]\.brand_name
+  baseline_diff_allowlist.txt:43  get_cpu_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:44  get_memory_utilization | type differs at .* (int|float|number)
+  baseline_diff_allowlist.txt:45  get_temperature | type differs
+  baseline_diff_allowlist.txt:65  get_detected_flow_data | flows_detected:
+  baseline_diff_allowlist.txt:66  get_detected_flow_data | any_rate_nonzero:
+  baseline_diff_allowlist.txt:67  get_detected_flow_data | any_packet_rate_nonzero:
+...
+  allowlist: 18 accepted difference(s)
+======================================================================
+PASS: P4 matches the OVS baseline (plus 12 accepted difference(s))

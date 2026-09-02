@@ -1,0 +1,79 @@
+#### DEFECT: a failed 'ndt up ovs4' exits without rolling back -- Ryu and the 15-process OVS fabric are left running ####
+# binary sha256 a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06 / src commit f41a06a6
+# repo HEAD 81d49d73 (+19 uncommitted files from concurrent sessions)
+# recorded 2026-09-02T23:39:17+08:00
+
+== what happened ==
+23:35:07  ss -ltn shows :8000 and :6343 free (the go signal from the brief)
+23:36:12  a SIBLING agent's B-5 matrix starts a kernel on :8000
+          parent: bash .../scratchpad/b5/repro.sh INT 8 post_int_busy_1 busy  <- NOT MINE
+23:36:16  my 'setsid ndt up ovs4' starts, races it
+23:36:2x  stack.sh phase [3/3] refuses: ':8000 is held by ndtwin_kernel (pid 992261),
+          not by the kernel this script started' -> 'stack.sh up ovs exited 1'
+
+== the defect: ndt up detected the conflict only AFTER building the fabric, and did not undo it ==
+-- ndt up phase order from 01_t1_ndt_up_ovs4.log:
+ndt up ovs4
+  hosts        4
+  topology     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+[1/4] control plane (Ryu)
+  ok  Ryu up, prompt reached
+[2/4] data plane (OVS fabric)
+  ok  15 host/switch processes after 2s
+[3/4] proxy-less convergence + kernel
+  Ryu settles for 40s before installing paths (NDTWIN_RYU_SETTLE_S)
+  XX  stack.sh up ovs exited 1
+
+-- processes still alive at 2026-09-02T23:39:17+08:00, AFTER 'ndt up' returned failure:
+ 992388    2859 Wed Sep  2 23:36:16 2026 ryu-manager     /home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ryu-manager --observe-links /home/adam/Desktop/NDTwin-Kern
+ 992500    2859 Wed Sep  2 23:36:18 2026 tmux: server    tmux -L ndtwinlab new-session -d -s topo -c /home/adam/Desktop/NDTwin-Kernel /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/N
+ 992508  992500 Wed Sep  2 23:36:18 2026 python          /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ovs_4host_topo.py
+1002441  959412 Wed Sep  2 23:39:16 2026 bash            /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1788361777114-yzlr8g.sh 2>/dev/null || true && shopt -u extglob 2>/dev/nul
+1002447 1002441 Wed Sep  2 23:39:16 2026 awk             awk $0 ~ /ryu-manager|ovs_4host_topo|tmux: server/
+
+-- listeners my failed 'ndt up' left bound:
+LISTEN 0      50           0.0.0.0:6653       0.0.0.0:*    users:(("ryu-manager",pid=992388,fd=6))
+LISTEN 0      50           0.0.0.0:6633       0.0.0.0:*    users:(("ryu-manager",pid=992388,fd=5))
+LISTEN 0      50           0.0.0.0:8080       0.0.0.0:*    users:(("ryu-manager",pid=992388,fd=4))
+
+== the sibling run I collided with (evidence it is not mine) ==
+matrix.sh header: 'B-5 reproduction matrix. Serial: every run needs :8000 and :6343 to itself.'
+cells already written under scratchpad/b5/out at this moment:
+   
+Sep 2 23:38 .
+Sep 2 23:35 ..
+Sep 2 23:28 gdb.log
+Sep 2 23:37 post_int_busy_1.log
+Sep 2 23:37 post_int_busy_2.log
+Sep 2 23:38 post_int_fast.log
+Sep 2 23:35 post_int_idle_1.log
+Sep 2 23:36 post_int_idle_2.log
+Sep 2 23:36 post_int_idle_3.log
+Sep 2 23:38 post_int_long.log
+Sep 2 23:38 post_term_busy.log
+Sep 2 23:38 post_term_idle_1.log
+Sep 2 23:38 post_term_idle_2.log
+Sep 2 23:30 pre_int_busy_1.log
+Sep 2 23:30 pre_int_busy_2.log
+Sep 2 23:30 pre_int_fast.log
+Sep 2 23:29 pre_int_idle_1.log
+Sep 2 23:29 pre_int_idle_2.log
+Sep 2 23:29 pre_int_idle_3.log
+Sep 2 23:30 pre_int_long.log
+Sep 2 23:31 pre_term_busy.log
+Sep 2 23:31 pre_term_idle_1.log
+Sep 2 23:31 pre_term_idle_2.log
+Sep 2 23:27 r01_sigint_idle.log
+
+== CONFIRMATION at 2026-09-02T23:39:47+08:00, sibling matrix now finished, :8000 free ==
+-- 'ndt up ovs4' returned failure at 23:36:2x. These are still alive 3 minutes later:
+ 992388    2859 Wed Sep  2 23:36:16 2026 ryu-manager     /home/adam/miniconda3/envs/ryu-env/bin/python /home/adam/miniconda3/envs/ryu-env/bin/ryu-manager --observe-links /home/adam/Desktop/NDTwin-Kern
+ 992500    2859 Wed Sep  2 23:36:18 2026 tmux: server    tmux -L ndtwinlab new-session -d -s topo -c /home/adam/Desktop/NDTwin-Kernel /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/N
+ 992508  992500 Wed Sep  2 23:36:18 2026 python          /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ovs_4host_topo.py
+1003615  959412 Wed Sep  2 23:39:46 2026 bash            /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1788361777114-yzlr8g.sh 2>/dev/null || true && shopt -u extglob 2>/dev/nul
+1003619 1003615 Wed Sep  2 23:39:46 2026 awk             awk $0 ~ /ryu-manager|ovs_4host_topo|tmux -L ndtwinlab/
+-- host/switch namespaces still wired up by the abandoned fabric:
+veth-ish links: 36
+-- VERDICT: no rollback. A failed bring-up leaves a live control plane (:8080/:6633/:6653)
+   and a live 15-process data plane, with NO kernel. 'ndt up' never preflights :8000
+   before it starts building; the check lives in stack.sh phase [3/3], after the fabric exists.

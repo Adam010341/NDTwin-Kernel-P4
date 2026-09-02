@@ -1,0 +1,76 @@
+#### DEFECT: 'ndt up ovs4' configures NO sFlow on any bridge, so every rate/utilisation on the OVS plane is structurally zero -- and the API still says success ####
+# 2026-09-02T23:45:13+08:00; kernel a8ba99c2.../f41a06a6; fabric ovs4 (10 sw, 4 hosts, 40 edges), healthy, h1->h2 forwards
+
+== 1. the kernel IS listening for sFlow ==
+UNCONN 0      0                                    0.0.0.0:6343       0.0.0.0:*    users:(("ndtwin_kernel",pid=1009541,fd=3))
+
+== 2. NOT ONE bridge is configured to send it ==
+name sflow
+---- -----
+s8   []
+s6   []
+s3   []
+s4   []
+s7   []
+s2   []
+s10  []
+s1   []
+s9   []
+s5   []
+sflow records defined in the OVS DB:
+  lines: 0
+
+== 3. attribution: the script ndt up ovs4 actually runs has no sFlow code; the reference topology does ==
+-- what is running (tmux argv):
+1008967 tmux -L ndtwinlab new-session -d -s topo -c /home/adam/Desktop/NDTwin-Kernel /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/
+1008975 /home/adam/miniconda3/envs/ntg-env/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ovs_4host_topo.py
+-- sFlow references in tools/test_workflow/ovs_4host_topo.py:
+  count: 0
+-- sFlow references in testbed_topo.py (the reference OVS topology stack.sh names):
+105:def enable_sflow(switch, agent_iface, collector_ip, collector_port=6343):
+202:            enable_sflow(
+
+== 4. CONTROL -- push real traffic and show the numbers do not move ==
+-- BEFORE:
+   get_average_link_usage: {"avg_link_usage":0.0,"status":"success"}
+   detected flows (all):   []
+-- s1 port counters BEFORE:
+-- 30 s of h1 -> h2 traffic (mnexec -a 1009119, the form sudoers allows):
+
+--- 10.0.0.2 ping statistics ---
+3000 packets transmitted, 3000 received, 0% packet loss, time 33530ms
+rtt min/avg/max/mdev = 0.005/0.051/0.557/0.029 ms
+-- s1 port counters AFTER:
+-- AFTER:
+   get_average_link_usage: {"avg_link_usage":0.0,"status":"success"}
+   detected flows (all):   []
+-- kernel's own rate-loop line at the end of the traffic window:
+[2026-09-02 23:44:39.262] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (239 iters) mean 1000.1 ms, min 1000.0, max 1000.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 23:45:09.264] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (269 iters) mean 1000.1 ms, min 1000.0, max 1000.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 23:45:39.267] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (299 iters) mean 1000.1 ms, min 1000.0, max 1000.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+
+== CORRECTION appended 23:50, do not misread the two "s1 port counters" sections above ==
+`sudo -n ovs-ofctl dump-ports s1` FAILED with "sudo: a password is required" and printed
+nothing. sudoers grants NOPASSWD for ovs-vsctl / ifconfig / mnexec / ndtwin-lab /
+ndtwin-p4-power ONLY -- ovs-ofctl is not in the list (see 17_harness_tool_probe_wrong.log).
+Those two sections are therefore EMPTY BECAUSE THE QUERY FAILED, not because the counters
+read zero. The independent proof that packets really flowed is the ping statistics in the
+same block: 3000 packets transmitted, 3000 received, 0% loss over 33.5 s. The finding is
+unaffected -- it rests on the ping, on `sflow []` x10 from ovs-vsctl (which DOES work), and
+on the kernel's own `flows=0, counters=0` rate-loop lines.
+
+== SCOPE NARROWED 2026-09-03 00:02, after an independent read-only cross-check ==
+The attribution above is correct but the original conclusion was too wide. Verified in
+tools/test_workflow/ndt:813-819 -- the OVS plane has exactly TWO fabric sizes and they run
+DIFFERENT topology scripts:
+    ndt up ovs4   -> ovs-topo-4host  -> tools/test_workflow/ovs_4host_topo.py   0 sFlow refs  🔴
+    ndt up ovs    -> ovs-topo-start  -> NTG's ~/Network-Traffic-Generator/testbed_topo.py
+                                        enable_sflow() defined :110, CALLED :190             🟢
+    (the repo-root copy testbed_topo.py has the same pair at :105 / :202)
+So the defect is confined to the **4-host `ovs4` fabric**. It does NOT invalidate results taken
+on the 128-host OVS path, which are independently clean (the two-plane ceiling figure's OVS half
+reads qdisc interface counters and never goes through the twin; the bmv2 fig8 OVS points come
+from the 128 path and are iperf3 throughput).
+The affected population is exactly: rounds that read TWIN TELEMETRY on an `ovs4` fabric.
+FIX SPEC, which is why the narrowing raises this finding's value rather than lowering it:
+ovs_4host_topo.py needs the enable_sflow() call its sibling reference topology already has.

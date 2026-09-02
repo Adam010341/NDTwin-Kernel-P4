@@ -1,0 +1,110 @@
+#### T-23: chaos.py LIVE (non-dry-run). C48 covered only test_probes.py, --dry-run and --gates ####
+# 2026-09-03T00:25:05+08:00; kernel ae8b752f...; fabric ovs4 healthy
+# --allow-poweroff deliberately NOT passed: its own help says the restore path has never
+#   been exercised against a switch that was actually off. Not this round's risk to take.
+
+===== ARM 1: --null (inject nothing). Any RED here is a FALSE POSITIVE. =====
+NULL_RC=0
+          "inv": "INV-04",
+          "verdict": "SKIPPED",
+          "detail": "wire 0.00 Mbit/s is below the 3 Mbit/s quantisation floor; the sFlow estimate has no resolving power here",
+          "evidence": {
+            "iface": "s1-eth3",
+            "wire_bps": 480,
+            "twin_bps": 0,
+            "flows": 0
+          }
+        },
+        {
+          "inv": "INV-05",
+          "verdict": "SKIPPED",
+          "detail": "no flow 10.0.0.1->10.0.0.2 in the table; with FLOW_IDLE_TIMEOUT at 15 s this means the traffic stopped, not that the path is wrong",
+          "evidence": {}
+        },
+        {
+          "inv": "INV-06",
+          "verdict": "PASS",
+          "detail": "exclusive inside the TTL, released after it (power_lock)",
+          "evidence": {
+            "lock_type": "power_lock",
+            "side_effect": "this check ACQUIRES AND RELEASES the real power_lock; there is no private lock in this API",
+            "b_acquired_inside_ttl": false,
+            "b_acquired_after_expiry": true
+          }
+        },
+        {
+          "inv": "INV-07",
+          "verdict": "SKIPPED",
+          "detail": "needs a 20 s quiet window; enable with --slow",
+          "evidence": {}
+        }
+      ],
+      "false_positive_floor": 1,
+      "interpretation": "Nothing was injected. Every FAIL above is a defect in the harness, not in NDTwin. The harness's false-positive floor for this configuration is 1. Any later round reporting fewer than this many violations has found nothing."
+    }
+  ],
+  "result": "null round complete"
+}
+
+== NULL-ROUND VERDICT ==
+  FAIL=1 PASS=3 SKIPPED=4, false_positive_floor=1, NULL_RC=0.
+  The one FAIL is INV-01: 'graph claims 10 switches up, only 0 BMv2 processes exist --
+  the twin is certifying dead switches (A-1 shape)', evidence {graph_up:10,
+  bmv2_processes:0, expected:0}.
+  => HARNESS DEFECT, not a product defect, and the harness says so itself: 'Nothing was
+     injected. Every FAIL above is a defect in the harness, not in NDTwin.'
+     INV-01 counts BMv2 (simple_switch_grpc) processes, which are the P4 data plane. On
+     the OVS plane there are none BY DESIGN, so INV-01 reports a violation on EVERY OVS
+     run and drags the false-positive floor to 1.
+  Two more SKIPs trace back to finding 4: INV-04 'wire 0.00 Mbit/s ... the sFlow estimate
+  has no resolving power here' (evidence wire_bps=480, twin_bps=0, flows=0 -- real bytes on
+  the wire, zero in the twin) and INV-05 'no flow ... in the table'.
+
+===== ARM 2: --controls -- run the G1 positive controls LIVE and check each target
+      invariant actually GOES RED. This is the mutation gate for the chaos harness. =====
+CONTROLS_RC=1
+{
+  "started": "2026-09-03T00:26:06+0800",
+  "mode": "controls",
+  "bmv2_provenance": {
+    "method": "argv[0] + sha256 of that path (NOT /proc/pid/exe -- unreadable as this uid); the sha pins the file the path names now, not the image the live process mapped",
+    "running": {
+      "/bin/bash": 1
+    },
+    "sha256": {
+      "/bin/bash": "bc5945feb8bd26203ebfafea5ce1878bb2e32cb8fb50ab7ae395cfb1e1aaaef1"
+    },
+    "override_file": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override",
+    "override_file_declares": "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+    "OVERRIDE_MISMATCH": "the override file declares '/usr/local/bmv2-fast/bin/simple_switch_grpc' but the running processes are ['/bin/bash']"
+  },
+  "G3_claim": {
+    "ok": false,
+    "detail": "claim does not declare exclusive_cpu=yes (exclusive cpu: no (heavy local jobs may overlap this claim)). Injection would perturb whoever else is measuring, invisibly to them"
+  },
+  "result": "REFUSED before injecting: claim does not declare exclusive_cpu=yes (exclusive cpu: no (heavy local jobs may overlap this claim)). Injection would perturb whoever else is measuring, invisibly to them"
+}
+  netem left behind: 0
+
+== CONTROLS VERDICT: REFUSED, and the refusal is CORRECT ==
+  CONTROLS_RC=1, 'REFUSED before injecting: claim does not declare exclusive_cpu=yes
+  (exclusive cpu: no ...). Injection would perturb whoever else is measuring, invisibly
+  to them.' Nothing was injected; 0 netem left behind.
+  => T-23's INJECTION arms (--controls, --full) are BLOCKED by the lab claim's
+     exclusive_cpu setting. I did NOT change the claim: it is held for the whole night and
+     shared with later rounds. THIS IS A HUMAN/AUDITOR DECISION.
+
+== SEPARATE observation from the --controls JSON: the bmv2 provenance scan misidentifies ==
+  "running": {"/bin/bash": 1}   and
+  OVERRIDE_MISMATCH: "the override file declares '/usr/local/bmv2-fast/bin/simple_switch_grpc'
+                      but the running processes are ['/bin/bash']"
+  On the OVS plane there are ZERO bmv2 processes, so the correct answer is an empty set.
+  Reporting /bin/bash as a running bmv2 binary is a misdetection. Recorded as observed
+  (the JSON is the evidence); I did not chase the scan's matching rule to the line.
+
+== T-23 SUMMARY ==
+  --dry-run / --gates : already covered by C48 (09-02)
+  --null              : RAN LIVE, rc=0, FAIL=1 PASS=3 SKIPPED=4, false-positive floor 1
+  --controls          : REFUSED (rc=1) on the exclusive_cpu gate -- correct, not a defect
+  --full              : would be refused by the same gate; not attempted
+  _c07's three routes : not re-probed here; C8 already measured all three as 404

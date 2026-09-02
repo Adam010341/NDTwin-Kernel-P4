@@ -1,0 +1,34 @@
+#### X-9 (F-6 endpoint half) -- SECOND ATTEMPT, under the condition that actually triggers it ####
+# 2026-09-03T00:38:47+08:00; kernel ae8b752f... (running image verified)
+# Trigger: T-7 stopped Ryu, so ALL 10 switches are unreadable and the kernel is logging
+#   'serving 10 switch(es) from their previous flow table; each is marked with
+#    stale_since/stale_polls/last_error in get_switch_openflow_table_entries'
+#   (DeviceConfigurationAndPowerManager.cpp:2040, at 00:36:08 and 00:37:38).
+# The earlier attempt (log 23) used a POWERED-OFF switch, which is a different condition:
+#   the switch was dropped from the response instead of being served stale.
+
+== the kernel log lines that promise the fields ==
+  7338:[2026-09-03 00:36:08.356] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2040[0m [96mapplyFetchedTables[0m] serving 10 switch(es) from their previous flow table; each is marked with stale_since/stale_polls/last_error in get_switch_openflow_table_entries
+  7369:[2026-09-03 00:37:38.461] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2040[0m [96mapplyFetchedTables[0m] serving 10 switch(es) from their previous flow table; each is marked with stale_since/stale_polls/last_error in get_switch_openflow_table_entries
+
+== CAPTURE the actual HTTP response ==
+  bytes: 16567
+  switches in response: 10
+
+== DO THE THREE FIELDS APPEAR IN THE RESPONSE BODY? ==
+  stale_since  occurrences: 10
+  stale_polls  occurrences: 10
+  last_error   occurrences: 10
+
+== if present, show them ==
+  dpid=1 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=2 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=3 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=4 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=5 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=6 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=7 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=8 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=9 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  dpid=10 -> {'last_error': 'no_response', 'stale_polls': 2, 'stale_since': 1788366888}
+  switches carrying at least one stale field: 10 of 10

@@ -1,0 +1,22 @@
+{
+  "counters": {
+    "dispatched": 0,
+    "dropped_after_stop": 0,
+    "failed": 0,
+    "succeeded": 0
+  },
+  "counters_cover": {
+    "dispatch_routes": [
+      "/ndt/install_flow_entry",
+      "/ndt/modify_flow_entry",
+      "/ndt/delete_flow_entry",
+      "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries"
+    ],
+    "includes_boot_time_programming": false,
+    "includes_intent_translator": false
+  },
+  "dispatcher_running": true,
+  "recent_failures": [],
+  "recent_failures_capacity": 256,
+  "recent_failures_evicted": 0
+}

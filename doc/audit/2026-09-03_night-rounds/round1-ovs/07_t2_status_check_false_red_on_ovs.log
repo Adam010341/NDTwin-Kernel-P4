@@ -1,0 +1,36 @@
+#### DEFECT (T-2): 'ndt status --check' is structurally unusable on the OVS plane ####
+# 2026-09-02T23:42:34+08:00; fabric = healthy ovs4 (10 sw up, 40 links, 0 down, h1->10.0.0.2 forwards)
+
+== symptom ==
+check: 1 problem(s) / - the kernel graph does not match the topology file / CHECK_RC=1
+and the 'configuration' block misreports the running fabric:
+    hosts     128                                        <- fabric has 4
+    topology  setting/StaticNetworkTopologyP4_10Switches_128Hosts.json   <- fabric is OVS
+    model     MISMATCH: graph has 4 hosts / 40 edges, file says 128 288
+
+== mechanism (tools/test_workflow/ndt) ==
+ndt:420,508,606  -- 'hosts' and the model file are BOTH derived from
+                    p4_proxy/mininet/host_count_override, a P4-only knob.
+ndt:1369-1375    -- status --check compares the live kernel graph against THAT file:
+        local want
+        want="$(python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "$topo" 2>/dev/null)"
+        if [[ -n "$want" && "$g_hosts $g_edges" != "$want" ]]; then
+            printf '  %-14s %s\n' "model" "${R}MISMATCH: graph has $g_hosts hosts / $g_edges edges, file says $want${N}"
+            problems+=("the kernel graph does not match the topology file")
+        fi
+ndt:849,865      -- 'ndt up ovs4' selects its OVS model independently (ovs_hosts) and
+                    never writes host_count_override, so status keeps reading the P4 model.
+
+== why this is not merely cosmetic: the check has ZERO discriminative power here ==
+The comparison is (hosts,edges) only. If the P4 and OVS 4-host models agree on that pair,
+the check goes GREEN while still comparing the OVS fabric against a P4 file.
+StaticNetworkTopologyP4_10Switches_4Hosts.json                 hosts=4    edges=40  
+StaticNetworkTopologyOVS_10Switches_4Hosts.json                hosts=4    edges=40  
+StaticNetworkTopologyP4_10Switches_128Hosts.json               hosts=128  edges=288 
+
+== scope ==
+Every OVS-plane consumer of 'hosts'/'topology' from ndt reads the P4 model. This is the
+same class as CHECKPOINT finding 9 (run_layers.sh api p4 red because 'host count is 128,
+topology file says 4'). NOT modified: host_count_override is persistent shared state.

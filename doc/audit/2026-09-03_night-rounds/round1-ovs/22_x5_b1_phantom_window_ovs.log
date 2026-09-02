@@ -1,0 +1,54 @@
+#### X-5 / B-1 OVS half: the phantom-rule window that structurally cannot exist on P4 ####
+# 2026-09-02T23:55:35+08:00; kernel ae8b752f...; fabric ovs4
+# recipe = the 08-31 force-red probe, verbatim: doc/audit/2026-08-31_live-acceptance-batch/probe.py
+# port 999 does not exist on s1, so the switch must reject it; a phantom is a row that appears anyway.
+# P4 arm (C22) on this recipe: first_sighting=never, table total unchanged at 1280.
+
+== ARM: invalid port 999, poll every 0.25 s for 25 s ==
+=== B-1 OVS arm, invalid port : dpid=1 ipv4_dst=10.0.0.241 port=999 priority=915 ===
+pre-POST: target rows=0, table total=61
+POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  t= 0.004  ABSENT   (table total=61)
+  t= 0.257  REQUEST-SHAPE(phantom-signature)   (table total=62)
+       first sighting entry: {"actions": [{"port": 999, "type": "OUTPUT"}], "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.241"}, "priority": 915, "table_id": 0}
+  t= 1.269  ABSENT   (table total=61)
+  t=13.422  POLLED-SHAPE(real)   (table total=62)
+RESULT: first_sighting=t=0.257 s
+PROBE_RC=0
+
+== CONTROL A (positive): the SAME recipe with a VALID port 2 -- the probe must see a row,
+   otherwise a 'never' above would only mean the probe cannot see anything at all ==
+=== B-1 OVS control, valid port : dpid=1 ipv4_dst=10.0.0.242 port=2 priority=916 ===
+pre-POST: target rows=0, table total=62
+POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+  t= 0.002  ABSENT   (table total=62)
+  t= 0.255  REQUEST-SHAPE(phantom-signature)   (table total=63)
+       first sighting entry: {"actions": [{"port": 2, "type": "OUTPUT"}], "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.242"}, "priority": 916, "table_id": 0}
+  t= 0.508  ABSENT   (table total=62)
+  t=12.670  POLLED-SHAPE(real)   (table total=63)
+RESULT: first_sighting=t=0.255 s
+CONTROL_RC=0
+
+== independent channel: what does Ryu say about both rules? ==
+  ryu: prio=915 match={'dl_type': 2048, 'nw_dst': '10.0.0.241'} actions=['OUTPUT:999']
+  ryu: prio=916 match={'dl_type': 2048, 'nw_dst': '10.0.0.242'} actions=['OUTPUT:2']
+  (no line above = Ryu has neither rule)
+
+== VERDICT: X-5 / B-1 OVS half -- RED. The phantom window EXISTS on OVS. ==
+  * kernel serves a REQUEST-SHAPE row at t=0.257 s: caller's own vocabulary (ipv4_dst), NO
+    counters, action port 999 -- the optimistic cache row, FINDING-03's phantom signature.
+  * it vanishes at t=1.269 s, so the window is ~1.0 s wide.
+  * the real, polled-shape row (switch vocabulary nw_dst, with counters) arrives at t=13.4 s.
+  * P4 arm on the identical recipe (C22): first_sighting=never. B-1's filter therefore does
+    NOT cover the OVS write path.
+  * probe resolution 0.25 s against a ~1.0 s window = ~4 samples of margin, so "too slow to
+    see it" is excluded as an explanation. (The persona brief's alternative question does not
+    arise: it went red.)
+  * the positive control (valid port 2) shows the SAME phantom shape at t=0.255 s, so the
+    phantom is the cache row itself and not a judgement about validity.
+  * SEPARATE observation from the independent channel: Ryu shows prio=915
+    match={dl_type:2048, nw_dst:10.0.0.241} actions=['OUTPUT:999'] genuinely installed. OVS
+    ACCEPTED an output to a port that does not exist, so on this plane the rule is not a ghost
+    at all after ~13 s -- it is a real rule pointing at a nonexistent port. That is a different
+    hazard from the P4 arm and is recorded, not merged into the B-1 verdict.
+  * state left behind by this step, removed at teardown: flows prio 915 (OUTPUT:999) and 916 on s1.

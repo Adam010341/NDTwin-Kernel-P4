@@ -1,0 +1,29 @@
+#### X-10: F-13 on the OVS plane. Groups and meters are REAL on OVS, so 501 here is a FINDING, not a pass ####
+# 2026-09-02T23:52:28+08:00; kernel ae8b752f...; fabric ovs4
+# P4 arm (C21) returned 501 on all six with withOutcome("unsupported_on_p4")
+
+== cells 1-6: the six endpoints on a switch that EXISTS (dpid 1) ==
+  install_group_entry    HTTP 200  body: {"outcome":"installed","status":"Group entry installed"}
+  modify_group_entry     HTTP 200  body: {"outcome":"modified","status":"Group entry modified"}
+  delete_group_entry     HTTP 200  body: {"outcome":"deleted","status":"Group entry deleted"}
+  install_meter_entry    HTTP 200  body: {"outcome":"installed","status":"Meter entry installed"}
+  modify_meter_entry     HTTP 200  body: {"outcome":"modified","status":"Meter entry modified"}
+  delete_meter_entry     HTTP 200  body: {"outcome":"deleted","status":"Meter entry deleted"}
+
+== cells 7-12: the 'already exists' arm -- install the SAME id twice ==
+  install_group_entry    first=200 second=409
+      first  body: {"outcome":"installed","status":"Group entry installed"}
+      second body: {"controller_status":409,"error":"group 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept","outcome":"no_change_group
+  install_meter_entry    first=200 second=409
+      first  body: {"outcome":"installed","status":"Meter entry installed"}
+      second body: {"controller_status":409,"error":"meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept","outcome":"no_change_meter
+
+== control: is the OVS switch actually capable of groups/meters? ask Ryu directly ==
+  Ryu /stats/groupfeatures/1 : 200
+  Ryu /stats/meterfeatures/1 : 200
+  group features body:
+{"1": [{"types": ["ALL", "SELECT", "INDIRECT", "FF"], "capabilities": ["SELECT_WEIGHT", "SELECT_LIVENESS", "CHAINING"], "max_groups": [{"ALL": 4294967040}, {"SELECT": 4294967040}, {"INDIRECT": 4294967040}, {"FF": 4294967040}], "actions": [{"ALL": ["OUTPUT", "SET_MPLS_TTL", "DEC_MPLS_TTL", "PUSH_VLAN
+
+== did the REJECTED requests still change state? (this codebase has a history of it) ==
+  groups on s1 via Ryu: {"1": [{"length": 56, "ref_count": 0, "packet_count": 0, "byte_count": 0, "duration_sec": 8, "duration_nsec": 102000000, "bucket_stats": [{"packet_count": 0, "byte_count": 0}], "group_id": 77}, {"leng
+  meters on s1 via Ryu: {"1": [{"len": 56, "flow_count": 0, "packet_in_count": 0, "byte_in_count": 0, "duration_sec": 1, "duration_nsec": 475000000, "band_stats": [{"packet_band_count": 0, "byte_band_count": 0}], "meter_id":

@@ -1,0 +1,172 @@
+{
+  "BrocadeICX7250": {
+    "groups": {
+      "types": [
+        "ALL",
+        "INDIRECT",
+        "FF"
+      ]
+    },
+    "meters": {
+      "bands": [
+        "DROP"
+      ],
+      "flags": [
+        "KBPS",
+        "BURST",
+        "STATS"
+      ],
+      "supported": true
+    },
+    "openflow_versions": [
+      "1.0",
+      "1.3"
+    ],
+    "tables": [
+      {
+        "actions": [
+          "OUTPUT",
+          "SET_FIELD",
+          "DROP",
+          "GROUP"
+        ],
+        "id": 0,
+        "instructions": [
+          "APPLY_ACTIONS",
+          "WRITE_ACTIONS",
+          "METER"
+        ],
+        "matches": [
+          "in_port",
+          "eth_src",
+          "eth_dst",
+          "eth_type",
+          "ipv4_dst"
+        ],
+        "max_entries": 3072
+      }
+    ]
+  },
+  "HPE5520": {
+    "groups": {
+      "types": [
+        "ALL",
+        "INDIRECT",
+        "FF"
+      ]
+    },
+    "meters": {
+      "bands": [
+        "DROP"
+      ],
+      "flags": [
+        "KBPS",
+        "BURST",
+        "STATS"
+      ],
+      "supported": true
+    },
+    "openflow_versions": [
+      "1.3"
+    ],
+    "tables": [
+      {
+        "actions": [
+          "OUTPUT",
+          "GROUP",
+          "DROP",
+          "SET_FIELD",
+          "SET_QUEUE"
+        ],
+        "id": 0,
+        "instructions": [
+          "APPLY_ACTIONS",
+          "WRITE_ACTIONS",
+          "METER"
+        ],
+        "matches": [
+          "in_port",
+          "eth_type",
+          "vlan_vid",
+          "ipv4_src",
+          "ipv4_dst",
+          "ip_proto",
+          "tcp_src",
+          "tcp_dst"
+        ],
+        "max_entries": 65535
+      }
+    ]
+  },
+  "OVS": {
+    "groups": {
+      "types": [
+        "ALL",
+        "SELECT",
+        "INDIRECT",
+        "FF"
+      ]
+    },
+    "meters": {
+      "bands": [
+        "DROP",
+        "DSCP_REMARK"
+      ],
+      "flags": [
+        "KBPS",
+        "BURST",
+        "STATS"
+      ],
+      "supported": true
+    },
+    "openflow_versions": [
+      "1.0",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5"
+    ],
+    "tables": [
+      {
+        "actions": [
+          "OUTPUT",
+          "GROUP",
+          "DROP",
+          "SET_QUEUE",
+          "PUSH_MPLS",
+          "PUSH_VLAN",
+          "POP_MPLS",
+          "POP_VLAN",
+          "SET_FIELD",
+          "DEC_NW_TTL",
+          "DEC_MPLS_TTL"
+        ],
+        "id": 0,
+        "instructions": [
+          "APPLY_ACTIONS",
+          "WRITE_ACTIONS",
+          "CLEAR_ACTIONS",
+          "GOTO_TABLE",
+          "WRITE_METADATA",
+          "METER"
+        ],
+        "matches": [
+          "in_port",
+          "eth_src",
+          "eth_dst",
+          "eth_type",
+          "vlan_vid",
+          "vlan_pcp",
+          "ipv4_src",
+          "ipv4_dst",
+          "ip_proto",
+          "tcp_src",
+          "tcp_dst",
+          "metadata"
+        ],
+        "max_entries": 1000000
+      }
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+#### Does delete_group_entry / delete_meter_entry actually delete? (200 'deleted' vs the switch's own view) ####
+# 2026-09-02T23:53:07+08:00; kernel ae8b752f...; fabric ovs4; independent channel = Ryu /stats/group|meter
+
+== state left by the X-10 matrix ==
+  groups on s1: [77, 88]
+  meters on s1: [88]
+
+== clean experiment: install group 555, confirm it exists, delete it, confirm again ==
+  install -> {"outcome":"installed","status":"Group entry installed"}
+  groups after install: [77, 88, 555]
+  delete  -> {"outcome":"deleted","status":"Group entry deleted"}
+  groups after delete : [77, 88, 555]
+  groups after +5s    : [77, 88, 555]
+
+== same for a meter ==
+  install -> {"outcome":"installed","status":"Meter entry installed"}
+  meters after install: [88, 555]
+  delete  -> {"outcome":"deleted","status":"Meter entry deleted"}
+  meters after delete : [88]
+  meters after +5s    : [88]
+
+== CONTROL: does the delete path work at all when driven directly at Ryu? ==
+  (if Ryu can delete it, the switch is capable and the gap is in the kernel's request)
+  Ryu DELETE group 77 -> 200
+  groups after Ryu delete: [88, 555]
+
+== kernel log: what did it say about these deletes? ==
+[2026-09-02 23:52:35.712] [info] [[94mHttpSession.cpp[0m:[95m1031[0m [96mhandleInstallMeterEntry[0m] Handle Install Meter Entry
+[2026-09-02 23:52:35.922] [warning] [[94mHttpRoutingStrategyBase.cpp[0m:[95m557[0m [96mguardedMod[0m] install meter entry refused: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+[2026-09-02 23:52:35.922] [warning] [[94mFlowRoutingManager.cpp[0m:[95m190[0m [96mdispatchByPayloadDpid[0m] install meter entry on dpid 1 failed: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+[2026-09-02 23:52:35.922] [warning] [[94mHttpSession.cpp[0m:[95m980[0m [96mrespondToOpResult[0m] Responding 409 for a failed southbound operation: meter 88 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept
+[2026-09-02 23:53:07.821] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/install_group_entry
+[2026-09-02 23:53:07.821] [info] [[94mHttpSession.cpp[0m:[95m989[0m [96mhandleInstallGroupEntry[0m] Handle Install Group Entry
+[2026-09-02 23:53:10.665] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/delete_group_entry
+[2026-09-02 23:53:10.665] [info] [[94mHttpSession.cpp[0m:[95m1003[0m [96mhandleDeleteGroupEntry[0m] Handle Delete Group Entry
+[2026-09-02 23:53:19.727] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/install_meter_entry
+[2026-09-02 23:53:19.727] [info] [[94mHttpSession.cpp[0m:[95m1031[0m [96mhandleInstallMeterEntry[0m] Handle Install Meter Entry
+[2026-09-02 23:53:23.579] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/delete_meter_entry
+[2026-09-02 23:53:23.579] [info] [[94mHttpSession.cpp[0m:[95m1045[0m [96mhandleDeleteMeterEntry[0m] Handle Delete Meter Entry
+
+== REPRODUCTION: three more group ids, same recipe ==
+  gid=601 install={"outcome":"installed","status":"Group entry installed"}
+        delete ={"outcome":"deleted","status":"Group entry deleted"}
+        after install: [88, 555, 601]
+        after delete : [88, 555, 601]   -> still present? 1 (1=yes, defect)
+  gid=602 install={"outcome":"installed","status":"Group entry installed"}
+        delete ={"outcome":"deleted","status":"Group entry deleted"}
+        after install: [88, 555, 601, 602]
+        after delete : [88, 555, 601, 602]   -> still present? 1 (1=yes, defect)
+  gid=603 install={"outcome":"installed","status":"Group entry installed"}
+        delete ={"outcome":"deleted","status":"Group entry deleted"}
+        after install: [88, 555, 601, 602, 603]
+        after delete : [88, 555, 601, 602, 603]   -> still present? 1 (1=yes, defect)
+
+== is the group merely MODIFIED rather than deleted? compare bucket contents ==
+   group_id=602   ref=0 buckets=[{'packet_count': 0, 'byte_count': 0}] duration_sec=8
+   group_id=555   ref=0 buckets=[{'packet_count': 0, 'byte_count': 0}] duration_sec=70
+   group_id=88    ref=0 buckets=[{'packet_count': 0, 'byte_count': 0}] duration_sec=104
+   group_id=601   ref=0 buckets=[{'packet_count': 0, 'byte_count': 0}] duration_sec=13
+   group_id=603   ref=0 buckets=[{'packet_count': 0, 'byte_count': 0}] duration_sec=4
+
+== group DESCRIPTIONS (what the buckets point at) ==
+{"1": [{"buckets": [{"weight": 0, "watch_port": 4294967295, "watch_group": 4294967295, "actions": ["OUTPUT:2"]}], "group_id": 602, "type": "ALL"}, {"buckets": [{"weight": 0, "watch_port": 4294967295, "watch_group": 4294967295, "actions": ["OUTPUT:2"]}], "group_id": 555, "type": "ALL"}, {"buckets": [{"weight": 0, "watch_port": 4294967295, "watch_group": 4294967295, "actions": ["OUTPUT:2"]}], "group_id": 88, "type": "ALL"}, {"buckets": [{"weight": 0, "watch_port": 4294967295, "watch_group": 429496
+
+== does the kernel log ANYTHING about a failed group delete? ==
+  matching lines: 6
+  handleDeleteGroupEntry invocations: 5
+  group-related warning|error lines: 3

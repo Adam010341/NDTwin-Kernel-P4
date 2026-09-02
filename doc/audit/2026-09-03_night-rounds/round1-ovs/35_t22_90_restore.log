@@ -1,0 +1,29 @@
+#### T-22: 90_restore.sh RE-RUN now that graph_energy_before.json exists (C41 aborted without it) ####
+# 2026-09-03T00:33:21+08:00; fabric ovs4 HEALTHY (energy powered 0 switches off)
+# The real question: 25_apps_energy.sh's own closing advice was 'Do NOT run ./90_restore.sh.
+#   There is nothing to restore, and its rebuild route would tear down a healthy fabric to
+#   fix nothing.' So this tests whether 90_restore RECOGNISES that, or blindly rebuilds.
+== fabric state BEFORE ==
+  edges: 40 is_up: {True: 40}
+  LISTEN 0      50           0.0.0.0:8080       0.0.0.0:*          
+  LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+== run ==
+RESTORE_RC=0
+
+===== 90_restore  (2026-09-02T16:33:21Z) =====
+      repo:      /home/adam/Desktop/NDTwin-Kernel
+      artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+      WRITTEN, NOT RUN by its author -- this is its first execution unless a prior RUN_TAG exists
+  PASS  pattern self-test: 11 pattern(s), each matched its sample and rejected its near-miss
+      pre-energy reference: 10/10 switches up, 40 edges, 0 down
+
+===== ROUTE 1 -- power the recorded switches back on =====
+      recorded as powered off: none
+  N/A   nothing was powered off, so there is nothing to restore
+
+===== 90_restore: 2 check(s), 0 FAIL =====
+artefacts: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z
+== fabric state AFTER ==
+  LISTEN 0      50           0.0.0.0:8080       0.0.0.0:*          
+  LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+  kernel HTTP 200

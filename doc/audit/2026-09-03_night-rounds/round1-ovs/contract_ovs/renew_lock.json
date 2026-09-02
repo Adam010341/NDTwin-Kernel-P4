@@ -1,0 +1,6 @@
+{
+  "lease": 1,
+  "status": "renewed",
+  "ttl": 5,
+  "type": "graph_lock"
+}

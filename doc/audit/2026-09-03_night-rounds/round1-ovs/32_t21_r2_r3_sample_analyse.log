@@ -1,0 +1,75 @@
+#### T-21: harness 30_r2_r3_sample.py + 35_r2_r3_analyse.py -- no run evidence on either plane ####
+# 2026-09-03T00:20:18+08:00; kernel ae8b752f...; fabric ovs4 (healthy: 10 sw up, 40 edges, 0 down)
+# DEVIATION: --seconds 240 instead of the 900 default, to fit the round. 0.5 s interval
+#   => ~480 samples, stated so nobody reads this as the full-length run.
+== sample ==
+SAMPLE_RC=0
+  sample 40  t+20s  flows=200 graph=200 paths=200
+  sample 60  t+30s  flows=200 graph=200 paths=200
+  sample 80  t+40s  flows=200 graph=200 paths=200
+  sample 100  t+50s  flows=200 graph=200 paths=200
+  sample 120  t+60s  flows=200 graph=200 paths=200
+  sample 140  t+70s  flows=200 graph=200 paths=200
+  sample 160  t+80s  flows=200 graph=200 paths=200
+  sample 180  t+90s  flows=200 graph=200 paths=200
+  sample 200  t+100s  flows=200 graph=200 paths=200
+  sample 220  t+110s  flows=200 graph=200 paths=200
+  sample 240  t+120s  flows=200 graph=200 paths=200
+  sample 260  t+130s  flows=200 graph=200 paths=200
+  sample 280  t+140s  flows=200 graph=200 paths=200
+  sample 300  t+150s  flows=200 graph=200 paths=200
+  sample 320  t+160s  flows=200 graph=200 paths=200
+  sample 340  t+170s  flows=200 graph=200 paths=200
+  sample 360  t+180s  flows=200 graph=200 paths=200
+  sample 380  t+190s  flows=200 graph=200 paths=200
+  sample 400  t+200s  flows=200 graph=200 paths=200
+  sample 420  t+210s  flows=200 graph=200 paths=200
+  sample 440  t+220s  flows=200 graph=200 paths=200
+  sample 460  t+230s  flows=200 graph=200 paths=200
+  sample 480  t+240s  flows=200 graph=200 paths=200
+wrote 480 samples to /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/r2_samples.jsonl.gz
+analyse with:  ./35_r2_r3_analyse.py --samples /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/r2_samples.jsonl.gz
+== artefacts written ==
+-rw-rw-r-- 1 adam adam   187 Sep  2 23:49 f5_ovs_samples.tsv
+-rw-rw-r-- 1 adam adam   933 Sep  3 00:20 r2_meta.json
+-rw-rw-r-- 1 adam adam 93416 Sep  3 00:24 r2_samples.jsonl.gz
+
+== analyse ==
+ANALYSE_RC=0
+============================================================================================
+R-2 analysis of /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round1-ovs/harness/round1ovs_20260902T154647Z/r2_samples.jsonl.gz
+  file mtime : 2026-09-02T16:24:18Z
+  records    : 480
+============================================================================================
+
+--- 1. SAMPLER HEALTH (read this before any result) ---
+  samples          : 480
+  overruns         : 0  (0.0%)
+  wall span        : 239.5 s
+  effective rate   : 2.004 Hz
+  flows   http={200: 480}  transport-errors={}
+  graph   http={200: 480}  transport-errors={}
+  paths   http={200: 480}  transport-errors={}
+
+--- 2. HOW OFTEN THE PATH A CONSUMER READS ACTUALLY CHANGES ---
+  JSON key(s) treated as the path field: NONE FOUND
+  🔴 No path-like key was found in any sample.  Either the endpoint returned no
+     flows (a quiet network -- check the graph channel and the traffic source),
+     or the schema differs from every name tried.  Open one raw body from the
+     sample file, find the real key, and put it in find_paths().  Do NOT report
+     'paths never changed' from this: an absent key is not a stable value.
+
+--- 3. WHAT A CONSUMER AT CADENCE C WOULD HAVE SEEN ---
+  cadence polls     changes    which app
+  1      s 239       0          viz / te      (NetworkTopologyApp.java:424 ; Traffic-engineering-App.py:41)
+  5      s 47        0          nsr           (recorder_setting.yaml:5)
+  15     s 15        0          PREREG §3 R-2 registered cadence -- NOT used by any app
+  60     s 3         0          energy        (Energy-Saving-App/include/app/settings.hpp:8)
+  NOTE: 15 s is the cadence PREREG §3 R-2 assumed.  No app uses it.  Both rows are
+  printed so the write-up can state the registered expectation and the measured
+  premise separately, rather than quietly substituting one for the other.
+
+--- VERDICT SCAFFOLD (fill in by hand; this script does not decide) ---
+  R-2 is: [ no consumer-visible difference / a difference, described / untestable ]
+  Supported by: change intervals in §2 at the cadences in §3, with §1 confirming the
+  sampler resolved them.  NOT supported: any statement about the recompute rate.

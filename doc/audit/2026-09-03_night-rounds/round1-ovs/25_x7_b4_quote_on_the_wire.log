@@ -1,0 +1,23 @@
+#### X-7 / B-4 closed: capture what the kernel ACTUALLY SENDS for a quote-bearing case ####
+# 2026-09-03T00:03:23+08:00; kernel ae8b752f...; a capture server stands in for the simulator on :9000
+[1]+  Done                    setsid python3 $S/round1/capture_sim.py $S/round1/captured.txt $S/round1/cap.pid < /dev/null > $S/round1/cap.log 2>&1
+  capture server pid=1093897 ; listener:
+LISTEN 0      5          127.0.0.1:9000       0.0.0.0:*    users:(("python3",pid=1093897,fd=3))      
+
+== POST the quote-bearing case ==
+  HTTP 202
+  kernel response: {"status":"{\"status\":\"accepted\"}"}
+
+== WHAT ARRIVED ON THE WIRE AT THE SIMULATOR ==
+=== PATH /submit ===
+=== RAW BODY (162 bytes) ===
+{"app_id": "round1-ovs", "simulator": "ns-3", "version": "3.40", "case_id": "case-it's-1", "inputfile": "/tmp/it's.xml", "description": "quote ' inside the text"}
+
+== does the wire body still contain the apostrophes, unmangled? ==
+  it's-1               present on the wire? 1
+  /tmp/it's.xml        present on the wire? 1
+  quote ' inside       present on the wire? 1
+
+== shut the capture server down by EXACT pid, then verify through a second channel ==
+  ps on pid 1093897: (gone)
+  ss on :9000     : (free)
