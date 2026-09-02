@@ -189,10 +189,20 @@ mutate "1. carry-forward disabled at the call site (back to erase)" \
 
 # 2. The table is carried but never marked: a stale answer served as though it were current.
 #    The other half of the dishonesty, and invisible to any test that only checks presence.
+#
+#    Set-then-erase rather than deleting the assignment. `staleSince` is a const local whose only
+#    read is this line, so removing it fails the build under -Werror=unused-variable (run 1,
+#    StaleTableCarryForward.hpp:226) and the mutation scored SURVIVED without ever running a test.
+#    Assigning and then erasing keeps a genuine read -- so neither -Wunused-variable nor
+#    -Wunused-but-set-variable fires, and `(void)staleSince` is avoided because GCC's treatment of
+#    a void cast as a "use" differs between those two warnings. What the consumer sees is
+#    identical: no stale_since on the carried entry. erase() with a const char* key is the same
+#    call PendingEntryFilter.hpp:86 already makes.
 mutate "2. stale_since is never set" \
     "$HDR" \
     '        entry[kStaleSinceField] = staleSince;' \
-    '        // MUTANT: stale_since not set' \
+    '        entry[kStaleSinceField] = staleSince;
+        entry.erase(kStaleSinceField); // MUTANT: stale_since never reaches the consumer' \
     'StaleTableCarryForward.TheCarriedTableSaysItIsStaleAndWhy'
 
 # 3. THE ONE THAT TURNS THIS FIX INTO F-4/F-16. isPollableForFlowTable stops excluding a switch
@@ -207,10 +217,16 @@ mutate "3. a down switch is polled, so it can enter the unread list" \
 
 # 4. stale_polls stops accumulating: a switch unreadable for an hour reports one poll of
 #    staleness, and any consumer thresholding on it never fires.
+#
+#    Assign the prior value instead of `+ 1`, rather than the literal 1. `priorPolls` is a const
+#    local read only on this line, so `= 1` fails under -Werror=unused-variable (run 1,
+#    StaleTableCarryForward.hpp:230). Assigning priorPolls keeps the read and is the more faithful
+#    mutation anyway: it is accumulation replaced by plain assignment, so the count sticks at 0
+#    forever rather than at 1.
 mutate "4. stale_polls never accumulates" \
     "$HDR" \
     '        entry[kStalePollsField] = priorPolls + 1;' \
-    '        entry[kStalePollsField] = 1;' \
+    '        entry[kStalePollsField] = priorPolls; // MUTANT: assigned, never accumulated' \
     'StaleTableCarryForward.StaleSinceNamesTheFirstFailedPollNotTheLatest'
 
 # 5. A switch that has never been read is omitted instead of listed -- F-6 half-fixed, which is
