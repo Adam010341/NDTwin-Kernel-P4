@@ -1,0 +1,99 @@
+#### teardown, verified through channels other than any tool's own claim ####
+2026-09-03T05:43:49+08:00
+-- pids captured before stopping (found with ps -eo pid=,comm=, never by pattern) --
+   1545 python3
+  78285 python3
+ 951310 python3
+ 959442 python3
+1444534 ndtwin_kernel
+1448013 python3
+kernel=1444534  fake_southbound=1448013
+-- SIGTERM to each exact pid --
+-- ps on the exact pids (0 lines each = gone) --
+  pid 1444534 -> 0 row(s)
+  pid 1448013 -> 0 row(s)
+  pid 1433351 -> 0 row(s)
+  pid 1433147 -> 0 row(s)
+-- ps -eo comm= census (never pkill/pgrep -f) --
+  ndtwin_kernel: 0
+  simple_switch_g: 0
+  ryu-manager: 0
+  java: 0
+  iperf3: 1
+  mnexec: 0
+-- mininet namespaces --
+3
+-- ports (>=3 s after the kernel pid disappeared; round 3 C2/C3 window is 2.0-2.2 s) --
+  :8000 STILL BOUND (1)
+  :6343 STILL BOUND (1)
+  (no lines above = all free)
+-- /proc/net/udp sockets on 6343 (hex 18C7) --
+1
+-- tc netem qdiscs --
+0,0,0,0,0,0,0,0,0,0
+-- free -m --
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7833        1451        1041        7570        7579
+
+-- follow-up: the two ports were the round-3 C2 orphan window; re-checked and now free --
+  (no lines above = all free)
+  /proc/net/udp sockets on 6343: 0
+-- the earlier 'mininet namespaces: 3' was my own grep matching itself; exact check: --
+0
+-- leftover root-owned iperf3 server from the rank-1 step (round 4's hazard, hit again) --
+  before: 1434669    2859 root     Thu Sep  3 04:57:32 2026 iperf3
+  ps on the exact pid after: 0 row(s)
+  iperf3 census: 0
+-- restore the ONE tracked file ndt up rewrote, by explicit single-file path --
+  host_count_override now: 128
+  git status for that path: []
+-- final census --
+  ndtwin_kernel: 0
+  simple_switch_g: 0
+  ryu-manager: 0
+  java: 0
+  iperf3: 0
+  mnexec: 0
+  ovs-vswitchd: 1
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7802        1482        1039        7568        7610
+-- ovs-vswitchd is the host daemon, not mine: this round never brought up an OVS fabric --
+     1279 Wed Sep  2 12:19:50 2026 ovs-vswitchd
+  bridges: 0
+-- lab claim (must still be auditor's) --
+lab
+  claim          yours -- 110m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           486ba279  +27 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+                 tools/test_workflow/supervise.sh
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+HEAD at round end: 486ba2795476cfe1554790ec050cce4959bcc169 Night rounds: the morning brief, the full findings table, and the briefs the rounds ran on
+ M doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf
+ M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf
+ M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png
+ M doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf
+ M doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log
+ M doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log
+ M doc/audit/2026-09-02_fix-design-campaign/LEDGER.md
+ M doc/audit/2026-09-02_fix-design-campaign/agents.tsv
+ M doc/audit/2026-09-02_fix-design-campaign/batch/agents.tsv
+ M tests/CMakeLists.txt
+ M tools/contract_test/check_logs.py
+ M tools/test_workflow/stack.sh

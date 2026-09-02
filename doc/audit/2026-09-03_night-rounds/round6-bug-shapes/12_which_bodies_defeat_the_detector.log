@@ -1,0 +1,18 @@
+#### STEP 12 -- which non-empty bodies defeat the partial-round detector? ####
+2026-09-03T05:38:58
+  links: 200 + a JSON object (not an array) partial: 3 -> 3  fired=False
+  links: 200 + non-JSON text               partial: 3 -> 3  fired=False
+
+=== the code fact behind it: the topology fetch keeps only the body ===
+580:TopologyAndFlowMonitor::noteAndAnnouncePollRound(const std::string& switchesBody,
+677:    // noteAndAnnouncePollRound for why all-or-nothing would make this bug worse rather than
+681:    noteAndAnnouncePollRound(switchesStr, hostsStr, linksStr);
+
+--- and the contrast inside the same binary: the flow-table fetch DOES branch on status ---
+373:    // The proxy could not be reached, or said something unparseable. This is the branch that must
+1147:                                   "{} sent an unparseable flow table for switch {} -- keeping the "
+
+=== did any OTHER warning fire during the 5xx arms? (fetch-failure counter) ===
+0
+16
+^ 'ignoring a links entry' lines -- the ONLY trace a 5xx /links leaves

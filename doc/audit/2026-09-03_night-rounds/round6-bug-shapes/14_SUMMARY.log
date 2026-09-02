@@ -1,0 +1,223 @@
+#### Round 6 (night) -- the bug-shape archaeology candidates. SUMMARY. ####
+[Co-developed with claude code -- Adam]
+(This round's SUMMARY/FINDINGS are .log files: the harness refused to write .md report files.)
+
+Binary of record: a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06
+  sha256sum build/bin/ndtwin_kernel at 04:55:41 (00_) and again at 05:58 (13_) -- it did not move.
+  Both running kernels verified independently: /proc/1433351/exe (fabric) and /proc/1444534/exe
+  (bare kernel on the stand-in southbound) hashed to the same value (02_, and step 09's header).
+Repo HEAD 486ba2795476cfe1554790ec050cce4959bcc169, unchanged start to end. Nothing built,
+nothing committed, nothing pushed. Claim `auditor` KEPT (110 min left at 05:58).
+
+Planes: (1) P4/bmv2 10 switches 4 hosts (`ndt up p4 4`) for ranks 1/3/5/7 and the rank-4 window;
+        (2) a bare kernel against a CONTROLLABLE SOUTHBOARD STAND-IN for ranks 8/2/10.
+Standing facts cited, not re-derived: per-flow rates lack a time denominator (COMMON-BRIEF s11);
+a flow under ~22 pps vanishes from the default window (round 4); a restart inside ~2.2 s of the
+kernel pid vanishing fails on an orphaned curl (round 3 C2/C3) -- hit again in 13_ and waited out.
+
+================================================================================
+A. VERDICT PER CANDIDATE (section B of the archaeology file, all ten)
+================================================================================
+rank 1  Elephant flag latching (immediate)     REFUTED          03_
+rank 2  Classifier per-switch epoch consistency REFUTED         09_
+rank 3  Flow-table cache after readopt          REFUTED         04_, 05_
+rank 4  Vertex flips in the liveness window     P4 ARM UNREACHABLE (own evidence); OVS ARM NOT-SETTLED  06_
+rank 5  install_group_entry 200 without state   REFUTED          06_
+rank 6  Meter modify targets the wrong entry    P4 ARM REFUTED (501); OVS ARM NOT-SETTLED   07_
+rank 7  Power-report cache after a power cycle  REFUTED as a cache defect; observable already owned by round 2 D14+B3   06_
+rank 8  Topology poll returns partial silently  *** CONFIRMED, and wider than stated ***   09_, 11_, 12_
+rank 9  delete_group_entry no verification      DUPLICATE of round 1 D5 -- not re-reported
+rank 10 Epoch not bumped on a silent failure    REFUTED as "silent" (2 of 3 shapes are marked);
+                                                one unmarked shape found -> N2 below            09_, 10_
+
+================================================================================
+B. NEW CONFIRMED DEFECTS
+================================================================================
+N1 (rank 8). THE PARTIAL-TOPOLOGY-ROUND DETECTOR CANNOT SEE AN ERROR RESPONSE. HIGH. 09_,11_,12_.
+  A-2 added `topology-round-partial` so a half-answered topology poll is announced. Its test is
+  `TopologyAndFlowMonitor.cpp:588-590`: switchesAnswered/hostsAnswered/linksAnswered are each
+  `!body.empty()`. The HTTP status line is never consulted -- `noteAndAnnouncePollRound` is handed
+  three std::strings (`:580`, called at `:681`) and nothing else.
+  Measured, each arm >= 3 poll intervals (30 s each once converged):
+      links    = HTTP 500 + JSON error body ....... partial did NOT fire (11_)
+      switches = HTTP 500 ......................... partial did NOT fire (11_)
+      hosts    = HTTP 500 ......................... partial did NOT fire (11_)
+      links    = 200 + a JSON object, not an array  partial did NOT fire (12_)
+      links    = 200 + non-JSON text .............. partial did NOT fire (12_)
+      switches = EMPTY 200 body (MUTATION GATE) ... partial FIRED, 2 -> 3       (11_)
+      links    = EMPTY 200 body (MUTATION GATE) ... partial FIRED, full text in 09_
+  So the detector fires only when the body is EMPTY (a timeout or a refused connection). Any
+  non-empty body -- which is what a 5xx from Ryu or the proxy actually looks like -- classifies
+  the round COMPLETE. Throughout the 5xx arms the graph held nodes 14/14 up, edges 40/40 up, and
+  /ndt/get_graph_data's top-level keys are exactly ["edges","nodes"]: no field anywhere says the
+  round was partial. The only trace a 5xx /links leaves is 16 WARN lines
+  "ignoring a links entry with no src/dst endpoint", and ZERO topology-fetch-failure warnings.
+  CONTRAST INSIDE THE SAME BINARY (this is the fix spec): the flow-table fetch DOES branch on the
+  outcome -- an HTTP 500 for one dpid is marked last_error=reported_failure and a non-JSON body is
+  marked last_error=unparseable (09_, 10_). The topology poll is the one that does not.
+  This closes round 1's X-1, which read "NOT OBSERVED -- the half-answer case was not constructed".
+  It is now constructed, both ways: the case A-2 was written for is caught, and the case an actual
+  failing controller produces is not.
+  Recipe: point the kernel at a southbound that answers 500 for /v1.0/topology/links; watch for
+  `topology-round-partial` in the kernel log for 100 s; then make the same endpoint return an
+  empty 200 body and watch the warning appear.
+
+N2 (from rank 10). THREE "UNREADABLE SWITCH" SHAPES, THREE BEHAVIOURS, ONLY TWO MARKED. MEDIUM.
+  09_, 10_ (reproduced 2/2). One rule withdrawn fabric-wide while three switches answer badly:
+      d1,d2,d7..d10  healthy 200 + array .......... swept to 3 rows.  No marks. CORRECT.
+      d4             200 + EMPTY array ............ swept to 0 rows.  No marks. CORRECT (A-2's fix).
+      d5             HTTP 500 .................... keeps the last good 4 rows, marked
+                                                   last_error=reported_failure, stale_polls 1->7.
+      d6             200 + non-JSON text ......... keeps the last good 4 rows, marked
+                                                   last_error=unparseable, stale_polls 1->7.
+      d3             200 + well-formed JSON whose per-dpid value is an OBJECT, not an array
+                     -> the API republishes the junk verbatim and carries NO marker at all:
+                        {"dpid": 3, "flows": {"3": {"unexpected": "object"}}}
+  So a consumer that does `flows["3"]` as a list gets a type error (or, if lenient, "zero rules"),
+  with nothing in the response to say the switch was not read. The two neighbouring shapes both
+  keep the last good snapshot and both say so. Recovery is fine: with the southbound healthy again
+  all ten converge to 3 rows within 15 s (09_ phase D).
+
+N3 (from rank 3). A DEAD SWITCH'S FLOW TABLE IS SERVED UNMARKED FOR THE FIRST ~10-12 s. MEDIUM. 05_.
+  s6 killed out of band (`sudo -n ndtwin-p4-power off s6`; ps on the exact pid = gone, :30056
+  closed). /ndt/get_switch_openflow_table_entries went on serving its 7 rows with meta exactly
+  {"dpid": 6} at +2 s and +6 s -- no stale_since, no stale_polls, no last_error -- and only at
+  +12 s, after the first failed poll, did the markers appear. "The switch said this" and "we have
+  not asked since it died" are indistinguishable inside that window. After it, the marking is
+  correct and the cache self-corrects (0 rows at readopt+5 s, back to 4 at +25 s).
+
+N4 (from rank 3). RULES AN OPERATOR INSTALLED ARE LOST BY A POWER CYCLE AND NEVER RESTORED, WHILE
+  THE DISPATCH RECORD STILL SAYS THEY SUCCEEDED. MEDIUM. 05_.
+  Three rules installed on s6 (present in BOTH channels: kernel cache and the proxy's P4Runtime
+  read, 7 rows each). Power-cycle + readopt: readopt answers `routes_installed: 0`, the link
+  watchdog restores the FOUR boot routes at +12 s, and 10.0.0.231/232/233 are gone from both
+  channels permanently. /ndt/get_flow_dispatch_status still counts them succeeded. Nothing warns.
+  May be intended (a bmv2 restart loses everything) -- but the twin's own success record does not
+  expire with it, so from outside the operator cannot tell.
+
+N5 (from rank 1). THE ELEPHANT-FLOW CLASSIFICATION IS WRITE-ONLY. LOW. 03_.
+  isElephantFlowPeriodically / isElephantFlowImmediately are declared once
+  (include/common_types/SFlowType.hpp:665-666), assigned at six sites in FlowLinkUsageCollector.cpp
+  (:2004 :2022 :2026 :2243 :2251 :2255) and READ AT NO SITE in src/ include/ tools/ tests/ p4_proxy/.
+  They appear in none of the 15 keys /ndt/get_detected_top_k_flow_data ever returned across 76
+  polls. Consequence for triage: COMMON-BRIEF s11's worry that the no-denominator bias "feeds
+  top-k ordering AND elephant-flow classification" is half true. It feeds the ordering (the sort
+  key at FlowLinkUsageCollector.cpp:2530 is estimated_packet_rate_in_the_proceeding_1sec_timeslot).
+  It feeds no elephant decision, because nothing reads the flag.
+
+================================================================================
+C. REFUTED -- doors taken off the list (worth as much)
+================================================================================
+rank 1. The archaeology said the "Immediately" variant at :2020-2027 might be the unfixed twin of
+  the fixed one. It is the other way round: :2020-2027 IS the fixed Periodically variant, and the
+  Immediately variant at :2243-2255 has BOTH guards -- the `!hasActiveHops` clear and the `else
+  ... = false`. Live: 10 s of 50 Mbit/s UDP (5x the 10 Mbit/s MICE_FLOW_UNDER_THRESHOLD,
+  TopologyAndFlowMonitor.hpp:30), then 28 s idle, polled at 2 Hz. Rate fields fell to 0 within
+  ~1.5 s of the flow stopping and the row walked active -> idle (t+13) -> ended (t+25) -> gone
+  (t+25.7). A-3's fix is good live. And the stated observable cannot exist at all -- see N5.
+
+rank 2. Per-switch epoch consistency is correct. In 09_ phase C the six healthy switches were swept
+  to the new 3-rule snapshot in the same rounds in which the three failing ones kept their old 4,
+  and the empty-array switch was swept to 0. No cross-contamination in either direction; the
+  concern that "only the empty-array switch gets swept while rules from another switch survive"
+  is exactly what the code does on purpose, per switch, and it recovers within 15 s.
+
+rank 3. `m_cachedOpenFlowTables` is refreshed by a ~10 s worker and self-corrects; it is not
+  "written once in applyFetchedTables". Two directions measured (05_): stale-high for <=12 s
+  after a switch dies, stale-low for ~13 s after readopt empties it. And `POST /p4/readopt/{dpid}`
+  cannot even be used as the archaeology's trigger on a live adopted switch: it answers
+  502 {"step":"mastership", "...The switch was not touched."} (04_).
+
+rank 4. On the P4 plane the window does not exist. The code at
+  DeviceConfigurationAndPowerManager.cpp:730-745 is the BMV2 branch (not, as the archaeology says,
+  an OvsLiveness worker -- OvsLiveness is the enum type), and it runs only if fetchP4SwitchState
+  succeeded. Own evidence, third independent confirmation of round 2 D15 / round 3 lead C:
+  0 `GET /p4/switch_state` requests in 1929 proxy log lines, against 108 `/v1.0/topology` polls,
+  and 0 `cannot read bmv2 liveness` warnings in kernel.log -- so it never tried and never failed.
+  p4LivenessFor always receives nullopt, the switch(){} is never entered, and there is no
+  probe-to-setVertexUp window to lose. The OVS branch is different code and remains untested.
+
+rank 5. Live on P4: install_group_entry, modify_group_entry and delete_group_entry all answer
+  HTTP 501 with a precise body and outcome "unsupported_on_p4" (06_). The OpResult-discarded
+  pattern the archaeology cites was already fixed (HttpSession.cpp:996 now passes the OpResult to
+  respondToOpResult). Distinct from round 1's D5, which is the OVS delete path.
+
+rank 6. P4 arm refuted the same way: install/modify/delete_meter_entry all 501 (07_). The claim
+  lives in HttpRoutingStrategyBase (the OVS/HTTP path) and is NOT-SETTLED -- see D.
+
+rank 7. Refuted as a cache defect and attributed instead. /ndt/get_power_report returned dpid 8 =
+  147622 mW unchanged 3/12/25/45 s after s8's process was provably gone (ps on the exact pid 0
+  rows, :30058 closed). But the value never depended on state in the first place: round 2 D14
+  showed it is splitmix64 of the dpid. The stale number is D14, and "a dead switch still reads ON"
+  is round 2 B2/B3. There is no separate cache bug here. (cpu/memory both return the F-1 sentinel
+  -1 for all ten; power still has no sentinel and no `source` field -- also D14.)
+
+rank 9. Same defect as round 1 D5. Not re-run, not re-reported.
+
+Instruments that had to be proved before they were believed:
+ - The partial-round detector was made to go RED before "it did not fire" was written down (11_,
+   09_): the empty-body arm produced the full WARN, quoted in 09_.
+ - My first three installs in 04_ silently did nothing: HTTP 200 `accepted:1`, switch unchanged.
+   /ndt/get_flow_dispatch_status named the reason exactly (`ipv4_dst "10.0.0.231/32" ... not an
+   IPv4 address in dotted-quad form`, controller_status 400, per entry). My body shape was wrong,
+   not the kernel; re-run correctly in 05_. Round 2's refutation of "a rejected request may still
+   have had an effect" holds -- the dispatch status kept the promise the 200 made.
+ - 09_ phase B2's first run died on my own bug (I fetched the link list while the endpoint was
+   still set to HTTP 500). Recorded, re-run in 09_ proper.
+ - 13_'s first port check found :8000 and :6343 still bound 4 s after the kernel pid was gone --
+   round 3's C2 window, wider here; re-checked and both free, /proc/net/udp count 0.
+
+================================================================================
+D. NOT DONE, AND WHY
+================================================================================
+rank 6 OVS arm | Needs an OVS fabric. `modifyAnEntry` extracts a priority (HttpRoutingStrategyBase
+                 .cpp:295-300) that cannot identify a meter, and only the OVS/HTTP path reaches it.
+                 The experiment is: install meter 88, then POST modify_meter_entry for meter_id 88
+                 with a priority no meter was created with, and read the meter back from Ryu's own
+                 /stats/meterconfig (never the API that wrote it). Round 1 proved that read-back
+                 channel works (D5's positive control). Round 5's R1 predicts "accepted, logged,
+                 ignored"; nobody has run it. ~20 min on an ovs4 fabric.
+rank 4 OVS arm | Same fabric, and it is a race: it needs power churn plus load, and round 2 D17
+                 already measured the analogous poll-vs-command race on P4 at 8/14. Lower value
+                 than rank 6 for the same bring-up cost.
+Both were dropped because an ovs4 bring-up plus teardown would not have left time to verify the
+lab clean before the deadline, and round 1 measured that bring-up at tens of minutes.
+
+================================================================================
+E. FOR A HUMAN TO DECIDE
+================================================================================
+1. N1 is the one to fix, and it is small: `noteAndAnnouncePollRound` needs the fetch OUTCOME, not
+   the body string. The same binary already does it correctly one module over
+   (last_error=reported_failure / unparseable on the flow-table fetch); copying that distinction
+   into the topology poll is the whole change. Until then, `topology-round-partial` detects a
+   timeout and nothing else, and every "the twin agrees with the fabric" check that relies on it
+   is blind to a controller that answers 500.
+2. N2: pick one behaviour for "the switch was not read". Today an HTTP error and a non-JSON body
+   both keep the last snapshot and say so; a well-formed body of the wrong TYPE is republished raw
+   with no marker. The last one is the only one an API consumer cannot defend against.
+3. N5: either read the elephant flags or delete them. They have been computed every second, in two
+   variants, through at least three bug reports about their clearing semantics, and nothing has
+   ever consumed them.
+4. N4: decide whether the twin should reconcile operator-installed rules after a power cycle, or
+   whether /ndt/get_flow_dispatch_status should stop implying they still exist.
+
+================================================================================
+F. LAB STATE AT END OF ROUND (13_)
+================================================================================
+Verified through channels other than any tool's own claim. Every pid captured before stopping
+(kernel 1433351 and proxy 1433147 from the fabric; kernel 1444534 and the stand-in 1448013) is
+gone by `ps` on the exact pid. `ps -eo comm=` census (never pkill/pgrep -f): 0 ndtwin_kernel,
+0 simple_switch_g, 0 ryu-manager, 0 java, 0 iperf3, 0 mnexec. 0 mininet-tagged processes (the
+first check said 3 and that was my own grep matching itself; corrected in place). All of
+8000/8080/8081/9000/6653/6633/6343/30050-30060/5201 free, and 0 sockets on 6343 in /proc/net/udp.
+0 netem qdiscs. ovs-vswitchd is the host daemon and 0 bridges exist; this round never brought up
+an OVS fabric. 7.6 GB available; the 3 GB floor was never approached.
+A root-owned iperf3 server left in h2 by the rank-1 step outlived its namespace (round 4's
+recorded hazard, hit again); stopped by exact pid through the allowed path
+`sudo -n mnexec -a 1 kill -KILL 1434669`, then verified gone by `ps` on that pid.
+TRACKED FILES: exactly one changed, and not by hand -- `ndt up p4 4` rewrote
+p4_proxy/mininet/host_count_override 128 -> 4. Restored to 128 by explicit single-file path
+(`git checkout -- p4_proxy/mininet/host_count_override`), never a directory pathspec; git status
+for that path is empty. Every other modified file in git status belongs to another session.
+This round's own files are all untracked, under doc/audit/2026-09-03_night-rounds/round6-bug-shapes/.
+Nothing committed, nothing pushed. Claim `auditor` KEPT.

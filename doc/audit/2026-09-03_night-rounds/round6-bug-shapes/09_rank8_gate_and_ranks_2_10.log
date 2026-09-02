@@ -1,0 +1,42 @@
+#### STEP 09 -- rank 8 mutation gate, rank 8b link omission, ranks 2+10 per-switch flow query ####
+2026-09-03T05:15:57
+partial-round lines at start: 1
+
+=== B1b MUTATION GATE for rank 8: /links returns an EMPTY 200 body (a wedged curl looks like this) ===
+    if the partial-round warning cannot fire here, the '0 lines' under HTTP 500 proves nothing.
+  + 35s partial-lines=2  graph up/en=40/40
+  + 70s partial-lines=2  graph up/en=40/40
+  +100s partial-lines=2  graph up/en=40/40
+  --- the warning text, if any ---
+[2026-09-03 05:15:23.945] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m610[0m [96mnoteAndAnnouncePollRound[0m] topology-round-partial: hosts, links answered and switches did not, and the half that answered was applied anyway. The graph now mixes this poll's hosts, links with whatever switches was last seen at, and nothing downstream can tell those two ages apart. Applying the half is deliberate -- dropping it would be the pessimistic direction, which is the direction of this bug -- so the thing to fix is switches. Logged once per episode, not once per poll.
+[2026-09-03 05:16:25.234] [warning] [[94mTopologyAndFlowMonitor.cpp[0m:[95m610[0m [96mnoteAndAnnouncePollRound[0m] topology-round-partial: switches, hosts answered and links did not, and the half that answered was applied anyway. The graph now mixes this poll's switches, hosts with whatever links was last seen at, and nothing downstream can tell those two ages apart. Applying the half is deliberate -- dropping it would be the pessimistic direction, which is the direction of this bug -- so the thing to fix is links. Logged once per episode, not once per poll.
+
+
+=== B1c: back to a healthy /links, then /links = HTTP 500 with a JSON error body ===
+  healthy again; partial-lines=2
+  + 35s partial-lines=2 (base 2)  graph up/en=40/40
+  + 70s partial-lines=2 (base 2)  graph up/en=40/40
+  +100s partial-lines=2 (base 2)  graph up/en=40/40
+
+=== B2 (rank 8b): /links answers 200 and simply OMITS 8 link directions ===
+  omitted (src_dpid,src_port): [(1, 1), (5, 1), (1, 2), (6, 1), (5, 3), (9, 1), (6, 3), (9, 2)]
+  + 35s up=40 en=40 ; omitted edges (is_up,is_enabled)=[(True, True), (True, True), (True, True), (True, True), (True, True), (True, True), (True, True), (True, True)]
+  + 70s up=40 en=40 ; omitted edges (is_up,is_enabled)=[(True, True), (True, True), (True, True), (True, True), (True, True), (True, True), (True, True), (True, True)]
+
+=== C (ranks 2 + 10): withdraw 10.0.0.4 fabric-wide; d3 malformed, d4 empty, d5 HTTP 500, d6 garbage ===
+  + 15s d1=3 d2=3 d3=-1 d4=0 d5=4[reported_failure,1,1788384070] d6=4[unparseable,1,1788384070] d7=3 d8=3 d9=3 d10=3
+  + 30s d1=3 d2=3 d3=-1 d4=0 d5=4[reported_failure,2,1788384070] d6=4[unparseable,2,1788384070] d7=3 d8=3 d9=3 d10=3
+  + 50s d1=3 d2=3 d3=-1 d4=0 d5=4[reported_failure,4,1788384070] d6=4[unparseable,4,1788384070] d7=3 d8=3 d9=3 d10=3
+  + 80s d1=3 d2=3 d3=-1 d4=0 d5=4[reported_failure,7,1788384070] d6=4[unparseable,7,1788384070] d7=3 d8=3 d9=3 d10=3
+    d1  n=3 dsts=['10.0.0.1', '10.0.0.2', '10.0.0.3'] marks={}
+    d3  n=-1 dsts=None marks={}
+    d4  n=0 dsts=[] marks={}
+    d5  n=4 dsts=['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4'] marks={'last_error': 'reported_failure', 'stale_polls': 7, 'stale_since': 1788384070}
+    d6  n=4 dsts=['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4'] marks={'last_error': 'unparseable', 'stale_polls': 7, 'stale_since': 1788384070}
+
+=== D: everything healthy again (still 3 rules) -- does a skipped switch recover? ===
+  + 15s d1=3 d2=3 d3=3 d4=3 d5=3 d6=3 d7=3 d8=3 d9=3 d10=3
+  + 35s d1=3 d2=3 d3=3 d4=3 d5=3 d6=3 d7=3 d8=3 d9=3 d10=3
+  + 60s d1=3 d2=3 d3=3 d4=3 d5=3 d6=3 d7=3 d8=3 d9=3 d10=3
+
+final partial-round line count: 2

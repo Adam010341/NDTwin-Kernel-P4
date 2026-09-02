@@ -1,0 +1,12 @@
+#### STEP 11 -- does the partial-round detector see an HTTP 5xx on ANY of the three roles? ####
+# the detector's test is `!body.empty()` (TopologyAndFlowMonitor.cpp:588-590), which never
+# looks at the status line. Each arm runs >=3 poll intervals (30s each once converged).
+2026-09-03T05:29:12
+  links = HTTP 500 (json error body) partial: 2 -> 2  (fired=False)   nodes=14 nodes_up=14 edges=40 edges_up=40
+  switches = HTTP 500                partial: 2 -> 2  (fired=False)   nodes=14 nodes_up=14 edges=40 edges_up=40
+  hosts = HTTP 500                   partial: 2 -> 2  (fired=False)   nodes=14 nodes_up=14 edges=40 edges_up=40
+  switches = EMPTY 200 body (control) partial: 2 -> 3  (fired=True)   nodes=14 nodes_up=14 edges=40 edges_up=40
+
+# contrast, same binary, same round: the FLOW-TABLE fetch does check the status --
+# step 09/10 showed dpid5 (HTTP 500) marked last_error=reported_failure and dpid6
+# (non-JSON body) marked last_error=unparseable.

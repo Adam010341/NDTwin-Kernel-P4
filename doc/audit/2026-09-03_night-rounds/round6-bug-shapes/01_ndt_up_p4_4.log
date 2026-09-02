@@ -1,0 +1,31 @@
+#### bring up the P4/bmv2 fabric (10 switches, 4 hosts) that ranks 1,3,5,7 need ####
+2026-09-03T04:55:52+08:00
+UP_RC=0 (setsid's rc -- not ndt's; see round 2 lesson)
+2026-09-03T04:55:52+08:00
+  !!  host_count_override: 128 -> 4 (persistent; affects every later run)
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+[1/3] bmv2 fabric
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 4s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 1433143) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        waiting for link discovery: want 12 destination paths
+          paths=0              paths=12                                                        converged after 5s
+        started kernel (pid 1433347) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 12/12 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo

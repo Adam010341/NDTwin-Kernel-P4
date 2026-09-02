@@ -1,0 +1,54 @@
+#### RANK 3 -- how long does the kernel serve flow-table rows a switch no longer has? ####
+# kernel channel : GET /ndt/get_switch_openflow_table_entries (m_cachedOpenFlowTables)
+# truth  channel : GET :8081/stats/flow/6 (P4Runtime read, different process)
+2026-09-03T05:02:00
+A. baseline                kernel_rows=4   switch_rows=4   AGREE=True  meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+   install 10.0.0.231 -> HTTP 200
+   install 10.0.0.232 -> HTTP 200
+   install 10.0.0.233 -> HTTP 200
+B. installs +2s            kernel_rows=7   switch_rows=7   AGREE=True  meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}", "{'eth_type': 2048, 'ipv4_dst': '10.0.0.231'}", "{'eth_type': 2048, 'ipv4_dst': '10.0.0.232'}", "{'eth_type': 2048, 'ipv4_dst': '10.0.0.233'}"]
+        switch: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.231', 'dl_type': 2048}", "{'nw_dst': '10.0.0.232', 'dl_type': 2048}", "{'nw_dst': '10.0.0.233', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+C. installs +15s (cache worker ~10s) kernel_rows=7   switch_rows=7   AGREE=True  meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.231', 'dl_type': 2048}", "{'nw_dst': '10.0.0.232', 'dl_type': 2048}", "{'nw_dst': '10.0.0.233', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+>>> out-of-band: sudo -n ndtwin-p4-power off s6  (no kernel command involved)
+{"status": "stopped", "name": "s6", "pid": 1432777}
+D. powered off +2s         kernel_rows=7   switch_rows=-1  AGREE=False meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ERR (503, '{"error":"reading tables from switch 6 failed: DEADLINE_EXCEEDED"}')
+D. powered off +6s         kernel_rows=7   switch_rows=-1  AGREE=False meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ERR (503, '{"error":"reading tables from switch 6 failed: DEADLINE_EXCEEDED"}')
+D. powered off +12s        kernel_rows=7   switch_rows=-1  AGREE=False meta={'dpid': 6, 'last_error': 'reported_failure', 'stale_polls': 1, 'stale_since': 1788382935}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ERR (503, '{"error":"reading tables from switch 6 failed: DEADLINE_EXCEEDED"}')
+D. powered off +20s        kernel_rows=7   switch_rows=-1  AGREE=False meta={'dpid': 6, 'last_error': 'reported_failure', 'stale_polls': 1, 'stale_since': 1788382935}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ERR (503, '{"error":"reading tables from switch 6 failed: UNAVAILABLE"}')
+D. powered off +35s        kernel_rows=7   switch_rows=-1  AGREE=False meta={'dpid': 6, 'last_error': 'reported_failure', 'stale_polls': 3, 'stale_since': 1788382935}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ERR (503, '{"error":"reading tables from switch 6 failed: UNAVAILABLE"}')
+D. powered off +50s        kernel_rows=7   switch_rows=-1  AGREE=False meta={'dpid': 6, 'last_error': 'reported_failure', 'stale_polls': 4, 'stale_since': 1788382935}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ERR (503, '{"error":"reading tables from switch 6 failed: UNAVAILABLE"}')
+>>> out-of-band: sudo -n ndtwin-p4-power on s6, then POST :8081/p4/readopt/6
+{"status": "started", "name": "s6", "pid": 1438702}
+>>> readopt -> HTTP 200 {"status": "success", "dpid": 6, "clone_session": true, "routes_installed": 0, "routes_attempted": 0, "routes_pending": true, "note": "adopted, but no route was installable yet: this switch's links ar
+E. readopt +1s             kernel_rows=7   switch_rows=0   AGREE=False meta={'dpid': 6, 'last_error': 'reported_failure', 'stale_polls': 4, 'stale_since': 1788382935}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.231'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.232'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.233'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: []
+E. readopt +5s             kernel_rows=0   switch_rows=0   AGREE=True  meta={'dpid': 6}
+        kernel: []
+        switch: []
+E. readopt +12s            kernel_rows=0   switch_rows=4   AGREE=False meta={'dpid': 6}
+        kernel: []
+        switch: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+E. readopt +25s            kernel_rows=4   switch_rows=4   AGREE=True  meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+E. readopt +40s            kernel_rows=4   switch_rows=4   AGREE=True  meta={'dpid': 6}
+        kernel: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+        switch: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]

@@ -1,0 +1,38 @@
+#### RANK 3 -- is m_cachedOpenFlowTables invalidated after POST /p4/readopt/{dpid}? ####
+# kernel channel: GET /ndt/get_switch_openflow_table_entries (reads m_cachedOpenFlowTables)
+# ground-truth channel: GET :8081/stats/flow/1 (P4Runtime read_table_entries, a different process)
+2026-09-03T05:00:01
+A. baseline                  kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+   install 10.0.0.231 -> HTTP 200 {"accepted": 1, "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log and, sinc
+   install 10.0.0.232 -> HTTP 200 {"accepted": 1, "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log and, sinc
+   install 10.0.0.233 -> HTTP 200 {"accepted": 1, "detail": "entries accepted for programming; per-entry outcomes are reported in the kernel log and, sinc
+B. after 3 installs          kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+C. +12s (cache worker is ~10s) kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+>>> POST :8081/p4/readopt/1 -> HTTP 502 "{\"detail\":{\"status\":\"failed\",\"step\":\"mastership\",\"error\":\"arbitration was not granted within the settle window; the old client (or another controller) likely still holds mastership. The switch was not touched.\"}}"   (1.01s)
+D. readopt +1.0s             kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+D. readopt +2.0s             kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+D. readopt +5.0s             kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+D. readopt +10.0s            kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+D. readopt +15.0s            kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+D. readopt +25.1s            kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]
+D. readopt +40.1s            kernel_rows=4   switch_rows=4    AGREE=True
+      kernel matches: ["{'dl_type': 2048, 'nw_dst': '10.0.0.1'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.2'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.3'}", "{'dl_type': 2048, 'nw_dst': '10.0.0.4'}"]
+      switch matches: ["{'nw_dst': '10.0.0.1', 'dl_type': 2048}", "{'nw_dst': '10.0.0.2', 'dl_type': 2048}", "{'nw_dst': '10.0.0.3', 'dl_type': 2048}", "{'nw_dst': '10.0.0.4', 'dl_type': 2048}"]

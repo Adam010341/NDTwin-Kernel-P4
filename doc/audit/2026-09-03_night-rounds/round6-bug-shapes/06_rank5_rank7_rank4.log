@@ -1,0 +1,94 @@
+#### RANK 5 (group entry on P4), RANK 7 (power-report cache across a power cycle), RANK 4 (liveness window) ####
+2026-09-03T05:05:50+08:00
+
+=== RANK 5 -- POST /ndt/install_group_entry on the P4 plane ===
+install_group_entry    HTTP 501  {"controller_status":501,"error":"group entry install is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 wen
+modify_group_entry     HTTP 501  {"controller_status":501,"error":"group entry modify is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went
+delete_group_entry     HTTP 501  {"controller_status":501,"error":"group entry delete is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went
+-- P4RoutingStrategy refusal sites (why): --
+/// Shared explanation, so all six refusals say the same thing for the same reason.
+OpResult
+refuse(const char* what)
+{
+    return OpResult::unsupported(
+        std::string(what) + " is not supported on a P4/bmv2 data plane: OpenFlow groups and "
+        "meters have no direct equivalent, the P4 proxy agent implements no such route, and "
+        "the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a "
+        "nonexistent proxy route and the 404 went unnoticed.")
+        // [Co-developed with claude code -- Adam] F-13: the six /ndt/ endpoints now name what
+        // happened in the body as well as in the status line, and "the data plane cannot express
+        // this at all" is a different answer from "the entry is not there".
+        .withOutcome("unsupported_on_p4");
+}
+
+} // namespace
+
+OpResult P4RoutingStrategy::installAGroupEntry(const json&) { return refuse("group entry install"); }
+OpResult P4RoutingStrategy::deleteAGroupEntry(const json&)  { return refuse("group entry delete"); }
+OpResult P4RoutingStrategy::modifyAGroupEntry(const json&)  { return refuse("group entry modify"); }
+
+
+=== RANK 7 -- power/cpu report vs a real power cycle ===
+-- BEFORE (all 10 dpids) --
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+-- cpu/memory/temperature before --
+{"192.168.123.11":-1,"192.168.123.12":-1,"192.168.123.13":-1,"192.168.123.14":-1,"192.168.123.15":-1,"192.168.123.16":-1,"192.168.123.17":-1,"192.168.123.18":-1,"192.168.123.19":-1,"192.168.123.20":-1}
+{"192.168.123.11":-1,"192.168.123.12":-1,"192.168.123.13":-1,"192.168.123.14":-1,"192.168.123.15":-1,"192.168.123.16":-1,"192.168.123.17":-1,"192.168.123.18":-1,"192.168.123.19":-1,"192.168.123.20":-1}
+-- power OFF s8 out of band (no kernel command) --
+{"status": "stopped", "name": "s8", "pid": 1432779}
+-- +3s (cumulative) power report --
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+   switches_power_state: {"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+   ss :30058 -> 0  ps pid 1432779 -> 0
+-- +12s (cumulative) power report --
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+   switches_power_state: {"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+   ss :30058 -> 0  ps pid 1432779 -> 0
+-- +25s (cumulative) power report --
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+   switches_power_state: {"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+   ss :30058 -> 0  ps pid 1432779 -> 0
+-- +45s (cumulative) power report --
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+   switches_power_state: {"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+   ss :30058 -> 0  ps pid 1432779 -> 0
+-- power s8 back ON + readopt --
+{"status": "started", "name": "s8", "pid": 1441834}
+{"status":"success","dpid":8,"clone_session":true,"routes_installed":0,"routes_attempted":0,"routes_pending":true,"note":"adopted, but no route was installable yet: this switch's links are still down, so no path crosses it. The link watchdog installs them when the beacons resume."}
+
+=== RANK 4 -- is the liveness probe window ever entered on P4? ===
+GET /p4/switch_state requests in this fabric's proxy access log:
+0
+  (control: /v1.0/topology polls in the same log)
+108
+  (control: total lines)
+1929
+'cannot read bmv2 liveness' warnings in kernel.log:
+0
+-- the code window under test, DeviceConfigurationAndPowerManager.cpp:725-750 --
+                    // was the more prominent, telling a reader to go and implement
+                    // something already finished. Deleted rather than corrected, because
+                    // the branch below documents what it does. Found by a review of this
+                    // change; see doc/audit/2026-08-08_commit-review/power.md H2.
+                    if (graph[v].switchKind == SwitchKind::BMV2)
+                    {
+                        // [Co-developed with claude code -- Adam]
+                        // Was an unconditional setVertexUp with no evidence at all, so a switch
+                        // that had been killed reported healthy again within one second. Now keyed
+                        // on what the proxy actually observed: a round-tripped P4Runtime RPC, and
+                        // LLDP freshness as corroboration. See p4LivenessFor for the policy.
+                        switch (p4LivenessFor(graph[v].dpid, p4SwitchState))
+                        {
+                        case OvsLiveness::Up:
+                            SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
+                            m_topologyAndFlowMonitor->setVertexUp(v);
+                            break;
+                        case OvsLiveness::Down:
+                            SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} unreachable", swName);
+                            m_topologyAndFlowMonitor->setVertexDown(v);
+                            break;
+                        case OvsLiveness::Unknown:
+                            // Same rule as the OVS branch: cannot tell, so do not touch the graph.
+                            // The fetch failure is logged once by fetchP4SwitchState, not per
+                            // switch -- ten identical warnings per second is how the last log
+                            // flood happened.

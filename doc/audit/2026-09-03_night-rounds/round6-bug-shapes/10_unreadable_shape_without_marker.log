@@ -1,0 +1,18 @@
+#### STEP 10 -- the one unreadable shape that carries NO staleness marker ####
+2026-09-03T05:24:16
+
+---- trial 1 ----
+  healthy baseline d3: n=4
+  d1   {"dpid": 1, "flows": {"1": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 80, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 1, "table_id": 0}, {"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "id
+  d3   {"dpid": 3, "flows": {"3": {"unexpected": "object"}}}
+  d5   {"dpid": 5, "flows": {"5": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 80, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 1, "table_id": 0}, {"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "id
+  d6   {"dpid": 6, "flows": {"6": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 80, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 1, "table_id": 0}, {"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "id
+  ---- what a consumer sees for d3's 'flows' value: dict
+
+---- trial 2 ----
+  healthy baseline d3: n=4
+  d1   {"dpid": 1, "flows": {"1": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 80, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 1, "table_id": 0}, {"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "id
+  d3   {"dpid": 3, "flows": {"3": {"unexpected": "object"}}}
+  d5   {"dpid": 5, "flows": {"5": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 80, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 1, "table_id": 0}, {"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "id
+  d6   {"dpid": 6, "flows": {"6": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 80, "match": {"dl_type": 2048, "nw_dst": "10.0.0.1"}, "packet_count": 0, "priority": 1, "table_id": 0}, {"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 100, "flags": 0, "hard_timeout": 0, "id
+  ---- what a consumer sees for d3's 'flows' value: dict

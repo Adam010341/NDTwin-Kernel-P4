@@ -1,0 +1,25 @@
+#### Round 6 findings table -- FINAL (see 14_SUMMARY.log for the recipes and the reasoning) ####
+[Co-developed with claude code -- Adam]
+
+Binary of record: a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06
+  (sha256sum build/bin/ndtwin_kernel at 04:55:41 and 05:58 -- unmoved; and /proc/<pid>/exe on both
+   running kernels, 1433351 and 1444534, hashed to the same value).
+Repo HEAD 486ba2795476cfe1554790ec050cce4959bcc169 (unchanged start to end).
+Planes: P4/bmv2 10sw/4host for ranks 1,3,5,7 + the rank-4 window; a bare kernel against a
+controllable southbound stand-in (fake_southbound.py) for ranks 8,2,10.
+NEXT: nothing -- round complete, lab torn down and verified (13_).
+
+| # | claim | sev | evidence | control / gate | reps | status |
+| N1 | rank 8: the partial-topology-round detector tests `!body.empty()` and never the HTTP status, so a 5xx (or any non-empty junk body) on switches/hosts/links classifies the round COMPLETE; no log line, no API field | HIGH | 09_,11_,12_ | MUTATION GATE PASSED: the empty-200 arm fires the warning (2->3), text quoted in 09_ | 5 negative arms + 2 positive | CONFIRMED |
+| N2 | rank 10: three "unreadable switch" shapes, three behaviours -- HTTP 500 -> last_error=reported_failure, non-JSON -> last_error=unparseable, but a well-formed JSON of the wrong TYPE is republished verbatim with NO marker | MED | 09_,10_ | healthy switches swept correctly in the same rounds; empty-array switch swept to 0 | 2/2 | CONFIRMED |
+| N3 | rank 3: a dead switch's flow table is served for ~10-12 s with no stale_* marker at all, before the first failed poll adds them | MED | 05_ | markers absent at +2/+6 s, present at +12 s; cache self-corrects after readopt | 1 | CONFIRMED |
+| N4 | rank 3: operator-installed rules are lost by a power cycle and never restored, while get_flow_dispatch_status still counts them succeeded | MED | 05_ | the 4 boot routes ARE restored by the watchdog at +12 s | 1 | CONFIRMED |
+| N5 | rank 1: both elephant flags are write-only -- 1 declaration, 6 assignments, 0 reads in src/include/tools/tests/p4_proxy, and absent from the endpoint's 15 keys | LOW | 03_ | key census over 76 polls; 50 Mbit/s is 5x the 10 Mbit/s threshold | 1 | CONFIRMED |
+| R1 | rank 1: elephant flag latches in the immediate path | -- | 03_ | quiet baseline []; rates cleared ~1.5 s after the flow stopped | 1 | REFUTED |
+| R2 | rank 2: a partial poll leaves another switch's rules with a stale epoch | -- | 09_ | six healthy switches swept while three failing ones held; recovery in 15 s | 1 | REFUTED |
+| R3 | rank 3: m_cachedOpenFlowTables never invalidated after readopt | -- | 04_,05_ | readopt on a live switch answers 502 mastership; ~10 s worker refreshes both directions | 1 | REFUTED |
+| R4 | rank 4: vertex flips between the liveness probe and setVertexUp | -- | 06_ | 0 GET /p4/switch_state in 1929 proxy lines vs 108 topology polls; 0 liveness warnings | 1 | P4 ARM UNREACHABLE; OVS ARM NOT-SETTLED |
+| R5 | rank 5: install_group_entry answers 200 without state verification | -- | 06_ | all three group endpoints 501, outcome unsupported_on_p4 | 1 | REFUTED (distinct from round 1 D5) |
+| R6 | rank 6: meter modify keyed on an irrelevant priority | -- | 07_ | all three meter endpoints 501 on P4 | 1 | P4 ARM REFUTED; OVS ARM NOT-SETTLED |
+| R7 | rank 7: power-report cache not cleared after a power cycle | -- | 06_ | dpid 8 unchanged at +3/12/25/45 s with the process provably gone -- but the value is splitmix64(dpid), round 2 D14 | 1 | REFUTED as a cache defect; observable owned by round 2 D14+B3 |
+| R9 | rank 9: delete_group_entry answers deleted and the group persists | -- | round 1 D5 | -- | -- | DUPLICATE -- not re-run |

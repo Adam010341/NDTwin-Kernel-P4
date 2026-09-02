@@ -1,0 +1,7 @@
+#### the running kernel is the binary of record ####
+2026-09-03T04:56:25+08:00
+kernel pid=1433351  proxy pid=1433147
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  /proc/1433351/exe
+./bin/ndtwin_kernel --mode mininet --topology /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json --no-ai 
+-- graph --
+{"edges":[{"admin_disabled":false,"agent_last_sample_age_seconds":-1.0,"down_reason":"none","dst_dpid":5,"dst_interface":1,"dst_ip":[259762368],"flow_set":[],"is_enabled":true,"is_up":true,"last_sample_age_seconds":-1.0,"left_link_bandwidth_bps":1000000000,"left_link_bandwidth_source":"declared","li

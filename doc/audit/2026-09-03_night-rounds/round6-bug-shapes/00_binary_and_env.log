@@ -1,0 +1,18 @@
+#### binary, commit, env, pre-state -- what every later number is attributable to ####
+2026-09-03T04:55:41+08:00
+-- sha256sum build/bin/ndtwin_kernel --
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+-- git HEAD --
+486ba2795476cfe1554790ec050cce4959bcc169 Night rounds: the morning brief, the full findings table, and the briefs the rounds ran on
+-- host_count_override (tracked; ndt up rewrites it) --
+128
+-- free -m --
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7831        1673        1064        7373        7580
+Swap:          20479        5795       14684
+-- uptime --
+ 04:55:41 up 16:35,  1 user,  load average: 1.41, 1.06, 0.71
+-- ports before --
+(all free)
+-- ps ndtwin/bmv2/ryu --
+(none)

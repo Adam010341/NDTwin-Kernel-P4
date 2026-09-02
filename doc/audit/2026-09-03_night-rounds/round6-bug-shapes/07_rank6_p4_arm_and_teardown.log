@@ -1,0 +1,36 @@
+#### RANK 6 P4 arm (meters), then teardown of fabric 1 ####
+2026-09-03T05:08:54+08:00
+=== meter endpoints on P4 (rank 6's parameter-confusion claim lives in the OVS/HTTP base) ===
+install_meter_entry    HTTP 501  {"controller_status":501,"error":"meter entry install is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, 
+modify_meter_entry     HTTP 501  {"controller_status":501,"error":"meter entry modify is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, t
+delete_meter_entry     HTTP 501  {"controller_status":501,"error":"meter entry delete is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, t
+
+=== pids captured BEFORE teardown ===
+1432772 simple_switch_g
+1432773 simple_switch_g
+1432774 simple_switch_g
+1432775 simple_switch_g
+1432776 simple_switch_g
+1432778 simple_switch_g
+1432780 simple_switch_g
+1432781 simple_switch_g
+1433351 ndtwin_kernel
+1438702 simple_switch_g
+1441834 simple_switch_g
+kernel=1433351 proxy=1433147
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped p4_proxy
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  XX  bmv2 switches: 2 still running
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+
+not clean

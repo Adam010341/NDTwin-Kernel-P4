@@ -1,0 +1,134 @@
+#### RANK 1 -- does an elephant-flow flag latch in the immediate path? ####
+# recipe: 10s iperf3 UDP 50Mbit/s h1->h2, then 28s idle; poll top-k every 0.5s,
+# both liveness=all (retained rows survive) and the API default.
+2026-09-03T04:58:21+08:00
+BASELINE liveness=all: []
+---- wire ground truth ----
+ Mbits/sec  4464  
+[  7]   9.00-10.00  sec  5.96 MBytes  50.0 Mbits/sec  4464  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  7]   0.00-10.00  sec  59.6 MBytes  50.0 Mbits/sec  0.000 ms  0/44639 (0%)  sender
+[  7]   0.00-10.00  sec  59.6 MBytes  50.0 Mbits/sec  0.016 ms  0/44639 (0%)  receiver
+
+iperf Done.
+
+---- ALL distinct keys ever returned by the endpoint (15) ----
+['dst_ip', 'dst_port', 'ended_at_ms', 'estimated_flow_sending_rate_bps_in_the_last_sec', 'estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot', 'estimated_packet_rate_in_the_last_sec', 'estimated_packet_rate_in_the_proceeding_1sec_timeslot', 'first_sampled_time', 'last_seen_ms', 'latest_sampled_time', 'liveness', 'path', 'protocol_id', 'src_ip', 'src_port']
+---- keys matching 'elephant': [] ----
+---- t | n_all n_def | liveness | rate_last_sec | rate_proceeding_1s (the A-3 sort key) ----
+t=  0.00 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t=  0.50 | all=1 def=1 | active   | last=20672512   proc=17719296   pkt_proc=1536
+t=  1.00 | all=1 def=1 | active   | last=50204672   proc=17719296   pkt_proc=1536
+t=  1.51 | all=1 def=1 | active   | last=50204672   proc=57095509   pkt_proc=4949
+t=  2.01 | all=1 def=1 | active   | last=47251456   proc=57095509   pkt_proc=4949
+t=  2.51 | all=1 def=1 | active   | last=47251456   proc=42329429   pkt_proc=3669
+t=  3.01 | all=1 def=1 | active   | last=47251456   proc=42329429   pkt_proc=3669
+t=  3.52 | all=1 def=1 | active   | last=50204672   proc=53157888   pkt_proc=4608
+t=  4.02 | all=1 def=1 | active   | last=50204672   proc=53157888   pkt_proc=4608
+t=  4.52 | all=1 def=1 | active   | last=50204672   proc=43313834   pkt_proc=3754
+t=  5.02 | all=1 def=1 | active   | last=37407402   proc=43313834   pkt_proc=3754
+t=  5.53 | all=1 def=1 | active   | last=37407402   proc=37407402   pkt_proc=3242
+t=  6.03 | all=1 def=1 | active   | last=47251456   proc=37407402   pkt_proc=3242
+t=  6.53 | all=1 def=1 | active   | last=59064320   proc=53157888   pkt_proc=4608
+t=  7.03 | all=1 def=1 | active   | last=59064320   proc=53157888   pkt_proc=4608
+t=  7.54 | all=1 def=1 | active   | last=54142293   proc=54142293   pkt_proc=4693
+t=  8.04 | all=1 def=1 | active   | last=54142293   proc=54142293   pkt_proc=4693
+t=  8.54 | all=1 def=1 | active   | last=44298240   proc=43313834   pkt_proc=3754
+t=  9.04 | all=1 def=1 | active   | last=44298240   proc=43313834   pkt_proc=3754
+t=  9.55 | all=1 def=1 | active   | last=44298240   proc=40360618   pkt_proc=3498
+t= 10.05 | all=1 def=1 | active   | last=50204672   proc=40360618   pkt_proc=3498
+t= 10.56 | all=1 def=1 | active   | last=50204672   proc=37407402   pkt_proc=3242
+t= 11.06 | all=1 def=1 | active   | last=17719296   proc=37407402   pkt_proc=3242
+t= 11.56 | all=1 def=1 | active   | last=0          proc=0          pkt_proc=0
+t= 12.07 | all=1 def=1 | active   | last=0          proc=0          pkt_proc=0
+t= 12.57 | all=1 def=1 | active   | last=0          proc=0          pkt_proc=0
+t= 13.07 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 13.58 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 14.08 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 14.62 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 15.12 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 15.62 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 16.13 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 16.63 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 17.13 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 17.64 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 18.14 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 18.64 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 19.15 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 19.65 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 20.15 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 20.66 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 21.16 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 21.66 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 22.17 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 22.67 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 23.17 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 23.68 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 24.18 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 24.68 | all=1 def=0 | idle     | last=0          proc=0          pkt_proc=0
+t= 25.18 | all=1 def=0 | ended    | last=0          proc=0          pkt_proc=0
+t= 25.69 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 26.19 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 26.69 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 27.19 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 27.70 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 28.20 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 28.70 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 29.20 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 29.71 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 30.24 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 30.74 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 31.25 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 31.75 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 32.25 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 32.76 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 33.26 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 33.76 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 34.26 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 34.77 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 35.27 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 35.77 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 36.28 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 36.78 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 37.28 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+t= 37.79 | all=0 def=0 | -        | last=-          proc=-          pkt_proc=-
+---- is the flag read ANYWHERE in the repo? (write sites excluded) ----
+.claude/worktrees/agent-abf084771d76f4411/doc/KNOWN-ISSUES.md:117:      info.isElephantFlowPeriodically = false;
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-08-07_findings-cpp-untested-units.md:45:compared against `MICE_FLOW_UNDER_THRESHOLD` and sets `info.isElephantFlowPeriodically = true`
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-08-28_chaos-harness/02_oracle_muse.md:69:- **Violation:** Single interval shows ~1.8e19 bps (or 10× step), flags `isElephantFlowPeriodically` true on tiny flow. Or flow rate jumps 0→1.8e19 on purge/recreate boundary.
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-07-17_structure-decomposition/flow_link_usage_collector_analysis.md:36:- **大象流 (Elephant Flow) 判斷**：系統定義了一個 `MICE_FLOW_UNDER_THRESHOLD`。只要這條 Flow 的頻寬超過門檻，就會被打上 `isElephantFlowPeriodically = true` 的標記。這對於後續的 QoS 或是 AI 節能路由非常關鍵。
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-08-12_overnight-review/U-upstream-8b61cdc-analysis.md:370:    info.isElephantFlowImmediately = false;
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-08-08_commit-review/collection.md:102:| 8 | commit 109690d message | `The else was commented out`（指 isElephantFlowPeriodically 的清除） | **正確。** baseline `calAvgFlowSendingRatesPeriodically` 中：`if (estimatedFlowSendingRatePeriodically >= MICE_FLOW_UNDER_THRESHOLD) { info.isElephantFlowPeriodically = true; } // else // { //     info.isElephantFlowPeriodically = false; // }` |
+.claude/worktrees/agent-abf084771d76f4411/include/common_types/SFlowType.hpp:476:    bool isElephantFlowPeriodically = false;
+.claude/worktrees/agent-abf084771d76f4411/include/common_types/SFlowType.hpp:477:    bool isElephantFlowImmediately = false;
+.claude/worktrees/agent-a678d74f17815d0a6/doc/KNOWN-ISSUES.md:174:      info.isElephantFlowPeriodically = false;
+.claude/worktrees/agent-a678d74f17815d0a6/doc/audit/2026-08-07_findings-cpp-untested-units.md:45:compared against `MICE_FLOW_UNDER_THRESHOLD` and sets `info.isElephantFlowPeriodically = true`
+.claude/worktrees/agent-a678d74f17815d0a6/doc/audit/2026-08-28_chaos-harness/01_action-surface_deepseek.md:223:- Elephant flag: `isElephantFlowPeriodically` now has a clearing else (1929-1936; was latched — KNOWN-ISSUES A-3 / DEFECT-INVENTORY A-5). Rate estimates zeroed when no active hops (1889-1914).
+.claude/worktrees/agent-a678d74f17815d0a6/doc/audit/2026-08-28_chaos-harness/01_action-surface_deepseek.md:227:- Elephant flows: one 100 Mbps flow among background → expect top-k rank 1 and `is_elephant`-style rates; end the flow → expect it to leave top-k within ~1-2 intervals (this exact case was a measured defect, now fixed: 1900-1913).
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-08-28_chaos-harness/01_action-surface_deepseek.md:223:- Elephant flag: `isElephantFlowPeriodically` now has a clearing else (1929-1936; was latched — KNOWN-ISSUES A-3 / DEFECT-INVENTORY A-5). Rate estimates zeroed when no active hops (1889-1914).
+.claude/worktrees/agent-abf084771d76f4411/doc/audit/2026-08-28_chaos-harness/01_action-surface_deepseek.md:227:- Elephant flows: one 100 Mbps flow among background → expect top-k rank 1 and `is_elephant`-style rates; end the flow → expect it to leave top-k within ~1-2 intervals (this exact case was a measured defect, now fixed: 1900-1913).
+.claude/worktrees/agent-a678d74f17815d0a6/doc/audit/2026-08-28_chaos-harness/02_oracle_muse.md:69:- **Violation:** Single interval shows ~1.8e19 bps (or 10× step), flags `isElephantFlowPeriodically` true on tiny flow. Or flow rate jumps 0→1.8e19 on purge/recreate boundary.
+.claude/worktrees/agent-a678d74f17815d0a6/doc/audit/2026-08-12_overnight-review/U-upstream-8b61cdc-analysis.md:370:    info.isElephantFlowImmediately = false;
+.claude/worktrees/agent-a678d74f17815d0a6/doc/audit/2026-07-17_structure-decomposition/flow_link_usage_collector_analysis.md:36:- **大象流 (Elephant Flow) 判斷**：系統定義了一個 `MICE_FLOW_UNDER_THRESHOLD`。只要這條 Flow 的頻寬超過門檻，就會被打上 `isElephantFlowPeriodically = true` 的標記。這對於後續的 QoS 或是 AI 節能路由非常關鍵。
+.claude/worktrees/agent-ac5cac4ba46a60148/doc/audit/2026-08-07_findings-cpp-untested-units.md:45:compared against `MICE_FLOW_UNDER_THRESHOLD` and sets `info.isElephantFlowPeriodically = true`
+.claude/worktrees/agent-ac5cac4ba46a60148/doc/KNOWN-ISSUES.md:174:      info.isElephantFlowPeriodically = false;
+.claude/worktrees/agent-ac5cac4ba46a60148/doc/audit/2026-08-28_chaos-harness/01_action-surface_deepseek.md:223:- Elephant flag: `isElephantFlowPeriodically` now has a clearing else (1929-1936; was latched — KNOWN-ISSUES A-3 / DEFECT-INVENTORY A-5). Rate estimates zeroed when no active hops (1889-1914).
+(end of grep -- empty above means: set at 6 sites, read at none)
+
+---- CORRECTED: repo-wide reader scan, MAIN WORKTREE ONLY (other agents' .claude/worktrees excluded) ----
+# every occurrence of the two flags outside doc/ and .claude/:
+include/common_types/SFlowType.hpp:665:    bool isElephantFlowPeriodically = false;
+include/common_types/SFlowType.hpp:666:    bool isElephantFlowImmediately = false;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2004:                    info.isElephantFlowPeriodically = false;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2022:                    info.isElephantFlowPeriodically = true;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2026:                    info.isElephantFlowPeriodically = false;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2243:            info.isElephantFlowImmediately = false;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2251:            info.isElephantFlowImmediately = true;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2255:            info.isElephantFlowImmediately = false;
+# ---- classification: :476-477 = struct declaration; the 6 cpp lines = writes; NO read anywhere ----
+# MICE_FLOW_UNDER_THRESHOLD definition:
+include/common_types/SFlowType.hpp:394: * reported as a flow's bit rate, and it sails past `MICE_FLOW_UNDER_THRESHOLD` (10 Mbps) into the
+include/ndt_core/collection/TopologyAndFlowMonitor.hpp:30:static constexpr uint64_t MICE_FLOW_UNDER_THRESHOLD = 10000000;
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2020:                if (estimatedFlowSendingRatePeriodically >= MICE_FLOW_UNDER_THRESHOLD)
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2249:        if (info.estimatedFlowSendingRateImmediately >= MICE_FLOW_UNDER_THRESHOLD)

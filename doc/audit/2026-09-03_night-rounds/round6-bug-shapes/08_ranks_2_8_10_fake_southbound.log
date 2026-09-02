@@ -1,0 +1,25 @@
+#### RANKS 8 / 2 / 10 against a controllable southbound stand-in ####
+# kernel pid from ps; binary a8ba99c2; fake serves ryu_topology.py's exact shapes
+2026-09-03T05:13:00
+
+=== PHASE A -- control: everything healthy ===
+  graph: edges=40 up=40 enabled=40
+  tables                 d1:n=4 d2:n=4 d3:n=4 d4:n=4 d5:n=4 d6:n=4 d7:n=4 d8:n=4 d9:n=4 d10:n=4
+  sample dsts d1: ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
+  'topology-round-partial' lines so far: 0
+
+=== PHASE B1 (RANK 8) -- /links answers HTTP 500, /switches and /hosts stay healthy ===
+  + 10s edges=40 up=40 enabled=40   partial-log-lines=0
+  + 30s edges=40 up=40 enabled=40   partial-log-lines=0
+  + 50s edges=40 up=40 enabled=40   partial-log-lines=0
+  + 75s edges=40 up=40 enabled=40   partial-log-lines=0
+  any endpoint field that says the round was partial?
+   graph_data top-level keys: ['edges', 'nodes']
+   an edge's keys:            ['admin_disabled', 'agent_last_sample_age_seconds', 'down_reason', 'dst_dpid', 'dst_interface', 'dst_ip', 'flow_set', 'is_enabled', 'is_up', 'last_sample_age_seconds', 'left_link_bandwidth_bps', 'left_link_bandwidth_source', 'link_bandwidth_bps', 'link_bandwidth_usage_bps', 'link_bandwidth_utilization_percent', 'src_dpid', 'src_interface', 'src_ip', 'telemetry_status']
+
+=== PHASE B2 (RANK 8b) -- /links answers 200 but OMITS 8 link directions (the watchdog's own 'down' signal) ===
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round6-bug-shapes/ranks_2_8_10.py", line 61, in <module>
+    dropped=[(int(x["src"]["dpid"],16),int(x["src"]["port_no"],16)) for x in L[:8]]
+                  ~^^^^^^^
+TypeError: string indices must be integers, not 'str'
