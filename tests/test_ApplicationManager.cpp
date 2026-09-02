@@ -81,10 +81,20 @@ TEST(DescribeCommandFailure, ASignalIsReportedAsASignal)
 
 TEST(UnexportCommand, NamesExportfsAndTheFolder)
 {
-    const auto cmd = Seams::buildUnexportCommand("/srv/nfs/sim/7");
-    EXPECT_EQ(cmd.rfind("sudo ", 0), 0u) << cmd;
-    EXPECT_NE(cmd.find("exportfs -u"), std::string::npos) << cmd;
-    EXPECT_NE(cmd.find("/srv/nfs/sim/7"), std::string::npos) << cmd;
+    const auto argv = Seams::buildUnexportCommand("/srv/nfs/sim/7");
+    EXPECT_EQ(argv, (std::vector<std::string>{"sudo", "exportfs", "-u", "/srv/nfs/sim/7"}));
+}
+
+// [Co-developed with claude code -- Adam]
+// WHICH LINE MAKES THIS RED: ApplicationManager::buildUnexportCommand's return. The old
+// `return "sudo exportfs -u " + folder;` was one string for std::system, so an export root
+// containing a space became two arguments and exportfs unexported a path nobody configured --
+// under sudo. Restore that line (and the std::string return type) to see this fail.
+TEST(UnexportCommand, AFolderContainingASpaceStaysOneArgument)
+{
+    const auto argv = Seams::buildUnexportCommand("/srv/my exports/7");
+    ASSERT_EQ(argv.size(), 4u) << "a space in the export root must not add an argument";
+    EXPECT_EQ(argv.back(), "/srv/my exports/7");
 }
 
 TEST(ExportsLine, StartsWithTheDirectoryAndASpace)

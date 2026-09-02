@@ -728,11 +728,19 @@ execArgv(const std::vector<std::string>& argv)
  * @warning This function executes via the shell. Do not pass untrusted input
  *          into @p cmd unless properly escaped/sanitized.
  *
- * @warning [Co-developed with claude code -- Adam] **Do not add call sites.** Every remaining one
- *          is a shell-injection surface (doc/KNOWN-ISSUES.md B-2b); the enumeration and the
- *          migration order live in the B-2b/B-4 fix design. Use execArgv() above, which cannot
- *          have this problem because it never builds a command line. tests/python/
- *          test_shell_command_construction.py fails if a new interpolating construction appears.
+ * @warning [Co-developed with claude code -- Adam] **Do not add call sites.** Use execArgv()
+ *          above, which cannot have this problem because it never builds a command line.
+ *
+ *          The doc/KNOWN-ISSUES.md B-2b sweep classified every shell-execution site in the kernel
+ *          by what reaches it. None of the remaining callers of this function interpolates a
+ *          request-controlled string: what they carry is compile-time constants, AppConfig /
+ *          topology-file values, and integers re-rendered as text (utils::ipToString on a uint32,
+ *          std::to_string on a dpid), which cannot contain a shell metacharacter whatever their
+ *          origin. That is a statement about today's callers, not about this function -- it is
+ *          still `/bin/sh -c`, and one new caller passing a request field would be B-2b again.
+ *
+ *          tests/python/test_shell_command_construction.py holds the per-site classification and
+ *          fails if a site appears that is not in it.
  */
 inline std::string
 execCommand(const std::string& cmd)

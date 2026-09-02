@@ -229,8 +229,23 @@ IntentTranslator::dpidForSwitchIp(const std::string& switchIp) const
 // [Co-developed with claude code -- Adam]
 // The three reply renderers below are pure and static so the shape of a reply is assertable on
 // its own, following interpretRelayResponse / ovsLivenessFor / p4LivenessFor. json{}.dump() is
-// used rather than the string concatenation the DISABLE/ENABLE cases above use: a device name
-// containing a quote would otherwise emit a malformed body, and device names arrive from an LLM.
+// used because a device name containing a quote would otherwise emit a malformed body, and device
+// names arrive from an LLM.
+//
+// [Co-developed with claude code -- Adam]
+// This note used to end "...rather than the string concatenation the DISABLE/ENABLE cases above
+// use", and that clause is worth keeping in the history: the file knew about the defect, named the
+// cases that had it, and left them. Twenty-two replies in performTask were built by concatenating
+// a device name, host id or form type into a JSON literal. They are all json{...}.dump() now.
+//
+// The eight remaining string literals in performTask (`return "{\"error\": \"Task cast failed\"}"`
+// and friends) are deliberately left alone: they interpolate nothing, so they are constant valid
+// JSON and converting them would be churn.
+//
+// Related, and the reason this is one family rather than two: doc/KNOWN-ISSUES.md B-2b/B-4 is the
+// same mistake pointed at a shell instead of at JSON -- a structured value assembled by pasting
+// text together, so that a character in the data changes the structure. utils::execArgv is the
+// answer on that side; a JSON library is the answer on this one.
 std::string
 IntentTranslator::switchNotFoundReply(const std::string& deviceName)
 {
@@ -277,7 +292,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
             auto deviceIpOpt = this->getSwitchIpByName(disableTask->deviceName);
             if (!deviceIpOpt.has_value())
             {
-                return "{\"error\": \"Switch not found\", \"device\": \"" + disableTask->deviceName + "\"}";
+                return json{{"error", "Switch not found"}, {"device", disableTask->deviceName}}.dump();
             }
             // [Co-developed with claude code -- Adam]
             // find(), not operator[]: on a map, operator[] default-constructs a missing key, so an
@@ -286,13 +301,14 @@ IntentTranslator::performTask(llmResponse::Task* task)
             const auto it = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.find(deviceIpOpt.value());
             if (it == this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.end())
             {
-                return "{\"error\": \"Switch has no dpid\", \"device\": \"" + disableTask->deviceName + "\"}";
+                return json{{"error", "Switch has no dpid"}, {"device", disableTask->deviceName}}.dump();
             }
             if (!this->m_topologyAndFlowMonitor->disableSwitchAndEdges(it->second))
             {
-                return "{\"error\": \"Switch not present in the topology graph\", \"device\": \"" + disableTask->deviceName + "\"}";
+                return json{{"error", "Switch not present in the topology graph"},
+                {"device", disableTask->deviceName}}.dump();
             }
-            return "{\"status\": \"disabled\", \"device\": \"" + disableTask->deviceName + "\"}";
+            return json{{"status", "disabled"}, {"device", disableTask->deviceName}}.dump();
         }
         case llmResponse::TaskType::ENABLE_SWITCH:
         {
@@ -300,18 +316,19 @@ IntentTranslator::performTask(llmResponse::Task* task)
             auto deviceIpOpt = this->getSwitchIpByName(enableTask->deviceName);
             if (!deviceIpOpt.has_value())
             {
-                return "{\"error\": \"Switch not found\", \"device\": \"" + enableTask->deviceName + "\"}";
+                return json{{"error", "Switch not found"}, {"device", enableTask->deviceName}}.dump();
             }
             const auto it = this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.find(deviceIpOpt.value());
             if (it == this->m_topologyAndFlowMonitor->m_ipStrToDpidMap.end())
             {
-                return "{\"error\": \"Switch has no dpid\", \"device\": \"" + enableTask->deviceName + "\"}";
+                return json{{"error", "Switch has no dpid"}, {"device", enableTask->deviceName}}.dump();
             }
             if (!this->m_topologyAndFlowMonitor->enableSwitchAndEdges(it->second))
             {
-                return "{\"error\": \"Switch not present in the topology graph\", \"device\": \"" + enableTask->deviceName + "\"}";
+                return json{{"error", "Switch not present in the topology graph"},
+                {"device", enableTask->deviceName}}.dump();
             }
-            return "{\"status\": \"enabled\", \"device\": \"" + enableTask->deviceName + "\"}";
+            return json{{"status", "enabled"}, {"device", enableTask->deviceName}}.dump();
         }
         case llmResponse::TaskType::POWEROFF_SWITCH:
         {
@@ -350,7 +367,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 const auto dpidOpt = this->dpidForSwitchIp(deviceIpOpt.value());
                 if (!dpidOpt.has_value())
                 {
-                    return "{\"error\": \"Switch has no dpid\", \"device\": \"" + installTask->deviceName + "\"}";
+                    return json{{"error", "Switch has no dpid"}, {"device", installTask->deviceName}}.dump();
                 }
                 uint64_t dpid = *dpidOpt;
                 json installTaskJson = *installTask;
@@ -380,7 +397,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 const auto dpidOpt = this->dpidForSwitchIp(deviceIpOpt.value());
                 if (!dpidOpt.has_value())
                 {
-                    return "{\"error\": \"Switch has no dpid\", \"device\": \"" + modifyTask->deviceName + "\"}";
+                    return json{{"error", "Switch has no dpid"}, {"device", modifyTask->deviceName}}.dump();
                 }
                 uint64_t dpid = *dpidOpt;
                 json modifyTaskJson = *modifyTask;
@@ -410,7 +427,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 const auto dpidOpt = this->dpidForSwitchIp(deviceIpOpt.value());
                 if (!dpidOpt.has_value())
                 {
-                    return "{\"error\": \"Switch has no dpid\", \"device\": \"" + deleteTask->deviceName + "\"}";
+                    return json{{"error", "Switch has no dpid"}, {"device", deleteTask->deviceName}}.dump();
                 }
                 uint64_t dpid = *dpidOpt;
                 json deleteTaskJson = *deleteTask;
@@ -572,7 +589,8 @@ IntentTranslator::performTask(llmResponse::Task* task)
             // Check if the helper succeeded
             if (!flowEntriesOpt.has_value())
             {
-                return "{\"error\": \"Could not retrieve flow information for switch.\", \"device_name\": \"" + getCountTask->deviceName + "\"}";
+                return json{{"error", "Could not retrieve flow information for switch."},
+                {"device_name", getCountTask->deviceName}}.dump();
             }
 
             // The only logic left is to get the size
@@ -593,7 +611,8 @@ IntentTranslator::performTask(llmResponse::Task* task)
             // Check if the helper succeeded
             if (!flowEntriesOpt.has_value())
             {
-                return "{\"error\": \"Could not retrieve flow information for switch.\", \"device_name\": \"" + getEntriesTask->deviceName + "\"}";
+                return json{{"error", "Could not retrieve flow information for switch."},
+                {"device_name", getEntriesTask->deviceName}}.dump();
             }
             
             // The only logic left is to use the full result
@@ -684,7 +703,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
             auto hostVertexOpt = this->m_topologyAndFlowMonitor->findVertexByDeviceName(blockTask->host_id);
             if (!hostVertexOpt.has_value())
             {
-                return "{\"error\": \"Host not found in topology\", \"host\": \"" + blockTask->host_id + "\"}";
+                return json{{"error", "Host not found in topology"}, {"host", blockTask->host_id}}.dump();
             }
 
             auto graph = this->m_topologyAndFlowMonitor->getGraph();
@@ -694,13 +713,14 @@ IntentTranslator::performTask(llmResponse::Task* task)
 
             if (hostProp.vertexType != VertexType::HOST)
             {
-                 return "{\"error\": \"Device is not a host\", \"device\": \"" + blockTask->host_id + "\"}";
+                 return json{{"error", "Device is not a host"}, {"device", blockTask->host_id}}.dump();
             }
 
 
             if (hostProp.ip.empty())
             {
-                return "{\"error\": \"Host has no IP address assigned\", \"device\": \"" + blockTask->host_id + "\"}";
+                return json{{"error", "Host has no IP address assigned"},
+                {"device", blockTask->host_id}}.dump();
             }
             std::string hostIp = utils::ipToString(hostProp.ip[0]);
 
@@ -736,7 +756,9 @@ IntentTranslator::performTask(llmResponse::Task* task)
                     "Blocked host {} (IP: {}) on switch {} (DPID: {})", 
                     blockTask->host_id, hostIp, switchProp.deviceName, switchProp.dpid);
 
-                return "{\"status\": \"success\", \"message\": \"Host " + blockTask->host_id + " blocked.\", \"target_switch\": \"" + switchProp.deviceName + "\"}";
+                return json{{"status", "success"},
+                {"message", "Host " + blockTask->host_id + " blocked."},
+                {"target_switch", switchProp.deviceName}}.dump();
             }
             catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(Logger::instance(), "Failed to install block rule: {}", e.what());
@@ -767,8 +789,9 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 const auto dstDpidOpt = this->dpidForSwitchIp(*dstIpOpt);
                 if (!srcDpidOpt.has_value() || !dstDpidOpt.has_value())
                 {
-                    return "{\"error\": \"Switch has no dpid\", \"src\": \"" + lossTask->src
-                           + "\", \"dst\": \"" + lossTask->dst + "\"}";
+                    return json{{"error", "Switch has no dpid"},
+                    {"src", lossTask->src},
+                    {"dst", lossTask->dst}}.dump();
                 }
                 uint64_t srcDpid = *srcDpidOpt;
                 uint64_t dstDpid = *dstDpidOpt;
@@ -810,7 +833,8 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 }
                 else
                 {
-                    return "{\"error\": \"No direct link found between " + lossTask->src + " and " + lossTask->dst + "\"}";
+                    return json{{"error", "No direct link found between " + lossTask->src + " and " +
+                    lossTask->dst}}.dump();
                 }
             }
             return "{\"error\": \"One or both switches not found\"}";
@@ -826,7 +850,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
             
             if (!switchVertexOpt.has_value())
             {
-                return "{\"error\": \"Switch not found\", \"device\": \"" + portsTask->deviceName + "\"}";
+                return json{{"error", "Switch not found"}, {"device", portsTask->deviceName}}.dump();
             }
 
             auto graph = this->m_topologyAndFlowMonitor->getGraph();
@@ -835,7 +859,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
 
             if (graph[swVd].vertexType != VertexType::SWITCH)
             {
-                 return "{\"error\": \"Device is not a switch\", \"device\": \"" + portsTask->deviceName + "\"}";
+                 return json{{"error", "Device is not a switch"}, {"device", portsTask->deviceName}}.dump();
             }
 
             json portsArray = json::array();
@@ -1035,7 +1059,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 "LLM requested UI form: {} for device {}", 
                 uiTask->formType, uiTask->deviceName);
 
-            return "{\"status\": \"ui_triggered\", \"form\": \"" + uiTask->formType + "\"}";
+            return json{{"status", "ui_triggered"}, {"form", uiTask->formType}}.dump();
         }
         default:
             throw std::runtime_error(std::string("Unknown task type: ") + llmResponse::taskTypeToString(task->type));

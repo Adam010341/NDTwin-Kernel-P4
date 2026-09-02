@@ -454,10 +454,12 @@ class DeviceConfigurationAndPowerManager
      * @param gwUrl  Gateway host (AppConfig::GW_IP).
      * @param si     Smart plug mapping for this switch.
      * @param action "on" or "off".
+     * @return The argument vector for utils::execArgv. Not a command line -- see the note in the
+     *         implementation for why `action` in particular must not be one.
      */
-    static std::string buildRelayPowerCommand(const std::string& gwUrl,
-                                              const SwitchInfo& si,
-                                              const std::string& action);
+    static std::vector<std::string> buildRelayPowerCommand(const std::string& gwUrl,
+                                                           const SwitchInfo& si,
+                                                           const std::string& action);
 
     /**
      * @brief Builds the request that reads per-switch bmv2 liveness from the P4 proxy.
