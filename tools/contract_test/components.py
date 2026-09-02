@@ -218,11 +218,26 @@ def scan_kernel_dispatch(http_session_cpp: str) -> dict[str, str]:
     endpoint. This reads the source directly, letting check_dispatch_drift() prove the
     two still agree instead of trusting that they do.
 
-    Matches both spellings used in the chain:
-        method == http::verb::get && target == "/ndt/x"
+    Matches all three spellings used in the chain:
+        method == http::verb::get  && target == "/ndt/x"
         method == http::verb::post && target.starts_with("/ndt/x")
+        method == http::verb::get  && utils::pathIs(target, "/ndt/x")
 
     [Co-developed with claude code -- Adam]
+    🔴 The third form was added 2026-09-03 (KNOWN-ISSUES L-5). It was missing, so the two
+    routes registered through utils::pathIs -- /ndt/get_detected_flow_data and
+    /ndt/get_detected_top_k_flow_data (HttpSession.cpp:164,169) -- were reported as
+    "the kernel no longer registers it" while both answered 200 in the same live log
+    (2026-09-02_live-round/raw/C6_l3_check_drift.log). A drift detector that cries wolf
+    about drift teaches its readers to ignore drift, which is the one thing it exists to
+    catch. `pathIs` matches the path plus an optional query string, so it is a
+    registration exactly as `==` and `.starts_with(` are; what changed was the spelling,
+    not the routing.
+
+    What this must keep doing is REPORT: the point is not that the check goes green, it
+    is that it still goes red for a name the source really does not carry. That direction
+    is pinned by tests/python/test_l3_dispatch_drift.py, which feeds a genuinely
+    unregistered path through the same scan and requires the drift message.
     """
     import re
 
@@ -231,7 +246,10 @@ def scan_kernel_dispatch(http_session_cpp: str) -> dict[str, str]:
 
     pattern = re.compile(
         r"http::verb::(?P<verb>get|post|put|delete_|patch)\s*&&\s*"
+        r"(?:"
         r"target(?:_path)?\s*(?:==|\.starts_with\s*\()\s*"
+        r"|(?:\w+::)*pathIs\s*\(\s*target(?:_path)?\s*,\s*"
+        r")"
         r'"(?P<path>/ndt/[^"]*)"',
         re.MULTILINE,
     )
