@@ -125,6 +125,19 @@ auditor 2026-09-03 要求把它從修法項升格成一條 finding。**它的形
 下一輪 OVS 會安靜地接上一個它沒有啟動、也沒有記錄配置的 controller，
 而每一個結構檢查都會說 topology 是通的。
 
+### 實例四：`:6343`（sFlow collector）— **唯一一個當場咬人的**
+
+**我親自查證的部分**：`grep -c '6343'` 在 `tools/test_workflow/ndt` 與
+`tools/test_workflow/stack.sh` **兩者皆 0**（2026-09-03），而 `cmd_clean` 的清單仍是
+`for p in 8000 8080 8081`。
+
+**auditor 轉述、我未讀原文的部分**：第三輪與安裝手冊那條線同一夜實測到
+**一個佔著 `:6343` 的 kernel 擋掉合法操作，而 `ndt down` 的五條斷言全綠**。
+
+⇒ 前三個實例是「會咬人但當晚沒咬」，**這個是當場咬了**——而且它的形狀最完整：
+殘留擋掉了操作，而 teardown 的每一條斷言都說乾淨。**「五條全綠」正是判準④**
+（鑑別力只在被檢查的那一組上成立）**的又一個實例**。
+
 ### 實例三：`:9000`（sim app）— **已經在 repo 裡，不必等它出現**
 
 `ndt` 與 `stack.sh` 裡各出現 **0 次**（`grep -c '9000'` 兩者皆 0，2026-09-03 親自查）。
@@ -177,6 +190,7 @@ auditor 2026-09-03 裁決：**不要當成兩個（現在是三個）port 各補
 | `:3005x` | bmv2 switch（動態配） | 下一個 fabric 綁不上，**錯誤看起來像 P4 的問題** |
 | `:6653`／`:6633` | Ryu（OVS 路徑） | 下一輪 OVS **安靜地接上一個不是你的 controller** |
 | `:9000` | sim app | app 是否真的起來的判準；殘存 listener 讓下一次 `ndt apps sim` 的驗活失真 |
+| `:6343` | sFlow collector（kernel 側） | **當晚實測咬人**：一個佔著它的 kernel 擋掉合法操作，而 `ndt down` 五條斷言全綠 |
 | `:8000`／`:8080`／`:8081` | kernel／proxy／Ryu REST | （既有）the next up would measure it |
 
 為什麼是表不是三個 if：
