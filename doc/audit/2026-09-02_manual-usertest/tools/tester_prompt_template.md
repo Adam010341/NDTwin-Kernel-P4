@@ -38,7 +38,7 @@ When an instruction is ambiguous, do what you think a typical reader would do **
 6. **Write commands as script files**, `scp` them into the VM and run `bash /tmp/x.sh`, with output going to `~/logs/`. Do not build long inline ssh command strings.
 7. **If a command of yours is refused by your tooling's permission system**, write the command and the refusal verbatim into the journal, mark that checklist line `NOT-TRIED (tool refused)`, and move on. Do not ask anyone for more permissions; there is nobody to ask.
 8. **Keep `BUGS.md` and `CHECKLIST.md` alive**: update the line you are working on as you work; append, never rewrite the file from scratch, never delete an entry.
-9. **Report only what a file shows.** No "production-ready", "fully functional", "100% verified". Every number in your report (minutes, counts, tallies) must come from a file in the VM you can name, and every time claim from `date` in your logs.
+9. **Report only what a file shows.** No "production-ready", "fully functional", "100% verified". Every number in your report (minutes, counts, tallies) must come from a file in the VM you can name, and every time claim from `date` in your logs. 🔴 **Which means writing it to that file at the moment you read it.** A command whose output you only saw in your own turn leaves no evidence: when the run is verified afterwards, every such number is unsupported, however true it was. In the last run twenty claims failed verification for exactly this reason and nothing else — including a flow-table count that had been used to correct the manual. So: `cmd | tee ~/logs/<name>.log`, or `cmd > ~/logs/<name>.log 2>&1` then read the file. Never a bare command whose result you intend to quote.
 
 # Keep a journal as you go
 
