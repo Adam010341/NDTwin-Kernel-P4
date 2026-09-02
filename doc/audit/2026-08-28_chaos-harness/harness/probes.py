@@ -8,6 +8,21 @@ under test and this codebase has twelve documented "fails while reporting succes
      returns the parsed body or None. A caller cannot accidentally treat 200 as proof,
      because the status is not in the return value at all. (`02`'s INV-06 says
      "Do NOT check HTTP codes"; `04` §5.3 generalises it to everything.)
+
+     🔴 NARROWED 2026-09-03, KNOWN-ISSUES G-3. Rule 1 was written against one failure --
+     "a 200 is not proof the work happened" -- and it is still right about that. What it
+     did not say is that the CONVERSE is not symmetric: a 404 IS proof the work did not
+     happen, and throwing it away made "the endpoint answered with nothing" and "there is
+     no such endpoint" the same value. `_c07` called three routes that do not exist, got
+     None from each, counted `rows == 0`, and reported "B-3 reproduced" -- a control that
+     passes whether or not the defect exists, and a published claim rested on it.
+
+     So the rule is now: a status may never be evidence that something WORKED, and a
+     non-2xx must never be silently absorbed. `api_get_checked` / `api_post_checked` raise
+     `NotAnswered` instead of returning; the status is carried on the exception and never
+     as a return value, so it still cannot be mistaken for a result. The lenient
+     `api_get` / `api_post` remain for callers that genuinely tolerate a missing endpoint,
+     and their docstrings say what that costs.
   2. **Every shell-out carries a timeout.** `popen(curl)` has been measured wedging for
      131 s against an IPv6 blackhole. "Known to fail" is not the same as "fails cheaply".
 
@@ -45,6 +60,33 @@ class Timeout(Exception):
     pass
 
 
+class NotAnswered(Exception):
+    """The request produced nothing a caller may reason about.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-3.
+
+    Three causes, one meaning: the transfer failed, the kernel answered a non-2xx, or a 2xx
+    carried a body that is not JSON. In every one of them the honest answer to "what did the
+    system do?" is "this probe does not know", and the reason it is an EXCEPTION rather than a
+    return value is that `None` was already the answer for "answered, with nothing" -- so a
+    caller counting `len(body or [])` scored a 404 as a real, empty reading and reported the
+    defect it was hunting for.
+
+    The status is carried here, on the failure path, and is deliberately not reachable on the
+    success path: a status must never become evidence that something worked.
+    """
+
+    def __init__(self, method: str, url: str, status: int | None, detail: str = ""):
+        self.method = method
+        self.url = url
+        self.status = status
+        self.detail = detail
+        where = f"HTTP {status}" if status is not None else "no HTTP answer"
+        super().__init__(f"{method} {url}: {where}"
+                         + (f" -- {detail}" if detail else "")
+                         + (" (the route is not registered)" if status == 404 else ""))
+
+
 class SchemaDrift(Exception):
     """The graph payload did not carry the field a check depends on.
 
@@ -69,23 +111,89 @@ def run(argv: list[str], timeout: float = 5.0,
 # --------------------------------------------------------------------------------------------
 # HTTP -- body only, never status
 # --------------------------------------------------------------------------------------------
+def _curl(argv: list[str], stdin: str | None = None) -> tuple[int, str, str]:
+    """The single place this module shells out to curl. Replaced by the self-tests, so every
+    status-handling branch below can be watched go both ways without a kernel."""
+    p = subprocess.run(argv, input=stdin, capture_output=True, text=True,
+                       timeout=CURL_MAX_TIME + 2)
+    return p.returncode, p.stdout, p.stderr
+
+
+def _request(method: str, path: str, base: str, payload: dict | None = None) -> Any | None:
+    """One request. Returns the PARSED BODY of a 2xx; raises NotAnswered for anything else.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-3.
+
+    `-w '\\n%{http_code}'` appends the status on its own final line, so the split is on the LAST
+    newline and a body containing newlines is still recovered whole. On a failed transfer curl
+    writes 000 there and exits non-zero; both are treated as "no answer".
+
+    The status is read, acted on, and then dropped. It never reaches a caller as a value.
+    """
+    url = f"{base}{path}"
+    argv = ["curl", "-s", "--max-time", str(CURL_MAX_TIME), "-w", "\n%{http_code}"]
+    stdin = None
+    if method == "POST":
+        # --data-binary @- so the body never touches a shell command line (B-2b).
+        argv += ["-X", "POST", "-H", "Content-Type: application/json", "--data-binary", "@-"]
+        stdin = json.dumps(payload if payload is not None else {})
+    argv.append(url)
+
+    try:
+        rc, out, err = _curl(argv, stdin)
+    except subprocess.TimeoutExpired:
+        raise NotAnswered(method, url, None, f"curl exceeded {CURL_MAX_TIME + 2}s")
+    if rc != 0:
+        raise NotAnswered(method, url, None, f"curl rc={rc} {err.strip()[:120]}")
+
+    body, _, code = out.rpartition("\n")
+    code = code.strip()
+    status = int(code) if code.isdigit() else None
+    if status is None:
+        raise NotAnswered(method, url, None, "curl reported no status code")
+    if not 200 <= status < 300:
+        raise NotAnswered(method, url, status, body.strip()[:200])
+    if not body.strip():
+        return None
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        raise NotAnswered(method, url, status, f"2xx body is not JSON: {body.strip()[:120]}")
+
+
+def api_get_checked(path: str, base: str = KERNEL) -> Any | None:
+    """GET, returning the parsed 2xx body. Raises NotAnswered on anything else.
+
+    Use this whenever the answer will be turned into a VERDICT. The lenient `api_get` below
+    cannot tell "no such route" from "answered, with nothing", and that confusion is exactly
+    what let a control report a defect as reproduced against three routes that 404.
+    """
+    return _request("GET", path, base)
+
+
+def api_post_checked(path: str, payload: dict, base: str = KERNEL) -> Any | None:
+    """POST, returning the parsed 2xx body. Raises NotAnswered on anything else."""
+    return _request("POST", path, base, payload)
+
+
 def api_get(path: str, base: str = KERNEL) -> Any | None:
-    """GET and return the PARSED BODY, or None if it did not parse.
+    """GET and return the PARSED BODY, or None if there is nothing to parse.
 
     Deliberately discards the status code. A 200 carrying an error string and a 200 carrying
     real data are the same to this function, which is the point: the caller is forced to judge
     on content. H20 is the concrete case -- `get_openflow_capacity` can answer 200 with an
     empty body when its file is missing, because the status was pre-set before the read.
+
+    🔴 WHAT None DOES NOT MEAN. It does not mean "the endpoint answered and had nothing". A
+    404, a 500, a timeout and an empty 200 all arrive here as None, so a caller that reads a
+    count out of `body or []` is computing a measurement out of a route that does not exist --
+    G-3, where "0 rows" from three 404s was scored as "B-3 reproduced". If the value is going
+    to become a verdict, call `api_get_checked` instead. Reach for this one only when a
+    missing or failing endpoint is a state the caller genuinely tolerates.
     """
     try:
-        rc, out, _ = run(["curl", "-s", "--max-time", str(CURL_MAX_TIME), f"{base}{path}"])
-    except Timeout:
-        return None
-    if rc != 0 or not out.strip():
-        return None
-    try:
-        return json.loads(out)
-    except json.JSONDecodeError:
+        return api_get_checked(path, base)
+    except NotAnswered:
         return None
 
 
@@ -116,20 +224,13 @@ def api_post(path: str, payload: dict, base: str = KERNEL) -> Any | None:
     Not merely tidy: B-2b is a live shell-injection through exactly this kind of
     interpolation, and `api-keys-leak-via-argv` is the same shape for secrets. The harness
     must not reproduce the defect it is testing for.
+
+    Lenient, with the same caveat as `api_get`: None covers a 404, a 500, a timeout and an
+    empty 200 alike. Use `api_post_checked` for anything that becomes a verdict.
     """
     try:
-        p = subprocess.run(
-            ["curl", "-s", "--max-time", str(CURL_MAX_TIME), "-X", "POST",
-             "-H", "Content-Type: application/json", "--data-binary", "@-", f"{base}{path}"],
-            input=json.dumps(payload), capture_output=True, text=True, timeout=CURL_MAX_TIME + 2,
-        )
-    except subprocess.TimeoutExpired:
-        return None
-    if p.returncode != 0 or not p.stdout.strip():
-        return None
-    try:
-        return json.loads(p.stdout)
-    except json.JSONDecodeError:
+        return api_post_checked(path, payload, base)
+    except NotAnswered:
         return None
 
 

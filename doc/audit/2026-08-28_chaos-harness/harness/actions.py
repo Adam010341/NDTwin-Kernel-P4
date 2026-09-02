@@ -268,29 +268,116 @@ def _c06_undo() -> None:
     probes.release_lock(probes.PROBE_LOCK)
 
 
+# The route, spelled once. POST /ndt/historical_logging with `state` as a QUERY parameter --
+# the handler reads utils::queryParam(target, "state") and IGNORES the body
+# (HttpSession.cpp:2084), which is why nothing is sent in it.
+#
+# 🔴 RETRACTED AND REWRITTEN 2026-09-03 -- KNOWN-ISSUES G-3, and this is the whole of the
+# retraction at doc/audit/2026-08-28_chaos-harness/05_first-live-run.md:203.
+#
+# This control used to call THREE routes that the kernel has never registered:
+# /ndt/set_historical_logging, /ndt/get_historical_data and /ndt/set_historical_logging_state.
+# All three answer 404, confirmed live on 2026-09-02 (raw/C8_b3_historical_logging.log). Three
+# independently fatal ingredients then lined up:
+#
+#   * the routes 404, so nothing was ever enabled and nothing was ever read;
+#   * `probes.api_get` discarded the status, so a 404 came back as None;
+#   * the criterion was `rows == 0 ⇒ reproduced`, and None counts as zero rows.
+#
+# Product: a positive control that returns "B-3 reproduced" whether or not B-3 exists -- on a
+# healthy kernel, on a kernel with the defect, and on no kernel at all. Fixing only the route
+# would leave the shape intact for the next route that moves, so both halves change here.
+HISTORICAL_LOGGING = "/ndt/historical_logging"
+
+
 def _c07_apply(dry: bool) -> ActionResult:
-    """B-3: historical_logging answers "enabled" under MININET and writes no rows at all."""
+    """B-3: historical_logging accepts "enable" and no row is ever written.
+
+    G2 up front: if the enable did not land there is no B-3 to observe, and scoring the round
+    would report the absence of a request as a property of the system.
+    """
     if dry:
-        return _dry("would POST historical_logging enable and then look for written rows")
-    r = probes.api_post("/ndt/set_historical_logging", {"enabled": True})
-    return ActionResult(True, f"enable answered: {r}", {"response": r})
+        return _dry(f"would POST {HISTORICAL_LOGGING}?state=enable and read the "
+                    f"recording state back")
+    try:
+        r = probes.api_post_checked(f"{HISTORICAL_LOGGING}?state=enable", {})
+    except probes.NotAnswered as e:
+        # 500 is a documented answer here (no HistoricalDataManager -- section 39, and
+        # spec.py pins [200, 500]), and it is NOT the defect: it means the request never
+        # reached the flag. Refusing is the honest verdict for both that and a 404.
+        return ActionResult(False, f"the enable did not land, so there is no B-3 to observe: {e}",
+                            {"error": str(e), "status": e.status})
+    if not isinstance(r, dict):
+        return ActionResult(False, f"enable answered a non-object ({r!r}); nothing to judge",
+                            {"response": r})
+    return ActionResult(True, f"enable accepted: {r}", {"response": r})
 
 
 def _c07_verify() -> ActionResult:
+    """G2: does this deployment actually write rows, or only say yes?
+
+    Read back through the real route rather than counting rows, because THERE IS NO ROW-READ
+    ROUTE -- the kernel registers 42 endpoints and none of them serves historical data
+    (HistoricalDataManager writes CSV straight to a hard-coded, root-owned OUTPUT_DIR). The
+    invented /ndt/get_historical_data is where the 404 came from. So the state this can read
+    is the recorder's own, and the reply carries it in a machine-readable form:
+
+        recording : bool  -- will a row appear?
+        reason    : one of recording / disabled-by-request / not-available-in-mininet-mode /
+                    recorder-not-running / writes-failing   (HistoricalDataManager::reasonCode)
+
+    `recording is False` is B-3: enable was accepted and no row will be written. `recording is
+    True` is a deployment that really does record -- which is why this criterion has two sides
+    where `rows == 0` had one. On this project's two lab stacks the answer is MININET, so the
+    control is expected to reproduce; on a TESTBED kernel with the recorder up it is expected
+    NOT to, and that difference is the whole point of a positive control.
+
+    Stated limit: this reads the kernel's own disclosure of whether it will write. It can tell
+    "will not write" from "is writing"; it cannot independently confirm that a row landed on
+    disk. The five seconds are so a run of failed writes has time to set WRITES_FAILING, which
+    would otherwise still read as RECORDING at the instant of the enable.
+
+    A reply with no `recording` field is a kernel that predates the disclosure, and it makes
+    the two cases indistinguishable again -- so it is refused, not guessed. Same rule as
+    probes.SchemaDrift: a verdict-shaped parse problem is indistinguishable from a finding.
+    """
     time.sleep(5.0)
-    d = probes.api_get("/ndt/get_historical_data")
-    rows = len(d) if isinstance(d, list) else (len(d.get("rows", [])) if isinstance(d, dict) else 0)
-    return ActionResult(rows == 0,
-                        f"{rows} row(s) after enabling -- "
-                        f"{'none written, B-3 reproduced' if rows == 0 else 'rows exist, B-3 did not reproduce'}",
-                        {"rows": rows})
+    try:
+        r = probes.api_post_checked(f"{HISTORICAL_LOGGING}?state=enable", {})
+    except probes.NotAnswered as e:
+        return ActionResult(False, f"cannot read the recording state back, so B-3 is neither "
+                                   f"confirmed nor ruled out: {e}",
+                            {"error": str(e), "status": e.status})
+    if not isinstance(r, dict) or not isinstance(r.get("recording"), bool):
+        return ActionResult(
+            False, f"the reply carries no boolean `recording`, so it cannot say whether a row "
+                   f"will be written; refusing to score B-3 either way. body: {r!r}",
+            {"response": r})
+
+    recording = r["recording"]
+    reason = r.get("reason")
+    ev = {"recording": recording, "reason": reason, "status_field": r.get("status")}
+    if recording:
+        return ActionResult(False,
+                            f"the recorder is live (reason={reason!r}); enable really does "
+                            f"produce rows here, so B-3 did NOT reproduce", ev)
+    return ActionResult(True,
+                        f"enable was accepted and no row will be written (reason={reason!r}) "
+                        f"-- B-3 reproduced", ev)
 
 
 def _c07_undo() -> None:
     """Put the flag back. It was left on before: a control that changes a global setting and
     does not restore it hands every later round a different system than the null round measured,
-    and the difference is invisible because nothing reports the flag."""
-    probes.api_post("/ndt/set_historical_logging", {"enabled": False})
+    and the difference is invisible because nothing reports the flag.
+
+    And a restore that silently fails is the same defect one layer down, so this one says so.
+    """
+    try:
+        probes.api_post_checked(f"{HISTORICAL_LOGGING}?state=disable", {})
+    except probes.NotAnswered as e:
+        print(f"    [undo] 🔴 historical logging was NOT restored to disabled: {e}")
+        print("    [undo] every later round now runs with a setting this control changed")
 
 
 # Ordered least-destructive first, and the ordering is load-bearing rather than tidy: G1-01
@@ -368,8 +455,21 @@ def _h23_apply(dry: bool) -> ActionResult:
 
 def _h23_verify() -> ActionResult:
     """G2 inverted: here the injection is meant to be REFUSED, so 'landed' means the path map
-    survived. A wiped map is the defect."""
-    d = probes.api_get("/ndt/get_all_destination_paths")
+    survived. A wiped map is the defect.
+
+    ⚠️ SAME FAMILY AS G-3, found while fixing it and NOT fixed here. /ndt/get_all_destination_paths
+    is not one of the kernel's 42 registered routes, so this read has always been a 404. With
+    the status discarded that came back as None, `n` fell to 0, and the control reported "the
+    path map was wiped" on every run -- the mirror image of _c07's false pass. Switched to the
+    checked probe so it now REFUSES instead of accusing; naming the route this should read
+    instead is a separate ticket, because the kernel exposes no such endpoint at all and the
+    proxy's /ryu_server/all_destination_paths is a different population.
+    """
+    try:
+        d = probes.api_get_checked("/ndt/get_all_destination_paths")
+    except probes.NotAnswered as e:
+        return ActionResult(False, f"cannot read the path map back, so nothing is claimed "
+                                   f"about the empty publish: {e}", {"error": str(e)})
     n = len(d) if isinstance(d, (list, dict)) else 0
     return ActionResult(n > 0, f"path map holds {n} entries after the empty publish",
                         {"paths": n})

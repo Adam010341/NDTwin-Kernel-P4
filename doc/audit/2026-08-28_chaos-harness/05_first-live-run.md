@@ -200,8 +200,33 @@ quietly dropped. `traffic.sh` (added here) is the missing piece.
 
 ## H-9 G1-07 is paired with an invariant it cannot make fire
 
-The control reproduces **B-3** — `historical_logging` reports enabled and writes zero rows. It
-verified true. But INV-07 is about **flow-table freshness**. They are about different subsystems,
+> ❌ **RETRACTED 2026-09-03 — KNOWN-ISSUES G-3.** The struck sentence below claimed the control
+> reproduced B-3 and "verified true". It did not verify anything. `_c07` called three routes the
+> kernel has never registered — `/ndt/set_historical_logging`, `/ndt/get_historical_data` and
+> `/ndt/set_historical_logging_state` — all of which answer **404**, confirmed live on 2026-09-02
+> (`doc/audit/2026-09-02_live-round/raw/C8_b3_historical_logging.log`). `probes.api_get`
+> discarded the status, so each 404 arrived as `None`; the criterion was `rows == 0 ⇒
+> reproduced`; and `None` is zero rows. The control therefore returned "B-3 reproduced" whether
+> or not B-3 existed — on a healthy kernel, on a defective one, and against no kernel at all.
+> **"It verified true" is an artefact of the 404s and carries no information about NDTwin.**
+>
+> What survives the retraction is the *pairing* half: INV-07 is about flow-table freshness and
+> B-3 is about historical logging, so no amount of B-3 would ever have turned INV-07 red. That
+> reading was made by reading the two, not by running the control, and it is unaffected.
+>
+> Fixed 2026-09-03: the control now POSTs the real route `/ndt/historical_logging?state=enable`
+> and judges on the reply's machine-readable `recording` / `reason` fields, and `probes` gained
+> `api_get_checked` / `api_post_checked`, which raise `NotAnswered` instead of turning a non-2xx
+> into `None`. Pinned by `tests/python/test_chaos_c07_control.py` and its mutation gate
+> `tests/shell/mutate_chaos_c07_control.sh`, both directions: a 404 must be refused, a
+> non-recording kernel must reproduce, a recording kernel must not.
+>
+> The B-3 entry's own status is unchanged by this: it rests on
+> `doc/audit/2026-09-02_live-round/raw/C8_b3_historical_logging.log`, a direct live reading of
+> the real route, not on this control.
+
+~~The control reproduces **B-3** — `historical_logging` reports enabled and writes zero rows. It
+verified true.~~ But INV-07 is about **flow-table freshness**. They are about different subsystems,
 so no amount of B-3 will ever turn INV-07 red. Not a blindness bug; a mis-pairing in the oracle
 map. **Unfixed** — it needs either a different control for INV-07 or a new invariant for B-3, and
 that is new-control work, which this round was told not to do.
