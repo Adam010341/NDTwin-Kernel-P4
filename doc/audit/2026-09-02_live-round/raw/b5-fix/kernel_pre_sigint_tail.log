@@ -1,0 +1,40 @@
+[2026-09-02 23:29:26.946] [info] [[94mHttpSession.cpp[0m:[95m626[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 23:29:26.946] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 23:29:26.946] [info] [[94mHttpSession.cpp[0m:[95m668[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 23:29:26.947] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_cpu_utilization
+[2026-09-02 23:29:26.947] [info] [[94mHttpSession.cpp[0m:[95m1377[0m [96mhandleGetCpuUtilization[0m] Handle Get CPU Utilization
+[2026-09-02 23:29:26.947] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_memory_utilization
+[2026-09-02 23:29:26.947] [info] [[94mHttpSession.cpp[0m:[95m1384[0m [96mhandleGetMemoryUtilization[0m] Handle Get Memory Utilization
+[2026-09-02 23:29:27.371] [info] [[94mmain.cpp[0m:[95m438[0m [96mmain[0m] Shutdown requested. Cleaning up…
+[2026-09-02 23:29:27.801] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2551[0m [96mrun[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 23:29:27.801] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+[2026-09-02 23:29:27.882] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m878[0m [96mrun[0m] Run loop exiting
+[2026-09-02 23:29:27.882] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m888[0m [96mrun[0m] Run loop existing
+[2026-09-02 23:29:27.942] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 23:29:27.943] [info] [[94mHttpSession.cpp[0m:[95m538[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m626[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_detected_flow_data
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m668[0m [96mhandleGetDetectedFlowData[0m] Handle Get Detected Flow Data
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_cpu_utilization
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m1377[0m [96mhandleGetCpuUtilization[0m] Handle Get CPU Utilization
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_memory_utilization
+[2026-09-02 23:29:27.947] [info] [[94mHttpSession.cpp[0m:[95m1384[0m [96mhandleGetMemoryUtilization[0m] Handle Get Memory Utilization
+[2026-09-02 23:29:28.388] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2292[0m [96mtestCalAvgFlowSendingRatesRandomly[0m] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-02 23:29:28.769] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2371[0m [96mpurgeIdleFlows[0m] Exiting Loop of purgeIdleFlows
+[2026-09-02 23:29:28.769] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2194[0m [96mcalAvgFlowSendingRatesPeriodically[0m] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-02 23:29:28.779] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 23:29:28.779] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m108[0m [96mstop[0m] io_context stopped
+[2026-09-02 23:29:28.779] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m115[0m [96mstop[0m] acceptor_ close
+[2026-09-02 23:29:28.779] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m138[0m [96mstop[0m] Attempting to poke the server socket to unblock accept.
+[2026-09-02 23:29:28.780] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m157[0m [96mstop[0m] Poke connection refused (port likely already fully closed).
+[2026-09-02 23:29:28.780] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m214[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-02 23:29:28.780] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m180[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-02 23:29:28.780] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] m_serverThread joined.
+[2026-09-02 23:29:28.780] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m189[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-02 23:29:28.780] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m143[0m [96mstop[0m] Collector Stops
+[2026-09-02 23:29:29.770] [info] [[94mmain.cpp[0m:[95m446[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-02 23:29:29.770] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 23:29:29.770] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 23:29:29.770] [info] [[94mApplicationManager.cpp[0m:[95m273[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 23:29:29.770] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+terminate called without an active exception

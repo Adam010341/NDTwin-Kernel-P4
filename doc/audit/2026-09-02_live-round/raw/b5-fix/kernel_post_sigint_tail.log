@@ -1,0 +1,12 @@
+[2026-09-02 23:35:50.444] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m157[0m [96mstop[0m] Poke connection refused (port likely already fully closed).
+[2026-09-02 23:35:50.444] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m180[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-02 23:35:50.444] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m214[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-02 23:35:50.445] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] m_serverThread joined.
+[2026-09-02 23:35:50.445] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m189[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-02 23:35:50.445] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m153[0m [96mstop[0m] Collector Stops
+[2026-09-02 23:35:51.437] [info] [[94mmain.cpp[0m:[95m446[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-02 23:35:51.437] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m98[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 23:35:51.437] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m102[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 23:35:51.437] [info] [[94mApplicationManager.cpp[0m:[95m273[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 23:35:51.437] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m580[0m [96mstop[0m] Collector Stops
+[2026-09-02 23:35:51.437] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m153[0m [96mstop[0m] Collector Stops

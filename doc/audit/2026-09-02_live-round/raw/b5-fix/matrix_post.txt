@@ -1,0 +1,10 @@
+post_int_idle_1 sig=INT up=8s busy=idle -> exit_status=0  terminate_without=0  terminate_after=0
+post_int_idle_2 sig=INT up=8s busy=idle -> exit_status=0  terminate_without=0  terminate_after=0
+post_int_idle_3 sig=INT up=8s busy=idle -> exit_status=0  terminate_without=0  terminate_after=0
+post_int_busy_1 sig=INT up=8s busy=busy -> exit_status=0  terminate_without=0  terminate_after=0
+post_int_busy_2 sig=INT up=8s busy=busy -> exit_status=0  terminate_without=0  terminate_after=0
+post_int_fast sig=INT up=1s busy=idle -> exit_status=0  terminate_without=0  terminate_after=0
+post_int_long sig=INT up=20s busy=idle -> exit_status=0  terminate_without=0  terminate_after=0
+post_term_idle_1 sig=TERM up=8s busy=idle -> exit_status=143  terminate_without=0  terminate_after=0
+post_term_idle_2 sig=TERM up=8s busy=idle -> exit_status=143  terminate_without=0  terminate_after=0
+post_term_busy sig=TERM up=8s busy=busy -> exit_status=143  terminate_without=0  terminate_after=0

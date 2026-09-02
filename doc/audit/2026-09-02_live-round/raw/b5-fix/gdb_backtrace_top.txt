@@ -1,0 +1,11 @@
+#0  __pthread_kill_implementation (no_tid=0, signo=6, threadid=<optimized out>) at ./nptl/pthread_kill.c:44
+#1  __pthread_kill_internal (signo=6, threadid=<optimized out>) at ./nptl/pthread_kill.c:78
+#2  __GI___pthread_kill (threadid=<optimized out>, signo=signo@entry=6) at ./nptl/pthread_kill.c:89
+#3  0x00007ffff724527e in __GI_raise (sig=sig@entry=6) at ../sysdeps/posix/raise.c:26
+#4  0x00007ffff72288ff in __GI_abort () at ./stdlib/abort.c:79
+#5  0x00007ffff76a5ff5 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#6  0x00007ffff76bb0da in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#7  0x00007ffff76a5a55 in std::terminate() () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#8  0x0000555555586e83 in std::__terminate () at /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h:322
+#9  std::thread::~thread (this=0x555555ae1738, __in_chrg=<optimized out>) at /usr/include/c++/13/bits/std_thread.h:173
+#10 0x00005555555f976c in DeviceConfigurationAndPowerManager::~DeviceConfigurationAndPowerManager (this=0x555555ae16d0, __in_chrg=<optimized out>) at /home/adam

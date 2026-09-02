@@ -1,0 +1,21 @@
+A. a caller whose own $name names a DIFFERENT component
+  FAILED   the component that was ASKED for is stopped
+             expected: gone
+             actual:   alive
+  FAILED   the component that was NOT asked for survives
+             expected: alive
+             actual:   gone
+
+B. a caller with no $name in scope at all
+  FAILED   teardown does not die on an unbound variable
+             expected: 0
+             actual:   1
+  FAILED   and it still stops the right one
+             expected: gone
+             actual:   alive
+  ok       leaving the other alone
+
+Ran 5 checks, 4 failed
+  (stack.sh under test: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/b5/head/stack.sh)
+tests/shell/test_stop_one_targets_its_argument.sh: line 64: 1093782 Killed                  setsid "$@" > "$log" 2>&1
+tests/shell/test_stop_one_targets_its_argument.sh: line 59: 1093781 Killed                  setsid "$@" > "$log" 2>&1
