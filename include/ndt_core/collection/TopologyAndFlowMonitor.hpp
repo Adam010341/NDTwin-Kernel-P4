@@ -339,6 +339,72 @@ class TopologyAndFlowMonitor
     void updateHosts(const std::string& topologyData);
     void updateLinks(const std::string& topologyData);
 
+    /**
+     * @brief Moves what a repeatedly-unusable switch carries to down, and says why.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md F-14 and F-16. The three discovery writers above assign `isUp = true`
+     * at six sites and `false` at none, and the only writers of `false` anywhere in the process
+     * are the power actuation paths, the liveness poll (switch vertices only -- see the comment
+     * at DeviceConfigurationAndPowerManager.cpp:781) and `/ndt/link_failed`, which is keyed on a
+     * pair of dpids and so cannot name a host-facing edge at all. Between them, no host vertex
+     * and no host-facing edge had any path to `false`.
+     *
+     * What this does NOT do, and why. The obvious repair is to make the poll reconciling --
+     * remember what the control plane reported this pass and take down whatever it stopped
+     * reporting. That repair is unrunnable on the feed that matters: **both control planes'
+     * host tables are append-only.** Ryu's `HostState` (ryu/topology/switches.py:190-200) is a
+     * `setdefault` map with no timeout, whose only deletion path fires when a port turns out not
+     * to be an edge port; the P4 proxy's graph says so in its own words at
+     * p4_proxy/proxy_agent/topology_manager.py:539 -- "The graph is append-only -- nothing
+     * anywhere calls remove_node/remove_edge". A host that has been unplugged for an hour is
+     * still in both replies. Absence-based reconciliation would compile, would pass any unit
+     * test that feeds it a reply with the host removed, and would never once fire against a real
+     * control plane. On the links feed it would be worse than useless: a legal empty array from
+     * a converging Ryu would take the whole graph down, which is the failure
+     * kTopologyConnectTimeoutSeconds exists to prevent.
+     *
+     * So this derives instead of reconciling, from the one signal that *is* evidence-backed:
+     * the switch's own liveness, which the 1 Hz poll writes through a three-state policy
+     * (`ovsLivenessFor` / `p4LivenessFor`) where "could not tell" never writes the graph. A
+     * vertex reading `isUp = false` therefore means some poll positively observed the switch
+     * absent. Everything reachable only through such a switch is unreachable, and that is a
+     * statement the twin is entitled to make.
+     *
+     * Recovery clears the reason but does **not** set anything back up: bringing a thing up is
+     * discovery's job, because discovery has evidence for it. A derivation that both took
+     * something down and put it back would be the seventh site in this file asserting liveness
+     * it never observed.
+     *
+     * Called at the end of updateGraph, so within one pass the discovery writers run first and
+     * this has the last word. Protected for the same reason as the writers above: the property
+     * worth testing is what it does to a graph, and that needs no Ryu.
+     */
+    void reconcileDerivedLiveness();
+
+    /**
+     * @brief Consecutive topology polls a switch must be unusable before what it carries is
+     *        taken down.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * The noise this guards against is not in the derivation, which has none -- it is in the
+     * signal being derived from. `isUp = false` on a switch is a positive observation (the
+     * bridge list was read and the bridge was absent), but a power cycle produces a real one
+     * between `del-br` and `add-br`, and so does a bmv2 restart.
+     *
+     * Two, not one, because one would let that window isolate a dozen hosts and put them back
+     * a poll later. Two, not more, because the poll is 5 s while converging and 30 s after
+     * (run()), so two passes already span at least five independent 1 Hz liveness observations
+     * -- and every extra pass is another 30 s in which an isolated host reads as connected,
+     * which is the optimistic direction this whole family of defects lives in.
+     *
+     * Recovery is deliberately asymmetric at one pass: a switch that answers is unambiguous,
+     * and being slow in that direction means reporting an outage that has ended.
+     */
+    static constexpr unsigned kMissesBeforeIsolating = 2;
+
   private:
     void updateGraph(const std::string&, const std::string&, const std::string&);
 
@@ -419,6 +485,24 @@ class TopologyAndFlowMonitor
     /// one; the duplication is two lines and is noted here so it can be hoisted into utils/ later.
     /// Touched only by the polling thread.
     unsigned m_topologyFetchFailures = 0;
+
+    /// dpid -> consecutive topology polls this switch has been unusable. Cleared the moment it is
+    /// usable again. Touched only by reconcileDerivedLiveness, i.e. only by the polling thread --
+    /// same ownership as m_topologyFetchFailures above, and for the same reason it needs no mutex.
+    /// [Co-developed with claude code -- Adam]
+    std::map<uint64_t, unsigned> m_switchUnusablePolls;
+
+    /// Switch management addresses this run has already seen offered as hosts, so the warning is
+    /// written once and not once every 5 to 30 seconds forever.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// Edge-triggered for the reason KeyedFailureLog exists in this repo at all: the condition is
+    /// structural, not transient -- neither control plane's host table forgets anything -- so it
+    /// holds for the life of the process, and a line that repeats for the life of the process is
+    /// how a warning naming the exact misconfigured port ended up buried in 41 MB and unread.
+    /// Never cleared, because there is no recovery anyone needs a second line about.
+    /// Touched only by the polling thread.
+    std::set<uint32_t> m_switchIpsOfferedAsHosts;
 
     std::atomic<bool> m_running{false};
 

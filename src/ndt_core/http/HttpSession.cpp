@@ -570,7 +570,15 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
              // Folded the same way as the node above (which goes through to_json in GraphTypes.hpp
              // via push_back). [Co-developed with claude code -- Adam]
              {"is_enabled", e.isEnabled && !e.adminDisabled},
-             {"admin_disabled", e.adminDisabled}});
+             {"admin_disabled", e.adminDisabled},
+             // [Co-developed with claude code -- Adam]
+             // doc/KNOWN-ISSUES.md F-16. Host-facing edges can now read is_up=false, which they
+             // could not before -- /ndt/link_failed is keyed on two dpids and a host has none --
+             // so a consumer needs to be able to tell an injected link failure ("none") from the
+             // twin's own inference that the switch behind this edge is gone
+             // ("switch-unreachable"). Added key, same additive shape as admin_disabled; the
+             // node objects carry the same key via to_json.
+             {"down_reason", downReasonToString(e.downReason)}});
     }
     res.body() = result.dump();
     SPDLOG_LOGGER_INFO(Logger::instance(), "get_graph_data success");

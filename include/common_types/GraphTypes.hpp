@@ -27,6 +27,46 @@ enum class VertexType
 };
 
 /**
+ * @brief Why the twin last moved a vertex or edge to `isUp = false`.
+ *
+ * [Co-developed with claude code -- Adam]
+ * doc/KNOWN-ISSUES.md F-14 / F-16. Before this existed, `isUp = false` on an edge could only
+ * come from an operator POSTing /ndt/link_failed, and on a host vertex it could not come from
+ * anywhere at all -- so "down" carried no question about its own provenance. Making a host
+ * markable down introduces one: the twin has no host liveness probe and never will have one on
+ * this path, so a host reading down is always a *derived* statement ("the only switch it hangs
+ * off is unreachable"), never an observed one ("I asked it and it did not answer").
+ *
+ * A consumer that cannot tell those apart would be right to distrust both. This field is what
+ * lets it tell them apart, and it is emitted as `down_reason` alongside `is_up` rather than
+ * folded into it -- the same shape as `admin_disabled`, which is emitted beside `is_enabled`
+ * for exactly the same reason.
+ *
+ * `None` on something that is down means one of the pre-existing writers put it there:
+ * a power actuation, the liveness poll, or /ndt/link_failed.
+ */
+enum class DownReason
+{
+    None,             ///< Not moved down by liveness derivation. The default for everything.
+    SwitchUnreachable ///< Reached only through a switch the twin has repeatedly found unusable.
+};
+
+/** @brief Wire form of DownReason. Hyphenated, matching the rest of the /ndt/ JSON vocabulary.
+ *  [Co-developed with claude code -- Adam] */
+inline const char*
+downReasonToString(DownReason reason)
+{
+    switch (reason)
+    {
+    case DownReason::None:
+        return "none";
+    case DownReason::SwitchUnreachable:
+        return "switch-unreachable";
+    }
+    return "none";
+}
+
+/**
  * @brief Data-plane implementation of a switch, which selects its control strategy.
  *
  * Drives which IRoutingStrategy / IPowerStrategy a switch is actuated through, so it
@@ -216,6 +256,11 @@ struct VertexProperties
      */
     bool adminDisabled = false;
 
+    /** @brief Why `isUp` is false, when the twin derived it rather than observing it.
+     *  @see DownReason. Owned by TopologyAndFlowMonitor::reconcileDerivedLiveness; every other
+     *  writer of `isUp` leaves it at None. [Co-developed with claude code -- Adam] */
+    DownReason downReason = DownReason::None;
+
     std::string deviceName = "";
     std::string nickName = "";
     std::string bridgeNameForMininet = "";
@@ -345,6 +390,17 @@ to_json(nlohmann::json& j, const VertexProperties& v)
                        // [Co-developed with claude code -- Adam]
                        {"is_enabled", v.isEnabled && !v.adminDisabled},
                        {"admin_disabled", v.adminDisabled},
+                       // [Co-developed with claude code -- Adam]
+                       // An added key, not a changed one: every consumer that reads is_up by
+                       // name is unaffected, and one that wants to know whether a host is down
+                       // because we asked it or because we inferred it now can. Same additive
+                       // shape as admin_disabled above.
+                       //
+                       // Deliberately not read back by from_json: nothing restores liveness from
+                       // a file -- loadStaticTopologyFromFile starts every vertex and edge at
+                       // isUp = false with no reason -- so a from_json that parsed it would be
+                       // reading a key no writer in this process ever puts into a file.
+                       {"down_reason", downReasonToString(v.downReason)},
                        {"device_name", v.deviceName},
                        {"nickname", v.nickName},
                        {"brand_name", v.brandName},
@@ -367,6 +423,11 @@ struct EdgeProperties
     //: a third flag and not a reuse of isEnabled. Set by disableSwitchAndEdges on every edge
     //: incident to the switch; discovery never writes it. [Co-developed with claude code -- Adam]
     bool adminDisabled = false;
+
+    /** @brief Why `isUp` is false, when the twin derived it rather than being told.
+     *  @see DownReason. Owned by TopologyAndFlowMonitor::reconcileDerivedLiveness; setEdgeDown
+     *  (the /ndt/link_failed path) leaves it at None. [Co-developed with claude code -- Adam] */
+    DownReason downReason = DownReason::None;
 
     uint64_t leftBandwidth = 0;
     uint64_t linkBandwidth = MININET_INTERFACE_SPEED;

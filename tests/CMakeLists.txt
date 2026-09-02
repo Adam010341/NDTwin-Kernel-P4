@@ -44,6 +44,7 @@ add_executable(
   test_TopologyAndFlowMonitor_mininet.cpp
   test_AdministrativeDisable.cpp
   test_AdminDisableConsumers.cpp
+  test_OptimisticTopologyReporting.cpp
   test_ApiKeyNotLogged.cpp
   test_IntentTaskOutcomes.cpp
   test_HttpSessionStatusCodes.cpp
