@@ -16,10 +16,20 @@
 #     no fabric until the operator runs it. The bring-up is still not attempted automatically
 #     when processes survive, because starting a fabric over live bmv2 is the port-conflict trap.
 #
-#   Route 1 (power-on) reports its own failure correctly, but P4 power-on is a stub, so the
-#   switches do not come back. ⇒ NOT FIXED HERE. That is a kernel-side stub, not a harness
-#   defect, and it is out of T-10's scope. See the ROUTE 1 banner below, which now says so at
-#   the point of use instead of only in this header.
+#   Route 1 (power-on) reports its own failure correctly. It used to say here that P4 power-on
+#   is a kernel-side stub so the switches do not come back.
+#   🔴 THAT IS NO LONGER TRUE, MEASURED 2026-09-02 (L-12): raw/C42 of
+#   doc/audit/2026-09-02_live-round -- three POSTs to /ndt/set_switches_power_state action=on
+#   returned {"...":"Success"} HTTP=200, bmv2 processes went 7 -> 10 within 15 s, :30055/:30057/
+#   :30059 each had a listener again, and get_switches_power_state read ON on all ten.
+#   ⚠️ What C42 did NOT measure is forwarding: the kernel's own reply said "adopted, but no route
+#   was installable yet ... the link watchdog installs them when the beacons resume", so
+#   "the processes and the power state come back" is the claim, not "the fabric forwards again".
+#   ⚠️ The `warning_allowlist.txt:96` entry that was this claim's only written source
+#   ("P4 BMv2 Power ON from Kernel is currently a stub") is still there and is now stale too --
+#   left alone deliberately, it belongs to tools/contract_test and not to this harness.
+#   A stale "this cannot work" in a restore script is expensive in the one direction that
+#   matters: it sends the operator to the slow route, or stops them trying at all.
 #
 #   The former "DO NOT RUN UNTIL T-10 LANDS" banner is removed because T-10 has landed and the
 #   sentence it makes is now false. What is still true about Route 1 has moved to Route 1.
@@ -151,17 +161,26 @@ case "$MODE" in
 power-on)
     say "ROUTE 1 -- power the recorded switches back on"
     # [Co-developed with claude code -- Adam]
-    # Measured 2026-08-30 (FINDING-04): on P4 this route CANNOT work. The kernel's own warning
-    # allowlist carries the reason (warning_allowlist.txt:88, "P4 BMv2 Power ON from Kernel is
-    # currently a stub"), and the run confirmed it -- 7 up of 10, 20 links still down, and the
-    # script correctly reported its own failure rather than trusting the HTTP 200s.
-    # ⚠️ That string was NOT located in src/ or p4_proxy/, so this is the allowlist's claim
-    #    corroborated by observed behaviour, not a line of code anyone has read.
+    # 2026-08-30 (FINDING-04) measured this route failing on P4 -- 7 up of 10, 20 links still
+    # down -- and attributed it to the kernel's warning allowlist entry (now
+    # warning_allowlist.txt:96, "P4 BMv2 Power ON from Kernel is currently a stub"). That string
+    # was never located in src/ or p4_proxy/, so the attribution was the allowlist's claim
+    # corroborated by behaviour, not a line of code anyone had read.
+    # 🔴 RE-MEASURED 2026-09-02 AND THE ATTRIBUTION IS DEAD (L-12): three POSTs returned Success,
+    # bmv2 went 7 -> 10, the three gRPC ports had listeners again and all ten read ON -- see
+    # doc/audit/2026-09-02_live-round/raw/C42. So this route is NOT a stub any more, and telling
+    # the operator it is would send them to the slow route for no reason.
+    # ⚠️ Still unmeasured on this route: whether traffic FORWARDS after the switches come back.
+    #    C42's own reply said routes were pending on the link watchdog. Route 2 (--rebuild) is
+    #    still the one with no open question on it.
     # Said here rather than only in the header, because a header never reaches the operator who
-    # was told "run ./90_restore.sh". Route 2 is the working route on P4.
+    # was told "run ./90_restore.sh".
     if [[ -z "$(port_holder 8080)" ]]; then
-        info "⚠️ this looks like a P4 run (:8080 is free). P4 power-on is a stub -- expect this"
-        info "   route to report failure on the counts. The route that works here is:"
+        info "ℹ️ this looks like a P4 run (:8080 is free). P4 power-on WORKS as of 2026-09-02"
+        info "   (raw/C42: bmv2 7->10, gRPC listeners back, all ten ON) -- the pre-09-02 header"
+        info "   here claimed it was a kernel stub and that is no longer true."
+        info "   ⚠️ but forwarding after power-on has not been measured; if the counts below come"
+        info "   back short, the route that is known to work is:"
         info "     ./90_restore.sh --rebuild '<the same args you used for ndt up>'"
     fi
     OFFLIST="$OUT/energy_powered_off.txt"

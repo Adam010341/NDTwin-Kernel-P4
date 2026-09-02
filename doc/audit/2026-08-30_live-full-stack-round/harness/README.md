@@ -84,9 +84,14 @@ Phases 1–5 are non-destructive. Phase 6 powers switches off. Do not reorder.
 refuses to append to another run's artefacts.
 
 **Step 7's routes were swapped on 2026-08-30 (FINDING-04).** This table used to offer `power-on`
-as *the* P4 route. On P4 it cannot work: BMv2 power-on from the kernel is a stub, so the switches
-do not come back, and the 08-30 run ended at 7 up of 10 with 20 links down. `--rebuild` is the
-only route that restores a P4 fabric. `power-on` remains the cheap route on **OVS**, with F-7a's
+as *the* P4 route; the 08-30 run ended at 7 up of 10 with 20 links down, and that was attributed
+to BMv2 power-on from the kernel being a stub.
+🔴 **The stub attribution is dead as of 2026-09-02** (`doc/audit/2026-09-02_live-round/raw/C42`):
+three `action=on` POSTs returned `Success`, bmv2 processes went 7 → 10 within 15 s, the three
+gRPC ports had listeners again, and all ten switches read `ON`. **What is still unmeasured is
+forwarding after power-on** — the kernel's own reply said the routes were pending on the link
+watchdog — so `--rebuild` remains the route with no open question on it, but it is no longer the
+*only* route that can restore a P4 fabric. `power-on` remains the cheap route on **OVS**, with F-7a's
 caveat — it re-adds the ports without re-applying shaping, so four 1 Gbps interfaces come back
 unshaped and the twin reports them identically to shaped ones.
 Route 2 itself was **unable to succeed** until 08-30: `ndt_down` returned its count on the same

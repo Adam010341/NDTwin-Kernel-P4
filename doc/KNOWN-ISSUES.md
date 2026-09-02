@@ -1449,9 +1449,18 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 > - ⚠️ **零呼叫點不等於可以安全地改**：`/ndt/` 是跨 repo 契約、七個姊妹應用在用，
 >   而這個端點的 client 已經寫好放在那裡（見 [[no-in-repo-callers-is-not-dead-code]]）。
 >
-> 📌 **同一個錯誤前提還有第五個引用點，在產品碼裡**：`include/ndt_core/http/HttpSession.hpp:592`
-> 寫著「This figure is what Energy-Saving-App reads」，**而且是拿它當一次標頭修改的理由**。
-> **本輪沒有動產品碼**，已另行回報。
+> 📌 **產品碼裡的那兩個引用點：早在 2026-08-29 就由 Adam 自己處理掉了**（`c7c9b155`，
+> **是 HEAD 的祖先**，commit 訊息逐字：「comment-only: state why the Energy-Saving-App premise
+> was wrong, not just drop it」）。這一段原本寫著「還有第五個引用點……本輪沒有動產品碼，已另行
+> 回報」——**那句 2026-09-02 寫下時就已經過期九天，2026-09-03 重查後改寫**。
+> 🔴 **而且處理方式是「說明為什麼錯」不是「刪掉」，那是裁定的一部分，不要把它當成沒修完**：
+> `include/ndt_core/http/HttpSession.hpp:664-675`（原 `:592`，**行號已動**）與
+> `src/ndt_core/collection/TopologyAndFlowMonitor.cpp:3240-3248` 兩處都把舊句子**引號括起來留著**，
+> 底下寫明前提為假、證據在哪、以及 ESA 的 client 宣告了卻零呼叫。
+> commit 訊息給的理由是**「a reason outlives the conclusion it justified and deleting the
+> sentence would let the next reader derive it again」**。
+> ⇒ **全 repo 現在唯一還出現「Energy-Saving-App reads」字串的地方，就是那個被標明為已撤回的引文。**
+> **把它刪掉會反過來推翻這個決定。**〔實測，2026-09-03 逐字重查兩個檔案與 `c7c9b155`〕
 >
 > 🏁 **對 §D 裁定的影響：已重裁完畢（Adam，2026-08-29）。**
 > 原理由（失效方向保守）被 round 4 推翻、而 round 4 推出的「0.0 → 觸發關機」也被本次更正推翻
