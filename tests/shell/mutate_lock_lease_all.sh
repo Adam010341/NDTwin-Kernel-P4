@@ -24,10 +24,16 @@
 #      do not measure those, and blocking a lock gate on unrelated breakage helps nobody;
 #   4. runs each gate with MUTATE_SKIP_BASELINE=1 (step 2 already did it) and the same BUILD_DIR;
 #   5. aggregates each gate's GATE-SUMMARY line into one verdict;
-#   6. asserts both mutated sources are byte-identical to their pre-run snapshots.
+#   6. asserts both mutated sources are byte-identical to their pre-run snapshots;
+#   7. rebuilds once from the restored sources, so the tree is left matching what is committed.
 #
-# EXIT: 0 clean, 1 survivors or build-failed mutants, 2 refused (no build / red baseline / a gate
-# refused, which happens when a mutation anchor no longer matches the source).
+# A MUTANT THAT NEVER RAN IS A SURVIVOR. One that fails to compile, and one whose anchor no longer
+# matches the source, are both counted as survivors rather than warnings -- in each case the test
+# case they target was never put to the test, and a gate reporting "survivors=0" beside an
+# unmeasured case is worse than one reporting nothing.
+#
+# EXIT: 0 clean, 1 survivors (of any kind), 2 refused -- a gate did not build or its baseline was
+# red, i.e. nothing was measured at all.
 #
 # No process is ever killed -- no pkill, no pgrep, nothing signals anything. Every exit code that
 # decides something is captured unpiped, because `cmd | grep -q` reports on the grep.
@@ -127,9 +133,12 @@ fi
 TOTAL_MUT=0
 TOTAL_KILLED=0
 TOTAL_SURV=0
-TOTAL_BROKEN=0
 TOTAL_ANCHORS=0
 REFUSED=0
+# Subsets of TOTAL_SURV, reported so a reader can tell "no test noticed the change" from "the
+# change never ran". Never added on top of it.
+TOTAL_BROKEN=0
+TOTAL_MISSED=0
 
 for gate in "${GATES[@]}"; do
     name="$(basename "$gate" .sh)"
@@ -155,18 +164,22 @@ for gate in "${GATES[@]}"; do
     g_kill=$(field killed);     g_kill=${g_kill:-0}
     g_surv=$(field survived);   g_surv=${g_surv:-0}
     g_brok=$(field build_failures); g_brok=${g_brok:-0}
+    g_miss=$(field anchors_missed); g_miss=${g_miss:-0}
 
     TOTAL_ANCHORS=$((TOTAL_ANCHORS + g_anchors))
     TOTAL_MUT=$((TOTAL_MUT + g_mut))
     TOTAL_KILLED=$((TOTAL_KILLED + g_kill))
     TOTAL_SURV=$((TOTAL_SURV + g_surv))
     TOTAL_BROKEN=$((TOTAL_BROKEN + g_brok))
+    TOTAL_MISSED=$((TOTAL_MISSED + g_miss))
 
-    # rc 2 is a REFUSE: a mutation anchor no longer matches the source. That is not a survivor and
-    # must not be aggregated as one -- it means the gate could not run at all. It is exactly what
-    # happened to mutate_lock_renew_expiry.sh when A-9 refactored the code under it.
+    # rc 2 is now a gate-level REFUSE only: it did not build, or its baseline was red. A missing
+    # anchor is NOT one of these any more -- it is counted as a survivor inside the gate, because
+    # a mutation that cannot run is a case that was never put to the test. (It used to abort the
+    # whole gate, throwing away every result after it; that is the wrong trade when one window
+    # runs every branch's gate in a batch.)
     if [[ "$rc" -eq 2 ]]; then
-        echo "  🔴 $name REFUSED (rc=2) -- an anchor no longer matches the source."
+        echo "  🔴 $name REFUSED (rc=2) -- it did not build, or its baseline was red."
         REFUSED=$((REFUSED + 1))
     fi
 done
@@ -186,14 +199,34 @@ for src in "${SOURCES[@]}"; do
     fi
 done
 
+# Leave the tree with a binary built from the restored sources. Each gate already rebuilds after
+# its own final restore; this is the backstop for a gate that exited early. Skipped on a dry run,
+# which built nothing. [Co-developed with claude code -- Adam]
+if [[ "$DRY_RUN" -eq 0 && "$DRIFTED" -eq 0 ]]; then
+    if cmake --build "$BUILD_DIR" --target "$TARGET" -j"$(nproc)" > "$WORK/rebuild.log" 2>&1; then
+        echo "  rebuilt $TARGET from the restored sources"
+    else
+        echo "  🔴 the restored tree does not build -- something was left behind:"
+        tail -20 "$WORK/rebuild.log" | sed 's/^/      /'
+        DRIFTED=$((DRIFTED + 1))
+    fi
+fi
+
 # ---------------------------------------------------------------------------------- the verdict
 
 hr
 if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "DRY RUN: $TOTAL_ANCHORS mutation anchors, each matching the source exactly once."
+    if [[ "$TOTAL_MISSED" -gt 0 ]]; then
+        echo "DRY RUN: $TOTAL_MISSED of $TOTAL_ANCHORS mutation anchors NO LONGER MATCH the source."
+        echo "Those mutations cannot run, which makes them survivors, not warnings."
+    else
+        echo "DRY RUN: $TOTAL_ANCHORS mutation anchors, each matching the source exactly once."
+    fi
     echo "This is NOT a mutation result. Nothing was built, mutated or executed."
 else
-    echo "$TOTAL_MUT mutations, $TOTAL_SURV survived (killed $TOTAL_KILLED, build-failed $TOTAL_BROKEN)"
+    echo "$TOTAL_MUT mutations, $TOTAL_SURV survived (killed $TOTAL_KILLED)"
+    echo "  of the $TOTAL_SURV survivors: $TOTAL_BROKEN did not compile, $TOTAL_MISSED had no anchor."
+    echo "  Both kinds are survivors: the mutant never ran, so the case it targets is unmeasured."
 fi
 [[ "$REFUSED" -gt 0 ]] && echo "$REFUSED gate(s) REFUSED and measured nothing"
 [[ "$DRIFTED" -gt 0 ]] && echo "$DRIFTED source(s) NOT restored"
@@ -227,7 +260,12 @@ echo
 if [[ "$REFUSED" -gt 0 || "$DRIFTED" -gt 0 ]]; then
     exit 2
 fi
-if [[ "$DRY_RUN" -eq 0 && ( "$TOTAL_SURV" -gt 0 || "$TOTAL_BROKEN" -gt 0 ) ]]; then
+# TOTAL_BROKEN and TOTAL_MISSED are already inside TOTAL_SURV; testing them separately would be
+# double counting. A dry run fails on a missing anchor for the same reason.
+if [[ "$DRY_RUN" -eq 0 && "$TOTAL_SURV" -gt 0 ]]; then
+    exit 1
+fi
+if [[ "$DRY_RUN" -eq 1 && "$TOTAL_MISSED" -gt 0 ]]; then
     exit 1
 fi
 exit 0

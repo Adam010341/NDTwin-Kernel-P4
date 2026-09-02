@@ -40,29 +40,55 @@ FILTER='LockManager*:LockRequestParsing*:LockEndpoint*'
 BK=$(mktemp -d)
 
 cp "$LOCK" "$BK/lock" && cp "$HTTP" "$BK/http"
-restore() { cp "$BK/lock" "$LOCK"; cp "$BK/http" "$HTTP"; }
+# 🔴 mtime, not content, is what the build system compares. Plain `cp` already stamps the
+# restored file with the current time -- but `cp -p` / `cp -a` would put the ORIGINAL mtime back,
+# ninja would decide nothing had changed, and the NEXT mutant would be tested against the PREVIOUS
+# mutant's object file. Every result after that point would be attributed to the wrong edit, and
+# the gate would look like it was working. The touch makes that explicit instead of leaving it
+# resting on a flag nobody wrote down. [Co-developed with claude code -- Adam]
+restore() {
+    cp "$BK/lock" "$LOCK"
+    cp "$BK/http" "$HTTP"
+    touch "$LOCK" "$HTTP"
+}
 trap 'restore; rm -rf "$BK"' EXIT
 
 build() { cmake --build "$BUILD_DIR" --target "$TARGET" -j"$(nproc)" 2>&1; }
 run() { "$BIN" --gtest_filter="$FILTER" 2>&1; }
 
 SURVIVORS=0
-BROKEN=0
 MUTATIONS=0
+# BROKEN and ANCHORS_MISSED are SUBSETS of SURVIVORS, reported separately only so a reader can
+# tell "no test noticed the change" from "the change never ran". They are never added on top.
+BROKEN=0
+ANCHORS_MISSED=0
+ANCHOR_MISS=""
 
 # $1 = mutation name, $2 = gtest case that must fail, $3 = the perl edit's target file
 report() {
     local name="$1" want="$2" out rc
     MUTATIONS=$((MUTATIONS + 1))
+    if [[ -n "${ANCHOR_MISS:-}" ]]; then
+        printf '  SURVIVED %-46s (no anchor: %s)\n' "$name" "$ANCHOR_MISS"
+        echo "             the mutation never happened, so $want proves nothing about it"
+        SURVIVORS=$((SURVIVORS + 1))
+        ANCHORS_MISSED=$((ANCHORS_MISSED + 1))
+        ANCHOR_MISS=""
+        return
+    fi
     if [[ "${MUTATE_DRY_RUN:-0}" == "1" ]]; then
         printf '  anchor-ok %-46s (would redden %s)\n' "$name" "$want"
         return
     fi
     if ! build > "$BK/build.log" 2>&1; then
         # A mutation that does not compile proves nothing about the tests: it never reached them.
-        printf '  BUILD-FAIL %-44s (the mutation did not compile -- it tested nothing)\n' "$name"
+        # 🔴 A MUTANT THAT DOES NOT COMPILE IS A SURVIVOR, NOT A WARNING. The test never ran,
+        # so nothing was proved about it. Giving it its own column let a gate print
+        # "survivors=0" with a case sitting unmeasured beside it.
+        printf '  SURVIVED %-46s (did not compile -- the test never ran)\n' "$name"
         tail -5 "$BK/build.log" | sed 's/^/             /'
         BROKEN=$((BROKEN + 1))
+        SURVIVORS=$((SURVIVORS + 1))
         restore
         return
     fi
@@ -85,9 +111,15 @@ mutate() {   # $1 = file, $2 = literal to find, $3 = literal replacement
     local file="$1" from="$2" to="$3" n
     n=$(FROM="$from" perl -0777 -ne 'my $f = quotemeta $ENV{FROM}; my $c = () = /$f/g; print $c' "$file")
     if [[ "$n" != "1" ]]; then
-        echo "  🔴 REFUSE: the mutation target appears $n times in $file, expected exactly 1"
+        # 🔴 NOT `exit 2` ANY MORE. A missing anchor means this mutation never happened, and a
+        # mutation that never happened is exactly a survivor: the case it was meant to redden was
+        # never put to the test. Aborting the whole gate here also threw away every result after
+        # it, which is the wrong trade when one compile window runs every branch's gate in a
+        # batch. Recorded here, turned into a survivor by report().
+        echo "  🔴 ANCHOR GONE: the mutation target appears $n times in $file, expected exactly 1"
         echo "     target: $from"
-        exit 2
+        ANCHOR_MISS="found $n times in $file, expected exactly 1"
+        return 1
     fi
     # Anchor-only pass. The target was found exactly once, which is the whole of what a dry run
     # checks -- and it is the check that goes stale silently when somebody refactors the code
@@ -219,14 +251,23 @@ fi
 # reporting its own finding, which is the exact shape this repo keeps getting caught by. A reader
 # skimming for "survived=0" would have taken an anchor check for a passing mutation gate.
 if [[ "${MUTATE_DRY_RUN:-0}" == "1" ]]; then
-    printf 'GATE-SUMMARY name=%s mode=dry-run anchors=%d mutations=0 killed=0 survived=0 build_failures=0\n' \
-           "$GATE_NAME" "$MUTATIONS"
+    printf 'GATE-SUMMARY name=%s mode=dry-run anchors=%d mutations=0 killed=0 survived=%d build_failures=0 anchors_missed=%d\n' \
+           "$GATE_NAME" "$MUTATIONS" "$ANCHORS_MISSED" "$ANCHORS_MISSED"
+    if [[ "$ANCHORS_MISSED" -gt 0 ]]; then
+        echo "dry run: $ANCHORS_MISSED of $MUTATIONS anchors NO LONGER MATCH the source."
+        echo "Those mutations cannot run at all, which makes them survivors, not warnings."
+        exit 1
+    fi
     echo "dry run: $MUTATIONS anchors each matched exactly once."
     echo "NOTHING was mutated, built or executed -- this is not a mutation result."
     exit 0
 fi
 
-printf 'GATE-SUMMARY name=%s mode=run mutations=%d killed=%d survived=%d build_failures=%d\n' \
-       "$GATE_NAME" "$MUTATIONS" "$((MUTATIONS - SURVIVORS - BROKEN))" "$SURVIVORS" "$BROKEN"
-echo "survivors=$SURVIVORS build-failures=$BROKEN"
-[[ "$SURVIVORS" -eq 0 && "$BROKEN" -eq 0 ]]
+# killed = mutations - survivors. build_failures and anchors_missed are SUBSETS of survived --
+# printed so a reader can tell "no test noticed" from "the test never ran" -- never added on top.
+printf 'GATE-SUMMARY name=%s mode=run mutations=%d killed=%d survived=%d build_failures=%d anchors_missed=%d\n' \
+       "$GATE_NAME" "$MUTATIONS" "$((MUTATIONS - SURVIVORS))" "$SURVIVORS" "$BROKEN" "$ANCHORS_MISSED"
+echo "survivors=$SURVIVORS (of which $BROKEN did not compile, $ANCHORS_MISSED had no anchor)"
+# BROKEN and ANCHORS_MISSED are already inside SURVIVORS; testing them again would be double
+# counting, and testing only BROKEN was how a never-compiled mutant used to pass this line.
+[[ "$SURVIVORS" -eq 0 ]]
