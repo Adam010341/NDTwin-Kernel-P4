@@ -17,6 +17,8 @@ class TopologyAndFlowMonitor; // lines 34-34
 
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 #include "ndt_core/power_management/IPowerStrategy.hpp"
+// [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: UnreadSwitch and the carry-forward rule.
+#include "ndt_core/power_management/StaleTableCarryForward.hpp"
 
 using json = nlohmann::json;
 
@@ -325,6 +327,39 @@ class DeviceConfigurationAndPowerManager
         Usable,          ///< Apply it: it has entries, or it was too fast to be a timeout.
         SuspectTimedOut, ///< Empty *and* slow. Keep the previous table; do not apply this one.
         ReportedFailure, ///< The body says "error": the control plane could not read the switch.
+    };
+
+    // [Co-developed with claude code -- Adam]
+    // KNOWN-ISSUES F-6, and worth a pointer because the two halves are not next to each other:
+    // "keep the previous table" is NOT what the `continue` in fetchOpenFlowTablesInternal does.
+    // That loop builds a fresh array and only records the dpid in FlowTableFetch::unread; the
+    // keeping happens afterwards in openflowTablesUpdateWorker, via carryForwardUnreadTables.
+    // Between 2026-08-07 and 2026-09-02 the second half was missing, and the sentences above --
+    // in four skip paths, this enum, buildFlowStatsCommand's note and two test files -- described
+    // a merge no code performed: the switch was deleted from the listing instead.
+
+    /**
+     * @brief One poll's worth of flow tables: what was read, and what could not be.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * KNOWN-ISSUES F-6. `tables` used to be fetchOpenFlowTablesInternal's whole return value, and
+     * openflowTablesUpdateWorker assigned it straight over the cache -- so a switch that failed to
+     * read was not "kept", it was deleted, in contradiction of every comment on the four skip
+     * paths. Reporting the failures alongside the data, instead of only to the log, is what lets
+     * the worker carry the previous copy forward and mark it.
+     *
+     * `unread` holds only switches whose read was **attempted and failed**. A switch skipped for
+     * being down never enters it: see the note at the top of the loop for why that distinction is
+     * the whole safety of this fix.
+     *
+     * Protected rather than private so a test can reach it by subclassing, the way
+     * test_FlowStatsTimeout.cpp's FlowStatsReader reaches FlowStatsVerdict.
+     */
+    struct FlowTableFetch
+    {
+        json tables = json::array();
+        std::vector<UnreadSwitch> unread;
     };
 
     /**
@@ -677,7 +712,11 @@ class DeviceConfigurationAndPowerManager
     json fetchMemoryReportInternal();
     json fetchCpuReportInternal();
     json fetchTemperatureReportInternal();
-    json fetchOpenFlowTablesInternal();
+
+    /// Returns both halves of the poll: see FlowTableFetch, declared protected above beside
+    /// FlowStatsVerdict so a test can reach it by subclassing the way FlowStatsReader does. The
+    /// method itself stays private -- it talks to the network.
+    FlowTableFetch fetchOpenFlowTablesInternal();
 
     std::vector<SwitchInfo> switchSmartPlugTable;
 

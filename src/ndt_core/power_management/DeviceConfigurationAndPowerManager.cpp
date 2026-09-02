@@ -1016,15 +1016,24 @@ DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json&
                                                         : FlowStatsVerdict::Usable;
 }
 
-json
+DeviceConfigurationAndPowerManager::FlowTableFetch
 DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
 {
-    nlohmann::json result = nlohmann::json::array();
+    FlowTableFetch fetched;
+    nlohmann::json& result = fetched.tables;
     auto graph = m_topologyAndFlowMonitor->getGraph();
 
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
         const auto& props = graph[v];
+        // [Co-developed with claude code -- Adam]
+        // KNOWN-ISSUES F-6: this skip is deliberately NOT recorded in fetched.unread. A switch
+        // that is down or is not a switch at all was never read, so there is no failed read to
+        // carry a previous answer forward from -- and carrying one forward would keep a dead
+        // switch's rules alive for as long as it stays dead, which is the optimistic direction of
+        // F-4/F-16. "Not attempted" and "attempted and failed" are different facts and this
+        // function must keep them apart. Everything below this point has actually asked the
+        // control plane a question.
         if (props.vertexType != VertexType::SWITCH || props.isUp == false)
         {
             continue;
@@ -1080,6 +1089,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                                    ip_and_port,
                                    dpid);
             }
+            fetched.unread.push_back({dpid, kUnreadNoResponse});
             continue;
         }
         if (const auto failures = m_flowStatsFetchFailures.recordSuccess())
@@ -1099,6 +1109,11 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
             // table is the same conservative choice the timeout path makes, and for the same
             // reason: stale data that was once true beats a confident claim that is false now.
             // The parse error itself is already logged one line up.
+            //
+            // KNOWN-ISSUES F-6: until 2026-09-02 the sentence above described a step that did not
+            // exist. `continue` left the dpid out of the fresh array, which the worker then
+            // assigned over the whole cache -- so "keeping the previous table" deleted it. The
+            // record below is what makes the sentence true.
             if (m_flowStatsTimeouts.recordFailure())
             {
                 SPDLOG_LOGGER_WARN(Logger::instance(),
@@ -1108,6 +1123,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                                    ip_and_port,
                                    dpid);
             }
+            fetched.unread.push_back({dpid, kUnreadUnparseable});
             continue;
         }
         const nlohmann::json& flows = *parsed;
@@ -1138,6 +1154,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                                    dpid,
                                    flows.dump());
             }
+            fetched.unread.push_back({dpid, kUnreadReportedFailure});
             continue;
         }
         if (verdict == FlowStatsVerdict::SuspectTimedOut)
@@ -1155,6 +1172,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                     elapsedSeconds,
                     kFlowStatsSuspectSeconds);
             }
+            fetched.unread.push_back({dpid, kUnreadSuspectTimeout});
             continue;
         }
         if (const auto timeouts = m_flowStatsTimeouts.recordSuccess())
@@ -1167,10 +1185,18 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         result.push_back({{"dpid", dpid}, {"flows", flows}});
 
         // TODO: Test Classifier
+        //
+        // [Co-developed with claude code -- Adam]
+        // Fed only the switches read successfully, deliberately and unchanged by the F-6 fix.
+        // Classifier::updateFromQueriedTables (Classifier.cpp:1342-1368) is a per-dpid upsert, so
+        // a switch absent from this array already keeps its previous table there -- it has had
+        // the semantics these four skip paths claim all along. It is the HTTP cache below that
+        // did not, which is why the twin's two views of the same poll could disagree with each
+        // other while both were called "the flow tables".
         m_classifier->updateFromQueriedTables(result);
     }
 
-    return result;
+    return fetched;
 }
 
 std::optional<json>
@@ -1885,12 +1911,41 @@ DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
         try
         {
             // 1. Fetch new data (SLOW part, no lock held)
-            json newTables = fetchOpenFlowTablesInternal();
+            FlowTableFetch fetched = fetchOpenFlowTablesInternal();
 
             // 2. Lock and update caches (FAST part)
+            //
+            // [Co-developed with claude code -- Adam]
+            // KNOWN-ISSUES F-6. The assignment below is a *replacement*, so before it happens the
+            // switches this poll could not read have to be put back -- otherwise the four skip
+            // paths in fetchOpenFlowTablesInternal, every one of which says in so many words that
+            // it is "keeping the previous table", delete the switch instead.
+            //
+            // The merge runs inside the unique lock rather than against a copy taken earlier
+            // because the previous value it reads is the same cache it is about to overwrite; a
+            // read-then-write across a lock gap would let updateOpenFlowTables' optimistic HTTP
+            // writes land in between and be silently dropped. Carrying forward is a small keyed
+            // walk over at most one entry per switch, so holding the write lock for it costs
+            // nothing next to the southbound poll that already happened above, outside the lock.
             {
                 std::lock_guard<std::shared_mutex> lock(m_openflowTablesMutex);
-                m_cachedOpenFlowTables = std::move(newTables);
+                const std::size_t carried =
+                    carryForwardUnreadTables(fetched.tables,
+                                             m_cachedOpenFlowTables,
+                                             fetched.unread,
+                                             utils::getCurrentTimeMillisSystemClock() / 1000);
+                if (carried > 0)
+                {
+                    // Not edge-triggered like the per-path warnings above: those report the fault,
+                    // this reports what the *answer* now contains, and a consumer reading a stale
+                    // table has to be able to find the poll it came from in the log.
+                    SPDLOG_LOGGER_WARN(Logger::instance(),
+                                       "serving {} switch(es) from their previous flow table; each "
+                                       "is marked with stale_since/stale_polls/last_error in "
+                                       "get_switch_openflow_table_entries",
+                                       carried);
+                }
+                m_cachedOpenFlowTables = std::move(fetched.tables);
             }
         }
         catch (const std::exception& e)
