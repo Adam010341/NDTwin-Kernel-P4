@@ -1,0 +1,36 @@
+#### what this step proves: whether the bmv2-liveness startup race (Lead C) is lost every time or only sometimes, on the SHIPPED 4-host P4 topology, over 20 cold kernel starts ####
+# instrument: no proxy is running anywhere, so a WON race must log 'cannot read bmv2 liveness'
+# (DeviceConfigurationAndPowerManager.cpp:487) once per pingWorker tick; a LOST race never calls it.
+# positive control for this instrument is step 02 (a topology small enough to win) -- until that
+# passes, a run of all-LOST here is NOT yet distinguishable from an instrument with no power.
+2026-09-03T01:51:13+08:00
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7123        3722        1045        5957        8288
+ 01:51:13 up 13:31,  1 user,  load average: 0.33, 0.23, 0.30
+topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json (16960 bytes)
+topo=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json N=20 tag=t4host settle=7s
+run 01 pid=1267574  alive_before_kill=1267574 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:13.036 t_dcpm=2026-09-03 01:51:13.036 VERDICT=LOST
+run 02 pid=1267717  alive_before_kill=1267717 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:20.791 t_dcpm=2026-09-03 01:51:20.791 VERDICT=LOST
+run 03 pid=1267860  alive_before_kill=1267860 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:28.545 t_dcpm=2026-09-03 01:51:28.546 VERDICT=LOST
+run 04 pid=1268017  alive_before_kill=1268017 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:36.299 t_dcpm=2026-09-03 01:51:36.299 VERDICT=LOST
+run 05 pid=1268168  alive_before_kill=1268168 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:44.049 t_dcpm=2026-09-03 01:51:44.050 VERDICT=LOST
+run 06 pid=1268312  alive_before_kill=1268312 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:51.803 t_dcpm=2026-09-03 01:51:51.803 VERDICT=LOST
+run 07 pid=1268456  alive_before_kill=1268456 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:51:59.557 t_dcpm=2026-09-03 01:51:59.557 VERDICT=LOST
+run 08 pid=1268616  alive_before_kill=1268616 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:07.311 t_dcpm=2026-09-03 01:52:07.311 VERDICT=LOST
+run 09 pid=1268771  alive_before_kill=1268771 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:15.067 t_dcpm=2026-09-03 01:52:15.068 VERDICT=LOST
+run 10 pid=1268918  alive_before_kill=1268918 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:22.809 t_dcpm=2026-09-03 01:52:22.810 VERDICT=LOST
+run 11 pid=1269065  alive_before_kill=1269065 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:30.563 t_dcpm=2026-09-03 01:52:30.563 VERDICT=LOST
+run 12 pid=1269221  alive_before_kill=1269221 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:38.315 t_dcpm=2026-09-03 01:52:38.316 VERDICT=LOST
+run 13 pid=1269388  alive_before_kill=1269388 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:46.069 t_dcpm=2026-09-03 01:52:46.069 VERDICT=LOST
+run 14 pid=1269536  alive_before_kill=1269536 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:52:53.818 t_dcpm=2026-09-03 01:52:53.818 VERDICT=LOST
+run 15 pid=1269689  alive_before_kill=1269689 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:53:01.571 t_dcpm=2026-09-03 01:53:01.571 VERDICT=LOST
+run 16 pid=1269843  alive_before_kill=1269843 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:53:09.326 t_dcpm=2026-09-03 01:53:09.326 VERDICT=LOST
+run 17 pid=1269988  alive_before_kill=1269988 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:53:17.076 t_dcpm=2026-09-03 01:53:17.076 VERDICT=LOST
+run 18 pid=1270134  alive_before_kill=1270134 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:53:24.822 t_dcpm=2026-09-03 01:53:24.822 VERDICT=LOST
+run 19 pid=1270285  alive_before_kill=1270285 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:53:32.579 t_dcpm=2026-09-03 01:53:32.579 VERDICT=LOST
+run 20 pid=1270435  alive_before_kill=1270435 gone_after=yes WARN=0   allbmv2_line=1 t_load=2026-09-03 01:53:40.333 t_dcpm=2026-09-03 01:53:40.333 VERDICT=LOST
+2026-09-03T01:53:48+08:00
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7047        3796        1039        5954        8364
+--- ports after ---
+(8000/6343 free)

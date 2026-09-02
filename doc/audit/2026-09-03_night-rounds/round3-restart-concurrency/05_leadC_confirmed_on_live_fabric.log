@@ -1,0 +1,27 @@
+#### what this step proves: Lead C's verdict holds on a REAL fabric, not only on the fabric-free harness -- the kernel that ndt up started never asks the proxy for bmv2 liveness ####
+2026-09-03T02:06:56+08:00
+--- the kernel process actually serving :8000 (independent channel, not stack.sh's claim) ---
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*    users:(("curl",pid=1286812,fd=8),("sh",pid=1286811,fd=8),("ndtwin_kernel",pid=1286422,fd=8))
+kernel pid from ss = 1286422
+1286422 1286418 Thu Sep  3 02:06:31 2026 ndtwin_kernel
+sha256 of the RUNNING binary, read from /proc/1286422/exe:
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  /proc/1286422/exe
+
+--- proxy access log: kernel requests for bmv2 liveness since this kernel started ---
+total lines in p4_proxy.log: 915
+GET /p4/switch_state count (whole log): 0
+for contrast, the polls that ARE happening:
+  /v1.0/topology/switches : 5
+  /v1.0/topology/links    : 5
+--- and the kernel's own log: did it ever try and fail? ---
+  'cannot read bmv2 liveness' in kernel.log: 0
+  'All-bmv2 topology' in kernel.log:         1
+[2026-09-03 02:06:32.342] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+[2026-09-03 02:06:32.342] [info] [DeviceConfigurationAndPowerManager.cpp:121 start] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 02:06:32.344] [info] [TopologyAndFlowMonitor.cpp:1636 validateDataPlaneHomogeneity] Data plane: bmv2 (10 switch(es))
+[2026-09-03 02:06:32.344] [info] [TopologyAndFlowMonitor.cpp:145 configureTopologyApiUrls] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+
+--- 30 s later, re-count (a won race would add ~30 requests) ---
+GET /p4/switch_state count now: 0
+  proxy log lines now: 951
+2026-09-03T02:07:26+08:00

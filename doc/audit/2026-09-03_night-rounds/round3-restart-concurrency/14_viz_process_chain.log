@@ -1,0 +1,90 @@
+#### what this step proves: the full argv and ppid chain of every process in the viz launcher chain -- the one fact COMMON-BRIEF section 15 says a fix elsewhere is blocked on, and that rounds 1 and 2 could not get ####
+2026-09-03T02:49:37+08:00
+--- memory BEFORE starting viz ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7793        2582        1048        6430        7618
+
+=== start viz ===
+  XX  unknown app: start (known: energy sim nsr viz te)
+  ok  viz started (pid 1320231) -> .test_run/logs/app_viz.log
+  first run builds with maven and is slow
+START_RC=0
+--- memory WITH viz running ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8301        2010        1134        6603        7110
+launcher pid recorded by ndt apps: 1320231
+
+=== the chain, walked by ppid from 1320231 (never pgrep -f) ===
+3 processes in the chain
+
+[depth 0] pid=1320231 comm=network_traffic rss=3MB
+  argv: /bin/bash ./network_traffic_visualizer.sh
+
+[depth 1] pid=1320234 comm=java rss=214MB
+  argv: /usr/lib/jvm/java-21-openjdk-amd64/bin/java -classpath /home/adam/Network-Traffic-Visualizer/.mvn/wrapper/maven-wrapper.jar -Dmaven.home=/home/adam -Dmaven.multiModuleProjectDirectory=/home/adam/Network-Traffic-Visualizer org.apache.maven.wrapper.MavenWrapperMain javafx:run
+
+[depth 2] pid=1320294 comm=java rss=318MB
+  argv: /usr/lib/jvm/java-21-openjdk-amd64/bin/java --module-path /home/adam/Network-Traffic-Visualizer/target/classes:/home/adam/.m2/repository/com/dlsc/formsfx/formsfx-core/11.6.0/formsfx-core-11.6.0.jar:/home/adam/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.15.2/jackson-annotations-2.15.2.jar:/home/adam/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.15.2/jackson-core-2.15.2.jar:/home/adam/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.15.2/jackson-databind-2.15.2.jar:/home/adam/.m2/repository/com/github/almasb/fxgl/17.3/fxgl-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-core/17.3/fxgl-core-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-entity/17.3/fxgl-entity-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-gameplay/17.3/fxgl-gameplay-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-io/17.3/fxgl-io-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-scene/17.3/fxgl-scene-17.3.jar:/home/adam/.m2/repository/com/gluonhq/attach/audio/4.0.17/audio-4.0.17.jar:/home/adam/.m2/repository/com/gluonhq/attach/lifecycle/4.0.17/lifecycle-4.0.17.jar:/home/adam/.m2/repository/com/gluonhq/attach/storage/4.0.17/storage-4.0.17.jar:/home/adam/.m2/repository/com/gluonhq/attach/util/4.0.17/util-4.0.17.jar:/home/adam/.m2/repository/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar:/home/adam/.m2/repository/net/synedra/validatorfx/0.5.0/validatorfx-0.5.0.jar:/home/adam/.m2/repository/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.jar:/home/adam/.m2/repository/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.jar:/home/adam/.m2/repository/org/controlsfx/controlsfx/11.2.1/controlsfx-11.2.1.jar:/home/adam/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/1.8.10/kotlin-stdlib-1.8.10.jar:/home/adam/.m2/repository/org/kordamp/bootstrapfx/bootstrapfx-core/0.4.0/bootstrapfx-core-0.4.0.jar:/home/adam/.m2/repository/org/kordamp/ikonli/ikonli-core/12.3.1/ikonli-core-12.3.1.jar:/home/adam/.m2/repository/org/kordamp/ikonli/ikonli-javafx/12.3.1/ikonli-javafx-12.3.1.jar:/home/adam/.m2/repository/org/openjfx/javafx-base/22.0.2/javafx-base-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-controls/22.0.2/javafx-controls-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-fxml/22.0.2/javafx-fxml-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-graphics/22.0.2/javafx-graphics-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-media/22.0.2/javafx-media-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-web/22.0.2/javafx-web-22.0.2-linux.jar --add-modules org.example.ndtanimation -classpath /home/adam/.m2/repository/commons-codec/commons-codec/1.11/commons-codec-1.11.jar:/home/adam/.m2/repository/commons-logging/commons-logging/1.2/commons-logging-1.2.jar:/home/adam/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/home/adam/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-common/1.8.10/kotlin-stdlib-common-1.8.10.jar:/home/adam/.m2/repository/org/openjfx/javafx-base/22.0.2/javafx-base-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-controls/22.0.2/javafx-controls-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-fxml/22.0.2/javafx-fxml-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-graphics/22.0.2/javafx-graphics-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-media/22.0.2/javafx-media-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-swing/22.0.2/javafx-swing-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-swing/22.0.2/javafx-swing-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-web/22.0.2/javafx-web-22.0.2.jar --module org.example.ndtanimation/org.example.demo2.NetworkTopologyApp
+
+=== ps -o pid=,ppid=,lstart=,comm= on the same pids ===
+1320231    2859 Thu Sep  3 02:49:36 2026 network_traffic
+1320234 1320231 Thu Sep  3 02:49:36 2026 java
+1320294 1320234 Thu Sep  3 02:49:38 2026 java
+
+=== raw /proc/<pid>/cmdline for each, as COMMON-BRIEF section 15 asks ===
+--- pid 1320231 ---
+/bin/bash ./network_traffic_visualizer.sh 
+--- pid 1320234 ---
+/usr/lib/jvm/java-21-openjdk-amd64/bin/java -classpath /home/adam/Network-Traffic-Visualizer/.mvn/wrapper/maven-wrapper.jar -Dmaven.home=/home/adam -Dmaven.multiModuleProjectDirectory=/home/adam/Network-Traffic-Visualizer org.apache.maven.wrapper.MavenWrapperMain javafx:run 
+--- pid 1320294 ---
+/usr/lib/jvm/java-21-openjdk-amd64/bin/java --module-path /home/adam/Network-Traffic-Visualizer/target/classes:/home/adam/.m2/repository/com/dlsc/formsfx/formsfx-core/11.6.0/formsfx-core-11.6.0.jar:/home/adam/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.15.2/jackson-annotations-2.15.2.jar:/home/adam/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.15.2/jackson-core-2.15.2.jar:/home/adam/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.15.2/jackson-databind-2.15.2.jar:/home/adam/.m2/repository/com/github/almasb/fxgl/17.3/fxgl-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-core/17.3/fxgl-core-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-entity/17.3/fxgl-entity-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-gameplay/17.3/fxgl-gameplay-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-io/17.3/fxgl-io-17.3.jar:/home/adam/.m2/repository/com/github/almasb/fxgl-scene/17.3/fxgl-scene-17.3.jar:/home/adam/.m2/repository/com/gluonhq/attach/audio/4.0.17/audio-4.0.17.jar:/home/adam/.m2/repository/com/gluonhq/attach/lifecycle/4.0.17/lifecycle-4.0.17.jar:/home/adam/.m2/repository/com/gluonhq/attach/storage/4.0.17/storage-4.0.17.jar:/home/adam/.m2/repository/com/gluonhq/attach/util/4.0.17/util-4.0.17.jar:/home/adam/.m2/repository/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar:/home/adam/.m2/repository/net/synedra/validatorfx/0.5.0/validatorfx-0.5.0.jar:/home/adam/.m2/repository/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.jar:/home/adam/.m2/repository/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.jar:/home/adam/.m2/repository/org/controlsfx/controlsfx/11.2.1/controlsfx-11.2.1.jar:/home/adam/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/1.8.10/kotlin-stdlib-1.8.10.jar:/home/adam/.m2/repository/org/kordamp/bootstrapfx/bootstrapfx-core/0.4.0/bootstrapfx-core-0.4.0.jar:/home/adam/.m2/repository/org/kordamp/ikonli/ikonli-core/12.3.1/ikonli-core-12.3.1.jar:/home/adam/.m2/repository/org/kordamp/ikonli/ikonli-javafx/12.3.1/ikonli-javafx-12.3.1.jar:/home/adam/.m2/repository/org/openjfx/javafx-base/22.0.2/javafx-base-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-controls/22.0.2/javafx-controls-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-fxml/22.0.2/javafx-fxml-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-graphics/22.0.2/javafx-graphics-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-media/22.0.2/javafx-media-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-web/22.0.2/javafx-web-22.0.2-linux.jar --add-modules org.example.ndtanimation -classpath /home/adam/.m2/repository/commons-codec/commons-codec/1.11/commons-codec-1.11.jar:/home/adam/.m2/repository/commons-logging/commons-logging/1.2/commons-logging-1.2.jar:/home/adam/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/home/adam/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-common/1.8.10/kotlin-stdlib-common-1.8.10.jar:/home/adam/.m2/repository/org/openjfx/javafx-base/22.0.2/javafx-base-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-controls/22.0.2/javafx-controls-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-fxml/22.0.2/javafx-fxml-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-graphics/22.0.2/javafx-graphics-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-media/22.0.2/javafx-media-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-swing/22.0.2/javafx-swing-22.0.2-linux.jar:/home/adam/.m2/repository/org/openjfx/javafx-swing/22.0.2/javafx-swing-22.0.2.jar:/home/adam/.m2/repository/org/openjfx/javafx-web/22.0.2/javafx-web-22.0.2.jar --module org.example.ndtanimation/org.example.demo2.NetworkTopologyApp 
+2026-09-03T02:49:56+08:00
+
+=== what the chain looks like to a name-matching liveness check ===
+the launcher name 'network_traffic_visualizer.sh' (ndt:1632) appears in:
+  pid 1320231 comm=network_traffic: 1 occurrence(s)
+  pid 1320234 comm=java: 0 occurrence(s)
+  pid 1320294 comm=java: 0 occurrence(s)
+the string 'Network-Traffic-Visualizer' (the DIRECTORY) appears in:
+  pid 1320231: 0 occurrence(s)
+  pid 1320234: 2 occurrence(s)
+  pid 1320294: 1 occurrence(s)
+
+=== ndt apps stop viz, then what SURVIVES (COMMON-BRIEF section 15's actual question) ===
+tools/test_workflow/ndt: line 1687: /proc/1320231/cmdline: No such file or directory
+  ok  viz stopped (was: running)
+STOP_RC=0
+  pid 1320231 gone
+  SURVIVOR pid 1320234 comm=java rss=214MB
+  SURVIVOR pid 1320294 comm=java rss=317MB
+--- ndt apps view ---
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+--- ndt apps orphans ---
+  ok  no untracked app processes
+ORPHANS_RC=0
+--- java processes on the machine, by comm (never pgrep -f) ---
+1320234    2859 java
+1320294 1320234 java
+--- memory after ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        8337        1972        1137        6609        7074
+2026-09-03T02:50:27+08:00
+
+=== cleaning up the two orphans I created, by exact pid (never pkill -f) ===
+  kill -TERM 1320294 (java)
+  kill -TERM 1320234 (java)
+  pid 1320294 gone after SIGTERM
+  pid 1320234 gone after SIGTERM
+--- independent check: java processes by comm ---
+  java process count: 0
+--- ndt apps orphans after cleanup ---
+  ok  no untracked app processes
+--- memory after cleanup ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7811        2493        1063        6538        7600
+2026-09-03T02:50:52+08:00

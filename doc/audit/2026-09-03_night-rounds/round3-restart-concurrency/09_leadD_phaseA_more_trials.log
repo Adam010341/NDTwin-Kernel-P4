@@ -1,0 +1,52 @@
+#### what this step proves: four more phase-A trials, to weigh the Lead-D contrast beyond 3/4 vs 0/4 ####
+# identical recipe to 08_, phase A only (fire ~1.5 s before the next poll).
+2026-09-03T02:23:10  bmv2 procs = 10
+
+--- trial s7 phase A (1.5s before the next poll) -- predicted LOST: fire power-off 28.5s after a poll arrival ---
+    poll arrived at t=1788373401.987
+    t_off=1788373430.787 (= poll+28.80s)  API 200 {"192.168.123.17":"Success"} in 0.252s  is_up_before=True  procs 10->9
+    process really died: :30057 open=False  bmv2 procs 10->9  proxy still lists s7=False
+    polls applied during the 40s watch, at t_off+: 1.84, 32.48
+    is_up transitions (t-t_off, from, to): []
+    final is_up=False  => KEPT
+    restore s7: API 200 {"192.168.123.17":"Success"} in 1.474s -> :30057 open=True
+    restored: :30057 open=True  twin is_up=True  bmv2 procs=10
+
+--- trial s8 phase A (1.5s before the next poll) -- predicted LOST: fire power-off 28.5s after a poll arrival ---
+    poll arrived at t=1788373493.911
+    t_off=1788373522.685 (= poll+28.77s)  API 200 {"192.168.123.18":"Success"} in 0.245s  is_up_before=True  procs 10->9
+    process really died: :30058 open=False  bmv2 procs 10->9  proxy still lists s8=False
+    polls applied during the 40s watch, at t_off+: 1.87, 32.51
+    is_up transitions (t-t_off, from, to): [(2.313058853149414, False, True)]
+    final is_up=True  => LOST (power-off overwritten)
+    restore s8: API 200 {"192.168.123.18":"Success"} in 0.001s -> :30058 open=False
+    out-of-band ndtwin-p4-power on s8: {"status": "started", "name": "s8", "pid": 1301548} -> :30058 open=True
+    restored: :30058 open=True  twin is_up=True  bmv2 procs=10
+
+--- trial s10 phase A (1.5s before the next poll) -- predicted LOST: fire power-off 28.5s after a poll arrival ---
+    poll arrived at t=1788373585.842
+    t_off=1788373614.622 (= poll+28.78s)  API 200 {"192.168.123.20":"Success"} in 0.247s  is_up_before=True  procs 10->9
+    process really died: :30060 open=False  bmv2 procs 10->9  proxy still lists s10=False
+    polls applied during the 40s watch, at t_off+: 1.86, 32.51
+    is_up transitions (t-t_off, from, to): []
+    final is_up=False  => KEPT
+    restore s10: API 200 {"192.168.123.20":"Success"} in 1.477s -> :30060 open=True
+    restored: :30060 open=True  twin is_up=True  bmv2 procs=10
+
+--- trial s6 phase A (1.5s before the next poll) -- predicted LOST: fire power-off 28.5s after a poll arrival ---
+    poll arrived at t=1788373677.773
+    t_off=1788373706.550 (= poll+28.78s)  API 200 {"192.168.123.16":"Success"} in 0.244s  is_up_before=True  procs 10->9
+    process really died: :30056 open=False  bmv2 procs 10->9  proxy still lists s6=False
+    polls applied during the 40s watch, at t_off+: 1.86, 32.49
+    is_up transitions (t-t_off, from, to): []
+    final is_up=False  => KEPT
+    restore s6: API 200 {"192.168.123.16":"Success"} in 1.474s -> :30056 open=True
+    restored: :30056 open=True  twin is_up=True  bmv2 procs=10
+
+=== SUMMARY (this step only) ===
+phase A: LOST 1/4
+  s7  polls_after_t_off=['1.84', '32.48'] trans=[] final_is_up=False grpc_open=False -> KEPT
+  s8  polls_after_t_off=['1.87', '32.51'] trans=[(2.313058853149414, False, True)] final_is_up=True grpc_open=False -> LOST (power-off overwritten)
+  s10 polls_after_t_off=['1.86', '32.51'] trans=[] final_is_up=False grpc_open=False -> KEPT
+  s6  polls_after_t_off=['1.86', '32.49'] trans=[] final_is_up=False grpc_open=False -> KEPT
+2026-09-03T02:29:10  bmv2 procs = 10

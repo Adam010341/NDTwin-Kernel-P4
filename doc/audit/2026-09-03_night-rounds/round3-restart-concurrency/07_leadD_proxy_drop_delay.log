@@ -1,0 +1,16 @@
+#### what this step proves: whether a commanded power-off is lost as a function of the topology-poll phase (Lead D) ####
+# mechanism under test: TopologyAndFlowMonitor.cpp:768-772 writes isUp=true for every switch the
+# proxy still lists, unconditionally, once per poll. There is NO else-branch writing isUp=false,
+# so a resurrection is permanent. Poll period: 5s for the first 90s (kConvergingFor), then 30s.
+2026-09-03T02:11:27  bmv2 procs = 0
+
+=== 1. D = the proxy's drop delay. Kill s10 OUT OF BAND (no kernel command at all), then poll
+===    the proxy's own /v1.0/topology/switches until the dpid disappears. This is the width of
+===    the window in which a poll can resurrect a switch.
+    ndtwin-p4-power off s10: {"status": "stopped", "name": "s10", "pid": 1285841}
+    :30060 open right after = False   bmv2 procs = 0
+    proxy dropped s10 from /v1.0/topology/switches after D = 3.055774688720703 s
+    (control: proxy /p4/switch_state for s10 = {"probe_ok": false, "probe_detail": "DEADLINE_EXCEEDED: Deadline Exceeded", "probe_age_s": 0.088, "last_packet_in_age_s": 7.67, "last_lldp_age_s": 7.67, "stream_alive": false, "grpc_addr": "localhost:)
+    restore s10: API 200 {"192.168.123.20":"Success"} in 0.001s -> :30060 open=False
+    out-of-band ndtwin-p4-power on s10: {"status": "started", "name": "s10", "pid": 1290474} -> :30060 open=True
+    restored: :30060 open=True  twin is_up=True  bmv2 procs=0

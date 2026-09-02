@@ -1,0 +1,108 @@
+#### what this step proves: the kernel's listening socket on :8000 is inherited by the curl/sh children it forks, so the port outlives the kernel by ~2s -- and what a restart inside that window actually does ####
+2026-09-03T02:02:16+08:00
+=== A. mechanism: who holds :8000 while the kernel is alive, and who holds it after it is gone ===
+-- kernel pid 1282214 alive: 1282214
+-- ss -ltnp for :8000 WHILE ALIVE --
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*    users:(("curl",pid=1282318,fd=8),("sh",pid=1282317,fd=8),("curl",pid=1282304,fd=8),("sh",pid=1282303,fd=8),("ndtwin_kernel",pid=1282214,fd=8))
+-- the kernel's own listening socket inode --
+lrwx------ 1 adam adam 64 Sep  3 02:02 3 -> socket:[49573569]
+lrwx------ 1 adam adam 64 Sep  3 02:02 8 -> socket:[49573570]
+-- kernel's forked children right now (ps by ppid, never pgrep -f) --
+1282303 1282214 sh
+1282317 1282214 sh
+
+-- SIGKILL the kernel --
+t+~0.1s  kernelpid_alive=  :8000=1  holders=("curl",pid=1282318,fd=8),("sh",pid=1282317,fd=8),("curl",pid=1282304,fd=8),("sh
+t+~0.5s  kernelpid_alive=  :8000=1  holders=("curl",pid=1282318,fd=8),("sh",pid=1282317,fd=8),("curl",pid=1282304,fd=8),("sh
+t+~1.0s  kernelpid_alive=  :8000=1  holders=("curl",pid=1282318,fd=8),("sh",pid=1282317,fd=8))
+t+~1.5s  kernelpid_alive=  :8000=1  holders=("curl",pid=1282318,fd=8),("sh",pid=1282317,fd=8))
+t+~2.0s  kernelpid_alive=  :8000=0  holders=
+t+~2.5s  kernelpid_alive=  :8000=0  holders=
+t+~3.0s  kernelpid_alive=  :8000=0  holders=
+
+=== A2. prove the inherited fd is the SAME socket: match inodes ===
+=== A2. the inherited fd is the same LISTEN socket: ss lists ndtwin_kernel fd=8 and both curl/sh fd=8 as users of ONE socket (above). Kernel's /proc/<pid>/fd/8 -> socket:[49573570]. ===
+
+=== B. CONSEQUENCE: restart 0.2 s after SIGKILL, i.e. inside the ~2 s window. 6 trials. ===
+--- trial 1: first pid 1282647 gone=; :8000 bound=1 ---
+[1]+  Exit 1                  ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai > $R/raw/03_B${i}_second.out 2>&1
+    second kernel pid 1282755 still_running=NO
+    :8000 bound now=0  holder=
+    second kernel API answers? 000curl-failed
+    second kernel log, bind-related lines:
+      [2026-09-03 02:02:54.709] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+      [2026-09-03 02:02:54.709] [critical] [main.cpp:422 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+--- trial 2: first pid 1282865 gone=; :8000 bound=1 ---
+[1]+  Exit 1                  ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai > $R/raw/03_B${i}_second.out 2>&1
+    second kernel pid 1282978 still_running=NO
+    :8000 bound now=0  holder=
+    second kernel API answers? 000curl-failed
+    second kernel log, bind-related lines:
+      [2026-09-03 02:03:09.010] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+      [2026-09-03 02:03:09.010] [critical] [main.cpp:422 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+--- trial 3: first pid 1283083 gone=; :8000 bound=1 ---
+[1]+  Exit 1                  ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai > $R/raw/03_B${i}_second.out 2>&1
+    second kernel pid 1283191 still_running=NO
+    :8000 bound now=0  holder=
+    second kernel API answers? 000curl-failed
+    second kernel log, bind-related lines:
+      [2026-09-03 02:03:23.314] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+      [2026-09-03 02:03:23.314] [critical] [main.cpp:422 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+--- trial 4: first pid 1283288 gone=; :8000 bound=1 ---
+[1]+  Exit 1                  ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai > $R/raw/03_B${i}_second.out 2>&1
+    second kernel pid 1283396 still_running=NO
+    :8000 bound now=0  holder=
+    second kernel API answers? 000curl-failed
+    second kernel log, bind-related lines:
+      [2026-09-03 02:03:37.625] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+      [2026-09-03 02:03:37.625] [critical] [main.cpp:422 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+--- trial 5: first pid 1283485 gone=; :8000 bound=1 ---
+[1]+  Exit 1                  ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai > $R/raw/03_B${i}_second.out 2>&1
+    second kernel pid 1283599 still_running=NO
+    :8000 bound now=0  holder=
+    second kernel API answers? 000curl-failed
+    second kernel log, bind-related lines:
+      [2026-09-03 02:03:51.930] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+      [2026-09-03 02:03:51.930] [critical] [main.cpp:422 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+--- trial 6: first pid 1283684 gone=; :8000 bound=1 ---
+[1]+  Exit 1                  ./bin/ndtwin_kernel --mode mininet --topology "$TOPO" --no-ai > $R/raw/03_B${i}_second.out 2>&1
+    second kernel pid 1283808 still_running=NO
+    :8000 bound now=0  holder=
+    second kernel API answers? 000curl-failed
+    second kernel log, bind-related lines:
+      [2026-09-03 02:04:06.238] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+      [2026-09-03 02:04:06.238] [critical] [main.cpp:422 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+
+=== C. NEGATIVE CONTROL: same sequence, restart 3.0 s after SIGKILL (outside the window). 3 trials. ===
+--- control 1: :8000 bound before restart=0 ---
+    second kernel pid 1284029 still_running=1284029; API=200
+--- control 2: :8000 bound before restart=0 ---
+    second kernel pid 1284302 still_running=1284302; API=200
+--- control 3: :8000 bound before restart=0 ---
+    second kernel pid 1284589 still_running=1284589; API=200
+2026-09-03T02:04:59+08:00
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7144        3595        1030        6048        8268
+
+=== D. which socket actually blocks the restart, and does any cleanup path check it? ===
+-- UDP :6343 users WHILE ALIVE --
+UNCONN 0      0                                    0.0.0.0:6343       0.0.0.0:*    users:(("sh",pid=1285109,fd=3),("curl",pid=1285092,fd=3),("sh",pid=1285091,fd=3),("ndtwin_kernel",pid=1285006,fd=3))
+-- kernel pid 1285006 gone=
+-- UDP :6343 users 0.3 s AFTER the kernel is gone --
+UNCONN 0      0                                    0.0.0.0:6343       0.0.0.0:*    users:(("curl",pid=1285110,fd=3),("sh",pid=1285109,fd=3),("curl",pid=1285092,fd=3),("sh",pid=1285091,fd=3))
+-- UDP :6343 at t+2.5 s --
+(free)
+
+-- does any ndt/stack.sh cleanup path check 6343? --
+grep -c 6343 tools/test_workflow/ndt        = 0
+grep -c 6343 tools/test_workflow/stack.sh   = 0
+the ports ndt's sweep does check:
+1112:    for p in 8000 8080 8081; do
+-- curl bound used by the topology poll (sets the width of the window) --
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:813:    // --max-time bounds an unresponsive gateway (this runs inside a request handler), and
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:841:    return {"curl", "-s", "--max-time", "8", "-w", "\\n%{http_code}", "-X", "POST", url.str()};
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:849:    // --max-time bounds a hung proxy: this runs inside the 1 Hz ping loop.
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:850:    return "curl -s --max-time 3 -w '\\n%{http_code}' http://" + proxyIpAndPort +
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:860:    // --max-time, for the same reason the liveness fetch carries one: it bounds a hung control
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:863:    return fmt::format("curl -s --max-time 8 -X GET http://{}/stats/flow/{}", ipAndPort, dpid);
+2026-09-03T02:05:43+08:00

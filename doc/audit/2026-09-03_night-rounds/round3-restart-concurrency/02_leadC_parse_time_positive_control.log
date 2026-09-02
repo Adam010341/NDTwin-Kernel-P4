@@ -1,0 +1,60 @@
+#### what this step proves: whether the Lead-C race can EVER be won -- the positive control for step 01's instrument -- by shrinking the only thing in the losing window that costs real time, the JSON parse ####
+# graded series, smallest first. A WON verdict anywhere here (a) proves the WARN instrument has
+# discriminative power and (b) identifies parse time as the tipping factor.
+# harness v2 also measures how long :8000 stays bound after the kernel pid is provably gone.
+# NOTE: run 01 of topo_1sw.json under harness v1 already returned WON (WARN=1) at 01:55:17;
+#       v1 then aborted the rest of the series because :8000 was still bound 0.7s after SIGKILL.
+2026-09-03T01:56:18+08:00
+=== topo_1sw.json (310 bytes) ===
+topo=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/topo/topo_1sw.json N=8 tag=topo_1sw settle=5s
+run 01 pid=1271907  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1272006,fd=8),("sh",pid=1272005,fd=8),("curl",pid=1271995,fd=8),("sh",pid=1271994,fd=8)) VERDICT=WON
+run 02 pid=1272145  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1272254,fd=8),("sh",pid=1272253,fd=8),("curl",pid=1272243,fd=8),("sh",pid=1272242,fd=8)) VERDICT=LOST
+run 03 pid=1272394  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1272494,fd=8),("sh",pid=1272493,fd=8),("curl",pid=1272483,fd=8),("sh",pid=1272482,fd=8)) VERDICT=WON
+run 04 pid=1272634  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1272739,fd=8),("sh",pid=1272738,fd=8),("curl",pid=1272725,fd=8),("sh",pid=1272724,fd=8)) VERDICT=LOST
+run 05 pid=1272880  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1272975,fd=4),("sh",pid=1272974,fd=4),("curl",pid=1272964,fd=4),("sh",pid=1272963,fd=4)) VERDICT=WON
+run 06 pid=1273112  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1273208,fd=9),("sh",pid=1273207,fd=9),("curl",pid=1273197,fd=9),("sh",pid=1273196,fd=9)) VERDICT=WON
+run 07 pid=1273361  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1273463,fd=8),("sh",pid=1273462,fd=8),("curl",pid=1273450,fd=8),("sh",pid=1273449,fd=8)) VERDICT=WON
+run 08 pid=1273602  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1273716,fd=8),("sh",pid=1273715,fd=8),("curl",pid=1273702,fd=8),("sh",pid=1273701,fd=8)) VERDICT=LOST
+=== topo_2sw.json (587 bytes) ===
+topo=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/topo/topo_2sw.json N=8 tag=topo_2sw settle=5s
+run 01 pid=1273849  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1273953,fd=8),("sh",pid=1273952,fd=8),("curl",pid=1273939,fd=8),("sh",pid=1273938,fd=8)) VERDICT=LOST
+run 02 pid=1274093  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1274186,fd=8),("sh",pid=1274185,fd=8),("curl",pid=1274175,fd=8),("sh",pid=1274174,fd=8)) VERDICT=WON
+run 03 pid=1274327  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1274430,fd=8),("sh",pid=1274429,fd=8),("curl",pid=1274419,fd=8),("sh",pid=1274418,fd=8)) VERDICT=WON
+run 04 pid=1274579  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1274673,fd=8),("sh",pid=1274672,fd=8),("curl",pid=1274662,fd=8),("sh",pid=1274661,fd=8)) VERDICT=WON
+run 05 pid=1274804  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1274906,fd=8),("sh",pid=1274905,fd=8),("curl",pid=1274892,fd=8),("sh",pid=1274891,fd=8)) VERDICT=LOST
+run 06 pid=1275047  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1275140,fd=8),("sh",pid=1275139,fd=8),("curl",pid=1275129,fd=8),("sh",pid=1275128,fd=8)) VERDICT=WON
+run 07 pid=1275267  gone_after_kill=yes WARN=1   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1275379,fd=8),("sh",pid=1275378,fd=8),("curl",pid=1275368,fd=8),("sh",pid=1275367,fd=8)) VERDICT=WON
+run 08 pid=1275513  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1275618,fd=8),("sh",pid=1275617,fd=8),("curl",pid=1275603,fd=8),("sh",pid=1275602,fd=8)) VERDICT=LOST
+=== topo_10sw_0host.json (7834 bytes) ===
+topo=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/topo/topo_10sw_0host.json N=8 tag=topo_10sw_0host settle=5s
+run 01 pid=1275764  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1275864,fd=8),("sh",pid=1275863,fd=8),("curl",pid=1275850,fd=8),("sh",pid=1275849,fd=8)) VERDICT=LOST
+run 02 pid=1275995  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.02s holder=("curl",pid=1276097,fd=8),("sh",pid=1276096,fd=8),("curl",pid=1276082,fd=8),("sh",pid=1276081,fd=8)) VERDICT=LOST
+run 03 pid=1276228  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.02s holder=("curl",pid=1276338,fd=8),("sh",pid=1276337,fd=8),("curl",pid=1276314,fd=8),("sh",pid=1276313,fd=8)) VERDICT=LOST
+run 04 pid=1276465  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1276570,fd=8),("sh",pid=1276569,fd=8),("curl",pid=1276556,fd=8),("sh",pid=1276555,fd=8)) VERDICT=LOST
+run 05 pid=1276726  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1276837,fd=8),("sh",pid=1276836,fd=8),("curl",pid=1276823,fd=8),("sh",pid=1276822,fd=8)) VERDICT=LOST
+run 06 pid=1276973  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1277073,fd=8),("sh",pid=1277072,fd=8),("curl",pid=1277059,fd=8),("sh",pid=1277058,fd=8)) VERDICT=LOST
+run 07 pid=1277216  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1277322,fd=8),("sh",pid=1277321,fd=8),("curl",pid=1277304,fd=8),("sh",pid=1277303,fd=8)) VERDICT=LOST
+run 08 pid=1277465  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1277565,fd=8),("sh",pid=1277564,fd=8),("curl",pid=1277551,fd=8),("sh",pid=1277550,fd=8)) VERDICT=LOST
+=== topo_4host_compact.json (9486 bytes) ===
+topo=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/topo/topo_4host_compact.json N=8 tag=topo_4host_compact settle=5s
+run 01 pid=1277711  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1277811,fd=8),("sh",pid=1277810,fd=8),("curl",pid=1277797,fd=8),("sh",pid=1277796,fd=8)) VERDICT=LOST
+run 02 pid=1277951  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.21s holder=("curl",pid=1278052,fd=8),("sh",pid=1278051,fd=8),("curl",pid=1278038,fd=8),("sh",pid=1278037,fd=8)) VERDICT=LOST
+run 03 pid=1278197  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1278298,fd=8),("sh",pid=1278297,fd=8),("curl",pid=1278285,fd=8),("sh",pid=1278284,fd=8)) VERDICT=LOST
+run 04 pid=1278436  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1278541,fd=8),("sh",pid=1278540,fd=8),("curl",pid=1278526,fd=8),("sh",pid=1278525,fd=8)) VERDICT=LOST
+run 05 pid=1278678  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1278786,fd=8),("sh",pid=1278785,fd=8),("curl",pid=1278772,fd=8),("sh",pid=1278771,fd=8)) VERDICT=LOST
+run 06 pid=1278926  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1279027,fd=8),("sh",pid=1279026,fd=8),("curl",pid=1279013,fd=8),("sh",pid=1279012,fd=8)) VERDICT=LOST
+run 07 pid=1279159  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.02s holder=("curl",pid=1279259,fd=8),("sh",pid=1279258,fd=8),("curl",pid=1279245,fd=8),("sh",pid=1279244,fd=8)) VERDICT=LOST
+run 08 pid=1279390  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1279506,fd=8),("sh",pid=1279505,fd=8),("curl",pid=1279492,fd=8),("sh",pid=1279491,fd=8)) VERDICT=LOST
+=== shipped 128-host file (138820 bytes) ===
+topo=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json N=8 tag=t128host settle=5s
+run 01 pid=1279641  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1279771,fd=8),("sh",pid=1279770,fd=8),("curl",pid=1279757,fd=8),("sh",pid=1279756,fd=8)) VERDICT=LOST
+run 02 pid=1279927  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1280039,fd=8),("sh",pid=1280038,fd=8),("curl",pid=1280025,fd=8),("sh",pid=1280024,fd=8)) VERDICT=LOST
+run 03 pid=1280169  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1280274,fd=8),("sh",pid=1280273,fd=8),("curl",pid=1280257,fd=8),("sh",pid=1280256,fd=8)) VERDICT=LOST
+run 04 pid=1280417  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.21s holder=("curl",pid=1280535,fd=8),("sh",pid=1280534,fd=8),("curl",pid=1280517,fd=8),("sh",pid=1280516,fd=8)) VERDICT=LOST
+run 05 pid=1280672  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1280778,fd=8),("sh",pid=1280777,fd=8),("curl",pid=1280760,fd=8),("sh",pid=1280759,fd=8)) VERDICT=LOST
+run 06 pid=1280927  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.01s holder=("curl",pid=1281043,fd=8),("sh",pid=1281042,fd=8),("curl",pid=1281024,fd=8),("sh",pid=1281023,fd=8)) VERDICT=LOST
+run 07 pid=1281170  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.02s holder=("curl",pid=1281274,fd=8),("sh",pid=1281273,fd=8),("curl",pid=1281256,fd=8),("sh",pid=1281255,fd=8)) VERDICT=LOST
+run 08 pid=1281401  gone_after_kill=yes WARN=0   allbmv2=1 port8000_freed_after=2.22s holder=("curl",pid=1281520,fd=8),("sh",pid=1281519,fd=8),("curl",pid=1281490,fd=8),("sh",pid=1281489,fd=8)) VERDICT=LOST
+2026-09-03T02:01:04+08:00
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7213        3528        1051        6066        8198

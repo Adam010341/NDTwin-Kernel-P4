@@ -1,0 +1,1 @@
+{"nodes":[{"brand_name":"BMv2","bridge_name":"s1","device_layer":2,"device_name":"s1","nickname":"s1","dpid":1,"ip":["192.168.123.11"],"mac":0,"smart_plug_ip":"","smart_plug_outlet":0,"vertex_type":0,"ecmp_groups":[{"members":[{"type":"port","port_id":1},{"type":"port","port_id":2}]}]}],"edges":[],"links":[]}

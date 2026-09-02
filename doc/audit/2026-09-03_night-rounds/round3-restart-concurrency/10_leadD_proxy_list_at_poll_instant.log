@@ -1,0 +1,42 @@
+#### what this step proves: WHY two phase-A trials with identical poll timing end differently -- by sampling the proxy's OWN switch list at 10 Hz across the window, so "the proxy still listed it" stops being an inference ####
+# recipe: fire the power-off ~1.5 s before the next poll (phase A), then for 12 s record, at 10 Hz,
+#   (a) whether /v1.0/topology/switches still lists the dpid  (b) the twin's is_up.
+# the poll the kernel issues arrives at the proxy ~1.85 s after t_off and is applied ~2.31 s after.
+# LOST should coincide exactly with "the dpid was still listed at ~t_off+1.85".
+2026-09-03T02:29:50  bmv2 procs = 10
+
+--- s7, phase A ---
+   t_off = poll+28.76s   API 200 {"192.168.123.17":"Success"} in 0.254s
+   proxy dropped s7 from its switch list at t_off+2.879591941833496s
+   proxy still listed s7 at t_off+1.85s (the instant the kernel's poll reaches it)? True
+   trace (t_off+s : listed) 0.0:Y 0.3:Y 0.6:Y 0.9:Y 1.2:Y 1.5:Y 1.8:Y 2.2:Y 2.5:Y 2.8:Y 3.1:n 3.4:n 3.7:n 4.0:n 4.3:n 4.6:n 4.9:n 5.2:n 5.6:n 5.9:n 6.2:n 6.5:n 6.8:n 7.1:n 7.4:n 7.7:n 8.0:n 8.3:n 8.6:n 8.9:n 9.3:n 9.6:n 9.9:n 10.2:n 10.5:n 10.8:n 11.1:n 11.4:n 11.7:n
+   final twin is_up=True  :30057 open=False  => LOST
+    restore s7: API 200 {"192.168.123.17":"Success"} in 1.487s -> :30057 open=True
+    restored: :30057 open=True  twin is_up=True  bmv2 procs=10
+
+--- s8, phase A ---
+   no poll seen
+    restore s8: API 200 {"192.168.123.18":"Success"} in 0.002s -> :30058 open=True
+    restored: :30058 open=True  twin is_up=True  bmv2 procs=10
+
+--- s9, phase A ---
+   no poll seen
+    restore s9: API 200 {"192.168.123.19":"Success"} in 0.002s -> :30059 open=True
+    restored: :30059 open=True  twin is_up=True  bmv2 procs=10
+
+--- s6, phase A ---
+   no poll seen
+    restore s6: API 200 {"192.168.123.16":"Success"} in 0.002s -> :30056 open=True
+    restored: :30056 open=True  twin is_up=True  bmv2 procs=10
+
+--- s10, phase A ---
+   no poll seen
+    restore s10: API 200 {"192.168.123.20":"Success"} in 0.002s -> :30060 open=True
+    restored: :30060 open=True  twin is_up=True  bmv2 procs=10
+
+=== SUMMARY ===
+ dpid | proxy drop delay | listed at poll (t+1.85s) | outcome
+  s7   | 2.879591941833496 | True                     | LOST
+
+"still listed at the poll instant" predicts the outcome in 1/1 trials
+2026-09-03T02:33:52  bmv2 procs = 10

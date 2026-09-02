@@ -1,0 +1,16 @@
+#### what this step proves: the shape and period of the twin's topology poll cycle -- the phase reference Lead D needs ####
+2026-09-03T02:08:45+08:00
+--- 45 s of proxy requests, timestamped as they arrive (the proxy's own log has no clock) ---
+Terminated
+captured 37 lines
+
+--- the topology triple (switches/hosts/links) with inter-arrival gaps ---
+1788372544.069 /v1.0/topology/switches            
+1788372544.280 /v1.0/topology/hosts               +0.211
+1788372544.492 /v1.0/topology/links               +0.212
+
+fetch span /switches -> /links: ['0.423']
+
+--- kernel.log: when each poll RESULT was applied ---
+[2026-09-03 02:06:32.984] [info] [TopologyAndFlowMonitor.cpp:2532 run] topology from the control plane: 10 switches, 4 hosts, 40 edges up
+2026-09-03T02:09:30+08:00

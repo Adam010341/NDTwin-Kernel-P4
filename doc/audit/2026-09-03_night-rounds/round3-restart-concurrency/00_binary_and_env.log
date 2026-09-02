@@ -1,0 +1,35 @@
+#### what this step proves: the exact binary, commit and machine state this round measures ####
+2026-09-03T01:48:34+08:00
+--- sha256sum build/bin/ndtwin_kernel ---
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+--- git log -1 ---
+f29b46b3cb3468f7cb6a7f9e33bf7b6b92bcce09 2026-09-03 01:43:57 +0800 Night round 2: powering switches on and off, and what the paths do
+--- uname / cpu / mem ---
+Linux adam-Yoga-7-2-in-1-16IML9 7.0.0-30-generic #30~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Aug  7 13:27:52 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+14
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7069        3780        1035        5943        8342
+Swap:          20479        5976       14503
+ 01:48:34 up 13:28,  1 user,  load average: 0.16, 0.18, 0.31
+--- topology files (sizes decide the parse time this round tests) ---
+-rw-rw-r-- 1 adam adam 138820 Aug 19 23:34 setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+-rw-rw-r-- 1 adam adam  16960 Aug 31 11:07 setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+--- AppConfig topology constant (compile-time; --topology p4 selects #2) ---
+5:    static const std::string TOPOLOGY_FILE = "../setting/StaticNetworkTopology_ipAlias4_9Switches_all_1g_cable.json";
+16:    static const std::string TOPOLOGY_FILE_MININET = "../setting/StaticNetworkTopologyMininet_10Switches.json";
+18:    static const std::string TOPOLOGY_FILE_MININET_P4 = "../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json";
+--- lab claim ---
+lab
+  claim          yours -- 347m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           f29b46b3  +27 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+                 tools/test_workflow/supervise.sh
+
+configuration
+--- host_count_override at round start (ndt up rewrites it; restore at end) ---
+128

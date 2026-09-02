@@ -1,0 +1,55 @@
+#### what this step proves: what is actually excluded while routing_lock is held hostage the way a wedged Energy-Saving-App holds it (Lead E) ####
+# The wedged app acquires with ttl 300 (Energy-Saving-App src/app/http.cpp:425) and never releases,
+# because send_case is void and the 502 is discarded (round 2 A3).
+# Structural prediction made before running: routing_lock is ADVISORY. LockManager is referenced
+# only from main.cpp:392, the three HttpSession lock endpoints, and ControllerAndOtherEventHandler.
+# No routing / power / topology / flow endpoint consults it. So nothing in the kernel should block.
+2026-09-03T02:43:30
+
+[pre] release any stale routing_lock -> 412 {"detail":"Lock 'routing_lock' is not held","error":"Release failed","reason":"not_held"}
+
+--- CONTROL: routing_lock FREE (taken first, close in time) ---
+  POST  /ndt/install_flow_entry                    ->  200 in  0.001s  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log an
+  GET   /ndt/get_flow_dispatch_status              ->  200 in  0.001s  {"counters":{"dispatched":0,"dropped_after_stop":0,"failed":0,"succeeded":0},"counters_cover":{"dispatch_route
+  POST  /ndt/delete_flow_entry                     ->  200 in  0.001s  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log an
+  GET   /ndt/get_graph_data                        ->  200 in  0.003s  {"edges":[{"admin_disabled":false,"agent_last_sample_age_seconds":-1.0,"down_reason":"none","dst_dpid":5,"dst_
+  GET   /ndt/get_switches_power_state              ->  200 in  0.000s  {"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON"
+  GET   /ndt/get_path_switch_count                 ->  200 in  0.000s  {"dst_ip":"10.0.0.2","src_ip":"10.0.0.1","status":"success","switch_count":3}
+  GET   /ndt/get_average_link_usage                ->  200 in  0.000s  {"avg_link_usage":0.0,"status":"success"}
+  POST  /ndt/set_switches_power_state              ->  200 in  0.241s  {"192.168.123.20":"Success"}
+  POST  /ndt/set_switches_power_state              ->  200 in  1.484s  {"192.168.123.20":"Success"}
+  POST  /ndt/received_a_simulation_case            ->  400 in  0.002s  {"details":"missing required field(s): simulator, version, inputfile; wrong type: app_id (number, expected str
+  SHELL ndt status --check                       -> rc=0 in  0.851s    exclusive cpu  no (heav
+  SHELL ndt check                                -> rc=0 in  8.098s    twin  (i
+
+=== take routing_lock hostage: ttl 300, never released, exactly as the wedged app does ===
+  acquire_lock ttl=300 -> 200 in 0.002s  {"lease":1,"reclaimed_expired_lease":false,"status":"locked","ttl":300,"type":"routing_lock"}
+  INSTRUMENT CHECK: a second acquire must be refused -> 423 in 0.001s  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held_by_lease":1,"retry_after_s":299}
+
+--- HOSTAGE: routing_lock HELD by a caller that will never release it ---
+  POST  /ndt/install_flow_entry                    ->  200 in  0.001s  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log an
+  GET   /ndt/get_flow_dispatch_status              ->  200 in  0.001s  {"counters":{"dispatched":2,"dropped_after_stop":0,"failed":0,"succeeded":2},"counters_cover":{"dispatch_route
+  POST  /ndt/delete_flow_entry                     ->  200 in  0.001s  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log an
+  GET   /ndt/get_graph_data                        ->  200 in  0.004s  {"edges":[{"admin_disabled":false,"agent_last_sample_age_seconds":-1.0,"down_reason":"none","dst_dpid":5,"dst_
+  GET   /ndt/get_switches_power_state              ->  200 in  0.001s  {"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON"
+  GET   /ndt/get_path_switch_count                 ->  200 in  0.000s  {"dst_ip":"10.0.0.2","src_ip":"10.0.0.1","status":"success","switch_count":3}
+  GET   /ndt/get_average_link_usage                ->  200 in  0.000s  {"avg_link_usage":0.0,"status":"success"}
+  POST  /ndt/set_switches_power_state              ->  200 in  0.237s  {"192.168.123.20":"Success"}
+  POST  /ndt/set_switches_power_state              ->  200 in  1.474s  {"192.168.123.20":"Success"}
+  POST  /ndt/received_a_simulation_case            ->  400 in  0.001s  {"details":"missing required field(s): simulator, version, inputfile; wrong type: app_id (number, expected str
+  SHELL ndt status --check                       -> rc=0 in  0.927s    exclusive cpu  no (heav
+  SHELL ndt check                                -> rc=0 in  8.109s    twin  (i
+
+=== how long is a cooperating client excluded? (the Energy app is the ONLY client of this lock) ===
+  ttl requested = 300 s. Sampling a competing acquire every 15 s for 90 s:
+   t+  14.8s  competing acquire -> 423  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held
+   t+  29.8s  competing acquire -> 423  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held
+   t+  44.8s  competing acquire -> 423  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held
+   t+  59.8s  competing acquire -> 423  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held
+   t+  74.8s  competing acquire -> 423  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held
+   t+  89.8s  competing acquire -> 423  {"detail":"lock \"routing_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held
+
+[cleanup] release_lock -> 200 {"lease":1,"status":"released","type":"routing_lock"}
+[cleanup] re-acquire after release (must succeed if the release worked) -> 200 {"lease":2,"reclaimed_expired_lease":false,"status":"locked","ttl":5,"type":"routing_lock"}
+[cleanup] final release -> 200 {"lease":2,"status":"released","type":"routing_lock"}
+2026-09-03T02:45:30

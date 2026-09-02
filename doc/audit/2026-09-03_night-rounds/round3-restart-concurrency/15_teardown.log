@@ -1,0 +1,113 @@
+#### what this step proves: the fabric this round built is gone, verified through channels other than the tool's own claim ####
+2026-09-03T02:51:37+08:00
+--- pids captured BEFORE teardown (to be checked by exact pid afterwards) ---
+kernel(child)=1286422  proxy(child)=1286210  one bmv2=1285832
+1285832 1285638 Thu Sep  3 02:06:24 2026 simple_switch_g
+1286210 1286205 Thu Sep  3 02:06:25 2026 python
+1286422 1286418 Thu Sep  3 02:06:31 2026 ndtwin_kernel
+bmv2 count before: 10
+
+--- ndt down ---
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  XX  bmv2 switches: 5 still running
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+
+not clean
+(note: this shell captures no rc for ndt down deliberately -- round 2 showed setsid's rc is not the tool's)
+
+--- verification by exact pid (ps), not by the tool's claim ---
+  pid 1286422 gone
+  pid 1286210 gone
+  pid 1285832 gone
+bmv2 count after (ps -eo comm=, never pgrep -f): 0
+ndtwin_kernel count: 0   java count: 0
+
+--- ports, including :6653/:6633 which no cleanup path checks, and :6343 which this round found blocks restarts ---
+  tcp :8000 -> 0 listener(s)
+  tcp :8080 -> 0 listener(s)
+  tcp :8081 -> 0 listener(s)
+  tcp :9000 -> 0 listener(s)
+  tcp :6653 -> 0 listener(s)
+  tcp :6633 -> 0 listener(s)
+  udp :6343 -> 0 listener(s)
+  tcp :3005x (bmv2 gRPC) -> 0 listener(s)
+  tcp :909x (bmv2 thrift) -> 1 listener(s)
+
+--- mininet namespaces / lab tmux session ---
+  netns count: 0
+  sudo: a password is required
+--- lab status ---
+lab
+  claim          yours -- 283m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           38b4651e  +30 file(s) with uncommitted changes
+                 4 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 tools/contract_test/check_logs.py
+                 tools/test_workflow/stack.sh
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+--- memory ---
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7390        2915        1058        6533        8022
+2026-09-03T02:52:10+08:00
+
+=== the one remaining :909x listener is NOT mine and NOT bmv2 ===
+  78285    5376 Wed Sep  2 12:37:38 2026 python3
+  (bmv2 thrift ports for s1..s10 are 9091-9100; this is :9090, a python3 started long before this round)
+  bmv2 thrift ports 9091-9100: all free
+
+=== a real observation from the teardown, kept ===
+  ndt down's own verify block printed 'XX bmv2 switches: 5 still running' and 'not clean',
+  yet 20 s later ps -eo comm= counted 0 bmv2, 0 ndtwin_kernel, 0 java, and every port free.
+  The verify is not synchronised with the sweep it verifies -- the same shape round 2 recorded
+  for setsid's exit code. The fabric IS gone; the tool's own verdict was a false negative.
+
+=== restore the one tracked file ndt up rewrote, by explicit single-file path ===
+  before: 4
+  after:  128
+  git status for that path: '' (empty == restored)
+
+=== tracked files this round changed (must be none) ===
+   M doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf
+   M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf
+   M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png
+   M doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf
+   M doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log
+   M doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log
+   M doc/audit/2026-09-02_fix-design-campaign/LEDGER.md
+   M doc/audit/2026-09-02_fix-design-campaign/agents.tsv
+   M doc/audit/2026-09-02_fix-design-campaign/batch/agents.tsv
+   M tests/CMakeLists.txt
+   M tools/contract_test/check_logs.py
+   M tools/test_workflow/stack.sh
+  (the above belong to other sessions; this round touched none of them -- its own files are all
+   untracked under doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/)
+
+=== final state ===
+lab
+  claim          yours -- 283m left (until 07:34:45)
+  note           auditor night rounds: ovs4 completion, restart/concurrency, traffic/measurement, researcher personas
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           38b4651e  +29 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 tools/contract_test/check_logs.py
+               total        used        free      shared  buff/cache   available
+Mem:           15412        7463        2841        1060        6535        7949
+2026-09-03T02:52:39+08:00
+=== binary at END of round (round 1 was burned by a mid-round swap) ===
+a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel
+HEAD now: 38b4651e6877745c70f5200843673ccb054e71c7 Morning brief: run-04 passes sections 1-6, and the three questions for Adam

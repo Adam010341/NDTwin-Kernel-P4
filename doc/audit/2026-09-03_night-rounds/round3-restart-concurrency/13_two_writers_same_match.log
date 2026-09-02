@@ -1,0 +1,63 @@
+#### what this step proves: whether two simultaneous writers to the SAME flow match leave the switch in a state neither of them asked for -- while routing_lock is held hostage and therefore protecting nothing (Lead E, consequence) ####
+# read back from bmv2 s1 own thrift CLI (port 9091), never from the API that wrote the entry.
+2026-09-03T02:46:59
+
+--- table BEFORE (switch-side) ---
+    0a000001/32 -> MyIngress.ipv4_forward - 01, 03
+    0a000002/32 -> MyIngress.ipv4_forward - 02, 01
+    0a000003/32 -> MyIngress.ipv4_forward - 03, 01
+    0a000004/32 -> MyIngress.ipv4_forward - 04, 01
+
+hold routing_lock hostage -> 200 {"lease":3,"reclaimed_expired_lease":false,"status":"locked","ttl":300,"type":"routing_lock"}
+instrument check, competing acquire -> 423 (423 == genuinely held)
+
+--- two install_flow_entry for match ipv4_dst=10.0.0.99, actions OUTPUT:1 and OUTPUT:2, fired together ---
+   writer A(port1): 200 in 0.002s (returned at t0+0.002s)  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are no
+   writer B(port2): 200 in 0.002s (returned at t0+0.003s)  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are no
+
+--- the twin own account of what happened ---
+    {"counters":{"dispatched":6,"dropped_after_stop":0,"failed":0,"succeeded":6},"counters_cover":{"dispatch_routes":["/ndt/install_flow_entry","/ndt/modify_flow_entry","/ndt/delete_flow_entry","/ndt/inst
+
+--- table AFTER (switch-side, the only channel that is not the API that wrote it) ---
+    0a000001/32 -> MyIngress.ipv4_forward - 01, 03
+    0a000002/32 -> MyIngress.ipv4_forward - 02, 01
+    0a000003/32 -> MyIngress.ipv4_forward - 03, 01
+    0a000004/32 -> MyIngress.ipv4_forward - 04, 01
+    0a000063/32 -> MyIngress.ipv4_forward - 00, 02
+
+   entries for 10.0.0.99 (0a000063) on the switch: 1 -> [('0a000063/32', 'MyIngress.ipv4_forward - 00, 02')]
+   two writers asked for OUTPUT:1 and OUTPUT:2. The switch holds: [('0a000063/32', 'MyIngress.ipv4_forward - 00, 02')]
+
+--- cleanup: delete the probe entry and confirm the table is back to what it was ---
+   delete -> 200 {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since t
+   table after delete:
+      0a000001/32 -> MyIngress.ipv4_forward - 01, 03
+      0a000002/32 -> MyIngress.ipv4_forward - 02, 01
+      0a000003/32 -> MyIngress.ipv4_forward - 03, 01
+      0a000004/32 -> MyIngress.ipv4_forward - 04, 01
+   entries for 10.0.0.99 remaining: 0
+
+   release_lock -> 200 {"lease":3,"status":"released","type":"routing_lock"}
+2026-09-03T02:47:07
+
+=== SEQUENTIAL CONTROL: the same two writes, one at a time, minutes apart. If a sequential
+=== second write also silently replaces the first and is also counted "succeeded", then the
+=== behaviour in the concurrent arm is the replace semantic, not a race.
+
+=== SEQUENTIAL CONTROL: the same two writes, one at a time, minutes apart. If a sequential
+=== second write also silently replaces the first and is also counted "succeeded", then the
+=== behaviour in the concurrent arm is the replace semantic, not a race.
+   counters before: {'dispatched': 7, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 7}
+   install OUTPUT:1 -> 200; switch-side entries for 10.0.0.99: ['MyIngress.ipv4_forward - 00, 01']; counters: {'dispatched': 8, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 8}
+   install OUTPUT:2 -> 200; switch-side entries for 10.0.0.99: ['MyIngress.ipv4_forward - 00, 02']; counters: {'dispatched': 9, 'dropped_after_stop': 0, 'failed': 0, 'succeeded': 9}
+   kernel log, the last per-entry dispatch outcomes it recorded:
+      [2026-09-03 02:47:55.750] [info] [HttpSession.cpp:879 handleInstallFlowEntry] Handle Install Flow Entry
+              "ipv4_dst": "10.0.0.99"
+      [2026-09-03 02:47:59.816] [info] [HttpSession.cpp:96 handleRequest] Got request: GET /ndt/get_flow_dispatch_status
+      [2026-09-03 02:47:59.816] [info] [HttpSession.cpp:744 handleGetFlowDispatchStatus] Handle Get Flow Dispatch Status
+      [2026-09-03 02:47:59.817] [info] [HttpSession.cpp:879 handleInstallFlowEntry] Handle Install Flow Entry
+              "ipv4_dst": "10.0.0.99"
+      [2026-09-03 02:48:03.877] [info] [HttpSession.cpp:96 handleRequest] Got request: GET /ndt/get_flow_dispatch_status
+      [2026-09-03 02:48:03.877] [info] [HttpSession.cpp:744 handleGetFlowDispatchStatus] Handle Get Flow Dispatch Status
+   cleanup delete -> 200; entries for 10.0.0.99 remaining: []
+2026-09-03T02:48:07

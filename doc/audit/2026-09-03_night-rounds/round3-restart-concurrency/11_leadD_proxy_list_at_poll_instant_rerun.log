@@ -1,0 +1,63 @@
+#### what this step proves: WHY two phase-A trials with identical poll timing end differently -- by sampling the proxy own switch list at 10 Hz across the window, so "the proxy still listed it" stops being an inference ####
+# RE-RUN of step 10, which lost 4 of its 5 trials to a bug in THIS harness: wait_for_poll compared
+# len(deque(maxlen=50)) against a snapshot, and once the deque filled it could never grow again.
+# Fixed with a monotonic counter. The step-10 s7 trial is still valid and is carried forward.
+# recipe: fire the power-off ~1.5 s before the next poll (phase A), then for 12 s record at 10 Hz
+# whether /v1.0/topology/switches still lists the dpid. The kernel poll reaches the proxy at
+# ~t_off+1.85 s and is applied at ~t_off+2.31 s (measured in 08_/09_).
+2026-09-03T02:35:30  bmv2 procs = 10
+
+--- s8, phase A ---
+   t_off = poll+28.75s   API 200 {"192.168.123.18":"Success"} in 0.249s
+   proxy dropped s8 from its switch list at t_off+0.00s
+   still listed at t_off+1.85s (when the kernel poll reaches the proxy)? False
+   trace (t_off+s:listed) 0.0:n 0.3:n 0.6:n 0.9:n 1.2:n 1.5:n 1.8:n 2.2:n 2.5:n 2.8:n 3.1:n 3.4:n 3.7:n 4.0:n 4.3:n 4.6:n 4.9:n 5.2:n 5.5:n 5.9:n 6.2:n 6.5:n 6.8:n 7.1:n 7.4:n 7.7:n 8.0:n 8.3:n 8.6:n 8.9:n 9.2:n 9.5:n 9.9:n 10.2:n 10.5:n 10.8:n 11.1:n 11.4:n 11.7:n
+   final twin is_up=False  :30058 open=False  => KEPT
+    restore s8: API 200 {"192.168.123.18":"Success"} in 1.477s -> :30058 open=True
+    restored: :30058 open=True  twin is_up=True  bmv2 procs=10
+
+--- s9, phase A ---
+   t_off = poll+28.75s   API 200 {"192.168.123.19":"Success"} in 0.249s
+   proxy dropped s9 from its switch list at t_off+1.95s
+   still listed at t_off+1.85s (when the kernel poll reaches the proxy)? False
+   trace (t_off+s:listed) 0.0:Y 0.3:Y 0.6:Y 0.9:Y 1.2:Y 1.5:Y 1.8:Y 2.2:n 2.5:n 2.8:n 3.1:n 3.4:n 3.7:n 4.0:n 4.3:n 4.6:n 4.9:n 5.2:n 5.5:n 5.9:n 6.2:n 6.5:n 6.8:n 7.1:n 7.4:n 7.7:n 8.0:n 8.3:n 8.6:n 8.9:n 9.2:n 9.6:n 9.9:n 10.2:n 10.5:n 10.8:n 11.1:n 11.4:n 11.7:n
+   final twin is_up=True  :30059 open=False  => LOST
+    restore s9: API 200 {"192.168.123.19":"Success"} in 1.483s -> :30059 open=True
+    restored: :30059 open=True  twin is_up=True  bmv2 procs=10
+
+--- s6, phase A ---
+   t_off = poll+28.76s   API 200 {"192.168.123.16":"Success"} in 0.248s
+   proxy dropped s6 from its switch list at t_off+2.88s
+   still listed at t_off+1.85s (when the kernel poll reaches the proxy)? True
+   trace (t_off+s:listed) 0.0:Y 0.3:Y 0.6:Y 0.9:Y 1.2:Y 1.5:Y 1.8:Y 2.2:Y 2.5:Y 2.8:Y 3.1:n 3.4:n 3.7:n 4.0:n 4.3:n 4.6:n 4.9:n 5.2:n 5.6:n 5.9:n 6.2:n 6.5:n 6.8:n 7.1:n 7.4:n 7.7:n 8.0:n 8.3:n 8.6:n 8.9:n 9.2:n 9.6:n 9.9:n 10.2:n 10.5:n 10.8:n 11.1:n 11.4:n 11.7:n
+   final twin is_up=True  :30056 open=False  => LOST
+    restore s6: API 200 {"192.168.123.16":"Success"} in 1.469s -> :30056 open=True
+    restored: :30056 open=True  twin is_up=True  bmv2 procs=10
+
+--- s10, phase A ---
+   t_off = poll+28.75s   API 200 {"192.168.123.20":"Success"} in 0.246s
+   proxy dropped s10 from its switch list at t_off+1.85s
+   still listed at t_off+1.85s (when the kernel poll reaches the proxy)? False
+   trace (t_off+s:listed) 0.0:Y 0.3:Y 0.6:Y 0.9:Y 1.2:Y 1.5:Y 1.8:n 2.2:n 2.5:n 2.8:n 3.1:n 3.4:n 3.7:n 4.0:n 4.3:n 4.6:n 4.9:n 5.2:n 5.5:n 5.9:n 6.2:n 6.5:n 6.8:n 7.1:n 7.4:n 7.7:n 8.0:n 8.3:n 8.6:n 8.9:n 9.2:n 9.6:n 9.9:n 10.2:n 10.5:n 10.8:n 11.1:n 11.4:n 11.7:n
+   final twin is_up=False  :30060 open=False  => KEPT
+    restore s10: API 200 {"192.168.123.20":"Success"} in 1.479s -> :30060 open=True
+    restored: :30060 open=True  twin is_up=True  bmv2 procs=10
+
+--- s7, phase A ---
+   t_off = poll+28.76s   API 200 {"192.168.123.17":"Success"} in 0.243s
+   proxy dropped s7 from its switch list at t_off+2.76s
+   still listed at t_off+1.85s (when the kernel poll reaches the proxy)? True
+   trace (t_off+s:listed) 0.0:Y 0.3:Y 0.6:Y 0.9:Y 1.2:Y 1.5:Y 1.8:Y 2.2:Y 2.5:Y 2.8:n 3.1:n 3.4:n 3.7:n 4.0:n 4.3:n 4.6:n 4.9:n 5.2:n 5.5:n 5.8:n 6.2:n 6.5:n 6.8:n 7.1:n 7.4:n 7.7:n 8.0:n 8.3:n 8.6:n 8.9:n 9.2:n 9.6:n 9.9:n 10.2:n 10.5:n 10.8:n 11.1:n 11.4:n 11.7:n
+   final twin is_up=True  :30057 open=False  => LOST
+    restore s7: API 200 {"192.168.123.17":"Success"} in 1.481s -> :30057 open=True
+    restored: :30057 open=True  twin is_up=True  bmv2 procs=10
+
+=== SUMMARY (this step) ===
+ dpid | proxy drop delay | still listed at t+1.85s | outcome
+  s8   | 0.00             | False                   | KEPT
+  s9   | 1.95             | False                   | LOST
+  s6   | 2.88             | True                    | LOST
+  s10  | 1.85             | False                   | KEPT
+  s7   | 2.76             | True                    | LOST
+"still listed at the poll instant" predicts the outcome in 4/5 trials
+2026-09-03T02:40:26  bmv2 procs = 10
