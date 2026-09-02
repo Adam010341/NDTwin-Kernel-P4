@@ -1,0 +1,39 @@
+13:16:44
+=== load before starting (p4 toolchain is compiling in the background) ===
+ 13:16:44 up 46 min,  2 users,  load average: 1.00, 1.15, 1.19
+=== Terminal 1: Ryu Controller ===
+--- pane ---
+creating context topology
+instantiating app intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(101133) wsgi starting up on http://0.0.0.0:8080
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--- listening? (manual says Ryu listens on 6633; REST on 8080) ---
+LISTEN 0      50           0.0.0.0:6633      0.0.0.0:*    users:(("ryu-manager",pid=101133,fd=5))
+LISTEN 0      50           0.0.0.0:8080      0.0.0.0:*    users:(("ryu-manager",pid=101133,fd=4))
+13:17:09

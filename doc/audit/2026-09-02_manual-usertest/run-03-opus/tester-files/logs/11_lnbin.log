@@ -1,0 +1,20 @@
+=== restore the fresh-machine state: remove ~/.local/bin (and ~/.local if I made it) ===
+(~/.local removed too - it was mine)
+ls: cannot access '/home/ndt/.local': No such file or directory
+
+=== now run the User Manual command EXACTLY as printed ===
+$ ln -sf ~/Desktop/NDTwin-Kernel/tools/test_workflow/ndt ~/.local/bin/ndt
+ln: failed to create symbolic link '/home/ndt/.local/bin/ndt': No such file or directory
+LN_EXIT=1
+
+=== second time (repeat), same result? ===
+ln: failed to create symbolic link '/home/ndt/.local/bin/ndt': No such file or directory
+LN_EXIT_2=1
+
+=== workaround: mkdir first, then the manual command ===
+LN_EXIT_3=0
+lrwxrwxrwx 1 ndt ndt 55 Sep  2 12:58 /home/ndt/.local/bin/ndt -> /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+12:58
+=== p4 build progress ===
+mv -f $depbase.Tpo $depbase.Plo
+libtool: compile:  g++ -std=c++17 -DHAVE_CONFIG_H -I. -I.. -I../../include -I../cpp_out -I../../frontends_extra/cpp -I.. -I../p4info -I../third_party -pthread -Wall -Wextra -Wno-error=deprecated-declarations -g -O2 -MT src/access_arbitration.lo -MD -MP -MF src/.deps/access_arbitration.Tpo -c src/access_arbitration.cpp  -fPIC -DPIC -o src/.libs/access_arbitration.o

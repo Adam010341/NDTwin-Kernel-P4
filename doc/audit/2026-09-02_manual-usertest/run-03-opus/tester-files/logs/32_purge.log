@@ -1,0 +1,8 @@
+########## B20: 'A flow disappears 15 seconds after its last packet' ##########
+-- stop all traffic in the Mininet CLI --
+-- poll until the array is empty, timing it --
+  t+0s : 0 records
+  EMPTY at t+0s after traffic stop
+-- confirm [] is what is returned (the manual says [] after traffic stopped is healthy) --
+[]
+13:29:44

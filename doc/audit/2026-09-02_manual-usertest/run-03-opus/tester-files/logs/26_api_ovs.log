@@ -1,0 +1,152 @@
+===== API sweep 13:22:14 =====
+### D03_get_graph_data -> HTTP 200
+{"edges":[{"admin_disabled":false,"dst_dpid":5,"dst_interface":1,"dst_ip":[259762368],"flow_set":[],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":1000000000,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":0,"link_bandwidth_utilization_percent":0.0,"src_dpid":1,"src_interface":1,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":6,"dst_interface":1,"dst_ip":[276539584],"flow_set":[],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":1000000000,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":0,"link_bandwidth_utilization_percent":0.0,"src_dpid":1,"src_interface":2,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":0,"dst_interface":1,"dst_ip":
+-----
+### D04_get_detected_flow_data -> HTTP 200
+[{"dst_ip":33554442,"dst_port":54764,"estimated_flow_sending_rate_bps_in_the_last_sec":1290240,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1290240,"estimated_packet_rate_in_the_last_sec":2304,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":2304,"first_sampled_time":"2026-09-02 13:21:45","latest_sampled_time":"2026-09-02 13:22:14","path":[{"interface":3,"node":16777226},{"interface":4,"node":1},{"interface":0,"node":33554442}],"protocol_id":6,"src_ip":16777226,"src_port":5201},{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":979292160,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":572030976,"estimated_packet_
+-----
+### D05_get_switch_openflow_table_entries -> HTTP 200
+[{"dpid":1,"flows":{"1":[{"actions":["OUTPUT:CONTROLLER"],"byte_count":14700,"cookie":0,"duration_nsec":459000000,"duration_sec":204,"flags":0,"hard_timeout":0,"idle_timeout":0,"length":96,"match":{"dl_dst":"01:80:c2:00:00:0e","dl_type":35020},"packet_count":245,"priority":65535,"table_id":0},{"actions":["OUTPUT:3"],"byte_count":3214067919,"cookie":0,"duration_nsec":337000000,"duration_sec":189,"flags":0,"hard_timeout":0,"idle_timeout":0,"length":96,"match":{"dl_type":2048,"nw_dst":"10.0.0.1"},"packet_count":49342,"priority":10,"table_id":0},{"actions":["OUTPUT:4"],"byte_count":3243722,"cookie":0,"duration_nsec":337000000,"duration_sec":189,"flags":0,"hard_timeout":0,"idle_timeout":0,"length
+-----
+### D06_get_power_report -> HTTP 200
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+-----
+### D07_get_switches_power_state_all -> HTTP 200
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+-----
+### D07b_get_switches_power_state_ip -> HTTP 200
+{"192.168.123.11":"ON"}
+-----
+### D07c_power_state_unknown_ip -> HTTP 404
+{"error":"Unknown switch IP"}
+-----
+### D12_get_cpu_utilization -> HTTP 200
+{"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+-----
+### D13_get_memory_utilization -> HTTP 200
+{"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+-----
+### D14_inform_switch_entered -> HTTP 200
+{"status":"Switch set to up"}
+-----
+### D19_get_nickname_dpid -> HTTP 200
+{"nickname":"s1"}
+-----
+### D19b_get_nickname_name -> HTTP 200
+{"nickname":"h1"}
+-----
+### D19c_get_nickname_none -> HTTP 400
+{"error":"Missing dpid, mac, or name parameter"}
+-----
+### D21_get_temperature -> HTTP 200
+{"192.168.123.11":29,"192.168.123.12":44,"192.168.123.13":26,"192.168.123.14":34,"192.168.123.15":29,"192.168.123.16":46,"192.168.123.17":40,"192.168.123.18":43,"192.168.123.19":42,"192.168.123.20":41}
+-----
+### D22_get_path_switch_count_all -> HTTP 200
+{"data":[{"dst_ip":"10.0.0.2","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.3","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.4","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.5","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.6","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.7","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.8","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.9","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.10","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.11","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.12","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.13","src_ip":"10.0.0.
+-----
+### D22b_get_path_switch_count_pair -> HTTP 200
+{"dst_ip":"10.0.0.2","src_ip":"10.0.0.1","status":"success","switch_count":1}
+-----
+### D24_get_average_link_usage -> HTTP 200
+{"avg_link_usage":0.0,"status":"success"}
+-----
+### D30_get_detected_top_k_flow_data -> HTTP 200
+[{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":979292160,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":572030976,"estimated_packet_rate_in_the_last_sec":80640,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":47104,"first_sampled_time":"2026-09-02 13:21:45","latest_sampled_time":"2026-09-02 13:22:15","path":[{"interface":4,"node":33554442},{"interface":3,"node":1},{"interface":0,"node":16777226}],"protocol_id":6,"src_ip":33554442,"src_port":54764},{"dst_ip":33554442,"dst_port":54764,"estimated_flow_sending_rate_bps_in_the_last_sec":1290240,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1290240,"estimated_pack
+-----
+### D30b_top_k_with_k -> HTTP 200
+[{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":979292160,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":572030976,"estimated_packet_rate_in_the_last_sec":80640,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":47104,"first_sampled_time":"2026-09-02 13:21:45","latest_sampled_time":"2026-09-02 13:22:15","path":[{"interface":4,"node":33554442},{"interface":3,"node":1},{"interface":0,"node":16777226}],"protocol_id":6,"src_ip":33554442,"src_port":54764},{"dst_ip":33554442,"dst_port":54764,"estimated_flow_sending_rate_bps_in_the_last_sec":1290240,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1290240,"estimated_pack
+-----
+### D37_get_openflow_capacity -> HTTP 200
+{"BrocadeICX7250":{"groups":{"types":["ALL","INDIRECT","FF"]},"meters":{"bands":["DROP"],"flags":["KBPS","BURST","STATS"],"supported":true},"openflow_versions":["1.0","1.3"],"tables":[{"actions":["OUTPUT","SET_FIELD","DROP","GROUP"],"id":0,"instructions":["APPLY_ACTIONS","WRITE_ACTIONS","METER"],"matches":["in_port","eth_src","eth_dst","eth_type","ipv4_dst"],"max_entries":3072}]},"HPE5520":{"groups":{"types":["ALL","INDIRECT","FF"]},"meters":{"bands":["DROP"],"flags":["KBPS","BURST","STATS"],"supported":true},"openflow_versions":["1.3"],"tables":[{"actions":["OUTPUT","GROUP","DROP","SET_FIELD","SET_QUEUE"],"id":0,"instructions":["APPLY_ACTIONS","WRITE_ACTIONS","METER"],"matches":["in_port","
+-----
+### D38_get_static_topology_json -> HTTP 200
+{
+  "edges": [
+    {
+      "dst_dpid": 5,
+      "dst_interface": 1,
+      "dst_ip": [
+        "192.168.123.15"
+      ],
+      "link_bandwidth_bps": 1000000000,
+      "src_dpid": 1,
+      "src_interface": 1,
+      "src_ip": [
+        "192.168.123.11"
+      ]
+    },
+    {
+      "dst_dpid": 6,
+      "dst_interface": 1,
+      "dst_ip": [
+        "192.168.123.16"
+      ],
+      "link_bandwidth_bps": 1000000000,
+      "src_dpid": 1,
+      "src_interface": 2,
+      "src_ip": [
+        "192.168.123.11"
+      ]
+    },
+    {
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        "10.0.0.1"
+      ],
+      "link_bandwidth_bps": 1000000000,
+      "src_dpid": 1,
+      "src_interface": 3,
+-----
+### D25_total_input_traffic -> HTTP 200   BODY SENT: {"dpid": 1}
+{"status":"success","total_input_traffic_load_bps":573106523}
+-----
+### D26_num_flows_passing -> HTTP 200   BODY SENT: {"dpid": 1}
+{"num_of_flows":2,"status":"success"}
+-----
+### D27_acquire_lock -> HTTP 200   BODY SENT: {"type": "routing_lock", "ttl": 30}
+{"status":"locked","ttl":30,"type":"routing_lock"}
+-----
+### D28_renew_lock -> HTTP 200   BODY SENT: {"type": "routing_lock", "ttl": 30}
+{"status":"renewed","ttl":30,"type":"routing_lock"}
+-----
+### D29_release_lock -> HTTP 200   BODY SENT: {"type": "routing_lock"}
+{"status":"released","type":"routing_lock"}
+-----
+### D27b_acquire_lock_notype -> HTTP 200   BODY SENT: {"ttl": 30}
+{"status":"locked","ttl":30,"type":"routing_lock"}
+-----
+### D28b_renew_lock_nobody -> HTTP 200   BODY SENT: {}
+{"status":"renewed","ttl":5,"type":"routing_lock"}
+-----
+### D29b_release_lock_badtype -> HTTP 412   BODY SENT: {"type": "banana_lock"}
+{"detail":"Lock 'banana_lock' is not held or is an invalid type","error":"Release failed"}
+-----
+### D16_app_register -> HTTP 200   BODY SENT: {"app_name": "MyApp", "simulation_completed_url": "http://127.0.0.1:9000/simulation_completed"}
+{"app_id":1,"message":"Application registered successfully"}
+-----
+### D20_modify_nickname -> HTTP 200   BODY SENT: {"identifier": {"type": "dpid", "value": 1}, "new_nickname": "Sinica-Switch-01"}
+{"status": "success", "message": "Nickname updated successfully."}
+-----
+### D15_modify_device_name -> HTTP 200   BODY SENT: {"vertex_type": 1, "mac": "00:00:00:00:00:01", "new_name": "HstA"}
+{"status":"Device name updated successfully."}
+-----
+### D41_intent_translator -> HTTP 503   BODY SENT: {"prompt": "Disable switch s5", "session": "default"}
+{"error":"Intent translator is disabled; the kernel was started with --no-ai."}
+-----
+### D39_historical_enable -> HTTP 200   BODY SENT: 
+{"message":"Historical data logging is enabled, but this deployment does not record: the recorder is only started outside MININET mode, so no rows will be written.","recording":false,"status":"success"}
+-----
+### D39b_historical_disable -> HTTP 200   BODY SENT: 
+{"message":"Historical data logging has been disabled.","recording":false,"status":"success"}
+-----
+### D39c_historical_bogus -> HTTP 400   BODY SENT: 
+{"error":"Invalid or missing 'state' parameter. Use 'enable' or 'disable'."}
+-----
+### D42_malformed_json -> HTTP 400   BODY SENT: {"dpid": 
+{"details":"[json.exception.parse_error.101] parse error at line 1, column 10: syntax error while parsing value - unexpected end of input; expected '[', '{', or a literal","error":"JSON parsing error"}
+-----
+### D01_link_failure_manualvals -> HTTP 404   BODY SENT: {"src_dpid": 106225808402492, "src_interface": 23, "dst_dpid": 106225808387660, "dst_interface": 23}
+{"error":"edge not found in topology"}
+-----
+===== end 13:22:15 =====

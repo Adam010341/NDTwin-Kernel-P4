@@ -1,0 +1,5 @@
+=== workaround: install the helper the ndt script expects ===
+-rwxr-xr-x 1 root root 6560 Sep  2 13:41 /usr/local/sbin/ndtwin-lab
+
+=== retry: ndt up ovs (this is also my SECOND bring-up of the OVS stack) ===
+UP2_START 13:41:19

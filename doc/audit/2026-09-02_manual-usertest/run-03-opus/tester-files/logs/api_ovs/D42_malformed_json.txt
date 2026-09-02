@@ -1,0 +1,1 @@
+{"details":"[json.exception.parse_error.101] parse error at line 1, column 10: syntax error while parsing value - unexpected end of input; expected '[', '{', or a literal","error":"JSON parsing error"}

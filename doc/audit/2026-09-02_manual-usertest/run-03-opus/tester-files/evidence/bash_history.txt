@@ -1,0 +1,12 @@
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && ryu-manager ryu.app.simple_switch_13
+cd ~/Simulation-Platform-Manager && sudo ./simulation_platform_manager
+ndt up ovs; echo "NDT_UP_EXIT=$?"
+cd ~/Desktop/NDTwin-Kernel && sudo python3 testbed_topo.py
+cd ~/Desktop/NDTwin-Kernel && conda activate ryu-env
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && python --version
+ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --observe-link
+cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+cd ~/Network-State-Recorder && source ~/nsr-env/bin/activate && python3 network_state_recorder.py
+ndt up ovs; echo "NDT_UP_EXIT=$?"
+cd ~/Desktop/NDTwin-Kernel && source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && ryu-manager intelligent_router.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --observe-link
+cd ~/Network-Traffic-Generator && sudo ~/ntg-env/bin/python testbed_topo.py

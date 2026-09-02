@@ -1,0 +1,40 @@
+=== Step 2.6.2: the manual shows 3 values but not WHERE. Grep for them. ===
+36:static_topology_file_path = Path(os.environ.get(
+90:_declared_count, expected_switch_dpids = _expected_switches(static_topology_file_path)
+98:    _switch_num_source = f"topology file ({static_topology_file_path.name})"
+1376:    def load_static_topology(self, path: Path = static_topology_file_path):
+---
+43:# down in this same module-level block (search for the second `is_mininet = True`), so whatever
+56:is_mininet = True   # True: Mininet, False: physical testbed -- SEE ABOVE, this value is discarded
+92:_env_switch_num = os.environ.get("NDTWIN_RYU_SWITCH_NUM")
+94:    switch_num = int(_env_switch_num)
+97:    switch_num = _declared_count
+100:    switch_num = 10
+602:is_mininet = True
+--- context around them ---
+first assignment at line 36
+# Overridable via NDTWIN_RYU_TOPO_FILE; the default is unchanged, so the normal OVS round
+# behaves exactly as before. This has to be settable because the kernel takes its model from
+# --topology while this file took its own from a module-level constant, and nothing checked
+# that the two agreed. Run them against different models and the failure is silent and
+# confusing: Ryu installs routes for the hosts *its* file declares, so on 2026-08-17 a
+# 10-switch/4-host fabric got s1 rules reading `nw_dst=10.0.0.2 actions=output:4` -- port 4
+# does not exist on that s1, every host pair was 100% loss, and both Ryu's topology view and
+# the kernel's graph reported ten switches, forty edges, all up and enabled.
+static_topology_file_path = Path(os.environ.get(
+    "NDTWIN_RYU_TOPO_FILE",
+    "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
+
+# (2) Deployment mode
+# [Co-developed with claude code -- Adam]
+# ⚠️ EDITING THIS LINE DOES NOTHING. `is_mininet` is unconditionally reassigned to True further
+# down in this same module-level block (search for the second `is_mininet = True`), so whatever
+# you set here is overwritten before anything reads it. It reads as configuration and behaves as a
+# constant.
+#
+# What it would control if it worked: exactly one thing, `if is_mininet: hub.sleep(60)` at the end
+# of `load_static_topology` -- a settle delay before the all-destination route walk. A
+# physical-testbed operator who flips this line still waits the 60 s.
+#
+=== whoami ===
+ndt

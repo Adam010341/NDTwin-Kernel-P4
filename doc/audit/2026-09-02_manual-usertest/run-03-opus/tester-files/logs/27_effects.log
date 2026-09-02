@@ -1,0 +1,55 @@
+############## LOCK API: the doc says all of these are 400 since 2026-08-30 ##############
+### acquire, NO type field
+{"status":"locked","ttl":30,"type":"routing_lock"}
+[HTTP 200]
+-----
+### acquire, EMPTY body
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+[HTTP 423]
+-----
+### acquire, type is a NUMBER
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+[HTTP 423]
+-----
+### acquire, type is UNKNOWN string
+{"detail":"System busy or invalid lock type: banana_lock","error":"Lock acquisition failed"}
+[HTTP 423]
+-----
+### renew, NO body at all
+{"status":"renewed","ttl":5,"type":"routing_lock"}
+[HTTP 200]
+-----
+### release, NO type field
+{"status":"released","type":"routing_lock"}
+[HTTP 200]
+-----
+--- clean up whatever I just took ---
+{"detail":"Lock 'routing_lock' is not held or is an invalid type","error":"Release failed"}
+
+############## D12/D13: are CPU and MEMORY the same numbers? sample twice ##############
+sample 1:
+  cpu: {"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+  mem: {"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+sample 2:
+  cpu: {"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+  mem: {"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+
+############## D15/D20 EFFECT: did the rename actually land? ##############
+-- doc says modify_device_name updates 'the NDTwin topology and StaticNetworkTopology.json' --
+graph_data mentions HstA? : "device_name":"HstA"
+
+nickname of dpid 1 now    : {"nickname":"Sinica-Switch-01"}
+-- did the on-disk topology JSON change? --
+ M setting/StaticNetworkTopologyMininet_10Switches.json
+2
+-- and the static-topology endpoint? --
+1
+
+############## D16 EFFECT: app_register should create /srv/nfs/sim/<app_id> ##############
+total 12
+drwxr-xr-x 3 root root 4096 Sep  2 13:22 .
+drwxr-xr-x 3 root root 4096 Sep  2 13:22 ..
+drwxrwxrwx 2 root root 4096 Sep  2 13:22 1
+-- register a second app: does app_id increment? --
+{"app_id":2,"message":"Application registered successfully"}
+13:23:11

@@ -1,0 +1,61 @@
+########## E11/E12: the stop script, with nothing running ##########
+
+
+Usage:
+ kill [options] <pid> [...]
+
+Options:
+ <pid> [...]            send signal to every <pid> listed
+ -<signal>, -s, --signal <signal>
+                        specify the <signal> to be sent
+ -q, --queue <value>    integer value to be sent with the signal
+ -l, --list=[<signal>]  list all signal names, or convert one to a name
+ -L, --table            list all signal names in a nice table
+
+ -h, --help     display this help and exit
+ -V, --version  output version information and exit
+
+For more details see kill(1).
+STOP_EXIT=0
+-- E12: did it flip display_on_console back to true? --
+    display_on_console: true
+
+########## E09: Option 2 (foreground) with the venv the manual told me to make ##########
+-- pane --
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- E10 status check now --
+145497 python3 network_state_recorder.py
+-- E13: recorded_info/ --
+total 588
+drwxrwxr-x 2 ndt ndt   4096 Sep  2 13:31 .
+drwxrwxr-x 7 ndt ndt   4096 Sep  2 13:31 ..
+-rw-rw-r-- 1 ndt ndt      0 Sep  2 13:31 2026_09_02_13-31-16_flowinfo.json
+-rw-rw-r-- 1 ndt ndt 591444 Sep  2 13:31 2026_09_02_13-31-16_graphinfo.json
+-- E15: logs/ --
+ls: cannot access 'logs/': No such file or directory
+-- E16: JSON structure of what it wrote --
+  file: recorded_info/2026_09_02_13-31-16_flowinfo.json  (0 lines, 0 bytes)
+
+  ---
+  file: recorded_info/2026_09_02_13-31-16_graphinfo.json  (4 lines, 591444 bytes)
+{"timestamp":1788355876838,"edges":[{"admin_disabled":false,"dst_dpid":5,"dst_interface":1,"dst_ip":[259762368],"flow_set":[],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":1000000000,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":0,"link_bandwidth_utilization_percent":0.0,"src
+  ---
+13:31:41

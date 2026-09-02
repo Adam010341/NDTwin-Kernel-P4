@@ -1,0 +1,61 @@
+=== does /usr/local/sbin/ndtwin-lab exist? ===
+ls: cannot access '/usr/local/sbin/ndtwin-lab': No such file or directory
+
+=== is there anything named ndtwin-lab in the checkout? ===
+/home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndtwin-lab
+=== does any doc page mention it? ===
+/home/ndt/ndtwin-docs/NDTwin Installation Manual/NDTwin Kernel/Operate an Emulated (Software) Network/Native-Linux Excution Environment.md:350:| Open vSwitch only (Sections 1–5) | `ndtwin-lab/NDTwin-Kernel` |
+/home/ndt/ndtwin-docs/NDTwin Installation Manual/NDTwin Kernel/Operate an Emulated (Software) Network/Native-Linux Excution Environment.md:351:| **P4 / BMv2 as well (Section 6)** | **`ndtwin-lab/NDTwin-Kernel-P4-public`** |
+  (lines above exclude the github org name 'ndtwin-lab')
+
+=== how many times does the ndt tool reference it? ===
+11
+55:LAB=/usr/local/sbin/ndtwin-lab
+
+=== is there an installer for it anywhere in the repo? ===
+README.md
+build_bmv2_fast.sh
+components.env
+cpu_probe.py
+cpu_report.py
+derive_p4_topology_json.py
+faults.sh
+faults.txt
+greenlet_dump_smoke.py
+l0_build_check.sh
+l1_unit_tests.sh
+local_ci.sh
+manifest_backfill.sh
+ndt
+ndtwin-lab
+ovs_4host_topo.py
+p4_coverage_baseline.txt
+p4_coverage_gate.sh
+qdisc_snapshot.sh
+run_layers.sh
+stack.sh
+test_ndt_lab_session.sh
+test_teardown_guards.sh
+test_topo_from_json.py
+test_topo_model_guards.py
+
+=== state left behind by the failed 'ndt up ovs' ===
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu open
+
+
+
+=== clean up before my second by-hand run ===
+      sudo: /usr/local/sbin/ndtwin-lab: command not found
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+13:40:37

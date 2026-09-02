@@ -1,0 +1,23 @@
+13:05
+=== provenance of the tracked binary: when was it committed, and is it the same file? ===
+83d6e39 2026-01-28 16:18:39 +0800 Add demo registered Apps
+--- committed version vs the one make all just wrote ---
+8243d24952c10fbba126dc29250646926bac79d01c53af783ff5a95df09164e5  -
+2ed19b2c746cdac7e7b5c069d728c7f3ce60d0599e82a8c4e8b38f80e55aecd1  registered/energy_saving_simulator/1.0/executable
+
+=== I08: build the Simulation Platform Manager ===
+[GEN] include/settings/sim_server.hpp created from include/settings/sim_server.hpp.example
+g++ -std=c++17 -Iinclude -Wall Logger.cpp registered/simple_sim/1.0/simple_sim.cpp -o registered/simple_sim/1.0/executable -lspdlog -lfmt
+g++ -std=c++17 -Iinclude -Wall Logger.cpp request_manager.cpp -o request_manager -lpthread -lboost_system -lboost_thread -lspdlog -lfmt
+g++ -std=c++17 -Iinclude -Wall Logger.cpp simulation_platform_manager.cpp -o simulation_platform_manager -lpthread -lboost_system -lboost_thread -lboost_filesystem -lspdlog -lfmt
+g++ -std=c++17 -Iinclude -Wall Logger.cpp app.cpp -o app -lpthread -lboost_system -lboost_thread -lspdlog -lfmt
+SPM_MAKE_ALL_EXIT=0
+-rwxrwxr-x 1 ndt ndt 9826336 Sep  2 13:05 simulation_platform_manager
+
+=== I10 claim: it needs /mnt/nfs/sim to already exist. Does that dir exist now? ===
+ls: cannot access '/mnt/nfs/sim': No such file or directory
+=== p4 build progress ===
+13:06
+libtool: compile:  g++ -std=c++17 -DHAVE_CONFIG_H -I. -I../.. -I../../include -I../../include -I/usr/include/jsoncpp -isystem../../third_party/spdlog -I./../BMI
++ echo 'p4lang/PI install      : 276 sec'
+p4lang/PI install      : 276 sec

@@ -1,0 +1,315 @@
+captured: 2026-09-02T15:04:20Z  (local 2026-09-02 15:04:20 UTC)
+--- uptime / mem:
+ 15:04:20 up  2:33,  2 users,  load average: 0.21, 1.01, 1.67
+               total        used        free      shared  buff/cache   available
+Mem:            5925         941        1723           8        3580        4983
+--- tmux ls:
+KERNEL: 1 windows (created Wed Sep  2 13:57:42 2026)
+MN: 1 windows (created Wed Sep  2 13:56:39 2026)
+NTG: 1 windows (created Wed Sep  2 14:07:23 2026)
+RYU: 1 windows (created Wed Sep  2 14:01:05 2026)
+--- tmux pane sizes:
+-rw-rw-r-- 1 ndt ndt   2390 15:04:20 /home/ndt/pane_KERNEL.txt
+-rw-rw-r-- 1 ndt ndt  77293 15:04:20 /home/ndt/pane_MN.txt
+-rw-rw-r-- 1 ndt ndt 149213 15:04:20 /home/ndt/pane_NTG.txt
+-rw-rw-r-- 1 ndt ndt      0 15:04:20 /home/ndt/pane_P4.txt
+-rw-rw-r-- 1 ndt ndt 118986 15:04:20 /home/ndt/pane_RYU.txt
+-rw-rw-r-- 1 ndt ndt     39 15:04:20 /home/ndt/pane_capture_errors.txt
+--- tmux -L ndtwinlab (root):
+no server running on /tmp/tmux-0/ndtwinlab
+--- listeners (ss -tlnpH):
+LISTEN 0      4096         0.0.0.0:22   0.0.0.0:*                                          
+LISTEN 0      4096   127.0.0.53%lo:53   0.0.0.0:*                                          
+LISTEN 0      4096      127.0.0.54:53   0.0.0.0:*                                          
+LISTEN 0      50           0.0.0.0:6633 0.0.0.0:* users:(("ryu-manager",pid=193441,fd=5))  
+LISTEN 0      4096         0.0.0.0:8000 0.0.0.0:* users:(("ndtwin_kernel",pid=188793,fd=8))
+LISTEN 0      50           0.0.0.0:8080 0.0.0.0:* users:(("ryu-manager",pid=193441,fd=4))  
+LISTEN 0      4096            [::]:22      [::]:*                                          
+--- ls -la ~/logs:
+total 2072
+drwxrwxr-x  3 ndt ndt    4096 09-02_14:07:08 .
+drwxr-x--- 30 ndt ndt    4096 09-02_15:04:20 ..
+-rw-rw-r--  1 ndt ndt    9297 09-02_12:36:06 02_conda.log
+-rw-rw-r--  1 ndt ndt   46955 09-02_12:37:46 02b_ryu.log
+-rw-rw-r--  1 ndt ndt     559 09-02_12:38:16 02c_ryutest.log
+-rw-rw-r--  1 ndt ndt     315 09-02_12:38:39 02d_stop.log
+-rw-rw-r--  1 ndt ndt    2357 09-02_12:39:16 02e_router.log
+-rw-rw-r--  1 ndt ndt     975 09-02_12:40:07 02f_cfg.log
+-rw-rw-r--  1 ndt ndt  169725 09-02_12:45:50 03_sysdeps.log
+-rw-rw-r--  1 ndt ndt     693 09-02_12:46:07 03b_pingall.log
+-rw-rw-r--  1 ndt ndt    1492 09-02_12:38:56 04a_clone.log
+-rw-rw-r--  1 ndt ndt   11450 09-02_12:51:41 04b_build.log
+-rw-rw-r--  1 ndt ndt    1866 09-02_12:52:31 04c_verify.log
+-rw-rw-r--  1 ndt ndt 1512183 09-02_15:01:22 06a_p4.log
+-rw-rw-r--  1 ndt ndt    2744 09-02_12:56:28 07_tools_prep.log
+-rw-rw-r--  1 ndt ndt    4886 09-02_12:57:18 08_ntg_prep.log
+-rw-rw-r--  1 ndt ndt    4964 09-02_12:57:45 09_kernelcli.log
+-rw-rw-r--  1 ndt ndt    2654 09-02_12:58:19 10_probe.log
+-rw-rw-r--  1 ndt ndt    1190 09-02_12:58:42 11_lnbin.log
+-rw-rw-r--  1 ndt ndt    1240 09-02_13:02:46 12_simplat.log
+-rw-rw-r--  1 ndt ndt    1844 09-02_13:04:42 13_simplat2.log
+-rw-rw-r--  1 ndt ndt    1607 09-02_13:06:08 14_spm.log
+-rw-rw-r--  1 ndt ndt    1096 09-02_13:06:57 15_spmrun.log
+-rw-rw-r--  1 ndt ndt     791 09-02_13:17:09 20_t1_ryu.log
+-rw-rw-r--  1 ndt ndt     663 09-02_13:19:28 21_t2_topo.log
+-rw-rw-r--  1 ndt ndt     627 09-02_13:20:00 22_converge.log
+-rw-rw-r--  1 ndt ndt    1979 09-02_13:20:26 23_flows.log
+-rw-rw-r--  1 ndt ndt    3222 09-02_13:21:18 24_t3_kernel.log
+-rw-rw-r--  1 ndt ndt     869 09-02_13:21:56 25_traffic.log
+-rw-rw-r--  1 ndt ndt   10991 09-02_13:22:15 26_api_ovs.log
+-rw-rw-r--  1 ndt ndt    2645 09-02_13:23:11 27_effects.log
+-rw-rw-r--  1 ndt ndt    2896 09-02_13:24:07 28_lock_flow.log
+-rw-rw-r--  1 ndt ndt    2154 09-02_13:25:22 29_repro.log
+-rw-rw-r--  1 ndt ndt    4098 09-02_13:27:37 30_more_api.log
+-rw-rw-r--  1 ndt ndt    3121 09-02_13:28:34 31_strict.log
+-rw-rw-r--  1 ndt ndt     326 09-02_13:29:44 32_purge.log
+-rw-rw-r--  1 ndt ndt    1429 09-02_13:30:44 33_purge2.log
+-rw-rw-r--  1 ndt ndt    1744 09-02_13:31:41 34_nsr.log
+-rw-rw-r--  1 ndt ndt    3933 09-02_13:35:13 35_nsr2.log
+-rw-rw-r--  1 ndt ndt    2996 09-02_13:36:32 36_ndt.log
+-rw-rw-r--  1 ndt ndt    2493 09-02_13:37:30 37_shutdown.log
+-rw-rw-r--  1 ndt ndt    2857 09-02_13:38:03 38_kctrlc.log
+-rw-rw-r--  1 ndt ndt    1845 09-02_13:40:37 40_probe_lab.log
+-rw-rw-r--  1 ndt ndt     227 09-02_13:41:19 41_workaround.log
+-rw-rw-r--  1 ndt ndt    9066 09-02_13:47:02 42_diag.log
+-rw-rw-r--  1 ndt ndt    1894 09-02_13:47:32 43_diag2.log
+-rw-rw-r--  1 ndt ndt     340 09-02_13:48:04 44_retry.log
+-rw-rw-r--  1 ndt ndt     395 09-02_13:54:34 45_helper.log
+-rw-rw-r--  1 ndt ndt     565 09-02_13:55:11 46_sock.log
+-rw-rw-r--  1 ndt ndt     477 09-02_13:58:07 47_run2.log
+-rw-rw-r--  1 ndt ndt     926 09-02_13:58:53 48_power.log
+-rw-rw-r--  1 ndt ndt     815 09-02_14:02:20 49_ntg.log
+-rw-rw-r--  1 ndt ndt    2355 09-02_14:08:53 50_ntg2.log
+-rw-rw-r--  1 ndt ndt     243 09-02_14:00:39 NTG.yaml.orig
+drwxrwxr-x  2 ndt ndt    4096 09-02_13:22:15 api_ovs
+-rw-rw-r--  1 ndt ndt  114953 09-02_12:40:01 intelligent_router.py.orig
+--- df -h /:
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1       116G   12G  104G  10% /
+--- home listing:
+total 2076
+drwxr-x--- 30 ndt  ndt     4096 09-02_15:04:20 .
+drwxr-xr-x  4 root root    4096 09-02_12:57:45 ..
+drwxrwxr-x  2 ndt  ndt     4096 09-02_12:35:58 .anaconda
+-rw-------  1 ndt  ndt     1124 09-02_14:07:23 .bash_history
+-rw-r--r--  1 ndt  ndt      220 03-31_08:41:03 .bash_logout
+-rw-r--r--  1 ndt  ndt     3771 03-31_08:41:03 .bashrc
+drwx------  6 ndt  ndt     4096 09-02_13:20:07 .cache
+drwxrwxr-x  3 ndt  ndt     4096 09-02_13:20:01 .cmake
+drwxrwxr-x  3 ndt  ndt     4096 09-02_12:35:59 .conda
+drwxrwxr-x  3 ndt  ndt     4096 09-02_12:58:42 .local
+-rw-r--r--  1 ndt  ndt      807 03-31_08:41:03 .profile
+drwx------  2 ndt  ndt     4096 09-02_12:30:43 .ssh
+-rw-rw-r--  1 ndt  ndt      209 09-02_13:02:29 .wget-hsts
+drwxrwxr-x  3 ndt  ndt     4096 09-02_14:59:40 .wireshark
+-rw-rw-r--  1 ndt  ndt    47052 09-02_13:55:46 BUGS.md
+-rw-rw-r--  1 ndt  ndt    13550 09-02_12:55:40 CHECKLIST.md
+-rw-r--r--  1 root root      20 09-02_12:30:46 CLOUD_INIT_DONE
+drwxrwxr-x  3 ndt  ndt     4096 09-02_12:38:55 Desktop
+drwxrwxr-x  5 ndt  ndt     4096 09-02_13:04:42 Energy-Saving-App
+-rw-rw-r--  1 ndt  ndt     5099 09-02_15:04:20 GUEST-STATE.txt
+-rw-rw-r--  1 ndt  ndt    16806 09-02_13:59:50 JOURNAL.md
+drwxrwxr-x  7 ndt  ndt     4096 09-02_13:31:16 Network-State-Recorder
+drwxrwxr-x 10 ndt  ndt     4096 09-02_14:00:39 Network-Traffic-Generator
+drwxrwxr-x 22 ndt  ndt     4096 09-02_12:55:55 PI
+drwxrwxr-x  5 ndt  ndt     4096 09-02_13:06:08 Simulation-Platform-Manager
+drwxrwxr-x 24 ndt  ndt     4096 09-02_13:05:33 behavioral-model
+drwxrwxr-x  2 ndt  ndt     4096 09-02_15:00:28 install-details
+-rw-rw-r--  1 ndt  ndt  1511393 09-02_15:00:31 log.txt
+drwxrwxr-x  3 ndt  ndt     4096 09-02_14:07:08 logs
+drwxrwxr-x 18 ndt  ndt     4096 09-02_12:35:58 miniconda3
+drwxrwxr-x 12 ndt  ndt     4096 09-02_14:59:38 mininet
+drwxrwxr-x  7 ndt  ndt     4096 09-02_12:30:51 ndtwin-docs
+drwxrwxr-x  5 ndt  ndt     4096 09-02_12:56:17 nsr-env
+drwxrwxr-x  5 ndt  ndt     4096 09-02_12:56:55 ntg-env
+drwxrwxr-x  5 ndt  ndt     4096 09-02_14:07:08 ntg-env2
+drwxrwxr-x 85 ndt  ndt     4096 09-02_12:53:08 p4-guide
+drwxrwxr-x 20 ndt  ndt     4096 09-02_13:18:57 p4c
+drwxrwxr-x  6 ndt  ndt     4096 09-02_13:18:31 p4dev-python-venv
+drwxrwxr-x 10 ndt  ndt     4096 09-02_15:00:22 p4runtime-shell
+-rw-rw-r--  1 ndt  ndt      213 09-02_15:00:31 p4setup.bash
+-rw-rw-r--  1 ndt  ndt      218 09-02_15:00:31 p4setup.csh
+-rw-rw-r--  1 ndt  ndt     2390 09-02_15:04:20 pane_KERNEL.txt
+-rw-rw-r--  1 ndt  ndt    77293 09-02_15:04:20 pane_MN.txt
+-rw-rw-r--  1 ndt  ndt   149213 09-02_15:04:20 pane_NTG.txt
+-rw-rw-r--  1 ndt  ndt        0 09-02_15:04:20 pane_P4.txt
+-rw-rw-r--  1 ndt  ndt   118986 09-02_15:04:20 pane_RYU.txt
+-rw-rw-r--  1 ndt  ndt       39 09-02_15:04:20 pane_capture_errors.txt
+drwxrwxr-x 11 ndt  ndt     4096 09-02_14:59:53 ptf
+drwxrwxr-x 14 ndt  ndt     4096 09-02_15:00:27 tutorials
+--- /tmp listing (tester scripts):
+total 408
+drwxrwxrwt 15 root root  4096 09-02_15:04:19 .
+drwxr-xr-x 22 root root  4096 09-02_13:18:22 ..
+drwxrwxrwt  2 root root  4096 09-02_12:30:39 .ICE-unix
+drwxrwxrwt  2 root root  4096 09-02_12:30:39 .X11-unix
+drwxrwxrwt  2 root root  4096 09-02_12:30:39 .XIM-unix
+drwxrwxrwt  2 root root  4096 09-02_12:30:39 .font-unix
+-rw-rw-r--  1 ndt  ndt   1027 09-02_12:35:21 00_setup.sh
+-rw-rw-r--  1 ndt  ndt    711 09-02_12:35:43 02_conda.sh
+-rw-rw-r--  1 ndt  ndt    718 09-02_12:36:34 02b_ryu.sh
+-rw-rw-r--  1 ndt  ndt    463 09-02_12:38:03 02c_ryutest.sh
+-rw-rw-r--  1 ndt  ndt    521 09-02_12:38:34 02d_stop.sh
+-rw-rw-r--  1 ndt  ndt    541 09-02_12:39:15 02e_router.sh
+-rw-rw-r--  1 ndt  ndt   1490 09-02_12:40:00 02f_cfg.sh
+-rw-rw-r--  1 ndt  ndt   1001 09-02_12:41:15 03_sysdeps.sh
+-rw-rw-r--  1 ndt  ndt    181 09-02_12:46:06 03b_pingall.sh
+-rw-rw-r--  1 ndt  ndt    627 09-02_12:38:54 04a_clone.sh
+-rw-rw-r--  1 ndt  ndt    490 09-02_12:46:22 04b_build.sh
+-rw-rw-r--  1 ndt  ndt   1080 09-02_12:52:30 04c_verify.sh
+-rw-rw-r--  1 ndt  ndt    918 09-02_12:53:04 06a_p4.sh
+-rw-rw-r--  1 ndt  ndt   1288 09-02_12:56:15 07_tools_prep.sh
+-rw-rw-r--  1 ndt  ndt   1339 09-02_12:56:53 08_ntg_prep.sh
+-rw-rw-r--  1 ndt  ndt   1441 09-02_12:57:45 09_kernelcli.sh
+-rw-rw-r--  1 ndt  ndt    883 09-02_12:58:19 10_probe.sh
+-rw-rw-r--  1 ndt  ndt    936 09-02_12:58:42 11_lnbin.sh
+-rw-rw-r--  1 ndt  ndt   1270 09-02_13:02:41 12_simplat.sh
+-rw-rw-r--  1 ndt  ndt   1306 09-02_13:03:15 13_simplat2.sh
+-rw-rw-r--  1 ndt  ndt    941 09-02_13:05:05 14_spm.sh
+-rw-rw-r--  1 ndt  ndt    697 09-02_13:06:42 15_spmrun.sh
+-rw-rw-r--  1 ndt  ndt    832 09-02_13:16:43 20_t1_ryu.sh
+-rw-rw-r--  1 ndt  ndt    597 09-02_13:18:42 21_t2_topo.sh
+-rw-rw-r--  1 ndt  ndt    711 09-02_13:19:47 22_converge.sh
+-rw-rw-r--  1 ndt  ndt    973 09-02_13:20:24 23_flows.sh
+-rw-rw-r--  1 ndt  ndt    627 09-02_13:20:47 24_t3_kernel.sh
+-rw-rw-r--  1 ndt  ndt   1176 09-02_13:21:41 25_traffic.sh
+-rw-rw-r--  1 ndt  ndt   2434 09-02_13:23:04 27_effects.sh
+-rw-rw-r--  1 ndt  ndt   3163 09-02_13:23:55 28_lock_flow.sh
+-rw-rw-r--  1 ndt  ndt   1703 09-02_13:24:50 29_repro.sh
+-rw-rw-r--  1 ndt  ndt   3865 09-02_13:27:16 30_more_api.sh
+-rw-rw-r--  1 ndt  ndt   2410 09-02_13:28:12 31_strict.sh
+-rw-rw-r--  1 ndt  ndt    883 09-02_13:29:40 32_purge.sh
+-rw-rw-r--  1 ndt  ndt   1547 09-02_13:30:07 33_purge2.sh
+-rw-rw-r--  1 ndt  ndt   1114 09-02_13:31:15 34_nsr.sh
+-rw-rw-r--  1 ndt  ndt   1045 09-02_13:32:11 35_nsr2.sh
+-rw-rw-r--  1 ndt  ndt    606 09-02_13:36:18 36_ndt.sh
+-rw-rw-r--  1 ndt  ndt   1511 09-02_13:37:09 37_shutdown.sh
+-rw-rw-r--  1 ndt  ndt    684 09-02_13:37:50 38_kctrlc.sh
+-rw-rw-r--  1 ndt  ndt    187 09-02_13:38:31 39_ndtup.sh
+-rw-rw-r--  1 ndt  ndt    179 09-02_13:38:31 39b_poll.sh
+-rw-rw-r--  1 ndt  ndt   1104 09-02_13:40:36 40_probe_lab.sh
+-rw-rw-r--  1 ndt  ndt    479 09-02_13:41:18 41_workaround.sh
+-rw-rw-r--  1 ndt  ndt    958 09-02_13:47:01 42_diag.sh
+-rw-rw-r--  1 ndt  ndt    624 09-02_13:47:31 43_diag2.sh
+-rw-rw-r--  1 ndt  ndt    580 09-02_13:48:00 44_retry.sh
+-rw-rw-r--  1 ndt  ndt    569 09-02_13:54:13 45_helper.sh
+-rw-rw-r--  1 ndt  ndt    684 09-02_13:54:54 46_sock.sh
+-rw-rw-r--  1 ndt  ndt   1735 09-02_13:56:20 47_run2.sh
+-rw-rw-r--  1 ndt  ndt   1839 09-02_13:58:35 48_power.sh
+-rw-rw-r--  1 ndt  ndt   1590 09-02_14:00:39 49_ntg.sh
+-rw-rw-r--  1 ndt  ndt   1441 09-02_14:07:07 50_ntg2.sh
+--- repos:
+== /home/ndt/Desktop/NDTwin-Kernel
+   936f8c6 Snapshot of the P4/BMv2 kernel tree at 20cd80b, published for the manual
+   status --porcelain:
+      M intelligent_router.py
+      M setting/StaticNetworkTopologyMininet_10Switches.json
+== /home/ndt/p4-guide
+   43079a6 Add links to P4 development VM images created on 2026-Sep-01
+   b2ef0fd Remove some older images
+   a2f9f8c Add disk usage reporting to new install script
+   status --porcelain:
+== /home/ndt/p4c
+   d46d824202 Automated Release v1.2.5.17 (#5747)
+   55fe8f2775 Drop dead mirror_copy_to_cpu_ctrl translation (#5743)
+   e630371924 Fix Predication when a loop body is removed (#5744)
+   status --porcelain:
+== /home/ndt/behavioral-model
+   1c8c9a4f Automated Release 1.15.6 (#1447)
+   8be95de0 Update tag name for Ubuntu 24.04 third-party docker image (#1446)
+   583e76e4 test: replace assert with GoogleTest assertions (#1436)
+   status --porcelain:
+      M ci/install-thrift.sh
+      M install_deps.sh
+     ?? ci/install-thrift.sh.orig
+     ?? targets/simple_switch_grpc/config.h.in
+== /home/ndt/ndtwin-docs
+   fatal: not a git repository (or any of the parent directories): .git
+   status --porcelain:
+     fatal: not a git repository (or any of the parent directories): .git
+== /home/ndt/Desktop/Network-Traffic-Generator ABSENT
+== /home/ndt/Desktop/Network-State-Recorder ABSENT
+== /home/ndt/Desktop/Network-Traffic-Visualizer ABSENT
+== /home/ndt/Desktop/Web-GUI ABSENT
+== /home/ndt/Energy-Saving-App
+   e5b3ec1 Add files via upload
+   bd41e36 Add LICENSE file
+   da0395c Delete LICENSE
+   status --porcelain:
+      M energy_saving_app
+      M energy_saving_simulator
+== /home/ndt/Simulation-Platform-Manager
+   b7efd93 Add files via upload
+   840faf3 Add LICENSE file
+   4c2ebeb Delete LICENSE
+   status --porcelain:
+      M registered/energy_saving_simulator/1.0/executable
+      M registered/simple_sim/1.0/executable
+--- docs snapshot:
+website commit: bcf98f5
+--- .test_run:
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/logs:
+total 1416
+drwxrwxr-x 2 ndt ndt    4096 09-02_13:57:03 .
+drwxrwxr-x 4 ndt ndt    4096 09-02_13:57:04 ..
+-rw-rw-r-- 1 ndt ndt 1213946 09-02_15:04:20 kernel.log
+-rw-rw-r-- 1 ndt ndt   13017 09-02_13:56:20 kernel.log.prev
+-rw-rw-r-- 1 ndt ndt  111854 09-02_13:56:21 ryu.log
+-rw-rw-r-- 1 ndt ndt   79217 09-02_13:48:01 ryu.log.prev
+
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids:
+total 16
+drwxrwxr-x 2 ndt ndt 4096 09-02_13:57:03 .
+drwxrwxr-x 4 ndt ndt 4096 09-02_13:57:04 ..
+-rw-rw-r-- 1 ndt ndt  195 09-02_13:57:03 kernel.cmd
+-rw-rw-r-- 1 ndt ndt    7 09-02_13:57:03 kernel.pid
+--- .test_run/pids contents:
+  == /home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/kernel.cmd
+     bash
+     -c
+     cd '/home/ndt/Desktop/NDTwin-Kernel/build' && ./bin/ndtwin_kernel --mode mininet --topology '/home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json' --no-ai
+  == /home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/kernel.pid
+     188793
+--- pid liveness for recorded pids:
+  /home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/kernel.pid pid=188793 ALIVE start=2026-09-02 13:57:04 cmd=./bin/ndtwin_kernel --mode mininet --topology /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMin
+--- binaries:
+ls: cannot access '/home/ndt/Desktop/NDTwin-Kernel/bin/': No such file or directory
+/usr/local/bin/p4c
+/usr/local/bin/simple_switch
+/usr/local/bin/simple_switch_grpc
+/usr/local/sbin/ndtwin-lab
+ls: cannot access '/usr/local/bin/ndtwin-lab': No such file or directory
+-rwxr-xr-x 1 root root 6560 Sep  2 13:41 /usr/local/sbin/ndtwin-lab
+--- P4 tmux pane tail (build finished?):
+--- NTG tmux pane tail:
+2026-09-02 15:03:31 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:33 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:35 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:37 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:39 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:41 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:43 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:45 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:47 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:49 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:51 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:53 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:55 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:57 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:03:59 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:02 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:04 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:06 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:08 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:10 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:12 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:14 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:16 | WARNING : Failed to get hosts from NDTwin server., retrying...
+2026-09-02 15:04:18 | WARNING : Failed to get hosts from NDTwin server., retrying...
+
+--- conda envs:
+ryu-env
+--- python interpreters:
+  /usr/bin/python3 -> 3.12.3 mininet=/usr/lib/python3/dist-packages/mininet/__init__.py
+  /home/ndt/miniconda3/envs/ryu-env/bin/python -> 3.8.20 mininet=None
+  /home/ndt/p4dev-python-venv/bin/python -> 3.12.3 mininet=None

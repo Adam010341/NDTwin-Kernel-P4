@@ -1,0 +1,74 @@
+12:56
+############ E01: clone Network-State-Recorder ############
+Cloning into 'Network-State-Recorder'...
+850f61d 2026-04-20 10:38:03 +0800 Add files via upload
+--- files ---
+LICENSE
+NSR.yaml
+README.md
+development_guide
+installation_guide
+ndtwin-license-header.txt
+network_state_recorder.py
+setting
+start_network_state_recorder.sh
+stop_network_state_recorder.sh
+############ E03: does a bare pip really fail on 24.04? (manual's claim) ############
+    See /usr/share/doc/python3.12/README.venv for more information.
+
+note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.
+hint: See PEP 668 for the detailed specification.
+############ E02: venv ~/nsr-env ############
+Python 3.12.3
+Installing collected packages: urllib3, ruamel-yaml, orjson, loguru, idna, charset_normalizer, certifi, requests, nornir
+
+Successfully installed certifi-2026.7.22 charset_normalizer-3.5.1 idna-3.19 loguru-0.7.3 nornir-3.6.0 orjson-3.12.0 requests-2.34.2 ruamel-yaml-0.19.1 urllib3-2.7.0
+loguru             0.7.3
+nornir             3.6.0
+orjson             3.12.0
+requests           2.34.2
+############ E04: what interpreter is written INSIDE start_network_state_recorder.sh? ############
+#!/bin/bash
+
+# Set display_on_console to false in recorder_setting.yaml
+SETTING_FILE="./setting/recorder_setting.yaml"
+if [ -f "$SETTING_FILE" ]; then
+    sed -i 's/\(display_on_console:\s*\).*/\1false/' "$SETTING_FILE"
+fi
+
+nohup python3 network_state_recorder.py &--- and the stop script ---
+#!/bin/bash
+echo $(pgrep -f network_state_recorder.py)
+sudo kill -15 $(pgrep -f network_state_recorder.py)
+
+# Set display_on_console to true in recorder_setting.yaml
+SETTING_FILE="./setting/recorder_setting.yaml"
+if [ -f "$SETTING_FILE" ]; then
+    sed -i 's/\(display_on_console:\s*\).*/\1true/' "$SETTING_FILE"
+fi############ E05: chmod +x ############
+-rwxrwxr-x 1 ndt ndt 265 Sep  2 12:56 start_network_state_recorder.sh
+-rwxrwxr-x 1 ndt ndt 315 Sep  2 12:56 stop_network_state_recorder.sh
+############ E06: recorder_setting.yaml as shipped ############
+---
+Recorder:
+  data:
+    ndtwin_kernel: "http://127.0.0.1:8000"
+    request_interval: 5 # in seconds, need to be integer and >= 1
+    storage_interval: 2 # in minutes, need to be integer and >= 1
+    # set to false to disable real-time logging output to console, otherwise true.
+    display_on_console: true
+    log_level: "DEBUG"--- NSR.yaml ---
+---
+# From nornir
+inventory:
+  plugin: SimpleInventory
+  options:
+    host_file: "./setting/recorder_setting.yaml"
+
+runner:
+  plugin: threaded
+  options:
+    num_workers: 1
+
+logging:
+  enabled: false12:56

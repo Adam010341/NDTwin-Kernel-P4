@@ -1,0 +1,20 @@
+13:02
+############ I01: clone both as siblings ############
+Cloning into 'Simulation-Platform-Manager'...
+Cloning into 'Energy-Saving-App'...
+/home/ndt/Energy-Saving-App
+/home/ndt/Simulation-Platform-Manager
+############ I05: the .example settings headers the manual names ############
+-rw-rw-r-- 1 ndt ndt 1613 Sep  2 13:02 /home/ndt/Energy-Saving-App/include/app/settings.hpp.example
+-rw-rw-r-- 1 ndt ndt 2293 Sep  2 13:02 /home/ndt/Simulation-Platform-Manager/include/settings/sim_server.hpp.example
+-rw-rw-r-- 1 ndt ndt 1778 Sep  2 13:02 /home/ndt/Simulation-Platform-Manager/include/settings/app.hpp
+make: *** No targets specified and no makefile found.  Stop.
+############ I07: manual claim -- bare  builds no binary and exits 0 ############
+[GEN] include/app/settings.hpp created from include/app/settings.hpp.example
+BARE_MAKE_EXIT=0
+--- did a binary appear? ---
+-rwxrwxr-x 1 ndt ndt 4423240 Sep  2 13:02 energy_saving_simulator
+-rwxrwxr-x 1 ndt ndt 4423240 Sep  2 13:02 ../Simulation-Platform-Manager/registered/energy_saving_simulator/1.0/executable
+--- was a settings header generated? ---
+-rw-rw-r-- 1 ndt ndt 1613 Sep  2 13:02 include/app/settings.hpp
+/tmp/12_simplat.sh: line 21: unexpected EOF while looking for matching ``'

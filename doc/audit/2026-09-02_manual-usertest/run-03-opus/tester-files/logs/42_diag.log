@@ -1,0 +1,118 @@
+=== ndt status right after the failure ===
+lab
+  claim          none
+  measuring      nothing
+  code           936f8c6  +2 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 setting/StaticNetworkTopologyMininet_10Switches.json
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open
+
+network health
+  switches       0 up, 0 enabled, 0 admin-disabled
+  links          288 total, 288 down, 0 admin-disabled
+  tc netem       none
+  apps           none running
+
+kernel graph
+  10 switches (0 up, 0 enabled), 128 hosts, 288 edges
+
+=== ports ===
+LISTEN 0      50           0.0.0.0:6633      0.0.0.0:*    users:(("ryu-manager",pid=155218,fd=5))  
+LISTEN 0      4096         0.0.0.0:8000      0.0.0.0:*    users:(("ndtwin_kernel",pid=158509,fd=8))
+LISTEN 0      50           0.0.0.0:8080      0.0.0.0:*    users:(("ryu-manager",pid=155218,fd=4))  
+
+=== OVS bridges ===
+
+=== any mininet host processes? ===
+0
+=== the lab session the helper uses ===
+total 20
+drwxrwxr-x  4 ndt ndt 4096 Sep  2 13:45 .
+drwxrwxr-x 18 ndt ndt 4096 Sep  2 13:38 ..
+drwxrwxr-x  2 ndt ndt 4096 Sep  2 13:45 logs
+-rw-rw-r--  1 ndt ndt   89 Sep  2 13:45 mode
+drwxrwxr-x  2 ndt ndt 4096 Sep  2 13:45 pids
+--- session log, if any ---
+### /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+[2026-09-02 13:46:09.889] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:14.817] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.1, max 1000.4 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 13:46:14.817] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000156 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 13:46:14.817] [warning] [[94mFlowLinkUsageCollector.cpp[0m:[95m2089[0m [96mcalAvgFlowSendingRatesPeriodically[0m] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, which is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+[2026-09-02 13:46:14.896] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:19.904] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:24.911] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:29.918] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:34.926] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:39.932] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:44.822] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1807[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.2 ms | since start (89 iters) mean 1000.1 ms, min 1000.0, max 1001.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-02 13:46:44.822] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2016[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000153 divisor_used_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-02 13:46:44.939] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:49.946] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:54.954] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:46:59.961] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2558[0m [96mfetchAllDestinationPaths[0m] Pulled 0 paths from controller
+[2026-09-02 13:47:02.554] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 13:47:02.554] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 13:47:02.563] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 13:47:02.564] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+[2026-09-02 13:47:02.568] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-02 13:47:02.568] [info] [[94mHttpSession.cpp[0m:[95m95[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-02 13:47:02.569] [info] [[94mHttpSession.cpp[0m:[95m526[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-02 13:47:02.584] [info] [[94mHttpSession.cpp[0m:[95m571[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-02 13:47:02.586] [info] [[94mHttpSession.cpp[0m:[95m397[0m [96mcloseSocket[0m] Close Socket
+### /home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
+(155218) accepted ('127.0.0.1', 56674)
+127.0.0.1 - - [02/Sep/2026 13:46:55] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000929
+(155218) accepted ('127.0.0.1', 56690)
+127.0.0.1 - - [02/Sep/2026 13:46:55] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000278
+(155218) accepted ('127.0.0.1', 56702)
+127.0.0.1 - - [02/Sep/2026 13:46:57] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000967
+(155218) accepted ('127.0.0.1', 56704)
+127.0.0.1 - - [02/Sep/2026 13:46:57] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000938
+(155218) accepted ('127.0.0.1', 56718)
+127.0.0.1 - - [02/Sep/2026 13:46:57] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000188
+(155218) accepted ('127.0.0.1', 57828)
+127.0.0.1 - - [02/Sep/2026 13:46:59] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.000929
+(155218) accepted ('127.0.0.1', 57838)
+127.0.0.1 - - [02/Sep/2026 13:46:59] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000292
+(155218) accepted ('127.0.0.1', 57854)
+127.0.0.1 - - [02/Sep/2026 13:46:59] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000865
+(155218) accepted ('127.0.0.1', 57860)
+127.0.0.1 - - [02/Sep/2026 13:46:59] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000199
+(155218) accepted ('127.0.0.1', 57862)
+127.0.0.1 - - [02/Sep/2026 13:47:01] "GET /v1.0/topology/switches HTTP/1.1" 200 109 0.001009
+(155218) accepted ('127.0.0.1', 57866)
+127.0.0.1 - - [02/Sep/2026 13:47:01] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000273
+(155218) accepted ('127.0.0.1', 57874)
+127.0.0.1 - - [02/Sep/2026 13:47:01] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000189
+(155218) accepted ('127.0.0.1', 57886)
+
+=== host_count_override (Step 6.5 -- I have NOT done Section 6.5 yet) ===
+128
+=== bmv2_binary_override (Step 6.6 -- also not done yet) ===
+# Which simple_switch_grpc the topology launches. First non-comment line wins; it must be
+# an absolute path to an executable, and ../lib beside it is picked up as LD_LIBRARY_PATH.
+# There is NO fallback: delete this file, or comment out every line, and the topology REFUSES
+# to start rather than picking a binary for you. Both installs answer --version identically
+# and differ ~10x in throughput, so a silent choice is a wrong number that looks plausible.
+# To run the stock build, write /usr/local/bin/simple_switch_grpc here instead.
+#
+# Why this is pointed at bmv2-fast (2026-08-17): the stock build is -O0 with full logging,
+# and on it the energy app's consolidation decision is traffic-insensitive -- links are
+# declared 1 Gbps while the switches top out around 22 Mbps, so utilisation never leaves
+# ~2% and the decision is identical with and without traffic (measured: same three
+# switches, same order, both runs). Same ceiling that stops TE from ever seeing its 70%
+# threshold. [Co-developed with claude code -- Adam]
+
+/usr/local/bmv2-fast/bin/simple_switch_grpc
+13:47:02

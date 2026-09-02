@@ -1,0 +1,13 @@
+RUN2_START 13:56:21
+=== Terminal 1 ===
+1
+=== Terminal 2 ===
+--- convergence poll (run 2) ---
+  t+52s : 130 130 130 130 130 130 130 130 130 130
+  t+63s : 130 130 130 130 130 130 130 130 130 130
+  STABLE at t+63s after topology start
+=== Terminal 3 ===
+[2026-09-02 13:57:43.031] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPlaneHomogeneity] Data plane: ovs (10 switch(es))
+--- did the renamed host from run 1 persist into run 2? ---
+"device_name":"HstA"
+RUN2_UP 13:58:07

@@ -1,0 +1,2 @@
+can't find pane: P4
+CAPTURE FAILED: P4

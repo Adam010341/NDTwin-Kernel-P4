@@ -1,0 +1,52 @@
+########## B23: kernel Ctrl-C ##########
+--- last 20 lines of the kernel pane ---
+[2026-09-02 13:37:52.684] [info] [ControllerAndOtherEventHandler.cpp:214 runServer] Exiting Loop of run event server
+[2026-09-02 13:37:52.684] [info] [ControllerAndOtherEventHandler.cpp:182 stop] m_serverThread joined.
+[2026-09-02 13:37:52.684] [info] [ControllerAndOtherEventHandler.cpp:189 stop] ControllerAndOtherEventHandler stopped.
+[2026-09-02 13:37:52.684] [info] [DeviceConfigurationAndPowerManager.cpp:140 stop] Collector Stops
+[2026-09-02 13:37:52.922] [info] [main.cpp:430 main] All subsystems stopped. Exiting.
+[2026-09-02 13:37:52.922] [info] [ControllerAndOtherEventHandler.cpp:98 stop] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 13:37:52.922] [info] [ControllerAndOtherEventHandler.cpp:102 stop] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 13:37:52.922] [info] [ApplicationManager.cpp:266 cleanupNFS] Cleaning up registered NFS folders in /srv/nfs/sim
+sudo: exportfs: command not found
+[2026-09-02 13:37:52.927] [warning] [ApplicationManager.cpp:312 cleanupAppFolder] 'sudo exportfs -u /srv/nfs/sim/1' failed (exit status 1). The export may still be live.
+[2026-09-02 13:37:52.935] [warning] [ApplicationManager.cpp:345 cleanupAppFolder] Deleted NFS folder /srv/nfs/sim/1 but its export configuration was not fully removed.
+sudo: exportfs: command not found
+[2026-09-02 13:37:52.939] [warning] [ApplicationManager.cpp:312 cleanupAppFolder] 'sudo exportfs -u /srv/nfs/sim/2' failed (exit status 1). The export may still be live.
+[2026-09-02 13:37:52.946] [warning] [ApplicationManager.cpp:345 cleanupAppFolder] Deleted NFS folder /srv/nfs/sim/2 but its export configuration was not fully removed.
+sudo: exportfs: command not found
+[2026-09-02 13:37:52.951] [warning] [ApplicationManager.cpp:281 cleanupNFS] 'sudo exportfs -ra' failed after cleanup (exit status 1). Stale exports may still be live.
+[2026-09-02 13:37:52.951] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+terminate called without an active exception
+Aborted
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$
+--- port 8000 now ---
+(8000 released)
+--- any ndtwin_kernel process left? ---
+(none)
+
+########## ndt down: 'take it all down and prove the machine is clean' ##########
+ndt down
+[1/3] kernel + proxy/Ryu
+[2/3] topology session
+      sudo: /usr/local/sbin/ndtwin-lab: command not found
+[3/3] sweep
+      sudo: /usr/local/sbin/ndtwin-lab: command not found
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+NDT_DOWN_EXIT=0
+
+########## ndt status after down ##########
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+13:38:03

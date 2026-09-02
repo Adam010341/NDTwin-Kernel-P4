@@ -1,0 +1,36 @@
+baseline records: 0
+-- 10-second burst h1 -> h50 --
+during burst: 2 records   13:30:16
+-- waiting for the 10s transfer to end --
+transfer ended about 13:30:24
+  t+0s after last packet : 2 records
+  t+2s after last packet : 2 records
+  t+4s after last packet : 2 records
+  t+6s after last packet : 2 records
+  t+8s after last packet : 2 records
+  t+10s after last packet : 2 records
+  t+12s after last packet : 0 records
+  -> purged between t+10s and t+12s
+
+########## NSR end to end (E07-E16) ##########
+-- E06: config as shipped --
+    ndtwin_kernel: "http://127.0.0.1:8000"
+    request_interval: 5 # in seconds, need to be integer and >= 1
+    storage_interval: 2 # in minutes, need to be integer and >= 1
+    display_on_console: true
+-- E07: the manual's Option 1, background mode --
+START_SCRIPT_EXIT=0
+Traceback (most recent call last):
+  File "/home/ndt/Network-State-Recorder/network_state_recorder.py", line 6, in <module>
+    from nornir import InitNornir
+ModuleNotFoundError: No module named 'nornir'
+-- E08: did it flip display_on_console to false? --
+    display_on_console: false
+-- E10: the manual's status check --
+   (NO MATCH -- nothing running)
+-- E13/E15: did any data or log appear? --
+ls: cannot access 'recorded_info/': No such file or directory
+ls: cannot access 'logs/': No such file or directory
+-- what did nohup capture? --
+tail: cannot open 'nohup.out' for reading: No such file or directory
+13:30:44

@@ -1,0 +1,14 @@
+=== run the helper subcommand ndt uses, directly ===
+OVS topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+HELPER_EXIT=0
+--- status per the helper ---
+no lab sessions
+bmv2: 0  mininet: 0
+--- topo-out (its own output tail) ---
+ndtwin-lab: no topo session
+--- bridges / procs ---
+
+0
+--- root tmux ---
+error connecting to /tmp/tmux-0/default (No such file or directory)
+13:54:34

@@ -1,0 +1,25 @@
+=== B17: start iperf3 exactly as the manual shows, inside the Mininet CLI ===
+--- mininet pane ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 iperf3 -s &
+[1] 135246
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet>
+
+=== B18: query while the transfer is still running ===
+13:21:56
+bytes returned: 1025
+records: 2
+  10.0.0.1:5201 -> 10.0.0.2:54764 proto=6 rate_bps_last_sec=716800 hops=3 first=2026-09-02 13:21:45 latest=2026-09-02 13:21:56
+  10.0.0.2:54764 -> 10.0.0.1:5201 proto=6 rate_bps_last_sec=982401024 hops=3 first=2026-09-02 13:21:45 latest=2026-09-02 13:21:56
+
+=== B19: the manual's decoder one-liner on its own example value ===
+10.0.0.1
+13:21:56

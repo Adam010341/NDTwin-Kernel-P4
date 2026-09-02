@@ -1,0 +1,32 @@
+=== I09/I10: run the manager the way the User Manual says, with /mnt/nfs/sim ABSENT ===
+ls: cannot access '/mnt/nfs/sim': No such file or directory
+--- pane ---
+cd ~/Simulation-Platform-Manager && sudo ./simulation_platform_manager
+ndt@ndtwin-lab-vm:~/Simulation-Platform-Manager$ cd ~/Simulation-Platform-Manage
+r && sudo ./simulation_platform_manager
+[2026-09-02 13:06:43.537437729] [info] [simulation_platform_manager.cpp:481 main
+] Logger Loads Successfully!
+[2026-09-02 13:06:43.537469275] [info] [simulation_platform_manager.cpp:483 main
+] Mount NFS
+[2026-09-02 13:06:43.537476988] [info] [simulation_platform_manager.cpp:484 main
+] mount -t nfs localhost:/srv/nfs/sim /mnt/nfs/sim
+mount: /mnt/nfs/sim: mount point does not exist.
+       dmesg(1) may have more information after failed mount system call.
+[2026-09-02 13:06:43.538756276] [critical] [simulation_platform_manager.cpp:488
+main] Mount NFS Failed
+ndt@ndtwin-lab-vm:~/Simulation-Platform-Manager$
+
+
+
+
+
+
+
+
+
+
+--- is anything listening on 9000/8003? ---
+(nothing on 9000/8003)
+--- mount table mentions nfs? ---
+(no nfs mounts)
+13:06

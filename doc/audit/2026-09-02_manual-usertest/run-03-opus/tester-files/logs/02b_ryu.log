@@ -1,0 +1,651 @@
+12:36
+=== Step 2.2: Install System Build Dependencies ===
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Get:1 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+Hit:2 http://archive.ubuntu.com/ubuntu noble InRelease
+Get:3 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:4 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [981 kB]
+Get:5 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:6 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages [15.0 MB]
+Get:7 http://security.ubuntu.com/ubuntu noble-security/main Translation-en [210 kB]
+Get:8 http://security.ubuntu.com/ubuntu noble-security/main amd64 Components [46.4 kB]
+Get:9 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1205 kB]
+Get:10 http://archive.ubuntu.com/ubuntu noble/universe Translation-en [5982 kB]
+Get:11 http://security.ubuntu.com/ubuntu noble-security/universe Translation-en [241 kB]
+Get:12 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.2 kB]
+Get:13 http://security.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [24.2 kB]
+Get:14 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [40.3 kB]
+Get:15 http://security.ubuntu.com/ubuntu noble-security/multiverse Translation-en [11.1 kB]
+Get:16 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [208 B]
+Get:17 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 c-n-f Metadata [468 B]
+Get:18 http://archive.ubuntu.com/ubuntu noble/universe amd64 Components [3871 kB]
+Get:19 http://archive.ubuntu.com/ubuntu noble/universe amd64 c-n-f Metadata [301 kB]
+Get:20 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [269 kB]
+Get:21 http://archive.ubuntu.com/ubuntu noble/multiverse Translation-en [118 kB]
+Get:22 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 Components [35.0 kB]
+Get:23 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 c-n-f Metadata [8328 B]
+Get:24 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1232 kB]
+Get:25 http://archive.ubuntu.com/ubuntu noble-updates/main Translation-en [288 kB]
+Get:26 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [181 kB]
+Get:27 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1690 kB]
+Get:28 http://archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [338 kB]
+Get:29 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+Get:30 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [34.9 kB]
+Get:31 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1486 kB]
+Get:32 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [45.4 kB]
+Get:33 http://archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [12.8 kB]
+Get:34 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+Get:35 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 c-n-f Metadata [656 B]
+Get:36 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [40.6 kB]
+Get:37 http://archive.ubuntu.com/ubuntu noble-backports/main Translation-en [9172 B]
+Get:38 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5740 B]
+Get:39 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 c-n-f Metadata [368 B]
+Get:40 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [31.0 kB]
+Get:41 http://archive.ubuntu.com/ubuntu noble-backports/universe Translation-en [18.6 kB]
+Get:42 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.6 kB]
+Get:43 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 c-n-f Metadata [1588 B]
+Get:44 http://archive.ubuntu.com/ubuntu noble-backports/restricted amd64 Components [212 B]
+Get:45 http://archive.ubuntu.com/ubuntu noble-backports/restricted amd64 c-n-f Metadata [116 B]
+Get:46 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [748 B]
+Get:47 http://archive.ubuntu.com/ubuntu noble-backports/multiverse Translation-en [340 B]
+Get:48 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
+Get:49 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 c-n-f Metadata [116 B]
+Fetched 34.7 MB in 12s (2912 kB/s)
+Reading package lists...
+Building dependency tree...
+Reading state information...
+45 packages can be upgraded. Run 'apt list --upgradable' to see them.
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  binutils binutils-common binutils-x86-64-linux-gnu bzip2 cpp cpp-13
+  cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu dpkg-dev fakeroot g++ g++-13
+  g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13 gcc-13-base
+  gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu icu-devtools javascript-common
+  libalgorithm-diff-perl libalgorithm-diff-xs-perl libalgorithm-merge-perl
+  libasan8 libatomic1 libbinutils libbz2-1.0 libcc1-0 libctf-nobfd0 libctf0
+  libdpkg-perl libexpat1-dev libfakeroot libfile-fcntllock-perl libgcc-13-dev
+  libgomp1 libgprofng0 libhwasan0 libicu-dev libisl23 libitm1 libjs-jquery
+  libjs-sphinxdoc libjs-underscore liblsan0 libmpc3 libpython3-dev
+  libpython3.12-dev libquadmath0 libsframe1 libstdc++-13-dev libtsan2
+  libubsan1 lto-disabled-list make python3.12-dev zlib1g zlib1g-dev
+Suggested packages:
+  binutils-doc gprofng-gui bzip2-doc cpp-doc gcc-13-locales cpp-13-doc
+  debian-keyring g++-multilib g++-13-multilib gcc-13-doc gcc-multilib autoconf
+  automake libtool flex bison gdb gcc-doc gcc-13-multilib gdb-x86-64-linux-gnu
+  apache2 | lighttpd | httpd bzr icu-doc libssl-doc libstdc++-13-doc
+  pkg-config make-doc
+The following NEW packages will be installed:
+  binutils binutils-common binutils-x86-64-linux-gnu build-essential bzip2 cpp
+  cpp-13 cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu dpkg-dev fakeroot g++
+  g++-13 g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13 gcc-13-base
+  gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu icu-devtools javascript-common
+  libalgorithm-diff-perl libalgorithm-diff-xs-perl libalgorithm-merge-perl
+  libasan8 libatomic1 libbinutils libcc1-0 libctf-nobfd0 libctf0 libdpkg-perl
+  libexpat1-dev libfakeroot libffi-dev libfile-fcntllock-perl libgcc-13-dev
+  libgomp1 libgprofng0 libhwasan0 libicu-dev libisl23 libitm1 libjs-jquery
+  libjs-sphinxdoc libjs-underscore liblsan0 libmpc3 libpython3-dev
+  libpython3.12-dev libquadmath0 libsframe1 libssl-dev libstdc++-13-dev
+  libtsan2 libubsan1 libxml2-dev libxslt1-dev lto-disabled-list make
+  python3-dev python3.12-dev zlib1g-dev
+The following packages will be upgraded:
+  libbz2-1.0 zlib1g
+2 upgraded, 63 newly installed, 0 to remove and 43 not upgraded.
+Need to get 90.3 MB of archives.
+After this operation, 330 MB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbz2-1.0 amd64 1.0.8-5.1ubuntu0.1 [34.6 kB]
+Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 zlib1g amd64 1:1.3.dfsg-3.1ubuntu2.2 [63.0 kB]
+Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-common amd64 2.42-4ubuntu2.10 [240 kB]
+Get:4 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsframe1 amd64 2.42-4ubuntu2.10 [15.7 kB]
+Get:5 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbinutils amd64 2.42-4ubuntu2.10 [577 kB]
+Get:6 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf-nobfd0 amd64 2.42-4ubuntu2.10 [98.0 kB]
+Get:7 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf0 amd64 2.42-4ubuntu2.10 [94.5 kB]
+Get:8 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgprofng0 amd64 2.42-4ubuntu2.10 [849 kB]
+Get:9 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-x86-64-linux-gnu amd64 2.42-4ubuntu2.10 [2463 kB]
+Get:10 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils amd64 2.42-4ubuntu2.10 [18.2 kB]
+Get:11 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-base amd64 13.3.0-6ubuntu2~24.04.1 [51.6 kB]
+Get:12 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libisl23 amd64 0.26-3build1.1 [680 kB]
+Get:13 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpc3 amd64 1.3.1-1build1.1 [54.6 kB]
+Get:14 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [10.7 MB]
+Get:15 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13 amd64 13.3.0-6ubuntu2~24.04.1 [1042 B]
+Get:16 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [5326 B]
+Get:17 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp amd64 4:13.2.0-7ubuntu1 [22.4 kB]
+Get:18 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libcc1-0 amd64 14.2.0-4ubuntu2~24.04.1 [48.0 kB]
+Get:19 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgomp1 amd64 14.2.0-4ubuntu2~24.04.1 [148 kB]
+Get:20 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libitm1 amd64 14.2.0-4ubuntu2~24.04.1 [29.7 kB]
+Get:21 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libatomic1 amd64 14.2.0-4ubuntu2~24.04.1 [10.5 kB]
+Get:22 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libasan8 amd64 14.2.0-4ubuntu2~24.04.1 [3027 kB]
+Get:23 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 liblsan0 amd64 14.2.0-4ubuntu2~24.04.1 [1322 kB]
+Get:24 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libtsan2 amd64 14.2.0-4ubuntu2~24.04.1 [2772 kB]
+Get:25 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libubsan1 amd64 14.2.0-4ubuntu2~24.04.1 [1184 kB]
+Get:26 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libhwasan0 amd64 14.2.0-4ubuntu2~24.04.1 [1641 kB]
+Get:27 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libquadmath0 amd64 14.2.0-4ubuntu2~24.04.1 [153 kB]
+Get:28 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgcc-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2681 kB]
+Get:29 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [21.1 MB]
+Get:30 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13 amd64 13.3.0-6ubuntu2~24.04.1 [494 kB]
+Get:31 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [1212 B]
+Get:32 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc amd64 4:13.2.0-7ubuntu1 [5018 B]
+Get:33 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libstdc++-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2420 kB]
+Get:34 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 g++-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [12.2 MB]
+Get:35 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 g++-13 amd64 13.3.0-6ubuntu2~24.04.1 [16.0 kB]
+Get:36 http://archive.ubuntu.com/ubuntu noble/main amd64 g++-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [964 B]
+Get:37 http://archive.ubuntu.com/ubuntu noble/main amd64 g++ amd64 4:13.2.0-7ubuntu1 [1100 B]
+Get:38 http://archive.ubuntu.com/ubuntu noble/main amd64 make amd64 4.3-4.1build2 [180 kB]
+Get:39 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libdpkg-perl all 1.22.6ubuntu6.6 [268 kB]
+Get:40 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 bzip2 amd64 1.0.8-5.1ubuntu0.1 [34.6 kB]
+Get:41 http://archive.ubuntu.com/ubuntu noble/main amd64 lto-disabled-list all 47 [12.4 kB]
+Get:42 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 dpkg-dev all 1.22.6ubuntu6.6 [1074 kB]
+Get:43 http://archive.ubuntu.com/ubuntu noble/main amd64 build-essential amd64 12.10ubuntu1 [4928 B]
+Get:44 http://archive.ubuntu.com/ubuntu noble/main amd64 libfakeroot amd64 1.33-1 [32.4 kB]
+Get:45 http://archive.ubuntu.com/ubuntu noble/main amd64 fakeroot amd64 1.33-1 [67.2 kB]
+Get:46 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 icu-devtools amd64 74.2-1ubuntu3.1 [212 kB]
+Get:47 http://archive.ubuntu.com/ubuntu noble/main amd64 javascript-common all 11+nmu1 [5936 B]
+Get:48 http://archive.ubuntu.com/ubuntu noble/main amd64 libalgorithm-diff-perl all 1.201-1 [41.8 kB]
+Get:49 http://archive.ubuntu.com/ubuntu noble/main amd64 libalgorithm-diff-xs-perl amd64 0.04-8build3 [11.2 kB]
+Get:50 http://archive.ubuntu.com/ubuntu noble/main amd64 libalgorithm-merge-perl all 0.08-5 [11.4 kB]
+Get:51 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libexpat1-dev amd64 2.6.1-2ubuntu0.4 [140 kB]
+Get:52 http://archive.ubuntu.com/ubuntu noble/main amd64 libfile-fcntllock-perl amd64 0.22-4ubuntu5 [30.7 kB]
+Get:53 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libicu-dev amd64 74.2-1ubuntu3.1 [11.9 MB]
+Get:54 http://archive.ubuntu.com/ubuntu noble/main amd64 libjs-jquery all 3.6.1+dfsg+~3.5.14-1 [328 kB]
+Get:55 http://archive.ubuntu.com/ubuntu noble/main amd64 libjs-underscore all 1.13.4~dfsg+~1.11.4-3 [118 kB]
+Get:56 http://archive.ubuntu.com/ubuntu noble/main amd64 libjs-sphinxdoc all 7.2.6-6 [149 kB]
+Get:57 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 zlib1g-dev amd64 1:1.3.dfsg-3.1ubuntu2.2 [894 kB]
+Get:58 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12-dev amd64 3.12.3-1ubuntu0.16 [5683 kB]
+Get:59 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3-dev amd64 3.12.3-0ubuntu2.1 [10.3 kB]
+Get:60 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libssl-dev amd64 3.0.13-0ubuntu3.15 [2408 kB]
+Get:61 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libxml2-dev amd64 2.9.14+dfsg-1.3ubuntu3.8 [782 kB]
+Get:62 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libxslt1-dev amd64 1.1.39-0exp1ubuntu0.24.04.3 [91.9 kB]
+Get:63 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3.12-dev amd64 3.12.3-1ubuntu0.16 [498 kB]
+Get:64 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-dev amd64 3.12.3-0ubuntu2.1 [26.7 kB]
+Get:65 http://archive.ubuntu.com/ubuntu noble/main amd64 libffi-dev amd64 3.4.6-1build1 [62.8 kB]
+Fetched 90.3 MB in 12s (7343 kB/s)
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 75054 files and directories currently installed.)
+Preparing to unpack .../libbz2-1.0_1.0.8-5.1ubuntu0.1_amd64.deb ...
+Unpacking libbz2-1.0:amd64 (1.0.8-5.1ubuntu0.1) over (1.0.8-5.1build0.1) ...
+Setting up libbz2-1.0:amd64 (1.0.8-5.1ubuntu0.1) ...
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 75054 files and directories currently installed.)
+Preparing to unpack .../zlib1g_1%3a1.3.dfsg-3.1ubuntu2.2_amd64.deb ...
+Unpacking zlib1g:amd64 (1:1.3.dfsg-3.1ubuntu2.2) over (1:1.3.dfsg-3.1ubuntu2.1) ...
+Setting up zlib1g:amd64 (1:1.3.dfsg-3.1ubuntu2.2) ...
+Selecting previously unselected package binutils-common:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 75054 files and directories currently installed.)
+Preparing to unpack .../00-binutils-common_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking binutils-common:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libsframe1:amd64.
+Preparing to unpack .../01-libsframe1_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libsframe1:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libbinutils:amd64.
+Preparing to unpack .../02-libbinutils_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libbinutils:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libctf-nobfd0:amd64.
+Preparing to unpack .../03-libctf-nobfd0_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libctf0:amd64.
+Preparing to unpack .../04-libctf0_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libctf0:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libgprofng0:amd64.
+Preparing to unpack .../05-libgprofng0_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libgprofng0:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package binutils-x86-64-linux-gnu.
+Preparing to unpack .../06-binutils-x86-64-linux-gnu_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
+Selecting previously unselected package binutils.
+Preparing to unpack .../07-binutils_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking binutils (2.42-4ubuntu2.10) ...
+Selecting previously unselected package gcc-13-base:amd64.
+Preparing to unpack .../08-gcc-13-base_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package libisl23:amd64.
+Preparing to unpack .../09-libisl23_0.26-3build1.1_amd64.deb ...
+Unpacking libisl23:amd64 (0.26-3build1.1) ...
+Selecting previously unselected package libmpc3:amd64.
+Preparing to unpack .../10-libmpc3_1.3.1-1build1.1_amd64.deb ...
+Unpacking libmpc3:amd64 (1.3.1-1build1.1) ...
+Selecting previously unselected package cpp-13-x86-64-linux-gnu.
+Preparing to unpack .../11-cpp-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package cpp-13.
+Preparing to unpack .../12-cpp-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package cpp-x86-64-linux-gnu.
+Preparing to unpack .../13-cpp-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package cpp.
+Preparing to unpack .../14-cpp_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking cpp (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package libcc1-0:amd64.
+Preparing to unpack .../15-libcc1-0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libgomp1:amd64.
+Preparing to unpack .../16-libgomp1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libitm1:amd64.
+Preparing to unpack .../17-libitm1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libatomic1:amd64.
+Preparing to unpack .../18-libatomic1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libasan8:amd64.
+Preparing to unpack .../19-libasan8_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package liblsan0:amd64.
+Preparing to unpack .../20-liblsan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libtsan2:amd64.
+Preparing to unpack .../21-libtsan2_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libubsan1:amd64.
+Preparing to unpack .../22-libubsan1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libhwasan0:amd64.
+Preparing to unpack .../23-libhwasan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libquadmath0:amd64.
+Preparing to unpack .../24-libquadmath0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libgcc-13-dev:amd64.
+Preparing to unpack .../25-libgcc-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package gcc-13-x86-64-linux-gnu.
+Preparing to unpack .../26-gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package gcc-13.
+Preparing to unpack .../27-gcc-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package gcc-x86-64-linux-gnu.
+Preparing to unpack .../28-gcc-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package gcc.
+Preparing to unpack .../29-gcc_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking gcc (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package libstdc++-13-dev:amd64.
+Preparing to unpack .../30-libstdc++-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking libstdc++-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package g++-13-x86-64-linux-gnu.
+Preparing to unpack .../31-g++-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package g++-13.
+Preparing to unpack .../32-g++-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking g++-13 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package g++-x86-64-linux-gnu.
+Preparing to unpack .../33-g++-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package g++.
+Preparing to unpack .../34-g++_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking g++ (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package make.
+Preparing to unpack .../35-make_4.3-4.1build2_amd64.deb ...
+Unpacking make (4.3-4.1build2) ...
+Selecting previously unselected package libdpkg-perl.
+Preparing to unpack .../36-libdpkg-perl_1.22.6ubuntu6.6_all.deb ...
+Unpacking libdpkg-perl (1.22.6ubuntu6.6) ...
+Selecting previously unselected package bzip2.
+Preparing to unpack .../37-bzip2_1.0.8-5.1ubuntu0.1_amd64.deb ...
+Unpacking bzip2 (1.0.8-5.1ubuntu0.1) ...
+Selecting previously unselected package lto-disabled-list.
+Preparing to unpack .../38-lto-disabled-list_47_all.deb ...
+Unpacking lto-disabled-list (47) ...
+Selecting previously unselected package dpkg-dev.
+Preparing to unpack .../39-dpkg-dev_1.22.6ubuntu6.6_all.deb ...
+Unpacking dpkg-dev (1.22.6ubuntu6.6) ...
+Selecting previously unselected package build-essential.
+Preparing to unpack .../40-build-essential_12.10ubuntu1_amd64.deb ...
+Unpacking build-essential (12.10ubuntu1) ...
+Selecting previously unselected package libfakeroot:amd64.
+Preparing to unpack .../41-libfakeroot_1.33-1_amd64.deb ...
+Unpacking libfakeroot:amd64 (1.33-1) ...
+Selecting previously unselected package fakeroot.
+Preparing to unpack .../42-fakeroot_1.33-1_amd64.deb ...
+Unpacking fakeroot (1.33-1) ...
+Selecting previously unselected package icu-devtools.
+Preparing to unpack .../43-icu-devtools_74.2-1ubuntu3.1_amd64.deb ...
+Unpacking icu-devtools (74.2-1ubuntu3.1) ...
+Selecting previously unselected package javascript-common.
+Preparing to unpack .../44-javascript-common_11+nmu1_all.deb ...
+Unpacking javascript-common (11+nmu1) ...
+Selecting previously unselected package libalgorithm-diff-perl.
+Preparing to unpack .../45-libalgorithm-diff-perl_1.201-1_all.deb ...
+Unpacking libalgorithm-diff-perl (1.201-1) ...
+Selecting previously unselected package libalgorithm-diff-xs-perl:amd64.
+Preparing to unpack .../46-libalgorithm-diff-xs-perl_0.04-8build3_amd64.deb ...
+Unpacking libalgorithm-diff-xs-perl:amd64 (0.04-8build3) ...
+Selecting previously unselected package libalgorithm-merge-perl.
+Preparing to unpack .../47-libalgorithm-merge-perl_0.08-5_all.deb ...
+Unpacking libalgorithm-merge-perl (0.08-5) ...
+Selecting previously unselected package libexpat1-dev:amd64.
+Preparing to unpack .../48-libexpat1-dev_2.6.1-2ubuntu0.4_amd64.deb ...
+Unpacking libexpat1-dev:amd64 (2.6.1-2ubuntu0.4) ...
+Selecting previously unselected package libfile-fcntllock-perl.
+Preparing to unpack .../49-libfile-fcntllock-perl_0.22-4ubuntu5_amd64.deb ...
+Unpacking libfile-fcntllock-perl (0.22-4ubuntu5) ...
+Selecting previously unselected package libicu-dev:amd64.
+Preparing to unpack .../50-libicu-dev_74.2-1ubuntu3.1_amd64.deb ...
+Unpacking libicu-dev:amd64 (74.2-1ubuntu3.1) ...
+Selecting previously unselected package libjs-jquery.
+Preparing to unpack .../51-libjs-jquery_3.6.1+dfsg+~3.5.14-1_all.deb ...
+Unpacking libjs-jquery (3.6.1+dfsg+~3.5.14-1) ...
+Selecting previously unselected package libjs-underscore.
+Preparing to unpack .../52-libjs-underscore_1.13.4~dfsg+~1.11.4-3_all.deb ...
+Unpacking libjs-underscore (1.13.4~dfsg+~1.11.4-3) ...
+Selecting previously unselected package libjs-sphinxdoc.
+Preparing to unpack .../53-libjs-sphinxdoc_7.2.6-6_all.deb ...
+Unpacking libjs-sphinxdoc (7.2.6-6) ...
+Selecting previously unselected package zlib1g-dev:amd64.
+Preparing to unpack .../54-zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2.2_amd64.deb ...
+Unpacking zlib1g-dev:amd64 (1:1.3.dfsg-3.1ubuntu2.2) ...
+Selecting previously unselected package libpython3.12-dev:amd64.
+Preparing to unpack .../55-libpython3.12-dev_3.12.3-1ubuntu0.16_amd64.deb ...
+Unpacking libpython3.12-dev:amd64 (3.12.3-1ubuntu0.16) ...
+Selecting previously unselected package libpython3-dev:amd64.
+Preparing to unpack .../56-libpython3-dev_3.12.3-0ubuntu2.1_amd64.deb ...
+Unpacking libpython3-dev:amd64 (3.12.3-0ubuntu2.1) ...
+Selecting previously unselected package libssl-dev:amd64.
+Preparing to unpack .../57-libssl-dev_3.0.13-0ubuntu3.15_amd64.deb ...
+Unpacking libssl-dev:amd64 (3.0.13-0ubuntu3.15) ...
+Selecting previously unselected package libxml2-dev:amd64.
+Preparing to unpack .../58-libxml2-dev_2.9.14+dfsg-1.3ubuntu3.8_amd64.deb ...
+Unpacking libxml2-dev:amd64 (2.9.14+dfsg-1.3ubuntu3.8) ...
+Selecting previously unselected package libxslt1-dev:amd64.
+Preparing to unpack .../59-libxslt1-dev_1.1.39-0exp1ubuntu0.24.04.3_amd64.deb ...
+Unpacking libxslt1-dev:amd64 (1.1.39-0exp1ubuntu0.24.04.3) ...
+Selecting previously unselected package python3.12-dev.
+Preparing to unpack .../60-python3.12-dev_3.12.3-1ubuntu0.16_amd64.deb ...
+Unpacking python3.12-dev (3.12.3-1ubuntu0.16) ...
+Selecting previously unselected package python3-dev.
+Preparing to unpack .../61-python3-dev_3.12.3-0ubuntu2.1_amd64.deb ...
+Unpacking python3-dev (3.12.3-0ubuntu2.1) ...
+Selecting previously unselected package libffi-dev:amd64.
+Preparing to unpack .../62-libffi-dev_3.4.6-1build1_amd64.deb ...
+Unpacking libffi-dev:amd64 (3.4.6-1build1) ...
+Setting up javascript-common (11+nmu1) ...
+Setting up lto-disabled-list (47) ...
+Setting up libfile-fcntllock-perl (0.22-4ubuntu5) ...
+Setting up libalgorithm-diff-perl (1.201-1) ...
+Setting up binutils-common:amd64 (2.42-4ubuntu2.10) ...
+Setting up libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
+Setting up libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up bzip2 (1.0.8-5.1ubuntu0.1) ...
+Setting up libffi-dev:amd64 (3.4.6-1build1) ...
+Setting up libsframe1:amd64 (2.42-4ubuntu2.10) ...
+Setting up libfakeroot:amd64 (1.33-1) ...
+Setting up fakeroot (1.33-1) ...
+update-alternatives: using /usr/bin/fakeroot-sysv to provide /usr/bin/fakeroot (fakeroot) in auto mode
+Setting up gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up libexpat1-dev:amd64 (2.6.1-2ubuntu0.4) ...
+Setting up make (4.3-4.1build2) ...
+Setting up libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libssl-dev:amd64 (3.0.13-0ubuntu3.15) ...
+Setting up libmpc3:amd64 (1.3.1-1build1.1) ...
+Setting up libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up icu-devtools (74.2-1ubuntu3.1) ...
+Setting up libdpkg-perl (1.22.6ubuntu6.6) ...
+Setting up libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up zlib1g-dev:amd64 (1:1.3.dfsg-3.1ubuntu2.2) ...
+Setting up libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libjs-jquery (3.6.1+dfsg+~3.5.14-1) ...
+Setting up libbinutils:amd64 (2.42-4ubuntu2.10) ...
+Setting up libisl23:amd64 (0.26-3build1.1) ...
+Setting up libalgorithm-diff-xs-perl:amd64 (0.04-8build3) ...
+Setting up libicu-dev:amd64 (74.2-1ubuntu3.1) ...
+Setting up libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libjs-underscore (1.13.4~dfsg+~1.11.4-3) ...
+Setting up libalgorithm-merge-perl (0.08-5) ...
+Setting up libctf0:amd64 (2.42-4ubuntu2.10) ...
+Setting up cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Setting up libpython3.12-dev:amd64 (3.12.3-1ubuntu0.16) ...
+Setting up libxml2-dev:amd64 (2.9.14+dfsg-1.3ubuntu3.8) ...
+Setting up libgprofng0:amd64 (2.42-4ubuntu2.10) ...
+Setting up python3.12-dev (3.12.3-1ubuntu0.16) ...
+Setting up libjs-sphinxdoc (7.2.6-6) ...
+Setting up libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up libstdc++-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
+Setting up cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Setting up libpython3-dev:amd64 (3.12.3-0ubuntu2.1) ...
+Setting up libxslt1-dev:amd64 (1.1.39-0exp1ubuntu0.24.04.3) ...
+Setting up cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Setting up binutils (2.42-4ubuntu2.10) ...
+Setting up dpkg-dev (1.22.6ubuntu6.6) ...
+Setting up python3-dev (3.12.3-0ubuntu2.1) ...
+Setting up gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up cpp (4:13.2.0-7ubuntu1) ...
+Setting up g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Setting up gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Setting up gcc (4:13.2.0-7ubuntu1) ...
+Setting up g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Setting up g++-13 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up g++ (4:13.2.0-7ubuntu1) ...
+update-alternatives: using /usr/bin/g++ to provide /usr/bin/c++ (c++) in auto mode
+Setting up build-essential (12.10ubuntu1) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.8) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Processing triggers for install-info (7.1-3build2) ...
+
+Running kernel seems to be up-to-date.
+
+Restarting services...
+ systemctl restart packagekit.service polkit.service rsyslog.service ssh.service udisks2.service
+
+Service restarts being deferred:
+ systemctl restart ModemManager.service
+ systemctl restart unattended-upgrades.service
+
+No containers need to be restarted.
+
+User sessions running outdated binaries:
+ ndt @ session #26: apt[2927], sshd[2568]
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+=== enter ryu-env ===
+Python 3.8.20
+/home/ndt/miniconda3/envs/ryu-env/bin/pip
+=== Step 2.3.1 upgrade pip/setuptools/wheel ===
+Collecting pip<24
+  Downloading pip-23.3.2-py3-none-any.whl.metadata (3.5 kB)
+Collecting setuptools<68
+  Downloading setuptools-67.8.0-py3-none-any.whl.metadata (6.2 kB)
+Requirement already satisfied: wheel in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (0.44.0)
+Collecting wheel
+  Downloading wheel-0.45.1-py3-none-any.whl.metadata (2.3 kB)
+Downloading pip-23.3.2-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 4.9 MB/s eta 0:00:00
+Downloading setuptools-67.8.0-py3-none-any.whl (1.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 22.0 MB/s eta 0:00:00
+Downloading wheel-0.45.1-py3-none-any.whl (72 kB)
+Installing collected packages: wheel, setuptools, pip
+  Attempting uninstall: wheel
+    Found existing installation: wheel 0.44.0
+    Uninstalling wheel-0.44.0:
+      Successfully uninstalled wheel-0.44.0
+  Attempting uninstall: setuptools
+    Found existing installation: setuptools 75.1.0
+    Uninstalling setuptools-75.1.0:
+      Successfully uninstalled setuptools-75.1.0
+  Attempting uninstall: pip
+    Found existing installation: pip 24.2
+    Uninstalling pip-24.2:
+      Successfully uninstalled pip-24.2
+Successfully installed pip-23.3.2 setuptools-67.8.0 wheel-0.45.1
+=== Step 2.3.2 install ryu ===
+Collecting ryu
+  Downloading ryu-4.34.tar.gz (1.1 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 1.9 MB/s eta 0:00:00
+  Preparing metadata (setup.py): started
+  Preparing metadata (setup.py): finished with status 'done'
+Collecting eventlet!=0.18.3,!=0.20.1,!=0.21.0,!=0.23.0,>=0.18.2 (from ryu)
+  Downloading eventlet-0.39.1-py3-none-any.whl.metadata (5.5 kB)
+Collecting msgpack>=0.3.0 (from ryu)
+  Downloading msgpack-1.1.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (8.3 kB)
+Collecting netaddr (from ryu)
+  Downloading netaddr-1.3.0-py3-none-any.whl.metadata (5.0 kB)
+Collecting oslo.config>=2.5.0 (from ryu)
+  Downloading oslo_config-9.6.1-py3-none-any.whl.metadata (3.2 kB)
+Collecting ovs>=2.6.0 (from ryu)
+  Downloading ovs-4.0.0.tar.gz (155 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 155.1/155.1 kB 17.4 MB/s eta 0:00:00
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting routes (from ryu)
+  Downloading Routes-2.5.1-py2.py3-none-any.whl.metadata (25 kB)
+Collecting six>=1.4.0 (from ryu)
+  Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting tinyrpc (from ryu)
+  Downloading tinyrpc-1.1.7-py3-none-any.whl.metadata (6.7 kB)
+Collecting webob>=1.2 (from ryu)
+  Downloading webob-1.8.11-py2.py3-none-any.whl.metadata (13 kB)
+Collecting dnspython>=1.15.0 (from eventlet!=0.18.3,!=0.20.1,!=0.21.0,!=0.23.0,>=0.18.2->ryu)
+  Downloading dnspython-2.6.1-py3-none-any.whl.metadata (5.8 kB)
+Collecting greenlet>=1.0 (from eventlet!=0.18.3,!=0.20.1,!=0.21.0,!=0.23.0,>=0.18.2->ryu)
+  Downloading greenlet-3.1.1-cp38-cp38-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+Collecting debtcollector>=1.2.0 (from oslo.config>=2.5.0->ryu)
+  Downloading debtcollector-3.0.0-py3-none-any.whl.metadata (2.3 kB)
+Collecting stevedore>=1.20.0 (from oslo.config>=2.5.0->ryu)
+  Downloading stevedore-5.3.0-py3-none-any.whl.metadata (2.3 kB)
+Collecting oslo.i18n>=3.15.3 (from oslo.config>=2.5.0->ryu)
+  Downloading oslo.i18n-6.4.0-py3-none-any.whl.metadata (2.1 kB)
+Collecting rfc3986>=1.2.0 (from oslo.config>=2.5.0->ryu)
+  Downloading rfc3986-2.0.0-py2.py3-none-any.whl.metadata (6.6 kB)
+Collecting PyYAML>=5.1 (from oslo.config>=2.5.0->ryu)
+  Downloading PyYAML-6.0.3-cp38-cp38-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.1 kB)
+Collecting requests>=2.18.0 (from oslo.config>=2.5.0->ryu)
+  Downloading requests-2.32.4-py3-none-any.whl.metadata (4.9 kB)
+Collecting sortedcontainers (from ovs>=2.6.0->ryu)
+  Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+Collecting repoze.lru>=0.3 (from routes->ryu)
+  Downloading repoze.lru-0.7-py3-none-any.whl.metadata (1.1 kB)
+Collecting wrapt>=1.7.0 (from debtcollector>=1.2.0->oslo.config>=2.5.0->ryu)
+  Downloading wrapt-2.0.1-cp38-cp38-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (9.0 kB)
+Collecting pbr>=2.0.0 (from oslo.i18n>=3.15.3->oslo.config>=2.5.0->ryu)
+  Using cached pbr-7.0.3-py2.py3-none-any.whl.metadata (3.8 kB)
+Collecting charset_normalizer<4,>=2 (from requests>=2.18.0->oslo.config>=2.5.0->ryu)
+  Downloading charset_normalizer-3.5.1-cp37-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (45 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.9/45.9 kB 4.0 MB/s eta 0:00:00
+Collecting idna<4,>=2.5 (from requests>=2.18.0->oslo.config>=2.5.0->ryu)
+  Downloading idna-3.15-py3-none-any.whl.metadata (7.7 kB)
+Collecting urllib3<3,>=1.21.1 (from requests>=2.18.0->oslo.config>=2.5.0->ryu)
+  Downloading urllib3-2.2.3-py3-none-any.whl.metadata (6.5 kB)
+Collecting certifi>=2017.4.17 (from requests>=2.18.0->oslo.config>=2.5.0->ryu)
+  Downloading certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+Requirement already satisfied: setuptools in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (from pbr>=2.0.0->oslo.i18n>=3.15.3->oslo.config>=2.5.0->ryu) (67.8.0)
+Downloading eventlet-0.39.1-py3-none-any.whl (363 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 363.5/363.5 kB 14.5 MB/s eta 0:00:00
+Downloading msgpack-1.1.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (413 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 413.8/413.8 kB 9.3 MB/s eta 0:00:00
+Downloading oslo_config-9.6.1-py3-none-any.whl (132 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 132.2/132.2 kB 12.7 MB/s eta 0:00:00
+Downloading netaddr-1.3.0-py3-none-any.whl (2.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 12.8 MB/s eta 0:00:00
+Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading webob-1.8.11-py2.py3-none-any.whl (118 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 118.3/118.3 kB 9.4 MB/s eta 0:00:00
+Downloading Routes-2.5.1-py2.py3-none-any.whl (40 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.1/40.1 kB 2.2 MB/s eta 0:00:00
+Downloading tinyrpc-1.1.7-py3-none-any.whl (52 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 52.3/52.3 kB 4.1 MB/s eta 0:00:00
+Downloading debtcollector-3.0.0-py3-none-any.whl (23 kB)
+Downloading dnspython-2.6.1-py3-none-any.whl (307 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 307.7/307.7 kB 40.9 MB/s eta 0:00:00
+Downloading greenlet-3.1.1-cp38-cp38-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (605 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 606.0/606.0 kB 49.9 MB/s eta 0:00:00
+Downloading oslo.i18n-6.4.0-py3-none-any.whl (46 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 46.8/46.8 kB 3.3 MB/s eta 0:00:00
+Downloading PyYAML-6.0.3-cp38-cp38-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.0/806.0 kB 48.3 MB/s eta 0:00:00
+Downloading repoze.lru-0.7-py3-none-any.whl (10 kB)
+Downloading requests-2.32.4-py3-none-any.whl (64 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 64.8/64.8 kB 4.7 MB/s eta 0:00:00
+Downloading rfc3986-2.0.0-py2.py3-none-any.whl (31 kB)
+Downloading stevedore-5.3.0-py3-none-any.whl (49 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 49.7/49.7 kB 2.8 MB/s eta 0:00:00
+Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 137.0/137.0 kB 5.8 MB/s eta 0:00:00
+Downloading charset_normalizer-3.5.1-cp37-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (253 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 253.1/253.1 kB 11.5 MB/s eta 0:00:00
+Downloading idna-3.15-py3-none-any.whl (72 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 72.3/72.3 kB 3.2 MB/s eta 0:00:00
+Using cached pbr-7.0.3-py2.py3-none-any.whl (131 kB)
+Downloading urllib3-2.2.3-py3-none-any.whl (126 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 126.3/126.3 kB 6.1 MB/s eta 0:00:00
+Downloading wrapt-2.0.1-cp38-cp38-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (118 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 118.5/118.5 kB 4.9 MB/s eta 0:00:00
+Building wheels for collected packages: ryu, ovs
+  Building wheel for ryu (setup.py): started
+  Building wheel for ryu (setup.py): finished with status 'done'
+  Created wheel for ryu: filename=ryu-4.34-py3-none-any.whl size=1315595 sha256=f66a909e451ab5e07e122527d575f7dc2993c7a2b3c47ec36ac49d163f24bd2c
+  Stored in directory: /home/ndt/.cache/pip/wheels/60/11/b6/11872223e9473472d8fc3632632c1d54bf76745d2ce2ef4c82
+  Building wheel for ovs (pyproject.toml): started
+  Building wheel for ovs (pyproject.toml): finished with status 'done'
+  Created wheel for ovs: filename=ovs-4.0.0-py3-none-any.whl size=183233 sha256=6c6fc76f1f6110176939122525736f22d96504580e92024c6b06d7f33fd867a5
+  Stored in directory: /home/ndt/.cache/pip/wheels/3d/e4/95/98c22023816a9370ff8c50d45726a828989019ab97ae1e9857
+Successfully built ryu ovs
+Installing collected packages: tinyrpc, sortedcontainers, repoze.lru, wrapt, webob, urllib3, six, rfc3986, PyYAML, pbr, ovs, netaddr, msgpack, idna, greenlet, dnspython, charset_normalizer, certifi, stevedore, routes, requests, oslo.i18n, eventlet, debtcollector, oslo.config, ryu
+Successfully installed PyYAML-6.0.3 certifi-2026.7.22 charset_normalizer-3.5.1 debtcollector-3.0.0 dnspython-2.6.1 eventlet-0.39.1 greenlet-3.1.1 idna-3.15 msgpack-1.1.1 netaddr-1.3.0 oslo.config-9.6.1 oslo.i18n-6.4.0 ovs-4.0.0 pbr-7.0.3 repoze.lru-0.7 requests-2.32.4 rfc3986-2.0.0 routes-2.5.1 ryu-4.34 six-1.17.0 sortedcontainers-2.4.0 stevedore-5.3.0 tinyrpc-1.1.7 urllib3-2.2.3 webob-1.8.11 wrapt-2.0.1
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+=== Step 2.3.3 pins ===
+Collecting eventlet==0.30.2
+  Downloading eventlet-0.30.2-py2.py3-none-any.whl.metadata (4.1 kB)
+Collecting dnspython<2.0.0,>=1.15.0 (from eventlet==0.30.2)
+  Downloading dnspython-1.16.0-py2.py3-none-any.whl.metadata (1.8 kB)
+Requirement already satisfied: greenlet>=0.3 in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (from eventlet==0.30.2) (3.1.1)
+Requirement already satisfied: six>=1.10.0 in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (from eventlet==0.30.2) (1.17.0)
+Downloading eventlet-0.30.2-py2.py3-none-any.whl (224 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 224.2/224.2 kB 670.6 kB/s eta 0:00:00
+Downloading dnspython-1.16.0-py2.py3-none-any.whl (188 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 188.4/188.4 kB 3.8 MB/s eta 0:00:00
+Installing collected packages: dnspython, eventlet
+  Attempting uninstall: dnspython
+    Found existing installation: dnspython 2.6.1
+    Uninstalling dnspython-2.6.1:
+      Successfully uninstalled dnspython-2.6.1
+  Attempting uninstall: eventlet
+    Found existing installation: eventlet 0.39.1
+    Uninstalling eventlet-0.39.1:
+      Successfully uninstalled eventlet-0.39.1
+Successfully installed dnspython-1.16.0 eventlet-0.30.2
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+Collecting greenlet<3
+  Downloading greenlet-2.0.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Downloading greenlet-2.0.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (618 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 618.5/618.5 kB 1.4 MB/s eta 0:00:00
+Installing collected packages: greenlet
+  Attempting uninstall: greenlet
+    Found existing installation: greenlet 3.1.1
+    Uninstalling greenlet-3.1.1:
+      Successfully uninstalled greenlet-3.1.1
+Successfully installed greenlet-2.0.2
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+Requirement already satisfied: dnspython<2.3 in ./miniconda3/envs/ryu-env/lib/python3.8/site-packages (1.16.0)
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+=== Step 2.4 Verify ===
+
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+dnspython          1.16.0
+eventlet           0.30.2
+greenlet           2.0.2
+ryu                4.34
+12:37

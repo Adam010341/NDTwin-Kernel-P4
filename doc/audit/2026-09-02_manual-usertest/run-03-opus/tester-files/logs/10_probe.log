@@ -1,0 +1,63 @@
+=== did ~/.local/bin exist before I mkdir'd it? evidence ===
+total 12
+drwxrwxr-x  3 ndt ndt 4096 Sep  2 12:57 .
+drwxr-x--- 18 ndt ndt 4096 Sep  2 12:57 ..
+drwxrwxr-x  2 ndt ndt 4096 Sep  2 12:57 bin
+/home/ndt/.local  birth=2026-09-02 12:57:45.932345830 +0000  ctime=2026-09-02 12:57:45.932345830 +0000
+/home/ndt/.local/bin  birth=2026-09-02 12:57:45.932345830 +0000  ctime=2026-09-02 12:57:45.933345816 +0000
+=== is ~/.local/bin on PATH in a LOGIN shell (what a desktop user gets)? ===
+1:/home/ndt/.local/bin
+3:/usr/local/bin
+/home/ndt/.local/bin/ndt
+=== ~/.profile PATH stanza ===
+25:if [ -d "$HOME/.local/bin" ] ; then
+26:    PATH="$HOME/.local/bin:$PATH"
+27-fi
+=== any stray kernel left from my CLI probes? ===
+(nothing listening on 8000/8080/8081)
+(no ndtwin_kernel process)
+=== full ndt usage tail ===
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+  clean         just the teardown assertion (exit 1 if anything survived)
+  check         telemetry double-count tripwire
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  ndt up derives the kernel's topology model from host_count_override, so the
+  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+  environment variable.
+
+repo: /home/ndt/Desktop/NDTwin-Kernel
+=== ndt status (nothing running yet) ===
+lab
+  claim          none
+  measuring      nothing
+  code           936f8c6  +1 file(s) with uncommitted changes
+
+configuration
+  hosts          128
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  apps           none running
+
+12:58

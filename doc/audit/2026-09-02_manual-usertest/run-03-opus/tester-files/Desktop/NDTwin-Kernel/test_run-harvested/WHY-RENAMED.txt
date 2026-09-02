@@ -1,0 +1,18 @@
+guest 上的原始路徑： ~/Desktop/NDTwin-Kernel/.test_run/
+本目錄名為 test_run-harvested/（去掉開頭的點）的唯一理由：
+
+repo 根目錄的 .gitignore:21 有一條 `.test_run/`（註解寫「test-run artefacts
+(tools/test_workflow)」），它針對的是**活的**工作目錄。但那條規則不分路徑，
+會連 doc/audit/ 底下這份**已封存的採證副本**一起吃掉——而且是靜默的。
+
+實際後果（本線 2026-09-02 查證）：run-02（haiku）的 pull6.sh 明明把
+`Desktop/NDTwin-Kernel/.test_run/logs` 打包拉回來了，但
+`git ls-files doc/audit/2026-09-02_manual-usertest/run-02-haiku/ | grep test_run`
+一個都沒有 ⇒ **那一輪的 kernel.log／ryu.log 從來沒進過版控，沒有人發現。**
+
+本輪的 kernel.log 是 BUGS #14（`Command failed (exit code 7)`）與 NTG 時間線的
+直接證據，不能再掉一次，所以改名而不是 `git add -f`：改名讓它以正常方式被追蹤，
+也避免 repo 裡出現一個看起來像活的 `.test_run/` 而被工具誤掃。
+
+內容未改動，僅目錄改名。
+[Co-developed with claude code -- Adam]

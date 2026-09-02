@@ -1,0 +1,46 @@
+-- console output? (display_on_console is true) --
+2026-09-02 13:31:51 | WARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.
+2026-09-02 13:31:56 | DEBUG : Writing item with timestamp 1788355911821 to ./recorded_info/2026_09_02_13-31-16_flowinfo.json...
+2026-09-02 13:31:56 | DEBUG : Writing item with timestamp 1788355911839 to ./recorded_info/2026_09_02_13-31-16_graphinfo.json...
+2026-09-02 13:31:56 | WARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.
+2026-09-02 13:32:00 | DEBUG : Writing item with timestamp 1788355916822 to ./recorded_info/2026_09_02_13-31-16_flowinfo.json...
+2026-09-02 13:32:00 | DEBUG : Writing item with timestamp 1788355916840 to ./recorded_info/2026_09_02_13-31-16_graphinfo.json...
+2026-09-02 13:32:01 | WARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.
+2026-09-02 13:32:05 | DEBUG : Writing item with timestamp 1788355921822 to ./recorded_info/2026_09_02_13-31-16_flowinfo.json...
+2026-09-02 13:32:05 | DEBUG : Writing item with timestamp 1788355921840 to ./recorded_info/2026_09_02_13-31-16_graphinfo.json...
+2026-09-02 13:32:06 | WARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.
+2026-09-02 13:32:10 | DEBUG : Writing item with timestamp 1788355926822 to ./recorded_info/2026_09_02_13-31-16_flowinfo.json...
+2026-09-02 13:32:10 | DEBUG : Writing item with timestamp 1788355926840 to ./recorded_info/2026_09_02_13-31-16_graphinfo.json...
+-- generate traffic so flowinfo has something to record --
+-- wait past storage_interval (2 min) to see rotation + zip --
+13:32:33  recorded_info: 2026_09_02_13-31-16_flowinfo.json 2026_09_02_13-31-16_graphinfo.json 
+            logs dir: 
+13:32:53  recorded_info: 2026_09_02_13-31-16_flowinfo.json 2026_09_02_13-31-16_graphinfo.json 
+            logs dir: 
+13:33:13  recorded_info: 2026_09_02_13-31-16_flowinfo.json 2026_09_02_13-31-16_graphinfo.json 
+            logs dir: 
+13:33:33  recorded_info: 2026_09_02_13-31-16_flowinfo_json.zip 2026_09_02_13-31-16_graphinfo_json.zip 2026_09_02_13-33-19_flowinfo.json 2026_09_02_13-33-19_graphinfo.json 
+            logs dir: 
+13:33:53  recorded_info: 2026_09_02_13-31-16_flowinfo_json.zip 2026_09_02_13-31-16_graphinfo_json.zip 2026_09_02_13-33-19_flowinfo.json 2026_09_02_13-33-19_graphinfo.json 
+            logs dir: 
+13:34:13  recorded_info: 2026_09_02_13-31-16_flowinfo_json.zip 2026_09_02_13-31-16_graphinfo_json.zip 2026_09_02_13-33-19_flowinfo.json 2026_09_02_13-33-19_graphinfo.json 
+            logs dir: 
+13:34:33  recorded_info: 2026_09_02_13-31-16_flowinfo_json.zip 2026_09_02_13-31-16_graphinfo_json.zip 2026_09_02_13-33-19_flowinfo.json 2026_09_02_13-33-19_graphinfo.json 
+            logs dir: 
+13:34:53  recorded_info: 2026_09_02_13-31-16_flowinfo_json.zip 2026_09_02_13-31-16_graphinfo_json.zip 2026_09_02_13-33-19_flowinfo.json 2026_09_02_13-33-19_graphinfo.json 
+            logs dir: 
+13:35:13  recorded_info: 2026_09_02_13-31-16_flowinfo_json.zip 2026_09_02_13-31-16_graphinfo_json.zip 2026_09_02_13-33-19_flowinfo.json 2026_09_02_13-33-19_graphinfo.json 
+            logs dir: 
+
+-- E14: zip archives present? --
+-rw-rw-r-- 1 ndt ndt   1355 Sep  2 13:33 recorded_info/2026_09_02_13-31-16_flowinfo_json.zip
+-rw-rw-r-- 1 ndt ndt 148852 Sep  2 13:33 recorded_info/2026_09_02_13-31-16_graphinfo_json.zip
+-- E16: flowinfo content now --
+  recorded_info/2026_09_02_13-33-19_flowinfo.json : 21119 bytes, 18 lines
+{"timestamp":1788355996826,"flowinfo":[{"dst_ip":16777226,"dst_port":59688,"estimated_flow_sending_rate_bps_in_the_last_sec":860160,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":812373,"estimated_packet_rate_in_the_last_sec":1536,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":1450,"first_sampled_time":"2026-09-02 13:32:13","latest_sampled_time":"2026-09-02 13:33:16","p
+
+=== p4 build ===
+13:35
+0
+[ 45%] Building CXX object ir/CMakeFiles/ir.dir/ir.cpp.o
+

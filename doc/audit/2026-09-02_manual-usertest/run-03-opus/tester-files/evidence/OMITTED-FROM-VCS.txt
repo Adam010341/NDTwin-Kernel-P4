@@ -1,0 +1,22 @@
+# 採證時刻意未納入版控的兩項（本線 2026-09-02 23:2x 決定）
+# 兩項都不是任何結論的依據；VM 磁碟映像已保留（17 GB），需要時可重取。
+# [Co-developed with claude code -- Adam]
+
+## 1. ~/log.txt  （1511393 bytes）— 已刪，因為它是 logs/06a_p4.log 的真子集
+   install-p4dev-v8.sh 自己 tee 的目標；tester 的包裝腳本另存了 logs/06a_p4.log，
+   後者多 29 行（START 時戳、python3/conda 前置檢查、以及決定性的驗收結尾）。
+   驗證：comm -23 <(sort log.txt) <(sort logs/06a_p4.log) | wc -l  =>  0
+
+## 2. ~/install-details/  （8 檔、235152 行、約 15.7 MB）— 已刪
+   install-p4dev-v8.sh 在各階段對 /usr/local 與 venv 做的純路徑清單，不含任何訊息或狀態。
+   §6.1 的證據在 logs/06a_p4.log（含 SCRIPT_EXIT=0 與手冊四項驗收）。原始清單如下：
+
+        bytes     lines  name
+      1683447     25179  usr-local-1-before-protobuf.txt
+      1727430     25816  usr-local-3-after-grpc.txt
+      1771893     26599  usr-local-4-after-PI.txt
+      1830638     27443  usr-local-5-after-behavioral-model.txt
+      1993456     29714  usr-local-6-after-p4c.txt
+      2148135     31584  usr-local-7-after-mininet-install.txt
+      2201519     32110  usr-local-8-after-ptf-install.txt
+      2687783     36707  usr-local-9-after-miscellaneous-install.txt

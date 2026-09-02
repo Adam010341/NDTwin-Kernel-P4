@@ -1,0 +1,14 @@
+=== full reset: ndt down, mn -c, drop my stale by-hand tmux sessions ===
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports 8000/8080/8081 closed
+
+clean
+ <- bridges (expect empty)
+(all ports closed)
+
+=== clean retry of ndt up ovs (attempt 3) ===
+UP3_START 13:48:04

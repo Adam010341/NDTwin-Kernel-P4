@@ -1,0 +1,13 @@
+=== the named tmux socket the helper says to attach to ===
+no server running on /tmp/tmux-0/ndtwinlab
+--- start it again and look within 2 seconds ---
+OVS topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)
+--- immediately after: ---
+no server running on /tmp/tmux-0/ndtwinlab
+ndtwin-lab: no topo session
+--- 15s later ---
+no server running on /tmp/tmux-0/ndtwinlab
+ndtwin-lab: no topo session
+--- is python3 mininet reachable as root at all? sanity check ---
+mininet importable as root: /usr/lib/python3/dist-packages/mininet/__init__.py
+13:55:11

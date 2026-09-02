@@ -1,0 +1,38 @@
+########## D10 STRICT delete (priority present) -- does it spare the priority=10 rule? ##########
+-- before --
+ cookie=0x0, duration=550.558s, table=0, n_packets=0, n_bytes=0, idle_age=551, priority=10,ip,nw_dst=10.0.0.55 actions=output:25
+ cookie=0x0, duration=52.262s, table=0, n_packets=0, n_bytes=0, idle_age=52, priority=77,ip,nw_dst=10.0.0.55 actions=output:3
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+[HTTP 200]
+-- after strict delete (the priority=10 routing rule SHOULD survive) --
+ cookie=0x0, duration=553.740s, table=0, n_packets=0, n_bytes=0, idle_age=554, priority=10,ip,nw_dst=10.0.0.55 actions=output:25
+
+########## D18: did anything actually receive the forwarded result? ##########
+-- is anything listening on 9000 (the URL I registered)? --
+   (nothing listening on 9000 -- yet the API said 'result forwarded')
+-- what did the kernel log say around the forward? --
+[2026-09-02 13:27:20.791] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-02 13:27:20.791] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+Command failed (exit code 7): curl -s -X POST "http://localhost:9000/submit" -H "Content-Type: application/json" -d '{"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inp
+[2026-09-02 13:27:20.796] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response:
+[2026-09-02 13:27:20.801] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-02 13:27:20.801] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+Command failed (exit code 7): curl -s -X POST "http://127.0.0.1:9000/simulation_completed" -H "Content-Type: application/json" -d '{"app_id":"1","case_id":"case_123","outputfile":"/srv/nfs/sim/1/case_
+[2026-09-02 13:27:20.807] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response:
+
+########## get_average_link_usage with traffic that actually crosses switches ##########
+-- which switch is h50 on? check its routing port from s1 --
+ cookie=0x0, duration=553.926s, table=0, n_packets=0, n_bytes=0, idle_age=554, priority=10,ip,nw_dst=10.0.0.50 actions=output:1
+-- stop the old same-switch iperf, start h1 <-> h50 --
+-- avg link usage now --
+{"avg_link_usage":0.45873436975000004,"status":"success"}
+-- total input traffic at a middle switch (dpid 5) --
+{"status":"success","total_input_traffic_load_bps":1001145756}
+{"num_of_flows":2,"status":"success"}
+-- path switch count h1->h50 (should be > 1 now) --
+{"dst_ip":"10.0.0.50","src_ip":"10.0.0.1","status":"success","switch_count":3}
+-- the flow record and its path --
+  10.0.0.50:5301 -> 10.0.0.1:57364  rate=1051306  path=[838860810, 2, 5, 1, 16777226]
+  10.0.0.1:57352 -> 10.0.0.50:5301  rate=0  path=[16777226, 1, 5, 2, 838860810]
+  10.0.0.1:57364 -> 10.0.0.50:5301  rate=740945920  path=[16777226, 1, 5, 2, 838860810]
+13:28:34

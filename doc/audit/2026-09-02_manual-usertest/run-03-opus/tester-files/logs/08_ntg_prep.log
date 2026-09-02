@@ -1,0 +1,117 @@
+12:56
+############ F02: clone NTG ############
+Cloning into 'Network-Traffic-Generator'...
+6e3f388 2026-04-30 10:31:29 +0800 Merge branch 'main' of https://github.com/AlenChen0216/Network-Traffic-Generator
+--- files (compare with manual's Files Overview) ---
+.
+..
+.git
+.gitignore
+LICENSE
+NTG.yaml
+README.md
+Utilis
+cesnet_2022
+development_guide
+dist_template.json
+document_picture
+flow_template.json
+installation_guide
+ndtwin-license-header.txt
+network_traffic_generator.py
+network_traffic_generator_worker_node.py
+setting
+testbed_topo.py
+############ F01: venv ~/ntg-env + the 9 packages ############
+Installing collected packages: wcwidth, urllib3, typing-extensions, six, ruamel-yaml, pyyaml, pycparser, numpy, loguru, invoke, idna, colorama, charset_normalizer, certifi, bcrypt, annotated-types, typing-inspection, requests, python-dateutil, pydantic-core, prompt_toolkit, nornir, cffi, pynacl, pydantic, pandas, nornir-utils, cryptography, paramiko
+
+Successfully installed annotated-types-0.8.0 bcrypt-5.0.0 certifi-2026.7.22 cffi-2.1.1 charset_normalizer-3.5.1 colorama-0.4.6 cryptography-50.0.1 idna-3.19 invoke-3.0.3 loguru-0.7.3 nornir-3.6.0 nornir-utils-0.3.0 numpy-2.5.2 pandas-3.0.5 paramiko-5.0.0 prompt_toolkit-3.0.53 pycparser-3.0 pydantic-2.13.5 pydantic-core-2.46.5 pynacl-1.6.2 python-dateutil-2.9.0.post0 pyyaml-6.0.3 requests-2.34.2 ruamel-yaml-0.19.1 six-1.17.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.7.0 wcwidth-0.8.3
+loguru             0.7.3
+nornir             3.6.0
+nornir-utils       0.3.0
+numpy              2.5.2
+pandas             3.0.5
+paramiko           5.0.0
+prompt_toolkit     3.0.53
+pydantic           2.13.5
+PyYAML             6.0.3
+requests           2.34.2
+############ F03/F04: shipped NTG.yaml + setting/Mininet.yaml ############
+--- NTG.yaml ---
+---
+# From nornir
+inventory:
+  plugin: SimpleInventory
+  options:
+    host_file: "./setting/Hardware.yaml"
+    group_file: "./setting/API_server_startup.yaml"
+
+runner:
+  plugin: threaded
+  options:
+    num_workers: 5
+
+logging:
+  enabled: false--- setting/Mininet.yaml ---
+---
+Mininet_Testbed:
+  data:
+    # options: cli(Mininet's cli) or custom_command(Our own cli)
+    ndtwin_kernel: "http://127.0.0.1:8000"
+    mode: "custom_command" 
+    log_level: "DEBUG"  # TRACE, DEBUG, INFO, WARNING, ERROR
+    sleep_time:
+      min: 0.1
+      max: 0.3
+    tcp_socket_write_length: "10K"  # in bytes, not including header, only payload, can use K for 1024 bytes, M for 1024*1024 bytes, etc.
+    udp_packet_length: "1460"  # in bytes, not including header, only payload, can use K for 1024 bytes, M for 1024*1024 bytes, etc.--- flow_template.json (first 40 lines) ---
+{
+  "traffic_generator(iperf_or_iperf3)": "iperf3",
+  "intervals": [
+    {
+      "interval_duration(d/h/m/s)": "3s",
+      "varied_traffic": {
+        "flow_arrival_rate(flow/sec)": 5,
+        "flow_distance_probability": {
+          "near": 0.0,
+          "middle": 0.5,
+          "far": 0.5
+        },
+        "flow_type_probability": {
+          "unlimited_size_unlimited_rate_unlimited_duration_tcp": 0.01,
+          "unlimited_size_unlimited_rate_limited_duration_tcp": 0.05,
+          "limited_size_unlimited_rate_tcp": 0.18,
+          "unlimited_size_limited_rate_unlimited_duration_tcp": 0.1,
+          "unlimited_size_limited_rate_limited_duration_tcp": 0.1,
+          "limited_size_limited_rate_tcp": 0.1,
+          "unlimited_size_unlimited_rate_unlimited_duration_udp": 0.01,
+          "unlimited_size_unlimited_rate_limited_duration_udp": 0.05,
+          "limited_size_unlimited_rate_udp": 0.1,
+          "unlimited_size_limited_rate_unlimited_duration_udp": 0.1,
+          "unlimited_size_limited_rate_limited_duration_udp": 0.1,
+          "limited_size_limited_rate_udp": 0.1
+        },
+        "flow_parameters": {
+          "unlimited_size_unlimited_rate_unlimited_duration_tcp": {},
+          "unlimited_size_unlimited_rate_limited_duration_tcp": {
+            "duration(sec)": 2
+          },
+          "limited_size_unlimited_rate_tcp": {
+            "size(bytes)": "1M"
+          },
+          "unlimited_size_limited_rate_unlimited_duration_tcp": {
+            "rate(bits)": "3M"
+          },
+          "unlimited_size_limited_rate_limited_duration_tcp": {
+            "rate(bits)": "2M",
+            "duration(sec)": 3
+/tmp/08_ntg_prep.sh: line 21: python: command not found
+############ F06: manual claim --  is not a command ############
+/tmp/08_ntg_prep.sh: line 22: python: command not found
+############ F07: manual claim -- sudo ./testbed_topo.py -> ModuleNotFoundError loguru ############
+Traceback (most recent call last):
+  File "/home/ndt/Network-Traffic-Generator/./testbed_topo.py", line 14, in <module>
+    from network_traffic_generator import command_line
+  File "/home/ndt/Network-Traffic-Generator/network_traffic_generator.py", line 10, in <module>
+    from loguru import logger
+12:57

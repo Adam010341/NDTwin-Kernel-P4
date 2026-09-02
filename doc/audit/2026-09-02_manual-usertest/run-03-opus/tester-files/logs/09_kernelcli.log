@@ -1,0 +1,76 @@
+12:57
+############ B15: no TTY + missing flags -> usage message, not block ############
+[2026-09-02 12:57:45.808] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+stdin is not a TTY, so --mode must be given explicitly.
+
+Usage: ./bin/ndtwin_kernel [options]
+
+Deployment options (prompted interactively if omitted and stdin is a TTY):
+  --mode <mininet|testbed>   deployment environment
+  --topology <path>          topology JSON to load. Defaults to the mode's
+B15_EXIT=2
+############ B15b: piped output + missing flags ############
+[2026-09-02 12:57:45.813] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+stdin is not a TTY, so --mode must be given explicitly.
+
+Usage: ./bin/ndtwin_kernel [options]
+
+############ B16: --ai with no OPENAI_API_KEY ############
+[2026-09-02 12:57:45.819] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 12:57:45.819] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 12:57:45.819] [info] [[94mmain.cpp[0m:[95m348[0m [96mmain[0m] Initializing IntentTranslator with model: gpt-5-nano
+[2026-09-02 12:57:45.819] [error] [[94mLLMAgent.cpp[0m:[95m37[0m [96mLLMAgent[0m] OPENAI_API_KEY environment variable is not set.
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  OPENAI_API_KEY environment variable is not set.
+############ bad flag value ############
+--mode expects 'mininet' or 'testbed', got 'banana'
+############ nonexistent topology file ############
+[2026-09-02 12:57:45.926] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 12:57:45.926] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: ../setting/NOPE.json
+[2026-09-02 12:57:45.926] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-02 12:57:45.926] [info] [[94mApplicationManager.cpp[0m:[95m410[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 12:57:45.926] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2059[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-02 12:57:45.926] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-02 12:57:45.926] [error] [[94mTopologyAndFlowMonitor.cpp[0m:[95m207[0m [96mloadStaticTopologyFromFile[0m] Cannot open topology file:  ../setting/NOPE.json
+############ J06: API while kernel not running ############
+curl: (7) Failed to connect to localhost port 8000 after 0 ms: Couldn't connect to server
+CURL_EXIT=0
+############ B01: ndt launcher present? ############
+-rwxrwxr-x 1 ndt ndt 85495 Sep  2 12:38 /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+lrwxrwxrwx 1 ndt ndt 55 Sep  2 12:57 /home/ndt/.local/bin/ndt -> /home/ndt/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+--- is ~/.local/bin on PATH? ---
+0
+--- ndt with no args ---
+usage: ndt <command>
+
+  up [what]     bring the whole lab up and verify it
+                  ndt up            p4 at the current host count (default)
+                  ndt up 4          p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up p4 128     p4 at 128 hosts
+                  ndt up ovs        Ryu + OVS, 128 hosts
+                  ndt up ovs4       Ryu + OVS on the P4 test bed's 4-host layout
+                NDT_TOPO=<file> forces a specific kernel model.
+  down [--deep] take it all down and prove the machine is clean
+                  --deep also kills whatever still holds :8000/:8080/:8081, including
+                  processes this stack did not start. Off by default: without it, a
+                  stray is reported and left alone rather than killed.
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+  clean         just the teardown assertion (exit 1 if anything survived)
+  check         telemetry double-count tripwire
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  ndt up derives the kernel's topology model from host_count_override, so the
+  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+12:57

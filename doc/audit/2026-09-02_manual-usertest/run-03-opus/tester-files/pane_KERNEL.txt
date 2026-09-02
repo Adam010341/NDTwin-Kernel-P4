@@ -1,0 +1,50 @@
+cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+[2026-09-02 13:57:43.017] [info] [main.cpp:299 main] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 13:57:43.017] [info] [main.cpp:311 main] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 13:57:43.017] [info] [main.cpp:358 main] IntentTranslator is disabled by user.
+[2026-09-02 13:57:43.017] [info] [ApplicationManager.cpp:410 cleanupStaleEntries] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 13:57:43.017] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyAndFlowMonitor Run
+[2026-09-02 13:57:43.017] [info] [FlowLinkUsageCollector.cpp:472 start] Collector Starts Up
+[2026-09-02 13:57:43.017] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running a
+nd holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+[2026-09-02 13:57:43.017] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+[2026-09-02 13:57:43.018] [critical] [main.cpp:406 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+[2026-09-02 13:57:43.031] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPlaneHomogeneity] Data plane: ovs (10 switch(es))
+[2026-09-02 13:57:43.032] [info] [TopologyAndFlowMonitor.cpp:2100 run] Exiting TopologyAndFlowMonitor's updating
+[2026-09-02 13:57:44.018] [info] [ControllerAndOtherEventHandler.cpp:98 stop] ControllerAndOtherEventHandler Stop Start
+[2026-09-02 13:57:44.018] [info] [ControllerAndOtherEventHandler.cpp:102 stop] ControllerAndOtherEventHandler already stopped.
+[2026-09-02 13:57:44.018] [info] [ApplicationManager.cpp:266 cleanupNFS] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-02 13:57:44.018] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

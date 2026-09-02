@@ -1,0 +1,14 @@
+=== is ryu listening? (before Ctrl-C) ===
+LISTEN 0      50           0.0.0.0:6653      0.0.0.0:*    users:(("ryu-manager",pid=4212,fd=5))
+=== send Ctrl-C as manual says ===
+
+
+
+
+
+
+=== after ===
+(nothing on 6653/8080 - stopped)
+=== Step 2.6 says do Step 4.1 first. Is git present? ===
+/usr/bin/git
+git version 2.43.0

@@ -1,0 +1,21 @@
+=== edit (1) static_topology_file_path : /home/adam -> /home/ndt ===
+static_topology_file_path = Path(os.environ.get(
+    "NDTWIN_RYU_TOPO_FILE",
+    "/home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
+
+=== (2) is_mininet already True (line 56); manual wants True ===
+is_mininet = True   # True: Mininet, False: physical testbed -- SEE ABOVE, this value is discarded
+=== (3) switch_num : no literal knob; derived. What does it resolve to? ===
+switches declared in JSON: 10 dpids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+hosts declared: 128
+=== does the file parse after my edit? ===
+parses OK
+=== Step 2.7: extra python libs in ryu-env ===
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+[notice] A new release of pip is available: 23.3.2 -> 25.0.1
+[notice] To update, run: pip install --upgrade pip
+networkx           3.1
+requests           2.28.2
+urllib3            1.26.20
+12:40

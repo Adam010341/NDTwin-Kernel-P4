@@ -1,0 +1,54 @@
+=== PIDs before shutdown ===
+ryu pid=101133   kernel pid(from ss)=
+ 133822 sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+ 133838 sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+kernel pid=133822
+
+########## Manual step 1: type 'exit' in Terminal 2 (Mininet) ##########
+
+Cleaning up: Removing IP alias 192.168.123.1 from 'lo' interface...
+*** Stopping 1 controllers
+c0
+*** Stopping 144 links
+................................................................................................................................................
+*** Stopping 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
+*** Stopping 128 hosts
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h
+53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h10
+2 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h118 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128
+*** Done
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+--- manual step 2 claim: 'The script will automatically remove the IP alias' ---
+    inet 127.0.0.1/8 scope host lo
+
+--- are ryu and kernel still alive after the mininet exit? ---
+ryu ALIVE
+kernel ALIVE
+
+########## Manual step 3: sudo mn -c ##########
+ovs-vsctl --timeout=1 list-br
+ovs-vsctl --timeout=1 list-br
+*** Removing all links of the pattern foo-ethX
+ip link show | egrep -o '([-_.[:alnum:]]+-eth[[:digit:]]+)'
+ip link show
+*** Killing stale mininet node processes
+pkill -9 -f mininet:
+*** Shutting down stale tunnels
+pkill -9 -f Tunnel=Ethernet
+pkill -9 -f .ssh/mn
+rm -f ~/.ssh/mn/*
+*** Cleanup complete.
+
+--- B22 claim: 'Step 3 already killed your Ryu controller' ---
+ryu GONE (claim reproduced)
+kernel ALIVE
+--- what the Ryu pane shows now ---
+127.0.0.1 - - [02/Sep/2026 13:37:20] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000901
+(101133) accepted ('127.0.0.1', 56950)
+127.0.0.1 - - [02/Sep/2026 13:37:20] "GET /v1.0/topology/links HTTP/1.1" 200 109 0.000209
+Terminated
+(ryu-env) ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+--- ports ---
+LISTEN 0      4096         0.0.0.0:8000      0.0.0.0:*          
+13:37:30

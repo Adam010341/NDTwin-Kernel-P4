@@ -1,0 +1,38 @@
+=== s1 flow table composition (manual: 'one forwarding rule per destination host, plus its table-miss entry') ===
+total lines with actions=: 130
+--- by priority ---
+    128 priority=10
+      1 priority=65535
+      1 priority=0
+--- the non-priority-1 (non-host) entries, verbatim ---
+NXST_FLOW reply (xid=0x4):
+ cookie=0x0, duration=97.758s, table=0, n_packets=117, n_bytes=7020, idle_age=0, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.1 actions=output:3
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.2 actions=output:4
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.3 actions=output:5
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.4 actions=output:6
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.5 actions=output:7
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.6 actions=output:8
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.7 actions=output:9
+ cookie=0x0, duration=82.636s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=10,ip,nw_dst=10.0.0.8 actions=output:10
+--- how many nw_dst rules (one per destination host)? ---
+128
+--- table-miss / CONTROLLER entries ---
+2
+
+=== confirm all ten switches agree ===
+s1   130
+s2   130
+s3   130
+s4   130
+s5   130
+s6   130
+s7   130
+s8   130
+s9   130
+s10  130
+
+=== Ryu install summary line ===
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.345s install=0.143s report=0.201s
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.347s install=0.144s report=0.204s
+13:20:26

@@ -1,0 +1,41 @@
+=== what logs did ndt/ndtwin-lab leave? ===
+total 128
+drwxrwxr-x 2 ndt ndt  4096 Sep  2 13:45 .
+drwxrwxr-x 4 ndt ndt  4096 Sep  2 13:45 ..
+-rw-rw-r-- 1 ndt ndt 11003 Sep  2 13:47 kernel.log
+-rw-rw-r-- 1 ndt ndt 71930 Sep  2 13:47 ryu.log
+-rw-rw-r-- 1 ndt ndt 25235 Sep  2 13:40 ryu.log.prev
+=== mode file ===
+ovs /home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+=== pids dir ===
+total 24
+drwxrwxr-x 2 ndt ndt 4096 Sep  2 13:45 .
+drwxrwxr-x 4 ndt ndt 4096 Sep  2 13:45 ..
+-rw-rw-r-- 1 ndt ndt  195 Sep  2 13:45 kernel.cmd
+-rw-rw-r-- 1 ndt ndt    7 Sep  2 13:45 kernel.pid
+-rw-rw-r-- 1 ndt ndt  213 Sep  2 13:41 ryu.cmd
+-rw-rw-r-- 1 ndt ndt    7 Sep  2 13:41 ryu.pid
+
+=== is there a topology/ovs log anywhere? ===
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/ryu.pid
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/kernel.pid
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/ryu.cmd
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/pids/kernel.cmd
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log.prev
+/home/ndt/Desktop/NDTwin-Kernel/.test_run/mode
+
+=== does ndtwin-lab use a tmux/screen session that died? ===
+KERNEL: 1 windows (created Wed Sep  2 13:20:48 2026)
+MN: 1 windows (created Wed Sep  2 13:18:43 2026)
+NSR: 1 windows (created Wed Sep  2 13:31:16 2026)
+P4: 1 windows (created Wed Sep  2 12:53:05 2026)
+RYU: 1 windows (created Wed Sep  2 13:16:44 2026)
+UP: 1 windows (created Wed Sep  2 13:41:19 2026)
+error connecting to /tmp/tmux-0/default (No such file or directory)
+
+=== try the helper by hand to see its error ===
+ndtwin-lab: usage: ndtwin-lab {topo-start|ovs-topo-start|ovs-topo-4host|topo-cmd <text>|topo-out [n]|topo-stop|cleanup|energy-start|energy-stop|energy-out [n]|sim-start|sim-stop|sim-out [n]|status}
+HELPER_EXIT=0
+13:47:32

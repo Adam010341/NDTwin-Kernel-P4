@@ -1,0 +1,15 @@
+---
+# From nornir
+inventory:
+  plugin: SimpleInventory
+  options:
+    host_file: "./setting/Hardware.yaml"
+    group_file: "./setting/API_server_startup.yaml"
+
+runner:
+  plugin: threaded
+  options:
+    num_workers: 5
+
+logging:
+  enabled: false

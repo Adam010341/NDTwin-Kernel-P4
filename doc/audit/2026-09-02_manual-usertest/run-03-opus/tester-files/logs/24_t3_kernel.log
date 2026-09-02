@@ -1,0 +1,58 @@
+T3_START 13:20:48
+--- pane (head of startup) ---
+cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel/build && sudo bin/ndtwin_kernel --mode mininet --topology ../setting/StaticNetworkTopologyMininet_10Switches.json --no-ai --loglevel info
+[2026-09-02 13:20:48.492] [info] [main.cpp:299 main] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-02 13:20:48.492] [info] [main.cpp:311 main] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-02 13:20:48.493] [info] [main.cpp:358 main] IntentTranslator is disabled by user.
+[2026-09-02 13:20:48.493] [info] [ApplicationManager.cpp:410 cleanupStaleEntries] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-02 13:20:48.494] [info] [FlowLinkUsageCollector.cpp:472 start] Collector Starts Up
+[2026-09-02 13:20:48.494] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [run] pid=133839 tid=133842
+[2026-09-02 13:20:48.494] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 20 workers
+[2026-09-02 13:20:48.494] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyAndFlowMonitor Run
+[2026-09-02 13:20:48.494] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [purgeIdleFlows] pid=133839 tid=133845
+[2026-09-02 13:20:48.494] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+[2026-09-02 13:20:48.494] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calFlowPathByQueried] pid=133839 tid=133846
+[2026-09-02 13:20:48.495] [info] [FlowLinkUsageCollector.cpp:749 run] Listening for sFlow on UDP port 6343
+[2026-09-02 13:20:48.495] [info] [DeviceConfigurationAndPowerManager.cpp:118 start] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-02 13:20:48.496] [info] [ControllerAndOtherEventHandler.cpp:196 runServer] Server Listening on port 8000
+[2026-09-02 13:20:48.496] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calAvgFlowSendingRatesPeriodically] pid=133839 tid=133843
+[2026-09-02 13:20:48.496] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [testCalAvgFlowSendingRatesRandomly] pid=133839 tid=133844
+[2026-09-02 13:20:48.510] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPlaneHomogeneity] Data plane: ovs (10 switch(es))
+[2026-09-02 13:20:48.559] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-02 13:20:50.497] [info] [FlowLinkUsageCollector.cpp:2072 calAvgFlowSendingRatesPeriodically] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+[2026-09-02 13:20:53.822] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-02 13:20:53.880] [info] [FlowLinkUsageCollector.cpp:566 refreshDestinationPathsPeriodically] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will ans
+wer from now on.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--- pane (tail) ---
+
+
+
+
+
+
+
+
+
+
+
+
+--- is :8000 listening? ---
+LISTEN 0      4096         0.0.0.0:8000      0.0.0.0:*                                           
+T3_30S 13:21:18

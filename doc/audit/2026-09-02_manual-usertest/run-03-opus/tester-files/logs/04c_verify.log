@@ -1,0 +1,44 @@
+=== ninja exit codes ===
+CMAKE_EXIT=0
+NINJACLEAN_EXIT=0
+NINJA_EXIT=0
+=== warnings/errors in build ===
+0
+0
+=== User Manual pre-flight check 2: does ndtwin_kernel exist in build/bin ? ===
+total 30316
+-rwxrwxr-x 1 ndt ndt 11839016 Sep  2 12:48 ndtwin_kernel
+-rwxrwxr-x 1 ndt ndt 19200112 Sep  2 12:51 test_routing_strategy
+=== does it run? ===
+Usage: ./build/bin/ndtwin_kernel [options]
+
+Deployment options (prompted interactively if omitted and stdin is a TTY):
+  --mode <mininet|testbed>   deployment environment
+  --topology <path>          topology JSON to load. Defaults to the mode's
+                             configured file; for mininet, pick a P4 topology
+                             here to run against bmv2
+  --ai / --no-ai             enable or disable the Intent Translator
+                             (--ai needs an OpenAI token)
+  -h, --help                 show this message
+
+Logging options are also accepted; see --logfile / --loglevel.
+
+Examples:
+  ./build/bin/ndtwin_kernel --mode mininet --no-ai
+  ./build/bin/ndtwin_kernel --mode mininet --no-ai \
+      --topology ../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+HELP_EXIT=0
+=== Step 6.0 recheck ===
+p4_proxy/p4_src/ndtwin_switch.p4
+=== Step 6.1 note: ldd check the manual suggests ===
+(prints nothing - as the manual predicts, pre-P4)
+=== Section 5: testbed_topo.py present, run from project root ===
+-rwxrwxr-x 1 ndt ndt 10575 Sep  2 12:38 testbed_topo.py
+=== AppConfig.hpp created by cmake? (Step 6.4/6.0 claim) ===
+-rw-rw-r-- 1 ndt ndt 1205 Sep  2 12:46 setting/AppConfig.hpp
+6:    static const std::string SIM_SERVER_URL = "http://localhost:9000/submit";
+10:    static const std::string P4_PROXY_IP_AND_PORT = "localhost:8081";
+15:    static constexpr bool ALLOW_MIXED_DATAPLANE = false;
+=== git status (should be just intelligent_router.py) ===
+ M intelligent_router.py
+12:52

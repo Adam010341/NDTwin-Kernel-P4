@@ -1,0 +1,223 @@
+=== git diff: NDTwin-Kernel (tester's edits) ===
+diff --git a/intelligent_router.py b/intelligent_router.py
+index 5c8e86a..cb43954 100644
+--- a/intelligent_router.py
++++ b/intelligent_router.py
+@@ -35,7 +35,7 @@ from ryu.lib import hub
+ # the kernel's graph reported ten switches, forty edges, all up and enabled.
+ static_topology_file_path = Path(os.environ.get(
+     "NDTWIN_RYU_TOPO_FILE",
+-    "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
++    "/home/ndt/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
+ 
+ # (2) Deployment mode
+ # [Co-developed with claude code -- Adam]
+diff --git a/setting/StaticNetworkTopologyMininet_10Switches.json b/setting/StaticNetworkTopologyMininet_10Switches.json
+index 5be6b4b..3080965 100644
+--- a/setting/StaticNetworkTopologyMininet_10Switches.json
++++ b/setting/StaticNetworkTopologyMininet_10Switches.json
+@@ -1,5600 +1,5600 @@
+ {
+-  "nodes": [
+-    {
+-      "brand_name": "OVS",
+-      "bridge_name": "s1",
+-      "device_layer": 2,
+-      "device_name": "s1",
+-      "nickname": "s1",
+-      "dpid": 1,
+-      "ip": [
+-        "192.168.123.11"
+-      ],
+-      "mac": 0,
+-      "smart_plug_ip": "",
+-      "smart_plug_outlet": 0,
+-      "vertex_type": 0,
+-      "ecmp_groups": [
+-        {
+-          "members": [
+-            {
+-              "type": "port",
+-              "port_id": 1
+-            },
+-            {
+-              "type": "port",
+-              "port_id": 2
+-            }
+-          ]
+-        }
+-      ]
+-    },
+-    {
+-      "brand_name": "OVS",
+-      "bridge_name": "s2",
+-      "device_layer": 2,
+-      "device_name": "s2",
+-      "nickname": "s2",
+-      "dpid": 2,
+-      "ip": [
+-        "192.168.123.12"
+-      ],
+-      "mac": 0,
+-      "smart_plug_ip": "",
+-      "smart_plug_outlet": 0,
+-      "vertex_type": 0,
+-      "ecmp_groups": [
+-        {
+-          "members": [
+-            {
+-              "type": "port",
+-              "port_id": 1
+-            },
+-            {
+-              "type": "port",
+-              "port_id": 2
+-            }
+-          ]
+-        }
+-      ]
+-    },
++  "edges": [
+     {
+-      "brand_name": "OVS",
+-      "bridge_name": "s3",
+-      "device_layer": 2,
+-      "device_name": "s3",
+-      "nickname": "s3",
+-      "dpid": 3,
+-      "ip": [
+-        "192.168.123.13"
++      "dst_dpid": 5,
++      "dst_interface": 1,
++      "dst_ip": [
++        "192.168.123.15"
+       ],
+-      "mac": 0,
+-      "smart_plug_ip": "",
+-      "smart_plug_outlet": 0,
+-      "vertex_type": 0,
+-      "ecmp_groups": [
+-        {
+-          "members": [
+-            {
+-              "type": "port",
+-              "port_id": 1
+-            },
+-            {
+-              "type": "port",
+-              "port_id": 2
+-            }
+-          ]
+-        }
++      "link_bandwidth_bps": 1000000000,
++      "src_dpid": 1,
++      "src_interface": 1,
++      "src_ip": [
++        "192.168.123.11"
+       ]
+     },
+     {
+-      "brand_name": "OVS",
+-      "bridge_name": "s4",
+-      "device_layer": 2,
+-      "device_name": "s4",
+-      "nickname": "s4",
+-      "dpid": 4,
+-      "ip": [
+-        "192.168.123.14"
++      "dst_dpid": 1,
++      "dst_interface": 1,
++      "dst_ip": [
++        "192.168.123.11"
+       ],
+-      "mac": 0,
+-      "smart_plug_ip": "",
+-      "smart_plug_outlet": 0,
+-      "vertex_type": 0,
+-      "ecmp_groups": [
+-        {
+-          "members": [
+-            {
+-              "type": "port",
+-              "port_id": 1
+-            },
+-            {
+-              "type": "port",
+-              "port_id": 2
+-            }
+-          ]
+-        }
+-      ]
+-    },
+-    {
+-      "brand_name": "OVS",
+-      "bridge_name": "s5",
+-      "device_layer": 1,
+-      "device_name": "s5",
+-      "nickname": "s5",
+-      "dpid": 5,
+-      "ip": [
++      "link_bandwidth_bps": 1000000000,
++      "src_dpid": 5,
++      "src_interface": 1,
++      "src_ip": [
+         "192.168.123.15"
+-      ],
+-      "mac": 0,
+-      "smart_plug_ip": "",
+-      "smart_plug_outlet": 0,
+-      "vertex_type": 0,
+-      "ecmp_groups": [
+-        {
+-          "members": [
+-            {
+-              "type": "port",
+-              "port_id": 3
+-            },
+-            {
+-              "type": "port",
+-              "port_id": 4
+-            }
+-          ]
+-        }
+       ]
+     },
+     {
+-      "brand_name": "OVS",
+-      "bridge_name": "s6",
+-      "device_layer": 1,
+-      "device_name": "s6",
+-      "nickname": "s6",
+-      "dpid": 6,
+-      "ip": [
++      "dst_dpid": 6,
++      "dst_interface": 1,
++      "dst_ip": [
+         "192.168.123.16"
+       ],
+-      "mac": 0,
+-      "smart_plug_ip": "",
+-      "smart_plug_outlet": 0,
+-      "vertex_type": 0,
+
+=== git diff --stat: Energy-Saving-App ===
+ energy_saving_app       | Bin 8355144 -> 8355144 bytes
+ energy_saving_simulator | Bin 4423240 -> 4423240 bytes
+ 2 files changed, 0 insertions(+), 0 deletions(-)
+diff --git a/energy_saving_app b/energy_saving_app
+index 10b13cd..04958c7 100755
+Binary files a/energy_saving_app and b/energy_saving_app differ
+diff --git a/energy_saving_simulator b/energy_saving_simulator
+index c8e55cb..eeb3d6e 100755
+Binary files a/energy_saving_simulator and b/energy_saving_simulator differ
+
+=== git diff --stat: Simulation-Platform-Manager ===
+ registered/energy_saving_simulator/1.0/executable | Bin 4423240 -> 4423240 bytes
+ registered/simple_sim/1.0/executable              | Bin 1763224 -> 1763224 bytes
+ 2 files changed, 0 insertions(+), 0 deletions(-)
+diff --git a/registered/energy_saving_simulator/1.0/executable b/registered/energy_saving_simulator/1.0/executable
+index c8e55cb..eeb3d6e 100755
+Binary files a/registered/energy_saving_simulator/1.0/executable and b/registered/energy_saving_simulator/1.0/executable differ
+diff --git a/registered/simple_sim/1.0/executable b/registered/simple_sim/1.0/executable
+index 6aa4b74..b698982 100755
+Binary files a/registered/simple_sim/1.0/executable and b/registered/simple_sim/1.0/executable differ

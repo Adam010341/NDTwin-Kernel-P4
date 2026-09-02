@@ -1,0 +1,33 @@
+=== kernel graph check for run 2 ===
+
+########## D08 set_switches_power_state -- doc: MININET adds/removes the OVS bridge ##########
+-- BEFORE: bridges --
+s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+-- BEFORE: power state of s10 (192.168.123.20) --
+{"192.168.123.20":"ON"}
+-- turn s10 OFF --
+{"192.168.123.20":"Success"}
+[HTTP 200]
+-- AFTER off: bridges --
+s1 s2 s3 s4 s5 s6 s7 s8 s9 
+-- AFTER off: power state --
+{"192.168.123.20":"OFF"}
+-- AFTER off: does the kernel graph show s10 down? --
+   s10 node: is_up=False is_enabled=True
+-- turn s10 back ON --
+{"192.168.123.20":"Success"}
+[HTTP 200]
+-- AFTER on: bridges --
+s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+-- AFTER on: power state --
+{"192.168.123.20":"ON"}
+-- bad action value --
+{"error":"Missing or invalid ip/action"}
+[HTTP 400]
+-- missing params --
+{"error":"Missing or invalid ip/action"}
+[HTTP 400]
+-- unknown ip --
+{"error":"Failed to change switch power state"}
+[HTTP 500]
+13:58:53

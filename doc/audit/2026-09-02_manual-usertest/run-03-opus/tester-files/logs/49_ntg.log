@@ -1,0 +1,45 @@
+=== HOST_NUM in NTG's testbed_topo.py ===
+19:HOST_NUM = 128
+=== controller port it dials ===
+6:from mininet.node import RemoteController, OVSKernelSwitch
+108:def enable_sflow(switch, agent_iface, collector_ip, collector_port=6343):
+146:    # Using RemoteController to connect to an external SDN controller (e.g., Ryu).
+149:        controller=RemoteController,
+
+=== F03: manual says change NTG.yaml host_file to ./setting/Mininet.yaml ===
+    host_file: "./setting/Mininet.yaml"
+
+=== tear down the NDTwin topology (keep Ryu + kernel) so NTG can build its own ===
+ <- bridges after cleanup
+-- note: mn -c kills Ryu (documented). restart Ryu for NTG. --
+1
+
+=== F05: start NTG's topology with the venv interpreter (manual: substitute your own path) ===
+NTG_START 14:01:20
+--- pane ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+14:02:20

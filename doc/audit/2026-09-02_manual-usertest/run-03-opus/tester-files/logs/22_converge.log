@@ -1,0 +1,14 @@
+=== the manual's convergence check, sampled until two identical rounds ===
+13:19:49 round1: 130 130 130 130 130 130 130 130 130 130
+13:20:00 round2: 130 130 130 130 130 130 130 130 130 130
+STABLE (two identical rounds in a row)
+=== did Ryu print the message the manual names? ===
+679:Static topology initialized, all-destination paths installed.
+=== last few Ryu lines ===
+00:00:00:00:00:7e -> 4: {'port': 0}
+00:00:00:00:00:7f -> 4: {'port': 0}
+00:00:00:00:00:80 -> 4: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0.347s install=0.144s report=0.204s
+route reinstall done
+
+13:20:00

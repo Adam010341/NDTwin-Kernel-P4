@@ -1,0 +1,58 @@
+############## lock tests, each from a released state ##############
+### acquire, no type
+    sent: {"ttl":30}
+{"status":"locked","ttl":30,"type":"routing_lock"}
+    [HTTP 200]
+### acquire, empty body
+    sent: {}
+{"status":"locked","ttl":5,"type":"routing_lock"}
+    [HTTP 200]
+### acquire, type=number
+    sent: {"type":123,"ttl":30}
+{"status":"locked","ttl":5,"type":"routing_lock"}
+    [HTTP 200]
+### acquire, type=unknown str
+    sent: {"type":"banana_lock"}
+{"detail":"System busy or invalid lock type: banana_lock","error":"Lock acquisition failed"}
+    [HTTP 423]
+### release, no type
+    sent: {}
+{"detail":"Lock 'routing_lock' is not held or is an invalid type","error":"Release failed"}
+    [HTTP 412]
+### renew, no type
+    sent: {"ttl":30}
+{"detail":"Lock 'routing_lock' is expired, not held, or invalid type","error":"Renew failed"}
+    [HTTP 412]
+-- and the documented-correct form, for contrast --
+### acquire, type=power_lock
+    sent: {"type":"power_lock","ttl":30}
+{"status":"locked","ttl":30,"type":"power_lock"}
+    [HTTP 200]
+{"status":"released","type":"power_lock"}
+
+############## FLOW ENTRY install/modify/delete, with the EFFECT checked on the switch ##############
+-- BEFORE: s1 rules matching 10.0.0.99 --
+1
+-- (a) manual's own example values (its dpid does not exist on my fabric) --
+{"detail":"these dpids are not switches in the loaded topology; check the dpid, or that the topology file matches the running network","error":"unknown dpid","status":"error","unknown_dpids":[106225808380928]}
+[HTTP 404]
+-- (b) my own values: dpid 1 (s1), a destination that has no rule yet --
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+[HTTP 200]
+-- AFTER install: the actual rule on s1 --
+ cookie=0x0, duration=297.210s, table=0, n_packets=0, n_bytes=0, idle_age=298, priority=10,ip,nw_dst=10.0.0.99 actions=output:1
+ cookie=0x0, duration=3.120s, table=0, n_packets=0, n_bytes=0, idle_age=3, priority=99,ip,nw_dst=10.0.0.99 actions=output:2
+-- (c) modify it to output:5 --
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+[HTTP 200]
+-- AFTER modify --
+ cookie=0x0, duration=300.366s, table=0, n_packets=0, n_bytes=0, idle_age=301, hard_age=3, priority=10,ip,nw_dst=10.0.0.99 actions=output:5
+ cookie=0x0, duration=6.276s, table=0, n_packets=0, n_bytes=0, idle_age=6, hard_age=3, priority=99,ip,nw_dst=10.0.0.99 actions=output:5
+-- (d) delete it --
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+[HTTP 200]
+-- AFTER delete: count of matching rules (expect 0) --
+0
+-- did the manual's non-existent dpid actually create anything anywhere? --
+0 0 0 0 0 0 0 0 0 0 
+13:24:07

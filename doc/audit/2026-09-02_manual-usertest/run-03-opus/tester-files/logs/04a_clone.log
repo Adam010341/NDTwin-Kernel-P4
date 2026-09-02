@@ -1,0 +1,45 @@
+12:38
+=== Step 4.1: clone. Manual: 'If you are not sure, clone the P4 one.' ===
+Cloning into 'NDTwin-Kernel'...
+EXIT=0
+936f8c6c9d050f32c0ee22be58e48a7e98905ee0 2026-09-01 01:11:34 +0800 Snapshot of the P4/BMv2 kernel tree at 20cd80b, published for the manual
+=== Step 2.6.1: ls -l intelligent_router.py ===
+-rw-rw-r-- 1 ndt ndt 114953 Sep  2 12:38 intelligent_router.py
+=== Step 5: ls -l testbed_topo.py ===
+-rwxrwxr-x 1 ndt ndt 10575 Sep  2 12:38 testbed_topo.py
+=== Step 6.0: ls p4_proxy/p4_src/ndtwin_switch.p4 ===
+p4_proxy/p4_src/ndtwin_switch.p4
+=== top-level listing ===
+CHANGELOG.md
+CMakeLists.txt
+LICENSE
+README.md
+cmake
+doc
+include
+intelligent_router.py
+libs
+ndtwin-license-header.txt
+p4_proxy
+setting
+src
+testbed_topo.py
+tests
+tools
+=== setting/ ===
+AppConfig.hpp.example
+StaticNetworkTopologyMininet_10Switches.json
+StaticNetworkTopologyOVS_10Switches_16Hosts.json
+StaticNetworkTopologyOVS_10Switches_32Hosts.json
+StaticNetworkTopologyOVS_10Switches_4Hosts.json
+StaticNetworkTopologyOVS_10Switches_64Hosts.json
+StaticNetworkTopologyOVS_10Switches_8Hosts.json
+StaticNetworkTopologyP4_10Switches_128Hosts.json
+StaticNetworkTopologyP4_10Switches_4Hosts.json
+StaticNetworkTopology_ipAlias4_10Switches.json
+StaticNetworkTopology_ipAlias4_10Switches_all_1g_cable.json
+StaticNetworkTopology_ipAlias4_10_HPE_Switches_all_1g_cable.json
+StaticNetworkTopology_ipAlias4_10_HPE_Switches_smapled_by_p4.json
+StaticNetworkTopology_ipAlias4_9Switches_all_1g_cable.json
+node_positions_p4.json
+12:38

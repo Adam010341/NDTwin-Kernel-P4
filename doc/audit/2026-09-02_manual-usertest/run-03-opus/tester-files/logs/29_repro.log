@@ -1,0 +1,43 @@
+=== current damage: s1 rules for 10.0.0.99 (there was a priority=10 routing rule before) ===
+0
+=== compare with an untouched neighbour, 10.0.0.98 ===
+ cookie=0x0, duration=348.729s, table=0, n_packets=0, n_bytes=0, idle_age=349, priority=10,ip,nw_dst=10.0.0.98 actions=output:1
+
+=== can h1 still reach h99 through s1? (h99 = 10.0.0.99) ===
+[  5] 186.00-187.00 sec   114 MBytes   956 Mbits/sec
+[  5] 187.00-188.00 sec   114 MBytes   956 Mbits/sec
+[  5] 188.00-189.00 sec   114 MBytes   956 Mbits/sec
+
+--- 10.0.0.99 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1049ms
+
+mininet>
+=== control: h1 -> h98, whose rule I never touched ===
+64 bytes from 10.0.0.98: icmp_seq=1 ttl=64 time=2.53 ms
+[  5] 194.00-195.00 sec   114 MBytes   957 Mbits/sec
+64 bytes from 10.0.0.98: icmp_seq=2 ttl=64 time=1.68 ms
+
+--- 10.0.0.98 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 1.684/2.105/2.526/0.421 ms
+mininet>
+
+######## REPRODUCE on 10.0.0.98: install priority=99, then modify, watch priority=10 ########
+-- before --
+ cookie=0x0, duration=364.877s, table=0, n_packets=2, n_bytes=196, idle_age=7, priority=10,ip,nw_dst=10.0.0.98 actions=output:1
+-- after install (expect two rules: priority 10 -> its original port, priority 99 -> port 2) --
+ cookie=0x0, duration=368.025s, table=0, n_packets=2, n_bytes=196, idle_age=10, priority=10,ip,nw_dst=10.0.0.98 actions=output:1
+ cookie=0x0, duration=3.136s, table=0, n_packets=0, n_bytes=0, idle_age=3, priority=99,ip,nw_dst=10.0.0.98 actions=output:2
+-- after modify to port 7 (did priority=10 change too?) --
+ cookie=0x0, duration=371.250s, table=0, n_packets=2, n_bytes=196, idle_age=13, hard_age=3, priority=10,ip,nw_dst=10.0.0.98 actions=output:7
+ cookie=0x0, duration=6.361s, table=0, n_packets=0, n_bytes=0, idle_age=6, hard_age=3, priority=99,ip,nw_dst=10.0.0.98 actions=output:7
+
+=== ping h98 now ===
+[  5] 210.00-211.00 sec   114 MBytes   957 Mbits/sec
+[  5] 211.00-212.00 sec   114 MBytes   957 Mbits/sec
+
+--- 10.0.0.98 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1056ms
+
+mininet>
+13:25:22
