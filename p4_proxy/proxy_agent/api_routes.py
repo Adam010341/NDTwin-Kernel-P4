@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
 import time
-from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError
+from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
 from proxy_agent import ryu_topology, ryu_flow_stats
 
 # We will attach the topology manager instance to the router later
@@ -234,10 +234,38 @@ async def add_flow_entry(request: Request):
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
 
-    if success:
-        return {"status": "success"}
-    else:
+    if not success:
         return {"status": "error", "message": "Failed to add route"}
+
+    # [Co-developed with claude code -- Adam]
+    # FINDING-07's residue, and the only part of it that is fixable anywhere: the value was
+    # never dropped by any layer. A destination-only match compiles to `ipv4_lpm`, a P4 LPM
+    # table with no priority column at all -- precedence there is the prefix length -- so the
+    # priority the caller sent is unrepresentable at the destination rather than lost in
+    # transit. What was wrong was answering `success` and saying nothing: the answer was true
+    # about the request and false about the consequence. Seventeen rules were posted at 902 and
+    # 910-927 on 2026-08-30 and every one read back at priority 0, and no response said why.
+    #
+    # Disclosed, not refused. A 200 -> 400 here is a breaking change for a caller that does not
+    # read status codes and this project has one, so the refusal half stays with T-15 Option 0
+    # and the 2026-08-30 §1.2 ruling. Additive fields cost that caller nothing: the kernel's
+    # only check on this body is `status == "error"`
+    # (src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:123-125).
+    #
+    # Derived from the match by the same predicate route_flow branches on, so it cannot drift
+    # from where the rule actually went -- the property T-15 Option 1 wants of a capability
+    # answer, at the one place a caller is already looking.
+    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"
+    body = {"status": "success", "table": table, "priority_honoured": table == "flow_5tuple"}
+    if data.get("priority") is not None and table == "ipv4_lpm":
+        # Only when a priority was actually asked for. Every rule the kernel writes itself is
+        # destination-only and sends none; a note on all of those is a note nobody still reads
+        # by the time one matters.
+        body["priority_note"] = (
+            "ipv4_lpm has no priority column, so this rule's precedence is its prefix length "
+            "and the requested priority was not programmed. A match naming more than a "
+            "destination compiles to flow_5tuple, where priority is honoured.")
+    return body
 
 @router.post("/stats/flowentry/delete")
 @router.post("/stats/flowentry/delete_strict")

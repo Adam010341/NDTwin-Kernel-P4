@@ -179,10 +179,18 @@ class BlockingWorkStaysOffTheEventLoopTest(unittest.TestCase):
         # These three must stay `async def` (they await request.json()), so the offload is by hand
         # and a rewrite could drop it without changing any response. Comparing thread identity
         # tests the property that matters rather than the spelling of the call.
+        # [Co-developed with claude code -- Adam]
+        # `status` only, not the whole response dict. This test's subject is which THREAD the
+        # southbound call ran on; the response is checked just far enough to know the handler
+        # ran to completion. Comparing the entire body made it a change detector for a
+        # neighbouring concern -- it went red when add_flow_entry began disclosing which table
+        # the rule reached and whether the priority was honoured (FINDING-07), a change this
+        # test has no opinion about. The shape of that body is pinned in
+        # test_flowentry_endpoints.py, where it is the subject.
         for name, payload, expected in (
-            ("add_flow_entry", {"dpid": 1, "match": {}, "actions": []}, {"status": "success"}),
-            ("delete_flow_entry", {"dpid": 1, "match": {}}, {"status": "success"}),
-            ("modify_flow_entry", {"dpid": 1, "match": {}, "actions": []}, {"status": "success"}),
+            ("add_flow_entry", {"dpid": 1, "match": {}, "actions": []}, "success"),
+            ("delete_flow_entry", {"dpid": 1, "match": {}}, "success"),
+            ("modify_flow_entry", {"dpid": 1, "match": {}, "actions": []}, "success"),
         ):
             with self.subTest(handler=name):
                 topo = ThreadRecordingTopology()
@@ -194,7 +202,7 @@ class BlockingWorkStaysOffTheEventLoopTest(unittest.TestCase):
 
                 loop_thread, resp = asyncio.run(drive())
 
-                self.assertEqual(resp, expected)
+                self.assertEqual(resp["status"], expected)
                 self.assertTrue(topo.threads, "the handler never reached the topology manager")
                 for t in topo.threads:
                     self.assertNotEqual(

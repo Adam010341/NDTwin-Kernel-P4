@@ -771,6 +771,44 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
           // A different failure from the ones above and counted separately: those were attempted
           // and refused, these were never attempted.
           {"dropped_after_stop", m_controller->dispatcher().droppedAfterStop()}}},
+        // [Co-developed with claude code -- Adam]
+        // What makes the zero above readable. dropped_after_stop can only leave 0 once stop()
+        // has run, so on a healthy kernel it is 0 and on a kernel whose dispatcher has just
+        // stopped it is *also* 0 until the next enqueue arrives -- the same number for
+        // "everything was delivered" and "delivery has ended and nobody has noticed yet". With
+        // this flag the pair is unambiguous: running=true says the queue is live and the zero is
+        // health; running=false says every further write will be refused, and the 200
+        // {"status":"queued"} the install endpoint is still answering is no longer true.
+        {"dispatcher_running", m_controller->dispatcher().running()},
+        // [Co-developed with claude code -- Adam]
+        // The counters' denominator, published because it is not the one a reader assumes.
+        // `dispatched` counts jobs that went through FlowDispatcher::enqueue, and there is
+        // exactly one such call site in the kernel (processFlowBatch, below), fed by the four
+        // routes named here. It is NOT "entries this fabric has programmed": on a warm fabric
+        // with 1280 forwarding rules already installed, `dispatched` reads 0. That is not a
+        // fault, and it was mis-registered as one -- the A-7 round predicted `dispatched` would
+        // exceed the POSTed count "because other subsystems enqueue too" and the live run
+        // refuted it (doc/audit/2026-08-30_a7-dispatch-visibility/FINDINGS.md:26-33).
+        //
+        // The two exclusions are structural, not oversights:
+        //  - boot-time programming runs in a DIFFERENT PROCESS in both fabrics -- the Ryu app
+        //    (intelligent_router.py, install_all_pair_paths) under OVS, the FastAPI proxy
+        //    (p4_proxy/proxy_agent/topology_manager.py, install_initial_routes) under bmv2.
+        //    Neither has an in-process path to this counter, so a boot_installed/boot_failed
+        //    bucket here would be pinned at zero forever -- the false affordance FlowDispatcher
+        //    removed a `fencePerBurst` parameter over.
+        //  - IntentTranslator::performTask calls FlowRoutingManager directly (four sites), so
+        //    LLM-driven writes bypass the dispatcher and this log. Counting them is reachable
+        //    but needs IntentTranslator to be handed the DispatchOutcomeLog, which changes its
+        //    constructor and its ownership graph; that is a separate ticket.
+        {"counters_cover",
+         {{"dispatch_routes",
+           json::array({"/ndt/install_flow_entry",
+                        "/ndt/modify_flow_entry",
+                        "/ndt/delete_flow_entry",
+                        "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries"})},
+          {"includes_boot_time_programming", false},
+          {"includes_intent_translator", false}}},
         {"recent_failures", std::move(failures)},
         {"recent_failures_capacity", outcomes.capacity()},
         // Non-zero means the list above is partial. Published rather than left implicit: a

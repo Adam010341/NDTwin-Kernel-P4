@@ -115,6 +115,27 @@ class FlowDispatcher
      */
     uint64_t droppedAfterStop() const { return droppedAfterStop_.load(std::memory_order_relaxed); }
 
+    /**
+     * @brief Whether enqueue() will accept a job, or refuse and count it.
+     *
+     * The reason this is published alongside droppedAfterStop(): that counter can only ever
+     * become non-zero *after* stop(), so while the dispatcher runs it reads 0 by construction.
+     * A reader seeing `dropped_after_stop: 0` therefore cannot tell "nothing has been dropped"
+     * from "the dispatcher is stopped and the count simply has not started yet" -- and those
+     * are opposite states. In the second one every subsequent enqueue is dropped while the HTTP
+     * layer keeps answering 200 {"status":"queued"}, which is the failure droppedAfterStop()
+     * exists to make visible; publishing the zero without the running flag hides it again at
+     * the API surface.
+     *
+     * Relaxed like droppedAfterStop(): this is a status read, not a synchronisation point. A
+     * caller cannot act on it atomically anyway -- the dispatcher may stop between this read and
+     * the caller's next enqueue -- so it answers "was it running when asked", which is what a
+     * status endpoint can honestly report.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    bool running() const { return running_.load(std::memory_order_relaxed); }
+
   private:
     /// Worker thread for one DPID: waits for jobs, pops from queues_[dpid], and calls sender_ in
     /// bursts.
