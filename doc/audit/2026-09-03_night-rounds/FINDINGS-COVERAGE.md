@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **41** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78 |
-| 🛠 派工中 | **5** | 35–36, 46, 69–70 |
-| ⭕ UNASSIGNED | **34** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75–77, 79–82 |
+| ✅ IN TRUNK / 已修 | **44** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46 |
+| 🛠 派工中 | **4** | 8, 69–70, 77 |
+| ⭕ UNASSIGNED | **32** | 1–3, 9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75–76, 79–82 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **82** | （09-03 20:0x 由各列狀態欄重算；派工中＝2 支：poll #35/36/46（驗收中，合併樹建置排隊）、logger #69/70；⭕ 含 #77「等 Adam 裁」，#79–82 是 poll 交付時挖出的） |
+| **合計** | **82** | （09-03 20:xx 由各列狀態欄重算；派工中＝3 支：logger #69/70（驗收中）、ndtcheck #8、ovstopo #77；⭕ 含 #77「等 Adam 裁」，#79–82 是 poll 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -72,7 +72,7 @@
 
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
-| 8 | `ndt status --check` 在健康 ovs4 上報假紅，且在 OVS 上零鑑別力 | ⭕ UNASSIGNED | trunk `ndt:1367-1375`：`want` 取自 `$topo`，比 `"$g_hosts $g_edges"`，紅時 push `the kernel graph does not match the topology file`。`host_count_override` 在 trunk 的 `ndt` 出現 7 次，在 `fix/ports`／`fix/g6`／`t8-t10` 三支上**也是 7 次** ⇒ 沒人動 | 🔑 **規格現成**：trunk `eae75da5`（`verify_p4` 改讀 `fabric_host_count()`）是同一形狀的解法。⚠️ `t8-t10-fixes` 的 `39ee5484` 修的是 `verify_p4`，**不是**這個檢查 |
+| 8 | `ndt status --check` 在健康 ovs4 上報假紅，且在 OVS 上零鑑別力 | 🛠 派工中（20:4x，`fix/ndt-status-check-baseline`，base trunk，N12 裁 (a)） | trunk `ndt:1367-1375`：`want` 取自 `$topo`，比 `"$g_hosts $g_edges"`，紅時 push `the kernel graph does not match the topology file`。`host_count_override` 在 trunk 的 `ndt` 出現 7 次，在 `fix/ports`／`fix/g6`／`t8-t10` 三支上**也是 7 次** ⇒ 沒人動 | 🔑 **規格現成**：trunk `eae75da5`（`verify_p4` 改讀 `fabric_host_count()`）是同一形狀的解法。⚠️ `t8-t10-fixes` 的 `39ee5484` 修的是 `verify_p4`，**不是**這個檢查 |
 | 9 | OVS 收下 action 為 `OUTPUT:999` 的流（s1 上不存在的 port） | ⭕ UNASSIGNED | `OUTPUT:999` 在所有分支 diff 0 命中；OVS 側的 flow 安裝驗證路徑不在任何分支的變更檔清單裡 | 需要 ovs4 |
 | 10 | 每條流的速率沒有分母，誤差＝迴圈週期，大象流門檻一定錯 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/flow-rate-denominator @ 6088c0b5`，動 `include/common_types/SFlowType.hpp`（新純函式 `updateFlowRatesForInterval`）、`include/ndt_core/collection/FlowLinkUsageCollector.hpp`、`src/.../FlowLinkUsageCollector.cpp`、`tests/test_RateDenominator.cpp`、`tests/shell/mutate_flow_rate_denominator.sh`。閘門：**作者宣稱** 5 變異／0 存活（F1 逐字還原出貨運算式，F4 是唯一斷言接線的那格）；**無 control 變異**、**分支上無 raw log**、**auditor 未重跑** | 🔴 合併前置條件是作者自己下的：T1／T2／T3 三筆既有結論要先對帳 |
 | 11 | `check_logs.py` 崩潰樣式表缺 12 類致命訊息（含 SIGKILL／oomd） | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/b5-kernel-shutdown @ e9f1326e`，commit `d050bb35`，動 `tools/contract_test/check_logs.py` ＋ `tests/shell/test_check_logs_crash_patterns.sh`。閘門：**先看過紅且 raw 有 commit**——`raw/b5-fix/test_crash_patterns_vs_HEAD.red.txt`（對 HEAD 32 checks／12 failed，本分支 0 failed）；auditor 未重跑 | 併入後對既有 audit log 重跑會出現新的紅，要有人吃 |
@@ -104,8 +104,8 @@
 | 32 | 🔴 根因：啟動競態讓 bmv2 的 liveness 路徑從不執行 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/d15-dataplane-kind-race @ 75c2b526`，動 `include/ndt_core/collection/TopologyAndFlowMonitor.hpp`、`include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp`、對應兩個 `.cpp`、`tests/CMakeLists.txt`、新增 `tests/test_DataPlaneKindOrdering.cpp`。閘門：**auditor 親自編譯並執行**——編譯乾淨（98 目標、0 個 `FAILED:`），**閘門 3／4**。紅的 `TheStartupSequenceMainUsesYieldsABmv2Verdict` 是**測試自己名不副實**（只呼叫 `startMonitor()`，沒呼叫 `m_manager->start()`），不是修法紅 | 🔴 **這支的閘門在自己的分支上關不起來**：要照 main 的順序跑就得呼叫 `m_manager->start()`，而 B-5 的漏 join 還在 ⇒ **B-5 必須先落地** |
 | 33 | `/ndt/get_switches_power_state` 回報的是下過的指令不是量測 | ⭕ UNASSIGNED | `set_switches_power_state`／`get_switches_power_state`／`PowerState`／`powerState` 在**所有未併分支的改動行 0 次命中**；D15 的文件把它列成「UNRUN／預測形狀改變但仍讀同一個 `isUp` bit」，**沒有修** | 電源 API 的主人；`isUp` 承載兩個意思是共同根因（見 #46） |
 | 34 | A-8 的三態檢查在 MININET 下不可能失敗，且硬把原因歸給 Energy-Saving-App | ⭕ UNASSIGNED | `unexplained_down` 在 trunk 只出現在 audit 文件裡，不在任何分支的改動行 | — |
-| 35 | 電源 API 兩個方向都用 `isUp` 提前 return Success | 🛠 派工中（16:xx，`fix/poll-does-not-resurrect`，base `5c64d432`） | `P4PowerStrategy` 在所有分支改動行只出現 1 次，且是 `fix/b5` 的**測試 fixture 字串**（`test_check_logs_crash_patterns.sh` 裡的一行假 log），不是修法 | — |
-| 36 | 命令的關機會遺失，9 次中 2 次 | 🛠 派工中（16:xx，`fix/poll-does-not-resurrect`，base `5c64d432`） | 同 #35／#46；已由 Lead 收窄為 `kPostPowerOffDistrustWindow{15}` 的 15 秒窗（workaround：15 秒內重試），但**沒有任何分支動過那個常數或那條路徑** | 與 #46 同一根 |
+| 35 | 電源 API 兩個方向都用 `isUp` 提前 return Success | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | — |
+| 36 | 命令的關機會遺失，9 次中 2 次 | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | 與 #46 同一根 |
 | 37 | 被拒的模擬 case 讓 Energy app 永久卡死並霸佔 `routing_lock` | ⭕ UNASSIGNED | 已被 Lead E **降級**為單一 app 的 liveness bug（`routing_lock` 後面什麼都沒擋）。修法對象 `energy_saving_app.cpp` **不在本 repo**（`~/Energy-Saving-App`），本 repo 無分支涉及 | Energy-Saving-App 的主人；⚠️ MEMORY 記著那個 repo 的 power bug「已修但不要 push」 |
 | 38 | 連線被拒被報成「30 秒逾時」（實測 6–9 ms） | ⭕ UNASSIGNED | 訊息產生點不在任何分支的變更檔清單裡 | — |
 | 39 | `get_power_report` 是 dpid 的純函數，且沒有 `source` 欄 | ⭕ UNASSIGNED | `get_power_report` 在所有分支 diff 0 命中；round 6 已確認值是 `splitmix64(dpid)`、屬已知 #39／#33 而非 cache bug | 「省了 N% 電」的任何宣稱都掛在這條上 |
@@ -125,7 +125,7 @@
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
 | 45 | 🔴 啟動競態由 topology 檔的 parse 時間決定，出貨檔 0/44 勝 | ✅ IN TRUNK（09-03 整合 `b466407b`） | 與 #32 同一支：`fix/d15-dataplane-kind-race @ 75c2b526`（`start()` 改成在生出任何執行緒之前、在呼叫者的執行緒上完成靜態拓樸載入）。閘門同 #32（auditor 編過、3／4）。fixture 刻意用 310 B 級拓樸——**那正是壞版本會贏的尺寸**，所以不能靠運氣過 | 同 #32：B-5 先落地 |
-| 46 | 🔴 輪詢覆蓋關機指令且復活是永久的（`isUp=true`，沒有 else 分支） | 🛠 派工中（16:xx，`fix/poll-does-not-resurrect`，base `5c64d432`） | trunk `src/ndt_core/collection/TopologyAndFlowMonitor.cpp:762-777`：`(*m_graph)[*vertexSwitchOpt].isUp = true; …isEnabled = true;`，else 只印 WARN。**每一支分支上這段都逐字相同**。D15 的作者在自己的回歸表第 3 列白紙黑字寫「🔴 This fix does not address the writer … a second, independent defect, untouched here and not to be claimed」 | **見下方第 2 條** |
+| 46 | 🔴 輪詢覆蓋關機指令且復活是永久的（`isUp=true`，沒有 else 分支） | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | **見下方第 2 條** |
 | 47 | 🔴 kernel 的 listening socket 被自己 `popen` 出來的 sh／curl 繼承（2.01–2.22 s，48/48） | ✅ IN TRUNK（09-03 `94abfb3f`，併 `fix/cloexec-listening-sockets @ 401cb6f2`；auditor 在整合樹重跑閘門 **12/0＋3 widening**、940/940；raw `audit-raw @ 94333bb2`；前提：窗口＝最長命子行程，proxy 卡住才重現） | `FD_CLOEXEC`／`O_CLOEXEC`／`closefrom` 在所有未併分支的改動行 **0 次新增**。唯一碰 `utils::execCommand` 的是 `fix/topology-round-reads-status`，而它只在 curl 命令尾巴加 `--write-out`（`TopologyAndFlowMonitor.cpp:488` 附近），**沒有動 fd 繼承** | 錯誤訊息「另一個 NDTwin kernel 幾乎確定還在跑」會把人推向錯誤診斷，值得早修 |
 | 48 | `ndt apps stop viz` 回 ok 而兩個 JVM（531 MB）仍活著；`apps orphans` 也說沒有 | ✅ IN TRUNK（09-03 `94abfb3f`，併 `fix/apps-stop-kills-the-group @ 850a6ea8`；auditor 重跑 71/0、閘門 13/0、鄰居 20/0；**真 app 未跑**，殘留見 WORK-ITEMS W-2） | 與 #6 同一缺陷、第二次量到。證據同 #6（分支上 `app_sig viz` 未變） | 同 #6 |
 | 49 | `ndt down` 自己的 verify 誤報（說 5 still running，20 秒後 `ps` 數到 0） | ⭕ UNASSIGNED | trunk `ndt:1103/1106` 的 `bmv2_count`／`mn_count` 斷言在 `fix/ports-that-block-restart` 上**未改**——該分支只把底下的 `for p in 8000 8080 8081` 換成表。verify 與 sweep 之間仍沒有同步 | 與 #21／#26 同一族，適合一起做 |
@@ -220,7 +220,7 @@
 | 74 | `SHELL_SITES` 清單對不上被 `classifyEndpointReply(...)` 包起來的 `execCommand` 站點，`test_shell_command_construction` 兩個 case 紅 | ✅ IN TRUNK（同上；provenance 由 agent 重新推導：`m_ryuUrl` 唯一寫入點 `setTopologyApiUrls`，來源是兩個 build-time `AppConfig` 常數，無 HTTP handler 可達 ⇒ 清單漂移，不是注入路徑） | auditor：`d00fa57c`（topology-round 併入）起紅；我讀過 `url` 來源不變（`AppConfig` IP:port＋字面路徑） | agent 要再讀一次 provenance；若 request 可達 ⇒ 升級為真缺陷、不准只改清單 |
 | 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | ⭕ UNASSIGNED | #17 agent 查證（FIX-CHAOS-INVARIANTS §未做到） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
 | 76 | proxy 卡住時，bind 失敗的 kernel 印完 `Exiting` 後 8 秒還在（shutdown 卡在 poll thread 的 curl） | ⭕ UNASSIGNED | #47 agent 順帶觀察，未追 | 與 B-5 關機路徑同族；重啟腳本若拿「印了 Exiting」當退出訊號會踩到 |
-| 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ⭕ 等 Adam 裁（QUESTIONS N13） | #42 agent 讀 caller 發現（`ndtwin-lab:571-580`） | 跨 repo；建議改 `ndtwin-lab` 跑本 repo 那份 |
+| 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | 🛠 派工中（20:4x，`fix/ndt-up-ovs-runs-repo-topo`，base trunk，N13 裁 (b)） | #42 agent 讀 caller 發現（`ndtwin-lab:571-580`） | 跨 repo；建議改 `ndtwin-lab` 跑本 repo 那份 |
 | 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | ✅ IN TRUNK | `1ec39977`（merge of `fix/gate-anchors-root-files`，修法 `aed8f299`）：`tests/shell/check_gate_anchors.py` +1 述詞 `is_repo_path`／7 呼叫點、`tests/python/test_check_gate_anchors.py` +14 case（對 trunk 工具 9 FAIL＋3 ERROR）、`tests/shell/mutate_gate_anchors_root_files.sh` 13/0；全 repo 掃描 40/53→41/54、既有格一格沒動；raw `audit-raw @ 1cfbbc73`；MERGE-LOG 26 | #42 agent 撞到、閘門內以 `./` 繞過（繞道留著，兩種寫法都 `ok(23)`）；已知極限：名為 `foo.d` 的目錄會被放行、未修 |
 | 79 | `ndt` claim／pids 是 per-checkout，多 worktree 下互相隱形 | ⭕ UNASSIGNED | auditor 讀 `tools/test_workflow/ndt`：`CLAIM=` 第 256 行、`.test_run/pids` 第 243 行，都由 `$REPO` 組出；沒有任何分支碰它 | 修法方向：claim／pid 目錄改到與 checkout 無關的位置（`/tmp/ndtwin-lab/` 或 `$XDG_RUNTIME_DIR`），要 Adam 點頭再派——它改的是交接協定 |
 | 80 | liveness worker 用快取 `probe_ok` 把 `is_up` 寫回 true 8–13 s | ⭕ UNASSIGNED | poll agent 兩臂 18/18（raw 在 `audit-raw`）；沒有分支 | 與 Q12 綁在一起裁；候選修法：distrust window 改證據界定 |
