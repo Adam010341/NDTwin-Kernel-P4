@@ -26,6 +26,17 @@
 # rather than of the test. Counting it would make the gate lie about the test either way. Its
 # comment block says how to make it observable.
 #
+# [Co-developed with claude code -- Adam] 2026-09-04, FINDINGS #85: M8's anchor was re-pointed,
+# because the line it moved -- `std::string ip_str = utils::ipToString(vp.ip.front());` -- no
+# longer exists in fetchTemperatureReportInternal. That read is now managementIpForReport(vp),
+# which answers nullopt instead of faulting. M8 still moves the address read above the type
+# filter, and is still an expected survivor, but no longer for the old reason: the mutant is not
+# undefined behaviour any more, it is an unasserted side effect (a host with no address now takes
+# a WARN and an entry in the missing-address set that no assertion in THIS suite looks at). The
+# harm F-1b named is gone; what M8 measures now is that this suite does not cover the ordering
+# for its own sake. Left in place, with its verdict unchanged, rather than deleted: removing a
+# mutation because it stopped being dangerous is how a gate quietly gets easier.
+#
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # and the run asserts byte-identity at the end. Baseline is the WORKING TREE, not HEAD, so this
 # runs against an uncommitted fix. These files are in a worktree other sessions write to.
@@ -376,12 +387,16 @@ mutate_may_survive \
             continue;
         }
 
-        std::string ip_str = utils::ipToString(vp.ip.front());' \
-    '        std::string ip_str = utils::ipToString(vp.ip.front());
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #85, the third of the three the comment above predicted would "still fault one
+        // branch later". See managementIpForReport in the header.
+        const auto ipOpt = managementIpForReport(vp);' \
+    '        const auto ipOpt = managementIpForReport(vp);
         if (vp.vertexType != VertexType::SWITCH)
         {
             continue;
-        }' \
+        }
+' \
     '        // shape fetchCpuReportInternal and fetchMemoryReportInternal already have. It used to be'
 
 # --- C1: the control ---------------------------------------------------------------------------
