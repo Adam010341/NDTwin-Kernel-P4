@@ -1763,7 +1763,7 @@ check_up_target() {
     if [[ -z "$plane" || -z "$hosts" || -z "$topo" ]]; then
         printf '  %-14s %s\n' "record" "${Y}unreadable -- ${f#$REPO/} has no plane/hosts/topology${N}"
         printf '  %-14s %s\n' "" "--check did NOT check. delete it and run 'ndt up' again."
-        return 3
+        return 3   # a record nobody can read is the same answer as no record: nothing compared
     fi
 
     local when="$at"
@@ -1773,14 +1773,20 @@ check_up_target() {
 
     local bad=0
     # row <field> <live> <want> -- print the comparison and record the difference by NAME.
+    # Printing a comparison and reporting a difference are two acts, and only the second one
+    # is the check. They are separate functions so that a gate can delete the second and leave
+    # a report that still looks exactly like a working comparison. [Co-developed with claude code -- Adam]
+    _ut_differs() {
+        UP_TARGET_PROBLEMS+=("$1: the lab has '$2', the last 'ndt up' asked for '$3'")
+        bad=1
+    }
     _ut_row() {
         local field="$1" live="$2" want="$3"
         if [[ "$live" == "$want" ]]; then
             printf '  %-14s %-22s %s\n' "$field" "$live" "== $want   ok"
         else
             printf '  %-14s %-22s %s\n' "$field" "${R}$live${N}" "${R}!= $want   MISMATCH${N}"
-            UP_TARGET_PROBLEMS+=("$field: the lab has '$live', the last 'ndt up' asked for '$want'")
-            bad=1
+            _ut_differs "$field" "$live" "$want"
         fi
     }
     # unreadable <field> <why> -- a question that could not be asked is a failure, not a pass.
@@ -1801,7 +1807,7 @@ check_up_target() {
 
     # 2. the fabric itself, counted out of ps -- the only side of this that is not the model
     #    talking about the model. 0 means the reading failed, and a failed reading is red
-    #    (same rule as verify_p4's model/fabric assertion).
+    #    (same rule as the model/fabric assertion in verify_p4).
     local live_hosts; live_hosts="$(fabric_host_count)"
     if [[ ! "$live_hosts" =~ ^[0-9]+$ ]] || [[ "$live_hosts" -eq 0 ]]; then
         _ut_unreadable "fabric hosts" "no host namespaces found (fabric_host_count gave '${live_hosts:-<empty>}')"
@@ -1830,11 +1836,11 @@ check_up_target() {
             printf '  %-14s %-22s %s\n' "topology file" "sha256 ${sum:0:12}" "== recorded   ok"
         else
             printf '  %-14s %-22s %s\n' "topology file" "${R}sha256 ${now:0:12}${N}" "${R}!= ${sum:0:12}   CHANGED SINCE up${N}"
-            UP_TARGET_PROBLEMS+=("topology file: $topo has been edited since 'ndt up' loaded it; the kernel pulls once and never retries")
+            UP_TARGET_PROBLEMS+=("topology file: $topo has been edited since the ndt up that loaded it; the kernel pulls once and never retries")
             bad=1
         fi
     fi
-    unset -f _ut_row _ut_unreadable
+    unset -f _ut_row _ut_unreadable _ut_differs
     return "$bad"
 }
 

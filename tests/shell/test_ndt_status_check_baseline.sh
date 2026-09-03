@@ -269,7 +269,7 @@ import json,sys
 p=sys.argv[1]; t=json.load(open(p)); t['edges'].append({'src':0,'dst':9}); json.dump(t,open(p,'w'))" "$FIX/$OVS4"
 OUT="$(run_check)"
 check "the model file edited under a running kernel is red" "1" "$(rc_of "$OUT")"
-has   "  and it says the file changed, naming it"       "topology file: $OVS4 has been edited since 'ndt up'" "$OUT"
+has   "  and it says the file changed, naming it"       "topology file: $OVS4 has been edited since the ndt up that loaded it" "$OUT"
 mv -f "$FIX/$OVS4.bak" "$FIX/$OVS4"
 
 section "6. 🔴 the other direction: it is not simply always red"
