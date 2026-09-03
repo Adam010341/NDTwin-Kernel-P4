@@ -22,6 +22,37 @@
 **過去擋住這件事的一直是「推不上去」這個存取限制，不是內容乾淨。**
 Adam 確認：不推 origin，等全部修好推 `NDTwin-Kernel-P4-public`（那顆不追任何分支的快照 repo）。
 
+### 🔴 改推 `NDTwin-Kernel-P4-public` **沒有解決**那個問題（09-03 11:0x 查證）
+
+換目的地移動的是**存取控制**，不是**內容**。四項第一手查證：
+
+```
+$ gh repo view ndtwin-lab/NDTwin-Kernel-P4-public --json visibility   PUBLIC   ← 存在，而且公開
+$ gh repo view ndtwin-lab/NDTwin-Kernel-P4        --json visibility   PRIVATE  （remote `lab`）
+$ gh repo view Adam010341/NDTwin-Kernel-P4        --json visibility   PRIVATE  （remote `p4` 之一）
+$ git merge-base --is-ancestor fbf60530 trunk                          YES
+$ git ls-tree -r --name-only fbf60530 -- doc/2026-08-29_europ4-poster-abstract | wc -l   12
+$ git ls-tree -r --name-only main     -- doc/2026-08-29_europ4-poster-abstract | wc -l    0
+```
+
+⇒ **`git push <任何公開 remote> trunk` 會發布那 12 個檔**（`NOTES.md`、`abstract.tex`、10 張圖），
+無論工作樹今天長什麼樣子。origin 與 P4-public 在這件事上**沒有差別**，兩顆都是 PUBLIC。
+
+**還有一件今天才發現的**：`NDTwin-Kernel-P4-public` **目前不是這個 repo 的 remote**。
+現有的三個是 `origin`(PUBLIC)、`lab`(PRIVATE)、`p4`(**兩個 push URL，都是 PRIVATE**)。
+⇒ 「推上 P4-public」這個指令現在**不存在**，要先 `git remote add`。
+
+🔴 **需要你裁的（我不自己選，因為發布不可逆）**：
+
+| 選項 | 代價 |
+|---|---|
+| **A. 推 `main` 為基底的快照**（推薦） | `main` 完全沒有那 12 個檔。代價是要決定哪些修法 cherry-pick 過去 |
+| B. 推 trunk，接受投稿包公開 | 若場地不是雙盲、也沒有 embargo，這可能根本沒關係——**但那要你確認，我沒有讀 `NOTES.md`** |
+| C. 改寫歷史把 `fbf60530` 濾掉 | 動到所有既有 clone 的祖先；重寫過的 trunk 與 lab/p4 上的分歧要處理 |
+| D. 推一個 orphan 的單一 commit 快照 | 公開端沒有歷史可查；但那本來就是「快照 repo」的定位 |
+
+**在你回答之前我不會推任何東西。**
+
 ---
 
 # 尚未裁決的（原始清單）
