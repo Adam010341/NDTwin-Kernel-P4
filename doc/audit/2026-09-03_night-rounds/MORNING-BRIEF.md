@@ -11,6 +11,36 @@
 - **每一支修法都有變異閘門**，而且今晚有 **6 個假綠是被閘門攔下來的**——沒有一個是讀碼看得出來的。
 - **今晚一個 commit 都沒推**（一個例外，見文末）。
 
+## 修法現況（09-03 上午這批，10:00 之後）
+
+七支修法 agent：**四支有閘門且我自己重跑過、一支自陳未交付、一支中途死亡由我救援、一支還在跑**。
+不是採信 agent 的自陳（`AUDITOR-VERIFICATION.md`）；一頁一支的審查頁在 `FIX-BRANCHES-FOR-REVIEW.md`。
+
+| 對應上面第幾件 | 分支 | 閘門（auditor 重跑） | 還缺什麼 |
+|---|---|---|---|
+| **第 1 件** 路由不確定 | `fix/deterministic-path-tiebreak` | 5 mutations, 0 survived | 沒有 live 的十次 bring-up 確認 |
+| **第 2 件** 的「看不見」那一半 | `fix/telemetry-health-visible` | 🔴 **沒有閘門結果** | agent 中途死亡，**我把它的未提交修改救到分支上**；從未編譯 |
+| **第 3 件** bmv2 liveness 競態 | `fix/d15-dataplane-kind-race` | 🔴 **0 mutations — 閘門 SURVIVOR，作者自陳未交付** | C++ 從未編譯；4 列回歸全部未跑 |
+| 夜巡重複五次的殘留形狀 | `fix/ports-that-block-restart` | 9 mutations, 0 survived | 兩支閘門腳本 commit 成 `100644` |
+| P4 priority 靜默丟棄 | `fix/p4-priority-not-silently-dropped` | 7 mutations, 0 survived（含四個反向） | 未經 live |
+| 拓樸檔壞掉才發現 | `fix/topology-load-fails-before-listen` | 29 tests ＋兩向對照 | 🔴 **C++ 半邊未編未跑** |
+
+🔴 **第 2 件的低報本身沒有人在修。** `fix/telemetry-health-visible` 修的是「所有健康訊號都說正常」，
+不是 2.76 倍那個數字——**成因還沒釘到單一行，現在派修法會是猜。**
+
+🔴 **D15 那支是唯一一個「寫了閘門但沒跑」的**，而它自己說了。
+`tests/test_DataPlaneKindOrdering.cpp` 四支測試寫好了、從未編譯——冷編 `-j2` 超過它的時間上限。
+**我已經把那個編譯排下去了**（獨立 systemd unit、`-j2`、獨立 build 目錄），結果會補在
+`AUDITOR-VERIFICATION.md`。在那之前，**第 3 件的修法沒有任何證據支持它是對的**。
+
+🔴 **這批沒有一支起過 fabric。** 實驗室整晚在跑測試輪，修法全部停在離線／單元層。
+每一支的「未經 live」都是**合併條件的缺席，不是加分項的缺席**。
+
+🔴 **一件我造成的事故**：共用工作樹的 HEAD 被其中一支 agent 用 `git checkout -b` 移走，
+之後兩個 agent 的 commit 就落在那條分支上——三個作者的 commit 疊成一條。
+**沒有東西遺失**，827 行的審查頁已經用 fast-forward 收回 trunk，剩下的拆法寫在
+`FIX-BRANCHES-FOR-REVIEW.md` 前言第 1 點，**要動到已 checkout 的分支，等你點頭**。
+
 ## 你醒來最該先看的三件
 
 ### 1. 🔴 同一個實驗跑兩次，數字不一樣，而檢查它的端點看不見

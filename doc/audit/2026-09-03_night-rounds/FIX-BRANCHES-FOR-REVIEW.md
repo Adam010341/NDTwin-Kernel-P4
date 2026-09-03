@@ -293,3 +293,123 @@ C++ 半邊未編未跑（上述）。`run()` 現在是 `try/catch` 包 `runLoop(
 ---
 ---
 
+# 5／7 — `fix/d15-dataplane-kind-race`
+
+1 commit（`75c2b526`）｜base `128bfc6b`（**不是目前 trunk**）｜動 `TopologyAndFlowMonitor.{hpp,cpp}`
+＋新增 `tests/test_DataPlaneKindOrdering.cpp`
+
+## 1. 一句話
+
+`start()` 改成**在生出任何執行緒之前、在呼叫者的執行緒上**完成靜態拓樸載入；
+而 `refreshDataPlaneKind()` **拒絕**從還沒載入的拓樸推導結論——「還不知道」不再等於「不是 bmv2」。
+
+## 2. 🔴 行為變更前後對照
+
+這支修的是夜巡第 3 號 finding：`refreshDataPlaneKind()` 比拓樸載入早約 1 ms、而且**只算一次**
+⇒ bmv2 的 liveness 路徑**從不執行**，出貨拓樸檔上 **0/44 勝**。
+
+| 情境 | 修法前 | 修法後 |
+|---|---|---|
+| `start()` 回傳時 | 拓樸可能還沒載入（載入在生出來的那條執行緒上） | 一定載入完（`isStaticTopologyLoaded()` 為真） |
+| 太早取得的判定 | **被 latch 住**，整個 process 生命期都錯 | 不記為 determined；`dataPlaneIsBmv2()` 在使用點重新推導 |
+| 7.8 KB 以上的拓樸檔 | bmv2 liveness 0/44 | 作者**預測**修好（未量測） |
+
+**這不是「把載入變快」**——作者明確寫了那是排序修法。這點與夜巡的量測一致：
+60 次冷啟動**稍後**都印 `All-bmv2 topology`，輸的是時序不是拓樸。
+
+## 3. 🔴 閘門證據 — 沒有
+
+**`0 mutations, gate SURVIVOR — NOT DELIVERED`，作者自己這樣寫。**
+`tests/test_DataPlaneKindOrdering.cpp` 四支測試寫好了，**從未編譯、從未執行**：
+冷編 `-j2` 超過十分鐘，撞到時間上限。**因此這段 C++ 從來沒有被編譯器看過。**
+
+閘門的設計本身是好的（斷言**排序**不斷言結果，fixture 刻意用 **310 B 級**的單交換機拓樸
+——那正是壞版本會**贏**的尺寸，所以不能靠運氣過），五個變異各自指名該紅的測試，
+其中第 5 個是**預期存活並且應該被記成存活**的對照。**但這些全部沒有跑過。**
+
+**auditor 已把冷編排進獨立 systemd unit**（`-j2`、`MemoryMax=5G`、獨立 build 目錄、乾淨 worktree），
+結果補在 `AUDITOR-VERIFICATION.md`。**在那之前，這支分支不該被合併。**
+
+## 4. 合併順序與衝突
+
+- base 比 trunk 舊，需要 rebase。
+- 🔴 **與 `fix/topology-load-fails-before-listen` 同檔同區**（兩支都搬 `run()` 開頭那三行）。
+  **先併 D15，再 rebase topoload。**
+- D15 動 `start()`，topoload 動 `loadStaticTopology()` 並刻意保持冪等以求可組合。
+
+## 5. 回退方式
+
+單一 commit。無資料格式改變。
+
+## 6. 未處理（作者原話）
+
+> **四列回歸表全部 UNRUN**（fabric 從未起，`ndt up` 從未執行）。文件裡的是**預測**，不是觀測：
+> (1) *形狀改變* — `isUp` 仍然承載兩個意思；(2) *存活* — early return 沒動，只是 staleness 收窄；
+> (3) **沒有處理** — `TopologyAndFlowMonitor.cpp:768-772` 無條件寫 `isUp=true` 是**第二個獨立缺陷**，
+> 我沒有碰，也不宣稱；(4) *預測消失* — 這支針對的那一列。
+
+> **先跑第 4 列** — `grep -c 'GET /p4/switch_state'` 必須是每秒約 1 次，否則其他列都不可解讀。
+
+---
+---
+
+# 6／7 — `fix/telemetry-health-visible`
+
+1 commit（`c7f78c58`）｜base `2168dcb9`（＝目前 trunk）｜動 `FlowLinkUsageCollector.{hpp,cpp}`、
+`HttpSession.{hpp,cpp}`、`tests/CMakeLists.txt`＋新增 `tests/test_TelemetryHealth.cpp`
+
+## 1. 一句話
+
+🔴 **這支不是 agent 交付的，是我從一個死掉的 agent 手上撿回來的。**
+「Surface telemetry health」在 10:23 被 stall watchdog 收掉，**沒有 commit、沒有分支**，
+東西全部躺在共用工作樹裡。這個 commit 只做一件事：把它搬到不會被別人的
+`git commit -- <目錄>` 掃走的地方。**我沒有寫它、沒有編它、沒有跑它的閘門。**
+
+修法本身（作者自述）：把一個 `telemetry_health` 物件在**一個地方**建構
+（`FlowLinkUsageCollector::ingestHealthJson()`），掛在
+`get_detected_flow_data` 的每一列、`get_average_link_usage`、以及新的 `get_sflow_stats` 上。
+
+## 2. 🔴 行為變更前後對照
+
+這支對的是夜巡第 2 件的**「看不見」那一半**：四個 sFlow 丟棄計數器**在 kernel 供應的
+105 個 JSON key 裡一個都到不了**，唯一的讀者是一行 log。
+
+| 情境 | 修法前 | 修法後（作者宣稱） |
+|---|---|---|
+| 654,709 datagram/s 下 socket 丟 72.5% | 每個 endpoint 200 `success`，`avg_link_usage` 反向上升 | 同一個回應裡帶 `status: severe_loss` 與 `loss_fraction` |
+| 問「這次量測可不可用」 | 沒有任何欄位回答 | `offered_in_window` ＝ samples ＋ socket drops ＋ app drops，**與速率同窗口**，比例可自行重算 |
+| `GET /ndt/get_sflow_stats` | 404 | 200，回同一個物件 |
+
+**設計上我認為對的一點**：欄位放在資料旁邊，而不是只開一個端點——
+「計數器早就存在而且早就是對的，失敗的是**讀它是一個可以不做的獨立動作**」。
+
+**代價作者也寫明了**：每一列 flow 大約多 200 bytes，而且**每列重複**
+（因為 `get_detected_flow_data` 回的是裸陣列，沒有信封可以放單一份）。三個回應形狀改變。
+
+## 3. 🔴 閘門證據 — 沒有
+
+`tests/test_TelemetryHealth.cpp` 存在，**從未編譯、從未執行，沒有任何記錄結果**。
+**auditor 已把冷編排進佇列**（獨立 systemd unit，排在 D15 那次後面），結果補在 `AUDITOR-VERIFICATION.md`。
+
+## 4. 合併順序與衝突
+
+- base 是目前 trunk，可 fast-forward。
+- 🔴 **我刻意漏掉了一段。** 共用工作樹的 `HttpSession.cpp` 裡有**第三個 hunk 不屬於這支**
+  （`handleGetGraphData` 裡的 `result["topology_round"] = pollRoundJson()`），
+  那是**當時還在跑的另一支 agent 的在途編輯**。整檔提交會把活人的修改帶進一個沒有描述它的 commit
+  ⇒ 這條分支帶的是**三段取二**的過濾 patch。
+- 同理 `tests/CMakeLists.txt` 當時疊了三個 agent 的條目，這裡**只有 telemetry 那一條**。
+
+## 5. 回退方式
+
+單一 commit。但它改三個回應形狀 ⇒ 退掉之後任何已經開始讀 `telemetry_health` 的消費者會看不到欄位。
+
+## 6. 未處理
+
+**全部。** 這支從來沒有被編譯器看過。接手的人第一件事是編它。
+作者的完整自述在 `doc/audit/2026-09-03_night-rounds/FIX-TELEMETRY-HEALTH.md`，
+**每一條宣稱都未經查證**。
+
+---
+---
+
