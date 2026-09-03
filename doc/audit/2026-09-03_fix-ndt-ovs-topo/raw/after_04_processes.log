@@ -1,0 +1,15 @@
+=== ps: the topology process actually running (AFTER arm) ===
+2026-09-03T23:22:39+08:00
+ 858842 sudo -n /usr/bin/mnexec /home/adam/miniconda3/envs/ntg-env/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+ 858848 /home/adam/miniconda3/envs/ntg-env/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+
+=== /proc/<pid>/cmdline, NUL-separated, the authority ===
+-- pid 858842
+sudo
+-n
+/usr/bin/mnexec
+/home/adam/miniconda3/envs/ntg-env/bin/python
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+-- pid 858848
+/home/adam/miniconda3/envs/ntg-env/bin/python
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py

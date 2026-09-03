@@ -1,0 +1,24 @@
+Bringing up the ovs stack
+  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+
+[1/3] control plane (Ryu)
+  started ryu (pid 858799) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/ryu.log
+  waiting for Ryu REST on :8080 . up
+[2/3] data plane (Mininet, needs sudo)
+  Mininet is interactive (it drops into a CLI) and needs root.
+  Start it in a separate terminal:
+
+      sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+
+  waiting for 10 switches, 32 links, and all-destination paths
+  Ryu settles for 10s before installing paths (NDTWIN_RYU_SETTLE_S)
+    switches=10 links=32 paths=installed                                                        converged after 2s
+[3/3] kernel
+  kernel already running (pid 879799, same command)
+  waiting for kernel API on :8000  up
+
+stack up. next: tools/test_workflow/stack.sh wait
+Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+  waiting for kernel API on :8000 . up
+
+stack up. next: tools/test_workflow/stack.sh wait

@@ -1,0 +1,22 @@
+=== AFTER arm: the topology process that is running, captured while the fabric is up ===
+2026-09-03T23:19:16+08:00
+-- ps -eo pid,args | grep testbed_topo --
+ 858842 sudo -n /usr/bin/mnexec /home/adam/miniconda3/envs/ntg-env/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+ 858848 /home/adam/miniconda3/envs/ntg-env/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+
+-- /proc/<pid>/cmdline of the python, NUL-separated (the authority, not ps) --
+-- pid 858842
+sudo
+-n
+/usr/bin/mnexec
+/home/adam/miniconda3/envs/ntg-env/bin/python
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+-- pid 858848
+/home/adam/miniconda3/envs/ntg-env/bin/python
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+
+-- host/switch namespaces --
+mininet: processes = 143
+
+-- sha256 of the file that is running --
+60509362f7463a60431a6024563f9fc082729cb94c7d4d8458109cc2219ae2bc  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py

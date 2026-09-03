@@ -1,0 +1,17 @@
+=== AFTER arm supplement: does the fabric forward NOW that Ryu has installed paths? ===
+(the banner's 0/128 was measured by the topology's own self-test, which runs BEFORE
+ intelligent_router.py's hub.sleep(60) + all-pair path install completes -- stack.sh
+ logged 'converged after 59s'. This probe is what the banner would say if re-run now.)
+2026-09-03T23:19:35+08:00
+-- h1 (pid 858859) -> 10.0.0.100
+--- 10.0.0.100 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2027ms
+rtt min/avg/max/mdev = 0.105/0.471/1.191/0.509 ms
+-- h5 (pid 858868) -> 10.0.0.64
+--- 10.0.0.64 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2017ms
+rtt min/avg/max/mdev = 0.074/0.532/1.396/0.610 ms
+-- h100 (pid 859058) -> 10.0.0.1
+--- 10.0.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2080ms
+rtt min/avg/max/mdev = 0.068/0.090/0.102/0.015 ms

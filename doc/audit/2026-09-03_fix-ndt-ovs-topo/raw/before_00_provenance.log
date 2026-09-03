@@ -1,0 +1,25 @@
+=== FIX-NDT-OVS-TOPO / finding #77 -- LIVE ARM 'BEFORE' (trunk behaviour) ===
+2026-09-03T21:20:24+08:00
+host: adam-Yoga-7-2-in-1-16IML9   owner: ovstopo
+
+-- which ndt, which lab --
+ndt:        /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+ndt sha:    42c2844191b79139b86a271ff3003401c64931edee67d35398274de5a992ac0e
+LAB (hardcoded in ndt:55): /usr/local/sbin/ndtwin-lab
+-rwxr-xr-x 1 root root 12843 Aug 30 20:20 /usr/local/sbin/ndtwin-lab
+installed lab sha: 288b71cb8ccc7c9472f4229d46c5fe1408592ede091be180536ed65676b0ce4c
+trunk repo lab sha: b11b53eec6fd2bddea0313b16ae5cc13ad7c0199b9fe8d9c0d3b4a946d3fd997
+
+-- the installed lab's ovs-topo-start (what root will run) --
+    ovs-topo-start)
+        # NTG's own OVS topology (128 hosts, RemoteController -> Ryu). Ryu must already be
+        # listening on 6653 -- the agent starts it unprivileged before calling this.
+        session_running topo && die "topo session already running (topo-stop first)"
+        $TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator \
+            "$NTG_PY" /home/adam/Network-Traffic-Generator/testbed_topo.py
+        echo "OVS topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)"
+        ;;
+
+-- the two testbed_topo.py on this machine --
+ead4d84a862ccd94368c9aca86cf52450ed7ebd9ef06e50546ada458ab4130b2  /home/adam/Network-Traffic-Generator/testbed_topo.py
+efbc4f88aadb6de9decaecaea640622434e95990e37b4a862df6a526f789bb88  /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py

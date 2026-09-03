@@ -1,0 +1,21 @@
+=== python: test_testbed_banner.py (finding #42's suite, against THIS branch's file) ===
+----------------------------------------------------------------------
+Ran 45 tests in 0.037s
+
+OK
+
+=== python: test_ovs4_sflow.py (reads testbed_topo.py as the reference) ===
+----------------------------------------------------------------------
+Ran 21 tests in 0.015s
+
+OK
+
+=== shell: the two existing ndtwin-lab suites ===
+
+Ran 29 checks, all passed
+
+Ran 59 checks, all passed
+
+=== shell: the new suite ===
+
+Ran 41 checks, 0 failed

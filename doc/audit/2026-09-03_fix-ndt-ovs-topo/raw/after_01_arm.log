@@ -1,0 +1,81 @@
+[23:17:31] AFTER arm start
+[23:17:31] topology under test: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+60509362f7463a60431a6024563f9fc082729cb94c7d4d8458109cc2219ae2bc  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+efbc4f88aadb6de9decaecaea640622434e95990e37b4a862df6a526f789bb88  /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+ead4d84a862ccd94368c9aca86cf52450ed7ebd9ef06e50546ada458ab4130b2  /home/adam/Network-Traffic-Generator/testbed_topo.py
+[23:17:31] [1/4] control plane (Ryu) via stack.sh in the main checkout
+[23:17:32]   Ryu up, prompt reached
+[23:17:32] [2/4] data plane -- THIS BRANCH's testbed_topo.py, argv as the fixed ovs-topo-start builds it
+[23:17:32]   started (job 858842), stdout -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/raw/after_03_topo_stdout.log
+[23:17:46]   building: 0 host namespaces so far
+[23:18:01]   building: 0 host namespaces so far
+[23:18:17]   building: 0 host namespaces so far
+[23:18:32]   building: 0 host namespaces so far
+[23:18:47]   building: 0 host namespaces so far
+[23:19:03]   building: 0 host namespaces so far
+[23:19:18]   building: 0 host namespaces so far
+[23:19:33]   building: 0 host namespaces so far
+[23:19:49]   building: 0 host namespaces so far
+[23:20:04]   building: 0 host namespaces so far
+[23:20:20]   building: 0 host namespaces so far
+[23:20:35]   building: 0 host namespaces so far
+[23:20:50]   building: 0 host namespaces so far
+[23:21:06]   building: 0 host namespaces so far
+[23:21:21]   building: 0 host namespaces so far
+[23:21:36]   building: 0 host namespaces so far
+[23:21:52]   building: 0 host namespaces so far
+[23:22:07]   building: 0 host namespaces so far
+[23:22:22]   building: 0 host namespaces so far
+[23:22:38]   building: 0 host namespaces so far
+[23:22:39]   fabric: 0 host namespaces
+[23:22:39]   captured /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/raw/after_04_processes.log
+ 858842 sudo -n /usr/bin/mnexec /home/adam/miniconda3/envs/ntg-env/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+ 858848 /home/adam/miniconda3/envs/ntg-env/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovstopo/testbed_topo.py
+[23:22:39] [3/4] hand the prompt back to stack.sh (kernel)
+[23:22:42]   stack.sh rc=0
+[23:22:42] [4/4] status + banner
+  topology       setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    139     manifest       absent
+  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open
+
+network health
+  switches       10 up, 10 enabled, 0 admin-disabled
+  links          288 total, 0 down, 0 admin-disabled
+  model          MISMATCH: graph has 128 hosts / 288 edges, file says 4 40
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  10 switches (10 up, 10 enabled), 128 hosts, 288 edges
+[23:22:42] banner so far (the topology's own stdout):
+
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+Result from h128 to 10.0.0.64:
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+
+--- 10.0.0.64 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+host reachability: FAIL -- 0/128 pings replied, 128 lost (100.0% loss)
+  the Mininet CLI below is still available -- the fabric is built, not forwarding
+sFlow reachability: NOT MEASURED (configured above, never read back here)
+switch identification: NOT MEASURED (agent IPs assigned above, never verified here)
+Run 'sflowtool -p 6343' in another terminal to see the data.
+mininet> [23:22:42] closing the topology's stdin (CLI EOF -> net.stop)
+[23:24:33] topology exited
+[23:24:33] AFTER arm captured

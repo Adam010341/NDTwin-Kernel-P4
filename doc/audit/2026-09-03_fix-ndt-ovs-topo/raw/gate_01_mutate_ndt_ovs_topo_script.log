@@ -1,0 +1,21 @@
+baseline (the shadow harness, unmutated -- must be green before any mutation):
+  Ran 41 checks, 0 failed
+
+fires -- the old behaviour must not come back:
+  caught   M1: the launch names NTG's testbed_topo.py again         (the topology comes from the kernel tree went red)
+  caught   M2: the tmux working directory goes back to NTG          (tmux's working directory is the tree went red)
+  caught   M3: cleanup keeps sweeping the OLD path suffix           (cleanup's pattern matches the launched argv went red)
+  caught   M4: a missing topology starts an empty window anyway     (rc is non-zero went red)
+  caught   M5: the path is a second constant, not the configured tree (a different KERNEL_DIR moves the script went red)
+  caught   M6: the verb inlines the old launch again                (the ovs-topo-start branch launches that file went red)
+  caught   M7: cleanup stops sweeping the file it starts            (cleanup sweeps the pattern the launch uses went red)
+  caught   M8: cleanup stops reaping NTG orphans from old rounds    (  and still sweeps the NTG suffix (orphans) went red)
+  caught   M9: testbed_topo.py loses its interpreter bootstrap      (it imports under went red)
+
+widenings -- behaviour-preserving rewrites that must stay green:
+  green    N1 (widening): the sweep pattern is the full path suffix (behaviour-preserving, as it must be)
+  green    N2 (widening): the sweeps reordered and one repeated     (behaviour-preserving, as it must be)
+  green    N3 (widening): the refusal tests -e rather than -r       (behaviour-preserving, as it must be)
+
+baselines byte-identical: yes (tools/test_workflow/ndtwin-lab, testbed_topo.py)
+mutation gate: 12 mutations, 9 caught, 3 widenings green, 0 survived

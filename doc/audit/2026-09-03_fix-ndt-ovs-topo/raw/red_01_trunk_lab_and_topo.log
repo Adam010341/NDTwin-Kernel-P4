@@ -1,0 +1,15 @@
+the launch is reachable at all
+  FAILED   ndtwin-lab defines ovs_topo_script
+             expected: defined
+             actual:   not defined -- the launch is inline in the root-only dispatch
+  FAILED   ndtwin-lab defines ovs_topo_pattern
+             expected: defined
+             actual:   not defined -- the launch is inline in the root-only dispatch
+  FAILED   ndtwin-lab defines ovs_topo_start
+             expected: defined
+             actual:   not defined -- the launch is inline in the root-only dispatch
+  ok         and still defines sweep_matches (the sweep)
+  ok         and still defines sweep_count (the sweep)
+  ... the remaining sections need ovs_topo_start and cannot run
+
+Ran 5 checks, 3 failed
