@@ -1,0 +1,48 @@
+#### BEFORE: ndt up ovs4 on the unfixed topology -- the fabric said 'up. ready' ####
+# 2026-09-03T16:50:55+08:00; kernel a8ba99c2...; topo file sha 0b3f9796...; main tree c679d613
+
+== 1. the kernel IS listening for sFlow ==
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+UNCONN 0      0            0.0.0.0:6343      0.0.0.0:*    users:(("ndtwin_kernel",pid=2514770,fd=3))
+
+== 2. how many bridges are configured to send it ==
+name sflow
+---- -----
+s2   []
+s1   []
+s4   []
+s7   []
+s3   []
+s8   []
+s6   []
+s9   []
+s10  []
+s5   []
+-- sflow records defined in the OVS DB:
+   lines: 0
+
+== 3. the new verify, run live against THIS fabric (worktree copy, library mode) ==
+   $ NDT_LIB_ONLY=1 source <worktree>/ndt; verify_sflow <ovs4 model>
+  XX  sFlow: telemetry is not wired -- 0/10 bridges sampling to :6343, 0 records
+  XX     s2: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s1: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s4: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s7: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s3: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s8: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s6: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s9: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s10: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s5: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     the OVS database holds 0 sFlow records for 10 bridges -- a record referenced by no bridge is a configuration that ran twice, or one applied to a bridge that does not exist
+  XX     the kernel will answer get_average_link_usage with 0.0 and status success,
+  XX     which is the same answer it gives for an idle network. Fix this before measuring.
+rc=1
+
+== 3b. re-run after correcting the record-count wording (two directions, not one) ==
+  XX     s10: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     s5: no sFlow record -- this bridge samples nothing, and every rate and utilisation it contributes to reads zero
+  XX     the OVS database holds 0 sFlow records for 10 bridges -- the bridges named above have none
+  XX     the kernel will answer get_average_link_usage with 0.0 and status success,
+  XX     which is the same answer it gives for an idle network. Fix this before measuring.
+rc=1

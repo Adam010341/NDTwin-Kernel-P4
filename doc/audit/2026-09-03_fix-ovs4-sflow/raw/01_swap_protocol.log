@@ -1,0 +1,17 @@
+#### The ONE shared-tree write this round makes, and how it is undone ####
+# 2026-09-03T16:50:24+08:00
+# /usr/local/sbin/ndtwin-lab:51 hardcodes KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel and says so:
+# second copy per tree. Neither is a comment change, so neither is done here. Until then:
+# 🔑 A WORKTREE CANNOT BE TESTED THROUGH THIS SCRIPT. The topology it builds is always the one
+#    below, whatever tree you think you are running from.
+KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+# => 'ndt up ovs4' always runs the MAIN tree's ovs_4host_topo.py. A worktree cannot be
+#    tested through it. So the fixed file is swapped in for the AFTER run only, under this
+#    session's lab claim, and restored byte-identically afterwards.
+# main tree HEAD:            c679d613
+# file tracked-clean:        0 modification(s) reported
+# sha256 before any swap:    0b3f9796f45bf26f68d63a0bc6ce4a7f189efc08bfbc1fc1416e2d2502c5fa1a  tools/test_workflow/ovs_4host_topo.py
+# backup kept at:            /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/ovs_4host_topo.py.ORIG
+# sha256 of the backup:      0b3f9796f45bf26f68d63a0bc6ce4a7f189efc08bfbc1fc1416e2d2502c5fa1a
+# sha256 of the FIXED file:  5f9b4e0274d59a3b92d21bafd3f6ab44e38fb70caacdd80dd7e57b1d7a47f24b
+# kernel binary under test:  a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06  build/bin/ndtwin_kernel

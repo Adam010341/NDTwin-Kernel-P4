@@ -1,0 +1,55 @@
+#### AFTER: the same 3000 packets, and the numbers move ####
+# 2026-09-03T16:54:03+08:00; h1 netns pid 2530357; identical recipe to 04_before_traffic_numbers.log
+
+-- IDLE (before any traffic):
+   t=1  {"avg_link_usage":0.0,"status":"success"}
+   t=2  {"avg_link_usage":0.0,"status":"success"}
+   t=3  {"avg_link_usage":0.0,"status":"success"}
+   detected flows: []
+
+-- 3000 packets, h1 -> 10.0.0.2, sampled WHILE it runs:
+   during t=5s  {"avg_link_usage":0.000417609,"status":"success"}
+   during t=10s  {"avg_link_usage":0.0,"status":"success"}
+   during t=15s  {"avg_link_usage":0.00031319750000000004,"status":"success"}
+   during t=20s  {"avg_link_usage":0.0,"status":"success"}
+   flows during:  [{"dst_ip":16777226,"dst_port":0,"ended_at_ms":1788425691782,"estimated_flow_sending_rate_bps_in_the_last_sec":208896,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":208896,"estimated_packet_rate_in_the_last_sec":256,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":256,"first_sampled_time":"2026-09-03 16:54:11","last_seen_ms":1788425676782,"latest_sampled_time":"2026-09-03
+--- 10.0.0.2 ping statistics ---
+3000 packets transmitted, 3000 received, 0% packet loss, time 33641ms
+rtt min/avg/max/mdev = 0.015/0.060/0.698/0.024 ms
+
+-- AFTER the traffic stops (does it fall back?):
+   +5s  {"avg_link_usage":0.0,"status":"success"}
+   +10s  {"avg_link_usage":0.0,"status":"success"}
+   +15s  {"avg_link_usage":0.0,"status":"success"}
+   +20s  {"avg_link_usage":0.0,"status":"success"}
+   +25s  {"avg_link_usage":0.0,"status":"success"}
+   +30s  {"avg_link_usage":0.0,"status":"success"}
+
+-- the kernel's own lines --
+   'no sFlow datagram has arrived in 60s' warnings: 0
+0
+[2026-09-03 16:54:28.003] [info] [FlowLinkUsageCollector.cpp:1898 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1000.3 ms | since start (59 iters) mean 1000.2 ms, min 1000.1, max 1001.0 (flows=2, counters=6) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:54:58.014] [info] [FlowLinkUsageCollector.cpp:1898 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1000.3 ms | since start (89 iters) mean 1000.2 ms, min 1000.1, max 1001.0 (flows=1, counters=6) -- the LAST-N figure is the current denominator; the since-start one lags it
+
+== a sustained load, so the reading is not sampling-limited ==
+# The 100 pps ping above is near the resolution floor: at sampling=256 (testbed_topo.py's
+# rate, deliberately kept) each switch emits a sample about every 2.5 s while the reporting
+# window is 1 s, so many windows legitimately contain no sample and read 0.0. That is the
+# sampling rate, not the wiring. iperf3 raises the packet rate by ~3 orders of magnitude.
+# h1 netns 2530357 -> h2 netns 2530360 (10.0.0.2)
+   during t=9s  {"avg_link_usage":0.504371362,"status":"success"}
+   during t=13s  {"avg_link_usage":0.5050162862500001,"status":"success"}
+   during t=17s  {"avg_link_usage":0.50412459825,"status":"success"}
+   during t=21s  {"avg_link_usage":0.504305276,"status":"success"}
+   during t=25s  {"avg_link_usage":0.50472966275,"status":"success"}
+   [  7]   0.00-25.04  sec  22.3 GBytes  7.64 Gbits/sec  1166             sender
+   [  7]   0.00-25.04  sec  22.3 GBytes  7.64 Gbits/sec                  receiver
+-- after it stops:
+   +4s  {"avg_link_usage":0.5011465585,"status":"success"}
+   +8s  {"avg_link_usage":0.0,"status":"success"}
+   +12s  {"avg_link_usage":0.0,"status":"success"}
+   +16s  {"avg_link_usage":0.0,"status":"success"}
+-- kernel rate loop during the run:
+   (flows=1, counters=6)
+   (flows=0, counters=6)
+   (flows=2, counters=6)

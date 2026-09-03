@@ -1,0 +1,35 @@
+#### BEFORE: 3000 packets of real traffic h1 -> h2, and the numbers do not move ####
+# 2026-09-03T16:51:48+08:00; h1 netns pid 2514417; h1 is on s1, h2 on s2 -- the path crosses switch-to-switch
+# edges (s1->s5|s6->s2), which is what getAvgLinkUsage counts.
+
+-- BEFORE traffic:
+   get_average_link_usage: {"avg_link_usage":0.0,"status":"success"}
+   detected flows:         
+
+-- 3000 packets, h1 -> 10.0.0.2 (mnexec -a, the form sudoers allows):
+
+--- 10.0.0.2 ping statistics ---
+3000 packets transmitted, 3000 received, 0% packet loss, time 33359ms
+rtt min/avg/max/mdev = 0.018/0.071/0.985/0.034 ms
+
+-- DURING/AFTER traffic:
+   get_average_link_usage: {"avg_link_usage":0.0,"status":"success"}
+   detected flows:         
+
+== correction: the flow endpoint is /ndt/get_detected_flow_data, not get_all_detected_flows ==
+   (the empty line above is a 404, not an empty flow table -- the endpoint name was wrong.)
+   get_detected_flow_data:      []
+   get_detected_top_k_flow_data: []
+   get_sflow_stats:             
+
+-- a second 1000-packet burst, then read again immediately (not 30 s later) --
+--- 10.0.0.2 ping statistics ---
+1000 packets transmitted, 1000 received, 0% packet loss, time 4990ms
+rtt min/avg/max/mdev = 0.005/0.018/0.881/0.030 ms
+   get_average_link_usage:      {"avg_link_usage":0.0,"status":"success"}
+   get_detected_flow_data:      []
+
+-- the kernel's own line about it --
+   "no sFlow datagram has arrived in 60s" warnings: 1
+[2026-09-03 16:52:10.825] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (89 iters) mean 1000.1 ms, min 1000.0, max 1000.8 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:52:40.829] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (119 iters) mean 1000.1 ms, min 1000.0, max 1001.1 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it

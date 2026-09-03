@@ -1,0 +1,43 @@
+#### CONTROL: ndt up ovs (128 hosts, NTG's testbed_topo.py -- which always had sFlow) ####
+# 2026-09-03T17:09:40+08:00; kernel a8ba99c2... (same binary as BEFORE and AFTER); model StaticNetworkTopologyMininet_10Switches.json
+# This is the reading SHAPE the ovs4 plane was missing, measured on the plane that had it.
+
+== bridges and their sFlow records ==
+name sflow
+---- ------------------------------------
+s1   3733402c-273f-4898-bcfd-9b1ba78d174e
+s8   3f664926-85fb-49ab-8c0e-6151aa5dc7e2
+s2   a1ef0afd-191f-4745-862c-e64179f2bf1b
+s10  0f21a731-3cbd-4f37-b4eb-88bca6c934d2
+s4   8e717c61-080b-4c1f-8932-bbb8368229be
+s3   294bf771-cf6b-4c83-a7ee-6e11bf63841c
+s9   ed7d79b0-85b1-4dab-bc8e-3379cfc0e9aa
+s6   6a9413e4-db44-4294-9c11-cb83a4064cc0
+s7   ca1faa34-7df7-4580-bf30-fea657e42f23
+s5   fc39a0a1-8d50-4397-a8a9-b1eb55226818
+   records in the OVS DB: 10
+
+== one record in full (note: target is the lo alias, not loopback) ==
+agent               : s9-eth1
+targets             : ["192.168.123.1:6343"]
+header              : 128
+sampling            : 256
+polling             : 0
+
+-- the collector alias testbed_topo.py adds to lo and never removes:
+   1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+   1: lo    inet 192.168.123.1/24 scope global lo\       valid_lft forever preferred_lft forever
+
+== the new verify_sflow, run live against the 128-host fabric it did NOT come from ==
+   (control for 'only ovs4's collector address is accepted' -- this target is 192.168.123.1)
+  ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+rc=0
+
+== the reading shape under load: h1 (dpid 1) -> h100 (dpid 4), so the path crosses
+   switch-to-switch edges -- h1->h2 here would NOT, both are on s1.
+   idle: {"avg_link_usage":0.0,"status":"success"}
+   during t=8s  {"avg_link_usage":0.19585963178750002,"status":"success"}
+   during t=11s  {"avg_link_usage":0.274391065225,"status":"success"}
+   during t=14s  {"avg_link_usage":0.2555719785125,"status":"success"}
+   [  7]   0.00-15.00  sec  1.67 GBytes   955 Mbits/sec    0             sender
+   [  7]   0.00-15.00  sec  1.67 GBytes   953 Mbits/sec                  receiver

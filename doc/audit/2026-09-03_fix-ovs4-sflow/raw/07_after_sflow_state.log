@@ -1,0 +1,53 @@
+#### AFTER: the same fabric with the fixed ovs_4host_topo.py ####
+# 2026-09-03T16:53:46+08:00; topo file sha 5f9b4e02...; kernel a8ba99c2... (same binary as BEFORE)
+
+== 1. every bridge now holds exactly one sFlow record ==
+name sflow
+---- ------------------------------------
+s8   c42a90df-4e56-40f3-aa2e-94ab848aa60f
+s6   d9f33dc0-9974-4b93-a7ae-f4850bef0b1a
+s7   8bee7580-d019-4c46-835d-977597fda669
+s5   1972571f-91ff-46bd-bc5e-a04b0e2a9887
+s2   94698836-5c1c-47a3-a41c-598400cadba8
+s4   564c781a-2ebe-42e2-ae42-914d857f6137
+s3   ae32aef9-5de5-4691-a3a6-358508dc8c61
+s1   e193694a-e5aa-4a55-a893-dedc9069442f
+s9   51ffb55f-e138-4030-b58c-e3b4fc8ff0bd
+s10  90c9b3e3-9786-4115-bb6b-06e17e9d4128
+-- sflow records defined in the OVS DB:
+   records: 10
+
+== 2. one record in full, and the agent addresses ==
+agent               : s7-eth1
+targets             : ["127.0.0.1:6343"]
+header              : 128
+sampling            : 256
+polling             : 0
+
+agent               : s6-eth1
+-- agent interface -> address, all ten:
+   s1   s1-eth1    192.168.123.11/24
+   s2   s2-eth1    192.168.123.12/24
+   s3   s3-eth1    192.168.123.13/24
+   s4   s4-eth1    192.168.123.14/24
+   s5   s5-eth1    192.168.123.15/24
+   s6   s6-eth1    192.168.123.16/24
+   s7   s7-eth1    192.168.123.17/24
+   s8   s8-eth1    192.168.123.18/24
+   s9   s9-eth1    192.168.123.19/24
+   s10  s10-eth1   192.168.123.20/24
+-- what the kernel's model file declares (must match):
+    s1 192.168.123.11
+    s2 192.168.123.12
+    s3 192.168.123.13
+    s4 192.168.123.14
+    s5 192.168.123.15
+    s6 192.168.123.16
+    s7 192.168.123.17
+    s8 192.168.123.18
+    s9 192.168.123.19
+    s10 192.168.123.20
+
+== 3. the new verify, run live against THIS fabric (worktree copy, library mode) ==
+  ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+rc=0
