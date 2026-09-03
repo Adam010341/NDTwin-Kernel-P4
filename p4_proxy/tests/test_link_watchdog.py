@@ -930,21 +930,28 @@ class ThePathSearchWalksASnapshotTest(WatchdogTestBase):
         # switch A's receive thread dies for the rest of the run.
         #
         # CATCHES: reverting calculate_all_paths to walk self.net directly.
-        real = nx.shortest_path
+        #
+        # [Co-developed with claude code -- Adam] The stand-in used to wrap `nx.shortest_path`.
+        # calculate_all_paths no longer calls it -- the equal-length tie it broke by insertion
+        # order was round 5's non-reproducibility defect, so the search is now
+        # ryu_topology.canonical_paths_to. The hook moved with it; the property under test
+        # (a concurrent insert during the walk must not raise) is unchanged. The `fired`
+        # assertion below is what caught the move rather than letting this pass vacuously.
+        real = ryu_topology.canonical_paths_to
         fired = {"n": 0}
 
-        def writing_shortest_path(g, source, target):
+        def writing_search(g, dst):
             fired["n"] += 1
             if fired["n"] == 1:
                 # Stand in for another switch's receive thread discovering a neighbour.
                 self.topo.net.add_node(99, type="switch")
-            return real(g, source, target)
+            return real(g, dst)
 
-        nx.shortest_path = writing_shortest_path
+        ryu_topology.canonical_paths_to = writing_search
         try:
             self.topo.calculate_all_paths()
         finally:
-            nx.shortest_path = real
+            ryu_topology.canonical_paths_to = real
 
         self.assertGreater(fired["n"], 0,
                            "the stand-in writer never ran, so this test proves nothing")
