@@ -372,12 +372,12 @@ Ran 5、OK。p4_proxy 那 25 個模組同樣借主 checkout 的直譯器。**借
 
 ```
 $ git merge-tree --write-tree --messages trunk fix/is-up-split-admin-state-reachable
-b1b7fcf976d5af491cb6e940ad9f8f94bd752b3b
+9b269d5a0306e080ee2afa13f15144039535e4f4
 rc=0
 ```
 
-**零衝突。** 開工時 trunk 在 `b57736cd`，這一次量的時候已經前進到 `74daa200`
-（run-06 的十一條驗證），仍然乾淨。
+**零衝突。** trunk 一夜之間動了三次（開工 `b57736cd` → `74daa200` → 收工 `dae65b85`），
+三次量都乾淨。
 
 會不會跟別人撞：本分支動到的 production 檔是 `GraphTypes.hpp`、
 `DeviceConfigurationAndPowerManager.{hpp,cpp}`、`P4PowerStrategy.{hpp,cpp}`、`HttpSession.cpp`。
