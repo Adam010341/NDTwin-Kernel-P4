@@ -125,7 +125,7 @@ spawn_fixture() {
     echo "$pid" >> "$FIXTURE_REG"
     for i in 1 2 3 4 5 6 7 8 9 10; do
         argv=()
-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline"
         [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
         sleep 0.1
     done

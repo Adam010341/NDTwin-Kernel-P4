@@ -116,7 +116,7 @@ check "case 8b the captured file actually contains the pane" 1 \
 
 # --- (b) and the check cannot be passed by the header alone -----------------------------------
 # The header is ~150 bytes. If the size test measured the FILE, the empty-pane case would pass.
-hdr=$(wc -c <"$empty_file" 2>/dev/null || echo 0)
+hdr=$(wc -c 2>/dev/null <"$empty_file" || echo 0)
 check "case 9  the empty-pane file is still non-trivial, so a file-size test would have passed it" \
       yes "$( [[ "$hdr" -gt 64 ]] && echo yes || echo no )"
 

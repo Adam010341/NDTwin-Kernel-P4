@@ -97,7 +97,7 @@ vm_kind() {
     # this tool's headline failure was reachable through the very branch that was
     # added to prevent it. A kernel thread has an empty cmdline -- that is
     # definitional, where the tty was a heuristic that happened to fit.
-    IFS= read -r -d '' cmd < "$PROCFS/$pid/cmdline" 2>/dev/null || true
+    IFS= read -r -d '' cmd 2>/dev/null < "$PROCFS/$pid/cmdline" || true
     [ -z "$cmd" ] && { KIND=other; return; }   # kernel thread, or a zombie: not running
     KIND=unreadable
 }
