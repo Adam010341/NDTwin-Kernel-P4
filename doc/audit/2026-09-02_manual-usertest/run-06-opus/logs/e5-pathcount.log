@@ -1,0 +1,7 @@
+13:10:51
+############ E5: the manual's path-count poll. Expected for this fabric: 16256 ############
+doc: 'Wait for the number to stop changing, and do not treat the first large value as done.'
+  13:10:52  count=16256
+  13:10:58  count=16256
+  --> two consecutive samples agree at 16256
+13:10:58

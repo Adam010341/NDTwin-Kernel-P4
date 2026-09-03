@@ -1,0 +1,26 @@
+13:19:12
+################ A33-case-1: leave the bmv2-fast path that was never built ################
+manual expects: bmv2 binary override names no executable: '/usr/local/bmv2-fast/bin/simple_switch_grpc'
+/usr/local/bmv2-fast/bin/simple_switch_grpc
+--- launching the topology script; expecting it to refuse ---
+[sudo] password for ndt: Error: bmv2 binary override names no executable: '/usr/local/bmv2-fast/bin/simple_switch_grpc' (file: /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override)
+  (exit 0)
+
+################ A34: comment the directive line out ################
+manual expects: ... has no directive line (every line is blank or a #-comment)
+# /usr/local/bin/simple_switch_grpc
+--- launching the topology script; expecting it to refuse ---
+Error: /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override has no directive line (every line is blank or a #-comment). Commenting the line out used to re-select the stock build silently; it now refuses, because which binary produced a number must be something a human wrote down. Write one absolute path, e.g. /usr/local/bmv2-fast/bin/simple_switch_grpc
+  (exit 0)
+
+################ A35: delete the file ################
+manual expects: no bmv2 binary override at ... there is no default to fall back to on purpose
+ls: cannot access 'p4_proxy/mininet/bmv2_binary_override': No such file or directory
+--- launching the topology script; expecting it to refuse ---
+Error: no bmv2 binary override at /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override. This file is tracked and must name the simple_switch_grpc to run -- there is no default to fall back to on purpose. Both installs answer --version identically, so a silent fallback picks a binary that differs by ~10x in throughput and says nothing. Write one absolute path, e.g. /usr/local/bmv2-fast/bin/simple_switch_grpc
+  (exit 0)
+
+################ restore the working configuration ################
+/usr/local/bin/simple_switch_grpc
+restored OK: /usr/local/bin/simple_switch_grpc
+13:19:12

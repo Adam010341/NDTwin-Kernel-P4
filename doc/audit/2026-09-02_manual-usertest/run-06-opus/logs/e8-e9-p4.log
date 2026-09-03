@@ -1,0 +1,60 @@
+13:12:37
+############ E9: doc says group and meter endpoints return 501 on a P4 data plane ############
+doc: 'In P4 mode all three return 501 Not Implemented. ... This is a deliberate refusal, not a failure.'
+
+===== install_group_entry =====
+HTTP 501
+{"controller_status":501,"error":"group entry install is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went unnoticed.","status":"error"}
+
+===== modify_group_entry =====
+HTTP 501
+{"controller_status":501,"error":"group entry modify is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went unnoticed.","status":"error"}
+
+===== delete_group_entry =====
+HTTP 501
+{"controller_status":501,"error":"group entry delete is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went unnoticed.","status":"error"}
+
+===== install_meter_entry =====
+HTTP 501
+{"controller_status":501,"error":"meter entry install is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went unnoticed.","status":"error"}
+
+===== modify_meter_entry =====
+HTTP 501
+{"controller_status":501,"error":"meter entry modify is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went unnoticed.","status":"error"}
+
+===== delete_meter_entry =====
+HTTP 501
+{"controller_status":501,"error":"meter entry delete is not supported on a P4/bmv2 data plane: OpenFlow groups and meters have no direct equivalent, the P4 proxy agent implements no such route, and the pipeline has no ActionSelector yet (Phase 4). Previously this was POSTed to a nonexistent proxy route and the 404 went unnoticed.","status":"error"}
+
+############ endpoints the doc says work identically in both modes ############
+
+===== get_openflow_capacity =====
+HTTP 200
+{"BrocadeICX7250":{"groups":{"types":["ALL","INDIRECT","FF"]},"meters":{"bands":["DROP"],"flags":["KBPS","BURST","STATS"],"supported":true},"openflow_versions":["1.0","1.3"],"tables":[{"actions":["OUTPUT","SET_FIELD","DROP","GROUP"],"id":0,"instructions":["APPLY_ACTIONS","WRITE_ACTIONS","METER"],"matches":["in_port","eth_src","eth_dst","eth_type","ipv4_dst"],"max_entries":3072}]},"HPE5520":{"group
+
+===== historical_logging =====
+HTTP 200
+{"message":"Historical data logging is enabled, but this deployment does not record: the recorder is only started outside MININET mode, so no rows will be written.","recording":false,"status":"success"}
+
+===== get_path_switch_count =====
+HTTP 200
+{"dst_ip":"10.0.0.128","src_ip":"10.0.0.1","status":"success","switch_count":5}
+
+############ E8: traffic validation on the P4 fabric ############
+13:12:37
+=== get_detected_flow_data while the transfer runs ===
+record count: 2
+  10.0.0.1:5201 -> 10.0.0.2:59546 proto=6 rate=946176 bps hops=3
+     path nodes: [16777226, 1, 33554442]
+  10.0.0.2:59546 -> 10.0.0.1:5201 proto=6 rate=43409408 bps hops=3
+     path nodes: [33554442, 1, 16777226]
+=== mininet pane ===
+All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060
+Switch manifest: /tmp/ndtwin_p4_switches.json
+======================================================================
+
+*** Starting CLI:
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+mininet>
+13:13:27

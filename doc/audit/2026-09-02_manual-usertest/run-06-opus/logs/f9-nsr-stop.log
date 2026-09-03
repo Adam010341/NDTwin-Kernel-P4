@@ -1,0 +1,31 @@
+11:06:58
+=== generate traffic so flowinfo has something to record ===
+=== newest flowinfo file ===
+recorded_info/2026_09_03_11-07-18_flowinfo.json  (3531 bytes)
+--- first record (doc: {"timestamp": ..., "flowinfo":{[...]}} , newline-delimited) ---
+{"timestamp":1788433636300,"flowinfo":[{"dst_ip":1073741834,"dst_port":37224,"estimated_flow_sending_rate_bps_in_the_last_sec":1051306,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":860160,"estimated_packet_rate_in_the_last_sec":1877,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":1536,"first_sampled_time":"2026-09-03 11:07:01","latest_sampled_time":"2026-09-03 11:07:15","path":[{"interface":3,"node":16777226},{"interface":2,"node":1},{"interface":2,"node":6},{"interfa
+--- number of NDJSON records in it ---
+3
+
+=== the User Manual's own warning about pgrep -f, seen live ===
+doc: 'it also matches any other process that merely *mentions* network_state_recorder.py'
+144093 python3 network_state_recorder.py
+
+=== F9: stop with the shipped stop script ===
+    display_on_console: false
+144093
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+STOP_EXIT=0
+--- still running? ---
+144093 python3 network_state_recorder.py
+--- did it flip display_on_console back to true? ---
+    display_on_console: true
+--- final file listing ---
+-rw-rw-r-- 1 ndt ndt    298 Sep  3 11:05 2026_09_03_11-03-13_flowinfo_json.zip
+-rw-rw-r-- 1 ndt ndt 151096 Sep  3 11:05 2026_09_03_11-03-13_graphinfo_json.zip
+-rw-rw-r-- 1 ndt ndt    694 Sep  3 11:07 2026_09_03_11-05-16_flowinfo_json.zip
+-rw-rw-r-- 1 ndt ndt 145802 Sep  3 11:07 2026_09_03_11-05-16_graphinfo_json.zip
+-rw-rw-r-- 1 ndt ndt   3531 Sep  3 11:07 2026_09_03_11-07-18_flowinfo.json
+-rw-rw-r-- 1 ndt ndt 714889 Sep  3 11:07 2026_09_03_11-07-18_graphinfo.json
+11:07:47

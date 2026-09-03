@@ -1,0 +1,11 @@
+10:34
+############ NSR env (Install > Tool > Network State Recorder) ############
+NSR_PIP_EXIT=0
+NSR imports OK
+
+############ NTG env (Install > Tool > NTG) ############
+NTG_PIP_EXIT=0
+NTG imports OK
+--- the manual says --system-site-packages is what makes this work: ---
+mininet importable from ntg-env: /usr/lib/python3/dist-packages/mininet/__init__.py
+10:34

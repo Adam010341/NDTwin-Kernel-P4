@@ -1,0 +1,36 @@
+11:13:27
+=== BEFORE mn -c: is ryu (pid 45643) alive? ===
+  ALIVE
+  :6633 listening: 1   :8080 listening: 1
+
+=== B15 step 3: sudo mn -c ===
+ovs-vsctl --timeout=1 list-br
+ovs-vsctl --timeout=1 list-br
+*** Removing all links of the pattern foo-ethX
+ip link show | egrep -o '([-_.[:alnum:]]+-eth[[:digit:]]+)'
+ip link show
+*** Killing stale mininet node processes
+pkill -9 -f mininet:
+*** Shutting down stale tunnels
+pkill -9 -f Tunnel=Ethernet
+pkill -9 -f .ssh/mn
+rm -f ~/.ssh/mn/*
+*** Cleanup complete.
+
+=== B16: doc claims 'Step 3 already killed your Ryu controller' ===
+  ryu pid 45643 is GONE -- doc claim reproduced
+  :6633 listening now: 0   :8080 listening now: 0
+--- ryu pane, last 6 lines ---
+00:00:00:00:00:80 -> 4: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=128 paths=3968 walk=0.0
+54s install=0.019s report=0.036s
+route reinstall done
+Terminated
+(ryu-env) ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+--- tmux sessions still alive ---
+kernel: 1 windows (created Thu Sep  3 10:47:51 2026)
+mn: 1 windows (created Thu Sep  3 10:38:59 2026)
+p4: 1 windows (created Thu Sep  3 10:30:47 2026)
+ryu: 1 windows (created Thu Sep  3 10:38:18 2026)
+--- bridges left? ---
+11:13:35

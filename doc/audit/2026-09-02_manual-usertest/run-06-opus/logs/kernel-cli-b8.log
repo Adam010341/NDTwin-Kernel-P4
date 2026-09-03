@@ -1,0 +1,57 @@
+10:37
+cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+[sudo] password for ndt:
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ sudo bin/ndtwin_kernel
+[2026-09-03 10:37:05.062] [info] [main.cpp:299 main] Logger Loads Successfully!
+level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+############ answering 1 / 1 / 2 as the manual says ############
+rt] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 10:37:17.069] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calFlowPathByQueried] pid=34645 tid=34727
+[2026-09-03 10:37:17.070] [info] [FlowLinkUsageCollector.cpp:749 run] Listening
+for sFlow on UDP port 6343
+[2026-09-03 10:37:17.070] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calAvgFlowSendingRatesPeriodically] pid=34645 tid=34724
+[2026-09-03 10:37:17.070] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [purgeIdleFlows] pid=34645 tid=34726
+[2026-09-03 10:37:17.071] [info] [ControllerAndOtherEventHandler.cpp:196 runServ
+er] Server Listening on port 8000
+[2026-09-03 10:37:17.082] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPl
+aneHomogeneity] Data plane: ovs (10 switch(es))
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 10:37:17.097] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology
+from the control plane: 0 switches, 0 hosts, 0 edges up
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User
+-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+
+10:37

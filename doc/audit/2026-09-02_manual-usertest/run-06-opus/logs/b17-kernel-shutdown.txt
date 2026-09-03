@@ -1,0 +1,1892 @@
+[2026-09-03 11:01:11.306] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:11.306] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:16.289] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:16.289] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:16.289] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:16.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:16.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:16.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:16.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:16.310] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:16.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:21.289] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:21.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:21.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:21.290] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:21.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:21.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:21.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:21.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:21.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:26.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:26.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:26.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:26.290] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:26.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:26.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:26.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:26.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:26.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:27.020] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.0 ms | since sta
+rt (809 iters) mean 1000.9 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:01:27.021] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001878 divisor_u
+sed_s=1.001878 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:01:31.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:31.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:31.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:31.290] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:31.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:31.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:31.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:31.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:31.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:36.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:36.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:36.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:36.290] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:36.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:36.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:36.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:36.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:36.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:41.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:41.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:41.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:41.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:41.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:41.293] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:41.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:41.312] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:41.312] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:46.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:46.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:46.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:46.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:46.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:46.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:46.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:46.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:46.308] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:51.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:51.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:51.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:51.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:51.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:51.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:51.292] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:51.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:51.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:56.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:56.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:01:56.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:01:56.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:56.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:01:56.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:01:56.293] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:01:56.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:01:56.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:01:57.075] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.8 ms | since sta
+rt (839 iters) mean 1001.0 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:01:57.077] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001956 divisor_u
+sed_s=1.001956 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:02:01.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:01.290] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:01.290] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:01.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:01.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:01.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:01.293] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:01.307] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:01.309] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:06.290] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:06.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:06.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:06.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:06.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:06.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:06.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:06.309] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:06.312] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:06.850] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:02:11.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:11.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:11.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:11.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:11.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:11.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:11.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:11.309] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:11.311] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:16.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:16.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:16.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:16.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:16.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:16.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:16.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:16.309] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:16.311] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:21.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:21.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:21.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:21.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:21.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:21.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:21.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:21.310] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:21.312] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:26.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:26.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:26.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:26.291] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:26.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:26.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:26.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:26.309] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:26.311] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:27.131] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (869 iters) mean 1001.0 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:02:27.132] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001900 divisor_u
+sed_s=1.001900 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:02:31.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:31.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:31.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:31.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:31.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:31.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:31.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:31.310] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:31.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:36.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:36.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:36.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:36.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:36.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:36.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:36.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:36.310] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:36.312] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:41.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:41.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:41.291] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:41.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:41.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:41.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:41.295] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:41.309] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:41.311] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:46.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:46.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:46.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:46.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:46.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:46.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:46.296] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:46.322] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:46.326] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:51.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:51.291] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:51.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:51.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:51.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:51.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:51.296] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:51.310] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:51.312] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:56.291] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:56.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:02:56.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:02:56.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:56.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:02:56.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:02:56.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:02:56.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:02:56.317] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:02:57.187] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (899 iters) mean 1001.0 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:02:57.189] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001867 divisor_u
+sed_s=1.001867 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:03:01.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:01.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:01.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:01.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:01.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:01.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:01.296] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:01.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:01.313] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:06.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:06.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:06.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:06.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:06.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:06.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:06.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:06.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:06.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:07.243] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:03:11.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:11.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:11.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:11.292] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:11.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:11.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:11.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:11.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:11.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:16.292] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:16.292] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:16.292] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:16.293] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:16.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:16.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:16.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:16.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:16.325] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:21.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:21.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:21.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:21.293] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:21.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:21.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:21.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:21.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:21.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:26.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:26.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:26.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:26.293] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:26.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:26.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:26.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:26.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:26.313] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:27.245] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (929 iters) mean 1001.1 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:03:27.247] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001834 divisor_u
+sed_s=1.001834 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:03:31.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:31.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:31.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:31.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:31.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:31.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:31.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:31.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:31.313] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:36.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:36.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:36.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:36.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:36.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:36.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:36.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:36.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:36.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:41.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:41.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:41.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:41.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:41.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:41.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:41.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:41.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:41.313] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:46.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:46.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:46.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:46.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:46.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:46.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:46.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:46.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:46.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:51.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:51.293] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:51.293] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:51.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:51.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:51.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:51.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:51.311] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:51.313] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:56.293] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:56.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:03:56.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:03:56.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:56.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:03:56.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:03:56.297] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:03:56.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:03:56.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:03:57.301] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (959 iters) mean 1001.1 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:03:57.303] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001847 divisor_u
+sed_s=1.001847 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:04:01.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:01.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:01.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:01.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:01.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:01.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:01.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:01.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:01.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:06.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:06.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:06.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:06.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:06.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:06.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:06.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:06.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:06.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:07.635] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:04:11.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:11.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:11.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:11.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:11.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:11.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:11.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:11.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:11.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:16.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:16.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:16.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:16.294] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:16.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:16.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:16.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:16.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:16.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:21.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:21.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:21.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:21.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:21.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:21.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:21.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:21.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:21.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:26.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:26.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:26.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:26.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:26.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:26.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:26.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:26.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:26.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:27.357] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (989 iters) mean 1001.1 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:04:27.359] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001747 divisor_u
+sed_s=1.001747 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:04:31.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:31.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:31.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:31.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:31.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:31.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:31.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:31.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:31.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:36.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:36.294] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:36.294] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:36.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:36.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:36.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:36.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:36.312] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:36.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:41.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:41.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:41.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:41.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:41.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:41.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:41.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:41.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:41.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:46.294] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:46.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:46.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:46.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:46.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:46.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:46.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:46.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:46.317] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:51.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:51.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:51.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:51.295] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:51.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:51.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:51.298] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:51.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:51.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:56.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:56.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:04:56.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:04:56.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:56.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:04:56.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:04:56.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:04:56.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:04:56.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:04:57.415] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (1019 iters) mean 1001.1 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:04:57.417] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001791 divisor_u
+sed_s=1.001791 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:05:01.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:01.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:01.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:01.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:01.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:01.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:01.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:01.314] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:01.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:06.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:06.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:06.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:06.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:06.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:06.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:06.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:06.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:06.317] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:08.022] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:05:11.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:11.295] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:11.295] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:11.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:11.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:11.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:11.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:11.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:11.318] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:16.295] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:16.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:16.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:16.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:16.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:16.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:16.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:16.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:16.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:21.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:21.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:21.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:21.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:21.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:21.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:21.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:21.314] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:21.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:26.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:26.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:26.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:26.297] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:26.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:26.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:26.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:26.314] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:26.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:27.471] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (1049 iters) mean 1001.2 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:05:27.473] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001967 divisor_u
+sed_s=1.001967 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:05:31.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:31.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:31.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:31.296] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:31.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:31.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:31.299] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:31.313] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:31.315] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:36.301] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:36.301] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:36.301] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:36.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:36.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:36.302] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:36.318] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:36.320] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:36.323] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:41.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:41.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:41.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:41.297] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:41.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:41.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:41.300] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:41.316] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:41.318] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:46.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:46.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:46.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:46.297] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:46.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:46.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:46.300] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:46.314] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:46.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:51.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:51.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:51.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:51.297] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:51.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:51.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:51.300] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:51.314] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:51.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:56.296] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:56.296] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:05:56.296] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:05:56.297] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:56.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:05:56.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:05:56.300] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:05:56.314] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:05:56.317] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:05:57.527] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (1079 iters) mean 1001.2 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:05:57.529] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001905 divisor_u
+sed_s=1.001905 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:06:01.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:01.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:01.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:01.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:01.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:01.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:01.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:01.318] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:01.320] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:06.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:06.297] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:06.297] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:06.298] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:06.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:06.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:06.302] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:06.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:06.321] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:08.414] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:06:11.297] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:11.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:11.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:11.298] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:11.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:11.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:11.302] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:11.316] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:11.320] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:16.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:16.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:16.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:16.298] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:16.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:16.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:16.302] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:16.316] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:16.318] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:21.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:21.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:21.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:21.298] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:21.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:21.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:21.302] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:21.316] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:21.318] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:26.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:26.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:26.303] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:26.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:26.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:26.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:26.334] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:26.338] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:26.347] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:27.584] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.9 ms | since sta
+rt (1109 iters) mean 1001.2 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:06:27.586] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001759 divisor_u
+sed_s=1.001759 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:06:31.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:31.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:31.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:31.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:31.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:31.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:31.302] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:31.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:31.319] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:36.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:36.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:36.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:36.298] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:36.302] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:36.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:36.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:36.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:36.319] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:41.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:41.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:41.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:41.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:41.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:41.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:41.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:41.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:41.319] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:46.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:46.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:46.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:46.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:46.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:46.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:46.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:46.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:46.319] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:51.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:51.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:51.299] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:51.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:51.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:51.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:51.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:51.318] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:51.323] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:56.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:56.298] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:06:56.298] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:06:56.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:56.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:06:56.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:06:56.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:06:56.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:06:56.319] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:06:57.639] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1001.8 ms | since sta
+rt (1139 iters) mean 1001.2 ms, min 1000.0, max 1006.8 (flows=0, counters=11) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:06:57.641] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.001936 divisor_u
+sed_s=1.001936 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:07:01.298] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:01.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:01.299] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:01.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:01.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:01.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:01.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:01.317] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:01.319] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:06.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:06.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:06.299] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:06.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:06.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:06.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:06.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:06.318] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:06.320] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:08.792] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:07:11.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:11.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:11.299] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:11.299] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:11.303] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:11.303] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:11.303] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:11.318] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:11.320] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:16.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:16.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:16.300] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:16.300] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:16.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:16.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:16.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:16.319] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:16.322] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:21.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:21.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:21.300] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:21.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:21.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:21.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:21.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:21.320] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:21.322] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:26.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:26.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:26.300] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:26.300] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:26.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:26.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:26.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:26.319] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:26.321] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:27.715] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.5 ms | since sta
+rt (1169 iters) mean 1001.2 ms, min 1000.0, max 1007.2 (flows=2, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:07:27.717] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002273 divisor_u
+sed_s=1.002273 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:07:31.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:31.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:31.299] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:31.300] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:31.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:31.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:31.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:31.321] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:31.324] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:36.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:36.299] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:36.299] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:36.300] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:36.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:36.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:36.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:36.320] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:36.322] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:41.299] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:41.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:41.300] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:41.300] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:41.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:41.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:41.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:41.320] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:41.325] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:46.301] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:46.301] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:46.301] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:46.302] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:46.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:46.305] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:46.305] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:46.323] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:46.325] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:51.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:51.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:51.300] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:51.300] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:51.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:51.306] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:51.306] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:51.320] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:51.322] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:56.301] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:56.301] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:07:56.301] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:07:56.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:56.305] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:07:56.306] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:07:56.306] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:07:56.320] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:07:56.324] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:07:57.786] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.4 ms | since sta
+rt (1199 iters) mean 1001.3 ms, min 1000.0, max 1007.2 (flows=2, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:07:57.788] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002365 divisor_u
+sed_s=1.002365 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:08:01.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:01.301] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:01.301] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:01.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:01.306] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:01.306] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:01.306] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:01.322] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:01.327] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:06.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:06.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:06.300] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:06.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:06.306] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:06.306] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:06.306] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:06.320] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:06.322] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:09.169] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:08:11.300] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:11.300] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:11.301] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:11.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:11.306] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:11.306] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:11.306] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:11.321] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:11.324] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:12.706] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:12.707] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:17.867] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:17.868] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:17.868] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:17.868] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:17.871] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:17.871] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:17.871] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:17.874] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:17.875] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:17.875] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:17.890] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:18.418] [info] [FlowLinkUsageCollector.cpp:2255 purgeIdleFlows
+] Flow Key: 10.0.0.1 -> 10.0.0.64 idles
+[2026-09-03 11:08:18.419] [info] [FlowLinkUsageCollector.cpp:2255 purgeIdleFlows
+] Flow Key: 10.0.0.64 -> 10.0.0.1 idles
+[2026-09-03 11:08:22.871] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:22.871] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:22.871] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:22.872] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:22.873] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:22.873] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:22.873] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:22.887] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:22.889] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:27.857] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.4 ms | since sta
+rt (1229 iters) mean 1001.3 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:08:27.859] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002453 divisor_u
+sed_s=1.002453 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:08:27.871] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:27.871] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:27.871] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:27.872] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:27.873] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:27.873] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:27.873] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:27.887] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:27.889] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:32.871] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:32.871] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:08:32.872] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:08:32.872] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:32.874] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:08:32.874] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_graph_data
+[2026-09-03 11:08:32.874] [info] [HttpSession.cpp:526 handleGetGraphData] Handle
+ Get Graph Data
+[2026-09-03 11:08:32.888] [info] [HttpSession.cpp:571 handleGetGraphData] get_gr
+aph_data success
+[2026-09-03 11:08:32.892] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:37.727] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:37.727] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:08:57.924] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.2 ms | since sta
+rt (1259 iters) mean 1001.3 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:08:57.927] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002009 divisor_u
+sed_s=1.002009 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:09:09.561] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:09:27.995] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.3 ms | since sta
+rt (1289 iters) mean 1001.3 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:09:27.997] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002189 divisor_u
+sed_s=1.002189 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:09:58.064] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.3 ms | since sta
+rt (1319 iters) mean 1001.4 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:09:58.066] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002258 divisor_u
+sed_s=1.002258 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:10:09.952] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:10:20.301] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:20.302] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-03 11:10:20.302] [info] [HttpSession.cpp:1104 handleInstallModifyDelete
+FlowEntries] Handle Install Modify Delete Flow Entries
+[2026-09-03 11:10:20.302] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete": [],
+  "install": [
+    {
+      "actions": [
+        {
+          "port": 1,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 2,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.88.88.88"
+      },
+      "priority": 98
+    }
+  ],
+  "modify": []
+}
+[2026-09-03 11:10:20.303] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:24.472] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:24.473] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-03 11:10:24.473] [info] [HttpSession.cpp:1104 handleInstallModifyDelete
+FlowEntries] Handle Install Modify Delete Flow Entries
+[2026-09-03 11:10:24.473] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete": [
+    {
+      "dpid": 2,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.88.88.88"
+      }
+    }
+  ],
+  "install": [],
+  "modify": []
+}
+[2026-09-03 11:10:24.473] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:28.134] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.4 ms | since sta
+rt (1349 iters) mean 1001.4 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:10:28.136] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002575 divisor_u
+sed_s=1.002575 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:10:28.693] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:28.693] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/modify_group_entry
+[2026-09-03 11:10:28.693] [info] [HttpSession.cpp:797 handleModifyGroupEntry] Ha
+ndle Modify Group Entry
+[2026-09-03 11:10:28.699] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:31.835] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:31.835] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/modify_meter_entry
+[2026-09-03 11:10:31.835] [info] [HttpSession.cpp:839 handleModifyMeterEntry] Ha
+ndle Modify Meter Entry
+[2026-09-03 11:10:31.841] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:34.979] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:34.979] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/delete_group_entry
+[2026-09-03 11:10:34.979] [info] [HttpSession.cpp:783 handleDeleteGroupEntry] Ha
+ndle Delete Group Entry
+[2026-09-03 11:10:34.985] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:34.990] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:34.991] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/delete_meter_entry
+[2026-09-03 11:10:34.991] [info] [HttpSession.cpp:825 handleDeleteMeterEntry] Ha
+ndle Delete Meter Entry
+[2026-09-03 11:10:34.996] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.269] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.269] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_top_k_flow_data
+[2026-09-03 11:10:38.269] [info] [HttpSession.cpp:584 handleGetDetectedTopKFlowD
+ata] Handle Get Detected Top-K Flow Data
+[2026-09-03 11:10:38.269] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.288] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.289] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_top_k_flow_data?k=1
+[2026-09-03 11:10:38.289] [info] [HttpSession.cpp:584 handleGetDetectedTopKFlowD
+ata] Handle Get Detected Top-K Flow Data
+[2026-09-03 11:10:38.289] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.309] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.310] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_top_k_flow_data?top_k=1
+[2026-09-03 11:10:38.310] [info] [HttpSession.cpp:584 handleGetDetectedTopKFlowD
+ata] Handle Get Detected Top-K Flow Data
+[2026-09-03 11:10:38.310] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.329] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.329] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/received_a_simulation_case
+[2026-09-03 11:10:38.329] [info] [HttpSession.cpp:1237 handleReceivedSimulationC
+ase] Handle Recieved Simulation Case
+[2026-09-03 11:10:38.329] [warning] [HttpSession.cpp:1246 handleReceivedSimulati
+onCase] Rejecting simulation case: missing required field(s): simulator, version
+, app_id, case_id, inputfile
+[2026-09-03 11:10:38.330] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.335] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.335] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/simulation_completed
+[2026-09-03 11:10:38.335] [info] [HttpSession.cpp:1266 handleSimulationCompleted
+] Handle Simulation Completed
+[2026-09-03 11:10:38.335] [warning] [HttpSession.cpp:329 buildResponse] JSON exc
+eption in request handler: [json.exception.out_of_range.403] key 'app_id' not fo
+und
+[2026-09-03 11:10:38.335] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.340] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.340] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/inform_all_destination_paths
+[2026-09-03 11:10:38.340] [info] [HttpSession.cpp:1307 handleInformAllDestinatio
+nPaths] Handle Infrom All Desination Pahts
+[2026-09-03 11:10:38.341] [warning] [HttpSession.cpp:329 buildResponse] JSON exc
+eption in request handler: [json.exception.out_of_range.403] key 'all_destinatio
+n_paths' not found
+[2026-09-03 11:10:38.341] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:38.346] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:10:38.346] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/definitely_not_a_route
+[2026-09-03 11:10:38.346] [warning] [HttpSession.cpp:1903 handleNotFound] Receiv
+ed unsupported request: method=GET, target=/ndt/definitely_not_a_route
+[2026-09-03 11:10:38.346] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:10:58.203] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.3 ms | since sta
+rt (1379 iters) mean 1001.4 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:10:58.205] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002574 divisor_u
+sed_s=1.002574 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:11:10.338] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 11:11:20.152] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:11:20.152] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-03 11:11:20.152] [info] [HttpSession.cpp:1104 handleInstallModifyDelete
+FlowEntries] Handle Install Modify Delete Flow Entries
+[2026-09-03 11:11:20.152] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete_flow_entries": [],
+  "install_flow_entries": [
+    {
+      "actions": [
+        {
+          "port": 1,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 2,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.88.88.88"
+      },
+      "priority": 98
+    }
+  ],
+  "modify_flow_entries": []
+}
+[2026-09-03 11:11:20.153] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:11:24.327] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:11:24.328] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ POST /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-03 11:11:24.328] [info] [HttpSession.cpp:1104 handleInstallModifyDelete
+FlowEntries] Handle Install Modify Delete Flow Entries
+[2026-09-03 11:11:24.328] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete_flow_entries": [
+    {
+      "dpid": 2,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.88.88.88"
+      }
+    }
+  ],
+  "install_flow_entries": [],
+  "modify_flow_entries": []
+}
+[2026-09-03 11:11:24.328] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:11:28.271] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.3 ms | since sta
+rt (1409 iters) mean 1001.4 ms, min 1000.0, max 1007.2 (flows=0, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:11:28.273] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002415 divisor_u
+sed_s=1.002415 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:11:56.475] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:11:56.475] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_flow_data
+[2026-09-03 11:11:56.475] [info] [HttpSession.cpp:577 handleGetDetectedFlowData]
+ Handle Get Detected Flow Data
+[2026-09-03 11:11:56.475] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:11:56.505] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:11:56.506] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_top_k_flow_data
+[2026-09-03 11:11:56.506] [info] [HttpSession.cpp:584 handleGetDetectedTopKFlowD
+ata] Handle Get Detected Top-K Flow Data
+[2026-09-03 11:11:56.506] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:11:56.528] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 11:11:56.530] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/get_detected_top_k_flow_data
+[2026-09-03 11:11:56.530] [info] [HttpSession.cpp:584 handleGetDetectedTopKFlowD
+ata] Handle Get Detected Top-K Flow Data
+[2026-09-03 11:11:56.530] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 11:11:58.345] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.5 ms | since sta
+rt (1439 iters) mean 1001.5 ms, min 1000.0, max 1007.2 (flows=2, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:11:58.347] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002307 divisor_u
+sed_s=1.002307 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:12:10.740] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+^C[2026-09-03 11:12:27.900] [info] [main.cpp:422 main] Shutdown requested. Clean
+ing up…
+[2026-09-03 11:12:28.127] [info] [TopologyAndFlowMonitor.cpp:2100 run] Exiting T
+opologyAndFlowMonitor's updating
+[2026-09-03 11:12:28.417] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 30 iters mean 1002.4 ms | since sta
+rt (1469 iters) mean 1001.5 ms, min 1000.0, max 1007.2 (flows=2, counters=14) --
+ the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 11:12:28.420] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.002499 divisor_u
+sed_s=1.002499 (ticket Q gate: these must agree to 1%; a negative divisor means
+no rate has been published yet, which is not a pass)
+[2026-09-03 11:12:28.571] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector
+ Stops
+[2026-09-03 11:12:28.575] [info] [FlowLinkUsageCollector.cpp:878 run] Run loop e
+xiting
+[2026-09-03 11:12:28.575] [info] [FlowLinkUsageCollector.cpp:888 run] Run loop e
+xisting
+[2026-09-03 11:12:28.969] [info] [FlowLinkUsageCollector.cpp:2201 testCalAvgFlow
+SendingRatesRandomly] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-03 11:12:29.422] [info] [FlowLinkUsageCollector.cpp:2103 calAvgFlowSend
+ingRatesPeriodically] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-03 11:12:29.463] [info] [FlowLinkUsageCollector.cpp:2280 purgeIdleFlows
+] Exiting Loop of purgeIdleFlows
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:98 stop] Co
+ntrollerAndOtherEventHandler Stop Start
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:108 stop] i
+o_context stopped
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:115 stop] a
+cceptor_ close
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:138 stop] A
+ttempting to poke the server socket to unblock accept.
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:157 stop] P
+oke connection refused (port likely already fully closed).
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:180 stop] W
+aiting for server thread to join...
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:214 runServ
+er] Exiting Loop of run event server
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:182 stop] m
+_serverThread joined.
+[2026-09-03 11:12:29.463] [info] [ControllerAndOtherEventHandler.cpp:189 stop] C
+ontrollerAndOtherEventHandler stopped.
+[2026-09-03 11:12:29.463] [info] [DeviceConfigurationAndPowerManager.cpp:140 sto
+p] Collector Stops
+[2026-09-03 11:12:29.897] [info] [main.cpp:430 main] All subsystems stopped. Exi
+ting.
+[2026-09-03 11:12:29.897] [info] [ControllerAndOtherEventHandler.cpp:98 stop] Co
+ntrollerAndOtherEventHandler Stop Start
+[2026-09-03 11:12:29.897] [info] [ControllerAndOtherEventHandler.cpp:102 stop] C
+ontrollerAndOtherEventHandler already stopped.
+[2026-09-03 11:12:29.897] [info] [ApplicationManager.cpp:266 cleanupNFS] Cleanin
+g up registered NFS folders in /srv/nfs/sim
+sudo: exportfs: command not found
+[2026-09-03 11:12:30.031] [warning] [ApplicationManager.cpp:312 cleanupAppFolder
+] 'sudo exportfs -u /srv/nfs/sim/1' failed (exit status 1). The export may still
+ be live.
+[2026-09-03 11:12:30.169] [warning] [ApplicationManager.cpp:345 cleanupAppFolder
+] Deleted NFS folder /srv/nfs/sim/1 but its export configuration was not fully r
+emoved.
+sudo: exportfs: command not found
+[2026-09-03 11:12:30.306] [warning] [ApplicationManager.cpp:281 cleanupNFS] 'sud
+o exportfs -ra' failed after cleanup (exit status 1). Stale exports may still be
+ live.
+[2026-09-03 11:12:30.306] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector
+ Stops
+terminate called without an active exception
+Aborted
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$

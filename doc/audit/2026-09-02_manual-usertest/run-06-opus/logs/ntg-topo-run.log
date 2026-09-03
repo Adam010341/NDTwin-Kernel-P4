@@ -1,0 +1,33 @@
+11:19:58
+=== teardown: kernel Ctrl-C, mininet exit, mn -c (which also kills ryu) ===
+ports now: 6633=0 8000=0
+
+=== NTG step 2: Ryu in terminal 1 ===
+ryu 6633: 1
+
+=== NTG step 3: topology in terminal 2, with the interpreter the manual names ===
+launched at 11:21:07
+=== last 20 lines of the NTG topology pane ===
+g...
+2026-09-03 11:22:30 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:32 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:34 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:36 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:38 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:40 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:42 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:44 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:46 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+
+=== rule counts ===
+s1=130 s2=130 s3=130 s4=130 s5=130 s6=130 s7=130 s8=130 s9=130 s10=130 
+11:22:48

@@ -1,0 +1,68 @@
+11:10:20
+############ D23 combined install+modify+delete ############
+
+===== D23 combined (install one rule on s2) =====
+HTTP 200
+{"accepted":0,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+-- read back from s2 --
+  NOT ON SWITCH
+-- clean it up via the combined endpoint's delete list --
+
+===== D23 combined (delete it) =====
+HTTP 200
+{"accepted":0,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+  gone from switch
+
+############ D32/D33 modify+delete group, D35/D36 modify+delete meter (s1 has group 1 / meter 1) ############
+
+===== D32 modify_group_entry =====
+HTTP 200
+{"status":"Group entry modified"}
+-- read back --
+OFPST_GROUP_DESC reply (OF1.3) (xid=0x2):
+ group_id=1,type=all,bucket=actions=output:2
+
+===== D35 modify_meter_entry =====
+HTTP 200
+{"status":"Meter entry modified"}
+-- read back --
+OFPST_METER_CONFIG reply (OF1.3) (xid=0x2):
+meter=1 kbps bands=
+type=drop rate=2000
+
+===== D33 delete_group_entry =====
+HTTP 200
+{"status":"Group entry deleted"}
+
+===== D36 delete_meter_entry =====
+HTTP 200
+{"status":"Meter entry deleted"}
+-- read back both (expect empty) --
+OFPST_GROUP_DESC reply (OF1.3) (xid=0x2):
+OFPST_METER_CONFIG reply (OF1.3) (xid=0x2):
+
+############ D30 top-k: does it take a k parameter? ############
+  get_detected_top_k_flow_data -> 0 records
+  get_detected_top_k_flow_data?k=1 -> 0 records
+  get_detected_top_k_flow_data?top_k=1 -> 0 records
+
+############ D17 / D18 / D40 ############
+
+===== D17 received_a_simulation_case (empty body) =====
+HTTP 400
+{"details":"missing required field(s): simulator, version, app_id, case_id, inputfile","error":"Invalid simulation case"}
+
+===== D18 simulation_completed (empty body) =====
+HTTP 400
+{"details":"[json.exception.out_of_range.403] key 'app_id' not found","error":"JSON parsing error"}
+
+===== D40 inform_all_destination_paths (empty body) =====
+HTTP 400
+{"details":"[json.exception.out_of_range.403] key 'all_destination_paths' not found","error":"JSON parsing error"}
+
+############ an endpoint that does not exist, for contrast ############
+
+===== GET /ndt/definitely_not_a_route =====
+HTTP 404
+{"error":"Not Found"}
+11:10:38

@@ -1,0 +1,22 @@
+# harvested 2026-09-03T15:59:30+00:00 (guest clock, UTC)
+## uptime
+ 15:59:30 up  5:49,  2 users,  load average: 0.00, 0.00, 0.00
+## toolchain
+/usr/local/bin/simple_switch_grpc: 1.15.6-1c8c9a4f
+/usr/local/bin/p4c: p4c 1.2.5.17 (SHA: d46d824202 BUILD: Release)
+/usr/local/bin/p4c-bm2-ss: /usr/local/bin/p4c-bm2-ss
+## kernel binary
+total 30316
+-rwxrwxr-x 1 ndt ndt 11839016 Sep  3 10:25 ndtwin_kernel
+-rwxrwxr-x 1 ndt ndt 19200112 Sep  3 10:29 test_routing_strategy
+## listening
+LISTEN 0      4096         0.0.0.0:22 0.0.0.0:*
+LISTEN 0      4096      127.0.0.54:53 0.0.0.0:*
+LISTEN 0      4096   127.0.0.53%lo:53 0.0.0.0:*
+LISTEN 0      4096            [::]:22    [::]:*
+## tmux
+kernel: 1 windows (created Thu Sep  3 13:17:15 2026)
+p4topo: 1 windows (created Thu Sep  3 13:07:31 2026)
+proxy: 1 windows (created Thu Sep  3 13:10:01 2026)
+## repo HEAD (should be absent: .git was stripped from the public snapshot? check)
+9e6cc30 README: say plainly that this snapshot is for testing, not a release

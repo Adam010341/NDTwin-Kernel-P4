@@ -1,0 +1,26 @@
+11:00:02
+=== install manual: chmod +x the two scripts ===
+-rwxrwxr-x 1 ndt ndt 265 Sep  3 10:33 start_network_state_recorder.sh
+-rwxrwxr-x 1 ndt ndt 315 Sep  3 10:33 stop_network_state_recorder.sh
+
+=== the install manual says: 'start_network_state_recorder.sh launches the recorder with
+    an interpreter path written INSIDE the script, so open it once and check that path
+    points at the environment you just created.'  What is actually in the script: ===
+9:nohup python3 network_state_recorder.py &
+
+=== F4 attempt 1: run it exactly as the User Manual says, no environment activated ===
+SCRIPT_EXIT=0
+Traceback (most recent call last):
+  File "/home/ndt/Network-State-Recorder/network_state_recorder.py", line 6, in <module>
+    from nornir import InitNornir
+ModuleNotFoundError: No module named 'nornir'
+--- did anything start?  (User Manual's own status check) ---
+  NOTHING RUNNING
+--- nohup.out ---
+  (no nohup.out)
+--- did it create recorded_info/ or logs/ ? ---
+ls: cannot access 'recorded_info/': No such file or directory
+ls: cannot access 'logs/': No such file or directory
+--- did the script still flip display_on_console to false? ---
+    display_on_console: false
+11:00:08

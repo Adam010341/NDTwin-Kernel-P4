@@ -1,0 +1,7 @@
+11:13:56
+############ B18: second bring-up of the whole stack, same commands ############
+ryu 6633 listening: 1
+topology launched at 11:14:23
+=== rule counts (expect 130 x10 again) ===
+s1=130 s2=130 s3=130 s4=130 s5=130 s6=130 s7=130 s8=130 s9=130 s10=130 
+11:15:54

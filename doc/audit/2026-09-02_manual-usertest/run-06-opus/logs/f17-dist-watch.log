@@ -1,0 +1,21 @@
+11:27:13
+  11:27:13  kernel flow records=2
+  11:27:33  kernel flow records=2
+  11:27:53  kernel flow records=4
+  11:28:13  kernel flow records=2
+  11:28:33  kernel flow records=2
+  11:28:53  kernel flow records=0
+=== last 8 lines of the NTG pane ===
+ly running host pairs: 3 with 2 unlimited duration flows
+2026-09-03 11:29:11 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 3 with 2 unlimited duration flows
+2026-09-03 11:29:12 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 3 with 2 unlimited duration flows
+2026-09-03 11:29:13 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 3 with 2 unlimited duration flows
+
+=== has it said 'Experiment completed' for the dist run? ===
+2
+2026-09-03 11:24:34 | SUCCESS : Experiment completed.
+2026-09-03 11:25:43 | SUCCESS : Experiment completed.
+11:29:13

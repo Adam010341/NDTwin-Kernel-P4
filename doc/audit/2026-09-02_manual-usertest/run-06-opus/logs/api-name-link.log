@@ -1,0 +1,68 @@
+10:54:57
+############ D15 modify_device_name (switch, dpid 3) ############
+-- before --
+  dpid 3 device_name = 's3'
+
+===== rename dpid 3 to 'sX' =====
+HTTP 200
+{"status":"Device name updated successfully."}
+-- after --
+  dpid 3 device_name = 'sX'
+
+===== D19 get_nickname?dpid=3 =====
+HTTP 200
+{"nickname":"s3"}
+
+############ D20 modify_nickname by dpid ############
+
+===== set nickname of dpid 3 to 'Sinica-Switch-01' (the doc's own example value) =====
+HTTP 200
+{"status": "success", "message": "Nickname updated successfully."}
+
+===== read it back: D19 get_nickname?dpid=3 =====
+HTTP 200
+{"nickname":"Sinica-Switch-01"}
+
+===== D19 get_nickname on a device that does not exist (doc: 404) =====
+HTTP 404
+{"error":"Device not found"}
+
+===== D19 get_nickname with no identifier (doc: 404 'Missing dpid, mac, or name parameter') =====
+HTTP 400
+{"error":"Missing dpid, mac, or name parameter"}
+
+############ D1 / D2 link failure + recovery on the s1<->s5 link ############
+-- edge state before --
+  edge s1->s5 : is_up=True is_enabled=True
+  edge s5->s1 : is_up=True is_enabled=True
+
+===== D1 link_failure_detected =====
+HTTP 200
+{"status":"link failure processed"}
+-- edge state after failure --
+  edge s1->s5 : is_up=False is_enabled=True
+  edge s5->s1 : is_up=False is_enabled=True
+
+===== D2 link_recovery_detected =====
+HTTP 200
+{"status":"link recovery processed"}
+-- edge state after recovery --
+  edge s1->s5 : is_up=True is_enabled=True
+  edge s5->s1 : is_up=True is_enabled=True
+
+===== D1 on an edge that does not exist (doc: 404 'edge not found in topology') =====
+HTTP 404
+{"error":"edge not found in topology"}
+
+===== D14 inform_switch_entered?dpid=3 =====
+HTTP 200
+{"status":"Switch set to up"}
+
+===== D14 inform_switch_entered with no dpid (doc: 400) =====
+HTTP 400
+{"error":"Missing dpid parameter"}
+
+===== D14 inform_switch_entered?dpid=99999 (doc: 404 'Switch not found') =====
+HTTP 404
+{"error":"Switch not found"}
+10:55:07

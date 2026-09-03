@@ -1,0 +1,21 @@
+10:33
+=== Network-State-Recorder ===
+exit=0 -> /home/ndt/Network-State-Recorder
+=== Network-Traffic-Generator ===
+exit=0 -> /home/ndt/Network-Traffic-Generator
+=== Web-GUI ===
+exit=0 -> /home/ndt/Web-GUI
+=== Network-Traffic-Visualizer ===
+exit=0 -> /home/ndt/Network-Traffic-Visualizer
+=== Energy-Saving-App ===
+exit=0 -> /home/ndt/Energy-Saving-App
+=== Simulation-Platform-Manager ===
+exit=0 -> /home/ndt/Simulation-Platform-Manager
+=== what we got ===
+/home/ndt/Energy-Saving-App
+/home/ndt/Network-State-Recorder
+/home/ndt/Network-Traffic-Generator
+/home/ndt/Network-Traffic-Visualizer
+/home/ndt/Simulation-Platform-Manager
+/home/ndt/Web-GUI
+10:33

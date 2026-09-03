@@ -1,0 +1,24 @@
+cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+[sudo] password for ndt:
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ sudo bin/ndtwin_kernel
+[2026-09-03 10:37:05.062] [info] [main.cpp:299 main] Logger Loads Successfully!
+level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2):
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,30 @@
+=== baseline: rules on s1 and any 10.99.99.99 rule ===
+130
+(no 10.99.99.99 rule -- correct baseline)
+
+=== D9: POST /ndt/install_flow_entry (manual's body shape, my own values) ===
+{
+  "dpid": 1,
+  "priority": 99,
+  "match": { "eth_type": 2048, "ipv4_dst": "10.99.99.99" },
+  "actions": [ { "type": "OUTPUT", "port": 1 } ]
+}
+HTTP 200
+body: {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+--- READ BACK from the switch (this is what decides the verdict) ---
+ cookie=0x0, duration=4.155s, table=0, n_packets=0, n_bytes=0, idle_age=4, priority=99,ip,nw_dst=10.99.99.99 actions=output:1
+rule count now: 131
+
+=== D11: POST /ndt/modify_flow_entry -> change the output port to 2 ===
+HTTP 200
+body: {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+--- READ BACK ---
+ cookie=0x0, duration=8.472s, table=0, n_packets=0, n_bytes=0, idle_age=8, hard_age=4, priority=99,ip,nw_dst=10.99.99.99 actions=output:2
+
+=== D10: POST /ndt/delete_flow_entry ===
+HTTP 200
+body: {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+--- READ BACK (expect gone) ---
+gone from switch
+rule count now: 130
+10:51:09

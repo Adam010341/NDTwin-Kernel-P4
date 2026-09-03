@@ -1,0 +1,70 @@
+cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+ndt@ndtwin-lab-vm:~$ cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+[sudo] password for ndt:
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ sudo bin/ndtwin_kernel
+[2026-09-03 10:37:05.062] [info] [main.cpp:299 main] Logger Loads Successfully!
+level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2): 1
+
+Select your Mininet Topology:
+  [1] OVS Environment (128 Hosts)
+  [2] P4 / BMv2 Environment (4 Hosts)
+Enter topology choice (1-2): 1
+
+Do you want to enable Intent Translator (requires OpenAI Token)?
+  [1] Yes (Enable AI features)
+  [2] No  (Disable AI features)
+Enter choice (1-2): 2
+Running in Mininet environment.
+[2026-09-03 10:37:17.068] [info] [main.cpp:311 main] Topology file: ../setting/S
+taticNetworkTopologyMininet_10Switches.json
+[2026-09-03 10:37:17.068] [info] [main.cpp:358 main] IntentTranslator is disable
+d by user.
+[2026-09-03 10:37:17.068] [info] [ApplicationManager.cpp:410 cleanupStaleEntries
+] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-03 10:37:17.069] [info] [FlowLinkUsageCollector.cpp:472 start] Collecto
+r Starts Up
+[2026-09-03 10:37:17.069] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyA
+ndFlowMonitor Run
+[2026-09-03 10:37:17.069] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopol
+ogyFromFile] Load Static Topology File
+[2026-09-03 10:37:17.069] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [run] pid=34645 tid=34723
+[2026-09-03 10:37:17.069] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [testCalAvgFlowSendingRatesRandomly] pid=34645 tid=34725
+[2026-09-03 10:37:17.069] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 2
+0 workers
+[2026-09-03 10:37:17.069] [info] [DeviceConfigurationAndPowerManager.cpp:118 sta
+rt] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 10:37:17.069] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calFlowPathByQueried] pid=34645 tid=34727
+[2026-09-03 10:37:17.070] [info] [FlowLinkUsageCollector.cpp:749 run] Listening
+for sFlow on UDP port 6343
+[2026-09-03 10:37:17.070] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calAvgFlowSendingRatesPeriodically] pid=34645 tid=34724
+[2026-09-03 10:37:17.070] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [purgeIdleFlows] pid=34645 tid=34726
+[2026-09-03 10:37:17.071] [info] [ControllerAndOtherEventHandler.cpp:196 runServ
+er] Server Listening on port 8000
+[2026-09-03 10:37:17.082] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPl
+aneHomogeneity] Data plane: ovs (10 switch(es))
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 10:37:17.097] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology
+from the control plane: 0 switches, 0 hosts, 0 edges up
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User
+-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+

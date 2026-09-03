@@ -1,0 +1,97 @@
+=== 2.6.1 ls -l intelligent_router.py ===
+-rw-rw-r-- 1 ndt ndt 114953 Sep  3 10:19 intelligent_router.py
+=== the static_topology_file_path lines the manual quotes ===
+36:static_topology_file_path = Path(os.environ.get(
+90:_declared_count, expected_switch_dpids = _expected_switches(static_topology_file_path)
+98:    _switch_num_source = f"topology file ({static_topology_file_path.name})"
+1376:    def load_static_topology(self, path: Path = static_topology_file_path):
+=== is_mininet assignments (manual says there are two) ===
+43:# down in this same module-level block (search for the second `is_mininet = True`), so whatever
+56:is_mininet = True   # True: Mininet, False: physical testbed -- SEE ABOVE, this value is discarded
+602:is_mininet = True
+=== NDTWIN_RYU_SWITCH_NUM / DEADLINE refs ===
+28:# Overridable via NDTWIN_RYU_TOPO_FILE; the default is unchanged, so the normal OVS round
+37:    "NDTWIN_RYU_TOPO_FILE",
+74:# Order: NDTWIN_RYU_SWITCH_NUM (the deployment's own answer) -> the switch count in the topology
+92:_env_switch_num = os.environ.get("NDTWIN_RYU_SWITCH_NUM")
+95:    _switch_num_source = "NDTWIN_RYU_SWITCH_NUM"
+117:initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLINE", "300"))
+742:            "will not be forwarded. Set NDTWIN_RYU_SWITCH_NUM to the number this deployment "
+=== setting/ directory ===
+total 740
+-rw-rw-r-- 1 ndt ndt   1205 Sep  3 10:19 AppConfig.hpp.example
+-rw-rw-r-- 1 ndt ndt 104698 Sep  3 10:19 StaticNetworkTopologyMininet_10Switches.json
+-rw-rw-r-- 1 ndt ndt  25365 Sep  3 10:19 StaticNetworkTopologyOVS_10Switches_16Hosts.json
+-rw-rw-r-- 1 ndt ndt  36653 Sep  3 10:19 StaticNetworkTopologyOVS_10Switches_32Hosts.json
+-rw-rw-r-- 1 ndt ndt  23039 Sep  3 10:19 StaticNetworkTopologyOVS_10Switches_4Hosts.json
+-rw-rw-r-- 1 ndt ndt  59277 Sep  3 10:19 StaticNetworkTopologyOVS_10Switches_64Hosts.json
+-rw-rw-r-- 1 ndt ndt  19731 Sep  3 10:19 StaticNetworkTopologyOVS_10Switches_8Hosts.json
+-rw-rw-r-- 1 ndt ndt 138820 Sep  3 10:19 StaticNetworkTopologyP4_10Switches_128Hosts.json
+-rw-rw-r-- 1 ndt ndt  16960 Sep  3 10:19 StaticNetworkTopologyP4_10Switches_4Hosts.json
+-rw-rw-r-- 1 ndt ndt  42854 Sep  3 10:19 StaticNetworkTopology_ipAlias4_10Switches.json
+-rw-rw-r-- 1 ndt ndt  42926 Sep  3 10:19 StaticNetworkTopology_ipAlias4_10Switches_all_1g_cable.json
+-rw-rw-r-- 1 ndt ndt  80986 Sep  3 10:19 StaticNetworkTopology_ipAlias4_10_HPE_Switches_all_1g_cable.json
+-rw-rw-r-- 1 ndt ndt  81018 Sep  3 10:19 StaticNetworkTopology_ipAlias4_10_HPE_Switches_smapled_by_p4.json
+-rw-rw-r-- 1 ndt ndt  54894 Sep  3 10:19 StaticNetworkTopology_ipAlias4_9Switches_all_1g_cable.json
+-rw-rw-r-- 1 ndt ndt   1030 Sep  3 10:19 node_positions_p4.json
+=== Step 6.0 check ===
+p4_proxy/p4_src/ndtwin_switch.p4
+SEC60_EXIT=0
+=== README.md ===
+# NDTwin-Kernel-P4
+
+> [!CAUTION]
+> **Still under active maintenance — this version is published for testing only.**
+> It is not a release. Expect defects, and treat anything you build on it as provisional:
+> the contents can change without notice when the next snapshot is taken.
+
+The NDTwin Kernel with P4/BMv2 data-plane support: a P4 proxy agent that presents Ryu's
+northbound interface over P4Runtime, the `ndtwin_switch.p4` pipeline, and the Mininet
+topologies that stand a BMv2 fabric up.
+
+It is what the [NDTwin installation manual](https://ndtwin.org/docs/ndtwin-installation-manual/)
+means when a page says you need the P4 build of the kernel. If a page you are following
+mentions P4, BMv2, `p4c` or `simple_switch_grpc`, this is the tree to clone; otherwise use
+[`NDTwin-Kernel`](https://github.com/ndtwin-lab/NDTwin-Kernel).
+
+## What this repository is
+
+**A snapshot, not a mirror.** It is the state of the P4 development tree at a point in
+time, published as a single commit. There is no upstream history here and nothing updates
+it automatically — a refresh means taking another snapshot deliberately.
+
+| | |
+|---|---|
+| Snapshot taken | 2026-09-01 |
+| Source revision | `20cd80b` (2026-08-28) |
+| Not included | the internal engineering audit tree (`doc/audit/`), which is development record rather than anything you need to build or run this |
+
+If you would rather not build at all, the P4/BMv2 demo VM on the
+[download page](https://ndtwin.org/docs/download/) already has this installed and working.
+
+## Known rough edges
+
+**Some scripts and docs hardcode a developer's home directory.** Paths of the form
+`/home/adam/...` appear as defaults in the files below. None of them are secrets; they are
+simply not your paths, so treat them as values to change rather than as instructions:
+
+```
+intelligent_router.py
+p4_proxy/requirements.txt
+p4_proxy/mininet/ntg_bmv2_topo.py          (NTG_DIR is overridable: export NTG_DIR=...)
+p4_proxy/reference/p4runtime_mastership_probe.py
+p4_proxy/reference/clone_stack_probe.py
+p4_proxy/tests/test_clone_session.py
+tools/test_workflow/  (several)
+doc/  (several runbooks quote them in example commands)
+```
+
+`doc/KNOWN-ISSUES.md` is the list of defects known at snapshot time and is worth reading
+before you file one.
+
+[Co-developed with claude code -- Adam]
+
+---
+
+Branch for developing P4 support.
+10:20

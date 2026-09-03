@@ -1,0 +1,26 @@
++ date +%H:%M
+10:14
++ which conda
++ echo NO_CONDA_YET
+NO_CONDA_YET
++ mkdir -p /home/ndt/miniconda3
++ curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /home/ndt/miniconda3/miniconda.sh
++ echo CURL_EXIT=0
+CURL_EXIT=0
++ ls -l /home/ndt/miniconda3/miniconda.sh
+-rw-rw-r-- 1 ndt ndt 197973354 Sep  3 10:14 /home/ndt/miniconda3/miniconda.sh
++ bash /home/ndt/miniconda3/miniconda.sh -b -u -p /home/ndt/miniconda3
+PREFIX=/home/ndt/miniconda3
+Unpacking bootstrapper...
+Unpacking payload...
+
+Installing base environment...
+
+Preparing transaction: ...working... done
+Executing transaction: ...working... done
+installation finished.
++ echo INSTALL_EXIT=0
+INSTALL_EXIT=0
++ rm /home/ndt/miniconda3/miniconda.sh
++ date +%H:%M
+10:14

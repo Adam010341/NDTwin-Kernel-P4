@@ -1,0 +1,2 @@
+144093 python3 network_state_recorder.py
+148937 bash -c cd ~/Network-State-Recorder; date "+%H:%M:%S"; echo "=== pgrep ==="; pgrep -af network_state_recorder.py | tee ~/logs/f5-nsr-pgrep.txt; echo "=== recorded_info ==="; ls -la recorded_info/ 2>&1 | head; echo "=== logs ==="; ls -la logs/ 2>&1 | head

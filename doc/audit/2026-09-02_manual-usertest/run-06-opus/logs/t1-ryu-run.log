@@ -1,0 +1,35 @@
+10:38:18
+a activate ryu-env
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$ cd ~/Desktop/NDTwin-Kernel && source
+~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env
+(ryu-env) ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$ export NDTWIN_RYU_TOPO_FILE
+=~/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+(ryu-env) ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$ ryu-manager intelligent_rou
+ter.py ryu.app.rest_topology ryu.app.ofctl_rest --ofp-tcp-listen-port 6633 --obs
+erve-link
+loading app intelligent_router.py
+NDTWIN: load_static_topology will run OFF the event handler (NDTWIN_RYU_ASYNC_TO
+POLOGY_INSTALL, default since 2026-08-25; set 0 to opt out)
+NDTWIN: SIGUSR2 dumps greenlet stacks to /tmp/ndtwin_ryu_greenlets.txt (kill -US
+R2 <ryu pid>)
+NDTWIN: LLDP_SEND_GUARD default is 0.01s (Ryu ships 0.05; override with NDTWIN_R
+YU_LLDP_GUARD)
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(45643) wsgi starting up on http://0.0.0.0:8080
+
+=== is 6633 listening? (manual: start Ryu first and let it come up) ===
+LISTEN 0      50           0.0.0.0:6633      0.0.0.0:*          
+LISTEN 0      50           0.0.0.0:8080      0.0.0.0:*          
+10:38:42

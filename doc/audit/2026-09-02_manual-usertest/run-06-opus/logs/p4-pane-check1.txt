@@ -1,0 +1,84 @@
++ set +x
+This script builds and installs the P4_16 (and also P4_14)
+compiler, and the behavioral-model software packet forwarding
+program, that can behave as just about any legal P4 program.
+
+It is regularly tested on freshly installed versions of these systems:
+    Ubuntu 20.04
+    Ubuntu 22.04
+    Ubuntu 24.04
+with all Ubuntu software updates as of the date of testing.  See
+this directory for log files recording the last date this script
+was tested on its supported operating systems:
+
+    https://github.com/jafingerhut/p4-guide/tree/master/bin/output
+
+The files installed by this script consume about 8 GB of disk space.
+
+On a 2019 MacBook Pro with a decent speed Internet connection
+and an SSD drive, running Ubuntu Linux in a VirtualBox VM, it
+took about 2 hours.
+
+Versions of software that will be installed by this script:
+
++ gRPC: github.com/google/grpc.git v1.51.1
++ PI: github.com/p4lang/PI latest version
++ behavioral-model: github.com/p4lang/behavioral-model latest version
+  which, as of 2023-Sep-22, also installs these things:
+  + thrift version 0.16.0
+  + nanomsg version 1.0.0
+  + pynng version 0.9.0
++ p4c: github.com/p4lang/p4c latest version
++ ptf: github.com/p4lang/ptf latest version
++ tutorials: github.com/p4lang/tutorials latest version
++ Mininet: github.com/mininet/mininet latest version as of 2024-Sep-18
++ Python packages: protobuf 4.21.12, grpcio - a recent version auto-selected by
+pip3
++ Python packages: scapy (2.5.0), psutil, crcmod
+
+Note that anything installed as 'the latest version' can change
+its precise contents from one run of this script to another.
+That is an intentional property of this script -- to get the
+latest version of that software.  If you want particular
+versions that are not the latest, you can modify this script by
+adding 'git checkout <tag>' and/or 'git checkout <commit-sha>'
+command at the appropriate places.
+
++ set +x
+------------------------------------------------------------
+Time and disk space used before installation begins:
++ date
+Thu Sep  3 10:30:47 UTC 2026
++ df -h .
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1       116G  5.7G  110G   5% /
++ df -BM .
+Filesystem     1M-blocks  Used Available Use% Mounted on
+/dev/vda1        117961M 5752M   112193M   5% /
+++ date +%s
++ TIME_START=1788431447
++ python -V
+./p4-guide/bin/install-p4dev-v8.sh: line 469: python: command not found
++ echo 'No such command in PATH: python'
+No such command in PATH: python
++ python2 -V
+./p4-guide/bin/install-p4dev-v8.sh: line 470: python2: command not found
++ echo 'No such command in PATH: python2'
+No such command in PATH: python2
++ python3 -V
+Python 3.12.3
++ pip -V
+./p4-guide/bin/install-p4dev-v8.sh: line 472: pip: command not found
++ echo 'No such command in PATH: pip'
+No such command in PATH: pip
++ pip2 -V
+./p4-guide/bin/install-p4dev-v8.sh: line 473: pip2: command not found
++ echo 'No such command in PATH: pip2'
+No such command in PATH: pip2
++ pip3 -V
+./p4-guide/bin/install-p4dev-v8.sh: line 474: pip3: command not found
++ echo 'No such command in PATH: pip3'
+No such command in PATH: pip3
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes update
+[sudo] password for ndt:

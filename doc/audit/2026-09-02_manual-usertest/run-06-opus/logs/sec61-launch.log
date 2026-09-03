@@ -1,0 +1,13 @@
+=== the 'check it now, not in two hours' gate ===
+Python 3.12.3
+conda in env? PATH=/usr/local/sbin
+=== disk free (manual: needs >=25 GB) ===
+/dev/vda1       116G  5.6G  110G   5% /
+=== start time ===
+2026-09-03 10:30:44
+Cloning into 'p4-guide'...
+P4GUIDE_CLONE_EXIT=0
+/home/ndt/p4-guide/bin/install-p4dev-v8.sh
+p4: 1 windows (created Thu Sep  3 10:30:47 2026)
+=== launched ===
+2026-09-03 10:30:52

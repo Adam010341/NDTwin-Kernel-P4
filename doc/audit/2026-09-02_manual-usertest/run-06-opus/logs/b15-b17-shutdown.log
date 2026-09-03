@@ -1,0 +1,54 @@
+11:12:27
+=== record the ryu pid BEFORE anything, so I can check /proc later ===
+RYU_PID=45643
+kernel :8000 before: 1
+
+############ B17: Ctrl-C the kernel, watch its last lines ############
+--- last 20 lines of the kernel pane ---
+[2026-09-03 11:12:29.897] [info] [ControllerAndOtherEventHandler.cpp:102 stop] C
+ontrollerAndOtherEventHandler already stopped.
+[2026-09-03 11:12:29.897] [info] [ApplicationManager.cpp:266 cleanupNFS] Cleanin
+g up registered NFS folders in /srv/nfs/sim
+sudo: exportfs: command not found
+[2026-09-03 11:12:30.031] [warning] [ApplicationManager.cpp:312 cleanupAppFolder
+] 'sudo exportfs -u /srv/nfs/sim/1' failed (exit status 1). The export may still
+ be live.
+[2026-09-03 11:12:30.169] [warning] [ApplicationManager.cpp:345 cleanupAppFolder
+] Deleted NFS folder /srv/nfs/sim/1 but its export configuration was not fully r
+emoved.
+sudo: exportfs: command not found
+[2026-09-03 11:12:30.306] [warning] [ApplicationManager.cpp:281 cleanupNFS] 'sud
+o exportfs -ra' failed after cleanup (exit status 1). Stale exports may still be
+ live.
+[2026-09-03 11:12:30.306] [info] [FlowLinkUsageCollector.cpp:580 stop] Collector
+ Stops
+terminate called without an active exception
+Aborted
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$
+--- doc claims BOTH of these appear, in this order: ---
+    'All subsystems stopped. Exiting.'  then  'terminate called without an active exception'
+1869:[2026-09-03 11:12:29.897] [info] [main.cpp:430 main] All subsystems stopped. Exi
+1890:terminate called without an active exception
+
+--- manual's shutdown step 7: did the kernel release :8000? ---
+  released
+
+############ B15: exit the Mininet CLI ############
+*** Stopping 144 links
+................................................................................
+................................................................
+*** Stopping 10 switches
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
+*** Stopping 128 hosts
+h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18 h19 h20 h21 h22 h
+23 h24 h25 h26 h27 h28 h29 h30 h31 h32 h33 h34 h35 h36 h37 h38 h39 h40 h41 h42 h
+43 h44 h45 h46 h47 h48 h49 h50 h51 h52 h53 h54 h55 h56 h57 h58 h59 h60 h61 h62 h
+63 h64 h65 h66 h67 h68 h69 h70 h71 h72 h73 h74 h75 h76 h77 h78 h79 h80 h81 h82 h
+83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h10
+2 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h11
+8 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128
+*** Done
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+--- doc step 2: 'The script will automatically remove the IP alias' ---
+1889:Cleaning up: Removing IP alias 192.168.123.1 from 'lo' interface...
+11:13:02

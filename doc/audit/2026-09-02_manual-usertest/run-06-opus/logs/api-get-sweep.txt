@@ -1,0 +1,97 @@
+10:50:12
+
+===== D6-get_power_report  GET /ndt/get_power_report =====
+HTTP 200
+[{"dpid":1,"power_consumed":92465},{"dpid":2,"power_consumed":98110},{"dpid":3,"power_consumed":49053},{"dpid":4,"power_consumed":73978},{"dpid":5,"power_consumed":68618},{"dpid":6,"power_consumed":100592},{"dpid":7,"power_consumed":44487},{"dpid":8,"power_consumed":147622},{"dpid":9,"power_consumed":142228},{"dpid":10,"power_consumed":33466}]
+
+===== D7-get_switches_power_state  GET /ndt/get_switches_power_state =====
+HTTP 200
+{"192.168.123.11":"ON","192.168.123.12":"ON","192.168.123.13":"ON","192.168.123.14":"ON","192.168.123.15":"ON","192.168.123.16":"ON","192.168.123.17":"ON","192.168.123.18":"ON","192.168.123.19":"ON","192.168.123.20":"ON"}
+
+===== D12-get_cpu_utilization  GET /ndt/get_cpu_utilization =====
+HTTP 200
+{"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+
+===== D13-get_memory_utilization  GET /ndt/get_memory_utilization =====
+HTTP 200
+{"192.168.123.11":14,"192.168.123.12":54,"192.168.123.13":36,"192.168.123.14":44,"192.168.123.15":39,"192.168.123.16":56,"192.168.123.17":25,"192.168.123.18":28,"192.168.123.19":52,"192.168.123.20":26}
+
+===== D21-get_temperature  GET /ndt/get_temperature =====
+HTTP 200
+{"192.168.123.11":29,"192.168.123.12":44,"192.168.123.13":26,"192.168.123.14":34,"192.168.123.15":29,"192.168.123.16":46,"192.168.123.17":40,"192.168.123.18":43,"192.168.123.19":42,"192.168.123.20":41}
+
+===== D24-get_average_link_usage  GET /ndt/get_average_link_usage =====
+HTTP 200
+{"avg_link_usage":0.0,"status":"success"}
+
+===== D22-get_path_switch_count-one  GET /ndt/get_path_switch_count?src_ip=10.0.0.1&dst_ip=10.0.0.2 =====
+HTTP 200
+{"dst_ip":"10.0.0.2","src_ip":"10.0.0.1","status":"success","switch_count":1}
+
+===== D22-get_path_switch_count-none  GET /ndt/get_path_switch_count =====
+HTTP 200
+{"data":[{"dst_ip":"10.0.0.2","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.3","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.4","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.5","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.6","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.7","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.8","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.9","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.10","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.11","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.12","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.13","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.14","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.15","src_ip":"10.0.0.1","switch_count":1},{"dst_ip":"10.0.0.16","src_ip":"10.0.0.1","switch_count":1}
+
+===== D19-get_nickname-name  GET /ndt/get_nickname?name=s1 =====
+HTTP 200
+{"nickname":"s1"}
+
+===== D30-top_k  GET /ndt/get_detected_top_k_flow_data =====
+HTTP 200
+[{"dst_ip":16777226,"dst_port":5201,"estimated_flow_sending_rate_bps_in_the_last_sec":988618752,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1252872192,"estimated_packet_rate_in_the_last_sec":81408,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":103168,"first_sampled_time":"2026-09-03 10:49:27","latest_sampled_time":"2026-09-03 10:50:12","path":[{"interface":4,"node":33554442},{"interface":3,"node":1},{"interface":0,"node":16777226}],"protocol_id":6,"src_ip":33554442,"src_port":43182},{"dst_ip":33554442,"dst_port":43182,"estimated_flow_sending_rate_bps_in_the_last_sec":1720320,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":1433600,"estimated_packet_rate_in_the_last_sec":3072,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":2560,"first_sampled_time":"2026-09-03 10:49:27","latest_sampled_time":"2026-09-03 10:50:12","path":[{"interface"
+
+===== D37-get_openflow_capacity  GET /ndt/get_openflow_capacity =====
+HTTP 200
+{"BrocadeICX7250":{"groups":{"types":["ALL","INDIRECT","FF"]},"meters":{"bands":["DROP"],"flags":["KBPS","BURST","STATS"],"supported":true},"openflow_versions":["1.0","1.3"],"tables":[{"actions":["OUTPUT","SET_FIELD","DROP","GROUP"],"id":0,"instructions":["APPLY_ACTIONS","WRITE_ACTIONS","METER"],"matches":["in_port","eth_src","eth_dst","eth_type","ipv4_dst"],"max_entries":3072}]},"HPE5520":{"groups":{"types":["ALL","INDIRECT","FF"]},"meters":{"bands":["DROP"],"flags":["KBPS","BURST","STATS"],"supported":true},"openflow_versions":["1.3"],"tables":[{"actions":["OUTPUT","GROUP","DROP","SET_FIELD","SET_QUEUE"],"id":0,"instructions":["APPLY_ACTIONS","WRITE_ACTIONS","METER"],"matches":["in_port","eth_type","vlan_vid","ipv4_src","ipv4_dst","ip_proto","tcp_src","tcp_dst"],"max_entries":65535}]},"OVS":{"groups":{"types":["ALL","SELECT","INDIRECT","FF"]},"meters":{"bands":["DROP","DSCP_REMARK"],"f
+
+===== D38-get_static_topology_json  GET /ndt/get_static_topology_json =====
+HTTP 200
+{
+  "edges": [
+    {
+      "dst_dpid": 5,
+      "dst_interface": 1,
+      "dst_ip": [
+        "192.168.123.15"
+      ],
+      "link_bandwidth_bps": 1000000000,
+      "src_dpid": 1,
+      "src_interface": 1,
+      "src_ip": [
+        "192.168.123.11"
+      ]
+    },
+    {
+      "dst_dpid": 6,
+      "dst_interface": 1,
+      "dst_ip": [
+        "192.168.123.16"
+      ],
+      "link_bandwidth_bps": 1000000000,
+      "src_dpid": 1,
+      "src_interface": 2,
+      "src_ip": [
+        "192.168.123.11"
+      ]
+    },
+    {
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        "10.0.0.1"
+      ],
+      "link_bandwidth_bps": 1000000000,
+      "src_dpid": 1,
+      "src_interface": 3,
+      "src_ip": [
+        "192.168.123.11"
+      ]
+    },
+    {
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        "10.0.0.2"
+      ],
+      "link_bandwidth_bps": 1000000000,
+  

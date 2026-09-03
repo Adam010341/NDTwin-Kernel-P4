@@ -1,0 +1,25 @@
+10:49:23
+=== B11: the manual's two mininet lines, verbatim ===
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+[1] 116038
+mininet>
+
+=== B12: query WHILE the transfer runs (manual: expect TWO records) ===
+10:49:47
+HTTP body bytes: 1031
+record count: 2
+  10.0.0.1:5201 -> 10.0.0.2:43182  proto=6  rate_bps=2007040  hops=3  first=2026-09-03 10:49:27 latest=2026-09-03 10:49:47
+  10.0.0.2:43182 -> 10.0.0.1:5201  proto=6  rate_bps=1532669952  hops=3  first=2026-09-03 10:49:27 latest=2026-09-03 10:49:47
+
+=== B13: the manual's decoder one-liner on its own example value ===
+10.0.0.1
+10:49:47

@@ -1,0 +1,49 @@
+INFO:     127.0.0.1:45848 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40980 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40992 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41008 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41022 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41036 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41044 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41050 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41056 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41066 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41082 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41092 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41102 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41114 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41118 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41130 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41132 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51640 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51654 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51668 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51674 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51682 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51694 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51698 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51708 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51712 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51722 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51738 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51748 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51756 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51758 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51770 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51780 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60000 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60004 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60014 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60022 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60024 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60040 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60044 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60048 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60058 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+^CINFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[Proxy Agent] Shutting down...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [268654]
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/p4_proxy$

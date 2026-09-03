@@ -1,0 +1,18 @@
+11:11:20
+############ D23 again, with the DOCUMENTED field names ############
+HTTP 200
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+-- read back from s2 --
+ cookie=0x0, duration=4.153s, table=0, n_packets=0, n_bytes=0, idle_age=4, priority=98,ip,nw_dst=10.88.88.88 actions=output:1
+-- delete via documented field names --
+HTTP 200
+{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+  gone from switch
+
+############ D30 top-k WITH traffic, compared against get_detected_flow_data ############
+  get_detected_flow_data      -> 2 records
+  get_detected_top_k_flow_data-> 2 records
+  is top-k sorted desc by estimated_packet_rate_in_the_proceeding_1sec_timeslot?
+   values: [65450, 1962]
+   sorted desc: True
+11:11:56

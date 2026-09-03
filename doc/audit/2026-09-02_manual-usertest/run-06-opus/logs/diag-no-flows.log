@@ -1,0 +1,60 @@
+10:45:02
+=== ovs-vsctl show (bridges + controller connection state) ===
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+
+=== bridge list ===
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+
+=== dump-flows s1 raw ===
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+rc=0
+
+=== dump-flows with OpenFlow13 ===
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+
+=== is anything connected to 6633? ===
+Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+0      0          127.0.0.1:6633    127.0.0.1:50146       
+0      0          127.0.0.1:6633    127.0.0.1:50190       
+0      0          127.0.0.1:6633    127.0.0.1:50220       
+0      0          127.0.0.1:6633    127.0.0.1:50160       
+0      0          127.0.0.1:6633    127.0.0.1:50150       
+0      0          127.0.0.1:6633    127.0.0.1:50186       
+0      0          127.0.0.1:6633    127.0.0.1:50166       
+0      0          127.0.0.1:6633    127.0.0.1:50206       
+0      0          127.0.0.1:6633    127.0.0.1:50208       
+0      0          127.0.0.1:6633    127.0.0.1:50176       
+
+=== Ryu REST: switches known to the controller ===
+[{"dpid": "0000000000000006", "ports": [{"dpid": "0000000000000006", "port_no": "00000001", "hw_addr": "36:b4:5d:21:d4:c5", "name": "s6-eth1"}, {"dpid": "0000000000000006", "port_no": "00000004", "hw_addr": "3e:3b:c3:85:4a:74", "name": "s6-eth4"}, {"dpid": "0000000000000006", "port_no": "00000002", "hw_addr": "66:7b:99:81:ab:af", "name": "s6-eth2"}, {"dpid": "0000000000000006", "port_no": "0000000
+=== Ryu pane tail ===
+00:00:00:00:00:6f -> 4: {'port': 0}
+00:00:00:00:00:70 -> 4: {'port': 0}
+00:00:00:00:00:71 -> 4: {'port': 0}
+00:00:00:00:00:72 -> 4: {'port': 0}
+00:00:00:00:00:73 -> 4: {'port': 0}
+00:00:00:00:00:74 -> 4: {'port': 0}
+00:00:00:00:00:75 -> 4: {'port': 0}
+00:00:00:00:00:76 -> 4: {'port': 0}
+00:00:00:00:00:77 -> 4: {'port': 0}
+00:00:00:00:00:78 -> 4: {'port': 0}
+00:00:00:00:00:79 -> 4: {'port': 0}
+00:00:00:00:00:7a -> 4: {'port': 0}
+00:00:00:00:00:7b -> 4: {'port': 0}
+00:00:00:00:00:7c -> 4: {'port': 0}
+00:00:00:00:00:7d -> 4: {'port': 0}
+00:00:00:00:00:7e -> 4: {'port': 0}
+00:00:00:00:00:7f -> 4: {'port': 0}
+00:00:00:00:00:80 -> 4: {'port': 0}
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0
+.380s install=0.170s report=0.210s
+route reinstall done
+(45643) accepted ('127.0.0.1', 46032)
+127.0.0.1 - - [03/Sep/2026 10:45:03] "GET /v1.0/topology/switches HTTP/1.1" 200
+17265 0.006389
+
+10:45:03

@@ -1,0 +1,48 @@
+--- sample 1 at 10:45:26 ---
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+s1   0 s2   0 s3   0 s4   0 s5   0 s6   0 s7   0 s8   0 s9   0 s10  0 
+--- sample 2 at 10:45:42 ---
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+s1   0 s2   0 s3   0 s4   0 s5   0 s6   0 s7   0 s8   0 s9   0 s10  0 
+--- sample 3 at 10:45:59 ---
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+sudo: a password is required
+s1   0 s2   0 s3   0 s4   0 s5   0 s6   0 s7   0 s8   0 s9   0 s10  0 
+=== B6: the Ryu line the manual quotes ===
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0
+install_all_pair_paths done: hosts=128 pairs=16256 rules=1280 paths=16256 walk=0
+=== B4: the 'all-destination paths installed' message the manual tells you to wait for ===
+1
+Static topology initialized, all-destination paths installed.
+=== sanity: one switch's flows, first 5 lines ===
+NXST_FLOW reply (xid=0x4):
+ cookie=0x0, duration=423.968s, table=0, n_packets=511, n_bytes=30660, idle_age=1, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
+ cookie=0x0, duration=401.876s, table=0, n_packets=0, n_bytes=0, idle_age=402, priority=10,ip,nw_dst=10.0.0.1 actions=output:3
+ cookie=0x0, duration=401.876s, table=0, n_packets=0, n_bytes=0, idle_age=402, priority=10,ip,nw_dst=10.0.0.2 actions=output:4
+ cookie=0x0, duration=401.876s, table=0, n_packets=0, n_bytes=0, idle_age=402, priority=10,ip,nw_dst=10.0.0.3 actions=output:5
