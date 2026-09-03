@@ -114,6 +114,11 @@ report "M1: ndt pid_is_app -- silencer back behind the read" "$m" \
 # added a second site (app_wait_stopped). Each site now anchors on its own full line, and the
 # g6 site gets its own mutation -- a merge that reintroduces the shape at either site must be
 # caught, not reported as a non-unique anchor.
+# 🔴 A2/A2b stay in the variable form even though check_gate_anchors.py cannot resolve it
+# ("NOT checked"), because converting them to the `$(printf ...)` form below made the tool
+# extract ZERO anchors from this whole gate -- measured 2026-09-03. Two cells it cannot read
+# is worse than none, and no anchors at all is worse than two. The four sites added that day
+# use the printf form, which it does read. [Co-developed with claude code -- Adam]
 A2='info "  pid $pid: $(tr '"'"'\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"'; B2='info "  pid $pid: $(tr '"'"'\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"'
 m=$(mutant m2 tools/test_workflow/ndt "$A2"$'\x1f'"$B2")
 report "M2: ndt app_stop argv line -- order reverted" "$m" \
@@ -124,9 +129,31 @@ m=$(mutant m2b tools/test_workflow/ndt "$A2b"$'\x1f'"$B2b")
 report "M2b: ndt app_wait_stopped argv line (g6) -- order reverted" "$m" \
        "app_wait_stopped's argv line (g6) is silent for a pid that cannot exist"
 
-m=$(mutant m3 tools/test_workflow/ndt "$(printf 'tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80\x1ftr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-80')")
+# 2026-09-03, fix/apps-stop-kills-the-group: `cut -c1-80` stopped being unique for the same
+# reason `cut -c1-90` did above -- three more sites print an argv read from a /proc file that may
+# be gone (apps_orphans' second branch, app_verify_stopped's survivor list, app_kill_by_existence).
+# Each anchors on its own full line and gets its own mutation: a site the suite checks but
+# nobody mutates is a case that proves nothing.
+#
+# Written in the `$(printf ...)` form rather than the A2/B2 variable form on purpose:
+# tests/shell/check_gate_anchors.py resolves the first and reports the second as
+# "an anchor this tool could not resolve to a literal -- it is NOT checked". Four more
+# unreadable cells would have made this gate less checkable than it was before this change.
+m=$(mutant m3 tools/test_workflow/ndt "$(printf 'err "    pid $pid  $(tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"\x1ferr "    pid $pid  $(tr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-80)"')")
 report "M3: ndt apps_orphans argv line -- order reverted" "$m" \
        "apps_orphans' argv line is silent for a pid that cannot exist"
+
+m=$(mutant m3b tools/test_workflow/ndt "$(printf 'err "      $(tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"\x1ferr "      $(tr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-80)"')")
+report "M3b: ndt apps_orphans orphaned-children argv line -- order reverted" "$m" \
+       "apps_orphans' orphaned-children argv line is silent for a pid that cannot exist"
+
+m=$(mutant m3c tools/test_workflow/ndt "$(printf 'err "      it is $(tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"\x1ferr "      it is $(tr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"')")
+report "M3c: ndt app_verify_stopped survivor argv line -- order reverted" "$m" \
+       "app_verify_stopped's survivor argv line is silent for a pid that cannot exist"
+
+m=$(mutant m3d tools/test_workflow/ndt "$(printf 'err "   it is $(tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"\x1ferr "   it is $(tr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"')")
+report "M3d: ndt app_kill_by_existence argv line -- order reverted" "$m" \
+       "app_kill_by_existence's argv line is silent for a pid that cannot exist"
 
 # --- the rest of the family, one mutation per fixed site ----------------------------------------
 m=$(mutant m4 tools/test_workflow/test_teardown_guards.sh "$(printf 'tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "$d/cmdline"\x1ftr '"'"'\\0'"'"' '"'"' '"'"' < "$d/cmdline" 2>/dev/null')")

@@ -153,9 +153,23 @@ unique_line() {   # <file> <fixed anchor> -- the one matching line, or nothing (
 # 2026-09-03 merge note: fix/g6-ndt-apps-liveness added a second `cut -c1-90` site
 # (app_wait_stopped), so that anchor stopped being unique -- which this loop is built to refuse.
 # Each site now carries its own unique anchor, and the new site is covered rather than ignored.
+#
+# 2026-09-03, again: fix/apps-stop-kills-the-group added two more argv-printing sites -- the
+# survivor list in app_verify_stopped, and the second branch of apps_orphans (children with no
+# pidfile and no signature). `cut -c1-80` stopped being unique for exactly the reason above, so
+# the apps_orphans row now anchors on its own prefix and the two new sites are covered rather
+# than swept under a broadened anchor. Every one of the five reads a /proc file that will not
+# exist, which is the whole point of this section.
+#
+# The anchors carry no `|`: this loop splits each spec on it. That is also why each site's own
+# prefix (its indentation and leading words) has to be distinct in ndt -- two sites that differ
+# only after a pipe cannot both be named here.
 for spec in "app_stop's argv line|info \"  pid \$pid: \$(tr|info" \
             "app_wait_stopped's argv line (g6)|err \"   pid \$pid: \$(tr|err" \
-            "apps_orphans' argv line|cut -c1-80|err"; do
+            "apps_orphans' argv line|err \"    pid \$pid  \$(tr|err" \
+            "apps_orphans' orphaned-children argv line|err \"      \$(tr|err" \
+            "app_verify_stopped's survivor argv line|err \"      it is \$(tr|err" \
+            "app_kill_by_existence's argv line|err \"   it is \$(tr|err"; do
     IFS='|' read -r label anchor stub <<<"$spec"
     if ! src="$(unique_line "$NDT" "$anchor" 3>"$T/.why")"; then
         t_bad "$label is silent for a pid that cannot exist" "$(cat "$T/.why")"

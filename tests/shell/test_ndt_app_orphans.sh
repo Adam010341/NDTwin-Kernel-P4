@@ -261,7 +261,14 @@ rm -f "$PIDDIR/app_te.pid"
 out="$(app_stop te 2>&1)"; rc=$?
 check "nothing running -> rc 2 (was 0 before G-6)" 2 "$rc"
 check "  says not running"                        yes "$(has "not running" "$out")"
-check "  and says how it knows"                   yes "$(has "no live instance found by pid or by scan" "$out")"
+# [Co-developed with claude code -- Adam]
+# 2026-09-03, fix/apps-stop-kills-the-group: this sentence grew from two witnesses to four, and
+# it is pinned here because it IS the contract -- "not running" has to say what it looked at.
+# The old wording was true by its own lights and still wrong: "no live instance found by pid or
+# by scan" was printed on 09-02 while two JVMs ran for another 1h54m, because a pid and an argv
+# are the two things a reparented child is invisible to. The process group and the log's writers
+# are the two that would have seen them.
+check "  and says how it knows"                   yes "$(has "nothing found by pid, by scan, by process group or by log" "$out")"
 
 VICTIM="$(spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-VICTIM/$TE_SIG")"
 SNAPSHOT_LINES="$(fix_line "$VICTIM" "python3 /nonexistent/NDT-TEST-FIXTURE-VICTIM/$TE_SIG")"
