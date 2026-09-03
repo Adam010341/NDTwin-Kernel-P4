@@ -1,0 +1,64 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = IsUpSplitTest.*:InformSwitchEnteredTest.*:PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable
+[==========] Running 18 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 3 tests from InformSwitchEnteredTest
+[ RUN      ] InformSwitchEnteredTest.ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff
+[       OK ] InformSwitchEnteredTest.ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff (2 ms)
+[ RUN      ] InformSwitchEnteredTest.ASwitchEnteredPushMayStillLiftReachable
+[       OK ] InformSwitchEnteredTest.ASwitchEnteredPushMayStillLiftReachable (0 ms)
+[ RUN      ] InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/test_HttpSessionRouting.cpp:726: Failure
+Expected equality of these values:
+  j.value("admin_state", "")
+    Which is: ""
+  "off"
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/test_HttpSessionRouting.cpp:727: Failure
+Value of: j.value("reachable", false)
+  Actual: false
+Expected: true
+[  FAILED  ] InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne (0 ms)
+[----------] 3 tests from InformSwitchEnteredTest (2 ms total)
+
+[----------] 1 test from PollDoesNotResurrectTest
+[ RUN      ] PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/test_PollDoesNotResurrect.cpp:549: Failure
+Expected equality of these values:
+  j.value("admin_state", "")
+    Which is: ""
+  "off"
+the commanded half of the old is_up now has its own name, and this switch was commanded off
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/test_PollDoesNotResurrect.cpp:552: Failure
+Value of: j.value("reachable", true)
+  Actual: true
+Expected: false
+the observed half must still say the poll did not resurrect it
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[  FAILED  ] PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable (2002 ms)
+[----------] 1 test from PollDoesNotResurrectTest (2002 ms total)
+
+[----------] 14 tests from IsUpSplitTest
+[ RUN      ] IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/test_IsUpSplit.cpp:172: Failure
+Value of: j.contains("admin_state")
+  Actual: false
+Expected: true
+the commanded half has no name on the wire
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/test_IsUpSplit.cpp:173: Failure
+Value of: j.contains("reachable")
+  Actual: false
+Expected: true
+the observed half has no name on the wire
+[  FAILED  ] IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias (0 ms)
+[ RUN      ] IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections
+unknown file: Failure
+C++ exception with description "[json.exception.type_error.302] type must be boolean, but is null" thrown in the test body.
+[  FAILED  ] IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections (3 ms)
+[ RUN      ] IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire
+test_routing_strategy: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/libs/nlohmann/json.hpp:21449: const nlohmann::json_abi_v3_11_3::basic_json<ObjectType, ArrayType, StringType, BooleanType, NumberIntegerType, NumberUnsignedType, NumberFloatType, AllocatorType, JSONSerializer, BinaryType, CustomBaseClass>::value_type& nlohmann::json_abi_v3_11_3::basic_json<ObjectType, ArrayType, StringType, BooleanType, NumberIntegerType, NumberUnsignedType, NumberFloatType, AllocatorType, JSONSerializer, BinaryType, CustomBaseClass>::operator[](const typename object_t::key_type&) const [with ObjectType = std::map; ArrayType = std::vector; StringType = std::__cxx11::basic_string<char>; BooleanType = bool; NumberIntegerType = long int; NumberUnsignedType = long unsigned int; NumberFloatType = double; AllocatorType = std::allocator; JSONSerializer = nlohmann::json_abi_v3_11_3::adl_serializer; BinaryType = std::vector<unsigned char>; CustomBaseClass = void; const_reference = const nlohmann::json_abi_v3_11_3::basic_json<>&; typename object_t::key_type = std::__cxx11::basic_string<char>; object_t = std::map<std::__cxx11::basic_string<char>, nlohmann::json_abi_v3_11_3::basic_json<>, std::less<void>, std::allocator<std::pair<const std::__cxx11::basic_string<char>, nlohmann::json_abi_v3_11_3::basic_json<> > > >]: Assertion `it != m_data.m_value.object->end()' failed.

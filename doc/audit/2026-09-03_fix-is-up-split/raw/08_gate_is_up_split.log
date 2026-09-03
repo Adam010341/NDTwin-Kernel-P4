@@ -1,0 +1,105 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_is_up_split.sh
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     wire-admin       include/common_types/GraphTypes.hpp                      x1
+  ok     wire-reach       include/common_types/GraphTypes.hpp                      x1
+  ok     wire-alias       include/common_types/GraphTypes.hpp                      x1
+  ok     read-reach       include/common_types/GraphTypes.hpp                      x1
+  ok     read-admin       include/common_types/GraphTypes.hpp                      x1
+  ok     endpoint         src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     worker-join      src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     probe-age        src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     decline-warn     src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     window           src/ndt_core/power_management/P4PowerStrategy.cpp        x1
+  ok     accept-none      src/ndt_core/power_management/P4PowerStrategy.cpp        x1
+  ok     accept-untimed   src/ndt_core/power_management/P4PowerStrategy.cpp        x1
+  ok     accept-order     src/ndt_core/power_management/P4PowerStrategy.cpp        x1
+  ok     inform-up        src/ndt_core/http/HttpSession.cpp                        x1
+  ok     inform-warn      src/ndt_core/http/HttpSession.cpp                        x1
+  ok     wire-comment     include/common_types/GraphTypes.hpp                      x1
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (22 cases in the filter)
+  ok       test_routing_strategy sha256 b1621e05af7d3e35
+
+=== M1. admin_state is derived from isUp again (the conflation, verbatim) ===
+  expect red: IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire IsUpSplitTest.ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+  ✅ caught  red: IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire IsUpSplitTest.ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+
+=== M2. the wire drops reachable and keeps only the alias ===
+  expect red: IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire
+  ✅ caught  red: IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire
+
+=== M3. the is_up alias tracks admin_state instead of reachable ===
+  expect red: IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections IsUpSplitTest.ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly
+  ✅ caught  red: IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections IsUpSplitTest.ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly
+
+=== M4. the deprecated is_up alias is removed ===
+  expect red: IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable
+  ✅ caught  red: IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable
+
+=== M5. from_json reads the alias and ignores reachable ===
+  expect red: IsUpSplitTest.FromJsonReadsReachableAndAdminStateWhenBothArePresent
+  ✅ caught  red: IsUpSplitTest.FromJsonReadsReachableAndAdminStateWhenBothArePresent
+
+=== M6. from_json requires reachable and rejects old payloads ===
+  expect red: IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp
+  ✅ caught  red: IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp
+
+=== M7. a missing admin_state defaults to off ===
+  expect red: IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp
+  ✅ caught  red: IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp
+
+=== M8. get_switches_power_state answers one scalar off isUp again ===
+  expect red: IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch IsUpSplitTest.PowerStateEndpointForOneIpCarriesBothFieldsToo
+  ✅ caught  red: IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch IsUpSplitTest.PowerStateEndpointForOneIpCarriesBothFieldsToo
+
+=== M9. the endpoint's admin_state is filled from the observation ===
+  expect red: IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch
+  ✅ caught  red: IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch
+
+=== M10. the distrust window goes back to a fifteen-second timer ===
+  expect red: IsUpSplitTest.TheDistrustWindowDoesNotCloseOnTimeAlone
+  ✅ caught  red: IsUpSplitTest.TheDistrustWindowDoesNotCloseOnTimeAlone
+
+=== M11. the evidence comparison is inverted ===
+  expect red: IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow IsUpSplitTest.AProbeTakenBeforeTheKillIsNotEvidenceAndDoesNotCloseTheWindow IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow
+  ✅ caught  red: IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow IsUpSplitTest.AProbeTakenBeforeTheKillIsNotEvidenceAndDoesNotCloseTheWindow IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow
+
+=== M12. an untimed Up counts as evidence ===
+  expect red: IsUpSplitTest.AnUpWithNoProbeTimestampIsNotEvidence
+  ✅ caught  red: IsUpSplitTest.AnUpWithNoProbeTimestampIsNotEvidence
+
+=== M13. the 1 Hz worker writes every Up without dating it ===
+  expect red: IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill
+  🔴 SURVIVED -- these stayed green: IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill
+
+=== M14. the probe age is thrown away and every reading is dated now ===
+  expect red: IsUpSplitTest.TheProbeAgeIsReadFromThePayloadAndIsNulloptWhenItCannotBe IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill
+  ✅ caught  red: IsUpSplitTest.TheProbeAgeIsReadFromThePayloadAndIsNulloptWhenItCannotBe IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill
+
+=== M15. no liveness Up is ever accepted again ===
+  expect red: IsUpSplitTest.AnUncommandedSwitchAcceptsEveryLivenessUp IsUpSplitTest.TheWorkerAcceptsEveryUpForASwitchItNeverStopped IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow
+  🔴 SURVIVED -- these stayed green: IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow
+     (something else went red: IsUpSplitTest.AnUncommandedSwitchAcceptsEveryLivenessUp IsUpSplitTest.TheWorkerAcceptsEveryUpForASwitchItNeverStopped  -- the gate fires, but not
+     for the reason this mutation claims)
+
+=== M16. the window never closes on a probe, only on a power-on ===
+  expect red: IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow
+  ✅ caught  red: IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow
+
+=== M17. inform_switch_entered withdraws the commanded power-off ===
+  expect red: InformSwitchEnteredTest.ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+  ✅ caught  red: InformSwitchEnteredTest.ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+
+=== M18. inform_switch_entered declines to record reachability ===
+  expect red: InformSwitchEnteredTest.ASwitchEnteredPushMayStillLiftReachable InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+  ✅ caught  red: InformSwitchEnteredTest.ASwitchEnteredPushMayStillLiftReachable InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+
+=== W1. a comment in the serialiser, nothing else (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. the declined-Up warning is reworded (MUST stay green) ===
+Terminated
+Terminated
+guarded_build: exit 143

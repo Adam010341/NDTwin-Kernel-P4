@@ -1,0 +1,218 @@
+test_a_negative_utilisation_is_reported (__main__.BandwidthInvariantTest.test_a_negative_utilisation_is_reported) ... ok
+test_a_sane_edge_reports_nothing (__main__.BandwidthInvariantTest.test_a_sane_edge_reports_nothing) ... ok
+test_a_utilisation_outside_zero_to_one_hundred_is_reported (__main__.BandwidthInvariantTest.test_a_utilisation_outside_zero_to_one_hundred_is_reported) ... ok
+test_a_zero_capacity_edge_is_exempt_because_the_capacity_is_unknown (__main__.BandwidthInvariantTest.test_a_zero_capacity_edge_is_exempt_because_the_capacity_is_unknown) ... ok
+test_at_most_ten_problems_are_returned (__main__.BandwidthInvariantTest.test_at_most_ten_problems_are_returned) ... ok
+test_usage_above_capacity_is_reported (__main__.BandwidthInvariantTest.test_usage_above_capacity_is_reported) ... ok
+test_asking_for_nothing_returns_nothing (__main__.CategorySelectionTest.test_asking_for_nothing_returns_nothing) ... ok
+test_declaration_order_is_preserved_because_the_lock_sequence_depends_on_it (__main__.CategorySelectionTest.test_declaration_order_is_preserved_because_the_lock_sequence_depends_on_it) ... ok
+test_only_the_categories_asked_for_are_returned (__main__.CategorySelectionTest.test_only_the_categories_asked_for_are_returned) ... ok
+test_a_fresh_context_has_not_read_the_power_state_yet (__main__.ContextCarriesTheJoinTest.test_a_fresh_context_has_not_read_the_power_state_yet) ... ok
+test_every_switch_ip_in_the_shipped_topology_maps_to_its_dpid (__main__.ContextCarriesTheJoinTest.test_every_switch_ip_in_the_shipped_topology_maps_to_its_dpid) ... ok
+test_every_ctx_field_the_spec_reads_is_one_the_runner_actually_supplies (__main__.DestructiveEndpointTest.test_every_ctx_field_the_spec_reads_is_one_the_runner_actually_supplies) ... ok
+test_nothing_that_changes_state_is_categorised_as_a_read (__main__.DestructiveEndpointTest.test_nothing_that_changes_state_is_categorised_as_a_read) ... ok
+test_the_batch_write_deletes_everything_it_installs (__main__.DestructiveEndpointTest.test_the_batch_write_deletes_everything_it_installs) ... ok
+test_the_device_rename_writes_back_the_name_it_found (__main__.DestructiveEndpointTest.test_the_device_rename_writes_back_the_name_it_found) ... ok
+test_the_flow_writes_aim_at_a_probe_address_rather_than_a_real_host (__main__.DestructiveEndpointTest.test_the_flow_writes_aim_at_a_probe_address_rather_than_a_real_host) ... ok
+test_the_nickname_rename_writes_back_the_nickname_it_found (__main__.DestructiveEndpointTest.test_the_nickname_rename_writes_back_the_nickname_it_found) ... ok
+test_the_power_endpoint_deliberately_switches_a_switch_on_not_off (__main__.DestructiveEndpointTest.test_the_power_endpoint_deliberately_switches_a_switch_on_not_off) ... ok
+test_the_power_endpoint_names_a_switch_address_not_a_host_one (__main__.DestructiveEndpointTest.test_the_power_endpoint_names_a_switch_address_not_a_host_one) ... ok
+test_the_unknown_dpid_error_paths_use_a_dpid_no_topology_could_contain (__main__.DestructiveEndpointTest.test_the_unknown_dpid_error_paths_use_a_dpid_no_topology_could_contain) ... ok
+test_a_long_list_of_down_edges_is_summarised_rather_than_printed_in_full (__main__.EdgeInvariantTest.test_a_long_list_of_down_edges_is_summarised_rather_than_printed_in_full) ... ok
+test_an_edge_that_is_enabled_but_down_is_reported (__main__.EdgeInvariantTest.test_an_edge_that_is_enabled_but_down_is_reported) ... ok
+test_an_edge_that_is_up_but_not_enabled_is_still_reported (__main__.EdgeInvariantTest.test_an_edge_that_is_up_but_not_enabled_is_still_reported) ... ok
+test_healthy_edges_report_nothing (__main__.EdgeInvariantTest.test_healthy_edges_report_nothing) ... ok
+test_categories_are_only_the_three_the_runner_knows (__main__.EndpointTableTest.test_categories_are_only_the_three_the_runner_knows) ... ok
+test_every_endpoint_declares_a_schema (__main__.EndpointTableTest.test_every_endpoint_declares_a_schema) ... ok
+test_every_endpoint_name_is_unique (__main__.EndpointTableTest.test_every_endpoint_name_is_unique) ... ok
+test_every_error_path_endpoint_says_which_statuses_it_will_accept (__main__.EndpointTableTest.test_every_error_path_endpoint_says_which_statuses_it_will_accept) ... ok
+test_every_path_is_under_the_ndt_prefix (__main__.EndpointTableTest.test_every_path_is_under_the_ndt_prefix) ... ok
+test_no_error_path_accepts_a_500 (__main__.EndpointTableTest.test_no_error_path_accepts_a_500) ... ok
+test_only_the_disabled_translator_is_allowed_to_answer_5xx (__main__.EndpointTableTest.test_only_the_disabled_translator_is_allowed_to_answer_5xx) ... ok
+test_the_lock_conflict_check_requires_423_and_nothing_else (__main__.EndpointTableTest.test_the_lock_conflict_check_requires_423_and_nothing_else) ... ok
+test_an_empty_edge_list_passes_the_bandwidth_check_having_examined_no_edges (__main__.ExaminedNothingButPassesTest.test_an_empty_edge_list_passes_the_bandwidth_check_having_examined_no_edges) ... ok
+test_an_empty_edge_list_passes_the_edge_check_having_examined_no_edges (__main__.ExaminedNothingButPassesTest.test_an_empty_edge_list_passes_the_edge_check_having_examined_no_edges) ... ok
+test_an_empty_flow_list_is_not_a_rate_failure (__main__.ExaminedNothingButPassesTest.test_an_empty_flow_list_is_not_a_rate_failure) ... ok
+test_a_sample_of_only_link_local_and_broadcast_also_fails (__main__.ExaminedNothingTest.test_a_sample_of_only_link_local_and_broadcast_also_fails) ... ok
+test_a_sample_of_only_multicast_fails_rather_than_reporting_every_path_resolved (__main__.ExaminedNothingTest.test_a_sample_of_only_multicast_fails_rather_than_reporting_every_path_resolved) ... ok
+test_a_switch_present_but_with_an_empty_table_is_named (__main__.ExaminedNothingTest.test_a_switch_present_but_with_an_empty_table_is_named) ... ok
+test_a_table_map_with_keys_but_no_entries_still_counts_as_empty (__main__.ExaminedNothingTest.test_a_table_map_with_keys_but_no_entries_still_counts_as_empty) ... ok
+test_an_entirely_empty_flow_list_fails_too (__main__.ExaminedNothingTest.test_an_entirely_empty_flow_list_fails_too) ... ok
+test_no_switch_reporting_a_flow_table_at_all_fails (__main__.ExaminedNothingTest.test_no_switch_reporting_a_flow_table_at_all_fails) ... ok
+test_populated_tables_report_nothing (__main__.ExaminedNothingTest.test_populated_tables_report_nothing) ... ok
+test_a_unicast_flow_with_no_path_is_named (__main__.FlowPathInvariantTest.test_a_unicast_flow_with_no_path_is_named) ... ok
+test_multicast_chatter_alongside_real_flows_is_excluded_by_destination (__main__.FlowPathInvariantTest.test_multicast_chatter_alongside_real_flows_is_excluded_by_destination) ... ok
+test_the_failure_counts_only_the_flows_it_examined (__main__.FlowPathInvariantTest.test_the_failure_counts_only_the_flows_it_examined) ... ok
+test_unicast_flows_that_all_have_a_path_report_nothing (__main__.FlowPathInvariantTest.test_unicast_flows_that_all_have_a_path_report_nothing) ... ok
+test_a_flow_with_a_rate_in_either_window_is_not_counted_as_zero (__main__.FlowRateInvariantTest.test_a_flow_with_a_rate_in_either_window_is_not_counted_as_zero) ... ok
+test_every_flow_reporting_zero_is_a_failure (__main__.FlowRateInvariantTest.test_every_flow_reporting_zero_is_a_failure) ... ok
+test_a_dpid_in_the_topology_file_but_missing_from_the_graph_is_named (__main__.GraphInvariantTest.test_a_dpid_in_the_topology_file_but_missing_from_the_graph_is_named) ... ok
+test_a_dpid_the_topology_file_does_not_contain_is_named (__main__.GraphInvariantTest.test_a_dpid_the_topology_file_does_not_contain_is_named) ... ok
+test_a_duplicate_dpid_is_reported (__main__.GraphInvariantTest.test_a_duplicate_dpid_is_reported) ... ok
+test_a_graph_that_matches_the_topology_file_reports_nothing (__main__.GraphInvariantTest.test_a_graph_that_matches_the_topology_file_reports_nothing) ... ok
+test_a_missing_switch_is_reported_with_both_counts (__main__.GraphInvariantTest.test_a_missing_switch_is_reported_with_both_counts) ... ok
+test_the_edge_count_is_checked (__main__.GraphInvariantTest.test_the_edge_count_is_checked) ... ok
+test_the_host_count_is_checked_separately_from_the_switch_count (__main__.GraphInvariantTest.test_the_host_count_is_checked_separately_from_the_switch_count) ... ok
+test_a_200_whose_status_does_not_say_locked_is_a_failure (__main__.HonestAnswerTest.test_a_200_whose_status_does_not_say_locked_is_a_failure) ... ok
+test_a_flow_write_that_claims_success_instead_of_queued_is_a_failure (__main__.HonestAnswerTest.test_a_flow_write_that_claims_success_instead_of_queued_is_a_failure) ... ok
+test_a_missing_status_is_a_failure_rather_than_a_default_success (__main__.HonestAnswerTest.test_a_missing_status_is_a_failure_rather_than_a_default_success) ... ok
+test_a_queued_answer_that_does_not_say_how_many_were_accepted_is_a_failure (__main__.HonestAnswerTest.test_a_queued_answer_that_does_not_say_how_many_were_accepted_is_a_failure) ... ok
+test_an_honest_queued_answer_passes (__main__.HonestAnswerTest.test_an_honest_queued_answer_passes) ... ok
+test_each_wording_the_kernel_uses_for_a_taken_lock_is_accepted (__main__.HonestAnswerTest.test_each_wording_the_kernel_uses_for_a_taken_lock_is_accepted) ... ok
+test_the_status_is_compared_without_regard_to_case (__main__.HonestAnswerTest.test_the_status_is_compared_without_regard_to_case) ... ok
+test_every_lock_endpoint_uses_the_same_type (__main__.LockTypeTest.test_every_lock_endpoint_uses_the_same_type) ... ok
+test_the_lock_type_is_not_one_a_shipped_application_uses (__main__.LockTypeTest.test_the_lock_type_is_not_one_a_shipped_application_uses) ... ok
+test_the_lock_type_is_one_the_kernel_actually_accepts (__main__.LockTypeTest.test_the_lock_type_is_one_the_kernel_actually_accepts) ... ok
+test_an_object_missing_admin_state_is_unknown_not_assumed_on (__main__.PowerStateReadingCarriesBothFieldsTest.test_an_object_missing_admin_state_is_unknown_not_assumed_on) ... ok
+test_an_unrecognised_admin_state_is_unknown (__main__.PowerStateReadingCarriesBothFieldsTest.test_an_unrecognised_admin_state_is_unknown) ... ok
+test_off_dpids_follows_the_command_not_the_observation (__main__.PowerStateReadingCarriesBothFieldsTest.test_off_dpids_follows_the_command_not_the_observation) ... FAIL
+test_the_new_object_shape_maps_commanded_off_switches_onto_dpids (__main__.PowerStateReadingCarriesBothFieldsTest.test_the_new_object_shape_maps_commanded_off_switches_onto_dpids) ... FAIL
+test_the_node_schema_accepts_both_shapes (__main__.PowerStateReadingCarriesBothFieldsTest.test_the_node_schema_accepts_both_shapes) ... ok
+test_the_old_scalar_shape_still_reads (__main__.PowerStateReadingCarriesBothFieldsTest.test_the_old_scalar_shape_still_reads) ... ok
+test_the_schema_pins_the_admin_state_vocabulary (__main__.PowerStateReadingCarriesBothFieldsTest.test_the_schema_pins_the_admin_state_vocabulary) ... FAIL
+test_a_complete_reading_maps_off_switches_onto_dpids (__main__.PowerStateReadingTest.test_a_complete_reading_maps_off_switches_onto_dpids) ... ok
+test_a_non_object_body_is_unknown (__main__.PowerStateReadingTest.test_a_non_object_body_is_unknown) ... ok
+test_a_switch_missing_from_the_reading_makes_the_whole_reading_unknown (__main__.PowerStateReadingTest.test_a_switch_missing_from_the_reading_makes_the_whole_reading_unknown) ... ok
+test_all_on_is_a_positive_reading_not_an_absence (__main__.PowerStateReadingTest.test_all_on_is_a_positive_reading_not_an_absence) ... ok
+test_an_ip_that_is_not_in_this_topology_is_unknown (__main__.PowerStateReadingTest.test_an_ip_that_is_not_in_this_topology_is_unknown) ... ok
+test_an_unrecognised_power_value_is_unknown_not_assumed_on (__main__.PowerStateReadingTest.test_an_unrecognised_power_value_is_unknown_not_assumed_on) ... ok
+test_the_state_values_are_read_case_insensitively (__main__.PowerStateReadingTest.test_the_state_values_are_read_case_insensitively) ... ok
+test_an_edge_between_two_powered_on_switches_is_still_a_failure (__main__.PoweredDownEdgesTest.test_an_edge_between_two_powered_on_switches_is_still_a_failure) ... ok
+test_an_edge_incident_to_a_powered_off_switch_is_not_a_failure (__main__.PoweredDownEdgesTest.test_an_edge_incident_to_a_powered_off_switch_is_not_a_failure) ... ok
+test_an_unreadable_power_state_blocks_the_edge_verdict_too (__main__.PoweredDownEdgesTest.test_an_unreadable_power_state_blocks_the_edge_verdict_too) ... ok
+test_the_summary_count_is_of_the_unexplained_edges_only (__main__.PoweredDownEdgesTest.test_the_summary_count_is_of_the_unexplained_edges_only) ... ok
+test_a_ctx_with_no_power_state_at_all_is_unknown_not_all_on (__main__.PoweredDownIsNotAFaultTest.test_a_ctx_with_no_power_state_at_all_is_unknown_not_all_on) ... ok
+test_a_down_switch_is_still_a_failure_when_the_power_state_says_it_is_on (__main__.PoweredDownIsNotAFaultTest.test_a_down_switch_is_still_a_failure_when_the_power_state_says_it_is_on) ... ok
+test_a_down_switch_the_power_state_calls_off_is_not_a_failure (__main__.PoweredDownIsNotAFaultTest.test_a_down_switch_the_power_state_calls_off_is_not_a_failure) ... ok
+test_a_healthy_fabric_is_unaffected_by_any_of_this (__main__.PoweredDownIsNotAFaultTest.test_a_healthy_fabric_is_unaffected_by_any_of_this) ... ok
+test_a_powered_off_switch_is_still_reported_rather_than_silently_dropped (__main__.PoweredDownIsNotAFaultTest.test_a_powered_off_switch_is_still_reported_rather_than_silently_dropped) ... ok
+test_an_unreadable_power_state_says_so_instead_of_reporting_a_fault (__main__.PoweredDownIsNotAFaultTest.test_an_unreadable_power_state_says_so_instead_of_reporting_a_fault) ... ok
+test_the_p4_wiring_hint_survives_for_a_switch_that_is_not_powered_off (__main__.PoweredDownIsNotAFaultTest.test_the_p4_wiring_hint_survives_for_a_switch_that_is_not_powered_off) ... ok
+test_the_precondition_message_does_not_reuse_the_failure_wording (__main__.PoweredDownIsNotAFaultTest.test_the_precondition_message_does_not_reuse_the_failure_wording) ... ok
+test_a_169_address_outside_link_local_is_still_required_to_have_a_path (__main__.RoutableUnicastTest.test_a_169_address_outside_link_local_is_still_required_to_have_a_path) ... ok
+test_a_directed_broadcast_is_deliberately_still_required_to_have_a_path (__main__.RoutableUnicastTest.test_a_directed_broadcast_is_deliberately_still_required_to_have_a_path) ... ok
+test_an_ordinary_host_address_is_routable (__main__.RoutableUnicastTest.test_an_ordinary_host_address_is_routable) ... ok
+test_link_local_is_excluded (__main__.RoutableUnicastTest.test_link_local_is_excluded) ... ok
+test_the_255_prefix_and_the_limited_broadcast_are_excluded (__main__.RoutableUnicastTest.test_the_255_prefix_and_the_limited_broadcast_are_excluded) ... ok
+test_the_address_just_below_multicast_is_still_required_to_have_a_path (__main__.RoutableUnicastTest.test_the_address_just_below_multicast_is_still_required_to_have_a_path) ... ok
+test_the_first_octet_is_read_from_the_low_byte_as_the_kernel_encodes_it (__main__.RoutableUnicastTest.test_the_first_octet_is_read_from_the_low_byte_as_the_kernel_encodes_it) ... ok
+test_the_multicast_address_that_broke_a_real_run_is_excluded (__main__.RoutableUnicastTest.test_the_multicast_address_that_broke_a_real_run_is_excluded) ... ok
+test_the_top_of_the_multicast_range_is_excluded_too (__main__.RoutableUnicastTest.test_the_top_of_the_multicast_range_is_excluded_too) ... ok
+test_a_flow_record_must_carry_a_path_field (__main__.SchemaDeclarationTest.test_a_flow_record_must_carry_a_path_field) ... ok
+test_a_graph_node_missing_its_liveness_fields_is_rejected (__main__.SchemaDeclarationTest.test_a_graph_node_missing_its_liveness_fields_is_rejected) ... ok
+test_a_schema_error_names_the_field_that_broke (__main__.SchemaDeclarationTest.test_a_schema_error_names_the_field_that_broke) ... ok
+test_an_ip_above_uint32_is_rejected_so_an_overflow_shows_up (__main__.SchemaDeclarationTest.test_an_ip_above_uint32_is_rejected_so_an_overflow_shows_up) ... ok
+test_openflow_actions_must_be_strings_because_the_classifier_parses_only_that_form (__main__.SchemaDeclarationTest.test_openflow_actions_must_be_strings_because_the_classifier_parses_only_that_form) ... ok
+test_the_graph_must_have_at_least_one_node (__main__.SchemaDeclarationTest.test_the_graph_must_have_at_least_one_node) ... ok
+test_the_path_switch_count_alternatives_each_require_a_concrete_shape (__main__.SchemaDeclarationTest.test_the_path_switch_count_alternatives_each_require_a_concrete_shape) ... ok
+test_a_kernel_without_the_field_is_reported_rather_than_passed (__main__.SilentTelemetryTest.test_a_kernel_without_the_field_is_reported_rather_than_passed) ... ok
+test_a_live_edge_is_not_a_failure (__main__.SilentTelemetryTest.test_a_live_edge_is_not_a_failure) ... ok
+test_a_silent_edge_is_named (__main__.SilentTelemetryTest.test_a_silent_edge_is_named) ... ok
+test_an_empty_edge_list_is_reported_not_passed (__main__.SilentTelemetryTest.test_an_empty_edge_list_is_reported_not_passed) ... ok
+test_an_idle_edge_is_not_a_failure (__main__.SilentTelemetryTest.test_an_idle_edge_is_not_a_failure) ... ok
+test_an_unknown_edge_is_not_a_failure_documents_current_behaviour (__main__.SilentTelemetryTest.test_an_unknown_edge_is_not_a_failure_documents_current_behaviour) ... ok
+test_at_most_ten_silent_edges_are_listed (__main__.SilentTelemetryTest.test_at_most_ten_silent_edges_are_listed) ... ok
+test_one_edge_carrying_the_field_is_enough_for_the_check_to_run (__main__.SilentTelemetryTest.test_one_edge_carrying_the_field_is_enough_for_the_check_to_run) ... ok
+test_the_edge_schema_accepts_the_three_new_fields (__main__.SilentTelemetryTest.test_the_edge_schema_accepts_the_three_new_fields) ... ok
+test_the_edge_schema_rejects_a_telemetry_status_it_does_not_define (__main__.SilentTelemetryTest.test_the_edge_schema_rejects_a_telemetry_status_it_does_not_define) ... ok
+test_the_edge_schema_still_accepts_an_edge_without_them (__main__.SilentTelemetryTest.test_the_edge_schema_still_accepts_an_edge_without_them) ... ok
+test_the_finding_says_the_reading_is_an_absence_not_a_measurement (__main__.SilentTelemetryTest.test_the_finding_says_the_reading_is_an_absence_not_a_measurement) ... ok
+test_the_invariant_is_registered_on_get_graph_data (__main__.SilentTelemetryTest.test_the_invariant_is_registered_on_get_graph_data) ... ok
+test_a_power_report_covering_every_switch_passes (__main__.SimpleRangeInvariantTest.test_a_power_report_covering_every_switch_passes) ... ok
+test_a_power_state_that_is_neither_on_nor_off_is_reported (__main__.SimpleRangeInvariantTest.test_a_power_state_that_is_neither_on_nor_off_is_reported) ... ok
+test_a_switch_with_no_power_reading_is_named (__main__.SimpleRangeInvariantTest.test_a_switch_with_no_power_reading_is_named) ... ok
+test_a_utilisation_map_missing_switches_is_reported (__main__.SimpleRangeInvariantTest.test_a_utilisation_map_missing_switches_is_reported) ... ok
+test_an_average_link_usage_inside_the_range_passes (__main__.SimpleRangeInvariantTest.test_an_average_link_usage_inside_the_range_passes) ... ok
+test_an_average_link_usage_outside_the_percentage_range_is_reported (__main__.SimpleRangeInvariantTest.test_an_average_link_usage_outside_the_percentage_range_is_reported) ... ok
+test_fewer_flows_than_k_is_not_a_failure (__main__.SimpleRangeInvariantTest.test_fewer_flows_than_k_is_not_a_failure) ... ok
+test_more_flows_than_k_is_reported (__main__.SimpleRangeInvariantTest.test_more_flows_than_k_is_reported) ... ok
+test_on_and_off_are_accepted (__main__.SimpleRangeInvariantTest.test_on_and_off_are_accepted) ... ok
+test_a_healthy_split_fabric_reports_nothing (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_a_healthy_split_fabric_reports_nothing) ... ok
+test_a_kernel_that_predates_the_split_still_uses_the_power_reading (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_a_kernel_that_predates_the_split_still_uses_the_power_reading) ... ok
+test_a_mixed_graph_falls_back_rather_than_guessing (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_a_mixed_graph_falls_back_rather_than_guessing) ... ok
+test_a_switch_that_is_unreachable_while_commanded_off_is_accounted_for (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_a_switch_that_is_unreachable_while_commanded_off_is_accounted_for) ... FAIL
+test_a_switch_that_is_unreachable_while_commanded_on_is_reported (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_a_switch_that_is_unreachable_while_commanded_on_is_reported) ... ok
+test_reachable_beats_the_deprecated_alias_when_they_disagree (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_reachable_beats_the_deprecated_alias_when_they_disagree) ... FAIL
+test_the_node_fields_are_used_even_when_no_power_reading_was_taken (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_the_node_fields_are_used_even_when_no_power_reading_was_taken) ... FAIL
+test_the_two_dead_switches_are_reported_differently (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_the_two_dead_switches_are_reported_differently) ... FAIL
+test_a_healthy_fabric_reports_nothing (__main__.SwitchesUpTest.test_a_healthy_fabric_reports_nothing) ... ok
+test_a_host_that_is_down_is_not_reported_as_a_switch_fault (__main__.SwitchesUpTest.test_a_host_that_is_down_is_not_reported_as_a_switch_fault) ... ok
+test_a_switch_that_is_down_is_named (__main__.SwitchesUpTest.test_a_switch_that_is_down_is_named) ... ok
+test_a_switch_that_is_not_enabled_is_named_with_the_cause_to_look_for (__main__.SwitchesUpTest.test_a_switch_that_is_not_enabled_is_named_with_the_cause_to_look_for) ... ok
+
+======================================================================
+FAIL: test_off_dpids_follows_the_command_not_the_observation (__main__.PowerStateReadingCarriesBothFieldsTest.test_off_dpids_follows_the_command_not_the_observation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1285, in test_off_dpids_follows_the_command_not_the_observation
+    self.assertTrue(state.known, state.error)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : 192.168.123.11 reports power state {'admin_state': 'on', 'reachable': True}, not ON or OFF
+
+======================================================================
+FAIL: test_the_new_object_shape_maps_commanded_off_switches_onto_dpids (__main__.PowerStateReadingCarriesBothFieldsTest.test_the_new_object_shape_maps_commanded_off_switches_onto_dpids)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1275, in test_the_new_object_shape_maps_commanded_off_switches_onto_dpids
+    self.assertTrue(state.known, state.error)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : 192.168.123.11 reports power state {'admin_state': 'on', 'reachable': True}, not ON or OFF
+
+======================================================================
+FAIL: test_the_schema_pins_the_admin_state_vocabulary (__main__.PowerStateReadingCarriesBothFieldsTest.test_the_schema_pins_the_admin_state_vocabulary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1322, in test_the_schema_pins_the_admin_state_vocabulary
+    self.assertTrue(validate(spec.GRAPH_NODE, {**base, "admin_state": "OFF"}),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "a third spelling of the same state is a contract change")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [] is not true : a third spelling of the same state is a contract change
+
+======================================================================
+FAIL: test_a_switch_that_is_unreachable_while_commanded_off_is_accounted_for (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_a_switch_that_is_unreachable_while_commanded_off_is_accounted_for)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1206, in test_a_switch_that_is_unreachable_while_commanded_off_is_accounted_for
+    self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['switch(es) not up: s5(dpid=5)'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'switch(es) not up: s5(dpid=5)'
+
+- ['switch(es) not up: s5(dpid=5)']
++ [] : ['switch(es) not up: s5(dpid=5)']
+
+======================================================================
+FAIL: test_reachable_beats_the_deprecated_alias_when_they_disagree (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_reachable_beats_the_deprecated_alias_when_they_disagree)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1256, in test_reachable_beats_the_deprecated_alias_when_they_disagree
+    self.assertTrue(any("switch(es) not up" in m and "s5" in m for m in out), out)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : []
+
+======================================================================
+FAIL: test_the_node_fields_are_used_even_when_no_power_reading_was_taken (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_the_node_fields_are_used_even_when_no_power_reading_was_taken)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1227, in test_the_node_fields_are_used_even_when_no_power_reading_was_taken
+    self.assertFalse(any(m.startswith(TOOL_PRECONDITION) for m in out), out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : ['TOOL-PRECONDITION-FAILED: 1 switch(es) report is_up=false and 0 report is_enabled=false, and the power state could not be read (kernel returned HTTP 503), so this check cannot tell a deliberate power-down from a switch that never connected. No verdict on the fabric.']
+
+======================================================================
+FAIL: test_the_two_dead_switches_are_reported_differently (__main__.SplitFieldsMakeTheThreeStateCheckAbleToFireTest.test_the_two_dead_switches_are_reported_differently)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/tests/python/test_contract_spec.py", line 1217, in test_the_two_dead_switches_are_reported_differently
+    self.assertFalse(any("s5" in m for m in failures), out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : ['switch(es) not up: s5(dpid=5), s7(dpid=7)']
+
+----------------------------------------------------------------------
+Ran 141 tests in 0.008s
+
+FAILED (failures=7)

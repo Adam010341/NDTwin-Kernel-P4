@@ -1,0 +1,159 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-isup/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = IsUpSplitTest.*:InformSwitchEnteredTest.*:PollDoesNotResurrectTest.*
+[==========] Running 32 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 3 tests from InformSwitchEnteredTest
+[ RUN      ] InformSwitchEnteredTest.ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff
+[       OK ] InformSwitchEnteredTest.ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff (0 ms)
+[ RUN      ] InformSwitchEnteredTest.ASwitchEnteredPushMayStillLiftReachable
+[       OK ] InformSwitchEnteredTest.ASwitchEnteredPushMayStillLiftReachable (0 ms)
+[ RUN      ] InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
+[       OK ] InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne (0 ms)
+[----------] 3 tests from InformSwitchEnteredTest (0 ms total)
+
+[----------] 11 tests from PollDoesNotResurrectTest
+[ RUN      ] PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch (6050 ms)
+[ RUN      ] PollDoesNotResurrectTest.EveryLaterPollDeclinesToo
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/46288
+[       OK ] PollDoesNotResurrectTest.EveryLaterPollDeclinesToo (9002 ms)
+[ RUN      ] PollDoesNotResurrectTest.DiscoveryStillEnablesACommandedOffSwitch
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.DiscoveryStillEnablesACommandedOffSwitch (6052 ms)
+[ RUN      ] PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp (6054 ms)
+[ RUN      ] PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain (6053 ms)
+[ RUN      ] PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand (6050 ms)
+[ RUN      ] PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2000 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown (6049 ms)
+[ RUN      ] PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 28): curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/46288
+[       OK ] PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding (9002 ms)
+[ RUN      ] PollDoesNotResurrectTest.AnAlreadyUpUncommandedPowerOnStillRunsNoCommands
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2001 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (56) Recv failure: Connection reset by peer
+Command failed (exit code 56): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.AnAlreadyUpUncommandedPowerOnStillRunsNoCommands (5186 ms)
+[ RUN      ] PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll (6049 ms)
+[ RUN      ] PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+Command failed (exit code 28): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+[       OK ] PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable (6050 ms)
+[----------] 11 tests from PollDoesNotResurrectTest (71603 ms total)
+
+[----------] 18 tests from IsUpSplitTest
+[ RUN      ] IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias
+[       OK ] IsUpSplitTest.AVertexCarriesAdminStateReachableAndTheIsUpAlias (0 ms)
+[ RUN      ] IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections
+[       OK ] IsUpSplitTest.TheIsUpAliasEqualsReachableInBothDirections (0 ms)
+[ RUN      ] IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire
+[       OK ] IsUpSplitTest.ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire (0 ms)
+[ RUN      ] IsUpSplitTest.ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly
+[       OK ] IsUpSplitTest.ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly (0 ms)
+[ RUN      ] IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp
+[       OK ] IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp (0 ms)
+[ RUN      ] IsUpSplitTest.FromJsonReadsReachableAndAdminStateWhenBothArePresent
+[       OK ] IsUpSplitTest.FromJsonReadsReachableAndAdminStateWhenBothArePresent (0 ms)
+[ RUN      ] IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch
+[       OK ] IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch (0 ms)
+[ RUN      ] IsUpSplitTest.PowerStateEndpointForOneIpCarriesBothFieldsToo
+[       OK ] IsUpSplitTest.PowerStateEndpointForOneIpCarriesBothFieldsToo (0 ms)
+[ RUN      ] IsUpSplitTest.TheDistrustWindowDoesNotCloseOnTimeAlone
+[       OK ] IsUpSplitTest.TheDistrustWindowDoesNotCloseOnTimeAlone (0 ms)
+[ RUN      ] IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow
+[       OK ] IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow (0 ms)
+[ RUN      ] IsUpSplitTest.AProbeTakenBeforeTheKillIsNotEvidenceAndDoesNotCloseTheWindow
+[       OK ] IsUpSplitTest.AProbeTakenBeforeTheKillIsNotEvidenceAndDoesNotCloseTheWindow (0 ms)
+[ RUN      ] IsUpSplitTest.AnUpWithNoProbeTimestampIsNotEvidence
+[       OK ] IsUpSplitTest.AnUpWithNoProbeTimestampIsNotEvidence (0 ms)
+[ RUN      ] IsUpSplitTest.AnUncommandedSwitchAcceptsEveryLivenessUp
+[       OK ] IsUpSplitTest.AnUncommandedSwitchAcceptsEveryLivenessUp (0 ms)
+[ RUN      ] IsUpSplitTest.EvidenceIsPerSwitchNotFabricWide
+[       OK ] IsUpSplitTest.EvidenceIsPerSwitchNotFabricWide (0 ms)
+[ RUN      ] IsUpSplitTest.TheProbeAgeIsReadFromThePayloadAndIsNulloptWhenItCannotBe
+[       OK ] IsUpSplitTest.TheProbeAgeIsReadFromThePayloadAndIsNulloptWhenItCannotBe (0 ms)
+[ RUN      ] IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill
+[       OK ] IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill (0 ms)
+[ RUN      ] IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow
+[       OK ] IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow (0 ms)
+[ RUN      ] IsUpSplitTest.TheWorkerAcceptsEveryUpForASwitchItNeverStopped
+[       OK ] IsUpSplitTest.TheWorkerAcceptsEveryUpForASwitchItNeverStopped (0 ms)
+[----------] 18 tests from IsUpSplitTest (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 32 tests from 3 test suites ran. (71607 ms total)
+[  PASSED  ] 32 tests.
