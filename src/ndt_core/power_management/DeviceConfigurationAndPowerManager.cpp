@@ -327,7 +327,32 @@ DeviceConfigurationAndPowerManager::queryTestbed(const std::string& ipParam) con
                 }
             }
 
-            result[si.switchIp] = status;
+            // [Co-developed with claude code -- Adam] -- Q12.
+            // The same shape as the MININET branch, because a caller that has to parse two
+            // shapes depending on which deployment answered has not been given a contract.
+            // `outlet` is the extra fact this plane has and the other does not: the PDU's own
+            // reading, which is neither the command nor the twin's reachability.
+            //
+            // 🔴 NOT MEASURED. The physical testbed is out of service, so this branch is
+            // written to match and has been exercised by nothing. Said out loud here rather
+            // than in a commit message.
+            json entry = json{{"outlet", status}};
+            const auto vOpt =
+                m_topologyAndFlowMonitor->findSwitchByIp(utils::ipStringToUint32(si.switchIp));
+            if (vOpt.has_value())
+            {
+                entry["admin_state"] =
+                    m_topologyAndFlowMonitor->getVertexAdminPoweredOff(*vOpt) ? "off" : "on";
+                entry["reachable"] = m_topologyAndFlowMonitor->getVertexIsUp(*vOpt);
+            }
+            else
+            {
+                // The plug table names a switch the topology does not. Null, not a guess: the
+                // twin has no vertex to speak for, and "on" here would be an invention.
+                entry["admin_state"] = nullptr;
+                entry["reachable"] = nullptr;
+            }
+            result[si.switchIp] = std::move(entry);
         }
         catch (const std::exception& e)
         {
@@ -335,7 +360,9 @@ DeviceConfigurationAndPowerManager::queryTestbed(const std::string& ipParam) con
                                 "Error querying plug on {}: {}",
                                 si.switchIp,
                                 e.what());
-            result[si.switchIp] = "error";
+            result[si.switchIp] = json{{"outlet", "error"},
+                                       {"admin_state", nullptr},
+                                       {"reachable", nullptr}};
         }
     }
 
@@ -372,8 +399,24 @@ DeviceConfigurationAndPowerManager::queryMininet(const std::string& ipParam) con
         {
             throw std::runtime_error("Unknown switch IP");
         }
-        bool isUp = m_topologyAndFlowMonitor->getVertexIsUp(nodeOpt.value());
-        result[sip] = (isUp ? "ON" : "OFF");
+        // [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
+        //
+        // 🔴 THIS LINE WAS `result[sip] = (isUp ? "ON" : "OFF")`, AND IT IS THE FINDING.
+        // The endpoint is named "power state", so a caller reads ON/OFF as "what was commanded".
+        // What it actually returned was an OBSERVATION -- the graph's liveness flag -- so two
+        // equally dead switches answered differently depending only on which writer had reached
+        // the graph first: the one the twin had commanded off read OFF, and the one that had
+        // crashed read ON until liveness noticed. A caller could not tell a deliberate
+        // power-down from a fault, which is exactly what the Energy-Saving-App and the contract
+        // suite's A-8 check both needed to know.
+        //
+        // Both facts now, per switch, from their own writers: `admin_state` from the power
+        // strategies' commanded flag, `reachable` from liveness. An object rather than a second
+        // top-level map, so the two halves of one switch's answer cannot be read out of step.
+        result[sip] = json{
+            {"admin_state",
+             m_topologyAndFlowMonitor->getVertexAdminPoweredOff(nodeOpt.value()) ? "off" : "on"},
+            {"reachable", m_topologyAndFlowMonitor->getVertexIsUp(nodeOpt.value())}};
     }
     return result;
 }
@@ -429,6 +472,88 @@ DeviceConfigurationAndPowerManager::ovsLivenessFor(
     const auto& list = *bridges;
     return std::find(list.begin(), list.end(), bridgeName) != list.end() ? OvsLiveness::Up
                                                                         : OvsLiveness::Down;
+}
+
+/** @brief The age of the probe behind a switch's liveness verdict. See the header.
+ *
+ * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ */
+std::optional<double>
+DeviceConfigurationAndPowerManager::p4ProbeAgeSeconds(uint64_t dpid,
+                                                      const std::optional<json>& payload)
+{
+    if (!payload.has_value())
+    {
+        return std::nullopt;
+    }
+    const auto switchesIt = payload->find("switches");
+    if (switchesIt == payload->end() || !switchesIt->is_object())
+    {
+        return std::nullopt;
+    }
+    const auto entryIt = switchesIt->find(std::to_string(dpid));
+    if (entryIt == switchesIt->end() || !entryIt->is_object())
+    {
+        return std::nullopt;
+    }
+    const auto ageIt = entryIt->find("probe_age_s");
+    if (ageIt == entryIt->end() || !ageIt->is_number())
+    {
+        // Absent, null, or a string where a number belongs. All three mean the same thing here:
+        // this reading cannot be placed in time.
+        return std::nullopt;
+    }
+    return ageIt->get<double>();
+}
+
+/** @brief See the header. Dates one Up verdict and asks the P4 strategy whether it counts.
+ *
+ * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ */
+bool
+DeviceConfigurationAndPowerManager::acceptP4LivenessUp(const std::string& swName,
+                                                       uint64_t dpid,
+                                                       const std::optional<json>& payload)
+{
+    P4PowerStrategy* const strategy = p4Strategy();
+    if (!strategy)
+    {
+        return true;
+    }
+
+    // now() BEFORE the age is turned into a moment, and both read from the same clock the
+    // strategy stamps its power-offs with. A probe reported as 1.2 s old was taken 1.2 s ago.
+    std::optional<std::chrono::steady_clock::time_point> observedAt;
+    if (const std::optional<double> ageSeconds = p4ProbeAgeSeconds(dpid, payload))
+    {
+        observedAt = std::chrono::steady_clock::now() -
+                     std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                         std::chrono::duration<double>(*ageSeconds));
+    }
+
+    if (strategy->acceptLivenessUp(swName, observedAt))
+    {
+        // Edge-triggered both ways: say when an episode ends too, or a reader cannot tell a
+        // switch that recovered from one the log simply stopped mentioning.
+        if (m_decliningStaleUp.erase(swName) > 0)
+        {
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "{} reported serving again by a probe taken after it was powered "
+                               "off; its liveness counts once more",
+                               swName);
+        }
+        return true;
+    }
+
+    if (m_decliningStaleUp.insert(swName).second)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "declining a liveness Up for {}: the twin powered it off and the "
+                           "probe behind that verdict was taken before the kill, so it describes "
+                           "the proxy's cache rather than the switch",
+                           swName);
+    }
+    return false;
 }
 
 /** @brief Decides one bmv2 switch's liveness from the proxy's evidence. See the header for the
@@ -806,6 +931,32 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                         switch (p4LivenessFor(graph[v].dpid, p4SwitchState))
                         {
                         case OvsLiveness::Up:
+                            // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+                            //
+                            // 🔴 THE OTHER DOOR THE RESURRECTION CAME THROUGH, and the one that
+                            // was left open on purpose in #46 because closing it looked like
+                            // refusing an observation. It is not an observation. The proxy
+                            // caches `probe_ok` and a kill does not invalidate the cache, so the
+                            // first Up after every kill is routinely a probe TAKEN BEFORE IT --
+                            // measured on the live fabric, 18 of 18 trials: `is_up` went 0->1
+                            // within 0.3-1.5 s of the kill and held for 8-13 s, on a switch that
+                            // was already dead.
+                            //
+                            // So the question asked here is not "may the twin believe a probe"
+                            // but "is this probe about the present". Dating it needs the probe's
+                            // own age, which the proxy sends; without that every reading gets
+                            // stamped with the moment it was COLLECTED, which is precisely how a
+                            // cache launders itself into current evidence.
+                            //
+                            // Declining is silent in the graph -- the vertex keeps whatever it
+                            // held -- and that is the same Unknown the branch below takes when
+                            // the payload cannot be trusted. It applies ONLY to a switch this
+                            // strategy has stopped and nothing has seen since; for every other
+                            // switch acceptLivenessUp answers yes and this costs one map lookup.
+                            if (!acceptP4LivenessUp(swName, graph[v].dpid, p4SwitchState))
+                            {
+                                break;
+                            }
                             SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
                             m_topologyAndFlowMonitor->setVertexUp(v);
                             break;

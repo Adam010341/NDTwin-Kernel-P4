@@ -66,8 +66,14 @@ class PowerState:
     powered off -- and is not the same object as `unknown()`.
     """
 
-    def __init__(self, off_dpids=(), error=None):
+    def __init__(self, off_dpids=(), error=None, unreachable_dpids=()):
         self.off_dpids = frozenset(off_dpids)
+        # [Co-developed with claude code -- Adam] -- Q12.
+        # The endpoint used to answer one question with a word that named the other: its ON/OFF
+        # was derived from the graph's `is_up`, so "powered off" and "not answering" were the
+        # same reading. They are separate fields now, and so are these -- `off_dpids` is what
+        # the operator ASKED FOR and is the only thing that may account for a deviation.
+        self.unreachable_dpids = frozenset(unreachable_dpids)
         self.error = error
 
     @property
@@ -114,14 +120,40 @@ def classify_power_state(payload, ip_to_dpid) -> PowerState:
             f"expected an object keyed by switch IP, got {type(payload).__name__}")
 
     off = set()
+    unreachable = set()
     for ip, value in payload.items():
         dpid = ip_to_dpid.get(ip)
         if dpid is None:
             return PowerState.unknown(
                 f"reading names {ip!r}, which is not a switch in this topology")
+
+        # [Co-developed with claude code -- Adam] -- Q12.
+        # TWO SHAPES, on purpose. This tool is pointed at whatever kernel is deployed: a kernel
+        # from before the split answers with the scalar "ON"/"OFF", one from after answers with
+        # {"admin_state": "on"|"off", "reachable": bool}. Refusing the old shape would turn every
+        # pre-Q12 run into TOOL-PRECONDITION-FAILED, which is this file's own definition of a
+        # tool failing in a way that looks like the system failing.
+        if isinstance(value, dict):
+            admin = value.get("admin_state")
+            if admin is None:
+                return PowerState.unknown(
+                    f"{ip} reports no admin_state; the reading cannot say what was commanded")
+            admin = str(admin).strip().lower()
+            if admin == "off":
+                off.add(dpid)
+            elif admin != "on":
+                return PowerState.unknown(
+                    f"{ip} reports admin_state {value.get('admin_state')!r}, not on or off")
+            if value.get("reachable") is False:
+                unreachable.add(dpid)
+            continue
+
         state = str(value).strip().upper()
         if state == "OFF":
             off.add(dpid)
+            # The old shape cannot tell the two apart -- that is the finding. A pre-Q12 "OFF"
+            # therefore contributes to `off_dpids` only, and `unreachable_dpids` stays empty
+            # rather than being filled with a guess.
         elif state != "ON":
             return PowerState.unknown(f"{ip} reports power state {value!r}, not ON or OFF")
 
@@ -130,7 +162,7 @@ def classify_power_state(payload, ip_to_dpid) -> PowerState:
         return PowerState.unknown(
             f"no power reading for {len(missing)} switch(es): {', '.join(missing)}")
 
-    return PowerState(off)
+    return PowerState(off, unreachable_dpids=unreachable)
 
 
 def partition_messages(messages):
@@ -199,7 +231,19 @@ GRAPH_NODE = Obj({
     "vertex_type": Int(min=0, max=1),   # 0 = switch, 1 = host
     "brand_name": Str(),
     "device_layer": Int(),
-}, optional={"nickname": Str()})
+}, optional={
+    "nickname": Str(),
+    # [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
+    # `is_up` above answered two questions at once. These are the two answers; `is_up` stays
+    # REQUIRED because it is now a deprecated alias of `reachable` that four external consumers
+    # still read (one of them with a throwing j.at()).
+    #
+    # Optional, not required, for the same reason left_link_bandwidth_source is: a kernel built
+    # before the split must still pass the structural check. Listing them pins the vocabulary --
+    # "OFF", "disabled" or a free-form string is a contract change and fails here.
+    "admin_state": Str(allowed=("on", "off")),
+    "reachable": Bool(),
+})
 
 GRAPH_EDGE = Obj({
     "src_dpid": Int(min=0),
@@ -362,6 +406,32 @@ def inv_graph_matches_topology(data, ctx):
     return out
 
 
+def _node_reachable(n) -> bool:
+    """
+    Whether the twin can reach this switch.
+
+    [Co-developed with claude code -- Adam] -- Q12.
+    `reachable` is the field; `is_up` is the deprecated alias kept so external readers keep
+    working. Where both exist the field wins: a consumer that reads the alias is reading a copy,
+    and the two can disagree if anything ever emits them separately.
+    """
+    return bool(n["reachable"]) if "reachable" in n else bool(n["is_up"])
+
+
+def _node_commanded_off(n):
+    """
+    Whether an operator commanded this switch off, or None when the node does not say.
+
+    [Co-developed with claude code -- Adam] -- Q12.
+    None is a third answer and it is load-bearing: a kernel from before the split emits no
+    `admin_state`, and reading that absence as "commanded on" would turn every deliberately
+    powered-down switch into a failure -- the A-8 false alarm this file exists to have fixed.
+    """
+    if "admin_state" not in n:
+        return None
+    return str(n["admin_state"]).strip().lower() == "off"
+
+
 def _power_state(ctx):
     """
     The powered-off switches this run is allowed to account for, or None if unknown.
@@ -415,26 +485,52 @@ def inv_all_switches_up(data, ctx):
     """
     out = []
     switches = [n for n in data["nodes"] if n["vertex_type"] == 0]
-    down = [n for n in switches if not n["is_up"]]
+    down = [n for n in switches if not _node_reachable(n)]
     disabled = [n for n in switches if not n["is_enabled"]]
     if not down and not disabled:
         return out
 
-    power = _power_state(ctx)
-    if power is None or not power.known:
-        why = power.error if power is not None else "the runner did not read it"
-        return [
-            TOOL_PRECONDITION
-            + f"{len(down)} switch(es) report is_up=false and {len(disabled)} report "
-              f"is_enabled=false, and the power state could not be read ({why}), so this "
-              f"check cannot tell a deliberate power-down from a switch that never "
-              f"connected. No verdict on the fabric."
-        ]
+    # [Co-developed with claude code -- Adam] -- Q12, and the reason this check could not fire.
+    #
+    # 🔴 BOTH SIDES OF THIS COMPARISON USED TO READ THE SAME BIT. The graph's "is this switch
+    # down" was `is_up`, and the kernel derived /ndt/get_switches_power_state's ON/OFF answer
+    # FROM THAT SAME FLAG -- so on any real kernel every down switch was in `off_dpids`,
+    # `unexplained_down` was structurally empty, and the highest-value invariant in the suite
+    # could not report a fault. (The cases above hide it: they hand this function a PowerState
+    # no live kernel could have produced.)
+    #
+    # After the split the graph answers for itself, and the two answers have different writers:
+    # `admin_state` is written only by the power strategies, `reachable` only by liveness. So
+    # prefer the node -- one document, internally consistent, and no second HTTP call that can
+    # fail. The power reading stays as the fallback for a kernel that predates the split.
+    #
+    # ALL of them or none: a graph where some switches carry `admin_state` and some do not is a
+    # reading nobody should act on, because the silent ones would count as "commanded on" and
+    # become failures. Same discipline as classify_power_state's partial-coverage rule.
+    commanded = [_node_commanded_off(n) for n in switches]
+    if switches and all(c is not None for c in commanded):
+        source = "the graph's own admin_state"
+        unexplained_down = [n for n in down if not _node_commanded_off(n)]
+        explained_down = [n for n in down if _node_commanded_off(n)]
+        unexplained_disabled = [n for n in disabled if not _node_commanded_off(n)]
+        explained_disabled = [n for n in disabled if _node_commanded_off(n)]
+    else:
+        source = "/ndt/get_switches_power_state"
+        power = _power_state(ctx)
+        if power is None or not power.known:
+            why = power.error if power is not None else "the runner did not read it"
+            return [
+                TOOL_PRECONDITION
+                + f"{len(down)} switch(es) report is_up=false and {len(disabled)} report "
+                  f"is_enabled=false, and the power state could not be read ({why}), so this "
+                  f"check cannot tell a deliberate power-down from a switch that never "
+                  f"connected. No verdict on the fabric."
+            ]
 
-    unexplained_down = [n for n in down if n["dpid"] not in power.off_dpids]
-    explained_down = [n for n in down if n["dpid"] in power.off_dpids]
-    unexplained_disabled = [n for n in disabled if n["dpid"] not in power.off_dpids]
-    explained_disabled = [n for n in disabled if n["dpid"] in power.off_dpids]
+        unexplained_down = [n for n in down if n["dpid"] not in power.off_dpids]
+        explained_down = [n for n in down if n["dpid"] in power.off_dpids]
+        unexplained_disabled = [n for n in disabled if n["dpid"] not in power.off_dpids]
+        explained_disabled = [n for n in disabled if n["dpid"] in power.off_dpids]
 
     if unexplained_down:
         out.append(f"switch(es) not up: {_describe(unexplained_down)}")
@@ -451,7 +547,7 @@ def inv_all_switches_up(data, ctx):
         out.append(
             ACCOUNTED_FOR
             + f"{len(accounted)} switch(es) are down/disabled because "
-              f"/ndt/get_switches_power_state reports them OFF: "
+              f"{source} reports them commanded off: "
               f"{_describe(explained_down or explained_disabled)}"
               " -- a powered-down switch is the Energy-Saving-App doing its job"
         )
@@ -806,7 +902,21 @@ def inv_dispatcher_is_running(data, ctx):
 
 
 def inv_power_state_values(data, ctx):
-    bad = {k: v for k, v in data.items() if v not in ("ON", "OFF")}
+    """
+    [Co-developed with claude code -- Adam] -- Q12.
+    Two shapes, because this tool is pointed at whatever kernel is deployed: the pre-split
+    scalar "ON"/"OFF", and the post-split {"admin_state": "on"|"off", "reachable": bool}. An
+    object missing either half is reported: half an answer here is what made a crashed switch
+    and a commanded-off one indistinguishable in the first place.
+    """
+    bad = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            if str(v.get("admin_state", "")).strip().lower() not in ("on", "off") \
+                    or not isinstance(v.get("reachable"), bool):
+                bad[k] = v
+        elif v not in ("ON", "OFF"):
+            bad[k] = v
     if bad:
         return [f"unexpected power state value(s): {bad}"]
     return []
@@ -946,7 +1056,15 @@ ENDPOINTS = [
 
     dict(name="get_switches_power_state", method="GET", path="/ndt/get_switches_power_state",
          category=READ,
-         schema=MapOf(Str(), key_check=is_ipv4_string, key_desc="IPv4 address"),
+         # [Co-developed with claude code -- Adam] -- Q12.
+         # OneOf, not a replacement: a kernel from before the split answers with the bare
+         # "ON"/"OFF" string, and the contract tool is run against deployed kernels. The object
+         # form is the one that can tell a commanded power-off from a switch that crashed --
+         # which is the entire reason this endpoint is named in the finding.
+         schema=MapOf(OneOf(Str(),
+                            Obj({"admin_state": Str(allowed=("on", "off")),
+                                 "reachable": Bool()})),
+                      key_check=is_ipv4_string, key_desc="IPv4 address"),
          invariants=[inv_power_state_values]),
 
     # min=-1, not 0: -1 is the documented "unavailable" sentinel, not an out-of-range

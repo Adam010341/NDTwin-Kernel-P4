@@ -622,3 +622,108 @@ TEST(HttpSessionRoutingTest, AMistypedFlowDataEndpointIsNotFoundRatherThanServed
         EXPECT_EQ(res.result_int(), 404u) << target << " -> " << res.body();
     }
 }
+
+// =================================================================================================
+// FINDINGS #81 -- /ndt/inform_switch_entered and a standing commanded power-off
+//
+// [Co-developed with claude code -- Adam]
+//
+// handleInformSwitchEntered calls setVertexUp unconditionally. #46 closed the topology poll's
+// door onto a commanded-off switch; this is the other push, and it was left alone because
+// nobody had established what it is evidence OF.
+//
+// It was established here, from the callers rather than from taste:
+//
+//   - intelligent_router.py:1202 fires it from `_state_change_handler`, an
+//     `ofp_event.EventOFPStateChange` handler, when a datapath reaches MAIN_DISPATCHER -- i.e.
+//     on the transition, when a switch has just completed an OpenFlow handshake;
+//   - intelligent_router.py:1059 fires it per dpid drained from `_pending_switch_dpids`, which
+//     `EventSwitchEnter` fills -- again a transition, not a scan;
+//   - p4_proxy/proxy_agent/kernel_notifier.py:96 is the P4 equivalent, pushed when the proxy
+//     adopts a switch.
+//
+// All three are EDGE-TRIGGERED BY A COMPLETED SESSION. That is categorically different from
+// FINDINGS #46's poll, whose input was list membership in a reply the proxy went on serving for
+// D = 3.06 s after the switch died. A dead process does not complete a handshake, so this push
+// is evidence about the present and is allowed to lift `reachable`.
+//
+// What it is NOT evidence of is anybody having withdrawn the power-off. Those are now separate
+// fields (Q12), so the twin no longer has to pick one: it reports admin_state=off with
+// reachable=true and lets the operator see that the switch came back without being asked to.
+// =================================================================================================
+
+class InformSwitchEnteredTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_graph = std::make_shared<Graph>();
+        m_bus = std::make_shared<EventBus>();
+        m_monitor = std::make_shared<TopologyAndFlowMonitor>(
+            m_graph, std::make_shared<std::shared_mutex>(), m_bus, utils::MININET);
+
+        m_sw = boost::add_vertex(*m_graph);
+        (*m_graph)[m_sw].vertexType = VertexType::SWITCH;
+        (*m_graph)[m_sw].dpid = kDpid;
+        (*m_graph)[m_sw].deviceName = "s1";
+        (*m_graph)[m_sw].bridgeNameForMininet = "s1";
+        (*m_graph)[m_sw].isUp = true;
+    }
+
+    static constexpr uint64_t kDpid = 1;
+
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<EventBus> m_bus;
+    std::shared_ptr<TopologyAndFlowMonitor> m_monitor;
+    Graph::vertex_descriptor m_sw{};
+};
+
+TEST_F(InformSwitchEnteredTest, ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff)
+{
+    // 🔴 The assertion #81 is about. If this push could clear the command, every guard #46 built
+    // would have a second door: the twin kills a switch, the control plane pushes one enter, and
+    // discovery is free to mark it up for ever after.
+    m_monitor->setVertexPoweredOffByCommand(m_sw);
+    ASSERT_TRUE(m_monitor->getVertexAdminPoweredOff(m_sw));
+
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    const auto& res = peer.send(http::verb::get, "/ndt/inform_switch_entered?dpid=1");
+
+    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_TRUE(m_monitor->getVertexAdminPoweredOff(m_sw))
+        << "a control-plane push withdrew a power-off command. Only a power-on may do that "
+           "(FINDINGS #46); this endpoint reports a session, not an instruction";
+}
+
+TEST_F(InformSwitchEnteredTest, ASwitchEnteredPushMayStillLiftReachable)
+{
+    // The other direction, and the reason this endpoint was NOT made to decline. A completed
+    // handshake is evidence the process is serving; refusing to record it would make the twin
+    // report a switch that is demonstrably answering as unreachable -- the failure mode #46's
+    // own write-up names as worse than the defect.
+    m_monitor->setVertexPoweredOffByCommand(m_sw);
+    ASSERT_FALSE(m_monitor->getVertexIsUp(m_sw));
+
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    const auto& res = peer.send(http::verb::get, "/ndt/inform_switch_entered?dpid=1");
+
+    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_TRUE(m_monitor->getVertexIsUp(m_sw))
+        << "the switch completed a session and the twin refused to observe it";
+}
+
+TEST_F(InformSwitchEnteredTest, TheResultingVertexReportsTheDisagreementRatherThanPickingOne)
+{
+    // Q12 is what makes the paragraph above legal. With one boolean the twin had to choose
+    // between "commanded off" and "answering", and either choice was a lie; with two fields it
+    // states both and the operator sees a switch that came back without being asked.
+    m_monitor->setVertexPoweredOffByCommand(m_sw);
+
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    ASSERT_EQ(peer.send(http::verb::get, "/ndt/inform_switch_entered?dpid=1").result_int(), 200u);
+
+    const nlohmann::json j = m_monitor->getGraph()[m_sw];
+    EXPECT_EQ(j.value("admin_state", ""), "off");
+    EXPECT_TRUE(j.value("reachable", false));
+    EXPECT_TRUE(j.value("is_up", false)) << "the alias must track reachable";
+}

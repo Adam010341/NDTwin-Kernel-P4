@@ -454,7 +454,7 @@ TEST_F(PollDoesNotResurrectTest, PowerOnActuatesWhenACommandedOffIsStillStanding
     FakeP4 p4;
     ASSERT_EQ(p4.powerOff(sw(), "s1", m_monitor.get()).ok, true);
 
-    p4.advance(std::chrono::seconds(60)); // long past kPostPowerOffDistrustWindow
+    p4.advance(std::chrono::seconds(60)); // time alone; the window is closed by evidence now
     m_monitor->setVertexUp(sw());         // the graph now lies about this switch
     p4.commands.clear();
 
@@ -517,15 +517,20 @@ TEST_F(PollDoesNotResurrectTest, AnOvsPowerOffAlsoSurvivesThePoll)
            "refusing to mark a live bridge up";
 }
 
-// --- 6. Q12: the wire shape is deliberately unchanged --------------------------------------------
+// --- 6. Q12: the wire shape, after the ruling ----------------------------------------------------
 
 /**
- * Q12 asks Adam whether `is_up` should become `admin_state` + `reachable` on the wire. That is a
- * design decision and it is not this fix's to take, so the separation is internal and the emitted
- * shape is byte-for-byte what it was. This case fails if anyone -- including a later version of
- * this fix -- answers Q12 by accident.
+ * Q12 asked Adam whether `is_up` should become `admin_state` + `reachable` on the wire. He ruled
+ * (a) on 2026-09-03: split them, and keep `is_up` as a deprecated alias of `reachable` so the
+ * external readers keep working. This case used to assert the opposite -- that no new key
+ * appeared -- and was written to go red the moment the question was answered, which is what it
+ * has now done.
+ *
+ * It stays here, pointed the other way, because the state it checks the shape in is this file's
+ * state and no other: after a commanded power-off AND the poll that used to undo it. The wider
+ * shape and alias assertions live in tests/test_IsUpSplit.cpp.
  */
-TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeGainsNoNewKey)
+TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReachable)
 {
     startMonitor();
     converge();
@@ -541,11 +546,13 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeGainsNoNewKey)
         j = (*m_graph)[sw()];
     }
 
-    EXPECT_FALSE(j.contains("admin_powered_off"))
-        << "Q12 has not been ruled on; the internal split must not reach the wire";
-    EXPECT_FALSE(j.contains("admin_state"));
-    EXPECT_FALSE(j.contains("reachable"));
-    EXPECT_TRUE(j.contains("is_up")) << "is_up is what four consumers read; it must still be there";
-    EXPECT_FALSE(j["is_up"].get<bool>())
-        << "a commanded-off switch must report is_up false through the shape that already exists";
+    EXPECT_EQ(j.value("admin_state", ""), "off")
+        << "the commanded half of the old is_up now has its own name, and this switch was "
+           "commanded off";
+    EXPECT_FALSE(j.value("reachable", true))
+        << "the observed half must still say the poll did not resurrect it";
+    EXPECT_TRUE(j.contains("is_up")) << "is_up is what four consumers read; the ruling keeps it "
+                                        "as an alias rather than removing it";
+    EXPECT_EQ(j.value("is_up", true), j.value("reachable", false))
+        << "the alias drifted from the field it aliases";
 }

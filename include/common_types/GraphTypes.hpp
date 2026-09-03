@@ -345,11 +345,16 @@ struct VertexProperties
      * which is the same moment P4PowerStrategy already closes its distrust window and for the
      * same reason: the graph is once more backed by something real.
      *
-     * 🔴 NOT SERIALISED, on purpose. Q12 (doc/audit/2026-09-03_night-rounds/QUESTIONS-FOR-ADAM.md)
-     * asks whether `is_up` should be split into `admin_state` and `reachable` on the wire, and
-     * that is Adam's call, not this fix's. So the separation is made internally and the emitted
-     * shape is left exactly as it was: no key is added to to_json, and from_json does not read
-     * one. See doc/audit/2026-09-03_fix-poll-resurrect/FIX-POLL-RESURRECT.md §6.
+     * 🔴 SERIALISED AS `admin_state`, since Q12 was answered. Adam ruled option (a) on
+     * 2026-09-03 (doc/audit/2026-09-03_night-rounds/QUESTIONS-FOR-ADAM.md): split the wire field
+     * into `admin_state` ("on"/"off", this flag) and `reachable` (a bool, `isUp`), and keep
+     * `is_up` as a DEPRECATED ALIAS of `reachable` so external readers keep working. See
+     * doc/audit/2026-09-03_fix-is-up-split/FIX-IS-UP-SPLIT.md.
+     *
+     * A string, not a bool, and not `admin_powered_off`. "off" and "on" are the vocabulary the
+     * power API already speaks (`?action=on|off`), so a caller does not have to remember which
+     * way a boolean called `admin_disabled`-something points; and a string leaves room for a
+     * third state (say "unknown" on a plane where the twin cannot know) without another key.
      */
     bool adminPoweredOff = false;
 
@@ -477,8 +482,18 @@ from_json(const json& j, VertexProperties& v)
     v.mac = j.at("mac").get<uint64_t>();
     v.ip = j.at("ip").get<std::vector<uint32_t>>();
     v.dpid = j.at("dpid").get<uint64_t>();
-    v.isUp = j.at("is_up").get<bool>();
+    // [Co-developed with claude code -- Adam] -- Q12.
+    // `reachable` is the field; `is_up` is the deprecated alias to_json still emits. Read the
+    // field where it exists and fall back to the alias, because a payload written by a kernel
+    // that predates the split carries only `is_up` -- and those payloads outlive the release
+    // that wrote them. .at() on the fallback, so a payload with NEITHER is still an error with
+    // a message rather than a silent default.
+    v.isUp = j.contains("reachable") ? j.at("reachable").get<bool>() : j.at("is_up").get<bool>();
     v.isEnabled = j.at("is_enabled").get<bool>();
+    // .value() not .at(), and defaulting to "on": an old payload says nothing about commands,
+    // and "nothing" means "nobody commanded this off". Defaulting the other way would read every
+    // archived graph as a fabric somebody had deliberately powered down.
+    v.adminPoweredOff = j.value("admin_state", std::string("on")) == "off";
     // .value() not .at(): this field postdates every topology JSON on disk, and a missing one
     // means "nobody has disabled it". [Co-developed with claude code -- Adam]
     v.adminDisabled = j.value("admin_disabled", false);
@@ -496,6 +511,23 @@ to_json(nlohmann::json& j, const VertexProperties& v)
                        {"mac", v.mac},
                        {"ip", v.ip},
                        {"dpid", v.dpid},
+                       // [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of
+                       // 2026-09-03. `is_up` used to answer two questions with one bit:
+                       // "did anybody command this off" and "can the twin reach it". They have
+                       // different writers (the power strategies vs liveness probing), different
+                       // lifetimes, and they can legitimately disagree -- a switch commanded off
+                       // and restarted out of band is commanded-off AND reachable. With one bit
+                       // the twin had to pick a lie; these are the two answers.
+                       {"admin_state", v.adminPoweredOff ? "off" : "on"},
+                       {"reachable", v.isUp},
+                       // 🔴 DEPRECATED ALIAS OF `reachable`, kept deliberately and not merely
+                       // left behind. Four consumers read `is_up` by name -- Energy-Saving-App,
+                       // Network-Traffic-Visualizer, Web-GUI, Traffic-Engineering-App -- and the
+                       // Energy-Saving-App parses it with `j.at("is_up")`, which THROWS on a
+                       // missing key: removing this line is a hard parse failure in another
+                       // repository, not a deprecation. It tracks `reachable` and nothing else;
+                       // wiring it to admin_state would put the old ambiguity back under a new
+                       // name. New readers must use `reachable`.
                        {"is_up", v.isUp},
                        // Folded, so the four apps that read is_enabled see an operator's
                        // disable with no change on their side; admin_disabled is emitted

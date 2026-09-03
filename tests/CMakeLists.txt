@@ -93,6 +93,10 @@ add_executable(
   # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
   # commanded power-off and the resurrection was permanent. Both directions -- see the header.
   test_PollDoesNotResurrect.cpp
+  # [Co-developed with claude code -- Adam] Q12 (Adam's ruling (a), 2026-09-03) with FINDINGS #80:
+  # `is_up` answered two questions at once, so a commanded-off switch and a crashed one were the
+  # same shape. Split into admin_state + reachable, is_up kept as a deprecated alias.
+  test_IsUpSplit.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

@@ -1446,6 +1446,40 @@ HttpSession::handleInformSwitchEntered(http::response<http::string_body>& res)
         return;
     }
 
+    // [Co-developed with claude code -- Adam] -- FINDINGS #81.
+    //
+    // This setVertexUp is unconditional ON PURPOSE, and the reason had to be established rather
+    // than assumed. FINDINGS #46 taught discovery to decline for a switch with a standing
+    // commanded power-off, and the obvious next step was to teach this endpoint the same rule.
+    // It would have been wrong. What #46 declines is LIST MEMBERSHIP -- the proxy went on
+    // listing a killed switch for D = 3.06 s, so "the control plane still mentions it" is a
+    // cache, not a look. This endpoint is a different kind of input:
+    //
+    //   intelligent_router.py:1202  fires it from an ofp_event.EventOFPStateChange handler when
+    //                               a datapath reaches MAIN_DISPATCHER -- a completed handshake;
+    //   intelligent_router.py:1059  fires it per dpid drained from _pending_switch_dpids, which
+    //                               EventSwitchEnter fills -- also a transition;
+    //   kernel_notifier.py:96       is the P4 equivalent, pushed when the proxy adopts a switch.
+    //
+    // All three are edge-triggered by a session that completed. A dead process does not complete
+    // a handshake, so this is evidence about the present and refusing it would make the twin
+    // report a switch that is demonstrably answering as unreachable.
+    //
+    // What it is NOT is evidence that anybody withdrew the power-off, and it must not touch that
+    // flag -- setVertexUp is the observation writer and does not (asserted by
+    // InformSwitchEnteredTest and by the poll gate's M3). Since Q12 the twin no longer has to
+    // choose: it reports admin_state=off with reachable=true, which says out loud that a switch
+    // came back without being asked to. The WARN is there because that state is worth seeing and
+    // is otherwise inferable only by diffing two API reads.
+    if (m_topologyAndFlowMonitor->getVertexAdminPoweredOff(*switchVertexOpt))
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inform_switch_entered: dpid {} completed a control-plane session "
+                           "while a commanded power-off still stands; recording it reachable and "
+                           "leaving admin_state off",
+                           dpid);
+    }
+
     m_topologyAndFlowMonitor->setVertexUp(*switchVertexOpt);
     m_topologyAndFlowMonitor->setVertexEnable(*switchVertexOpt);
     res.body() = R"({"status":"Switch set to up"})";

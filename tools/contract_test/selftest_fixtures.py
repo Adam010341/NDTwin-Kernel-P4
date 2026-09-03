@@ -121,8 +121,16 @@ FIXTURES = {
     "get_power_report": (
         spec.List(spec.Obj({"dpid": spec.Int(min=0), "power_consumed": Num()})),
         POWER_REPORT_SAMPLE),
+    # [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
+    # The sample is the NEW shape, because --self-test's job is "prove the schemas accept what
+    # the kernel emits" and this is what it emits now. The scalar branch stays in the schema for
+    # a kernel that predates the split; it has its own case in tests/python/test_contract_spec.py
+    # rather than a second sample here, because a fixture map is keyed by endpoint.
     "get_switches_power_state": (
-        MapOf(Str(), key_check=is_ipv4_string), {"10.10.10.10": "ON"}),
+        MapOf(OneOf(Str(), spec.Obj({"admin_state": Str(allowed=("on", "off")),
+                                     "reachable": spec.Bool()})),
+              key_check=is_ipv4_string),
+        {"10.10.10.10": {"admin_state": "on", "reachable": True}}),
     # [Co-developed with claude code -- Adam]
     # min=-1, matching spec.py. These fixtures carry their own copy of each schema rather than
     # reading spec.py's, and this copy had drifted narrower than the one the contract test

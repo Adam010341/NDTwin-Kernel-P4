@@ -1162,5 +1162,166 @@ class SchemaDeclarationTest(unittest.TestCase):
         self.assertIn("nodes[0].device_name", str(caught.exception))
 
 
+def split_node(dpid, admin_state="on", reachable=True, is_enabled=True, name=None):
+    """
+    One node of get_graph_data AFTER Q12: `admin_state` and `reachable` are separate, and
+    `is_up` is the deprecated alias that still tracks `reachable`.
+
+    [Co-developed with claude code -- Adam]
+    The alias is emitted here rather than omitted because that is what the kernel emits; a
+    fixture that dropped it would let a spec change that reads the alias by mistake stay green.
+    """
+    return {"device_name": name or f"s{dpid}", "dpid": dpid, "vertex_type": 0,
+            "admin_state": admin_state, "reachable": reachable, "is_up": reachable,
+            "is_enabled": is_enabled}
+
+
+class SplitFieldsMakeTheThreeStateCheckAbleToFireTest(unittest.TestCase):
+    """
+    Q12 / A-8: the three-state check compared a bit against itself.
+
+    [Co-developed with claude code -- Adam]
+
+    inv_all_switches_up asks "is this switch down" and then "is it down because we powered it
+    off". Before the split BOTH sides read `is_up`: the kernel derived
+    /ndt/get_switches_power_state's ON/OFF answer from the same graph flag the invariant was
+    testing, so every down switch was in `power.off_dpids` and `unexplained_down` was
+    STRUCTURALLY EMPTY on any real kernel. The unit tests above hide that, because they hand
+    the invariant a PowerState no live kernel could have produced.
+
+    With `admin_state` and `reachable` separate, "down but nobody asked for it" is a state the
+    data can express -- so the check can fire, and these cases are the ones that prove it can.
+    """
+
+    def test_a_switch_that_is_unreachable_while_commanded_on_is_reported(self):
+        # 🔴 The case that could not happen before. A crashed switch: nothing commanded it off,
+        # and it is not answering. This is the P4 wiring failure the invariant exists for.
+        data = {"nodes": [split_node(1), split_node(5, admin_state="on", reachable=False)]}
+        out = spec.inv_all_switches_up(data, Ctx())
+        self.assertTrue(any("switch(es) not up" in m and "s5" in m for m in out), out)
+
+    def test_a_switch_that_is_unreachable_while_commanded_off_is_accounted_for(self):
+        data = {"nodes": [split_node(1), split_node(5, admin_state="off", reachable=False)]}
+        out = spec.inv_all_switches_up(data, Ctx())
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "s5" in m for m in out), out)
+
+    def test_the_two_dead_switches_are_reported_differently(self):
+        # The whole point of the ruling, in one call: same reachability, different verdicts.
+        data = {"nodes": [split_node(1),
+                          split_node(5, admin_state="off", reachable=False),
+                          split_node(7, admin_state="on", reachable=False)]}
+        out = spec.inv_all_switches_up(data, Ctx())
+        failures = [m for m in out if not m.startswith(ACCOUNTED_FOR)]
+        self.assertTrue(any("s7" in m for m in failures), out)
+        self.assertFalse(any("s5" in m for m in failures), out)
+
+    def test_the_node_fields_are_used_even_when_no_power_reading_was_taken(self):
+        # The reading was the only source before, and it is an extra HTTP call that can fail.
+        # Now the graph answers for itself, so a missing power reading is no longer a reason to
+        # decline a verdict -- TOOL-PRECONDITION-FAILED here would be the tool declining to use
+        # evidence it was handed.
+        data = {"nodes": [split_node(5, admin_state="on", reachable=False)]}
+        out = spec.inv_all_switches_up(
+            data, Ctx(power_state=PowerState.unknown("kernel returned HTTP 503")))
+        self.assertFalse(any(m.startswith(TOOL_PRECONDITION) for m in out), out)
+        self.assertTrue(any("switch(es) not up" in m and "s5" in m for m in out), out)
+
+    def test_a_healthy_split_fabric_reports_nothing(self):
+        data = {"nodes": [split_node(1), split_node(2)]}
+        self.assertEqual(spec.inv_all_switches_up(data, Ctx()), [])
+
+    def test_a_kernel_that_predates_the_split_still_uses_the_power_reading(self):
+        # Old shape, no admin_state anywhere. The contract tool runs against whatever kernel is
+        # deployed, so the previous path must survive intact.
+        data = {"nodes": [node(1), node(5, is_up=False, is_enabled=False)]}
+        out = spec.inv_all_switches_up(data, Ctx(power_state=PowerState({5})))
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+
+    def test_a_mixed_graph_falls_back_rather_than_guessing(self):
+        # Some switches carrying admin_state and some not is a reading nobody should act on:
+        # the missing ones would silently count as "commanded on" and turn into failures. Same
+        # discipline as classify_power_state's partial-coverage rule.
+        data = {"nodes": [split_node(1), node(5, is_up=False, is_enabled=False)]}
+        out = spec.inv_all_switches_up(
+            data, Ctx(power_state=PowerState.unknown("kernel returned HTTP 503")))
+        self.assertTrue(any(m.startswith(TOOL_PRECONDITION) for m in out), out)
+
+    def test_reachable_beats_the_deprecated_alias_when_they_disagree(self):
+        # A consumer reading the alias where the field exists is reading a copy. Pinned with the
+        # two disagreeing, which is the only arrangement that can tell which one was used.
+        n = split_node(5, admin_state="on", reachable=False)
+        n["is_up"] = True
+        out = spec.inv_all_switches_up({"nodes": [n]}, Ctx())
+        self.assertTrue(any("switch(es) not up" in m and "s5" in m for m in out), out)
+
+
+class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
+    """
+    /ndt/get_switches_power_state now answers with an object per switch, so classify_power_state
+    has two shapes to read: the old scalar (a kernel that predates Q12) and the new object.
+
+    [Co-developed with claude code -- Adam]
+    Both, not one. This tool is pointed at whatever kernel is deployed, and refusing the old
+    shape would turn every pre-Q12 run into TOOL-PRECONDITION-FAILED.
+    """
+
+    IP_TO_DPID = {"192.168.123.11": 1, "192.168.123.15": 5}
+
+    def test_the_new_object_shape_maps_commanded_off_switches_onto_dpids(self):
+        state = classify_power_state(
+            {"192.168.123.11": {"admin_state": "on", "reachable": True},
+             "192.168.123.15": {"admin_state": "off", "reachable": False}}, self.IP_TO_DPID)
+        self.assertTrue(state.known, state.error)
+        self.assertEqual(set(state.off_dpids), {5})
+
+    def test_off_dpids_follows_the_command_not_the_observation(self):
+        # 🔴 The conflation, in the endpoint that caused it. A switch that crashed is NOT a
+        # switch the operator powered down, and off_dpids is what tells the invariants which
+        # deviations are accounted for.
+        state = classify_power_state(
+            {"192.168.123.11": {"admin_state": "on", "reachable": True},
+             "192.168.123.15": {"admin_state": "on", "reachable": False}}, self.IP_TO_DPID)
+        self.assertTrue(state.known, state.error)
+        self.assertEqual(set(state.off_dpids), set(),
+                         "a crashed switch was reported as deliberately powered down")
+        self.assertEqual(set(state.unreachable_dpids), {5})
+
+    def test_the_old_scalar_shape_still_reads(self):
+        state = classify_power_state(
+            {"192.168.123.11": "ON", "192.168.123.15": "OFF"}, self.IP_TO_DPID)
+        self.assertTrue(state.known, state.error)
+        self.assertEqual(set(state.off_dpids), {5})
+
+    def test_an_object_missing_admin_state_is_unknown_not_assumed_on(self):
+        state = classify_power_state(
+            {"192.168.123.11": {"reachable": True},
+             "192.168.123.15": {"admin_state": "off", "reachable": False}}, self.IP_TO_DPID)
+        self.assertFalse(state.known)
+        self.assertIn("192.168.123.11", state.error)
+
+    def test_an_unrecognised_admin_state_is_unknown(self):
+        state = classify_power_state(
+            {"192.168.123.11": {"admin_state": "standby", "reachable": True},
+             "192.168.123.15": {"admin_state": "off", "reachable": False}}, self.IP_TO_DPID)
+        self.assertFalse(state.known)
+        self.assertIn("standby", state.error)
+
+    def test_the_node_schema_accepts_both_shapes(self):
+        base = {"device_name": "s1", "dpid": 1, "ip": [], "is_enabled": True, "is_up": True,
+                "mac": 1, "vertex_type": 0, "brand_name": "x", "device_layer": 1}
+        # validate() returns a LIST OF FAILURES; empty means it conforms.
+        self.assertEqual(validate(spec.GRAPH_NODE, base), [],
+                         "the pre-Q12 shape stopped validating")
+        self.assertEqual(validate(spec.GRAPH_NODE,
+                                  {**base, "admin_state": "off", "reachable": False}), [])
+
+    def test_the_schema_pins_the_admin_state_vocabulary(self):
+        base = {"device_name": "s1", "dpid": 1, "ip": [], "is_enabled": True, "is_up": True,
+                "mac": 1, "vertex_type": 0, "brand_name": "x", "device_layer": 1}
+        self.assertTrue(validate(spec.GRAPH_NODE, {**base, "admin_state": "OFF"}),
+                        "a third spelling of the same state is a contract change")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

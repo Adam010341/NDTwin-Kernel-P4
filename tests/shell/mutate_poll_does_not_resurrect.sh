@@ -306,7 +306,7 @@ mutate "the defect verbatim: the poll writes isUp = true unconditionally" \
     PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch \
     PollDoesNotResurrectTest.EveryLaterPollDeclinesToo \
     PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll \
-    PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey
+    PollDoesNotResurrectTest.TheEmittedVertexShapeCarriesAdminStateAndReachable
 
 # M2. Same outcome by a different route: the power path goes back to the OBSERVATION writer, so the
 #     graph can no longer tell "the twin killed this" from "a probe missed a beat". This is the
