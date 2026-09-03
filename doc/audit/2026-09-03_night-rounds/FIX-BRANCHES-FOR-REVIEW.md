@@ -327,8 +327,24 @@ C++ 半邊未編未跑（上述）。`run()` 現在是 `try/catch` 包 `runLoop(
 ——那正是壞版本會**贏**的尺寸，所以不能靠運氣過），五個變異各自指名該紅的測試，
 其中第 5 個是**預期存活並且應該被記成存活**的對照。**但這些全部沒有跑過。**
 
-**auditor 已把冷編排進獨立 systemd unit**（`-j2`、`MemoryMax=5G`、獨立 build 目錄、乾淨 worktree），
-結果補在 `AUDITOR-VERIFICATION.md`。**在那之前，這支分支不該被合併。**
+🏁 **auditor 已經編完並跑過了：編譯乾淨（98 個目標、0 個 FAILED），閘門 3/4。**
+
+紅的是 `TheStartupSequenceMainUsesYieldsABmv2Verdict`。**但紅的不是修法**：
+
+- 同一次執行裡，那支測試的**第二個**斷言 `dataPlaneIsBmv2()` **通過了** ⇒ 惰性重推是work的。
+- `main.cpp:409` `monitor->start()`、`:432` `manager->start()`；而
+  `DeviceConfigurationAndPowerManager.cpp:165` 的 `start()` 才會呼叫 `refreshDataPlaneKind()`。
+  **那支測試只呼叫 `startMonitor()`，從來沒有呼叫 `m_manager->start()`** ——
+  也就是 main 序列裡真正算出結論的那一步。它的名字叫「main 用的啟動序列」，但它不是。
+- 通過的姊妹測試 `AVerdictTakenBeforeTheTopologyExistsIsNotCached` 與它**只差斷言順序**：
+  它先呼叫 `dataPlaneIsBmv2()`（觸發重推）再問 determined。
+
+🔴 **而正確的修法被另一條分支綁住。** 要讓它真的照 main 的順序跑就得呼叫 `m_manager->start()`，
+而這條分支上 `start()` 開**三**條 thread、`stop()` 只 join **兩**條（B-5 那個缺陷還在；
+`fix/b5-kernel-shutdown` 才是補上第三個 join 的那支）⇒ 測試會在解構時 `std::terminate`。
+**⇒ D15 的閘門在 D15 自己的分支上關不起來，必須先有 B-5。**
+
+**我沒有去改那支測試。** 一支被改到變綠的測試什麼都不證明。
 
 ## 4. 合併順序與衝突
 
@@ -394,8 +410,21 @@ C++ 半邊未編未跑（上述）。`run()` 現在是 `try/catch` 包 `runLoop(
 
 ## 3. 🔴 閘門證據 — 沒有
 
-`tests/test_TelemetryHealth.cpp` 存在，**從未編譯、從未執行，沒有任何記錄結果**。
-**auditor 已把冷編排進佇列**（獨立 systemd unit，排在 D15 那次後面），結果補在 `AUDITOR-VERIFICATION.md`。
+🏁 **auditor 編了，第一次編不過**：`tests/test_TelemetryHealth.cpp:19` 沒有加 `sflow::`
+（class 宣告在 `namespace sflow`，`FlowLinkUsageCollector.hpp:30`；每一支編得過的姊妹都有加）。
+**同一個檔就是害另一支 agent 的建置在 84/86 掛掉、逼它手動連結閘門 binary 的元凶。**
+
+修好之後（`b7aad224`，兩行，是我加的不是作者）：**編得過，閘門 17/18**。
+
+紅的是 `AppDropsAloneMoveTheVerdict`：`classifyIngestHealth(true, 900, 0, 100, 1.0)`
+＝ 剛好 0.10 的丟失率，期待 `severe_loss`，實得 `lossy`。
+帶寬是 `0.01`／`0.10`（`FlowLinkUsageCollector.hpp:373,375`）而判斷用嚴格大於（`.cpp:1780`）。
+**踩在邊界上的只有這一支**（`TheBandsAreOrderedAndDistinct` 打的是 0.5%／5%／50%）
+⇒ **目前沒有任何綠的測試在約束那個邊界**，`>` 改 `>=` 不會弄紅任何現在綠的東西。
+
+🔑 那支測試自己的註解寫著「**沒有被執行過的路徑，正是錯常數活下來的地方**」——
+它說對了機制，卻不可能知道它抓到的是自己，因為它從來沒被跑過。
+**我沒有選邊**：那是公開的 `status` 值，該由分支的主人決定。
 
 ## 4. 合併順序與衝突
 
@@ -415,6 +444,65 @@ C++ 半邊未編未跑（上述）。`run()` 現在是 `try/catch` 包 `runLoop(
 **全部。** 這支從來沒有被編譯器看過。接手的人第一件事是編它。
 作者的完整自述在 `doc/audit/2026-09-03_night-rounds/FIX-TELEMETRY-HEALTH.md`，
 **每一條宣稱都未經查證**。
+
+---
+---
+
+# 7／7 — `fix/topology-round-reads-status`
+
+1 commit（`e970d716`）｜base `6ad6811b`（＝目前 trunk）｜9 個檔
+
+## 1. 一句話
+
+topology 輪詢的三個端點回應，從「有沒有 body」改成**讀得到 HTTP status 之後再分類**——
+而 status 先前**不是被忽略，是根本拿不到**（`execCommand` 走的是 popen）。
+
+## 2. 🔴 行為變更前後對照
+
+| 情境 | 修法前 | 修法後 |
+|---|---|---|
+| 端點回 500 帶錯誤 body | body 非空 ⇒ 當成答案 ⇒ **錯誤內容餵進 `updateLinks`** | 分類為 `reported_failure`，以 `""` 到達寫入端 |
+| 回了一個不是陣列的東西 | 當成答案 | `wrong_shape` |
+| 一輪只有部分端點回答 | 無從分辨 | 警告逐個角色指名原因＋status |
+| `GET /ndt/get_graph_data` | 沒有輪次資訊 | 多一個 top-level `topology_round`（附加式，非 strict `Obj`） |
+
+**作者的取捨，我認為論證成立**：三個寫入端都是**單調向上**的
+⇒ 一輪只完成一半只可能「沒把某個 vertex 拉起來」，不可能「製造一個 down」；
+把好的那一半丟掉反而把「部分答案」變成「沒有答案」，那正是 A-2 的悲觀方向。
+而且**根本沒有 snapshot 可留**——`updateSwitches` 在 `updateLinks` 跑之前就已經改了共用的圖，
+要原子性就得做 shadow graph，那是設計變更。
+
+## 3. 閘門證據
+
+- **19/19 綠、先看過紅**；6 個變異全滅（M1 拿掉 status 檢查→2 紅、M4 永遠 Complete→9 紅、
+  M5 永不 Complete→18 紅、M6 拿掉 `--write-out`→1 紅）。
+- **注入先獨立斷言**：`fake_southbound.py` 走過五種模式，每一種**先用另一支
+  `curl -w '%{http_code}'` 探針確認注入生效**，才跑受測指令
+  （`doc/audit/2026-09-03_night-rounds/topology-status-wire.log`）。
+- 🟠 **作者自己更正了一句**：那 6 個變異是在**共用工作樹**上、用**手動連結**的 binary 跑的，
+  **沒有在乾淨 worktree 裡重跑**。在 worktree 裡重跑的是：97/97 建置、**19/19 閘門**、
+  **878/878 全套件**。⇒ 「19/19」是乾淨的，「6 mutations 0 survived」不是。
+- 🟠 **auditor 沒有重跑這一支。**
+
+## 4. 合併順序與衝突
+
+- base 就是目前 trunk，可 fast-forward。
+- **它是唯一一支自己做完 hunk 過濾的**：9 個檔裡 4 個整檔、5 個過濾
+  （`HttpSession.cpp` 3 取 1、`TopologyAndFlowMonitor.hpp` 9 取 7、`.cpp` 13 取 11、
+  `DeviceConfigurationAndPowerManager.hpp` 3 取 1、`.cpp` 5 取 3）。
+  被丟掉的 hunk 屬於 D15（`75c2b526`）與 telemetry（`c7f78c58`），兩邊都已各自落盤。
+- 驗證：`isStaticTopologyLoaded`／`configureTopologyApiUrls`／`refreshDataPlaneKind`／
+  `get_sflow_stats` 在它 commit 的原始碼裡出現 **0 次**。
+
+## 5. 回退方式
+
+單一 commit。但 `topology_round` 是回應形狀改變 ⇒ 退掉之後讀它的消費者會看不到。
+
+## 6. 未處理
+
+`build-topocheck` 的 CMake 目標在共用樹裡連不起來（因為共用的 `tests/CMakeLists.txt` 列了
+死掉那支 agent 的 `test_TelemetryHealth.cpp`）——**那個檔現在已經修好了**（見 6／7），
+所以這個障礙已經消失。
 
 ---
 ---

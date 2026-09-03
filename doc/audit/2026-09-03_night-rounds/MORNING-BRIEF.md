@@ -13,14 +13,14 @@
 
 ## 修法現況（09-03 上午這批，10:00 之後）
 
-七支修法 agent：**四支有閘門且我自己重跑過、一支自陳未交付、一支中途死亡由我救援、一支還在跑**。
+七支修法 agent **全部落盤**：四支的閘門我自己重跑過、兩支從未編譯過的我編了並跑出結果、一支自己做完 hunk 過濾後交付。
 不是採信 agent 的自陳（`AUDITOR-VERIFICATION.md`）；一頁一支的審查頁在 `FIX-BRANCHES-FOR-REVIEW.md`。
 
 | 對應上面第幾件 | 分支 | 閘門（auditor 重跑） | 還缺什麼 |
 |---|---|---|---|
 | **第 1 件** 路由不確定 | `fix/deterministic-path-tiebreak` | 5 mutations, 0 survived | 沒有 live 的十次 bring-up 確認 |
-| **第 2 件** 的「看不見」那一半 | `fix/telemetry-health-visible` | 🔴 **沒有閘門結果** | agent 中途死亡，**我把它的未提交修改救到分支上**；從未編譯 |
-| **第 3 件** bmv2 liveness 競態 | `fix/d15-dataplane-kind-race` | 🔴 **0 mutations — 閘門 SURVIVOR，作者自陳未交付** | C++ 從未編譯；4 列回歸全部未跑 |
+| **第 2 件** 的「看不見」那一半 | `fix/telemetry-health-visible` | **auditor 編後 17/18** | agent 死亡→我救援；原本**編不過**，修好後紅在一個沒有任何綠測試在約束的帶寬邊界 |
+| **第 3 件** bmv2 liveness 競態 | `fix/d15-dataplane-kind-race` | **auditor 編後 3/4** | 紅的**不是修法是測試**（漏掉 `manager->start()`）；🔴 **要先併 B-5 才關得起來**；4 列回歸仍全未跑 |
 | 夜巡重複五次的殘留形狀 | `fix/ports-that-block-restart` | 9 mutations, 0 survived | 兩支閘門腳本 commit 成 `100644` |
 | P4 priority 靜默丟棄 | `fix/p4-priority-not-silently-dropped` | 7 mutations, 0 survived（含四個反向） | 未經 live |
 | 拓樸檔壞掉才發現 | `fix/topology-load-fails-before-listen` | 29 tests ＋兩向對照 | 🔴 **C++ 半邊未編未跑** |
@@ -28,10 +28,13 @@
 🔴 **第 2 件的低報本身沒有人在修。** `fix/telemetry-health-visible` 修的是「所有健康訊號都說正常」，
 不是 2.76 倍那個數字——**成因還沒釘到單一行，現在派修法會是猜。**
 
-🔴 **D15 那支是唯一一個「寫了閘門但沒跑」的**，而它自己說了。
-`tests/test_DataPlaneKindOrdering.cpp` 四支測試寫好了、從未編譯——冷編 `-j2` 超過它的時間上限。
-**我已經把那個編譯排下去了**（獨立 systemd unit、`-j2`、獨立 build 目錄），結果會補在
-`AUDITOR-VERIFICATION.md`。在那之前，**第 3 件的修法沒有任何證據支持它是對的**。
+🏁 **兩支從來沒被編譯過的，我編了，而兩支的結果都推翻作者的預測**（`AUDITOR-VERIFICATION.md`）：
+D15 預測 4/4，實得 **3/4**——但紅的是測試不是修法（它漏掉 `main.cpp:432` 的
+`manager->start()`），而且**要修好它得先併 B-5**，否則測試會在解構時 `std::terminate`。
+Telemetry 那支**根本編不過**（少一個 `sflow::`），修好後 **17/18**，紅在一個
+**沒有任何綠測試在約束**的帶寬邊界（剛好 10% 的丟失率）。
+
+🔑 這兩件事只有把它編起來才會知道。**「寫好了但沒跑」與「跑過而且綠」之間，隔著兩個真缺陷。**
 
 🔴 **這批沒有一支起過 fabric。** 實驗室整晚在跑測試輪，修法全部停在離線／單元層。
 每一支的「未經 live」都是**合併條件的缺席，不是加分項的缺席**。
