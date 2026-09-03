@@ -272,6 +272,18 @@ baede2afca08b4429145868dbc6dce4a77f3200f
 
 只有一行 tree oid、沒有 conflict 區段 ⇒ **可乾淨合併**。
 
+合併基準是 `0be954ad`；`trunk` 在我做事期間已前進到 `92a79392`，**對新的 trunk 再跑一次
+也是乾淨的**（`rc 0`、`0b4d39ecf3c6585831061f2095ff3468df288d9d`、一行）。
+本分支只碰五個檔案（`git diff --stat 0be954ad..HEAD`）：
+
+```
+ doc/audit/2026-09-03_fix-ndt-ovs-topo/FIX-NDT-OVS-TOPO.md  | 335 +
+ testbed_topo.py                                            |  22 +
+ tests/shell/mutate_ndt_ovs_topo_script.sh                  | 226 +
+ tests/shell/test_ndt_ovs_topo_script.sh                    | 306 +
+ tools/test_workflow/ndtwin-lab                             |  86 +-
+```
+
 分支 commit：
 
 | sha | 內容 |
