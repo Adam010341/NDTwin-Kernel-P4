@@ -225,3 +225,41 @@ running, the only qemu on the host is Adam's `ndtwin-lab-vm` (182232), ports
 2350/2351/2352 not listening, available 21 370 MB, disk back to 600 G free.
 
 [Co-developed with claude code -- Adam]
+
+---
+
+## Adam's ruling on the Download page wording (2026-09-03)
+
+Keep **"Runs on VMware or VirtualBox."** His reasoning is a design principle for
+the whole manual, not a one-off: **nothing goes public until testing is
+complete**, so the site describes the state at publication, and VMware will have
+been tested by then.
+
+That is not the failure mode this repo has recorded before. The API-page defect
+was a **dated claim about the past** that was false for the build the reader
+actually had. This is a forward-looking product statement whose truth is gated
+on a release process. The distinction is real, and the wording stands.
+
+🔴 **But the gate only protects the claim if the work is actually on someone's
+list, and right now it is not.** `doc/audit/2026-08-31_p4-demo-vm/README.md`
+records "Untested on real VMware" as **struck through and closed**, closed on
+the strength of an `ovftool` conversion. So the outstanding item does not read
+as outstanding — it reads as done. And an `ovftool` conversion structurally
+cannot touch `/etc/netplan/`, which is exactly where the defect this round found
+was hiding.
+
+**Therefore, as a tracked debt rather than an assumption:**
+
+> **VM-1 — boot the shipped `.ova` on a real VMware hypervisor and confirm the
+> guest gets an address.** Blocks publication of the Download page's P4/BMv2
+> row, because that row will claim VMware support.
+>
+> Not startable by this line: nslab has `ovftool` but no VMware hypervisor, and
+> Workstation/Fusion downloads require a Broadcom account, which this line does
+> not create and does not sign into. **Adam or another human must run it.**
+> Acceptance is the same shape used here: import, boot untouched, and check the
+> interface takes an address — not that the import returned 0.
+
+The 08-31 "closed" mark should be reopened, or annotated to say what it was
+closed on. It is cited in #72 as a supporting record, and it does not support
+what its strike-through implies.
