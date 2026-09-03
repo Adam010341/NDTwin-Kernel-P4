@@ -112,6 +112,155 @@ describeTopologyItem(const json& item, const char* kind, std::size_t index)
     }
     return desc;
 }
+
+/// The largest interface index a topology *file* may name, on either side of an edge.
+///
+/// [Co-developed with claude code -- Adam]
+/// A sanity bound, and it is worth being exact about which one, because the obvious story is
+/// wrong. This project speaks OpenFlow 1.3 (see Classifier.cpp), where port numbers are 32 bits
+/// and only 0xffffff00 and above are reserved -- so 999999, the value round 5 fed it, is a
+/// perfectly legal OF 1.3 port number and no protocol rule rejects it. What rejects it is the
+/// fleet: across all thirteen shipped topology files the highest interface index is 67, and
+/// 65535 is the ceiling of the sixteen-bit port space OpenFlow 1.0 had, so it sits comfortably
+/// above any port any switch here has while still refusing a number that is nonsense on its face.
+///
+/// 🔴 What this deliberately does NOT do: tell port 4 from port 5. A plausible-but-wrong port
+/// still passes, and the 2026-08-17 failure that make_topology.py's validate() exists for was
+/// exactly that. This bound catches typos and generator bugs, not mistakes.
+constexpr std::uint32_t kMaxTopologyInterface = 65535;
+
+/** @brief Refuse a topology document that names things the document does not contain.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * FINDINGS #61 and #62, in one function because they are one defect seen from two sides: a file
+ * describing a fabric that does not exist, accepted.
+ *
+ *   #61 measured (round5-topology-repro/03_mutant_m1_host_edge_ghost_dpid.log): one host edge's
+ *       dst_dpid changed 1 -> 99, a switch no node declares. The loader wrote a single
+ *       `[warning] ... Skipping edge:` line and served 39 of 40 edges on :8000. Every endpoint
+ *       answered 200. A fabric with one cable in the wrong socket looked healthy from outside.
+ *
+ *   #62 measured (06_/07_mutant logs): src_interface 0 and 999999 on a switch-side port both
+ *       loaded, and get_graph_data republished them verbatim.
+ *
+ * 🔴 THIS RUNS BEFORE THE FIRST add_vertex, AND THAT IS THE DESIGN. The old drop was a rejected
+ * input partially applied -- 39/40 of a topology nobody wrote -- and moving the check ahead of
+ * the builder is what makes "refused" mean the graph is untouched, rather than "refused, and
+ * also here is most of it". loadStaticTopology() turns the throw into one CRITICAL line and
+ * main.cpp returns EXIT_FAILURE, before any socket is bound.
+ *
+ * 🔴 THE HOST SIDE OF A HOST EDGE IS NOT CHECKED FROM BELOW, AND MUST NOT BE.
+ * doc/2026-01-02_ndt_api.md:233: "At the edge between the switch and host, the dpid and interface
+ * on the host side are set to 0." Five shipped TESTBED files (StaticNetworkTopology_ipAlias4_*)
+ * do exactly that on every host edge -- 32 to 96 of them each -- while the eight OVS/P4/Mininet
+ * files put 1 there instead. So the lower bound belongs to the side whose dpid names a switch,
+ * and only to that side. A check written as "a port index is >= 1" would refuse five shipped
+ * files: a wider outage than the defect it was meant to fix.
+ *
+ * @param j      the parsed topology document
+ * @param where  set to a description of the entry under examination, so the rethrow in
+ *               loadStaticTopologyFromFile names it
+ */
+void
+validateStaticTopologyJson(json& j, std::string& where)
+{
+    // The endpoints, indexed exactly the way the edge loop below resolves them: switches by
+    // dpid, hosts by the first address on the edge, matched against every address every node
+    // carries -- findVertexByIpNoLock searches the whole vector, so this must too.
+    std::unordered_set<std::uint64_t> switchDpids;
+    std::unordered_set<std::uint32_t> nodeAddresses;
+
+    std::size_t itemIndex = 0;
+    for (const auto& nodeJson : j["nodes"])
+    {
+        where = describeTopologyItem(nodeJson, "node", itemIndex++);
+
+        if (static_cast<VertexType>(nodeJson.at("vertex_type").get<int>()) == VertexType::SWITCH)
+        {
+            switchDpids.insert(nodeJson.at("dpid").get<std::uint64_t>());
+        }
+        for (std::uint32_t address :
+             utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>()))
+        {
+            nodeAddresses.insert(address);
+        }
+    }
+
+    // One end of one edge. `side` is "src" or "dst" and names the JSON keys, so every message
+    // below points at the field the operator has to open the file and edit.
+    auto checkEndpoint = [&](const json& edgeJson, const char* side) {
+        const std::string dpidKey = std::string(side) + "_dpid";
+        const std::string ipKey = std::string(side) + "_ip";
+        const std::string interfaceKey = std::string(side) + "_interface";
+
+        const auto dpid = edgeJson.at(dpidKey).get<std::uint64_t>();
+        const auto ifIndex = edgeJson.at(interfaceKey).get<std::uint32_t>();
+
+        // ---- #61: does this end name something this file contains? ----
+        if (dpid != 0)
+        {
+            if (switchDpids.count(dpid) == 0)
+            {
+                throw std::runtime_error(
+                    "\"" + dpidKey +
+                    "\" is " + std::to_string(dpid) +
+                    " and no switch node in this file declares that dpid. Refusing the file: this "
+                    "link used to be dropped with one warning and the rest of the topology served "
+                    "as though it were complete");
+            }
+        }
+        else
+        {
+            const auto addresses =
+                utils::ipStringVecToUint32Vec(edgeJson.at(ipKey).get<std::vector<std::string>>());
+            if (addresses.empty())
+            {
+                throw std::runtime_error(
+                    "\"" + dpidKey +
+                    "\" is 0, which means \"resolve this end by address\", and \"" + ipKey +
+                    "\" is empty, so this end of the link names nothing at all");
+            }
+            if (nodeAddresses.count(addresses.front()) == 0)
+            {
+                throw std::runtime_error(
+                    "\"" + dpidKey +
+                    "\" is 0, so this end is resolved by address, and no node in this file "
+                    "carries " +
+                    edgeJson.at(ipKey)[0].get<std::string>() +
+                    ". Refusing the file: this link used to be dropped with one warning and the "
+                    "rest of the topology served as though it were complete");
+            }
+        }
+
+        // ---- #62: is this an interface index a switch in this fabric could have? ----
+        if (ifIndex > kMaxTopologyInterface)
+        {
+            throw std::runtime_error(
+                "\"" + interfaceKey + "\" is " + std::to_string(ifIndex) +
+                ", above the largest interface index this loader accepts (" +
+                std::to_string(kMaxTopologyInterface) +
+                "). It used to be republished verbatim by get_graph_data and used to attribute "
+                "flow to a port that does not exist");
+        }
+        if (dpid != 0 && ifIndex == 0)
+        {
+            throw std::runtime_error(
+                "\"" + interfaceKey + "\" is 0 on the side attached to switch dpid " +
+                std::to_string(dpid) +
+                ", and 0 is not a switch port. It IS the documented value on the host side of a "
+                "host edge, where the dpid is 0, and it is accepted there");
+        }
+    };
+
+    itemIndex = 0;
+    for (const auto& edgeJson : j["edges"])
+    {
+        where = describeTopologyItem(edgeJson, "edge", itemIndex++);
+        checkEndpoint(edgeJson, "src");
+        checkEndpoint(edgeJson, "dst");
+    }
+}
 } // namespace
 
 /**
@@ -410,6 +559,13 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     file >> j;
 
     // [Co-developed with claude code -- Adam]
+    // FINDINGS #61/#62. The whole file is checked here, before the first add_vertex below, so a
+    // file that is going to be refused is refused without having partially applied. Placement is
+    // the point: the same checks after the builder would still leave the 39-of-40 graph the
+    // measurement found. See validateStaticTopologyJson for what it refuses and what it must not.
+    validateStaticTopologyJson(j, where);
+
+    // [Co-developed with claude code -- Adam]
     // This was commented out, and it is not an oversight that can be undone by uncommenting: the
     // body used to call findVertexByIp(), which takes a shared_lock on this same non-recursive
     // shared_mutex, so taking the write lock here deadlocked the kernel at startup. That is almost
@@ -583,20 +739,22 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
             dstVertexOpt = findVertexByIpNoLock(ep.dstIp[0]);
         }
 
-        // Add edge if both endpoints found
-        if (srcVertexOpt.has_value() && dstVertexOpt.has_value())
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #61, the second layer. validateStaticTopologyJson resolved every edge in this
+        // file before the first vertex was added, so both ends are present by construction and
+        // this branch is unreachable on any file that got this far. It is still written, and it
+        // still refuses: the failure being fixed is a *silent* drop, and "the validator and the
+        // builder disagree" must not be the one remaining path back to it. What used to be here
+        // was a WARN and a `continue`, which is how 40 edges became 39 while every endpoint went
+        // on answering 200.
+        if (!srcVertexOpt.has_value() || !dstVertexOpt.has_value())
         {
-            boost::add_edge(srcVertexOpt.value(), dstVertexOpt.value(), ep, *m_graph);
+            throw std::runtime_error(
+                "this edge resolved while the file was validated but not while the graph was "
+                "built, which should be impossible. Refusing rather than dropping it: a graph "
+                "quietly missing one link reports a healthy fabric with a cable unplugged");
         }
-        else
-        {
-            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "Skipping edge: src_dpid={} dst_dpid={}, src_ip={} dst_ip={}",
-                               ep.srcDpid,
-                               ep.dstDpid,
-                               ep.srcIp.empty() ? 0 : ep.srcIp[0],
-                               ep.dstIp.empty() ? 0 : ep.dstIp[0]);
-        }
+        boost::add_edge(srcVertexOpt.value(), dstVertexOpt.value(), ep, *m_graph);
     }
 
     // [Co-developed with claude code -- Adam]
