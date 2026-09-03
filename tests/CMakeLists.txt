@@ -93,6 +93,10 @@ add_executable(
   # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
   # commanded power-off and the resurrection was permanent. Both directions -- see the header.
   test_PollDoesNotResurrect.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #38: a connection refused in 6 ms was reported
+  # as a 30-second timeout. Real loopback sockets -- the classification lives in curl's exit code,
+  # so a fake would have to invent the very thing under test. ~2 s for the one case that waits.
+  test_RefusedIsNotTimeout.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
