@@ -319,7 +319,7 @@ RC=1
 | `mutate_redirection_order.sh` | 20 mutations, 0 survived |
 | `mutate_ovs4_has_sflow.sh` | 24 mutations, 0 survived |
 | `mutate_ndt_ovs_topo_script.sh` | 12 mutations, 9 caught, 3 widenings green, 0 survived |
-| `mutate_apps_stop_kills_the_group.sh` | 見 raw log（本輪最慢的一支） |
+| `mutate_apps_stop_kills_the_group.sh` | 13 mutations, 0 survived（跑了 20m17s，01:24:13→01:44:30） |
 | `test_ndt_status_check_baseline.sh` | Ran 61 checks, 0 failed |
 | `test_ndtwin_lab_sweep.sh` | Ran 29 checks, all passed |
 | `test_ndtwin_lab_config.sh` | Ran 59 checks, all passed |
@@ -440,9 +440,21 @@ teardown 全綠、`clean`，而 **`wait_reaped` 一行都沒有印**——代表
 
 ```
 # base = 47c6cb1a；分支開出後 trunk 已前進到 1cf1556f
+#   1cf1556f  A-12b: the OVS path forwards within a switch, not between switches
+#   0581268e  Night rounds: dispatch fix/ndt-up-down-robust (...)
 $ git merge-tree --write-tree trunk HEAD
-（結果見 §9 之後的報告；本文件寫作當下為 clean）
+cdd0a8166e54e2bd7c02e76335b37198914dca23
+$ echo $?
+0
 ```
+
+**rc 0，輸出只有一個 tree oid ⇒ 對 `1cf1556f` 乾淨合併**（有衝突時 `merge-tree` 會回非 0
+並在 oid 後面列出衝突檔）。
+
+🔴 `git diff --stat trunk HEAD` 現在會顯示一堆**刪除**（`2026-09-04_a12-virtualbox-manual-run/`、
+`NSLAB-USAGE-RULES.md`、`FINDINGS-COVERAGE.md`）——**那不是我刪的**，那是 trunk 在我開分支之後
+前進了，所以 `trunk..HEAD` 的方向把新增看成刪除。要看我真的改了什麼請用 base：
+`git diff --stat 47c6cb1a HEAD`。
 
 我的 diff（對 base）只有四個檔：
 
