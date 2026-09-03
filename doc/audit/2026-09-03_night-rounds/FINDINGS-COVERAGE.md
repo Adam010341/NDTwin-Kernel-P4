@@ -34,11 +34,11 @@
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
 | ✅ IN TRUNK / 已修 | **58** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77, 75, 8, 3, 21, 49, 61–62, 38, 82, 27, 76 |
-| 🛠 派工中 | **4** | 33–34, 80–81 |
-| ⭕ UNASSIGNED | **21** | 1–2, 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–85 |
+| 🛠 派工中 | **6** | 1–2, 33–34, 80–81 |
+| ⭕ UNASSIGNED | **19** | 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–85 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **85** | （09-04 0x:xx 由各列狀態欄重算；派工中＝1 支（isup Q12+#33/34/80/81；topoval、refused、ovsoff、stop 已併）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
+| **合計** | **85** | （09-04 0x:xx 由各列狀態欄重算；派工中＝3 支（isup Q12+#33/34/80/81 合併樹驗證中；phantomovs #2、delgroup #1 06:5x 派、C++）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -60,8 +60,8 @@
 
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
-| 1 | `/ndt/delete_group_entry` 在 OVS 上是無聲 no-op，id 永久洩漏 | ⭕ UNASSIGNED | 逐支讀了 13 支未併 `fix/*` ＋ `t8-t10-fixes` ＋ `docs/known-issues-batch1` 的完整 diff：`GroupEntry`／`group_entry`／`MeterEntry` 在**全部改動行裡 0 次命中**。`HttpSession.cpp:1001 handleDeleteGroupEntry`（宣告 `HttpSession.hpp:397`、路由 `HttpSession.cpp:211`）在每一支上都與 trunk 相同；碰 `HttpSession.cpp` 的只有 telemetry（加 `get_sflow_stats`）與 topology-round（加 `topology_round` key），兩者都不在 group/meter 區塊 | kernel OVS group/meter 路徑；要 ovs4 才能重現 |
-| 2 | B-1 幽靈規則過濾器沒覆蓋 OVS 寫入路徑 | ⭕ UNASSIGNED | `phantom`／`first_sighting` 在所有未併分支的改動行 **0 次命中**。過濾器本體 `include/ndt_core/routing_management/PendingEntryFilter.hpp`、`DispatchOutcomeLog.hpp`、`DeviceConfigurationAndPowerManager.cpp:2095` 都不在任何分支的變更檔清單裡 | 08-31 判「已修」的那支的作者；要兩個平面對照 |
+| 1 | `/ndt/delete_group_entry` 在 OVS 上是無聲 no-op，id 永久洩漏 | 🛠 派工中（09-04 06:5x，`fix/delete-group-entry-really-deletes`，base trunk `7de4ef2f`，C++、JOBS=1；prompt 在 auditor scratchpad） | 逐支讀了 13 支未併 `fix/*` ＋ `t8-t10-fixes` ＋ `docs/known-issues-batch1` 的完整 diff：`GroupEntry`／`group_entry`／`MeterEntry` 在**全部改動行裡 0 次命中**。`HttpSession.cpp:1001 handleDeleteGroupEntry`（宣告 `HttpSession.hpp:397`、路由 `HttpSession.cpp:211`）在每一支上都與 trunk 相同；碰 `HttpSession.cpp` 的只有 telemetry（加 `get_sflow_stats`）與 topology-round（加 `topology_round` key），兩者都不在 group/meter 區塊 | kernel OVS group/meter 路徑；要 ovs4 才能重現 |
+| 2 | B-1 幽靈規則過濾器沒覆蓋 OVS 寫入路徑 | 🛠 派工中（09-04 06:5x，`fix/phantom-filter-covers-ovs`，base trunk `7de4ef2f`，C++、JOBS=1；prompt 在 auditor scratchpad） | `phantom`／`first_sighting` 在所有未併分支的改動行 **0 次命中**。過濾器本體 `include/ndt_core/routing_management/PendingEntryFilter.hpp`、`DispatchOutcomeLog.hpp`、`DeviceConfigurationAndPowerManager.cpp:2095` 都不在任何分支的變更檔清單裡 | 08-31 判「已修」的那支的作者；要兩個平面對照 |
 | 3 | 失敗的 `ndt up ovs4` 不回滾，留下沒有大腦的網路 | ✅ IN TRUNK | `257e4eb0`（merge `257e4eb0` of `fix/ndt-up-down-robust`，修法 `f4e3396a`）：`port_owner_local` 進 preflight 只拒 `foreign`；`rollback_up` 收回本次動過的（重用不掃、verify 失敗不回滾）；auditor 紅臂 50/89、綠 89/0、閘門 25/0；MERGE-LOG 33 | 🔧 `fix/ports-that-block-restart` 的 preflight 只**警告**佔用不回滾，兩件事不要混 |
 | 4 | `ovs4` 完全沒配 sFlow ⇒ 流速率與鏈路使用率結構性為零 | ✅ IN TRUNK（09-03 第二批，`fix/ovs4-has-sflow`） | `tools/test_workflow/ovs_4host_topo.py` 只被 `fix/ports-that-block-restart` 動到，且**只加了 7 行 docstring 段落講 `:6653/:6633`**（diff 全文已讀），**零行 sFlow**。`enable_sflow` 在該檔仍 0 次；參考實作在 `testbed_topo.py:105`（定義）與 `:202`（呼叫） | **見下方「最該先派的五條」第 1 條** |
 | 5 | kernel 關機時 abort（`stop()` 只 join 兩條 thread） | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/b5-kernel-shutdown @ e9f1326e`，修法 commit `4203d857`，動 `include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp` ＋ `src/.../DeviceConfigurationAndPowerManager.cpp`。閘門：**作者宣稱** `tests/shell/mutate_b5_power_manager_shutdown.sh` 3 變異／0 存活，**raw log 有 commit**（`doc/audit/2026-09-02_live-round/raw/b5-fix/mutation_gate.log`）；**無 control 變異**；**auditor 未重跑** | ⚠️ SIGTERM handler 刻意沒註冊 ⇒ `ndt down` 走的仍是硬殺，「乾淨關機」在正式路徑上還是沒跑過（見 #27） |
