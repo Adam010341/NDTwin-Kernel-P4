@@ -69,6 +69,17 @@ CRASH_PATTERNS = [
     (re.compile(r"terminate called after throwing", re.I),
      "unhandled exception reached std::terminate"),
     (re.compile(r"terminate called recursively", re.I), "recursive terminate"),
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. The third wording, and the one the kernel actually printed: std::terminate
+    # with no exception in flight, which in practice means a joinable std::thread was destroyed.
+    # It was missing here, so the abort the kernel raised on every Ctrl-C shutdown would have
+    # passed this gate even on the runs whose logs did capture it. The catch-all below covers a
+    # fourth wording; both are ordered after the specific ones so the reported reason stays the
+    # most precise one that matches.
+    (re.compile(r"terminate called without an active exception", re.I),
+     "std::terminate with no exception in flight -- a joinable std::thread was destroyed, "
+     "or a rethrow with nothing to rethrow"),
+    (re.compile(r"terminate called", re.I), "std::terminate (unrecognised wording)"),
     (re.compile(r"\bSegmentation fault\b", re.I), "segfault"),
     (re.compile(r"\bcore dumped\b", re.I), "process dumped core"),
     (re.compile(r"\bSIG(SEGV|ABRT|FPE|BUS|ILL)\b"), "fatal signal"),
@@ -78,8 +89,31 @@ CRASH_PATTERNS = [
     (re.compile(r"std::bad_alloc"), "allocation failure"),
     (re.compile(r"(AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer|"
                 r"ThreadSanitizer)", re.I), "sanitizer report"),
-    (re.compile(r"double free or corruption|free\(\): invalid|malloc\(\): ", re.I),
+    # [Co-developed with claude code -- Adam]
+    # Widened from `free(): invalid`, which missed "free(): double free detected in tcache 2" --
+    # the single most common heap message there is. glibc prints "<allocator>(): ..." only when
+    # it is aborting, so the function name plus the colon is the whole signal.
+    (re.compile(r"double free or corruption"
+                r"|(free|malloc|realloc|munmap_chunk|malloc_consolidate)\(\): "
+                r"|corrupted (size vs\. prev_size|double-linked list)", re.I),
      "heap corruption"),
+    # FORTIFY_SOURCE and the stack protector. Neither says "terminate", "abort" or "SIG"; they
+    # print a banner and die, so nothing else in this table would have caught them.
+    (re.compile(r"\*{3} (stack smashing detected|buffer overflow detected"
+                r"|%n in writable segment detected)", re.I),
+     "FORTIFY/stack-protector abort"),
+    (re.compile(r"Fatal glibc error", re.I), "glibc fatal error"),
+    # The shell's own job-control notice for a child that died of a signal. It is how a SIGKILL
+    # appears at all -- a killed process prints nothing itself -- and on this machine
+    # systemd-oomd is a routine source of exactly that.
+    #
+    # Anchored on a pid (3+ digits) precisely so the words alone stay harmless: "Killed" and
+    # "Aborted" are ordinary English and appear in ordinary log prose, and a crash detector that
+    # cannot be trusted is worse than one with a known gap.
+    (re.compile(r"\b\d{3,} +(Killed|Aborted)\b"),
+     "a child was killed by a signal (the shell's job-control notice)"),
+    (re.compile(r"\bBus error\b|\bIllegal instruction\b|\bTrace/breakpoint trap\b"),
+     "fatal signal reported by the shell"),
     (re.compile(r"pure virtual method called", re.I), "pure virtual call"),
     (re.compile(r"what\(\):\s*\S", re.I), "uncaught exception detail"),
 ]

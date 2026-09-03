@@ -277,6 +277,70 @@ CMD_SUFFIX=".cmd"
 
 recorded_cmd() { cat "$PID_DIR/$1$CMD_SUFFIX" 2>/dev/null; }
 
+# The wrapper that records how a component ended. See supervise.sh; KNOWN-ISSUES B-5.
+# [Co-developed with claude code -- Adam]
+SUPERVISE="$HERE/supervise.sh"
+
+# report_exit <name> -- says how a component ended, from the file supervise.sh left behind.
+# Silent when there is nothing to report, loud when the ending was an abort: an exit status that
+# is only in a file nobody opens is barely more observable than no exit status at all.
+#
+# [Co-developed with claude code -- Adam]
+# Reporting only. It deliberately does NOT change any exit code, because 143 (SIGTERM's default
+# action) is what the kernel returns on the *normal* `ndt down` path today -- treating non-zero
+# as failure would turn every teardown red tomorrow morning. Whether a crash on shutdown should
+# fail the command is a decision for Adam, not a side effect of making it visible.
+# fatal_exit_status <wait-status> -- true when it means the process died of a FAULT.
+#
+# [Co-developed with claude code -- Adam]
+# The line between "it was stopped" and "it crashed", drawn once so both report_exit and
+# cmd_down use the same one:
+#
+#   132 SIGILL   134 SIGABRT   135 SIGBUS   136 SIGFPE   137 SIGKILL   139 SIGSEGV
+#
+# 143 (SIGTERM) is deliberately NOT here: it is what `ndt down` produces on every healthy
+# kernel today, because main handles SIGINT only and TERM's default action kills the process.
+# Calling it a failure would turn every teardown red for a defect nobody has. 130 (SIGINT) is
+# out for the same reason -- it is how an operator stops the kernel by hand.
+#
+# 137 is in the list on purpose: systemd-oomd on this laptop kills builds and applications
+# routinely, a killed process prints nothing about itself, and an OOM-killed kernel would
+# otherwise be indistinguishable from a clean stop.
+fatal_exit_status() {
+    case "$1" in
+        132|134|135|136|137|139) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Set by report_exit, read by cmd_down. Names, not a count, so the message can say which.
+STACK_FATAL_ENDINGS=""
+
+report_exit() {
+    # Two statements for the reason spelled out at the top of stop_one: a second assignment on a
+    # `local` line cannot read the first one.
+    local name="$1"
+    local f="$PID_DIR/$name.exit"
+    [[ -f "$f" ]] || return 0
+    local status reason
+    status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
+    reason="$(sed -n 's/^reason=//p' "$f" 2>/dev/null)"
+    [[ -n "$status" ]] || return 0
+    if fatal_exit_status "$status"; then
+        err "  🔴 $name did not stop cleanly: $reason"
+        err "     evidence: $f, and the tail of $LOG_DIR/$name.log"
+        STACK_FATAL_ENDINGS="${STACK_FATAL_ENDINGS:+$STACK_FATAL_ENDINGS }$name($status)"
+        # Delivered once. The durable copy is the appended line in $name.exit.log, which no
+        # start and no stop ever rewrites; leaving this file in place would make every later
+        # `down` fail again for a crash that has already been reported and acted on.
+        rm -f "$f"
+    elif [[ "$status" == "0" ]]; then
+        info "  $name exit status 0 ($reason)"
+    else
+        warn "  $name exit status $status ($reason)"
+    fi
+}
+
 # When a pid started, as an epoch second. Empty if it cannot be determined.
 #
 # [Co-developed with claude code -- Adam]
@@ -361,7 +425,30 @@ start_bg() {
         [[ -s "$log.prev" ]] && mv -f "$log.prev" "$log.prev2"
         mv -f "$log" "$log.prev"
     fi
-    setsid "$@" >"$log" 2>&1 &
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. Launched through supervise.sh so that HOW the component ended is written
+    # down. Nothing here waited for these processes and nothing recorded their exit status, so a
+    # component that aborted and a component that stopped cleanly left the same evidence: a pid
+    # that is no longer there. The kernel had been dying of SIGABRT on every Ctrl-C shutdown, and
+    # no log in this repository could have distinguished that from a clean stop.
+    #
+    # The recorded pid is still the supervisor -- it is the process-group leader, which is what
+    # stop_one signals with `kill -TERM -$pid` and what port_owner_verdict compares pgids against,
+    # so both keep working unchanged. The pid of the process actually doing the work is written
+    # separately, to $name.child.pid.
+    #
+    # A missing supervisor is a warning, not a refusal: losing the exit status is worse than
+    # nothing recorded it before, but it is much better than a stack that will not come up. The
+    # warning names exactly what is lost.
+    rm -f "$PID_DIR/$name.exit" "$PID_DIR/$name.child.pid"
+    if [[ -x "$SUPERVISE" ]]; then
+        setsid "$SUPERVISE" "$PID_DIR/$name" "$@" >"$log" 2>&1 &
+    else
+        warn "  $SUPERVISE is missing or not executable; starting $name unsupervised."
+        warn "    Its exit status will NOT be recorded, so an abort on shutdown will look"
+        warn "    exactly like a clean stop."
+        setsid "$@" >"$log" 2>&1 &
+    fi
     echo $! >"$PID_DIR/$name.pid"
     { printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY"; } \
         >"$PID_DIR/$name$CMD_SUFFIX"
@@ -376,7 +463,17 @@ is_running() {
 }
 
 stop_one() {
-    local name="$1" pidfile="$PID_DIR/$name.pid"
+    # [Co-developed with claude code -- Adam]
+    # Two statements, not one. `local name="$1" pidfile="$PID_DIR/$name.pid"` expands BOTH
+    # right-hand sides before the local builtin runs, so `$name` there is whatever `name` held in
+    # the CALLER, never the argument on this line. It has always worked only by coincidence: both
+    # call sites happen to have a `name` in scope holding the same value (cmd_down's loop
+    # variable, start_bg's local), so the wrong reading and the right one agreed. Called from
+    # anywhere else it either dies under `set -u` -- which is how this was found, from a test --
+    # or, with some other `name` in scope, quietly stops a DIFFERENT component while reporting
+    # the one it was asked for.
+    local name="$1"
+    local pidfile="$PID_DIR/$name.pid"
     [[ -f "$pidfile" ]] || return 0
 
     # Refuse to follow a symlink: with a predictable path an attacker could point the
@@ -433,7 +530,16 @@ stop_one() {
             info "  stopped $name"
         fi
     fi
-    rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. Read after the process is gone, never before: supervise.sh writes the
+    # file and then exits, so by the time the kill loop above sees the pid disappear the answer
+    # is already on disk. A component that had died on its own before `down` ran is reported here
+    # too -- that is the point, since nothing else would ever have said so.
+    report_exit "$name"
+    # .child.pid names a pid that is now dead. Removed with the pidfile so that nobody signals a
+    # recycled number out of a file this script left behind. .exit is evidence and is kept; the
+    # next start_bg clears it.
+    rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX" "$PID_DIR/$name.child.pid"
 }
 
 port_open() {
@@ -777,8 +883,18 @@ cmd_up() {
         return 1
     fi
     # Both dataplanes run under mode=mininet; the topology file is what selects OVS vs bmv2.
+    #
+    # [Co-developed with claude code -- Adam]
+    # `exec` matters: without it this bash stays alive as the kernel's parent, and every number
+    # and every exit status anyone recorded for "the kernel" belonged to that shell instead. With
+    # it the shell becomes the kernel, so $name.child.pid is the kernel's own pid, /proc/<pid>/comm
+    # reads ndtwin_kernel, and the status supervise.sh records is the kernel's own.
+    #
+    # This changes the recorded command string, so the first `up` after this change restarts a
+    # kernel that is already running -- start_bg's own rule, and the reason it is worth naming
+    # here rather than being discovered as a surprise.
     start_bg kernel "$LOG_DIR/kernel.log" \
-        bash -c "cd '$KERNEL_DIR/build' && ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
+        bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
     wait_for_port 8000 "kernel API" 40 kernel || {
         err "  kernel did not open :8000; see $LOG_DIR/kernel.log"; return 1; }
 
@@ -863,10 +979,39 @@ cmd_down() {
                 ;;
         esac
     done
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES B-5. A component that ended on a fatal signal fails this command and is named
+    # in the failure. Until now a crash on shutdown was not merely unreported -- it was
+    # unreportable, because nothing recorded an exit status at all, and `down` said "done".
+    #
+    # Scanned as well as accumulated: report_exit fires from stop_one, which returns early when
+    # there is no pidfile, so a component that crashed and whose pidfile someone removed would
+    # otherwise be missed by the very check that exists for it.
+    local name f status
+    for f in "$PID_DIR"/*.exit; do
+        [[ -e "$f" ]] || continue
+        name="$(basename "$f" .exit)"
+        status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
+        [[ -n "$status" ]] || continue
+        if fatal_exit_status "$status"; then
+            err "  🔴 $name is recorded as having died of a fatal signal (status $status)"
+            err "     evidence: $f, and $PID_DIR/$name.exit.log"
+            STACK_FATAL_ENDINGS="${STACK_FATAL_ENDINGS:+$STACK_FATAL_ENDINGS }$name($status)"
+            rm -f "$f"
+        fi
+    done
+
     if (( leftovers > 0 )); then
         err "  find and stop it, or the next 'up' will report on it:"
         err "    ss -ltnp | grep -E ':(8000|8080|8081)'"
         err "    pgrep -ax ndtwin_kernel"
+        return 1
+    fi
+
+    if [[ -n "$STACK_FATAL_ENDINGS" ]]; then
+        err "  teardown itself worked, but something crashed rather than stopped:"
+        err "    $STACK_FATAL_ENDINGS"
+        err "  Reported once -- the durable record is $PID_DIR/<component>.exit.log."
         return 1
     fi
 

@@ -1,0 +1,68 @@
+libstdc++ terminate paths
+  ok       caught: terminate, exception in flight
+  FAILED   NOT caught: terminate, NO exception in flight (B-5: a joinable std::thread destroyed)
+             injected: terminate called without an active exception
+             exit=0
+  ok       caught: terminate during terminate
+  ok       caught: the exception's message
+  ok       caught: a pure virtual call
+  ok       caught: allocation failure
+
+glibc aborts
+  ok       caught: assert()
+  FAILED   NOT caught: double free, the tcache wording
+             injected: free(): double free detected in tcache 2
+             exit=0
+  ok       caught: double free, the older wording
+  ok       caught: invalid free
+  ok       caught: malloc corruption
+  FAILED   NOT caught: realloc corruption
+             injected: realloc(): invalid pointer
+             exit=0
+  FAILED   NOT caught: munmap corruption
+             injected: munmap_chunk(): invalid pointer
+             exit=0
+  FAILED   NOT caught: chunk header corruption
+             injected: corrupted size vs. prev_size
+             exit=0
+  FAILED   NOT caught: linked-list corruption
+             injected: corrupted double-linked list
+             exit=0
+  FAILED   NOT caught: stack protector
+             injected: *** stack smashing detected ***: terminated
+             exit=0
+  FAILED   NOT caught: FORTIFY_SOURCE
+             injected: *** buffer overflow detected ***: terminated
+             exit=0
+  FAILED   NOT caught: glibc's own fatal error
+             injected: Fatal glibc error: malloc assertion failure
+             exit=0
+
+deaths reported by the shell, not by the process
+  ok       caught: SIGSEGV
+  ok       caught: SIGABRT
+  FAILED   NOT caught: SIGKILL -- what systemd-oomd leaves behind, and the process prints nothing itself
+             injected: ./stack.sh: line 364: 12345 Killed                  ./bin/ndtwin_kernel
+             exit=0
+  FAILED   NOT caught: SIGBUS
+             injected: ./stack.sh: line 364: 12345 Bus error               ./bin/ndtwin_kernel
+             exit=0
+  FAILED   NOT caught: SIGILL
+             injected: ./stack.sh: line 364: 12345 Illegal instruction     ./bin/ndtwin_kernel
+             exit=0
+  ok       caught: SIGFPE
+  ok       caught: a signal named in prose
+
+sanitizers
+  ok       caught: ASan
+  ok       caught: TSan
+
+negative controls -- ordinary lines that must NOT be called crashes
+  ok       not a false positive: a normal info line
+  ok       not a false positive: the word terminated in prose
+  ok       not a false positive: the word killed in prose
+  ok       not a false positive: a number next to the word aborted in prose
+  ok       not a false positive: free() mentioned without an allocator message
+
+Ran 32 checks, 12 failed
+  (checker under test: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/b5/head/check_logs.py)

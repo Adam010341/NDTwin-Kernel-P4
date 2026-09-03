@@ -71,6 +71,10 @@ add_executable(
   test_SmartPlugFields.cpp
   test_PathNodeParsing.cpp
   test_ApplicationManager.cpp
+  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-5: the kernel aborted on its own
+  # shutdown path -- a joinable std::thread destroyed by ~DeviceConfigurationAndPowerManager.
+  # Death tests: the failure is process death, so it cannot be asserted from inside the process.
+  test_PowerManagerShutdown.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

@@ -125,6 +125,24 @@ class DeviceConfigurationAndPowerManager
                                        std::shared_ptr<ndtClassifier::Classifier> classifier);
 
     /**
+     * @brief Stops the background workers, so that none of them outlives this object.
+     *
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES B-5. This class was the only long-running component here with no destructor
+     * at all, while start() leaves three std::thread members behind. Destroying a joinable
+     * std::thread is std::terminate -- "terminate called without an active exception", SIGABRT,
+     * exit status 134 -- and that is what the kernel did on every clean shutdown: reproduced
+     * 7 times out of 7 on SIGINT, with the abort raised from ~DeviceConfigurationAndPowerManager
+     * in the backtrace.
+     *
+     * Declared (rather than left implicit) so the join cannot be skipped by a caller that never
+     * reaches stop(); TopologyAndFlowMonitor, FlowLinkUsageCollector, HistoricalDataManager and
+     * ControllerAndOtherEventHandler all already own their threads this way, and this class was
+     * the exception.
+     */
+    ~DeviceConfigurationAndPowerManager();
+
+    /**
      * @brief Query power state for one or more switches.
      *
      * Parses the "ip" query parameter from @p target. If ip is omitted or indicates

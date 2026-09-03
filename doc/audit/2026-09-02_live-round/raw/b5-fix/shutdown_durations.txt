@@ -1,0 +1,20 @@
+# Shutdown duration per run, from the kernel's own log.
+# start = the 'Shutdown requested. Cleaning up...' line, which main writes within one 200ms
+#         poll of the signal; end = the last line the process wrote.
+# Nothing recorded the wall-clock instant the signal was sent, so this is the bound the
+# logs can support, not a signal-to-exit stopwatch.
+
+pre_int_idle_1         2.40s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+pre_int_idle_2         2.40s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+pre_int_idle_3         2.52s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+pre_int_busy_1         3.00s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+pre_int_busy_2         2.13s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+pre_int_fast           6.49s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+pre_int_long           2.40s   last logged: info] [FlowLinkUsageCollector.cpp:580 stop] Collector Stops
+post_int_idle_1        2.40s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
+post_int_idle_2        2.40s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
+post_int_idle_3        2.53s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
+post_int_busy_1       81.09s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
+post_int_busy_2        3.00s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
+post_int_fast          6.40s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
+post_int_long          2.40s   last logged: info] [DeviceConfigurationAndPowerManager.cpp:153 stop] Collector Stops
