@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **36** | 4–5, 7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41, 45, 50, 53, 56, 58–60, 63–65, 71–74 |
-| 🛠 派工中 | **10** | 6, 35–36, 42, 46–48, 69–70, 78 |
+| ✅ IN TRUNK / 已修 | **40** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74 |
+| 🛠 派工中 | **6** | 35–36, 46, 69–70, 78 |
 | ⭕ UNASSIGNED | **30** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75–77 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **78** | （09-03 19:0x 由各列狀態欄重算；⭕ 含 #77「等 Adam 裁」） |
+| **合計** | **78** | （09-03 19:1x 由各列狀態欄重算；派工中＝3 支：poll #35/36/46、logger #69/70、anchors #78；⭕ 含 #77「等 Adam 裁」） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -65,7 +65,7 @@
 | 3 | 失敗的 `ndt up ovs4` 不回滾，留下沒有大腦的網路 | ⭕ UNASSIGNED | `tools/test_workflow/stack.sh` 只被 `fix/b5-kernel-shutdown` 動到，內容是 `supervise.sh`／exit-status 紀錄／`cmd_down` 對 fatal 碼回非零——**沒有任何 rollback／trap 加在 bring-up 路徑上**（該 diff 裡 `trap` 全在測試腳本，`rollback` 0 命中）。`stack.sh:774 [3/3] kernel` ／ `:782 wait_for_port 8000` 的先後順序未變 | 🔧 `fix/ports-that-block-restart` 的 preflight 只**警告**佔用不回滾，兩件事不要混 |
 | 4 | `ovs4` 完全沒配 sFlow ⇒ 流速率與鏈路使用率結構性為零 | ✅ IN TRUNK（09-03 第二批，`fix/ovs4-has-sflow`） | `tools/test_workflow/ovs_4host_topo.py` 只被 `fix/ports-that-block-restart` 動到，且**只加了 7 行 docstring 段落講 `:6653/:6633`**（diff 全文已讀），**零行 sFlow**。`enable_sflow` 在該檔仍 0 次；參考實作在 `testbed_topo.py:105`（定義）與 `:202`（呼叫） | **見下方「最該先派的五條」第 1 條** |
 | 5 | kernel 關機時 abort（`stop()` 只 join 兩條 thread） | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/b5-kernel-shutdown @ e9f1326e`，修法 commit `4203d857`，動 `include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp` ＋ `src/.../DeviceConfigurationAndPowerManager.cpp`。閘門：**作者宣稱** `tests/shell/mutate_b5_power_manager_shutdown.sh` 3 變異／0 存活，**raw log 有 commit**（`doc/audit/2026-09-02_live-round/raw/b5-fix/mutation_gate.log`）；**無 control 變異**；**auditor 未重跑** | ⚠️ SIGTERM handler 刻意沒註冊 ⇒ `ndt down` 走的仍是硬殺，「乾淨關機」在正式路徑上還是沒跑過（見 #27） |
-| 6 | `ndt apps stop` 只殺 bash wrapper，viz 的 JVM 活著而三個通道都說沒在跑 | 🛠 派工中（16:xx，`fix/apps-stop-kills-the-group`，base `5c64d432`） | 🔴 **分支名會騙人。** `fix/g6-ndt-apps-liveness @ e83ef1d1` 只替 energy／sim 補了 signature：分支上的 `tools/test_workflow/ndt:1636` 仍是 `viz) echo "network_traffic_visualizer.sh"`，而存活的兩個 JVM 的 argv **不含這個字串**（round3 `14_viz_process_chain.log` 已量到）。`e83ef1d1` 本身只加 `NEXT.md`，不是修法 | viz 的 argv 已到手 ⇒ 可以動手；比對字串是目錄名 `Network-Traffic-Visualizer` |
+| 6 | `ndt apps stop` 只殺 bash wrapper，viz 的 JVM 活著而三個通道都說沒在跑 | ✅ IN TRUNK（09-03 `94abfb3f`，併 `fix/apps-stop-kills-the-group @ 850a6ea8`；auditor 重跑 71/0、閘門 13/0、鄰居 20/0；**真 app 未跑**，殘留見 WORK-ITEMS W-2） | 🔴 **分支名會騙人。** `fix/g6-ndt-apps-liveness @ e83ef1d1` 只替 energy／sim 補了 signature：分支上的 `tools/test_workflow/ndt:1636` 仍是 `viz) echo "network_traffic_visualizer.sh"`，而存活的兩個 JVM 的 argv **不含這個字串**（round3 `14_viz_process_chain.log` 已量到）。`e83ef1d1` 本身只加 `NEXT.md`，不是修法 | viz 的 argv 已到手 ⇒ 可以動手；比對字串是目錄名 `Network-Traffic-Visualizer` |
 | 7 | `ndt` 有兩個 `sudo -n` 不在手冊教的 sudoers 規則裡 | ✅ IN TRUNK（09-03 整合 `b466407b`） | 🆕 12:5x **`fix/ndt-sudo-surface @ 20d834aa`**（base `ed23a3b3`），新增 `tools/test_workflow/sudo_surface.sh`（一張被讀取的宣告式表，形狀照 `ports.sh`）＋ `ndt` 的 `ovs_bridge_count`／`dataplane_ok` 改成**問不到就 rc 2 且不作答**＋ `up_p4` 的守衛在「不知道」時**停下來**。閘門：**auditor 自己重跑** `tests/shell/mutate_ndt_sudo_surface.sh` → baseline 33 checks 0 failed、**14 mutations, 0 survived**、baseline byte-identical（`sudo_surface.sh` 與 `ndt` 兩個）。**兩面成立**：M1–M10 把缺陷放回去，**N1–N4 是「什麼都拒絕」的四種寫法**（通得過全部十條 M，只有 control 抓得到）| 🔴 **與 `fix/ports-that-block-restart` 在 `tools/test_workflow/ndt` 衝突**（auditor 實測）；vs `g6`／`g9` 乾淨。🔴 **從未在真的需要密碼的機器上實跑**——所有「被拒」由 PATH 上的假 `sudo` 產生 ⇒ 仍是 desk check |
 
 ### 中等（8–31）
@@ -116,7 +116,7 @@
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
 | 41 | 🔴 `ndt down` 的乾淨驗證看不到 sFlow 的 `:6343`，五條斷言全綠 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/ports-that-block-restart @ 2fe70075`。三件都查了：(a) `ports.sh` 有 `6343\|udp\|both\|…` 這一列；(b) `ndt_port_open` 對 `udp` 走 `ss -lunH`（舊 `port_open` 只講 TCP，所以就算列了也看不到）；(c) `cmd_down` 在 `ndt:1141` 呼叫 `cmd_clean`，而 `cmd_clean` 的 `for p in 8000 8080 8081` 已換成 `ndt_port_residue all`，`prc == 2`（查不到）也算 not-clean。閘門同 #22（auditor 重跑 18 checks／9 變異 0 存活） | ⚠️ `fix/g9` 的 `81519ad8`「Add :6343 to the blocking-port table」**只動 `NEXT.md`**，不是修法 |
-| 42 | `testbed_topo.py` 的 128 對 ping self-test 全 100% loss，結尾 banner 照樣印三個 OK | 🛠 派工中（18:3x，`fix/testbed-banner-reads-its-ping`，base `431d98a5`，離線 Python，只做 banner 那半） | `testbed_topo.py`（repo 根目錄）**不在任何未併分支的變更檔清單裡**。trunk 上 `:228-239` 用 threading 跑 ping、`:246` 無條件 `print("Host internet: OK \| sFlow reachability: OK \| Switch identification: OK")`——**banner 與 ping 結果之間沒有任何資料流** | **見下方第 3 條**；banner 那半完全離線可修 |
+| 42 | `testbed_topo.py` 的 128 對 ping self-test 全 100% loss，結尾 banner 照樣印三個 OK | ✅ IN TRUNK（09-03 `94abfb3f`，併 `fix/testbed-banner-reads-its-ping @ cb6c47a0`；auditor 重跑 45/45、25/0；**只修本 repo 那份**，`ndt up ovs` 跑的 NTG 副本見 #77／N13） | `testbed_topo.py`（repo 根目錄）**不在任何未併分支的變更檔清單裡**。trunk 上 `:228-239` 用 threading 跑 ping、`:246` 無條件 `print("Host internet: OK \| sFlow reachability: OK \| Switch identification: OK")`——**banner 與 ping 結果之間沒有任何資料流** | **見下方第 3 條**；banner 那半完全離線可修 |
 | 43 | 🔴 NSR 的 stop script 用 `pgrep -f` 連坐殺掉 tester 自己的 shell | ⭕ UNASSIGNED | 修法對象**不在本 repo**：`git ls-tree -r trunk \| grep network_state_recorder` 只回 audit log 與 tester 腳本，沒有產品側的 stop script | Network-State-Recorder 的主人；本 repo 的 `fix/g9-cleanup-no-pkill-f` 在做同族的事，可當範本 |
 | 44 | Web GUI 的 pnpm 未釘版本，如預測重現 | ➖ NOT A DEFECT | FINDINGS-ALL 自述「run-01 就有、**刻意沒修**」，用途是預註冊預測的命中證據。`web_gui_deploy.sh` 也不在本 repo（只有 tester 的 `bugs_webgui_pnpm.sh` 重現腳本） | 什麼時候要真的釘版本，是裁決不是缺陷 |
 
@@ -126,8 +126,8 @@
 |---|---|---|---|---|
 | 45 | 🔴 啟動競態由 topology 檔的 parse 時間決定，出貨檔 0/44 勝 | ✅ IN TRUNK（09-03 整合 `b466407b`） | 與 #32 同一支：`fix/d15-dataplane-kind-race @ 75c2b526`（`start()` 改成在生出任何執行緒之前、在呼叫者的執行緒上完成靜態拓樸載入）。閘門同 #32（auditor 編過、3／4）。fixture 刻意用 310 B 級拓樸——**那正是壞版本會贏的尺寸**，所以不能靠運氣過 | 同 #32：B-5 先落地 |
 | 46 | 🔴 輪詢覆蓋關機指令且復活是永久的（`isUp=true`，沒有 else 分支） | 🛠 派工中（16:xx，`fix/poll-does-not-resurrect`，base `5c64d432`） | trunk `src/ndt_core/collection/TopologyAndFlowMonitor.cpp:762-777`：`(*m_graph)[*vertexSwitchOpt].isUp = true; …isEnabled = true;`，else 只印 WARN。**每一支分支上這段都逐字相同**。D15 的作者在自己的回歸表第 3 列白紙黑字寫「🔴 This fix does not address the writer … a second, independent defect, untouched here and not to be claimed」 | **見下方第 2 條** |
-| 47 | 🔴 kernel 的 listening socket 被自己 `popen` 出來的 sh／curl 繼承（2.01–2.22 s，48/48） | 🛠 派工中（16:xx，`fix/cloexec-listening-sockets`，base `5c64d432`） | `FD_CLOEXEC`／`O_CLOEXEC`／`closefrom` 在所有未併分支的改動行 **0 次新增**。唯一碰 `utils::execCommand` 的是 `fix/topology-round-reads-status`，而它只在 curl 命令尾巴加 `--write-out`（`TopologyAndFlowMonitor.cpp:488` 附近），**沒有動 fd 繼承** | 錯誤訊息「另一個 NDTwin kernel 幾乎確定還在跑」會把人推向錯誤診斷，值得早修 |
-| 48 | `ndt apps stop viz` 回 ok 而兩個 JVM（531 MB）仍活著；`apps orphans` 也說沒有 | 🛠 派工中（16:xx，`fix/apps-stop-kills-the-group`，base `5c64d432`） | 與 #6 同一缺陷、第二次量到。證據同 #6（分支上 `app_sig viz` 未變） | 同 #6 |
+| 47 | 🔴 kernel 的 listening socket 被自己 `popen` 出來的 sh／curl 繼承（2.01–2.22 s，48/48） | ✅ IN TRUNK（09-03 `94abfb3f`，併 `fix/cloexec-listening-sockets @ 401cb6f2`；auditor 在整合樹重跑閘門 **12/0＋3 widening**、940/940；raw `audit-raw @ 94333bb2`；前提：窗口＝最長命子行程，proxy 卡住才重現） | `FD_CLOEXEC`／`O_CLOEXEC`／`closefrom` 在所有未併分支的改動行 **0 次新增**。唯一碰 `utils::execCommand` 的是 `fix/topology-round-reads-status`，而它只在 curl 命令尾巴加 `--write-out`（`TopologyAndFlowMonitor.cpp:488` 附近），**沒有動 fd 繼承** | 錯誤訊息「另一個 NDTwin kernel 幾乎確定還在跑」會把人推向錯誤診斷，值得早修 |
+| 48 | `ndt apps stop viz` 回 ok 而兩個 JVM（531 MB）仍活著；`apps orphans` 也說沒有 | ✅ IN TRUNK（09-03 `94abfb3f`，併 `fix/apps-stop-kills-the-group @ 850a6ea8`；auditor 重跑 71/0、閘門 13/0、鄰居 20/0；**真 app 未跑**，殘留見 WORK-ITEMS W-2） | 與 #6 同一缺陷、第二次量到。證據同 #6（分支上 `app_sig viz` 未變） | 同 #6 |
 | 49 | `ndt down` 自己的 verify 誤報（說 5 still running，20 秒後 `ps` 數到 0） | ⭕ UNASSIGNED | trunk `ndt:1103/1106` 的 `bmv2_count`／`mn_count` 斷言在 `fix/ports-that-block-restart` 上**未改**——該分支只把底下的 `for p in 8000 8080 8081` 換成表。verify 與 sweep 之間仍沒有同步 | 與 #21／#26 同一族，適合一起做 |
 | 50 | `ndt:1687` 的 `2>/dev/null` 放在 `<` 之後，所以它擋不住它唯一要擋的訊息 | ✅ IN TRUNK（09-03 整合 `b466407b`） | 🆕 **`fix/redirection-order @ 7fdd8971`**（base `feb9baef`）。**同形共 20 處**（lexer 掃描＋粗 regex 交叉檢查＋3084 次注入量偽陰性率），修 15 處、5 處判定為 `< /dev/null` 不會失敗故不改。閘門 **16 mutations, 0 survived**（agent 自陳，auditor 未重跑） | 🔴 **合併預警，auditor 實測**：`fix/g6-ndt-apps-liveness` 與它**乾淨合併，卻把缺陷帶回來**——g6 的 `ndt:2011` 新增 `err "   pid $pid: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null \| cut -c1-90)"`，`<` 仍在 `2>` 之前，而 trunk 沒有這一行 ⇒ git 看不出衝突，閘門也抓不到（錨點逐處指名）。**g6 落地後要補這一行** |
 
@@ -221,7 +221,7 @@
 | 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | ⭕ UNASSIGNED | #17 agent 查證（FIX-CHAOS-INVARIANTS §未做到） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
 | 76 | proxy 卡住時，bind 失敗的 kernel 印完 `Exiting` 後 8 秒還在（shutdown 卡在 poll thread 的 curl） | ⭕ UNASSIGNED | #47 agent 順帶觀察，未追 | 與 B-5 關機路徑同族；重啟腳本若拿「印了 Exiting」當退出訊號會踩到 |
 | 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ⭕ 等 Adam 裁（QUESTIONS N13） | #42 agent 讀 caller 發現（`ndtwin-lab:571-580`） | 跨 repo；建議改 `ndtwin-lab` 跑本 repo 那份 |
-| 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | 🛠 派工中（19:0x，`fix/gate-anchors-root-files`，base `209251dd`，離線 Python） | #42 agent 撞到、閘門內以 `./` 繞過 | 修工具本身；全 repo 掃描不得改動其他閘門的判讀 |
+| 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | 🛠 派工中（18:5x，`fix/gate-anchors-root-files`，base `209251dd`，離線 Python） | #42 agent 撞到、閘門內以 `./` 繞過 | 修工具本身；全 repo 掃描不得改動其他閘門的判讀 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 

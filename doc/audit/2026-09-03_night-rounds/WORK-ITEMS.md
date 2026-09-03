@@ -73,7 +73,7 @@ Adam 交辦、但還沒有 session 在做的事。**這個 build 沒有 `TaskCre
 
 ---
 
-## W-2 — finding #6／#48：`ndt apps stop` 停不掉 viz（沒有人在修）
+## W-2 — finding #6／#48：`ndt apps stop` 停不掉 viz（✅ 修法已進 trunk `94abfb3f`；真 app 未驗）
 
 2026-09-03 13:1x Adam 本人現場撞到：`ndt apps stop` 之後 visualizer 仍在跑。
 **`fix/g6-ndt-apps-liveness` 不修這個**（已查證，見 `AUDITOR-VERIFICATION.md`）——
@@ -86,7 +86,7 @@ Adam 交辦、但還沒有 session 在做的事。**這個 build 沒有 `TaskCre
 🔴 **連帶**：`.test_run/logs/app_viz.log` 在 09-03 長到 **364 MB**（每一幀一行 DEBUG），
 根目錄一度到 98%。09-02 同一個機制長到 875 MB 塞爆磁碟。**log 要有上限**，這是同一張工單的一部分。
 
-### 🛠 18:4x 狀態：修法交回，auditor 驗證中（`fix/apps-stop-kills-the-group @ 850a6ea8`）
+### ✅ 19:1x：已進 trunk `94abfb3f`（`fix/apps-stop-kills-the-group @ 850a6ea8`）——下面五條殘留仍然成立
 
 - **做了**：`app_spawn` 走 `exec setsid nohup`，啟動後讀 `/proc` 驗 pgid==sid==pid 並寫 `.pgid`；`app_stop` 先 `kill -TERM -<pgid>` 整個 group、再補個別 pid、再補「log 的可寫 fd 持有者」找到的殘存；
   「停掉了」要過 `app_verify_stopped`（group／log fd／port 三管道皆空），看不到的管道明說「不是沒有，是沒看到」（rc 2）；
