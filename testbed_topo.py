@@ -7,7 +7,9 @@ from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.link import TCLink
+import dataclasses
 import os
+import re
 import threading
 
 # --- Global Configuration ---
@@ -139,14 +141,280 @@ def enable_sflow(switch, agent_iface, collector_ip, collector_port=6343):
     os.system(cmd)
 
 
-def ping_test(src, dst_ip):
+# --- the ping self-test, and the banner that is printed from it -----------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 The defect this section replaces (finding #42, measured 2026-09-03). ping_test() printed
+# each ping and returned None; the threads that ran it discarded even that; and the closing
+# banner printed three health claims
+#
+#     Host internet: OK | sFlow reachability: OK | Switch identification: OK
+#
+# UNCONDITIONALLY. There was no data flow of any kind from the 128 pings to those three OKs.
+# Measured on a fabric where every one of the 128 pings was at 100% loss, and the banner still
+# printed all three. A banner that cannot say anything but OK is not a check -- it is an
+# instrument whose needle is painted on.
+#
+# What the pings can and cannot support is not the same for the three claims, and that is why
+# the wording below changed as well as the wiring:
+#
+#   host reachability      -- this the pings DO measure, and it is what the banner now reports,
+#                             with the counts it was computed from. The old wording ("Host
+#                             internet") was wrong in a second way: these pings never leave the
+#                             10.0.0.0/24 fabric and say nothing about internet access.
+#   sFlow reachability     -- nothing in this script tests it. enable_sflow() runs its
+#                             ovs-vsctl through os.system and discards the status; no datagram
+#                             is ever read back here.
+#   switch identification  -- nothing in this script tests it either. The agent addresses are
+#                             assigned above and never verified against anything.
+#
+# The two unmeasured claims are printed as NOT MEASURED rather than deleted, so the next reader
+# can see the claim was never backed instead of re-adding an OK for it. `ndt`'s verify_sflow is
+# where those two are actually checked.
+#
+# The sibling fixture tools/test_workflow/ovs_4host_topo.py already had the right shape for a
+# closing banner -- it states what was built (counts, addresses, model path) and claims no
+# health at all.
+
+#: iputils prints "1 packets transmitted, 1 received, 0% packet loss, time 0ms"; BSD ping and
+#: some busybox builds print "... 1 packets received, 0.0% packet loss"; and an unreachable
+#: destination makes iputils insert "+1 errors" between the two. All three spellings are read
+#: here. Output this cannot read is counted as UNPARSED and never as a reply -- "we could not
+#: tell" and "it answered" being the same value is the whole family of bug this fix is in.
+_PING_STATS_RE = re.compile(
+    r"(?P<tx>\d+)\s+packets\s+transmitted,\s*"
+    r"(?P<rx>\d+)\s+(?:packets\s+)?received"
+    r"[^\n]*?(?P<loss>\d+(?:\.\d+)?)%\s+packet\s+loss"
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class PingResult:
+    """What one ping measured. `reached` is never true for output we could not read."""
+
+    src: str
+    dst: str
+    transmitted: int = 0
+    received: int = 0
+    loss_pct: float = 100.0
+    #: False when ping printed no statistics line at all, or never ran.
+    parsed: bool = False
+    error: str = None
+
+    @property
+    def reached(self):
+        return self.parsed and self.received > 0
+
+
+@dataclasses.dataclass(frozen=True)
+class PingSummary:
+    """The only numbers the closing banner is allowed to claim anything from."""
+
+    #: How many pings the caller LAUNCHED. Kept separate from `attempted` on purpose -- see
+    #: summarize_pings().
+    expected: int
+    #: How many of them came back with a result of any kind.
+    attempted: int
+    #: How many DISTINCT (src, dst) pairs those results cover. Every ping in this self-test is
+    #: a different pair, so a result recorded twice is a copy, not a second measurement.
+    distinct: int
+    replied: int
+    lost: int
+    #: Results whose ping output had no readable statistics line.
+    unreadable: int
+    loss_pct: float
+
+    @property
+    def ok(self):
+        # 🔴 Zero tolerance, deliberately. Every host in this topology is given a static ARP
+        # entry for every other one before these pings run, and the controller installs
+        # proactive rules; one lost ping here is a fabric defect, not noise. If a future
+        # operator wants to tolerate loss, that is a decision to write down here -- not a
+        # threshold to discover by watching a banner stay green.
+        #
+        # Four clauses, each of which some plausible implementation passes while failing
+        # another. `expected > 0`: a self-test that measured nothing must not read like a
+        # self-test that passed. `attempted`: 129 results for 128 pings means one was recorded
+        # twice and one may be missing. `distinct`: 128 results covering 64 pairs is a copied
+        # measurement, not a fabric that answered 128 times. `replied`: the fabric answered.
+        return (self.expected > 0
+                and self.attempted == self.expected
+                and self.distinct == self.expected
+                and self.replied == self.expected)
+
+
+class PingResults:
+    """Thread-safe sink for PingResult.
+
+    threading.Thread throws away whatever its target returns, which is precisely how the banner
+    at the bottom of this file came to be printed from nothing. A ping that is not recorded here
+    is not counted as anything.
     """
-    A simple utility function to perform a single ping test and print the result.
-    This is used for verifying connectivity within the Mininet topology.
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._results = []
+
+    def add(self, result):
+        with self._lock:
+            self._results.append(result)
+
+    def all(self):
+        with self._lock:
+            return list(self._results)
+
+    def __len__(self):
+        with self._lock:
+            return len(self._results)
+
+
+def parse_ping_output(text):
+    """(transmitted, received, loss_pct) from ping's statistics line, or None if it has none.
+
+    None rather than a zero-loss guess: `connect: Network is unreachable` and a command that
+    never ran both produce output with no statistics line, and reading either as success is
+    the defect this whole section exists to prevent.
+    """
+    match = _PING_STATS_RE.search(text or "")
+    if match is None:
+        return None
+    return (int(match.group("tx")), int(match.group("rx")), float(match.group("loss")))
+
+
+def ping_test(src, dst_ip, sink=None):
+    """
+    Perform a single ping test, print the result, and RETURN what it measured.
+
+    🔴 The return value is the point of this function. It is also appended to `sink` when one is
+    given, because the callers below run this in threads and a thread discards its target's
+    return value -- so the sink is the only path by which a number reaches the banner.
     """
     print(f"Pinging from {src.name} to {dst_ip}...")
-    result = src.cmd(f"ping -c 1 {dst_ip}")
-    print(f"Result from {src.name} to {dst_ip}:\n{result}")
+    try:
+        output = src.cmd(f"ping -c 1 {dst_ip}")
+    except Exception as exc:
+        # Broad on purpose: a torn-down namespace, a host object Mininet has already stopped, a
+        # dead mnexec. Every one of those is a ping that did not happen, and the one outcome
+        # this must never produce is a silently missing result -- an exception here used to kill
+        # the thread, leave nothing behind, and be invisible.
+        result = PingResult(src=src.name, dst=dst_ip,
+                            error=f"{type(exc).__name__}: {exc}")
+        print(f"Result from {src.name} to {dst_ip}: DID NOT RUN -- {result.error}")
+    else:
+        print(f"Result from {src.name} to {dst_ip}:\n{output}")
+        stats = parse_ping_output(output)
+        if stats is None:
+            result = PingResult(src=src.name, dst=dst_ip,
+                                error="ping printed no statistics line")
+        else:
+            transmitted, received, loss = stats
+            result = PingResult(src=src.name, dst=dst_ip, transmitted=transmitted,
+                                received=received, loss_pct=loss, parsed=True)
+    if sink is not None:
+        sink.add(result)
+    return result
+
+
+def summarize_pings(results, expected):
+    """Fold the ping results into the numbers the banner reports.
+
+    `expected` is how many pings were LAUNCHED and is passed in rather than taken from the
+    results, because a thread that died before recording anything leaves no failed result
+    behind. replied-over-attempted on an empty list is 0/0, which reads as "nothing went
+    wrong"; a shortfall here is a failure, not a smaller sample.
+    """
+    results = list(results)
+    replied = sum(1 for r in results if r.reached)
+    return PingSummary(
+        expected=expected,
+        attempted=len(results),
+        distinct=len({(r.src, r.dst) for r in results}),
+        replied=replied,
+        lost=expected - replied,
+        unreadable=sum(1 for r in results if not r.parsed),
+        loss_pct=100.0 if expected <= 0 else 100.0 * (expected - replied) / expected,
+    )
+
+
+def run_ping_self_test(net, host_num, sink=None):
+    """Ping the lower half of the fabric against the upper half, both ways, and return what
+    that measured.
+
+    This is also the traffic that primes the controller's host discovery: the burst has to land
+    before intelligent_router installs proactive rules, or the hosts are never punted to Ryu and
+    read as down in the twin. See the same reasoning written out in
+    tools/test_workflow/ovs_4host_topo.py.
+    """
+    pairs = int(host_num / 2)
+    expected = 2 * pairs
+    sink = PingResults() if sink is None else sink
+
+    threads = []
+    for i in range(pairs):
+        client = net.get(f"h{i+1}")
+        server_ip = f"10.0.0.{i+1+pairs}"
+        t = threading.Thread(target=ping_test, args=(client, server_ip), kwargs={"sink": sink})
+        threads.append(t)
+        t.start()
+    for i in range(pairs):
+        server = net.get(f"h{i+1+pairs}")
+        client_ip = f"10.0.0.{i+1}"
+        t = threading.Thread(target=ping_test, args=(server, client_ip), kwargs={"sink": sink})
+        threads.append(t)
+        t.start()
+    for t in threads:
+        t.join()
+
+    return summarize_pings(sink.all(), expected=expected)
+
+
+BANNER_HEADER = "--- Final Configuration Active ---"
+
+
+def banner_lines(summary):
+    """The closing banner, derived from `summary` and from nothing else.
+
+    Returns the lines to print. There is no path through this function that prints OK for a
+    summary that is not ok, and none that prints a count it did not get from the summary.
+    """
+    lines = ["", BANNER_HEADER]
+    if summary.ok:
+        lines.append(
+            f"host reachability: OK -- {summary.replied}/{summary.expected} pings replied "
+            f"({summary.loss_pct:.1f}% loss)"
+        )
+    else:
+        lines.append(
+            f"host reachability: FAIL -- {summary.replied}/{summary.expected} pings replied, "
+            f"{summary.lost} lost ({summary.loss_pct:.1f}% loss)"
+        )
+        if summary.attempted != summary.expected:
+            lines.append(
+                f"  ... {summary.attempted}/{summary.expected} pings reported a result at all; "
+                f"the rest are missing, which is not the same as passing"
+            )
+        # `< attempted`, not `!= expected`: a result short of expected is a ping that never
+        # reported, which the line above already says. This one is only for the other shape --
+        # more results than pairs, i.e. one measurement recorded twice.
+        if summary.distinct < summary.attempted:
+            lines.append(
+                f"  ... covering only {summary.distinct}/{summary.expected} distinct host "
+                f"pairs; a result recorded twice is a copy, not a second measurement"
+            )
+        if summary.unreadable:
+            lines.append(
+                f"  ... {summary.unreadable} printed output this script could not read; "
+                f"unreadable is counted as lost, never as reached"
+            )
+        lines.append(
+            "  the Mininet CLI below is still available -- the fabric is built, not forwarding"
+        )
+    # Not measured anywhere in this script. Printed rather than dropped so the claim's absence
+    # is visible; `ndt up ovs`'s verify_sflow is what actually checks these two.
+    lines.append("sFlow reachability: NOT MEASURED (configured above, never read back here)")
+    lines.append("switch identification: NOT MEASURED (agent IPs assigned above, never verified here)")
+    return lines
 
 
 if __name__ == "__main__":
@@ -165,6 +433,10 @@ if __name__ == "__main__":
         link=TCLink,
         autoSetMacs=True,
     )
+
+    # Bound before the try so the exit status below can tell "the self-test failed" from "we
+    # never got as far as running it". [Co-developed with claude code -- Adam]
+    ping_summary = None
 
     try:
         # == STEP 1: Add the IP Alias to the Host's Loopback Interface ==
@@ -225,26 +497,13 @@ if __name__ == "__main__":
                 dst_mac = f"00:00:00:00:00:{(j+1):02x}"
                 src.cmd(f"arp -s {dst_ip} {dst_mac}")
 
-        # Launch ping tests in parallel to generate some traffic.
-        threads = []
-        for i in range(int(HOST_NUM / 2)):
-            client = net.get(f"h{i+1}")
-            server_ip = f"10.0.0.{i+1+int(HOST_NUM/2)}"
-            t = threading.Thread(target=ping_test, args=(client, server_ip))
-            threads.append(t)
-            t.start()
-        for i in range(int(HOST_NUM / 2)):
-            server = net.get(f"h{i+1+int(HOST_NUM/2)}")
-            client_ip = f"10.0.0.{i+1}"
-            t = threading.Thread(target=ping_test, args=(server, client_ip))
-            threads.append(t)
-            t.start()
-        for t in threads:
-            t.join()
+        # Launch ping tests in parallel to generate some traffic -- and to measure whether the
+        # fabric forwards it. The banner below is printed from this and from nothing else.
+        ping_summary = run_ping_self_test(net, HOST_NUM)
 
-        print("\n--- Final Configuration Active ---")
-        print("Host internet: OK | sFlow reachability: OK | Switch identification: OK")
-        print(f"Run 'sflowtool -p 6343' in another terminal to see the data.")
+        for line in banner_lines(ping_summary):
+            print(line)
+        print("Run 'sflowtool -p 6343' in another terminal to see the data.")
         CLI(net)
 
     finally:
@@ -255,3 +514,23 @@ if __name__ == "__main__":
         print(f"\nCleaning up: Removing IP alias {COLLECTOR_IP} from 'lo' interface...")
         os.system(f"sudo ip addr del {COLLECTOR_IP}/24 dev lo")
         net.stop()
+
+    # [Co-developed with claude code -- Adam]
+    # Exit status, decided 2026-09-03 after reading every caller of this file:
+    #
+    #   tools/test_workflow/stack.sh   prompt_for_mininet() only PRINTS `sudo python3 <script>`
+    #                                  and waits for the operator to press Enter -- Mininet needs
+    #                                  root and drops into an interactive CLI, so stack.sh never
+    #                                  runs this file and never sees its status.
+    #   tools/test_workflow/ndtwin-lab `ovs-topo-start` launches it detached in a tmux session
+    #                                  (and launches NTG's copy, not this one); nothing reads the
+    #                                  window's exit code.
+    #   tools/test_workflow/faults.sh  matches the process by name only.
+    #
+    # So no caller depends on this being 0, and the failing status below breaks nothing that
+    # exists today. It is set anyway, because the alternative is a script that measured 100%
+    # loss and still exits 0 -- the same shape as the banner this change was written to fix,
+    # one layer down. The status is raised AFTER the CLI and after the cleanup in `finally`:
+    # an operator whose fabric is broken needs the CLI more than an early exit, not less.
+    if ping_summary is None or not ping_summary.ok:
+        raise SystemExit(1)
