@@ -451,6 +451,8 @@ poll agent 的修法**只在內部**分開了「被命令關機」（`adminPower
 
 **建議不變：(a) 拆成 `admin_state` ＋ `reachable`。** 理由多一條：拆了以後 `reachable` 可以誠實地說「快取還沒過期」，`admin_state` 由命令決定、立刻正確。裁 (a) 的話 #80 的 distrust window 一起改成證據界定（下一次真的 probe 成功才關窗）。
 
+**裁決（09-03 21:1x，Adam，表單）：(a) 拆成 `admin_state`＋`reachable`；`is_up` 先留著當 `reachable` 的別名，consumer 分批改。** 派 `fix/is-up-split-admin-state-reachable`（含 #80 的 distrust window 改證據界定、#81 順手）。
+
 ## Q13. Energy app 沒有 `sim` 就不可能關機，而且會卡死——文件一個字都沒講
 
 `send_case` 是 void，所以 Simulation-Platform-Manager 沒開時的 502 被丟掉，Energy app **永久卡住**
@@ -497,6 +499,8 @@ tester 自己在 JOURNAL 標成「Tooling note」並明講不歸咎 NDTwin。
    建議：**維持關閉**，等 A-4c 的裁決一起做。
 3. **`quarantine()` 的順序。** 沒有呼叫點 ⇒ `p4_proxy/.run/rule_journal.jsonl` 跨 proxy 世代累積（132 bytes/筆，只記 REST 進來的規則）。
    先接 quarantine 會讓未來的 replay 讀到空檔——正是 #71 的失敗模式——所以開機順序（讀 → 決定 replay → quarantine）要跟 2. 一起定。
+
+**裁決（09-03 21:1x，Adam，表單）：現在什麼都不改；fsync 留、replay／quarantine 維持關閉；排一次帶 bmv2 的 per-rule install latency 量測對帳（WORK-ITEMS W-N11）。**
 
 ## N12. #8 `ndt status --check` 的基準要拿哪份拓樸檔（裁決，不是碼）
 

@@ -107,3 +107,11 @@ Adam 交辦、但還沒有 session 在做的事。**這個 build 沒有 `TaskCre
 而沒有 kernel。`:8000` 被佔用的檢查在 `stack.sh` 的 [3/3]，**在 fabric 建好之後**。
 證據：`round1-ovs/02_ndt_up_failure_leaves_fabric_running.log`（對照組 `03_`）。
 同事線把它列為 BUG-3，未查證。需要實驗室才驗得完。
+
+## W-N11 量測：一條規則裝進 bmv2 要多久（對帳 rule journal 的 6.37 ms fsync）
+
+Adam 裁（09-03 21:1x）：journal 現況不動，先量。要量的是 REST `/stats/flowentry/add` 一筆從進 proxy 到 gRPC table write 回來的 per-rule latency（bmv2、`ndt up p4 4`），與 `RuleJournal.record` 的 6.37 ms（`RED_before`＝stub fsync 0.027 ms）並列；若 gRPC write 本身 ≥ 6 ms，fsync 的 150 rules/s 上界不是瓶頸、N11 ①結案；若遠小於，再回 N11 裁批次 fsync。要 lab（P4），排在 #77／#8 兩支之後；raw 進 audit-raw；報告寫進 `doc/audit/2026-09-03_fix-rule-journal/` 的補記或新 dir。狀態：⭕ 未派（09-03 21:1x）。
+
+## W-Q12 `is_up` 拆成 `admin_state`＋`reachable`
+
+Adam 裁（09-03 21:1x）：(a)。派 `fix/is-up-split-admin-state-reachable`。狀態：🛠 派工中（09-03 21:1x）。
