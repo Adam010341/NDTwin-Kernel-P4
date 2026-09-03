@@ -81,7 +81,7 @@
 | 14 | chaos `_c07` 的控制組零鑑別力，一條已發表的宣稱建立在它上面 | ✅ IN TRUNK | `1411f163`，動 `doc/audit/2026-08-28_chaos-harness/harness/{actions,probes}.py`、`05_first-live-run.md`、`tests/python/test_chaos_c07_control.py`、`tests/shell/mutate_chaos_c07_control.sh` | — |
 | 15 | `l3_component_check.py --check-drift` 不認得 `utils::pathIs(...)` ⇒ 誤報兩條路由被刪 | ✅ IN TRUNK | `70665602`，動 `tools/contract_test/components.py` ＋ `tests/python/test_l3_dispatch_drift.py` ＋ `tests/shell/mutate_l3_dispatch_drift.sh` | — |
 | 16 | `run_layers.sh` 不管哪座 fabric 起著都用 4 主機模型 | ✅ IN TRUNK | `09e72e7b`，動 `tools/test_workflow/run_layers.sh` ＋ `tests/shell/{test,mutate}_run_layers_topology_from_fabric.sh` | — |
-| 17 | 同型第三、第四例：`_h23_verify` 讀未註冊路由；`invariants.py:84` 對只收 POST 的路由發 GET | ⭕ UNASSIGNED | **（部分）第三例已修**：`efd2fe10`（trunk 祖先）把 `harness/actions.py:456 _h23_verify` 改成 `api_get_checked` ＋ `NotAnswered` 拒絕（我讀了 trunk 上的函式本體）。**第四例未修**：trunk `harness/invariants.py` 的 `inv01_powercycle_latency()` 仍用 `probes.api_get_timed(f"/ndt/set_switches_power_state?…")` 對只收 POST 的路由發 GET，任何分支都沒動這個檔 | chaos harness 的主人；FINDINGS 說「已另開工單」，但**工單編號沒有寫在任何我讀到的文件裡** |
+| 17 | 同型第三、第四例：`_h23_verify` 讀未註冊路由；`invariants.py:84` 對只收 POST 的路由發 GET | 🛠 派工中（17:xx，`fix/chaos-invariants-method`，base trunk，只修第四例） | **（部分）第三例已修**：`efd2fe10`（trunk 祖先）把 `harness/actions.py:456 _h23_verify` 改成 `api_get_checked` ＋ `NotAnswered` 拒絕（我讀了 trunk 上的函式本體）。**第四例未修**：trunk `harness/invariants.py` 的 `inv01_powercycle_latency()` 仍用 `probes.api_get_timed(f"/ndt/set_switches_power_state?…")` 對只收 POST 的路由發 GET，任何分支都沒動這個檔 | chaos harness 的主人；FINDINGS 說「已另開工單」，但**工單編號沒有寫在任何我讀到的文件裡** |
 | 18 | 兩個速率欄位量的不是同一件事，分歧隨負載成長（一個高估、一個漏看） | ⭕ UNASSIGNED | **（部分）高估那半＝ #10**，在 `fix/flow-rate-denominator @ 6088c0b5` 上。**漏看那半未修**：`AutoRefreshQueue`／`refresh()`／`m_interval` 在該分支只出現在**文件行**（`FLOW-RATE-DENOMINATOR.md` 72/73/170），`include/common_types/SFlowType.hpp:193-266` 的滑動視窗邏輯**沒有任何分支改過** ⇒ 兩次讀數之間的空隙仍在，兩欄仍不可比 | 同 #10 的人接續；這半要改的是取樣視窗與迴圈週期的關係，不是分母 |
 | 19 | `check_gate_anchors.py` 有四個閘門根本沒在檢查（含 A-9 的全部證據） | ✅ IN TRUNK | `16419664`，動 `tests/shell/check_gate_anchors.py`（+654/−40）＋ `tests/python/test_check_gate_anchors.py` ＋ `tests/shell/mutate_check_gate_anchors.sh` | — |
 | 20 | `lib_e.sh:435` 的 iperf3 守衛會自我毀滅後回報「乾淨」 | ✅ IN TRUNK | `f830dd03`，動 `doc/audit/…/lib_e.sh` ＋ `tests/shell/{test,mutate}_iperf3_guard.sh` | ⭕ **同型待修**：`lib_e.sh:565` 對 `ndtwin_kernel` 有同樣的 argv 形狀，`f830dd03` 沒有碰它，也沒有任何分支碰它 |
@@ -214,7 +214,7 @@
 |---|---|---|---|---|
 | 69 | 🔴 `--loglevel <打錯的值>` 把 log 整個關掉，rc 0、無訊息，而攔它的錯誤路徑不可能執行 | ⭕ UNASSIGNED | **auditor 親自讀碼查證**：`from_str` 在 `libs/spdlog/common.h:294` 與 `common-inl.h:38` **兩處都宣告 `SPDLOG_NOEXCEPT`** ⇒ `Logger.cpp:16` 的 `catch (const spdlog::spdlog_ex&)` 永遠到不了；`common-inl.h` 的結尾是 `return level::off;` ⇒ 不是「用預設等級」是**完全不記錄**。⚠️ **`origin/main` 逐字相同**，讀者也中 | `fix/logfile-takes-a-path` 已經**順手**加了 `AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging` 這條測試並在閘門 M8 驗過 ⇒ **併那支就一起修掉**。但它沒有被登記成一條 finding，所以列在這裡免得被當成「附帶效果」而沒有人對帳 |
 | 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | ⭕ UNASSIGNED | 同上分支的旗標完整表；auditor 在 `origin/main` 上確認同一形狀 | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
-| 71 | 🔴 rule journal 在 production 從來沒被寫過，而 `test_journal_wiring.py` 14 個測試全綠（注入依賴，證明的是「給它 journal 它會寫」） | ⭕ UNASSIGNED | auditor 查證：`main.py:26` 不傳 journal、`_note_in_journal` 第一行 `if … self._journal is None: return`；production 零 import | 修法＝`main.py` 建構真 `RuleJournal` 並注入＋一支**不注入**的接線測試（直接跑 `main` 的建構路徑），否則 A-4c 的 replay 永遠拿到空 journal |
+| 71 | 🔴 rule journal 在 production 從來沒被寫過，而 `test_journal_wiring.py` 14 個測試全綠（注入依賴，證明的是「給它 journal 它會寫」） | 🛠 派工中（17:xx，`fix/rule-journal-is-wired`，base trunk） | auditor 查證：`main.py:26` 不傳 journal、`_note_in_journal` 第一行 `if … self._journal is None: return`；production 零 import | 修法＝`main.py` 建構真 `RuleJournal` 並注入＋一支**不注入**的接線測試（直接跑 `main` 的建構路徑），否則 A-4c 的 replay 永遠拿到空 journal |
 | 72 | demo image 的 netplan 綁死 QEMU 的 MAC，換 hypervisor 沒網路 | ✅ 已修（image） | `開機手冊` session，`doc/audit/2026-09-03_virtualbox-demo-vm/REPORT.md`，紅綠都量；`ndtwin-vm.sh` 仍釘著該 MAC（工具側待修）；08-31「Untested on real VMware — closed」被降級（依據是 ovftool 轉檔，碰不到 netplan） | 工具側：`ndtwin-vm.sh` 的 MAC；VMware 真開機一次 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
@@ -315,4 +315,13 @@ C++ 分支的共同碰撞點（B-5／D15／telemetry／topology-round），每�
 
 上表 17 列從「在分支上」改為「已在 trunk」。過程與每一支的驗證在 `MERGE-LOG.md`。
 仍標「在分支上」但分支不在這 18 支裡的列：#🔧 ON BRANCH, #12, #23, #24, #65。
+
+### 🛠 17:xx 第三批派工（離線、Python、不與前一批撞檔）
+
+| 分支 | findings | 需要實驗室 | 閘門要求 |
+|---|---|---|---|
+| `fix/rule-journal-is-wired` | #71 | 否 | 一支**不注入**的接線測試（走 `main.py` 真建構路徑，修前必須紅）＋兩面變異閘；replay 預設不自動開 |
+| `fix/chaos-invariants-method` | #17（第四例） | 否 | 照第三例 `efd2fe10` 的形狀；harness 所有 HTTP 呼叫對照 `components.py` 的完整表 |
+
+前一批仍在跑：`fix/poll-does-not-resurrect`（#46/36/35）、`fix/cloexec-listening-sockets`（#47，現持 lab claim）、`fix/apps-stop-kills-the-group`（#6/48）。
 
