@@ -97,6 +97,29 @@ twin 的可達性）；查不到對應 vertex 時 `admin_state`／`reachable` �
 `admin_state` 缺席預設 `"on"`——舊 payload 沒講過命令，「沒講」就是「沒有人關它」。反過來預設
 會把每一份存檔的圖讀成一個被人刻意關暗的 fabric（閘門 M7）。
 
+### 3.4 API 文件已更新（09-04，auditor 指派）
+
+**`doc/2026-01-02_ndt_api.md` 已改成 kernel 現在真的送的東西。** 起因是明晚的整機測試會**逐字照著
+那份文件走**：tester 讀 §7 看到舊的 `{"ip": "ON"}` 範例、拿到新的 object，會把它當 bug 開單。
+
+改了四處：
+
+1. **§7 `get_switches_power_state`**：新的 per-switch object、兩個欄位各自的**寫者**、TESTBED 多
+   一個 `outlet`（並註明該分支未經實測）、四台交換機的範例（含「被關掉」「自己死掉」「被帶外重啟」
+   三種讀法）、以及一行 **「2026-09-04 之前是 scalar `"ON"`／`"OFF"`」** 的變更說明。
+2. **§3 `get_graph_data` 的 vertex 欄位**：`admin_state`／`reachable` 的寫者表、`is_up` 標成
+   **DEPRECATED alias of `reachable`**（並寫明為什麼還留著：ESA 的 `j.at("is_up")` 會丟例外）、
+   ③.1 的四態表、兩個 node 範例補上新鍵，以及旗標表新增 `adminPoweredOff` 一列並點明
+   **它與 `adminDisabled` 是不同的旗標、不同的寫者**。另外寫明 **edge 沒有拆**、仍然只有 `is_up`。
+3. **`p4LivenessFor` 的三態判決表**：加上 #80 的例外——有未撤銷關機命令的交換機，其 **Up 若來自
+   kill 之前的 probe 會被降級成 Unknown**（附 18/18 trial 的 0.3–1.5 s／8–13 s 數字）。
+4. **§38** 那句「不含 `is_up`／`is_enabled`」補上兩個新欄位。
+
+**那份文件沒有 change-log／修訂章節**，所以變更說明是就地寫在 §3 與 §7 兩處，沒有新開一節。
+文件的 AI 標記照它自己的慣例（獨立一行的 `[Co-developed with claude code -- Adam]`）。
+
+**只動文件，沒有動碼、測試或閘門**，因此本分支的兩份閘門結果（⑦）不受影響。
+
 ## ④ Consumer 盤點
 
 ### 4.1 in-repo（已改）
