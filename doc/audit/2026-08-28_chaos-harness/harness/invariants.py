@@ -75,14 +75,72 @@ def inv01_power_state_agreement(ctx: Context) -> Finding:
     return Finding("INV-01", PASS, f"graph {up_in_graph} up vs {live} live processes", ev)
 
 
-def inv01_powercycle_latency(dpid: str | int) -> Finding:
+def inv01_powercycle_latency(ip: str) -> Finding:
     """The A-1 fingerprint directly: power-on that returns far too fast to have done anything.
 
     Latency as evidence, not the status code. ~0.01 s is the documented lie; ~1.27 s is the
     documented honest path.
+
+    🔴 REWRITTEN 2026-09-03 -- FINDINGS-ALL #17, the fourth instance of the family whose third
+    instance was fixed in `actions.py:_h23_verify`. This check has never once measured a
+    power-on. It sent
+
+        GET /ndt/set_switches_power_state?dpid={dpid}&action=on
+
+    and both halves of that line were wrong, independently and fatally:
+
+      * **GET.** `HttpSession.cpp:189` registers the route under `http::verb::post` alone, so
+        the request fell through the whole if/else-if chain to a 404.
+      * **`dpid=`.** `handleSetSwitchesPowerState` (`HttpSession.cpp:866-867`) reads `ip` and
+        `action` with `utils::queryParam` and answers 400 `Missing or invalid ip/action`
+        without an `ip`. Even as a POST it would have done nothing.
+
+    The reason it produced a verdict anyway is the part worth keeping, because it is the same
+    shape three times in this harness now: `api_get_timed` is LENIENT, so the 404 became
+    `None`, the discarded body was never looked at, and the only surviving number was the
+    clock -- which read ~0.007 s, because an unrouted request is fast. The criterion `dt < 0.1`
+    then fired, every round, with
+
+        "power-on answered in 0.0069s; the honest path measures ~1.27s, so nothing was
+         attempted (A-1 early return)"
+
+    which is a fluent, confident, entirely fabricated finding about NDTwin, and CONSTANT --
+    it fired whether or not A-1 existed, whether or not a switch was up, on any fabric and on
+    no fabric at all. `instrument-must-not-mimic-its-own-finding`: this invariant hunts for
+    "suspiciously fast success", and the shape of its own breakage is suspicious speed.
+
+    The fix is both halves plus a guard, because fixing only the route leaves the shape intact
+    for the next route that moves (the lesson `_c07_apply` was rewritten under):
+
+      * POST with `ip=`, the method and the key the source actually reads;
+      * `api_post_checked_timed`, so a non-2xx raises instead of being timed;
+      * and the refusal returns **SKIPPED**. 🔴 A 404/405/400 may never be read as an A-1
+        finding. "The kernel refused this request" and "the kernel did the work suspiciously
+        fast" are opposite facts that arrive as the same small number, and the whole defect
+        was choosing the accusatory one.
     """
-    _, dt = probes.api_get_timed(f"/ndt/set_switches_power_state?dpid={dpid}&action=on")
-    ev = {"elapsed_s": round(dt, 4)}
+    # Spelled inline rather than held in a local: tests/python/test_chaos_invariants_method.py
+    # resolves every call site's route statically, and a route that only exists in a variable
+    # is a route no checker can read -- which is the condition the whole family grew in.
+    try:
+        _, dt = probes.api_post_checked_timed(
+            f"/ndt/set_switches_power_state?ip={ip}&action=on", {})
+    except probes.HarnessBug as e:
+        # The route guard refused before anything was sent. This is a defect in the harness,
+        # so it must not be reported in the vocabulary of a finding about the kernel.
+        return Finding("INV-01", SKIPPED,
+                       f"this check did not run: {e}", {"harness_bug": str(e)})
+    except probes.NotAnswered as e:
+        # 🔴 The wording is load-bearing and the test asserts on it. This sentence must not
+        # contain the vocabulary of the finding ("A-1", "early return"): a reader -- or a grep
+        # over the round's JSON -- must not be able to mistake a refused request for a
+        # reproduction, and a denial phrased in the accusation's own words reads as one. The
+        # verdict field already says SKIPPED; the prose must not undo it.
+        return Finding("INV-01", SKIPPED,
+                       f"the kernel refused this power-on rather than performing it ({e}), so "
+                       f"no duration was measured and this check reaches no conclusion",
+                       {"status": e.status, "error": str(e)})
+    ev = {"elapsed_s": round(dt, 4), "ip": ip}
     if dt < 0.1:
         return Finding("INV-01", FAIL,
                        f"power-on answered in {dt:.4f}s; the honest path measures ~1.27s, so "

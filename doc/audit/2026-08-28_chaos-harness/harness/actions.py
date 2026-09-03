@@ -164,6 +164,24 @@ def _c01_undo() -> None:
     powerOn's `getVertexIsUp` early return. Verified against a healthy s1 before this control
     was ever run live (`routes_installed: 32/32`) -- a restore path first exercised during an
     emergency has not been tested, it has been hoped for.
+
+    🔴 THE HELPER POWER-ON INSIDE THIS LOOP WAS THE SAME DEFECT AS `_c01_apply`'s, and it
+    outlived the fix to `_c01_apply` by five days. Found 2026-09-03 sweeping FINDINGS-ALL #17
+    across the whole harness rather than only the line the finding named -- it is the FIFTH
+    instance of the family and no finding mentions it.
+
+    It read `probes.api_get("/ndt/set_switches_power_state?dpid=1&action=on")`: GET at a
+    POST-only route, `dpid` at an ip-keyed handler, through the LENIENT wrapper, with the
+    return value discarded. So the branch that exists to bring a dead switch back has never
+    executed a single line of power-on code, and could not have said so -- the 404 became
+    `None` and `None` was never read.
+
+    What that costs is worse here than in a check. This is the RESTORE path of a control that
+    is documented not to recover a P4 switch on its own, so its failure leaves the fabric in
+    the exact state the harness exists to detect -- a switch certified up that forwards
+    nothing -- and every later round measures that wreckage. `_c01_undo` cannot raise (it is
+    the cleanup path, and an exception here would strand the fabric mid-restore), so it says
+    so on stdout beside the readopt attempts it already reports.
     """
     for attempt in range(1, 6):
         live = 0
@@ -173,7 +191,12 @@ def _c01_undo() -> None:
             pass
         if live < 10:
             # helper-on itself failed; the process is gone, so readopt has nothing to adopt.
-            probes.api_get("/ndt/set_switches_power_state?dpid=1&action=on")
+            try:
+                probes.api_post_checked(
+                    f"/ndt/set_switches_power_state?ip={S1_MGMT_IP}&action=on", {})
+            except (probes.NotAnswered, probes.HarnessBug) as e:
+                print(f"    [undo] helper power-on did NOT land ({e}); readopt below is the "
+                      f"only remaining recovery")
             time.sleep(3.0)
         r = probes.api_post("/p4/readopt/1", {}, base=probes.PROXY)
         installed = r.get("routes_installed") if isinstance(r, dict) else None
@@ -419,17 +442,27 @@ UNCONTROLLED_INVARIANTS = ["INV-02", "INV-03", "INV-05"]
 
 def _h5_apply(dry: bool) -> ActionResult:
     """H5: acquire_lock with a body that is not JSON. The parse failure is swallowed and
-    defaults are used, so garbage can take the default lock."""
+    defaults are used, so garbage can take the default lock.
+
+    🔴 THE ONE CALL IN THIS HARNESS THAT BYPASSES `probes._request`, and it has to: the whole
+    injection is a body that is not JSON, and `_request` builds its body with `json.dumps`.
+    So the route guard `_request` runs for everyone else cannot run for this one, and it is
+    called by hand here instead. A chokepoint with one hole in it, and no marker on the hole,
+    is how #17's family survived the fix to its own third instance.
+    """
     if dry:
         return _dry("would POST '{{{' to acquire_lock")
     try:
         import subprocess
+        probes.assert_route("POST", "/ndt/acquire_lock")
         p = subprocess.run(
             ["curl", "-s", "--max-time", "3", "-X", "POST",
              "-H", "Content-Type: application/json", "--data-binary", "@-",
              f"{probes.KERNEL}/ndt/acquire_lock"],
             input="{{{", capture_output=True, text=True, timeout=5)
         return ActionResult(True, "malformed body sent", {"body": p.stdout[:200]})
+    except probes.HarnessBug as e:
+        return ActionResult(False, f"refusing to send: {e}")
     except Exception as e:
         return ActionResult(False, f"send failed: {e}")
 
@@ -464,10 +497,15 @@ def _h23_verify() -> ActionResult:
     checked probe so it now REFUSES instead of accusing; naming the route this should read
     instead is a separate ticket, because the kernel exposes no such endpoint at all and the
     proxy's /ryu_server/all_destination_paths is a different population.
+
+    🔧 2026-09-03: the refusal now also arrives as `HarnessBug`. `probes.assert_route` knows
+    this route is unregistered and stops it before curl runs, so the refusal is reached
+    without a round trip -- but it is a different exception type, and catching only
+    `NotAnswered` would have turned this deliberate refusal into a traceback.
     """
     try:
         d = probes.api_get_checked("/ndt/get_all_destination_paths")
-    except probes.NotAnswered as e:
+    except (probes.NotAnswered, probes.HarnessBug) as e:
         return ActionResult(False, f"cannot read the path map back, so nothing is claimed "
                                    f"about the empty publish: {e}", {"error": str(e)})
     n = len(d) if isinstance(d, (list, dict)) else 0
