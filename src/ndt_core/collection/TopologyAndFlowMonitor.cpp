@@ -152,9 +152,46 @@ TopologyAndFlowMonitor::~TopologyAndFlowMonitor()
     stop();
 }
 
+/** @brief D15. Load the static topology *before* returning, then start polling.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ *
+ * These three calls used to be the first statements of run(), i.e. on the spawned thread, while
+ * start() returned immediately. main.cpp then ran on: collector, historical data, event handler,
+ * and finally DeviceConfigurationAndPowerManager::start(), which asks getSwitchKindGroups()
+ * whether this is an all-bmv2 fabric and caches the answer for the life of the process. The two
+ * were sequenced by nothing, and the loser was decided by how long `file >> j` took.
+ *
+ * Measured over 60 cold starts (doc/audit/2026-09-03_night-rounds/round3-restart-concurrency):
+ * the power manager won 5/8 at a 310-byte topology, 5/8 at 587 bytes, and **0 of 44 at 7.8 KB and
+ * above** -- 0/20 on the shipped 4-host P4 model and 0/8 on the 128-host one. So on every fabric
+ * anyone actually runs, m_dataPlaneIsBmv2 latched false and the bmv2 liveness poll never executed
+ * once: zero `GET /p4/switch_state` against 108 topology polls in the same window.
+ *
+ * The fix is ordering, not speed. Making the parse faster only moves the coin: 587 bytes still
+ * lost 3 times in 8. Doing the load here, on the caller's thread, before any thread of this class
+ * exists, makes the postcondition unconditional -- and it is published as isStaticTopologyLoaded()
+ * so a consumer can assert it instead of trusting a comment.
+ *
+ * It also closes the data race the load's own note describes: add_vertex/add_edge no longer run
+ * concurrently with flushEdgeFlowLoop, because that thread does not exist yet.
+ */
 void
 TopologyAndFlowMonitor::start()
 {
+    // Once: the static topology is static, and loading it twice duplicates it.
+    loadStaticTopologyFromFile(activeTopologyPath());
+    initializeMappingsFromGraph();
+    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
+    configureTopologyApiUrls();
+    // Last, and with release ordering: everything above happens-before any reader that observes
+    // this as true. Set even when the file was missing or unparseable -- the load *pass* is over
+    // either way, and a consumer that blocked on it forever would be a worse failure than one
+    // that reads an empty topology and says so.
+    m_staticTopologyLoadThread.store(std::this_thread::get_id(), std::memory_order_release);
+    m_staticTopologyLoaded.store(true, std::memory_order_release);
+
     m_running.store(true);
     m_thread = thread(&TopologyAndFlowMonitor::run, this);
     m_flushEdgeFlowLoop = thread(&TopologyAndFlowMonitor::flushEdgeFlowLoop, this);
@@ -2509,11 +2546,10 @@ TopologyAndFlowMonitor::run()
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "TopologyAndFlowMonitor Run");
 
-    // Once: the static topology is static, and loading it twice duplicates it.
-    loadStaticTopologyFromFile(activeTopologyPath());
-    initializeMappingsFromGraph();
-    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
-    configureTopologyApiUrls();
+    // [Co-developed with claude code -- Adam]
+    // D15. The static load, initializeMappingsFromGraph and configureTopologyApiUrls used to be
+    // here, which is what made them race every caller main.cpp sequences after start(). They now
+    // run inside start(), on the caller's thread; see the note there. This thread only polls.
 
     const auto startedAt = std::chrono::steady_clock::now();
     auto previous = graphLivenessSummary();

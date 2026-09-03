@@ -264,6 +264,25 @@ class DeviceConfigurationAndPowerManager
      */
     void stop();
 
+    /**
+     * @brief Is this an all-bmv2 fabric? -- the gate on the bmv2 liveness poll.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * D15. Not a const getter over a value fixed at start(): it derives the answer on first use
+     * if start() could not, which is the half of the fix that survives someone reintroducing the
+     * startup race. Public because it is also the only seam through which a test can see which
+     * verdict the liveness worker will act on, without standing up a fabric.
+     */
+    bool dataPlaneIsBmv2();
+
+    /**
+     * @brief Whether the data-plane verdict rests on a topology that had been loaded.
+     *
+     * False means "not yet known", never "not bmv2". [Co-developed with claude code -- Adam]
+     */
+    bool dataPlaneKindDetermined() const noexcept { return m_dataPlaneKindDetermined.load(); }
+
   protected:
     /**
      * @brief What the bridge list implies about one OVS switch.
@@ -719,15 +738,27 @@ class DeviceConfigurationAndPowerManager
     /**
      * @brief True when every switch in the loaded topology is bmv2.
      *
-     * Cached once by refreshDataPlaneKind() because the liveness worker runs every second
-     * and hosts carry no SwitchKind of their own.
+     * Cached because the liveness worker runs every second and hosts carry no SwitchKind of
+     * their own -- but only cached once it is *known*; see m_dataPlaneKindDetermined.
      *
      * [Co-developed with claude code -- Adam]
      */
-    bool m_dataPlaneIsBmv2 = false;
+    std::atomic<bool> m_dataPlaneIsBmv2{false};
 
     /**
-     * @brief Recomputes m_dataPlaneIsBmv2 from the loaded topology. Call after load.
+     * @brief Whether m_dataPlaneIsBmv2 was derived from a topology that had actually been loaded.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * D15. The missing bit. "No switches have been read yet" and "these switches are not bmv2"
+     * used to produce the same value -- false -- and it was latched at a moment when only the
+     * first could be true. This separates them: false here means *not yet known*, and the answer
+     * is derived again at the point of use rather than believed.
+     */
+    std::atomic<bool> m_dataPlaneKindDetermined{false};
+
+    /**
+     * @brief Recomputes m_dataPlaneIsBmv2 from the loaded topology. Refuses if it is not loaded.
      *
      * [Co-developed with claude code -- Adam]
      */

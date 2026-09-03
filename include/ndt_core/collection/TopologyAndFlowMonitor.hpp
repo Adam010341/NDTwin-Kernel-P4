@@ -45,11 +45,55 @@ class TopologyAndFlowMonitor
     /**
      * @brief Starts the topology and flow monitoring services.
      *
-     * This function sets the running flag to true and spawns two background threads:
+     * This function loads the static topology **synchronously, on the caller's thread**, and only
+     * then sets the running flag and spawns two background threads:
      * 1. The main monitoring thread (run) for fetching topology data.
      * 2. The flow flushing thread (flushEdgeFlowLoop) for cleaning up stale flows.
+     *
+     * [Co-developed with claude code -- Adam]
+     * D15. The load used to be the first statement of `run()`, i.e. on the spawned thread, while
+     * `start()` returned immediately -- so everything main.cpp sequences *after* `start()` raced
+     * the JSON parse. Loading here makes "after start() returns, the switch-kind index is
+     * populated" true by construction, at any file size. isStaticTopologyLoaded() is the
+     * observable form of that postcondition.
      */
     void start();
+
+    /**
+     * @brief Whether the static topology load has completed.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * The postcondition of start(), and the precondition every consumer of getSwitchKindGroups()
+     * actually needs. It exists because that precondition used to be asserted by a *comment*
+     * ("the switch-kind index is populated by now") that was false on every shipped topology
+     * file, and nothing could tell the difference between "all switches are bmv2" and "no
+     * switches have been read yet" -- both answer with an empty or non-bmv2 group set.
+     *
+     * False until the load pass finishes, true afterwards, and it never goes back: the static
+     * topology is loaded exactly once (loadStaticTopologyFromFile refuses a second load).
+     */
+    bool isStaticTopologyLoaded() const noexcept
+    {
+        return m_staticTopologyLoaded.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Which thread performed the static topology load.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * The ordering itself, in a form that can be asserted rather than timed. "The topology is
+     * loaded by the time start() returns" is only *usually* observable if the load is on another
+     * thread -- a fast enough parse makes a racy implementation look correct, which is exactly
+     * how D15 survived on small topology files. Who did the loading does not depend on speed:
+     * equal to the caller's id means start() did it synchronously; anything else, including a
+     * default-constructed id, means it did not.
+     */
+    std::thread::id staticTopologyLoadedOnThread() const noexcept
+    {
+        return m_staticTopologyLoadThread.load(std::memory_order_acquire);
+    }
 
     /**
      * @brief Destructor for the TopologyAndFlowMonitor class.
@@ -641,4 +685,11 @@ class TopologyAndFlowMonitor
     // the flow-install hot path never contends with graph readers or writers.
     std::unordered_map<uint64_t, SwitchKind> m_dpidToSwitchKind;
     mutable std::shared_mutex m_switchKindMutex;
+
+    // [Co-developed with claude code -- Adam]
+    // D15. Read by isStaticTopologyLoaded(); written once, at the end of start()'s synchronous
+    // load pass. Release/acquire rather than relaxed: a reader that sees this true must also see
+    // every m_dpidToSwitchKind write that preceded it, on whatever thread it is reading from.
+    std::atomic<bool> m_staticTopologyLoaded{false};
+    std::atomic<std::thread::id> m_staticTopologyLoadThread{};
 };
