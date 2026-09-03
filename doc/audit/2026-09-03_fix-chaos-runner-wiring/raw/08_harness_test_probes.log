@@ -1,0 +1,17 @@
+fixture: fixtures/graph_p4_138nodes.json  (138 nodes)
+  ok    switches only  -- got 10, hosts excluded: 128
+  ok    every returned node really is a switch
+  ok    no host leaked in by name
+  ok    INV-01 numerator equals the switch count, not switches+1  -- up_in_graph=10 (was 11 before the fix)
+  ok    the fixture actually contains the colliding hosts  -- 128 nodes share dpid 0 -- this is what collapsed to 1
+  ok    field renamed away -> refuse, not classify by guess  -- refused: 138 of 138 graph nodes carry no 'vertex_type', so switches cannot be told from hosts. Clas
+  ok    even ONE untyped node -> refuse  -- refused: 1 of 138 graph nodes carry no 'vertex_type', so switches cannot be told from hosts. Classi
+  ok    two switches on one dpid -> refuse, don't drop one  -- refused: two switch nodes share dpid 1 ('s1' and 's2'); refusing to drop one silently
+  ok    no switches at all -> refuse  -- refused: no vertex_type==0 nodes among 128 graph nodes
+  ok    not an object -> refuse  -- refused: graph payload is not an object
+  ok    numerator tracks a switch going down  -- so INV-01 still has resolving power; it did not become a constant PASS
+  ok    override mismatch is reported  -- the override file declares '/usr/local/bmv2-fast/bin/simple_switch_grp
+  ok    mixed-build fabric is reported  -- 2 distinct binaries seen
+  ok    and it stays QUIET when the fabric is consistent  -- otherwise the warning is a constant and says nothing
+
+all parser checks passed

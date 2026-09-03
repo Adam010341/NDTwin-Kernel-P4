@@ -1,0 +1,19 @@
+$ git rev-parse trunk
+92a79392d0f55db12ea18579ec788556081c9290
+
+$ git rev-parse fix/chaos-runner-runs-latency-check
+3e992f0d829bab2a38d6acec5850673c1eedc1e1
+
+$ git merge-tree --write-tree trunk fix/chaos-runner-runs-latency-check
+1916baf7c9153efdf8e9648043e2a5e8fa236b6b
+rc=0
+
+$ git diff --name-only b57736cd trunk   # what trunk moved since this branch's base
+doc/audit/2026-09-03_fix-logger-cli/FIX-LOGGER-CLI.md
+doc/audit/2026-09-03_night-rounds/FINDINGS-COVERAGE.md
+doc/audit/2026-09-03_night-rounds/MERGE-LOG.md
+include/utils/Logger.hpp
+src/main.cpp
+src/utils/Logger.cpp
+tests/shell/mutate_logger_cli.sh
+tests/test_LoggerCliArgs.cpp

@@ -1,0 +1,30 @@
+test_chaos_c07_control.py                            rc=0  Ran 20 tests in 0.007s  OK 
+test_chaos_invariants_method.py                      rc=0  Ran 27 tests in 0.669s  OK 
+test_chaos_runner_wiring.py                          rc=0  Ran 13 tests in 0.606s  OK 
+test_check_gate_anchors.py                           rc=0  Ran 29 tests in 1.260s  OK (skipped=2) 
+test_check_logs_powered_off.py                       rc=0  Ran 22 tests in 0.580s  OK 
+test_contract_spec.py                                rc=0  Ran 126 tests in 0.006s  OK 
+test_cpu_gate_lifetime.py                            rc=0  Ran 22 tests in 0.733s  OK 
+test_find_host_by_ip.py                              rc=0  Ran 5 tests in 0.000s  OK (skipped=5) 
+test_grpc_port_block.py                              rc=0  Ran 31 tests in 0.145s  OK 
+test_host_discovery_gate.py                          rc=0  Ran 14 tests in 0.178s  OK 
+test_l3_dispatch_drift.py                            rc=0  Ran 12 tests in 0.004s  OK 
+test_lldp_backoff.py                                 rc=0  Ran 5 tests in 0.055s  OK 
+test_make_topology.py                                rc=0  Ran 29 tests in 0.089s  OK 
+test_ovs4_sflow.py                                   rc=0  Ran 21 tests in 0.009s  OK 
+test_p4_power_helper.py                              rc=0  Ran 23 tests in 51.118s  OK 
+test_route_install_gate.py                           rc=0  Ran 14 tests in 0.148s  OK 
+test_route_reinstall.py                              rc=0  Ran 11 tests in 7.498s  OK 
+test_ryu_rest_topology_bounded.py                    rc=0  Ran 7 tests in 0.001s  OK 
+test_sflow_emitter_batching.py                       rc=0  Ran 8 tests in 0.000s  OK 
+test_sflow_stats_endpoint.py                         rc=0  Ran 5 tests in 0.001s  OK 
+test_shell_command_construction.py                   rc=0  Ran 7 tests in 0.075s  OK 
+test_t11_filter_is_wired.py                          rc=0  Ran 16 tests in 0.050s  OK 
+test_testbed_banner.py                               rc=0  Ran 45 tests in 0.039s  OK 
+test_topology_read_timeouts.py                       rc=0  Ran 5 tests in 0.000s  OK (skipped=5) 
+test_topology_worker_coalescing.py                   rc=0  Ran 7 tests in 0.000s  OK (skipped=7) 
+test_twin_audit_criteria.py                          rc=0  Ran 63 tests in 0.003s  OK 
+test_twin_audit.py                                   rc=0  Ran 39 tests in 0.005s  OK 
+test_unavailable_metric_sentinel.py                  rc=0  Ran 6 tests in 0.000s  OK 
+test_unidirectional_link_loss.py                     rc=0  Ran 6 tests in 0.094s  OK 
+test_walk_instrumentation.py                         rc=0  Ran 10 tests in 0.000s  OK (skipped=10) 

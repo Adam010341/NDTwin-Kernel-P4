@@ -1,0 +1,18 @@
+baseline (must be green before any mutation):
+  
+  OK
+
+  caught   M1: back to GET at a POST-only route (the finding)             (test_it_posts_with_ip_not_gets_with_dpid went red)
+  caught   M2: back to dpid= at an ip-keyed handler                       (test_it_posts_with_ip_not_gets_with_dpid went red)
+  caught   M3: the guard stops comparing the verb                         (test_get_at_a_post_only_route_is_refused went red)
+  caught   M4: the guard stops checking that the route exists             (test_an_unregistered_route_is_refused went red)
+  caught   M5: HarnessBug becomes a NotAnswered, so the lenient wrappers absorb it (test_harness_bug_is_not_a_notanswered went red)
+  caught   M6: the refusal is written up in the finding's own vocabulary  (test_a_refusal_is_never_reported_as_an_early_return went red)
+  caught   M7: a non-2xx is scored as the defect again                    (test_a_refusal_is_never_reported_as_an_early_return went red)
+  caught   M8: the FIFTH instance returns to _c01_undo's recovery path    (test_every_kernel_call_uses_a_registered_method went red)
+  caught   N1 (control): the guard refuses everything it cannot verify    (test_the_proxy_is_out_of_scope_and_passes went red)
+  caught   N2 (control): every non-2xx refused, incl. a legitimate 404 for a missing flow (test_a_legitimate_404_still_comes_back_as_none went red)
+  caught   N3 (control): INV-01 becomes a constant SKIPPED and can never fire (test_a_genuine_fast_success_is_still_a_finding went red)
+
+baseline byte-identical: yes (probes.py, invariants.py, actions.py)
+mutation gate: 11 mutations, 0 survived

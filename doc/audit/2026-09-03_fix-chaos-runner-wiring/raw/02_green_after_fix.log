@@ -1,0 +1,29 @@
+test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round (__main__.ItStillResolves.test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round)
+s1 is DOWN in the graph, so this power-on must really start a switch; a 200 in ~0 s ... ok
+test_a_duration_on_the_honest_side_leaves_the_round_passing (__main__.ItStillResolves.test_a_duration_on_the_honest_side_leaves_the_round_passing) ... ok
+test_a_refusal_is_not_a_measurement_and_not_a_pass (__main__.ItStillResolves.test_a_refusal_is_not_a_measurement_and_not_a_pass)
+#17, at the runner. A 404 comes back fast; the round must not read that as either ... ok
+test_the_threshold_in_the_report_is_the_one_the_check_judges_by (__main__.ItStillResolves.test_the_threshold_in_the_report_is_the_one_the_check_judges_by)
+Otherwise the report's threshold is a second copy of the number and can drift from ... ok
+test_the_verdicts_are_actually_distinct (__main__.ItStillResolves.test_the_verdicts_are_actually_distinct)
+Belt and braces: a constant of ANY value satisfies one case above. ... ok
+test_an_injection_round_runs_it_too (__main__.TheRunnerRunsBothHalves.test_an_injection_round_runs_it_too)
+Not only the null round. A wiring that reaches one mode and not the others is the ... ok
+test_the_latency_check_reaches_the_round_report (__main__.TheRunnerRunsBothHalves.test_the_latency_check_reaches_the_round_report)
+🔴 THE DEFECT. Red on trunk: `chaos.py` calls inv01_power_state_agreement and ... ok
+test_the_latency_row_carries_its_measurement_and_its_threshold (__main__.TheRunnerRunsBothHalves.test_the_latency_row_carries_its_measurement_and_its_threshold)
+A duration without the threshold it was judged against is not a result anyone can ... ok
+test_the_two_checks_are_reported_separately (__main__.TheRunnerRunsBothHalves.test_the_two_checks_are_reported_separately)
+Two different questions about INV-01: 'does the graph agree with the process table' ... ok
+test_a_healthy_fabric_reports_not_measured_and_sends_nothing (__main__.WhenThereIsNothingToTime.test_a_healthy_fabric_reports_not_measured_and_sends_nothing)
+Every switch the graph calls up has a live process, so powering one on legitimately ... ok
+test_an_unreadable_graph_is_not_measured_rather_than_measured_blind (__main__.WhenThereIsNothingToTime.test_an_unreadable_graph_is_not_measured_rather_than_measured_blind)
+If the power-state check could not read the fabric, whether a power-on has work to ... ok
+test_no_target_address_is_also_not_measured (__main__.WhenThereIsNothingToTime.test_no_target_address_is_also_not_measured) ... ok
+test_not_measured_does_not_fail_the_round_on_its_own (__main__.WhenThereIsNothingToTime.test_not_measured_does_not_fail_the_round_on_its_own)
+The other direction of the same rule: 'could not measure' must not be scored as a ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.607s
+
+OK

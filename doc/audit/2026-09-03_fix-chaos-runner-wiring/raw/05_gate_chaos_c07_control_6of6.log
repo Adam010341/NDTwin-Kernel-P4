@@ -1,0 +1,13 @@
+baseline (must be green before any mutation):
+  
+  OK
+
+  caught   M1: back to a route the kernel does not register         (test_the_control_names_no_phantom_route went red)
+  caught   M2: a request that never landed counts as a reproduction (test_a_404_is_refused_not_scored_as_a_reproduction went red)
+  caught   M3: the probe swallows a non-2xx again                   (test_404_raises_and_carries_the_status went red)
+  caught   M4: a kernel that really records is still scored as B-3  (test_a_recording_kernel_does_not_reproduce_b3 went red)
+  caught   M5: an undecidable reply is scored instead of refused    (test_a_reply_without_the_recording_field_is_refused went red)
+  caught   M6: the retraction is downgraded to a note               (test_h9_is_marked_retracted went red)
+
+baseline byte-identical: yes
+mutation gate: 6 mutations, 0 survived

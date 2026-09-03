@@ -1,0 +1,231 @@
+test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round (__main__.ItStillResolves.test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round)
+s1 is DOWN in the graph, so this power-on must really start a switch; a 200 in ~0 s ... FAIL
+test_a_duration_on_the_honest_side_leaves_the_round_passing (__main__.ItStillResolves.test_a_duration_on_the_honest_side_leaves_the_round_passing) ... FAIL
+test_a_refusal_is_not_a_measurement_and_not_a_pass (__main__.ItStillResolves.test_a_refusal_is_not_a_measurement_and_not_a_pass)
+#17, at the runner. A 404 comes back fast; the round must not read that as either ... FAIL
+test_the_threshold_in_the_report_is_the_one_the_check_judges_by (__main__.ItStillResolves.test_the_threshold_in_the_report_is_the_one_the_check_judges_by)
+Otherwise the report's threshold is a second copy of the number and can drift from ... FAIL
+test_the_verdicts_are_actually_distinct (__main__.ItStillResolves.test_the_verdicts_are_actually_distinct)
+Belt and braces: a constant of ANY value satisfies one case above. ... FAIL
+test_an_injection_round_runs_it_too (__main__.TheRunnerRunsBothHalves.test_an_injection_round_runs_it_too)
+Not only the null round. A wiring that reaches one mode and not the others is the ... FAIL
+test_the_latency_check_reaches_the_round_report (__main__.TheRunnerRunsBothHalves.test_the_latency_check_reaches_the_round_report)
+🔴 THE DEFECT. Red on trunk: `chaos.py` calls inv01_power_state_agreement and ... FAIL
+test_the_latency_row_carries_its_measurement_and_its_threshold (__main__.TheRunnerRunsBothHalves.test_the_latency_row_carries_its_measurement_and_its_threshold)
+A duration without the threshold it was judged against is not a result anyone can ... FAIL
+test_the_two_checks_are_reported_separately (__main__.TheRunnerRunsBothHalves.test_the_two_checks_are_reported_separately)
+Two different questions about INV-01: 'does the graph agree with the process table' ... FAIL
+test_a_healthy_fabric_reports_not_measured_and_sends_nothing (__main__.WhenThereIsNothingToTime.test_a_healthy_fabric_reports_not_measured_and_sends_nothing)
+Every switch the graph calls up has a live process, so powering one on legitimately ... FAIL
+test_an_unreadable_graph_is_not_measured_rather_than_measured_blind (__main__.WhenThereIsNothingToTime.test_an_unreadable_graph_is_not_measured_rather_than_measured_blind)
+If the power-state check could not read the fabric, whether a power-on has work to ... FAIL
+test_no_target_address_is_also_not_measured (__main__.WhenThereIsNothingToTime.test_no_target_address_is_also_not_measured) ... FAIL
+test_not_measured_does_not_fail_the_round_on_its_own (__main__.WhenThereIsNothingToTime.test_not_measured_does_not_fail_the_round_on_its_own)
+The other direction of the same rule: 'could not measure' must not be scored as a ... ERROR
+
+======================================================================
+ERROR: test_not_measured_does_not_fail_the_round_on_its_own (__main__.WhenThereIsNothingToTime.test_not_measured_does_not_fail_the_round_on_its_own)
+The other direction of the same rule: 'could not measure' must not be scored as a
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 274, in test_not_measured_does_not_fail_the_round_on_its_own
+    self.assertEqual(r["verdict"], antioracle.PASS, r.get("verdict_detail"))
+                     ~^^^^^^^^^^^
+KeyError: 'verdict'
+
+======================================================================
+FAIL: test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round (__main__.ItStillResolves.test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round)
+s1 is DOWN in the graph, so this power-on must really start a switch; a 200 in ~0 s
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 293, in test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round
+    self.assertEqual(self.one(r, LATENCY)["verdict"], antioracle.FAIL,
+                     ~~~~~~~~^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_a_duration_on_the_honest_side_leaves_the_round_passing (__main__.ItStillResolves.test_a_duration_on_the_honest_side_leaves_the_round_passing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 302, in test_a_duration_on_the_honest_side_leaves_the_round_passing
+    self.assertEqual(self.one(r, LATENCY)["verdict"], antioracle.PASS,
+                     ~~~~~~~~^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_a_refusal_is_not_a_measurement_and_not_a_pass (__main__.ItStillResolves.test_a_refusal_is_not_a_measurement_and_not_a_pass)
+#17, at the runner. A 404 comes back fast; the round must not read that as either
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 322, in test_a_refusal_is_not_a_measurement_and_not_a_pass
+    f = self.one(self.null_round(), LATENCY)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_the_threshold_in_the_report_is_the_one_the_check_judges_by (__main__.ItStillResolves.test_the_threshold_in_the_report_is_the_one_the_check_judges_by)
+Otherwise the report's threshold is a second copy of the number and can drift from
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 310, in test_the_threshold_in_the_report_is_the_one_the_check_judges_by
+    thr = self.one(self.null_round(), LATENCY)["evidence"]["threshold_s"]
+          ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_the_verdicts_are_actually_distinct (__main__.ItStillResolves.test_the_verdicts_are_actually_distinct)
+Belt and braces: a constant of ANY value satisfies one case above.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 334, in test_the_verdicts_are_actually_distinct
+    seen.add(self.one(self.null_round(), LATENCY)["verdict"])
+             ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_an_injection_round_runs_it_too (__main__.TheRunnerRunsBothHalves.test_an_injection_round_runs_it_too)
+Not only the null round. A wiring that reaches one mode and not the others is the
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 227, in test_an_injection_round_runs_it_too
+    self.assertTrue([f for f in r["findings"] if f["inv"] == LATENCY],
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    f"the injection round evaluated {[f['inv'] for f in r['findings']]}")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [] is not true : the injection round evaluated ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_the_latency_check_reaches_the_round_report (__main__.TheRunnerRunsBothHalves.test_the_latency_check_reaches_the_round_report)
+🔴 THE DEFECT. Red on trunk: `chaos.py` calls inv01_power_state_agreement and
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 188, in test_the_latency_check_reaches_the_round_report
+    self.assertTrue(self.by_name(r, LATENCY),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    f"no {LATENCY} row in the round report; the round evaluated "
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    f"{[f['inv'] for f in r['findings']]} -- the latency check has zero "
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    f"call sites, which is finding #75")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [] is not true : no INV-01-latency row in the round report; the round evaluated ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07'] -- the latency check has zero call sites, which is finding #75
+
+======================================================================
+FAIL: test_the_latency_row_carries_its_measurement_and_its_threshold (__main__.TheRunnerRunsBothHalves.test_the_latency_row_carries_its_measurement_and_its_threshold)
+A duration without the threshold it was judged against is not a result anyone can
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 210, in test_the_latency_row_carries_its_measurement_and_its_threshold
+    ev = self.one(self.null_round(), LATENCY)["evidence"]
+         ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_the_two_checks_are_reported_separately (__main__.TheRunnerRunsBothHalves.test_the_two_checks_are_reported_separately)
+Two different questions about INV-01: 'does the graph agree with the process table'
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 202, in test_the_two_checks_are_reported_separately
+    agree, latency = self.one(r, AGREEMENT), self.one(r, LATENCY)
+                                             ~~~~~~~~^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_a_healthy_fabric_reports_not_measured_and_sends_nothing (__main__.WhenThereIsNothingToTime.test_a_healthy_fabric_reports_not_measured_and_sends_nothing)
+Every switch the graph calls up has a live process, so powering one on legitimately
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 243, in test_a_healthy_fabric_reports_not_measured_and_sends_nothing
+    f = self.one(self.null_round(), LATENCY)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_an_unreadable_graph_is_not_measured_rather_than_measured_blind (__main__.WhenThereIsNothingToTime.test_an_unreadable_graph_is_not_measured_rather_than_measured_blind)
+If the power-state check could not read the fabric, whether a power-on has work to
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 265, in test_an_unreadable_graph_is_not_measured_rather_than_measured_blind
+    f = self.one(self.null_round(), LATENCY)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+======================================================================
+FAIL: test_no_target_address_is_also_not_measured (__main__.WhenThereIsNothingToTime.test_no_target_address_is_also_not_measured)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 257, in test_no_target_address_is_also_not_measured
+    f = self.one(self.null_round(power_ip=None), LATENCY)
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-chaoswire/tests/python/test_chaos_runner_wiring.py", line 172, in one
+    self.assertEqual(len(rows), 1,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+                     f"expected exactly one {name} row in the round report, found "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     f"{len(rows)}: {[f['inv'] for f in report['findings']]}")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : expected exactly one INV-01-latency row in the round report, found 0: ['INV-01', 'INV-02', 'INV-08', 'INV-03', 'INV-04', 'INV-05', 'INV-06', 'INV-07']
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.006s
+
+FAILED (failures=12, errors=1)

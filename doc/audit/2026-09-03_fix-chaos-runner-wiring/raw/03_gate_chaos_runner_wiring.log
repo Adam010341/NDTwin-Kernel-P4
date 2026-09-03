@@ -1,0 +1,20 @@
+baseline (must be green before any mutation):
+  
+  OK
+
+  caught   W1: the call is removed again (finding #75 itself)         (test_the_latency_check_reaches_the_round_report went red)
+  caught   W2: the threshold is widened so every latency passes       (test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round went red)
+  caught   W3: 'not measured' is scored as a pass                     (test_a_healthy_fabric_reports_not_measured_and_sends_nothing went red)
+  caught   W4: the round verdict stops counting the latency check     (test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round went red)
+  caught   W5: the report drops the threshold it judged by            (test_the_latency_row_carries_its_measurement_and_its_threshold went red)
+  caught   W6: an unmeasured duration is written as 0.0, not null     (test_a_healthy_fabric_reports_not_measured_and_sends_nothing went red)
+  caught   W7: a healthy fabric is timed anyway, so a power-on is sent (test_a_healthy_fabric_reports_not_measured_and_sends_nothing went red)
+
+  survived X1 (widening): an extra evidence key is added              (all green, as required)
+  survived X2 (widening): the verdict string itself is reworded       (all green, as required)
+  survived X3 (widening): the honest-path reference is re-measured    (all green, as required)
+  survived U1 (control): an inert edit -- a survivor must be reportable (all green, as required)
+
+baseline byte-identical: yes (chaos.py, invariants.py, antioracle.py)
+widening controls: 4, 0 killed (a kill here means the suite is pinned to prose, not behaviour)
+mutation gate: 7 mutations, 0 survived

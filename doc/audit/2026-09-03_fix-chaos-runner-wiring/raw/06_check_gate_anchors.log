@@ -1,0 +1,10 @@
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                                   c0            
+mutate_chaos_c07_control.sh        ok(6)         
+mutate_chaos_invariants_method.sh  ok(11)        
+mutate_chaos_runner_wiring.sh      ok(11)        
+
+3/3 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
