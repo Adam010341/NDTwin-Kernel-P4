@@ -46,6 +46,7 @@
 
 #include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
+#include "ndt_core/collection/Classifier.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
@@ -333,8 +334,14 @@ TEST_F(KernelStopIsBoundedTest, AFlowTablePollCaughtMidRoundStopsWithinTheBound)
                                                             utils::MININET);
     // The monitor is never start()ed: this case is about the manager's own worker, and a second
     // poll loop would add a lifetime without adding a question.
+    // A real Classifier, not nullptr. fetchOpenFlowTablesInternal ends in
+    // m_classifier->updateFromQueriedTables(result), which the empty-topology fixture in
+    // test_PowerManagerShutdown.cpp never reaches because its walk polls nothing -- a fabric with
+    // switches in it does, and nullptr there is a segfault, not a test failure. main.cpp has
+    // always passed one.
+    auto classifier = std::make_shared<ndtClassifier::Classifier>();
     auto manager = std::make_shared<DeviceConfigurationAndPowerManager>(monitor, utils::MININET,
-                                                                        "127.0.0.1", nullptr);
+                                                                        "127.0.0.1", classifier);
     manager->start();
 
     // Mid-round is the whole point. Without this wait the stop could land during the 10 s sleep,
@@ -407,8 +414,14 @@ TEST_F(KernelStopIsBoundedTest, StoppingTwiceAndStoppingWhatNeverRanAreBothImmed
     auto eventBus = std::make_shared<EventBus>();
     auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph, graphMutex, eventBus,
                                                             utils::MININET);
+    // A real Classifier, not nullptr. fetchOpenFlowTablesInternal ends in
+    // m_classifier->updateFromQueriedTables(result), which the empty-topology fixture in
+    // test_PowerManagerShutdown.cpp never reaches because its walk polls nothing -- a fabric with
+    // switches in it does, and nullptr there is a segfault, not a test failure. main.cpp has
+    // always passed one.
+    auto classifier = std::make_shared<ndtClassifier::Classifier>();
     auto manager = std::make_shared<DeviceConfigurationAndPowerManager>(monitor, utils::MININET,
-                                                                        "127.0.0.1", nullptr);
+                                                                        "127.0.0.1", classifier);
 
     const auto neverStartedAt = std::chrono::steady_clock::now();
     manager->stop();
