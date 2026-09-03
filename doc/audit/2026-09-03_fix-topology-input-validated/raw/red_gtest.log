@@ -1,0 +1,123 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = TopologyInputValidationTest.*
+[==========] Running 14 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 14 tests from TopologyInputValidationTest
+[ RUN      ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:284: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+an edge whose dpid matches no switch was accepted; the kernel would serve the topology minus that cable and answer 200 to everything
+[  FAILED  ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused (3 ms)
+[ RUN      ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:302: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+[  FAILED  ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing (2 ms)
+[ RUN      ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:324: Failure
+Expected equality of these values:
+  out.edges
+    Which is: 39
+  0u
+    Which is: 0
+the refused topology left 39 edges in the graph (the measured defect left 39 of 40)
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:326: Failure
+Expected equality of these values:
+  out.vertices
+    Which is: 14
+  0u
+    Which is: 0
+the refused topology left 14 vertices in the graph
+[  FAILED  ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph (2 ms)
+[ RUN      ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:343: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+a host edge naming an address no node declares was accepted
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:344: Failure
+Expected equality of these values:
+  out.edges
+    Which is: 39
+  0u
+    Which is: 0
+a refused topology must not partially apply
+[  FAILED  ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:364: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+src_interface=0 on a switch was accepted and republished verbatim
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:365: Failure
+Expected equality of these values:
+  out.edges
+    Which is: 40
+  0u
+    Which is: 0
+a refused topology must not partially apply
+[  FAILED  ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:379: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+src_interface=999999 was accepted
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:380: Failure
+Expected equality of these values:
+  out.edges
+    Which is: 40
+  0u
+    Which is: 0
+a refused topology must not partially apply
+[  FAILED  ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused (3 ms)
+[ RUN      ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:393: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+[  FAILED  ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange (3 ms)
+[ RUN      ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:411: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+dst_interface=999999 was accepted
+[  FAILED  ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
+[       OK ] TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted (2 ms)
+[ RUN      ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/tests/test_TopologyInputValidation.cpp:442: Failure
+Value of: out.threw
+  Actual: false
+Expected: true
+65536 is one past the maximum and was accepted
+[  FAILED  ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted
+[       OK ] TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted (2 ms)
+[ RUN      ] TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted
+[       OK ] TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted (3 ms)
+[ RUN      ] TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+[       OK ] TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped (116 ms)
+[ RUN      ] TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode
+[       OK ] TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode (6 ms)
+[----------] 14 tests from TopologyInputValidationTest (158 ms total)
+
+[----------] Global test environment tear-down
+[==========] 14 tests from 1 test suite ran. (158 ms total)
+[  PASSED  ] 5 tests.
+[  FAILED  ] 9 tests, listed below:
+[  FAILED  ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused
+[  FAILED  ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing
+[  FAILED  ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+[  FAILED  ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
+[  FAILED  ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+[  FAILED  ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused
+[  FAILED  ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange
+[  FAILED  ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo
+[  FAILED  ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+
+ 9 FAILED TESTS

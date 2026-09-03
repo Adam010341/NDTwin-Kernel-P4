@@ -1,0 +1,32 @@
+== binary:      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/build/bin/ndtwin_kernel
+== binary sha:  120242a3e88c730e6c31400fd76e2d5e65b77ed226b0519d9363f0bc892cefad
+== topology:    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m4b_port_six_digits.json
+== topo sha:    cdc9d97359ba653803e5fbb3dc2bbf3bbc4dcd0e2de0f758c65f80f6114c115c
+== started:     2026-09-03T23:37:33+08:00
+== :8000 before: 0 listener(s)
+== pid:         1161922
+== :8000 opened at (s): 0.50
+== process died at (s): still alive at end of watch
+== still running -- the topology was ACCEPTED. Probing get_graph_data.
+== GET /ndt/get_graph_data -> HTTP 200
+== served: nodes=14 edges=40
+== file:   nodes=14 edges=40
+== DROPPED: 0 edge(s)
+== interface values republished by get_graph_data: [1, 2, 3, 4, 999999]
+== EXIT CODE: 143   (0=clean, 1=EXIT_FAILURE, 134=abort, 143=SIGTERM)
+--- stderr ---
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+--- topology load lines from stdout ---
+[2026-09-03 23:37:33.230] [info] [[94mmain.cpp[0m:[95m341[0m [96mmain[0m] Topology file: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m4b_port_six_digits.json
+[2026-09-03 23:37:33.230] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m407[0m [96mparseStaticTopologyFile[0m] Load Static Topology File
+--- Server Listening line present? ---
+1
+== :8000 after: 0 listener(s)
+== finished: 2026-09-03T23:37:36+08:00

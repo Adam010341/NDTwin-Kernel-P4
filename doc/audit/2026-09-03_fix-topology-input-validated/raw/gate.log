@@ -1,0 +1,76 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_topology_input_is_validated.sh
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     validate-call    src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     dpid-known       src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     dpid-refusal     src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     host-addr        src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     iface-ceiling    src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     iface-floor      src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     max-constant     src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     builder-refuse   src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     gate-comment     src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (14 cases in TopologyInputValidationTest.*)
+  ok       test_routing_strategy sha256 6800520f8bac9ef8
+
+=== M1. validation removed: the whole pass is never called ===
+  expect red: TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph TopologyInputValidationTest.ASixDigitInterfaceIsRefused TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+  ✅ caught  red: TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph TopologyInputValidationTest.ASixDigitInterfaceIsRefused TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+
+=== M2. error swallowed into a WARN again (both layers): the 40 -> 39 defect verbatim ===
+  expect red: TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+  ✅ caught  red: TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+
+=== M3. the unknown-dpid check can never fire ===
+  expect red: TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+  ✅ caught  red: TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+
+=== M4. a host edge's address is no longer checked against the file ===
+  expect red: TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
+  ✅ caught  red: TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
+
+=== M5. the interface range check is removed ===
+  expect red: TopologyInputValidationTest.ASixDigitInterfaceIsRefused TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+  ✅ caught  red: TopologyInputValidationTest.ASixDigitInterfaceIsRefused TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+
+=== M6. range check off by one: the ceiling admits one value too many ===
+  expect red: TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+  ✅ caught  red: TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+
+=== M7. range check off by one: the floor also refuses port 1 ===
+  expect red: TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode
+  ✅ caught  red: TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode
+
+=== M8. the floor is applied to the host side too (port 0 refused everywhere) ===
+  expect red: TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+  ✅ caught  red: TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+
+=== M9. the ceiling is narrowed to the fleet's observed maximum ===
+  expect red: TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
+  ✅ caught  red: TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
+
+=== W1. a comment, nothing else (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. the unknown-dpid refusal is reworded (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W3. the dpid lookup is written as the negated comparison (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+  all 1 files byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary sha unchanged: 6800520f8bac9ef8
+
+=== verdict ===
+  9 mutations, 0 survived
+  3 widenings, 0 wrongly caught
+  FINDINGS #61/#62 gate: neither defect can be put back by any of seven routes -- including
+  the two-layer restoration of the measured 40 -> 39 -- a range check that refuses the host
+  side's documented port 0 or the fleet's port 1 is caught, and three behaviour-preserving
+  edits were left alone.
+guarded_build: exit 0

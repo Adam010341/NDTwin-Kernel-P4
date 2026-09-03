@@ -1,0 +1,19 @@
+== binary:      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/build/bin/ndtwin_kernel
+== binary sha:  685038fdeebc31583088e84e2770ba384d5a52d601775c86d0979cc687ff7cd1
+== topology:    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m4a_port_zero.json
+== topo sha:    29a0fd0e3832303e7895fed5f9dc22379495d00cca1ff8bc55e668920fb11c9a
+== started:     2026-09-04T00:08:28+08:00
+== :8000 before: 0 listener(s)
+== pid:         1545975
+== :8000 opened at (s): NEVER
+== process died at (s): 0.25
+== EXIT CODE: 1   (0=clean, 1=EXIT_FAILURE, 134=abort, 143=SIGTERM)
+--- stderr ---
+--- topology load lines from stdout ---
+[2026-09-04 00:08:28.420] [info] [[94mmain.cpp[0m:[95m341[0m [96mmain[0m] Topology file: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m4a_port_zero.json
+[2026-09-04 00:08:28.420] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m556[0m [96mparseStaticTopologyFile[0m] Load Static Topology File
+[2026-09-04 00:08:28.425] [critical] [[94mTopologyAndFlowMonitor.cpp[0m:[95m407[0m [96mloadStaticTopology[0m] cannot load the static topology: topology file "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m4a_port_zero.json": edge #0 src_ip=["192.168.123.11"] dst_ip=["192.168.123.15"] src_dpid=1 dst_dpid=5: "src_interface" is 0 on the side attached to switch dpid 1, and 0 is not a switch port. It IS the documented value on the host side of a host edge, where the dpid is 0, and it is accepted there. Refusing to start: a kernel whose topology did not load answers every query confidently and wrongly. No port has been opened.
+--- Server Listening line present? ---
+0
+== :8000 after: 0 listener(s)
+== finished: 2026-09-04T00:08:28+08:00

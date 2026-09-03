@@ -1,0 +1,26 @@
+== binary:      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-topoval/build/bin/ndtwin_kernel
+== binary sha:  685038fdeebc31583088e84e2770ba384d5a52d601775c86d0979cc687ff7cd1
+== topology:    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m0_baseline.json
+== topo sha:    50a3246390a6eca9284dc59812aca297cd482df616afc03109466934059f2e94
+== started:     2026-09-04T00:08:24+08:00
+== :8000 before: 0 listener(s)
+== pid:         1545499
+== :8000 opened at (s): 0.50
+== process died at (s): still alive at end of watch
+== still running -- the topology was ACCEPTED. Probing get_graph_data.
+== GET /ndt/get_graph_data -> HTTP 200
+== served: nodes=14 edges=40
+== file:   nodes=14 edges=40
+== DROPPED: 0 edge(s)
+== interface values republished by get_graph_data: [1, 2, 3, 4]
+== EXIT CODE: 143   (0=clean, 1=EXIT_FAILURE, 134=abort, 143=SIGTERM)
+--- stderr ---
+curl: (28) Failed to connect to localhost port 8081 after 2002 ms: Timeout was reached
+Command failed (exit code 28): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+--- topology load lines from stdout ---
+[2026-09-04 00:08:24.855] [info] [[94mmain.cpp[0m:[95m341[0m [96mmain[0m] Topology file: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/repro/topo/m0_baseline.json
+[2026-09-04 00:08:24.855] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m556[0m [96mparseStaticTopologyFile[0m] Load Static Topology File
+--- Server Listening line present? ---
+1
+== :8000 after: 0 listener(s)
+== finished: 2026-09-04T00:08:28+08:00
