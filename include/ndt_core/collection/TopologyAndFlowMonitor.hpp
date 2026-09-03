@@ -471,6 +471,26 @@ class TopologyAndFlowMonitor
      */
     void updateGraph(const std::string&, const std::string&, const std::string&);
 
+  public:
+    /**
+     * @brief What the last poll round was, in the shape /ndt/get_graph_data serves it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The third channel of the A-2 fix, and the one the round-6 evidence
+     * (doc/audit/2026-09-03_night-rounds/round6-bug-shapes/11_, 12_) showed was missing entirely:
+     * with /links answering HTTP 500 the graph read 14/14 nodes and 40/40 edges up and the
+     * response's top-level keys were exactly ["edges","nodes"] -- no field anywhere said the
+     * round had been half-read. A log line only helps someone already reading the log; every
+     * consumer of the graph reads this endpoint instead.
+     *
+     * Additive: a new top-level key on an object `tools/contract_test/spec.py:235` declares
+     * non-strict (`schema.py:138`, `Obj(strict=False)` exists so "a kernel that *adds* a field is
+     * not breaking anything"). Same additive rule the flow-table path used for `stale_since` /
+     * `stale_polls` / `last_error`, and for the same reason: wrapping or reshaping breaks the two
+     * out-of-repo consumers, adding a key breaks none of them.
+     */
+    json pollRoundJson() const;
+
   protected:
     /**
      * @brief Loads nodes and edges from a topology JSON.
@@ -493,6 +513,92 @@ class TopologyAndFlowMonitor
      * kTopologyConnectTimeoutSeconds for why both deadlines are on it.
      */
     static std::string buildTopologyFetchCommand(const std::string& url);
+
+    /**
+     * @brief What separates the body from the HTTP status in one fetch's captured stdout.
+     *
+     * [Co-developed with claude code -- Adam]
+     * `utils::execCommand` is a plain popen(): it hands back stdout and throws the exit status
+     * away, so before this the status line was not merely ignored, it was unreachable. curl's
+     * `--write-out` is the one channel that survives that, because it writes to the same stdout
+     * the body does. The marker is deliberately not JSON and deliberately long: it is split on
+     * from the RIGHT, so a body that happens to contain it still cannot move the split.
+     *
+     * `%{http_code}` is 000 when curl never got a status line at all -- refused connection,
+     * DNS failure, or either of the two deadlines -- which is exactly the case that was already
+     * being detected by the empty body, so the two agree rather than compete.
+     */
+    static constexpr const char* kHttpStatusSentinel = "@@ndt-topology-http-status@@";
+
+    /**
+     * @brief How one endpoint's reply turned out.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Round 6 finding N1 (doc/audit/2026-09-03_night-rounds/round6-bug-shapes/14_SUMMARY.log):
+     * the test was `!body.empty()` and nothing else, so an HTTP 500 with a JSON error body, a 200
+     * carrying a JSON object instead of an array, and a 200 carrying `<html>not json</html>` all
+     * counted as answered and the round was recorded Complete. Measured, each arm held for at
+     * least three poll intervals; only a genuinely empty body ever went red.
+     *
+     * The vocabulary is the flow-table path's, on purpose -- `no_response`, `reported_failure`,
+     * `unparseable` are spelled exactly as `StaleTableCarryForward.hpp` spells them, so a consumer
+     * or a scraper that already switches on one path's tokens needs no second table for this one.
+     * `wrong_shape` is new to both and is added to both (see classifyFlowStatsReply): it is the
+     * case where the body parses and is still not the thing the endpoint promised.
+     */
+    enum class EndpointOutcome
+    {
+        Ok,              ///< 2xx, non-empty, parses, and is the JSON array the endpoint promises.
+        NoResponse,      ///< Nothing came back at all: status 000, or an empty body.
+        ReportedFailure, ///< The control plane answered, with a non-2xx status.
+        Unparseable,     ///< 2xx, non-empty, and not JSON.
+        WrongShape       ///< 2xx and valid JSON, but not the array this endpoint must return.
+    };
+
+    /// @see EndpointOutcome. Kept as literals a runbook can grep, next to the enum they name.
+    static constexpr const char* kOutcomeOk = "ok";
+    static constexpr const char* kOutcomeNoResponse = "no_response";
+    static constexpr const char* kOutcomeReportedFailure = "reported_failure";
+    static constexpr const char* kOutcomeUnparseable = "unparseable";
+    static constexpr const char* kOutcomeWrongShape = "wrong_shape";
+
+    /// The token for @p outcome. Never a sentence: this is what lands in the API and the log.
+    static const char* endpointOutcomeToken(EndpointOutcome outcome);
+
+    /**
+     * @brief One endpoint's reply, after the status has been read.
+     *
+     * [Co-developed with claude code -- Adam]
+     * `body` is empty unless the reply is usable, and that is the load-bearing part: it is what
+     * lets every writer downstream keep the early-return-on-empty behaviour it already had, so a
+     * 500's error body is no longer fed to updateLinks. Before this it was -- the only trace a
+     * 500 /links left in the log was 16 lines of "ignoring a links entry with no src/dst
+     * endpoint", which reads like a malformed fabric rather than a failed read.
+     */
+    struct EndpointReply
+    {
+        std::string body;
+        long httpStatus{0};
+        EndpointOutcome outcome{EndpointOutcome::NoResponse};
+
+        bool usable() const { return outcome == EndpointOutcome::Ok; }
+    };
+
+    /**
+     * @brief Splits one fetch's captured stdout into body + status and judges it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Pure and static for the same reason as buildTopologyFetchCommand: the method around it
+     * needs a live control plane, so nothing inside it can be asserted, but this rule can -- and
+     * this rule is the fix. Feed it what curl printed; it decides which of the five outcomes the
+     * endpoint produced.
+     *
+     * 🔴 `[]` stays an answer. A 200 carrying two bytes of empty JSON array is Ok, not
+     * NoResponse and not WrongShape: an OVS fabric answers exactly that on all three endpoints
+     * until LLDP has finished discovering, which is every boot, and calling it a fault is the
+     * mistake this file has already made once in the other direction.
+     */
+    static EndpointReply classifyEndpointReply(const std::string& rawCurlOutput);
 
     /**
      * @brief Seconds curl may spend reaching the control plane before giving up on one request.
@@ -538,9 +644,14 @@ class TopologyAndFlowMonitor
         /// No round has finished yet. The initial value, and never a classification result --
         /// starting at Silent would report a wedge before the first request had been made.
         NotYetPolled,
-        Complete, ///< All three endpoints produced a body.
-        Partial,  ///< At least one produced a body and at least one did not.
-        Silent    ///< None produced a body. The control plane is not answering at all.
+        /// All three endpoints were READ: 2xx, parsed, and the promised array. Until round 6
+        /// this said "produced a body", and that is the defect -- a 500 produces a body.
+        Complete,
+        Partial, ///< At least one endpoint was read and at least one was not.
+        /// None was read. Note this now covers a control plane answering 500 on all three, which
+        /// is not silence; the endpoint-level tokens carry that distinction and the log line
+        /// beside m_topologyFetchFailures still separates the two by naming the reason.
+        Silent
     };
 
     /**
@@ -551,9 +662,9 @@ class TopologyAndFlowMonitor
      * needs a live control plane, so nothing inside that method can be asserted, but this rule
      * can. Never returns NotYetPolled -- a finished round is one of the other three.
      */
-    static PollRoundKind classifyPollRound(bool switchesAnswered,
-                                           bool hostsAnswered,
-                                           bool linksAnswered);
+    static PollRoundKind classifyPollRound(EndpointOutcome switches,
+                                           EndpointOutcome hosts,
+                                           EndpointOutcome links);
 
     /**
      * @brief Whether this round earns the partial-round line, given what the previous round was.
@@ -586,9 +697,9 @@ class TopologyAndFlowMonitor
      *
      * @return this round's kind, which is also what lastPollRoundKind() will now report.
      */
-    PollRoundKind noteAndAnnouncePollRound(const std::string& switchesBody,
-                                           const std::string& hostsBody,
-                                           const std::string& linksBody);
+    PollRoundKind noteAndAnnouncePollRound(const EndpointReply& switches,
+                                           const EndpointReply& hosts,
+                                           const EndpointReply& links);
 
     /**
      * @brief What the most recently finished poll round was; NotYetPolled before the first.
@@ -626,9 +737,14 @@ class TopologyAndFlowMonitor
     /// why the two must not be repeated together. [Co-developed with claude code -- Adam]
     void pollControlPlaneTopology();
 
-    /// Fetches one topology endpoint, bounded. Empty means it did not answer.
+    /// Fetches one topology endpoint, bounded, and reads the status line as well as the body.
     /// [Co-developed with claude code -- Adam]
-    std::string fetchTopologyEndpoint(const std::string& url);
+    EndpointReply fetchTopologyEndpoint(const std::string& url);
+
+    /// The three roles, in the order m_ryuUrl holds them. Named rather than counted for the same
+    /// reason the silent-endpoint list is: "hosts is unreadable" and "one of three is unreadable"
+    /// are different messages. [Co-developed with claude code -- Adam]
+    static constexpr std::array<const char*, 3> kEndpointRoles = {"switches", "hosts", "links"};
 
     /// How many consecutive polling passes left at least one endpoint silent.
     ///
@@ -657,6 +773,18 @@ class TopologyAndFlowMonitor
     /// Never cleared, because there is no recovery anyone needs a second line about.
     /// Touched only by the polling thread.
     std::set<uint32_t> m_switchIpsOfferedAsHosts;
+
+    /// Per-endpoint outcome of the last finished round, in kEndpointRoles order. Written by the
+    /// polling thread, read by pollRoundJson() on an HTTP thread -- hence the mutex, which
+    /// m_lastPollRoundKind does without only because a PollRoundKind is a word.
+    /// [Co-developed with claude code -- Adam]
+    struct EndpointRoundRecord
+    {
+        long httpStatus{0};
+        EndpointOutcome outcome{EndpointOutcome::NoResponse};
+    };
+    std::array<EndpointRoundRecord, 3> m_lastRoundEndpoints{};
+    mutable std::mutex m_pollRoundMutex;
 
     /// What the last finished poll round was. Read by lastPollRoundKind(), written by
     /// noteAndAnnouncePollRound(), and -- like m_topologyFetchFailures above -- touched only by

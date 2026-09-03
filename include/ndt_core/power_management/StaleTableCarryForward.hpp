@@ -107,6 +107,13 @@ inline constexpr const char* kUnreadUnparseable = "unparseable";
 /// DeviceConfigurationAndPowerManager.cpp:1125.
 inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 
+/// A body that parses, and whose per-switch value is still not a list of rules -- an object, a
+/// number, a string. Round 6 finding N2: this was the one unreadable shape of three that carried
+/// no marker at all, so `{"dpid":3,"flows":{"3":{"unexpected":"object"}}}` was republished
+/// verbatim while its two neighbours were marked. Spelled the same in the topology path
+/// (TopologyAndFlowMonitor::kOutcomeWrongShape), which is one vocabulary on purpose.
+inline constexpr const char* kUnreadWrongShape = "wrong_shape";
+
 /// Empty *and* slower than kFlowStatsSuspectSeconds: Ryu's stats timeout, not an empty table.
 /// DeviceConfigurationAndPowerManager.cpp:1143.
 inline constexpr const char* kUnreadSuspectTimeout = "suspect_timeout";

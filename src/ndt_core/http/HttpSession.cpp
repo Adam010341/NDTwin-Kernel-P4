@@ -545,6 +545,12 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
     json result;
     result["nodes"] = json::array();
     result["edges"] = json::array();
+    // [Co-developed with claude code -- Adam]
+    // doc/audit/2026-09-03_night-rounds round 6, finding N1. Read BEFORE the graph, so the verdict
+    // cannot describe a later round than the nodes and edges below it: the poll thread may finish
+    // a round while this loop runs, and a graph labelled with a fresher round's verdict is a worse
+    // lie than a stale label. Additive top-level key; GRAPH_DATA is a non-strict Obj.
+    result["topology_round"] = m_topologyAndFlowMonitor->pollRoundJson();
 
     auto graph = m_topologyAndFlowMonitor->getGraph();
     for (auto vd : boost::make_iterator_range(boost::vertices(graph)))

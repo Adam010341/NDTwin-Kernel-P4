@@ -525,9 +525,20 @@ TopologyAndFlowMonitor::buildTopologyFetchCommand(const std::string& url)
     // -sS rather than -s: -S restores curl's own one-line diagnosis on stderr while keeping the
     // progress meter off, so "(28) Operation timed out" reaches the log alongside the warning
     // below. execCommand captures stdout only, so this costs the caller nothing.
+    //
+    // [Co-developed with claude code -- Adam]
+    // --write-out is the fix for round 6's N1. utils::execCommand is a popen() that returns
+    // stdout and discards the exit status, so `curl -sS` alone makes an HTTP 500 and an HTTP 200
+    // literally indistinguishable to this process -- which is why the completeness check tested
+    // `!body.empty()`: it had nothing else to test. --write-out prints to the same stdout the
+    // body does, so the status arrives through the one channel that does survive.
+    //
+    // Appended, never prefixed, and split from the right by classifyEndpointReply: a body that
+    // contains the marker cannot move the split, and one that ends without a newline still parses.
     return "curl -sS -X GET --connect-timeout " +
            std::to_string(kTopologyConnectTimeoutSeconds) + " --max-time " +
-           std::to_string(kTopologyRequestTimeoutSeconds) + " " + url;
+           std::to_string(kTopologyRequestTimeoutSeconds) + " --write-out '\\n" +
+           kHttpStatusSentinel + "%{http_code}' " + url;
 }
 
 /** @brief One bounded topology GET. Empty means "did not answer"; the caller decides what to say.
@@ -538,12 +549,12 @@ TopologyAndFlowMonitor::buildTopologyFetchCommand(const std::string& url)
  * genuinely had nothing to say arrive as the same empty string. Reporting is left to the caller so
  * that a wedged control plane -- which fails all three of these -- produces one line and not three.
  */
-std::string
+TopologyAndFlowMonitor::EndpointReply
 TopologyAndFlowMonitor::fetchTopologyEndpoint(const std::string& url)
 {
     try
     {
-        return utils::execCommand(buildTopologyFetchCommand(url));
+        return classifyEndpointReply(utils::execCommand(buildTopologyFetchCommand(url)));
     }
     catch (const exception& ex)
     {
@@ -553,18 +564,123 @@ TopologyAndFlowMonitor::fetchTopologyEndpoint(const std::string& url)
                            "could not run the topology request for {} at all: {}",
                            url,
                            ex.what());
-        return {};
+        return EndpointReply{};
     }
 }
 
+// [Co-developed with claude code -- Adam]
+const char*
+TopologyAndFlowMonitor::endpointOutcomeToken(EndpointOutcome outcome)
+{
+    switch (outcome)
+    {
+        case EndpointOutcome::Ok:
+            return kOutcomeOk;
+        case EndpointOutcome::NoResponse:
+            return kOutcomeNoResponse;
+        case EndpointOutcome::ReportedFailure:
+            return kOutcomeReportedFailure;
+        case EndpointOutcome::Unparseable:
+            return kOutcomeUnparseable;
+        case EndpointOutcome::WrongShape:
+            return kOutcomeWrongShape;
+    }
+    return kOutcomeNoResponse;
+}
+
+/** @brief The rule round 6 found missing: what actually came back, and whether it can be read.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Modelled on the flow-table path in DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal
+ * (empty -> no_response, will-not-parse -> unparseable, the control plane said it failed ->
+ * reported_failure), which is the branching this one did not have. The order of the tests is the
+ * part worth reading:
+ *
+ *   1. Status first, because a failure is cheap and fast: an HTTP 500 with a JSON error body
+ *      parses perfectly and would otherwise pass every later test. This is exactly how it slid
+ *      past before, and it is the same trap classifyFlowStatsReply documents for {"error": ...}.
+ *   2. Status 000 means curl never got a status line -- refused, unresolvable, or either deadline.
+ *      Same fault the empty body was already catching, so they agree instead of competing.
+ *   3. Then emptiness, then JSON, then the shape. `[]` passes all three: it is an answer.
+ */
+TopologyAndFlowMonitor::EndpointReply
+TopologyAndFlowMonitor::classifyEndpointReply(const std::string& rawCurlOutput)
+{
+    EndpointReply reply;
+
+    const std::string sentinel = kHttpStatusSentinel;
+    std::string body = rawCurlOutput;
+
+    const auto at = rawCurlOutput.rfind(sentinel);
+    if (at != std::string::npos)
+    {
+        body = rawCurlOutput.substr(0, at);
+        // The command puts a newline in front of the marker so the body ends where it ended.
+        if (!body.empty() && body.back() == '\n')
+        {
+            body.pop_back();
+        }
+        try
+        {
+            reply.httpStatus = std::stol(rawCurlOutput.substr(at + sentinel.size()));
+        }
+        catch (const std::exception&)
+        {
+            // curl wrote the marker and then something that is not a number. Unreachable with
+            // %{http_code}, and treated as "no status" rather than as a usable answer.
+            reply.httpStatus = 0;
+        }
+    }
+
+    const auto firstReal = body.find_first_not_of(" \t\r\n");
+    const bool bodyIsBlank = (firstReal == std::string::npos);
+
+    if (reply.httpStatus != 0 && (reply.httpStatus < 200 || reply.httpStatus >= 300))
+    {
+        // The control plane answered and said no. Round 6 measured this on all three endpoints:
+        // every one of them was recorded as "answered" and the round as Complete.
+        reply.outcome = EndpointOutcome::ReportedFailure;
+        return reply;
+    }
+    if (reply.httpStatus == 0 || bodyIsBlank)
+    {
+        reply.outcome = EndpointOutcome::NoResponse;
+        return reply;
+    }
+
+    const auto parsed = nlohmann::json::parse(body, nullptr, false);
+    if (parsed.is_discarded())
+    {
+        reply.outcome = EndpointOutcome::Unparseable;
+        return reply;
+    }
+    if (!parsed.is_array())
+    {
+        // All three Ryu topology endpoints return a JSON array (p4_proxy/proxy_agent/ryu_topology.py
+        // renders switches, hosts and links as lists). An object here is a body that parses and is
+        // still not the thing that was asked for -- and updateSwitches/updateHosts/updateLinks
+        // iterate it, so what it produces downstream is a silent zero, not an error.
+        reply.outcome = EndpointOutcome::WrongShape;
+        return reply;
+    }
+
+    reply.outcome = EndpointOutcome::Ok;
+    reply.body = std::move(body);
+    return reply;
+}
+
 TopologyAndFlowMonitor::PollRoundKind
-TopologyAndFlowMonitor::classifyPollRound(bool switchesAnswered,
-                                          bool hostsAnswered,
-                                          bool linksAnswered)
+TopologyAndFlowMonitor::classifyPollRound(EndpointOutcome switches,
+                                          EndpointOutcome hosts,
+                                          EndpointOutcome links)
 {
     // [Co-developed with claude code -- Adam]
-    const int answered =
-        (switchesAnswered ? 1 : 0) + (hostsAnswered ? 1 : 0) + (linksAnswered ? 1 : 0);
+    // Round 6 N1: this counted bodies, and every failure mode except a genuinely empty one
+    // produces a body. It now counts READS -- Ok and nothing else -- so a 500, a JSON object
+    // where an array belongs, and a page of HTML each subtract from the count the way an
+    // unanswered request always did.
+    const auto read = [](EndpointOutcome outcome) { return outcome == EndpointOutcome::Ok ? 1 : 0; };
+    const int answered = read(switches) + read(hosts) + read(links);
     if (answered == 3)
     {
         return PollRoundKind::Complete;
@@ -614,20 +730,25 @@ TopologyAndFlowMonitor::shouldAnnouncePartialRound(PollRoundKind previous, PollR
  * was. The line is edge-triggered and carries kPartialRoundToken so a scraper can count episodes.
  */
 TopologyAndFlowMonitor::PollRoundKind
-TopologyAndFlowMonitor::noteAndAnnouncePollRound(const std::string& switchesBody,
-                                                 const std::string& hostsBody,
-                                                 const std::string& linksBody)
+TopologyAndFlowMonitor::noteAndAnnouncePollRound(const EndpointReply& switches,
+                                                 const EndpointReply& hosts,
+                                                 const EndpointReply& links)
 {
     // [Co-developed with claude code -- Adam]
-    // empty(), not "has no entries": "[]" is an answer. See the header for why that distinction
-    // is the whole difference between reporting a wedge and inventing one at every boot.
-    const bool switchesAnswered = !switchesBody.empty();
-    const bool hostsAnswered = !hostsBody.empty();
-    const bool linksAnswered = !linksBody.empty();
-
-    const PollRoundKind kind = classifyPollRound(switchesAnswered, hostsAnswered, linksAnswered);
+    // Round 6 N1. These three were `!body.empty()`, which is why a 500 counted as an answer. The
+    // emptiness rule has not gone away -- it moved into classifyEndpointReply, where "[]" is still
+    // an answer and "" is still not; what is new is that four other ways of not answering now
+    // reach this line as themselves instead of as a non-empty string.
+    const PollRoundKind kind = classifyPollRound(switches.outcome, hosts.outcome, links.outcome);
     const bool announce = shouldAnnouncePartialRound(m_lastPollRoundKind, kind);
-    m_lastPollRoundKind = kind;
+    {
+        // Written under the lock because pollRoundJson() reads both on an HTTP thread.
+        std::lock_guard<std::mutex> lock(m_pollRoundMutex);
+        m_lastPollRoundKind = kind;
+        m_lastRoundEndpoints[0] = {switches.httpStatus, switches.outcome};
+        m_lastRoundEndpoints[1] = {hosts.httpStatus, hosts.outcome};
+        m_lastRoundEndpoints[2] = {links.httpStatus, links.outcome};
+    }
 
     if (announce)
     {
@@ -635,14 +756,26 @@ TopologyAndFlowMonitor::noteAndAnnouncePollRound(const std::string& switchesBody
         // and they stay the same when the poll is re-pointed at the P4 proxy.
         std::string answered;
         std::string missing;
-        const auto note = [&answered, &missing](const char* role, bool ok) {
-            std::string& bucket = ok ? answered : missing;
-            bucket += bucket.empty() ? "" : ", ";
-            bucket += role;
+        const auto note = [&answered, &missing](const char* role, const EndpointReply& reply) {
+            if (reply.usable())
+            {
+                answered += answered.empty() ? "" : ", ";
+                answered += role;
+                return;
+            }
+            // The reason and the status, not just the role: "links did not answer" and "links
+            // answered 500" send an operator to two different machines.
+            missing += missing.empty() ? "" : ", ";
+            missing += role;
+            missing += " (";
+            missing += endpointOutcomeToken(reply.outcome);
+            missing += ", HTTP ";
+            missing += std::to_string(reply.httpStatus);
+            missing += ")";
         };
-        note("switches", switchesAnswered);
-        note("hosts", hostsAnswered);
-        note("links", linksAnswered);
+        note(kEndpointRoles[0], switches);
+        note(kEndpointRoles[1], hosts);
+        note(kEndpointRoles[2], links);
 
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "{}: {} answered and {} did not, and the half that answered was "
@@ -682,9 +815,20 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     // is a separate decision from bounding the wait.
     const auto startedAt = std::chrono::steady_clock::now();
 
-    const std::string switchesStr = fetchTopologyEndpoint(m_ryuUrl[0]);
-    const std::string hostsStr = fetchTopologyEndpoint(m_ryuUrl[1]);
-    const std::string linksStr = fetchTopologyEndpoint(m_ryuUrl[2]);
+    const EndpointReply switchesReply = fetchTopologyEndpoint(m_ryuUrl[0]);
+    const EndpointReply hostsReply = fetchTopologyEndpoint(m_ryuUrl[1]);
+    const EndpointReply linksReply = fetchTopologyEndpoint(m_ryuUrl[2]);
+
+    // [Co-developed with claude code -- Adam]
+    // Round 6 N1, the half of the fix that is not a report. An unreadable reply now reaches the
+    // writers as the empty string, which is the "did not answer" path they have always had: the
+    // endpoints that were read are still applied, and the ones that were not still leave their
+    // part of the graph untouched. Before this, a 500's error body was handed to updateLinks and
+    // iterated -- the only trace the whole failure left was 16 lines of "ignoring a links entry
+    // with no src/dst endpoint", which describes a malformed fabric, not a failed read.
+    const std::string& switchesStr = switchesReply.body;
+    const std::string& hostsStr = hostsReply.body;
+    const std::string& linksStr = linksReply.body;
 
     const double elapsedSeconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
@@ -694,20 +838,25 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     std::string silent;
     std::string firstSilent;
     const auto noteIfSilent = [&silent, &firstSilent](const std::string& url,
-                                                     const std::string& body) {
-        if (body.empty())
+                                                     const EndpointReply& reply) {
+        if (!reply.usable())
         {
             silent += silent.empty() ? "" : ", ";
             silent += url;
+            silent += " (";
+            silent += endpointOutcomeToken(reply.outcome);
+            silent += ", HTTP ";
+            silent += std::to_string(reply.httpStatus);
+            silent += ")";
             if (firstSilent.empty())
             {
                 firstSilent = url;
             }
         }
     };
-    noteIfSilent(m_ryuUrl[0], switchesStr);
-    noteIfSilent(m_ryuUrl[1], hostsStr);
-    noteIfSilent(m_ryuUrl[2], linksStr);
+    noteIfSilent(m_ryuUrl[0], switchesReply);
+    noteIfSilent(m_ryuUrl[1], hostsReply);
+    noteIfSilent(m_ryuUrl[2], linksReply);
 
     // [Co-developed with claude code -- Adam]
     // A-2's third uncovered item. This changes nothing about what gets applied -- see
@@ -715,7 +864,7 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     // better -- it only records which kind of round this was and says so once when a round starts
     // producing a mixed-age graph. Called before updateGraph so lastPollRoundKind() describes the
     // round whose data the graph is about to receive.
-    noteAndAnnouncePollRound(switchesStr, hostsStr, linksStr);
+    noteAndAnnouncePollRound(switchesReply, hostsReply, linksReply);
 
     // Edge-triggered: this poll repeats every 5-30s forever, so an unrecovered control plane would
     // otherwise write this line until the disk filled. The run is per pass rather than per
@@ -726,7 +875,7 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
         {
             SPDLOG_LOGGER_WARN(
                 Logger::instance(),
-                "topology poll got no answer from {} after {:.3f}s (each request bounded at {}s "
+                "topology poll could not read {} after {:.3f}s (each request bounded at {}s "
                 "connect / {}s total). The graph keeps what it last saw, and this retries next "
                 "poll -- but until it clears, switches and links this twin never saw will read as "
                 "down and disabled while the fabric may be forwarding normally. Confirm with: "
@@ -741,13 +890,60 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     else if (m_topologyFetchFailures != 0)
     {
         SPDLOG_LOGGER_INFO(Logger::instance(),
-                           "topology poll answered again after {} silent pass(es), in {:.3f}s",
+                           "topology poll is readable again after {} unreadable pass(es), in "
+                           "{:.3f}s",
                            m_topologyFetchFailures,
                            elapsedSeconds);
         m_topologyFetchFailures = 0;
     }
 
     updateGraph(switchesStr, hostsStr, linksStr);
+}
+
+/** @brief The round's verdict, in the shape /ndt/get_graph_data serves it.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Round 6 N1 measured the gap this closes: with /links answering 500 the graph read 14/14 nodes
+ * and 40/40 edges up, and the response's top-level keys were exactly ["edges","nodes"] -- a
+ * half-read round and a complete one were identical in every channel a consumer has. The log line
+ * added by A-2 is edge-triggered and once per episode, so a consumer that connects mid-episode
+ * cannot see it at all; this is level-triggered and always present.
+ */
+json
+TopologyAndFlowMonitor::pollRoundJson() const
+{
+    std::lock_guard<std::mutex> lock(m_pollRoundMutex);
+
+    const char* kindToken = "not_yet_polled";
+    switch (m_lastPollRoundKind)
+    {
+        case PollRoundKind::NotYetPolled:
+            kindToken = "not_yet_polled";
+            break;
+        case PollRoundKind::Complete:
+            kindToken = "complete";
+            break;
+        case PollRoundKind::Partial:
+            kindToken = "partial";
+            break;
+        case PollRoundKind::Silent:
+            kindToken = "silent";
+            break;
+    }
+
+    json endpoints = json::object();
+    for (std::size_t i = 0; i < kEndpointRoles.size(); ++i)
+    {
+        endpoints[kEndpointRoles[i]] = {{"outcome", endpointOutcomeToken(m_lastRoundEndpoints[i].outcome)},
+                                        {"http_status", m_lastRoundEndpoints[i].httpStatus}};
+    }
+
+    // `complete` as its own boolean as well as the token: the one question every consumer asks is
+    // "may I trust this graph", and making them string-compare to find out is how a consumer ends
+    // up not asking. Both move together or neither does.
+    return json{{"kind", kindToken},
+                {"complete", m_lastPollRoundKind == PollRoundKind::Complete},
+                {"endpoints", endpoints}};
 }
 
 void

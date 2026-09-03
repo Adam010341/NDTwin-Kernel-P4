@@ -1081,6 +1081,7 @@ DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json&
 
     // Any entry at all makes this a real observation. Checked first and unconditionally, so a large
     // table that legitimately took a second is never discarded.
+    bool sawNonList = false;
     if (flows.is_object())
     {
         for (const auto& entry : flows.items())
@@ -1089,7 +1090,23 @@ DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json&
             {
                 return FlowStatsVerdict::Usable;
             }
+            if (!entry.value().is_array())
+            {
+                sawNonList = true;
+            }
         }
+    }
+
+    // [Co-developed with claude code -- Adam]
+    // Round 6 finding N2. After the entry scan and before the latency rule, which is the only
+    // place it can go: a value that is not a list has no entries to find, so the scan above passes
+    // over it, and the reply then arrives at the latency rule -- where being FAST made it Usable
+    // and the junk was published under the switch's own dpid, unflagged. An empty *list* is not
+    // this case and must not be caught by it: `{"3": []}` is a switch honestly reporting no rules,
+    // which the 2026-08-07 wedge work exists to keep believable.
+    if (sawNonList)
+    {
+        return FlowStatsVerdict::NotUnderstood;
     }
     else if (flows.is_array() && !flows.empty())
     {
@@ -1252,6 +1269,25 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
                                    flows.dump());
             }
             fetched.unread.push_back({dpid, kUnreadReportedFailure});
+            continue;
+        }
+        if (verdict == FlowStatsVerdict::NotUnderstood)
+        {
+            // [Co-developed with claude code -- Adam]
+            // Round 6 N2: the same conservative treatment its two neighbours already got. The
+            // previous table stays and says stale_since/stale_polls/last_error, instead of the
+            // unreadable body being served verbatim as if it were this switch's rules.
+            if (m_flowStatsTimeouts.recordFailure())
+            {
+                SPDLOG_LOGGER_WARN(Logger::instance(),
+                                   "{} sent a flow table for switch {} whose entries are not lists "
+                                   "of rules ({}) -- keeping the previous table rather than "
+                                   "republishing a body nothing can read",
+                                   ip_and_port,
+                                   dpid,
+                                   flows.dump());
+            }
+            fetched.unread.push_back({dpid, kUnreadWrongShape});
             continue;
         }
         if (verdict == FlowStatsVerdict::SuspectTimedOut)

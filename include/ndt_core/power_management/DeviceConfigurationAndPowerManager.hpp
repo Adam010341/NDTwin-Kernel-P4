@@ -368,6 +368,12 @@ class DeviceConfigurationAndPowerManager
         Usable,          ///< Apply it: it has entries, or it was too fast to be a timeout.
         SuspectTimedOut, ///< Empty *and* slow. Keep the previous table; do not apply this one.
         ReportedFailure, ///< The body says "error": the control plane could not read the switch.
+        /// The body parses and the switch's value is not a list of rules. Round 6 N2: of the three
+        /// ways to fail to read a switch, this was the one that produced no marker -- the junk was
+        /// republished verbatim under the switch's own dpid, so a consumer doing `flows["3"]` as a
+        /// list gets a type error, or, being lenient, "zero rules", with nothing saying why.
+        /// [Co-developed with claude code -- Adam]
+        NotUnderstood,
     };
 
     // [Co-developed with claude code -- Adam]
