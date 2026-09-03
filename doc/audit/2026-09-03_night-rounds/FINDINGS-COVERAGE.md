@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **46** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70 |
-| 🛠 派工中 | **10** | 8, 27, 33–34, 52, 75–77, 80–81 |
-| ⭕ UNASSIGNED | **24** | 1–3, 9, 18, 21, 25, 31, 37–40, 43, 49, 51, 54–55, 61–62, 66–68, 79, 82 |
+| ✅ IN TRUNK / 已修 | **47** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77 |
+| 🛠 派工中 | **12** | 8, 27, 33–34, 38, 61–62, 75–76, 80–82 |
+| ⭕ UNASSIGNED | **23** | 1–3, 9, 18, 21, 25, 31, 37, 39–40, 43, 49, 51–52, 54–55, 66–68, 79, 83–84 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **82** | （09-03 20:xx 由各列狀態欄重算；派工中＝6 支：ndtcheck #8、ovstopo #77、isup Q12+#33/34/80/81、chaoswire #75、ppsdocs #52 文件半、stop #27/76；⭕ 含 #77「等 Adam 裁」，#79–82 是 poll 交付時挖出的） |
+| **合計** | **84** | （09-03 23:5x 由各列狀態欄重算；派工中＝7 支：ndtcheck #8（已交付、驗收中）、isup Q12+#33/34/80/81、chaoswire #75（已交付、驗收中）、stop #27/76、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -107,7 +107,7 @@
 | 35 | 電源 API 兩個方向都用 `isUp` 提前 return Success | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | — |
 | 36 | 命令的關機會遺失，9 次中 2 次 | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | 與 #46 同一根 |
 | 37 | 被拒的模擬 case 讓 Energy app 永久卡死並霸佔 `routing_lock` | ⭕ UNASSIGNED | 已被 Lead E **降級**為單一 app 的 liveness bug（`routing_lock` 後面什麼都沒擋）。修法對象 `energy_saving_app.cpp` **不在本 repo**（`~/Energy-Saving-App`），本 repo 無分支涉及 | Energy-Saving-App 的主人；⚠️ MEMORY 記著那個 repo 的 power bug「已修但不要 push」 |
-| 38 | 連線被拒被報成「30 秒逾時」（實測 6–9 ms） | ⭕ UNASSIGNED | 訊息產生點不在任何分支的變更檔清單裡 | — |
+| 38 | 連線被拒被報成「30 秒逾時」（實測 6–9 ms） | 🛠 派工中（23:1x，`fix/refused-is-not-timeout`，base trunk `92a79392`） | 訊息產生點不在任何分支的變更檔清單裡 | — |
 | 39 | `get_power_report` 是 dpid 的純函數，且沒有 `source` 欄 | ⭕ UNASSIGNED | `get_power_report` 在所有分支 diff 0 命中；round 6 已確認值是 `splitmix64(dpid)`、屬已知 #39／#33 而非 cache bug | 「省了 N% 電」的任何宣稱都掛在這條上 |
 | 40 | 兩條路全關時 twin 說 no path，交換機自己的表仍指向已關機的 s6 | ⭕ UNASSIGNED | 分身與資料平面的對帳路徑不在任何分支的變更檔清單裡 | — |
 
@@ -136,7 +136,7 @@
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
 | 51 | 🔴 高負載下分身低報 2.76 倍，而所有健康訊號都說正常 | ⭕ UNASSIGNED | **（部分）「看不見」那半在 `fix/telemetry-health-visible @ b7aad224` 上**（每一列 flow 與 `get_average_link_usage` 都會帶 `telemetry_health.status`／`loss_fraction`）。**低報本身沒有任何分支處理**：`classifyIngestHealth` 只分類，不改速率；取樣→速率路徑沒有針對 socket 掉包做補償或標記 void | 先併 telemetry 讓它可見，再決定低報要修還是要標 void |
-| 52 | 🔴 完全送達的 flow 會從 API 預設窗口消失，界線的單位是 pps 不是 bit/s（~22 pps） | 🛠 派工中（21:2x，`docs/flow-visibility-in-pps`——**只有文件半**（口徑改 pps），碼的那半仍 ⭕） | API 的窗口／liveness 判定不在任何分支的變更檔清單裡；`?liveness=all` 那條路徑也沒被動過 | 至少要先把文件與宣稱的口徑從 Mbit/s 改成 pps |
+| 52 | 🔴 完全送達的 flow 會從 API 預設窗口消失，界線的單位是 pps 不是 bit/s（~22 pps） | ⭕ UNASSIGNED（**文件半 ✅ 已併 trunk `582241ef`**，MERGE-LOG 29：API 文件／KNOWN-ISSUES／四份 runbook／兩個 header 註解全改成 pps；**碼半未派**） | 碼半：3 s 窗口、flow set 2 s TTL、預設 `ActiveOnly` 全沒動（auditor 對源碼）；要不要改要 Adam 裁——放寬窗口＝把 B-x 剛移掉的 idle 尾巴放回來 | 先裁方向：預設改 `retained`？加「取樣稀疏」旗標？或維持現狀只靠文件 |
 | 53 | 🔴 sFlow 樣本會掉，而四個丟棄計數器沒有任何 API 讀得到 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/telemetry-health-visible @ b7aad224`，動 `include/ndt_core/collection/FlowLinkUsageCollector.hpp`（新 `IngestHealth`／`classifyIngestHealth`／`ingestHealthJson`）、`src/.../FlowLinkUsageCollector.cpp`、`include/ndt_core/http/HttpSession.hpp`、`src/ndt_core/http/HttpSession.cpp`（新 `handleGetSflowStats`，`utils::pathIs(target, "/ndt/get_sflow_stats")`）、`tests/CMakeLists.txt`、新增 `tests/test_TelemetryHealth.cpp`。閘門：🔴 **作者交付時 0 閘門且編不過**；**auditor 補了兩行 namespace 限定（`b7aad224`）之後編得過，閘門 17／18**。紅的 `AppDropsAloneMoveTheVerdict` 是**真的邊界缺陷**（`FlowLinkUsageCollector.hpp:373,375` 的 `0.01`／`0.10` 配 `.cpp:1780` 的嚴格大於，剛好 0.10 落進 `lossy`） | 分支主人要裁 `>` vs `>=`；**目前沒有任何綠測試在約束那個邊界** |
 | 54 | 同一個 match 裝 20 次報 `succeeded +20`，交換機只多 1 列；刪不存在的規則 15 次全 succeeded | ⭕ UNASSIGNED | `fix/p4-priority-not-silently-dropped` 只改**帶 priority 的 `delete_strict`／`modify`**（回 501），`add` 路徑與 `succeeded` 的累加語意**沒有動**（該分支 diff 裡 `succeeded` 只出現在說明 501 改記 `failed+1` 的兩行） | 「succeeded 是什麼的計數」需要先裁一個定義 |
 | 55 | collector 綁 `INADDR_ANY:6343`，來源位址從頭到尾沒被讀過（`srcAddrs` 只寫不讀） | ⭕ UNASSIGNED | `srcAddrs`／`INADDR_ANY` 在所有未併分支的改動行 **0 次命中**。trunk 側 `src/ndt_core/collection/FlowLinkUsageCollector.cpp` 雖被 flow-rate 與 telemetry 兩支動到，但兩支的 hunk 都不在收包歸屬那段 | 🔴 任何能送 UDP 到本機的東西都能改寫遙測，而沒有 endpoint 會顯示 |
@@ -150,8 +150,8 @@
 | 58 | 🔴 8 次 bring-up 產生 4 種不同的全網路由表，而 `get_path_switch_count` 逐位元相同 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/deterministic-path-tiebreak @ 966734be`，動 `p4_proxy/proxy_agent/{ryu_topology,topology_manager}.py` ＋ `p4_proxy/tests/{test_path_determinism,test_link_watchdog}.py` ＋ `tests/shell/mutate_path_determinism.sh`。閘門：**auditor 重跑**——baseline 10 tests 綠，**5 mutations, 0 survived**，rc=0，每個變異紅的是腳本**指名的那一支**測試，事後 baseline byte-identical | ⚠️ `get_path_switch_count`（研究者用來問「路徑變了沒」的端點）這支完全沒碰 ⇒ 修好之後**仍然看不見**。爆炸半徑已盤點，結論留給 Adam 裁 |
 | 59 | 🔴 產生器能產出自家 kernel 載不動的檔，而失敗發生在 port 看起來健康之後 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/topology-load-fails-before-listen @ 896f6674`，動 `tools/make_topology.py`、`tests/python/test_make_topology.py`、`src/main.cpp`、`include/…/TopologyAndFlowMonitor.hpp`、`src/…/TopologyAndFlowMonitor.cpp`（`loadStaticTopology()` 同步、失敗 `EXIT_FAILURE`、空圖也拒絕）。閘門：**auditor 重跑了 Python 那半**——29 tests OK（腳本與 `unittest` 收集都一樣）、`--hosts 300` → rc=1 且訊息成立、對照組 `--hosts 8` → rc=0 仍完整產出。🔴 **C++ 那半從未編譯、從未執行，排序的閘門沒有寫**（需要 binary） | 🔴 **與 D15 同檔同區**（實測 `merge-tree`：`TopologyAndFlowMonitor.hpp` 與 `.cpp` 都衝突）⇒ **先併 D15 再 rebase 這支**。另外「拓樸檔不見就拒絕啟動」是行為變更，作者自己標了要 Adam 裁 |
 | 60 | P4 平面上 `priority` 被收下、寫進 log、然後丟掉（777 改到既有規則、999 也刪得掉） | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/p4-priority-not-silently-dropped @ 4c5a92da`，動 `p4_proxy/proxy_agent/api_routes.py` ＋ `p4_proxy/tests/test_flowentry_endpoints.py` ＋ `tests/shell/mutate_p4_priority_refusal.sh`。閘門：**auditor 在解糾纏後的新 sha 上重跑**——**7 mutations, 0 survived**, rc=0，四個「必須不觸發」的仍不觸發，`api_routes.py` byte-identical；**red-before-fix 的 raw log 有 commit**（`doc/audit/2026-09-03_night-rounds/priority-refusal/red-before-fix.log`，六支紅） | ⚠️ **`add` 路徑刻意維持揭露不拒絕**（沿用 T-15 Option 0 的既有裁決）；未實機驗證 501 穿過 kernel 的路徑 |
-| 61 | dpid 對不到交換機的 host edge 被靜默丟棄（40 條進 39 條），只有一行 WARN | ⭕ UNASSIGNED | `fix/topology-load-fails-before-listen` **不涵蓋這一條**：我讀了該分支的 `loadStaticTopology()` 全文（`:236-287`），它只在 (a) parse／IP 例外、(b) `num_vertices == 0` 兩種情況拒絕啟動；dpid 解不出來的邊仍走既有的 `continue`（該檔 20 處 `continue` 未變）。round 5 的 T4 與現成重現檔 `round5-topology-repro/03_mutant_m1_host_edge_ghost_dpid.log` 都還沒有對應修法 | 規格與重現檔都現成，適合接在 #59 後面 |
-| 62 | `src_interface` 0 與 999999 完全不做範圍檢查，原樣公布並流進 flow path | ⭕ UNASSIGNED | `src_interface` 在所有未併分支的改動行只命中 **1 次**，且是 `fix/deterministic-path-tiebreak` 的**測試檔**在讀 `edge["src_interface"]`，不是驗證 | 重現檔現成（`06_mutant_m4a_port_zero.log`、`07_mutant_m4b_port_six_digits.log`） |
+| 61 | dpid 對不到交換機的 host edge 被靜默丟棄（40 條進 39 條），只有一行 WARN | 🛠 派工中（23:1x，`fix/topology-input-is-validated`，base trunk `92a79392`） | `fix/topology-load-fails-before-listen` **不涵蓋這一條**：我讀了該分支的 `loadStaticTopology()` 全文（`:236-287`），它只在 (a) parse／IP 例外、(b) `num_vertices == 0` 兩種情況拒絕啟動；dpid 解不出來的邊仍走既有的 `continue`（該檔 20 處 `continue` 未變）。round 5 的 T4 與現成重現檔 `round5-topology-repro/03_mutant_m1_host_edge_ghost_dpid.log` 都還沒有對應修法 | 規格與重現檔都現成，適合接在 #59 後面 |
+| 62 | `src_interface` 0 與 999999 完全不做範圍檢查，原樣公布並流進 flow path | 🛠 派工中（23:1x，`fix/topology-input-is-validated`，base trunk `92a79392`） | `src_interface` 在所有未併分支的改動行只命中 **1 次**，且是 `fix/deterministic-path-tiebreak` 的**測試檔**在讀 `edge["src_interface"]`，不是驗證 | 重現檔現成（`06_mutant_m4a_port_zero.log`、`07_mutant_m4b_port_six_digits.log`） |
 | 63 | `--logfile` 文件寫得像吃路徑，實際是 boolean；指定的檔 0 bytes、stderr 無話 | ✅ IN TRUNK（09-03 整合 `b466407b`） | 🆕 **`fix/logfile-takes-a-path @ 12291b17`**（base `feb9baef`），動 `src/utils/Logger.cpp`、`include/utils/Logger.hpp`、`src/main.cpp`＋新增 `tests/test_LoggerCliArgs.cpp`（19 cases）。閘門：**auditor 自己重跑**（走 `tools/build_guard/guarded_build.sh`）→ **9 mutations, 0 survived；3 widenings, 0 wrongly caught**；三個檔還原後 byte-identical、測試 binary sha 前後同為 `921e7e4fb44e3d3d` | ⚠️ **重跑是在 agent 自己的 worktree 裡做的**（乾淨 worktree 沒有已設定的 `build/`，冷編要 20 分鐘）——五個相關檔已逐一比對與分支 byte-identical，所以驗的是分支的內容，繼承的只有 build 目錄。🔴 **同族仍缺一塊**：不認得的旗標（`--logfle /tmp/x.log`）仍然靜默忽略 |
 
 ### Round 6 — 歷史 bug 形狀的未檢驗實例（64–68）
@@ -220,12 +220,14 @@
 | 74 | `SHELL_SITES` 清單對不上被 `classifyEndpointReply(...)` 包起來的 `execCommand` 站點，`test_shell_command_construction` 兩個 case 紅 | ✅ IN TRUNK（同上；provenance 由 agent 重新推導：`m_ryuUrl` 唯一寫入點 `setTopologyApiUrls`，來源是兩個 build-time `AppConfig` 常數，無 HTTP handler 可達 ⇒ 清單漂移，不是注入路徑） | auditor：`d00fa57c`（topology-round 併入）起紅；我讀過 `url` 來源不變（`AppConfig` IP:port＋字面路徑） | agent 要再讀一次 provenance；若 request 可達 ⇒ 升級為真缺陷、不准只改清單 |
 | 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | 🛠 派工中（21:2x，`fix/chaos-runner-runs-latency-check`，python、無 build） | #17 agent 查證（FIX-CHAOS-INVARIANTS §未做到） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
 | 76 | proxy 卡住時，bind 失敗的 kernel 印完 `Exiting` 後 8 秒還在（shutdown 卡在 poll thread 的 curl） | 🛠 派工中（21:2x，`fix/kernel-stop-is-bounded`（與 #27 一支，C++）） | #47 agent 順帶觀察，未追 | 與 B-5 關機路徑同族；重啟腳本若拿「印了 Exiting」當退出訊號會踩到 |
-| 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | 🛠 派工中（20:4x，`fix/ndt-up-ovs-runs-repo-topo`，base trunk，N13 裁 (b)） | #42 agent 讀 caller 發現（`ndtwin-lab:571-580`） | 跨 repo；建議改 `ndtwin-lab` 跑本 repo 那份 |
+| 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ✅ IN TRUNK | `06bc713d`（merge of `fix/ndt-up-ovs-runs-repo-topo`，修法 `87612059`）：`ovs-topo-start` 跑 `$KERNEL_DIR/testbed_topo.py`、cleanup 掃新後綴、topo 補回 bootstrap；auditor 丟棄式樹重跑 41/0、閘門 12/0、紅臂 5/3 與 41/2；MERGE-LOG 30。🔴 **機器上要 `sudo install` 才生效（#83、N14 Q1）** | — |
 | 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | ✅ IN TRUNK | `1ec39977`（merge of `fix/gate-anchors-root-files`，修法 `aed8f299`）：`tests/shell/check_gate_anchors.py` +1 述詞 `is_repo_path`／7 呼叫點、`tests/python/test_check_gate_anchors.py` +14 case（對 trunk 工具 9 FAIL＋3 ERROR）、`tests/shell/mutate_gate_anchors_root_files.sh` 13/0；全 repo 掃描 40/53→41/54、既有格一格沒動；raw `audit-raw @ 1cfbbc73`；MERGE-LOG 26 | #42 agent 撞到、閘門內以 `./` 繞過（繞道留著，兩種寫法都 `ok(23)`）；已知極限：名為 `foo.d` 的目錄會被放行、未修 |
 | 79 | `ndt` claim／pids 是 per-checkout，多 worktree 下互相隱形 | ⭕ UNASSIGNED | auditor 讀 `tools/test_workflow/ndt`：`CLAIM=` 第 256 行、`.test_run/pids` 第 243 行，都由 `$REPO` 組出；沒有任何分支碰它 | 修法方向：claim／pid 目錄改到與 checkout 無關的位置（`/tmp/ndtwin-lab/` 或 `$XDG_RUNTIME_DIR`），要 Adam 點頭再派——它改的是交接協定 |
 | 80 | liveness worker 用快取 `probe_ok` 把 `is_up` 寫回 true 8–13 s | 🛠 派工中（21:2x，`fix/is-up-split-admin-state-reachable`（distrust window 改證據界定）） | poll agent 兩臂 18/18（raw 在 `audit-raw`）；沒有分支 | 與 Q12 綁在一起裁；候選修法：distrust window 改證據界定 |
 | 81 | `handleInformSwitchEntered` 無條件 `setVertexUp` | 🛠 派工中（21:2x，`fix/is-up-split-admin-state-reachable`（順手：不得清 adminPoweredOff）） | `HttpSession.cpp:1449`（agent 讀碼）；沒有分支 | 小；可併入 #80 的工單 |
-| 82 | OVS `powerOff` 的 `!isUp` 早退（#35 同型） | ⭕ UNASSIGNED | `OVSPowerStrategy::powerOff`（agent 讀碼）；沒有分支 | 先補 `br-exists` 量測；OVS 平面補一輪 live |
+| 82 | OVS `powerOff` 的 `!isUp` 早退（#35 同型） | 🛠 派工中（23:1x，`fix/ovs-power-off-asks-the-bridge`，base trunk `92a79392`） | `OVSPowerStrategy::powerOff`（agent 讀碼）；沒有分支 | 先補 `br-exists` 量測；OVS 平面補一輪 live |
+| 83 | 安裝副本 `/usr/local/sbin/ndtwin-lab` 停在 08-30 `0b6db9e3`；trunk 五個 commit 在機器上沒生效、沒東西會說 | ⭕ UNASSIGNED（🔴 **前半是 Adam 的動作**：09-04 測試前 `sudo install`，N14 Q1；後半＝碼：`ndt status`／preflight 比對兩份 sha 並出聲） | auditor 09-03 23:5x 親比 sha；`ndt:55` 寫死路徑 | 裝完我補一趟真正走 `ndt up ovs` 的 #77 AFTER 臂 |
+| 84 | `ndt up ovs` 曾依賴 NTG 工作樹未提交的兩行 bootstrap；手冊的手動路徑在乾淨 clone 仍會壞 | ⭕ UNASSIGNED（N14 Q5 等裁：改手冊 vs 請 NTG commit vs 記錄不動） | #77 agent 唯讀查證；auditor 唯讀重查一致 | 建議 (a) 手冊改成叫人跑本 repo 那份 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 

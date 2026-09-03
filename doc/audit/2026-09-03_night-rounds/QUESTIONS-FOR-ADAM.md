@@ -523,3 +523,26 @@ tester 自己在 JOURNAL 標成「Tooling note」並明講不歸咎 NDTwin。
 
 
 **裁決（09-03 20:2x，Adam，表單）：(b) `ndtwin-lab` 改跑本 repo 的 `testbed_topo.py`，NTG 那份退役、不動 NTG repo。** 已派 `fix/ndt-up-ovs-runs-repo-topo`（#77）。
+
+
+## N14. #77 併入之後：安裝副本沒生效（🔴 09-04 測試前必做）＋ ovstopo agent 的五題
+
+**先講白話**：`ndt` 每次動 lab 都是叫 `sudo /usr/local/sbin/ndtwin-lab`，那是 root 擁有的一份**影本**；repo 裡的 `tools/test_workflow/ndtwin-lab` 改了、併了，影本不會自己更新。影本現在停在 08-30 20:20（`0b6db9e3`），之後併進 trunk 的四批 lab 修法（G-9 sweep 不再 `pkill -f`、G-7 設定檔、ports 表、#77 跑本 repo 的拓樸）在這台機器上**一個都沒生效**——像換了新引擎圖紙，車上裝的還是舊引擎。而且沒有任何東西會出聲（#83）。
+
+**Q1（必答，需要密碼，只有你能做）**：09-04 測試前跑一次
+
+```
+sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
+```
+
+裝完告訴我，我補一趟真正走 `ndt up ovs` 的 AFTER 臂（agent 那臂是用 `mnexec` 跑檔案，證明的是檔案與橫幅，不是 tmux 那段接線）。**不裝＝明晚測的是舊 helper。** 我不會用 `mnexec` 繞 sudoers 去裝——那條規則存在的理由就是不對 adam 可寫的腳本開 NOPASSWD。
+
+**Q2 `ndt up ovs` 現在落進 Mininet CLI**（本 repo 那份結尾是 `CLI(net)`），不再是 NTG 自己的 prompt ⇒ `ndt ntg cli|prompt` 對 `ndt up ovs` 不再有作用。(a) 就這樣、下一輪把 `ndt ntg` 的說明改成「只對手動路徑有效」（agent 與我都建議）；(b) 把 NTG prompt 的選項移植進本 repo 那份；(c) 其他。
+
+**Q3 `ovs-topo-4host` 要不要也走 `ovs_topo_script` 那一族？** 它現在沒壞，只是路徑組法各寫各的。建議：不急，排進 W 清單。
+
+**Q4 三支閘門 anchor checker 讀不到**（`mutate_ndt_up_target.sh`、`mutate_g7_ndtwin_lab_config.sh`、`mutate_g9_cleanup_no_pkill_f.sh` 回 NO-ANCHORS，heredoc 寫法；#19 的修法沒涵蓋這個形狀；ndtcheck 的 agent 也撞到同一件）。建議：開一張工單，我派。
+
+**Q5 #84（`ndt up ovs` 曾依賴 NTG 工作樹未提交的兩行；手冊的手動路徑仍會壞）**：(a) 手冊改成叫人跑本 repo 那份 `testbed_topo.py`（agent 與我都建議；不動 NTG）；(b) 請 NTG 那邊 commit 那兩行；(c) 先記錄不動。
+
+**Q6 #42 的驗證等級**：本 repo 的 `testbed_topo.py` 在 #77 之前於 `NTG_PY` 下連 import 都過不了 ⇒ #42 的修法併入時只有單元測試、從未執行過；今晚是第一次實跑。我已在 FINDINGS-ALL #42 補記；要不要在 `FIX-TESTBED-BANNER` 文件也補一句由你定（我建議補）。
