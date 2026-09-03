@@ -1,6 +1,7 @@
 # 09-02 → 09-03 夜間：給 Adam 的交付
 
 一頁看完；細節都指得到證據檔。**完整缺陷表在 `FINDINGS-ALL.md`，要你裁的在 `QUESTIONS-FOR-ADAM.md`。**
+🆕 **68 條誰在修、誰沒人修，在 `FINDINGS-COVERAGE.md`**（12:4x 補；下面「中午補的四件」有摘要）。
 
 ## 數字
 
@@ -10,6 +11,19 @@
 - **16 支修法進 trunk**、**8 支行為變更留在分支**等你看 diff。
 - **每一支修法都有變異閘門**，而且今晚有 **6 個假綠是被閘門攔下來的**——沒有一個是讀碼看得出來的。
 - **今晚一個 commit 都沒推**（一個例外，見文末）。
+
+## 中午補的四件（12:2x–12:5x，離線，沒有碰實驗室）
+
+1. 🏁 **兩支分支同一個指標的糾纏解開了**，兩支的變異閘在新 sha 上都重跑過。細節見下一節。
+2. 🆕 **`FINDINGS-COVERAGE.md`**——68 條逐條標狀態：**✅ 已進 trunk 9 條／🔧 在分支上 18 條／⭕ 沒有人在修 39 條／➖ 非缺陷 1 條／❓ 判不出 1 條**。
+   **今天真的派得出去、能拿到完整交付的只有三件**（其餘要嘛已經有人做、要嘛要實驗室）：#63 `--logfile` 是 boolean 不吃路徑、#50 `ndt:1687` 的 `2>/dev/null` 位置、#42 那個「100% loss 卻印三個 OK」的 banner 半邊。
+3. 🔴 **那張表推翻了三件既有記載，三件我都自己重跑過**（`AUDITOR-VERIFICATION.md` 最後一節）：
+   - **`fix/g6-ndt-apps-liveness` 沒有修 viz 孤兒（#6／#48）。** 分支上 `app_spawn` 仍沒有 `setsid`、沒有自己的 process group，stop 仍只殺單一 pid。它改善的是**存活回報**，不是**停止**。⇒ 那條嚴重缺陷目前**沒有人在修**。
+   - **`fix/telemetry-health-visible` × `fix/flow-rate-denominator` 在 `FlowLinkUsageCollector.hpp` 硬衝突**，而**沒有任何審查頁提過**。兩支都要併就得先決定誰先。
+   - **`fix/d15` × `fix/b5` 只衝 `tests/CMakeLists.txt`**；`6ad6811b` 預告的 `DeviceConfigurationAndPowerManager.cpp` 衝突實測不存在。
+4. 🆕 **`tools/build_guard/`**——09-02 那次 `systemd-oomd` 連你的 app 一起殺掉的東西，現在有護欄了。這個 repo 有 **23 個呼叫點寫死 `-j$(nproc)`（在這台是 `-j14`）或 `-j4`**，而其中好幾個是變異閘的 anchor，改它們會讓那些閘門靜靜停止檢查 ⇒ 做成 **PATH shim，一個呼叫點都不用改**。三道：shim 壓平行度、`flock` 一次只跑一個、cgroup 給明確的 `MemoryMax`（**保護你的 app 的是第三道**）。
+   閘門：37 個 check、**10 個變異 0 存活**；真的 CMake 專案端到端驗過（`-j14` 到 ninja 手上變 `-j2`、configure 沒被動、`MEM_MAX=200M` 真的變成 cgroup 的 `memory.max=209715200`）。
+   用法：`tools/build_guard/guarded_build.sh <任何會編譯的指令>`。
 
 ## 修法現況（09-03 上午這批，10:00 之後）
 
