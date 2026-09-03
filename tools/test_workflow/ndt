@@ -57,6 +57,21 @@ STACK="$HERE/stack.sh"
 MANIFEST=/tmp/ndtwin_p4_switches.json
 SWITCHES=10
 
+# The root privileges this script needs, what each refusal costs, and the sudoers line that
+# fixes it -- one declarative table, next to the code that acts on it. Eleven of this script's
+# thirteen `sudo -n` calls go through $LAB, which the manual teaches the reader to grant; the
+# two that do not (ovs-vsctl, mnexec) are the reason the file exists. Read its header before
+# adding a fourteenth. NDT_SUDO_SURFACE is a seam for the tests, which point the real code at a
+# mutated copy rather than writing this checkout. [Co-developed with claude code -- Adam]
+SUDO_SURFACE="${NDT_SUDO_SURFACE:-$HERE/sudo_surface.sh}"
+if [[ -r "$SUDO_SURFACE" ]]; then
+    # shellcheck source=/dev/null
+    source "$SUDO_SURFACE"
+else
+    echo "ndt: cannot read $SUDO_SURFACE -- it declares the sudo grants this script needs" >&2
+    exit 2
+fi
+
 # Every ndtwin-lab verb reaches tmux, and tmux with a controlling terminal refuses to work
 # without TERM *in the environment* -- unexported counts as absent. `ndtwin-lab` sends tmux's
 # stderr to /dev/null and falls back to `echo "no lab sessions"`, so the failure arrives as a
@@ -644,12 +659,10 @@ up_p4() {
         # fabric destroyed it with no message at all. The asymmetry was invisible because all
         # three ndtwin-lab verbs name their tmux session `topo`, so the session's existence
         # cannot tell the two planes apart -- the bridges can.
-        if topo_session && [[ "$(ovs_bridge_count)" -gt 0 ]]; then
-            err "an OVS fabric is running ($(ovs_bridge_count) bridges) under the topo session."
-            err "'ndt up' would tear it down to build a bmv2 fabric in its place."
-            err "take it down first:  ndt down"
-            return 1
-        fi
+        # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
+        # can call it on its own. Inline, it sat behind topo_session and a bmv2 count that had
+        # already returned in every branch a test could reach.
+        guard_no_live_ovs || return 1
         topo_session && { info "stopping the existing topo session"; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         sudo -n "$LAB" topo-start >/dev/null || { err "topo-start failed"; return 1; }
         info "waiting for $SWITCHES switches and the manifest"
@@ -1174,7 +1187,71 @@ netem_count() { tc qdisc show 2>/dev/null | grep -c netem || true; }
 
 # How many OVS bridges exist. The only cheap way to tell an OVS fabric from a bmv2 one:
 # ndtwin-lab names the tmux session `topo` for both. [Co-developed with claude code -- Adam]
-ovs_bridge_count() { sudo -n ovs-vsctl list-br 2>/dev/null | grep -c . || true; }
+#
+# Prints the count and returns 0 only when it really got an answer; returns 2 and prints
+# NOTHING when it could not ask. Those are different facts and used to be the same answer:
+#
+#     ovs_bridge_count() { sudo -n ovs-vsctl list-br 2>/dev/null | grep -c . || true; }
+#
+# discarded sudo's message (2>/dev/null), then sudo's exit status (the pipe hands on grep's),
+# then grep's (`|| true`), and returned 0 for a permission error -- the same 0 as a machine
+# with no bridges. `sudo -n ovs-vsctl` is in none of the manual's sudoers instructions, so on a
+# machine installed by the book that 0 is what the guard below reads. See sudo_surface.sh.
+#
+# The two "there is no OVS here" cases are answered without sudo and definitively, so a machine
+# that never installed OVS gets a real 0 rather than "cannot tell": a guard that can never pass
+# is as useless as one that can never fire.
+ovs_bridge_count() {
+    command -v ovs-vsctl >/dev/null 2>&1 || { echo 0; return 0; }
+    ovs_daemon_running                   || { echo 0; return 0; }
+    local out
+    out="$(ndt_sudo_capture ovs-vsctl list-br)" || return 2
+    printf '%s\n' "$out" | grep -c . || true
+}
+
+# Is Open vSwitch running at all? Needs no privilege, so it cannot answer "maybe": with no
+# ovs-vswitchd there is no bridge for ovs-vsctl to have listed. `ps -eo comm=` and an exact
+# match rather than pgrep -- see trap note 2; comm truncates at 15 characters and
+# `ovs-vswitchd` is 12, so the full name survives. [Co-developed with claude code -- Adam]
+ovs_daemon_running() {
+    local c
+    while read -r c; do [[ "$c" == "ovs-vswitchd" ]] && return 0; done < <(ps -eo comm= 2>/dev/null)
+    return 1
+}
+
+# guard_no_live_ovs -- `ndt up p4` must not build a bmv2 fabric on top of a live OVS one.
+#   0 clear to proceed, 1 stop.
+#
+# 🔴 Three inputs, two outcomes, and the third input is the point: "I could not tell" stops the
+# bring-up. What this guard protects is irreversible -- the next two statements are topo-stop
+# and topo-start, which destroy whatever fabric is there. The old guard had two inputs, so a
+# refused ovs-vsctl arrived as "there is no OVS here" and the teardown went ahead in silence.
+#
+# It still only asks when a topo session exists, as before: bridges belonging to something else
+# on the machine are not this command's business. [Co-developed with claude code -- Adam]
+guard_no_live_ovs() {
+    topo_session || return 0
+    local n brc
+    n="$(ovs_bridge_count)"; brc=$?
+    if (( brc != 0 )); then
+        err "cannot tell whether an OVS fabric is running under the topo session."
+        err "'ndt up' runs 'topo-stop' next, which destroys whatever is there, so it stops here."
+        if ndt_sudo_probe ovs-vsctl; then
+            err "   ovs-vsctl is permitted but did not answer; try:  sudo -n ovs-vsctl list-br"
+        else
+            err "   the reason is sudo, not OVS:"
+            ndt_sudo_explain ovs-vsctl | while IFS= read -r l; do err "$l"; done
+        fi
+        return 1
+    fi
+    if [[ "$n" -gt 0 ]]; then
+        err "an OVS fabric is running ($n bridges) under the topo session."
+        err "'ndt up' would tear it down to build a bmv2 fabric in its place."
+        err "take it down first:  ndt down"
+        return 1
+    fi
+    return 0
+}
 
 # host_pid <hN> -- pid of that Mininet host's namespace, empty if it is not there.
 #
@@ -1197,22 +1274,52 @@ host_pid() {
 # every host pair was 100% loss, because Ryu had computed its routes for a different number
 # of hosts. Topology views agreeing is not forwarding working.
 #
-# `mnexec -a <pid>` rather than `mn` or `ip netns exec`: the hosts belong to a Mininet
-# started in a root tmux session, and mnexec is the form this machine's sudoers allows
-# without a password. [Co-developed with claude code -- Adam]
+# `mnexec -a <pid>` rather than `mn` or `ip netns exec`: the hosts belong to a Mininet started
+# in a root tmux session, and mnexec is the form THIS machine's sudoers allows without a
+# password. That last clause was written from `sudo -n -l` on this laptop and is not true of a
+# machine installed from the manual, which grants ndtwin-lab and nothing else.
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 The permission question is asked SEPARATELY from the forwarding question, and first.
+# `ping` exits non-zero when the packets are lost, and `sudo` exits non-zero when it refuses --
+# the old body could not tell those apart, so a machine without the mnexec grant was told
+# `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the
+# network, manufactured from a permission error, and the one the manual's own instructions
+# produce (sudo_surface.sh explains why mnexec is not in them).
+#
+# `mnexec -a <pid> true` enters the namespace and moves no packets, so its failure is about
+# sudo or about the namespace and never about the data plane. Once it has succeeded, a failing
+# ping is the data plane, and rc 1 means what it says.
+# NDT_DATAPLANE_WHY carries the reason for a 2 so the caller can print which kind it was.
+NDT_DATAPLANE_WHY=""
 dataplane_ok() {
+    NDT_DATAPLANE_WHY="no namespace for $1"
     local pid; pid="$(host_pid "$1")" || return 2
     [[ -n "$pid" ]] || return 2
+    if ! ndt_sudo_capture mnexec -a "$pid" true >/dev/null; then
+        if ndt_sudo_refused; then
+            NDT_DATAPLANE_WHY="sudo refused mnexec"
+        else
+            NDT_DATAPLANE_WHY="mnexec could not enter $1's namespace (pid $pid): ${NDT_SUDO_STDERR:-no message}"
+        fi
+        return 2
+    fi
+    NDT_DATAPLANE_WHY=""
     sudo -n mnexec -a "$pid" ping -c 2 -W 2 -q "$2" >/dev/null 2>&1 || return 1
     return 0
 }
 
 # verify_dataplane <hN> <dst-ip> <hint> -- shared reporting for the check above.
+#
+# A 2 is reported as NOT TESTED and never as a verdict about the network. It does not fail the
+# bring-up -- it did not before either -- but it now says which question went unanswered, and
+# a missing sudo grant comes with the line that grants it instead of a shrug.
 verify_dataplane() {
     dataplane_ok "$1" "$2"
     case $? in
         0) ok "data plane: $1 -> $2 forwards" ;;
-        2) warn "data plane: no namespace for $1; forwarding NOT tested" ;;
+        2) warn "data plane: forwarding NOT tested -- ${NDT_DATAPLANE_WHY:-reason unrecorded}"
+           [[ "$NDT_DATAPLANE_WHY" == "sudo refused mnexec" ]] && ndt_sudo_explain mnexec ;;
         *) err "data plane: $1 cannot reach $2 -- fabric is up but not forwarding"
            err "   $3"
            return 1 ;;
@@ -1383,6 +1490,20 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
     else
         printf '  %-14s %s\n' "tc netem" "none"
     fi
+    # A missing sudo grant makes other lines on this page lie rather than fail, so it belongs
+    # in --check: without ovs-vsctl the `up` guard cannot see an OVS fabric, and without mnexec
+    # the forwarding check reports a specific routing failure it never measured. The table
+    # decides which grants matter; this loop only reports them. [Co-developed with claude code -- Adam]
+    local sudo_report; sudo_report="$(ndt_sudo_report)"; local src=$?
+    case $src in
+        0) printf '  %-14s %s\n' "sudo grants" "all $(ndt_sudo_rows all | wc -l) granted" ;;
+        1) printf '  %-14s %s\n' "sudo grants" "${R}refused -- readings below them are not measurements${N}"
+           printf '%s\n' "$sudo_report" | sed 's/^/                 /'
+           problems+=("a sudo grant ndt needs is refused; see the sudo grants block above") ;;
+        *) printf '  %-14s %s\n' "sudo grants" "${Y}could not be tested${N}"
+           printf '%s\n' "$sudo_report" | sed 's/^/                 /'
+           problems+=("a sudo grant ndt needs could not be tested on this machine") ;;
+    esac
     # [Co-developed with claude code -- Adam]
     # app_probe, not app_running. This line printed "none running" through a TE-App crash loop
     # that ran 20h07m02s (2026-08-31; measured from the log, not from the process -- see
@@ -2141,6 +2262,13 @@ cmd_ntg() {
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     return 0
 fi
+
+# A test that wants the predicates above without running a command sources this file with
+# NDT_LIB_ONLY=1. `return` outside a function is only legal in a sourced file, which is exactly
+# when the variable is set; executed normally the line is never reached with it set. Without
+# this seam a test can only reach guard_no_live_ovs and dataplane_ok through `ndt up`, which
+# needs a lab. [Co-developed with claude code -- Adam]
+[[ -n "${NDT_LIB_ONLY:-}" ]] && return 0
 
 case "${1:-}" in
     up)
