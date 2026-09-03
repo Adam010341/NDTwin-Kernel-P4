@@ -487,3 +487,12 @@ tester 自己在 JOURNAL 標成「Tooling note」並明講不歸咎 NDTwin。
 3. **`quarantine()` 的順序。** 沒有呼叫點 ⇒ `p4_proxy/.run/rule_journal.jsonl` 跨 proxy 世代累積（132 bytes/筆，只記 REST 進來的規則）。
    先接 quarantine 會讓未來的 replay 讀到空檔——正是 #71 的失敗模式——所以開機順序（讀 → 決定 replay → quarantine）要跟 2. 一起定。
 
+## N12. #8 `ndt status --check` 的基準要拿哪份拓樸檔（裁決，不是碼）
+
+`--check` 在健康的 ovs4 上報假紅、在 OVS 上零鑑別力，規格形狀現成（trunk `eae75da5` 的 `fabric_host_count`），
+但**它該拿哪份拓樸檔當「應有」**沒有人裁過：現在 `ndt status` 的 configuration 欄印的是
+`setting/StaticNetworkTopologyP4_10Switches_4Hosts.json`（P4 的），而 `ndt up` 預設已經改成 OVS 128。
+選項：(a) 跟著 `ndt up` 的實際目標走（記在 topo session 裡）；(b) 跟著 `setting/` 現行設定走；(c) 兩個都印、不下判斷。
+**建議 (a)**：`--check` 的意義是「起來的東西跟我要求的一樣嗎」，基準就該是那次 `up` 的要求；(b) 會在你改設定檔但沒重起時假紅。
+你裁了我就派。
+

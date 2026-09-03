@@ -34,11 +34,11 @@
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
 | ✅ IN TRUNK / 已修 | **36** | 4–5, 7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41, 45, 50, 53, 56, 58–60, 63–65, 71–74 |
-| 🛠 派工中 | **6** | 6, 35–36, 46–48 |
-| ⭕ UNASSIGNED | **31** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 42–43, 49, 51–52, 54–55, 61–62, 66–70, 75 |
+| 🛠 派工中 | **9** | 6, 35–36, 42, 46–48, 69–70 |
+| ⭕ UNASSIGNED | **28** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **75** | （09-03 18:2x 由各列狀態欄重算；派工中＝3 支：poll #35/36/46、cloexec #47、apps-stop #6/48） |
+| **合計** | **75** | （09-03 18:3x 由各列狀態欄重算；派工中＝5 支：poll #35/36/46、cloexec #47、apps-stop #6/48、banner #42、logger #69/70） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -116,7 +116,7 @@
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
 | 41 | 🔴 `ndt down` 的乾淨驗證看不到 sFlow 的 `:6343`，五條斷言全綠 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/ports-that-block-restart @ 2fe70075`。三件都查了：(a) `ports.sh` 有 `6343\|udp\|both\|…` 這一列；(b) `ndt_port_open` 對 `udp` 走 `ss -lunH`（舊 `port_open` 只講 TCP，所以就算列了也看不到）；(c) `cmd_down` 在 `ndt:1141` 呼叫 `cmd_clean`，而 `cmd_clean` 的 `for p in 8000 8080 8081` 已換成 `ndt_port_residue all`，`prc == 2`（查不到）也算 not-clean。閘門同 #22（auditor 重跑 18 checks／9 變異 0 存活） | ⚠️ `fix/g9` 的 `81519ad8`「Add :6343 to the blocking-port table」**只動 `NEXT.md`**，不是修法 |
-| 42 | `testbed_topo.py` 的 128 對 ping self-test 全 100% loss，結尾 banner 照樣印三個 OK | ⭕ UNASSIGNED | `testbed_topo.py`（repo 根目錄）**不在任何未併分支的變更檔清單裡**。trunk 上 `:228-239` 用 threading 跑 ping、`:246` 無條件 `print("Host internet: OK \| sFlow reachability: OK \| Switch identification: OK")`——**banner 與 ping 結果之間沒有任何資料流** | **見下方第 3 條**；banner 那半完全離線可修 |
+| 42 | `testbed_topo.py` 的 128 對 ping self-test 全 100% loss，結尾 banner 照樣印三個 OK | 🛠 派工中（18:3x，`fix/testbed-banner-reads-its-ping`，base `431d98a5`，離線 Python，只做 banner 那半） | `testbed_topo.py`（repo 根目錄）**不在任何未併分支的變更檔清單裡**。trunk 上 `:228-239` 用 threading 跑 ping、`:246` 無條件 `print("Host internet: OK \| sFlow reachability: OK \| Switch identification: OK")`——**banner 與 ping 結果之間沒有任何資料流** | **見下方第 3 條**；banner 那半完全離線可修 |
 | 43 | 🔴 NSR 的 stop script 用 `pgrep -f` 連坐殺掉 tester 自己的 shell | ⭕ UNASSIGNED | 修法對象**不在本 repo**：`git ls-tree -r trunk \| grep network_state_recorder` 只回 audit log 與 tester 腳本，沒有產品側的 stop script | Network-State-Recorder 的主人；本 repo 的 `fix/g9-cleanup-no-pkill-f` 在做同族的事，可當範本 |
 | 44 | Web GUI 的 pnpm 未釘版本，如預測重現 | ➖ NOT A DEFECT | FINDINGS-ALL 自述「run-01 就有、**刻意沒修**」，用途是預註冊預測的命中證據。`web_gui_deploy.sh` 也不在本 repo（只有 tester 的 `bugs_webgui_pnpm.sh` 重現腳本） | 什麼時候要真的釘版本，是裁決不是缺陷 |
 
@@ -212,8 +212,8 @@
 
 | # | 缺陷 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
-| 69 | 🔴 `--loglevel <打錯的值>` 把 log 整個關掉，rc 0、無訊息，而攔它的錯誤路徑不可能執行 | ⭕ UNASSIGNED | **auditor 親自讀碼查證**：`from_str` 在 `libs/spdlog/common.h:294` 與 `common-inl.h:38` **兩處都宣告 `SPDLOG_NOEXCEPT`** ⇒ `Logger.cpp:16` 的 `catch (const spdlog::spdlog_ex&)` 永遠到不了；`common-inl.h` 的結尾是 `return level::off;` ⇒ 不是「用預設等級」是**完全不記錄**。⚠️ **`origin/main` 逐字相同**，讀者也中 | `fix/logfile-takes-a-path` 已經**順手**加了 `AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging` 這條測試並在閘門 M8 驗過 ⇒ **併那支就一起修掉**。但它沒有被登記成一條 finding，所以列在這裡免得被當成「附帶效果」而沒有人對帳 |
-| 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | ⭕ UNASSIGNED | 同上分支的旗標完整表；auditor 在 `origin/main` 上確認同一形狀 | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
+| 69 | 🔴 `--loglevel <打錯的值>` 把 log 整個關掉，rc 0、無訊息，而攔它的錯誤路徑不可能執行 | 🛠 派工中（18:3x，`fix/logger-cli-refuses-unknown`，base `431d98a5`，C++，建置排在 lock 後） | **auditor 親自讀碼查證**：`from_str` 在 `libs/spdlog/common.h:294` 與 `common-inl.h:38` **兩處都宣告 `SPDLOG_NOEXCEPT`** ⇒ `Logger.cpp:16` 的 `catch (const spdlog::spdlog_ex&)` 永遠到不了；`common-inl.h` 的結尾是 `return level::off;` ⇒ 不是「用預設等級」是**完全不記錄**。⚠️ **`origin/main` 逐字相同**，讀者也中 | `fix/logfile-takes-a-path` 已經**順手**加了 `AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging` 這條測試並在閘門 M8 驗過 ⇒ **併那支就一起修掉**。但它沒有被登記成一條 finding，所以列在這裡免得被當成「附帶效果」而沒有人對帳 |
+| 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | 🛠 派工中（同上，同一支） | 同上分支的旗標完整表；auditor 在 `origin/main` 上確認同一形狀 | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
 | 71 | 🔴 rule journal 在 production 從來沒被寫過，而 `test_journal_wiring.py` 14 個測試全綠（注入依賴，證明的是「給它 journal 它會寫」） | ✅ IN TRUNK（09-03 `486d89fb`，併 `fix/rule-journal-is-wired @ 1f3fd41f`；auditor 丟棄式樹重跑閘門 **14/0**、合併樹 25 個 proxy 模組全綠；三個裁決在 QUESTIONS N11） | auditor 查證：`main.py:26` 不傳 journal、`_note_in_journal` 第一行 `if … self._journal is None: return`；production 零 import | 修法＝`main.py` 建構真 `RuleJournal` 並注入＋一支**不注入**的接線測試（直接跑 `main` 的建構路徑），否則 A-4c 的 replay 永遠拿到空 journal |
 | 72 | demo image 的 netplan 綁死 QEMU 的 MAC，換 hypervisor 沒網路 | ✅ 已修（image） | `開機手冊` session，`doc/audit/2026-09-03_virtualbox-demo-vm/REPORT.md`，紅綠都量；`ndtwin-vm.sh` 仍釘著該 MAC（工具側待修）；08-31「Untested on real VMware — closed」被降級（依據是 ovftool 轉檔，碰不到 netplan） | 工具側：`ndtwin-vm.sh` 的 MAC；VMware 真開機一次 |
 | 73 | `KERNEL_ENDPOINTS` 手抄表漏 `GET /ndt/get_sflow_stats`，`test_l3_dispatch_drift` 在 trunk 紅 | ✅ IN TRUNK（09-03 `431d98a5`，併 `fix/inventories-follow-the-merges @ 8d492733`；auditor 在 trunk 看過紅、合併樹 28＋25 個 python 模組全綠） | auditor：沿 trunk first-parent 逐 commit 跑，`ea139d1c`（telemetry-health 併入）起紅 | 合併驗證缺口，見 MERGE-LOG「第七個教訓」 |
