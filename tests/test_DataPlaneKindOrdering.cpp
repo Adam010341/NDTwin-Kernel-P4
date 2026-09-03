@@ -107,16 +107,25 @@ class DataPlaneKindOrderingTest : public ::testing::Test
     {
         if (m_started)
         {
+            // Reverse of the start order below. The manager's stop() joins all three of its
+            // threads only since fix/b5-kernel-shutdown; before that this would have aborted.
+            m_manager->stop();
             m_monitor->stop();
         }
         ::unsetenv("NDTWIN_TOPO_FILE");
         std::remove(m_topoPath.c_str());
     }
 
-    /// start() plus the bookkeeping that makes TearDown join the poll thread.
+    /// The start sequence main.cpp uses -- monitor (main.cpp:409) then power manager
+    /// (main.cpp:432) -- plus the bookkeeping that makes TearDown join both. The first
+    /// draft started only the monitor, and TheStartupSequenceMainUsesYieldsABmv2Verdict was
+    /// red for that reason alone: the manager's verdict is taken in its own start(), so a
+    /// fixture that never calls it can only observe the lazy re-derive, not the sequence
+    /// the test is named for.
     void startMonitor()
     {
         m_monitor->start();
+        m_manager->start();
         m_started = true;
     }
 
