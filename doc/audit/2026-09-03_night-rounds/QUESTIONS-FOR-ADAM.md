@@ -88,6 +88,32 @@ $ git log --oneline --all -- doc/2026-08-29_europ4-poster-abstract | wc -l      
 不該公開的東西（audit raw 裡的憑證、內部主機名、學姊給的未發表資料），我沒有系統性掃過。
 **要我掃就說一聲**；用 `main` 為基底則連掃都不必，因為那條線本來就沒帶這些。
 
+### 🔄 09-03 17:xx：Adam 裁「照你說的」（乾淨快照）→ 快照做好了，**推的那一下等你一句**
+
+**P4-public 現況（未認證 HTTPS 驗過，同事也獨立驗過）**：公開；`main` = 兩顆 commit 的 **orphan**
+`936f8c6c`（＝`20cd80b` 的樹，去掉 `tools/remote-lab/`、投稿包、`doc/audit/`）＋ README。它就是同事那條線引的
+基準，你裁了凍結。**所以新快照推成新分支 `snapshot-2026-09-03`，`main` 不動。**
+
+**快照 `snapshot-2026-09-03` 的組成**（本機分支，`git commit-tree` 直接從整合分支 `717fbbb2` 的樹造，**無父**）：
+
+| 判準 | 值 |
+|---|---|
+| parents | 0（`rev-list --count` = 1；`fbf60530` 不是祖先） |
+| 檔數 | 569（`936f8c6c` 是 436） |
+| 排除（照前例） | `tools/remote-lab/`（nslab、server1–8、內網 IP）、`doc/audit/`（1,862 檔）、`doc/2026-08-29_bmv2-performance-study-figs/`（論文的 18 張圖）、`NEXT.md`／`RATIONALE.md`（agent 日誌）、`CLAUDE.md`（內部工作規則，兩個公開 repo 都沒有） |
+| 比前例多的目錄 | `tools/build_guard`（6）、`tools/githooks`（2）、`tools/ryu_apps`（3）——內容見下 |
+| 同事的 grep `abstract\|paper/\|review/` | **0**（對 `fbf60530` 是 71） |
+| 金鑰樣式 | 0 |
+
+**推之後的驗收（同事的判準，比 `git status` 強）**：未認證 clone
+（`GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true git -c credential.helper= clone https://…`）→ `git log` 恰一顆、
+`git ls-files | grep -ciE 'abstract|paper/|review/'` = 0、`tools/remote-lab` 不存在。
+
+**為什麼我還沒推**：你早上的規則是「等我們全部修好再推」，現在 71 條裡還有 40 條沒人修。
+「照你說的」我讀成裁定了**形狀**；**時機**你一句話：要現在推（以「工具與手冊測試」為目的，
+內容＝今天 18 支修法合併後、924/924＋閘門驗過的樹），還是等 40 條收斂。指令備好了：
+`make_snapshot.sh <sha> snapshot-2026-09-03 push`（拒絕碰 `main`、拒絕覆蓋既有分支）。
+
 **在你回答之前我不會推任何東西。**
 
 ---
