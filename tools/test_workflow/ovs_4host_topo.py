@@ -40,9 +40,20 @@ preflight all read, and which name the holder and the consequence when either is
 Keep this paragraph and that row in step: this one says why the port is hard-coded here,
 the row says what a leftover on it costs.
 
+sFlow (added 2026-09-03, finding #4). Until this change the file had ZERO sFlow references, so
+all ten bridges came up with `sflow=[]` while the kernel listened on :6343 as usual. Nothing
+failed: `/ndt/get_average_link_usage` answered `{"avg_link_usage":0.0,"status":"success"}` under
+3000 packets of real traffic, and every per-flow rate read zero. "We never asked" and "the
+network is idle" were the same output, on every channel. The reference topology testbed_topo.py
+-- the one `ndt up ovs` (128 hosts) runs -- has done this since it was written; only this
+fixture was missing it. See configure_sflow() below for the parameters and why each is what
+testbed_topo.py already uses.
+
     sudo /home/adam/miniconda3/envs/ntg-env/bin/python tools/test_workflow/ovs_4host_topo.py
 """
 
+import re
+import subprocess
 import sys
 import threading  # the pre-rule discovery burst below runs its pings in parallel
 
@@ -58,6 +69,118 @@ from mininet.topo import Topo
 HOST_NUM = 4
 CONTROLLER_IP = '127.0.0.1'
 CONTROLLER_PORT = 6653
+
+# --- sFlow -----------------------------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+#
+# Every value here is testbed_topo.py's. Do not invent a second set: the kernel's model file
+# encodes one of them, so the two files are not merely "similar", they have to agree.
+#
+# 🔴 SFLOW_AGENT_IP_BASE/FIRST is the one that is load-bearing, and it is not a style choice.
+# The kernel identifies a sample's switch by the AGENT ADDRESS carried inside the sFlow
+# datagram (FlowLinkUsageCollector.cpp: `uint32_t agentIp = data[2]`), then looks up the edge
+# whose src_ip matches (TopologyAndFlowMonitor::findEdgeByAgentIpAndPort compares
+# `props.srcIp.front()`). setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json declares
+# s1..s10 as 192.168.123.11..20 -- so an agent that reports anything else is parsed, accepted,
+# matched against no edge, and contributes nothing, which looks exactly like the defect this
+# change is fixing. That is why the mgmt IP is assigned to the agent interface first: OVS reads
+# the agent address off that interface, and an agent interface with no IPv4 makes OVS fall back
+# to the source address of the route to the collector -- one address for all ten switches.
+SFLOW_COLLECTOR_IP = '127.0.0.1'
+SFLOW_COLLECTOR_PORT = 6343    # the kernel's collector; ports.sh row 6343 says what a squatter costs
+SFLOW_HEADER = 128
+SFLOW_SAMPLING = 256
+SFLOW_POLLING = 0
+SFLOW_AGENT_IP_BASE = '192.168.123.'
+SFLOW_AGENT_IP_FIRST = 11      # s1 -> .11, so sN -> .(10 + N); matches the model file, above
+SFLOW_AGENT_PREFIX_LEN = 24
+
+
+def sflow_agent_ip(bridge):
+    """The agent address for a bridge, as the kernel's topology model declares it.
+
+    `s7` -> `192.168.123.17`. The trailing integer is the dpid; the model file keys its
+    switches the same way, and tests/python/test_ovs4_sflow.py asserts the two agree rather
+    than trusting this comment.
+    """
+    m = re.fullmatch(r's(\d+)', bridge)
+    if not m:
+        raise ValueError(f'not a switch name this topology builds: {bridge!r}')
+    return f'{SFLOW_AGENT_IP_BASE}{SFLOW_AGENT_IP_FIRST + int(m.group(1)) - 1}'
+
+
+def sflow_agent_iface(intf_names):
+    """testbed_topo.py's find_ovs_agent_iface, over the interface names of one switch.
+
+    The first non-loopback interface of the bridge. Kept identical in behaviour to the
+    reference topology so the two fabrics present the same agent to the collector.
+    """
+    for name in intf_names:
+        if not name.startswith('lo') and 's' in name:
+            return name
+    return None
+
+
+def agent_ip_argv(iface, ip):
+    return ['ifconfig', iface, f'{ip}/{SFLOW_AGENT_PREFIX_LEN}', 'up']
+
+
+def sflow_create_argv(bridge, iface):
+    """testbed_topo.py's enable_sflow command, as argv rather than a shell string.
+
+    The elements are byte-for-byte what ovs-vsctl receives there -- including the literal
+    quotes around `target=`, which in that file are written `\\"` for os.system's shell and
+    arrive at ovs-vsctl as part of the value. Passing argv instead of a shell string is the
+    only departure, and it is what lets the exit status be read: os.system's return value was
+    discarded there, so `set bridge s11 sflow=@sflow` against a bridge that does not exist was
+    indistinguishable from success.
+    """
+    target = f'{SFLOW_COLLECTOR_IP}:{SFLOW_COLLECTOR_PORT}'
+    return [
+        'ovs-vsctl',
+        '--', '--id=@sflow', 'create', 'sflow',
+        f'agent={iface}',
+        f'target="{target}"',
+        f'header={SFLOW_HEADER}',
+        f'sampling={SFLOW_SAMPLING}',
+        f'polling={SFLOW_POLLING}',
+        '--', 'set', 'bridge', bridge, 'sflow=@sflow',
+    ]
+
+
+def run_checked(argv):
+    """Run argv and raise on a non-zero exit status. The seam the tests replace."""
+    subprocess.run(argv, check=True)
+
+
+def configure_sflow(bridges, run=run_checked):
+    """Point every bridge's sFlow at the kernel's collector. Returns the bridges configured.
+
+    `bridges` is a sequence of (bridge_name, interface_names). Each bridge is configured
+    exactly once: OVS would happily accept a second `create sflow` and leave an unreferenced
+    record behind in the database, which is why `ndt`'s verify counts records as well as
+    references.
+
+    polling=0 disables counter samples, and that is correct here -- do not "fix" it. The
+    reasoning is written out in testbed_topo.py: in MININET mode the kernel discards every
+    counter sample (FlowLinkUsageCollector.cpp, the `m_mode == utils::MININET` early continue
+    in the sampleType 2 branch) and derives link utilisation from FLOW samples instead. The
+    0.0 that once looked like a polling problem was a measurement across a single switch,
+    which getAvgLinkUsage does not count. Enabling polling buys nothing and only adds
+    datagrams.
+    """
+    configured = []
+    for bridge, intf_names in bridges:
+        iface = sflow_agent_iface(intf_names)
+        if iface is None:
+            raise RuntimeError(
+                f'{bridge} has no non-loopback interface to use as the sFlow agent; '
+                f'without one OVS reports the same agent address for every switch and the '
+                f'kernel matches the samples to no edge')
+        run(agent_ip_argv(iface, sflow_agent_ip(bridge)))
+        run(sflow_create_argv(bridge, iface))
+        configured.append(bridge)
+    return configured
 
 
 class MatchedTopo(Topo):
@@ -134,6 +257,18 @@ def main():
     )
     net.start()
 
+    # [Co-developed with claude code -- Adam]
+    # Before the hosts, because the discovery burst below is the first traffic on the fabric and
+    # a bridge that is not sampling yet contributes nothing to it. See the sFlow block at the
+    # top of this file for the parameters and for why the agent IP is the load-bearing one.
+    switches = [(sw.name, [i.name for i in sw.intfList()]) for sw in net.switches]
+    print(f'Configuring sFlow on {len(switches)} bridges -> '
+          f'{SFLOW_COLLECTOR_IP}:{SFLOW_COLLECTOR_PORT}')
+    configure_sflow(switches)
+    # Same line testbed_topo.py prints, for the same reason: the tmux pane is where an operator
+    # looks first, and `ndt up ovs4`'s verify reads the same table independently.
+    subprocess.run(['ovs-vsctl', 'list', 'sflow'], check=False)
+
     hosts = [net.get(f'h{i}') for i in range(1, HOST_NUM + 1)]
     for src in hosts:
         for dst in hosts:
@@ -174,6 +309,8 @@ def main():
     print('\n' + '=' * 70)
     print(f'OVS matched topology up: 10 switches, {HOST_NUM} hosts, 40 directed edges.')
     print(f'Controller: {CONTROLLER_IP}:{CONTROLLER_PORT} (Ryu must already be listening)')
+    print(f'sFlow: {len(switches)} bridges -> {SFLOW_COLLECTOR_IP}:{SFLOW_COLLECTOR_PORT}, '
+          f'agents {sflow_agent_ip("s1")}-{sflow_agent_ip(f"s{len(switches)}")}')
     print('Kernel model: setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json')
     print('=' * 70 + '\n')
 
