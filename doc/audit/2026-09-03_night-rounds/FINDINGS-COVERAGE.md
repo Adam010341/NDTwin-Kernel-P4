@@ -219,6 +219,14 @@
 | `fix/d15-dataplane-kind-race` | `fix/b5-kernel-shutdown` | **只有 `tests/CMakeLists.txt`** | 🟠 **與既有記載不符（往好的方向）。** `6ad6811b` 預告的是 `DeviceConfigurationAndPowerManager.cpp` 的文字衝突；實測那個 `.cpp` **併得起來**，真正衝突的是兩支各自新增的測試檔在 `tests/CMakeLists.txt` 的同一段 |
 | `fix/b5-kernel-shutdown` | `fix/telemetry-health-visible` | `tests/CMakeLists.txt` | 🟠 未記載。同上，是新測試檔的登記行相撞 |
 
+🆕 **12:5x — 那個 telemetry × flow-rate 衝突，auditor 拆開看過了，它比看起來輕。**
+`FlowLinkUsageCollector.hpp` 只有**一個**衝突區塊（`302`–`396`），而且兩邊放的是**互不相干的新增**：
+telemetry 那半是 `struct IngestHealth` ＋ `classifyIngestHealth`，flow-rate 那半是
+`lastFlowRateDivisorSeconds()`。**兩邊都插在 class 的同一個位置，所以 git 判不出來——但語意上沒有重疊。**
+解法是**兩塊都留**，不需要取捨；`.cpp` 兩邊自動合得起來（實測）。⇒ **先併誰都可以，第二支 rebase 時
+手動保留兩塊即可。** 之所以值得寫下來，是因為「`CONFLICT (content)` 在同一個 header」在審查表上長得像
+「兩支在搶同一段邏輯」，而它不是。
+
 🆕 **12:5x 新增一對（auditor 實測）**：`fix/ndt-sudo-surface` × `fix/ports-that-block-restart`
 在 `tools/test_workflow/ndt` **衝突**——兩支都在改同一支腳本的相鄰區域（一個加 sudo 表、一個加 port 表）。
 vs `fix/g6-ndt-apps-liveness` 與 `fix/g9-cleanup-no-pkill-f` 則都乾淨。
