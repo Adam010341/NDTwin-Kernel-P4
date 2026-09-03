@@ -57,6 +57,12 @@ STACK="$HERE/stack.sh"
 MANIFEST=/tmp/ndtwin_p4_switches.json
 SWITCHES=10
 
+# The ports that block a bring-up, who owns each one, and what a foreign holder costs.
+# One table, read by cmd_clean, deep_sweep and preflight -- see ports.sh for why it is a
+# table and not four comments. [Co-developed with claude code -- Adam]
+# shellcheck source=ports.sh
+source "$HERE/ports.sh"
+
 # Every ndtwin-lab verb reaches tmux, and tmux with a controlling terminal refuses to work
 # without TERM *in the environment* -- unexported counts as absent. `ndtwin-lab` sends tmux's
 # stderr to /dev/null and falls back to `echo "no lab sessions"`, so the failure arrives as a
@@ -158,22 +164,40 @@ port_listener_desc() {
 # --deep alone cannot blow through someone else's reservation.
 deep_sweep() {
     local port pids pid comm killed=0 blind=0
-    for port in 8000 8080 8081; do
-        port_open "$port" || continue
-        pids="$(port_listener_pids "$port")"
+    local spec proto rowplane owner consequence
+    # Reads the same table cmd_clean does. Before, this loop and that one each carried their
+    # own copy of `8000 8080 8081`, so "reported but not swept" and "swept but not reported"
+    # were both one edit away -- and a port outside the three was in neither.
+    # [Co-developed with claude code -- Adam]
+    while IFS='|' read -r spec proto rowplane owner consequence; do
+      [[ -z "$spec" ]] && continue
+      for port in $(ndt_port_expand "$spec"); do
+        ndt_port_open "$port" "$proto"
+        case $? in
+            0) ;;
+            2) err "  :$port ($proto) could not be probed -- --deep cannot address it"; blind=1; continue ;;
+            *) continue ;;
+        esac
+        pids="$(ndt_port_listener_pids "$port" "$proto")"
         if [[ -z "$pids" ]]; then
-            err "  :$port is held by $(port_listener_desc "$port") -- --deep cannot address it"
+            err "  :$port is held by $(ndt_port_holder "$port" "$proto") -- --deep cannot address it"
+            err "     $consequence"
             blind=1
             continue
         fi
         for pid in $pids; do
-            # Never signal init, and never signal this script or its own process group.
-            if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )) || [[ "$pid" == "$$" ]]; then
+            # Never signal init, and never signal this script, its parent, or its own process
+            # group. The parent and pgid clauses came in with the table: the sweep now covers
+            # nine specs instead of three, so the chance that a listener is something in our
+            # own ancestry is no longer negligible, and `kill` is not undoable.
+            if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )) \
+               || [[ "$pid" == "$$" || "$pid" == "$PPID" || "$pid" == "$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')" ]]; then
                 err "  refusing to signal pid ${pid:-empty} on :$port"
                 continue
             fi
             comm="$(cat "/proc/$pid/comm" 2>/dev/null || echo '?')"
-            warn "  killing $comm (pid $pid) holding :$port -- not started by this stack"
+            warn "  killing $comm (pid $pid) holding :$port ($proto) -- not started by this stack"
+            warn "     $consequence"
             kill -TERM "$pid" 2>/dev/null
             local i
             for i in 1 2 3 4 5 6 7 8 9 10; do
@@ -187,7 +211,8 @@ deep_sweep() {
                 killed=$(( killed + 1 ))
             fi
         done
-    done
+      done
+    done < <(ndt_port_rows all)
     (( killed > 0 )) && ok "deep sweep removed $killed stray listener(s)"
     (( killed == 0 && blind == 0 )) && info "deep sweep: nothing left holding the ports"
     return 0
@@ -563,6 +588,25 @@ preflight() {
         [[ -f "$REPO/p4_proxy/p4_src/build/ndtwin_switch.json" ]] || {
             err "P4 pipeline not compiled: p4_proxy/p4_src/build/ndtwin_switch.json"; bad=1; }
     fi
+
+    # [Co-developed with claude code -- Adam]
+    # The ports this plane's bring-up has to be able to bind, from the one table. Stated
+    # BEFORE the fabric starts, because every consequence in that table is silent: the 09-02
+    # sFlow case cost a whole Terminal 3 and surfaced as `bind() to sFlow port 6343 failed`
+    # from the kernel, with nothing upstream having mentioned :6343 at all.
+    #
+    # Advisory, not a refusal, and deliberately: `ndt up` on an already-running stack finds
+    # :8000 and :6343 held by ITS OWN kernel, so a hard failure here would make the reuse path
+    # unusable. Telling ours from a stray needs the pidfile ownership test, which lives in
+    # stack.sh (port_owner_verdict / wait_for_port) and already refuses there. What was
+    # missing was never the refusal -- it was anyone naming the port at all.
+    local residue
+    residue="$(ndt_port_residue "$mode")"
+    if [[ -n "$residue" ]]; then
+        warn "ports already held before bring-up (yours if a stack is up; otherwise the next"
+        warn "run measures them). stack.sh refuses at wait_for_port if they are not ours:"
+        printf '%s\n' "$residue" | sed 's/^/  /'
+    fi
     return $bad
 }
 
@@ -632,9 +676,12 @@ up_p4() {
             info "the running fabric has $live_hosts hosts, this run wants $hosts; rebuilding it"
         fi
         if [[ "$n" -gt 0 ]] && ! topo_session; then
-            # Orphans outlive `mn -c` and hold :3005x, which makes the next fabric fail to
-            # bind with an error that reads like a P4 problem.
+            # Orphans outlive `mn -c`. Which ports that costs, and why the resulting error
+            # reads like a P4 pipeline problem, is now a row in ports.sh rather than a
+            # sentence here -- and the row is printed, so the operator sees the actual held
+            # ports instead of a count of processes. [Co-developed with claude code -- Adam]
             warn "$n orphan bmv2 process(es) with no topo session; sweeping first"
+            ndt_port_residue p4 | sed 's/^/  /'
             sudo -n "$LAB" cleanup >/dev/null 2>&1
         fi
         # [Co-developed with claude code -- Adam]
@@ -1109,14 +1156,24 @@ cmd_clean() {
 
     if [[ -e "$MANIFEST" ]]; then err "switch manifest still present: $MANIFEST"; rc=1; else ok "no switch manifest"; fi
 
-    for p in 8000 8080 8081; do
-        if port_open "$p"; then
-            err ":$p still listening -- the next up would measure it"
-            err "   this stack did not start it; to kill it too:  ndt down --deep"
-            rc=1
-        fi
-    done
-    (( rc == 0 )) && ok "ports 8000/8080/8081 closed"
+    # [Co-developed with claude code -- Adam]
+    # Every row of the port table, not the three ports that were easy to name. This loop used
+    # to be `for p in 8000 8080 8081`, which is why a kernel nobody had started could hold UDP
+    # :6343, block a legitimate bring-up with `bind() to sFlow port 6343 failed`, and have all
+    # five of these assertions come back green. Adding a port here is now a one-line edit to
+    # ports.sh, and the row carries the consequence with it -- so the report names the holder
+    # and what it costs, the way this check already did for :8081 and did not for :30051.
+    local residue
+    residue="$(ndt_port_residue all)"; local prc=$?
+    if [[ -n "$residue" ]]; then
+        printf '%s\n' "$residue" | while IFS= read -r line; do err "$line"; done
+        err "   this stack did not start it; to kill it too:  ndt down --deep"
+        rc=1
+    fi
+    # 2 is "could not look", not "nothing there". Treated as not-clean for the same reason
+    # grpc_ports.py refuses on an unreadable ip_local_port_range: unknown is not safe.
+    (( prc == 2 )) && rc=1
+    (( prc == 0 )) && ok "ports closed: $(ndt_port_label all)"
 
     echo
     if (( rc == 0 )); then say "${G}clean${N}"; else say "${R}not clean${N}"; fi

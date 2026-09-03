@@ -33,6 +33,13 @@ rather than left to Mininet's probe: with no port, RemoteController tries 6653 t
 and falls back to 6653 when neither answers, which silently masks a controller that is
 not up yet.
 
+The other half of that -- a controller from the PREVIOUS round still listening, which the
+same probe adopts just as silently -- is no longer only written down. It is rows 6653 and
+6633 of tools/test_workflow/ports.sh, which `ndt clean`, `ndt down --deep` and the bring-up
+preflight all read, and which name the holder and the consequence when either is held.
+Keep this paragraph and that row in step: this one says why the port is hard-coded here,
+the row says what a leftover on it costs.
+
     sudo /home/adam/miniconda3/envs/ntg-env/bin/python tools/test_workflow/ovs_4host_topo.py
 """
 
