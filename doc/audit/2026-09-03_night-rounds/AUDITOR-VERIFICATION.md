@@ -38,6 +38,21 @@ mutant builder 也只 `chmod +x` 旁邊的 `ndt`。
 後父行程就退了），工具因此回報「completed, exit code 0」，而閘門其實才跑到 M3。**那個 rc 是 setsid
 的，不是閘門的。** 判定一律讀 log 的結尾行，不要讀 exit code。
 
+## 12:4x — 我複驗 `FINDINGS-COVERAGE.md` 推翻的三件事
+
+那張總帳是一支 subagent 產的。它推翻了三件既有記載，而推翻會改變裁決 ⇒ 三件我都自己重跑了一次。
+
+| 它的宣稱 | 我怎麼查 | 結果 |
+|---|---|---|
+| `fix/g6-ndt-apps-liveness` **沒有**修 viz 的孤兒（#6／#48） | 讀那支分支上的 `app_spawn` 與 `pid_is_app` | ✅ **成立**。`app_spawn` 仍是 `( cd "$dir" && exec nohup "$@" … ) &`——**沒有 `setsid`、沒有自己的 process group**，stop 仍只對單一 pid 送 TERM。而 `pid_is_app` 比對的是 argv 元素等於 `network_traffic_visualizer.sh`；那個腳本 exec 掉 java 之後 argv 裡就沒有它了（09-02 存檔記到兩個行程的 comm 都是 `java`）⇒ 那個假陰性原封不動。g6 改善的是**存活回報**，不是**停止**。 |
+| `fix/telemetry-health-visible` × `fix/flow-rate-denominator` 在 `FlowLinkUsageCollector.hpp` 硬衝突 | `git merge-tree --write-tree` | ✅ **成立**，`CONFLICT (content)` 在 `.hpp`；`.cpp` 兩邊自動合得起來。**沒有任何審查文件提過這個衝突。** |
+| `fix/d15` × `fix/b5` 只衝 `tests/CMakeLists.txt`，`6ad6811b` 預告的 `DeviceConfigurationAndPowerManager.cpp` 文字衝突不存在 | 同上 | ✅ **成立**。唯一 `CONFLICT` 是 `tests/CMakeLists.txt`；`DeviceConfigurationAndPowerManager.{hpp,cpp}` 兩個都 `Auto-merging` 成功。 |
+
+順帶自己驗的兩項：`fix/ports-that-block-restart` × `fix/p4-priority-not-silently-dropped` 現在 **乾淨合併、無衝突**（解糾纏的驗收）；`refs/heads/` 底下 33 支 `fix*` 分支裡**未併的是 13 支**。
+
+🔑 **而我在 `t8-t10-fixes` 上先問錯了問題。** 我用 `git merge-base --is-ancestor t8-t10-fixes trunk` 得到「否」，差點把總帳的「它已經在 trunk 上」記成誤判。正確的工具是 `git cherry -v trunk t8-t10-fixes`——**10 顆 commit 全部標 `-`**，也就是 trunk 已經有每一顆的等價 patch（它是被 cherry-pick／rebase 進去的，所以血緣說否而內容說是）。
+**`--is-ancestor` 問的是「這顆 commit 在不在歷史裡」，`git cherry` 問的是「這份工作在不在 trunk 上」。判斷一支分支還要不要留，要問後者。**
+
 ## What this does NOT establish
 
 - **The tie-break is not confirmed live.** No fabric was brought up; the eight-bring-up
