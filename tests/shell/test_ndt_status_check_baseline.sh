@@ -147,6 +147,13 @@ netem_count() { echo 0; }
 ndt_sudo_report() { return 0; }
 ndt_sudo_rows() { echo one-row; }
 app_probe() { APP_STATE=not-running; }
+# Finding #83 added a second thing `--check` compares: the installed /usr/local/sbin/ndtwin-lab
+# against tools/test_workflow/ndtwin-lab. On this machine those really do differ, so without
+# this stub every "exits 0" case below would be red about the helper -- a true statement, and
+# not the one this suite is making. Pinned to "same" so an exit code here is about the up-target
+# baseline, which is what group 1-8 are for. tests/shell/test_ndt_up_down_robust.sh is where the
+# helper comparison itself is tested, in both directions. [Co-developed with claude code -- Adam]
+lab_version_verdict() { echo "same fixture-sha fixture-sha"; }
 '
 run_check() {   # -> the whole report plus a trailing RC=<n>
     bash -c "source '$NDT' >/dev/null 2>&1

@@ -293,7 +293,7 @@ hasnt "  and says nothing about foreign holders"           "not part of this che
 
 section "2. #3(b): a bring-up that fails after changing the machine takes it back down"
 # up_ovs, the measured shape: Ryu started, the fabric built, then the kernel step failed.
-reset_fix; rc_for stack_up 1
+reset_fix; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"
 OUT="$(drive 'up_ovs 4')"
 check "a failed 'ndt up ovs4' exits non-zero"              "1"  "$(rc_of_out "$OUT")"
 has   "  and rolls back"                                   "rollback" "$OUT"
@@ -356,6 +356,7 @@ has   "  including the topo session it may have created"   "topo-stop" "$SUDO"
 
 # A rollback that could not finish must say so rather than report a tidy machine.
 reset_fix; rc_for stack_up 1; rc_for cleanup 1; out_for cleanup "  STILL RUNNING  simple_switch_grpc pid 4242"
+echo "0 14 0" > "$FIX/mn.seq"
 OUT="$(FX_BMV2=5 drive 'up_ovs 4')"
 has   "an incomplete rollback says so"                     "rollback INCOMPLETE" "$OUT"
 has   "  and names the survivor cleanup reported"          "STILL RUNNING" "$OUT"
@@ -421,7 +422,7 @@ hasnt "a clean machine is not made to wait"                "waited" "$OUT"
 
 # `ndt clean` on its own stays an instantaneous assertion -- it is the teardown ASSERTION, and
 # a caller running it to ask "is the machine clean right now" must not be given a wait.
-reset_fix; echo "5 0" > "$FIX/bmv2.seq"
+reset_fix; echo "5 0" > "$FIX/bmv2.seq"; rm -f "$FIX/manifest.json"
 OUT="$(drive 'cmd_clean')"
 check "🔴 'ndt clean' alone does not wait"                 "1"  "$(rc_of_out "$OUT")"
 has   "  it answers about this instant"                    "bmv2 switches: 5 still running" "$OUT"
