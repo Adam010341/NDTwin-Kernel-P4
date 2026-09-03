@@ -298,6 +298,19 @@ class FlowLinkUsageCollector
                                                  int64_t agentLastSampleMillis,
                                                  double windowSeconds);
 
+    /**
+     * @brief The interval the last per-flow rate pass actually divided by, in seconds.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * The flow-side twin of TopologyAndFlowMonitor::lastRateDivisorSeconds(), and it exists for
+     * the same reason: the acceptance criterion for a denominator fix is that the value used as
+     * the divisor equals the interval measured independently for the same pass, and a criterion
+     * that cannot be read from a running kernel is not a gate. Negative means no per-flow rate
+     * has been published yet -- which is not a pass.
+     */
+    double lastFlowRateDivisorSeconds() const { return m_lastFlowRateDivisorSeconds.load(); }
+
   private:
     inline std::string ourIpToString(uint32_t ipFront, uint32_t ipBack);
     inline uint32_t ipFromFrontBack(uint32_t ipFront, uint32_t ipBack);
@@ -441,6 +454,24 @@ class FlowLinkUsageCollector
     void creditHostBoundEgressEdges(double elapsedSeconds);
 
     /**
+     * @brief One per-flow rate pass: measure the interval, republish every flow's rates over it.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * Protected so a test can run one pass without standing up the rate-loop thread -- and that
+     * is not a convenience. The arithmetic can be unit-tested on its own (sflow::
+     * updateFlowRatesForInterval), but "the loop hands it the measured interval" cannot, and a
+     * fix wired to a constant would pass every arithmetic test ever written. That is not a
+     * hypothetical failure mode: it is what f5e35561 did to this very file, correcting the link
+     * accumulator while the flow rates beside it kept publishing bits-per-loop-period. A test
+     * calls this twice with a known sleep between and reads lastFlowRateDivisorSeconds().
+     *
+     * Not thread safe with respect to itself: m_lastFlowDrainAt is a plain member because
+     * exactly one thread (the rate loop) calls this in production.
+     */
+    void runFlowRatePass();
+
+    /**
      * @brief Sampled bytes x sampling rate banked so far for one (agent IP, port).
      *
      * This is the quantity the rate loop turns into `linkBandwidthUsage` -- it multiplies this
@@ -497,6 +528,21 @@ class FlowLinkUsageCollector
     void workerLoop(size_t qid);
 
     std::unordered_map<FlowKey, FlowInfo, FlowKeyHash> m_flowInfoTable;
+
+    // [Co-developed with claude code -- Adam]
+    // Where the per-flow counters were last drained. Separate from the link path's lastDrainAt
+    // because it marks a different drain: the flow walk snapshots ...Previous = ...Current near
+    // the top of the loop body, the counter reports are zeroed near the bottom, and the two
+    // spans differ by however long the walk takes. Anchored at construction rather than at the
+    // first pass so the first interval is a real one -- the counters start at zero at the same
+    // instant, so the first pass measures bytes since construction over the time since
+    // construction, which is consistent (slightly long, hence slightly conservative, because
+    // the socket is not receiving for the first few ms of it).
+    std::chrono::steady_clock::time_point m_lastFlowDrainAt{std::chrono::steady_clock::now()};
+
+    // Written by runFlowRatePass, read by the acceptance gate. Starts negative for the same
+    // reason the link path's does: 0 is a value a gate could read as "an interval was used".
+    std::atomic<double> m_lastFlowRateDivisorSeconds{-1.0};
 
     // key -> agent_ip and port
     // value -> last_report_time, last_received_input_octets and

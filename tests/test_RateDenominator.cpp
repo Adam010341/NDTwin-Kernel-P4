@@ -30,15 +30,46 @@
  *   2. `> 0.0` becomes `>= 0.0`            -> ZeroIntervalPublishesNothing
  *   3. sentinel `-1.0` becomes `0.0`       -> DivisorStartsAtASentinelNotZero
  *   4. store elapsed BEFORE the guard      -> ZeroIntervalDoesNotRecordADivisor
+ *
+ * ===========================================================================================
+ * THE SECOND SUITE IN THIS FILE -- FlowRateDenominator -- IS THE HALF Q NEVER COVERED.
+ * [Co-developed with claude code -- Adam]
+ *
+ * Everything above concerns the LINK rate. Q's pre-registration enumerated its targets by
+ * grepping `MultiplySampingRate`, which finds the two link accumulators and nothing else, so
+ * f5e35561 divided the link path and left the per-flow rates beside it computing
+ * `delta * 8 * samplingRate` -- bits per loop period, published as
+ * `estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot`. Six tests, all six driving
+ * updateLinkInfoLeftLinkBandwidth, and the defect the file exists to prevent survived one
+ * function away. That is the reason the flow tests live in this file rather than a new one: a
+ * reader who comes here to check "is the denominator gated" must not be able to read a green
+ * suite and conclude yes for a path it never touches.
+ *
+ * FLOW MUTATION GATE -- tests/shell/mutate_flow_rate_denominator.sh, results recorded in
+ * doc/audit/2026-09-02_live-round/FLOW-RATE-DENOMINATOR.md.
+ *
+ *   F1. drop `/ elapsedSeconds` on the bit rate     -> FlowSameBytesOverTwoSecondsIsHalfTheRate
+ *   F2. drop `/ elapsedSeconds` on the packet rate  -> FlowPacketRateIsPerSecondToo
+ *   F3. `> 0.0` becomes `>= 0.0`                    -> ZeroIntervalLeavesTheFlowAlone
+ *   F4. the loop passes a constant 1.0 (WIRING)     -> TheFlowDivisorIsMeasuredNotAssumed
+ *
+ * F4 is the one that matters most and the one an arithmetic-only test suite cannot have. A fix
+ * wired to a constant passes every other test in this suite, and that is not hypothetical --
+ * it is precisely the state this file was in between f5e35561 and today.
  */
+#include <chrono>
 #include <memory>
 #include <shared_mutex>
+#include <thread>
 
 #include <gtest/gtest.h>
 #include <boost/graph/adjacency_list.hpp>
 
 #include "common_types/GraphTypes.hpp"
+#include "common_types/SFlowType.hpp"
 #include "event_system/EventBus.hpp"
+#include "ndt_core/collection/Classifier.hpp"
+#include "ndt_core/collection/FlowLinkUsageCollector.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "utils/Utils.hpp"
 
@@ -180,6 +211,284 @@ TEST(RateDenominator, DivisorStartsAtASentinelNotZero)
     RateFixture fix;
     EXPECT_LT(fix.monitor->lastRateDivisorSeconds(), 0.0)
         << "'no rate published yet' must not be representable as a legal divisor";
+}
+
+// ============================== the per-flow rate ==========================================
+// [Co-developed with claude code -- Adam]  See this file's header for why these are here.
+
+namespace
+{
+
+constexpr uint32_t kSamplingRate = 256;
+
+/// One flow observed at one hop, with `sampledBytes` sampled bytes and `sampledPackets` sampled
+/// packets banked since the last pass. Both counters are on the ingress side; the production
+/// code sums ingress and egress before differencing, and which side carried the bytes is not
+/// what these tests are about.
+sflow::FlowInfo
+oneHopFlow(uint64_t sampledBytes, uint64_t sampledPackets, uint32_t samplingRate = kSamplingRate)
+{
+    sflow::FlowInfo info;
+    sflow::AgentKey hop{};
+    hop.agentIP = 0x0A000001;
+    hop.interfacePort = 3;
+    sflow::FlowStats& stats = info.agentFlowStats[hop];
+    stats.samplingRate = samplingRate;
+    stats.ingressByteCountCurrent = sampledBytes;
+    stats.ingresspacketCountCurrent = sampledPackets;
+    return info;
+}
+
+/// The whole point of the sampling multiplier: `sampledBytes` observed at 1/N stands for N times
+/// as many bytes on the wire. Written out here so the tests state the expected rate from the
+/// definition of bits per second rather than from the expression under test.
+uint64_t
+expectedBps(uint64_t sampledBytes, double seconds, uint32_t samplingRate = kSamplingRate)
+{
+    return static_cast<uint64_t>(static_cast<double>(sampledBytes) * 8.0 * samplingRate / seconds);
+}
+
+}   // namespace
+
+TEST(FlowRateDenominator, FlowSameBytesOverTwoSecondsIsHalfTheRate)
+{
+    // LOAD-BEARING, and the exact analogue of SameBytesOverTwoSecondsIsHalfTheRate one suite up.
+    // On the unfixed code both calls produce `delta * 8 * samplingRate` and the two figures come
+    // out equal. Stated as a relationship between two intervals so it tests the division rather
+    // than one arithmetic spelling.
+    sflow::FlowInfo oneSecond = oneHopFlow(1'000, 10);
+    sflow::FlowInfo twoSeconds = oneHopFlow(1'000, 10);
+
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(oneSecond, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(twoSeconds, 2.0, MICE_FLOW_UNDER_THRESHOLD));
+
+    EXPECT_EQ(oneSecond.estimatedFlowSendingRatePeriodically, expectedBps(1'000, 1.0));
+    EXPECT_EQ(twoSeconds.estimatedFlowSendingRatePeriodically, expectedBps(1'000, 2.0))
+        << "the same sampled bytes over twice the interval is half the rate; equal figures here "
+           "mean nothing divided by the interval";
+    EXPECT_EQ(oneSecond.estimatedFlowSendingRatePeriodically,
+              2 * twoSeconds.estimatedFlowSendingRatePeriodically);
+}
+
+TEST(FlowRateDenominator, FlowPacketRateIsPerSecondToo)
+{
+    // Its own test rather than an extra assertion above: the two rates are two statements in the
+    // source and a fix applied to one of them must not be able to pass by borrowing the other's
+    // coverage. That is the shape of this whole ticket in miniature.
+    sflow::FlowInfo oneSecond = oneHopFlow(1'000, 40);
+    sflow::FlowInfo twoSeconds = oneHopFlow(1'000, 40);
+
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(oneSecond, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(twoSeconds, 2.0, MICE_FLOW_UNDER_THRESHOLD));
+
+    EXPECT_EQ(oneSecond.estimatedPacketSendingRatePeriodically, 40u * kSamplingRate);
+    EXPECT_EQ(twoSeconds.estimatedPacketSendingRatePeriodically, 40u * kSamplingRate / 2);
+}
+
+TEST(FlowRateDenominator, ARealisticLoopPeriodOverstatesTheFlowRateByThatPeriod)
+{
+    // The measured quantity, at this project's own recorded loop periods. 1.0432 s is ticket P's
+    // quiet arm; 1.2487 s is the windowed mean this repo logged at 64 flows on 2026-08-25
+    // (FlowLinkUsageCollector.hpp, kFlowActiveWindowMs's rationale). The second number is the
+    // point of the test: the error is not a fixed unit slip, it grows with the flow count, so
+    // two readings taken at different loads were never comparable with each other either.
+    sflow::FlowInfo quiet = oneHopFlow(1'000, 10);
+    sflow::FlowInfo busy = oneHopFlow(1'000, 10);
+
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(quiet, 1.0432, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(busy, 1.2487, MICE_FLOW_UNDER_THRESHOLD));
+
+    const double asIfOneSecond = static_cast<double>(expectedBps(1'000, 1.0));
+    EXPECT_NEAR(static_cast<double>(quiet.estimatedFlowSendingRatePeriodically),
+                asIfOneSecond / 1.0432, 1.0);
+    EXPECT_NEAR(static_cast<double>(busy.estimatedFlowSendingRatePeriodically),
+                asIfOneSecond / 1.2487, 1.0);
+    EXPECT_LT(busy.estimatedFlowSendingRatePeriodically,
+              quiet.estimatedFlowSendingRatePeriodically)
+        << "a longer period must LOWER the rate, and it must do so by more at 64 flows than at "
+           "one -- that load dependence is the damage this ticket is about";
+}
+
+TEST(FlowRateDenominator, AnElephantIsDecidedOnTheDividedRate)
+{
+    // The consequence, not the arithmetic, and the one that changed decisions rather than
+    // citations. MICE_FLOW_UNDER_THRESHOLD is an ABSOLUTE 10 Mbit/s, so a uniform rescale walks
+    // flows across it -- which is why the ordering survived the defect (see the test above) and
+    // the flag did not.
+    //
+    // 5000 sampled bytes at 1/256 is 10.24 Mbit banked in the interval. Over the 1.2487 s period
+    // this repo logged at 64 flows that is a flow really sending 8.20 Mbit/s -- a mouse. The
+    // undivided figure is the same 10.24 Mbit/s the one-second column shows, so it was promoted.
+    // Same bytes, same threshold, two periods, two verdicts, and only one of them is true.
+    constexpr uint64_t kSampledBytes = 5'000;   // *8*256 = 10.24 Mbit in the interval
+    sflow::FlowInfo overOneSecond = oneHopFlow(kSampledBytes, 10);
+    sflow::FlowInfo overRealPeriod = oneHopFlow(kSampledBytes, 10);
+
+    ASSERT_TRUE(
+        sflow::updateFlowRatesForInterval(overOneSecond, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(
+        sflow::updateFlowRatesForInterval(overRealPeriod, 1.2487, MICE_FLOW_UNDER_THRESHOLD));
+
+    EXPECT_GE(overOneSecond.estimatedFlowSendingRatePeriodically, MICE_FLOW_UNDER_THRESHOLD);
+    EXPECT_TRUE(overOneSecond.isElephantFlowPeriodically)
+        << "10.24 Mbit in one second really is an elephant";
+
+    EXPECT_LT(overRealPeriod.estimatedFlowSendingRatePeriodically, MICE_FLOW_UNDER_THRESHOLD);
+    EXPECT_FALSE(overRealPeriod.isElephantFlowPeriodically)
+        << "the same bytes over a 1.2487 s period are 8.20 Mbit/s, a mouse -- an elephant here "
+           "means the threshold was applied to a figure that never had a denominator";
+}
+
+TEST(FlowRateDenominator, OneDivisorForEveryFlowSoTheOrderSurvives)
+{
+    // The question that separates "the numbers were wrong" from "the decisions were wrong".
+    //
+    // runFlowRatePass measures ONE interval and hands the same value to every flow in the walk,
+    // so the defect was a uniform rescale within a pass. That is why top-k ORDER was never
+    // affected -- getTopKFlowInfoJson sorts on this field, and a common positive factor cannot
+    // reorder anything -- while the ELEPHANT flag was, because MICE_FLOW_UNDER_THRESHOLD is an
+    // absolute 10 Mbit/s and a rescale walks flows across it. This test pins both halves so a
+    // future change that gave flows different denominators (per-flow last-sample timestamps,
+    // say) could not be made without a red light: that change would be a correctness improvement
+    // for the absolute values and a silent reordering of every consumer's top-k.
+    sflow::FlowInfo bigQuiet = oneHopFlow(4'000, 40);
+    sflow::FlowInfo smallQuiet = oneHopFlow(1'000, 10);
+    sflow::FlowInfo bigBusy = oneHopFlow(4'000, 40);
+    sflow::FlowInfo smallBusy = oneHopFlow(1'000, 10);
+
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(bigQuiet, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(smallQuiet, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(bigBusy, 1.2487, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(smallBusy, 1.2487, MICE_FLOW_UNDER_THRESHOLD));
+
+    EXPECT_GT(bigQuiet.estimatedFlowSendingRatePeriodically,
+              smallQuiet.estimatedFlowSendingRatePeriodically);
+    EXPECT_GT(bigBusy.estimatedFlowSendingRatePeriodically,
+              smallBusy.estimatedFlowSendingRatePeriodically)
+        << "a common divisor must not reorder two flows";
+
+    // 4:1 in, 4:1 out, at both periods -- to a truncation unit.
+    EXPECT_NEAR(static_cast<double>(bigQuiet.estimatedFlowSendingRatePeriodically) /
+                    static_cast<double>(smallQuiet.estimatedFlowSendingRatePeriodically),
+                4.0, 0.001);
+    EXPECT_NEAR(static_cast<double>(bigBusy.estimatedFlowSendingRatePeriodically) /
+                    static_cast<double>(smallBusy.estimatedFlowSendingRatePeriodically),
+                4.0, 0.001);
+}
+
+TEST(FlowRateDenominator, ZeroIntervalLeavesTheFlowAlone)
+{
+    // Same refusal as the link path, and the same reason: a flow reading 0 is indistinguishable
+    // from a flow that stopped, and this file has already paid once for a stale rate that looked
+    // like a measurement. The counters must survive too -- unlike the link accumulator, which
+    // its caller zeroes unconditionally, these bytes are still owed to the next interval.
+    sflow::FlowInfo info = oneHopFlow(1'000, 10);
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(info, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    const uint64_t before = info.estimatedFlowSendingRatePeriodically;
+    ASSERT_GT(before, 0u);
+
+    info.agentFlowStats.begin()->second.ingressByteCountCurrent += 9'999;
+    EXPECT_FALSE(sflow::updateFlowRatesForInterval(info, 0.0, MICE_FLOW_UNDER_THRESHOLD));
+
+    EXPECT_EQ(info.estimatedFlowSendingRatePeriodically, before)
+        << "a zero interval must not overwrite a real measurement";
+    EXPECT_EQ(info.agentFlowStats.begin()->second.ingressByteCountPrevious, 1'000u)
+        << "and it must not drain the counters either -- those bytes are owed to the next pass";
+}
+
+TEST(FlowRateDenominator, NegativeIntervalLeavesTheFlowAlone)
+{
+    sflow::FlowInfo info = oneHopFlow(1'000, 10);
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(info, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    const uint64_t before = info.estimatedFlowSendingRatePeriodically;
+
+    EXPECT_FALSE(sflow::updateFlowRatesForInterval(info, -0.5, MICE_FLOW_UNDER_THRESHOLD));
+    EXPECT_EQ(info.estimatedFlowSendingRatePeriodically, before);
+}
+
+TEST(FlowRateDenominator, CountersAreDrainedSoTheNextIntervalStartsFromHere)
+{
+    // The numerator is a delta, so the divisor is only correct if the subtrahend advances with
+    // it. A pass that computed the right rate and forgot to snapshot would report the whole
+    // flow's lifetime bytes over one interval, every interval.
+    sflow::FlowInfo info = oneHopFlow(1'000, 10);
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(info, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    ASSERT_GT(info.estimatedFlowSendingRatePeriodically, 0u);
+
+    ASSERT_TRUE(sflow::updateFlowRatesForInterval(info, 1.0, MICE_FLOW_UNDER_THRESHOLD));
+    EXPECT_EQ(info.estimatedFlowSendingRatePeriodically, 0u)
+        << "no new bytes in the second interval means no rate in the second interval";
+    EXPECT_FALSE(info.isElephantFlowPeriodically);
+}
+
+// --- the wiring, which no arithmetic test can reach ----------------------------------------
+
+namespace
+{
+
+/// Exposes one rate pass, same pattern as ConcurrentCollector in test_FlowTableConcurrency.cpp.
+class RatePassCollector : public sflow::FlowLinkUsageCollector
+{
+  public:
+    RatePassCollector(std::shared_ptr<TopologyAndFlowMonitor> monitor,
+                      std::shared_ptr<EventBus> bus,
+                      std::shared_ptr<ndtClassifier::Classifier> classifier)
+        : sflow::FlowLinkUsageCollector(std::move(monitor),
+                                        nullptr,
+                                        std::move(bus),
+                                        utils::DeploymentMode::MININET,
+                                        std::move(classifier))
+    {
+    }
+
+    using sflow::FlowLinkUsageCollector::runFlowRatePass;
+};
+
+std::unique_ptr<RatePassCollector>
+makeRatePassCollector()
+{
+    auto bus = std::make_shared<EventBus>();
+    auto monitor = std::make_shared<TopologyAndFlowMonitor>(std::make_shared<Graph>(),
+                                                           std::make_shared<std::shared_mutex>(),
+                                                           bus,
+                                                           utils::DeploymentMode::MININET);
+    return std::make_unique<RatePassCollector>(
+        monitor, bus, std::make_shared<ndtClassifier::Classifier>());
+}
+
+}   // namespace
+
+TEST(FlowRateDenominator, TheFlowDivisorIsMeasuredNotAssumed)
+{
+    // 🔴 THE TEST THIS TICKET EXISTS FOR. Every other assertion in this suite passes against a
+    // fix that computes `bytes * 8 * rate / elapsedSeconds` and is then handed a hardcoded 1.0
+    // by the loop -- which is exactly the state the kernel was in for the per-flow path, with a
+    // fully tested divided link path one function away.
+    //
+    // It asserts the divisor against a clock the collector does not share, rather than against a
+    // fixed band: if this laptop stalls mid-test both numbers grow together and the test stays
+    // honest, while a constant 1.0 diverges from a 300 ms wait by twenty times the tolerance.
+    auto collector = makeRatePassCollector();
+
+    collector->runFlowRatePass();   // anchors the interval
+    const auto opened = std::chrono::steady_clock::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    collector->runFlowRatePass();   // measures it
+    const double wallSeconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - opened).count();
+
+    const double divisor = collector->lastFlowRateDivisorSeconds();
+    ASSERT_GT(divisor, 0.0) << "no per-flow divisor was recorded at all";
+    EXPECT_NEAR(divisor, wallSeconds, 0.02 + wallSeconds * 0.10)
+        << "the divisor must be the interval that actually elapsed (" << wallSeconds
+        << " s), not a constant";
+}
+
+TEST(FlowRateDenominator, TheFlowDivisorStartsAtASentinelNotZero)
+{
+    auto collector = makeRatePassCollector();
+    EXPECT_LT(collector->lastFlowRateDivisorSeconds(), 0.0)
+        << "'no per-flow rate published yet' must not be readable as a legal divisor";
 }
 
 }   // namespace
