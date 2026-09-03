@@ -86,6 +86,19 @@ Adam 交辦、但還沒有 session 在做的事。**這個 build 沒有 `TaskCre
 🔴 **連帶**：`.test_run/logs/app_viz.log` 在 09-03 長到 **364 MB**（每一幀一行 DEBUG），
 根目錄一度到 98%。09-02 同一個機制長到 875 MB 塞爆磁碟。**log 要有上限**，這是同一張工單的一部分。
 
+### 🛠 18:4x 狀態：修法交回，auditor 驗證中（`fix/apps-stop-kills-the-group @ 850a6ea8`）
+
+- **做了**：`app_spawn` 走 `exec setsid nohup`，啟動後讀 `/proc` 驗 pgid==sid==pid 並寫 `.pgid`；`app_stop` 先 `kill -TERM -<pgid>` 整個 group、再補個別 pid、再補「log 的可寫 fd 持有者」找到的殘存；
+  「停掉了」要過 `app_verify_stopped`（group／log fd／port 三管道皆空），看不到的管道明說「不是沒有，是沒看到」（rc 2）；
+  `apps orphans` 用同一組管道（09-02 那個狀態從 rc 0 變 rc 1）；log 改 `>>`、兩代輪替、`status` 印大小＋256 MB 轉黃、新增 `ndt apps trim`。
+- **證據**：測試 71 checks（修法前 45 紅）、閘門 13/0（8 缺陷向＋5 放寬向控制組，含「對自己的 group 送訊號」）；auditor 丟棄式樹重跑：71/0、鄰居 52/44/29 全綠、兩支閘門在跑。
+- **🔴 沒做／要接的**（可另開工單）：
+  1. `energy`／`sim` 走 `ndtwin-lab` 的 tmux，**沒有自己的 group**（要改 root 端 `ndtwin-lab`），這次只加了停止後的獨立驗證（含 sim 的 `:9000`）。
+  2. **沒在真 app 上跑過**（viz 要顯示器）；最便宜的真機驗證是 `ndt apps start sim` → `stop`，順便驗 `:9000` 管道——要一段有實驗室的時間。
+  3. log **沒有硬上限**（只有輪替＋警告＋手動 `trim`）；理由寫在 FIX-APPS-STOP §6.1（中介行程會弄壞 fd 管道）。
+  4. `ndt down` 仍把 `app_stop` 的輸出丟到 `/dev/null` ⇒ 殘存者名單不進 teardown log。
+  5. `apps orphans` 新增 rc 2，呼叫端（`||` 閘門）沒有盤點。
+
 ---
 
 ## W-3 — finding #3：失敗的 `ndt up` 不回滾（沒有人在修）
