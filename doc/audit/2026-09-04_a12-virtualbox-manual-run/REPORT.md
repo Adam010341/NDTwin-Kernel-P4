@@ -230,3 +230,120 @@ the last two errors over-corrected; the honest lesson is that the estimate was n
 `populatedSize` (9.66 GB), which was sitting in the OVF descriptor the whole time.
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# Part B: the OVS three-terminal path (added after the P4 run)
+
+Part A tested the **P4/BMv2** path, which is the one the Download page advertises. The demo VM's
+own manual page describes the **OVS** path instead, and D3/D4/D5 say its commands do not exist on
+the image. Writing corrected commands without running them would be the exact mistake this
+campaign is about, so the corrected path was run.
+
+## What was substituted, and why that matters
+
+| The manual says | On the image | Used here |
+| :--- | :--- | :--- |
+| `ryu-manager '/home/ndtwin/Desktop/intelligent_router_static_topo.py'` | **absent, image-wide** | `intelligent_router.py` (the only Ryu app the image has) |
+| `cd ~/Desktop/Network-Traffic-Generator/ && sudo $(which python) example_topology.py` | **absent, image-wide** | `python3 testbed_topo.py` from the kernel tree |
+| `conda activate ntg_env` | **absent** | not needed for the above |
+
+**The documented configuration therefore cannot be run at all.** What follows is the nearest
+configuration the image can actually express.
+
+## What came up
+
+* Ryu started in **4 s**: OF listener on 6633, WSGI on 8080, `intelligent_router.py` loaded.
+* The topology built **10 switches and 128 hosts**; the kernel's menu label "OVS Environment
+  (128 Hosts)" is accurate, and `AppConfig::TOPOLOGY_FILE_MININET` →
+  `StaticNetworkTopologyMininet_10Switches.json` **exists** (I had suspected a missing file; wrong).
+* Kernel: `Data plane: ovs (10 switch(es))`, `Server Listening on port 8000`,
+  `Pulled 16256 paths` = 128 × 127.
+* Ryu's REST API, stable over 60 s: **switches 10, hosts 128, links 32**.
+
+## 🔴 D13 -- inter-switch forwarding does not work on the OVS path
+
+| probe | result |
+| :--- | :--- |
+| `h1 → h2` (same switch) | **5/5 received** |
+| `h1 → h3` (same switch) | 3/3 received |
+| `h1 → h13` (same switch, s1 port 15) | 3/3 received |
+| `h1 → 10.0.0.96` (h96 is on **s3**) | **0/3** |
+| `h1 → 10.0.0.97` | **0/3** |
+| `h1 → h128` | **0/5** |
+
+Proactive rules land on **exactly three of the ten switches**:
+
+```
+s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
+128  0 128  0 128  0  0  0  0  0
+```
+
+Three samples 60 s apart are **identical**, so this is stalled, not slow. `s1` does hold a rule
+for every destination including `10.0.0.128` (`actions=output:2`); the packets die further along,
+on a switch with an empty table.
+
+Persistent model mismatch: Ryu reports **128 hosts / 32 links**; the kernel's
+`topology from the control plane` line says **96 hosts / 224 edges up**, and never moves.
+
+### Two hypotheses tested and **both falsified** -- so neither is the cause
+
+1. **Startup race.** Ryu logs many
+   `Failed to notify NDT: ... :8000 ... ECONNREFUSED` on `/ndt/link_recovery_detected`, sent
+   while the kernel was not yet listening and never retried. If lost notifications were the
+   cause, restarting the kernel against a converged control plane would fix it.
+   **Restarted it: byte-identical outcome** -- 96 hosts, the same three switches, the same
+   forwarding failure. Not a race; deterministic.
+2. **Directed-graph traversal.** `install_all_pair_paths()` BFS-walks `self.static_net`, a
+   `networkx.DiGraph`, whose `neighbors()` yields successors only -- so a link recorded in one
+   direction would stop the walk. **Checked the data: all 32 switch-to-switch edges have reverse
+   counterparts, and directed BFS from every dpid reaches all ten.** The graph is fine.
+
+### What is *not* established, and the test that would settle it
+
+`intelligent_router.py:400` does `datapath = self.switches.get(current_switch)` with no None
+guard, and `:173` gates the static-topology load behind `if len(self.switches) >= switch_num`.
+Either could explain three-of-ten. **I could not read which**: `install_all_pair_paths`'s entry
+log never appears in the captured scrollback -- but `tmux history-limit` is **2000** and the Ryu
+pane already held **1883** lines, so the startup window had rolled off. **"Not seen" here is the
+instrument, not the system**, and it is recorded that way deliberately.
+
+**Next test:** restart Ryu with stdout redirected to a file rather than a tmux pane, and read
+whether `len(self.switches)` ever reaches `switch_num` and whether `install_all_pair_paths` runs.
+One run, no new resources.
+
+### Why D13 does not read as "OVS is broken"
+
+The Ryu app the manual names -- `intelligent_router_static_topo.py`, whose name says it programs
+from the static topology -- **is not on the image**. So the honest statement is:
+
+> With the only Ryu app this image ships, the OVS fabric forwards within a switch and not
+> between switches. The application the manual tells you to run is absent, so the documented
+> configuration was never testable.
+
+That makes D3 heavier than "a wrong path in the manual": the missing file may be the one that
+makes this path work.
+
+## ⚠️ D14 -- the topology asks for 10 Gbit links and Mininet refuses
+
+Repeated during topology construction:
+
+```
+Bandwidth limit 10000 is outside supported range 0..1000 - ignoring
+```
+
+`tc class show dev s5-eth1` on the running fabric: **`rate 1Gbit ceil 1Gbit`**. So inter-switch
+links declared at 10 Gbit are not realised at 10 Gbit. Anyone taking a throughput number off this
+fabric is measuring a link an order of magnitude below the one the topology describes.
+⚠️ One interface sampled, not all 32 -- the per-link picture is not established.
+
+## Corrected notes to Part A
+
+* The `96 hosts` figure is what the kernel **polls from the control plane**. Its own served model
+  is complete: `GET /ndt/get_graph_data` returns **138 nodes / 288 edges**, matching the static
+  file exactly. An earlier reading of mine that found "0 host IPs" in that response was a **bad
+  parser** -- `dst_ip` holds integers, not dotted strings -- not missing data.
+* Part A's suspicion that `setting/` lacked an OVS 128-host topology was wrong; choice [1] loads
+  `StaticNetworkTopologyMininet_10Switches.json`, which is present.
+
+[Co-developed with claude code -- Adam]

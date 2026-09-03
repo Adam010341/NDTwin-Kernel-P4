@@ -1,0 +1,74 @@
+[2026-09-03 17:01:47.583] [info] [main.cpp:299 main] Logger Loads Successfully! level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2): 1
+
+Select your Mininet Topology:
+  [1] OVS Environment (128 Hosts)
+  [2] P4 / BMv2 Environment (4 Hosts)
+Enter topology choice (1-2): 1
+
+Do you want to enable Intent Translator (requires OpenAI Token)?
+  [1] Yes (Enable AI features)
+  [2] No  (Disable AI features)
+Enter choice (1-2): 2
+Running in Mininet environment.
+[2026-09-03 17:02:01.994] [info] [main.cpp:311 main] Topology file: ../setting/StaticNetworkTopologyMininet_10Switches.json
+[2026-09-03 17:02:01.994] [info] [main.cpp:358 main] IntentTranslator is disabled by user.
+[2026-09-03 17:02:01.995] [info] [ApplicationManager.cpp:410 cleanupStaleEntries] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-03 17:02:01.995] [info] [FlowLinkUsageCollector.cpp:472 start] Collector Starts Up
+[2026-09-03 17:02:01.995] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyAndFlowMonitor Run
+[2026-09-03 17:02:01.995] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [run] pid=26262 tid=26276
+[2026-09-03 17:02:01.995] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 20 workers
+[2026-09-03 17:02:01.995] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+[2026-09-03 17:02:01.996] [info] [DeviceConfigurationAndPowerManager.cpp:118 start] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 17:02:01.995] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [testCalAvgFlowSendingRatesRandomly] pid=26262 tid=26278
+[2026-09-03 17:02:01.996] [info] [ControllerAndOtherEventHandler.cpp:196 runServer] Server Listening on port 8000
+[2026-09-03 17:02:01.996] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calFlowPathByQueried] pid=26262 tid=26280
+[2026-09-03 17:02:01.995] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calAvgFlowSendingRatesPeriodically] pid=26262 tid=26277
+[2026-09-03 17:02:01.995] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [purgeIdleFlows] pid=26262 tid=26279
+[2026-09-03 17:02:01.996] [info] [FlowLinkUsageCollector.cpp:749 run] Listening for sFlow on UDP port 6343
+[2026-09-03 17:02:02.005] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPlaneHomogeneity] Data plane: ovs (10 switch(es))
+[2026-09-03 17:02:02.033] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 96 hosts, 224 edges up
+[2026-09-03 17:02:07.255] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-03 17:02:07.302] [info] [FlowLinkUsageCollector.cpp:566 refreshDestinationPathsPeriodically] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will ans
+wer from now on.
+[2026-09-03 17:02:08.008] [info] [FlowLinkUsageCollector.cpp:2072 calAvgFlowSendingRatesPeriodically] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_ovfl_total=0
+[2026-09-03 17:02:32.142] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 29 iters mean 1005.0 ms | since start (29 iters) mean 1005.0 ms, min 1000.1
+, max 1026.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:02:32.143] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000538 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 17:03:02.344] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1006.7 ms | since start (59 iters) mean 1005.9 ms, min 1000.1
+, max 1026.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:03:02.345] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.020070 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 17:03:08.276] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-03 17:03:32.464] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1004.0 ms | since start (89 iters) mean 1005.3 ms, min 1000.1
+, max 1030.1 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:03:32.464] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.030350 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 17:03:50.736] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 17:03:50.762] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_graph_data
+[2026-09-03 17:03:50.762] [info] [HttpSession.cpp:526 handleGetGraphData] Handle Get Graph Data
+[2026-09-03 17:03:50.787] [info] [HttpSession.cpp:571 handleGetGraphData] get_graph_data success
+[2026-09-03 17:03:50.789] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 17:04:02.980] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1017.2 ms | since start (119 iters) mean 1008.3 ms, min 1000.
+1, max 1378.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:04:02.980] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000857 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 17:04:09.188] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-03 17:04:33.091] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1003.7 ms | since start (149 iters) mean 1007.4 ms, min 1000.
+1, max 1378.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:04:33.092] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.004077 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 17:05:03.247] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1005.2 ms | since start (179 iters) mean 1007.0 ms, min 1000.
+1, max 1378.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:05:03.247] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000120 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 17:05:09.935] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-03 17:05:33.332] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1002.8 ms | since start (209 iters) mean 1006.4 ms, min 1000.
+1, max 1378.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 17:05:33.333] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.017564 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+

@@ -1,0 +1,29 @@
+# A-12b OVS path, state at harvest
+2026-09-03T17:05:57+00:00
+
+## per-switch nw_dst rule counts (s1..s10)
+s1 128
+s2 0
+s3 128
+s4 0
+s5 128
+s6 0
+s7 0
+s8 0
+s9 0
+s10 0
+
+## ryu rest
+switches: 10
+hosts: 128
+links: 32
+
+## kernel view
+10 switches, 96 hosts, 224 edges up
+
+## sampled tc class on s5-eth1
+class htb 5:1 root prio 0 rate 1Gbit ceil 1Gbit burst 15Kb cburst 1600b 
+
+## free
+               total        used        free      shared  buff/cache   available
+Mem:            5925         724        5072           2         370        5200
