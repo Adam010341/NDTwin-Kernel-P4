@@ -1,0 +1,22 @@
+#### ROOT-CAUSE A/B (corrected body form) ####
+# 2026-09-04T07:16:38+08:00  fabric ovs4  channel = Ryu REST :8080; the kernel is NOT involved.
+# NOTE: Ryu's INPUT action form is a dict {"type":"OUTPUT","port":2}. The string
+#       "OUTPUT:2" seen in groupdesc is the OUTPUT rendering; posting it raises
+#       AttributeError inside to_action() and ofctl_rest turns that into 501.
+# OFPGMFC_INVALID_GROUP in ovs-vswitchd.log before: 0
+
+== state: [791]
+
+== ARM A: delete 791 WITH buckets (an install-shaped body, which is what the kernel
+          forwarded verbatim before this fix) ==
+   http=200
+   groups after : [791]
+   OFPGMFC_INVALID_GROUP delta for arm A: 1
+
+== ARM B: the SAME id, minimal body (what the fix now sends) ==
+   http=200
+   groups after : []
+   OFPGMFC_INVALID_GROUP delta for arm B: 0
+
+== the switch's own lines from this A/B ==
+2026-09-03T23:16:38.338Z|10313|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPGMFC_INVALID_GROUP error reply to OFPT_GROUP_MOD message

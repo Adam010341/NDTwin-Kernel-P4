@@ -1,0 +1,43 @@
+#### Finding #1 root cause: what the SWITCH said, from its own log ####
+# captured 2026-09-04 by fix agent delgroup; source /var/log/openvswitch/ovs-vswitchd.log.1.gz
+# (readable as group adm, no sudo; file is root:adm 0640)
+# OVS 3.3.9-0ubuntu0.24.04.1.  Log timestamps are UTC; the night round logged local = UTC+08:00.
+
+== every GROUP_MOD error the switch sent during the night round ==
+2026-09-02T15:52:29.923Z|01514|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPGMFC_INVALID_GROUP error reply to OFPT_GROUP_MOD message
+2026-09-02T15:53:11.085Z|01517|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPGMFC_INVALID_GROUP error reply to OFPT_GROUP_MOD message
+2026-09-02T15:54:06.486Z|01519|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPGMFC_INVALID_GROUP error reply to OFPT_GROUP_MOD message
+2026-09-02T15:54:11.180Z|01520|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPGMFC_INVALID_GROUP error reply to OFPT_GROUP_MOD message
+2026-09-02T15:54:15.878Z|01521|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPGMFC_INVALID_GROUP error reply to OFPT_GROUP_MOD message
+
+== count ==
+OFPGMFC_INVALID_GROUP replies to OFPT_GROUP_MOD: 5
+handleDeleteGroupEntry invocations reported by 21_...log: 5
+
+== correspondence with the kernel log in 21_delete_group_meter_says_deleted_but_persists.log ==
+  kernel 2026-09-02 23:53:10.665 +08:00  handleDeleteGroupEntry (group 555)
+  switch 2026-09-02 15:53:11.085 Z       OFPGMFC_INVALID_GROUP  -> local 23:53:11.085, +0.42 s
+  the three reproduction ids 601/602/603 -> 15:54:06.486 / 15:54:11.180 / 15:54:15.878 Z
+  the X-10 matrix delete cell            -> 15:52:29.923 Z
+  five deletes, five rejections, one per delete. Zero on the installs, which succeeded.
+
+== the meters, for contrast ==
+2026-09-02T15:52:30.342Z|01515|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPMMFC_UNKNOWN_METER error reply to OFPST_METER_CONFIG request message
+2026-09-02T15:52:34.290Z|01516|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPMMFC_UNKNOWN_METER error reply to OFPST_METER_CONFIG request message
+2026-09-02T15:53:19.936Z|01518|connmgr|INFO|s1<->tcp:127.0.0.1:6653: sending OFPMMFC_UNKNOWN_METER error reply to OFPST_METER_CONFIG request message
+  ^ these are UNKNOWN_METER replies to OFPST_METER_CONFIG *stats requests* -- the existence
+    check asking about a meter that was already gone. NOT meter_mod errors: no METER_MOD was
+    ever rejected, which is why meter deletes worked and group deletes did not.
+
+== reading ==
+  The delete DID reach the switch. It was REJECTED, with OFPGMFC_INVALID_GROUP, and because
+  Ryu sends the group_mod with no barrier and awaits no reply (ofctl_v1_3.py:1151) it had
+  already answered 200 before the rejection arrived, correlated to nothing.
+  OFPGMFC_INVALID_GROUP is not what OF1.3 gives for deleting a group that is not there --
+  that is a silent no-op at the switch. It is a validation refusal of the message itself.
+  Group ids in play were 88/555/601/602/603, far below OFPG_MAX, so an out-of-range id is
+  excluded. The remaining candidate is the bucket list: the caller's install-shaped body
+  was forwarded verbatim as the delete, and OFPGC_DELETE gives buckets no meaning.
+  ⚠️ That last step is INFERENCE, not measurement. The live A/B that settles it is section 6
+     of scratchpad/live_arm.sh: same id, delete-with-buckets vs delete-minimal, both driven
+     straight at Ryu so the kernel is not a variable.

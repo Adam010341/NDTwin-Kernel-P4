@@ -1,0 +1,27 @@
+#### independent channel + the control that predicts the AFTER arm ####
+# 2026-09-04T07:17:59+08:00
+== channel B: ovs-ofctl through mnexec (ovs-ofctl is NOT passwordless here) ==
+OFPST_GROUP_DESC reply (OF1.3) (xid=0x2):
+ group_id=801,type=all,bucket=actions=output:2
+   ^ if this printed groups, it is a channel that does not go through Ryu at all.
+
+== CONTROL: the SAME old kernel, but the caller sends the MINIMAL body ==
+   (trunk forwards the body verbatim, so this is exactly the request the fix now
+    constructs by itself. If the delete lands here, the fix's part 1 lands too.)
+{"outcome":"installed","status":"Group entry installed"}
+   install http=200
+   groups: [801, 803]
+{"outcome":"deleted","status":"Group entry deleted"}
+   delete(minimal body) http=200
+   groups after: [801]
+   OFPGMFC_INVALID_GROUP delta: 0
+
+== and the id comes back? ==
+{"outcome":"installed","status":"Group entry installed"}
+   re-install http=200
+   groups: [801, 803]
+
+== ovs-ofctl view again (channel B) ==
+OFPST_GROUP_DESC reply (OF1.3) (xid=0x2):
+ group_id=801,type=all,bucket=actions=output:2
+ group_id=803,type=all,bucket=actions=output:2

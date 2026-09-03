@@ -1,0 +1,35 @@
+#### BEFORE arm: the defect end-to-end through /ndt/, on the lab's own kernel ####
+# 2026-09-04T07:17:11+08:00  fabric ovs4
+# kernel binary : /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+# sha256        : a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06
+# NOTE: this is the kernel 'ndt up ovs4' starts (the lab's installed build), NOT my
+#       branch build. It carries trunk's delete path: forward the caller's body verbatim,
+#       report Ryu's 200 as 'deleted'.
+
+== install group 801 via /ndt/install_group_entry ==
+{"outcome":"installed","status":"Group entry installed"}
+   http=200
+   groups: [801]
+
+== delete it via /ndt/delete_group_entry, sending the install-shaped body a caller reuses ==
+{"outcome":"deleted","status":"Group entry deleted"}
+   http=200
+   groups after delete: [801]
+   OFPGMFC_INVALID_GROUP delta: 1
+
+== re-install the SAME id: does it come back? ==
+{"controller_status":409,"error":"group 801 on dpid 1 already exists; ADD would be rejected by the switch and the existing entry kept","outcome":"no_change_group_exists","status":"error"}
+   http=409
+   (409 = the id is LOST for the life of the switch)
+
+== meter arm: install then delete meter 802 ==
+{"outcome":"installed","status":"Meter entry installed"}
+   install http=200
+   meters: [802]
+{"outcome":"deleted","status":"Meter entry deleted"}
+   delete http=200
+   meters after delete: []
+
+== kernel log on these deletes ==
+1
+0
