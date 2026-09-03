@@ -28,3 +28,13 @@ Adam 14:xx：「不會（看 18 份 diff），怎麼合併你自己決定。」�
 | 11 | `fix/ndt-up-defaults-to-ovs` | ✅ 併 | Adam 裁的行為變更。23 checks、8/8 |
 | — | **合併修復** | 🔑 **五個「各自為真、合起來為假」的 harness 假設，沒有一條是碼的缺陷** | (1) redirection 錨點 `cut -c1-90` 因 g6 多一站點而不唯一 → 每站點自己的錨＋M2b；(2) sudo 抽取器把 g6 註解裡的 `sudo -n ndtwin-lab` 當新命令 → 字面拼法對到 `lab` 列；(3) ports／sudo／(5) up-target 三個閘門只複製「ndt＋自己的表」，合併後 ndt 要 `source` 兩張 → 各補對方的表，up-target 的測試把前置條件具名（之前是 sourced `exit 2` 被 `>/dev/null` 吞掉、整套靜默死亡）；(4) redirection 靜態守衛**用行號**讀 `ndt:894`，合併後那行到 954，守衛讀到註解照樣綠、M14 存活 → 內容錨定＋逐站點檢查＋斷言數量。修完：7 套 shell 套件全綠（18／33／23／26／59／29／52），閘門 17/0、9/0、14/0、8/0 |
 
+## Phase 2 — C++（一次冷編在 B5＋D15 之後，一次增量在全部之後）
+
+順序由三對彼此衝突決定：D15 要 B5 的第三個 join；telemetry×flow-rate 在同一個 header 相鄰；
+topo-load×D15 在 `TopologyAndFlowMonitor::start()` **語意重疊**（兩支各解了同一個排序問題的一半）。
+
+| # | 分支 | 裁決 | 理由 / 衝突 / 事後動作 |
+|---|---|---|---|
+| 12 | `fix/b5-kernel-shutdown` | ✅ 併 | 7 commits，raw log 進 repo（SIGINT 7/7 exit 0）。乾淨。合併後 `stop()` 有 3 個 join（查證） |
+| 13 | `fix/d15-dataplane-kind-race` | ✅ 併，**解 `tests/CMakeLists.txt`** | 與 B5 純 add/add（各加自己的測試檔），兩邊留。🔴 **它的測試紅在 fixture**：`startMonitor()` 只 `m_monitor->start()`，而 main.cpp 是 409 monitor → 432 manager；補 `m_manager->start()`＋TearDown 反序 `stop()`（B5 已進所以 join 得完）。建置後驗 4/4 |
+
