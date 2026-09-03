@@ -31,8 +31,38 @@ class ApplicationManager;
 class SimulationRequestManager
 {
   public:
+    /**
+     * @brief Seconds before a request to the simulator server is abandoned.
+     *
+     * [Co-developed with claude code -- Adam]
+     * There was no bound at all. Both curl calls in this class ran with neither --max-time nor
+     * --connect-timeout, so a simulator server that accepted the connection and then stalled held
+     * an HttpSession thread indefinitely -- the same failure that was fixed for the topology poll
+     * and for the routing strategies, on the one path that still had it. 30s rather than the
+     * routing strategies' 5s because starting a simulation case is not a hot path and the far end
+     * does real work before replying.
+     *
+     * Declared before the constructor because it is that constructor's default argument.
+     */
+    static constexpr int REQUEST_TIMEOUT_SECONDS = 30;
+
+    /**
+     * @param appManager             Owner of the per-application callback URLs.
+     * @param simServerUrl           Where a simulation case is POSTed.
+     * @param requestTimeoutSeconds  The deadline given to curl's --max-time, and the number the
+     *                               timeout message quotes. Defaults to REQUEST_TIMEOUT_SECONDS,
+     *                               so production behaviour is unchanged.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #38 made the deadline a parameter. It was a compile-time constant, and the only
+     * way to exercise the *timed out* branch was to let a test wait the full 30 s -- which is why
+     * no test had ever exercised it, and why the branch could go on describing a 6 ms connection
+     * refusal as a 30-second wait without anything noticing. A deadline that cannot be shortened
+     * is a deadline nothing can test.
+     */
     SimulationRequestManager(std::shared_ptr<ApplicationManager> appManager,
-                             std::string simServerUrl);
+                             std::string simServerUrl,
+                             int requestTimeoutSeconds = REQUEST_TIMEOUT_SECONDS);
     ~SimulationRequestManager();
 
     /**
@@ -131,20 +161,8 @@ class SimulationRequestManager
      */
     void onSimulationResult(int appId, const std::string& body);
 
-    /**
-     * @brief Seconds before a request to the simulator server is abandoned.
-     *
-     * [Co-developed with claude code -- Adam]
-     * There was no bound at all. Both curl calls in this class ran with neither --max-time nor
-     * --connect-timeout, so a simulator server that accepted the connection and then stalled held
-     * an HttpSession thread indefinitely -- the same failure that was fixed for the topology poll
-     * and for the routing strategies, on the one path that still had it. 30s rather than the
-     * routing strategies' 5s because starting a simulation case is not a hot path and the far end
-     * does real work before replying.
-     */
-    static constexpr int REQUEST_TIMEOUT_SECONDS = 30;
-
   private:
     std::shared_ptr<ApplicationManager> m_applicatonManager;
     std::string SIM_SERVER_URL;
+    int m_requestTimeoutSeconds;
 };

@@ -98,6 +98,10 @@ add_executable(
   # with no range check. Both are now load-time refusals -- see the file header for why the host
   # side of a host edge must keep its documented port 0.
   test_TopologyInputValidation.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #38: a connection refused in 6 ms was reported
+  # as a 30-second timeout. Real loopback sockets -- the classification lives in curl's exit code,
+  # so a fake would have to invent the very thing under test. ~2 s for the one case that waits.
+  test_RefusedIsNotTimeout.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

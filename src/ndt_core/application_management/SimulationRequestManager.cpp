@@ -2,6 +2,8 @@
 #include "ndt_core/application_management/ApplicationManager.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
+#include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -9,9 +11,11 @@
 #include <thread>
 
 SimulationRequestManager::SimulationRequestManager(std::shared_ptr<ApplicationManager> appManager,
-                                                   std::string simServerUrl)
+                                                   std::string simServerUrl,
+                                                   int requestTimeoutSeconds)
     : m_applicatonManager(std::move(appManager)),
-      SIM_SERVER_URL(simServerUrl)
+      SIM_SERVER_URL(simServerUrl),
+      m_requestTimeoutSeconds(requestTimeoutSeconds)
 {
 }
 
@@ -143,6 +147,77 @@ splitBodyAndStatus(const std::string& output)
     }
 }
 
+/// Renders a duration a reader can compare with a deadline. Three decimals because the
+/// measurement this exists for was 0.007s. [Co-developed with claude code -- Adam]
+std::string
+formatSeconds(double seconds)
+{
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(3) << seconds << "s";
+    return out.str();
+}
+
+/// Says what happened to a request that produced no HTTP status, and how long it took.
+///
+/// [Co-developed with claude code -- Adam]
+/// FINDINGS #38. `%{http_code}` is "000" for every failure that produced no HTTP response, so
+/// `httpStatus == 0` is the union of "refused", "reset", "could not resolve" and "timed out" --
+/// and the branch that tested it hard-coded the timeout wording, reporting a 6 ms refusal as a
+/// 30-second wait, five times out of five. What separates them is curl's *exit code*, which
+/// execArgv already carries in CommandOutcome::status and which nobody read.
+///
+/// The codes are curl's documented ones (curl(1), EXIT CODES). Only the ones this kernel can
+/// actually provoke are named; anything else falls through to describeCommandStatus rather than
+/// being guessed at, because inventing a cause is the defect being fixed, not the fix.
+///
+/// @param status          wait status from CommandOutcome::status
+/// @param elapsedSeconds  measured by the caller around execArgv -- never the deadline
+/// @param deadlineSeconds what --max-time was set to, quoted only where it is what expired
+/// @param url             the endpoint that was asked
+///
+/// File-local on purpose: HttpRoutingStrategyBase.cpp has the same "within Ns" wording on two more
+/// paths, and lifting this into utils:: is the right move at the moment those are fixed and
+/// tested. It is not the right move now -- Utils.hpp is included by most of the tree, so putting
+/// it there would make every mutation of this logic a whole-tree rebuild for a gate that covers
+/// one call site.
+std::string
+describeCurlNoReply(int status, double elapsedSeconds, int deadlineSeconds, const std::string& url)
+{
+    const std::string took = formatSeconds(elapsedSeconds);
+
+    if (status == -1 || !WIFEXITED(status))
+    {
+        return "curl did not exit normally after " + took + " (" +
+               utils::describeCommandStatus(status, "curl") + "), so " + url + " has not answered";
+    }
+
+    switch (WEXITSTATUS(status))
+    {
+    case 0:
+        return "curl exited 0 without reporting an HTTP status, after " + took + ", from " + url;
+    case 6:
+        return "could not resolve the host in " + url + " after " + took + " (curl exit 6)";
+    case 7:
+        return "connection refused after " + took + ": nothing accepted a connection at " + url +
+               " (curl exit 7)";
+    case 28:
+        return "timed out after " + took + ": no reply from " + url + " within the " +
+               std::to_string(deadlineSeconds) + "s deadline (curl exit 28)";
+    case 35:
+        return "TLS handshake failed after " + took + " with " + url + " (curl exit 35)";
+    case 52:
+        return "empty reply after " + took + ": " + url +
+               " accepted the connection and closed it without answering (curl exit 52)";
+    case 55:
+        return "send failure after " + took + " while writing to " + url + " (curl exit 55)";
+    case 56:
+        return "connection reset after " + took + " by " + url + " (curl exit 56)";
+    default:
+        return "no HTTP status from " + url + " after " + took + " (" +
+               utils::describeCommandStatus(status, "curl") + ")";
+    }
+}
+
 } // namespace
 
 // [Co-developed with claude code -- Adam]
@@ -167,7 +242,7 @@ SimulationRequestManager::requestSimulation(const std::string& body)
                                            "-w",
                                            "\\n%{http_code}",
                                            "--max-time",
-                                           std::to_string(REQUEST_TIMEOUT_SECONDS),
+                                           std::to_string(m_requestTimeoutSeconds),
                                            "-X",
                                            "POST",
                                            SIM_SERVER_URL,
@@ -176,7 +251,12 @@ SimulationRequestManager::requestSimulation(const std::string& body)
                                            "-d",
                                            body};
 
+    // FINDINGS #38: the duration is measured here rather than assumed from --max-time. The
+    // message that quoted "30s" for a 6 ms request had no measurement behind it at all.
+    const auto startedAt = std::chrono::steady_clock::now();
     const utils::CommandOutcome outcome = utils::execArgv(argv);
+    const double elapsedSeconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
     const CurlOutput curl = splitBodyAndStatus(outcome.output);
 
     Dispatch dispatch;
@@ -199,8 +279,16 @@ SimulationRequestManager::requestSimulation(const std::string& body)
 
     if (curl.httpStatus == 0)
     {
-        dispatch.failureReason = "no response from the simulator server at " + SIM_SERVER_URL +
-                                 " within " + std::to_string(REQUEST_TIMEOUT_SECONDS) + "s";
+        // FINDINGS #38. This read, for every cause alike:
+        //     "no response from the simulator server at <url> within 30s"
+        // Round 2 measured that sentence coming back in 6.0-9.0 ms, five times out of five, with
+        // nothing listening on the port. Two failures that need opposite responses -- start the
+        // simulator, versus go and find out why it is slow -- were rendered byte-identically, and
+        // the one number in the message was the deadline rather than anything measured.
+        dispatch.failureReason = describeCurlNoReply(outcome.status,
+                                                     elapsedSeconds,
+                                                     m_requestTimeoutSeconds,
+                                                     SIM_SERVER_URL);
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "Simulation request unanswered: {}",
                            dispatch.failureReason);
@@ -244,7 +332,7 @@ SimulationRequestManager::onSimulationResult(int appId,
                                                "-w",
                                                "\\n%{http_code}",
                                                "--max-time",
-                                               std::to_string(REQUEST_TIMEOUT_SECONDS),
+                                               std::to_string(m_requestTimeoutSeconds),
                                                "-X",
                                                "POST",
                                                apiUrl,
@@ -253,7 +341,10 @@ SimulationRequestManager::onSimulationResult(int appId,
                                                "-d",
                                                body};
 
+        const auto startedAt = std::chrono::steady_clock::now();
         const utils::CommandOutcome outcome = utils::execArgv(argv);
+        const double elapsedSeconds =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - startedAt).count();
         const CurlOutput curl = splitBodyAndStatus(outcome.output);
 
         // [Co-developed with claude code -- Adam]
@@ -275,13 +366,20 @@ SimulationRequestManager::onSimulationResult(int appId,
         }
         else if (curl.httpStatus == 0)
         {
+            // FINDINGS #38's second instance, in the same file. Log-only -- the 200 has already
+            // gone out -- but an operator reading "nothing answered within 30s" about a callback
+            // URL that is simply not listening is being sent to the same wrong place. No test
+            // covers this line: it runs on a detached thread with no caller left to observe, so
+            // what is tested is the classifier, on the path above; this call site is a reading of
+            // the source and nothing stronger.
             SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "Simulation result for app {} was sent to {} but nothing answered "
-                               "within {}s. The application has not been told its simulation "
-                               "finished.",
+                               "Simulation result for app {} was NOT forwarded -- {}. The "
+                               "application has not been told its simulation finished.",
                                appId,
-                               apiUrl,
-                               REQUEST_TIMEOUT_SECONDS);
+                               describeCurlNoReply(outcome.status,
+                                                   elapsedSeconds,
+                                                   m_requestTimeoutSeconds,
+                                                   apiUrl));
         }
         else
         {
