@@ -58,7 +58,7 @@ for v in v8 v10; do
         # run of this harness assumed bin/ and reported "no patches found".
         f=$(find p4-guide -name "$p" -type f | head -1)
         if [ ! -f "$f" ]; then printf '  %-6s %-58s %s\n' "$v" "$p" "PATCH FILE NOT FOUND"; continue; fi
-        ( cd behavioral-model && patch -p1 --dry-run --force < "../$f" >/dev/null 2>&1 )
+        ( cd behavioral-model && patch -p1 --dry-run --force >/dev/null 2>&1 < "../$f" )
         rc=$?
         printf '  %-6s %-58s %s\n' "$v" "$p" "$rc"
         tested=$((tested+1))

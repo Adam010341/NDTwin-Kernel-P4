@@ -891,7 +891,7 @@ up_ovs() {
     # [Co-developed with claude code -- Adam]
     ( cd "$REPO" && TOPO_OVS="$ovs_topo" NDTWIN_RYU_TOPO_FILE="$ovs_topo" \
         CONVERGE_WAIT="${CONVERGE_WAIT:-400}" NO_COLOR=1 \
-        bash "$STACK" up ovs < "$fifo" > "$out" 2>&1 ) &
+        bash "$STACK" up ovs > "$out" 2>&1 < "$fifo" ) &
     local stack_pid=$!
     exec 3> "$fifo"
 
@@ -1684,7 +1684,16 @@ pid_is_app() {
     [[ -n "$sig" ]] || return 0
     # mapfile, not `tr`: a builtin split on the real NUL separator. Piping through tr both
     # forks per candidate and destroys the argument boundaries this test depends on.
-    mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+    #
+    # 🔴 `2>/dev/null` BEFORE `<`, and it has to stay in that order. Redirections are applied
+    # left to right, so `< "/proc/$pid/cmdline" 2>/dev/null` opens the file while fd 2 is still
+    # the inherited stderr: the ENOENT diagnostic is already written by the time the silencer
+    # takes effect. It silenced everything except the one message it was there to silence --
+    # and "that pid is gone" is the entire reason this function tolerates a failed read. It
+    # leaked into an audit log on 2026-09-02. Same fix at app_stop and apps_orphans below.
+    # See tests/shell/test_redirection_order.sh.
+    # [Co-developed with claude code -- Adam]
+    mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline"
     if (( ${#argv[@]} > 0 )); then
         for el in "${argv[@]}"; do
             [[ "$el" == "$sig" || "$el" == */"$sig" ]] && return 0
@@ -1996,7 +2005,7 @@ app_stop() {
                     warn "$name is RUNNING as pid(s) ${APP_LIVE_PIDS[*]} and the pidfile does not name it"
                     warn "  this is the state that used to answer 'not running' with rc 0"
                     for pid in "${APP_LIVE_PIDS[@]}"; do
-                        info "  pid $pid: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"
+                        info "  pid $pid: $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"
                     done ;;
             esac
             for pid in "${APP_LIVE_PIDS[@]}"; do
@@ -2031,7 +2040,7 @@ apps_orphans() {
         found=$(( found + 1 ))
         err "$a: pidfile-lost-but-alive -- $(app_label "$a")"
         for pid in "${APP_LIVE_PIDS[@]}"; do
-            err "    pid $pid  $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-80)"
+            err "    pid $pid  $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"
         done
         err "    stop it with:  ndt apps stop $a"
     done

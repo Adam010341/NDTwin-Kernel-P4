@@ -185,7 +185,7 @@ _qemu_scan() {  # <want-kind> -> matching pids, one per line
     qemu_exe_map
     for d in /proc/[0-9]*; do
         pid=${d#/proc/}
-        a0=""; IFS= read -r -d '' a0 < "$d/cmdline" 2>/dev/null || true
+        a0=""; IFS= read -r -d '' a0 2>/dev/null < "$d/cmdline" || true
         qemu_kind "${EXEQ[$pid]-}" "$a0"
         case "$want" in
             any) [ "$QKIND" != no ] && printf '%s\n' "$pid" ;;
@@ -206,7 +206,7 @@ qemu_disk() {  # qemu_disk <pid> -> its WRITABLE disk path (skips the read-only 
     # ORDER-INDEPENDENT, so parse them that way.
     # ⚠️ A path containing a literal comma is not handled; qemu escapes those by doubling
     # them, and no lab path here has one. Named so the next reader knows it was considered.
-    tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | awk '
+    tr '\0' '\n' 2>/dev/null < "/proc/$1/cmdline" | awk '
         /^-hd[a-d]$/ { want=1; next }
         want         { print; exit }
         /(^|,)(file|filename)=/ {
@@ -260,7 +260,7 @@ hostfwd_of() {  # hostfwd_of <pid> -> "<bind-addr> <port>", rc=1 if it has no ho
     # on the lab network. My parser did not get that wrong -- it could not see it at all.
     # ⇒ A parser that only understands its own output cannot warn you about the input it
     #   does not understand, and that is exactly the input most worth warning about.
-    tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | awk '
+    tr '\0' '\n' 2>/dev/null < "/proc/$1/cmdline" | awk '
         match($0, /hostfwd=tcp:[^,]*/) {
             s = substr($0, RSTART + 12, RLENGTH - 12)   # strip "hostfwd=tcp:"
             sub(/-.*$/, "", s)                          # drop the guest side
@@ -829,7 +829,7 @@ vms)
         if [ -z "$qd" ]; then
             unlisted=1
             printf '    pid %-7s %-12s 🔴 disk argv not parseable -- argv: %s\n' \
-                "$q" "?" "$(tr '\0' ' ' < "/proc/$q/cmdline" 2>/dev/null | cut -c1-200)"
+                "$q" "?" "$(tr '\0' ' ' 2>/dev/null < "/proc/$q/cmdline" | cut -c1-200)"
             continue
         fi
         case "$qd" in "$HOME"/ndtwin-vm*/*) continue ;; esac
@@ -844,7 +844,7 @@ vms)
         esac
         if r=$(keep_reason "$qdir"); then printf '    %-20s 🔒 KEEP -- %s\n' "" "$r"; fi
         [ -f "$qdir/CONFIG" ] || printf '    %-20s 🔴 no CONFIG -- work point recorded nowhere but this argv: %s\n' \
-            "" "$(tr '\0' '\n' < "/proc/$q/cmdline" 2>/dev/null | awk '/^-smp$/{getline;c=$0} /^-m$/{getline;m=$0} END{print c" vCPU / "m" MiB"}')"
+            "" "$(tr '\0' '\n' 2>/dev/null < "/proc/$q/cmdline" | awk '/^-smp$/{getline;c=$0} /^-m$/{getline;m=$0} END{print c" vCPU / "m" MiB"}')"
         if fw=$(hostfwd_of "$q"); then
             addr_is_loopback "${fw% *}" \
                 || printf '    %-20s 🔴 ssh forward on %s -- NOT loopback, the guest login is reachable off-box\n' "" "$fw"

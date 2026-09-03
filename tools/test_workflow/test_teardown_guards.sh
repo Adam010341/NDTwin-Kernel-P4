@@ -45,7 +45,7 @@ victim() {
     sleep 0.4
     local d args
     for d in /proc/[0-9]*; do
-        args="$(tr '\0' ' ' < "$d/cmdline" 2>/dev/null)"
+        args="$(tr '\0' ' ' 2>/dev/null < "$d/cmdline")"
         [[ "$args" == "sleep $1 " ]] && { echo "${d#/proc/}"; return 0; }
     done
     return 1

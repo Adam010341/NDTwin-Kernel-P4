@@ -162,7 +162,7 @@ time.sleep(25)
 PY
 python3 "$T/listener.py" > "$T/listener.out" 2>"$T/listener.err" &
 for _ in $(seq 1 40); do [[ -s "$T/listener.out" ]] && break; sleep 0.25; done
-read -r LPORT LPARENT LCHILD < "$T/listener.out" 2>/dev/null || true
+read -r LPORT LPARENT LCHILD 2>/dev/null < "$T/listener.out" || true
 KILL_PIDS=("${LPARENT:-}" "${LCHILD:-}")
 if [[ -n "${LPORT:-}" && -n "${LPARENT:-}" && -n "${LCHILD:-}" ]]; then
     holders="$(ss -lptnH "sport = :$LPORT" 2>/dev/null | grep -oE 'pid=[0-9]+' | wc -l | tr -d ' ')"
