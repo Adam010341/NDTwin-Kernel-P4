@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import ipaddress
 import os
+import subprocess
 import sys
 import unittest
 
@@ -243,6 +245,85 @@ class ShippedSizesAreNotOverwritten(unittest.TestCase):
         for hosts, path in M.KNOWN.items():
             with self.subTest(hosts=hosts):
                 self.assertTrue(os.path.exists(path), f"{path} is gone; KNOWN is stale")
+
+
+class RefusesToEmitInvalidAddresses(unittest.TestCase):
+    """The 2026-09-03 defect: --hosts 300 produced 45 addresses that are not addresses.
+
+    `h<i>` is `10.0.0.<i>`, so the fourth octet runs out at 254. Above that the generator went
+    on formatting strings -- `10.0.0.256` .. `10.0.0.300` -- and exited 0 with nothing on
+    stderr, because `validate()` only ever asked whether the strings were *unique*. Uniqueness
+    is a property `10.0.0.999` also has.
+
+    The file that came out is loadable JSON and looks entirely ordinary. What it does is kill
+    the kernel: `utils::ipStringVecToUint32Vec` throws on the first such host, out of the
+    topology load, and the process aborts -- measured at rc=134, one second after it had
+    already opened :8000. So the generator's silence is the first half of that failure.
+
+    Refusing, not capping. Quietly producing 252 of the 300 hosts you asked for is the shape
+    this project keeps getting bitten by: the caller's sweep would then have a "300-host" point
+    that is a 252-host measurement, and nothing anywhere would say so.
+    """
+
+    def test_validate_rejects_an_address_that_is_not_an_address(self):
+        """validate() must fail on 10.0.0.256, not merely on a duplicate."""
+        nodes, edges = M.fabric_from(M.KNOWN[128])
+        topo = M.build(8, nodes, edges)
+        hosts = [n for n in topo["nodes"] if n.get("vertex_type") == M.HOST]
+        # Rewrite one host to exactly what --hosts 300 emitted for h256, keeping it unique so
+        # the existing duplicate check cannot be what catches it.
+        bad = "10.0.0.256"
+        old_ip = hosts[-1]["ip"][0]
+        hosts[-1]["ip"] = [bad]
+        for e in topo["edges"]:
+            if e.get("src_ip") == [old_ip]:
+                e["src_ip"] = [bad]
+            if e.get("dst_ip") == [old_ip]:
+                e["dst_ip"] = [bad]
+        with self.assertRaises(AssertionError) as caught:
+            M.validate(topo, 8)
+        self.assertIn(bad, str(caught.exception))
+
+    def test_validate_rejects_a_bad_address_on_an_edge_too(self):
+        """The edges carry the same addresses; a check that only reads nodes is half a check."""
+        nodes, edges = M.fabric_from(M.KNOWN[128])
+        topo = M.build(8, nodes, edges)
+        for e in topo["edges"]:
+            if e.get("dst_dpid") == 0:
+                e["dst_ip"] = ["10.0.0.900"]
+                break
+        with self.assertRaises(AssertionError):
+            M.validate(topo, 8)
+
+    def test_build_refuses_a_host_count_it_cannot_address(self):
+        """--hosts 300: refuse. Not 252 hosts, not 300 strings -- refuse."""
+        nodes, edges = M.fabric_from(M.KNOWN[128])
+        with self.assertRaises(ValueError) as caught:
+            M.build(300, nodes, edges)
+        message = str(caught.exception)
+        self.assertIn("300", message)
+        self.assertIn("252", message, "the message must say what the largest usable count is")
+
+    def test_the_largest_accepted_count_really_is_addressable(self):
+        """252 must still work, and every address it emits must parse. The boundary, both sides."""
+        nodes, edges = M.fabric_from(M.KNOWN[128])
+        topo = M.build(252, nodes, edges)
+        M.validate(topo, 252)  # must not raise
+        for n in topo["nodes"]:
+            for ip in n.get("ip", []):
+                ipaddress.IPv4Address(ip)  # raises if this is not an address
+
+    def test_cli_refuses_rather_than_writing_a_file_it_cannot_address(self):
+        """End to end: rc must be non-zero and stdout must not contain a topology."""
+        proc = subprocess.run(
+            [sys.executable, os.path.join(REPO, "tools", "make_topology.py"),
+             "--hosts", "300", "--stdout"],
+            capture_output=True, text=True)
+        self.assertNotEqual(0, proc.returncode,
+                            "rc=0 is the defect: the caller has no way to know it got nothing")
+        self.assertNotIn("10.0.0.256", proc.stdout + proc.stderr,
+                         "an invalid address must not appear in the output at all")
+        self.assertIn("300", proc.stdout + proc.stderr)
 
 
 if __name__ == "__main__":

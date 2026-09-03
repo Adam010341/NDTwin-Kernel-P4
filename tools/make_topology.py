@@ -49,6 +49,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import pathlib
 import sys
@@ -66,6 +67,18 @@ SWITCH, HOST = 0, 1
 EDGE_SWITCHES = (1, 2, 3, 4)  # dpids that carry hosts
 FIRST_HOST_PORT = 3           # 1 and 2 are uplinks
 HOST_LINK_BPS = 1_000_000_000
+
+#: h<i> is 10.0.0.<i>, so the fourth octet is the whole address space this layout has.
+#: .0 is the network and .255 the broadcast address, leaving 1..254 -- and hosts must divide
+#: evenly over the four edge switches, so 252 is the largest count that is actually usable.
+#:
+#: [Co-developed with claude code -- Adam] Measured 2026-09-03: `--hosts 300` used to emit
+#: `10.0.0.256` .. `10.0.0.300` -- 45 strings that are not addresses -- with rc=0 and nothing on
+#: stderr, because the only thing validate() asked of them was that they were unique. Raising
+#: this ceiling means changing the addressing plan (a second /24, or 10.0.<block>.<host>), not
+#: relaxing the check: the kernel parses these with inet_aton and aborts on the first one.
+LAST_HOST_OCTET = 254
+MAX_HOSTS = LAST_HOST_OCTET - (LAST_HOST_OCTET % len(EDGE_SWITCHES))  # 252
 
 
 def load(path):
@@ -95,6 +108,16 @@ def build(hosts, switch_nodes, switch_edges):
         raise ValueError(
             f"host count must be a multiple of 4 and at least 4 "
             f"(they split over s{EDGE_SWITCHES[0]}..s{EDGE_SWITCHES[-1]}); got {hosts}")
+    # Refuse, rather than cap. Emitting 252 of the 300 hosts asked for would give the caller a
+    # sweep point labelled 300 that is a 252-host measurement, and nothing would say so.
+    if hosts > MAX_HOSTS:
+        raise ValueError(
+            f"cannot address {hosts} hosts: h<i> is 10.0.0.<i>, and the fourth octet stops at "
+            f"{LAST_HOST_OCTET}, so {MAX_HOSTS} is the largest usable count. Refusing rather "
+            f"than emitting {hosts - MAX_HOSTS} addresses that are not addresses (the kernel "
+            f"parses these with inet_aton and aborts on the first bad one) and rather than "
+            f"quietly giving you {MAX_HOSTS} hosts under a {hosts}-host name. More hosts needs "
+            f"a wider addressing plan, e.g. 10.0.<block>.<host>.")
 
     per_switch = hosts // len(EDGE_SWITCHES)
     host_nodes, host_edges = [], []
@@ -140,6 +163,25 @@ def validate(topo, hosts):
     ips = [n["ip"][0] for n in got]
     macs = [n["mac"] for n in got]
     assert len(set(ips)) == hosts, "duplicate host IP"
+
+    # [Co-developed with claude code -- Adam]
+    # Uniqueness was the *only* thing this function used to ask of an address, and "10.0.0.256"
+    # is unique. Every address this file carries -- on nodes and on both ends of every edge --
+    # has to survive inet_aton on the kernel side, so check them here, where the failure costs
+    # a non-zero exit instead of a core dump one second after the kernel opened :8000.
+    def addressable(where, value):
+        try:
+            ipaddress.IPv4Address(value)
+        except ValueError as exc:
+            raise AssertionError(f"{where}: {value!r} is not an IPv4 address ({exc})") from None
+
+    for n in nodes:
+        for addr in n.get("ip", []):
+            addressable(f"node {n.get('device_name', '?')!r}", addr)
+    for i, e in enumerate(topo["edges"]):
+        for side in ("src_ip", "dst_ip"):
+            for addr in e.get(side, []):
+                addressable(f"edge #{i} {side}", addr)
     assert len(set(macs)) == hosts, "duplicate host mac"
     assert all(0 < m < 2 ** 48 for m in macs), "mac outside int_to_mac's range"
 
@@ -250,8 +292,13 @@ def main():
     nodes, edges = fabric_from(KNOWN[128])
     print(file=report)
     for hosts in args.hosts:
-        topo = build(hosts, nodes, edges)
-        validate(topo, hosts)
+        # Refusals are the point of this script; a traceback would read as a crash in it.
+        try:
+            topo = build(hosts, nodes, edges)
+            validate(topo, hosts)
+        except (ValueError, AssertionError) as exc:
+            print(f"  REFUSING {hosts} hosts: {exc}", file=sys.stderr)
+            return 1
         # 2-space indent, following the 128-host model; the 4-host one uses 4. Cosmetic, and
         # nothing reads these files by column.
         text = json.dumps(topo, indent=2) + "\n"

@@ -330,6 +330,29 @@ main(int argc, char* argv[])
     auto topologyAndFlowMonitor =
         std::make_shared<TopologyAndFlowMonitor>(graph, graphMutex, eventBus, mode);
 
+    // [Co-developed with claude code -- Adam]
+    // Here, and not one line later. This is the first point at which the topology file can be
+    // read, and it is before anything in this process constructs an acceptor or binds a socket.
+    //
+    // The load used to happen on the thread TopologyAndFlowMonitor::start() spawns. Measured
+    // 2026-09-03 (doc/audit/2026-09-03_night-rounds/round5-topology-repro, step 09) with a
+    // 17 KB topology carrying one unparseable host address: :8000 was accepting at 0.50 s,
+    // "Server Listening on port 8000" was in the log, and the process aborted at 1.50 s with
+    // rc=134. For one full second this kernel told every health check, every guard script and
+    // every human that it was up, and it was already doomed.
+    //
+    // Ordering is the fix, not the message. A process that has opened its port has made a claim
+    // about itself that it cannot retract, and no amount of improving what it prints on the way
+    // down changes what the poller already recorded. So: read the file, and if it cannot be
+    // used, exit here -- with nothing bound, nothing announced, and a non-zero status.
+    //
+    // Same shape as the collector's bind failure below, deliberately: both are "this kernel
+    // cannot do its job, so it must not pretend to be doing it".
+    if (!topologyAndFlowMonitor->loadStaticTopology())
+    {
+        return EXIT_FAILURE;
+    }
+
     deviceConfigurationAndPowerManager =
         std::make_shared<DeviceConfigurationAndPowerManager>(topologyAndFlowMonitor, mode, GW_IP, classifier);
 
