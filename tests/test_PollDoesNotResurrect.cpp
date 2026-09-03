@@ -67,8 +67,11 @@
 #include <fstream>
 #include <memory>
 #include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <unistd.h> // getpid, for the per-process fixture path
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -194,7 +197,19 @@ class PollDoesNotResurrectTest : public ::testing::Test
 
     void SetUp() override
     {
-        m_topoPath = std::string(::testing::TempDir()) + "f46_one_bmv2_switch.json";
+        // [Co-developed with claude code -- Adam]
+        // 🔴 PER PROCESS AND PER CASE. This was a single fixed name, and ctest runs one process
+        // per case (gtest_discover_tests) -- so two cases of this suite running at the same time
+        // wrote, read and std::remove()d ONE file. The loser's start() found no topology, sw()
+        // then indexed an empty graph, and the case died with SIGSEGV rather than failing.
+        // Measured before this line existed: `ctest -j8 -R PollDoesNotResurrectTest` eight times
+        // gave five failing runs and seven SegFaults, across five different cases; the same
+        // command at -j2 passed six times out of six, which is why it survived until a suite
+        // this size made the window wide enough. The test name is in the path as well as the
+        // pid, so a future --gtest_repeat or a sharded run cannot collide with itself either.
+        m_topoPath = std::string(::testing::TempDir()) + "f46_one_bmv2_switch_" +
+                     ::testing::UnitTest::GetInstance()->current_test_info()->name() + "_" +
+                     std::to_string(static_cast<long>(::getpid())) + ".json";
         std::ofstream out(m_topoPath);
         ASSERT_TRUE(out.is_open()) << "cannot write the fixture topology to " << m_topoPath;
         out << kOneBmv2Switch;
@@ -242,11 +257,32 @@ class PollDoesNotResurrectTest : public ::testing::Test
     void converge() { m_monitor->setVertexUp(sw()); }
 
     /// The fixture switch, after start() has loaded the topology.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// 🔴 THROWS rather than returning a default descriptor. It used to be
+    ///
+    ///     EXPECT_TRUE(vOpt.has_value()) << "the fixture topology did not load";
+    ///     return vOpt.value_or(Graph::vertex_descriptor{});
+    ///
+    /// -- and every caller feeds the result straight to `(*m_graph)[...]`. A default descriptor
+    /// indexed into an empty graph is undefined behaviour, so a fixture that failed to load did
+    /// not fail its case: it took the whole test process down with SIGSEGV, and under ctest that
+    /// is one line of "Exception: SegFault" with the EXPECT's message nowhere in sight.
+    ///
+    /// The EXPECT was the giveaway -- a non-fatal assertion in a function whose return value is
+    /// then dereferenced can only report the problem, never prevent it, and ASSERT_ is not
+    /// available here because it needs a void return. gtest reports an escaped exception as a
+    /// failure of the case that threw, which is what a broken fixture should be.
     Graph::vertex_descriptor sw()
     {
         const auto vOpt = m_monitor->findSwitchByDpid(kDpid);
-        EXPECT_TRUE(vOpt.has_value()) << "the fixture topology did not load";
-        return vOpt.value_or(Graph::vertex_descriptor{});
+        if (!vOpt.has_value())
+        {
+            throw std::runtime_error("the fixture topology did not load: no switch with dpid " +
+                                     std::to_string(kDpid) + " (topology file " + m_topoPath +
+                                     ")");
+        }
+        return *vOpt;
     }
 
     bool isUp()

@@ -120,6 +120,36 @@ twin 的可達性）；查不到對應 vertex 時 `admin_state`／`reachable` �
 
 **只動文件，沒有動碼、測試或閘門**，因此本分支的兩份閘門結果（⑦）不受影響。
 
+### 3.5 順手修掉一個平行 ctest 的競態（09-04，auditor 指派，test-only）
+
+合併樹的 `ctest -j2` 有一個案例 **SEGFAULT**，而同一顆 binary 單行程跑 999/999 全綠。
+原因在 fixture 不在被測的碼：`test_PollDoesNotResurrect.cpp` 的 `SetUp` 把拓樸寫到
+**每個行程都相同的**路徑，`TearDown` 又 `std::remove()` 它——而 ctest 是**一個案例一個行程**
+（`gtest_discover_tests`）⇒ 同時跑的兩個案例搶同一個檔。輸的那個 `start()` 載不到拓樸，
+`sw()` 回一個預設 descriptor，接著被拿去索引一張空圖＝UB。
+
+**我在本分支上重現到了**（修改前，同一顆 binary）：
+
+| 併發度 | 結果 |
+|---|---|
+| `ctest -j2 -R PollDoesNotResurrectTest` ×6 | **6/6 全過**（所以它一直躲著） |
+| `ctest -j8 -R PollDoesNotResurrectTest` ×8 | **5 次失敗、7 個 SegFault**，散落在 5 個不同案例 |
+
+兩處修法：
+
+1. **路徑加 pid ＋ 案例名**（`f46_one_bmv2_switch_<case>_<pid>.json`）。同一個缺陷在
+   `test_DataPlaneKindOrdering.cpp`（4 個案例共用 `d15_one_bmv2_switch.json`）**也在**，一起修了；
+   它沒有被觀測到失敗，那是時序不是安全。`tests/` 其餘用 `TempDir()` 的地方查過：
+   `test_ApplicationManager.cpp` 與 `test_HistoricalLogging.cpp` 每個案例各自一個名字、不互撞，
+   `test_LoggerCliArgs.cpp` 本來就帶 pid ＋ counter。
+2. **`sw()` 改成丟例外**，不再回預設 descriptor。原本那個 `EXPECT_TRUE` 只能**報告**問題、
+   不能**阻止**它（回傳值馬上被拿去解參考），而 `ASSERT_` 在有回傳值的函式裡用不了。
+   ⚠️ **這一條沒有測試覆蓋**——要覆蓋它就得真的製造一次載入失敗；它的作用是「下次 fixture 再壞，
+   壞的是一個案例而不是整支 binary」。
+
+修後：`-j2` ×5 全過、`-j8` ×8 全過、D15 `-j8` ×4 全過、單行程 gtest **974/974**、
+全量 `ctest -j2` **974/974**。**只動測試檔**，產品碼與閘門未動。
+
 ## ④ Consumer 盤點
 
 ### 4.1 in-repo（已改）

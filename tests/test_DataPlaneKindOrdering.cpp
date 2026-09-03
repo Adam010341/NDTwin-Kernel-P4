@@ -41,6 +41,8 @@
  * them vacuously green.
  */
 
+#include <unistd.h> // getpid, for the per-process fixture path
+
 #include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
@@ -82,7 +84,14 @@ class DataPlaneKindOrderingTest : public ::testing::Test
 
     void SetUp() override
     {
-        m_topoPath = std::string(::testing::TempDir()) + "d15_one_bmv2_switch.json";
+        // [Co-developed with claude code -- Adam]
+        // Per process and per case, for the reason spelled out in test_PollDoesNotResurrect.cpp:
+        // ctest runs one process per case, this suite has four of them, and a single fixed name
+        // means two of them write and std::remove() the same file. Same defect, found by the
+        // same grep; this one has not been observed failing, which is timing, not safety.
+        m_topoPath = std::string(::testing::TempDir()) + "d15_one_bmv2_switch_" +
+                     ::testing::UnitTest::GetInstance()->current_test_info()->name() + "_" +
+                     std::to_string(static_cast<long>(::getpid())) + ".json";
         std::ofstream out(m_topoPath);
         ASSERT_TRUE(out.is_open()) << "cannot write the fixture topology to " << m_topoPath;
         out << kOneBmv2Switch;
