@@ -22,6 +22,20 @@ Only accepted writes are recorded. A rule the switch refused was never installed
 replaying it later would install something that never existed -- the mirror of the bug where
 `insert_ipv4_route` returned None for a rejected write and every consumer went on being told
 the route existed.
+
+🔴 WHAT THIS FILE PROVES, AND WHAT IT DOES NOT. Every case below constructs
+`TopologyManager(journal=RecordingJournal())` -- it INJECTS the dependency. So the claim it
+supports is "give this manager a journal and it will write to it", not "somebody gives it one".
+Those are different claims, and for the first three weeks of this journal's life only the first
+was true: `main.py` built `TopologyManager(kernel_notifier=kernel)` with no journal at all,
+`_note_in_journal` returned on `self._journal is None` every single call, and these fourteen
+tests were green the whole time (finding #71). An instrument built to catch a component with no
+caller had the shape of a component with no caller.
+
+The missing half is `test_journal_is_wired_in_main.py`, which injects nothing: it imports
+`proxy_agent.main` the way the proxy is launched and reads the journal file off the disk. Keep
+the two apart rather than merging them -- this file must stay runnable against a manager built
+by anybody, and that one must never be handed a journal it did not find.
 """
 
 from __future__ import annotations
@@ -195,9 +209,14 @@ class NoJournalIsNotAnErrorTest(unittest.TestCase):
     """
     A TopologyManager built without a journal must behave exactly as it did before.
 
-    Every existing construction site passes no journal -- main.py's module-level `topo`, and
-    every sibling test suite -- so this is the path that must not change. It is also the
-    default in production until someone turns recording on.
+    `journal=None` stays a supported mode, and every sibling test suite builds a bare manager
+    that way, so this is the path that must not change.
+
+    It is no longer the production path. Until finding #71 this docstring said "every existing
+    construction site passes no journal -- main.py's module-level `topo`", and that sentence was
+    both true and the bug: it recorded, as a design intention, that nothing in production ever
+    wrote a journal. main.py now passes one (`build_rule_journal`), and
+    test_journal_is_wired_in_main.py is what holds it there.
     """
 
     def test_a_manager_with_no_journal_still_installs(self):

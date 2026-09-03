@@ -30,6 +30,16 @@ build-fuzz/
 build-clang/
 test_env/
 
+# [Co-developed with claude code -- Adam]
+# The P4 proxy's rule journal (KNOWN-ISSUES A-4c, finding #71). Per-machine, per-generation
+# state: an append-only JSONL of every rule THIS machine's proxy was asked to install, written
+# by proxy_agent/main.py's `build_rule_journal`. Committing it would put one lab's forwarding
+# history into everyone's checkout, and `quarantine()` names its predecessors with a boot id and
+# a timestamp, so the directory grows a file per proxy generation. Ignored as a directory: the
+# quarantined names are `rule_journal.jsonl.<boot>.<epoch>` and no single filename pattern
+# covers them.
+p4_proxy/.run/
+
 # Investigation working area. 3.3 GB as of 2026-08-19 -- scratch/lab alone holds the
 # captured pcaps and switch logs from the live rounds, and none of it is reviewable in a
 # diff. Findings worth keeping get promoted to doc/audit/<date>_<topic>/ instead.

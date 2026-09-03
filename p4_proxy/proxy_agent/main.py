@@ -9,10 +9,70 @@ from proxy_agent.topology_manager import TopologyManager
 from proxy_agent.p4_client import P4RuntimeClient
 from proxy_agent.sflow_emitter import SFlowEmitter, load_switch_agent_ips
 from proxy_agent.kernel_notifier import KernelNotifier
+from proxy_agent.rule_journal import RuleJournal
 from proxy_agent import api_routes
 from proxy_agent import kernel_notifier
 
 app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
+
+# --- the rule journal ---------------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+#
+# KNOWN-ISSUES A-4c, finding #71. rule_journal.py, its 19 tests and test_journal_wiring.py's 14
+# all shipped while the line below read `TopologyManager(kernel_notifier=kernel)`. Every one of
+# those tests handed a manager a journal itself, so not one of them could see that PRODUCTION
+# handed it none: `_note_in_journal` returned on `self._journal is None` on every call, and the
+# journal a restart was meant to read came back empty -- which rule_journal.py's own docstring
+# says is read as "there was nothing to fall back on". A component that exists, is documented,
+# is committed and has no caller; the suite named "journal wiring" was 14/14 green throughout.
+#
+# 🔴 RECORDING ONLY. Nothing here replays anything. Replay stays opt-in and off
+# (rule_journal.REPLAY_ENV_VAR) and still has no call site anywhere -- see rule_journal.py for
+# why re-applying requests whose reasons have expired is a decision rather than a default.
+
+#: Overrides where the journal is written. It exists so a test can point the *real* construction
+#: path at a temp directory instead of writing into the checkout: wiring is only worth asserting
+#: when it can be asserted on the production factory rather than on a copy of it.
+RULE_JOURNAL_PATH_ENV_VAR = "NDTWIN_RULE_JOURNAL_PATH"
+
+#: Under `.run/` rather than the proxy root so the checkout does not grow a file per artefact,
+#: and gitignored there (see the repo .gitignore) because a journal is per-machine state.
+DEFAULT_RULE_JOURNAL_RELPATH = os.path.join(".run", "rule_journal.jsonl")
+
+
+def default_journal_path():
+    """
+    Where the journal lives when nobody has said otherwise.
+
+    [Co-developed with claude code -- Adam]
+    Anchored to THIS FILE, not to the working directory. stack.sh happens to cd into p4_proxy
+    before launching (`cd '$KERNEL_DIR/p4_proxy' && python proxy_agent/main.py`), but nothing
+    enforces that, and a cwd-relative path would mean a proxy restarted from anywhere else opens
+    a different, empty file and reports "nothing to replay" -- the precise failure the journal
+    exists to prevent, arriving as a reassuring sentence. The path has to be the same string on
+    the next run or the record is one nobody can find.
+
+    Same derivation as `build_p4_client`'s base_dir, so the journal sits beside the p4info and
+    JSON artefacts this proxy already resolves that way.
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_dir, DEFAULT_RULE_JOURNAL_RELPATH)
+
+
+def build_rule_journal(env=None):
+    """
+    The journal this proxy records accepted rule writes into.
+
+    `env` is injectable so the path decision stays a pure function of its input rather than of
+    process state -- the argument `RuleJournal.replay_enabled` makes for its own gate.
+    """
+    if env is None:
+        env = os.environ
+    override = str(env.get(RULE_JOURNAL_PATH_ENV_VAR, "")).strip()
+    return RuleJournal(override or default_journal_path())
+
+
+journal = build_rule_journal()
 
 # [Co-developed with claude code -- Adam]
 # Pushes switch/link state to the kernel the way Ryu does. The push is the fast path for
@@ -22,8 +82,11 @@ app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
 kernel = KernelNotifier()
 
 # Built with the notifier already in hand: the beacon watchdog reports link failures through it,
-# and a TopologyManager constructed without one silently keeps the bookkeeping to itself.
-topo = TopologyManager(kernel_notifier=kernel)
+# and a TopologyManager constructed without one silently keeps the bookkeeping to itself. Same
+# argument for the journal, and it was the one that went unmade: a manager constructed without
+# one silently keeps every rule install to itself too, and the only place that shows is a
+# restart with nothing to fall back on. [Co-developed with claude code -- Adam]
+topo = TopologyManager(kernel_notifier=kernel, journal=journal)
 
 # Build the static topology (Matches MultiSwitchTopo)
 # Hosts
