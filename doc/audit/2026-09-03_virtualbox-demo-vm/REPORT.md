@@ -10,10 +10,28 @@
 **Yes** -- with one defect that stops the image dead until it is worked around.
 
 `VBoxManage import` of our packaged `.ova` succeeds, the guest boots to a login
-prompt, and once the defect below is worked around the whole stack runs: the
-kernel binary, `p4c` 1.2.5.16, BMv2 1.15.5-fdd3b893, Open vSwitch 3.3.9 and
-Mininet 2.3.0 all answer, and a Mininet/OVS `pingall` returns
+prompt, and once the defect below is worked around it has a working network and
+the emulated datapath forwards: a Mininet/OVS `pingall` returns
 **`0% dropped (6/6 received)`**.
+
+🔴 **Scope, because an earlier draft of this line overstated it.** What was
+verified is that *the image runs on VirtualBox* — import, boot, address, DNS,
+route, and an OVS/Mininet datapath that passes traffic. **NDTwin itself was never
+started under VirtualBox.** `ndtwin_kernel` was not run, no BMv2 fabric was
+brought up, the P4 proxy was not exercised, none of the six applications were
+started, no web GUI was opened, and not one procedure from the User Manual was
+followed. `p4c` 1.2.5.16, BMv2 1.15.5-fdd3b893, Open vSwitch 3.3.9 and Mininet
+2.3.0 were only asked for their versions — **which is exactly the kind of
+evidence this campaign tells testers not to accept**: answering `--version`
+proves a binary is present, not that it does anything.
+
+Also measured and not yet assessed: **`/dev/kvm` does not exist inside the
+guest** (VirtualBox does not pass nested virtualisation through by default).
+Mininet and BMv2 should not need it, but that is inference, not measurement.
+
+So: "the image installs and boots on VirtualBox" is tested. "NDTwin works on
+VirtualBox" is **not**, and closing it needs a second VirtualBox VM — which the
+host RAM gate ("Adam's VM + one") cannot admit while a campaign tester VM is up.
 
 ## What was actually tested
 
