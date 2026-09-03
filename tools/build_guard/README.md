@@ -13,10 +13,10 @@ anything. A PATH shim needs no edit at any call site.
 ```
 tools/build_guard/guarded_build.sh cmake --build build --target test_routing_strategy
 tools/build_guard/guarded_build.sh ./tests/shell/mutate_bx_flow_liveness.sh
-JOBS=3 MEM_MAX=6G tools/build_guard/guarded_build.sh ninja -C build
+JOBS=3 MEM_HIGH=4G MEM_MAX=6G tools/build_guard/guarded_build.sh ninja -C build
 ```
 
-`JOBS` (default 2) · `MEM_MAX` (default 5G) · `LOCK` (default `/tmp/ndtwin-build.lock`) ·
+`JOBS` (default 2) · `MEM_HIGH` (default 3G) · `MEM_MAX` (default 4G) · `LOCK` (default `/tmp/ndtwin-build.lock`) ·
 `LOCK_WAIT` (default 3600) · `TIMEOUT` · `NO_CGROUP=1` to skip guard 3.
 
 ## Three guards, each for a different failure
@@ -67,3 +67,13 @@ first test harness used a minimal `PATH` that removed `dirname` and `timeout`, s
 came back empty — an instrument failing looks exactly like the defect it is looking for.
 
 [Co-developed with claude code -- Adam]
+
+## 2026-09-03 17:50 — the cap alone did not protect the app
+
+A C++ mutation gate was running under this guard (`MemoryMax=5G`) when systemd-oomd killed the
+Claude desktop app: `memory pressure for user@1000.service being 70.24% > 50.00% for > 20s`.
+`MemoryMax` only bounds what the build may hold; the pressure it creates on the *slice* on the way
+there is what oomd measures, and oomd kills the child with the most reclaim activity -- the app,
+whose pages were being squeezed out. `MemoryHigh` (now 3G by default) makes the build's cgroup
+throttle and reclaim itself first, so the pressure and the pgscan are attributed to the build scope
+and it becomes oomd's victim instead. `MemoryMax` comes down to 4G. Both stay overridable.

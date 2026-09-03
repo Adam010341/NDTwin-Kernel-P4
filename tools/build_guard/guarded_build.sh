@@ -20,11 +20,12 @@
 # USAGE
 #   tools/build_guard/guarded_build.sh cmake --build build --target test_routing_strategy
 #   tools/build_guard/guarded_build.sh ./tests/shell/mutate_bx_flow_liveness.sh
-#   JOBS=3 MEM_MAX=6G tools/build_guard/guarded_build.sh ninja -C build
+#   JOBS=3 MEM_HIGH=4G MEM_MAX=6G tools/build_guard/guarded_build.sh ninja -C build
 #
 # ENV
 #   JOBS      parallel jobs the shims force            (default 2)
-#   MEM_MAX   MemoryMax for the build's own cgroup     (default 5G)
+#   MEM_HIGH  MemoryHigh for the build's own cgroup    (default 3G) -- throttle+reclaim itself first
+#   MEM_MAX   MemoryMax for the build's own cgroup     (default 4G)
 #   LOCK      lock file, i.e. what counts as "a build" (default /tmp/ndtwin-build.lock)
 #   NO_CGROUP=1  skip guard 3 (use only where systemd --user is unavailable; SAY SO in the log)
 #
@@ -39,7 +40,14 @@ SHIM="$HERE/shims"
 [[ $# -gt 0 ]] || { sed -n '/^# USAGE/,/^# ENV/p' "${BASH_SOURCE[0]}" >&2; exit 2; }
 
 JOBS="${JOBS:-2}"
-MEM_MAX="${MEM_MAX:-5G}"
+# 2026-09-03 17:50: a build under this guard with MemoryMax=5G still got the desktop app killed.
+# MemoryMax bounds the build's OWN usage; it does nothing about the pressure the build puts on
+# the whole user slice before it reaches that bound, and systemd-oomd (limit 50% on
+# user@1000.service) then kills the child cgroup with the most reclaim -- which was the app.
+# MemoryHigh makes the build's cgroup throttle and reclaim ITSELF first, so both the pressure
+# and the pgscan land on this scope and oomd's victim is the build, not the user's application.
+MEM_HIGH="${MEM_HIGH:-3G}"
+MEM_MAX="${MEM_MAX:-4G}"
 LOCK="${LOCK:-/tmp/ndtwin-build.lock}"
 TIMEOUT="${TIMEOUT:-}"
 
@@ -68,12 +76,13 @@ run_it() {
     # and stdout/stderr stay attached. --collect removes the unit even when it fails.
     systemd-run --user --scope --collect --quiet \
         --unit="ndtwin-build-$$" \
+        --property=MemoryHigh="$MEM_HIGH" \
         --property=MemoryMax="$MEM_MAX" \
         --property=MemorySwapMax=0 \
         -- "${cmd[@]}"
 }
 
-echo "guarded_build: jobs=$JOBS mem_max=$MEM_MAX lock=$LOCK" >&2
+echo "guarded_build: jobs=$JOBS mem_high=$MEM_HIGH mem_max=$MEM_MAX lock=$LOCK" >&2
 echo "guarded_build: \$ ${cmd[*]}" >&2
 
 exec 9>"$LOCK" || { echo "guarded_build: cannot open lock $LOCK" >&2; exit 2; }
